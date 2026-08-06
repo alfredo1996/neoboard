@@ -803,7 +803,16 @@ export function DashboardWorkspace({
                 <DashboardContainer
                   page={page}
                   editable={editMode}
-                  refetchInterval={editMode ? false : viewRefetchInterval}
+                  // Only the visible page polls. Visited pages stay mounted so
+                  // tab switches are instant and don't re-query — but keeping
+                  // them *polling* made query load scale with browsing history
+                  // instead of with what is on screen: 4.81x the /api/query
+                  // volume for the same 18 visible widgets after touring six
+                  // pages, all of it refresh-tier work against the customer's
+                  // database for nobody's benefit (#1419).
+                  refetchInterval={
+                    editMode || !isActive ? false : viewRefetchInterval
+                  }
                   actions={
                     editMode
                       ? {

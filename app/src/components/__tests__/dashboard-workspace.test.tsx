@@ -614,6 +614,77 @@ describe("DashboardWorkspace", () => {
     ).toBe("false");
   });
 
+  // #1419 — visited pages stay mounted so tab switching is instant, but they
+  // kept polling too. Query load scaled with browsing history rather than with
+  // what is on screen: 4.81x the /api/query volume for the same 18 visible
+  // widgets after touring six pages.
+  describe("hidden pages do not auto-refresh (#1419)", () => {
+    function withAutoRefresh() {
+      const d = makeDashboard();
+      (d.layoutJson as unknown as { settings: unknown }).settings = {
+        autoRefresh: true,
+        refreshIntervalSeconds: 30,
+      };
+      return d;
+    }
+
+    function intervals() {
+      return screen
+        .getAllByTestId("dashboard-container")
+        .map((el) => el.getAttribute("data-refetch-interval"));
+    }
+
+    it("only the active page carries the refresh interval", async () => {
+      dashboard = withAutoRefresh();
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+
+      // Page 1 is active and alone.
+      expect(intervals()).toEqual(["30000"]);
+
+      // Visiting page 2 keeps page 1 mounted — that is deliberate — but it
+      // must stop polling.
+      await userEvent.click(screen.getAllByTestId("page-tab")[1]);
+      expect(intervals()).toEqual(["false", "30000"]);
+    });
+
+    it("stops the previously active page when returning to the first", async () => {
+      dashboard = withAutoRefresh();
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+
+      await userEvent.click(screen.getAllByTestId("page-tab")[1]);
+      await userEvent.click(screen.getAllByTestId("page-tab")[2]);
+      await userEvent.click(screen.getAllByTestId("page-tab")[0]);
+
+      // Three pages mounted, exactly one polling.
+      const found = intervals();
+      expect(found).toHaveLength(3);
+      expect(found.filter((v) => v === "30000")).toHaveLength(1);
+      expect(found[0]).toBe("30000");
+    });
+
+    it("never polls a hidden page, however many are mounted", async () => {
+      dashboard = withAutoRefresh();
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+
+      for (const i of [1, 2]) {
+        await userEvent.click(screen.getAllByTestId("page-tab")[i]);
+      }
+
+      // This is the invariant the 4.8x measurement violated: polling depends on
+      // the visible page, not on how much of the dashboard has been explored.
+      expect(intervals().filter((v) => v !== "false")).toHaveLength(1);
+    });
+
+    it("keeps every page off in edit mode regardless of which is active", async () => {
+      dashboard = withAutoRefresh();
+      pathname = "/d1/edit";
+      render(<DashboardWorkspace id="d1" editMode={true} />);
+
+      await userEvent.click(screen.getAllByTestId("page-tab")[1]);
+      expect(intervals().every((v) => v === "false")).toBe(true);
+    });
+  });
+
   // ── view mode must not fetch the editor's data ──────────────────────
   it("does not fetch connections or widget templates in view mode", () => {
     render(<DashboardWorkspace id="d1" editMode={false} />);
