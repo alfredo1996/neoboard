@@ -11,7 +11,11 @@ import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { StylingRule } from "@neoboard/components";
 import { normalizeValue } from "@/lib/shared/normalize-value";
 import { defineChartPlugin } from "../registry";
-import { transformToValueData, validateValueData } from "./transform";
+import {
+  transformToValueData,
+  validateValueData,
+  type SingleValueData,
+} from "./transform";
 import { type PluginProps } from "../utils";
 import { singleValueSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
@@ -24,6 +28,34 @@ const SingleValueChart = dynamic(
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
+/**
+ * Percentage change against the previous period, or undefined when the trend is
+ * off or there is nothing to compare. A previous value of 0 yields a direction
+ * without a percentage — dividing by it would render `Infinity%`.
+ */
+function buildTrend(
+  enabled: boolean,
+  value: string | number,
+  previous: number | undefined,
+): { direction: "up" | "down" | "neutral"; label?: string } | undefined {
+  if (!enabled || typeof value !== "number" || previous === undefined) {
+    return undefined;
+  }
+  const delta = value - previous;
+  const direction = delta > 0 ? "up" : delta < 0 ? "down" : "neutral";
+  if (previous === 0) {
+    return {
+      direction,
+      label: direction === "neutral" ? "no change" : undefined,
+    };
+  }
+  const pct = Math.abs(delta / previous) * 100;
+  return {
+    direction,
+    label: direction === "neutral" ? "no change" : `${pct.toFixed(1)}%`,
+  };
+}
+
 function SingleValuePluginComponent({
   data,
   settings: raw,
@@ -35,11 +67,24 @@ function SingleValuePluginComponent({
     raw,
     "single-value",
   );
-  const rawData = data ?? 0;
-  const val =
-    typeof rawData === "number" || typeof rawData === "string"
-      ? rawData
-      : (normalizeValue(rawData) ?? String(rawData));
+  // `transform` yields { value, previous }; older callers may still hand over a
+  // bare scalar, so both shapes are accepted.
+  const parsed: SingleValueData =
+    data !== null && typeof data === "object" && "value" in data
+      ? (data as SingleValueData)
+      : { value: (normalizeValue(data) ?? 0) as string | number };
+
+  const val = parsed.value;
+
+  // The chart takes a computed { direction, label }, not a boolean — so the
+  // option could never have been forwarded as-is. It needs the previous row,
+  // which is why the transform now carries it (#1397).
+  const trend = buildTrend(
+    settings.trendEnabled === true,
+    val,
+    parsed.previous,
+  );
+
   return (
     <SingleValueChart
       value={
@@ -51,6 +96,7 @@ function SingleValuePluginComponent({
       fontSize={settings.fontSize}
       numberFormat={settings.numberFormat}
       decimalPlaces={settings.decimalPlaces}
+      trend={trend}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
     />
