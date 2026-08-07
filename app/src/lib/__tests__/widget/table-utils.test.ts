@@ -47,4 +47,48 @@ describe("parseGroupByColumns", () => {
     ).toBeUndefined();
     expect(parseGroupByColumns(true, 123 as unknown as string)).toBeUndefined();
   });
+
+  // #1395 — the editor writes a comma-separated string, but seeded layouts,
+  // imports and NeoDash conversions carry an array. `typeof groupBy === "string"
+  // ? groupBy : ""` turned the array into "" and grouping was dropped with no
+  // error, so individual rows read as group totals. Three seeded Chart
+  // Reference tiles hold `groupBy: ["region"]` and rendered flat.
+  describe("array form (#1395)", () => {
+    it("accepts a single-element array", () => {
+      expect(parseGroupByColumns(true, ["region"])).toEqual(["region"]);
+    });
+
+    it("preserves order, which is the nesting hierarchy", () => {
+      expect(parseGroupByColumns(true, ["region", "city"])).toEqual([
+        "region",
+        "city",
+      ]);
+    });
+
+    it("returns undefined for an empty array", () => {
+      expect(parseGroupByColumns(true, [])).toBeUndefined();
+    });
+
+    it("returns undefined for an array when grouping is disabled", () => {
+      expect(parseGroupByColumns(false, ["region"])).toBeUndefined();
+    });
+
+    it("trims and drops blank entries", () => {
+      expect(parseGroupByColumns(true, [" region ", "", "  ", "city"])).toEqual(
+        ["region", "city"],
+      );
+    });
+
+    it("ignores non-string entries rather than stringifying them", () => {
+      expect(
+        parseGroupByColumns(true, ["region", 7, null] as unknown as string[]),
+      ).toEqual(["region"]);
+    });
+
+    it("returns undefined when an array holds nothing usable", () => {
+      expect(
+        parseGroupByColumns(true, [null, ""] as unknown as string[]),
+      ).toBeUndefined();
+    });
+  });
 });
