@@ -82,17 +82,18 @@ export function TableRenderer({
   const enableColumnResizing = settings.enableColumnResizing === true;
   const enableGrouping = settings.enableGrouping === true;
   const initialGrouping = useMemo(
-    () => parseGroupByColumns(enableGrouping, settings.groupBy as string),
+    () =>
+      parseGroupByColumns(
+        enableGrouping,
+        // Both shapes reach here: the editor writes a comma-separated string,
+        // saved/imported layouts carry an array (#1395).
+        settings.groupBy as string | string[],
+      ),
     [enableGrouping, settings.groupBy],
   );
 
   const aggregationFn = ((settings.aggregationFn as string) || "sum") as
-    | "sum"
-    | "mean"
-    | "median"
-    | "count"
-    | "min"
-    | "max";
+    "sum" | "mean" | "median" | "count" | "min" | "max";
 
   const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
     if (!records.length) return [];
@@ -288,11 +289,7 @@ export function TableRenderer({
           pageSize={(settings.pageSize as number) ?? 10}
           numberFormat={
             settings.numberFormat as
-              | "comma"
-              | "compact"
-              | "percent"
-              | "plain"
-              | undefined
+              "comma" | "compact" | "percent" | "plain" | undefined
           }
           decimalPlaces={settings.decimalPlaces as number | undefined}
           containerHeight={
