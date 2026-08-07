@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { extractParamDefaults } from "@/lib/parameter/apply-param-defaults";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
@@ -128,27 +129,49 @@ describe("extractParamDefaults has a production caller (#1421)", () => {
    * in-file, Drizzle enums). Shipping that would mean shipping an allowlist
    * bigger than the signal, so it is filed separately as a tooling change.
    */
-  it("is imported by non-test source", () => {
+  it("is imported and called by non-test source", () => {
     const appSrc = join(__dirname, "../../..");
-    const hits = execFileSync(
-      "grep",
-      [
-        "-rl",
-        "extractParamDefaults",
-        appSrc,
-        "--include=*.ts",
-        "--include=*.tsx",
-      ],
-      { encoding: "utf8" },
-    )
-      .trim()
-      .split("\n")
-      .filter(Boolean)
+    let matched: string[];
+    try {
+      matched = execFileSync(
+        "grep",
+        [
+          "-rl",
+          "extractParamDefaults",
+          appSrc,
+          "--include=*.ts",
+          "--include=*.tsx",
+        ],
+        { encoding: "utf8" },
+      )
+        .trim()
+        .split("\n")
+        .filter(Boolean);
+    } catch {
+      // grep exits 1 on no matches, which would otherwise throw before the
+      // assertion and hide the message explaining what broke.
+      matched = [];
+    }
+
+    // A raw text match is not enough: this file's own explanatory comment names
+    // the helper, so a comment alone would satisfy it even with the import and
+    // the call deleted. Strip comments, then require both.
+    const callers = matched
       .filter((f) => !f.includes("apply-param-defaults.ts"))
-      .filter((f) => !f.includes("__tests__") && !f.includes(".test."));
+      .filter((f) => !f.includes("__tests__") && !f.includes(".test."))
+      .filter((f) => {
+        const code = readFileSync(f, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^\s*\/\/.*$/gm, "");
+        const imported = /import\s*\{[^}]*\bextractParamDefaults\b[^}]*\}/.test(
+          code,
+        );
+        const called = /\bextractParamDefaults\s*\(/.test(code);
+        return imported && called;
+      });
 
     expect(
-      hits,
+      callers,
       "extractParamDefaults has no production caller — the Default value field would silently do nothing",
     ).not.toEqual([]);
   });

@@ -1160,9 +1160,11 @@ describe("DashboardWorkspace", () => {
 
     it("seeds the store from a widget's configured default", () => {
       renderWithDefaults();
-      expect(useParameterStore.getState().parameters.dimension?.value).toBe(
-        "category",
-      );
+      const entry = useParameterStore.getState().parameters.dimension;
+      expect(entry?.value).toBe("category");
+      // Provenance matters: without this, seeding could label the value as a
+      // user selection and the assertion above would not notice.
+      expect(entry?.sourceType).toBe("default");
     });
 
     it("a URL parameter beats the default", () => {
@@ -1208,6 +1210,17 @@ describe("DashboardWorkspace", () => {
       );
 
       useParameterStore.getState().clearParameter("dimension");
+
+      // A plain rerender is not enough: it reuses the same dashboard object, so
+      // `serverLayout` keeps its identity, the effect's deps never change, and
+      // the effect does not re-run — the test would pass with the ref guard
+      // deleted. Handing back a fresh object forces the effect to fire again,
+      // which is the only thing that actually exercises the guard.
+      mockUseDashboard.mockReturnValue({
+        data: withDefaults(),
+        isLoading: false,
+        isFetching: false,
+      });
       rerender(<DashboardWorkspace id="d1" editMode={false} />);
 
       expect(useParameterStore.getState().parameters.dimension).toBeUndefined();
