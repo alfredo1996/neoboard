@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { extractParamDefaults } from "@/lib/parameter/apply-param-defaults";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
@@ -102,5 +105,74 @@ describe("extractParamDefaults", () => {
       year: "2024",
       dept: "Sales",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #1421 — the helper below was written, unit-tested, and never called.
+// ---------------------------------------------------------------------------
+
+describe("extractParamDefaults has a production caller (#1421)", () => {
+  /**
+   * This function was correct and fully covered while doing nothing, because
+   * nothing invoked it: the editor's "Default value" field wrote into the saved
+   * layout and was read only by this test file. The seeded Chart Playground
+   * carries 21 defaults and showed "Waiting for parameters…" on every chart.
+   *
+   * A unit test proving a function works is not evidence that anything calls
+   * it. This is the third instance of that shape — #1388 (`extractNoSyncParams`)
+   * and #1234 (the audit trail) were the first two.
+   *
+   * Deliberately narrow. The general form — "any `lib/` export reachable only
+   * from `__tests__` fails the build" — was measured at ~69 current matches,
+   * the great majority legitimate (`_reset*` test hooks, Zod fragments composed
+   * in-file, Drizzle enums). Shipping that would mean shipping an allowlist
+   * bigger than the signal, so it is filed separately as a tooling change.
+   */
+  it("is imported and called by non-test source", () => {
+    const appSrc = join(__dirname, "../../..");
+    let matched: string[];
+    try {
+      matched = execFileSync(
+        "grep",
+        [
+          "-rl",
+          "extractParamDefaults",
+          appSrc,
+          "--include=*.ts",
+          "--include=*.tsx",
+        ],
+        { encoding: "utf8" },
+      )
+        .trim()
+        .split("\n")
+        .filter(Boolean);
+    } catch {
+      // grep exits 1 on no matches, which would otherwise throw before the
+      // assertion and hide the message explaining what broke.
+      matched = [];
+    }
+
+    // A raw text match is not enough: this file's own explanatory comment names
+    // the helper, so a comment alone would satisfy it even with the import and
+    // the call deleted. Strip comments, then require both.
+    const callers = matched
+      .filter((f) => !f.includes("apply-param-defaults.ts"))
+      .filter((f) => !f.includes("__tests__") && !f.includes(".test."))
+      .filter((f) => {
+        const code = readFileSync(f, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^\s*\/\/.*$/gm, "");
+        const imported = /import\s*\{[^}]*\bextractParamDefaults\b[^}]*\}/.test(
+          code,
+        );
+        const called = /\bextractParamDefaults\s*\(/.test(code);
+        return imported && called;
+      });
+
+    expect(
+      callers,
+      "extractParamDefaults has no production caller — the Default value field would silently do nothing",
+    ).not.toEqual([]);
   });
 });
