@@ -20,7 +20,7 @@ import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
 
 const importRequestSchema = z.object({
   payload: z.unknown(),
-  connectionMapping: z.record(z.string()).default({}),
+  connectionMapping: z.record(z.string(), z.string()).default({}),
   // Connection keys the user explicitly chose to skip. Widgets referencing
   // a skipped key will have connectionId="" and a note is added so the user
   // knows what they need to fix manually.
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const parsedBody = importRequestSchema.safeParse(await request.json());
     if (!parsedBody.success) {
       return badRequest(
-        parsedBody.error.errors[0]?.message ?? "Invalid request body",
+        parsedBody.error.issues[0]?.message ?? "Invalid request body",
       );
     }
     const { payload, connectionMapping, skippedConnections } = parsedBody.data;

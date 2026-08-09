@@ -31,6 +31,7 @@ Chart-experience release: chart authoring, editing, rule-based styling and click
 
 ### Changed
 
+- `zod` upgraded from 3.25.76 to 4.4.3. The tree previously held **two majors at once**: `component` declared `zod@^4.3.6` while importing it zero times, and that phantom dependency hoisted v4 to the root, forcing `app` to carry a nested v3. The unused declaration is removed, so there is now one zod. Migration was smaller than a 51-file footprint suggests — `.passthrough()` is unchanged and still preserves unknown keys, which matters because chart options depend on it (#1397). Three real changes: `ZodError.errors` is gone in favour of `.issues` (8 API routes, where leaving it would have turned a helpful 400 into a 500), `z.record()` now requires an explicit key type at the type level (11 sites), and `issue.path` widened to `PropertyKey[]` so it can contain symbols (#1436)
 - `AlertDialog` now uses the same exact-centre animation as `Dialog`. It had kept upstream shadcn's `top-[48%]`, a deliberate 2%-of-height rise, so the two sibling modals animated differently and its centring classes carried no comment protecting them. Both now use `top-1/2` on both axes, and the geometry scrub is shared by both story files (#1373)
 - `CLAUDE.md` moved to `.claude/CLAUDE.md`, alongside the hooks, skills and agents it belongs with, and out of the repo root where every visitor saw it. Claude Code reads both paths, so nothing changed about how it loads
 - `npm run review:local` targets the active release branch instead of the previous one

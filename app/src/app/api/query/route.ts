@@ -38,7 +38,7 @@ function readPriorityHeader(raw: string | null): QueryPriority {
 const querySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
   /** Optional defense-in-depth field: when provided, must match the session tenant. */
   tenantId: z.string().optional(),
   /** Per-card database override — used when the connection allows per-card DB selection. */
@@ -214,9 +214,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
  * only — no credential exposure or connection editing.
  */
 type DashboardConnectionAccess =
-  | { level: "none" }
-  | { level: "edit" }
-  | { level: "view"; layouts: unknown[] };
+  { level: "none" } | { level: "edit" } | { level: "view"; layouts: unknown[] };
 
 /**
  * What claim does this user have on the connection via dashboards that

@@ -95,7 +95,7 @@ export function validateBody<T>(
   if (!parsed.success) {
     return {
       success: false,
-      response: apiError("VALIDATION_ERROR", parsed.error.errors[0].message),
+      response: apiError("VALIDATION_ERROR", parsed.error.issues[0].message),
     };
   }
   return { success: true, data: parsed.data };
