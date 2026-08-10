@@ -56,7 +56,9 @@ test.describe("Dashboard CRUD", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.waitForURL(/\/edit/, { timeout: 15_000 });
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Add Widget" }),
     ).toBeVisible();

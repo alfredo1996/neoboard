@@ -25,7 +25,9 @@ test.describe("Widget editor", () => {
       dialog.getByRole("button", { name: "Create" }).click(),
     ]);
     await page.waitForURL(/\/edit/, { timeout: 15_000 });
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.describe("uncovered states", () => {

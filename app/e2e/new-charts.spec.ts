@@ -27,7 +27,9 @@ test.describe("New chart types — creation flow", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
