@@ -165,12 +165,15 @@ jobs:
           CONN_PID=$!
           cd cli && npm run test:coverage &
           CLI_PID=$!
+          cd connector-sdk && npm run test:coverage &
+          SDK_PID=$!
 
           FAIL=0
           wait $APP_PID  || FAIL=1
           wait $COMP_PID || FAIL=1
           wait $CONN_PID || FAIL=1
           wait $CLI_PID  || FAIL=1
+          wait $SDK_PID  || FAIL=1
           exit $FAIL
         env:
           POSTGRES_HOST: localhost
