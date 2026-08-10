@@ -121,9 +121,14 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
 
       return pool;
     } catch (error) {
-      // Log only error type — never the full error which may contain credentials
+      // Log only the SQLSTATE code / error name — NEVER the message, which can
+      // carry connection details. `message.split(":")[0]` looked like redaction
+      // but returns the whole message when it has no colon ("Invalid URL" →
+      // "Invalid URL"); PostgresConnectionModule already documents that same
+      // idiom as broken and fixed (#1303).
       const code =
-        error instanceof Error ? error.message.split(":")[0] : "unknown";
+        (error as { code?: string })?.code ??
+        (error instanceof Error ? error.name : "unknown");
       console.error("Failed to create PostgreSQL pool:", code);
       throw error;
     }
@@ -208,12 +213,14 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
         // End the pool - drains existing connections and rejects new ones
         await this.pool.end();
       } catch (error) {
-        // Suppress "terminating connection" errors during shutdown — never log full error
+        // Suppress "terminating connection" errors during shutdown — never log
+        // the full error. The message is inspected but never emitted (#1303).
         const msg = error instanceof Error ? error.message : "";
         if (!msg.includes("terminating connection")) {
           console.error(
             "Error closing PostgreSQL pool:",
-            msg.split(":")[0] || "unknown",
+            (error as { code?: string })?.code ??
+              (error instanceof Error ? error.name : "unknown"),
           );
         }
       } finally {

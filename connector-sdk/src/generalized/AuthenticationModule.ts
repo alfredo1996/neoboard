@@ -33,7 +33,16 @@ export abstract class AuthenticationModule {
     try {
       parsed = new URL(uri);
     } catch {
-      throw new Error(`Invalid URI format: unable to parse "${uri}"`);
+      // Report the expected shape, never the input. A URI may legitimately
+      // carry userinfo (`scheme://user:pass@host`), and this is the one branch
+      // that echoed the whole string — so a password could ride the thrown
+      // message outward. `redactString` on the API boundary masks it today,
+      // but that makes one downstream call site the only thing standing
+      // between a credential and a response body. The caller already has the
+      // string it submitted; echoing it back adds nothing actionable (#1303).
+      throw new Error(
+        "Invalid URI format — expected scheme://host[:port][/database]",
+      );
     }
 
     if (!parsed.hostname) {

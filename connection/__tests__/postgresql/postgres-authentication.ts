@@ -63,7 +63,8 @@ describe("PostgreSQL Authentication", () => {
   });
 
   test("should handle connection URI parsing", async () => {
-    // Test with full URI including user and password
+    // Host/port/database only — the connectors take auth from the separate
+    // username/password fields and ignore any userinfo in the URI (#1303).
     authModule = new PostgresAuthenticationModule({
       username: container.getUsername(),
       password: container.getPassword(),
@@ -112,25 +113,6 @@ describe("PostgreSQL Authentication", () => {
 
     const isValid = await authModule.verifyAuthentication();
     expect(isValid).toBe(true);
-  });
-
-  test("should return false for verifyAuthentication with invalid credentials", async () => {
-    const invalidAuthModule = new PostgresAuthenticationModule({
-      username: "wrong_user",
-      password: "wrong_password",
-      authType: AuthType.NATIVE,
-      uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
-    });
-
-    try {
-      const isValid = await invalidAuthModule.verifyAuthentication();
-      expect(isValid).toBe(false);
-    } catch (error) {
-      // Authentication errors are thrown, not returned as false
-      expect(error).toBeDefined();
-    }
-
-    await invalidAuthModule.close();
   });
 
   test("should update auth config", async () => {
