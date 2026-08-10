@@ -17,8 +17,7 @@ const signupSchema = z.object({
 });
 
 export type SignupResult =
-  | { success: true }
-  | { success: false; error: string };
+  { success: true } | { success: false; error: string };
 
 export async function areUsersEmpty(): Promise<boolean> {
   const result = await db.select({ id: users.id }).from(users).limit(1);
@@ -44,7 +43,7 @@ export async function signup(formData: FormData): Promise<SignupResult> {
   });
 
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0].message };
+    return { success: false, error: parsed.error.issues[0].message };
   }
 
   const { name, email, password } = parsed.data;

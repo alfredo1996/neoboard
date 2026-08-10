@@ -21,8 +21,8 @@ const updateTemplateSchema = z.object({
   connectorType: z.enum(CONNECTOR_TYPES).optional(),
   connectionId: z.string().nullable().optional(),
   query: z.string().optional(),
-  params: z.record(z.unknown()).optional(),
-  settings: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
   previewImageUrl: previewImageUrlSchema,
 });
 
@@ -94,7 +94,7 @@ export async function PUT(
     const parsed = updateTemplateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return badRequest(parsed.error.errors[0].message);
+      return badRequest(parsed.error.issues[0].message);
     }
 
     const data = parsed.data;

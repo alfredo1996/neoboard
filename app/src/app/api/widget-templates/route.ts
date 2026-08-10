@@ -16,8 +16,8 @@ const createTemplateSchema = z.object({
   connectorType: z.enum(CONNECTOR_TYPES),
   connectionId: z.string().optional(),
   query: z.string().default(""),
-  params: z.record(z.unknown()).optional(),
-  settings: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
   previewImageUrl: previewImageUrlSchema,
 });
 
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     const parsed = createTemplateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return badRequest(parsed.error.errors[0].message);
+      return badRequest(parsed.error.issues[0].message);
     }
 
     const data = parsed.data;
