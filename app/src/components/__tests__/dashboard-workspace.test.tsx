@@ -614,6 +614,77 @@ describe("DashboardWorkspace", () => {
     ).toBe("false");
   });
 
+  // #1419 — visited pages stay mounted so tab switching is instant, but they
+  // kept polling too. Query load scaled with browsing history rather than with
+  // what is on screen: 4.81x the /api/query volume for the same 18 visible
+  // widgets after touring six pages.
+  describe("hidden pages do not auto-refresh (#1419)", () => {
+    function withAutoRefresh() {
+      const d = makeDashboard();
+      (d.layoutJson as unknown as { settings: unknown }).settings = {
+        autoRefresh: true,
+        refreshIntervalSeconds: 30,
+      };
+      return d;
+    }
+
+    function intervals() {
+      return screen
+        .getAllByTestId("dashboard-container")
+        .map((el) => el.getAttribute("data-refetch-interval"));
+    }
+
+    it("only the active page carries the refresh interval", async () => {
+      dashboard = withAutoRefresh();
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+
+      // Page 1 is active and alone.
+      expect(intervals()).toEqual(["30000"]);
+
+      // Visiting page 2 keeps page 1 mounted — that is deliberate — but it
+      // must stop polling.
+      await userEvent.click(screen.getAllByTestId("page-tab")[1]);
+      expect(intervals()).toEqual(["false", "30000"]);
+    });
+
+    it("stops the previously active page when returning to the first", async () => {
+      dashboard = withAutoRefresh();
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+
+      await userEvent.click(screen.getAllByTestId("page-tab")[1]);
+      await userEvent.click(screen.getAllByTestId("page-tab")[2]);
+      await userEvent.click(screen.getAllByTestId("page-tab")[0]);
+
+      // Three pages mounted, exactly one polling.
+      const found = intervals();
+      expect(found).toHaveLength(3);
+      expect(found.filter((v) => v === "30000")).toHaveLength(1);
+      expect(found[0]).toBe("30000");
+    });
+
+    it("never polls a hidden page, however many are mounted", async () => {
+      dashboard = withAutoRefresh();
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+
+      for (const i of [1, 2]) {
+        await userEvent.click(screen.getAllByTestId("page-tab")[i]);
+      }
+
+      // This is the invariant the 4.8x measurement violated: polling depends on
+      // the visible page, not on how much of the dashboard has been explored.
+      expect(intervals().filter((v) => v !== "false")).toHaveLength(1);
+    });
+
+    it("keeps every page off in edit mode regardless of which is active", async () => {
+      dashboard = withAutoRefresh();
+      pathname = "/d1/edit";
+      render(<DashboardWorkspace id="d1" editMode={true} />);
+
+      await userEvent.click(screen.getAllByTestId("page-tab")[1]);
+      expect(intervals().every((v) => v === "false")).toBe(true);
+    });
+  });
+
   // ── view mode must not fetch the editor's data ──────────────────────
   it("does not fetch connections or widget templates in view mode", () => {
     render(<DashboardWorkspace id="d1" editMode={false} />);
@@ -1051,6 +1122,128 @@ describe("DashboardWorkspace", () => {
 
     fireEvent.click(screen.getByTestId("tab-remove"));
     expect(useDashboardStore.getState().layout.pages).toHaveLength(3);
+  });
+
+  // ── Parameter defaults (#1421) ──────────────────────────────────────
+  // `extractParamDefaults` walked the layout correctly and had its own unit
+  // test, but zero production callers — so the editor's "Default value" field
+  // wrote into the saved layout and was read only by a test. The seeded Chart
+  // Playground carries 21 defaults and rendered "Waiting for parameters…" on
+  // every chart until the user configured each knob by hand.
+  describe("parameter defaults are applied on load (#1421)", () => {
+    function withDefaults() {
+      const d = makeDashboard(1);
+      d.layoutJson.pages[0].widgets.push({
+        id: "pw1",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "",
+        settings: {
+          chartOptions: {
+            parameterName: "dimension",
+            parameterType: "select",
+            defaultValue: "category",
+          },
+        },
+      } as unknown as (typeof d.layoutJson.pages)[0]["widgets"][0]);
+      return d;
+    }
+
+    function renderWithDefaults() {
+      mockUseDashboard.mockReturnValue({
+        data: withDefaults(),
+        isLoading: false,
+        isFetching: false,
+      });
+      return render(<DashboardWorkspace id="d1" editMode={false} />);
+    }
+
+    it("seeds the store from a widget's configured default", () => {
+      renderWithDefaults();
+      const entry = useParameterStore.getState().parameters.dimension;
+      expect(entry?.value).toBe("category");
+      // Provenance matters: without this, seeding could label the value as a
+      // user selection and the assertion above would not notice.
+      expect(entry?.sourceType).toBe("default");
+    });
+
+    it("a URL parameter beats the default", () => {
+      searchParams = new URLSearchParams("param_dimension=revenue");
+      renderWithDefaults();
+      expect(useParameterStore.getState().parameters.dimension?.value).toBe(
+        "revenue",
+      );
+    });
+
+    it("a restored session value beats the default", () => {
+      // Must go through localStorage, not the store: `restoreFromDashboard`
+      // runs on mount and *replaces* the store wholesale, so anything set
+      // beforehand is wiped before the defaults effect ever runs.
+      // Shape matters: `restoreFromDashboard` drops any entry missing a string
+      // `source`, `field` or `type`, so a near-miss fixture would restore
+      // nothing and this test would "pass" against a broken implementation.
+      localStorage.setItem(
+        "nb-params:d1",
+        JSON.stringify({
+          dimension: {
+            value: "region",
+            source: "Dimension",
+            field: "dimension",
+            type: "text",
+            sourceType: "selector-widget",
+            sourceWidgetId: "pw1",
+          },
+        }),
+      );
+      renderWithDefaults();
+      expect(useParameterStore.getState().parameters.dimension?.value).toBe(
+        "region",
+      );
+    });
+
+    // The dangerous regression: re-seeding on every render would make a
+    // parameter impossible to clear — it would snap back instantly.
+    it("does not re-apply the default after the user clears it", () => {
+      const { rerender } = renderWithDefaults();
+      expect(useParameterStore.getState().parameters.dimension?.value).toBe(
+        "category",
+      );
+
+      useParameterStore.getState().clearParameter("dimension");
+
+      // A plain rerender is not enough: it reuses the same dashboard object, so
+      // `serverLayout` keeps its identity, the effect's deps never change, and
+      // the effect does not re-run — the test would pass with the ref guard
+      // deleted. Handing back a fresh object forces the effect to fire again,
+      // which is the only thing that actually exercises the guard.
+      mockUseDashboard.mockReturnValue({
+        data: withDefaults(),
+        isLoading: false,
+        isFetching: false,
+      });
+      rerender(<DashboardWorkspace id="d1" editMode={false} />);
+
+      expect(useParameterStore.getState().parameters.dimension).toBeUndefined();
+    });
+
+    it("leaves a parameter-select with no default alone", () => {
+      const d = makeDashboard(1);
+      d.layoutJson.pages[0].widgets.push({
+        id: "pw2",
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "",
+        settings: { chartOptions: { parameterName: "unset" } },
+      } as unknown as (typeof d.layoutJson.pages)[0]["widgets"][0]);
+      mockUseDashboard.mockReturnValue({
+        data: d,
+        isLoading: false,
+        isFetching: false,
+      });
+
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      expect(useParameterStore.getState().parameters.unset).toBeUndefined();
+    });
   });
 
   // ── Parameters ↔ URL ────────────────────────────────────────────────

@@ -276,8 +276,7 @@ export function CardContainer({
 
   // Resolve color scales config
   const conditionalFormatting = ws.conditionalFormatting as
-    | { colorScales?: ColorScaleConfig[] }
-    | undefined;
+    { colorScales?: ColorScaleConfig[] } | undefined;
   const colorScales = conditionalFormatting?.colorScales;
 
   if (!chartConfig) {
@@ -293,7 +292,8 @@ export function CardContainer({
 
   // Use preview data directly if provided
   if (previewData !== undefined) {
-    const validationError = chartConfig.validate?.(previewData) ?? null;
+    const validationError =
+      chartConfig.validate?.(previewData, columnMapping) ?? null;
     if (validationError) {
       return (
         <EmptyState
@@ -619,7 +619,8 @@ export function CardContainer({
   }
 
   const rawData = widgetQuery.data.data;
-  const validationError = chartConfig.validate?.(rawData) ?? null;
+  const validationError =
+    chartConfig.validate?.(rawData, columnMapping) ?? null;
   if (validationError) {
     return (
       <EmptyState

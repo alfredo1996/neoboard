@@ -95,8 +95,14 @@ export interface ChartPluginConfig {
   /**
    * Validates raw data shape. Returns an error string when data is present
    * but malformed. Returns null for valid or empty data (empty = "No data" state).
+   *
+   * Receives the same mapping as `transformWithMapping` so a validator can
+   * check the columns that will actually be plotted. Without it, a validator
+   * has to assume positional defaults and would wrongly reject a result whose
+   * text columns the user had already mapped away (#1400).
    */
-  validate?: (data: unknown) => string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ColumnMapping lives in component package
+  validate?: (data: unknown, mapping?: any) => string | null;
   /** Chart-specific options shown in the Chart Options panel. */
   options?: ChartOptionDef[];
   /** Example + column expectations shown to users when they pick this chart. */

@@ -66,10 +66,22 @@ export function formatNumber(
       }).format(value);
       break;
     case "percent":
-      formatted =
-        decimalPlaces !== undefined
-          ? `${value.toFixed(decimalPlaces)}%`
-          : `${value}%`;
+      // Takes a RATIO and scales it — 0.2005 → "20.05%" — matching Intl's own
+      // `style: "percent"` and every spreadsheet. It used to append a bare "%"
+      // and scale nothing, which meant a genuine share rendered 100x too small
+      // with nothing in the UI to distinguish it from a real value (#1396).
+      // With no explicit decimalPlaces, cap at 2 rather than take Intl's
+      // default of 0 — rounding 20.05% to "20%" is the same class of silent
+      // precision loss this fix exists to remove.
+      formatted = Intl.NumberFormat("en-US", {
+        style: "percent",
+        ...(decimalPlaces !== undefined
+          ? {
+              minimumFractionDigits: decimalPlaces,
+              maximumFractionDigits: decimalPlaces,
+            }
+          : { maximumFractionDigits: 2 }),
+      }).format(value);
       break;
     default: // "plain"
       formatted =

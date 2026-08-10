@@ -13,6 +13,10 @@ export const gaugeSettingsSchema = z
     endAngle: z.coerce.number().default(-45),
     colorPalette: z.string().optional(),
     colorblindMode: z.boolean().default(false),
+    // JSON array of {value, color} bands, parsed by the chart. Declared here
+    // for typing — `.passthrough()` never stripped it; the plugin simply did
+    // not forward it (#1397).
+    thresholdZones: z.string().optional(),
   })
   .passthrough();
 

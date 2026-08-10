@@ -28,6 +28,7 @@ import {
   buildParamsUrl,
   extractSyncParams,
 } from "@/lib/shared/url-params";
+import { extractParamDefaults } from "@/lib/parameter/apply-param-defaults";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
 import { classifySaveError } from "@/lib/dashboard/save-error";
@@ -185,6 +186,33 @@ export function DashboardWorkspace({
     () => (serverLayout ? extractSyncParams(serverLayout) : null),
     [serverLayout],
   );
+
+  // Widget "Default value" settings, applied once per dashboard (#1421).
+  //
+  // `extractParamDefaults` was written, tested, and never called — so the
+  // editor's Default value field wrote into the saved layout and was read only
+  // by its own unit test. The seeded Chart Playground carries 21 defaults and
+  // showed "Waiting for parameters…" on every chart until each knob was set by
+  // hand.
+  //
+  // Only fills parameters that are not already set, which is what gives the
+  // precedence `URL > restored session > default` without any ordering
+  // machinery: the restore and URL effects above both run before the layout has
+  // loaded, so whatever they put in the store is already there by the time this
+  // can run. The ref guard is what stops a cleared parameter snapping back —
+  // without it, clearing a knob would be impossible.
+  const defaultsAppliedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!serverLayout || defaultsAppliedFor.current === id) return;
+    defaultsAppliedFor.current = id;
+
+    const defaults = extractParamDefaults(serverLayout);
+    const store = useParameterStore.getState();
+    for (const [name, value] of Object.entries(defaults)) {
+      if (store.parameters[name] !== undefined) continue;
+      store.setParameter(name, value, value, "", "text", "default", "");
+    }
+  }, [id, serverLayout]);
 
   // Seeded from the URL we arrived on, so the first sync is a no-op unless it
   // actually has something to strip.
@@ -803,7 +831,16 @@ export function DashboardWorkspace({
                 <DashboardContainer
                   page={page}
                   editable={editMode}
-                  refetchInterval={editMode ? false : viewRefetchInterval}
+                  // Only the visible page polls. Visited pages stay mounted so
+                  // tab switches are instant and don't re-query — but keeping
+                  // them *polling* made query load scale with browsing history
+                  // instead of with what is on screen: 4.81x the /api/query
+                  // volume for the same 18 visible widgets after touring six
+                  // pages, all of it refresh-tier work against the customer's
+                  // database for nobody's benefit (#1419).
+                  refetchInterval={
+                    editMode || !isActive ? false : viewRefetchInterval
+                  }
                   actions={
                     editMode
                       ? {

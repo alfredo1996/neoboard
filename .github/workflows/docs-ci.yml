@@ -42,3 +42,18 @@ jobs:
 
       - name: Build docs site
         run: npm run build --prefix docs
+
+      # `astro build` exits 0 even when the `docs` collection resolves empty —
+      # it emits a lone 404 page and mentions "The collection "docs" does not
+      # exist or is empty" in passing. That is exactly what the Starlight 0.41
+      # upgrade did before the content loader was added (#1461), and with the
+      # site not yet deployed (#1318) nobody would have noticed. A green build
+      # is not evidence the site has content.
+      - name: Fail if the build emitted no content
+        run: |
+          pages=$(find docs/dist -name '*.html' | wc -l | tr -d ' ')
+          echo "emitted $pages HTML pages"
+          if [ "$pages" -lt 10 ]; then
+            echo "::error::Docs build emitted only $pages page(s) — the content collection is probably empty."
+            exit 1
+          fi

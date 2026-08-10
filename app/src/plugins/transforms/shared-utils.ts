@@ -81,3 +81,51 @@ export function toSeriesNumber(raw: unknown): number | null {
   const n = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(n) ? n : null;
 }
+
+/**
+ * Reject a result whose plotted value columns hold no numbers at all (#1400).
+ *
+ * A long-format result — `category, series, value`, what `GROUP BY a, b`
+ * naturally produces — used to render cleanly and wrongly: `resolveValueKeys`
+ * treats every non-label column as a series, so `series` became a series of
+ * its own whose cells all coerced to null. That produced duplicated category
+ * labels, a ghost legend entry with no bars, and (on line) a single value
+ * line zig-zagging across repeated x values. None of it looked like an error.
+ *
+ * Resolution goes through `resolveValueKeys` — the same call the transform
+ * makes — so the validator cannot disagree with what is actually plotted.
+ *
+ * A column is only rejected when it has at least one non-null cell and *none*
+ * of them parse. An entirely null column stays legal: that is a sparse series,
+ * what a LEFT JOIN produces, and the reason `collectAllKeys` unions keys.
+ */
+export function validateNumericValueColumns(
+  records: Record<string, unknown>[],
+  chartLabel: string,
+  mapping?: ColumnMapping,
+): string | null {
+  if (!records.length) return null;
+  const keys = collectAllKeys(records);
+  // Fewer than 2 columns is the callers' own column-count error, which says
+  // something more useful than this would.
+  if (keys.length < 2) return null;
+
+  const labelKey = resolveLabelKey(keys, mapping);
+  const offenders = resolveValueKeys(keys, labelKey, mapping).filter((key) => {
+    let sawValue = false;
+    for (const record of records) {
+      const raw = record[key];
+      if (raw === null || raw === undefined) continue;
+      if (typeof raw === "string" && raw.trim() === "") continue;
+      sawValue = true;
+      if (toSeriesNumber(raw) !== null) return false;
+    }
+    return sawValue;
+  });
+
+  if (!offenders.length) return null;
+
+  const named = offenders.map((k) => `"${k}"`).join(", ");
+  const plural = offenders.length > 1;
+  return `${chartLabel} cannot plot ${named} — ${plural ? "those columns contain" : "that column contains"} no numeric values. This usually means the result is in long format (one row per category *and* series, e.g. \`GROUP BY category, status\`), where the series name is its own column. Pivot it so each series is a column, or map the value column explicitly. Example: \`SELECT category, SUM(x) FILTER (WHERE status='delivered') AS delivered, SUM(x) FILTER (WHERE status='shipped') AS shipped FROM ... GROUP BY category\`.`;
+}

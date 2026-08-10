@@ -55,12 +55,12 @@ export const singleValueOptions: ChartOptionDef[] = [
     default: "plain",
     category: "Display",
     description:
-      "How to format the numeric value — plain, comma-separated, compact (1.2k), or percentage.",
+      "How to format the numeric value — plain, comma-separated, compact (1.2k), or percentage. Percent expects a ratio and scales it: query 0.42 to render 42%.",
     options: [
       { label: "Plain", value: "plain" },
       { label: "Comma", value: "comma" },
       { label: "Compact", value: "compact" },
-      { label: "Percent", value: "percent" },
+      { label: "Percent (0.42 → 42%)", value: "percent" },
     ],
   },
   {

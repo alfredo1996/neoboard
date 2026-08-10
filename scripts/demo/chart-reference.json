@@ -64,7 +64,7 @@
             "id": "page-bar-v-4",
             "chartType": "bar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'delivered')::float AS delivered, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'shipped')::float AS shipped, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'pending')::float AS pending FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name ORDER BY parent.name",
             "settings": {
               "title": "stackMode = stacked",
               "chartOptions": {
@@ -76,7 +76,7 @@
             "id": "page-bar-v-5",
             "chartType": "bar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'delivered')::float AS delivered, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'shipped')::float AS shipped, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'pending')::float AS pending FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name ORDER BY parent.name",
             "settings": {
               "title": "stackMode = percent",
               "chartOptions": {
@@ -100,7 +100,7 @@
             "id": "page-bar-v-7",
             "chartType": "bar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'delivered')::float AS delivered, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'shipped')::float AS shipped, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'pending')::float AS pending FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name ORDER BY parent.name",
             "settings": {
               "title": "showLegend = false",
               "chartOptions": {
@@ -125,7 +125,7 @@
             "id": "page-bar-v-9",
             "chartType": "bar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'delivered')::float AS delivered, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'shipped')::float AS shipped, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'pending')::float AS pending FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name ORDER BY parent.name",
             "settings": {
               "title": "barGap = 80%",
               "chartOptions": {
@@ -214,7 +214,7 @@
             "id": "page-bar-v-16",
             "chartType": "bar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT parent.name AS category, o.status AS series, SUM(oi.qty * oi.price)::float AS revenue FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name, o.status ORDER BY parent.name",
+            "query": "SELECT parent.name AS category, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'delivered')::float AS delivered, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'shipped')::float AS shipped, SUM(oi.qty * oi.price) FILTER (WHERE o.status = 'pending')::float AS pending FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id WHERE o.status IN ('delivered','shipped','pending') GROUP BY parent.name ORDER BY parent.name",
             "settings": {
               "title": "colorblindMode = true",
               "chartOptions": {
@@ -489,7 +489,7 @@
             "id": "page-line-v-26",
             "chartType": "line",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total) FILTER (WHERE status = 'delivered')::float AS delivered, SUM(total) FILTER (WHERE status = 'shipped')::float AS shipped FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1 ORDER BY 1 LIMIT 24",
             "settings": {
               "title": "endLabel = true (multi-series)",
               "chartOptions": {
@@ -514,7 +514,7 @@
             "id": "page-line-v-28",
             "chartType": "line",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total) FILTER (WHERE status = 'delivered')::float AS delivered, SUM(total) FILTER (WHERE status = 'shipped')::float AS shipped FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1 ORDER BY 1 LIMIT 24",
             "settings": {
               "title": "right Y-axis series",
               "chartOptions": {
@@ -527,7 +527,7 @@
             "id": "page-line-v-29",
             "chartType": "line",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total) FILTER (WHERE status = 'delivered')::float AS delivered, SUM(total) FILTER (WHERE status = 'shipped')::float AS shipped FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1 ORDER BY 1 LIMIT 24",
             "settings": {
               "title": "showLegend = false",
               "chartOptions": {
@@ -589,7 +589,7 @@
             "id": "page-line-v-34",
             "chartType": "line",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total) FILTER (WHERE status = 'delivered')::float AS delivered, SUM(total) FILTER (WHERE status = 'shipped')::float AS shipped FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1 ORDER BY 1 LIMIT 24",
             "settings": {
               "title": "palette = warm",
               "chartOptions": {
@@ -601,7 +601,7 @@
             "id": "page-line-v-35",
             "chartType": "line",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total) FILTER (WHERE status = 'delivered')::float AS delivered, SUM(total) FILTER (WHERE status = 'shipped')::float AS shipped FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1 ORDER BY 1 LIMIT 24",
             "settings": {
               "title": "palette = observable",
               "chartOptions": {
@@ -613,7 +613,7 @@
             "id": "page-line-v-36",
             "chartType": "line",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, status AS series, SUM(total)::float AS revenue FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1, status ORDER BY 1 LIMIT 24",
+            "query": "SELECT to_char(date_trunc('week', created_at), 'YYYY-MM-DD') AS week, SUM(total) FILTER (WHERE status = 'delivered')::float AS delivered, SUM(total) FILTER (WHERE status = 'shipped')::float AS shipped FROM neoboard_demo_public.orders WHERE status IN ('delivered','shipped') GROUP BY 1 ORDER BY 1 LIMIT 24",
             "settings": {
               "title": "colorblindMode = true",
               "chartOptions": {
@@ -1519,7 +1519,7 @@
             "connectionId": "conn_postgres_read",
             "query": "SELECT (COUNT(*) FILTER (WHERE status='delivered') * 1.0 / NULLIF(COUNT(*),0))::float AS value FROM neoboard_demo_public.orders",
             "settings": {
-              "title": "numberFormat = percent (0.42)",
+              "title": "numberFormat = percent (ratio 0.42 → 42.0%)",
               "chartOptions": {
                 "numberFormat": "percent",
                 "decimalPlaces": 1

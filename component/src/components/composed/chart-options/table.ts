@@ -70,11 +70,11 @@ export const tableOptions: ChartOptionDef[] = [
     default: "comma",
     category: "Display",
     description:
-      "How numeric cells are formatted across the whole table. Use Plain to opt out of formatting (raw JS precision).",
+      "How numeric cells are formatted across the whole table. Use Plain to opt out of formatting (raw JS precision). Percent expects a ratio and scales it — a column of 0.12 renders as 12%, not 0.12%.",
     options: [
       { label: "Comma (1,234.56)", value: "comma" },
       { label: "Compact (1.2K)", value: "compact" },
-      { label: "Percent (12%)", value: "percent" },
+      { label: "Percent (0.12 → 12%)", value: "percent" },
       { label: "Plain (1234.56)", value: "plain" },
     ],
   },

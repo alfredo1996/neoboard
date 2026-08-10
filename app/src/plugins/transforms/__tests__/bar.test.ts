@@ -107,3 +107,34 @@ describe("validateBarData", () => {
     expect(err).toContain("1 column");
   });
 });
+
+// #1400 — the reference dashboard itself demonstrated two stackMode options
+// with this query shape, which is how easy it is to fall into.
+describe("validateBarData — long format (#1400)", () => {
+  const longFormat = [
+    { category: "Apparel", series: "delivered", revenue: 100 },
+    { category: "Apparel", series: "shipped", revenue: 50 },
+    { category: "Home", series: "delivered", revenue: 80 },
+  ];
+
+  it("rejects a long-format result naming the offending column", () => {
+    const err = validateBarData(longFormat);
+    expect(err).not.toBeNull();
+    expect(err).toContain("series");
+  });
+
+  it("accepts the wide-format equivalent", () => {
+    expect(
+      validateBarData([
+        { category: "Apparel", delivered: 100, shipped: 50 },
+        { category: "Home", delivered: 80, shipped: 20 },
+      ]),
+    ).toBeNull();
+  });
+
+  it("accepts long format once the value column is mapped explicitly", () => {
+    expect(
+      validateBarData(longFormat, { xAxis: "category", yAxis: ["revenue"] }),
+    ).toBeNull();
+  });
+});

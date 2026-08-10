@@ -98,6 +98,28 @@ vi.mock("@/lib/query/data-transforms", () => ({
   applyTransforms: (d: unknown) => d,
 }));
 
+// `chart-helpers` registers *lightweight stub* plugins when the full plugin
+// modules haven't loaded, and a stub carries no `validate` — so without this
+// the validation path is unreachable from jsdom and #1400 could not be tested
+// at this layer at all. Attach the real bar validator; importing the plugin
+// module itself would drag ECharts into jsdom for no benefit.
+vi.mock("@/lib/plugin/chart-helpers", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/plugin/chart-helpers")
+  >("@/lib/plugin/chart-helpers");
+  const { validateBarData } = await vi.importActual<
+    typeof import("@/plugins/bar/transform")
+  >("@/plugins/bar/transform");
+  return {
+    ...actual,
+    getChartConfig: (type: string) => {
+      const config = actual.getChartConfig(type);
+      if (!config || type !== "bar") return config;
+      return { ...config, validate: validateBarData };
+    },
+  };
+});
+
 /* ---------- import under test ---------- */
 import { CardContainer } from "../card-container";
 import type { DashboardWidget } from "@/lib/db/schema";
@@ -461,5 +483,64 @@ describe("CardContainer", () => {
     render(<CardContainer widget={makeWidget()} />);
 
     expect(screen.queryByText(/Showing first .* rows/)).toBeNull();
+  });
+
+  // ----- Long-format rejection (#1400) -----
+
+  describe("long-format results (#1400)", () => {
+    const longFormat = [
+      { category: "Apparel", series: "delivered", revenue: 100 },
+      { category: "Apparel", series: "shipped", revenue: 50 },
+      { category: "Home", series: "delivered", revenue: 80 },
+    ];
+
+    it("renders an explicit error state instead of a silently wrong chart", () => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: { data: longFormat, resultId: "r1" },
+        missingParams: [],
+      });
+
+      render(<CardContainer widget={makeWidget({ chartType: "bar" })} />);
+
+      expect(screen.queryByTestId("chart-renderer")).toBeNull();
+      expect(screen.getByText("Incompatible data format")).toBeDefined();
+    });
+
+    it("names the offending column in the error", () => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: { data: longFormat, resultId: "r1" },
+        missingParams: [],
+      });
+
+      render(<CardContainer widget={makeWidget({ chartType: "bar" })} />);
+
+      expect(screen.getByText(/"series"/)).toBeDefined();
+    });
+
+    it("still renders the chart for the wide-format equivalent", () => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: {
+          data: [
+            { category: "Apparel", delivered: 100, shipped: 50 },
+            { category: "Home", delivered: 80, shipped: 20 },
+          ],
+          resultId: "r1",
+        },
+        missingParams: [],
+      });
+
+      render(<CardContainer widget={makeWidget({ chartType: "bar" })} />);
+
+      expect(screen.getByTestId("chart-renderer")).toBeDefined();
+    });
   });
 });
