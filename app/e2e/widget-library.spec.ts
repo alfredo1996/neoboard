@@ -91,7 +91,9 @@ test.describe("Widget Library", () => {
       );
       dashboardCleanup = cleanup;
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible();
 
       // Add a bar widget
       await addBarWidgetToDashboard(page);
@@ -228,7 +230,9 @@ test.describe("Widget Library", () => {
       templateId = tId;
 
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible();
     });
 
     test.afterEach(async ({ page }) => {
@@ -566,7 +570,9 @@ test.describe("Widget Library", () => {
 
       try {
         await page.goto(`/${dashId}/edit`);
-        await expect(page.getByText("Editing:")).toBeVisible();
+        await expect(
+          page.getByRole("heading", { name: /^Editing:/ }),
+        ).toBeVisible();
 
         // Add widget via "From Template"
         await page.getByRole("button", { name: "Add Widget" }).first().click();

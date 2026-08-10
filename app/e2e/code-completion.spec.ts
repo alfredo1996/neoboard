@@ -120,7 +120,9 @@ async function typeInCmEditor(
       const tile = (node as any).cmTile;
       return tile?.root?.view ?? tile?.view ?? null;
     }
-    const view = findView(el.querySelector(".cm-content")) ?? findView(el.querySelector(".cm-editor"));
+    const view =
+      findView(el.querySelector(".cm-content")) ??
+      findView(el.querySelector(".cm-editor"));
     if (!view) throw new Error("CM6 view not found for typeInCmEditor");
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: t },
@@ -192,7 +194,9 @@ test.describe("Code completion — Cypher + SQL", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {

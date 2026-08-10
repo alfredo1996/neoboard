@@ -16,7 +16,9 @@ test.describe("Dashboard grid", () => {
 
   test("edit mode should allow drag and resize", async ({ page }) => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
 
     // In edit mode, grid items should have draggable class
     const gridItem = page.locator(".react-grid-item").first();
@@ -31,7 +33,9 @@ test.describe("Dashboard grid", () => {
     page,
   }) => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(page.getByText("Editing:")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeVisible({
+      timeout: 10000,
+    });
 
     // Pure responsive reflow across breakpoints — no user drag/resize.
     await page.setViewportSize({ width: 900, height: 1024 });
@@ -41,7 +45,9 @@ test.describe("Dashboard grid", () => {
     // Because a reflow is not a user edit, leaving via Back must navigate
     // straight to view mode — no unsaved-changes confirmation dialog.
     await page.getByRole("button", { name: "Back", exact: true }).click();
-    await expect(page.getByText("Editing:")).toBeHidden({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeHidden({
+      timeout: 10000,
+    });
     await expect(
       page.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible();
@@ -49,7 +55,9 @@ test.describe("Dashboard grid", () => {
 
   test("should save layout changes", async ({ page }) => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(page.getByText("Editing:")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeVisible({
+      timeout: 10000,
+    });
 
     // Click Save and verify the button is present and clickable
     const saveButton = page.getByRole("button", { name: "Save" });

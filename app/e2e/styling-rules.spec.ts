@@ -23,7 +23,9 @@ test.describe("Styling rules — table widget", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -252,7 +254,9 @@ test.describe("Styling rules — bar chart", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {

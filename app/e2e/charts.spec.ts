@@ -121,7 +121,9 @@ test.describe("Neo4j connector → chart visualization", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -294,7 +296,9 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -502,7 +506,9 @@ test.describe("Graph chart visualization", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -682,7 +688,9 @@ test.describe("Graph chart exploration", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -1075,7 +1083,9 @@ test.describe("Map widget", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -1181,7 +1191,9 @@ test.describe("Column mapping overlay", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {

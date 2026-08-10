@@ -19,7 +19,9 @@ test.describe("Widget creation", () => {
     dashboardCleanup = cleanup;
     // Navigate to the new dashboard in edit mode
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -216,7 +218,9 @@ test.describe("Widget edit – query cache invalidation", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -301,7 +305,9 @@ test.describe("Widget duplicate", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -354,7 +360,9 @@ test.describe("Widget editor UX", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {

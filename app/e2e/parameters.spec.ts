@@ -18,7 +18,9 @@ test.describe("Parameter selectors", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -157,7 +159,9 @@ test.describe("Parameter-to-refresh cycle", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
 
     // --- Widget 1: Parameter-select (year dropdown) ---
     // Use .first() because a fresh dashboard shows both a toolbar and an empty-state "Add Widget" button
@@ -433,7 +437,9 @@ test.describe("Click actions", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible();
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -476,7 +482,9 @@ test.describe("Click actions", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible({ timeout: 15_000 });
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -554,7 +562,9 @@ test.describe("Click actions", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible();
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -603,7 +613,9 @@ test.describe("Click actions", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible({ timeout: 15_000 });
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -1681,7 +1693,9 @@ test.describe("Action rules — multi-rule editor", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible({ timeout: 15_000 });
 
       // Add a second page for navigate-to-page
       await page.getByRole("button", { name: "Add page" }).click();
@@ -1765,7 +1779,9 @@ test.describe("Action rules — multi-rule editor", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible({ timeout: 15_000 });
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -1836,7 +1852,9 @@ test.describe("Action rules — multi-rule editor", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Editing:")).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible({ timeout: 15_000 });
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -1906,7 +1924,9 @@ test.describe("Preview Run button", () => {
     dashboardCleanup = cleanup;
 
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -2041,7 +2061,9 @@ test.describe("Param-select searchable default", () => {
     dashboardCleanup = cleanup;
 
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -2095,7 +2117,9 @@ test.describe("Parameter collision warning", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(page.getByText("Editing:")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
