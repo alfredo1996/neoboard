@@ -26,7 +26,7 @@ import { apiLogger } from "@/lib/logger";
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
   /** Widget ID — required so the server can verify allowWrites on the widget. */
   widgetId: z.string().min(1).optional(),
   /** Dashboard ID — required alongside widgetId for lookup. */

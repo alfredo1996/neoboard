@@ -32,8 +32,8 @@ const widgetSchema = z
     chartType: z.string(),
     connectionId: z.string(),
     query: z.string(),
-    params: z.record(z.unknown()).optional(),
-    settings: z.record(z.unknown()).optional(),
+    params: z.record(z.string(), z.unknown()).optional(),
+    settings: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough(); // preserves templateId, templateSyncedAt and any future fields
 

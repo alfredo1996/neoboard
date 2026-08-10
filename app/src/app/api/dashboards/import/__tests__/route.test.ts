@@ -189,6 +189,27 @@ describe("POST /api/dashboards/import", () => {
     expect(res.status).toBe(400);
   });
 
+  // The case above fails the *inner* export schema. This one fails the outer
+  // request-body schema, a separate branch that reads
+  // `parsedBody.error.issues[0]?.message` — `.errors` under zod 3. Reaching for
+  // the wrong field throws and turns this 400 into a 500 (#1436).
+  it("returns 400 when the request body itself is malformed", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+
+    // connectionMapping must be an object of string -> string.
+    const res = await POST(
+      makeRequest({
+        payload: VALID_PAYLOAD,
+        connectionMapping: "not-an-object",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(typeof body.error?.message).toBe("string");
+    expect(body.error.message.length).toBeGreaterThan(0);
+  });
+
   it("imports a valid NeoBoard export and returns 201 with notes array", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // Connection ownership check returns 1 allowed connection

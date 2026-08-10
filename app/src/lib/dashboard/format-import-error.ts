@@ -7,10 +7,17 @@ import type { ZodError } from "zod";
  * e.g. path `["layout","pages",0,"widgets",0,"query"]` + "Required" becomes
  * `layout.pages[0].widgets[0].query: Required`.
  */
-export function formatZodPath(path: ReadonlyArray<string | number>): string {
+/**
+ * Accepts `PropertyKey[]`, which is what zod 4 widened `issue.path` to — it can
+ * now contain symbols. A symbol has no useful textual form here, so it is
+ * rendered via `String()` rather than dropped: losing a segment would silently
+ * mis-address the error, which is the opposite of what this function is for.
+ */
+export function formatZodPath(path: ReadonlyArray<PropertyKey>): string {
   return path.reduce<string>((acc, seg) => {
     if (typeof seg === "number") return `${acc}[${seg}]`;
-    return acc ? `${acc}.${seg}` : seg;
+    const key = typeof seg === "symbol" ? String(seg) : seg;
+    return acc ? `${acc}.${key}` : key;
   }, "");
 }
 

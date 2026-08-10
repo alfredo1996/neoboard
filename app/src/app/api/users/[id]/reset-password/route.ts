@@ -49,7 +49,7 @@ export async function POST(
     const body = await request.json();
     const parsed = resetPasswordSchema.safeParse(body);
     if (!parsed.success) {
-      return badRequest(parsed.error.errors[0].message);
+      return badRequest(parsed.error.issues[0].message);
     }
 
     const password = parsed.data.newPassword ?? generateTempPassword();

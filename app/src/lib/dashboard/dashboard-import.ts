@@ -117,7 +117,7 @@ export const dashboardLayoutSchema = z
   .object({
     version: z.literal(2),
     pages: z.array(pageSchema),
-    settings: z.record(z.unknown()).optional(),
+    settings: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
 
@@ -129,6 +129,7 @@ export const neoboardExportSchema = z.object({
     description: z.string().nullable().optional(),
   }),
   connections: z.record(
+    z.string(),
     z.object({
       name: z.string(),
       type: z.string(),
