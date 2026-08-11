@@ -10,6 +10,22 @@ class TestAuth extends AuthenticationModule {
   validate(uri: string, protocols: string[] = []): void {
     this._validateUri(uri, protocols);
   }
+
+  // The three abstract members exist only to satisfy the contract; nothing here
+  // touches a driver. ts-jest runs with `diagnostics: false`, so omitting them
+  // ran fine — but the root tsconfig has no `include`, so any compiler pointed
+  // at this directory would reject the class.
+  createDriver(): unknown {
+    throw new Error("not used in these tests");
+  }
+
+  async verifyAuthentication(): Promise<boolean> {
+    throw new Error("not used in these tests");
+  }
+
+  async updateAuthConfig(): Promise<void> {
+    throw new Error("not used in these tests");
+  }
 }
 
 function messageFor(uri: string, protocols: string[] = []): string {
