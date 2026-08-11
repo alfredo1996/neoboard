@@ -75,6 +75,18 @@ describe("PostgresAuthenticationModule error paths (#1303)", () => {
       expect(logged()).toContain("TypeError");
       expect(logged()).not.toContain("Invalid URL");
     });
+
+    // A thrown non-Error has neither `code` nor `name`. Drivers do throw
+    // strings, and the point of this expression is that it degrades to a
+    // constant rather than stringifying whatever it was handed.
+    it("logs 'unknown' when a non-Error is thrown", () => {
+      poolShouldThrow =
+        "raw string carrying s3cr3t-password" as unknown as Error;
+
+      expect(() => new PostgresAuthenticationModule(CONFIG)).toThrow();
+      expect(logged()).toContain("unknown");
+      expect(logged()).not.toContain("s3cr3t-password");
+    });
   });
 
   describe("pool close fails", () => {
@@ -87,6 +99,26 @@ describe("PostgresAuthenticationModule error paths (#1303)", () => {
       await auth.close();
 
       expect(logged()).toContain("57P01");
+      expect(logged()).not.toContain("s3cr3t-password");
+    });
+
+    it("falls back to the error name when the close error has no code", async () => {
+      const auth = new PostgresAuthenticationModule(CONFIG);
+      mockEnd.mockRejectedValueOnce(new RangeError("bad s3cr3t-password"));
+
+      await auth.close();
+
+      expect(logged()).toContain("RangeError");
+      expect(logged()).not.toContain("s3cr3t-password");
+    });
+
+    it("logs 'unknown' when a non-Error is thrown", async () => {
+      const auth = new PostgresAuthenticationModule(CONFIG);
+      mockEnd.mockRejectedValueOnce("raw string with s3cr3t-password");
+
+      await auth.close();
+
+      expect(logged()).toContain("unknown");
       expect(logged()).not.toContain("s3cr3t-password");
     });
 
