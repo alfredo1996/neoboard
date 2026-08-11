@@ -342,3 +342,44 @@ describe("testInlineSchema", () => {
     expect(result.success).toBe(false);
   });
 });
+
+// #1303 — the client-side `validateConnectionUri` gives the dialog immediate
+// feedback but is bypassable by POSTing to the API directly, so this schema is
+// the authoritative check. A password in the URI is ignored by the connectors
+// and only ever ends up somewhere it shouldn't be.
+describe("connectionConfigSchema — password in the URI (#1303)", () => {
+  const base = { username: "u", password: "p" };
+
+  it("rejects a URI carrying a password", () => {
+    const result = connectionConfigSchema.safeParse({
+      ...base,
+      uri: "postgresql://admin:s3cr3t@db:5432/app",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("does not echo the password in the validation message", () => {
+    const result = connectionConfigSchema.safeParse({
+      ...base,
+      uri: "postgresql://admin:s3cr3t@db:5432/app",
+    });
+    const msg = result.success ? "" : JSON.stringify(result.error.issues);
+    expect(msg).not.toContain("s3cr3t");
+  });
+
+  it("accepts a bare username, which is not a secret", () => {
+    expect(
+      connectionConfigSchema.safeParse({
+        ...base,
+        uri: "postgresql://admin@db:5432/app",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a clean URI", () => {
+    expect(
+      connectionConfigSchema.safeParse({ ...base, uri: "bolt://graph:7687" })
+        .success,
+    ).toBe(true);
+  });
+});
