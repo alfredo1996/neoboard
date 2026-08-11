@@ -34,6 +34,16 @@ updates:
       - dependency-name: tailwindcss
         update-types: [version-update:semver-major]
 
+      # react-table v9 is an API migration, not a bump: `features` becomes a
+      # required static registry (our six row models are per-render prop
+      # toggles), every core type gains TFeatures as its first generic, and
+      # getIsSomeRowsSelected() silently flips meaning — which breaks the
+      # select-all indeterminate checkbox with no compile error. #1489 measured
+      # 71 type errors in component/ alone before the job even reached app/.
+      # Deferred until the v1.6 a11y cluster lands — see #1498.
+      - dependency-name: "@tanstack/react-table"
+        update-types: [version-update:semver-major]
+
   # ── docs site ─────────────────────────────────────────────────────────────
   # docs/ is NOT a workspace — it has its own package-lock.json, so it needs its
   # own entry. It was unwatched entirely before #1427.
