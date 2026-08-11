@@ -51,7 +51,7 @@ import {
   CopyButton,
 } from "@neoboard/components";
 import { useToast } from "@neoboard/components";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { DataGridColumn } from "@neoboard/components";
 import { RoleCell } from "./role-cell";
 
 type CanWriteCellProps = Readonly<{
@@ -231,7 +231,7 @@ export default function UsersPage() {
   );
 
   const columns = useMemo(
-    (): ColumnDef<UserListItem, unknown>[] => [
+    (): DataGridColumn<UserListItem>[] => [
       { accessorKey: "name", header: "Name" },
       { accessorKey: "email", header: "Email" },
       {
