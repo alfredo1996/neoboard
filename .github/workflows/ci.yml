@@ -208,6 +208,7 @@ jobs:
             connection/coverage/lcov.info
             connection/coverage-quality/lcov.info
             cli/coverage/lcov.info
+            connector-sdk/coverage/lcov.info
 
   # ── Job 2: E2E tests — 5 shards with isolated containers ──────────────────
   # Each shard gets its own runner + Testcontainers (no shared state).
