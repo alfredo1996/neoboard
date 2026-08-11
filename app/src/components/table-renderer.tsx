@@ -12,8 +12,11 @@ import {
   interpolateColor,
   contrastTextColor,
 } from "@neoboard/components";
-import type { StylingRule, ColorScaleConfig } from "@neoboard/components";
-import type { ColumnDef } from "@tanstack/react-table";
+import type {
+  StylingRule,
+  ColorScaleConfig,
+  DataGridColumn,
+} from "@neoboard/components";
 import { parseGroupByColumns } from "@/lib/widget/table-utils";
 import { resolveStylingRuleRowStyle } from "@/lib/widget/table-styling";
 
@@ -95,7 +98,7 @@ export function TableRenderer({
   const aggregationFn = ((settings.aggregationFn as string) || "sum") as
     "sum" | "mean" | "median" | "count" | "min" | "max";
 
-  const columns = useMemo((): ColumnDef<Record<string, unknown>, unknown>[] => {
+  const columns = useMemo((): DataGridColumn<Record<string, unknown>>[] => {
     if (!records.length) return [];
     const aggSymbol = AGG_SYMBOLS[aggregationFn] ?? "Σ";
     return Object.keys(records[0]).map((key) => {
