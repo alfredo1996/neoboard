@@ -46,6 +46,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -654,6 +655,20 @@ export function WidgetEditorModal({
                   }
                 })()}
               </DialogTitle>
+              <DialogDescription>
+                {(() => {
+                  switch (mode) {
+                    case "lab-edit":
+                      return "Change this template's query, type, or display settings.";
+                    case "lab-create":
+                      return "Build a reusable widget template for the library.";
+                    case "edit":
+                      return "Change this widget's query, type, or display settings.";
+                    default:
+                      return "Choose a widget type, write its query, and configure how results are displayed.";
+                  }
+                })()}
+              </DialogDescription>
             </DialogHeader>
 
             <div

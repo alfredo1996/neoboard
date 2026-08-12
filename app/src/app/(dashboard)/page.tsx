@@ -46,6 +46,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   Label,
   DropdownMenu,
@@ -312,6 +313,9 @@ function ImportDashboardDialog({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Dashboard imported</DialogTitle>
+            <DialogDescription>
+              Your dashboard was imported successfully.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="rounded-md border p-3 bg-muted/40">
@@ -401,6 +405,10 @@ function ImportDashboardDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Import Dashboard</DialogTitle>
+            <DialogDescription>
+              Upload a dashboard JSON file to recreate its pages, widgets and
+              layout.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="py-4 space-y-4">
@@ -788,6 +796,10 @@ export default function DashboardListPage() {
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle>Create Dashboard</DialogTitle>
+              <DialogDescription>
+                Name your new dashboard. You can add widgets once it&apos;s
+                created.
+              </DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <Label htmlFor="dashboard-name">Name</Label>
@@ -858,6 +870,10 @@ export default function DashboardListPage() {
           <form onSubmit={handleRename}>
             <DialogHeader>
               <DialogTitle>Rename Dashboard</DialogTitle>
+              <DialogDescription>
+                Give this dashboard a new name. Its widgets and layout are
+                unaffected.
+              </DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <Label htmlFor="dashboard-rename">Name</Label>

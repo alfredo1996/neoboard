@@ -149,13 +149,22 @@ export function DashboardConnectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      {/* #1282: the explanatory copy below already describes this dialog, so
+          point at it rather than duplicating it into a DialogDescription —
+          two copies of the same sentence would drift. */}
+      <DialogContent
+        className="sm:max-w-lg"
+        aria-describedby="change-connection-desc"
+      >
         <DialogHeader>
           <DialogTitle>Change connection</DialogTitle>
         </DialogHeader>
 
         <div className="py-4 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p
+            id="change-connection-desc"
+            className="text-sm text-muted-foreground"
+          >
             Re-points widgets on{" "}
             <span className="font-medium text-foreground">{dashboardName}</span>{" "}
             only. Other dashboards using the same connection are not affected.

@@ -336,6 +336,18 @@ function DataGrid<TData>({
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
+                      // #1285: sort state was icon-only. Non-sortable columns
+                      // get no attribute at all — "none" would announce them
+                      // as sortable.
+                      aria-sort={
+                        !header.column.getCanSort()
+                          ? undefined
+                          : header.column.getIsSorted() === "asc"
+                            ? "ascending"
+                            : header.column.getIsSorted() === "desc"
+                              ? "descending"
+                              : "none"
+                      }
                       className="relative group/header"
                       style={
                         enableColumnResizing
@@ -385,8 +397,7 @@ function DataGrid<TData>({
                               type="text"
                               value={
                                 (header.column.getFilterValue() as
-                                  | string
-                                  | undefined) ?? ""
+                                  string | undefined) ?? ""
                               }
                               onChange={(e) =>
                                 header.column.setFilterValue(

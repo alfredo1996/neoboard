@@ -44,6 +44,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogDescription,
   Button,
   ParameterBar,
   CrossFilterTag,
@@ -431,6 +432,10 @@ export function DashboardContainer({
                 )
               : "Widget"}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            This widget shown at full size. Press Escape to return to the
+            dashboard.
+          </DialogDescription>
           {fullscreenWidget && (
             <>
               <div className="flex-1 min-h-0">

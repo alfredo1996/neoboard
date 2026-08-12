@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { Column } from "@tanstack/react-table";
-import { Check, PlusCircle } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { MultiSelectItem } from "./multi-select-item";
 
 interface DataGridFacetedFilterProps<TData, TValue> {
   column?: Column<TData, TValue>;
@@ -88,9 +88,13 @@ function DataGridFacetedFilter<TData, TValue>({
               {options.map((option) => {
                 const isSelected = selectedValues.has(option.value);
                 return (
-                  <CommandItem
+                  <MultiSelectItem
                     key={option.value}
-                    onSelect={() => {
+                    // Deliberately NO `value` prop: cmdk then filters on
+                    // textContent, which is why facet search works here and
+                    // not in MultiSelect (#1284 defect 2 / #1411).
+                    isSelected={isSelected}
+                    onToggle={() => {
                       if (isSelected) {
                         selectedValues.delete(option.value);
                       } else {
@@ -98,20 +102,10 @@ function DataGridFacetedFilter<TData, TValue>({
                       }
                       const filterValues = Array.from(selectedValues);
                       column?.setFilterValue(
-                        filterValues.length ? filterValues : undefined
+                        filterValues.length ? filterValues : undefined,
                       );
                     }}
                   >
-                    <div
-                      className={cn(
-                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "opacity-50 [&_svg]:invisible"
-                      )}
-                    >
-                      <Check className="h-4 w-4" />
-                    </div>
                     {option.icon && (
                       <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />
                     )}
@@ -121,7 +115,7 @@ function DataGridFacetedFilter<TData, TValue>({
                         {facets.get(option.value)}
                       </span>
                     )}
-                  </CommandItem>
+                  </MultiSelectItem>
                 );
               })}
             </CommandGroup>

@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   Button,
   LoadingButton,
@@ -88,6 +89,10 @@ export function SaveTemplateDialog({
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle>Save to Widget Library</DialogTitle>
+          <DialogDescription>
+            Save this widget as a reusable template. Its query and display
+            settings are kept; the connection is not.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

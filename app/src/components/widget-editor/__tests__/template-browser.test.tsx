@@ -24,6 +24,9 @@ vi.mock("@neoboard/components", () => ({
     <div>{children}</div>
   ),
   DialogTitle: ({ children }: React.PropsWithChildren) => <h2>{children}</h2>,
+  DialogDescription: ({ children }: React.PropsWithChildren) => (
+    <p>{children}</p>
+  ),
   DialogFooter: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),

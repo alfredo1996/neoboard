@@ -312,7 +312,10 @@ describe("ChartOptionsPanel", () => {
     const trigger = screen.getByText("Select columns…").closest("button")!;
     fireEvent.click(trigger);
     // Select "city"
-    const cityOption = screen.getByRole("option", { name: "city" });
+    // #1284: multi-select options now carry their checked state in the
+    // accessible name ("city, not selected"), so this can no longer be an
+    // exact match.
+    const cityOption = screen.getByRole("option", { name: /^city\b/ });
     fireEvent.click(cityOption);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ groupBy: "city" }),

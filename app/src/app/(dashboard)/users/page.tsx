@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   Select,
   SelectContent,
@@ -372,6 +373,10 @@ export default function UsersPage() {
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle>Create User</DialogTitle>
+              <DialogDescription>
+                Add a user, set their initial password, and choose their role.
+                You can require them to change it at first sign-in.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -505,12 +510,18 @@ export default function UsersPage() {
           if (!open) setTempPasswordData(null);
         }}
       >
-        <DialogContent>
+        {/* #1282: both paragraphs below already describe this dialog —
+            aria-describedby takes a space-separated id list, so link them
+            rather than inventing a third copy of the same warning. */}
+        <DialogContent aria-describedby="temp-password-desc temp-password-warning">
           <DialogHeader>
             <DialogTitle>Temporary Password</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
+            <p
+              id="temp-password-desc"
+              className="text-sm text-muted-foreground"
+            >
               A temporary password has been generated for{" "}
               <span className="font-medium text-foreground">
                 {tempPasswordData?.userName}
@@ -523,7 +534,10 @@ export default function UsersPage() {
               </code>
               <CopyButton value={tempPasswordData?.password ?? ""} />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p
+              id="temp-password-warning"
+              className="text-xs text-muted-foreground"
+            >
               Make sure to copy this password now. It cannot be retrieved later.
             </p>
           </div>

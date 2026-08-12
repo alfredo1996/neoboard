@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Check, ChevronsUpDown } from "lucide-react";
+import { X, ChevronsUpDown } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
 } from "@/components/ui/command";
 import {
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ParamWidgetSkeleton } from "./param-widget-skeleton";
+import { MultiSelectItem } from "../multi-select-item";
 
 export interface ParamMultiSelectorOption {
   label: string;
@@ -204,25 +204,16 @@ function ParamMultiSelector({
               <CommandEmpty>No options found.</CommandEmpty>
               <CommandGroup>
                 {options.map((opt) => (
-                  <CommandItem
+                  <MultiSelectItem
                     key={opt.value}
+                    // Machine value retained — the label-vs-value filtering
+                    // fix is #1411 / #1284 defect 2, not this change.
                     value={opt.value}
-                    onSelect={() => handleToggle(opt.value)}
+                    isSelected={values.includes(opt.value)}
+                    onToggle={() => handleToggle(opt.value)}
                   >
-                    <div
-                      className={cn(
-                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary shrink-0",
-                        values.includes(opt.value)
-                          ? "bg-primary text-primary-foreground"
-                          : "opacity-50",
-                      )}
-                    >
-                      {values.includes(opt.value) && (
-                        <Check className="h-3 w-3" />
-                      )}
-                    </div>
                     {opt.label}
-                  </CommandItem>
+                  </MultiSelectItem>
                 ))}
               </CommandGroup>
             </CommandList>

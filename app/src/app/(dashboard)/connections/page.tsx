@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   Switch,
 } from "@neoboard/components";
@@ -480,6 +481,10 @@ export default function ConnectionsPage() {
             <>
               <DialogHeader>
                 <DialogTitle>Choose Database Type</DialogTitle>
+                <DialogDescription>
+                  Select the kind of database this connection points at.
+                  You&apos;ll configure its details next.
+                </DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-4 py-4">
                 <button
@@ -520,6 +525,10 @@ export default function ConnectionsPage() {
                 <DialogTitle>
                   New {CONNECTOR_LABELS[form.type]} Connection
                 </DialogTitle>
+                <DialogDescription>
+                  Enter the host, credentials and options for this connection.
+                  Credentials are encrypted before they&apos;re stored.
+                </DialogDescription>
               </DialogHeader>
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
                 <div className="flex items-center gap-2">
@@ -759,6 +768,10 @@ export default function ConnectionsPage() {
           >
             <DialogHeader>
               <DialogTitle>Edit {editTarget?.name}</DialogTitle>
+              <DialogDescription>
+                Update the settings for this connection. Leave the password
+                blank to keep the stored credentials.
+              </DialogDescription>
             </DialogHeader>
             {editLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -1077,7 +1090,9 @@ export default function ConnectionsPage() {
           }
         }}
       >
-        <DialogContent>
+        {/* #1282: describes itself in the paragraph below — point at that
+            instead of duplicating the sentence. */}
+        <DialogContent aria-describedby="reassign-widgets-desc">
           <DialogHeader>
             <DialogTitle>Re-assign widgets</DialogTitle>
           </DialogHeader>
@@ -1094,7 +1109,10 @@ export default function ConnectionsPage() {
             );
             return (
               <div className="space-y-4 py-4">
-                <p className="text-sm text-muted-foreground">
+                <p
+                  id="reassign-widgets-desc"
+                  className="text-sm text-muted-foreground"
+                >
                   Pick a {sourceConn?.type ?? ""} connection to migrate widgets
                   to. Queries on widgets are not validated against the target
                   schema — broken queries will show their usual error state.

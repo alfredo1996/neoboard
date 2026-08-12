@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   Input,
   EmptyState,
 } from "@neoboard/components";
@@ -29,7 +30,7 @@ export function DashboardPickerDialog({
   const editable = useMemo(() => {
     if (!dashboards) return [];
     return dashboards.filter(
-      (d) => d.role === "owner" || d.role === "editor" || d.role === "admin"
+      (d) => d.role === "owner" || d.role === "editor" || d.role === "admin",
     );
   }, [dashboards]);
 
@@ -46,10 +47,19 @@ export function DashboardPickerDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) setSearch(""); onOpenChange(v); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) setSearch("");
+        onOpenChange(v);
+      }}
+    >
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle>Choose a Dashboard</DialogTitle>
+          <DialogDescription>
+            Select which dashboard to add this widget to.
+          </DialogDescription>
         </DialogHeader>
 
         {editable.length > 3 && (
@@ -92,7 +102,9 @@ export function DashboardPickerDialog({
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{d.name}</p>
                 {d.description && (
-                  <p className="text-xs text-muted-foreground truncate">{d.description}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {d.description}
+                  </p>
                 )}
               </div>
               <span className="text-xs text-muted-foreground shrink-0">

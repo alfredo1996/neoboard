@@ -80,7 +80,11 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
-      aria-describedby={undefined}
+      // #1282: this previously hard-coded `aria-describedby={undefined}`,
+      // which suppressed Radix's automatic link to DialogDescription for
+      // EVERY dialog — descriptions were visible but absent from the
+      // accessibility tree. Dialogs that genuinely have no description opt
+      // out at the call site instead.
       className={cn(dialogContentVariants({ size }), className)}
       {...props}
     >

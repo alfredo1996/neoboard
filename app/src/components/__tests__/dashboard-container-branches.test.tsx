@@ -107,6 +107,9 @@ vi.mock("@neoboard/components", () => ({
   DialogTitle: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="fullscreen-title">{children}</div>
   ),
+  DialogDescription: ({ children }: React.PropsWithChildren) => (
+    <p>{children}</p>
+  ),
   Button: ({
     children,
     ...props

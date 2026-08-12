@@ -1,17 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { X, Check, ChevronsUpDown } from "lucide-react";
+import { X, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MultiSelectItem } from "./multi-select-item";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
 } from "@/components/ui/command";
 import {
@@ -123,30 +123,24 @@ function MultiSelect({
       <PopoverContent className="w-[300px] p-0">
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          {/* #1284: cmdk never sets aria-multiselectable, so this prop does
+              pass through (unlike role/aria-selected on the items). */}
+          <CommandList aria-multiselectable="true">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
-                <CommandItem
+                <MultiSelectItem
                   key={option.value}
+                  // NOTE: still the machine value — cmdk then filters on UUIDs
+                  // rather than labels. That is #1411 / #1284 defect 2, fixed
+                  // there, not here.
                   value={option.value}
+                  isSelected={value.includes(option.value)}
                   disabled={option.disabled}
-                  onSelect={() => handleToggle(option.value)}
+                  onToggle={() => handleToggle(option.value)}
                 >
-                  <div
-                    className={cn(
-                      "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary",
-                      value.includes(option.value)
-                        ? "bg-primary text-primary-foreground"
-                        : "opacity-50",
-                    )}
-                  >
-                    {value.includes(option.value) && (
-                      <Check className="h-3 w-3" />
-                    )}
-                  </div>
                   {renderOption ? renderOption(option) : option.label}
-                </CommandItem>
+                </MultiSelectItem>
               ))}
             </CommandGroup>
           </CommandList>

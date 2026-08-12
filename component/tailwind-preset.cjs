@@ -9,6 +9,15 @@
 module.exports = {
   theme: {
     extend: {
+      // Tailwind seeds `--tw-ring-offset-color` in its base layer from
+      // `theme('ringOffsetColor.DEFAULT', '#fff')`. Left unset, every
+      // `ring-offset-*` utility falls back to opaque white, which paints a
+      // halo around focus rings in dark mode (#1293). Setting the default
+      // here fixes every component at once and stops the defect recurring —
+      // components no longer have to remember `ring-offset-background`.
+      ringOffsetColor: {
+        DEFAULT: "hsl(var(--background))",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

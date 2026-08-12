@@ -200,7 +200,7 @@ component/src/
 ├── charts/                 # ECharts wrappers (BaseChart + 14 types)
 ├── components/
 │   ├── ui/                 # 38 shadcn/ui primitives
-│   └── composed/           # 42 higher-order components
+│   └── composed/           # 43 higher-order components
 ├── hooks/                  # useWidgetSize, useContainerSize
 └── lib/                    # Utilities, design tokens, Cypher language
 
