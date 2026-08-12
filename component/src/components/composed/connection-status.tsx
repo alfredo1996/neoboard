@@ -9,10 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 
 export type ConnectionState =
-  | "connected"
-  | "disconnected"
-  | "connecting"
-  | "error";
+  "connected" | "disconnected" | "connecting" | "error";
 
 export interface ConnectionStatusProps {
   status: ConnectionState;
@@ -69,7 +66,15 @@ function ConnectionStatus({
       className={cn("gap-1.5", className)}
       // Announce connection-state changes to assistive tech (#1059).
       role="status"
-      aria-label={`Connection status: ${config.label}`}
+      // #1283: the error text used to live only in the hover tooltip, and
+      // Badge is a non-focusable <div>, so keyboard/AT users could never
+      // reach it. Fold it into the accessible name instead of adding focus
+      // management — the tooltip stays purely visual.
+      aria-label={
+        errorMessage
+          ? `Connection status: ${config.label}. ${errorMessage}`
+          : `Connection status: ${config.label}`
+      }
     >
       <span className={cn("h-2 w-2 rounded-full", config.dotClass)} />
       {config.label}

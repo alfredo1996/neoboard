@@ -74,31 +74,52 @@ function ConnectionCard({
         onClick && "cursor-pointer hover:bg-accent/50",
         className,
       )}
-      onClick={onClick}
     >
       <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-          {icon ?? <Database className="h-5 w-5 text-muted-foreground" />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium truncate">{name}</p>
-            <ConnectionStatus
-              status={status}
-              errorMessage={status === "error" ? statusText : undefined}
-            />
-            {shared && (
-              <Badge variant="secondary" className="gap-1 text-xs">
-                <Users className="h-3 w-3" />
-                Shared
-              </Badge>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground truncate">
-            {host}
-            {database && ` / ${database}`}
-          </p>
-        </div>
+        {/* #1283: the whole card used to be a click target on a bare <div> —
+            no role, no tab stop, no key handler — so the error detail it
+            reveals was unreachable for exactly the users who need it. The
+            body is a real <button> when clickable; the actions menu below
+            stays a SIBLING rather than being nested inside it. */}
+        {(() => {
+          const body = (
+            <>
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                {icon ?? <Database className="h-5 w-5 text-muted-foreground" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium truncate">{name}</p>
+                  <ConnectionStatus
+                    status={status}
+                    errorMessage={status === "error" ? statusText : undefined}
+                  />
+                  {shared && (
+                    <Badge variant="secondary" className="gap-1 text-xs">
+                      <Users className="h-3 w-3" />
+                      Shared
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate">
+                  {host}
+                  {database && ` / ${database}`}
+                </p>
+              </div>
+            </>
+          );
+          return onClick ? (
+            <button
+              type="button"
+              onClick={onClick}
+              className="flex flex-1 items-center gap-3 min-w-0 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {body}
+            </button>
+          ) : (
+            <div className="flex flex-1 items-center gap-3 min-w-0">{body}</div>
+          );
+        })()}
         {(onEdit ||
           onDelete ||
           onTest ||
