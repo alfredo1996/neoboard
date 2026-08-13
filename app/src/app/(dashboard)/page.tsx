@@ -1032,7 +1032,20 @@ export default function DashboardListPage() {
                         <CardHeader className="pb-2">
                           <div className="flex items-start justify-between gap-2">
                             <CardTitle className="text-base truncate">
-                              {d.name}
+                              {/* #1283: the card's onClick was the ONLY route
+                                  into a dashboard — a bare div with no role,
+                                  no tab stop, and no "Open" item in the menu,
+                                  so a keyboard-only reader could not open any
+                                  dashboard at all. The title is now a real
+                                  link (keyboard, middle-click, new tab); the
+                                  card onClick stays as a pointer convenience. */}
+                              <Link
+                                href={`/${d.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                              >
+                                {d.name}
+                              </Link>
                             </CardTitle>
                             <div className="flex items-center gap-1 shrink-0">
                               {(canEdit || canDuplicate || canDelete) && (

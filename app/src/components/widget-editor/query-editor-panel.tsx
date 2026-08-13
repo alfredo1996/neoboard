@@ -160,8 +160,17 @@ export function QueryEditorPanel({
         </Label>
         {chartType && QUERY_HINTS[chartType as ChartType] && (
           <Tooltip>
+            {/* #1283: an <svg> is not focusable, so this tooltip's focus
+                handlers could never fire and the query hint was pointer-only.
+                A real button carries the same tooltip and reaches keyboards. */}
             <TooltipTrigger asChild>
-              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+              <button
+                type="button"
+                aria-label="Query hint"
+                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+              </button>
             </TooltipTrigger>
             <TooltipContent
               side="top"
