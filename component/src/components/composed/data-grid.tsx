@@ -42,6 +42,9 @@ import {
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown>;
 
+/** Keyboard resize step, in px, for the column resize handle (#1283). */
+const RESIZE_STEP_PX = 16;
+
 /**
  * Fixed layout heights used when computing the dynamic page size from a
  * known container height.  Keep in sync with the actual rendered heights.
@@ -362,12 +365,49 @@ function DataGrid<TData>({
                             header.getContext(),
                           )}
                       {enableColumnResizing && header.column.getCanResize() && (
-                        <div
+                        // #1283 item 3: this was a bare <div> with pointer
+                        // handlers only — no role, no tab stop, no keyboard
+                        // path to widen a truncated column, and resetSize()
+                        // reachable only by double-click.
+                        <button
+                          type="button"
+                          aria-label={`Resize ${
+                            typeof header.column.columnDef.header === "string"
+                              ? header.column.columnDef.header
+                              : header.column.id
+                          }`}
                           onMouseDown={header.getResizeHandler()}
                           onTouchStart={header.getResizeHandler()}
                           onDoubleClick={() => header.column.resetSize()}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === "ArrowLeft" ||
+                              e.key === "ArrowRight"
+                            ) {
+                              e.preventDefault();
+                              const delta =
+                                e.key === "ArrowLeft"
+                                  ? -RESIZE_STEP_PX
+                                  : RESIZE_STEP_PX;
+                              const min = header.column.columnDef.minSize ?? 50;
+                              const next = Math.max(
+                                min,
+                                header.column.getSize() + delta,
+                              );
+                              table.setColumnSizing((prev) => ({
+                                ...prev,
+                                [header.column.id]: next,
+                              }));
+                            } else if (e.key === "Home" || e.key === "Escape") {
+                              e.preventDefault();
+                              header.column.resetSize();
+                            }
+                          }}
                           className={cn(
                             "absolute right-0 top-0 h-full w-2 cursor-col-resize select-none touch-none",
+                            // Focus counterpart to the hover reveal — without
+                            // it a keyboard user cannot see where they are.
+                            "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             header.column.getIsResizing()
                               ? "bg-primary opacity-100"
                               : "bg-border opacity-0 group-hover/header:opacity-50 hover:opacity-100",

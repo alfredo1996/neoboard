@@ -52,11 +52,13 @@ describe("focus ring coverage (#1128 D2)", () => {
         onRemove={onRemove}
       />,
     );
-    // The outer <button> also matches by name (it contains the sr-only
-    // label), so pick the inner <span role="button"> remove control.
-    const remove = screen
-      .getAllByRole("button", { name: /remove cross-filter/i })
-      .find((el) => el.tagName === "SPAN")!;
+    // #1283 item 4: the remove control used to be a <span role="button">
+    // nested inside the tag's own <button>, so the outer button absorbed its
+    // sr-only label and this had to disambiguate by tagName. They are now
+    // siblings and the name is unique to the real <button>.
+    const remove = screen.getByRole("button", {
+      name: /remove cross-filter/i,
+    });
 
     await user.click(remove);
     expect(onRemove).toHaveBeenCalledTimes(1);
