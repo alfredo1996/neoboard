@@ -41,6 +41,41 @@ describe("#1283 item 1 — a clickable ConnectionCard is keyboard-operable", () 
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the status live region outside the card button", () => {
+    // HTML-AAM: button descendants are presentational, so a role="status"
+    // live region nested inside a <button> loses its live-region semantics
+    // and stops announcing connection-state changes (#1059). Making the card
+    // keyboard-operable must not cost that.
+    render(
+      <ConnectionCard
+        name="Production DB"
+        host="db.example.com"
+        status="error"
+        statusText="Connection refused at port 7687"
+        onClick={() => {}}
+      />,
+    );
+
+    const card = screen.getByRole("button", { name: /Production DB/i });
+    const status = screen.getByRole("status");
+    expect(card).not.toContainElement(status);
+  });
+
+  it("still exposes the error text when the card is clickable", () => {
+    render(
+      <ConnectionCard
+        name="Production DB"
+        host="db.example.com"
+        status="error"
+        statusText="Connection refused at port 7687"
+        onClick={() => {}}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveAccessibleName(
+      /Connection refused at port 7687/,
+    );
+  });
+
   it("keeps the actions menu outside the card button", async () => {
     // Nesting the menu trigger inside the card button would be invalid HTML
     // and ARIA would make it presentational.
