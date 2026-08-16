@@ -44,6 +44,13 @@ updates:
       - dependency-name: "@tanstack/react-table"
         update-types: [version-update:semver-major]
 
+      # TypeScript 7 is a migration, not a bump — #1444 documents two blockers
+      # and the fact that TS is declared 5 times across 2 majors. Dependabot
+      # #1486 measured it: 13 failing checks. Same treatment as tailwindcss
+      # and react-table; without this the same red PR returns every week.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
   # ── docs site ─────────────────────────────────────────────────────────────
   # docs/ is NOT a workspace — it has its own package-lock.json, so it needs its
   # own entry. It was unwatched entirely before #1427.
