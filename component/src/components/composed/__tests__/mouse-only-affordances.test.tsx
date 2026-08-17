@@ -143,6 +143,26 @@ describe("#1283 item 5 — slider forwards its label to the thumbs", () => {
     expect(thumbs[1]).toHaveAccessibleName(/Price maximum/i);
   });
 
+  it("gives each range thumb a distinct name under aria-labelledby", () => {
+    // A single shared id names BOTH thumbs identically, leaving a range slider
+    // with two indistinguishable knobs. aria-labelledby takes an id list, so a
+    // per-thumb qualifier span is appended rather than replacing the caller's
+    // label.
+    render(
+      <>
+        <span id="range-label">Price</span>
+        <Slider
+          aria-labelledby="range-label"
+          defaultValue={[10, 90]}
+          max={100}
+        />
+      </>,
+    );
+    const [lo, hi] = screen.getAllByRole("slider");
+    expect(lo).toHaveAccessibleName(/Price.*minimum/i);
+    expect(hi).toHaveAccessibleName(/Price.*maximum/i);
+  });
+
   it("supports aria-labelledby as well", () => {
     render(
       <>

@@ -914,9 +914,12 @@ describe("NumberRangeSlider", () => {
         onClear={vi.fn()}
       />,
     );
-    fireEvent.change(screen.getByLabelText("price minimum"), {
-      target: { value: "" },
-    });
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: /price minimum/i }),
+      {
+        target: { value: "" },
+      },
+    );
     // Today: called with [0, 800] — the min snaps to the axis minimum and the
     // max handle collapses, re-running the query with a bound nobody asked for.
     expect(onChange).not.toHaveBeenCalled();
@@ -934,9 +937,12 @@ describe("NumberRangeSlider", () => {
         onClear={vi.fn()}
       />,
     );
-    fireEvent.change(screen.getByLabelText("price maximum"), {
-      target: { value: "" },
-    });
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: /price maximum/i }),
+      {
+        target: { value: "" },
+      },
+    );
     // Today: called with [200, 200].
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -953,9 +959,12 @@ describe("NumberRangeSlider", () => {
         onClear={vi.fn()}
       />,
     );
-    fireEvent.change(screen.getByLabelText("price minimum"), {
-      target: { value: "300" },
-    });
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: /price minimum/i }),
+      {
+        target: { value: "300" },
+      },
+    );
     expect(onChange).toHaveBeenCalledWith([300, 800]);
   });
 
