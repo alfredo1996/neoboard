@@ -70,7 +70,11 @@ export function SaveTemplateDialog({
         tags: tags.length > 0 ? tags : undefined,
         chartType: widget.chartType,
         connectorType,
-        connectionId: widget.connectionId || undefined,
+        // #1283: templates are portable — the connection is deliberately
+        // NOT persisted. It used to travel top-level here, be stored on
+        // widget_template.connectionId, and be read back by applyTemplate,
+        // which contradicted the dialog's own description. Stripping it
+        // from `settings` below was never enough on its own.
         query: widget.query,
         params: widget.params,
         settings: widget.settings

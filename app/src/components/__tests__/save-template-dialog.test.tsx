@@ -83,8 +83,11 @@ describe("SaveTemplateDialog", () => {
     expect(mutateAsync).toHaveBeenCalledTimes(1);
     const payload = mutateAsync.mock.calls[0][0];
     expect(payload.query).toBe("SELECT 1");
-    // The description promises this — assert it rather than trusting the copy.
+    // The description promises the connection is not kept. Assert BOTH places
+    // it could travel: an earlier version of this test checked only `settings`
+    // and passed while `connectionId` went top-level, so the copy shipped false.
     expect(payload.settings.connectionId).toBeUndefined();
+    expect(payload.connectionId).toBeUndefined();
     expect(onSaved).toHaveBeenCalled();
   });
 
