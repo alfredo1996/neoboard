@@ -200,9 +200,12 @@ describe("ChartOptionsPanel", () => {
     expect(container.firstChild).toHaveClass("custom-class");
   });
 
-  it("applies cursor-help class to label when option has a description", () => {
-    // All bar chart options have descriptions — labels should have cursor-help class
-    const { container } = render(
+  it("renders each described option's description as visible text (#1283)", () => {
+    // Was: labels carried `cursor-help` + a dotted underline and the
+    // description lived in a hover tooltip. A Label is not focusable, so that
+    // content was pointer-only. It is now real text, linked by
+    // aria-describedby — see chart-options-describedby.test.tsx.
+    render(
       <ChartOptionsPanel
         chartType="bar"
         settings={{}}
@@ -210,10 +213,13 @@ describe("ChartOptionsPanel", () => {
       />,
     );
     expandAllCategories();
-    const helpLabels = container.querySelectorAll("label.cursor-help");
-    // All bar options have descriptions — count should match schema
-    expect(helpLabels.length).toBeGreaterThan(0);
-    expect(helpLabels.length).toBe(getChartOptions("bar").length);
+    const described = getChartOptions("bar").filter((o) => o.description);
+    expect(described.length).toBeGreaterThan(0);
+    for (const option of described) {
+      expect(document.getElementById(`${option.key}-desc`)).toHaveTextContent(
+        option.description!,
+      );
+    }
   });
 
   it("does not render a HelpCircle icon — tooltip triggers on label text", () => {
@@ -232,7 +238,7 @@ describe("ChartOptionsPanel", () => {
     expect(helpIcons.length).toBe(0);
   });
 
-  it("label has dotted underline decoration when description is set", () => {
+  it("no longer gates descriptions behind a hover affordance (#1283)", () => {
     const { container } = render(
       <ChartOptionsPanel
         chartType="bar"
@@ -241,12 +247,11 @@ describe("ChartOptionsPanel", () => {
       />,
     );
     expandAllCategories();
-    const helpLabels = container.querySelectorAll("label.cursor-help");
-    expect(helpLabels.length).toBeGreaterThan(0);
-    // All such labels should have the dotted underline class
-    helpLabels.forEach((label) => {
-      expect(label.classList.contains("decoration-dotted")).toBe(true);
-    });
+    // The dotted underline advertised content the keyboard could never open.
+    expect(container.querySelectorAll("label.cursor-help")).toHaveLength(0);
+    expect(container.querySelectorAll("label.decoration-dotted")).toHaveLength(
+      0,
+    );
   });
 
   it("renders MultiSelect for column-multi-select type when columns are provided", () => {
@@ -312,7 +317,10 @@ describe("ChartOptionsPanel", () => {
     const trigger = screen.getByText("Select columns…").closest("button")!;
     fireEvent.click(trigger);
     // Select "city"
-    const cityOption = screen.getByRole("option", { name: "city" });
+    // #1284: multi-select options now carry their checked state in the
+    // accessible name ("city, not selected"), so this can no longer be an
+    // exact match.
+    const cityOption = screen.getByRole("option", { name: /^city\b/ });
     fireEvent.click(cityOption);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ groupBy: "city" }),

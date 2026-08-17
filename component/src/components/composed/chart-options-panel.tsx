@@ -12,12 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./multi-select";
@@ -39,20 +34,20 @@ function OptionLabel({ option }: { option: ChartOptionDef }) {
       </Label>
     );
   }
+  // #1283 item 2b: the description used to live only in a tooltip on this
+  // Label. A Label is not focusable, so the tooltip's focus handlers could
+  // never fire — and the dotted underline advertised content the keyboard
+  // could not open. Render it as real text and let the control point at it
+  // with aria-describedby.
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Label
-          htmlFor={option.key}
-          className="text-sm cursor-help underline decoration-dotted underline-offset-2"
-        >
-          {option.label}
-        </Label>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs text-xs">
+    <>
+      <Label htmlFor={option.key} className="text-sm">
+        {option.label}
+      </Label>
+      <p id={`${option.key}-desc`} className="text-xs text-muted-foreground">
         {option.description}
-      </TooltipContent>
-    </Tooltip>
+      </p>
+    </>
   );
 }
 
@@ -74,6 +69,9 @@ function OptionField({
           <OptionLabel option={option} />
           <Switch
             id={option.key}
+            aria-describedby={
+              option.description ? `${option.key}-desc` : undefined
+            }
             checked={Boolean(value ?? option.default)}
             onCheckedChange={(checked) => onChange(option.key, checked)}
           />
@@ -88,7 +86,12 @@ function OptionField({
             value={String(value ?? option.default)}
             onValueChange={(v) => onChange(option.key, v)}
           >
-            <SelectTrigger id={option.key}>
+            <SelectTrigger
+              id={option.key}
+              aria-describedby={
+                option.description ? `${option.key}-desc` : undefined
+              }
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -110,6 +113,9 @@ function OptionField({
             <OptionLabel option={option} />
             <Input
               id={option.key}
+              aria-describedby={
+                option.description ? `${option.key}-desc` : undefined
+              }
               value={String(value ?? option.default ?? "")}
               onChange={(e) => onChange(option.key, e.target.value)}
               placeholder="Run a preview query to select columns"
@@ -147,6 +153,9 @@ function OptionField({
           <OptionLabel option={option} />
           <Textarea
             id={option.key}
+            aria-describedby={
+              option.description ? `${option.key}-desc` : undefined
+            }
             value={String(value ?? option.default ?? "")}
             onChange={(e) => onChange(option.key, e.target.value)}
             placeholder={option.label}
@@ -164,6 +173,17 @@ function OptionField({
           <OptionLabel option={option} />
           <Input
             id={option.key}
+            // #1283 item 2b: aria-invalid had nothing to point at — the
+            // validation message sat in an unreferenced <p>. Link both the
+            // description and the message; the attribute takes an id list.
+            aria-describedby={
+              [
+                option.description ? `${option.key}-desc` : null,
+                validation ? `${option.key}-validation` : null,
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
             value={textValue}
             onChange={(e) => onChange(option.key, e.target.value)}
             placeholder={option.label}
@@ -171,6 +191,7 @@ function OptionField({
           />
           {validation && (
             <p
+              id={`${option.key}-validation`}
               role={validation.level === "error" ? "alert" : undefined}
               className={
                 validation.level === "error"
@@ -191,6 +212,9 @@ function OptionField({
           <OptionLabel option={option} />
           <Input
             id={option.key}
+            aria-describedby={
+              option.description ? `${option.key}-desc` : undefined
+            }
             type="number"
             value={String(value ?? option.default ?? 0)}
             onChange={(e) => {

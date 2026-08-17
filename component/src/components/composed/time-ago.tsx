@@ -74,9 +74,15 @@ function TimeAgo({ date, className, showTooltip = true }: TimeAgoProps) {
     );
   }
 
+  // #1283: <time> is not focusable, so the exact timestamp in the tooltip was
+  // pointer-only. Carry it in the a11y tree unconditionally; the tooltip stays
+  // as the visual affordance.
   const content = (
     <time dateTime={dateObj.toISOString()} className={cn("text-sm", className)}>
       {timeAgo}
+      {showTooltip && (
+        <span className="sr-only"> ({formatFullDate(dateObj)})</span>
+      )}
     </time>
   );
 

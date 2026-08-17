@@ -53,7 +53,7 @@ describe("CrossFilterTag", () => {
 
   it("applies custom className", () => {
     const { container } = render(
-      <CrossFilterTag {...defaultProps} className="custom-tag" />
+      <CrossFilterTag {...defaultProps} className="custom-tag" />,
     );
     expect(container.firstChild).toHaveClass("custom-tag");
   });
@@ -89,11 +89,22 @@ describe("CrossFilterTag", () => {
 
   // ── Keyboard accessibility ────────────────────────────────────────────
 
-  it("renders a semantic button when onClick is provided", () => {
+  it("renders the tag body as a button, as a sibling of remove (#1283)", () => {
+    // The root used to BE the button, which forced the remove control to be a
+    // <span role="button"> nested inside it — a role browsers then dropped.
+    // Now the root is a wrapper and only the body is a button.
     const onClick = vi.fn();
-    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
+    const { container } = render(
+      <CrossFilterTag {...defaultProps} onClick={onClick} onRemove={vi.fn()} />,
+    );
     const root = container.firstChild as HTMLElement;
-    expect(root.tagName).toBe("BUTTON");
+    expect(root.tagName).toBe("DIV");
+
+    const body = screen.getByRole("button", { name: /category/i });
+    const remove = screen.getByRole("button", { name: /remove cross-filter/i });
+    expect(body.tagName).toBe("BUTTON");
+    expect(remove.tagName).toBe("BUTTON");
+    expect(body).not.toContainElement(remove);
   });
 
   it("renders a div when onClick is not provided", () => {
@@ -104,10 +115,9 @@ describe("CrossFilterTag", () => {
 
   it("is focusable when onClick is provided", () => {
     const onClick = vi.fn();
-    const { container } = render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
-    const btn = container.firstChild as HTMLButtonElement;
+    render(<CrossFilterTag {...defaultProps} onClick={onClick} />);
+    const btn = screen.getByRole("button", { name: /category/i });
     btn.focus();
     expect(document.activeElement).toBe(btn);
   });
-
 });

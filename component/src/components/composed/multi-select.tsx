@@ -1,17 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { X, Check, ChevronsUpDown } from "lucide-react";
+import { X, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MultiSelectItem } from "./multi-select-item";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
 } from "@/components/ui/command";
 import {
@@ -91,9 +91,17 @@ function MultiSelect({
             {selectedOptions.slice(0, maxDisplay).map((option) => (
               <Badge key={option.value} variant="secondary" className="text-xs">
                 {option.label}
-                {/* role="button" span, not a nested <button> — the trigger is
-                    already a <button>, and interactive-in-interactive is invalid
-                    HTML (hydration warnings). Keyboard-operable + labeled. (#component-review) */}
+                {/* KNOWN DEFECT (#1283 item 4, tracked separately): this is a
+                    <span role="button"> because the trigger is already a
+                    <button> and interactive-in-interactive is invalid HTML.
+                    But ARIA makes the children of a `button` presentational,
+                    so browsers DROP this role and fold the label into the
+                    trigger's accessible name. cross-filter-tag.tsx solved this
+                    by de-nesting — only the body is a button and the remove
+                    control is its sibling. The same restructure is needed
+                    here; it is not done yet because the trigger renders the
+                    badges inline, which is a larger change. Do NOT treat this
+                    comment as a statement that the pattern is correct. */}
                 <span
                   role="button"
                   tabIndex={0}
@@ -123,30 +131,24 @@ function MultiSelect({
       <PopoverContent className="w-[300px] p-0">
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          {/* #1284: cmdk never sets aria-multiselectable, so this prop does
+              pass through (unlike role/aria-selected on the items). */}
+          <CommandList aria-multiselectable="true">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
-                <CommandItem
+                <MultiSelectItem
                   key={option.value}
+                  // NOTE: still the machine value — cmdk then filters on UUIDs
+                  // rather than labels. That is #1411 / #1284 defect 2, fixed
+                  // there, not here.
                   value={option.value}
+                  isSelected={value.includes(option.value)}
                   disabled={option.disabled}
-                  onSelect={() => handleToggle(option.value)}
+                  onToggle={() => handleToggle(option.value)}
                 >
-                  <div
-                    className={cn(
-                      "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary",
-                      value.includes(option.value)
-                        ? "bg-primary text-primary-foreground"
-                        : "opacity-50",
-                    )}
-                  >
-                    {value.includes(option.value) && (
-                      <Check className="h-3 w-3" />
-                    )}
-                  </div>
                   {renderOption ? renderOption(option) : option.label}
-                </CommandItem>
+                </MultiSelectItem>
               ))}
             </CommandGroup>
           </CommandList>

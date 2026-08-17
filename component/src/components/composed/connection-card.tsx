@@ -74,30 +74,58 @@ function ConnectionCard({
         onClick && "cursor-pointer hover:bg-accent/50",
         className,
       )}
-      onClick={onClick}
     >
       <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-          {icon ?? <Database className="h-5 w-5 text-muted-foreground" />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium truncate">{name}</p>
-            <ConnectionStatus
-              status={status}
-              errorMessage={status === "error" ? statusText : undefined}
-            />
-            {shared && (
-              <Badge variant="secondary" className="gap-1 text-xs">
-                <Users className="h-3 w-3" />
-                Shared
-              </Badge>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground truncate">
-            {host}
-            {database && ` / ${database}`}
-          </p>
+        {/* #1283: the whole card used to be a click target on a bare <div>
+            — no role, no tab stop, no key handler — so the error detail it
+            reveals was unreachable for exactly the users who need it.
+
+            Only the NAME AND HOST go inside the button. ConnectionStatus
+            carries role="status" (a live region, #1059), and HTML-AAM makes
+            button descendants presentational — nesting it would strip the
+            live-region semantics and stop connection-state changes being
+            announced. It and the Shared badge are siblings, like the actions
+            menu below. */}
+        {(() => {
+          const label = (
+            <>
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                {icon ?? <Database className="h-5 w-5 text-muted-foreground" />}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium truncate">{name}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {host}
+                  {database && ` / ${database}`}
+                </p>
+              </div>
+            </>
+          );
+          return onClick ? (
+            <button
+              type="button"
+              onClick={onClick}
+              className="flex flex-1 items-center gap-3 min-w-0 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {label}
+            </button>
+          ) : (
+            <div className="flex flex-1 items-center gap-3 min-w-0">
+              {label}
+            </div>
+          );
+        })()}
+        <div className="flex shrink-0 items-center gap-2">
+          <ConnectionStatus
+            status={status}
+            errorMessage={status === "error" ? statusText : undefined}
+          />
+          {shared && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              <Users className="h-3 w-3" />
+              Shared
+            </Badge>
+          )}
         </div>
         {(onEdit ||
           onDelete ||
