@@ -34,7 +34,7 @@ async function open(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("#1284 — faceted filter selected state", () => {
-  it("distinguishes checked from unchecked facets by accessible name", async () => {
+  it("distinguishes checked from unchecked facets by aria-checked", async () => {
     const user = userEvent.setup();
     render(
       <DataGridFacetedFilter
@@ -45,12 +45,18 @@ describe("#1284 — faceted filter selected state", () => {
     );
     await open(user);
 
-    expect(
-      screen.getByRole("option", { name: /Active.*(?<!not )selected/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: /Inactive.*not selected/i }),
-    ).toBeInTheDocument();
+    // State moved from an sr-only name suffix onto aria-checked. This surface
+    // is the reason it mattered: the facet list omits `value`, so cmdk filters
+    // on textContent — and ", selected" in the text made every facet match a
+    // search for "selected".
+    expect(screen.getByRole("option", { name: /Active/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: /Inactive/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
   });
 
   it("still filters facets by typing a label", async () => {

@@ -43,21 +43,28 @@ function MultiSelectItem({
   children,
 }: MultiSelectItemProps) {
   return (
-    <CommandItem value={value} disabled={disabled} onSelect={onToggle}>
-      <div
-        data-slot="multi-select-indicator"
-        aria-hidden="true"
-        className={cn(
-          "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary",
-          isSelected ? "bg-primary text-primary-foreground" : "opacity-50",
-        )}
-      >
-        {isSelected && <Check className="h-3 w-3" />}
+    <CommandItem asChild value={value} disabled={disabled} onSelect={onToggle}>
+      {/* asChild so Radix Slot lets these props win: cmdk would otherwise
+          drive role from its own state. Note aria-CHECKED, not aria-selected:
+          cmdk uses aria-selected as its internal marker for the highlighted
+          item, so overriding it breaks Enter-to-toggle. aria-checked is the
+          correct attribute for a multi-selectable option anyway, and leaves
+          cmdk's keyboard navigation intact. Carrying state in an sr-only span
+          instead polluted the row's textContent, which is cmdk's filter key
+          when `value` is omitted. */}
+      <div role="option" aria-checked={isSelected}>
+        <div
+          data-slot="multi-select-indicator"
+          aria-hidden="true"
+          className={cn(
+            "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary",
+            isSelected ? "bg-primary text-primary-foreground" : "opacity-50",
+          )}
+        >
+          {isSelected && <Check className="h-3 w-3" />}
+        </div>
+        {children}
       </div>
-      {children}
-      <span className="sr-only">
-        {isSelected ? ", selected" : ", not selected"}
-      </span>
     </CommandItem>
   );
 }

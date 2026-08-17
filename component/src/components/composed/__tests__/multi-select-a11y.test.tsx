@@ -33,23 +33,29 @@ async function open(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("#1284 — MultiSelect conveys checked state to assistive tech", () => {
-  it("distinguishes checked from unchecked options by accessible name", async () => {
+  it("distinguishes checked from unchecked options by aria-checked", async () => {
     const user = userEvent.setup();
     render(
       <MultiSelect options={options} value={["a", "c"]} onChange={() => {}} />,
     );
     await open(user);
 
-    // Alpha and Gamma are checked; Beta is not.
-    expect(
-      screen.getByRole("option", { name: /Alpha.*(?<!not )selected/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: /Gamma.*(?<!not )selected/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: /Beta.*not selected/i }),
-    ).toBeInTheDocument();
+    // Was asserted via an sr-only ", selected" suffix in the accessible name.
+    // That suffix also landed in the row's textContent, which is cmdk's filter
+    // key — so a search for "selected" matched every row. State now lives on
+    // aria-checked, and the name is just the label.
+    expect(screen.getByRole("option", { name: /Alpha/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: /Gamma/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: /Beta/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
   });
 
   it("hides the decorative checkbox from assistive tech", async () => {
