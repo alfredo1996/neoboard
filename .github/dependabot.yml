@@ -44,6 +44,27 @@ updates:
       - dependency-name: "@tanstack/react-table"
         update-types: [version-update:semver-major]
 
+      # TypeScript 7 is a migration, not a bump — #1444 documents two blockers
+      # and the fact that TS is declared 5 times across 2 majors. Dependabot
+      # #1486 measured it: 13 failing checks. Same treatment as tailwindcss
+      # and react-table; without this the same red PR returns every week.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+      # @eslint/js 10 is a migration: #1488 fails ESLint, Unit and Sonar — the
+      # flat-config surface and rule defaults move together, so the root
+      # eslint.config.js needs a deliberate pass, not a version bump.
+      - dependency-name: "@eslint/js"
+        update-types: [version-update:semver-major]
+
+      # @neo4j-cypher/language-support majors break at RUNTIME, not compile
+      # time: #1487 fails Docker Build and all five E2E shards while
+      # type-checking cleanly. NeoBoard vendors cypher-lang under
+      # component/src/lib/cypher-lang/ with local modifications, so a major
+      # needs the vendored copy re-reconciled and the editor exercised.
+      - dependency-name: "@neo4j-cypher/language-support"
+        update-types: [version-update:semver-major]
+
   # ── docs site ─────────────────────────────────────────────────────────────
   # docs/ is NOT a workspace — it has its own package-lock.json, so it needs its
   # own entry. It was unwatched entirely before #1427.
