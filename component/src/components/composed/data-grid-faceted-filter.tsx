@@ -82,7 +82,9 @@ function DataGridFacetedFilter<TData, TValue>({
       <PopoverContent className="w-[200px] p-0" align="start">
         <Command>
           <CommandInput placeholder={title} />
-          <CommandList>
+          {/* #1283: options carry aria-checked, so the listbox must say
+              multiple may be checked at once. */}
+          <CommandList aria-multiselectable="true">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               {options.map((option) => {

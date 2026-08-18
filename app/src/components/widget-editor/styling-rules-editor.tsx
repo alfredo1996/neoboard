@@ -23,6 +23,7 @@ import {
   SelectValue,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@neoboard/components";
 import {
   DndContext,
@@ -362,6 +363,9 @@ export function StylingRulesEditor({ onBack }: StylingRulesEditorProps) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <DialogTitle>Styling Rules</DialogTitle>
+          <DialogDescription>
+            Colour cells and rows based on the values they contain.
+          </DialogDescription>
         </div>
       </DialogHeader>
 

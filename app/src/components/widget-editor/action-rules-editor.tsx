@@ -19,6 +19,7 @@ import {
   CreatableCombobox,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@neoboard/components";
 import { useAccordionCrud } from "./use-accordion-crud";
 import { FieldSelectorInput } from "./field-selector-input";
@@ -70,6 +71,9 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <DialogTitle>Action Rules</DialogTitle>
+          <DialogDescription>
+            Choose what happens when someone clicks a value in this widget.
+          </DialogDescription>
         </div>
       </DialogHeader>
 
