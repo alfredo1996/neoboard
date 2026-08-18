@@ -105,7 +105,7 @@ function ConnectionCard({
             <button
               type="button"
               onClick={onClick}
-              className="flex flex-1 items-center gap-3 min-w-0 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="flex flex-1 items-center gap-3 min-w-0 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               {label}
             </button>

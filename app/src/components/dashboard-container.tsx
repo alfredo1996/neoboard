@@ -433,7 +433,7 @@ export function DashboardContainer({
               : "Widget"}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            This widget shown at full size. Press Escape to return to the
+            This widget is shown at full size. Press Escape to return to the
             dashboard.
           </DialogDescription>
           {fullscreenWidget && (

@@ -200,7 +200,9 @@ function ParamMultiSelector({
                 onValueChange={(term) => onSearch?.(term)}
               />
             )}
-            <CommandList>
+            {/* #1283: options carry aria-checked, so the listbox must say
+                multiple may be checked at once. */}
+            <CommandList aria-multiselectable="true">
               <CommandEmpty>No options found.</CommandEmpty>
               <CommandGroup>
                 {options.map((opt) => (
