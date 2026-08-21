@@ -198,13 +198,22 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 
 ### Border Radius Hierarchy
 
-| Class          | Computed              | Where Used                                                           |
-| -------------- | --------------------- | -------------------------------------------------------------------- |
-| `rounded-xl`   | 12px                  | Card base ONLY                                                       |
-| `rounded-lg`   | 8px (`var(--radius)`) | Dialogs (`sm:rounded-lg`), popovers                                  |
-| `rounded-md`   | 6px                   | **DOMINANT** — buttons, inputs, selects, menu items (40 occurrences) |
-| `rounded-sm`   | 4px                   | Compact elements, close buttons, tiny controls                       |
-| `rounded-full` | 9999px                | Avatars, status dots, toggle switches, badges                        |
+| Class          | Computed                 | Where Used                                          |
+| -------------- | ------------------------ | --------------------------------------------------- |
+| `rounded-lg`   | 12px (`--radius-lg`)     | Card base, dialogs (`sm:rounded-lg`), popovers      |
+| `rounded-md`   | 8px (`--radius-md`)      | **DOMINANT** — buttons, inputs, selects, menu items |
+| `rounded-sm`   | 6px (`--radius-sm`)      | Compact elements, close buttons, tiny controls      |
+| `rounded-full` | 9999px (`--radius-pill`) | Avatars, status dots, toggle switches, badges       |
+
+`--radius` is a backward-compatible alias of `--radius-md` (8px). The authoritative
+values live in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`, which
+pins them as a ratchet — check there before quoting a number here.
+
+These radii are the _result of a decision_, not scaffold defaults: the v1.1 vibrant
+pass deliberately moved buttons `rounded-sm` → `rounded-md` and cards `rounded-md` →
+`rounded-lg` so the main floating surface reads softer. See
+`claude_code_docs/component-review/atoms-before-after.md`. Do not "correct" them
+toward sharper corners without superseding that decision knowingly.
 
 ### Border Rules
 
