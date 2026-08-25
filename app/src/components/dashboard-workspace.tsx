@@ -28,7 +28,10 @@ import {
   buildParamsUrl,
   extractSyncParams,
 } from "@/lib/shared/url-params";
-import { extractParamDefaults } from "@/lib/parameter/apply-param-defaults";
+import {
+  extractParamDefaults,
+  expandParamDefaults,
+} from "@/lib/parameter/apply-param-defaults";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
 import { classifySaveError } from "@/lib/dashboard/save-error";
@@ -208,9 +211,26 @@ export function DashboardWorkspace({
 
     const defaults = extractParamDefaults(serverLayout);
     const store = useParameterStore.getState();
-    for (const [name, value] of Object.entries(defaults)) {
-      if (store.parameters[name] !== undefined) continue;
-      store.setParameter(name, value, value, "", "text", "default", "");
+
+    // `field` is the parameter name and `source` a human label, matching what
+    // `useParamActions` writes when the user picks a value. Passing the value
+    // as `source` and "" as `field` — as this did until #1517 — rendered the
+    // parameter chip as "= VALUE" with no name, and its tooltip as "Set by
+    // <the value>". The widget id is what makes the chip link back.
+    //
+    // The expansion itself (number-range companions, per-type coercion) lives
+    // in `expandParamDefaults` so it is unit testable — this body is not.
+    for (const seed of expandParamDefaults(defaults)) {
+      if (store.parameters[seed.name] !== undefined) continue;
+      store.setParameter(
+        seed.name,
+        seed.value,
+        "Default value",
+        seed.name,
+        seed.type,
+        "default",
+        seed.widgetId,
+      );
     }
   }, [id, serverLayout]);
 
