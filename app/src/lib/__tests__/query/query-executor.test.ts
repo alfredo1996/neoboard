@@ -84,10 +84,44 @@ describe("rewriteParamsForPostgres", () => {
     expect(result.params).toEqual({ "0": 1, "1": "two", "2": null });
   });
 
-  it("sets undefined for params not found in the map", () => {
-    const result = rewriteParamsForPostgres("SELECT $param_missing", {});
+  // #1516: binding `undefined` for an absent token made node-pg send NULL, so
+  // `LIMIT $param_x` became `LIMIT NULL` — no limit — and the query SUCCEEDED
+  // with the wrong rows. Ten widgets in the shipped demo rendered that way.
+  // Missing now throws, matching what Neo4j already does.
+  it("throws and names the parameter when a referenced token is absent", () => {
+    expect(() => rewriteParamsForPostgres("SELECT $param_missing", {})).toThrow(
+      /param_missing/,
+    );
+  });
+
+  it("names every absent parameter, not just the first", () => {
+    expect(() =>
+      rewriteParamsForPostgres("SELECT $param_a, $param_b", { param_a: 1 }),
+    ).toThrow(/param_b/);
+    expect(() =>
+      rewriteParamsForPostgres("SELECT $param_a, $param_b", {}),
+    ).toThrow(/param_a.*param_b/);
+  });
+
+  // An explicit null is a legitimate value and must stay bindable — it is the
+  // distinction `undefined` could not express.
+  it("binds an explicit null without throwing", () => {
+    const result = rewriteParamsForPostgres("SELECT $param_x", {
+      param_x: null,
+    });
     expect(result.query).toBe("SELECT $1");
-    expect(result.params).toEqual({ "0": undefined });
+    expect(result.params).toEqual({ "0": null });
+  });
+
+  // The demo's number-range knobs read `$param_x_max` while the store holds
+  // `param_x`, so a prefix-greedy match would bind the wrong value (#1517).
+  it("treats a token whose name prefixes another as a distinct parameter", () => {
+    const result = rewriteParamsForPostgres(
+      "SELECT * FROM t WHERE n > $param_x LIMIT $param_x_max",
+      { param_x: 5, param_x_max: 12 },
+    );
+    expect(result.query).toBe("SELECT * FROM t WHERE n > $1 LIMIT $2");
+    expect(result.params).toEqual({ "0": 5, "1": 12 });
   });
 
   it("handles params with underscores in names", () => {
