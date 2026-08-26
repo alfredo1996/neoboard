@@ -14,6 +14,21 @@ describe("WidgetCard", () => {
     expect(screen.getByText("Sales")).toBeInTheDocument();
   });
 
+  // #1519 relies on this: a content widget with no title passes "" so that no
+  // heading renders, while its actions must stay reachable. Asserted here
+  // rather than in app/ because this is the contract that fix depends on.
+  it("renders no heading for an empty title but keeps its actions", () => {
+    render(
+      <WidgetCard title="" actions={[{ label: "Edit", onClick: vi.fn() }]}>
+        Content
+      </WidgetCard>,
+    );
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Widget actions" }),
+    ).toBeInTheDocument();
+  });
+
   it("reserves the subtitle line when there is no subtitle (#1246)", () => {
     // Two widgets side by side must start their content at the same height.
     // Without a reserved line, a card with a subtitle pushes its chart down
