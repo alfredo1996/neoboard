@@ -13,22 +13,6 @@
   }
 }
 
-/* Dark-mode basemap (#1529).
-   The tile provider is OpenStreetMap, which has no dark variant — CARTO's
-   dark_all did, but it now requires an API key and serves a watermarked tile
-   without one. Rather than swap providers by theme, invert the tile pane:
-   `invert(1) hue-rotate(180deg)` darkens the map while restoring hues to
-   roughly their original families (water stays blueish, parks greenish), and
-   the brightness/contrast trim stops the result glowing against the app's
-   charcoal surfaces.
-
-   Scoped to `.leaflet-tile-pane` deliberately — the marker, popup and control
-   panes are siblings, so they keep their real colours. Inverting the whole
-   container would flip the citrine markers to blue. */
-.dark .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
-}
-
 /* Leaflet control overrides for dark mode */
 .dark .leaflet-control-zoom a {
   background-color: hsl(220 13% 11%);
