@@ -7,12 +7,20 @@
  * dashboard row.
  *
  * IMPORTANT — schema duplication:
- *   This file hosts a copy of the export schema kept in sync with
+ *   This file hosts a copy of the export schema mirroring
  *   `app/src/lib/dashboard/dashboard-import.ts`. We cannot import the
  *   TypeScript module directly from a plain ESM script, and building
- *   the app just for seeding is overkill. A drift test in
- *   `__tests__/schema-drift.test.mjs` compares the two at test time so
- *   any change on one side fails CI until the other is updated.
+ *   the app just for seeding is overkill.
+ *
+ *   Nothing compares the two schemas directly. This comment previously
+ *   claimed a `__tests__/schema-drift.test.mjs` did, and failed CI on any
+ *   divergence — that file has never existed (#1515).
+ *
+ *   What does exist: `scripts/__tests__/seed-showcase-schema.test.ts`
+ *   validates every showcase against the APP's schema on each
+ *   `npm run verify`. So drift is caught wherever the shipped demo content
+ *   actually exercises it — which is the case that matters — but a
+ *   divergence in a branch no showcase uses will still pass unnoticed.
  */
 
 import { createRequire } from "module";
