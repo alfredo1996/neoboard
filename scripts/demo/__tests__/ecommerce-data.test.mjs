@@ -19,6 +19,26 @@ describe("ecommerce-data.mjs — seeded faker", () => {
     assert.equal(data.customers.length, COUNTS.customers);
     assert.equal(data.products.length, COUNTS.products);
     assert.equal(data.orders.length, COUNTS.orders);
+    assert.equal(data.feedback.length, COUNTS.feedback);
+  });
+
+  // #1510 — the feedback table seeded empty, so both "Recent feedback" demo
+  // tables rendered "No results" and read as broken to anyone browsing the
+  // demo. A handful of rows fixes the first impression; the form demo still
+  // works because submissions are stamped NOW() and the seeded rows carry
+  // past offsets, so a new submission always sorts to the top.
+  it("seeds feedback rows the form demo can sort under", () => {
+    const data = generateAll();
+    assert.ok(data.feedback.length >= 3);
+    for (const f of data.feedback) {
+      assert.ok(f.rating >= 1 && f.rating <= 5, "rating in CHECK range");
+      assert.equal(typeof f.category, "string");
+      assert.ok(f.category.length > 0);
+      assert.ok(
+        Number.isInteger(f.hoursAgo) && f.hoursAgo > 0,
+        "hoursAgo must be a positive offset so NOW() submissions sort first",
+      );
+    }
   });
 
   it("is deterministic — same seed produces byte-identical output", () => {

@@ -590,7 +590,7 @@
             "id": "rd-chart",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'regions', COUNT(*)::float FROM neoboard_demo_public.regions",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'regions', COUNT(*)::float, 12 FROM neoboard_demo_public.regions",
             "settings": {
               "title": "Dataset magnitudes — styled by average",
               "chartOptions": {

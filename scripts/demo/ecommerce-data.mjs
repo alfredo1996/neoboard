@@ -178,12 +178,39 @@ const ORDER_STATUSES = ["pending", "shipped", "delivered", "cancelled", "refunde
 // ---------------------------------------------------------------------------
 // Row counts (kept small enough to seed in <1s)
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Feedback (#1510)
+//
+// The table seeded empty because it is the Form widget's write target, so both
+// "Recent feedback" demo tables rendered "No results" and read as broken to a
+// prospect browsing the demo. A handful of rows fixes the first impression
+// without weakening the submit-then-appear demo: `hoursAgo` is a fixed offset
+// applied against NOW() at insert time, so seeded rows are always in the
+// recent past and a live submission (stamped NOW()) always sorts above them.
+//
+// Fixed literals rather than rng output so `generateAll` stays byte-identical
+// per seed — the determinism test hashes the whole payload.
+// ---------------------------------------------------------------------------
+const FEEDBACK = [
+  { rating: 5, category: "ui",       comment: "The new dashboard editor is a joy — drag, drop, done.", hoursAgo: 3 },
+  { rating: 4, category: "shipping", comment: "Order tracking page loads much faster than last month.", hoursAgo: 9 },
+  { rating: 5, category: "support",  comment: "Ticket answered in under an hour. Impressive.",          hoursAgo: 26 },
+  { rating: 3, category: "ui",       comment: "Dark mode is great, but the export dialog is cramped.",  hoursAgo: 50 },
+  { rating: 2, category: "shipping", comment: "Delivery estimate slipped twice on my last order.",      hoursAgo: 74 },
+  { rating: 4, category: "pricing",  comment: "Bulk discount tiers are finally clear on the invoice.",  hoursAgo: 120 },
+];
+
+export function generateFeedback() {
+  return FEEDBACK.map((f) => ({ ...f }));
+}
+
 export const COUNTS = {
   regions:   REGIONS.length,
   categories: CATEGORIES.length,
   customers: 200,
   products:  100,
   orders:    2000,
+  feedback:  FEEDBACK.length,
 };
 
 // ---------------------------------------------------------------------------
@@ -295,7 +322,8 @@ export function generateAll(seed = 570) {
   const customers = generateCustomers(rng);
   const products = generateProducts(rng);
   const { orders, orderItems } = generateOrders(rng, customers, products);
-  return { regions, categories, customers, products, orders, orderItems };
+  const feedback = generateFeedback();
+  return { regions, categories, customers, products, orders, orderItems, feedback };
 }
 
 /**
@@ -347,6 +375,16 @@ export async function insertAll(sql, data) {
     await sql`
       INSERT INTO order_items (order_id, product_id, qty, price)
       VALUES (${oi.order_id}, ${oi.product_id}, ${oi.qty}, ${oi.price})
+    `;
+  }
+
+  for (const f of data.feedback) {
+    // NOW() minus a fixed offset, computed at insert time: seeded feedback is
+    // always recent, and a form submission (stamped NOW()) sorts above it.
+    await sql`
+      INSERT INTO feedback (rating, category, comment, submitted_at)
+      VALUES (${f.rating}, ${f.category}, ${f.comment},
+              NOW() - make_interval(hours => ${f.hoursAgo}))
     `;
   }
 
