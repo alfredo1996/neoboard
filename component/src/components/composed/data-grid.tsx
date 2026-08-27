@@ -53,6 +53,9 @@ export const DATA_GRID_HEADER_HEIGHT = 40; // px — table <thead> row
 export const DATA_GRID_ROW_HEIGHT = 36; // px — single data <tr>
 export const DATA_GRID_PAGINATION_HEIGHT = 52; // px — pagination control bar
 
+/** Rows per page when neither an explicit size nor a container height is available. */
+export const DEFAULT_PAGE_SIZE = 10;
+
 /**
  * Calculate how many rows fit in the available container space.
  *
@@ -87,14 +90,16 @@ export interface DataGridProps<TData> {
   enableColumnResizing?: boolean;
   enablePagination?: boolean;
   /**
-   * Fixed fallback page size used when `containerHeight` is not provided or
-   * when `enablePagination` is `false`.
+   * Explicit rows per page. When set (and > 0) it takes precedence over
+   * `containerHeight` — an author who configured a page size meant it (#1530).
+   * Leave undefined to let the grid fit rows to its container.
    */
   pageSize?: number;
   /**
-   * Height of the outer widget container in pixels.  When provided and
-   * `enablePagination` is `true`, the page size is calculated dynamically so
-   * that exactly as many rows as fit are shown — no overflow, no wasted space.
+   * Height of the outer widget container in pixels.  When provided,
+   * `enablePagination` is `true` and no explicit `pageSize` is set, the page
+   * size is calculated dynamically so that exactly as many rows as fit are
+   * shown — no overflow, no wasted space (#16).
    */
   containerHeight?: number;
   onCellClick?: (info: { column: string; value: unknown }) => void;
@@ -136,7 +141,7 @@ function DataGrid<TData>({
   enableColumnFilters = false,
   enableColumnResizing = false,
   enablePagination = true,
-  pageSize = 10,
+  pageSize,
   containerHeight,
   onCellClick,
   clickableColumns,
@@ -188,14 +193,26 @@ function DataGrid<TData>({
 
   // Determine effective page size:
   //  1. When pagination is disabled, show all rows (large sentinel).
-  //  2. When containerHeight is provided, derive page size dynamically.
-  //  3. Otherwise fall back to the explicit `pageSize` prop.
+  //  2. An explicit `pageSize` wins — an author who set it meant it.
+  //  3. Otherwise derive from the container height (#16), so an unconfigured
+  //     table fits its tile.
+  //  4. Last resort when neither is available.
+  //
+  // The height check used to come first, which made the editor's Page Size
+  // control inert on every dashboard tile — a tile always supplies a height
+  // (#1530). `pageSize` therefore has no default parameter: collapsing "unset"
+  // into 10 here would destroy the distinction this ordering depends on.
+  //
+  // `> 0` rather than a bare undefined check: a cleared number input yields 0,
+  // and honouring that would render an empty grid, which reads as a data
+  // failure rather than a setting.
   const effectivePageSize = React.useMemo(() => {
     if (!enablePagination) return Number.MAX_SAFE_INTEGER;
+    if (pageSize !== undefined && pageSize > 0) return pageSize;
     if (containerHeight !== undefined && containerHeight > 0) {
       return calcDynamicPageSize(containerHeight, TOOLBAR_HEIGHT);
     }
-    return pageSize;
+    return DEFAULT_PAGE_SIZE;
   }, [enablePagination, containerHeight, pageSize, TOOLBAR_HEIGHT]);
 
   const allColumns = React.useMemo(() => {

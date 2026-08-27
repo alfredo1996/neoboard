@@ -173,7 +173,11 @@ describe("DataGrid — enablePagination", () => {
     expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
   });
 
-  it("uses containerHeight to compute page size when provided", () => {
+  // #16's behaviour, unchanged: with NO explicit page size, fit rows to the
+  // container. Note `pageSize` is omitted — before #1530 this test passed
+  // `pageSize={20}` and asserted it was overridden, which is the behaviour
+  // that made the editor's Page Size control inert on every dashboard tile.
+  it("uses containerHeight to compute page size when no pageSize is set", () => {
     // A 400px container with no toolbar.
     // calcDynamicPageSize(400, 0) = Math.floor((400-40-52)/36) = Math.floor(308/36) = Math.floor(8.5) = 8
     const dynamicSize = calcDynamicPageSize(400, 0);
@@ -184,12 +188,49 @@ describe("DataGrid — enablePagination", () => {
         data={manyRows}
         enablePagination
         containerHeight={400}
-        pageSize={20} // should be overridden by the dynamic calculation
       />,
     );
 
     const rows = screen.getAllByText(/^User \d+$/);
     expect(rows).toHaveLength(dynamicSize);
+  });
+
+  // #1530 — an author who sets Page Size means it.
+  it("an explicit pageSize wins over containerHeight", () => {
+    const dynamicSize = calcDynamicPageSize(400, 0);
+    expect(dynamicSize).not.toBe(5); // guard: otherwise this asserts nothing
+
+    render(
+      <DataGrid
+        columns={columns}
+        data={manyRows}
+        enablePagination
+        containerHeight={400}
+        pageSize={5}
+      />,
+    );
+
+    expect(screen.getAllByText(/^User \d+$/)).toHaveLength(5);
+  });
+
+  it("falls back to a sensible default when neither is given", () => {
+    render(<DataGrid columns={columns} data={manyRows} enablePagination />);
+    expect(screen.getAllByText(/^User \d+$/)).toHaveLength(10);
+  });
+
+  it("an explicit pageSize of 0 is ignored rather than showing nothing", () => {
+    // 0 is what a cleared number input produces; rendering an empty grid for
+    // it would look like a data failure.
+    render(
+      <DataGrid
+        columns={columns}
+        data={manyRows}
+        enablePagination
+        containerHeight={400}
+        pageSize={0}
+      />,
+    );
+    expect(screen.getAllByText(/^User \d+$/).length).toBeGreaterThan(0);
   });
 
   it("falls back to pageSize prop when containerHeight is not provided", () => {
