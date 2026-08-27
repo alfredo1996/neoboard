@@ -328,6 +328,9 @@ export function GraphExplorationWrapper({
         onLayoutChange={handleLayoutChange}
         onCaptionMapChange={handleCaptionMapChange}
         autoFit={autoFit}
+        // This wrapper renders its own status bar below; without this the same
+        // counts appeared twice in one widget (#1521).
+        showNodeCount={false}
       />
 
       {/* Status bar */}

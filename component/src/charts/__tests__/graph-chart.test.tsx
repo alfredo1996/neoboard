@@ -1081,6 +1081,36 @@ describe("GraphChart", () => {
       expect(count).toHaveTextContent("1 node, 1 edge");
     });
 
+    // #1521 — the wrapper renders its own status bar, so the chart's overlay
+    // pill has to be suppressible or the same counts show up twice.
+    it("hides the node count when showNodeCount is false", () => {
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          showNodeCount={false}
+        />,
+      );
+      expect(screen.queryByTestId("graph-node-count")).not.toBeInTheDocument();
+    });
+
+    it("still shows the node count when showNodeCount is omitted", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      expect(screen.getByTestId("graph-node-count")).toBeInTheDocument();
+    });
+
+    it("keeps the zoom toolbar when the count is hidden", () => {
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          showNodeCount={false}
+        />,
+      );
+      expect(screen.getByLabelText("Zoom in")).toBeInTheDocument();
+      expect(screen.getByLabelText("Fit graph")).toBeInTheDocument();
+    });
+
     it("updates the node count when nodes and edges change", () => {
       const { rerender } = render(
         <GraphChart nodes={sampleNodes} edges={sampleEdges} />,

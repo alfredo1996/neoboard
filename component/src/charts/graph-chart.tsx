@@ -112,6 +112,16 @@ export interface GraphChartProps {
    * Useful when the container size may change after initial render (e.g. fullscreen dialogs).
    */
   autoFit?: boolean;
+  /**
+   * Show the "N nodes, M edges" overlay pill (top-left). Default true.
+   *
+   * A consumer that renders its own status bar passes false — otherwise the
+   * same counts appear twice in one widget, which is what
+   * `graph-exploration-wrapper` did until #1521. Opt-out rather than removal:
+   * the chart is also rendered bare (a graph widget with no connectionId),
+   * where the pill is the only count there is.
+   */
+  showNodeCount?: boolean;
   /** Rule-based styling rules for node color/size */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for styling rule evaluation */
@@ -342,6 +352,7 @@ function GraphChartInner({
   onLayoutChange,
   onCaptionMapChange,
   autoFit,
+  showNodeCount = true,
   stylingRules,
   paramValues,
   className,
@@ -613,14 +624,17 @@ function GraphChartInner({
 
   return (
     <div className={`relative h-full w-full ${className ?? ""}`}>
-      {/* Node count display (top-left) */}
-      <div
-        className="absolute top-2 left-2 z-10 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm"
-        data-testid="graph-node-count"
-      >
-        {nodes.length} {nodes.length === 1 ? "node" : "nodes"}, {edges.length}{" "}
-        {edges.length === 1 ? "edge" : "edges"}
-      </div>
+      {/* Node count display (top-left) — suppressed by a consumer that renders
+          its own status bar, so the counts never appear twice (#1521). */}
+      {showNodeCount && (
+        <div
+          className="absolute top-2 left-2 z-10 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm"
+          data-testid="graph-node-count"
+        >
+          {nodes.length} {nodes.length === 1 ? "node" : "nodes"}, {edges.length}{" "}
+          {edges.length === 1 ? "edge" : "edges"}
+        </div>
+      )}
 
       {/* Overlay toolbar */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 shadow-sm backdrop-blur-sm">
