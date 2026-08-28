@@ -128,3 +128,33 @@ describe("GraphExplorationWrapper — property inspector (#1191)", () => {
     expect(screen.queryByTestId("property-panel")).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// #1521 — this wrapper renders its own status bar, so the chart's overlay pill
+// must be suppressed. Both carried data-testid="graph-node-count", so the same
+// counts appeared twice in one widget.
+//
+// Asserted on the props handed to the stub rather than by counting rendered
+// elements: GraphChart is NVL-backed and stubbed here, so its pill never
+// renders in jsdom and a DOM count would pass whether or not the wrapper asked
+// for suppression. The prop IS the contract.
+// ---------------------------------------------------------------------------
+
+describe("GraphExplorationWrapper — no duplicate node counts (#1521)", () => {
+  it("tells GraphChart not to render its own node count", () => {
+    renderWrapper();
+    expect(chartProps.showNodeCount).toBe(false);
+  });
+
+  it("renders exactly one node-count element of its own", () => {
+    renderWrapper();
+    expect(screen.getAllByTestId("graph-node-count")).toHaveLength(1);
+    expect(screen.getByTestId("graph-node-count")).toHaveTextContent("2 nodes");
+  });
+
+  it("still renders its status bar", () => {
+    renderWrapper();
+    expect(screen.getByTestId("graph-status-bar")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-edge-count")).toHaveTextContent("0 edges");
+  });
+});
