@@ -401,11 +401,15 @@ describe("colorPalette option", () => {
     }
   });
 
-  it("colorPalette defaults to 'deep-ocean'", () => {
+  // #1520: was 'deep-ocean', a PALETTE_ALIASES entry rather than a
+  // COLOR_PALETTES key — so it matched none of the select's own items and the
+  // control rendered empty on every chart. The alias still resolves at render
+  // time for dashboards saved before #821; only the default changed.
+  it("colorPalette defaults to the canonical 'citrine'", () => {
     for (const type of echartsTypes) {
       const defaults = getDefaultChartSettings(type);
       expect(defaults.colorPalette, `${type} default colorPalette`).toBe(
-        "deep-ocean",
+        "citrine",
       );
     }
   });

@@ -15,6 +15,10 @@ import {
   getChartDefaults,
 } from "@/lib/plugin/chart-helpers";
 import { migrateColorThresholds } from "@/lib/dashboard/migrate-color-thresholds";
+// Deep import, not the `charts` barrel: that barrel pulls in NVL, which
+// touches `document` at module scope and cannot load in this node-environment
+// store. palettes.ts is pure data plus two functions.
+import { resolvePaletteId } from "@neoboard/components/charts/palettes";
 import type { Transform } from "@/lib/query/data-transforms";
 
 // ParamUIType/DateSubType are string unions — define locally to avoid importing
@@ -57,6 +61,28 @@ function reverseParamTypeMapping(internalType: string): {
 export interface QueryHistoryEntry {
   query: string;
   savedAt: string;
+}
+
+/**
+ * Canonicalise a stored widget's chart options as they enter the editor.
+ *
+ * `colorPalette` may hold a legacy alias (`deep-ocean`, `warm-sunset`, …).
+ * Charts render it correctly — `getPaletteColors` resolves aliases — but the
+ * editor's Color Palette select builds its items from COLOR_PALETTES, which
+ * has no alias key, so an aliased value matched nothing and the control
+ * rendered empty (#1520). Resolving on the way in means the editor always
+ * works with a canonical id, and saving the widget quietly migrates it.
+ *
+ * The alias map itself is untouched: dashboards never opened in the editor
+ * keep resolving through it at render time.
+ */
+function normalizeLoadedChartOptions(
+  opts: Record<string, unknown>,
+): Record<string, unknown> {
+  if (typeof opts.colorPalette !== "string") return opts;
+  const resolved = resolvePaletteId(opts.colorPalette);
+  if (resolved === opts.colorPalette) return opts;
+  return { ...opts, colorPalette: resolved };
 }
 
 const MAX_QUERY_HISTORY = 10;
@@ -359,13 +385,14 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
 
   loadFromWidget: (widget) => {
     const s = widget.settings ?? {};
-    const opts = (s.chartOptions as Record<string, unknown>) ?? {};
+    const opts = normalizeLoadedChartOptions(
+      (s.chartOptions as Record<string, unknown>) ?? {},
+    );
     const ca = s.clickAction as ClickAction | undefined;
     const caMapping = ca?.parameterMapping;
     const sc = s.stylingConfig as StylingConfig | undefined;
     const cf = s.conditionalFormatting as
-      | { colorScales?: ColorScaleConfig[] }
-      | undefined;
+      { colorScales?: ColorScaleConfig[] } | undefined;
 
     // Resolve styling (new format or migrated from legacy)
     let stylingEnabled = false;

@@ -160,10 +160,23 @@ const PALETTE_ALIASES: Record<string, string> = {
 };
 
 /**
+ * Canonical palette id for the given id, following the legacy alias map.
+ * An id that is neither an alias nor a known palette is returned unchanged,
+ * so callers decide how to treat it.
+ *
+ * Exported so UI that has to *match* a stored id against the palette list can
+ * do the same resolution `getPaletteColors` already does internally. Without
+ * it, a widget storing a legacy alias rendered the right colours while its
+ * editor control showed nothing (#1520).
+ */
+export function resolvePaletteId(paletteId: string): string {
+  return PALETTE_ALIASES[paletteId] ?? paletteId;
+}
+
+/**
  * Returns the color array for the given palette ID, or `undefined` if the
  * palette does not exist. Supports legacy aliases for renamed palettes.
  */
 export function getPaletteColors(paletteId: string): string[] | undefined {
-  const resolved = PALETTE_ALIASES[paletteId] ?? paletteId;
-  return COLOR_PALETTES[resolved]?.colors;
+  return COLOR_PALETTES[resolvePaletteId(paletteId)]?.colors;
 }
