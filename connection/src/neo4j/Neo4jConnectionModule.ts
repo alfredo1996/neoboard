@@ -15,6 +15,7 @@ import { extractNodeAndRelPropertiesFromRecords } from "./utils";
 import { determineQueryStatus } from "@neoboard/connector-sdk";
 import { collectUpToLimit, drainRetainingUpTo } from "@neoboard/connector-sdk";
 import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
+import { toNeo4jParams } from "./coerce-params";
 
 /**
  * Neo4jConnectionModule
@@ -80,6 +81,12 @@ export class Neo4jConnectionModule extends ConnectionModule {
     config: ConnectionConfig,
     params: Record<string, unknown> = {},
   ) {
+    // Integral numbers must reach Cypher as Integers, not Floats, or
+    // `LIMIT $param` / `SKIP $param` are rejected outright (#1518). Done once
+    // here rather than at each tx.run below, so the read and write paths
+    // cannot drift.
+    const boundParams = toNeo4jParams(params);
+
     const session = this.getDriver().session({
       defaultAccessMode: neo4j.session[config.accessMode],
       database: config.database,
@@ -99,13 +106,16 @@ export class Neo4jConnectionModule extends ConnectionModule {
             // a large table could exhaust the heap shared by every tenant on
             // the process (#1298). Draining pulls each record — all side
             // effects run — while keeping only rowLimit of them.
-            return drainRetainingUpTo(tx.run(query, params), config.rowLimit);
+            return drainRetainingUpTo(
+              tx.run(query, boundParams),
+              config.rowLimit,
+            );
           }
           // Reads stream lazily: do NOT await tx.run(...) (awaiting buffers the
           // whole result set). The Result is async-iterable, so stop after
           // rowLimit + 1 records (the MAX_ROWS+1 truncation probe) — peak memory
           // stays bounded regardless of how many rows match.
-          const res = tx.run(query, params);
+          const res = tx.run(query, boundParams);
           return collectUpToLimit(res, config.rowLimit);
         },
         {
