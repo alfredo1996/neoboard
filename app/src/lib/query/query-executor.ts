@@ -303,18 +303,20 @@ export async function executeQuery(
       : {}),
   };
 
-  // PostgreSQL uses positional $1, $2 params — rewrite $param_xxx tokens
-  let finalQueryParams = queryParams;
-  if (
-    type === "postgresql" &&
-    queryParams.params &&
-    Object.keys(queryParams.params).length > 0
-  ) {
-    finalQueryParams = rewriteParamsForPostgres(
-      queryParams.query,
-      queryParams.params,
-    );
-  }
+  // PostgreSQL uses positional $1, $2 params — rewrite $param_xxx tokens.
+  //
+  // Unconditional for PostgreSQL (#1516). Gating this on a non-empty params
+  // map made the same missing parameter fail two opposite ways: with an empty
+  // map the rewrite was skipped and a literal `$param_x` reached the driver as
+  // a syntax error, while with any other key present it was bound as NULL and
+  // the query silently succeeded on the wrong rows. A dashboard with one
+  // parameter set was therefore less safe than one with none. Both paths now
+  // raise the same named error. For a query with no tokens the rewrite is a
+  // no-op, so there is nothing to gate.
+  const finalQueryParams =
+    type === "postgresql"
+      ? rewriteParamsForPostgres(queryParams.query, queryParams.params ?? {})
+      : queryParams;
 
   return new Promise((resolve, reject) => {
     // Track truncation via setStatus — both connectors call
