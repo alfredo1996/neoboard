@@ -82,6 +82,12 @@ const chartOptionsRegistry: Record<string, ChartOptionDef[]> = {
   choropleth: [...choroplethOptions, ...behaviorOptions, ...appearanceOptions],
 };
 
+/**
+ * Every chart type that declares options. Exported so a test can sweep all of
+ * them rather than restating the list and silently missing a new one.
+ */
+export const CHART_TYPES_WITH_OPTIONS = Object.keys(chartOptionsRegistry);
+
 export function getChartOptions(chartType: string): ChartOptionDef[] {
   return chartOptionsRegistry[chartType] ?? [];
 }

@@ -289,7 +289,11 @@ export function TableRenderer({
           enableSelection={settings.enableSelection as boolean | undefined}
           enableColumnFilters={settings.enableColumnFilters === true}
           enablePagination={enablePagination}
-          pageSize={(settings.pageSize as number) ?? 10}
+          // Passed through as-is, NOT `?? 10`: collapsing "unset" into a
+          // number here is what made the Page Size control inert, because
+          // DataGrid could no longer tell a configured 10 from no value at
+          // all and always preferred the container height (#1530).
+          pageSize={settings.pageSize as number | undefined}
           numberFormat={
             settings.numberFormat as
               "comma" | "compact" | "percent" | "plain" | undefined

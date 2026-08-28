@@ -16,6 +16,7 @@
     "./ui": "./src/components/ui/index.ts",
     "./composed": "./src/components/composed/index.ts",
     "./charts": "./src/charts/index.ts",
+    "./charts/palettes": "./src/charts/palettes.ts",
     "./hooks": "./src/hooks/index.ts",
     "./*": "./src/*"
   },

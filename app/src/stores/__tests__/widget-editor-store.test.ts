@@ -82,6 +82,86 @@ describe("widget-editor-store", () => {
     });
   });
 
+  // #1520 — a stored legacy palette alias matched no item in the editor's
+  // Color Palette select (its items come from COLOR_PALETTES, which holds no
+  // alias), so the control rendered empty while the chart drew the right
+  // colours. Resolved on the way in, so the editor only ever sees canonical
+  // ids and saving migrates the widget.
+  describe("loadFromWidget — palette alias resolution (#1520)", () => {
+    it("resolves a legacy alias to its canonical palette id", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "bar",
+        connectionId: "c1",
+        query: "q",
+        settings: { chartOptions: { colorPalette: "deep-ocean" } },
+      });
+      expect(getState().chartOptions.colorPalette).toBe("citrine");
+    });
+
+    it("resolves the other legacy aliases too", () => {
+      for (const [stored, expected] of [
+        ["warm-sunset", "warm"],
+        ["cool-breeze", "cool"],
+        ["neon", "observable"],
+      ] as const) {
+        getState().loadFromWidget({
+          id: "w1",
+          chartType: "bar",
+          connectionId: "c1",
+          query: "q",
+          settings: { chartOptions: { colorPalette: stored } },
+        });
+        expect(getState().chartOptions.colorPalette).toBe(expected);
+      }
+    });
+
+    it("leaves a canonical id untouched", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "bar",
+        connectionId: "c1",
+        query: "q",
+        settings: { chartOptions: { colorPalette: "tableau" } },
+      });
+      expect(getState().chartOptions.colorPalette).toBe("tableau");
+    });
+
+    it("preserves the widget's other options", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "bar",
+        connectionId: "c1",
+        query: "q",
+        settings: {
+          chartOptions: {
+            colorPalette: "deep-ocean",
+            showValues: true,
+            orientation: "horizontal",
+          },
+        },
+      });
+      expect(getState().chartOptions).toMatchObject({
+        colorPalette: "citrine",
+        showValues: true,
+        orientation: "horizontal",
+      });
+    });
+
+    it("tolerates a widget with no colorPalette at all", () => {
+      expect(() =>
+        getState().loadFromWidget({
+          id: "w1",
+          chartType: "bar",
+          connectionId: "c1",
+          query: "q",
+          settings: { chartOptions: { showValues: true } },
+        }),
+      ).not.toThrow();
+      expect(getState().chartOptions.showValues).toBe(true);
+    });
+  });
+
   describe("loadFromWidget", () => {
     it("loads basic widget properties", () => {
       getState().loadFromWidget({

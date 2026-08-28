@@ -104,14 +104,36 @@ describe("MapChart", () => {
     expect(screen.getByTestId("map-chart")).toBeInTheDocument();
   });
 
-  it("uses carto-light tile layer by default in light mode", () => {
+  // #1529 — the default used to be carto-light/carto-dark by theme. CARTO now
+  // requires an API key and returns HTTP 200 with "API KEY REQUIRED" burned
+  // into the tile image, so every map in the product rendered watermarked and
+  // nothing errored. OSM needs no key and is theme-independent; dark mode is
+  // handled by a CSS filter on the tile pane instead.
+  it("defaults to the keyless OSM tile layer", () => {
     render(<MapChart />);
     expect(L.tileLayer).toHaveBeenCalledWith(
-      expect.stringContaining("basemaps.cartocdn.com/light_all"),
+      expect.stringContaining("tile.openstreetmap.org"),
       expect.objectContaining({
         attribution: expect.stringContaining("OpenStreetMap"),
       }),
     );
+  });
+
+  it("does not fall back to a keyed provider", () => {
+    render(<MapChart />);
+    const url = (L.tileLayer as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string;
+    expect(url).not.toContain("cartocdn");
+  });
+
+  // A default map claiming "© CARTO" while serving OSM tiles is a licensing
+  // statement, not a cosmetic one.
+  it("attributes only the provider actually in use", () => {
+    render(<MapChart />);
+    const opts = (L.tileLayer as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as { attribution: string };
+    expect(opts.attribution).toContain("OpenStreetMap");
+    expect(opts.attribution).not.toContain("CARTO");
   });
 
   it("uses carto-light tile preset", () => {

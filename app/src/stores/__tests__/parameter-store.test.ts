@@ -5,6 +5,7 @@ import {
   shallowEqual,
   resetDeriveValuesCache,
 } from "../parameter-store";
+import { expandParamDefaults } from "@/lib/parameter/apply-param-defaults";
 import type {
   ParameterType,
   ParameterSource,
@@ -886,5 +887,90 @@ describe("useParameterStore", () => {
       expect(vals2.a).toBe(2);
       expect(vals1).not.toEqual(vals2);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #1517 — the seeds `expandParamDefaults` produces must survive the store's own
+// coercion. Both halves passed their unit tests independently while the feature
+// was broken end to end, which is the shape this block exists to catch.
+// ---------------------------------------------------------------------------
+
+describe("seeding a configured Default value (#1517)", () => {
+  beforeEach(() => resetStore());
+
+  it("leaves a number-range's companions readable as numbers by a query", () => {
+    for (const seed of expandParamDefaults([
+      {
+        name: "window",
+        value: "180",
+        type: "number-range",
+        widgetId: "w0",
+        rangeMin: 30,
+      },
+    ])) {
+      useParameterStore
+        .getState()
+        .setParameter(
+          seed.name,
+          seed.value,
+          "Default value",
+          seed.name,
+          seed.type,
+          "default",
+          seed.widgetId,
+        );
+    }
+
+    const values = deriveValues(useParameterStore.getState().parameters);
+    // What `LIMIT $param_window_max` actually resolves to.
+    expect(values.window_max).toBe(180);
+    expect(values.window_min).toBe(30);
+    expect(values.window).toEqual([30, 180]);
+  });
+
+  it("coerces a multi-select default to an array, not a bare string", () => {
+    const [seed] = expandParamDefaults([
+      { name: "tags", value: "alpha", type: "multi-select", widgetId: "w0" },
+    ]);
+    useParameterStore
+      .getState()
+      .setParameter(
+        seed.name,
+        seed.value,
+        "Default value",
+        seed.name,
+        seed.type,
+        "default",
+        seed.widgetId,
+      );
+
+    expect(useParameterStore.getState().parameters.tags.value).toEqual([
+      "alpha",
+    ]);
+  });
+
+  it("records the parameter name as the chip field, not an empty string", () => {
+    const [seed] = expandParamDefaults([
+      { name: "dept", value: "Sales", type: "select", widgetId: "widget-3" },
+    ]);
+    useParameterStore
+      .getState()
+      .setParameter(
+        seed.name,
+        seed.value,
+        "Default value",
+        seed.name,
+        seed.type,
+        "default",
+        seed.widgetId,
+      );
+
+    const entry = useParameterStore.getState().parameters.dept;
+    // Rendered by CrossFilterTag as `{field} = {value}` — an empty field gave
+    // the user a chip reading "= Sales" with no way to tell what it filtered.
+    expect(entry.field).toBe("dept");
+    expect(entry.source).toBe("Default value");
+    expect(entry.sourceWidgetId).toBe("widget-3");
   });
 });

@@ -2216,7 +2216,7 @@
             "id": "page-radar-v-111",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "default (polygon, filled)",
               "chartOptions": {}
@@ -2226,7 +2226,7 @@
             "id": "page-radar-v-112",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "shape = circle",
               "chartOptions": {
@@ -2238,7 +2238,7 @@
             "id": "page-radar-v-113",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "filled = false",
               "chartOptions": {
@@ -2250,7 +2250,7 @@
             "id": "page-radar-v-114",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "showValues = true",
               "chartOptions": {
@@ -2262,7 +2262,7 @@
             "id": "page-radar-v-115",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "showLegend = false",
               "chartOptions": {
@@ -2274,7 +2274,7 @@
             "id": "page-radar-v-116",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "palette = warm",
               "chartOptions": {
@@ -2286,7 +2286,7 @@
             "id": "page-radar-v-117",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "palette = monochrome",
               "chartOptions": {
@@ -2298,7 +2298,7 @@
             "id": "page-radar-v-118",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "circle + unfilled + values",
               "chartOptions": {

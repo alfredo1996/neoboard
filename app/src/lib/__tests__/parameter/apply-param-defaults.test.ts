@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { extractParamDefaults } from "@/lib/parameter/apply-param-defaults";
+import {
+  extractParamDefaults,
+  expandParamDefaults,
+} from "@/lib/parameter/apply-param-defaults";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
 function makeLayout(
@@ -30,7 +33,7 @@ function makeLayout(
 describe("extractParamDefaults", () => {
   it("returns empty for layout with no parameter widgets", () => {
     const layout = makeLayout([{ chartType: "bar" }, { chartType: "table" }]);
-    expect(extractParamDefaults(layout)).toEqual({});
+    expect(extractParamDefaults(layout)).toEqual([]);
   });
 
   it("extracts default value from parameter-select widget", () => {
@@ -40,7 +43,9 @@ describe("extractParamDefaults", () => {
         chartOptions: { parameterName: "year", defaultValue: "2024" },
       },
     ]);
-    expect(extractParamDefaults(layout)).toEqual({ year: "2024" });
+    expect(extractParamDefaults(layout)).toEqual([
+      { name: "year", value: "2024", type: "select", widgetId: "w0" },
+    ]);
   });
 
   it("skips parameter widgets without defaultValue", () => {
@@ -50,7 +55,7 @@ describe("extractParamDefaults", () => {
         chartOptions: { parameterName: "dept" },
       },
     ]);
-    expect(extractParamDefaults(layout)).toEqual({});
+    expect(extractParamDefaults(layout)).toEqual([]);
   });
 
   it("skips parameter widgets with empty defaultValue", () => {
@@ -60,7 +65,84 @@ describe("extractParamDefaults", () => {
         chartOptions: { parameterName: "dept", defaultValue: "" },
       },
     ]);
-    expect(extractParamDefaults(layout)).toEqual({});
+    expect(extractParamDefaults(layout)).toEqual([]);
+  });
+
+  // ── #1517 ────────────────────────────────────────────────────────────────
+  // The type was discarded and every default was applied as "text", so a
+  // number-range's `_min`/`_max` companions were never seeded and a
+  // multi-select default reached the store as a bare string.
+
+  it("carries the widget's parameterType, not a hardcoded text", () => {
+    const layout = makeLayout([
+      {
+        chartType: "parameter-select",
+        chartOptions: {
+          parameterName: "tags",
+          parameterType: "multi-select",
+          defaultValue: "alpha",
+        },
+      },
+    ]);
+    expect(extractParamDefaults(layout)).toEqual([
+      { name: "tags", value: "alpha", type: "multi-select", widgetId: "w0" },
+    ]);
+  });
+
+  it("carries rangeMin for a number-range so companions can be seeded", () => {
+    const layout = makeLayout([
+      {
+        chartType: "parameter-select",
+        chartOptions: {
+          parameterName: "window",
+          parameterType: "number-range",
+          defaultValue: "180",
+          rangeMin: 30,
+          rangeMax: 365,
+        },
+      },
+    ]);
+    expect(extractParamDefaults(layout)).toEqual([
+      {
+        name: "window",
+        value: "180",
+        type: "number-range",
+        widgetId: "w0",
+        rangeMin: 30,
+      },
+    ]);
+  });
+
+  it("defaults rangeMin to 0 when the widget omits it", () => {
+    const layout = makeLayout([
+      {
+        chartType: "parameter-select",
+        chartOptions: {
+          parameterName: "n",
+          parameterType: "number-range",
+          defaultValue: "5",
+        },
+      },
+    ]);
+    expect(extractParamDefaults(layout)).toEqual([
+      {
+        name: "n",
+        value: "5",
+        type: "number-range",
+        widgetId: "w0",
+        rangeMin: 0,
+      },
+    ]);
+  });
+
+  it("falls back to select when parameterType is absent", () => {
+    const layout = makeLayout([
+      {
+        chartType: "parameter-select",
+        chartOptions: { parameterName: "x", defaultValue: "1" },
+      },
+    ]);
+    expect(extractParamDefaults(layout)[0].type).toBe("select");
   });
 
   it("extracts defaults from multiple pages", () => {
@@ -101,10 +183,114 @@ describe("extractParamDefaults", () => {
         },
       ],
     };
-    expect(extractParamDefaults(layout)).toEqual({
-      year: "2024",
-      dept: "Sales",
-    });
+    expect(extractParamDefaults(layout)).toEqual([
+      { name: "year", value: "2024", type: "select", widgetId: "w1" },
+      { name: "dept", value: "Sales", type: "select", widgetId: "w2" },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #1517 — expanding a configured default into the store entries it implies.
+// ---------------------------------------------------------------------------
+
+describe("expandParamDefaults", () => {
+  it("passes a select default through as a single entry", () => {
+    expect(
+      expandParamDefaults([
+        { name: "dept", value: "Sales", type: "select", widgetId: "w0" },
+      ]),
+    ).toEqual([
+      { name: "dept", value: "Sales", type: "select", widgetId: "w0" },
+    ]);
+  });
+
+  // The whole of #1517: queries read `_min`/`_max`, and neither was ever set,
+  // so every widget gated on one showed nothing until the slider was dragged.
+  it("expands a number-range into the tuple plus _min and _max companions", () => {
+    expect(
+      expandParamDefaults([
+        {
+          name: "window",
+          value: "180",
+          type: "number-range",
+          widgetId: "w0",
+          rangeMin: 30,
+        },
+      ]),
+    ).toEqual([
+      {
+        name: "window",
+        value: [30, 180],
+        type: "number-range",
+        widgetId: "w0",
+      },
+      { name: "window_min", value: 30, type: "text", widgetId: "w0" },
+      { name: "window_max", value: 180, type: "text", widgetId: "w0" },
+    ]);
+  });
+
+  it("treats the configured default as the upper bound", () => {
+    const seeds = expandParamDefaults([
+      {
+        name: "n",
+        value: "12",
+        type: "number-range",
+        widgetId: "w0",
+        rangeMin: 5,
+      },
+    ]);
+    expect(seeds.find((s) => s.name === "n_max")?.value).toBe(12);
+    expect(seeds.find((s) => s.name === "n_min")?.value).toBe(5);
+  });
+
+  it("uses 0 as the lower bound when rangeMin is absent", () => {
+    const seeds = expandParamDefaults([
+      { name: "n", value: "9", type: "number-range", widgetId: "w0" },
+    ]);
+    expect(seeds.find((s) => s.name === "n_min")?.value).toBe(0);
+  });
+
+  // Seeding NaN would put a permanently unusable value in the store, and the
+  // slider would read it as unset anyway.
+  it("drops a number-range whose default is not numeric", () => {
+    expect(
+      expandParamDefaults([
+        { name: "n", value: "abc", type: "number-range", widgetId: "w0" },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("keeps multi-select typed so the store coerces it to an array", () => {
+    const [seed] = expandParamDefaults([
+      { name: "tags", value: "alpha", type: "multi-select", widgetId: "w0" },
+    ]);
+    expect(seed.type).toBe("multi-select");
+  });
+
+  it("carries the widget id onto every companion, so chips link back", () => {
+    const seeds = expandParamDefaults([
+      {
+        name: "w",
+        value: "3",
+        type: "number-range",
+        widgetId: "widget-7",
+        rangeMin: 1,
+      },
+    ]);
+    expect(seeds.map((s) => s.widgetId)).toEqual([
+      "widget-7",
+      "widget-7",
+      "widget-7",
+    ]);
+  });
+
+  it("expands several defaults in order", () => {
+    const seeds = expandParamDefaults([
+      { name: "a", value: "1", type: "select", widgetId: "w0" },
+      { name: "b", value: "2", type: "number-range", widgetId: "w1" },
+    ]);
+    expect(seeds.map((s) => s.name)).toEqual(["a", "b", "b_min", "b_max"]);
   });
 });
 
