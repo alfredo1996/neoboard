@@ -244,3 +244,24 @@
 .dark .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
 }
+
+/* Shiki dark theme activation (#1408).
+   code-highlighter.ts uses dual-theme mode: the light theme is inlined as
+   real `style` values, the dark theme is emitted only as --shiki-dark /
+   --shiki-dark-bg custom properties, and a stylesheet rule has to opt the
+   dark half in. This is that rule — without it every fenced code block
+   rendered github-light on a dark card, and the dark theme was loaded but
+   unreachable.
+
+   `!important` is required, not defensive: the light values are inline
+   `style` attributes, which beat any selector on specificity. `span` is in
+   the selector because every token's colour is its own inline style — a rule
+   hitting only the container fixes the background and leaves light-theme ink.
+
+   Lives here for the same reason as the blocks above: src/index.css is
+   Storybook-only (#1399); this file reaches both packages. */
+.dark .shiki,
+.dark .shiki span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+}
