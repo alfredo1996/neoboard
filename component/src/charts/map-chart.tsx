@@ -9,7 +9,6 @@ import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import { escapeHtml } from "./chart-utils";
-import { useDarkMode } from "./base-chart";
 
 export type TileLayerPreset = "osm" | "carto-light" | "carto-dark";
 
@@ -84,14 +83,22 @@ const DEFAULT_ZOOM = 3;
  */
 const DEFAULT_FIT_PADDING: [number, number] = [20, 20];
 
-/** Resolve tile layer, auto-selecting carto-light/carto-dark when no explicit preset is given. */
-function resolveTileLayer(
-  tileLayer: string | undefined,
-  dark: boolean,
-  attribution?: string,
-) {
-  // When no tileLayer is specified, auto-select based on theme
-  const effectivePreset = tileLayer ?? (dark ? "carto-dark" : "carto-light");
+/**
+ * Resolve the tile layer, defaulting to OSM when no explicit preset is given.
+ *
+ * The default used to switch on theme between `carto-light` and `carto-dark`.
+ * CARTO now requires an API key for `basemaps.cartocdn.com` and, without one,
+ * returns HTTP 200 with a real PNG that has "API KEY REQUIRED" burned into the
+ * image — so every map in the product rendered watermarked while nothing
+ * errored, logged or fell back (#1529).
+ *
+ * OSM needs no key. It has no dark variant, so dark mode is handled by a CSS
+ * filter on `.leaflet-tile-pane` (see `index.css`) rather than by swapping
+ * providers here — which is why this no longer depends on the theme at all.
+ * The CARTO presets remain selectable for anyone who has a key.
+ */
+function resolveTileLayer(tileLayer: string | undefined, attribution?: string) {
+  const effectivePreset = tileLayer ?? "osm";
   if (effectivePreset in TILE_PRESETS) {
     const preset = TILE_PRESETS[effectivePreset as TileLayerPreset];
     return { url: preset.url, attribution: attribution ?? preset.attribution };
@@ -140,8 +147,6 @@ function MapChart({
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  const dark = useDarkMode();
-
   // Leaflet's LatLng constructor throws on non-finite input, and MapChart does
   // not go through BaseChart's setOption try/catch — so one row whose latitude
   // column held "40.7128 N" took down the entire map, all 999 good markers
@@ -161,7 +166,7 @@ function MapChart({
   const onMarkerClickRef = useRef(onMarkerClick);
   onMarkerClickRef.current = onMarkerClick;
 
-  const tile = resolveTileLayer(tileLayer, dark, attribution);
+  const tile = resolveTileLayer(tileLayer, attribution);
 
   // Initialize map
   useEffect(() => {
