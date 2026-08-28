@@ -560,7 +560,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Form widget\n\nWrite-back form bound to a parameterized INSERT. Requires a **write-enabled connection**. This form writes to `neoboard_demo_public.feedback` on the demo PG connection.\n\n**Fields shown:** `rating` (1–5), `category` (text), `comment` (text)."
+                "content": "## Form widget\n\nWrite-back form bound to a parameterized INSERT. Requires a **write-enabled connection**. This form writes to `neoboard_demo_public.feedback` on the demo PG connection.\n\n**Fields shown:** `rating` (1–5), `category` (text), `comment` (text).\n\nA few sample rows are pre-seeded so the results table is never empty — a new submission still sorts to the top."
               }
             }
           },
@@ -895,7 +895,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Radar chart\n\nCompare a small set of entities across 3+ metrics on a radial axis. Best with fewer than 4 series so the polygons remain readable.\n\n**Data shape:** query returns `indicator` + `value` columns. Add a `series` column for multi-entity comparisons.\n\n**Options shown:** `shape: polygon`, `filled: true`, `showLegend: true`."
+                "content": "## Radar chart\n\nCompare a small set of entities across 3+ metrics on a radial axis. Best with fewer than 4 series so the polygons remain readable.\n\n**Data shape:** query returns `indicator` + `value` columns, plus an optional `max` per row to scale each axis independently — used here, because raw row counts span two orders of magnitude and would otherwise collapse every smaller axis to the centre. Add a `series` column for multi-entity comparisons.\n\n**Options shown:** `shape: polygon`, `filled: true`, `showLegend: true`."
               }
             }
           },
@@ -903,7 +903,7 @@
             "id": "radar-chart",
             "chartType": "radar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float FROM neoboard_demo_public.feedback",
+            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
             "settings": {
               "title": "Dataset magnitudes",
               "chartOptions": {
