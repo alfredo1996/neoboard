@@ -42,6 +42,54 @@ describe("getWidgetDisplayTitle", () => {
     const widget = makeWidget({ chartType: "unknown-type" });
     expect(getWidgetDisplayTitle(widget)).toBe("unknown-type");
   });
+
+  // ── #1519 ────────────────────────────────────────────────────────────────
+  // The chart-label fallback is useful for a data widget — an untitled bar
+  // chart labelled "Bar Chart" tells you something. For a content widget the
+  // prose IS the heading, so the fallback announced the implementation type:
+  // 70 of the 78 markdown widgets in the shipped demo were headed "Markdown".
+
+  it("returns no title for an untitled markdown widget", () => {
+    const widget = makeWidget({ chartType: "markdown" });
+    expect(getWidgetDisplayTitle(widget)).toBe("");
+  });
+
+  it("returns no title for an untitled iframe widget", () => {
+    const widget = makeWidget({ chartType: "iframe" });
+    expect(getWidgetDisplayTitle(widget)).toBe("");
+  });
+
+  it("still returns an author's title on a content widget", () => {
+    const widget = makeWidget({
+      chartType: "markdown",
+      settings: { title: "How this works" },
+    });
+    expect(getWidgetDisplayTitle(widget)).toBe("How this works");
+  });
+
+  // A whitespace-only title is not a title — it rendered a blank header taking
+  // vertical space with nothing in it.
+  it("treats a whitespace-only title as absent", () => {
+    expect(
+      getWidgetDisplayTitle(
+        makeWidget({ chartType: "markdown", settings: { title: "   " } }),
+      ),
+    ).toBe("");
+    expect(
+      getWidgetDisplayTitle(
+        makeWidget({ chartType: "bar", settings: { title: "   " } }),
+      ),
+    ).toBe("Bar Chart");
+  });
+
+  it("keeps the label fallback for every data-driven type", () => {
+    for (const [chartType, expected] of [
+      ["bar", "Bar Chart"],
+      ["pie", "Pie Chart"],
+    ] as const) {
+      expect(getWidgetDisplayTitle(makeWidget({ chartType }))).toBe(expected);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
