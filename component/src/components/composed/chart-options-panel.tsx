@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./multi-select";
@@ -27,27 +26,29 @@ export interface ChartOptionsPanelProps {
 }
 
 function OptionLabel({ option }: { option: ChartOptionDef }) {
-  if (!option.description) {
-    return (
-      <Label htmlFor={option.key} className="text-sm">
-        {option.label}
-      </Label>
-    );
-  }
   // #1283 item 2b: the description used to live only in a tooltip on this
   // Label. A Label is not focusable, so the tooltip's focus handlers could
   // never fire — and the dotted underline advertised content the keyboard
   // could not open. Render it as real text and let the control point at it
   // with aria-describedby.
+  //
+  // #1549: this returned a bare Fragment, and the boolean case renders it
+  // straight inside `flex items-center justify-between`. The fragment
+  // flattened, so the description became a third flex child between the label
+  // and the Switch rather than sitting under the label. Both branches wrap so
+  // described and undescribed rows nest identically and do not jump when a
+  // description is added.
   return (
-    <>
+    <div className="min-w-0 space-y-0.5">
       <Label htmlFor={option.key} className="text-sm">
         {option.label}
       </Label>
-      <p id={`${option.key}-desc`} className="text-xs text-muted-foreground">
-        {option.description}
-      </p>
-    </>
+      {option.description && (
+        <p id={`${option.key}-desc`} className="text-xs text-muted-foreground">
+          {option.description}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -65,9 +66,10 @@ function OptionField({
   switch (option.type) {
     case "boolean":
       return (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <OptionLabel option={option} />
           <Switch
+            className="shrink-0"
             id={option.key}
             aria-describedby={
               option.description ? `${option.key}-desc` : undefined
@@ -304,37 +306,35 @@ function ChartOptionsPanel({
   }
 
   return (
-    <TooltipProvider>
-      <div className={cn("space-y-4", className)}>
-        {options.length > 4 && (
-          <Input
-            placeholder="Search options..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        )}
+    <div className={cn("space-y-4", className)}>
+      {options.length > 4 && (
+        <Input
+          placeholder="Search options..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      )}
 
-        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
-          {Object.entries(grouped).map(([category, opts], index) => (
-            <CategorySection
-              key={category}
-              title={category}
-              defaultOpen={index === 0}
-            >
-              {opts.map((opt) => (
-                <OptionField
-                  key={opt.key}
-                  option={opt}
-                  value={settings[opt.key]}
-                  onChange={handleChange}
-                  columns={columns}
-                />
-              ))}
-            </CategorySection>
-          ))}
-        </div>
+      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+        {Object.entries(grouped).map(([category, opts], index) => (
+          <CategorySection
+            key={category}
+            title={category}
+            defaultOpen={index === 0}
+          >
+            {opts.map((opt) => (
+              <OptionField
+                key={opt.key}
+                option={opt}
+                value={settings[opt.key]}
+                onChange={handleChange}
+                columns={columns}
+              />
+            ))}
+          </CategorySection>
+        ))}
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
 

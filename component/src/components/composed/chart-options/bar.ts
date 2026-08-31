@@ -74,7 +74,7 @@ export const barOptions: ChartOptionDef[] = [
     default: -1,
     category: "Labels",
     description:
-      "Override axis label rotation angle (0-90). Set to -1 for automatic (rotates at 8+ categories).",
+      "Axis label rotation, 0-90. Use -1 to rotate automatically when labels crowd.",
   },
   SHARED_REFERENCE_LINES,
 ];

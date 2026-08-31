@@ -10,6 +10,6 @@ export const markdownOptions: ChartOptionDef[] = [
     default: "",
     category: "Content",
     description:
-      "Markdown text to render. Supports headings, bold, italic, links, lists, code blocks, and blockquotes.",
+      "Markdown to render: headings, bold, italic, links, lists, code, blockquotes.",
   },
 ];

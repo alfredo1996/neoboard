@@ -56,6 +56,6 @@ export const gaugeOptions: ChartOptionDef[] = [
     default: "",
     category: "Style",
     description:
-      'Colored zones on the gauge arc: [{"value":30,"color":"#67e0e3"},{"value":70,"color":"#37a2da"},{"value":100,"color":"#fd666d"}]',
+      'Colored zones on the arc: [{"value":30,"color":"#67e0e3"},{"value":70,"color":"#37a2da"}]',
   },
 ];

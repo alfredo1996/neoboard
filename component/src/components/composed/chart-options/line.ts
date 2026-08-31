@@ -79,7 +79,7 @@ export const lineOptions: ChartOptionDef[] = [
     default: "",
     category: "Labels",
     description:
-      "Comma-separated series names to render on a secondary (right) Y-axis. Leave empty to use a single Y-axis.",
+      "Comma-separated series to render on a right-hand Y-axis. Empty means one axis.",
   },
   {
     key: "rightYAxisLabel",

@@ -1,9 +1,12 @@
 /**
- * @deprecated Chart options are being consolidated into plugin definitions
- * in `app/src/plugins/`. Prefer accessing options via
- * `pluginRegistry.get(type)?.options` in the app package.
- * This module is retained for backward compatibility with external consumers
- * of the component package.
+ * The live source of chart option definitions: `ChartOptionsPanel` reads them
+ * from here via `chart-options-schema`.
+ *
+ * MIGRATION IN PROGRESS, not deprecated. This carried an `@deprecated` tag
+ * saying options had been consolidated into plugin definitions under
+ * `app/src/plugins/` — they have not, and the tag read as "safe to ignore" on
+ * a module the editor depends on. The consolidation is tracked by #1424;
+ * until it lands, edit options here (#1549).
  */
 import type { ChartOptionDef } from "./shared";
 export type { ChartOptionDef } from "./shared";

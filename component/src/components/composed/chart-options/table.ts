@@ -70,7 +70,7 @@ export const tableOptions: ChartOptionDef[] = [
     default: "comma",
     category: "Display",
     description:
-      "How numeric cells are formatted across the whole table. Use Plain to opt out of formatting (raw JS precision). Percent expects a ratio and scales it — a column of 0.12 renders as 12%, not 0.12%.",
+      "Number format for all numeric cells. Percent scales a ratio: 0.12 renders as 12%.",
     options: [
       { label: "Comma (1,234.56)", value: "comma" },
       { label: "Compact (1.2K)", value: "compact" },
@@ -94,7 +94,7 @@ export const tableOptions: ChartOptionDef[] = [
     default: false,
     category: "Grouping",
     description:
-      "Allow grouping rows by column values. Columns to group by are set in the groupBy field below.",
+      "Group rows by column values. Pick the columns in the field below.",
   },
   {
     key: "groupBy",
@@ -102,8 +102,7 @@ export const tableOptions: ChartOptionDef[] = [
     type: "column-multi-select",
     default: [],
     category: "Grouping",
-    description:
-      "Select columns to group by. Nested grouping is supported — order determines nesting hierarchy.",
+    description: "Columns to group by. Order determines the nesting hierarchy.",
   },
   {
     key: "aggregationFn",
