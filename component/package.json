@@ -17,6 +17,7 @@
     "./composed": "./src/components/composed/index.ts",
     "./charts": "./src/charts/index.ts",
     "./charts/palettes": "./src/charts/palettes.ts",
+    "./charts/choropleth-ramp": "./src/charts/choropleth-ramp.ts",
     "./hooks": "./src/hooks/index.ts",
     "./*": "./src/*"
   },

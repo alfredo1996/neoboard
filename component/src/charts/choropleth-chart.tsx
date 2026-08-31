@@ -12,6 +12,11 @@ import type { EChartsOption } from "echarts";
 import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { buildEmptyDataOption, fillLabelStyle } from "./chart-utils";
+import {
+  buildSequentialRamp,
+  CHOROPLETH_DEFAULT_MIN_COLOR,
+  CHOROPLETH_DEFAULT_MAX_COLOR,
+} from "./choropleth-ramp";
 
 echarts.use([
   EMapChart,
@@ -65,8 +70,8 @@ function ChoroplethChart({
   data,
   roam = true,
   showVisualMap = true,
-  minColor = "#fff7d6",
-  maxColor = "#993404",
+  minColor = CHOROPLETH_DEFAULT_MIN_COLOR,
+  maxColor = CHOROPLETH_DEFAULT_MAX_COLOR,
   showLabels = false,
   ariaDescription,
   ...rest
@@ -143,9 +148,9 @@ function ChoroplethChart({
             min: minVal,
             max: maxVal,
             inRange: {
-              // Warm YlOrBr sequential ramp (citrine-adjacent, colorblind-safe)
-              // — replaces the off-brand ColorBrewer "Blues".
-              color: [minColor, "#fed98e", "#fe9929", "#d95f0e", maxColor],
+              // Interpolated end-to-end so every band lies on the ramp between
+              // the configured colours — see buildSequentialRamp (#1404).
+              color: buildSequentialRamp(minColor, maxColor, 5),
             },
             textStyle: { fontSize: 10 },
             itemWidth: 12,

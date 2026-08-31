@@ -84,6 +84,11 @@ export type {
 } from "./circle-packing-chart";
 
 export { ChoroplethChart } from "./choropleth-chart";
+export {
+  buildSequentialRamp,
+  CHOROPLETH_DEFAULT_MIN_COLOR,
+  CHOROPLETH_DEFAULT_MAX_COLOR,
+} from "./choropleth-ramp";
 export type {
   ChoroplethChartProps,
   ChoroplethDataItem,
