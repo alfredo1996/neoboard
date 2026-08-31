@@ -229,10 +229,15 @@ describe("CirclePackingChart click payload (#1551)", () => {
 
   it("still encodes the geometry array renderItem reads by index", () => {
     const alpha = seriesData().find((i) => i.name === "alpha")!;
-    const value = alpha.value as number[];
+    // The array is heterogeneous — slots 5 and 6 are strings — so `number[]`
+    // would be a lie, and comparing a `number`-typed slot to a string is the
+    // kind of assertion that passes at runtime while asserting nothing the
+    // types agree with.
+    const value = alpha.value as (number | string)[];
     expect(Array.isArray(value)).toBe(true);
     // [x, y, r, depth, value, color, name, kind]
     expect(value).toHaveLength(8);
     expect(value[6]).toBe("alpha");
+    expect(value[3]).toBe(1); // depth — a genuinely numeric slot
   });
 });
