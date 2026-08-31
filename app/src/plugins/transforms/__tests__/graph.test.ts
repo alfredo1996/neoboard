@@ -276,3 +276,101 @@ describe("validateGraphData", () => {
     expect(err).toContain("Graph chart");
   });
 });
+
+/**
+ * #1305 — a regression guard, not a Red gate.
+ *
+ * The leak itself was in `connection/` (Neo4jRecordParser returned driver Path
+ * instances untouched, so their Integers crossed the wire as {low, high}), and
+ * app/ legitimately cannot fix that: `normalizeValue` sees an object and
+ * stringifies it, which is the correct generic behaviour for an object. What
+ * app/ CAN pin is the contract it consumes — given the converted path shape
+ * the connection layer now emits, the graph data must carry real numbers.
+ *
+ * Patching normalizeValue to special-case {low, high} was considered and
+ * rejected: it would leave the table and JSON widgets, which render the raw
+ * parsed record, still showing the nested object, and it would guess at a
+ * shape the connection layer is contracted to have already resolved.
+ */
+describe("transformToGraphData — converted Neo4j path (#1305)", () => {
+  const alice = {
+    identity: 1,
+    elementId: "node:1",
+    labels: ["Person"],
+    properties: { name: "Alice", age: 30 },
+  };
+  const bob = {
+    identity: 2,
+    elementId: "node:2",
+    labels: ["Person"],
+    properties: { name: "Bob", age: 41 },
+  };
+  const knows = {
+    identity: 10,
+    elementId: "rel:10",
+    start: 1,
+    end: 2,
+    startNodeElementId: "node:1",
+    endNodeElementId: "node:2",
+    type: "KNOWS",
+    properties: { since: 1999 },
+  };
+  const path = {
+    start: alice,
+    end: bob,
+    segments: [{ start: alice, relationship: knows, end: bob }],
+    length: 1,
+  };
+
+  function nodeById(result: unknown, id: string) {
+    const { nodes } = result as { nodes: Record<string, unknown>[] };
+    return nodes.find((n) => n.id === id)!;
+  }
+
+  it("keeps integer properties as numbers, not stringified objects", () => {
+    const result = transformToGraphData([{ p: path }]);
+    const props = nodeById(result, "node:1").properties as Record<
+      string,
+      unknown
+    >;
+    expect(props.age).toBe(30);
+    expect(props.age).not.toBe('{"low":30,"high":0}');
+  });
+
+  it("carries relationship properties through as numbers", () => {
+    const { edges } = transformToGraphData([{ p: path }]) as {
+      edges: Record<string, unknown>[];
+    };
+    const props = edges[0].properties as Record<string, unknown>;
+    expect(props.since).toBe(1999);
+  });
+
+  /**
+   * `addNode` is first-wins (transform.ts), so before the connection-layer fix
+   * the SAME node inspected clean or dirty depending on which binding the
+   * record listed first — which is why one widget could show both behaviours
+   * at once. Both orders must now agree.
+   */
+  it("gives the same result whichever binding comes first", () => {
+    for (const record of [
+      { p: path, n: alice },
+      { n: alice, p: path },
+    ]) {
+      const props = nodeById(transformToGraphData([record]), "node:1")
+        .properties as Record<string, unknown>;
+      expect(props.age).toBe(30);
+    }
+  });
+
+  it("still recognises the converted shape as a path", () => {
+    const { nodes, edges } = transformToGraphData([{ p: path }]) as {
+      nodes: unknown[];
+      edges: unknown[];
+    };
+    // Both endpoints reached via segments, deduped against the path's own
+    // start/end — the key names the conversion deliberately preserved.
+    expect(nodes).toHaveLength(2);
+    expect(edges).toHaveLength(1);
+    expect(validateGraphData({ nodes, edges })).toBeNull();
+  });
+});

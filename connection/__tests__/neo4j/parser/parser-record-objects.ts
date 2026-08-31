@@ -100,7 +100,38 @@ describe("Neo4jRecordParser - Objects Parsing", () => {
     };
 
     const queryCallback: QueryCallback<any> = {
-      onSuccess: () => {},
+      // #1305: this callback used to be `() => {}`. The test passed as long as
+      // the query did not throw, so it "covered" the Path branch while proving
+      // nothing about it — and the branch returned the raw driver Path,
+      // leaking every Integer inside it as {low, high}, for as long as the
+      // test existed.
+      onSuccess: (result: NeodashRecord[]) => {
+        const path = result[0]["p"];
+
+        expect(path).toMatchObject({
+          start: expect.anything(),
+          end: expect.anything(),
+          segments: expect.any(Array),
+          length: expect.any(Number),
+        });
+
+        // Plain objects, not live driver instances.
+        expect(path.start).toHaveProperty("labels");
+        expect(path.start).toHaveProperty("properties");
+        expect(path.segments[0].relationship).toHaveProperty("type");
+
+        // The path ends on the Movie, whose `released` is a Neo4j Integer in
+        // the source data. Strict typeof — `toNumber()` would accept an
+        // unconverted Integer and assert nothing.
+        expect(typeof path.end.properties.released).toBe("number");
+        expect(typeof path.segments[0].end.properties.released).toBe("number");
+        expect(typeof path.start.identity).toBe("number");
+
+        // The assertion that generalises: any un-converted Integer anywhere in
+        // the structure fails here, including in a shape nobody thought to
+        // name.
+        expect(JSON.stringify(path)).not.toContain('"low"');
+      },
       onFail: (error) => {
         console.error("Error during query execution:", error);
         throw error;
