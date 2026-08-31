@@ -26,9 +26,9 @@ function Panel({ chartType }: { chartType: string }) {
       <ChartOptionsPanel
         chartType={chartType}
         settings={settings}
-        onSettingsChange={(key, value) =>
-          setSettings((prev) => ({ ...prev, [key]: value }))
-        }
+        // The panel merges the change and hands back the whole settings
+        // object, not a (key, value) pair.
+        onSettingsChange={setSettings}
         columns={["region", "revenue", "units", "margin"]}
       />
     </div>
