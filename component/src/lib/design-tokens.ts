@@ -20,6 +20,8 @@ export const fieldTypeColors: Record<string, string> = {
  * success / muted / warning / destructive.
  */
 export const connectionStatusColors: Record<string, string> = {
+  // "unknown" is the absence of a result, not a verdict — muted, no pulse.
+  unknown: "bg-muted-foreground/40",
   connected: "bg-success",
   disconnected: "bg-muted-foreground",
   connecting: "bg-warning animate-pulse",
