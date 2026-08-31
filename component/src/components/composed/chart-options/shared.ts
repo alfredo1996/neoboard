@@ -88,7 +88,7 @@ export const SHARED_REFERENCE_LINES: ChartOptionDef = {
   default: "",
   category: "Annotations",
   description:
-    'Horizontal reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
+    'Value-axis reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
 };
 
 export const SHARED_SHOW_LABELS: ChartOptionDef = {
