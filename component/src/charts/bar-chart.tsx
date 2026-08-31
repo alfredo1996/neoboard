@@ -233,6 +233,11 @@ function BarChart({
     paramValues,
     compact,
     hideLegend,
+    // #1546: `width` is read via buildCategoryAxisLabel and `legendPosition`
+    // via resolveLegendPosition. Omitting them latched the axis rotation to
+    // the width-0 fallback until an unrelated dep changed identity.
+    width,
+    legendPosition,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the
