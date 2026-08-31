@@ -169,6 +169,21 @@ describe("BarChart", () => {
     expect(opts.series[0].markLine.data[0].yAxis).toBe(150);
   });
 
+  // #1548: the value axis is X when the chart is horizontal, so the markLine
+  // has to follow the swap. Anchored to yAxis it lands on the category axis,
+  // where ECharts silently drops it.
+  it("anchors the reference line to the value axis for horizontal bars", () => {
+    const refs = JSON.stringify([{ value: 150, label: "Target" }]);
+    const opts = renderBarOptions({
+      data: sampleData,
+      orientation: "horizontal",
+      referenceLines: refs,
+    });
+    const entry = opts.series[0].markLine.data[0];
+    expect(entry.xAxis).toBe(150);
+    expect(entry.yAxis).toBeUndefined();
+  });
+
   it("does not attach markLine when referenceLines is not provided", () => {
     const opts = renderBarOptions({ data: sampleData });
     expect(opts.series[0].markLine).toBeUndefined();

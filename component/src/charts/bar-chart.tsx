@@ -134,7 +134,9 @@ function BarChart({
     // Legacy colorThresholds removed — styling is now handled exclusively
     // via stylingRules (migrated at the card-container level).
     const refLines = parseReferenceLines(referenceLinesJson);
-    const markLine = buildMarkLineFromRefs(refLines);
+    // The value axis is X when the chart is horizontal — the markLine has to
+    // follow the same swap the axes do below (#1548).
+    const markLine = buildMarkLineFromRefs(refLines, isHorizontal ? "x" : "y");
 
     const categoryLabels = data.map((d) => d.label);
     const axisLabelConfig = buildCategoryAxisLabel(categoryLabels.length, {

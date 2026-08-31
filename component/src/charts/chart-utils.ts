@@ -408,23 +408,46 @@ export function parseReferenceLines(
   }
 }
 
+/** One ECharts markLine datum. Exactly one of xAxis/yAxis is set. */
+interface MarkLineDatum {
+  xAxis?: number;
+  yAxis?: number;
+  label: { formatter: string; position: "insideEndTop" | "end" };
+  lineStyle: { color: string; type: "dashed" };
+}
+
 /**
  * Build ECharts markLine data from reference lines.
+ *
+ * `axis` names the chart's VALUE axis, which is not always Y: a horizontal bar
+ * chart swaps them (bar-chart.tsx), so the reference value belongs on X there.
+ * Anchoring a numeric value to the category axis does not error — ECharts
+ * silently drops the line when the value is outside the ordinal extent, and
+ * draws it on the wrong row when it happens to fall inside (#1548).
+ *
+ * The label follows the axis because the line's orientation does.
+ * `insideEndTop` renders rotated 90 degrees on a vertical line, so the X case
+ * uses `end` — unrotated, just above the line. GanttChart has anchored on the
+ * value axis this way since it was written (gantt-chart.tsx).
  */
-export function buildMarkLineFromRefs(lines: ReferenceLine[]) {
+export function buildMarkLineFromRefs(
+  lines: ReferenceLine[],
+  axis: "x" | "y" = "y",
+) {
   if (!lines.length) return undefined;
+  const onX = axis === "x";
   return {
     silent: true,
     symbol: "none",
-    data: lines.map((line) => ({
-      yAxis: line.value,
+    data: lines.map((line): MarkLineDatum => ({
+      ...(onX ? { xAxis: line.value } : { yAxis: line.value }),
       label: {
         formatter: line.label ?? String(line.value),
-        position: "insideEndTop" as const,
+        position: onX ? "end" : "insideEndTop",
       },
       lineStyle: {
         color: line.color ?? "#888",
-        type: "dashed" as const,
+        type: "dashed",
       },
     })),
   };
