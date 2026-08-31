@@ -127,6 +127,9 @@ export default function ProfilePage() {
         // Single success signal: the login page shows the confirmation
         // (passwordChanged=1). No inline alert + toast double-feedback (#1038).
         await signOut({ redirect: false });
+        // Full reload, not router.push(): signOut() has just torn down the
+        // session and the client cache must not survive into the login page.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = "/login?passwordChanged=1";
       }
     } catch {

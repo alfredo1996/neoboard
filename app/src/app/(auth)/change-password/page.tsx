@@ -49,6 +49,10 @@ export default function ChangePasswordPage() {
       }
 
       // Password changed — redirect to dashboard (full reload to refresh JWT)
+      // A full reload is the point: router.push() keeps the current JWT, so
+      // the session would still carry forcePasswordChange. New rule in
+      // @next/eslint-plugin-next 16.3 flags this shape generically.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/";
     } catch {
       setError("Something went wrong. Please try again.");
