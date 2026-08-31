@@ -213,15 +213,24 @@ function CirclePackingChart({
 
     // Circle entries first; parent-label entries appended so they render last
     // (on top of all circles). value: [x, y, r, depth, value, color, name, kind]
-    const circleData = nodes.map((n) => ({
-      value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name, 0],
-    }));
+    //
+    // #1551: `name` and `nodeValue` ride alongside the geometry array. ECharts
+    // exposes them as params.name / params.data on a click, which is what
+    // makes click actions work at all — a bare { value: [...] } item leaves
+    // params.name as "", and dataIndex here is in flattened-packed-node space,
+    // unrelated to any row index the caller could look up. The array itself is
+    // untouched: renderItem reads it by index.
+    const item = (n: PackedNode, kind: 0 | 1) => ({
+      name: n.name,
+      nodeValue: n.value,
+      depth: n.depth,
+      value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name, kind],
+    });
+    const circleData = nodes.map((n) => item(n, 0));
     const parentLabelData = showLabels
       ? nodes
           .filter((n) => n.depth > 0 && n.depth < maxDepth && n.r > 18)
-          .map((n) => ({
-            value: [n.x, n.y, n.r, n.depth, n.value, n.color ?? "", n.name, 1],
-          }))
+          .map((n) => item(n, 1))
       : [];
     const seriesData = [...circleData, ...parentLabelData];
 

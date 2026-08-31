@@ -170,3 +170,69 @@ describe("CirclePackingChart", () => {
     expect(optionsCall.series[0].renderItem).toBeDefined();
   });
 });
+
+/**
+ * #1551 — circle packing advertised click actions it could not deliver.
+ *
+ * The plugin declares `supportsClickAction: true` and the docs promise "click
+ * a circle to navigate or set a parameter", but the series items were emitted
+ * as bare `{ value: [...] }` with no `name`, so ECharts' `params.name` was
+ * always "". And the shared `useEChartsClick` looks the row up as
+ * `data[e.dataIndex]` — `data` is the hierarchical tree while `dataIndex`
+ * lives in flattened-packed-node space, two unrelated orderings.
+ *
+ * So a click produced an empty name and an arbitrary row, or none. Treemap and
+ * sunburst are unaffected: their native series populate params.name from the
+ * node.
+ *
+ * The value array stays as-is (renderItem reads it by index); the semantic
+ * fields ride alongside it, where ECharts exposes them as `params.data`.
+ */
+describe("CirclePackingChart click payload (#1551)", () => {
+  const hierarchy = [
+    {
+      name: "root",
+      children: [
+        { name: "alpha", value: 10 },
+        { name: "beta", value: 20 },
+      ],
+    },
+  ];
+
+  function seriesData() {
+    mockSetOption.mockClear();
+    render(<CirclePackingChart data={hierarchy} />);
+    const opts =
+      mockSetOption.mock.calls[mockSetOption.mock.calls.length - 1][0];
+    return opts.series[0].data as Record<string, unknown>[];
+  }
+
+  it("gives every item a resolvable name", () => {
+    const items = seriesData();
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(typeof item.name).toBe("string");
+      expect(item.name).not.toBe("");
+    }
+  });
+
+  it("names items after their node", () => {
+    const names = seriesData().map((i) => i.name);
+    expect(names).toContain("alpha");
+    expect(names).toContain("beta");
+  });
+
+  it("carries the node's own value, not the packed geometry", () => {
+    const alpha = seriesData().find((i) => i.name === "alpha")!;
+    expect(alpha.nodeValue).toBe(10);
+  });
+
+  it("still encodes the geometry array renderItem reads by index", () => {
+    const alpha = seriesData().find((i) => i.name === "alpha")!;
+    const value = alpha.value as number[];
+    expect(Array.isArray(value)).toBe(true);
+    // [x, y, r, depth, value, color, name, kind]
+    expect(value).toHaveLength(8);
+    expect(value[6]).toBe("alpha");
+  });
+});
