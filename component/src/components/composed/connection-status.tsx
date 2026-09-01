@@ -9,7 +9,17 @@ import {
 } from "@/components/ui/tooltip";
 
 export type ConnectionState =
-  "connected" | "disconnected" | "connecting" | "error";
+  | "connected"
+  | "disconnected"
+  | "connecting"
+  | "error"
+  /**
+   * Not checked yet. Distinct from "disconnected", which is a verdict.
+   * Without this the connections page had to render "we have not looked" as
+   * "this connection is down", so every visit asserted every connection was
+   * broken for a frame before probing (#1544).
+   */
+  | "unknown";
 
 export interface ConnectionStatusProps {
   status: ConnectionState;
@@ -32,6 +42,14 @@ const statusConfig: Record<
       | "warning";
   }
 > = {
+  unknown: {
+    label: "Not checked",
+    dotClass: connectionStatusColors.unknown,
+    // Deliberately the quietest variant available, and no pulse: this state
+    // is the absence of information, so it must not compete for attention
+    // with the states that carry a real signal.
+    variant: "outline",
+  },
   connected: {
     label: "Connected",
     dotClass: connectionStatusColors.connected,

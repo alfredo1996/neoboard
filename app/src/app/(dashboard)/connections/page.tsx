@@ -40,6 +40,8 @@ import {
   useToast,
 } from "@neoboard/components";
 import type { ConnectionState } from "@neoboard/components";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
+import { connectionsToProbe } from "@/lib/connector/connections-to-probe";
 import { connectionFieldsFor } from "@/lib/connector/connection-form-fields";
 import {
   type ConnectorType,
@@ -94,7 +96,15 @@ export default function ConnectionsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [dialogStep, setDialogStep] = useState<DialogStep>("pick-type");
   const [form, setForm] = useState(DEFAULT_FORM);
-  const [testResults, setTestResults] = useState<Record<string, string>>({});
+  // #1544: connection status lives in a module-level store, not useState, so
+  // it survives the remount a client-side navigation causes. Without that the
+  // page replayed unknown -> Connecting... -> Connected on every visit.
+  const statuses = useConnectionStatusStore((s) => s.statuses);
+  const statusErrors = useConnectionStatusStore((s) => s.errors);
+  const setStatus = useConnectionStatusStore((s) => s.setStatus);
+  const beginBackgroundProbe = useConnectionStatusStore(
+    (s) => s.beginBackgroundProbe,
+  );
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   // Pre-fetch the usage breakdown whenever a delete is pending so the
   // confirm dialog can render the list of affected dashboards + widget
@@ -128,14 +138,16 @@ export default function ConnectionsPage() {
   useEffect(() => {
     if (!connections?.length || autoTestedRef.current) return;
     autoTestedRef.current = true;
-    for (const c of connections) {
-      handleTest(c.id);
+    // #1545: never probe a connection the user does not own — the test route
+    // filters on ownership and 404s, which painted a red Error badge over a
+    // healthy shared connection. Those keep the neutral "Not checked" badge.
+    for (const c of connectionsToProbe(connections, isAdmin)) {
+      handleTest(c.id, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connections]);
 
   const [createError, setCreateError] = useState<string | null>(null);
-  const [testErrors, setTestErrors] = useState<Record<string, string>>({});
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
 
   function buildConfig() {
@@ -293,25 +305,26 @@ export default function ConnectionsPage() {
     }
   }
 
-  async function handleTest(id: string) {
-    setTestResults((prev) => ({ ...prev, [id]: "connecting" }));
-    setTestErrors((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+  /**
+   * @param background - true for the on-mount sweep, which must not disturb a
+   * status we already know (#1544). The three user-initiated call sites leave
+   * it false: there "Connecting..." is the feedback the user just asked for.
+   */
+  async function handleTest(id: string, background = false) {
+    if (background) {
+      beginBackgroundProbe(id);
+    } else {
+      setStatus(id, "connecting");
+    }
     try {
       const result = await testConnection.mutateAsync(id);
-      setTestResults((prev) => ({
-        ...prev,
-        [id]: result.success ? "connected" : "error",
-      }));
-      if (!result.success && result.error) {
-        setTestErrors((prev) => ({ ...prev, [id]: result.error! }));
-      }
+      setStatus(
+        id,
+        result.success ? "connected" : "error",
+        result.success ? undefined : (result.error ?? undefined),
+      );
     } catch {
-      setTestResults((prev) => ({ ...prev, [id]: "error" }));
-      setTestErrors((prev) => ({ ...prev, [id]: "Connection test failed" }));
+      setStatus(id, "error", "Connection test failed");
     }
   }
 
@@ -449,12 +462,11 @@ export default function ConnectionsPage() {
     }
   }
 
+  // #1544: an id with no entry is "unknown" — not checked yet. It used to
+  // fall through to "disconnected", which asserted every connection was down
+  // for a frame on every visit.
   function getConnectionStatus(id: string): ConnectionState {
-    const result = testResults[id];
-    if (result === "connecting") return "connecting";
-    if (result === "connected") return "connected";
-    if (result === "error") return "error";
-    return "disconnected";
+    return statuses[id] ?? "unknown";
   }
 
   return (
@@ -1200,9 +1212,9 @@ export default function ConnectionsPage() {
                         )
                       }
                       status={status}
-                      statusText={testErrors[c.id]}
+                      statusText={statusErrors[c.id]}
                       onClick={
-                        status === "error" && testErrors[c.id]
+                        status === "error" && statusErrors[c.id]
                           ? () =>
                               setExpandedErrorId((prev) =>
                                 prev === c.id ? null : c.id,
@@ -1251,9 +1263,11 @@ export default function ConnectionsPage() {
                           : "Share with workspace"
                       }
                     />
-                    {expandedErrorId === c.id && testErrors[c.id] && (
+                    {expandedErrorId === c.id && statusErrors[c.id] && (
                       <Alert variant="destructive" className="mt-1">
-                        <AlertDescription>{testErrors[c.id]}</AlertDescription>
+                        <AlertDescription>
+                          {statusErrors[c.id]}
+                        </AlertDescription>
                       </Alert>
                     )}
                   </div>

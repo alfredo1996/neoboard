@@ -120,3 +120,42 @@ describe("ConnectionStatus", () => {
     expect(tooltip).toHaveTextContent("Connection refused at port 7687");
   });
 });
+
+/**
+ * #1544 — "not checked yet" had no way to be expressed.
+ *
+ * ConnectionState was connected | disconnected | connecting | error, so the
+ * connections page mapped "we have no result for this id" onto the definite
+ * verdict "disconnected". Every visit therefore asserted every connection was
+ * down for one frame before probing, and the badge cycled
+ * Disconnected -> Connecting... -> Connected in front of the user.
+ *
+ * The fix needs a member that says nothing, so a status that is genuinely
+ * unknown can be rendered without claiming a connection is broken.
+ */
+describe("ConnectionStatus — unknown (#1544)", () => {
+  it("renders an unknown status without asserting the connection is down", () => {
+    render(<ConnectionStatus status="unknown" />);
+    const badge = screen.getByRole("status");
+    expect(badge).toBeInTheDocument();
+    expect(badge.textContent).not.toMatch(/disconnected|error/i);
+  });
+
+  it("gives assistive tech a name that does not claim a verdict", () => {
+    render(<ConnectionStatus status="unknown" />);
+    const name = screen
+      .getByRole("status")
+      .getAttribute("aria-label")!
+      .toLowerCase();
+    expect(name).toContain("connection status");
+    expect(name).not.toContain("disconnected");
+  });
+
+  it("is visually neutral — no success, warning or destructive signal", () => {
+    const { container } = render(<ConnectionStatus status="unknown" />);
+    const dot = container.querySelector("span.rounded-full")!;
+    expect(dot.className).not.toMatch(/bg-success|bg-warning|bg-destructive/);
+    // Not the attention-seeking pulse the connecting state uses.
+    expect(dot.className).not.toContain("animate-pulse");
+  });
+});

@@ -19,6 +19,74 @@ test.describe("Connections", () => {
     });
   });
 
+  /**
+   * #1544 — status used to live in the page's useState, so a client-side
+   * navigation wiped it and the badge replayed unknown -> Connecting... ->
+   * Connected on every visit.
+   *
+   * Asserting the badge's final text after navigating back would not catch a
+   * regression: Playwright auto-waits, so it would happily observe the settled
+   * state and miss the flicker entirely. This records every change with a
+   * MutationObserver installed BEFORE the navigation, then asserts on the
+   * whole sequence.
+   */
+  test("does not replay the status sequence when returning to the page", async ({
+    page,
+    sidebarPage,
+  }) => {
+    const badge = page
+      .getByRole("status")
+      .filter({ hasText: /connected|error/i })
+      .first();
+    await expect(badge).toBeVisible({ timeout: 15000 });
+
+    await page.evaluate(() => {
+      const w = window as unknown as { __statusLog: string[][] };
+      w.__statusLog = [];
+      const snap = () => {
+        const now = [
+          ...document.querySelectorAll(
+            '[role="status"][aria-label^="Connection status"]',
+          ),
+        ].map((e) => (e.textContent ?? "").trim());
+        const last = w.__statusLog[w.__statusLog.length - 1];
+        if (!last || JSON.stringify(last) !== JSON.stringify(now)) {
+          w.__statusLog.push(now);
+        }
+      };
+      new MutationObserver(snap).observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+      snap();
+    });
+
+    // Client-side navigation, which is what remounts the segment.
+    await sidebarPage.navigateTo("Dashboards");
+    await sidebarPage.navigateTo("Connections");
+    await expect(badge).toBeVisible({ timeout: 15000 });
+
+    const log = await page.evaluate(
+      () => (window as unknown as { __statusLog: string[][] }).__statusLog,
+    );
+    const seen = log.flat().filter(Boolean);
+    // Without this the test passes vacuously: an observer that never fired
+    // leaves `seen` empty and both .some() checks below return false.
+    expect(
+      seen.filter((t) => /connected|error/i.test(t)).length,
+      `observer recorded nothing: ${JSON.stringify(log)}`,
+    ).toBeGreaterThan(0);
+    expect(
+      seen.some((t) => /connecting/i.test(t)),
+      `badge regressed to Connecting...: ${JSON.stringify(log)}`,
+    ).toBe(false);
+    expect(
+      seen.some((t) => /not checked/i.test(t)),
+      `badge regressed to Not checked: ${JSON.stringify(log)}`,
+    ).toBe(false);
+  });
+
   test("should create a new Neo4j connection", async ({ page }) => {
     const name = `Test Neo4j ${Date.now()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
