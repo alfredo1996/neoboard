@@ -15,16 +15,12 @@ type ToasterToast = ToastProps & {
   action?: ToastActionElement;
 };
 
-/**
- * Action names. Declared as a type, not a `const` object: its only use was
- * `typeof actionTypes`, so the runtime object was never read (#1547).
- */
-type ActionTypes = {
-  ADD_TOAST: "ADD_TOAST";
-  UPDATE_TOAST: "UPDATE_TOAST";
-  DISMISS_TOAST: "DISMISS_TOAST";
-  REMOVE_TOAST: "REMOVE_TOAST";
-};
+const actionTypes = {
+  ADD_TOAST: "ADD_TOAST",
+  UPDATE_TOAST: "UPDATE_TOAST",
+  DISMISS_TOAST: "DISMISS_TOAST",
+  REMOVE_TOAST: "REMOVE_TOAST",
+} as const;
 
 let count = 0;
 
@@ -33,7 +29,7 @@ function genId() {
   return count.toString();
 }
 
-type ActionType = ActionTypes;
+type ActionType = typeof actionTypes;
 
 type Action =
   | {

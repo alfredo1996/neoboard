@@ -73,6 +73,24 @@ export default defineConfig([
     },
   },
   {
+    // Vendored shadcn source, kept in its upstream formatting.
+    //
+    // `actionTypes` is a `const` object whose only use is `typeof actionTypes`,
+    // which no-unused-vars reports. The obvious fix — declare it as a type — is
+    // correct and was written, then reverted: this file is not prettier-
+    // formatted (upstream shadcn omits semicolons), so touching a single line
+    // makes lint-staged reflow all 189 of them. In a file at 33% coverage that
+    // turns the whole thing into uncovered "new code" and fails the PR gate,
+    // for a change that alters no behaviour.
+    //
+    // Suppressed here rather than in the file so it stays byte-identical to
+    // upstream. Fixing it properly means covering the hook first (#1565).
+    files: ["component/src/hooks/use-toast.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
     // `connection/__tests__` only — NOT test code in general.
     //
     // 145 pre-existing sites here use `any` (fixtures and callback generics)
