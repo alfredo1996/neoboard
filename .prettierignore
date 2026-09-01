@@ -1,0 +1,18 @@
+# Vendored upstream source, kept byte-identical to what it was copied from.
+#
+# use-toast.ts is shadcn's toast hook, which omits semicolons. Letting prettier
+# normalise it reflows all 189 lines — and because the file sits at 33%
+# coverage, that reflow turns the whole file into uncovered "new code" and
+# fails the SonarCloud new-code gate for a change that alters no behaviour
+# (#1547). Covering it first, then formatting, is #1565.
+component/src/hooks/use-toast.ts
+
+# Vendored CodeMirror language support, modified locally. Excluded from
+# SonarCloud coverage for the same reason it is excluded from linting.
+component/src/lib/cypher-lang/
+
+# Build output.
+**/dist
+**/.next
+**/storybook-static
+**/coverage
