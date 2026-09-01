@@ -1,10 +1,5 @@
 import { getNeo4jAuth } from "../utils/setup";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
-import {
-  QueryCallback,
-  QueryParams,
-  QueryStatus,
-} from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 
 describe("Neo4j Transaction Rollback", () => {

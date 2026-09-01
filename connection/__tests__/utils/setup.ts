@@ -111,7 +111,7 @@ export function getNeo4jAuth() {
 
 export default async () => {
   // Start Neo4j container (without wait strategy)
-  let container = await new GenericContainer("neo4j:2025.06-enterprise") // Use a specific version tag for optimized images
+  const container = await new GenericContainer("neo4j:2025.06-enterprise") // Use a specific version tag for optimized images
     .withEnvironment({
       NEO4J_AUTH: "neo4j/test",
       NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes",

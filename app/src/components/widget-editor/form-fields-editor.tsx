@@ -338,7 +338,6 @@ function SortableFieldItem({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function FormFieldsEditor(_props: FormFieldsEditorProps) {
   const fields = useWidgetEditorStore((s) => s.formFields);
   const onChange = useWidgetEditorStore((s) => s.setFormFields);

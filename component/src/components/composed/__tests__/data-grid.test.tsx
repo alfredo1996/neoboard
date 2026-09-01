@@ -511,11 +511,7 @@ describe("DataGrid", () => {
     ];
 
     it("applies the formatNumber default (comma + 2dp) to numeric cells", () => {
-      const { container } = render(
-        <DataGrid columns={numCols} data={numData} />,
-      );
-      // eslint-disable-next-line no-console
-      console.log("RENDERED2:", container.innerHTML.slice(800, 1800));
+      render(<DataGrid columns={numCols} data={numData} />);
       expect(screen.getByText("0.12")).toBeInTheDocument();
       expect(screen.getByText("1,234,567.89")).toBeInTheDocument();
       expect(screen.getByText("42.00")).toBeInTheDocument();

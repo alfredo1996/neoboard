@@ -66,7 +66,7 @@ describe("PostgreSQL Query Execution", () => {
     if (connectionModule) {
       try {
         await connectionModule.close();
-      } catch (error) {
+      } catch {
         // Suppress shutdown errors
       }
     }
@@ -74,7 +74,7 @@ describe("PostgreSQL Query Execution", () => {
     // Stop container
     try {
       await container.stop();
-    } catch (error) {
+    } catch {
       // Suppress container shutdown errors
     }
   });
@@ -254,7 +254,6 @@ describe("PostgreSQL Query Execution", () => {
 
   test("should call setSchema callback with schema information", async () => {
     let schema: any = null;
-    let result: any = null;
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
@@ -278,7 +277,6 @@ describe("PostgreSQL Query Execution", () => {
 
   test("should call setFields callback with field information", async () => {
     let fields: any = null;
-    let result: any = null;
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,

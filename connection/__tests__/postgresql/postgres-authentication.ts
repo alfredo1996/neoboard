@@ -18,7 +18,7 @@ describe("PostgreSQL Authentication", () => {
     if (authModule) {
       try {
         await authModule.close();
-      } catch (error) {
+      } catch {
         // Suppress shutdown errors
       }
     }
@@ -26,7 +26,7 @@ describe("PostgreSQL Authentication", () => {
     // Stop container
     try {
       await container.stop();
-    } catch (error) {
+    } catch {
       // Suppress container shutdown errors
     }
   });

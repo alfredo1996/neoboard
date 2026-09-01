@@ -51,10 +51,15 @@ describe("PostgreSQL Parameter Ordering", () => {
   afterAll(async () => {
     try {
       await connectionModule.close();
-    } catch (_) {}
+    } catch {
+      // Best-effort teardown: the pool may already be closed, and a failure
+      // here must not mask the test result.
+    }
     try {
       await container.stop();
-    } catch (_) {}
+    } catch {
+      // Same — a container that already exited is not a test failure.
+    }
   });
 
   test("out-of-order numeric keys produce correct binding", async () => {

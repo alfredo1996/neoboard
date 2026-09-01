@@ -21,8 +21,13 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/** Source with `//` and `/* *​/` comments removed, so prose about a banned
- *  idiom doesn't count as a use of it. */
+// Source with line comments and block comments removed, so prose about a
+// banned idiom does not count as a use of it.
+//
+// A line comment, not a block one: naming the block-comment delimiters
+// inside a block comment previously needed a zero-width space wedged
+// between the asterisk and the slash to stop it closing early, which
+// no-irregular-whitespace flags and no reader can see (#1547).
 function codeOnly(text: string): string {
   return text
     .replace(/\/\*[\s\S]*?\*\//g, "")

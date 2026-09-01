@@ -114,7 +114,6 @@ describe("MarkdownWidget", () => {
   });
 
   it("sanitizes javascript: URLs in links", () => {
-    // eslint-disable-next-line no-script-url
     render(<MarkdownWidget content="[Click](javascript:alert(1))" />);
     const link = screen.queryByRole("link");
     // Link should either not exist or have safe href
@@ -127,7 +126,6 @@ describe("MarkdownWidget", () => {
   });
 
   it("sanitizes javascript: URLs in images", () => {
-    // eslint-disable-next-line no-script-url
     render(<MarkdownWidget content="![alt](javascript:alert(1))" />);
     const container = screen.getByTestId("markdown-widget");
     expect(container.innerHTML).not.toContain("javascript:");
