@@ -5,13 +5,19 @@
  * Shares the same transform as Sunburst and Treemap.
  */
 
+import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Skeleton, getChartOptions } from "@neoboard/components";
-import type { CirclePackingDataItem, StylingRule } from "@neoboard/components";
+import type {
+  CirclePackingDataItem,
+  StylingRule,
+  EChartsClickEvent,
+} from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
 import { transformToHierarchicalData } from "../sunburst/transform";
-import { useEChartsClick, type PluginProps } from "../utils";
+import { type PluginProps } from "../utils";
 import { circlePackingSettingsSchema } from "./settings";
+import { circlePackingClickPayload } from "./click-payload";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const CirclePackingChart = dynamic(
@@ -29,7 +35,17 @@ function CirclePackingPluginComponent({
   paramValues,
   onChartClick,
 }: PluginProps) {
-  const onClick = useEChartsClick(onChartClick, data);
+  // #1551: NOT useEChartsClick. That hook resolves the row as
+  // data[e.dataIndex], which is correct for every other ECharts plugin but not
+  // for a custom series over a d3-hierarchy pack — dataIndex there is in
+  // flattened-packed-node space, unrelated to any row index.
+  const onClick = useMemo(
+    () =>
+      onChartClick
+        ? (e: EChartsClickEvent) => onChartClick(circlePackingClickPayload(e))
+        : undefined,
+    [onChartClick],
+  );
   const settings = safeParseSettings(
     circlePackingSettingsSchema,
     raw,
