@@ -150,12 +150,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
   isTemporal(
     value: unknown,
   ): value is
-    | Neo4jDate
-    | Time
-    | LocalTime
-    | DateTime
-    | LocalDateTime
-    | Duration {
+    Neo4jDate | Time | LocalTime | DateTime | LocalDateTime | Duration {
     return (
       value instanceof Neo4jDate ||
       value instanceof Time ||
@@ -278,12 +273,34 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       };
     }
 
+    // Rebuilt rather than returned as-is (#1305). A driver Path holds live
+    // Node/Relationship instances whose Integer properties survive JSON
+    // serialisation as {low, high}, so returning it here leaked raw driver
+    // types past the connection boundary that app/ is contracted to be able to
+    // trust. Recursing through __neo4jToNative reuses the Node and
+    // Relationship arms above rather than duplicating their conversion.
+    //
+    // The key names are load-bearing: transformToGraphData, validateGraphData,
+    // extractNodeAndRelPropertiesFromRecords and NeodashRecord.getFields all
+    // key off start/end/segments/relationship.
     if (value instanceof Path) {
-      return value;
+      return {
+        start: this.__neo4jToNative(value.start),
+        end: this.__neo4jToNative(value.end),
+        segments: value.segments.map((segment) =>
+          this.__neo4jToNative(segment),
+        ),
+        // Already a plain number in the driver — not an Integer like identity.
+        length: value.length,
+      };
     }
 
     if (value instanceof PathSegment) {
-      return value;
+      return {
+        start: this.__neo4jToNative(value.start),
+        relationship: this.__neo4jToNative(value.relationship),
+        end: this.__neo4jToNative(value.end),
+      };
     }
 
     if (value instanceof Point) {

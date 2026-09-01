@@ -28,10 +28,12 @@ function normalizeProps(
  * for a virtual node — same class, same fields, same `__isNode__` brand as a
  * stored node. The sign of the id is APOC's own collision-avoidance convention
  * and the only thing that distinguishes the two at ANY layer, so detecting it
- * earlier (in `connection/`'s Neo4jRecordParser) would be no more certain —
- * and would be strictly worse, because `parseGraphObject` returns Path and
- * PathSegment untouched, so path-borne virtual nodes would go unflagged.
- * `addNode` is the one funnel every node shape routes through.
+ * earlier (in `connection/`'s Neo4jRecordParser) would be no more certain.
+ * `addNode` is the one funnel every node shape routes through, which is why
+ * the check belongs here rather than per-shape. (This note used to add that
+ * `parseGraphObject` returned Path and PathSegment untouched, so path-borne
+ * nodes would be missed — that is fixed as of #1305, but the funnel argument
+ * stands on its own.)
  *
  * What it would misfire on: a non-Neo4j connector emitting Neo4j-shaped
  * records (`{labels, properties}`) whose ids are genuinely negative integers.
