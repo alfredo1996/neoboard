@@ -35,6 +35,6 @@ export const parameterSelectOptions: ChartOptionDef[] = [
     default: false,
     category: "Parameter",
     description:
-      "Persist the selected value as a URL search parameter so it survives page reloads and can be shared via link.",
+      "Keep the selected value in the URL so it survives reloads and can be shared.",
   },
 ];

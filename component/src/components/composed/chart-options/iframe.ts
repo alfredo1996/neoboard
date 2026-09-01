@@ -9,8 +9,7 @@ export const iframeOptions: ChartOptionDef[] = [
     default: "",
     category: "Content",
     description:
-      "The URL of the external page to embed (prefer https://; http may be " +
-      "blocked). Some sites refuse framing via X-Frame-Options / CSP.",
+      "Page to embed; prefer https. Some sites refuse framing via X-Frame-Options / CSP.",
     validate: validateIframeUrl,
   },
   {
@@ -29,6 +28,6 @@ export const iframeOptions: ChartOptionDef[] = [
     default: "",
     category: "Security",
     description:
-      "HTML sandbox attributes controlling what the embedded page can do. Restrict for untrusted content.",
+      "Sandbox attributes controlling what the embedded page can do. Restrict if untrusted.",
   },
 ];

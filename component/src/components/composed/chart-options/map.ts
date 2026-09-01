@@ -8,7 +8,7 @@ export const mapOptions: ChartOptionDef[] = [
     default: "osm",
     category: "Map",
     description:
-      "Base-map tile provider. OpenStreetMap is open and free; Carto variants are cleaner for data overlays.",
+      "Base-map tiles. OpenStreetMap is free; Carto variants suit data overlays better.",
     options: [
       { label: "OpenStreetMap", value: "osm" },
       { label: "Carto Light", value: "carto-light" },

@@ -14,7 +14,11 @@ export interface ChartOptionDef {
   category: string;
   /** Only for type: "select" */
   options?: { label: string; value: string }[];
-  /** Short description shown in a tooltip next to the option label. */
+  /**
+   * Short help text rendered under the option label. Visible text, not a
+   * tooltip — the control points at it with aria-describedby (#1283 item 2b).
+   * Kept to 90 characters; a ratchet test enforces it (#1549).
+   */
   description?: string;
   /**
    * Optional client-side validation for text inputs. Returns null when the
@@ -144,7 +148,7 @@ export const behaviorOptions: ChartOptionDef[] = [
     default: false,
     category: "Behavior",
     description:
-      "Start with the query disabled. A 'Run Query' button must be clicked to execute. On parameter change the widget resets to the overlay.",
+      "Start disabled behind a 'Run Query' button. Parameter changes reset the overlay.",
   },
   {
     key: "cacheMode",
@@ -153,7 +157,7 @@ export const behaviorOptions: ChartOptionDef[] = [
     default: "ttl",
     category: "Behavior",
     description:
-      "TTL re-fetches data based on the cache timeout. Forever fetches once and caches until manually refreshed.",
+      "TTL re-fetches on the cache timeout. Forever fetches once until refreshed by hand.",
     options: [
       { label: "TTL (time-based)", value: "ttl" },
       { label: "Forever (until refresh)", value: "forever" },
@@ -191,6 +195,6 @@ export const accessibilityOptions: ChartOptionDef[] = [
     default: false,
     category: "Accessibility",
     description:
-      "Overlay distinct patterns on chart elements so data series are distinguishable without relying on color alone.",
+      "Overlay distinct patterns so series are distinguishable without relying on color.",
   },
 ];
