@@ -301,6 +301,10 @@ function LineChart({
     samplingThreshold,
     samplingMethod,
     dark,
+    // #1562: read at resolveLegendPosition(legendPosition) above. Omitting it
+    // latched the legend to its first position until an unrelated dep churned
+    // — the same class as #1546 in bar-chart, and the last instance in charts/.
+    legendPosition,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the
