@@ -2,7 +2,11 @@
 
 import { useEffect } from "react";
 
-export default function Error({
+// Not `Error`: that name shadowed the global inside this component's own
+// type annotation (`error: Error & …` below), which is the confusion
+// SonarCloud S2137 flags and the one MAJOR bug that kept dev's gate red
+// (#1561). Next.js needs the default export, not the name.
+export default function ErrorBoundary({
   error,
   reset,
 }: {
