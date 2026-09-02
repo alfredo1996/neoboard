@@ -7,7 +7,8 @@ import { resolve } from "node:path";
  *
  * Two independent failures compounded:
  *
- * 1. The fill barely changed. `--accent: 38 100% 96%` (#fff8eb) against
+ * 1. The fill barely changed. `--accent: 38 100% 96%` (#fff8eb, the citrine
+ *    value before #1553; the azure that replaced it is no better at 1.17) against
  *    `--popover: 0 0% 100%` measures 1.06:1. WCAG 1.4.11 asks 3:1 for a
  *    non-text UI indicator.
  * 2. The paired text-colour change was a no-op. `--accent-foreground` is

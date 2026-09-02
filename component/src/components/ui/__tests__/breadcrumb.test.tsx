@@ -36,7 +36,7 @@ describe("Breadcrumb", () => {
     expect(screen.getByText("Current")).toHaveAttribute("aria-current", "page");
   });
 
-  it("renders a link with the citrine focus-ring treatment", () => {
+  it("renders a link with the solid focus-ring treatment", () => {
     render(<BreadcrumbLink href="/x">Link</BreadcrumbLink>);
     expect(screen.getByText("Link")).toHaveClass("focus-visible:ring-2");
   });

@@ -42,14 +42,35 @@ describe("Graphite & Citrine locked palette values (#820)", () => {
     expect(tokenValue(light, "--primary")).toBe("220 13% 9%");
   });
 
-  it("focus/selection ring is the amber accent (Epic A #1125: unified amber identity)", () => {
-    // Deep amber (38% L) so the focus ring clears WCAG 1.4.11 (~3.4:1) on white;
-    // lifted (60% L) for contrast on charcoal in dark mode.
-    expect(tokenValue(light, "--ring")).toBe("38 95% 38%");
-    expect(tokenValue(dark, "--ring")).toBe("38 95% 60%");
+  it("focus/selection ring is azure (#1553: interaction moved off citrine)", () => {
+    // Hue 212, chosen from a six-hue comparison as the only blue that clears
+    // 5:1 for the ring on BOTH grounds (5.38 light / 6.22 dark). Bluer hues are
+    // inherently darker, so every other blue trades one theme for the other.
+    expect(tokenValue(light, "--ring")).toBe("212 90% 42%");
+    expect(tokenValue(dark, "--ring")).toBe("212 90% 62%");
   });
 
-  it("--warning stays a distinct hue from the amber ring (no warning/interactive collision)", () => {
+  it("--accent and --ring share a hue in both modes (they move together)", () => {
+    // --ring owns the focus ring, tab underline, sidebar rail and input focus
+    // border; --accent owns the hover/selected fill. Moving one without the
+    // other yields a blue menu highlight framed by an amber focus ring.
+    const hue = (v: string | undefined) => Number(v?.match(/^(\d+)/)?.[1]);
+    expect(hue(tokenValue(light, "--accent"))).toBe(
+      hue(tokenValue(light, "--ring")),
+    );
+    expect(hue(tokenValue(dark, "--accent"))).toBe(
+      hue(tokenValue(dark, "--ring")),
+    );
+  });
+
+  it("interaction hue is not the brand hue (#1553 keeps citrine for brand + charts)", () => {
+    const hue = (v: string | undefined) => Number(v?.match(/^(\d+)/)?.[1]);
+    expect(hue(tokenValue(light, "--ring"))).not.toBe(
+      hue(tokenValue(light, "--brand")),
+    );
+  });
+
+  it("--warning stays a distinct hue from the ring (no warning/interactive collision)", () => {
     const hue = (v: string | undefined) => Number(v?.match(/^(\d+)/)?.[1]);
     expect(hue(tokenValue(light, "--warning"))).not.toBe(
       hue(tokenValue(light, "--ring")),
@@ -77,10 +98,11 @@ describe("new token surface (#820)", () => {
     expect(tokenValue(dark, token), `${token} dark`).toBeTruthy();
   });
 
-  it("--accent-soft is a low-alpha amber tint in light mode", () => {
-    // Over the near-white background a warm tint reads as intended cream.
+  it("--accent-soft is a low-alpha azure tint in light mode", () => {
+    // Same hue as --ring so hover fills and the active rail read as one
+    // family; alpha-based so it composites on any light surface.
     expect(tokenValue(light, "--accent-soft")).toMatch(
-      /^hsl\(38 \d{2}% \d{2}% \/ 0\.\d+\)$/,
+      /^hsl\(212 \d{2}% \d{2}% \/ 0\.\d+\)$/,
     );
   });
 

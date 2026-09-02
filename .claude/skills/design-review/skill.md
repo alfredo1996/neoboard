@@ -34,7 +34,7 @@ Before touching ANY UI code (pages, components, layouts, modals), read this docu
 
 ### Active/Selected States
 
-- Sidebar active: `bg-accent text-accent-foreground`
+- Sidebar active: `border-l-2 border-[hsl(var(--ring))] bg-accent-soft text-foreground` — the rail is the signal, the fill is neutral in dark (#1244)
 - Tab active: `border-b-2 border-primary text-foreground` (bottom border emphasis)
 - Connection card active: `border-primary` ring
 - Selection in lists: `bg-accent/50`
@@ -69,21 +69,21 @@ Before touching ANY UI code (pages, components, layouts, modals), read this docu
 
 ### Semantic Color Map (CSS Variables, HSL)
 
-| Token                | Light                        | Usage                            |
-| -------------------- | ---------------------------- | -------------------------------- |
-| `--background`       | `220 14% 98%` (off-white)    | Page backgrounds                 |
-| `--foreground`       | `220 13% 9%` (graphite)      | Body text                        |
-| `--card`             | `0 0% 100%` (white)          | Card surfaces                    |
-| `--muted`            | `220 14% 94%` (light gray)   | Disabled bgs, secondary surfaces |
-| `--muted-foreground` | `220 9% 44%` (medium gray)   | Captions, metadata, descriptions |
-| `--primary`          | `220 13% 9%` (graphite)      | Buttons, active states           |
-| `--secondary`        | `220 14% 94%` (light gray)   | Secondary buttons                |
-| `--destructive`      | `0 72% 48%` (red)            | Delete buttons, error states     |
-| `--border`           | `220 13% 91%` (light gray)   | All borders                      |
-| `--input`            | `220 13% 84%` (light gray)   | Input borders                    |
-| `--ring`             | `38 95% 38%` (citrine amber) | Focus rings, selection accent    |
-| `--accent`           | `38 100% 96%` (amber tint)   | Hover/selected fill              |
-| `--brand`            | `38 95% 55%` (citrine)       | Wordmark mark                    |
+| Token                | Light                       | Usage                                                                                   |
+| -------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
+| `--background`       | `220 14% 98%` (off-white)   | Page backgrounds                                                                        |
+| `--foreground`       | `220 13% 9%` (graphite)     | Body text                                                                               |
+| `--card`             | `0 0% 100%` (white)         | Card surfaces                                                                           |
+| `--muted`            | `220 14% 94%` (light gray)  | Disabled bgs, secondary surfaces                                                        |
+| `--muted-foreground` | `220 9% 44%` (medium gray)  | Captions, metadata, descriptions                                                        |
+| `--primary`          | `220 13% 9%` (graphite)     | Buttons, active states                                                                  |
+| `--secondary`        | `220 14% 94%` (light gray)  | Secondary buttons                                                                       |
+| `--destructive`      | `0 72% 48%` (red)           | Delete buttons, error states                                                            |
+| `--border`           | `220 13% 91%` (light gray)  | All borders                                                                             |
+| `--input`            | `220 13% 84%` (light gray)  | Input borders                                                                           |
+| `--ring`             | `212 90% 42%` (azure)       | Focus rings, active rail, tab underline, selection accent (#1553)                       |
+| `--accent`           | `212 100% 94%` (azure tint) | Hover/selected fill; the menu highlight is carried by the inset `--ring` stroke (#1559) |
+| `--brand`            | `38 95% 55%` (citrine)      | Wordmark mark                                                                           |
 
 ### Chart Colors (10-color "Graphite & Citrine" default palette — colorblind-safe)
 

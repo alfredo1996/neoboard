@@ -29,7 +29,7 @@ describe("NavigationMenu", () => {
     expect(screen.getByText("Analytics")).toBeInTheDocument();
   });
 
-  it("applies the solid citrine focus ring to the trigger", () => {
+  it("applies the solid focus ring to the trigger", () => {
     render(
       <NavigationMenu>
         <NavigationMenuList>
