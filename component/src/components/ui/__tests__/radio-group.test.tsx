@@ -15,7 +15,7 @@ describe("RadioGroup", () => {
     expect(radios[0]).toBeChecked();
   });
 
-  it("applies the solid citrine focus ring to items", () => {
+  it("applies the solid focus ring to items", () => {
     render(
       <RadioGroup defaultValue="a">
         <RadioGroupItem value="a" aria-label="A" />

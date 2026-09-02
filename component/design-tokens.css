@@ -5,13 +5,16 @@
  * Imported by app/src/app/globals.css and component/src/index.css.
  *
  * Palette intent: near-black graphite primaries on a cool off-white page.
- * Epic A (#1125) unifies BRAND and INTERACTION on citrine amber (hue 38):
- * --brand is the wordmark square (55% L), and --ring/--accent drive selection,
- * focus rings, active/selected, tonal, and hover fills — using a denser amber
- * (--ring at 38% L) so the focus ring clears WCAG non-text contrast on white.
- * The chart data palette also starts at citrine (--chart-1). --warning is
- * nudged to hue 28 (more orange, darker) so "warning" stays distinct from the
- * hue-38 interactive citrine.
+ * BRAND is citrine amber (hue 38): --brand is the wordmark square and the chart
+ * data palette starts there (--chart-1). INTERACTION is azure (hue 212):
+ * --ring/--accent drive selection, focus rings, active/selected, tonal and
+ * hover fills. Epic A (#1125) had unified both on citrine; #1553 split them
+ * again after a six-hue comparison — 212 is the only blue that clears 5:1 for
+ * the ring on BOTH grounds (5.38 light / 6.22 dark), it is 27° from the nearest
+ * chart hue, and at 8° from the graphite neutral its dark fill composites as
+ * slate rather than the olive a warm hue produces over charcoal. --accent and
+ * --ring share a hue and must move together (see graphite-citrine-tokens test).
+ * --warning stays hue 28 (it never collided with 212, but it did with 38).
  *
  * Elevation: page background < --surface (cards) < --surface-2 (nested).
  * Shadows are warm-tinted (hue 30) rather than pure black — see --shadow-*.
@@ -61,18 +64,16 @@
   --popover-foreground: 220 13% 9%;
   --muted: 220 14% 94%;
   --muted-foreground: 220 9% 44%;
-  /* Amber-tinted hover/selected fill. Epic A (#1125) unifies brand AND
-     interaction on citrine amber. The two historical concerns (warning-hue
-     collision; low contrast on white) are mitigated: --ring uses a denser amber
-     (38% L) for contrast, and --warning is nudged to hue 28 so "warning" and
-     "interactive" stay distinct. */
-  --accent: 38 100% 96%;
+  /* Azure-tinted hover/selected fill (#1553). Deliberately pale: the menu
+     highlight is carried by the inset --ring stroke (#1559), not by this fill,
+     which at 94% L is ~1.2:1 against a white popover for ANY hue. */
+  --accent: 212 100% 94%;
   --accent-foreground: 220 13% 9%;
-  /* Low-alpha amber tint for hover/active fills on arbitrary surfaces —
-     alpha-based so it adapts to theme mode automatically. */
-  --accent-soft: hsl(38 95% 50% / 0.14);
-  /* Brand mark accent — the warm citrine square in the wordmark. As of Epic A
-     (#1125) the same citrine drives interaction (--ring / --accent) too. */
+  /* Low-alpha azure tint for hover/active fills on arbitrary surfaces —
+     same hue as --ring so fills and the active rail read as one family. */
+  --accent-soft: hsl(212 95% 45% / 0.12);
+  /* Brand mark accent — the warm citrine square in the wordmark. Brand and
+     charts stay citrine; interaction is azure (#1553). */
   --brand: 38 95% 55%;
   /* The one error red (Epic B #1126): deep enough for AA as text on white,
      and the destructive-surface color. The old duplicate danger red is gone. */
@@ -80,9 +81,9 @@
   --destructive-foreground: 0 0% 98%;
   /* Semantic status colors (#1059 follow-up): readable as text on the page
      surface AND as the base for low-alpha tonal badge tints. Mid-luminance
-     in light mode; lifted in dark (see .dark). --warning is a deliberately
-     more-orange (hue 28) and darker amber than the citrine --ring (hue 38) so
-     "warning" and "interactive" stay distinct. */
+     in light mode; lifted in dark (see .dark). --warning is hue 28: it was
+     nudged off 38 while the ring was citrine, and there is no reason to move
+     it back now that the ring is azure. */
   --success: 142 64% 32%;
   --success-foreground: 0 0% 100%;
   --warning: 28 92% 40%;
@@ -91,10 +92,10 @@
   /* Stronger border for inputs and emphasized dividers. */
   --border-strong: 220 13% 84%;
   --input: 220 13% 84%;
-  /* Selection/focus accent — citrine amber, deep (38% L vs --brand's 55%) so the
-     2px focus ring clears WCAG 1.4.11 non-text contrast (~3.4:1) against the
-     near-white page (Epic A #1125). */
-  --ring: 38 95% 38%;
+  /* Selection/focus accent — azure at 42% L: 5.38:1 against the near-white
+     page and 5.63:1 on a white card (WCAG 1.4.11 needs 3.0). The citrine it
+     replaced measured 3.41 (#1553). */
+  --ring: 212 90% 42%;
   --font-display: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
   /* Radius scale (#831): precise small controls, softer large containers. */
@@ -144,14 +145,16 @@
   --popover-foreground: 220 14% 96%;
   --muted: 220 13% 15%;
   --muted-foreground: 220 9% 62%;
-  /* Deep amber hover fill; readable warm-white text. */
-  --accent: 38 45% 22%;
-  --accent-foreground: 38 100% 92%;
-  /* Neutral, not amber (#1244). A warm hue at low alpha over charcoal
-     composites to brown — selection read as a dull smear rather than a
-     deliberate state. Dark selection is neutral elevation; the citrine
-     signal is carried at full strength by the active item's left rail
-     (--ring), which is a small area and therefore stays crisp. */
+  /* Slate hover fill; pale azure-white text (9.2:1). A cool hue at 45%
+     chroma over charcoal reads as slate — the amber at the same recipe read
+     as olive, which is what #1553 was about. */
+  --accent: 212 45% 24%;
+  --accent-foreground: 212 100% 92%;
+  /* Neutral, not tinted (#1244). A hue at low alpha over charcoal reads as a
+     dull smear rather than a deliberate state; dark selection is neutral
+     elevation, and the accent signal is carried at full strength by the
+     active item's left rail (--ring), a small area that stays crisp. Kept
+     neutral through #1553 on purpose — untinting was a settled decision. */
   --accent-soft: hsl(0 0% 100% / 0.07);
   /* Brand mark stays warm citrine (matches --chart-1 dark). */
   --brand: 38 95% 58%;
@@ -167,8 +170,11 @@
   --border: 220 13% 17%;
   --border-strong: 220 13% 25%;
   --input: 220 13% 25%;
-  /* Lifted amber focus/selection ring for contrast on charcoal. */
-  --ring: 38 95% 60%;
+  /* Lifted azure focus/selection ring: 6.22:1 against the charcoal page.
+     Honest disclosure — the citrine it replaced measured 10.17 here; both
+     are well past the 3.0 threshold, and azure is the hue that also clears
+     5:1 in LIGHT, which citrine did not (#1553). */
+  --ring: 212 90% 62%;
   --primary: 220 14% 96%;
   --primary-foreground: 220 13% 9%;
   --secondary: 220 13% 15%;
