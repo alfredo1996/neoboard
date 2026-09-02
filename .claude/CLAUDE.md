@@ -24,7 +24,7 @@ npm run sonar:local                  # Scan the current branch against SonarClou
 npm run review:local                 # CodeRabbit review of committed changes vs release/1.4
 npm run dev                          # Dev server (Turbopack, proxies to app/)
 npm run build                        # Production build (webpack) + type-check
-npm run lint                         # ESLint all packages (root config)
+npm run lint                         # ESLint every package (root flat config)
 npm -w app exec next lint -- --fix   # Auto-fix lint errors in app/
 npm -w app run test                  # App Vitest unit tests (API routes, hooks, stores)
 npm -w component run test            # Component Vitest unit tests
@@ -80,7 +80,12 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 
 - TypeScript strict. No `any` without a comment explaining why.
 - Run `cd app && npx next lint --fix` after every change to `app/`.
-- Run `npm run lint` from the repo root to lint all packages.
+- Run `npm run lint` from the repo root to lint every package. This genuinely
+  covers all of them as of #1547 — `component/`, `connection/` and
+  `connector-sdk/` were globally ignored before that and had never been linted,
+  which is how the #1546 stale-dependency bug shipped. Ignores that remain
+  (`**/e2e`, `docs`, vendored `cypher-lang`) each carry their reason in
+  `eslint.config.js`.
 - Run `npm run build` before committing to catch type errors.
 - Use `npm`, not `pnpm` or `yarn`.
 

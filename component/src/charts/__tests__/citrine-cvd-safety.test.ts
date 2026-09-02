@@ -60,7 +60,7 @@ const simulate = (rgb: number[], kind: string): number[] => {
 
 const rgb2lab = ([r, g, b]: number[]): number[] => {
   let x = 0.4124 * srgb2lin(r) + 0.3576 * srgb2lin(g) + 0.1805 * srgb2lin(b);
-  let y = 0.2126 * srgb2lin(r) + 0.7152 * srgb2lin(g) + 0.0722 * srgb2lin(b);
+  const y = 0.2126 * srgb2lin(r) + 0.7152 * srgb2lin(g) + 0.0722 * srgb2lin(b);
   let z = 0.0193 * srgb2lin(r) + 0.1192 * srgb2lin(g) + 0.9505 * srgb2lin(b);
   x /= 0.95047;
   z /= 1.08883;

@@ -43,7 +43,6 @@ async function run(
 ) {
   let status: QueryStatus | null = null;
   let error: unknown = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   let result: any = null;
   let thrown: unknown = null;
   try {

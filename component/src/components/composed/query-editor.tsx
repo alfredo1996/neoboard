@@ -48,7 +48,6 @@ export interface QueryEditorProps {
 
 async function buildExtensions(
   placeholder: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM extension type is complex
   onUpdate: (newValue: string) => void,
   onRun: () => void,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
@@ -315,9 +314,11 @@ function QueryEditor({
         String(viewRef.current.state.readOnly),
       );
       // Expose the EditorView on the DOM element for E2E test access.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (containerRef.current)
-        (containerRef.current as any).__cmView = viewRef.current;
+      if (containerRef.current) {
+        (
+          containerRef.current as HTMLElement & { __cmView?: unknown }
+        ).__cmView = viewRef.current;
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -360,7 +361,6 @@ function QueryEditor({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
   // Placeholder change: reconfigure the placeholder compartment in place.

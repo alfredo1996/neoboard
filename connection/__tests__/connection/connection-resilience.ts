@@ -3,8 +3,6 @@ import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
 import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
 import {
   DEFAULT_CONNECTION_CONFIG,
-  QueryCallback,
-  QueryParams,
   QueryStatus,
   AuthType,
   ConnectionTypes,
@@ -134,10 +132,15 @@ describe("Connection Resilience — PostgreSQL", () => {
   afterAll(async () => {
     try {
       await connectionModule.close();
-    } catch (_) {}
+    } catch {
+      // Best-effort teardown: the pool may already be closed, and a failure
+      // here must not mask the test result.
+    }
     try {
       await container.stop();
-    } catch (_) {}
+    } catch {
+      // Same — a container that already exited is not a test failure.
+    }
   });
 
   test("backend termination mid-query rejects cleanly — no unhandled 'error' event (#999)", async () => {

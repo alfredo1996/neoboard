@@ -69,7 +69,6 @@ describe("IframeWidget", () => {
   });
 
   it("prevents javascript: URLs", () => {
-    // eslint-disable-next-line no-script-url
     render(<IframeWidget url="javascript:alert(1)" />);
     expect(screen.getByText("Invalid URL")).toBeInTheDocument();
   });

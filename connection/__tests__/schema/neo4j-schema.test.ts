@@ -28,7 +28,6 @@ jest.mock("neo4j-driver", () => {
 });
 
 jest.mock("../../src/neo4j/Neo4jConnectionModule", () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const neo4j = require("neo4j-driver").default;
   const driver = neo4j.driver();
   return {
@@ -44,9 +43,6 @@ const authConfig = {
   password: "password",
   authType: AuthType.NATIVE,
 };
-
-/** Helper: produce an empty records response */
-const emptyResult = { records: [] };
 
 /** Helper: create a label record */
 const labelRecord = (label: string) => ({ keys: ["label"], get: () => label });

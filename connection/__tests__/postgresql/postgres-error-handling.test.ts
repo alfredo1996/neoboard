@@ -38,7 +38,6 @@ function makeModule(): PostgresConnectionModule {
 
 function fakeClient(queries: string[]) {
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: jest.fn((q: string): Promise<any> => {
       queries.push(q);
       return Promise.resolve({ rows: [], fields: [], rowCount: 0 });
@@ -64,7 +63,6 @@ describe("PostgresConnectionModule — runQuery never rejects (#CRITICAL)", () =
         .fn()
         .mockRejectedValue(new Error("Connection terminated due to timeout")),
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
 
     const onFail = jest.fn();
@@ -74,7 +72,6 @@ describe("PostgresConnectionModule — runQuery never rejects (#CRITICAL)", () =
     await expect(
       mod.runQuery(
         { query: "SELECT 1", params: {} },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { onFail, onSuccess } as any,
         CONFIG({}),
       ),
@@ -100,7 +97,6 @@ describe("PostgresConnectionModule — runQuery never rejects (#CRITICAL)", () =
     await expect(
       mod.runQuery(
         { query: "SELECT 1", params: {} },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { onFail, onSuccess } as any,
         CONFIG({}),
       ),
@@ -124,14 +120,11 @@ describe("PostgresConnectionModule — read-only fails closed (#HIGH)", () => {
       const pool = {
         connect: jest.fn().mockResolvedValue(fakeClient(queries)),
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
 
       await mod.runQuery(
         { query: "SELECT 1", params: {} },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { onSuccess: jest.fn(), onFail: jest.fn() } as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         CONFIG({ accessMode: accessMode as any, parseToNeodashRecord: false }),
       );
 
@@ -144,14 +137,11 @@ describe("PostgresConnectionModule — read-only fails closed (#HIGH)", () => {
     const mod = makeModule();
     const queries: string[] = [];
     const pool = { connect: jest.fn().mockResolvedValue(fakeClient(queries)) };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
 
     await mod.runQuery(
       { query: "INSERT INTO t DEFAULT VALUES", params: {} },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { onSuccess: jest.fn(), onFail: jest.fn() } as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       CONFIG({ accessMode: "WRITE" as any, parseToNeodashRecord: false }),
     );
 
@@ -174,7 +164,6 @@ describe("PostgresConnectionModule — error-path routing", () => {
     const onSuccess = jest.fn();
     await mod.runQuery(
       { query: "SELECT 1", params: {} },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { onFail, onSuccess } as any,
       CONFIG({}),
     );
@@ -189,7 +178,6 @@ describe("PostgresConnectionModule — error-path routing", () => {
   it("still reports onFail when ROLLBACK itself fails (rollback error logged, not rethrown)", async () => {
     const mod = makeModule();
     const client = {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       query: jest.fn((q: string): Promise<any> => {
         if (q === "BEGIN") return Promise.resolve({});
         if (q.startsWith("INSERT"))
@@ -203,7 +191,6 @@ describe("PostgresConnectionModule — error-path routing", () => {
       removeListener: jest.fn(),
     };
     const pool = { connect: jest.fn().mockResolvedValue(client) };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
     const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
@@ -219,9 +206,7 @@ describe("PostgresConnectionModule — error-path routing", () => {
     const onFail = jest.fn();
     await mod.runQuery(
       { query: "INSERT INTO t VALUES (1)", params: {} },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { onFail, onSuccess: jest.fn() } as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       CONFIG({ accessMode: "WRITE" as any, parseToNeodashRecord: false }),
     );
 

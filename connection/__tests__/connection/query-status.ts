@@ -324,9 +324,9 @@ describe("Query to Neo4j", () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);
 
-    // Intentionally passing undefined to simulate no query
     const queryParams: QueryParams = {
-      // @ts-ignore
+      // @ts-expect-error - deliberately undefined: the point of this test is
+      // what the module does when a caller omits the query.
       query: undefined,
       params: {},
     };
