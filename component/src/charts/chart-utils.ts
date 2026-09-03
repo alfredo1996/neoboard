@@ -123,10 +123,11 @@ export const fillLabelStyle = {
 
 /**
  * Pick black or white text for readability against an arbitrary background
- * color. Accepts `#rgb`, `#rrggbb`, or `rgb()` / `rgba()` strings. Anything
- * unparseable (named colors, CSS variables, gradients, garbage) falls back to
- * black — the old call site silently produced invisible white-on-light text
- * when fed an `rgb()` value.
+ * color. Accepts `#rgb`, `#rrggbb`, `rgb()` / `rgba()`, and `hsl()` / `hsla()`
+ * in comma, space and slash-alpha forms. Anything unparseable (named colors,
+ * CSS variables, gradients, garbage) falls back to black — the old call site
+ * silently produced invisible white-on-light text when fed an `rgb()` value,
+ * and hsl inputs took that same fallback until #1295.
  */
 export function contrastTextColor(color: string): string {
   const rgb = parseColorToRgb(color);
@@ -185,10 +186,60 @@ function parseRgbFunctionColor(s: string): [number, number, number] | null {
   return [channels[0], channels[1], channels[2]];
 }
 
+/** One channel of the standard HSL→RGB conversion, as a 0-1 fraction. */
+function hueToChannel(p: number, q: number, t: number): number {
+  let x = t;
+  if (x < 0) x += 1;
+  if (x > 1) x -= 1;
+  if (x < 1 / 6) return p + (q - p) * 6 * x;
+  if (x < 1 / 2) return q;
+  if (x < 2 / 3) return p + (q - p) * (2 / 3 - x) * 6;
+  return p;
+}
+
+/** `55%` → 0.55. Percentages only: bare numbers are invalid for S and L. */
+function parsePercent(part: string): number | null {
+  if (!part.endsWith("%")) return null;
+  const n = Number(part.slice(0, -1));
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, n)) / 100;
+}
+
+/**
+ * `hsl()` / `hsla()` in the comma, space and slash-alpha forms. The shipped
+ * palettes are hsl strings, so without this every chart label and styling-rule
+ * cell fell back to black — unreadable on the darker half of the palette
+ * (#1295).
+ */
+function parseHslFunctionColor(s: string): [number, number, number] | null {
+  const hsl = /^hsla?\(\s*([^)]+?)\s*\)$/i.exec(s);
+  if (!hsl) return null;
+  const parts = hsl[1].split(/\s*[,/]\s*|\s+/).filter(Boolean);
+  if (parts.length !== 3 && parts.length !== 4) return null;
+  const hue = Number(parts[0].replace(/deg$/i, ""));
+  const sat = parsePercent(parts[1]);
+  const light = parsePercent(parts[2]);
+  if (!Number.isFinite(hue) || sat === null || light === null) return null;
+  if (parts.length === 4) {
+    const alpha = Number(parts[3].replace(/%$/, ""));
+    if (!Number.isFinite(alpha)) return null;
+  }
+  const h = (((hue % 360) + 360) % 360) / 360;
+  const q = light < 0.5 ? light * (1 + sat) : light + sat - light * sat;
+  const p = 2 * light - q;
+  return [
+    Math.round(hueToChannel(p, q, h + 1 / 3) * 255),
+    Math.round(hueToChannel(p, q, h) * 255),
+    Math.round(hueToChannel(p, q, h - 1 / 3) * 255),
+  ];
+}
+
 function parseColorToRgb(input: string): [number, number, number] | null {
   if (typeof input !== "string") return null;
   const s = input.trim();
-  return parseHexColor(s) ?? parseRgbFunctionColor(s);
+  return (
+    parseHexColor(s) ?? parseRgbFunctionColor(s) ?? parseHslFunctionColor(s)
+  );
 }
 
 // ---------------------------------------------------------------------------

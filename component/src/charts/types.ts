@@ -23,8 +23,10 @@ export interface BaseChartProps {
   /** Enable decal overlay patterns for colorblind accessibility */
   colorblindMode?: boolean;
   /**
-   * Color palette ID from COLOR_PALETTES. When set to a value other than
-   * "deep-ocean" (the default), overrides the ECharts theme colors.
+   * Color palette ID from COLOR_PALETTES. Any palette other than the citrine
+   * default (or its "deep-ocean" alias) overrides the ECharts theme colors
+   * with that palette's static array; the default keeps the theme's
+   * CSS-variable colors, which are the ones that change in dark mode.
    */
   colorPalette?: string;
 }
@@ -102,5 +104,4 @@ export interface GraphEdgeEvent {
 
 /** Union type for inspected graph elements (node or edge) */
 export type InspectedGraphElement =
-  | { type: "node"; node: GraphNode }
-  | { type: "edge"; edge: GraphEdge };
+  { type: "node"; node: GraphNode } | { type: "edge"; edge: GraphEdge };

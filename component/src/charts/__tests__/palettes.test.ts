@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   COLOR_PALETTES,
   getPaletteColors,
+  resolvePaletteId,
   type ColorPalette,
 } from "../palettes";
 
@@ -116,6 +117,24 @@ describe("getPaletteColors", () => {
   it("returns the same reference as COLOR_PALETTES[id].colors", () => {
     const colors = getPaletteColors("tableau");
     expect(colors).toBe(COLOR_PALETTES["tableau"].colors);
+  });
+});
+
+describe("resolvePaletteId", () => {
+  it("maps legacy ids onto the palette they were renamed to", () => {
+    // base-chart gates the theme-aware colour path on this resolving to
+    // "citrine", so an alias regression would repaint every default chart
+    // with the light array in dark mode (#1295).
+    expect(resolvePaletteId("deep-ocean")).toBe("citrine");
+    expect(resolvePaletteId("warm-sunset")).toBe("warm");
+    expect(resolvePaletteId("cool-breeze")).toBe("cool");
+    expect(resolvePaletteId("neon")).toBe("observable");
+  });
+
+  it("passes through ids that are not aliases", () => {
+    expect(resolvePaletteId("citrine")).toBe("citrine");
+    expect(resolvePaletteId("tableau")).toBe("tableau");
+    expect(resolvePaletteId("does-not-exist")).toBe("does-not-exist");
   });
 });
 
