@@ -9,7 +9,16 @@ The Sunburst chart displays hierarchical data as concentric rings. Inner rings r
 
 ## Query Format
 
-Return hierarchical data with name and value columns. Optional: parent column for flat-to-tree conversion.
+Return hierarchical data with `name` and `value` columns. A `parent` column turns flat rows into a tree.
+
+The contract, in full:
+
+- **Leaf rows are enough.** A name that appears only in the `parent` column is created for you — you do not need to return a row for each parent.
+- **A parent's own value is the sum of its children**, unless you return a larger one explicitly. A parent value smaller than its children's total is ignored, because the children would overflow it.
+- **Rows sharing a parent and a name are summed** into one node. The same name under two different parents stays two nodes.
+- **Values must be positive numbers.** A row whose value is zero, negative, missing or non-numeric is skipped — it has no area to draw. Numeric strings are accepted.
+- **Every column you return travels with the node**, so styling rules and click actions can use columns beyond `name` and `value`.
+- If the `parent` links form a cycle, the widget says so instead of drawing a partial tree.
 
 ### Cypher
 

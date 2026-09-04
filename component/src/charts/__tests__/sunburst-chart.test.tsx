@@ -164,4 +164,56 @@ describe("SunburstChart", () => {
       expect(option.series[0].nodeClick).toBe(false);
     });
   });
+
+  describe("lone root and thin slices (#1592-adjacent, W2-02)", () => {
+    it("draws a lone root's children as the rings, not the root itself", () => {
+      // The transform keeps the wrapper because circle packing needs its name
+      // as a breadcrumb; showing it here would paint every arc as tints of one
+      // hue.
+      render(
+        <SunburstChart
+          data={[
+            {
+              name: "All",
+              children: [
+                { name: "Drama", value: 3 },
+                { name: "Comedy", value: 2 },
+              ],
+            },
+          ]}
+        />,
+      );
+      const option = mockSetOption.mock.calls[0][0];
+      expect(
+        option.series[0].data.map((d: { name: string }) => d.name),
+      ).toEqual(["Drama", "Comedy"]);
+    });
+
+    it("counts the drawn rings in the screen-reader description", () => {
+      render(
+        <SunburstChart
+          data={[
+            {
+              name: "All",
+              children: [
+                { name: "Drama", value: 3 },
+                { name: "Comedy", value: 2 },
+              ],
+            },
+          ]}
+        />,
+      );
+      expect(
+        screen.getByLabelText(/2 top-level segments/i),
+      ).toBeInTheDocument();
+    });
+
+    it("no longer inflates thin slices to a 5-degree minimum", () => {
+      // minAngle: 5 made anything under ~1.4% of the total look larger than it
+      // is, and enough of them wrapped the ring past 360 degrees.
+      render(<SunburstChart data={sampleData} />);
+      const option = mockSetOption.mock.calls[0][0];
+      expect(option.series[0].minAngle).toBeUndefined();
+    });
+  });
 });

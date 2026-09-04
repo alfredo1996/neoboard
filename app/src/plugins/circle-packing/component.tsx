@@ -14,7 +14,10 @@ import type {
   EChartsClickEvent,
 } from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
-import { transformToHierarchicalData } from "../sunburst/transform";
+import {
+  transformToHierarchicalData,
+  validateHierarchicalData,
+} from "../sunburst/transform";
 import { type PluginProps } from "../utils";
 import { circlePackingSettingsSchema } from "./settings";
 import { circlePackingClickPayload } from "./click-payload";
@@ -70,6 +73,7 @@ export const circlePackingPlugin = defineChartPlugin({
   label: "Circle Packing",
   component: CirclePackingPluginComponent,
   transform: transformToHierarchicalData,
+  validate: validateHierarchicalData,
   transformWithMapping: transformToHierarchicalData,
   options: getChartOptions("circle-packing"),
   compatibleWith: ["neo4j", "postgresql"],

@@ -9,7 +9,10 @@ import dynamic from "next/dynamic";
 import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { SunburstDataItem, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
-import { transformToHierarchicalData } from "./transform";
+import {
+  transformToHierarchicalData,
+  validateHierarchicalData,
+} from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { sunburstSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
@@ -50,6 +53,7 @@ export const sunburstPlugin = defineChartPlugin({
   label: "Sunburst",
   component: SunburstPluginComponent,
   transform: transformToHierarchicalData,
+  validate: validateHierarchicalData,
   transformWithMapping: transformToHierarchicalData,
   options: getChartOptions("sunburst"),
   compatibleWith: ["neo4j", "postgresql"],
