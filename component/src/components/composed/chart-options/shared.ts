@@ -38,24 +38,13 @@ export const SHARED_SHOW_LEGEND: ChartOptionDef = {
   key: "showLegend",
   label: "Show Legend",
   type: "boolean",
-  default: true,
+  // No default on purpose: `resolveShowLegend` shows a legend once there is
+  // more than one series, and a stored `true` made that rule unreachable — so
+  // every single-series chart carried a one-swatch legend (#1592).
+  default: undefined,
   category: "Labels",
-  description: "Show the chart legend identifying each data series.",
-};
-
-export const SHARED_LEGEND_POSITION: ChartOptionDef = {
-  key: "legendPosition",
-  label: "Legend Position",
-  type: "select",
-  default: "bottom",
-  category: "Labels",
-  description: "Where to place the legend relative to the chart.",
-  options: [
-    { label: "Bottom", value: "bottom" },
-    { label: "Top", value: "top" },
-    { label: "Left", value: "left" },
-    { label: "Right", value: "right" },
-  ],
+  description:
+    "Shown automatically for two or more series. Tick to force it on for a single series.",
 };
 
 export const SHARED_X_AXIS_LABEL: ChartOptionDef = {

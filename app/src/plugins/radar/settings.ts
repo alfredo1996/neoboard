@@ -7,7 +7,7 @@ export const radarSettingsSchema = z
   .object({
     shape: z.enum(["polygon", "circle"]).default("polygon"),
     filled: z.boolean().default(false),
-    showLegend: z.boolean().default(true),
+    showLegend: z.boolean().optional(),
     showValues: z.boolean().default(false),
     colorPalette: z.string().optional(),
     colorblindMode: z.boolean().default(false),

@@ -1,7 +1,6 @@
 import {
   type ChartOptionDef,
   SHARED_SHOW_LEGEND,
-  SHARED_LEGEND_POSITION,
   SHARED_X_AXIS_LABEL,
   SHARED_Y_AXIS_LABEL,
   SHARED_SHOW_GRID_LINES,
@@ -63,7 +62,6 @@ export const barOptions: ChartOptionDef[] = [
     description: "Display the numeric value as a label on each bar.",
   },
   SHARED_SHOW_LEGEND,
-  SHARED_LEGEND_POSITION,
   SHARED_X_AXIS_LABEL,
   SHARED_Y_AXIS_LABEL,
   SHARED_SHOW_GRID_LINES,

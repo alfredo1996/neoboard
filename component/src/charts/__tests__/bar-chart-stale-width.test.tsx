@@ -116,18 +116,16 @@ describe("BarChart container width (#1546)", () => {
     expect(latestOptions().xAxis.axisLabel.rotate).toBe(settled);
   });
 
-  // The same latch, on the second dependency the linter flagged. Changing
-  // only the legend position must take effect on its own, without waiting for
-  // an unrelated dep to churn.
-  it("applies a legendPosition change on its own", () => {
+  // The same latch, on another memo-read prop. legendPosition was the original
+  // vehicle for this guard; it was deleted in #1592, so the guard rides on
+  // showLegend instead — the bug class is an omitted memo dep, not that one
+  // prop.
+  it("applies a showLegend change on its own", () => {
     const data = makeData();
-    const { rerender } = render(
-      <BarChart data={data} showLegend legendPosition="bottom" />,
-    );
-    expect(latestOptions().legend.bottom).toBeDefined();
+    const { rerender } = render(<BarChart data={data} showLegend />);
+    expect(latestOptions().legend).toBeDefined();
 
-    rerender(<BarChart data={data} showLegend legendPosition="top" />);
-    expect(latestOptions().legend.top).toBeDefined();
-    expect(latestOptions().legend.bottom).toBeUndefined();
+    rerender(<BarChart data={data} showLegend={false} />);
+    expect(latestOptions().legend).toBeUndefined();
   });
 });

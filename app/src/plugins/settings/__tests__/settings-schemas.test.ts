@@ -84,7 +84,9 @@ describe("barSettingsSchema", () => {
     expect(result.orientation).toBe("vertical");
     expect(result.stacked).toBe(false);
     expect(result.showValues).toBe(false);
-    expect(result.showLegend).toBe(true);
+    // Unset means auto: a legend appears once there is more than one series
+    // (#1592). Defaulting it to true made that rule unreachable.
+    expect(result.showLegend).toBeUndefined();
     expect(result.barWidth).toBe(0);
     expect(result.barGap).toBe("30%");
     expect(result.showGridLines).toBe(true);
@@ -129,7 +131,9 @@ describe("lineSettingsSchema", () => {
     const result = lineSettingsSchema.parse({});
     expect(result.smooth).toBe(false);
     expect(result.area).toBe(false);
-    expect(result.showLegend).toBe(true);
+    // Unset means auto: a legend appears once there is more than one series
+    // (#1592). Defaulting it to true made that rule unreachable.
+    expect(result.showLegend).toBeUndefined();
     expect(result.lineWidth).toBe(2);
     expect(result.stepped).toBe(false);
     expect(result.showPoints).toBe(false);
@@ -167,7 +171,9 @@ describe("pieSettingsSchema", () => {
     const result = pieSettingsSchema.parse({});
     expect(result.donut).toBe(false);
     expect(result.showLabel).toBe(true);
-    expect(result.showLegend).toBe(true);
+    // Unset means auto: a legend appears once there is more than one series
+    // (#1592). Defaulting it to true made that rule unreachable.
+    expect(result.showLegend).toBeUndefined();
     expect(result.roseMode).toBe(false);
     expect(result.labelPosition).toBe("outside");
     expect(result.showPercentage).toBe(false);
@@ -218,7 +224,9 @@ describe("radarSettingsSchema", () => {
     const result = radarSettingsSchema.parse({});
     expect(result.shape).toBe("polygon");
     expect(result.filled).toBe(false);
-    expect(result.showLegend).toBe(true);
+    // Unset means auto: a legend appears once there is more than one series
+    // (#1592). Defaulting it to true made that rule unreachable.
+    expect(result.showLegend).toBeUndefined();
     expect(result.showValues).toBe(false);
   });
 

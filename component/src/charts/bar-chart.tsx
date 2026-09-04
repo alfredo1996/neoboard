@@ -9,7 +9,6 @@ import {
   resolveShowLegend,
   buildCompactGrid,
   buildLegend,
-  resolveLegendPosition,
   resolveItemColor,
   buildTooltipFormatter,
   buildPercentTooltipFormatter,
@@ -38,8 +37,6 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   decimalPlaces?: number;
   /** Show legend (auto-shown when multiple series) */
   showLegend?: boolean;
-  /** Where to place the legend (#1053). */
-  legendPosition?: string;
   /** Bar width in pixels; 0 means auto */
   barWidth?: number;
   /** Gap between bars in a group (e.g. "30%") */
@@ -77,7 +74,6 @@ function BarChart({
   showValues = false,
   decimalPlaces,
   showLegend,
-  legendPosition,
   barWidth = 0,
   barGap = "30%",
   showGridLines = true,
@@ -132,7 +128,6 @@ function BarChart({
       seriesKeys.length,
       hideLegend,
     );
-    const legendPos = resolveLegendPosition(legendPosition);
     const isHorizontal = orientation === "horizontal";
     const effectiveShowValues = compact ? false : showValues;
     const effectiveBarWidth = barWidth > 0 ? barWidth : undefined;
@@ -191,8 +186,8 @@ function BarChart({
           ? buildPercentTooltipFormatter(seriesKeys, data)
           : buildTooltipFormatter({ decimalPlaces: dp }),
       },
-      legend: buildLegend(effectiveShowLegend, legendPos),
-      grid: buildCompactGrid(compact, effectiveShowLegend, legendPos),
+      legend: buildLegend(effectiveShowLegend),
+      grid: buildCompactGrid(compact, effectiveShowLegend),
       xAxis: isHorizontal ? valueAxis : categoryAxis,
       yAxis: isHorizontal ? categoryAxis : valueAxis,
       series: seriesKeys.map((key, idx) => ({
@@ -254,11 +249,10 @@ function BarChart({
     paramValues,
     compact,
     hideLegend,
-    // #1546: `width` is read via buildCategoryAxisLabel and `legendPosition`
-    // via resolveLegendPosition. Omitting them latched the axis rotation to
-    // the width-0 fallback until an unrelated dep changed identity.
+    // #1546: `width` is read via buildCategoryAxisLabel. Omitting it latched
+    // the axis rotation to the width-0 fallback until an unrelated dep changed
+    // identity.
     width,
-    legendPosition,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the

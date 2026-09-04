@@ -3,16 +3,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LineChart } from "../line-chart";
 
 /**
- * #1562 — LineChart latched `legendPosition`.
+ * #1562 — LineChart latched a memo-read prop.
  *
- * The option memo reads `legendPosition` (via resolveLegendPosition) but did
+ * The option memo read a prop but did
  * not declare it as a dependency, so changing the legend position alone did
  * nothing until some unrelated dependency changed identity — at which point
  * the legend jumped to a position the user had chosen some time earlier.
  *
  * This is #1546 again, in the other chart. Fixing bar-chart made it visible:
- * that fix added both `width` and `legendPosition`, and line-chart already
- * declared `width` — so `legendPosition` was the one left behind. #1546's own
+ * that fix added both `width` and the legend prop, and line-chart already
+ * declared `width` — so the legend prop was the one left behind. #1546's own
  * write-up cited line-chart as the correct example because it declares
  * `width`. It does. It just did not declare this.
  *
@@ -53,32 +53,28 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("LineChart legendPosition (#1562)", () => {
-  it("applies a legendPosition change on its own", () => {
-    const { rerender } = render(
-      <LineChart data={data} showLegend legendPosition="bottom" />,
-    );
-    expect(latestOptions().legend.bottom).toBeDefined();
+describe("LineChart memo dependencies (#1562)", () => {
+  // `legendPosition` was the original vehicle for this guard. It was deleted
+  // in #1592 (the legend is bottom-only now), so the guard rides on showLegend
+  // — what matters is that a lone prop change reaches the option memo, not
+  // which prop it is.
+  it("applies a showLegend change on its own", () => {
+    const { rerender } = render(<LineChart data={data} showLegend />);
+    expect(latestOptions().legend).toBeDefined();
 
-    // Only the legend position changes. Nothing else the user can see has
-    // changed, so nothing else may be what makes this take effect.
-    rerender(<LineChart data={data} showLegend legendPosition="top" />);
-
-    expect(latestOptions().legend.top).toBeDefined();
-    expect(latestOptions().legend.bottom).toBeUndefined();
+    // Only this prop changes. Nothing else the user can see has changed, so
+    // nothing else may be what makes it take effect.
+    rerender(<LineChart data={data} showLegend={false} />);
+    expect(latestOptions().legend).toBeUndefined();
   });
 
-  it("does not rebuild anything else when only legendPosition changes", () => {
-    const { rerender } = render(
-      <LineChart data={data} showLegend legendPosition="bottom" />,
-    );
+  it("does not rebuild the series when only showLegend changes", () => {
+    const { rerender } = render(<LineChart data={data} showLegend />);
     const before = latestOptions();
-    rerender(<LineChart data={data} showLegend legendPosition="right" />);
+    rerender(<LineChart data={data} showLegend={false} />);
     const after = latestOptions();
-    // Series content is identical; only legend placement moved.
     expect(after.series.map((s: { name: string }) => s.name)).toEqual(
       before.series.map((s: { name: string }) => s.name),
     );
-    expect(after.legend).not.toEqual(before.legend);
   });
 });

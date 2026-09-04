@@ -371,4 +371,30 @@ describe("BarChart", () => {
       },
     );
   });
+
+  describe("legend defaults (#1592)", () => {
+    it("draws no legend for a single series", () => {
+      // A one-swatch legend identifies nothing — it repeats the axis label.
+      const option = renderBarOptions({ data: [{ label: "a", v: 1 }] });
+      expect(option.legend).toBeUndefined();
+    });
+
+    it("draws a bottom legend once there are two series", () => {
+      const option = renderBarOptions({ data: [{ label: "a", v: 1, w: 2 }] });
+      expect(option.legend).toEqual({ type: "scroll", bottom: 0 });
+    });
+
+    it("lets an explicit tick force a legend on for one series", () => {
+      const option = renderBarOptions({
+        data: [{ label: "a", v: 1 }],
+        showLegend: true,
+      });
+      expect(option.legend).toEqual({ type: "scroll", bottom: 0 });
+    });
+
+    it("reclaims the bottom grid room when no legend is drawn", () => {
+      const option = renderBarOptions({ data: [{ label: "a", v: 1 }] });
+      expect(option.grid.bottom).toBe(24);
+    });
+  });
 });
