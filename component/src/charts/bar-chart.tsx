@@ -172,12 +172,16 @@ function BarChart({
     };
 
     // Same rounding for the tooltip and the value labels, so a bar never shows
-    // one number on the bar and another on hover (#1581).
+    // one number on the bar and another on hover (#1581). In percent mode the
+    // values are percentages, which carry their own precision rule — one
+    // decimal, matching the tooltip beside them and pie (#1248, #1587).
     const dp = normalizeDecimalPlaces(decimalPlaces);
-    const labelFormatter = (p: { value?: unknown }) =>
-      typeof p.value === "number"
-        ? formatNumber(p.value, { numberFormat: "comma", decimalPlaces: dp })
-        : String(p.value ?? "");
+    const labelFormatter = (p: { value?: unknown }) => {
+      if (typeof p.value !== "number") return String(p.value ?? "");
+      return isPercent
+        ? p.value.toFixed(1)
+        : formatNumber(p.value, { numberFormat: "comma", decimalPlaces: dp });
+    };
 
     return {
       tooltip: {
