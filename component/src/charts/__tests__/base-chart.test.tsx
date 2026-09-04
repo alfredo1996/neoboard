@@ -1,5 +1,6 @@
 import { render, screen, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import * as echartsCore from "echarts/core";
 import { BaseChart } from "../base-chart";
 import { getPaletteColors } from "../palettes";
 
@@ -307,6 +308,25 @@ describe("BaseChart", () => {
 
       // Chart should reinitialize (new onChartReady call)
       expect(onReady.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+
+    it('re-themes on a bare <html class="dark"> change, with no theme event', async () => {
+      // The custom event is NeoBoard's own signal. Storybook's theme toolbar,
+      // a console toggle and any host app on a different theme library only
+      // touch the class — and the hook watched every channel except that one,
+      // so the chart stayed on the light theme while the page went dark. The
+      // visible symptom is near-black bar value labels (light fg #14161a) on
+      // the dark canvas; the axis labels and gridlines are just as stale.
+      const init = vi.mocked(echartsCore.init);
+      render(<BaseChart options={{}} />);
+      const themeOf = (call: unknown[] | undefined) => call?.[1];
+      expect(themeOf(init.mock.calls.at(-1))).toBe("neoboard-light");
+
+      await act(async () => {
+        document.documentElement.classList.add("dark");
+      });
+
+      expect(themeOf(init.mock.calls.at(-1))).toBe("neoboard-dark");
     });
   });
 });
