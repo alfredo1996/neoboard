@@ -290,8 +290,26 @@ export function CardContainer({
     );
   }
 
+  // One empty state for every query-backed widget, applied before validate and
+  // transform on both paths. Left to themselves the plugins disagree: single-
+  // value prints 0, the ECharts charts paint a canvas title no screen reader
+  // can read, table and graph each say something different (#1584).
+  const hasNoRows = (rows: unknown) =>
+    chartConfig.capabilities.requiresQuery &&
+    Array.isArray(rows) &&
+    rows.length === 0;
+  const noDataState = (
+    <EmptyState
+      role="status"
+      title="No data"
+      description="No data returned from the query."
+      className="py-6"
+    />
+  );
+
   // Use preview data directly if provided
   if (previewData !== undefined) {
+    if (hasNoRows(previewData)) return noDataState;
     const validationError =
       chartConfig.validate?.(previewData, columnMapping) ?? null;
     if (validationError) {
@@ -608,17 +626,10 @@ export function CardContainer({
     );
   }
 
-  if (!widgetQuery.data) {
-    return (
-      <EmptyState
-        title="No data"
-        description="No data returned from the query."
-        className="py-6"
-      />
-    );
-  }
+  if (!widgetQuery.data) return noDataState;
 
   const rawData = widgetQuery.data.data;
+  if (hasNoRows(rawData)) return noDataState;
   const validationError =
     chartConfig.validate?.(rawData, columnMapping) ?? null;
   if (validationError) {

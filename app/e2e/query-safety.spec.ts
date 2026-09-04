@@ -30,8 +30,9 @@ import type { APIRequestContext } from "@playwright/test";
  *    value. Test 3 verifies the default, test 4b verifies a per-connection
  *    override is honored.
  *
- * 3. The empty-state card header reads "No results", not "No data". The
- *    exploration agent misread card-container.tsx earlier.
+ * 3. The empty-state card header reads "No data": since #1584 the host stops a
+ *    zero-row result before the plugin, so DataGrid's own "No results" is no
+ *    longer reachable from a dashboard.
  *
  * 4. APOC is required for the Cypher timeout test. global-setup.ts
  *    enables NEO4J_PLUGINS=["apoc"] so `apoc.util.sleep` is available.
@@ -361,11 +362,13 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
 
     try {
       await page.goto(`/${id}`);
-      // The empty state header text is "No results" (not "No data" — the
-      // exploration agent misread the card-container source earlier).
-      await expect(page.getByText("No results", { exact: true })).toBeVisible({
+      // One host-level empty state for every query-backed widget (#1584).
+      await expect(page.getByText("No data", { exact: true })).toBeVisible({
         timeout: 20_000,
       });
+      await expect(
+        page.getByText("No results", { exact: true }),
+      ).not.toBeVisible();
       // Critically: the widget must not show an error state.
       await expect(page.getByText(/query.*failed/i)).not.toBeVisible();
     } finally {
