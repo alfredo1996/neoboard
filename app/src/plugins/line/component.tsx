@@ -49,7 +49,6 @@ function LinePluginComponent({
       samplingThreshold={settings.samplingThreshold}
       samplingMethod={settings.samplingMethod}
       decimalPlaces={settings.decimalPlaces}
-      legendPosition={settings.legendPosition}
       lineWidth={settings.lineWidth}
       stepped={settings.stepped}
       showPoints={settings.showPoints}

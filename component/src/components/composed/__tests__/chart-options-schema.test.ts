@@ -163,14 +163,16 @@ describe("getDefaultChartSettings", () => {
     expect(d.orientation).toBe("vertical");
     expect(d.stackMode).toBe("none");
     expect(d.showValues).toBe(false);
-    expect(d.showLegend).toBe(true);
+    // No default written, so resolveShowLegend's auto rule governs (#1592).
+    expect(d.showLegend).toBeUndefined();
   });
 
   it("returns correct defaults for line chart", () => {
     const d = getDefaultChartSettings("line");
     expect(d.smooth).toBe(false);
     expect(d.area).toBe(false);
-    expect(d.showLegend).toBe(true);
+    // No default written, so resolveShowLegend's auto rule governs (#1592).
+    expect(d.showLegend).toBeUndefined();
   });
 
   it("returns correct defaults for table chart", () => {
@@ -211,7 +213,14 @@ describe("getDefaultChartSettings", () => {
       const options = getChartOptions(type);
       const defaults = getDefaultChartSettings(type);
       for (const opt of options) {
-        expect(defaults).toHaveProperty(opt.key);
+        // An option that declares no default is deliberately absent, so the
+        // chart's own resolution rule governs rather than a stored value
+        // (#1592 — showLegend). Everything else must carry its default.
+        if (opt.default === undefined) {
+          expect(defaults).not.toHaveProperty(opt.key);
+        } else {
+          expect(defaults).toHaveProperty(opt.key);
+        }
       }
     }
   });

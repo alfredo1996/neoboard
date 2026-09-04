@@ -11,10 +11,7 @@ export const barSettingsSchema = z
     stacked: z.boolean().default(false),
     showValues: z.boolean().default(false),
     decimalPlaces: z.coerce.number().optional(),
-    showLegend: z.boolean().default(true),
-    legendPosition: z
-      .enum(["top", "bottom", "left", "right"])
-      .default("bottom"),
+    showLegend: z.boolean().optional(),
     barWidth: z.coerce.number().default(0),
     barGap: z.string().default("30%"),
     xAxisLabel: z.string().optional(),

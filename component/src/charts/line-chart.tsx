@@ -10,7 +10,6 @@ import {
   resolveShowLegend,
   buildCompactGrid,
   buildLegend,
-  resolveLegendPosition,
   resolveItemColor,
   buildTooltipFormatter,
   normalizeDecimalPlaces,
@@ -36,7 +35,6 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   /** Show legend (auto-shown when multiple series) */
   showLegend?: boolean;
   /** Where to place the legend (#1053). */
-  legendPosition?: string;
   /** Fixed decimal places in the tooltip; -1 or unset = automatic */
   decimalPlaces?: number;
   /** Show data point markers */
@@ -116,7 +114,6 @@ function LineChart({
   smooth = true,
   area = true,
   showLegend,
-  legendPosition,
   decimalPlaces,
   showPoints = false,
   lineWidth = 1.5,
@@ -149,7 +146,6 @@ function LineChart({
       seriesKeys.length,
       hideLegend,
     );
-    const legendPos = resolveLegendPosition(legendPosition);
     const markLine = buildMarkLineFromRefs(
       parseReferenceLines(referenceLinesJson),
     );
@@ -247,15 +243,12 @@ function LineChart({
           decimalPlaces: normalizeDecimalPlaces(decimalPlaces),
         }),
       },
-      legend: buildLegend(effectiveShowLegend, legendPos),
+      legend: buildLegend(effectiveShowLegend),
       grid: {
-        ...buildCompactGrid(compact, effectiveShowLegend, legendPos),
-        // Keep room for the y-axis labels, plus extra when a side legend sits
-        // on that edge (#1053).
-        left: (compact ? 8 : 48) + (legendPos === "left" ? 40 : 0),
-        right:
-          (useDualAxis && !compact ? 56 : 0) +
-            (legendPos === "right" ? 40 : 0) || undefined,
+        ...buildCompactGrid(compact, effectiveShowLegend),
+        // Keep room for the y-axis labels; the legend is bottom-only (#1592).
+        left: compact ? 8 : 48,
+        right: useDualAxis && !compact ? 56 : undefined,
       },
       // Built as two literals rather than one object with ternaries: ECharts
       // discriminates the axis union on `type`, so a `"time" | "category"`
@@ -311,10 +304,6 @@ function LineChart({
     samplingMethod,
     dark,
     decimalPlaces,
-    // #1562: read at resolveLegendPosition(legendPosition) above. Omitting it
-    // latched the legend to its first position until an unrelated dep churned
-    // — the same class as #1546 in bar-chart, and the last instance in charts/.
-    legendPosition,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the

@@ -11,13 +11,10 @@ export const lineSettingsSchema = z
     yAxisLabel: z.string().optional(),
     rightYAxisLabel: z.string().optional(),
     rightAxisSeries: z.string().optional(),
-    showLegend: z.boolean().default(true),
+    showLegend: z.boolean().optional(),
     samplingThreshold: z.coerce.number().default(1000),
     samplingMethod: z.enum(["lttb", "average", "max", "min"]).default("lttb"),
     decimalPlaces: z.coerce.number().optional(),
-    legendPosition: z
-      .enum(["top", "bottom", "left", "right"])
-      .default("bottom"),
     lineWidth: z.coerce.number().default(2),
     stepped: z.boolean().default(false),
     showPoints: z.boolean().default(false),

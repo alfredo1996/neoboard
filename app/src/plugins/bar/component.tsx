@@ -38,7 +38,6 @@ function BarPluginComponent({
       showValues={settings.showValues}
       decimalPlaces={settings.decimalPlaces}
       showLegend={settings.showLegend}
-      legendPosition={settings.legendPosition}
       barWidth={settings.barWidth}
       barGap={settings.barGap}
       xAxisLabel={settings.xAxisLabel}

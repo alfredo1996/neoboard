@@ -101,7 +101,9 @@ export function getDefaultChartSettings(
   const options = getChartOptions(chartType);
   const defaults: Record<string, unknown> = {};
   for (const opt of options) {
-    defaults[opt.key] = opt.default;
+    // An option with no default is left out entirely rather than written as
+    // `undefined`, so the chart's own resolution rule governs (#1592).
+    if (opt.default !== undefined) defaults[opt.key] = opt.default;
   }
   return defaults;
 }

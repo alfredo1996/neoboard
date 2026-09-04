@@ -644,70 +644,27 @@ export function resolveShowLegend(
   return hideLegend ? false : autoShow;
 }
 
-export type LegendPosition = "top" | "bottom" | "left" | "right";
-
-const LEGEND_POSITIONS: ReadonlySet<string> = new Set([
-  "top",
-  "bottom",
-  "left",
-  "right",
-]);
-
-/** Normalize an arbitrary settings value to a known legend position. */
-export function resolveLegendPosition(value: unknown): LegendPosition {
-  return typeof value === "string" && LEGEND_POSITIONS.has(value)
-    ? (value as LegendPosition)
-    : "bottom";
+/**
+ * ECharts legend config. Bottom-aligned everywhere, per the design system
+ * (design-review skill §4) — pie and radar already were, and the top/left/right
+ * positions the editor used to offer contradicted it (#1592). Type "scroll"
+ * keeps long legends usable.
+ */
+export function buildLegend(show: boolean) {
+  return show ? { type: "scroll" as const, bottom: 0 } : undefined;
 }
 
 /**
- * ECharts legend config for a given position (#1053). Left/right render the
- * legend vertically; type "scroll" keeps long legends usable.
+ * Standard ECharts grid with compact-aware margins, reserving room beneath the
+ * plot when a legend is shown so the two never overlap.
  */
-export function buildLegend(
-  show: boolean,
-  position: LegendPosition = "bottom",
-) {
-  if (!show) return undefined;
-  switch (position) {
-    case "top":
-      return { type: "scroll" as const, top: 0 };
-    case "left":
-      return {
-        type: "scroll" as const,
-        orient: "vertical" as const,
-        left: 0,
-        top: "middle" as const,
-      };
-    case "right":
-      return {
-        type: "scroll" as const,
-        orient: "vertical" as const,
-        right: 0,
-        top: "middle" as const,
-      };
-    default:
-      return { type: "scroll" as const, bottom: 0 };
-  }
-}
-
-/**
- * Standard ECharts grid with compact-aware margins. Reserves space on the side
- * where the legend sits so it never overlaps the plot (#1053).
- */
-export function buildCompactGrid(
-  compact: boolean,
-  showLegend: boolean,
-  legendPosition: LegendPosition = "bottom",
-) {
+export function buildCompactGrid(compact: boolean, showLegend: boolean) {
   const base = compact ? 8 : 16;
-  const legendGap = 40;
-  const on = (side: LegendPosition) => showLegend && legendPosition === side;
   return {
-    left: on("left") ? legendGap + base : base,
-    right: on("right") ? legendGap + base : base,
-    top: on("top") ? legendGap : base,
-    bottom: on("bottom") ? legendGap : compact ? 8 : 24,
+    left: base,
+    right: base,
+    top: base,
+    bottom: showLegend ? 40 : compact ? 8 : 24,
     containLabel: true,
   };
 }
