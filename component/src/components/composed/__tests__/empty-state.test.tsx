@@ -81,4 +81,16 @@ describe("EmptyState", () => {
       screen.getByRole("link", { name: "Read the docs" }),
     ).toBeInTheDocument();
   });
+
+  it("puts an explicit role on the root so a host can announce the state", () => {
+    // Opt-in only: a widget reporting "no rows" is a live region, a modal's
+    // static empty state is not (#1584).
+    const { container } = render(<EmptyState title="No data" role="status" />);
+    expect(container.firstElementChild).toHaveAttribute("role", "status");
+  });
+
+  it("has no role by default", () => {
+    const { container } = render(<EmptyState title="No results" />);
+    expect(container.firstElementChild).not.toHaveAttribute("role");
+  });
 });

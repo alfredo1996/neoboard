@@ -13,12 +13,14 @@ vi.mock("@neoboard/components", () => ({
     title,
     description,
     icon,
+    role,
   }: {
     title: string;
     description?: string;
     icon?: React.ReactNode;
+    role?: React.AriaRole;
   }) => (
-    <div data-testid="empty-state">
+    <div data-testid="empty-state" role={role}>
       <span>{title}</span>
       {description && <span>{description}</span>}
       {icon}
@@ -103,6 +105,9 @@ vi.mock("@/lib/query/data-transforms", () => ({
 // the validation path is unreachable from jsdom and #1400 could not be tested
 // at this layer at all. Attach the real bar validator; importing the plugin
 // module itself would drag ECharts into jsdom for no benefit.
+/** Records every argument the host hands to a plugin transform (#1584). */
+const transformCalls = vi.hoisted(() => [] as unknown[]);
+
 vi.mock("@/lib/plugin/chart-helpers", async () => {
   const actual = await vi.importActual<
     typeof import("@/lib/plugin/chart-helpers")
@@ -114,8 +119,29 @@ vi.mock("@/lib/plugin/chart-helpers", async () => {
     ...actual,
     getChartConfig: (type: string) => {
       const config = actual.getChartConfig(type);
-      if (!config || type !== "bar") return config;
-      return { ...config, validate: validateBarData };
+      if (!config) return config;
+      const transform = (data: unknown, ...rest: unknown[]) => {
+        transformCalls.push(data);
+        return (config.transform as (...a: unknown[]) => unknown)(
+          data,
+          ...rest,
+        );
+      };
+      return {
+        ...config,
+        transform,
+        ...(config.transformWithMapping
+          ? {
+              transformWithMapping: (data: unknown, ...rest: unknown[]) => {
+                transformCalls.push(data);
+                return (
+                  config.transformWithMapping as (...a: unknown[]) => unknown
+                )(data, ...rest);
+              },
+            }
+          : {}),
+        ...(type === "bar" ? { validate: validateBarData } : {}),
+      };
     },
   };
 });
@@ -403,6 +429,91 @@ describe("CardContainer", () => {
     render(<CardContainer widget={makeWidget()} />);
 
     expect(screen.getByText("No data")).toBeDefined();
+  });
+
+  // ----- Empty rows (#1584) -----
+
+  describe("zero rows", () => {
+    it('shows "No data" when the query returns an empty row array', () => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: { data: [], columns: [] },
+        missingParams: [],
+      });
+
+      render(<CardContainer widget={makeWidget()} />);
+
+      expect(screen.getByText("No data")).toBeDefined();
+      expect(screen.queryByTestId("chart-renderer")).toBeNull();
+    });
+
+    it('shows "No data" when the editor preview has no rows', () => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: null,
+        missingParams: [],
+      });
+
+      render(<CardContainer widget={makeWidget()} previewData={[]} />);
+
+      expect(screen.getByText("No data")).toBeDefined();
+      expect(screen.queryByTestId("chart-renderer")).toBeNull();
+    });
+
+    it("never hands the plugin transform an empty array", () => {
+      transformCalls.length = 0;
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: { data: [], columns: [] },
+        missingParams: [],
+      });
+
+      render(<CardContainer widget={makeWidget()} />);
+      render(<CardContainer widget={makeWidget()} previewData={[]} />);
+
+      expect(transformCalls).toEqual([]);
+    });
+
+    it("announces the empty state to assistive technology", () => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: { data: [], columns: [] },
+        missingParams: [],
+      });
+
+      render(<CardContainer widget={makeWidget()} />);
+
+      // The canvas "No data" title the ECharts charts paint is invisible to a
+      // screen reader; this state has to be real DOM in a live region.
+      expect(screen.getByRole("status")).toBeDefined();
+    });
+
+    it("still renders a content widget that never had rows", () => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: null,
+        missingParams: [],
+      });
+
+      render(
+        <CardContainer
+          widget={makeWidget({ chartType: "markdown" })}
+          previewData={[]}
+        />,
+      );
+
+      expect(screen.queryByText("No data")).toBeNull();
+    });
   });
 
   // ----- Parameter-select widget (no query) -----

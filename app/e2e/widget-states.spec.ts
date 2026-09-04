@@ -411,17 +411,20 @@ test.describe("Empty result set — No data UX", () => {
     await page.goto(`/${id}`);
     const widget = page.locator("[data-testid='widget-card']");
     await expect(widget).toBeVisible({ timeout: 15_000 });
-    // Empty bar chart now renders a DOM, screen-reader-readable "No data"
-    // status instead of only an ECharts canvas title (#1053).
-    await expect(widget.getByTestId("bar-chart-empty")).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(widget.getByText("No data")).toBeVisible();
+    // The host stops a zero-row result before it reaches the plugin, so every
+    // query-backed widget shows the same DOM "No data" status (#1584). The
+    // chart's own empty state (`bar-chart-empty`, #1053) is now only reachable
+    // from Storybook.
+    await expect(widget.getByRole("status")).toBeVisible({ timeout: 15_000 });
+    await expect(
+      widget.getByRole("heading", { name: "No data" }),
+    ).toBeVisible();
+    await expect(widget.getByTestId("bar-chart-empty")).not.toBeVisible();
     await expect(page.getByText("Query Failed")).not.toBeVisible();
     await expect(page.getByText("Incompatible data format")).not.toBeVisible();
   });
 
-  test("table with empty result shows 'No results'", async ({
+  test("table with empty result shows the host 'No data' state", async ({
     authPage,
     page,
   }) => {
@@ -434,12 +437,16 @@ test.describe("Empty result set — No data UX", () => {
     dashboardCleanup = cleanup;
 
     await page.goto(`/${id}`);
-    // Table widget renders its own empty state ("No results") via DataGrid
-    await expect(page.getByText("No results")).toBeVisible({ timeout: 15_000 });
+    // DataGrid's own "No results" is unreachable from the app now that the
+    // host guards zero rows (#1584).
+    await expect(page.getByRole("heading", { name: "No data" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText("No results")).not.toBeVisible();
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
 
-  test("single-value with empty result shows fallback value", async ({
+  test("single-value with empty result says so instead of showing 0", async ({
     authPage,
     page,
   }) => {
@@ -454,8 +461,11 @@ test.describe("Empty result set — No data UX", () => {
     await page.goto(`/${id}`);
     const widget = page.locator("[data-testid='widget-card']");
     await expect(widget).toBeVisible({ timeout: 15_000 });
-    // Single-value renders "0" as fallback when no data returned
-    await expect(widget.getByText("0")).toBeVisible({ timeout: 10_000 });
+    // Printing 0 for "no rows" states a number that is not in the data (#1584).
+    await expect(widget.getByRole("heading", { name: "No data" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(widget.getByText("0", { exact: true })).not.toBeVisible();
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
 
@@ -474,12 +484,17 @@ test.describe("Empty result set — No data UX", () => {
     await page.goto(`/${id}`);
     const widget = page.locator("[data-testid='widget-card']");
     await expect(widget).toBeVisible({ timeout: 15_000 });
-    await expect(widget.locator("canvas")).toBeVisible({ timeout: 15_000 });
+    // Was a canvas-only "No data" title, invisible to assistive tech (#1584).
+    await expect(widget.getByRole("status")).toBeVisible({ timeout: 15_000 });
+    await expect(
+      widget.getByRole("heading", { name: "No data" }),
+    ).toBeVisible();
+    await expect(widget.locator("canvas")).not.toBeVisible();
     await expect(page.getByText("Query Failed")).not.toBeVisible();
     await expect(page.getByText("Incompatible data format")).not.toBeVisible();
   });
 
-  test("graph widget with empty result shows 'No graph data'", async ({
+  test("graph widget with empty result shows the host 'No data' state", async ({
     authPage,
     page,
   }) => {
@@ -492,9 +507,10 @@ test.describe("Empty result set — No data UX", () => {
     dashboardCleanup = cleanup;
 
     await page.goto(`/${id}`);
-    await expect(page.getByText("No graph data")).toBeVisible({
+    await expect(page.getByRole("heading", { name: "No data" })).toBeVisible({
       timeout: 15_000,
     });
+    await expect(page.getByText("No graph data")).not.toBeVisible();
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
 
@@ -511,8 +527,11 @@ test.describe("Empty result set — No data UX", () => {
     dashboardCleanup = cleanup;
 
     await page.goto(`/${id}`);
-    // Table renders DOM-visible "No results" — verifiable text
-    await expect(page.getByText("No results")).toBeVisible({ timeout: 15_000 });
+    // "No data" is DOM-visible text in a live region — verifiable, and clearly
+    // not an error.
+    await expect(page.getByRole("heading", { name: "No data" })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByText("Query Failed")).not.toBeVisible();
     await expect(page.getByText("Incompatible data format")).not.toBeVisible();
   });
