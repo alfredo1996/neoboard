@@ -48,11 +48,11 @@ NeoBoard's plugin system lets you extend the platform with custom chart types an
 | ---- | ------ | ------- | ------ |
 |      |        |         |        |
 
-> Be the first! Follow the [Plugin Authoring Guide](docs/plugins/authoring.md) to get started.
+> Be the first! Follow the [chart plugin guide](https://alfredo1996.github.io/neoboard/developer/extending/new-chart-plugin/) to get started.
 
 ## Publishing Your Plugin
 
-1. **Build** — Follow the [Plugin Authoring Guide](docs/plugins/authoring.md)
+1. **Build** — Follow the [connector plugin guide](https://alfredo1996.github.io/neoboard/developer/extending/new-connector-plugin/)
 2. **Name** — Use prefix `neoboard-chart-*` or `neoboard-connector-*`
 3. **Publish** — `npm publish` to the npm registry
 4. **Register** — Submit a PR adding your plugin to this file
