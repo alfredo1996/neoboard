@@ -28,7 +28,7 @@ import {
   THEME_DARK,
   CITRINE_LIGHT,
 } from "./theme";
-import { getPaletteColors } from "./palettes";
+import { getPaletteColors, resolvePaletteId } from "./palettes";
 
 echarts.use([
   EBarChart,
@@ -179,10 +179,13 @@ function BaseChart({
     const instance = chartRef.current;
     if (!instance || !options) return;
 
-    // Resolve chart colors: use a custom palette when provided (and not deep-ocean),
-    // otherwise fall back to CSS-variable-based colors (theme default).
+    // Resolve chart colors: a chosen palette is a static, light-only array, so
+    // only non-default palettes take it. The citrine default (and its
+    // deep-ocean alias) go through the CSS variables instead, which carry the
+    // dark-mode values — gating on the alias alone left every default chart
+    // painting light citrine on the dark canvas (#1295).
     const paletteColors =
-      colorPalette && colorPalette !== "deep-ocean"
+      colorPalette && resolvePaletteId(colorPalette) !== "citrine"
         ? getPaletteColors(colorPalette)
         : undefined;
     const resolvedColors = paletteColors ?? resolveChartColors();

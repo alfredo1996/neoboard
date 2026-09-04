@@ -1,6 +1,7 @@
 import { render, screen, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BaseChart } from "../base-chart";
+import { getPaletteColors } from "../palettes";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture specific fns.
@@ -12,6 +13,11 @@ const mockOff = vi.fn();
 const mockShowLoading = vi.fn();
 const mockHideLoading = vi.fn();
 const mockClear = vi.fn();
+
+vi.mock("../palettes", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("../palettes")>();
+  return { ...mod, getPaletteColors: vi.fn(mod.getPaletteColors) };
+});
 
 vi.mock("echarts/core", () => {
   const use = vi.fn();
@@ -199,6 +205,21 @@ describe("BaseChart", () => {
       }),
       { notMerge: true },
     );
+  });
+
+  it("takes the theme-aware path for the citrine default and its alias", () => {
+    // jsdom returns "" for CSS custom properties, so both paths end up on
+    // CITRINE_LIGHT here and the colour alone cannot tell them apart. What
+    // matters is which branch ran: the static array is light-only, the CSS
+    // variables are per-theme (#1295).
+    render(<BaseChart options={{}} colorPalette="citrine" />);
+    render(<BaseChart options={{}} colorPalette="deep-ocean" />);
+    expect(vi.mocked(getPaletteColors)).not.toHaveBeenCalled();
+  });
+
+  it("uses the static array for any palette other than the default", () => {
+    render(<BaseChart options={{}} colorPalette="tableau" />);
+    expect(vi.mocked(getPaletteColors)).toHaveBeenCalledWith("tableau");
   });
 
   it("overrides colors with tableau palette when colorPalette is set", () => {

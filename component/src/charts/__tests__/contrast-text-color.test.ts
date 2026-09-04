@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { contrastTextColor } from "../chart-utils";
+import { CITRINE_LIGHT, CITRINE_DARK } from "../theme";
 
 describe("contrastTextColor", () => {
   it("returns white text on a dark background", () => {
@@ -36,14 +37,48 @@ describe("contrastTextColor", () => {
     expect(contrastTextColor("rgb(100%, 100%, 100%)")).toBe("#000000");
   });
 
+  it("parses hsl() and hsla() color strings", () => {
+    // The shipped palettes are hsl() strings, so this is the form that reaches
+    // every label on a chart or a styling rule (#1295). Before this branch
+    // existed they all parsed to null and got black — invisible on the dark
+    // half of the palette.
+    expect(contrastTextColor("hsl(265, 55%, 48%)")).toBe("#ffffff"); // violet
+    expect(contrastTextColor("hsl(350, 70%, 48%)")).toBe("#ffffff"); // rose
+    expect(contrastTextColor("hsl(38, 95%, 55%)")).toBe("#000000"); // amber
+    expect(contrastTextColor("hsl(0, 100%, 50%)")).toBe("#000000"); // pure red
+    expect(contrastTextColor("hsla(330, 65%, 38%, 0.9)")).toBe("#ffffff");
+  });
+
+  it("accepts space-separated and slash-alpha hsl forms", () => {
+    expect(contrastTextColor("hsl(265 55% 48%)")).toBe("#ffffff");
+    expect(contrastTextColor("hsl(265 55% 48% / 0.5)")).toBe("#ffffff");
+    expect(contrastTextColor("hsl(38deg 95% 55%)")).toBe("#000000");
+  });
+
+  it("picks a readable label colour for every citrine swatch", () => {
+    // Whole-palette table: a regression here means some series label goes
+    // unreadable, which is exactly how #1295 shipped.
+    const light = CITRINE_LIGHT.map(contrastTextColor);
+    const dark = CITRINE_DARK.map(contrastTextColor);
+    const W = "#ffffff";
+    const B = "#000000";
+    expect(light).toEqual([B, B, W, W, B, W, B, B, B, B]);
+    expect(dark).toEqual([B, B, W, B, B, W, B, B, B, B]);
+  });
+
   it("falls back to black for unparseable inputs instead of producing invisible text", () => {
     // Previously these would crash or silently parse to NaN and emit white
     // text — invisible on light backgrounds set by the same styling rule.
     expect(contrastTextColor("red")).toBe("#000000");
     expect(contrastTextColor("var(--accent)")).toBe("#000000");
-    expect(contrastTextColor("hsl(0, 100%, 50%)")).toBe("#000000");
     expect(contrastTextColor("")).toBe("#000000");
     expect(contrastTextColor("garbage")).toBe("#000000");
+  });
+
+  it("rejects malformed hsl() inputs", () => {
+    expect(contrastTextColor("hsl(265, 55%)")).toBe("#000000");
+    expect(contrastTextColor("hsl(a, b%, c%)")).toBe("#000000");
+    expect(contrastTextColor("hsl(265, 55, 48)")).toBe("#000000");
   });
 
   it("rejects malformed hex strings", () => {
