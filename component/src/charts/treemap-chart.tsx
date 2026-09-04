@@ -61,6 +61,7 @@ function TreemapChart({
   stylingRules,
   paramValues,
   ariaDescription,
+  onClick,
   ...rest
 }: TreemapChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -93,7 +94,10 @@ function TreemapChart({
       series: [
         {
           type: "treemap",
-          nodeClick: "zoomToNode",
+          // A configured click action owns the click: drilling as well would
+          // fire the action and move the view at once (#1596). Without an
+          // action, native drill is unchanged.
+          nodeClick: onClick ? (false as const) : ("zoomToNode" as const),
           data: stylingRules?.length
             ? data.map((item) => {
                 const numericValue =
@@ -176,6 +180,9 @@ function TreemapChart({
     stylingRules,
     paramValues,
     dark,
+    // Read above to decide nodeClick: without it the chart keeps whichever
+    // drill setting it had at mount (the #1546/#1562 latch).
+    onClick,
   ]);
 
   return (
@@ -185,6 +192,7 @@ function TreemapChart({
         ariaDescription={
           ariaDescription ?? `Treemap with ${data.length} top-level items`
         }
+        onClick={onClick}
         {...rest}
       />
     </div>

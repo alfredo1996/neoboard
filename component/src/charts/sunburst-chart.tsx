@@ -55,6 +55,7 @@ function SunburstChart({
   stylingRules,
   paramValues,
   ariaDescription,
+  onClick,
   ...rest
 }: SunburstChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -139,7 +140,10 @@ function SunburstChart({
       series: [
         {
           type: "sunburst",
-          nodeClick: "rootToNode",
+          // A configured click action owns the click: drilling as well would
+          // fire the action and move the view at once (#1596). Without an
+          // action, native drill is unchanged.
+          nodeClick: onClick ? (false as const) : ("rootToNode" as const),
           data: stylingRules?.length
             ? data.map((item) => {
                 const numericValue =
@@ -199,6 +203,9 @@ function SunburstChart({
     stylingRules,
     paramValues,
     dark,
+    // Read above to decide nodeClick: without it the chart keeps whichever
+    // drill setting it had at mount (the #1546/#1562 latch).
+    onClick,
   ]);
 
   return (
@@ -209,6 +216,7 @@ function SunburstChart({
           ariaDescription ??
           `Sunburst chart with ${data.length} top-level segments`
         }
+        onClick={onClick}
         {...rest}
       />
     </div>
