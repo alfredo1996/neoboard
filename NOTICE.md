@@ -4,15 +4,16 @@
 
 Used only by the choropleth chart (`component/src/charts/choropleth-chart.tsx`), which loads it with a dynamic import.
 
-What is known about this file, established by inspection:
+**Provenance and licence: unknown.** The file entered this repository in commit `fa663a79` ("feat(charts): add Circle Packing chart widget", #613) with no source, licence or download record. Nothing here should be read as an assertion about either.
 
-- It is in the legacy Apache ECharts world-map JSON format: 217 features in CRS84, whose properties are exactly `{ name, childNum }`.
-- ECharts' bundled map data is derived from [Natural Earth](https://www.naturalearthdata.com/), which places its data in the public domain.
-- It entered this repository in commit `fa663a79` ("feat(charts): add Circle Packing chart widget", #613) with no source recorded.
+What can be observed about the file itself:
+
+- It contains 217 features in CRS84, whose properties are exactly `{ name, childNum }`.
+- That shape resembles the legacy Apache ECharts world-map JSON format. A resemblance in structure is not evidence of origin, and no upstream file has been matched to it byte-for-byte.
 - It is **not** a copy of `echarts-countries-js`'s `world.js`; the coordinates do not match.
 
-The upstream provenance is stated here as far as it can be verified from the file itself. No licence is asserted beyond that, because the original download was not recorded. Replacing this file with a freshly sourced Natural Earth 110m dataset carrying ISO 3166 codes is tracked with the choropleth `nameMap` work (#1402, #1543), which would settle the provenance definitively.
+Because the origin is unrecorded, the correct fix is to replace this file with a dataset whose source and licence are known — for example a freshly downloaded Natural Earth 110m set carrying ISO 3166 codes, recorded here with its download URL and licence at the time of retrieval. That is tracked alongside the choropleth `nameMap` work (#1402, #1543). Until then this notice records the gap rather than papering over it.
 
 ## Removed dependency — `echarts-countries-js`
 
-Recorded for anyone auditing history: this package was declared as a runtime dependency of `component/` but never imported. It shipped 36 MB and declared `"license": "ISC"` in its `package.json` while its own `LICENSE.md` read "ODC Open Database License (ODbL)". It was removed rather than resolved, since no code depended on it.
+Recorded for anyone auditing history: this package was declared as a runtime dependency of `component/` but never imported. It shipped 36 MB and declared `"license": "ISC"` in its `package.json` while its own `LICENSE.md` read "ODC Open Database License (ODbL)". It was removed rather than reconciled, since no code depended on it.
