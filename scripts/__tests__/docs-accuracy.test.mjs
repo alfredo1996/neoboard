@@ -285,3 +285,74 @@ describe("the --expose-host overlay backs the hint that names it", () => {
     expect(carriers).toEqual(["docker-compose.expose-host.yml"]);
   });
 });
+
+describe("the site's own navigation and links resolve (#1574)", () => {
+  /** Slugs Starlight will serve, derived from the content collection. */
+  const pageSlugs = () =>
+    new Set([
+      "/",
+      ...DOCS.map(({ path }) =>
+        `/${relative(DOCS_ROOT, path)}`
+          .replace(/\.mdx?$/, "")
+          .replace(/\/index$/, ""),
+      ),
+    ]);
+
+  it("puts every content directory in the sidebar", () => {
+    // authentication/ held four pages including the 1,584-word SSO setup
+    // guide, and no sidebar group pointed at it — so the enterprise auth
+    // documentation existed on the site and in no navigation.
+    const config = readFileSync(join(ROOT, "docs/astro.config.mjs"), "utf8");
+    const generated = new Set(
+      [...config.matchAll(/autogenerate:\s*\{\s*directory:\s*"([^"]+)"/g)].map(
+        (m) => m[1],
+      ),
+    );
+    const dirs = readdirSync(DOCS_ROOT, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+
+    expect(dirs.filter((d) => !generated.has(d))).toEqual([]);
+  });
+
+  it("links only to pages and assets that exist", () => {
+    // Nine LinkCards pointed at an information architecture that was never
+    // built (/connections/*, /dashboards/*), while the real pages sat under
+    // /guides and /concepts. Every one rendered as a 404.
+    const slugs = pageSlugs();
+    const broken = [];
+
+    for (const { path, text } of DOCS) {
+      const targets = [...text.matchAll(/href="(\/[^"#?]*)"|\]\((\/[^)#?\s]*)\)/g)]
+        .map((m) => (m[1] ?? m[2]).replace(/\/$/, ""))
+        .filter(Boolean);
+
+      for (const target of targets) {
+        // A leading-slash target is either a page slug or a file served from
+        // docs/public (screenshots, downloads).
+        const isAsset = existsSync(join(ROOT, "docs/public", target));
+        if (!slugs.has(target) && !isAsset) {
+          broken.push(`${relative(DOCS_ROOT, path)} -> ${target}`);
+        }
+      }
+    }
+
+    expect(broken).toEqual([]);
+  });
+
+  it("does not forbid the render tests the app is full of", () => {
+    // testing.mdx told contributors "Do NOT add @testing-library/react render
+    // tests in app/. Vitest in app/ is for pure logic only" while app/src held
+    // 65 .test.tsx files and app/vitest.config.ts defined a jsdom project for
+    // exactly them (#1574). A rule the repo breaks 65 times is not a rule.
+    const page = readFileSync(
+      join(ROOT, "docs/src/content/docs/developer/contributing/testing.mdx"),
+      "utf8",
+    );
+    const config = readFileSync(join(ROOT, "app/vitest.config.ts"), "utf8");
+
+    expect(config).toContain("jsdom");
+    expect(page).not.toMatch(/Do NOT add `?@testing-library\/react`? render tests/i);
+    expect(page).not.toMatch(/Vitest in `?app\/`? is for pure logic only/i);
+  });
+});
