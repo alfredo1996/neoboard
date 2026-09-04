@@ -24,6 +24,8 @@ export function transformToChoroplethData(data: unknown): unknown {
 
   return records
     .map((row) => ({
+      // Raw row kept for the click payload; detected fields win (#1589).
+      properties: row,
       name: String(normalizeValue(row[nameKey]) ?? ""),
       value: Number(row[valueKey]) || 0,
     }))

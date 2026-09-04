@@ -67,7 +67,15 @@ export function transformToGanttData(data: unknown): unknown {
 
       if (start === null || end === null) return null;
 
-      const item: Record<string, unknown> = { task, start, end };
+      // The raw row rides along so a click action can name any query column
+      // the editor offered (#1589). Detected fields are assigned after it and
+      // still win; the chart reads only its own typed fields.
+      const item: Record<string, unknown> = {
+        properties: row,
+        task,
+        start,
+        end,
+      };
 
       if (categoryKey && row[categoryKey] != null) {
         item.category = String(normalizeValue(row[categoryKey]) ?? "");
