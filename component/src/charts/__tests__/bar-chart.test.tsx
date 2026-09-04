@@ -353,5 +353,22 @@ describe("BarChart", () => {
         ]),
       ).toContain("30.0%");
     });
+
+    it.each([0, 2, -1])(
+      "shows percent-stack labels at one decimal whatever decimalPlaces says (%i)",
+      (decimalPlaces) => {
+        // Percentages carry their own precision rule — one decimal, matching
+        // the tooltip beside them and pie (#1248). decimalPlaces governs
+        // absolute values only, so it must not reach a percent label (#1587).
+        const option = renderBarOptions({
+          data: [{ label: "a", v: 30, w: 70 }],
+          stackMode: "percent",
+          showValues: true,
+          decimalPlaces,
+        });
+        expect(labelFormatter(option)?.({ value: 30 })).toBe("30.0");
+        expect(labelFormatter(option)?.({ value: 33.33 })).toBe("33.3");
+      },
+    );
   });
 });
