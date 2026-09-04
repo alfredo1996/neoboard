@@ -130,6 +130,106 @@ describe("documentation accuracy", () => {
     expect(doc).not.toMatch(/leak that nothing catches/i);
   });
 
+  describe.each(["ARCHITECTURE.md", ".github/SECURITY.md"])(
+    "%s describes multi-tenancy as it is enforced",
+    (docName) => {
+      it("states the per-query mandate and names the ratchet", () => {
+        // Both documents claimed isolation happened "at the ORM level" /
+        // "at ORM/middleware level" while app/src/lib/db/index.ts is a plain
+        // Drizzle client with no middleware. CLAUDE.md was corrected for this
+        // in #1355; these two were not. SECURITY.md is a published policy, so
+        // the overstatement is a guarantee the code does not make (#1572).
+        const doc = readDoc(docName);
+        const guardPath = "app/src/lib/db/__tests__/tenant-scope.test.ts";
+        expect(doc).toContain(guardPath);
+        expect(existsSync(resolve(REPO_ROOT, guardPath))).toBe(true);
+        expect(doc).toMatch(/per query/i);
+      });
+
+      it("does not claim ORM, middleware or database-layer enforcement", () => {
+        // Blocklist every phrasing that shipped, not just the one being
+        // removed: asserting only that the new text is present would pass
+        // while the old sentence sat beside it.
+        const doc = readDoc(docName);
+        expect(doc).not.toMatch(/at the ORM level/i);
+        expect(doc).not.toMatch(/ORM\/middleware/i);
+        expect(doc).not.toMatch(/prevented at the database layer/i);
+      });
+    },
+  );
+
+  describe("ARCHITECTURE.md counts match the filesystem", () => {
+    // The counts above live in fenced code blocks, which referencedPaths()
+    // never inspects — which is how six of them drifted while the three
+    // backticked component counts stayed correct (#1572).
+    const doc = () => readDoc("ARCHITECTURE.md");
+
+    /**
+     * The registry is the authority: `app/src/plugins/index.ts` imports one
+     * `<name>Plugin` per plugin directory. Counting directories instead would
+     * include `transforms/`, a shared utility module that is not a plugin.
+     */
+    const registeredPlugins = (): string[] => [
+      ...new Set(
+        [
+          ...readDoc("app/src/plugins/index.ts").matchAll(
+            /import \{ \w+Plugin \} from "\.\/([\w-]+)";/g,
+          ),
+        ].map((m) => m[1]),
+      ),
+    ];
+
+    it("counts chart plugins", () => {
+      const claimed = /Chart plugin definitions \((\d+)\)/.exec(doc());
+      expect(
+        claimed,
+        "ARCHITECTURE.md no longer states a plugin count",
+      ).not.toBeNull();
+      expect(Number(claimed![1])).toBe(registeredPlugins().length);
+    });
+
+    it("counts API routes", () => {
+      const walk = (dir: string): number =>
+        readdirSync(resolve(REPO_ROOT, dir), { withFileTypes: true }).reduce(
+          (n, e) =>
+            n +
+            (e.isDirectory()
+              ? walk(`${dir}/${e.name}`)
+              : e.name === "route.ts"
+                ? 1
+                : 0),
+          0,
+        );
+      const claimed = /(\d+) API routes/.exec(doc());
+      expect(
+        claimed,
+        "ARCHITECTURE.md no longer states a route count",
+      ).not.toBeNull();
+      expect(Number(claimed![1])).toBe(walk("app/src/app/api"));
+    });
+
+    it("counts Zustand stores", () => {
+      const actual = countFiles("app/src/stores", ".ts");
+      const claimed = /Zustand stores \((\d+)\)/.exec(doc());
+      expect(
+        claimed,
+        "ARCHITECTURE.md no longer states a store count",
+      ).not.toBeNull();
+      expect(Number(claimed![1])).toBe(actual);
+    });
+
+    it("lists exactly the plugins the registry loads", () => {
+      const listed = /\*\*(\d+) chart plugins:\*\* ([^\n]+)/.exec(doc());
+      expect(
+        listed,
+        "ARCHITECTURE.md no longer lists chart plugins",
+      ).not.toBeNull();
+      const names = listed![2].split(",").map((n) => n.trim());
+      expect([...names].sort()).toEqual([...registeredPlugins()].sort());
+      expect(Number(listed![1])).toBe(names.length);
+    });
+  });
+
   it("the deploy skill does not send auditors looking for a flag that does not exist", () => {
     // .claude/CLAUDE.md was corrected but the deploy skill still listed
     // "`--skip-migrations` flag missing or undocumented" as a gap to capture
