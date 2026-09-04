@@ -209,11 +209,10 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 values live in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`, which
 pins them as a ratchet — check there before quoting a number here.
 
-These radii are the _result of a decision_, not scaffold defaults: the v1.1 vibrant
-pass deliberately moved buttons `rounded-sm` → `rounded-md` and cards `rounded-md` →
-`rounded-lg` so the main floating surface reads softer. See
-`claude_code_docs/component-review/atoms-before-after.md`. Do not "correct" them
-toward sharper corners without superseding that decision knowingly.
+These radii are the _result of a decision_, not scaffold defaults: buttons are
+`rounded-md` (8px) and cards `rounded-lg` (12px) so the main floating surface reads
+softer than the controls inside it. Do not "correct" them toward sharper corners
+without superseding that decision knowingly.
 
 ### Border Rules
 
