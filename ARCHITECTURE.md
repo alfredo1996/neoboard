@@ -135,7 +135,7 @@ flowchart LR
     end
 ```
 
-**20 chart plugins:** bar, line, pie, gauge, single-value, table, graph, map, json, markdown, form, iframe, sankey, sunburst, radar, treemap, parameter-select, circle-packing, choropleth, heatmap
+**20 chart plugins:** bar, line, pie, gauge, single-value, table, graph, map, json, markdown, form, iframe, sankey, sunburst, radar, treemap, parameter-select, circle-packing, choropleth, gantt
 
 ## State Management
 
@@ -175,11 +175,11 @@ app/src/
 ├── app/                    # Next.js App Router
 │   ├── (auth)/             # Public: login, signup, change-password
 │   ├── (dashboard)/        # Protected: dashboard pages
-│   └── api/                # 27 API routes
+│   └── api/                # 38 API routes
 ├── components/             # App-level React components
 ├── hooks/                  # TanStack Query hooks (20+)
-├── stores/                 # Zustand stores (6)
-├── plugins/                # Chart plugin definitions (17)
+├── stores/                 # Zustand stores (7)
+├── plugins/                # Chart plugin definitions (20)
 │   ├── transforms/         # Data transform functions
 │   └── settings/           # Zod settings schemas
 ├── lib/
@@ -237,6 +237,6 @@ apiKeys              widgetTemplates
                      +---------------+
 ```
 
-**Multi-tenancy:** Every table includes `tenantId`. All queries filter by tenant at the ORM level.
+**Multi-tenancy:** Every table includes `tenantId`. The filter is written per query, in the route — `eq(table.tenantId, session.tenantId)` with the id taken from `requireSession()`, never from the request body. Nothing enforces it at runtime: `app/src/lib/db/index.ts` is a plain Drizzle client with no middleware. The safety net is a build-time ratchet, `app/src/lib/db/__tests__/tenant-scope.test.ts`, which fails the build on an unscoped query against a tenant table.
 
 **Encryption:** Connection credentials use AES-256-GCM with the `ENCRYPTION_KEY` (a 64-character hex string = 32 bytes) as the key directly (no HKDF derivation, no envelope wrapping); ciphertext is stored as `iv:authTag:ciphertext` (base64), with key rotation via `ENCRYPTION_KEY_OLD`. Lost `ENCRYPTION_KEY` = all credentials unrecoverable.

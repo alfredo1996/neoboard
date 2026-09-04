@@ -2,11 +2,14 @@
 
 ## Supported Versions
 
-| Version | Supported                       |
-| ------- | ------------------------------- |
-| 2.x     | :white_check_mark:              |
-| 1.x     | :hammer_and_wrench: maintenance |
-| < 1.0   | :x:                             |
+| Version | Supported          |
+| ------- | ------------------ |
+| 1.x     | :white_check_mark: |
+| < 1.0   | :x:                |
+
+Releases numbered 2.x belong to the pre-public development cycle; versioning
+reset at 1.0.0 before the first public release (see CHANGELOG.md). Nothing in
+the 2.x line is supported.
 
 ## Reporting a Vulnerability
 
@@ -47,8 +50,11 @@ NeoBoard handles database credentials and user authentication. Key security meas
 ### Multi-Tenancy
 
 - `tenant_id` column on all database tables
-- Every query includes tenant filter at ORM/middleware level
-- Cross-tenant access is prevented at the database layer
+- Every query filters by tenant explicitly, per query, in the API route, using the
+  `tenantId` from the validated session — never from the request body
+- Enforcement is not automatic: there is no ORM or middleware layer that adds the
+  filter. A build-time ratchet, `app/src/lib/db/__tests__/tenant-scope.test.ts`,
+  fails the build on any unscoped query against a tenant-owned table
 
 ### Query Safety
 
