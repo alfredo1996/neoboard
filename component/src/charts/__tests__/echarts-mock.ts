@@ -43,7 +43,6 @@ export function registerEChartsMocks() {
     BarChart: vi.fn(),
     LineChart: vi.fn(),
     PieChart: vi.fn(),
-    GraphChart: vi.fn(),
   }));
 
   vi.mock("echarts/components", () => ({
