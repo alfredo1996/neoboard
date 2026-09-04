@@ -87,8 +87,6 @@ export interface GraphChartProps {
   showRelationshipLabels?: boolean;
   /** Node size preset */
   nodeSize?: GraphNodeSize;
-  /** Enable force physics simulation */
-  physics?: boolean;
   /** Seed the caption map state */
   initialCaptionMap?: Record<string, string>;
   /** Controlled selection — IDs of selected nodes */
@@ -341,7 +339,6 @@ function GraphChartInner({
   showLabels = true,
   showRelationshipLabels = true,
   nodeSize = "medium",
-  physics = true,
   initialCaptionMap,
   selectedNodeIds,
   onNodeSelect,
@@ -584,10 +581,8 @@ function GraphChartInner({
       initialZoom: 0.7,
       // Web workers require bundler-specific config in Next.js; keep on main thread.
       disableWebWorkers: true,
-      // When physics is disabled, use a static layout (no force simulation)
-      useStaticLayout: !physics,
     }),
-    [physics],
+    [],
   );
 
   const hasLabels = labelPropertyMap.size > 0;

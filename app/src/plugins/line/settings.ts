@@ -12,6 +12,8 @@ export const lineSettingsSchema = z
     rightYAxisLabel: z.string().optional(),
     rightAxisSeries: z.string().optional(),
     showLegend: z.boolean().default(true),
+    samplingThreshold: z.coerce.number().default(1000),
+    samplingMethod: z.enum(["lttb", "average", "max", "min"]).default("lttb"),
     decimalPlaces: z.coerce.number().optional(),
     legendPosition: z
       .enum(["top", "bottom", "left", "right"])

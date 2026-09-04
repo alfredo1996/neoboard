@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { barPlugin } from "../bar";
+import { graphPlugin } from "../graph";
+import { mapPlugin } from "../map";
 import { gaugePlugin } from "../gauge";
 import { linePlugin } from "../line";
 import { piePlugin } from "../pie";
@@ -28,11 +30,22 @@ vi.mock("next/dynamic", () => ({
         }
         data-value={String(props.value ?? "")}
         data-decimal-places={String(props.decimalPlaces ?? "")}
+        data-sampling-threshold={String(props.samplingThreshold ?? "")}
+        data-sampling-method={String(props.samplingMethod ?? "")}
+        data-marker-size={String(props.markerSize ?? "")}
+        data-show-rel-labels={String(props.showRelationshipLabels ?? "")}
       />
     );
     Stub.displayName = "ChartStub";
     return Stub;
   },
+}));
+
+// The graph plugin wraps its chart in LazyVisible, which mounts children only
+// once an IntersectionObserver reports the slot on screen — that never happens
+// under jsdom, so the chart stub would never render.
+vi.mock("@/components/lazy-visible", () => ({
+  LazyVisible: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@neoboard/components", () => ({
@@ -44,6 +57,8 @@ const GaugeComponent = gaugePlugin.component;
 const BarComponent = barPlugin.component;
 const LineComponent = linePlugin.component;
 const PieComponent = piePlugin.component;
+const GraphComponent = graphPlugin.component;
+const MapComponent = mapPlugin.component;
 const SingleValueComponent = singleValuePlugin.component;
 
 describe("gauge thresholdZones forwarding (#1397)", () => {
@@ -164,4 +179,42 @@ describe("decimalPlaces forwarding on bar, line and pie (#1581)", () => {
       ).toBe("");
     },
   );
+});
+
+describe("options advertised by the editor reach the chart (#1472)", () => {
+  const attr = (name: string) => screen.getByTestId("chart").getAttribute(name);
+
+  it("line forwards both sampling controls", () => {
+    // They only work as a pair: the method is read solely when the threshold
+    // is exceeded (line-chart.tsx:160-161).
+    render(
+      <LineComponent
+        data={[]}
+        settings={{ samplingThreshold: 500, samplingMethod: "average" }}
+      />,
+    );
+    expect(attr("data-sampling-threshold")).toBe("500");
+    expect(attr("data-sampling-method")).toBe("average");
+  });
+
+  it("line keeps the chart's own sampling defaults when unset", () => {
+    render(<LineComponent data={[]} settings={{}} />);
+    expect(attr("data-sampling-threshold")).toBe("1000");
+    expect(attr("data-sampling-method")).toBe("lttb");
+  });
+
+  it("map forwards markerSize", () => {
+    render(<MapComponent data={[]} settings={{ markerSize: 14 }} />);
+    expect(attr("data-marker-size")).toBe("14");
+  });
+
+  it("graph forwards showRelationshipLabels", () => {
+    render(
+      <GraphComponent
+        data={{ nodes: [], edges: [] }}
+        settings={{ showRelationshipLabels: false }}
+      />,
+    );
+    expect(attr("data-show-rel-labels")).toBe("false");
+  });
 });

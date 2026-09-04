@@ -2928,18 +2928,6 @@
                 "clusterMarkers": true
               }
             }
-          },
-          {
-            "id": "page-map-v-150",
-            "chartType": "map",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
-            "settings": {
-              "title": "showPopup = false",
-              "chartOptions": {
-                "showPopup": false
-              }
-            }
           }
         ],
         "gridLayout": [
@@ -2995,13 +2983,6 @@
           {
             "i": "page-map-v-149",
             "x": 0,
-            "y": 18,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-map-v-150",
-            "x": 6,
             "y": 18,
             "w": 6,
             "h": 5
@@ -3209,7 +3190,7 @@
             "connectionId": "conn_neo4j",
             "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
             "settings": {
-              "title": "default (force, medium)",
+              "title": "default (force layout)",
               "chartOptions": {}
             }
           },
@@ -3238,30 +3219,6 @@
             }
           },
           {
-            "id": "page-graph-v-164",
-            "chartType": "graph",
-            "connectionId": "conn_neo4j",
-            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
-            "settings": {
-              "title": "nodeSize = small",
-              "chartOptions": {
-                "nodeSize": "small"
-              }
-            }
-          },
-          {
-            "id": "page-graph-v-165",
-            "chartType": "graph",
-            "connectionId": "conn_neo4j",
-            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
-            "settings": {
-              "title": "nodeSize = large",
-              "chartOptions": {
-                "nodeSize": "large"
-              }
-            }
-          },
-          {
             "id": "page-graph-v-166",
             "chartType": "graph",
             "connectionId": "conn_neo4j",
@@ -3282,18 +3239,6 @@
               "title": "showRelationshipLabels = false",
               "chartOptions": {
                 "showRelationshipLabels": false
-              }
-            }
-          },
-          {
-            "id": "page-graph-v-168",
-            "chartType": "graph",
-            "connectionId": "conn_neo4j",
-            "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
-            "settings": {
-              "title": "physics = false (static)",
-              "chartOptions": {
-                "physics": false
               }
             }
           }
@@ -3328,20 +3273,6 @@
             "h": 5
           },
           {
-            "i": "page-graph-v-164",
-            "x": 6,
-            "y": 8,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-graph-v-165",
-            "x": 0,
-            "y": 13,
-            "w": 6,
-            "h": 5
-          },
-          {
             "i": "page-graph-v-166",
             "x": 6,
             "y": 13,
@@ -3351,13 +3282,6 @@
           {
             "i": "page-graph-v-167",
             "x": 0,
-            "y": 18,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-graph-v-168",
-            "x": 6,
             "y": 18,
             "w": 6,
             "h": 5
@@ -3386,7 +3310,7 @@
             "connectionId": "conn_postgres_read",
             "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
             "settings": {
-              "title": "default (depth 2, dark)",
+              "title": "default (depth 2)",
               "chartOptions": {}
             }
           },
@@ -3425,55 +3349,6 @@
                 "initialExpanded": 3
               }
             }
-          },
-          {
-            "id": "page-json-v-174",
-            "chartType": "json",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
-            "settings": {
-              "title": "fontSize = lg",
-              "chartOptions": {
-                "fontSize": "lg"
-              }
-            }
-          },
-          {
-            "id": "page-json-v-175",
-            "chartType": "json",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
-            "settings": {
-              "title": "theme = light",
-              "chartOptions": {
-                "theme": "light"
-              }
-            }
-          },
-          {
-            "id": "page-json-v-176",
-            "chartType": "json",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
-            "settings": {
-              "title": "showCopyButton = false",
-              "chartOptions": {
-                "showCopyButton": false
-              }
-            }
-          },
-          {
-            "id": "page-json-v-177",
-            "chartType": "json",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT o.id, o.status, o.total::float AS total, to_char(o.created_at, 'YYYY-MM-DD HH24:MI') AS order_date, c.name AS customer, c.city FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 8",
-            "settings": {
-              "title": "fontSize = md + light theme",
-              "chartOptions": {
-                "fontSize": "md",
-                "theme": "light"
-              }
-            }
           }
         ],
         "gridLayout": [
@@ -3509,34 +3384,6 @@
             "i": "page-json-v-173",
             "x": 6,
             "y": 7,
-            "w": 6,
-            "h": 4
-          },
-          {
-            "i": "page-json-v-174",
-            "x": 0,
-            "y": 11,
-            "w": 6,
-            "h": 4
-          },
-          {
-            "i": "page-json-v-175",
-            "x": 6,
-            "y": 11,
-            "w": 6,
-            "h": 4
-          },
-          {
-            "i": "page-json-v-176",
-            "x": 0,
-            "y": 15,
-            "w": 6,
-            "h": 4
-          },
-          {
-            "i": "page-json-v-177",
-            "x": 6,
-            "y": 15,
             "w": 6,
             "h": 4
           }
