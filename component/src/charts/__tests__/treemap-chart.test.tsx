@@ -119,4 +119,19 @@ describe("TreemapChart", () => {
     );
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
   });
+
+  describe("native drill vs a configured click action (#1596)", () => {
+    it("keeps native drill when no click action is configured", () => {
+      render(<TreemapChart data={sampleData} />);
+      const option = mockSetOption.mock.calls[0][0];
+      expect(option.series[0].nodeClick).toBe("zoomToNode");
+    });
+
+    it("suppresses native drill when a click action is configured", () => {
+      // Otherwise one click both fires the action and moves the view.
+      render(<TreemapChart data={sampleData} onClick={() => {}} />);
+      const option = mockSetOption.mock.calls[0][0];
+      expect(option.series[0].nodeClick).toBe(false);
+    });
+  });
 });

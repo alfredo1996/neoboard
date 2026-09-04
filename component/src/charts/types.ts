@@ -40,6 +40,14 @@ export interface EChartsClickEvent {
   dataIndex: number;
   data: unknown;
   value: unknown;
+  /**
+   * Ancestor chain for hierarchical series (sunburst, treemap), root first.
+   * The synthesized virtual root is the only node with a chain of length 1 —
+   * the discriminator for "the click landed on the root", which a name test
+   * cannot do because a NULL grouping column renders a real node named ""
+   * (#1596).
+   */
+  treePathInfo?: { name?: string }[];
 }
 
 export interface ChartSize {
