@@ -55,6 +55,30 @@ export const WithValues: Story = {
   },
 };
 
+const preciseData = [
+  { label: "Widget A", value: 4200.567 },
+  { label: "Widget B", value: 3100.123 },
+  { label: "Widget C", value: 5400.891 },
+  { label: "Widget D", value: 2800.345 },
+];
+
+/** The editor's "Decimal Places" option; -1 or unset leaves rounding automatic. */
+export const FixedDecimalPlaces: Story = {
+  args: {
+    data: preciseData,
+    showValues: true,
+    decimalPlaces: 1,
+  },
+};
+
+export const AutomaticDecimalPlaces: Story = {
+  args: {
+    data: preciseData,
+    showValues: true,
+    decimalPlaces: -1,
+  },
+};
+
 export const GroupedBars: Story = {
   args: {
     data: stackedData,

@@ -34,6 +34,7 @@ function PiePluginComponent({
       donut={settings.donut}
       showLabel={settings.showLabel}
       showLegend={settings.showLegend}
+      decimalPlaces={settings.decimalPlaces}
       roseMode={settings.roseMode}
       labelPosition={settings.labelPosition}
       showPercentage={settings.showPercentage}

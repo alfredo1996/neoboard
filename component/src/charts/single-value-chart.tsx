@@ -3,7 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
-import { formatNumber, contrastTextColor } from "./chart-utils";
+import {
+  formatNumber,
+  contrastTextColor,
+  normalizeDecimalPlaces,
+} from "./chart-utils";
 import type { NumberFormat } from "./chart-utils";
 
 export type { ColorThreshold } from "./color-threshold";
@@ -89,11 +93,10 @@ function SingleValueChart({
     if (format) {
       displayValue = format(value);
     } else {
-      const dp =
-        decimalPlaces !== undefined && decimalPlaces >= 0
-          ? decimalPlaces
-          : undefined;
-      displayValue = formatNumber(value, { numberFormat, decimalPlaces: dp });
+      displayValue = formatNumber(value, {
+        numberFormat,
+        decimalPlaces: normalizeDecimalPlaces(decimalPlaces),
+      });
     }
   } else {
     displayValue = value;

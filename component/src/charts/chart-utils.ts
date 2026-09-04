@@ -25,6 +25,20 @@ export interface NumberFormatConfig {
  * predictable. If either is set explicitly — even `decimalPlaces: 0` — the
  * caller wins and the default does not apply.
  */
+/**
+ * Normalise the editor's "Decimal Places" option (#1581). The control writes
+ * `-1` for "automatic", which `formatNumber` expresses as `undefined`; every
+ * chart that reads the option goes through here so the sentinel, the floor and
+ * the 0-6 range the option advertises are defined once.
+ */
+export function normalizeDecimalPlaces(
+  value: number | undefined,
+): number | undefined {
+  if (value === undefined || !Number.isFinite(value) || value < 0)
+    return undefined;
+  return Math.min(6, Math.floor(value));
+}
+
 export function formatNumber(
   value: number | string,
   config: NumberFormatConfig = {},

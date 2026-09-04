@@ -13,6 +13,7 @@ import {
   resolveLegendPosition,
   resolveItemColor,
   buildTooltipFormatter,
+  normalizeDecimalPlaces,
   parseReferenceLines,
   buildMarkLineFromRefs,
   isTimeSeriesData,
@@ -36,6 +37,8 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   showLegend?: boolean;
   /** Where to place the legend (#1053). */
   legendPosition?: string;
+  /** Fixed decimal places in the tooltip; -1 or unset = automatic */
+  decimalPlaces?: number;
   /** Show data point markers */
   showPoints?: boolean;
   /** Line stroke width in pixels */
@@ -114,6 +117,7 @@ function LineChart({
   area = true,
   showLegend,
   legendPosition,
+  decimalPlaces,
   showPoints = false,
   lineWidth = 1.5,
   showGridLines = true,
@@ -237,7 +241,12 @@ function LineChart({
     };
 
     return {
-      tooltip: { trigger: "axis", formatter: buildTooltipFormatter() },
+      tooltip: {
+        trigger: "axis",
+        formatter: buildTooltipFormatter({
+          decimalPlaces: normalizeDecimalPlaces(decimalPlaces),
+        }),
+      },
       legend: buildLegend(effectiveShowLegend, legendPos),
       grid: {
         ...buildCompactGrid(compact, effectiveShowLegend, legendPos),
@@ -301,6 +310,7 @@ function LineChart({
     samplingThreshold,
     samplingMethod,
     dark,
+    decimalPlaces,
     // #1562: read at resolveLegendPosition(legendPosition) above. Omitting it
     // latched the legend to its first position until an unrelated dep churned
     // — the same class as #1546 in bar-chart, and the last instance in charts/.

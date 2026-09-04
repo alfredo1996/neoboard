@@ -13,6 +13,8 @@ import {
   resolveItemColor,
   buildTooltipFormatter,
   buildPercentTooltipFormatter,
+  formatNumber,
+  normalizeDecimalPlaces,
   buildCategoryAxisLabel,
   parseReferenceLines,
   buildMarkLineFromRefs,
@@ -32,6 +34,8 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   stacked?: boolean;
   /** Show values on bars */
   showValues?: boolean;
+  /** Fixed decimal places in the tooltip and value labels; -1 or unset = automatic */
+  decimalPlaces?: number;
   /** Show legend (auto-shown when multiple series) */
   showLegend?: boolean;
   /** Where to place the legend (#1053). */
@@ -71,6 +75,7 @@ function BarChart({
   stackMode: stackModeProp,
   stacked = false,
   showValues = false,
+  decimalPlaces,
   showLegend,
   legendPosition,
   barWidth = 0,
@@ -166,13 +171,21 @@ function BarChart({
       ...(isPercent ? { max: 100 } : {}),
     };
 
+    // Same rounding for the tooltip and the value labels, so a bar never shows
+    // one number on the bar and another on hover (#1581).
+    const dp = normalizeDecimalPlaces(decimalPlaces);
+    const labelFormatter = (p: { value?: unknown }) =>
+      typeof p.value === "number"
+        ? formatNumber(p.value, { numberFormat: "comma", decimalPlaces: dp })
+        : String(p.value ?? "");
+
     return {
       tooltip: {
         trigger: "axis" as const,
         axisPointer: { type: "shadow" as const },
         formatter: isPercent
           ? buildPercentTooltipFormatter(seriesKeys, data)
-          : buildTooltipFormatter(),
+          : buildTooltipFormatter({ decimalPlaces: dp }),
       },
       legend: buildLegend(effectiveShowLegend, legendPos),
       grid: buildCompactGrid(compact, effectiveShowLegend, legendPos),
@@ -210,6 +223,7 @@ function BarChart({
           ? {
               show: true,
               position: isHorizontal ? ("right" as const) : ("top" as const),
+              formatter: labelFormatter,
             }
           : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
@@ -223,6 +237,7 @@ function BarChart({
     isStacked,
     isPercent,
     showValues,
+    decimalPlaces,
     showLegend,
     barWidth,
     barGap,

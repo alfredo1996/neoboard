@@ -10,6 +10,7 @@ export const barSettingsSchema = z
     /** @deprecated Use stackMode instead. Kept for backward compatibility. */
     stacked: z.boolean().default(false),
     showValues: z.boolean().default(false),
+    decimalPlaces: z.coerce.number().optional(),
     showLegend: z.boolean().default(true),
     legendPosition: z
       .enum(["top", "bottom", "left", "right"])
