@@ -4,7 +4,6 @@ import {
   BarChart as EBarChart,
   LineChart as ELineChart,
   PieChart as EPieChart,
-  GraphChart as EGraphChart,
   RadarChart as ERadarChart,
 } from "echarts/charts";
 import {
@@ -34,7 +33,6 @@ echarts.use([
   EBarChart,
   ELineChart,
   EPieChart,
-  EGraphChart,
   ERadarChart,
   TitleComponent,
   TooltipComponent,
