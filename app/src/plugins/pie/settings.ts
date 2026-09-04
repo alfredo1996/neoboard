@@ -8,6 +8,7 @@ export const pieSettingsSchema = z
     donut: z.boolean().default(false),
     showLabel: z.boolean().default(true),
     showLegend: z.boolean().default(true),
+    decimalPlaces: z.coerce.number().optional(),
     roseMode: z.boolean().default(false),
     labelPosition: z.enum(["outside", "inside", "center"]).default("outside"),
     showPercentage: z.boolean().default(false),

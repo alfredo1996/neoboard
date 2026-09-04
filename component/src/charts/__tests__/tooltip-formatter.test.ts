@@ -94,4 +94,17 @@ describe("buildTooltipFormatter", () => {
     expect(result).toContain("50");
     expect(result).not.toContain("[object");
   });
+
+  it("honours an explicit decimalPlaces (#1581)", () => {
+    // The editor's "Decimal Places" control reaches the chart through this
+    // config. Unset must stay on today's automatic output.
+    const param: TooltipParam = { seriesName: "s", value: 1234.567, name: "a" };
+    expect(buildTooltipFormatter({ decimalPlaces: 0 })(param)).toContain(
+      "<b>1,235</b>",
+    );
+    expect(buildTooltipFormatter({ decimalPlaces: 2 })(param)).toContain(
+      "<b>1,234.57</b>",
+    );
+    expect(buildTooltipFormatter()(param)).toContain("<b>1,234.567</b>");
+  });
 });

@@ -538,4 +538,24 @@ describe("LineChart", () => {
     const el = screen.getByTestId("base-chart");
     expect(el.getAttribute("aria-label")).toMatch(/line chart/i);
   });
+
+  describe("decimalPlaces (#1581)", () => {
+    const param = [{ name: "Jan", seriesName: "y", value: 1234.567 }];
+
+    it("rounds tooltip values to the requested places", () => {
+      render(
+        <LineChart data={[{ x: "Jan", y: 1234.567 }]} decimalPlaces={0} />,
+      );
+      const option = mockSetOption.mock.calls[0][0];
+      expect(option.tooltip.formatter(param)).toContain("1,235");
+    });
+
+    it("treats the automatic sentinel like an unset option", () => {
+      render(
+        <LineChart data={[{ x: "Jan", y: 1234.567 }]} decimalPlaces={-1} />,
+      );
+      const option = mockSetOption.mock.calls[0][0];
+      expect(option.tooltip.formatter(param)).toContain("1,234.567");
+    });
+  });
 });

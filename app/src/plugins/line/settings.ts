@@ -12,6 +12,7 @@ export const lineSettingsSchema = z
     rightYAxisLabel: z.string().optional(),
     rightAxisSeries: z.string().optional(),
     showLegend: z.boolean().default(true),
+    decimalPlaces: z.coerce.number().optional(),
     legendPosition: z
       .enum(["top", "bottom", "left", "right"])
       .default("bottom"),

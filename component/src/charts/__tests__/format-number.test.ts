@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { formatNumber, buildTooltipFormatter } from "../chart-utils";
+import {
+  formatNumber,
+  buildTooltipFormatter,
+  normalizeDecimalPlaces,
+} from "../chart-utils";
 
 describe("formatNumber", () => {
   // ─── Defaults (#911) ────────────────────────────────────────────────────
@@ -183,5 +187,25 @@ describe("buildTooltipFormatter", () => {
     const formatter = buildTooltipFormatter({});
     const result = formatter({ seriesName: "", value: 42, name: "Jan" });
     expect(result).not.toContain(": <b>");
+  });
+});
+
+describe("normalizeDecimalPlaces (#1581)", () => {
+  // The editor writes -1 for "automatic"; every chart that reads the option
+  // must map that to `undefined` so formatNumber keeps its automatic output.
+  it("maps the automatic sentinel and non-numbers to undefined", () => {
+    expect(normalizeDecimalPlaces(-1)).toBeUndefined();
+    expect(normalizeDecimalPlaces(-5)).toBeUndefined();
+    expect(normalizeDecimalPlaces(undefined)).toBeUndefined();
+    expect(normalizeDecimalPlaces(NaN)).toBeUndefined();
+    expect(normalizeDecimalPlaces(Infinity)).toBeUndefined();
+  });
+
+  it("keeps a valid count, floors a fractional one and clamps at 6", () => {
+    expect(normalizeDecimalPlaces(0)).toBe(0);
+    expect(normalizeDecimalPlaces(2)).toBe(2);
+    expect(normalizeDecimalPlaces(2.7)).toBe(2);
+    expect(normalizeDecimalPlaces(6)).toBe(6);
+    expect(normalizeDecimalPlaces(9)).toBe(6);
   });
 });

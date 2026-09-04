@@ -440,4 +440,27 @@ describe("PieChart formatter edge cases (#1248)", () => {
     const { tip } = formatters();
     expect(tip({ value: 1, percent: 100 })).toBe(": 1 (100.0%)");
   });
+
+  describe("decimalPlaces (#1581)", () => {
+    const row = [{ name: "a", value: 1234.567 }];
+
+    it("rounds the slice label and the tooltip, and leaves percentages at 1dp", () => {
+      render(<PieChart data={row} decimalPlaces={1} showPercentage={false} />);
+      const option = mockSetOption.mock.calls[0][0];
+      expect(
+        option.series[0].label.formatter({ name: "a", value: 1234.567 }),
+      ).toBe("a: 1,234.6");
+      expect(
+        option.tooltip.formatter({ name: "a", value: 1234.567, percent: 100 }),
+      ).toBe("a: 1,234.6 (100.0%)");
+    });
+
+    it("treats the automatic sentinel like an unset option", () => {
+      render(<PieChart data={row} decimalPlaces={-1} showPercentage={false} />);
+      const option = mockSetOption.mock.calls[0][0];
+      expect(
+        option.series[0].label.formatter({ name: "a", value: 1234.567 }),
+      ).toBe("a: 1,234.567");
+    });
+  });
 });

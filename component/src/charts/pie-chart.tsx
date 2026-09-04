@@ -9,6 +9,7 @@ import {
   resolveItemColor,
   groupTopN,
   formatNumber,
+  normalizeDecimalPlaces,
   escapeHtml,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
@@ -35,6 +36,8 @@ export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   labelPosition?: "outside" | "inside" | "center";
   /** Show percentage in labels */
   showPercentage?: boolean;
+  /** Fixed decimal places on slice values and in the tooltip; -1 or unset = automatic */
+  decimalPlaces?: number;
   /** Sort slices by value descending */
   sortSlices?: boolean;
   /** Group slices beyond top N into "Other". 0 = show all. */
@@ -63,6 +66,7 @@ function PieChart({
   roseMode = false,
   labelPosition = "outside",
   showPercentage = true,
+  decimalPlaces,
   sortSlices = false,
   topN = 0,
   donutCenterText,
@@ -102,11 +106,14 @@ function PieChart({
     // templates give an unseparated value and 2dp percentages ("38.09%"), which
     // is more precision than the data justifies.
     //
-    // Passing `numberFormat` alone deliberately leaves `decimalPlaces`
-    // undefined, so integers stay clean ("2,751") instead of gaining the
+    // `decimalPlaces` stays undefined unless the widget asks for a fixed count
+    // (#1581), so integers stay clean ("2,751") instead of gaining the
     // helper's 2dp default ("2,751.00").
+    const dp = normalizeDecimalPlaces(decimalPlaces);
     const fmtValue = (v: unknown) =>
-      typeof v === "number" ? formatNumber(v, { numberFormat: "comma" }) : "";
+      typeof v === "number"
+        ? formatNumber(v, { numberFormat: "comma", decimalPlaces: dp })
+        : "";
     const fmtPercent = (p: unknown) =>
       `${(typeof p === "number" ? p : 0).toFixed(1)}%`;
 
@@ -218,6 +225,7 @@ function PieChart({
     roseMode,
     labelPosition,
     showPercentage,
+    decimalPlaces,
     sortSlices,
     topN,
     donutCenterText,

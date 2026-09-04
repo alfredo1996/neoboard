@@ -294,4 +294,64 @@ describe("BarChart", () => {
       "status",
     );
   });
+
+  describe("decimalPlaces (#1581)", () => {
+    const row = [{ label: "a", v: 1234.567 }];
+
+    /** The formatter ECharts would call for the value label on a bar. */
+    const labelFormatter = (option: {
+      series: { label?: { formatter?: (p: { value: unknown }) => string } }[];
+    }) => option.series[0].label?.formatter;
+
+    it("rounds the tooltip and the value label to the requested places", () => {
+      const option = renderBarOptions({
+        data: row,
+        showValues: true,
+        decimalPlaces: 0,
+      });
+      expect(
+        option.tooltip.formatter([
+          { name: "a", seriesName: "v", value: 1234.567 },
+        ]),
+      ).toContain("1,235");
+      expect(labelFormatter(option)?.({ value: 1234.567 })).toBe("1,235");
+    });
+
+    it("treats the automatic sentinel like an unset option", () => {
+      const option = renderBarOptions({
+        data: row,
+        showValues: true,
+        decimalPlaces: -1,
+      });
+      expect(
+        option.tooltip.formatter([
+          { name: "a", seriesName: "v", value: 1234.567 },
+        ]),
+      ).toContain("1,234.567");
+      expect(labelFormatter(option)?.({ value: 1234.567 })).toBe("1,234.567");
+    });
+
+    it("leaves a non-numeric label value alone instead of printing NaN", () => {
+      const option = renderBarOptions({
+        data: row,
+        showValues: true,
+        decimalPlaces: 2,
+      });
+      expect(labelFormatter(option)?.({ value: undefined })).toBe("");
+      expect(labelFormatter(option)?.({ value: "n/a" })).toBe("n/a");
+    });
+
+    it("keeps the percent-stack tooltip on its own formatter", () => {
+      const option = renderBarOptions({
+        data: [{ label: "a", v: 30, w: 70 }],
+        stackMode: "percent",
+        decimalPlaces: 0,
+      });
+      expect(
+        option.tooltip.formatter([
+          { name: "a", seriesName: "v", value: 30, dataIndex: 0 },
+        ]),
+      ).toContain("30.0%");
+    });
+  });
 });

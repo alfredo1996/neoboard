@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { barPlugin } from "../bar";
 import { gaugePlugin } from "../gauge";
+import { linePlugin } from "../line";
+import { piePlugin } from "../pie";
 import { singleValuePlugin } from "../single-value";
 import { transformToValueData } from "../single-value/transform";
 
@@ -24,6 +27,7 @@ vi.mock("next/dynamic", () => ({
           (props.trend as { label?: string } | undefined)?.label ?? ""
         }
         data-value={String(props.value ?? "")}
+        data-decimal-places={String(props.decimalPlaces ?? "")}
       />
     );
     Stub.displayName = "ChartStub";
@@ -37,6 +41,9 @@ vi.mock("@neoboard/components", () => ({
 }));
 
 const GaugeComponent = gaugePlugin.component;
+const BarComponent = barPlugin.component;
+const LineComponent = linePlugin.component;
+const PieComponent = piePlugin.component;
 const SingleValueComponent = singleValuePlugin.component;
 
 describe("gauge thresholdZones forwarding (#1397)", () => {
@@ -124,4 +131,37 @@ describe("single-value trendEnabled forwarding (#1397)", () => {
     );
     expect(screen.getByTestId("chart").getAttribute("data-value")).toBe("100");
   });
+});
+
+describe("decimalPlaces forwarding on bar, line and pie (#1581)", () => {
+  const cases = [
+    ["bar", BarComponent],
+    ["line", LineComponent],
+    ["pie", PieComponent],
+  ] as const;
+
+  it.each(cases)("%s forwards the editor's value", (_type, Component) => {
+    render(<Component data={[]} settings={{ decimalPlaces: 2 }} />);
+    expect(
+      screen.getByTestId("chart").getAttribute("data-decimal-places"),
+    ).toBe("2");
+  });
+
+  it.each(cases)("%s coerces a stored string value", (_type, Component) => {
+    // Imported dashboards and NeoDash conversions store numbers as strings.
+    render(<Component data={[]} settings={{ decimalPlaces: "2" }} />);
+    expect(
+      screen.getByTestId("chart").getAttribute("data-decimal-places"),
+    ).toBe("2");
+  });
+
+  it.each(cases)(
+    "%s passes nothing when the option is unset",
+    (_type, Component) => {
+      render(<Component data={[]} settings={{}} />);
+      expect(
+        screen.getByTestId("chart").getAttribute("data-decimal-places"),
+      ).toBe("");
+    },
+  );
 });
