@@ -34,11 +34,14 @@ export interface PluginProps {
  *   <BarChart onClick={onClick} ... />
  */
 /**
- * The raw query columns a transform stashed under `properties`, minus the
- * control keys `resolve-click-action.ts` presence-tests (`_clickedValue`,
- * `_clickedColumn`) to switch into the table cell-click branch — a user column
- * of that name would reroute the click and then resolve to null (#1589).
+ * `resolve-click-action.ts` presence-tests these two keys (`:58`, `:117`,
+ * `:160`) to switch into the table cell-click branch, so a raw column of
+ * either name would reroute a chart click and then resolve to null. Only these
+ * two are control keys — a column called `_clickedAt` is ordinary data.
  */
+const CLICK_CONTROL_KEYS = new Set(["_clickedValue", "_clickedColumn"]);
+
+/** The raw query columns a transform stashed under `properties` (#1589). */
 function rawColumnsOf(
   row: Record<string, unknown> | undefined,
 ): Record<string, unknown> {
@@ -51,7 +54,7 @@ function rawColumnsOf(
     return {};
   return Object.fromEntries(
     Object.entries(properties as Record<string, unknown>).filter(
-      ([key]) => !key.startsWith("_clicked"),
+      ([key]) => !CLICK_CONTROL_KEYS.has(key),
     ),
   );
 }
@@ -66,6 +69,11 @@ export function useEChartsClick(
       const row = Array.isArray(data)
         ? (data[e.dataIndex] as Record<string, unknown> | undefined)
         : undefined;
+      // `properties` is the passthrough container, not data — dropping it
+      // here stops it shadowing a query column that is itself named
+      // `properties`.
+      const { properties: _container, ...itemFields } = row ?? {};
+      void _container;
       onChartClick({
         // The click-action editor offers every RAW query column as a Source
         // Field, but a transform that rebuilds items from only the fields it
@@ -73,7 +81,7 @@ export function useEChartsClick(
         // was discarded in silence (#1589). Transforms keep the row under
         // `properties`; it goes in first so the transformed fields still win.
         ...rawColumnsOf(row),
-        ...(row ?? {}),
+        ...itemFields,
         name: e.name,
         value: e.value,
         seriesName: e.seriesName,

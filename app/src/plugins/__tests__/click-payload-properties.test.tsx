@@ -59,4 +59,25 @@ describe("useEChartsClick raw-row passthrough (#1589)", () => {
     expect(payload.task).toBe("Design");
     expect(payload.dataIndex).toBe(0);
   });
+
+  it("only strips the two real control keys, not every _clicked* column", () => {
+    // _clickedValue and _clickedColumn are branch switches; a query column
+    // named _clickedAt is ordinary data and must stay selectable.
+    const payload = payloadFor({
+      task: "Design",
+      properties: { _clickedAt: "2026-01-01", _clickedValue: "x" },
+    });
+    expect(payload._clickedAt).toBe("2026-01-01");
+    expect("_clickedValue" in payload).toBe(false);
+  });
+
+  it("lets a query column actually named `properties` through", () => {
+    // The container must not shadow a user column of the same name.
+    const payload = payloadFor({
+      task: "Design",
+      properties: { properties: "user-value", owner: "bob" },
+    });
+    expect(payload.properties).toBe("user-value");
+    expect(payload.owner).toBe("bob");
+  });
 });
