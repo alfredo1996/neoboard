@@ -16,19 +16,6 @@ export const graphOptions: ChartOptionDef[] = [
     ],
   },
   {
-    key: "nodeSize",
-    label: "Node Size",
-    type: "select",
-    default: "medium",
-    category: "Layout",
-    description: "Visual size of each node circle.",
-    options: [
-      { label: "Small", value: "small" },
-      { label: "Medium", value: "medium" },
-      { label: "Large", value: "large" },
-    ],
-  },
-  {
     ...SHARED_SHOW_LABELS,
     description: "Show the node label (first string property) on each node.",
   },
@@ -39,14 +26,5 @@ export const graphOptions: ChartOptionDef[] = [
     default: true,
     category: "Labels",
     description: "Show the relationship type name on each edge.",
-  },
-  {
-    key: "physics",
-    label: "Enable Physics",
-    type: "boolean",
-    default: true,
-    category: "Style",
-    description:
-      "Enable physics simulation so nodes repel and edges act as springs.",
   },
 ];

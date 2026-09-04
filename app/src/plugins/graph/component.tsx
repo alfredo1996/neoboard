@@ -57,6 +57,7 @@ function GraphPluginComponent({
       edges={graphData.edges ?? []}
       layout={settings.layout}
       showLabels={settings.showLabels}
+      showRelationshipLabels={settings.showRelationshipLabels}
       onNodeSelect={
         onChartClick
           ? (ids: string[]) => {

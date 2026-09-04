@@ -151,10 +151,6 @@ function pluginSource(type: string): string {
  * catches "advertised but never wired", not "wired to nothing".
  */
 const KNOWN_UNFORWARDED: Record<string, string[]> = {
-  graph: ["nodeSize", "showRelationshipLabels", "physics"],
-  json: ["fontSize", "showCopyButton", "theme"],
-  line: ["samplingThreshold", "samplingMethod"],
-  map: ["markerSize", "showPopup"],
   "parameter-select": ["defaultValue", "syncToUrl"],
 };
 

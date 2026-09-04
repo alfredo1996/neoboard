@@ -46,6 +46,8 @@ function LinePluginComponent({
       rightYAxisLabel={settings.rightYAxisLabel}
       rightAxisSeries={rightAxisSeries}
       showLegend={settings.showLegend}
+      samplingThreshold={settings.samplingThreshold}
+      samplingMethod={settings.samplingMethod}
       decimalPlaces={settings.decimalPlaces}
       legendPosition={settings.legendPosition}
       lineWidth={settings.lineWidth}

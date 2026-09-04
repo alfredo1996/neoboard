@@ -716,18 +716,14 @@ describe("GraphChart", () => {
     expect(nvlRels[0].caption).toBeUndefined();
   });
 
-  it("passes useStaticLayout false to NVL when physics is enabled (default)", () => {
-    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} physics />);
+  it("sends NVL no useStaticLayout option (#1472)", () => {
+    // The old `physics` prop mapped to `useStaticLayout`, which does not exist
+    // anywhere in @neo4j-nvl — the toggle it backed never changed a frame, so
+    // both the option and the prop were removed. This guards the plumbing from
+    // coming back.
+    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
     const opts = capturedProps.nvlOptions as Record<string, unknown>;
-    expect(opts.useStaticLayout).toBe(false);
-  });
-
-  it("passes useStaticLayout true to NVL when physics is disabled", () => {
-    render(
-      <GraphChart nodes={sampleNodes} edges={sampleEdges} physics={false} />,
-    );
-    const opts = capturedProps.nvlOptions as Record<string, unknown>;
-    expect(opts.useStaticLayout).toBe(true);
+    expect("useStaticLayout" in opts).toBe(false);
   });
 
   // --- Caption rendering for normalized values ---

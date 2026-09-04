@@ -325,6 +325,9 @@ export function GraphExplorationWrapper({
         initialLayout={storedIsValid ? stored.layout : undefined}
         initialCaptionMap={storedIsValid ? stored.captionMap : undefined}
         showLabels={settings.showLabels as boolean | undefined}
+        showRelationshipLabels={
+          settings.showRelationshipLabels as boolean | undefined
+        }
         onLayoutChange={handleLayoutChange}
         onCaptionMapChange={handleCaptionMapChange}
         autoFit={autoFit}

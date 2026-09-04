@@ -66,13 +66,4 @@ export const mapOptions: ChartOptionDef[] = [
     description:
       "Group nearby markers into a single cluster badge at lower zoom levels.",
   },
-  {
-    key: "showPopup",
-    label: "Show Popup on Click",
-    type: "boolean",
-    default: true,
-    category: "Markers",
-    description:
-      "Show a popup with the row data when the user clicks a marker.",
-  },
 ];
