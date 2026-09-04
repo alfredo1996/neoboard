@@ -48,6 +48,10 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "administration" } }],
         },
         {
+          label: "Authentication",
+          items: [{ autogenerate: { directory: "authentication" } }],
+        },
+        {
           label: "Developer Guide",
           items: [{ autogenerate: { directory: "developer" } }],
         },

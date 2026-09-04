@@ -17,14 +17,18 @@ Every new behavior, bug fix, and edge case gets a test. No exceptions.
 
 | Layer | Tool | Package | Examples |
 |-------|------|---------|---------|
-| Pure functions | Vitest | `app/` | chart-registry, date-utils, query-hash |
+| Pure functions | Vitest (`unit`, node) | `app/` | chart-plugin-registry, date-utils, query-hash |
 | API routes | Vitest (mocked DB/auth) | `app/` | Validation, permissions, error handling |
 | Zustand stores | Vitest (no mocks) | `app/` | State transitions, cascading logic |
 | UI components | Vitest + RTL | `component/` | Isolated rendering, props |
+| UI components | Vitest + RTL (`component`, jsdom) | `app/` | Error states, loading states, branch coverage E2E cannot reach |
 | Integration | Jest + Testcontainers | `connection/` | Real DB queries |
 | Full flows | Playwright | `app/` | Real rendering, real data |
 
-**Important**: Do NOT add `@testing-library/react` render tests in `app/`. UI rendering is tested via Playwright E2E. Vitest in `app/` is for pure logic only.
+**Two Vitest projects in `app/`** (`app/vitest.config.ts`): `unit` runs `.test.ts` in a node
+environment for pure logic, API routes and stores; `component` runs `.test.tsx` in jsdom with
+`@testing-library/react`. Reach for the jsdom project when a branch is hard to hit end to end —
+error and loading states, edge cases — and leave whole user journeys to Playwright.
 
 ## Coverage Target
 
@@ -42,10 +46,10 @@ cd connection && npm run test:coverage
 Tests live in `__tests__/` directories next to the file under test:
 
 ```
-src/lib/
-├── chart-registry.ts
+src/lib/plugin/
+├── chart-plugin-registry.ts
 ├── __tests__/
-│   └── chart-registry.test.ts
+│   └── chart-plugin-registry.test.ts
 ```
 
 ## Common Patterns
