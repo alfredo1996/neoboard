@@ -257,8 +257,25 @@ export default async function globalSetup() {
   // webpack overhead locally. A one-time `next build` (~2 min) then instant
   // `next start` is what CI already does and is dramatically faster overall.
   const appDir = path.resolve(__dirname, "..");
+
+  // Server-side coverage needs BOTH of these on the server process: nextcov
+  // reads NODE_V8_COVERAGE for the data and connects over CDP to flush it
+  // (nextcov README, "Production mode"). Without them the CCollector's probe
+  // fails, it reports an empty result, and the warning goes to a disabled
+  // logger — so `collectServer: true` silently produced client-only coverage
+  // while CLAUDE.md advertised server coverage (#1606).
+  //
+  // Derived from the server port rather than hard-coded so two concurrent runs
+  // (or a shard with TEST_SERVER_PORT set) cannot collide. The default 3100
+  // gives 9230, nextcov's own default.
+  const cdpPort = serverPort + 6130;
+  const v8CoverageDir = path.join(appDir, ".v8-coverage");
+  fs.rmSync(v8CoverageDir, { recursive: true, force: true });
+
   const serverEnv = {
     ...process.env,
+    NODE_V8_COVERAGE: v8CoverageDir,
+    CDP_PORT: String(cdpPort),
     DATABASE_URL: databaseUrl,
     ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
     API_KEY_HMAC_SECRET: TEST_API_KEY_HMAC_SECRET,
@@ -312,8 +329,19 @@ export default async function globalSetup() {
   }
 
   console.log(`⏳ Starting Next.js production server on port ${serverPort}...`);
-  const args = ["next", "start", "--port", String(serverPort)];
-  const server = spawn("npx", args, {
+  // Spawned as `node --inspect <next bin>` rather than `npx next`: passing
+  // --inspect through NODE_OPTIONS lets the npx wrapper inherit it and bind
+  // the port first, after which the real server logs "address already in use"
+  // and nextcov finds nothing to connect to (#1606).
+  const nextBin = require.resolve("next/dist/bin/next");
+  const args = [
+    `--inspect=${cdpPort}`,
+    nextBin,
+    "start",
+    "--port",
+    String(serverPort),
+  ];
+  const server = spawn(process.execPath, args, {
     cwd: appDir,
     stdio: "pipe",
     env: serverEnv,

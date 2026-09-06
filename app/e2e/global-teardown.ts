@@ -14,6 +14,48 @@ export default async function globalTeardown() {
 
   console.log("\n🧹 Stopping test server & containers...\n");
 
+  // ── Finalize E2E coverage (nextcov) ──────────────────────────────────────
+  // BEFORE the server is stopped: server-side collection flushes V8 coverage
+  // over CDP, and a killed server has nothing to connect to. Collecting after
+  // the kill is why `collectServer: true` produced client-only coverage while
+  // reporting success (#1606).
+  if (process.env.E2E_COVERAGE) {
+    console.log("⏳ Finalizing E2E coverage reports...");
+    const nextcovConfig = await loadNextcovConfig(
+      path.resolve(__dirname, "..", "playwright.config.ts"),
+    );
+    await finalizeCoverage(nextcovConfig);
+
+    // Fail loudly rather than publishing client-only coverage as though it
+    // were the whole picture. The original defect was silent: a failed CDP
+    // connect was reported through a disabled logger, so `collectServer: true`
+    // looked healthy for months (#1606).
+    if (nextcovConfig.collectServer) {
+      const lcov = path.resolve(
+        __dirname,
+        "..",
+        nextcovConfig.outputDir ?? "coverage-e2e",
+        "lcov.info",
+      );
+      const serverFiles = fs.existsSync(lcov)
+        ? (
+            fs.readFileSync(lcov, "utf-8").match(/^SF:.*src\/app\/api\//gm) ??
+            []
+          ).length
+        : 0;
+      if (serverFiles === 0) {
+        throw new Error(
+          "collectServer is enabled but the E2E coverage report contains no " +
+            "app/src/app/api/** entries. Server-side collection is not working " +
+            "— see #1606. Fix it, or set collectServer: false and say so in " +
+            "CLAUDE.md rather than reporting coverage that was never gathered.",
+        );
+      }
+      console.log(`✅ Server-side coverage: ${serverFiles} API route files`);
+    }
+    console.log("✅ E2E coverage reports written");
+  }
+
   // ── Stop the Next.js server we started in globalSetup ───────────────────
   if (fs.existsSync(SERVER_PID_FILE)) {
     const pid = parseInt(fs.readFileSync(SERVER_PID_FILE, "utf-8"), 10);
@@ -27,7 +69,9 @@ export default async function globalTeardown() {
   }
 
   if (isServiceContainerMode) {
-    console.log("CI service containers — skipping docker rm (GitHub manages them).");
+    console.log(
+      "CI service containers — skipping docker rm (GitHub manages them).",
+    );
   } else {
     if (!fs.existsSync(STATE_FILE)) {
       console.log("No container state file found, nothing to clean up.");
@@ -49,20 +93,16 @@ export default async function globalTeardown() {
     }
   }
 
-  // ── Finalize E2E coverage (nextcov) ──────────────────────────────────────
-  if (process.env.E2E_COVERAGE) {
-    console.log("⏳ Finalizing E2E coverage reports...");
-    const nextcovConfig = await loadNextcovConfig(
-      path.resolve(__dirname, "..", "playwright.config.ts"),
-    );
-    await finalizeCoverage(nextcovConfig);
-    console.log("✅ E2E coverage reports written");
-  }
-
   // Clean up temp files
-  try { fs.unlinkSync(STATE_FILE); } catch {}
-  try { fs.unlinkSync(SERVER_PID_FILE); } catch {}
-  try { fs.unlinkSync(ENV_FILE); } catch {}
+  try {
+    fs.unlinkSync(STATE_FILE);
+  } catch {}
+  try {
+    fs.unlinkSync(SERVER_PID_FILE);
+  } catch {}
+  try {
+    fs.unlinkSync(ENV_FILE);
+  } catch {}
 
   console.log("✅ Cleanup complete.\n");
 }
