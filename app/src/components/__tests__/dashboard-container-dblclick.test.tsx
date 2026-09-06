@@ -224,9 +224,11 @@ describe("DashboardContainer — double-click to edit", () => {
     );
 
     const widgetDiv = screen.getByTestId("widget-card");
-    // Should not throw — onDoubleClick is undefined so nothing happens
     await user.dblClick(widgetDiv);
-    // No error means the handler was properly set to undefined
+
+    // The point is that the widget is still there and nothing was torn down —
+    // "it did not throw" is not an assertion a reader can check.
+    expect(screen.getByTestId("widget-card")).toBeInTheDocument();
   });
 
   it("shows empty state when page has no widgets", () => {

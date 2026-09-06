@@ -3,6 +3,8 @@ import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import nextPlugin from "@next/eslint-plugin-next";
 import tseslint from "typescript-eslint";
+import vitestPlugin from "@vitest/eslint-plugin";
+import jestPlugin from "eslint-plugin-jest";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
@@ -120,6 +122,63 @@ export default defineConfig([
     rules: {
       "react-hooks/rules-of-hooks": "warn",
     },
+  },
+  {
+    // Test files were entirely unlinted for test-specific anti-patterns until
+    // #1608's coverage audit, which found 24 vacuous assertions and 7 tests
+    // exercising their own mocks. These rules catch the class mechanically, so
+    // the 25th cannot land — the same approach as the dependency ratchet in
+    // #1595.
+    //
+    // `prefer-called-with` is the one that matters most here: asserting
+    // `toHaveBeenCalled()` without asserting the arguments is exactly how the
+    // API route tests appeared to verify tenant scoping without doing so
+    // (#1607).
+    files: [
+      "app/**/*.test.{ts,tsx}",
+      "component/**/*.test.{ts,tsx}",
+      "cli/**/*.test.ts",
+    ],
+    plugins: { vitest: vitestPlugin },
+    rules: {
+      // expectTypeOf is Vitest's type-level assertion — a real assertion the
+      // rule does not know by name.
+      "vitest/expect-expect": [
+        "error",
+        { assertFunctionNames: ["expect", "expectTypeOf"] },
+      ],
+      // Vitest accepts a custom message as the second argument — the rule's
+      // default of 1 is Jest's limit, and the messages here are load-bearing
+      // (tenant-scope.test.ts explains how to fix a violation).
+      "vitest/valid-expect": ["error", { maxArgs: 2 }],
+      "vitest/no-identical-title": "error",
+      "vitest/no-focused-tests": "error",
+      "vitest/no-disabled-tests": "warn",
+      "vitest/no-conditional-expect": "warn",
+      "vitest/prefer-called-with": "warn",
+    },
+  },
+  {
+    // The two jest packages get the equivalent rules.
+    files: ["connection/**/*.test.ts", "connector-sdk/**/*.test.ts"],
+    plugins: { jest: jestPlugin },
+    rules: {
+      "jest/expect-expect": "error",
+      "jest/valid-expect": "error",
+      "jest/no-identical-title": "error",
+      "jest/no-focused-tests": "error",
+      "jest/no-disabled-tests": "warn",
+      "jest/no-conditional-expect": "warn",
+      "jest/prefer-called-with": "warn",
+    },
+  },
+  {
+    // The conformance suites build their cases elsewhere and run them as
+    // `test(c.name, c.run)`; the assertions are inside `c.run`, which the rule
+    // cannot see through. Real coverage, invisible indirection.
+    files: ["connection/__tests__/conformance/*.test.ts"],
+    plugins: { jest: jestPlugin },
+    rules: { "jest/expect-expect": "off" },
   },
   {
     // Next.js rules apply to the Next.js app only. Applying them repo-wide

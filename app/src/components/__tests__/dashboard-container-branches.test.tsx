@@ -456,7 +456,7 @@ describe("DashboardContainer — parameter bar", () => {
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
     fireEvent.click(screen.getByTestId("reset-all"));
-    expect(parametersState.clearAll).toHaveBeenCalled();
+    expect(parametersState.clearAll).toHaveBeenCalledWith();
   });
 
   it("tag click scrolls to source widget when sourceWidgetId is set", () => {
@@ -495,7 +495,7 @@ describe("DashboardContainer — CSV export", () => {
 
     fireEvent.click(screen.getByTestId("action-csv"));
 
-    expect(mockBuildExportData).toHaveBeenCalled();
+    expect(mockBuildExportData).toHaveBeenCalledWith();
     expect(mockBuildCsv).toHaveBeenCalledWith([{ a: 1 }, { a: 2 }]);
     expect(mockBuildFilename).toHaveBeenCalledWith(
       "Test Widget",
@@ -551,7 +551,7 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     );
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
     fireEvent.click(screen.getByTestId("widget-refresh"));
-    expect(invalidateSpy).toHaveBeenCalled();
+    expect(invalidateSpy).toHaveBeenCalledWith();
   });
 
   it("opens the fullscreen dialog when the Maximize button is clicked", () => {
@@ -642,10 +642,12 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
       // Unmount before the 250ms timer fires — exercises the useEffect cleanup
       // branch. Without it, the timer would call setState on a torn-down tree.
       unmount();
+      // The cleanup branch is what this exercises, so assert the timer is
+      // actually gone rather than relying on the absence of a warning.
+      expect(vi.getTimerCount()).toBe(0);
       act(() => {
         vi.advanceTimersByTime(500);
       });
-      // No unhandled "window is not defined" / "setState on unmounted" = pass.
     } finally {
       vi.useRealTimers();
     }
