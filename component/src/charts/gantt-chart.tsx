@@ -11,8 +11,9 @@ import {
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { BaseChart, useDarkMode } from "./base-chart";
+import { useContainerSize } from "@/hooks/useContainerSize";
 import type { BaseChartProps } from "./types";
-import { buildEmptyDataOption } from "./chart-utils";
+import { buildEmptyDataOption, getCompactState } from "./chart-utils";
 import { resolveStylingRuleColor, type StylingRule } from "./styling-rule";
 
 echarts.use([
@@ -71,6 +72,12 @@ function GanttChart({
   ariaDescription,
   ...rest
 }: GanttChartProps) {
+  // Measured, not guessed: the grid used to reserve "15%" for task names
+  // while truncating them at a fixed 100px, so they only agreed at a 667px
+  // canvas (#1289).
+  const { width, height, containerRef } = useContainerSize();
+  const { compact } = getCompactState(width, height);
+
   // The empty-state colour comes from the theme, so this memo has to
   // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
   const dark = useDarkMode();
@@ -242,15 +249,34 @@ function GanttChart({
           return `<strong>${echarts.format.encodeHTML(name)}</strong><br/>${start} → ${end} (${duration})${category}${progress}`;
         },
       },
+      // Pixels, and let ECharts reserve the label gutter itself. "15%" only
+      // matched the 100px truncation budget at a 667px canvas — narrower than
+      // that and task names were hard-clipped (#1289).
       grid: {
-        left: "15%",
-        right: "5%",
-        top: 30,
-        bottom: 60,
-        containLabel: false,
+        left: compact ? 8 : 16,
+        right: compact ? 8 : 16,
+        top: compact ? 8 : 16,
+        // Room for the zoom slider: height 20 + bottom 5 + gap.
+        bottom: 40,
+        containLabel: true,
       },
       xAxis: {
         type: "time",
+        // Without a formatter a sub-month range labels as bare day numbers,
+        // which reads as a count rather than a date (#1289).
+        axisLabel: {
+          formatter: {
+            year: "{yyyy}",
+            // Just the month name: ECharts uses this template for the tick at
+            // a month boundary, so "{MMM} {yyyy}" printed "May 2026" wedged
+            // between "Apr 29" and "May 3". The year still appears on the
+            // year-level tick.
+            month: "{MMM}",
+            day: "{MMM} {d}",
+            hour: "{HH}:{mm}",
+            minute: "{HH}:{mm}",
+          },
+        },
         // No local lineStyle: the registered theme owns gridline weight and
         // colour so every cartesian chart draws the same grid (#1247).
         splitLine: { show: showGridLines },
@@ -263,7 +289,7 @@ function GanttChart({
           fontSize: 11,
           overflow: "truncate",
           ellipsis: "…",
-          width: 100,
+          width: compact ? 60 : 100,
         },
         splitLine: { show: false },
       },
@@ -325,16 +351,21 @@ function GanttChart({
     stylingRules,
     paramValues,
     dark,
+    // Read above for the grid and the label width. Omitting it latches the
+    // first measurement — the #1546/#1562 class.
+    compact,
   ]);
 
   return (
-    <BaseChart
-      options={options}
-      ariaDescription={
-        ariaDescription ?? `Gantt chart with ${data.length} tasks`
-      }
-      {...rest}
-    />
+    <div ref={containerRef} className="h-full w-full">
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ?? `Gantt chart with ${data.length} tasks`
+        }
+        {...rest}
+      />
+    </div>
   );
 }
 

@@ -4,10 +4,16 @@ import { GanttChart } from "../gantt-chart";
 
 const mockSetOption = vi.fn();
 
+const measured = { width: 800, height: 400 };
+
 vi.mock("@/hooks/useContainerSize", () => ({
   useContainerSize: () => ({
-    width: 800,
-    height: 400,
+    get width() {
+      return measured.width;
+    },
+    get height() {
+      return measured.height;
+    },
     containerRef: vi.fn(),
   }),
 }));
@@ -56,6 +62,8 @@ const sampleData: Array<{
 
 describe("GanttChart", () => {
   beforeEach(() => {
+    measured.width = 800;
+    measured.height = 400;
     vi.clearAllMocks();
   });
 
@@ -141,5 +149,65 @@ describe("GanttChart", () => {
   it("shows error state", () => {
     render(<GanttChart data={sampleData} error={new Error("Fail")} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Fail");
+  });
+
+  describe("measured grid (#1289)", () => {
+    /** The option ECharts was handed. */
+    const optionOf = (props: Parameters<typeof GanttChart>[0]) => {
+      mockSetOption.mockClear();
+      render(<GanttChart {...props} />);
+      return mockSetOption.mock.calls[0][0];
+    };
+
+    it("sizes the grid in pixels and lets ECharts reserve the label gutter", () => {
+      // "15%" only matched the 100px label budget at a 667px canvas; narrower
+      // than that and the task names were hard-clipped. containLabel makes
+      // ECharts measure the axis instead of us guessing a percentage.
+      const { grid } = optionOf({ data: sampleData });
+      expect(grid.containLabel).toBe(true);
+      expect(typeof grid.left).toBe("number");
+      expect(typeof grid.right).toBe("number");
+      expect(String(grid.left)).not.toContain("%");
+    });
+
+    it("keeps room at the bottom for the zoom slider", () => {
+      // slider height 20 + bottom 5 + gap.
+      const { grid } = optionOf({ data: sampleData });
+      expect(grid.bottom).toBe(40);
+    });
+
+    it("labels a sub-month range as dates rather than bare day numbers", () => {
+      const { xAxis } = optionOf({ data: sampleData });
+      expect(xAxis.axisLabel.formatter.day).toBe("{MMM} {d}");
+      // The month template renders the tick AT a month boundary, mixed in with
+      // day ticks — including the year there printed "May 2026" between
+      // "Apr 29" and "May 3".
+      expect(xAxis.axisLabel.formatter.month).toBe("{MMM}");
+      expect(xAxis.axisLabel.formatter.year).toBe("{yyyy}");
+    });
+
+    it("keeps task names visible, truncating rather than hiding them", () => {
+      const { yAxis } = optionOf({ data: sampleData });
+      expect(yAxis.axisLabel.overflow).toBe("truncate");
+      expect(yAxis.axisLabel.width).toBe(100);
+    });
+
+    it("tightens padding and the label budget in a narrow widget", () => {
+      // A chart with no task names identifies nothing, so a narrow container
+      // shrinks the budget rather than dropping the axis (#1247).
+      measured.width = 240;
+      const { grid, yAxis } = optionOf({ data: sampleData });
+      expect(grid.left).toBe(8);
+      expect(grid.right).toBe(8);
+      expect(grid.top).toBe(8);
+      expect(yAxis.axisLabel.width).toBe(60);
+      expect(yAxis.axisLabel.overflow).toBe("truncate");
+    });
+
+    it("still reserves the slider room when compact", () => {
+      measured.width = 240;
+      const { grid } = optionOf({ data: sampleData });
+      expect(grid.bottom).toBe(40);
+    });
   });
 });
