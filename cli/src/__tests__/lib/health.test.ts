@@ -55,7 +55,10 @@ describe("waitForHealth", () => {
       timeout: 250,
     });
 
-    // Attach the rejection handler BEFORE advancing timers
+    // Attach the rejection handler BEFORE advancing timers, and await it at
+    // the end. valid-expect wants the await on the expect itself, which would
+    // deadlock here: nothing advances the fake timers until the line below.
+    // eslint-disable-next-line vitest/valid-expect
     const rejection = expect(promise).rejects.toThrow(
       "Timeout waiting for test-service",
     );

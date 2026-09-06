@@ -135,9 +135,14 @@ describe("useCountdown hook", () => {
   it("clears interval on unmount (no timers leak)", () => {
     const { unmount } = renderHook(() => useCountdown(5_000));
 
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+
     unmount();
 
-    // Advancing timers after unmount should not cause errors
+    // The point is the leak, not the absence of a crash: an interval left
+    // running is what this guards against.
+    expect(vi.getTimerCount()).toBe(0);
+
     act(() => {
       vi.advanceTimersByTime(5_000);
     });
