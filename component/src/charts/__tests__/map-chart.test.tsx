@@ -54,9 +54,46 @@ vi.mock("leaflet.markercluster/dist/MarkerCluster.Default.css", () => ({}));
 import L from "leaflet";
 import { MapChart } from "../map-chart";
 
+/**
+ * jsdom reports every element as 0x0, which is exactly the state that made the
+ * map go blank (#1398) — so the suite has to be able to say how big the
+ * container measures, rather than inheriting the broken case by accident.
+ */
+const measured = { width: 800, height: 600 };
+for (const prop of ["clientWidth", "clientHeight"] as const) {
+  Object.defineProperty(HTMLElement.prototype, prop, {
+    configurable: true,
+    get() {
+      return prop === "clientWidth" ? measured.width : measured.height;
+    },
+  });
+}
+
+/** The ResizeObserver callbacks currently registered by the component. */
+const resizeCallbacks: ResizeObserverCallback[] = [];
+class MockResizeObserver {
+  constructor(cb: ResizeObserverCallback) {
+    resizeCallbacks.push(cb);
+  }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal("ResizeObserver", MockResizeObserver);
+
+/** Fire every registered ResizeObserver as the browser would. */
+const fireResize = () => {
+  for (const cb of resizeCallbacks) {
+    cb([], {} as ResizeObserver);
+  }
+};
+
 describe("MapChart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    measured.width = 800;
+    measured.height = 600;
+    resizeCallbacks.length = 0;
   });
 
   it("renders map container", () => {
@@ -468,6 +505,75 @@ describe("MapChart", () => {
 
       expect(mockRemove).toHaveBeenCalled();
       expect(animatingAtRemoval).toBe(false);
+    });
+  });
+
+  describe("fitting a container that has no size yet (#1398)", () => {
+    const markers = [
+      { id: "1", lat: 40, lng: -74 },
+      { id: "2", lat: 51, lng: 0 },
+    ];
+
+    it("does not fit while the container measures 0x0", () => {
+      // fitBounds on a 0x0 container resolves to maxZoom, and the map is left
+      // zoomed so far in that nothing is in frame — a white rectangle.
+      measured.width = 0;
+      measured.height = 0;
+      render(<MapChart markers={markers} autoFitBounds />);
+      expect(mockFitBounds).not.toHaveBeenCalled();
+    });
+
+    it("fits once the container gains a size", () => {
+      measured.width = 0;
+      measured.height = 0;
+      render(<MapChart markers={markers} autoFitBounds />);
+      expect(mockFitBounds).not.toHaveBeenCalled();
+
+      // Coming back to a dashboard page is exactly this transition.
+      measured.width = 800;
+      measured.height = 600;
+      fireResize();
+      expect(mockFitBounds).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not re-fit on a later resize, leaving the user's pan alone", () => {
+      render(<MapChart markers={markers} autoFitBounds />);
+      expect(mockFitBounds).toHaveBeenCalledTimes(1);
+
+      fireResize();
+      expect(mockFitBounds).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not fit from a resize when auto-fit is off", () => {
+      measured.width = 0;
+      measured.height = 0;
+      render(<MapChart markers={markers} autoFitBounds={false} />);
+      measured.width = 800;
+      measured.height = 600;
+      fireResize();
+      expect(mockFitBounds).not.toHaveBeenCalled();
+    });
+
+    it("makes Leaflet re-measure before fitting", () => {
+      // getBoundsZoom works off the size Leaflet cached at construction. A map
+      // built before layout settled therefore fits against 0x0 and lands on
+      // maxZoom, however wide the DOM says the container now is.
+      render(<MapChart markers={markers} autoFitBounds />);
+
+      const invalidateOrder = mockInvalidateSize.mock.invocationCallOrder[0];
+      const fitOrder = mockFitBounds.mock.invocationCallOrder[0];
+      expect(invalidateOrder).toBeLessThan(fitOrder);
+    });
+
+    it("lets a world-spanning fit reach zoom 0 in a narrow card", () => {
+      // The world is 1024px wide at zoom 2, so a 390px card cannot contain
+      // global markers above it — a minZoom of 2 made the second half of
+      // #1398 (only Europe visible) impossible to fix any other way.
+      render(<MapChart markers={markers} />);
+      expect(L.map).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ minZoom: 0 }),
+      );
     });
   });
 });
