@@ -4,10 +4,16 @@ import { GanttChart } from "../gantt-chart";
 
 const mockSetOption = vi.fn();
 
+const measured = { width: 800, height: 400 };
+
 vi.mock("@/hooks/useContainerSize", () => ({
   useContainerSize: () => ({
-    width: 800,
-    height: 400,
+    get width() {
+      return measured.width;
+    },
+    get height() {
+      return measured.height;
+    },
     containerRef: vi.fn(),
   }),
 }));
@@ -56,6 +62,8 @@ const sampleData: Array<{
 
 describe("GanttChart", () => {
   beforeEach(() => {
+    measured.width = 800;
+    measured.height = 400;
     vi.clearAllMocks();
   });
 
@@ -182,6 +190,24 @@ describe("GanttChart", () => {
       const { yAxis } = optionOf({ data: sampleData });
       expect(yAxis.axisLabel.overflow).toBe("truncate");
       expect(yAxis.axisLabel.width).toBe(100);
+    });
+
+    it("tightens padding and the label budget in a narrow widget", () => {
+      // A chart with no task names identifies nothing, so a narrow container
+      // shrinks the budget rather than dropping the axis (#1247).
+      measured.width = 240;
+      const { grid, yAxis } = optionOf({ data: sampleData });
+      expect(grid.left).toBe(8);
+      expect(grid.right).toBe(8);
+      expect(grid.top).toBe(8);
+      expect(yAxis.axisLabel.width).toBe(60);
+      expect(yAxis.axisLabel.overflow).toBe("truncate");
+    });
+
+    it("still reserves the slider room when compact", () => {
+      measured.width = 240;
+      const { grid } = optionOf({ data: sampleData });
+      expect(grid.bottom).toBe(40);
     });
   });
 });
