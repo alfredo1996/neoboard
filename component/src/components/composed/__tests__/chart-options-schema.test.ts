@@ -595,6 +595,10 @@ describe("treemap chart options", () => {
   it("returns options for treemap chart", () => {
     const keys = getChartOptions("treemap").map((o) => o.key);
     expect(keys).toContain("showLabels");
-    expect(keys).toContain("showBreadcrumb");
+    expect(keys).toContain("showValues");
+    // Removed in #1405: the saturation ramp double-encoded value on nominal
+    // groups, and the breadcrumb is derived from whether the data has depth.
+    expect(keys).not.toContain("colorSaturation");
+    expect(keys).not.toContain("showBreadcrumb");
   });
 });

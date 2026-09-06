@@ -87,6 +87,26 @@ export const GRID_LINE_COLOR = {
   dark: "#1d2025",
 } as const;
 
+/**
+ * The card surface a chart sits on. Treemap tiles are separated by a gap in
+ * this colour rather than a border, so the gaps read as the card showing
+ * through instead of as grey rules drawn on top of the data (#1405).
+ */
+export const SURFACE_COLOR = {
+  light: "#ffffff",
+  dark: "#181b20",
+} as const;
+
+/**
+ * Fill for treemap groups past the third. A palette hue per group stops
+ * meaning anything once there are more groups than distinguishable hues, so
+ * the rest share one quiet fill and the group label does the identifying.
+ */
+export const MUTED_FILL = {
+  light: "#eeeff2",
+  dark: "#21252b",
+} as const;
+
 function axisStyle(line: string, label: string, split: string) {
   return {
     axisLine: { lineStyle: { color: line } },
@@ -123,6 +143,20 @@ function seriesDefaults(popoverBg: string, border: string, fg: string) {
       // Slice labels: same dark-fill + light-halo ECharts default as bar —
       // unreadable on the dark canvas (#1154). Theme foreground, no halo.
       label: { color: fg, textBorderWidth: 0 },
+    },
+    treemap: {
+      // ECharts ships the breadcrumb in its own light greys (#e8ebf0 chip,
+      // #54555a text), which reads as a stray pale box on the dark canvas
+      // (#1405). Mirror the card surface and foreground instead.
+      breadcrumb: {
+        itemStyle: {
+          color: popoverBg,
+          borderColor: border,
+          borderWidth: 1,
+          textStyle: { color: fg },
+        },
+        emphasis: { itemStyle: { color: border } },
+      },
     },
     tooltip: {
       backgroundColor: popoverBg,

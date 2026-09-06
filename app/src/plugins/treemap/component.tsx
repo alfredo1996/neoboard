@@ -36,9 +36,7 @@ function TreemapPluginComponent({
     <TreemapChart
       data={(data as TreemapDataItem[]) ?? []}
       showLabels={settings.showLabels}
-      showBreadcrumb={settings.showBreadcrumb}
       showValues={settings.showValues}
-      colorSaturation={settings.colorSaturation}
       colorPalette={settings.colorPalette}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}

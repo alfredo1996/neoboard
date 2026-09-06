@@ -86,15 +86,31 @@ export const WithValues: Story = {
   },
 };
 
-export const HighSaturation: Story = {
-  args: {
-    data: nestedData,
-    colorSaturation: "high",
-  },
-};
-
 export const EmptyState: Story = {
   args: {
     data: [],
+  },
+};
+
+/** Flat data is one hue: area carries the value, colour would encode nothing. */
+export const ManyFlatItems: Story = {
+  args: {
+    data: Array.from({ length: 24 }, (_, i) => ({
+      name: `Item ${i + 1}`,
+      value: 120 - i * 4,
+    })),
+  },
+};
+
+/** Groups past the third share a quiet fill; their label identifies them. */
+export const ManyGroups: Story = {
+  args: {
+    data: Array.from({ length: 6 }, (_, g) => ({
+      name: `Group ${g + 1}`,
+      children: Array.from({ length: 4 }, (_, i) => ({
+        name: `G${g + 1}-${i + 1}`,
+        value: 40 - i * 6,
+      })),
+    })),
   },
 };

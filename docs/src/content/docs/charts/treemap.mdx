@@ -40,12 +40,13 @@ ORDER BY category, revenue DESC
 | Option | Default | Description |
 |--------|---------|-------------|
 | Show Labels | `true` | Show tile name labels |
+| Show Values | `false` | Add the value after the name on each tile |
 
 ## Features
 
 - **Nested tiles** — area proportional to value
-- **Color by depth** — automatic palette by hierarchy level
-- **Drill-down** — click a tile to zoom into its children
-- **Tooltip** — shows name, value, and percentage of parent
+- **One hue per group** — the first three groups take palette colours and their children inherit them; further groups share one quiet fill, and the group label identifies them. Flat data is a single hue, because area already carries the value and a colour per tile would encode nothing.
+- **Drill-down** — click a tile to zoom into its children. The breadcrumb appears only when the data has depth to drill into.
+- **Tooltip** — the value, then the path from the top-level group down to the tile
 - **Rule-based styling** — color tiles by condition
-- **Click actions** — click a tile to navigate or set a parameter
+- **Click actions** — click a tile to navigate or set a parameter. Configuring one turns off drill-down, so a single click does one thing.
