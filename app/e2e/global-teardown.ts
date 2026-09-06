@@ -14,6 +14,9 @@ export default async function globalTeardown() {
 
   console.log("\n🧹 Stopping test server & containers...\n");
 
+  /** Raised by the coverage check, rethrown once everything is shut down. */
+  let coverageError: Error | undefined;
+
   // ── Finalize E2E coverage (nextcov) ──────────────────────────────────────
   // BEFORE the server is stopped: server-side collection flushes V8 coverage
   // over CDP, and a killed server has nothing to connect to. Collecting after
@@ -44,14 +47,18 @@ export default async function globalTeardown() {
           ).length
         : 0;
       if (serverFiles === 0) {
-        throw new Error(
+        // Held, not thrown: the server and the containers still have to come
+        // down, or a coverage failure strands a detached Next process and two
+        // Docker containers and the next run collides with them.
+        coverageError = new Error(
           "collectServer is enabled but the E2E coverage report contains no " +
-            "app/src/app/api/** entries. Server-side collection is not working " +
-            "— see #1606. Fix it, or set collectServer: false and say so in " +
+            "API route entries. Server-side collection is not working — see " +
+            "#1606. Fix it, or set collectServer: false and say so in " +
             "CLAUDE.md rather than reporting coverage that was never gathered.",
         );
+      } else {
+        console.log(`✅ Server-side coverage: ${serverFiles} API route files`);
       }
-      console.log(`✅ Server-side coverage: ${serverFiles} API route files`);
     }
     console.log("✅ E2E coverage reports written");
   }
@@ -105,4 +112,7 @@ export default async function globalTeardown() {
   } catch {}
 
   console.log("✅ Cleanup complete.\n");
+
+  // Everything is down; now surface the coverage failure.
+  if (coverageError) throw coverageError;
 }
