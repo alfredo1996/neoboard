@@ -30,7 +30,18 @@ vi.mock("echarts/core", () => {
     hideLoading: vi.fn(),
   }));
   const registerTheme = vi.fn();
-  return { use, init, registerTheme, default: { use, init, registerTheme } };
+  // The tooltip formatter runs echarts.format.encodeHTML on the task name.
+  const format = {
+    encodeHTML: (s: string) =>
+      String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"),
+  };
+  return {
+    use,
+    init,
+    registerTheme,
+    format,
+    default: { use, init, registerTheme, format },
+  };
 });
 
 const sampleData: Array<{
@@ -208,6 +219,28 @@ describe("GanttChart", () => {
       measured.width = 240;
       const { grid } = optionOf({ data: sampleData });
       expect(grid.bottom).toBe(40);
+    });
+  });
+
+  describe("tooltip dates (#1616)", () => {
+    it("prints en-US dates rather than the browser's locale", () => {
+      const start = new Date(2026, 3, 1).getTime();
+      const end = new Date(2026, 3, 3).getTime();
+      render(
+        <GanttChart
+          data={[{ task: "Design", start, end }]}
+          ariaDescription="test"
+        />,
+      );
+
+      const options = mockSetOption.mock.calls[0][0];
+      const html = options.tooltip.formatter({
+        // The custom series packs [taskIndex, start, end, duration, ...].
+        value: [0, start, end, end - start],
+        name: "Design",
+      });
+
+      expect(html).toContain("Apr 1, 2026 → Apr 3, 2026");
     });
   });
 });

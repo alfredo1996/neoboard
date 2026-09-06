@@ -10,24 +10,25 @@ import { toRecords, normalizeValue } from "../transforms/shared-utils";
  * - category/status/group/phase → color grouping (optional)
  * - progress/percent/completion → 0-1 completion (optional)
  */
-export function transformToGanttData(data: unknown): unknown {
-  const records = toRecords(data);
-  if (!records.length) return [];
 
-  const keys = Object.keys(records[0]);
-  if (keys.length < 3) return [];
+interface GanttKeys {
+  taskKey: string;
+  startKey: string;
+  endKey: string;
+  categoryKey?: string;
+  progressKey?: string;
+}
 
-  // Detect task column
+/** Which column means what. Shared by the transform and by validate. */
+function resolveKeys(keys: string[]): GanttKeys {
   const taskKey =
     keys.find((k) => /^(task|name|label|title)$/i.test(k)) ?? keys[0];
 
-  // Detect start column
   const startKey =
     keys.find(
       (k) => k !== taskKey && /^(start|start_date|begin|from)$/i.test(k),
     ) ?? keys[1];
 
-  // Detect end column
   const endKey =
     keys.find(
       (k) =>
@@ -36,7 +37,6 @@ export function transformToGanttData(data: unknown): unknown {
         /^(end|end_date|finish|due|to|deadline)$/i.test(k),
     ) ?? keys[2];
 
-  // Detect optional category column
   const categoryKey = keys.find(
     (k) =>
       k !== taskKey &&
@@ -45,7 +45,6 @@ export function transformToGanttData(data: unknown): unknown {
       /^(category|status|group|phase|type)$/i.test(k),
   );
 
-  // Detect optional progress column
   const progressKey = keys.find(
     (k) =>
       k !== taskKey &&
@@ -55,17 +54,31 @@ export function transformToGanttData(data: unknown): unknown {
       /^(progress|percent|completion|pct)$/i.test(k),
   );
 
+  return { taskKey, startKey, endKey, categoryKey, progressKey };
+}
+
+export function transformToGanttData(data: unknown): unknown {
+  const records = toRecords(data);
+  if (!records.length) return [];
+
+  const keys = Object.keys(records[0]);
+  if (keys.length < 3) return [];
+
+  const { taskKey, startKey, endKey, categoryKey, progressKey } =
+    resolveKeys(keys);
+
   return records
     .map((row) => {
       const task = String(normalizeValue(row[taskKey]) ?? "");
-      const startRaw = row[startKey];
-      const endRaw = row[endKey];
 
-      // Parse dates — accept ISO strings, Unix timestamps (ms or s), Date objects
-      const start = parseTime(startRaw);
-      const end = parseTime(endRaw);
+      // Accept ISO strings, Unix timestamps (ms or s) and Date objects.
+      const start = parseTime(row[startKey]);
+      const end = parseTime(row[endKey]);
 
       if (start === null || end === null) return null;
+      // A bar that ends before it starts has negative width. Equal start and
+      // end is a milestone and stays.
+      if (end < start) return null;
 
       // The raw row rides along so a click action can name any query column
       // the editor offered (#1589). Detected fields are assigned after it and
@@ -95,22 +108,74 @@ export function transformToGanttData(data: unknown): unknown {
     .filter(Boolean);
 }
 
+/** A date-only ISO string — the shape a Neo4j `date` property arrives as. */
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** A bare number, so "1999" takes the number rule and not Date.parse. */
+const NUMERIC = /^[+-]?\d+(\.\d+)?$/;
+
+/**
+ * Seconds since the epoch only became plausible in 2001 (1e9 ≈ 2001-09-09).
+ * Below that a number is a year, a day-of-month or a count — not a date.
+ */
+const MIN_EPOCH_SECONDS = 1e9;
+/** At or above this a number is already milliseconds (1e12 ≈ 2001-09-09). */
+const MIN_EPOCH_MS = 1e12;
+
+function parseNumericTime(n: number): number | null {
+  if (!Number.isFinite(n) || n < MIN_EPOCH_SECONDS) return null;
+  return n < MIN_EPOCH_MS ? n * 1000 : n;
+}
+
 function parseTime(value: unknown): number | null {
   if (value == null) return null;
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === "number") {
-    // Heuristic: values below 1e12 (~Sep 2001 in ms) are treated as seconds.
-    // This correctly handles Unix timestamps (seconds since epoch) but will
-    // misclassify pre-2001 millisecond timestamps. In practice, Gantt data
-    // is almost always recent dates, so this is an acceptable trade-off.
-    return value < 1e12 ? value * 1000 : value;
+  if (value instanceof Date) {
+    const t = value.getTime();
+    return Number.isNaN(t) ? null : t;
   }
+  if (typeof value === "number") return parseNumericTime(value);
   if (typeof value === "string") {
+    // ECMA-262 parses a date-only string as UTC midnight, which lands a day
+    // early for every user west of UTC once it is drawn on a local-time axis
+    // (#1616). Neo4j hands `date` properties over in exactly this shape.
+    const dateOnly = DATE_ONLY.exec(value);
+    if (dateOnly) {
+      const [, y, m, d] = dateOnly;
+      // Out-of-range parts roll over (2026-13-01 → Jan 2027) rather than
+      // producing an invalid Date, so there is nothing to guard here.
+      return new Date(Number(y), Number(m) - 1, Number(d)).getTime();
+    }
+    // Checked before Date.parse, which accepts a bare "1999" as the year 1999
+    // and would let a year column through as a date.
+    if (NUMERIC.test(value)) return parseNumericTime(Number(value));
+
     const parsed = Date.parse(value);
     if (!Number.isNaN(parsed)) return parsed;
-    // Try as numeric string
-    const num = Number(value);
-    if (!Number.isNaN(num)) return num < 1e12 ? num * 1000 : num;
+  }
+  return null;
+}
+
+/**
+ * Explain why a result cannot become a gantt, before anything is drawn.
+ * Returns null when it can.
+ *
+ * Without this a wrong-shaped result reaches the empty state and says "No
+ * data" — indistinguishable from a query that genuinely returned nothing.
+ */
+export function validateGanttData(data: unknown): string | null {
+  const records = toRecords(data);
+  if (!records.length) return null;
+
+  const keys = Object.keys(records[0]);
+  if (keys.length < 3) {
+    return `Gantt needs task, start and end columns (optional: category, progress) — got: ${keys.join(", ")}`;
+  }
+
+  const { startKey, endKey } = resolveKeys(keys);
+  const drawable = records.some(
+    (r) => parseTime(r[startKey]) !== null && parseTime(r[endKey]) !== null,
+  );
+  if (!drawable) {
+    return `No row has a parseable start and end date in "${startKey}" and "${endKey}". Dates must be YYYY-MM-DD, ISO datetimes, Date values or Unix timestamps — a year column such as released is a number, not a date.`;
   }
   return null;
 }
