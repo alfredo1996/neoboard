@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -126,25 +128,23 @@ describe("GET /api/keys", () => {
       canWrite: true,
     });
 
-    // Capture the where() argument to verify tenant scoping
-    let whereCalled = false;
-    const chainWithSpy = {
-      from: () => chainWithSpy,
-      where: (...args: unknown[]) => {
-        whereCalled = true;
-        // Drizzle passes an SQL expression — verify it was called at all
-        expect(args.length).toBeGreaterThan(0);
-        return Promise.resolve([]);
-      },
-      innerJoin: () => chainWithSpy,
-      leftJoin: () => chainWithSpy,
-      then: (fn: (v: unknown[]) => void) => Promise.resolve([]).then(fn),
-    };
-    mockDb.select.mockReturnValue(chainWithSpy);
+    // The chain records what the handler passed, so this asserts the filter
+    // itself rather than merely that where() was called (#1607).
+    const chain = makeSelectChain([]);
+    mockDb.select.mockReturnValue(chain);
 
     await GET(makeRequest(null));
-    expect(mockDb.select).toHaveBeenCalled();
-    expect(whereCalled).toBe(true);
+
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    // `userId` is not snake-cased in this table's schema; the point is that
+    // both the tenant and the caller are in the filter.
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["tenant_id", "userId"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["tenant-x", "user-2"]),
+    );
   });
 });
 
