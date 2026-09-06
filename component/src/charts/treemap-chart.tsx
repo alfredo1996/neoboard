@@ -91,7 +91,11 @@ function TreemapChart({
      */
     const darkenLabels = (node: TreemapDataItem): TreemapDataItem => ({
       ...node,
-      label: { color: contrastTextColor(muted), textShadowBlur: 0 },
+      label: {
+        ...((node as { label?: Record<string, unknown> }).label ?? {}),
+        color: contrastTextColor(muted),
+        textShadowBlur: 0,
+      },
       ...(node.children?.length
         ? { children: node.children.map(darkenLabels) }
         : {}),

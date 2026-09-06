@@ -208,6 +208,19 @@ describe("TreemapChart", () => {
       expect(fills[3]).toBe(fills[4]);
     });
 
+    it("keeps a datum's own label options when darkening a muted group", () => {
+      // itemStyle is merged a line above; label must be too, or a caller's
+      // per-datum setting is silently dropped.
+      const many = Array.from({ length: 5 }, (_, g) => ({
+        name: `G${g}`,
+        label: { show: false },
+        children: [{ name: `c${g}`, value: 5 }],
+      }));
+      const muted = renderSeries({ data: many }).data[4];
+      expect(muted.label.show).toBe(false);
+      expect(muted.label.color).toBeTruthy();
+    });
+
     it("separates tiles with a gap in the surface colour, not a border", () => {
       const series = renderSeries({ data: sampleData });
       expect(series.itemStyle.borderWidth).toBe(0);
