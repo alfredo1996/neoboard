@@ -1,7 +1,10 @@
 /**
  * Treemap chart data transform.
  *
- * Shares the hierarchical transform with Sunburst.
+ * Shares the hierarchical transform and validator with Sunburst and Circle Packing.
  */
 
-export { transformToHierarchicalData } from "../transforms/hierarchical-utils";
+export {
+  transformToHierarchicalData,
+  validateHierarchicalData,
+} from "../transforms/hierarchical-utils";

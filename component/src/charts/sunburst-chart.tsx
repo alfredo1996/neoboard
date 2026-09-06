@@ -65,8 +65,17 @@ function SunburstChart({
   // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
   const dark = useDarkMode();
 
+  // A single top-level node is a container, not a ring: showing it would paint
+  // every arc as tints of one hue. Circle packing unwraps the same way; the
+  // transform keeps the root because circle packing uses its name as the first
+  // breadcrumb crumb.
+  const displayedRings =
+    data.length === 1 && data[0].children?.length ? data[0].children : data;
+
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption(dark);
+
+    const rings = displayedRings;
 
     // Sort function for echarts sunburst
     const sortFn =
@@ -91,7 +100,7 @@ function SunburstChart({
         if (item.children?.length) walk(item.children, depth + 1);
       }
     };
-    walk(data, 1);
+    walk(rings, 1);
     const dataDepth = countByLevel.length - 1;
 
     // Level 0 = root (center), level 1 = first ring, etc.
@@ -145,7 +154,7 @@ function SunburstChart({
           // action, native drill is unchanged.
           nodeClick: onClick ? (false as const) : ("rootToNode" as const),
           data: stylingRules?.length
-            ? data.map((item) => {
+            ? rings.map((item) => {
                 const numericValue =
                   typeof item.value === "number" ? item.value : 0;
                 const resolvedColor = resolveItemColor(
@@ -162,7 +171,7 @@ function SunburstChart({
                   },
                 };
               })
-            : data,
+            : rings,
           center: ["50%", "50%"],
           radius: ["10%", "92%"],
           sort: sortFn as "desc" | "asc" | undefined,
@@ -171,8 +180,6 @@ function SunburstChart({
             fontSize: 11,
             ...fillLabelStyle,
           },
-          // Hide labels on very thin slivers regardless of level settings
-          minAngle: 5,
           emphasis: highlightOnHover
             ? {
                 focus: "ancestor",
@@ -203,6 +210,7 @@ function SunburstChart({
     stylingRules,
     paramValues,
     dark,
+    displayedRings,
     // Read above to decide nodeClick: without it the chart keeps whichever
     // drill setting it had at mount (the #1546/#1562 latch).
     onClick,
@@ -214,7 +222,7 @@ function SunburstChart({
         options={options}
         ariaDescription={
           ariaDescription ??
-          `Sunburst chart with ${data.length} top-level segments`
+          `Sunburst chart with ${displayedRings.length} top-level segments`
         }
         onClick={onClick}
         {...rest}
