@@ -12,6 +12,13 @@ export const nextcov: import("nextcov").NextcovConfig = {
   exclude: ["src/**/__tests__/**", "src/**/*.test.ts"],
   reporters: ["lcov", "json", "text-summary"],
   collectServer: true,
+  // Matches the port global-setup gives the server (serverPort + 6130), so two
+  // concurrent runs cannot collide on a fixed 9230.
+  cdpPort: Number(process.env.TEST_SERVER_PORT ?? 3100) + 6130,
+  // On: a failed CDP connect used to be reported through a disabled logger,
+  // which is how server coverage came to be declared, documented and never
+  // collected (#1606).
+  log: true,
 };
 
 export default defineConfig({
