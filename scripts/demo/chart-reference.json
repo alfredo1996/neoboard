@@ -2426,42 +2426,6 @@
             }
           },
           {
-            "id": "page-treemap-v-123",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "showBreadcrumb = false",
-              "chartOptions": {
-                "showBreadcrumb": false
-              }
-            }
-          },
-          {
-            "id": "page-treemap-v-124",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "colorSaturation = low",
-              "chartOptions": {
-                "colorSaturation": "low"
-              }
-            }
-          },
-          {
-            "id": "page-treemap-v-125",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "colorSaturation = high",
-              "chartOptions": {
-                "colorSaturation": "high"
-              }
-            }
-          },
-          {
             "id": "page-treemap-v-126",
             "chartType": "treemap",
             "connectionId": "conn_postgres_read",
@@ -2512,27 +2476,6 @@
             "i": "page-treemap-v-122",
             "x": 0,
             "y": 8,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-treemap-v-123",
-            "x": 6,
-            "y": 8,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-treemap-v-124",
-            "x": 0,
-            "y": 13,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-treemap-v-125",
-            "x": 6,
-            "y": 13,
             "w": 6,
             "h": 5
           },

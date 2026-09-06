@@ -61,6 +61,27 @@ function hslToComma(hslValues: string): string {
   return `hsl(${hslValues})`;
 }
 
+/**
+ * The series colours a chart should paint with.
+ *
+ * A chosen palette is a static, light-only array, so only non-default palettes
+ * take it. The citrine default (and its "deep-ocean" alias) go through the CSS
+ * variables instead, which carry the dark-mode values — gating on the alias
+ * alone left every default chart painting light citrine on the dark canvas
+ * (#1295).
+ *
+ * Exported because a chart that assigns colours inside its own option — the
+ * treemap maps a hue per top-level group — must follow the same rule rather
+ * than reimplementing it (#1405).
+ */
+export function resolveSeriesPalette(colorPalette?: string): string[] {
+  const paletteColors =
+    colorPalette && resolvePaletteId(colorPalette) !== "citrine"
+      ? getPaletteColors(colorPalette)
+      : undefined;
+  return paletteColors ?? resolveChartColors();
+}
+
 function resolveChartColors(): string[] {
   if (typeof document === "undefined") return CHART_COLORS_FALLBACK;
   const styles = getComputedStyle(document.documentElement);
@@ -191,15 +212,8 @@ function BaseChart({
     if (!instance || !options) return;
 
     // Resolve chart colors: a chosen palette is a static, light-only array, so
-    // only non-default palettes take it. The citrine default (and its
-    // deep-ocean alias) go through the CSS variables instead, which carry the
-    // dark-mode values — gating on the alias alone left every default chart
-    // painting light citrine on the dark canvas (#1295).
-    const paletteColors =
-      colorPalette && resolvePaletteId(colorPalette) !== "citrine"
-        ? getPaletteColors(colorPalette)
-        : undefined;
-    const resolvedColors = paletteColors ?? resolveChartColors();
+    // only non-default palettes take it — see resolveSeriesPalette.
+    const resolvedColors = resolveSeriesPalette(colorPalette);
 
     const userAria = (options?.aria ?? {}) as Record<string, unknown>;
     const userDecal = (userAria.decal ?? {}) as Record<string, unknown>;

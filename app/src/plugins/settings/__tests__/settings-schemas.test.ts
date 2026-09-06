@@ -283,15 +283,18 @@ describe("treemapSettingsSchema", () => {
   it("applies correct defaults", () => {
     const result = treemapSettingsSchema.parse({});
     expect(result.showLabels).toBe(true);
-    expect(result.showBreadcrumb).toBe(true);
     expect(result.showValues).toBe(false);
-    expect(result.colorSaturation).toBe("medium");
   });
 
-  it("rejects invalid colorSaturation", () => {
-    expect(() =>
-      treemapSettingsSchema.parse({ colorSaturation: "ultra" }),
-    ).toThrow(ZodError);
+  it("ignores colorSaturation and showBreadcrumb, removed in #1405", () => {
+    // Stored values on existing widgets pass through the schema untouched and
+    // are simply never read — no migration needed.
+    const result = treemapSettingsSchema.parse({
+      colorSaturation: "high",
+      showBreadcrumb: false,
+    });
+    expect(result).not.toHaveProperty("colorSaturation.__typed");
+    expect(result.showLabels).toBe(true);
   });
 });
 

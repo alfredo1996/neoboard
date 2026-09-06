@@ -4,14 +4,17 @@ import { TreemapChart as ETreemapChart } from "echarts/charts";
 import { TitleComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart, useDarkMode } from "./base-chart";
+import { BaseChart, useDarkMode, resolveSeriesPalette } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildEmptyDataOption,
   resolveItemColor,
   fillLabelStyle,
+  formatNumber,
+  contrastTextColor,
 } from "./chart-utils";
+import { SURFACE_COLOR, MUTED_FILL } from "./theme";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ETreemapChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -20,6 +23,13 @@ export interface TreemapDataItem {
   name: string;
   value?: number;
   children?: TreemapDataItem[];
+  /**
+   * Query columns ride along on each node (#1601) and the chart adds ECharts
+   * per-datum keys such as `itemStyle` and `label`, so a node carries more
+   * than the three fields the chart itself reads — the same shape
+   * `GanttDataItem` declares.
+   */
+  [key: string]: unknown;
 }
 
 export interface TreemapChartProps extends Omit<BaseChartProps, "options"> {
@@ -27,23 +37,13 @@ export interface TreemapChartProps extends Omit<BaseChartProps, "options"> {
   data: TreemapDataItem[];
   /** Show labels inside rectangles */
   showLabels?: boolean;
-  /** Show navigation breadcrumb when drilling into nested data */
-  showBreadcrumb?: boolean;
   /** Show numeric values inside rectangles */
   showValues?: boolean;
-  /** Color saturation gradient for child items */
-  colorSaturation?: "low" | "medium" | "high";
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
 }
-
-const COLOR_SATURATION_MAP: Record<string, [number, number]> = {
-  low: [0.4, 0.6],
-  medium: [0.3, 0.7],
-  high: [0.2, 0.8],
-};
 
 /**
  * Treemap chart for visualizing hierarchical data as nested rectangles.
@@ -55,13 +55,12 @@ const COLOR_SATURATION_MAP: Record<string, [number, number]> = {
 function TreemapChart({
   data,
   showLabels = true,
-  showBreadcrumb = true,
   showValues = false,
-  colorSaturation = "medium",
   stylingRules,
   paramValues,
   ariaDescription,
   onClick,
+  colorPalette,
   ...rest
 }: TreemapChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -74,7 +73,60 @@ function TreemapChart({
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption(dark);
 
-    const satRange = COLOR_SATURATION_MAP[colorSaturation];
+    // A group tile owns a hue; its children inherit it. Beyond the third
+    // group a hue stops identifying anything, so the rest share one quiet
+    // fill and the label does the work. Assigned per datum because ECharts
+    // loops a short `color` array (loop is hard-coded), which is how 20-30
+    // flat tiles ended up cycling the palette three times (#1405).
+    const palette = resolveSeriesPalette(colorPalette);
+    const muted = MUTED_FILL[dark ? "dark" : "light"];
+    const hasDepth = data.some((d) => d.children?.length);
+    const showCrumb = hasDepth && !compact;
+
+    /**
+     * The series label is white with a shadow, which reads on every palette
+     * hue. The muted fill is pale in light mode, where white would vanish — so
+     * a subtree painted muted takes a contrast-picked label instead, and every
+     * other subtree is left exactly as it was (#1405).
+     */
+    const darkenLabels = (node: TreemapDataItem): TreemapDataItem => ({
+      ...node,
+      label: { color: contrastTextColor(muted), textShadowBlur: 0 },
+      ...(node.children?.length
+        ? { children: node.children.map(darkenLabels) }
+        : {}),
+    });
+
+    const tiles = data.map((item, i) => {
+      const numericValue = typeof item.value === "number" ? item.value : 0;
+      const ruleColor = stylingRules?.length
+        ? resolveItemColor(numericValue, stylingRules, paramValues)
+        : undefined;
+      // Flat data is one hue: with no grouping to name, a different colour per
+      // tile encodes nothing, and area already carries the value.
+      const isMuted = hasDepth && i >= 3 && !ruleColor;
+      const fill =
+        ruleColor ?? (hasDepth ? (i < 3 ? palette[i] : muted) : palette[0]);
+      const painted = {
+        ...item,
+        itemStyle: {
+          ...((item as { itemStyle?: Record<string, unknown> }).itemStyle ??
+            {}),
+          color: fill,
+        },
+      };
+      return isMuted ? darkenLabels(painted) : painted;
+    });
+
+    const labelFormatter = showValues
+      ? (p: { name?: string; value?: unknown }) => {
+          const v =
+            typeof p.value === "number"
+              ? formatNumber(p.value, { numberFormat: "comma" })
+              : String(p.value ?? "");
+          return `${p.name ?? ""}: ${v}`;
+        }
+      : "{b}";
 
     return {
       tooltip: {
@@ -84,11 +136,19 @@ function TreemapChart({
             value: unknown;
             treePathInfo?: Array<{ name: string }>;
           };
-          const path =
-            p.treePathInfo
-              ?.map((t) => echarts.format.encodeHTML(t.name))
-              .join(" / ") ?? echarts.format.encodeHTML(p.name);
-          return `${path}: ${echarts.format.encodeHTML(String(p.value ?? ""))}`;
+          // treePathInfo starts at the synthesized virtual root, whose name is
+          // empty — joining it put a leading " / " on every tooltip (#1405).
+          const names = (p.treePathInfo ?? [])
+            .slice(1)
+            .map((t) => echarts.format.encodeHTML(t.name));
+          const path = names.length
+            ? names.join(" / ")
+            : echarts.format.encodeHTML(p.name);
+          const value =
+            typeof p.value === "number"
+              ? formatNumber(p.value, { numberFormat: "comma" })
+              : String(p.value ?? "");
+          return `<b>${echarts.format.encodeHTML(value)}</b><br/>${path}`;
         },
       },
       series: [
@@ -98,32 +158,17 @@ function TreemapChart({
           // fire the action and move the view at once (#1596). Without an
           // action, native drill is unchanged.
           nodeClick: onClick ? (false as const) : ("zoomToNode" as const),
-          data: stylingRules?.length
-            ? data.map((item) => {
-                const numericValue =
-                  typeof item.value === "number" ? item.value : 0;
-                const resolvedColor = resolveItemColor(
-                  numericValue,
-                  stylingRules,
-                  paramValues,
-                );
-                return {
-                  ...item,
-                  itemStyle: {
-                    ...((item as { itemStyle?: Record<string, unknown> })
-                      .itemStyle ?? {}),
-                    ...(resolvedColor ? { color: resolvedColor } : {}),
-                  },
-                };
-              })
-            : data,
-          width: "100%",
-          height: "100%",
+          // Edges only. ECharts' box layout drops `right`/`bottom` as soon as
+          // `width`/`height` are supplied, leaving the series' default 20px
+          // left and 50px top insets in place — so the box ran 20px past the
+          // right edge and 50px past the bottom, clipping tiles (#1405).
+          left: 0,
+          top: 0,
+          right: 0,
+          bottom: showCrumb ? 28 : 0,
+          data: tiles,
           roam: false,
-          breadcrumb: {
-            show: showBreadcrumb && !compact,
-            bottom: 4,
-          },
+          breadcrumb: { show: showCrumb, bottom: 0, height: 22 },
           label: {
             show: showLabels && !compact,
             position: "insideTopLeft",
@@ -131,41 +176,37 @@ function TreemapChart({
             // mid-word ("Vintage K…"); the tooltip reveals the full name (#1053).
             overflow: "truncate",
             ellipsis: "…",
-            formatter: showValues ? "{b}: {c}" : "{b}",
+            formatter: labelFormatter,
             // White + soft shadow: crisp on saturated cells, readable on pale ones.
             ...fillLabelStyle,
           },
+          // Deliberately at series level, not per level: it is depth-agnostic,
+          // and levels[0] already scopes the root out. Moving it into
+          // levels[1]/[2] would silently drop the header on any group deeper
+          // than that (#1405).
           upperLabel: {
             show: true,
             height: 22,
             ...fillLabelStyle,
+            // The header band sits in the gap, which is painted the card's own
+            // colour — so it contrasts with the surface, not with the tile.
+            // Inheriting the tiles' white label left every group header
+            // invisible in light mode (#1405).
+            color: contrastTextColor(SURFACE_COLOR[dark ? "dark" : "light"]),
+            textShadowBlur: 0,
           },
+          // Tiles are separated by a gap in the card's own colour, so the
+          // separation reads as the surface showing through rather than grey
+          // rules drawn over the data.
           itemStyle: {
-            borderColor: "rgba(128, 128, 128, 0.25)",
-            borderWidth: 2,
+            borderWidth: 0,
             gapWidth: 2,
+            borderColor: SURFACE_COLOR[dark ? "dark" : "light"],
           },
           levels: [
-            {
-              itemStyle: {
-                borderWidth: 3,
-                borderColor: "rgba(128, 128, 128, 0.4)",
-                gapWidth: 3,
-              },
-              upperLabel: { show: false },
-            },
-            {
-              colorSaturation: satRange,
-              itemStyle: {
-                borderColorSaturation: 0.5,
-                gapWidth: 2,
-                borderWidth: 1,
-              },
-            },
-            {
-              colorSaturation: satRange,
-              itemStyle: { borderColorSaturation: 0.3, gapWidth: 1 },
-            },
+            { itemStyle: { gapWidth: 2 }, upperLabel: { show: false } },
+            { itemStyle: { gapWidth: 2 } },
+            { itemStyle: { gapWidth: 1 } },
           ],
         },
       ],
@@ -173,9 +214,8 @@ function TreemapChart({
   }, [
     data,
     showLabels,
-    showBreadcrumb,
     showValues,
-    colorSaturation,
+    colorPalette,
     compact,
     stylingRules,
     paramValues,
