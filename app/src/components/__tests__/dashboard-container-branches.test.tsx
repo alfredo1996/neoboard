@@ -642,10 +642,12 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
       // Unmount before the 250ms timer fires — exercises the useEffect cleanup
       // branch. Without it, the timer would call setState on a torn-down tree.
       unmount();
+      // The cleanup branch is what this exercises, so assert the timer is
+      // actually gone rather than relying on the absence of a warning.
+      expect(vi.getTimerCount()).toBe(0);
       act(() => {
         vi.advanceTimersByTime(500);
       });
-      // No unhandled "window is not defined" / "setState on unmounted" = pass.
     } finally {
       vi.useRealTimers();
     }
