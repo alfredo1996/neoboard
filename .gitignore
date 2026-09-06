@@ -59,6 +59,9 @@ storybook-static
 # Playwright
 playwright-report/
 test-results/
+# Recorded walkthrough videos and stills — regenerate with
+# `npx playwright test --config playwright.showcase.config.ts`
+showcase-output/
 app/e2e/.containers-state.json
 app/e2e/.server-pid
 
