@@ -62,6 +62,8 @@ test-results/
 # Recorded walkthrough videos and stills — regenerate with
 # `npx playwright test --config playwright.showcase.config.ts`
 showcase-output/
+# Raw V8 coverage dumps from the E2E server — nextcov reads and discards them
+.v8-coverage/
 app/e2e/.containers-state.json
 app/e2e/.server-pid
 

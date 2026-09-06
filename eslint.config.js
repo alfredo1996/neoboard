@@ -155,7 +155,14 @@ export default defineConfig([
       "vitest/no-focused-tests": "error",
       "vitest/no-disabled-tests": "warn",
       "vitest/no-conditional-expect": "warn",
-      "vitest/prefer-called-with": "warn",
+      // prefer-called-with is deliberately ABSENT. It is the rule this
+      // codebase most needs — asserting toHaveBeenCalled() without the
+      // arguments is how the route tests appeared to check tenant scoping
+      // (#1607) — but its autofix rewrites `toHaveBeenCalled()` into
+      // `toHaveBeenCalledWith()`, which asserts "called with NO arguments".
+      // This repo's pre-commit hook runs `eslint --fix`, so enabling it even
+      // as a warning silently turned three passing assertions into failing
+      // ones. The 115 instances are tracked as a cleanup instead.
     },
   },
   {
@@ -169,7 +176,6 @@ export default defineConfig([
       "jest/no-focused-tests": "error",
       "jest/no-disabled-tests": "warn",
       "jest/no-conditional-expect": "warn",
-      "jest/prefer-called-with": "warn",
     },
   },
   {

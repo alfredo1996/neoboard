@@ -456,7 +456,7 @@ describe("DashboardContainer — parameter bar", () => {
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
     fireEvent.click(screen.getByTestId("reset-all"));
-    expect(parametersState.clearAll).toHaveBeenCalledWith();
+    expect(parametersState.clearAll).toHaveBeenCalled();
   });
 
   it("tag click scrolls to source widget when sourceWidgetId is set", () => {
@@ -495,7 +495,7 @@ describe("DashboardContainer — CSV export", () => {
 
     fireEvent.click(screen.getByTestId("action-csv"));
 
-    expect(mockBuildExportData).toHaveBeenCalledWith();
+    expect(mockBuildExportData).toHaveBeenCalled();
     expect(mockBuildCsv).toHaveBeenCalledWith([{ a: 1 }, { a: 2 }]);
     expect(mockBuildFilename).toHaveBeenCalledWith(
       "Test Widget",
@@ -551,7 +551,7 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     );
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
     fireEvent.click(screen.getByTestId("widget-refresh"));
-    expect(invalidateSpy).toHaveBeenCalledWith();
+    expect(invalidateSpy).toHaveBeenCalled();
   });
 
   it("opens the fullscreen dialog when the Maximize button is clicked", () => {
