@@ -16,7 +16,7 @@
     "jsx": "react-jsx",
     "noImplicitAny": false,
     "useDefineForClassFields": false,
-    "noFallthroughCasesInSwitch": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["connection"]
+  "include": ["src", "__tests__"]
 }
