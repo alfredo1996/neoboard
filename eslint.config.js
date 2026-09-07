@@ -138,6 +138,10 @@ export default defineConfig([
       "app/**/*.test.{ts,tsx}",
       "component/**/*.test.{ts,tsx}",
       "cli/**/*.test.ts",
+      // The sixth test root: `npm run verify` runs these and `npm run lint`
+      // reported on none of them — including the ratchet that exists to
+      // guarantee every package is linted (#1633).
+      "scripts/__tests__/**/*.{ts,mjs}",
     ],
     plugins: { vitest: vitestPlugin },
     rules: {
@@ -167,7 +171,12 @@ export default defineConfig([
   },
   {
     // The two jest packages get the equivalent rules.
-    files: ["connection/**/*.test.ts", "connector-sdk/**/*.test.ts"],
+    // Matches what each runner actually collects, not what its files are
+    // named. connection/jest.config.js takes ANY .ts under __tests__, so 25 of
+    // its 43 suites carry no `.test.ts` suffix — and under the old glob they
+    // got none of these rules. An `it.only` in one of them silenced its whole
+    // file while `npm run lint` stayed green (#1633).
+    files: ["connection/__tests__/**/*.ts", "connector-sdk/__tests__/**/*.ts"],
     plugins: { jest: jestPlugin },
     rules: {
       "jest/expect-expect": "error",
