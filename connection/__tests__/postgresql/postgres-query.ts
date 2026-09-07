@@ -264,7 +264,7 @@ describe("PostgreSQL Query Execution", () => {
     await connectionModule.runQuery(
       { query: "SELECT * FROM users" },
       {
-        onSuccess: (r) => (result = r),
+        onSuccess: () => {},
         setSchema: (s) => (schema = s),
       },
       config,
@@ -287,7 +287,7 @@ describe("PostgreSQL Query Execution", () => {
     await connectionModule.runQuery(
       { query: "SELECT * FROM users" },
       {
-        onSuccess: (r) => (result = r),
+        onSuccess: () => {},
         setFields: (f) => (fields = f),
       },
       config,
