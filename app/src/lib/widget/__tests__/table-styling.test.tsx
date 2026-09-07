@@ -125,6 +125,22 @@ describe("resolveStylingRuleCellStyle — a rule scoped to one column", () => {
     expect(style?.color).toBeTruthy();
   });
 
+  it("still fills contrast when a text rule exists but did not match", () => {
+    // The guard asked whether a text rule was present, not whether one had
+    // matched — so a non-matching text rule left the cell with inherited dark
+    // text on a black background.
+    const style = resolveStylingRuleCellStyle(
+      [
+        rule({ target: "backgroundColor", color: "#000000" }),
+        rule({ id: "never", target: "color", value: 10_000 }),
+      ],
+      row,
+      "total",
+    );
+    expect(style?.backgroundColor).toBe("#000000");
+    expect(style?.color).toBeTruthy();
+  });
+
   it("does not let a text rule on another column suppress contrast here", () => {
     const style = resolveStylingRuleCellStyle(
       [

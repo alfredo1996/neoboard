@@ -55,12 +55,10 @@ function buildStyle(
     }
   }
 
-  // Only the rules in this scope can suppress the contrast fill — a text rule
-  // on a different column has no bearing on this cell's readability.
-  if (
-    style.backgroundColor &&
-    !rules.some((r) => testCol(r) && isTextColorTarget(r.target))
-  ) {
+  // Whether a text colour was actually SET, not whether a text rule exists:
+  // a text rule that did not match used to suppress the fill and leave the
+  // cell with inherited dark text on a dark background.
+  if (style.backgroundColor && !style.color) {
     style.color = contrastTextColor(style.backgroundColor as string);
   }
 
