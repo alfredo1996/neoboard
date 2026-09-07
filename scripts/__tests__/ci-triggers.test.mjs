@@ -60,6 +60,15 @@ describe("CI path filters (#1627)", () => {
     }
   });
 
+  it("triggers CI for the hooks that have tests", () => {
+    // They are presented as enforcement of the project's most important rules
+    // and had no tests and no CI at all until #1634.
+    for (const filters of blocks) {
+      expect(filters).toContain(".claude/hooks/**");
+      expect(filters).toContain(".claude/settings.json");
+    }
+  });
+
   it("triggers CI for the E2E fixture substrate", () => {
     // global-setup.ts mounts docker/postgres/init-test.sql into the container
     // every E2E spec runs against.
