@@ -9,7 +9,15 @@ The Map widget plots geographic data points as markers on an interactive Leaflet
 
 ## Query Format
 
-Return columns containing latitude and longitude values. Column names must contain "lat" and "lng" (or "lon"/"long"). An optional label column (matching "name", "label", or "title") is shown in marker popups.
+Return a latitude column and a longitude column, named exactly:
+
+- **Latitude** — `lat` or `latitude`
+- **Longitude** — `lng`, `lon`, `long` or `longitude`
+- **Label** (optional) — `name`, `label` or `title`, shown in marker popups
+
+Matching is case-insensitive but not partial, so a column called `population` or `colony` is never mistaken for a coordinate. A Cypher qualifier is ignored, so `RETURN c.latitude` works without an alias — and when a query returns coordinates for more than one node, the pair that shares a qualifier is used, along with its own label. Use `AS` to rename anything else.
+
+A coordinate may arrive as a number or as a numeric string — PostgreSQL returns `NUMERIC` as a string. A row whose latitude or longitude is missing, empty or not a number is **skipped**, and the widget reports how many, rather than plotting it at 0, 0.
 
 ### Cypher
 
@@ -27,7 +35,6 @@ RETURN s.latitude AS lat, s.longitude AS lng, s.name AS name
 ```sql
 SELECT latitude AS lat, longitude AS lng, name
 FROM locations
-WHERE latitude IS NOT NULL
 ```
 
 ## Options
@@ -36,7 +43,7 @@ WHERE latitude IS NOT NULL
 |--------|------|---------|-------------|
 | Tile Layer | select | osm | Base-map provider: OpenStreetMap, Carto Light, or Carto Dark |
 | Default Zoom | number | 3 | Initial zoom level (1 = world, 18 = street level) |
-| Min Zoom | number | 2 | Minimum zoom level the user can zoom out to |
+| Min Zoom | number | 0 | Minimum zoom level the user can zoom out to. 0 fits the whole world in a small card |
 | Max Zoom | number | 18 | Maximum zoom level the user can zoom in to |
 | Auto-fit Bounds | boolean | true | Automatically pan and zoom to fit all markers on load |
 | Marker Size (px) | number | 6 | Radius of each marker circle in pixels |
