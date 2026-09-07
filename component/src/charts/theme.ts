@@ -107,6 +107,49 @@ export const MUTED_FILL = {
   dark: "#21252b",
 } as const;
 
+/**
+ * The gantt's "today" marker. A reference line, not a status — it was drawing
+ * in the destructive red, which reads as "something is wrong today" (#1273).
+ * Muted-foreground mirrors: present without competing with the bars.
+ */
+export const TODAY_LINE_COLOR = {
+  light: "#666d7a",
+  dark: "#959ba7",
+} as const;
+
+/**
+ * The dataZoom slider, themed once here rather than per chart (#1273).
+ *
+ * Left to ECharts it renders in a stock lavender-blue that appears nowhere in
+ * the palette, directly under a citrine chart. The selected window and its
+ * handles take the interaction colour (azure `--ring`, #1553); the track is
+ * the same quiet muted/border pair the axes use.
+ */
+function dataZoomStyle(
+  ring: string,
+  fill: string,
+  muted: string,
+  border: string,
+  label: string,
+) {
+  return {
+    backgroundColor: muted,
+    borderColor: "transparent",
+    fillerColor: fill,
+    handleStyle: { color: ring, borderColor: ring },
+    moveHandleStyle: { color: ring },
+    dataBackground: {
+      lineStyle: { color: border },
+      areaStyle: { color: muted },
+    },
+    selectedDataBackground: {
+      lineStyle: { color: ring },
+      areaStyle: { color: ring, opacity: 0.2 },
+    },
+    textStyle: { color: label },
+  };
+}
+
 function axisStyle(line: string, label: string, split: string) {
   return {
     axisLine: { lineStyle: { color: line } },
@@ -206,6 +249,14 @@ export function registerNeoboardThemes(
     // their dim ECharts defaults are hard to read on the dark canvas (#1154).
     radar: { axisName: { color: "#666d7a" } },
     visualMap: { textStyle: { color: "#666d7a" } },
+    // --ring 212 90% 42%
+    dataZoom: dataZoomStyle(
+      "#0b65cb",
+      "rgba(11, 101, 203, 0.18)",
+      MUTED_FILL.light,
+      "#e5e7eb",
+      "#666d7a",
+    ),
     ...seriesDefaults("#ffffff", "#e5e7eb", "#14161a"),
   });
 
@@ -231,6 +282,14 @@ export function registerNeoboardThemes(
     // See the light theme note — radar/visualMap text needs explicit color.
     radar: { axisName: { color: "#959ba7" } },
     visualMap: { textStyle: { color: "#959ba7" } },
+    // --ring 212 90% 62%
+    dataZoom: dataZoomStyle(
+      "#4798f5",
+      "rgba(71, 152, 245, 0.22)",
+      MUTED_FILL.dark,
+      "#262931",
+      "#959ba7",
+    ),
     ...seriesDefaults("#181b20", "#262931", "#f3f4f6"),
   });
 }
