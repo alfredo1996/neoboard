@@ -23,7 +23,7 @@ Return 3+ columns: task name, start date, end date. Optional: category/status fo
 
 **A year is not a date.** A column such as `m.released` holding `1999` is a number, not a timestamp — it is rejected rather than drawn as a bar in January 1970. Anything below `1000000000` (September 2001 in seconds) is treated the same way.
 
-A row whose start or end cannot be read, or whose end falls before its start, is skipped. A task whose start and end are equal is kept — it draws as a milestone. If no row in the result has a readable start and end, the widget says so instead of showing an empty chart.
+A row whose start or end cannot be read, or whose end falls before its start, is skipped. A task whose start and end are equal is kept — it draws as a milestone. If no row in the result can be drawn, the widget says why: that the columns are not dates, or that every bar runs backwards because the two are swapped.
 
 Dates are shown in en-US (`Apr 1, 2026`), like every other number in a chart, so a shared dashboard reads the same for everyone.
 

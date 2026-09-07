@@ -75,10 +75,7 @@ export function transformToGanttData(data: unknown): unknown {
       const start = parseTime(row[startKey]);
       const end = parseTime(row[endKey]);
 
-      if (start === null || end === null) return null;
-      // A bar that ends before it starts has negative width. Equal start and
-      // end is a milestone and stays.
-      if (end < start) return null;
+      if (!isDrawableSpan(start, end)) return null;
 
       // The raw row rides along so a click action can name any query column
       // the editor offered (#1589). Detected fields are assigned after it and
@@ -126,6 +123,15 @@ function parseNumericTime(n: number): number | null {
   return n < MIN_EPOCH_MS ? n * 1000 : n;
 }
 
+/**
+ * A bar that ends before it starts has negative width. Equal start and end is
+ * a milestone and draws. Shared with validate so the two cannot disagree about
+ * which rows reach the chart.
+ */
+function isDrawableSpan(start: number | null, end: number | null): boolean {
+  return start !== null && end !== null && end >= start;
+}
+
 function parseTime(value: unknown): number | null {
   if (value == null) return null;
   if (value instanceof Date) {
@@ -171,11 +177,16 @@ export function validateGanttData(data: unknown): string | null {
   }
 
   const { startKey, endKey } = resolveKeys(keys);
-  const drawable = records.some(
-    (r) => parseTime(r[startKey]) !== null && parseTime(r[endKey]) !== null,
+  const spans = records.map(
+    (r) => [parseTime(r[startKey]), parseTime(r[endKey])] as const,
   );
-  if (!drawable) {
-    return `No row has a parseable start and end date in "${startKey}" and "${endKey}". Dates must be YYYY-MM-DD, ISO datetimes, Date values or Unix timestamps — a year column such as released is a number, not a date.`;
+  if (spans.some(([start, end]) => isDrawableSpan(start, end))) return null;
+
+  // Both dates read but every bar runs backwards: the columns are almost
+  // certainly the right kind and the wrong way round, which is a different
+  // thing to tell the user than "these are not dates".
+  if (spans.some(([start, end]) => start !== null && end !== null)) {
+    return `Every row ends before it starts. Check that "${startKey}" and "${endKey}" are not swapped.`;
   }
-  return null;
+  return `No row has a parseable start and end date in "${startKey}" and "${endKey}". Dates must be YYYY-MM-DD, ISO datetimes, Date values or Unix timestamps — a year column such as released is a number, not a date.`;
 }

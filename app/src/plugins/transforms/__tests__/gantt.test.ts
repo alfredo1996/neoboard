@@ -183,6 +183,29 @@ describe("validateGanttData", () => {
     expect(msg).toMatch(/year/i);
   });
 
+  it("says so when every row ends before it starts", () => {
+    // Otherwise validate passes, the transform then drops every row, and the
+    // user is back at "No data" — the exact outcome validate exists to avoid.
+    const msg = validateGanttData(
+      rows(
+        { task: "A", start: "2026-04-05", end: "2026-04-01" },
+        { task: "B", start: "2026-05-09", end: "2026-05-02" },
+      ),
+    );
+    expect(msg).toMatch(/before/i);
+  });
+
+  it("passes when at least one row is drawable", () => {
+    expect(
+      validateGanttData(
+        rows(
+          { task: "A", start: "2026-04-05", end: "2026-04-01" },
+          { task: "B", start: "2026-04-01", end: "2026-04-03" },
+        ),
+      ),
+    ).toBeNull();
+  });
+
   it("passes rows it can draw", () => {
     expect(
       validateGanttData(
