@@ -51,6 +51,104 @@ vi.mock("@/components/form-widget-renderer", () => ({
 const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
 import { ChartRenderer } from "../chart-renderer";
+import { pluginRegistry } from "@/plugins";
+
+/** Put a plugin in the real registry so ChartRenderer resolves it. */
+function registerStubPlugin(
+  type: string,
+  component: (props: Record<string, unknown>) => React.ReactElement,
+) {
+  if (pluginRegistry.has(type)) pluginRegistry.unregister(type);
+  pluginRegistry.register({
+    type,
+    label: type,
+    component: component as never,
+    transform: (d: unknown) => d,
+    options: [],
+    capabilities: {
+      supportsClickAction: true,
+      supportsStyling: true,
+      isECharts: false,
+      requiresQuery: true,
+    },
+  } as never);
+}
+
+/**
+ * The 12-prop bridge from ChartRenderer to every plugin (#1629).
+ *
+ * Every rule-based colour, every dashboard parameter substitution and every
+ * click action reaches a chart through this one JSX block. It executes on
+ * every render — in the app and in these tests — so the file reported as
+ * covered while the only thing either of the two byte-identical test files
+ * here proved was that a JsonViewer element appeared.
+ */
+describe("ChartRenderer plugin props", () => {
+  it("hands every prop through to the plugin component", () => {
+    const seen: Record<string, unknown>[] = [];
+    registerStubPlugin("propspy", (props: Record<string, unknown>) => {
+      seen.push(props);
+      return <div data-testid="propspy" />;
+    });
+
+    // The four groups the renderer unpacks: styling, interaction, meta and
+    // the top-level data/settings.
+    const rules = [
+      { id: "r", operator: ">" as const, value: 1, color: "#fff" },
+    ];
+    const paramValues = { region: "EU" };
+    const colorScales = [{ column: "a", minColor: "#000", maxColor: "#fff" }];
+    const onChartClick = () => {};
+    const clickableColumns = ["a"];
+    const data = [{ a: 1 }];
+    const settings = {
+      title: "T",
+      colorThresholds: [{ value: 1, color: "#f00" }],
+    };
+
+    render(
+      <ChartRenderer
+        type="propspy"
+        data={data}
+        settings={settings}
+        styling={{ rules, paramValues, colorScales } as never}
+        interaction={{ onChartClick, clickableColumns }}
+        meta={{
+          connectionId: "conn-1",
+          widgetId: "w-1",
+          resultId: "res-1",
+          query: "SELECT 1",
+          autoFit: true,
+        }}
+      />,
+    );
+
+    const expected: Record<string, unknown> = {
+      data,
+      settings,
+      stylingRules: rules,
+      paramValues,
+      colorScales,
+      onChartClick,
+      clickableColumns,
+      connectionId: "conn-1",
+      widgetId: "w-1",
+      resultId: "res-1",
+      query: "SELECT 1",
+      autoFit: true,
+    };
+
+    expect(screen.getByTestId("propspy")).toBeInTheDocument();
+    expect(seen).toHaveLength(1);
+    // Named one by one rather than toMatchObject: a prop the bridge drops must
+    // fail here, and a missing key in a partial match does not.
+    for (const [key, value] of Object.entries(expected)) {
+      expect(seen[0][key], `prop "${key}" never reached the plugin`).toBe(
+        value,
+      );
+    }
+  });
+});
 
 describe("ChartRenderer error boundary", () => {
   afterAll(() => {

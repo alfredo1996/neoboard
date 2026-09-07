@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { ChartPlugin } from "@/lib/plugin/chart-plugin-registry";
 import {
   createPluginRegistry,
   defineChartPlugin,
 } from "@/lib/plugin/chart-plugin-registry";
+import { registerExternalPlugins } from "../register-external";
 
 function makePlugin(
   type: string,
@@ -26,78 +27,89 @@ function makePlugin(
   };
 }
 
-// --- 1. External plugin try/catch (mirrors new index.ts behavior) ---
-
-function registerExternalPluginsSafe(
-  registry: ReturnType<typeof createPluginRegistry>,
-  entries: Array<{ plugin: ChartPlugin | null; overrides: boolean }>,
-): string[] {
-  const errors: string[] = [];
-  for (const { plugin, overrides } of entries) {
-    try {
-      if (!plugin || typeof plugin !== "object" || !plugin.type) {
-        errors.push("invalid plugin object");
-        continue;
-      }
-      if (registry.has(plugin.type)) {
-        if (!overrides) {
-          errors.push("conflict: " + plugin.type);
-          continue;
-        }
-        registry.unregister(plugin.type);
-      }
-      registry.register(plugin);
-    } catch (err) {
-      errors.push("registration failed: " + String(err));
-    }
-  }
-  return errors;
-}
-
 describe("plugin hardening", () => {
+  /**
+   * These four cases used to assert on `registerExternalPluginsSafe`, a
+   * function the test file declared itself — the file never imported
+   * app/src/plugins/index.ts, so the loop it guards was never executed and
+   * every hardening guarantee was proven about a local re-implementation
+   * (#1629). They now run the real thing.
+   */
   describe("external plugin crash prevention", () => {
     let registry: ReturnType<typeof createPluginRegistry>;
+    let errors: string[];
 
     beforeEach(() => {
       registry = createPluginRegistry();
+      errors = [];
+      // Production reports a bad plugin by logging and carrying on, so that
+      // is what there is to assert on.
+      vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+        errors.push(args.map(String).join(" "));
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
     });
 
     it("skips null plugin without crashing", () => {
-      const errors = registerExternalPluginsSafe(registry, [
-        { plugin: null, overrides: false },
-      ]);
+      registerExternalPlugins(registry, [{ plugin: null, overrides: false }]);
       expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("invalid");
+      expect(errors[0]).toContain("invalid plugin object");
     });
 
     it("skips plugin without type without crashing", () => {
-      const errors = registerExternalPluginsSafe(registry, [
-        {
-          plugin: { type: "" } as unknown as ChartPlugin,
-          overrides: false,
-        },
+      registerExternalPlugins(registry, [
+        { plugin: { type: "" } as unknown as ChartPlugin, overrides: false },
       ]);
       expect(errors).toHaveLength(1);
+      expect(registry.has("")).toBe(false);
     });
 
     it("skips conflicting plugin without crashing (logs instead of throws)", () => {
-      registry.register(makePlugin("bar"));
-      const errors = registerExternalPluginsSafe(registry, [
+      const original = makePlugin("bar");
+      registry.register(original);
+      registerExternalPlugins(registry, [
         { plugin: makePlugin("bar"), overrides: false },
       ]);
       expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("conflict");
-      // Original bar is still registered
-      expect(registry.has("bar")).toBe(true);
+      expect(errors[0]).toContain("conflicts");
+      // The original survives — a conflicting external plugin must not win by
+      // arriving second.
+      expect(registry.get("bar")).toBe(original);
+    });
+
+    it("replaces a built-in only when the manifest says overrides", () => {
+      registry.register(makePlugin("bar"));
+      const replacement = makePlugin("bar");
+      registerExternalPlugins(registry, [
+        { plugin: replacement, overrides: true },
+      ]);
+      expect(errors).toHaveLength(0);
+      expect(registry.get("bar")).toBe(replacement);
     });
 
     it("continues registering after one plugin fails", () => {
-      const errors = registerExternalPluginsSafe(registry, [
+      registerExternalPlugins(registry, [
         { plugin: null, overrides: false },
         { plugin: makePlugin("heatmap"), overrides: false },
       ]);
       expect(errors).toHaveLength(1);
       expect(registry.has("heatmap")).toBe(true);
+    });
+
+    it("survives a plugin whose registration throws", () => {
+      const exploding = makePlugin("boom");
+      vi.spyOn(registry, "register").mockImplementationOnce(() => {
+        throw new Error("bang");
+      });
+      registerExternalPlugins(registry, [
+        { plugin: exploding, overrides: false },
+        { plugin: makePlugin("safe"), overrides: false },
+      ]);
+      expect(errors[0]).toContain("bang");
+      expect(registry.has("safe")).toBe(true);
     });
   });
 
