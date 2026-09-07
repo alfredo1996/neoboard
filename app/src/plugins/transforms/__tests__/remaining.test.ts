@@ -1,6 +1,6 @@
 /**
- * Tests for table, single-value, map, json, gauge, sankey, hierarchical,
- * radar, and parameter-select transforms.
+ * Tests for table, single-value, json, gauge, sankey, hierarchical, radar,
+ * and parameter-select transforms. The map transform has its own file.
  */
 import { describe, it, expect } from "vitest";
 import { transformToTableData } from "../../table/transform";
@@ -8,7 +8,6 @@ import {
   transformToValueData,
   validateValueData,
 } from "../../single-value/transform";
-import { transformToMapData, validateMapData } from "../../map/transform";
 import { transformToJsonData } from "../../json/transform";
 import { transformToGaugeData } from "../../gauge/transform";
 import { transformToSankeyData } from "../../sankey/transform";
@@ -120,49 +119,6 @@ describe("validateValueData", () => {
 });
 
 // ── map ────────────────────────────────────────────────────────────────────
-
-describe("transformToMapData", () => {
-  it("extracts lat/lng from records", () => {
-    const data = [{ name: "HQ", lat: 51.5, lng: -0.1 }];
-    const result = transformToMapData(data) as Array<{
-      lat: number;
-      lng: number;
-      label?: string;
-    }>;
-    expect(result).toHaveLength(1);
-    expect(result[0].lat).toBeCloseTo(51.5);
-    expect(result[0].label).toBe("HQ");
-  });
-
-  it("returns empty array for empty input", () => {
-    expect(transformToMapData([])).toEqual([]);
-  });
-
-  it("emits NaN for a non-numeric latitude (#1288)", () => {
-    // The row filter only requires that SOME column be numeric, so a row whose
-    // latitude reads "unknown" survives it and Number() coerces to NaN. Pinned
-    // rather than fixed here: MapChart drops non-finite markers, which covers
-    // every caller, not only rows that came through this transform.
-    const result = transformToMapData([
-      { lat: "unknown", lng: -74.006, population: 8000000 },
-    ]) as Array<{ lat: number; lng: number }>;
-    expect(result).toHaveLength(1);
-    expect(Number.isNaN(result[0].lat)).toBe(true);
-    expect(result[0].lng).toBeCloseTo(-74.006);
-  });
-});
-
-describe("validateMapData", () => {
-  it("returns null for empty data", () => {
-    expect(validateMapData([])).toBeNull();
-  });
-
-  it("returns error when no lat/lng columns found", () => {
-    const err = validateMapData([{ name: "City", value: 42 }]);
-    expect(err).toBeTruthy();
-    expect(err).toContain("Map chart");
-  });
-});
 
 // ── json ───────────────────────────────────────────────────────────────────
 
