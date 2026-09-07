@@ -18,7 +18,10 @@ import type {
   DataGridColumn,
 } from "@neoboard/components";
 import { parseGroupByColumns } from "@/lib/widget/table-utils";
-import { resolveStylingRuleRowStyle } from "@/lib/widget/table-styling";
+import {
+  resolveStylingRuleRowStyle,
+  makeCellStyleResolver,
+} from "@/lib/widget/table-styling";
 
 const AGG_SYMBOLS: Record<string, string> = {
   sum: "Σ",
@@ -225,7 +228,7 @@ export function TableRenderer({
     return result;
   }, [colorScales, records]);
 
-  const getCellStyle = useMemo(() => {
+  const colorScaleStyle = useMemo(() => {
     if (!colorScales?.length) return undefined;
     return (
       row: Record<string, unknown>,
@@ -247,6 +250,13 @@ export function TableRenderer({
       return { backgroundColor: bg, color: contrastTextColor(bg) };
     };
   }, [colorScales, columnMinMax]);
+
+  // A rule that names a column paints that column's cell. Unscoped rules go
+  // through getRowStyle and paint the row, as they always have (#1418).
+  const getCellStyle = useMemo(
+    () => makeCellStyleResolver(stylingRules, colorScaleStyle, paramValues),
+    [stylingRules, colorScaleStyle, paramValues],
+  );
 
   const emptyMessage =
     (settings.emptyMessage as string | undefined) ?? "No results";
