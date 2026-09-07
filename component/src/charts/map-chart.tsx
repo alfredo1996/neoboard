@@ -93,7 +93,7 @@ const DEFAULT_FIT_PADDING: [number, number] = [20, 20];
  * errored, logged or fell back (#1529).
  *
  * OSM needs no key. It has no dark variant, so dark mode is handled by a CSS
- * filter on `.leaflet-tile-pane` (see `index.css`) rather than by swapping
+ * filter on `.leaflet-tile-pane` (see `design-tokens.css`) rather than by swapping
  * providers here — which is why this no longer depends on the theme at all.
  * The CARTO presets remain selectable for anyone who has a key.
  */
