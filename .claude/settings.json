@@ -70,11 +70,6 @@
           },
           {
             "type": "command",
-            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // .tool_input.filePath // empty'); [ -z \"$FILE_PATH\" ] && exit 0; case \"$FILE_PATH\" in */app/src/*__tests__*|*/app/src/*__test__*) ;; *) exit 0 ;; esac; NEW_CONTENT=$(echo \"$INPUT\" | jq -r '.tool_input.new_string // .tool_input.content // empty'); [ -z \"$NEW_CONTENT\" ] && exit 0; if echo \"$NEW_CONTENT\" | grep -qE \"@testing-library/react|react-dom/test-utils|from ['\\\"]vitest-dom\"; then echo 'BLOCKED: Do NOT add render tests (@testing-library/react) in app/. Use Playwright E2E or put component tests in component/ package.' >&2; exit 2; fi",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // .tool_input.filePath // empty'); [ -z \"$FILE_PATH\" ] && exit 0; case \"$FILE_PATH\" in */app/src/components/*) ;; *) exit 0 ;; esac; NEW_CONTENT=$(echo \"$INPUT\" | jq -r '.tool_input.new_string // .tool_input.content // empty'); [ -z \"$NEW_CONTENT\" ] && exit 0; if echo \"$NEW_CONTENT\" | grep -qiE \"from ['\\\"]echarts|from ['\\\"]@neo4j-nvl|from ['\\\"]leaflet|from ['\\\"]react-leaflet\"; then if ! echo \"$NEW_CONTENT\" | grep -q 'ssr: false'; then echo 'BLOCKED: Chart/map components in app/ MUST use next/dynamic with ssr: false. Add dynamic(() => import(...), { ssr: false }).' >&2; exit 2; fi; fi",
             "timeout": 5
           }
