@@ -11,6 +11,7 @@ import {
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { BaseChart, useDarkMode } from "./base-chart";
+import { TODAY_LINE_COLOR } from "./theme";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import type { BaseChartProps } from "./types";
 import {
@@ -219,9 +220,10 @@ function GanttChart({
             silent: true,
             symbol: "none",
             lineStyle: {
-              // Today marker = the design's danger red (was an off-palette
-              // flat-UI red). Hex because canvas can't read CSS vars.
-              color: "#d92d2d",
+              // Muted, not red: today is a reference, and the destructive
+              // colour made every gantt read as though something were wrong
+              // (#1273). Hex because canvas cannot read CSS vars.
+              color: TODAY_LINE_COLOR[dark ? "dark" : "light"],
               type: "dashed" as const,
               width: 1.5,
             },
@@ -229,6 +231,8 @@ function GanttChart({
               formatter: "Today",
               position: "insideStartTop" as const,
               fontSize: 10,
+              // The label inherited the line colour, so it went red too.
+              color: TODAY_LINE_COLOR[dark ? "dark" : "light"],
             },
             data: [{ xAxis: Date.now() }],
           },
@@ -299,6 +303,8 @@ function GanttChart({
         },
         splitLine: { show: false },
       },
+      // No colours here: the slider's palette lives in the registered theme,
+      // so every chart's zoom control looks the same (#1273).
       dataZoom: [
         // Horizontal: time axis zoom
         {
@@ -306,7 +312,6 @@ function GanttChart({
           xAxisIndex: 0,
           height: 20,
           bottom: 5,
-          borderColor: "transparent",
         },
         {
           type: "inside",
@@ -322,8 +327,6 @@ function GanttChart({
                 right: 0,
                 startValue: 0,
                 endValue: 14,
-                borderColor: "transparent",
-                fillerColor: "rgba(140, 140, 140, 0.15)",
                 handleSize: "60%",
               },
               {
