@@ -53,6 +53,33 @@ describe("transformToMapData — picking the coordinate columns", () => {
     expect(out[0].label).toBe("Miami");
   });
 
+  it("keeps a coordinate pair within one qualifier", () => {
+    // A join returning coordinates for two nodes: taking the first match of
+    // each independently pairs a.latitude with b.longitude and puts the
+    // marker somewhere neither row describes.
+    const out = markers(
+      transformToMapData([
+        {
+          "a.name": "Store",
+          "a.latitude": 10,
+          "b.name": "Warehouse",
+          "b.latitude": 40,
+          "b.longitude": 50,
+        },
+      ]),
+    );
+    expect(out[0].lat).toBe(40);
+    expect(out[0].lng).toBe(50);
+    // The label follows the pair, not the first name-ish column in the row.
+    expect(out[0].label).toBe("Warehouse");
+  });
+
+  it("still resolves when only one side is qualified", () => {
+    const out = markers(transformToMapData([{ lat: 10, "b.longitude": 20 }]));
+    expect(out[0].lat).toBe(10);
+    expect(out[0].lng).toBe(20);
+  });
+
   it("accepts every spelling of the coordinate columns", () => {
     for (const [latKey, lngKey] of [
       ["lat", "lng"],

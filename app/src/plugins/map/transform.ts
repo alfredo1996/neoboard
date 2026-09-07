@@ -22,6 +22,12 @@ const LABEL_RE = /^(name|label|title)$/i;
  */
 const bareName = (key: string) => key.slice(key.lastIndexOf(".") + 1);
 
+/** What the column was read from: "c" in "c.latitude", "" when unqualified. */
+const qualifierOf = (key: string) => {
+  const dot = key.lastIndexOf(".");
+  return dot === -1 ? "" : key.slice(0, dot);
+};
+
 export interface MapColumns {
   latKey?: string;
   lngKey?: string;
@@ -34,10 +40,26 @@ export function resolveMapColumns(
   records: Record<string, unknown>[],
 ): MapColumns {
   const keys = Object.keys(records[0] ?? {});
+  const lats = keys.filter((k) => LAT_RE.test(bareName(k)));
+  const lngs = keys.filter((k) => LNG_RE.test(bareName(k)));
+
+  // A join can return coordinates for two nodes. Taking the first match of
+  // each independently would pair `a.latitude` with `b.longitude` and put the
+  // marker somewhere neither row describes, so a pair that shares a qualifier
+  // wins. Falling back to first-of-each keeps a half-aliased query working.
+  const latKey =
+    lats.find((lat) =>
+      lngs.some((lng) => qualifierOf(lng) === qualifierOf(lat)),
+    ) ?? lats[0];
+  const qualifier = latKey === undefined ? undefined : qualifierOf(latKey);
+  const lngKey = lngs.find((lng) => qualifierOf(lng) === qualifier) ?? lngs[0];
+
+  const labels = keys.filter((k) => LABEL_RE.test(bareName(k)));
   return {
-    latKey: keys.find((k) => LAT_RE.test(bareName(k))),
-    lngKey: keys.find((k) => LNG_RE.test(bareName(k))),
-    labelKey: keys.find((k) => LABEL_RE.test(bareName(k))),
+    latKey,
+    lngKey,
+    // The label follows the pair too, so a join labels the node it plotted.
+    labelKey: labels.find((l) => qualifierOf(l) === qualifier) ?? labels[0],
     keys,
   };
 }

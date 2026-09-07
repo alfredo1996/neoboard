@@ -15,7 +15,7 @@ Return a latitude column and a longitude column, named exactly:
 - **Longitude** — `lng`, `lon`, `long` or `longitude`
 - **Label** (optional) — `name`, `label` or `title`, shown in marker popups
 
-Matching is case-insensitive but not partial, so a column called `population` or `colony` is never mistaken for a coordinate. A Cypher qualifier is ignored, so `RETURN c.latitude` works without an alias. Use `AS` to rename anything else.
+Matching is case-insensitive but not partial, so a column called `population` or `colony` is never mistaken for a coordinate. A Cypher qualifier is ignored, so `RETURN c.latitude` works without an alias — and when a query returns coordinates for more than one node, the pair that shares a qualifier is used, along with its own label. Use `AS` to rename anything else.
 
 A coordinate may arrive as a number or as a numeric string — PostgreSQL returns `NUMERIC` as a string. A row whose latitude or longitude is missing, empty or not a number is **skipped**, and the widget reports how many, rather than plotting it at 0, 0.
 
