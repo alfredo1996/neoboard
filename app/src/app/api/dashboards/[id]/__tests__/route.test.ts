@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
+  resetDbMock,
   makeUpdateChain,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
@@ -88,6 +89,7 @@ describe("GET /api/dashboards/[id]", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     const mod = await import("../route");
     GET = mod.GET;
   });
@@ -126,7 +128,12 @@ describe("GET /api/dashboards/[id]", () => {
     };
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([sharedDashboard]))
-      .mockReturnValueOnce(makeSelectChain([share]));
+      .mockReturnValueOnce(makeSelectChain([share]))
+      // GET makes THREE selects: canAccess does the dashboard and share
+      // lookups, then route.ts:117 reads updatedByName. The third was being
+      // served by whatever permanent stub an earlier test had left behind
+      // (#1630).
+      .mockReturnValue(makeSelectChain([{ updatedByName: "Alice" }]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -160,7 +167,9 @@ describe("GET /api/dashboards/[id]", () => {
     // Second select: share lookup — no share found
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([publicDashboard]))
-      .mockReturnValueOnce(makeSelectChain([]));
+      .mockReturnValueOnce(makeSelectChain([]))
+      // Third select: the updatedByName lookup — see the note above.
+      .mockReturnValue(makeSelectChain([{ updatedByName: "Alice" }]));
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -230,6 +239,7 @@ describe("PUT /api/dashboards/[id]", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     const mod = await import("../route");
     PUT = mod.PUT;
   });
@@ -421,6 +431,7 @@ describe("DELETE /api/dashboards/[id]", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     const mod = await import("../route");
     DELETE = mod.DELETE;
   });
@@ -500,6 +511,7 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     const mod = await import("../route");
     PUT = mod.PUT;
   });

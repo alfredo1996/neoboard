@@ -9,13 +9,24 @@ const mockCheckConnection = vi.fn();
 const mockClose = vi.fn().mockResolvedValue(undefined);
 const mockListDatabases = vi.fn();
 const mockListSchemas = vi.fn();
-const mockCreateConnectionModule = vi.fn(() => ({
+/**
+ * The module every test gets unless it says otherwise.
+ *
+ * Reinstalled per test rather than relied on: `clearAllMocks` clears calls,
+ * not implementations, so a `mockReturnValue` installed by one test decides
+ * every later one. The "does not support listSchemas" case below did exactly
+ * that — after it ran, every connector in the file reported no schema support
+ * and the positive case tested nothing (#1630).
+ */
+const defaultModule = () => ({
   runQuery: mockRunQuery,
   checkConnection: mockCheckConnection,
   close: mockClose,
   listDatabases: mockListDatabases,
   listSchemas: mockListSchemas as ((...args: unknown[]) => unknown) | undefined,
-}));
+});
+
+const mockCreateConnectionModule = vi.fn(defaultModule);
 
 vi.mock("@/lib/connector/connection-adapter", () => ({
   createConnectionModule: mockCreateConnectionModule,
@@ -804,7 +815,9 @@ describe("query-executor", () => {
     });
 
     it("returns empty array when module does not support listSchemas", async () => {
-      mockCreateConnectionModule.mockReturnValue({
+      // Scoped to this test: `mockReturnValueOnce` is consumed by the single
+      // createConnectionModule call listSchemas makes, so it cannot outlive it.
+      mockCreateConnectionModule.mockReturnValueOnce({
         runQuery: mockRunQuery,
         checkConnection: mockCheckConnection,
         close: mockClose,

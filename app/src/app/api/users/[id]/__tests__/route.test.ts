@@ -159,6 +159,11 @@ describe("PATCH /api/users/[id]", () => {
 
   it("updates both role and canWrite", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN);
+    // PATCH reads the current role to decide whether this is a demotion
+    // (route.ts:100-105). This test passed only because the GET describe's
+    // last case had left a select stub behind — reorder the file and it 500s
+    // (#1630).
+    mockDb.select.mockReturnValue(makeSelectChain([{ role: "creator" }]));
     const updated = {
       id: "u2",
       name: "Eve",
@@ -181,6 +186,10 @@ describe("PATCH /api/users/[id]", () => {
 
   it("emits both user.update and user.role.change on a privilege change (#1234)", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN);
+    // The demotion check reads the current role first (route.ts:100-105).
+    // Found by turning shuffling on: this test was borrowing a select stub
+    // from whichever case happened to run before it (#1630).
+    mockDb.select.mockReturnValue(makeSelectChain([{ role: "creator" }]));
     mockDb.update.mockReturnValue(
       makeUpdateChain([
         {

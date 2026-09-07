@@ -41,6 +41,17 @@ export default defineConfig({
     // Chromium instance, and the NVL/WebGL graph stories are the first thing
     // to time out when the machine is saturated (#1469).
     maxWorkers: "50%",
+    // Shuffled deliberately (#1630). Six suites passed only in declaration
+    // order — a `mockReturnValue` that outlived its test, an unconsumed
+    // `mockReturnValueOnce` queue, a route stub borrowed from the describe
+    // above. `vi.clearAllMocks()` clears calls, not implementations, and the
+    // repo used it as though it did; `resetAllMocks` appeared nowhere.
+    //
+    // With order fixed, every one of those was invisible. Shuffling makes the
+    // next one fail the run it is introduced in rather than years later. Files
+    // stay in order — the leaks found were all within a file, and fork
+    // isolation makes cross-file state rare.
+    sequence: { shuffle: { tests: true, files: false } },
     coverage: {
       provider: "v8",
       reportsDirectory: "./coverage",

@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+/** The project config every test gets unless it installs its own. */
+const { DEFAULT_PROJECT_CONFIG } = vi.hoisted(() => ({
+  DEFAULT_PROJECT_CONFIG: {
+    ports: { postgres: 5432 },
+    postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+  },
+}));
+
 const { FakeExecError } = vi.hoisted(() => {
   class FakeExecError extends Error {
     constructor(
@@ -26,10 +34,7 @@ vi.mock("../../../lib/config.js", () => ({
     appDir: "/project/app",
     envFile: "/project/app/.env.local",
   },
-  readProjectConfig: vi.fn(() => ({
-    ports: { postgres: 5432 },
-    postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
-  })),
+  readProjectConfig: vi.fn(() => DEFAULT_PROJECT_CONFIG),
 }));
 
 const { spinnerInstance } = vi.hoisted(() => ({
@@ -75,8 +80,15 @@ const SAMPLE_JOURNAL = JSON.stringify({
   ],
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
+  // `clearAllMocks` clears calls, not implementations, so the URI-encoding
+  // fixture below left its `neo@board` config in place for every later test
+  // (#1630).
+  const { readProjectConfig } = await import("../../../lib/config.js");
+  vi.mocked(readProjectConfig).mockReturnValue(
+    DEFAULT_PROJECT_CONFIG as ReturnType<typeof readProjectConfig>,
+  );
   spinnerInstance.start.mockClear();
   spinnerInstance.succeed.mockClear();
   spinnerInstance.fail.mockClear();

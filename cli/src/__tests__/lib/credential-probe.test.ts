@@ -7,12 +7,15 @@ vi.mock("../../lib/exec.js", () => ({
   dockerExec: vi.fn(),
 }));
 
+/** The project config every test gets unless it installs its own. */
+const DEFAULT_PROJECT_CONFIG = {
+  ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
+  postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+};
+
 vi.mock("../../lib/config.js", () => ({
   assertCheckout: vi.fn(),
-  readProjectConfig: vi.fn(() => ({
-    ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
-    postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
-  })),
+  readProjectConfig: vi.fn(() => DEFAULT_PROJECT_CONFIG),
   getMode: vi.fn(() => "docker"),
 }));
 
@@ -46,6 +49,14 @@ function encryptWith(keyHex: string, plaintext: string): string {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getMode).mockReturnValue("docker");
+  // `clearAllMocks` clears calls, not implementations, so the shell-injection
+  // fixture below left its poisoned identifier in place for every test after
+  // it — sending them all into the identifier guard and out with
+  // "no-credentials". The file was green only because that fixture happened
+  // to be declared last (#1630).
+  vi.mocked(readProjectConfig).mockReturnValue(
+    DEFAULT_PROJECT_CONFIG as ReturnType<typeof readProjectConfig>,
+  );
 });
 
 describe("probeCredentialDecryption (#1274)", () => {

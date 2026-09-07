@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
+  resetDbMock,
   makeInsertChain,
   makeDeleteChain,
   makeUpdateChain,
@@ -82,6 +83,7 @@ describe("GET /api/sso-providers", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     vi.doMock("@/lib/auth/session", () => ({
       requireAdmin: mockRequireAdmin,
     }));
@@ -186,6 +188,7 @@ describe("POST /api/sso-providers", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     vi.doMock("@/lib/auth/session", () => ({
       requireAdmin: mockRequireAdmin,
     }));
@@ -470,6 +473,7 @@ describe("DELETE /api/sso-providers", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     vi.doMock("@/lib/auth/session", () => ({
       requireAdmin: mockRequireAdmin,
     }));
@@ -595,6 +599,7 @@ describe("PATCH /api/sso-providers", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     vi.doMock("@/lib/auth/session", () => ({
       requireAdmin: mockRequireAdmin,
     }));

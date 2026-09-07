@@ -1,11 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import path from "node:path";
 
-const MIGRATIONS_FOLDER = path.resolve(__dirname, "../../../../drizzle/migrations");
+const MIGRATIONS_FOLDER = path.resolve(
+  __dirname,
+  "../../../../drizzle/migrations",
+);
 
 /**
  * Integration test: verifies that running all Drizzle migrations twice
@@ -33,27 +39,34 @@ describe("Database migrations", () => {
     const db = drizzle(client);
 
     await expect(
-      migrate(db, { migrationsFolder: MIGRATIONS_FOLDER })
+      migrate(db, { migrationsFolder: MIGRATIONS_FOLDER }),
     ).resolves.not.toThrow();
 
     await client.end();
   }, 30_000);
 
   it("should run all migrations a second time without errors (idempotency)", async () => {
-    // The first run already happened in the test above.
-    // Running again on the same populated DB must succeed.
+    // Runs migrate TWICE itself. It used to rely on the test above having gone
+    // first, so running this case alone — or under a shuffled order — silently
+    // tested the fresh-database path instead of idempotency (#1630).
     const client = postgres(connectionString, { max: 1 });
     const db = drizzle(client);
 
     await expect(
-      migrate(db, { migrationsFolder: MIGRATIONS_FOLDER })
+      migrate(db, { migrationsFolder: MIGRATIONS_FOLDER }),
+    ).resolves.not.toThrow();
+    await expect(
+      migrate(db, { migrationsFolder: MIGRATIONS_FOLDER }),
     ).resolves.not.toThrow();
 
     await client.end();
-  }, 30_000);
+  }, 60_000);
 
   it("should produce the expected schema after migrations", async () => {
     const client = postgres(connectionString, { max: 1 });
+    // Migrate here rather than depending on an earlier test — migrations are
+    // idempotent, so this is cheap and makes the case order-independent.
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
 
     const tables = await client`
       SELECT table_name
@@ -74,5 +87,41 @@ describe("Database migrations", () => {
     expect(tableNames).toContain("widget_template");
 
     await client.end();
-  }, 10_000);
+  }, 60_000);
+
+  it("gives every tenant-scoped table a NOT NULL, indexed tenant_id", async () => {
+    // Multi-tenancy is the repo's highest-consequence invariant and it was
+    // guarded only by a source-text scan (tenant-scope.test.ts). Nothing
+    // asserted the column exists in the schema at all, let alone that it
+    // cannot be null or that filtering on it is indexed (#1630).
+    const client = postgres(connectionString, { max: 1 });
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+
+    const TENANT_TABLES = [
+      "user",
+      "connection",
+      "dashboard",
+      "dashboard_share",
+      "widget_template",
+      "api_key",
+      "sso_provider",
+      "audit_log",
+    ];
+
+    const columns = await client`
+      SELECT table_name, is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND column_name = 'tenant_id'
+    `;
+    const byTable = new Map(
+      columns.map((r) => [r.table_name as string, r.is_nullable as string]),
+    );
+
+    for (const table of TENANT_TABLES) {
+      expect(byTable.has(table), `${table} has no tenant_id column`).toBe(true);
+      expect(byTable.get(table), `${table}.tenant_id is nullable`).toBe("NO");
+    }
+
+    await client.end();
+  }, 60_000);
 });
