@@ -47,17 +47,36 @@ vi.mock("echarts/core", () => {
   };
 });
 
-/** Every colour key a chart could use to override the themed slider. */
-const COLOUR_KEYS = [
-  "backgroundColor",
-  "borderColor",
-  "fillerColor",
-  "handleStyle",
-  "moveHandleStyle",
-  "dataBackground",
-  "selectedDataBackground",
-  "textStyle",
-] as const;
+/**
+ * An allowlist of GEOMETRY, not a denylist of colours.
+ *
+ * It was eight named colour keys until #1632, so any key not on the list —
+ * `brushStyle`, `emphasis`, `labelFormatter`, a future ECharts option — passed
+ * unexamined. Naming what a chart MAY set inverts that: a new styling key
+ * fails by default and someone has to decide it belongs in the theme.
+ */
+const GEOMETRY_KEYS = new Set([
+  "type",
+  "xAxisIndex",
+  "yAxisIndex",
+  "height",
+  "width",
+  "top",
+  "bottom",
+  "left",
+  "right",
+  "start",
+  "end",
+  "startValue",
+  "endValue",
+  "handleSize",
+  "minSpan",
+  "maxSpan",
+  "zoomLock",
+  "filterMode",
+  "throttle",
+  "disabled",
+]);
 
 const ganttData = [
   { task: "Design", start: 1700000000000, end: 1700500000000 },
@@ -89,13 +108,16 @@ describe("dataZoom styling comes from the theme (#1273)", () => {
   it.each([
     ["gantt", <GanttChart key="g" data={ganttData} />],
     ["gantt with a vertical slider", <GanttChart key="v" data={manyTasks} />],
-  ])("%s declares no dataZoom colour of its own", (_name, ui) => {
+  ])("%s declares only dataZoom geometry, never styling", (_name, ui) => {
     const zooms = zoomsOf(ui);
     expect(zooms.length).toBeGreaterThan(0);
     for (const zoom of zooms) {
-      for (const key of COLOUR_KEYS) {
-        expect(zoom).not.toHaveProperty(key);
-      }
+      const styling = Object.keys(zoom).filter((k) => !GEOMETRY_KEYS.has(k));
+      expect(
+        styling,
+        "a chart may say where its zoom control sits, not what it looks like — " +
+          "the slider's palette belongs to the registered theme (#1273)",
+      ).toEqual([]);
     }
   });
 

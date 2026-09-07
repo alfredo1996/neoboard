@@ -139,11 +139,22 @@ describe("elevation scale (#823)", () => {
     },
   );
 
+  it("the warm-hue matcher rejects a cold hue", () => {
+    // Positive/negative control for the pattern itself: without the trailing
+    // delimiter it accepted hsl(300 ...) as "warm".
+    const WARM = /hsl\(3\d[\s,)]/;
+    expect(WARM.test("0 1px 2px hsl(38 40% 12% / 0.06)")).toBe(true);
+    expect(WARM.test("0 1px 2px hsl(300 40% 12% / 0.06)")).toBe(false);
+    expect(WARM.test("0 1px 2px hsl(220 40% 12% / 0.06)")).toBe(false);
+  });
+
   it("light-mode shadows are warm-tinted, not pure black", () => {
     for (const token of ["--shadow-sm", "--shadow-md", "--shadow-lg"]) {
       const v = tokenValue(light, token)!;
       expect(v).not.toMatch(/rgba?\(0,\s*0,\s*0/);
-      expect(v).toMatch(/hsl\(3\d/); // warm hue family
+      // Anchored to a hue delimiter: /hsl\(3\d/ also matched hue 300 —
+      // magenta — because there was no digit boundary (#1632).
+      expect(v).toMatch(/hsl\(3\d[\s,)]/); // warm hue family, 30-39
     }
   });
 });

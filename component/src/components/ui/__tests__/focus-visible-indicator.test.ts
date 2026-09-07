@@ -42,31 +42,113 @@ const INDICATOR = /focus:(ring|outline)|focus-visible:(ring|outline)/;
  * SelectItem, the element the user actually navigates, has only the fill
  * (line 133). File granularity hid exactly the case this is meant to catch.
  *
- * Class strings in these components are one per line, so a line is the right
- * unit.
+ * The unit is the CLASS STRING, not the source line. It was the line until
+ * #1632: every risky class string happened to be one long single-quoted line,
+ * so the two utilities were always seen together — but splitting one across
+ * two literals, which is what anyone editing a 300-character line does and
+ * what prettier does the moment the line grows, made the ratchet go quietly
+ * blind. Quoted segments are joined per statement so the check survives
+ * however the source is wrapped.
  */
-function occurrencesRelyingOnFillAlone(): string[] {
+
+/**
+ * The class strings in one source file, each with the line it starts on.
+ *
+ * A "class string" here is a run of adjacent string/template literals — the
+ * shape `cn("a b", "c d")` and a wrapped `"a b " + "c d"` both produce one
+ * entry — so a utility split across two literals is still seen alongside its
+ * neighbours.
+ */
+export function classStrings(src: string): { text: string; line: number }[] {
+  const out: { text: string; line: number }[] = [];
+  const lines = src.split("\n");
+  let buf: string[] = [];
+  let start = 0;
+
+  const flush = () => {
+    if (buf.length) out.push({ text: buf.join(" "), line: start + 1 });
+    buf = [];
+  };
+
+  lines.forEach((line, i) => {
+    const quoted = line.match(/(["'`])((?:\\.|(?!\1)[^\\])*)\1/g);
+    if (!quoted) {
+      // A line with no literal ends the run — different statement, different
+      // class string.
+      if (!/^\s*[,)]/.test(line) && !/^\s*$/.test(line)) flush();
+      return;
+    }
+    if (!buf.length) start = i;
+    buf.push(quoted.map((q) => q.slice(1, -1)).join(" "));
+  });
+  flush();
+  return out;
+}
+
+/** Class strings that kill the native outline and signal focus with fill alone. */
+export function occurrencesRelyingOnFillAlone(
+  read: (file: string) => string = (f) =>
+    readFileSync(resolve(uiDir, f), "utf8"),
+  files: string[] = readdirSync(uiDir).filter((f) => f.endsWith(".tsx")),
+): string[] {
   const offenders: string[] = [];
-  for (const file of readdirSync(uiDir)) {
-    if (!file.endsWith(".tsx")) continue;
-    const lines = readFileSync(resolve(uiDir, file), "utf8").split("\n");
-    lines.forEach((line, i) => {
+  for (const file of files) {
+    for (const { text, line } of classStrings(read(file))) {
       // The risky shape: kill the native outline, then signal focus with only
       // a background colour.
-      if (!line.includes("outline-none")) return;
-      if (!line.includes("focus:bg-accent")) return;
-      if (!INDICATOR.test(line)) offenders.push(`${file}:${i + 1}`);
-    });
+      if (!text.includes("outline-none")) continue;
+      if (!text.includes("focus:bg-accent")) continue;
+      if (!INDICATOR.test(text)) offenders.push(`${file}:${line}`);
+    }
   }
   return offenders;
 }
 
+/** How many class strings carry the risky shape at all. */
+export function riskyOccurrenceCount(): number {
+  let n = 0;
+  for (const file of readdirSync(uiDir).filter((f) => f.endsWith(".tsx"))) {
+    for (const { text } of classStrings(
+      readFileSync(resolve(uiDir, file), "utf8"),
+    )) {
+      if (text.includes("outline-none") && text.includes("focus:bg-accent"))
+        n++;
+    }
+  }
+  return n;
+}
+
 describe("#1552 — focus must not be signalled by fill alone", () => {
-  it("finds files with the risky shape at all", () => {
-    // Guard: if the codebase stops using `outline-none` + `focus:bg-accent`
-    // entirely, this suite must not pass by scanning nothing.
-    const scanned = readdirSync(uiDir).filter((f) => f.endsWith(".tsx"));
-    expect(scanned.length).toBeGreaterThan(10);
+  it("finds occurrences of the risky shape at all", () => {
+    // Counts MATCHES, not files. It counted files until #1632, so a detector
+    // that had stopped matching anything still satisfied its own guard.
+    expect(riskyOccurrenceCount()).toBeGreaterThan(5);
+  });
+
+  it("still sees a class string split across two literals", () => {
+    // The reason the file-count guard was not enough: the detector required
+    // both utilities on one physical line, and reformatting separated them.
+    const split = `
+      const cls = cn(
+        "outline-none focus:bg-accent",
+        "text-sm",
+      );
+    `;
+    expect(occurrencesRelyingOnFillAlone(() => split, ["fixture.tsx"])).toEqual(
+      ["fixture.tsx:3"],
+    );
+  });
+
+  it("accepts a split class string that does carry a ring", () => {
+    const ok = `
+      const cls = cn(
+        "outline-none focus:bg-accent",
+        "focus-visible:ring-2 focus-visible:ring-ring",
+      );
+    `;
+    expect(occurrencesRelyingOnFillAlone(() => ok, ["fixture.tsx"])).toEqual(
+      [],
+    );
   });
 
   it("gives every such component a real focus indicator", () => {

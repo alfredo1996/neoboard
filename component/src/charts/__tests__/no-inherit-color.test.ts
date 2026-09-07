@@ -32,6 +32,22 @@ function listChartFiles(): string[] {
 const INHERIT_COLOR = /color\s*:\s*["']inherit["']/;
 
 describe("ECharts theme integration", () => {
+  it("scans the chart modules at all", () => {
+    // The whole test was one `expect(offenders).toEqual([])` with no guard:
+    // rename or move src/charts and listChartFiles() returns [], offenders is
+    // [], and the #919 ratchet passes forever while checking nothing (#1632).
+    const files = listChartFiles();
+    expect(files.length).toBeGreaterThan(15);
+    expect(files.some((f) => f.endsWith("bar-chart.tsx"))).toBe(true);
+  });
+
+  it("detects the broken idiom when it is present", () => {
+    // Positive control for the matcher itself.
+    expect(INHERIT_COLOR.test('  color: "inherit",')).toBe(true);
+    expect(INHERIT_COLOR.test("  color: 'inherit',")).toBe(true);
+    expect(INHERIT_COLOR.test('  color: "#fff",')).toBe(false);
+  });
+
   it("no chart component uses color: 'inherit' (#919)", () => {
     const offenders: string[] = [];
     for (const file of listChartFiles()) {
