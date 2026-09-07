@@ -107,3 +107,39 @@ export function resolveStylingRuleRowStyle(
     paramValues,
   );
 }
+
+/** How a cell's inline style is produced: row data plus the column it is in. */
+export type CellStyleResolver = (
+  row: Record<string, unknown>,
+  columnId: string,
+) => CSSProperties | undefined;
+
+/**
+ * Combine column-scoped styling rules with an optional colour scale into the
+ * single resolver DataGrid asks per cell, or undefined when neither applies.
+ *
+ * A rule is an explicit instruction and a colour scale is a background
+ * gradient, so the rule wins where the two overlap.
+ *
+ * Lives here rather than inline in table-renderer so the branches are reachable
+ * from the unit suite — E2E coverage of a client component is server-side only
+ * and never reaches the new-code gate.
+ */
+export function makeCellStyleResolver(
+  rules: StylingRule[] | undefined,
+  colorScaleStyle: CellStyleResolver | undefined,
+  paramValues?: Record<string, unknown>,
+): CellStyleResolver | undefined {
+  const scoped = rules?.filter((r) => r.column);
+  if (!scoped?.length) return colorScaleStyle;
+  return (row, columnId) => {
+    const scale = colorScaleStyle?.(row, columnId);
+    const rule = resolveStylingRuleCellStyle(
+      scoped,
+      row,
+      columnId,
+      paramValues,
+    );
+    return scale || rule ? { ...scale, ...rule } : undefined;
+  };
+}

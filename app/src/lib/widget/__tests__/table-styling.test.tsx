@@ -3,6 +3,7 @@ import type { StylingRule } from "@neoboard/components";
 import {
   resolveStylingRuleRowStyle,
   resolveStylingRuleCellStyle,
+  makeCellStyleResolver,
 } from "../table-styling";
 
 function rule(partial: Partial<StylingRule>): StylingRule {
@@ -196,5 +197,74 @@ describe("resolveStylingRuleRowStyle — a rule that names no column", () => {
       undefined,
     );
     expect(style).toBeUndefined();
+  });
+});
+
+describe("makeCellStyleResolver — rules and colour scales on one cell", () => {
+  const row = { product: "Ultra Widget", total: 150 };
+  const scaleOnTotal = (_r: Record<string, unknown>, col: string) =>
+    col === "total"
+      ? { backgroundColor: "#dbeafe", color: "#111111" }
+      : undefined;
+
+  it("returns the colour scale untouched when no rule names a column", () => {
+    expect(makeCellStyleResolver([], scaleOnTotal)).toBe(scaleOnTotal);
+    expect(makeCellStyleResolver(undefined, scaleOnTotal)).toBe(scaleOnTotal);
+    expect(
+      makeCellStyleResolver([rule({ column: undefined })], scaleOnTotal),
+    ).toBe(scaleOnTotal);
+  });
+
+  it("returns undefined when there is neither a scoped rule nor a scale", () => {
+    expect(makeCellStyleResolver(undefined, undefined)).toBeUndefined();
+  });
+
+  it("applies a scoped rule where no colour scale reaches", () => {
+    const resolve = makeCellStyleResolver(
+      [rule({ column: "total", target: "color", color: "#22c55e" })],
+      undefined,
+    );
+    expect(resolve?.(row, "total")).toEqual({ color: "#22c55e" });
+    expect(resolve?.(row, "product")).toBeUndefined();
+  });
+
+  it("lets the rule win over the scale where both land on one cell", () => {
+    // A rule is an explicit instruction; a scale is a background gradient.
+    const resolve = makeCellStyleResolver(
+      [rule({ column: "total", target: "backgroundColor", color: "#000000" })],
+      scaleOnTotal,
+    );
+    const style = resolve?.(row, "total");
+    expect(style?.backgroundColor).toBe("#000000");
+    // The contrast fill comes with the rule, so the scale's text colour goes.
+    expect(style?.color).not.toBe("#111111");
+  });
+
+  it("keeps the scale on columns the rule does not name", () => {
+    const resolve = makeCellStyleResolver(
+      [
+        rule({
+          column: "product",
+          operator: "contains",
+          value: "Ultra",
+          target: "color",
+          color: "#6366f1",
+        }),
+      ],
+      scaleOnTotal,
+    );
+    expect(resolve?.(row, "total")).toEqual({
+      backgroundColor: "#dbeafe",
+      color: "#111111",
+    });
+    expect(resolve?.(row, "product")?.color).toBe("#6366f1");
+  });
+
+  it("returns undefined for a cell neither reaches", () => {
+    const resolve = makeCellStyleResolver(
+      [rule({ column: "total", value: 10_000 })], // never matches
+      scaleOnTotal,
+    );
+    expect(resolve?.(row, "product")).toBeUndefined();
   });
 });

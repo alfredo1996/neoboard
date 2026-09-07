@@ -20,7 +20,7 @@ import type {
 import { parseGroupByColumns } from "@/lib/widget/table-utils";
 import {
   resolveStylingRuleRowStyle,
-  resolveStylingRuleCellStyle,
+  makeCellStyleResolver,
 } from "@/lib/widget/table-styling";
 
 const AGG_SYMBOLS: Record<string, string> = {
@@ -253,25 +253,10 @@ export function TableRenderer({
 
   // A rule that names a column paints that column's cell. Unscoped rules go
   // through getRowStyle and paint the row, as they always have (#1418).
-  const getCellStyle = useMemo(() => {
-    const scoped = stylingRules?.filter((r) => r.column);
-    if (!scoped?.length) return colorScaleStyle;
-    return (
-      row: Record<string, unknown>,
-      columnId: string,
-    ): React.CSSProperties | undefined => {
-      const scale = colorScaleStyle?.(row, columnId);
-      const rule = resolveStylingRuleCellStyle(
-        scoped,
-        row,
-        columnId,
-        paramValues,
-      );
-      // A rule is an explicit instruction; a colour scale is a background
-      // gradient. The rule wins where they overlap.
-      return scale || rule ? { ...scale, ...rule } : undefined;
-    };
-  }, [stylingRules, colorScaleStyle, paramValues]);
+  const getCellStyle = useMemo(
+    () => makeCellStyleResolver(stylingRules, colorScaleStyle, paramValues),
+    [stylingRules, colorScaleStyle, paramValues],
+  );
 
   const emptyMessage =
     (settings.emptyMessage as string | undefined) ?? "No results";
