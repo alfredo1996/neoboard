@@ -15,6 +15,7 @@
  */
 
 import { pluginRegistry } from "./registry";
+import { registerExternalPlugins } from "./register-external";
 import { CHART_TYPES } from "./chart-types";
 import { EXTERNAL_PLUGINS } from "./external-plugins.generated";
 import { validatePluginStubSync } from "@/lib/plugin/chart-helpers";
@@ -73,41 +74,7 @@ for (const plugin of BUILT_IN_PLUGINS) {
 }
 
 // ── External plugins (from neoboard-plugins.json) ───────────────────────
-// Registered AFTER built-ins so external plugins can replace a built-in
-// chart type — but only when their manifest entry has `overrides: true`.
-// Same-type duplicates without overrides throw loudly so operators spot
-// the conflict at startup instead of debugging a silent replacement.
-for (const { plugin, overrides } of EXTERNAL_PLUGINS) {
-  try {
-    if (!plugin || typeof plugin !== "object" || !plugin.type) {
-      console.error(
-        "External plugin skipped: invalid plugin object (missing type)",
-      );
-      continue;
-    }
-    if (pluginRegistry.has(plugin.type)) {
-      if (!overrides) {
-        console.error(
-          'External plugin "' +
-            plugin.type +
-            '" conflicts with an existing plugin. ' +
-            'Set "overrides": true in neoboard-plugins.json to replace it. Skipping.',
-        );
-        continue;
-      }
-      pluginRegistry.unregister(plugin.type);
-    }
-    pluginRegistry.register(plugin);
-  } catch (err) {
-    console.error(
-      "External plugin registration failed for type " +
-        JSON.stringify(plugin?.type) +
-        ":",
-      err,
-    );
-    // Continue loading remaining plugins — one broken plugin shouldn't crash the app
-  }
-}
+registerExternalPlugins(pluginRegistry, EXTERNAL_PLUGINS);
 
 // ── Startup validation ──────────────────────────────────────────────────
 
