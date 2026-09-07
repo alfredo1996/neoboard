@@ -128,3 +128,24 @@ export function makeDeleteChain(returning?: unknown[]) {
   }
   return { where: () => Promise.resolve() };
 }
+
+/**
+ * Drain every queued return value from a `db` mock between tests.
+ *
+ * `vi.clearAllMocks()` clears `mock.calls`. It does NOT drain an unconsumed
+ * `mockReturnValueOnce` queue, and Vitest hands a queued Once value out BEFORE
+ * a permanent `mockReturnValue` — so a test that queues two chains and consumes
+ * one leaves the leftover to decide the next test's answer. That is how the
+ * sso-providers 5-provider limit check came to read zero existing providers,
+ * and how `dashboards/[id]` handed a shared-viewer test the wrong first row
+ * (#1630).
+ *
+ * Call it in `beforeEach`, right after `vi.clearAllMocks()`.
+ */
+export function resetDbMock(db: Record<string, unknown>): void {
+  for (const value of Object.values(db)) {
+    if (typeof value === "function" && "mockReset" in value) {
+      (value as unknown as { mockReset: () => void }).mockReset();
+    }
+  }
+}

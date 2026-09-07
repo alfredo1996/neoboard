@@ -4,6 +4,12 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/__tests__/**/*.test.ts"],
+    // See app/vitest.config.ts — shuffled deliberately (#1630). Two suites
+    // here passed only in declaration order: the credential-probe file was
+    // green solely because its shell-injection fixture, which installs a
+    // poisoned config that `clearAllMocks` does not undo, happened to be
+    // declared last.
+    sequence: { shuffle: { tests: true, files: false } },
     coverage: {
       provider: "v8",
       reportsDirectory: "./coverage",

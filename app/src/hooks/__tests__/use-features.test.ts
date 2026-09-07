@@ -1,8 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock React Query — we test the fetch logic, not React wiring
+// Mock React Query — we test the fetch logic, not React wiring.
+//
+// `useQuery` echoes its config back, so a test can read the queryFn the hook
+// built. Tests that need a RESULT instead install a mockReturnValue — and that
+// implementation outlives the test: `clearAllMocks` clears calls, not
+// implementations, and `restoreAllMocks` only puts back spies made with
+// `vi.spyOn`, never a factory `vi.fn(impl)` inside a `vi.mock`. So the echo has
+// to be reinstalled per test, or the first mockReturnValue kills it for the
+// rest of the file (#1630).
+const echoConfig = (config: Record<string, unknown>) => config;
+
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: vi.fn((config: Record<string, unknown>) => config),
+  useQuery: vi.fn(echoConfig),
 }));
 
 const { useFeatures, useFeature } = await import("../use-features");
@@ -16,8 +26,11 @@ function mockResponse(body: unknown, status = 200): Response {
 }
 
 describe("useFeatures", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.restoreAllMocks();
+    const reactQuery = await import("@tanstack/react-query");
+    vi.mocked(reactQuery.useQuery).mockReset();
+    vi.mocked(reactQuery.useQuery).mockImplementation(echoConfig as never);
   });
 
   it("calls /api/features and unwraps the envelope", async () => {
@@ -49,8 +62,14 @@ describe("useFeatures", () => {
 });
 
 describe("useFeature", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.restoreAllMocks();
+    // See the note on the mock above: the echo must be reinstalled, and any
+    // unconsumed `mockReturnValueOnce` queue drained, or the previous test's
+    // setup decides this one's answer.
+    const reactQuery = await import("@tanstack/react-query");
+    vi.mocked(reactQuery.useQuery).mockReset();
+    vi.mocked(reactQuery.useQuery).mockImplementation(echoConfig as never);
   });
 
   it("returns undefined while features are loading", async () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
+  resetDbMock,
   makeUpdateChain,
   makeDeleteChain,
 } from "@/__tests__/helpers/drizzle-mocks";
@@ -104,6 +105,7 @@ describe("GET /api/connections/[id]", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     const mod = await import("../route");
     GET = mod.GET;
   });
@@ -301,6 +303,7 @@ describe("PATCH /api/connections/[id]", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     const mod = await import("../route");
     PATCH = mod.PATCH;
   });
@@ -599,6 +602,12 @@ describe("PATCH /api/connections/[id]", () => {
 
   it("calls prefetchSchema when password is explicitly provided", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
+    // PATCH reads the existing row to merge the config (route.ts:132-137).
+    // This test passed only when an earlier one happened to leave a select
+    // stub behind (#1630).
+    mockDb.select.mockReturnValue(
+      makeSelectChain([{ configEncrypted: "enc", type: "postgresql" }]),
+    );
     const updated = {
       id: "c1",
       name: "PostgreSQL",
@@ -645,10 +654,19 @@ describe("DELETE /api/connections/[id]", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    resetDbMock(mockDb);
     mockGetConnectionUsage.mockResolvedValue({
       widgetCount: 0,
       dashboards: [],
     });
+    // DELETE reads the row before deleting it, to evict the cached driver
+    // (route.ts:269-277). Every test here needs that select; they were getting
+    // it from whatever an earlier describe had left behind (#1630).
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        { name: "PostgreSQL", type: "postgresql", configEncrypted: null },
+      ]),
+    );
     const mod = await import("../route");
     DELETE = mod.DELETE;
   });
