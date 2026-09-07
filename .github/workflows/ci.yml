@@ -7,7 +7,12 @@ on:
       - 'app/**'
       - 'component/**'
       - 'connection/**'
+      - 'connector-sdk/**'
       - 'cli/**'
+      # The E2E fixture substrate: global-setup.ts mounts
+      # docker/postgres/init-test.sql into the Postgres testcontainer that all
+      # 54 specs run against, so it can break every one of them (#1627).
+      - 'docker/**'
       # Root-level code the lint job actually covers. Without these, a change
       # confined to scripts/ skipped CI entirely while still being lintable
       # code — and scripts/ holds the predev/prebuild import generators (#1263).
@@ -24,7 +29,12 @@ on:
       - 'app/**'
       - 'component/**'
       - 'connection/**'
+      - 'connector-sdk/**'
       - 'cli/**'
+      # The E2E fixture substrate: global-setup.ts mounts
+      # docker/postgres/init-test.sql into the Postgres testcontainer that all
+      # 54 specs run against, so it can break every one of them (#1627).
+      - 'docker/**'
       # Root-level code the lint job actually covers. Without these, a change
       # confined to scripts/ skipped CI entirely while still being lintable
       # code — and scripts/ holds the predev/prebuild import generators (#1263).
