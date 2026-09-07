@@ -287,6 +287,78 @@ test.describe("Widget Showcase seed dashboard", () => {
     });
   });
 
+  test("a column-scoped styling rule paints only its own column", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    // Seeded through the API rather than the styling editor: this is about
+    // what reaches the DOM, and driving six form controls to get there would
+    // be testing the editor instead.
+    const conns = await page.request.get("/api/connections");
+    const pg = (
+      (await conns.json()).data as { id: string; type: string }[]
+    ).find((c) => c.type === "postgresql");
+    expect(pg, "no PostgreSQL connection seeded").toBeTruthy();
+
+    const created = await page.request.post("/api/dashboards", {
+      data: { name: `Column-scoped rules ${Date.now()}` },
+    });
+    const { id } = (await created.json()).data;
+    await page.request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "p1",
+              title: "Page 1",
+              widgets: [
+                {
+                  id: "scoped",
+                  chartType: "table",
+                  connectionId: pg!.id,
+                  query:
+                    "SELECT title AS product, released AS margin FROM movies ORDER BY released DESC LIMIT 5",
+                  settings: {
+                    title: "Scoped rule",
+                    stylingConfig: {
+                      enabled: true,
+                      rules: [
+                        {
+                          id: "r1",
+                          column: "margin",
+                          operator: ">",
+                          value: 0,
+                          color: "rgb(22, 163, 74)",
+                          target: "color",
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+              gridLayout: [{ i: "scoped", x: 0, y: 0, w: 12, h: 8 }],
+            },
+          ],
+        },
+      },
+    });
+
+    await page.goto(`/${id}`);
+    const grid = page.locator("[data-testid='widget-card'] table");
+    await expect(grid.first()).toBeVisible({ timeout: 20_000 });
+
+    // Every rule used to merge into one row-level style, so the product name
+    // went green along with the margin (#1418).
+    const row = grid.locator("tbody tr").first();
+    const cells = row.locator("td");
+    const colours = await cells.evaluateAll((tds) =>
+      tds.map((td) => getComputedStyle(td).color),
+    );
+    expect(colours.filter((c) => c === "rgb(22, 163, 74)")).toHaveLength(1);
+  });
+
   test("should show the Simple Charts page tab", async ({ page }) => {
     test.setTimeout(30_000);
 

@@ -19,26 +19,26 @@ function isTextColorTarget(target: string | undefined): boolean {
 }
 
 /**
- * Resolve the inline style for a table row from conditional-styling rules.
+ * Build one inline style from a set of rules, each tested against `testCol`.
  *
- * Rules are evaluated in order; later matching rules override earlier ones.
- * When a background colour is set but no explicit text-colour rule matched, the
- * text colour is auto-chosen for contrast.
+ * Rules are applied in order and the last match wins, so two rules setting the
+ * same property on the same scope resolve predictably rather than by array
+ * position alone. When a background is set and none of THESE rules set a text
+ * colour, the text colour is chosen for contrast.
  */
-export function resolveStylingRuleRowStyle(
+function buildStyle(
   rules: StylingRule[],
   row: Record<string, unknown>,
-  defaultCol: string | undefined,
+  testCol: (rule: StylingRule) => string | undefined,
   paramValues?: Record<string, unknown>,
 ): CSSProperties | undefined {
   const style: CSSProperties = {};
   let hasStyle = false;
 
   for (const rule of rules) {
-    const ruleCol = rule.column || defaultCol;
-    if (!ruleCol || !(ruleCol in row)) continue;
-    const val = row[ruleCol];
-    const color = resolveStylingRuleColor(val, [rule], paramValues);
+    const col = testCol(rule);
+    if (!col || !(col in row)) continue;
+    const color = resolveStylingRuleColor(row[col], [rule], paramValues);
     if (!color) continue;
     const target = rule.target || "backgroundColor";
     if (target === "backgroundColor") {
@@ -55,14 +55,57 @@ export function resolveStylingRuleRowStyle(
     }
   }
 
-  // Auto-set text colour for contrast when a background is set but no explicit
-  // text-colour rule matched.
+  // Only the rules in this scope can suppress the contrast fill — a text rule
+  // on a different column has no bearing on this cell's readability.
   if (
     style.backgroundColor &&
-    !rules.some((r) => isTextColorTarget(r.target))
+    !rules.some((r) => testCol(r) && isTextColorTarget(r.target))
   ) {
     style.color = contrastTextColor(style.backgroundColor as string);
   }
 
   return hasStyle ? style : undefined;
+}
+
+/**
+ * The inline style for one table CELL, from the rules scoped to its column.
+ *
+ * A rule's `column` used to select which value was *tested* and never which
+ * cell was *painted*, so a rule on `margin` turned the product name and the
+ * price green too — and because every rule merged into one row-level object,
+ * two rules targeting the same property silently overwrote each other (#1418).
+ */
+export function resolveStylingRuleCellStyle(
+  rules: StylingRule[],
+  row: Record<string, unknown>,
+  columnId: string,
+  paramValues?: Record<string, unknown>,
+): CSSProperties | undefined {
+  return buildStyle(
+    rules,
+    row,
+    (rule) => (rule.column === columnId ? columnId : undefined),
+    paramValues,
+  );
+}
+
+/**
+ * The inline style for a whole table ROW, from the rules that name no column.
+ *
+ * An unscoped rule is tested against `defaultCol` — the widget's threshold
+ * column, or the first numeric column — and paints the entire row, which is
+ * what an unscoped rule has always meant.
+ */
+export function resolveStylingRuleRowStyle(
+  rules: StylingRule[],
+  row: Record<string, unknown>,
+  defaultCol: string | undefined,
+  paramValues?: Record<string, unknown>,
+): CSSProperties | undefined {
+  return buildStyle(
+    rules,
+    row,
+    (rule) => (rule.column ? undefined : defaultCol),
+    paramValues,
+  );
 }
