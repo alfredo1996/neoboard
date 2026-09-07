@@ -80,10 +80,6 @@ async function execute(
   return captured;
 }
 
-function rowCount(data: unknown): number {
-  return Array.isArray(data) ? data.length : 0;
-}
-
 /**
  * Build the query-safety conformance cases for a connector. `getModule` is
  * called lazily inside each case's `run()`, so the module can be created in a
@@ -124,10 +120,24 @@ export function buildConformanceCases(
           setup.queries.manyRows(rowLimit + 10),
           { ...base, accessMode: "READ", rowLimit },
         );
-        const rows = rowCount(data);
-        if (rows > rowLimit) {
+        // The lower bound matters as much as the upper one. With only
+        // `rows > rowLimit`, a connector that returned one row, no rows, or a
+        // non-array was conformant as long as it flagged truncation — and
+        // the old helper answered 0 for anything that was not an array, so
+        // `data: undefined` passed in silence (#1631).
+        if (!Array.isArray(data)) {
           throw new Error(
-            `row-limit violation: returned ${rows} rows, expected at most ${rowLimit}`,
+            `row-limit violation: onSuccess delivered ${
+              data === undefined ? "nothing" : typeof data
+            }, expected an array of ${rowLimit} rows`,
+          );
+        }
+        const rows = data.length;
+        // The query asked for rowLimit + 10, so a connector that caps
+        // correctly returns exactly rowLimit — no more, and no fewer.
+        if (rows !== rowLimit) {
+          throw new Error(
+            `row-limit violation: returned ${rows} rows, expected exactly ${rowLimit}`,
           );
         }
         if (!statuses.includes(QueryStatus.COMPLETE_TRUNCATED)) {
