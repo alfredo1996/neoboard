@@ -39,6 +39,22 @@ export function normalizeDecimalPlaces(
   return Math.min(6, Math.floor(value));
 }
 
+/**
+ * Dates are pinned to en-US for the same reason numbers are: a dashboard
+ * shared across a team should read the same for everyone looking at it,
+ * rather than following whichever locale each browser carries.
+ */
+const DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+});
+
+export function formatDate(ms: number): string {
+  if (!Number.isFinite(ms)) return "—";
+  return DATE_FMT.format(ms);
+}
+
 export function formatNumber(
   value: number | string,
   config: NumberFormatConfig = {},

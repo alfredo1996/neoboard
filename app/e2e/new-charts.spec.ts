@@ -216,11 +216,11 @@ test.describe("New chart types — creation flow", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Gantt" }).click();
 
-    // Type query — tasks with start/end timestamps
+    // Real dates. Neo4j hands a date() over as 'YYYY-MM-DD' (#1616).
     await typeInEditor(
       dialog,
       page,
-      "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m.title AS task, m.released AS start, m.released + 2 AS end RETURN task, start, end LIMIT 8",
+      "UNWIND [['Design', date('2026-04-01'), date('2026-04-03')], ['Build', date('2026-04-03'), date('2026-04-10')]] AS r RETURN r[0] AS task, r[1] AS start, r[2] AS end",
     );
 
     await expect(
@@ -230,6 +230,35 @@ test.describe("New chart types — creation flow", () => {
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+    await expect(
+      page.getByRole("img", { name: "Gantt chart with 2 tasks" }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("should reject a year column as gantt dates", async ({ page }) => {
+    test.setTimeout(60_000);
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Gantt" }).click();
+
+    // `released` is a year. It used to reach the chart as 1 999 000 ms —
+    // a cluster of invisible bars in January 1970 (#1616).
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (m:Movie) RETURN m.title AS task, m.released AS start, m.released + 2 AS end LIMIT 8",
+    );
+
+    await expect(dialog.getByText("Incompatible data format")).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
 

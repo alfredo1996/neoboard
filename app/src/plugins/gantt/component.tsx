@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { GanttDataItem, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
-import { transformToGanttData } from "./transform";
+import { transformToGanttData, validateGanttData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { ganttSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
@@ -50,6 +50,7 @@ export const ganttPlugin = defineChartPlugin({
   component: GanttPluginComponent,
   transform: transformToGanttData,
   transformWithMapping: transformToGanttData,
+  validate: validateGanttData,
   options: getChartOptions("gantt"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: ganttSettingsSchema,

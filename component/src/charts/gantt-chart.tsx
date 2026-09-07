@@ -13,7 +13,11 @@ import type { EChartsOption } from "echarts";
 import { BaseChart, useDarkMode } from "./base-chart";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import type { BaseChartProps } from "./types";
-import { buildEmptyDataOption, getCompactState } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  getCompactState,
+  formatDate,
+} from "./chart-utils";
 import { resolveStylingRuleColor, type StylingRule } from "./styling-rule";
 
 echarts.use([
@@ -238,8 +242,10 @@ function GanttChart({
           const p = params as { value: number[] };
           const v = p.value;
           const name = taskNames[v[0]];
-          const start = new Date(v[1]).toLocaleDateString();
-          const end = new Date(v[2]).toLocaleDateString();
+          // en-US, like every number in the library: a shared dashboard
+          // should read the same for everyone looking at it (#1616).
+          const start = formatDate(Number(v[1]));
+          const end = formatDate(Number(v[2]));
           const duration = formatDuration(v[3]);
           const category = v[4]
             ? `<br/>Category: ${echarts.format.encodeHTML(String(v[4]))}`
