@@ -126,7 +126,7 @@ function MapChart({
   markers = [],
   center = DEFAULT_CENTER,
   zoom = DEFAULT_ZOOM,
-  minZoom = 2,
+  minZoom = 0,
   maxZoom = 18,
   tileLayer,
   attribution,
@@ -146,6 +146,10 @@ function MapChart({
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  /** A fit that was asked for while the container had no size to fit into. */
+  const pendingFitRef = useRef(false);
+  /** The current fit, so the ResizeObserver can run it without re-arming. */
+  const fitToMarkersRef = useRef<(() => void) | null>(null);
 
   // Leaflet's LatLng constructor throws on non-finite input, and MapChart does
   // not go through BaseChart's setOption try/catch — so one row whose latitude
@@ -191,6 +195,10 @@ function MapChart({
 
     const ro = new ResizeObserver(() => {
       map.invalidateSize();
+      // A container coming back from zero size is the dashboard page
+      // round-trip in #1398: the fit that was skipped then finally has a
+      // viewport to fit into.
+      if (pendingFitRef.current) fitToMarkersRef.current?.();
     });
     ro.observe(el);
 
@@ -295,11 +303,36 @@ function MapChart({
   // the markers themselves change, preserving the user's pan/zoom otherwise.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !autoFitBounds || validMarkers.length === 0) return;
-    const bounds = L.latLngBounds(
-      validMarkers.map((m) => [m.lat, m.lng] as [number, number]),
-    );
-    map.fitBounds(bounds, { padding: fitBoundsPadding });
+    const el = containerRef.current;
+    if (!map || !el || !autoFitBounds || validMarkers.length === 0) {
+      fitToMarkersRef.current = null;
+      pendingFitRef.current = false;
+      return;
+    }
+
+    const fit = () => {
+      // fitBounds against a container with no size resolves to maxZoom, and
+      // the map is left zoomed past every marker — the white rectangle in
+      // #1398. A dashboard page that is not on screen measures exactly this,
+      // so the fit is deferred to the ResizeObserver rather than thrown away.
+      if (el.clientWidth === 0 || el.clientHeight === 0) {
+        pendingFitRef.current = true;
+        return;
+      }
+      pendingFitRef.current = false;
+      // Leaflet caches the container size it saw at construction, and
+      // getBoundsZoom works off that cache — so a map built before layout
+      // settled fits against 0x0 and returns maxZoom even though the DOM now
+      // reports a real width. Re-measure first (#1398).
+      map.invalidateSize({ animate: false });
+      const bounds = L.latLngBounds(
+        validMarkers.map((m) => [m.lat, m.lng] as [number, number]),
+      );
+      map.fitBounds(bounds, { padding: fitBoundsPadding });
+    };
+
+    fitToMarkersRef.current = fit;
+    fit();
   }, [validMarkers, autoFitBounds, fitBoundsPadding]);
 
   if (error) {

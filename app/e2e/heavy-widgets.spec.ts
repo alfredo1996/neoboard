@@ -122,6 +122,47 @@ test.describe("Heavy widget rendering", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
+  test("map chart — survives a dashboard page round-trip", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Map", exact: true }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+
+    await typeInEditor(
+      dialog,
+      page,
+      "UNWIND range(1,5) AS i RETURN 40.0+i AS lat, -73.0+i AS lng, 'Point ' + i AS name",
+    );
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({ timeout: 15_000 });
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+    const map = page.locator("[data-testid='widget-card'] .leaflet-container");
+    await expect(map).toBeVisible({ timeout: 15_000 });
+
+    // Away and back. The map's container measures 0x0 while page 2 is on
+    // screen, which is where the auto-fit used to resolve to maxZoom and
+    // leave a white rectangle behind (#1398).
+    await page.getByRole("button", { name: "Add page" }).click();
+    await expect(page.getByText("Page 2")).toBeVisible({ timeout: 10_000 });
+    await page.locator('[data-testid="page-tab"]').first().click();
+
+    await expect(map).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".leaflet-tile-pane img").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    // Clamped at maxZoom is what "blank" looked like from the outside.
+    await expect(
+      page.locator(".leaflet-control-zoom-in").first(),
+    ).not.toHaveClass(/leaflet-disabled/);
+  });
+
   test("map chart — pan/zoom interaction does not crash", async ({ page }) => {
     test.setTimeout(60_000);
     await page.getByRole("button", { name: "Add Widget" }).first().click();
