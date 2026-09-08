@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   formatParameterValue,
   filterParentParams,
-} from "@/lib/parameter/format-parameter-value";
+} from "../format-parameter-value";
 import type { ParameterEntry } from "@/stores/parameter-store";
 
 // ---------------------------------------------------------------------------
