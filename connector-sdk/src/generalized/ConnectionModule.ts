@@ -11,6 +11,20 @@ export abstract class ConnectionModule {
 
   protected constructor() {}
 
+  /**
+   * Run one query and report through `callbacks`.
+   *
+   * Contract: a failure inside the connector — authentication, connection,
+   * the query itself, a timeout — is reported through `onFail` (and
+   * `setStatus`) and the returned promise resolves. Exactly one of
+   * `onSuccess` / `onFail` fires per call.
+   *
+   * The consumer's own `onSuccess` is not part of that error path: if it
+   * throws, the connector must NOT roll back, must NOT set `ERROR`, and must
+   * NOT call `onFail`. The exception propagates and rejects the returned
+   * promise, so the caller sees its own bug rather than a database failure
+   * (#1642). The query-safety conformance harness checks this.
+   */
   abstract runQuery<T>(
     queryParams: QueryParams,
     callbacks: QueryCallback<T>,

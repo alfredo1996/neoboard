@@ -60,11 +60,15 @@ export class PostgresConnectionModule extends ConnectionModule {
 
     if (this.handleEmptyQuery(query, callbacks)) return;
 
-    // Invariant: runQuery must NEVER reject. The caller wraps this in a promise
-    // that settles only via onSuccess/onFail, so any thrown/rejected error here
-    // would leave that promise pending forever — hanging the request and pinning
-    // a scheduler slot. Funnel every failure (auth, pool.connect, network) to
-    // onFail. Neo4j already upholds this contract. (#CRITICAL)
+    // Invariant: every CONNECTOR-side failure (auth, pool.connect, network,
+    // the query itself) funnels to onFail and runQuery resolves. The one thing
+    // that may reject runQuery is the consumer's own onSuccess throwing — that
+    // is delivered below, outside this try, so the connector never mistakes a
+    // consumer bug for a database failure: no ROLLBACK of a committed
+    // transaction, no ERROR status, no onFail (#1642). query-executor.ts
+    // catches the rejection; before #1642 it dropped runQuery's promise, and
+    // an escaped error there hung the request and pinned a scheduler slot.
+    let payload: T | undefined;
     try {
       // Ensure connection is established
       if (!this.authModule.getPool()) {
@@ -85,7 +89,7 @@ export class PostgresConnectionModule extends ConnectionModule {
         }
       }
 
-      await this._runSqlQuery(query, callbacks, config, params);
+      payload = await this._runSqlQuery<T>(query, callbacks, config, params);
     } catch (error: unknown) {
       const wrapped = wrapError(error, "postgresql");
       callbacks.setStatus?.(
@@ -94,7 +98,10 @@ export class PostgresConnectionModule extends ConnectionModule {
           : QueryStatus.ERROR,
       );
       callbacks.onFail?.(wrapped);
+      return;
     }
+    // Outside the try on purpose — see the invariant above.
+    if (payload !== undefined) callbacks.onSuccess?.(payload);
   }
 
   /**
@@ -109,7 +116,7 @@ export class PostgresConnectionModule extends ConnectionModule {
     callbacks: QueryCallback<T>,
     config: ConnectionConfig,
     params: Record<string, unknown> = {},
-  ): Promise<void> {
+  ): Promise<T | undefined> {
     // Pool is guaranteed to exist — runQuery ensures authentication before calling this method
     const pool = this.authModule.getPool()!;
     // client is acquired INSIDE the try so a failed pool.connect() (DB down,
@@ -233,7 +240,10 @@ export class PostgresConnectionModule extends ConnectionModule {
 
       // Return a flat array of records — same shape as Neo4j's onSuccess.
       // query-executor.ts wraps this as { data: result } for consumers.
-      callbacks.onSuccess?.(parsedRecords as T);
+      // Handed back rather than delivered here: onSuccess runs in runQuery,
+      // outside this try, so a throwing consumer handler cannot reach the
+      // ROLLBACK below (#1642).
+      return parsedRecords as T;
     } catch (error: unknown) {
       // Rollback transaction on error — only if a client/transaction exists
       // (a failed pool.connect() lands here with no client to roll back).
@@ -259,6 +269,7 @@ export class PostgresConnectionModule extends ConnectionModule {
           : QueryStatus.ERROR,
       );
       callbacks.onFail?.(wrapped);
+      return undefined;
     } finally {
       releaseErrorGuard?.();
       client?.release();

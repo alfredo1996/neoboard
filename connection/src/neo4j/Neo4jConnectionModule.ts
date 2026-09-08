@@ -63,7 +63,17 @@ export class Neo4jConnectionModule extends ConnectionModule {
   ) {
     const { query, params = {} } = queryParams;
     if (this.handleEmptyQuery(query, callbacks)) return;
-    return this._runCypherQuery(query, callbacks, config, params);
+    const payload = await this._runCypherQuery<T>(
+      query,
+      callbacks,
+      config,
+      params,
+    );
+    // Delivered here, outside _runCypherQuery's try, so a throwing consumer
+    // handler is not caught as a query failure — no ERROR status, no onFail.
+    // It rejects runQuery instead, which is the caller's own error to handle
+    // (#1642).
+    if (payload !== undefined) callbacks.onSuccess?.(payload);
   }
 
   /**
@@ -150,7 +160,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
           callbacks.setFields([]);
         }
       }
-      callbacks.onSuccess?.(parsedResult as T);
+      return parsedResult as T;
     } catch (err: unknown) {
       const wrapped = wrapError(err, "neo4j");
       callbacks.setStatus?.(
@@ -159,6 +169,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
           : QueryStatus.ERROR,
       );
       callbacks.onFail?.(wrapped);
+      return undefined;
     } finally {
       await session.close();
     }

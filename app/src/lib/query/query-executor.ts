@@ -324,7 +324,7 @@ export async function executeQuery(
     // rowLimit cap. Previously this callback was unimplemented and
     // the signal was silently dropped.
     let truncated = false;
-    connModule.runQuery(
+    const inFlight = connModule.runQuery(
       finalQueryParams,
       {
         onSuccess: (result: unknown) =>
@@ -344,6 +344,12 @@ export async function executeQuery(
       },
       config,
     );
+    // runQuery rejects only when the consumer's own onSuccess throws (#1642).
+    // The onSuccess above is a bare resolve() and cannot, so this is a
+    // backstop — but without it a rejection would leave this promise pending
+    // forever and pin a scheduler slot. Promise.resolve() tolerates a stub
+    // that returns nothing.
+    Promise.resolve(inFlight).catch(reject);
   });
 }
 
