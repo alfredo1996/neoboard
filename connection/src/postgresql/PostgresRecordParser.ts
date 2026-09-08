@@ -9,6 +9,37 @@ import { NeodashRecord } from "@neoboard/connector-sdk";
 const OID_INT8 = 20;
 const OID_NUMERIC = 1700;
 
+/** DATE and DATE[] — a calendar day, with no time and no zone. */
+const OID_DATE = 1082;
+const OID_DATE_ARRAY = 1182;
+
+/**
+ * `YYYY-MM-DD` from a Date's LOCAL components.
+ *
+ * node-pg parses a DATE with `new Date(y, m - 1, d)` — the server process's
+ * local midnight — so reading the local components back recovers the stored
+ * day exactly, in any zone. Serialising the Date instead yields a UTC instant,
+ * which is the PREVIOUS DAY for any server east of UTC: a stored 2024-06-01
+ * reached the browser as "2024-05-31T22:00:00.000Z", and 2024-01-01 as the
+ * previous year (#1654).
+ *
+ * This is also what pg puts on the wire in the first place, and what
+ * Neo4jRecordParser emits for the identical concept — so the two connectors
+ * now agree about what a date is. A TIMESTAMP is left alone: that genuinely is
+ * an instant.
+ *
+ * The year is padded to four digits because the consumers match on
+ * /^\d{4}-\d{2}-\d{2}$/ (app/src/plugins/gantt/transform.ts).
+ */
+function toCalendarDay(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(toCalendarDay);
+  // 'infinity'::date arrives as Infinity, not a Date — leave it be rather
+  // than inventing a day for it.
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return value;
+  const pad = (n: number, width = 2) => String(n).padStart(width, "0");
+  return `${pad(value.getFullYear(), 4)}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+}
+
 export class PostgresRecordParser extends NeodashRecordParser {
   /**
    * Parses rows, optionally promoting int8/numeric columns to numbers (#1307).
@@ -29,7 +60,14 @@ export class PostgresRecordParser extends NeodashRecordParser {
         )
         .map((f) => f.name),
     );
-    return records.map((r) => this._parse(r, numericColumns));
+    const dateColumns = new Set(
+      (fields ?? [])
+        .filter(
+          (f) => f.dataTypeID === OID_DATE || f.dataTypeID === OID_DATE_ARRAY,
+        )
+        .map((f) => f.name),
+    );
+    return records.map((r) => this._parse(r, numericColumns, dateColumns));
   }
 
   /**
@@ -41,6 +79,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
   _parse(
     _record: Record<string, unknown>,
     _numericColumns?: ReadonlySet<string>,
+    _dateColumns?: ReadonlySet<string>,
   ): NeodashRecord {
     // If already a NeodashRecord, return as is
     if (_record instanceof NeodashRecord) {
@@ -52,10 +91,13 @@ export class PostgresRecordParser extends NeodashRecordParser {
     for (const key in _record) {
       if (Object.hasOwn(_record, key)) {
         const raw = _record[key];
-        parsed[key] =
-          _numericColumns?.has(key) && typeof raw === "string"
-            ? promoteNumericText(raw)
-            : this._pgToNative(raw);
+        if (_dateColumns?.has(key)) {
+          parsed[key] = toCalendarDay(raw);
+        } else if (_numericColumns?.has(key) && typeof raw === "string") {
+          parsed[key] = promoteNumericText(raw);
+        } else {
+          parsed[key] = this._pgToNative(raw);
+        }
       }
     }
 
