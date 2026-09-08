@@ -5,6 +5,8 @@ import {
   makeInsertChain,
   makeDeleteChain,
   makeUpdateChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -167,13 +169,19 @@ describe("GET /api/sso-providers", () => {
         updatedAt: new Date("2026-01-01"),
       },
     ];
-    mockDb.select.mockReturnValue(makeSelectChain(rows));
+    const chain = makeSelectChain(rows);
+    mockDb.select.mockReturnValue(chain);
     const res = await GET(makeRequest(null));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(1);
     expect(body.data[0]).not.toHaveProperty("clientSecretEncrypted");
     expect(body.data[0].name).toBe("Company SSO");
+    // The list is scoped to the session tenant (#1607).
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(["tenant_id"]);
+    expect(sqlValues(expr)).toEqual(["default"]);
   });
 });
 
@@ -287,19 +295,26 @@ describe("POST /api/sso-providers", () => {
   });
 
   it("returns 409 when max providers (5) reached", async () => {
-    mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
+    mockRequireAdmin.mockResolvedValue({
+      ...ADMIN_SESSION,
+      tenantId: "tenant-x",
+    });
     // Count check: 5 existing providers (at limit)
-    mockDb.select.mockReturnValue(
-      makeSelectChain([
-        { id: "1" },
-        { id: "2" },
-        { id: "3" },
-        { id: "4" },
-        { id: "5" },
-      ]),
-    );
+    const chain = makeSelectChain([
+      { id: "1" },
+      { id: "2" },
+      { id: "3" },
+      { id: "4" },
+      { id: "5" },
+    ]);
+    mockDb.select.mockReturnValue(chain);
     const res = await POST(makeRequest(validProvider));
     expect(res.status).toBe(409);
+    // The limit is per tenant, so the count must be scoped to the session's.
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(["tenant_id"]);
+    expect(sqlValues(expr)).toEqual(["tenant-x"]);
   });
 
   it("encrypts client secret before storing", async () => {
@@ -412,24 +427,18 @@ describe("POST /api/sso-providers", () => {
       ...ADMIN_SESSION,
       tenantId: "tenant-x",
     });
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([]))
-      .mockReturnValueOnce(makeSelectChain([]));
-
-    let capturedValues: Record<string, unknown> | null = null;
-    const insertChain = {
-      values: (vals: Record<string, unknown>) => {
-        capturedValues = vals;
-        return insertChain;
-      },
-      returning: () =>
-        Promise.resolve([{ id: "sso-1", name: "SSO", createdAt: new Date() }]),
-    };
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+    const insertChain = makeInsertChain([
+      { id: "sso-1", name: "SSO", createdAt: new Date() },
+    ]);
     mockDb.insert.mockReturnValue(insertChain);
 
-    await POST(makeRequest(validProvider));
-    expect(capturedValues).not.toBeNull();
-    expect(capturedValues!.tenantId).toBe("tenant-x");
+    // The body carries a tenantId too; the session one must win.
+    await POST(makeRequest({ ...validProvider, tenantId: "tenant-evil" }));
+    expect(insertChain.calls.values).toHaveLength(1);
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      tenantId: "tenant-x",
+    });
   });
 
   it("accepts optional claim mappings", async () => {
@@ -544,14 +553,22 @@ describe("DELETE /api/sso-providers", () => {
 
   it("returns 200 when provider deleted successfully", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
-    mockDb.delete.mockReturnValue(
-      makeDeleteChain([{ id: "sso-1", name: "Company SSO" }]),
-    );
+    const chain = makeDeleteChain([{ id: "sso-1", name: "Company SSO" }]);
+    mockDb.delete.mockReturnValue(chain);
     const res = await DELETE(
       makeRequest(null, "http://localhost/api/sso-providers?id=sso-1"),
     );
     expect(res.status).toBe(200);
     expect(mockInvalidateCache).toHaveBeenCalledWith("default");
+    // Deleting by id alone would let one tenant remove another's provider.
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["sso-1", "default"]),
+    );
   });
 
   it("records an sso.provider.delete audit entry (#1234)", async () => {
@@ -656,16 +673,15 @@ describe("PATCH /api/sso-providers", () => {
 
   it("updates provider and invalidates cache", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN_SESSION);
-    mockDb.update.mockReturnValue(
-      makeUpdateChain([
-        {
-          id: "sso-1",
-          name: "Updated SSO",
-          issuer: "https://idp.example.com",
-          enabled: true,
-        },
-      ]),
-    );
+    const chain = makeUpdateChain([
+      {
+        id: "sso-1",
+        name: "Updated SSO",
+        issuer: "https://idp.example.com",
+        enabled: true,
+      },
+    ]);
+    mockDb.update.mockReturnValue(chain);
     const res = await PATCH(
       makeRequest({ id: "sso-1", name: "Updated SSO", enforceSso: true }),
     );
@@ -673,6 +689,15 @@ describe("PATCH /api/sso-providers", () => {
     const body = await res.json();
     expect(body.data.name).toBe("Updated SSO");
     expect(mockInvalidateCache).toHaveBeenCalledWith("default");
+    // The update is scoped to the session tenant as well as the id (#1607).
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["sso-1", "default"]),
+    );
   });
 
   it("encrypts clientSecret when provided", async () => {

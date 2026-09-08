@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -76,7 +78,8 @@ describe("GET /api/widget-templates", () => {
       userId: "user-1",
       role: "creator",
       canWrite: true,
-      tenantId: "default",
+      // Non-default, so a filter hard-coded to "default" cannot pass (#1607).
+      tenantId: "tenant-x",
     });
     const template = {
       id: "t1",
@@ -85,15 +88,24 @@ describe("GET /api/widget-templates", () => {
       connectorType: "neo4j",
     };
     // First call -> count query ([{ total: 1 }]), second call -> rows
+    const countChain = makeSelectChain([{ total: 1 }]);
+    const rowsChain = makeSelectChain([template]);
     mockDb.select
-      .mockReturnValueOnce(makeSelectChain([{ total: 1 }]))
-      .mockReturnValueOnce(makeSelectChain([template]));
+      .mockReturnValueOnce(countChain)
+      .mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(1);
     expect(body.meta).toMatchObject({ total: 1, limit: 25, offset: 0 });
+    // Both the count and the page are scoped to the session tenant (#1607).
+    for (const chain of [countChain, rowsChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toContain("tenant_id");
+      expect(sqlValues(expr)).toContain("tenant-x");
+    }
   });
 
   it("supports filtering by chartType", async () => {
@@ -281,7 +293,7 @@ describe("POST /api/widget-templates", () => {
       userId: "user-1",
       role: "creator",
       canWrite: true,
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const created = {
       id: "t1",
@@ -290,18 +302,27 @@ describe("POST /api/widget-templates", () => {
       connectorType: "neo4j",
       createdBy: "user-1",
     };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+    const chain = makeInsertChain([created]);
+    mockDb.insert.mockReturnValue(chain);
 
     const res = await POST(
       makeRequest({
         name: "My Template",
         chartType: "bar",
         connectorType: "neo4j",
+        // Must be ignored: the tenant comes from the session, never the body.
+        tenantId: "evil-tenant",
+        createdBy: "someone-else",
       }),
     );
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data).toEqual(created);
     expect(body.error).toBeNull();
+    expect(chain.calls.values).toHaveLength(1);
+    expect(chain.calls.values[0][0]).toMatchObject({
+      tenantId: "tenant-x",
+      createdBy: "user-1",
+    });
   });
 });

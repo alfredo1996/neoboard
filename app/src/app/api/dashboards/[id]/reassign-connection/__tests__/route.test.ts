@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeParams, makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -171,13 +175,24 @@ describe("POST /api/dashboards/[id]/reassign-connection", () => {
   // (owner OR visibility='shared' OR admin). "Exists in tenant" is too weak —
   // it would let a user pick someone else's private connection.
   it("returns 404 for a private connection the caller cannot query", async () => {
-    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    const targetChain = makeSelectChain([]);
+    mockDb.select.mockReturnValueOnce(targetChain);
     const res = await POST(
       makeRequest({ fromConnectionId: "c1", targetConnectionId: "other" }),
       makeParams("d1"),
     );
     expect(res.status).toBe(404);
     expect(mockReassignConnectionWidgets).not.toHaveBeenCalled();
+
+    // The filter itself: tenant AND (owner OR shared) for a non-admin (#1607).
+    expect(targetChain.calls.where).toHaveLength(1);
+    const [expr] = targetChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id", "userId", "visibility"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["other", "t1", "user-1", "shared"]),
+    );
   });
 
   // ── Connector type check ─────────────────────────────────────────────
@@ -218,9 +233,11 @@ describe("POST /api/dashboards/[id]/reassign-connection", () => {
   // ── Success ──────────────────────────────────────────────────────────
 
   it("scopes the reassign to this dashboard and returns the counts", async () => {
+    const targetChain = makeSelectChain([PG]);
+    const sourceChain = makeSelectChain([{ id: "c1", type: "postgresql" }]);
     mockDb.select
-      .mockReturnValueOnce(makeSelectChain([PG]))
-      .mockReturnValueOnce(makeSelectChain([{ id: "c1", type: "postgresql" }]));
+      .mockReturnValueOnce(targetChain)
+      .mockReturnValueOnce(sourceChain);
 
     const res = await POST(
       makeRequest({ fromConnectionId: "c1", targetConnectionId: "c2" }),
@@ -238,6 +255,21 @@ describe("POST /api/dashboards/[id]/reassign-connection", () => {
       isAdmin: false,
       tenantId: "t1",
     });
+
+    // Both connection lookups carry the session tenant (#1607).
+    const [targetExpr] = targetChain.calls.where[0];
+    expect(sqlColumns(targetExpr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id", "userId"]),
+    );
+    expect(sqlValues(targetExpr)).toEqual(
+      expect.arrayContaining(["c2", "t1", "user-1"]),
+    );
+    expect(sourceChain.calls.where).toHaveLength(1);
+    const [sourceExpr] = sourceChain.calls.where[0];
+    expect(sqlColumns(sourceExpr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlValues(sourceExpr)).toEqual(expect.arrayContaining(["c1", "t1"]));
   });
 
   it("audits against the dashboard, not the connection", async () => {
@@ -295,7 +327,8 @@ describe("POST /api/dashboards/[id]/reassign-connection", () => {
   // ── Multi-tenancy ────────────────────────────────────────────────────
 
   it("takes tenantId from the session and ignores the request body", async () => {
-    mockDb.select.mockReturnValueOnce(makeSelectChain([PG]));
+    const targetChain = makeSelectChain([PG]);
+    mockDb.select.mockReturnValueOnce(targetChain);
 
     await POST(
       makeRequest({ targetConnectionId: "c2", tenantId: "attacker-tenant" }),
@@ -308,16 +341,29 @@ describe("POST /api/dashboards/[id]/reassign-connection", () => {
     expect(mockResolveDashboardAccess).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: "t1" }),
     );
+    const [expr] = targetChain.calls.where[0];
+    expect(sqlColumns(expr)).toContain("tenant_id");
+    const values = sqlValues(expr);
+    expect(values).toContain("t1");
+    expect(values).not.toContain("attacker-tenant");
   });
 
   it("passes isAdmin through for an admin session", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
-    mockDb.select.mockReturnValueOnce(makeSelectChain([PG]));
+    const targetChain = makeSelectChain([PG]);
+    mockDb.select.mockReturnValueOnce(targetChain);
 
     await POST(makeRequest({ targetConnectionId: "c2" }), makeParams("d1"));
 
     expect(mockReassignConnectionWidgets).toHaveBeenCalledWith(
       expect.objectContaining({ isAdmin: true }),
     );
+    // Admin skips the owner/shared check but stays inside the tenant (#1607).
+    const [expr] = targetChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlColumns(expr)).not.toContain("userId");
+    expect(sqlValues(expr)).toEqual(expect.arrayContaining(["c2", "t1"]));
   });
 });

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeUpdateChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeUpdateChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
@@ -124,7 +128,8 @@ describe("POST /api/users/[id]/reset-password", () => {
       canWrite: true,
       tenantId: "tenant-a",
     });
-    mockDb.update.mockReturnValue(makeUpdateChain([{ id: "user-2" }]));
+    const chain = makeUpdateChain([{ id: "user-2" }]);
+    mockDb.update.mockReturnValue(chain);
     const res = await POST(
       makeRequest({ newPassword: "NewPassword1!" }),
       makeParams("user-2"),
@@ -132,6 +137,15 @@ describe("POST /api/users/[id]/reset-password", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.reset).toBe(true);
+    // Scoped by id AND the session tenant (#1607).
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["user-2", "tenant-a"]),
+    );
   });
 
   it("returns 404 when target user belongs to a different tenant", async () => {
@@ -141,7 +155,8 @@ describe("POST /api/users/[id]/reset-password", () => {
       tenantId: "tenant-a",
     });
     // Simulate no rows returned because tenant filter excludes user from tenant-b
-    mockDb.update.mockReturnValue(makeUpdateChain([]));
+    const chain = makeUpdateChain([]);
+    mockDb.update.mockReturnValue(chain);
     const res = await POST(
       makeRequest({ newPassword: "NewPassword1!" }),
       makeParams("user-in-tenant-b"),
@@ -149,6 +164,14 @@ describe("POST /api/users/[id]/reset-password", () => {
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.error.message).toBe("User not found");
+    // The 404 only means something if the filter actually names the tenant.
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["user-in-tenant-b", "tenant-a"]),
+    );
   });
 
   it("returns generated password when generatePassword is true", async () => {
@@ -237,22 +260,15 @@ describe("POST /api/users/[id]/reset-password", () => {
       canWrite: true,
       tenantId: "tenant-a",
     });
-    let capturedFields: Record<string, unknown> = {};
-    const mockSet = vi.fn().mockImplementation((fields) => {
-      capturedFields = fields;
-      return {
-        where: () => ({
-          returning: () => Promise.resolve([{ id: "user-2" }]),
-        }),
-      };
-    });
-    mockDb.update.mockReturnValue({ set: mockSet });
+    const chain = makeUpdateChain([{ id: "user-2" }]);
+    mockDb.update.mockReturnValue(chain);
 
     const res = await POST(
       makeRequest({ newPassword: "NewPassword1!" }),
       makeParams("user-2"),
     );
     expect(res.status).toBe(200);
-    expect(capturedFields.passwordChangedAt).toBeInstanceOf(Date);
+    const [fields] = chain.calls.set[0] as [Record<string, unknown>];
+    expect(fields.passwordChangedAt).toBeInstanceOf(Date);
   });
 });

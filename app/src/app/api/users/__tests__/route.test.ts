@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -73,7 +75,7 @@ describe("GET /api/users", () => {
   it("returns users in envelope with pagination meta", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const rows = [
       {
@@ -94,9 +96,11 @@ describe("GET /api/users", () => {
       },
     ];
     // Count query
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
+    const countChain = makeSelectChain([{ count: 2 }]);
+    mockDb.select.mockReturnValueOnce(countChain);
     // Data query
-    mockDb.select.mockReturnValueOnce(makeSelectChain(rows));
+    const rowsChain = makeSelectChain(rows);
+    mockDb.select.mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest({}, "http://localhost/api/users"));
     expect(res.status).toBe(200);
@@ -106,6 +110,13 @@ describe("GET /api/users", () => {
     expect(body.data[1].canWrite).toBe(false);
     expect(body.error).toBeNull();
     expect(body.meta).toEqual({ total: 2, limit: 25, offset: 0 });
+    // Both the total and the page are scoped to the session tenant (#1607).
+    for (const chain of [countChain, rowsChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toEqual(["tenant_id"]);
+      expect(sqlValues(expr)).toEqual(["tenant-x"]);
+    }
   });
 
   it("respects limit and offset query params", async () => {
@@ -189,9 +200,10 @@ describe("POST /api/users", () => {
   it("creates user and returns 201 envelope", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
-    mockDb.select.mockReturnValue(makeSelectChain([]));
+    const selectChain = makeSelectChain([]);
+    mockDb.select.mockReturnValue(selectChain);
     const created = {
       id: "u1",
       name: "Test",
@@ -200,7 +212,8 @@ describe("POST /api/users", () => {
       canWrite: false,
       createdAt: new Date(),
     };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+    const insertChain = makeInsertChain([created]);
+    mockDb.insert.mockReturnValue(insertChain);
 
     const res = await POST(
       makeRequest({
@@ -209,6 +222,8 @@ describe("POST /api/users", () => {
         password: "password123",
         role: "creator",
         canWrite: false,
+        // Ignored: the tenant comes from the session, never the body.
+        tenantId: "tenant-evil",
       }),
     );
 
@@ -217,6 +232,20 @@ describe("POST /api/users", () => {
     expect(body.data.canWrite).toBe(false);
     expect(body.data.id).toBe("u1");
     expect(body.error).toBeNull();
+    // Duplicate-email check is per tenant (#1607).
+    expect(selectChain.calls.where).toHaveLength(1);
+    const [expr] = selectChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["email", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["test@example.com", "tenant-x"]),
+    );
+    // The new row lands in the session tenant. (values[1] is the audit
+    // row — auditRequest shares this db mock and is not stubbed here.)
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      tenantId: "tenant-x",
+    });
   });
 
   it("defaults canWrite to true when omitted", async () => {

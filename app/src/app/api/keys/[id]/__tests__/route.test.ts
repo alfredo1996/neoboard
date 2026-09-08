@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeDeleteChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeDeleteChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -33,16 +37,20 @@ vi.mock("next/server", () => nextResponseMockFactory());
 // ---------------------------------------------------------------------------
 
 describe("DELETE /api/keys/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let DELETE: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
+  let DELETE: (
+    req: Request,
+    ctx: { params: Promise<{ id: string }> },
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.doMock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
+    vi.doMock("@/lib/auth/session", () => ({
+      requireSession: mockRequireSession,
+    }));
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("next/server", () => nextResponseMockFactory());
-vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+    vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
     const mod = await import("../route");
     DELETE = mod.DELETE;
   });
@@ -80,14 +88,25 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
   it("returns 404 when key belongs to different user", async () => {
     mockRequireSession.mockResolvedValue({
       userId: "user-1",
-      tenantId: "default",
+      tenantId: "tenant-x",
       role: "creator",
       canWrite: true,
     });
     // Simulate that delete filtered by userId+tenantId found nothing
-    mockDb.delete.mockReturnValue(makeDeleteChain([]));
+    const chain = makeDeleteChain([]);
+    mockDb.delete.mockReturnValue(chain);
     const res = await DELETE({} as Request, makeParams("other-users-key"));
     expect(res.status).toBe(404);
+    // The 404 must come from the filter, not from the mock — assert the
+    // delete was scoped to the caller's user AND tenant (#1607).
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "userId", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["other-users-key", "user-1", "tenant-x"]),
+    );
   });
 
   it("returns 200 and deletes key on valid request", async () => {
