@@ -48,6 +48,32 @@ describe("ChoroplethChart", () => {
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
   });
 
+  it("scales the ramp from measured values and marks a null region no-data (#1655)", async () => {
+    render(
+      <ChoroplethChart
+        data={[
+          { name: "France", value: null },
+          { name: "Spain", value: 120 },
+          { name: "Italy", value: 180 },
+        ]}
+      />,
+    );
+    await waitFor(() => expect(lastOptionWith("visualMap")).toBeDefined(), {
+      timeout: 10000,
+    });
+    // Math.min(null, 120, 180) is 0 — one unmeasured country used to anchor
+    // the ramp at zero and push every real country up a band.
+    expect(lastOptionWith("visualMap").visualMap.min).toBe(120);
+    expect(lastOptionWith("visualMap").visualMap.max).toBe(180);
+    // "-" is ECharts' own no-data marker and the only missing marker inside
+    // MapSeriesOption's data union. Verified by rendering: a "-" region keeps
+    // series.itemStyle.areaColor, byte-identical to a region absent from the
+    // result, and params.value reaches the tooltip as NaN either way.
+    const series = lastOptionWith("series").series[0];
+    expect(series.data[0].value).toBe("-");
+    expect(series.data[1].value).toBe(120);
+  }, 15000);
+
   it("uses a warm sequential ramp (not the off-brand ColorBrewer blues)", async () => {
     render(<ChoroplethChart data={data} />);
     // visualMap options only build after the async world.geo.json import +

@@ -84,7 +84,9 @@ describe("RadarChart", () => {
       indicators: [{ name: "Speed", max: 100 }],
       series: [{ name: "Fast", values: [90] }],
     };
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 80, color: "#ff0000" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 80, color: "#ff0000" },
+    ];
     render(<RadarChart data={singleSeriesData} stylingRules={stylingRules} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const seriesData = optionsCall.series[0].data;
@@ -98,7 +100,9 @@ describe("RadarChart", () => {
       indicators: [{ name: "Speed", max: 100 }],
       series: [{ name: "Slow", values: [20] }],
     };
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 80, color: "#ff0000" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 80, color: "#ff0000" },
+    ];
     render(<RadarChart data={singleSeriesData} stylingRules={stylingRules} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     const seriesData = optionsCall.series[0].data;
@@ -107,10 +111,55 @@ describe("RadarChart", () => {
     expect(seriesData[0].lineStyle).toBeUndefined();
   });
 
+  it("averages only the measured axes for styling rules (#1655)", () => {
+    const data = {
+      indicators: [
+        { name: "Speed", max: 100 },
+        { name: "Strength", max: 100 },
+      ],
+      series: [{ name: "Partial", values: [80, null] }],
+    };
+    const stylingRules = [
+      { id: "r1", operator: "<" as const, value: 50, color: "#ff0000" },
+    ];
+    render(<RadarChart data={data} stylingRules={stylingRules} />);
+    const seriesData = mockSetOption.mock.calls[0][0].series[0].data;
+    // `sum + null` is `sum + 0`, so the mean used to be 40 and "< 50 => red"
+    // fired on a series whose only measurement was 80.
+    expect(seriesData[0].itemStyle?.color).toBeUndefined();
+    expect(seriesData[0].lineStyle).toBeUndefined();
+  });
+
+  it("renders no label for an unmeasured axis when showValues is on (#1655)", () => {
+    const data = {
+      indicators: [
+        { name: "Speed", max: 100 },
+        { name: "Strength", max: 100 },
+      ],
+      series: [{ name: "Partial", values: [80, null] }],
+    };
+    render(<RadarChart data={data} showValues />);
+    // ECharts calls the radar label formatter once PER AXIS with that axis'
+    // scalar (verified by rendering — it is not handed the whole array), so
+    // an unguarded String() would print the literal text "null" on the canvas.
+    const fmt =
+      mockSetOption.mock.calls[0][0].series[0].data[0].label.formatter;
+    expect(fmt({ value: 80 })).toBe("80");
+    expect(fmt({ value: null })).toBe("");
+  });
+
   it("accepts paramValues prop without error", () => {
-    const stylingRules = [{ id: "r1", operator: ">=" as const, value: 60, color: "#00ff00" }];
+    const stylingRules = [
+      { id: "r1", operator: ">=" as const, value: 60, color: "#00ff00" },
+    ];
     const paramValues = { threshold: 60 };
-    render(<RadarChart data={sampleData} stylingRules={stylingRules} paramValues={paramValues} />);
+    render(
+      <RadarChart
+        data={sampleData}
+        stylingRules={stylingRules}
+        paramValues={paramValues}
+      />,
+    );
     expect(screen.getByTestId("base-chart")).toBeInTheDocument();
   });
 });

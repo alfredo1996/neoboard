@@ -398,3 +398,49 @@ describe("BarChart", () => {
     });
   });
 });
+
+describe("null cells and styling rules (#1655)", () => {
+  const seriesOf = (props: BarChartProps) => {
+    mockSetOption.mockClear();
+    render(<BarChart {...props} />);
+    return mockSetOption.mock.calls[0][0].series as Array<{
+      data: unknown[];
+    }>;
+  };
+
+  /** A datum is a bare value unless a rule gave it a colour. */
+  const colourOf = (datum: unknown) =>
+    datum !== null && typeof datum === "object"
+      ? (datum as { itemStyle?: { color?: string } }).itemStyle?.color
+      : undefined;
+
+  it("lets an is_null rule reach a null cell", () => {
+    // The chart computed Number(rawValue) and handed THAT to the rule engine.
+    // Number(null) is 0 and finite, so a missing cell arrived as a real zero
+    // and `is_null` — which the editor offers unfiltered — could never fire on
+    // a bar chart.
+    const series = seriesOf({
+      data: [
+        { label: "A", value: null },
+        { label: "B", value: 5 },
+      ],
+      stylingRules: [
+        { id: "n", operator: "is_null", value: 0, color: "#cccccc" },
+      ],
+    } as unknown as BarChartProps);
+    expect(colourOf(series[0].data[0])).toBe("#cccccc");
+    expect(colourOf(series[0].data[1])).toBeUndefined();
+  });
+
+  it("does not colour a null cell as if it were zero", () => {
+    const series = seriesOf({
+      data: [
+        { label: "A", value: null },
+        { label: "B", value: 0 },
+      ],
+      stylingRules: [{ id: "z", operator: "<=", value: 0, color: "#ef4444" }],
+    } as unknown as BarChartProps);
+    expect(colourOf(series[0].data[0])).toBeUndefined();
+    expect(colourOf(series[0].data[1])).toBe("#ef4444");
+  });
+});

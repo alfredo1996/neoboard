@@ -2,7 +2,11 @@
  * Radar chart data transform.
  */
 
-import { toRecords, normalizeValue } from "../transforms/shared-utils";
+import {
+  toRecords,
+  normalizeValue,
+  toSeriesNumber,
+} from "../transforms/shared-utils";
 
 /**
  * Transform to Radar chart format: { indicators: [{ name, max }], series: [{ name, values }] }
@@ -34,11 +38,11 @@ export function transformToRadarData(data: unknown): unknown {
     // Long-format: one row per (series, indicator) combination
     const indicatorMaxFromData = new Map<string, number>(); // name -> observed max value
     const indicatorExplicitMax = new Map<string, number>(); // name -> explicit max from data
-    const seriesMap = new Map<string, Map<string, number>>(); // seriesName -> { indicator -> value }
+    const seriesMap = new Map<string, Map<string, number | null>>(); // seriesName -> { indicator -> value | null }
 
     for (const r of records) {
       const indName = String(normalizeValue(r[indicatorKey]) ?? "");
-      const val = Number(r[valueKey]) || 0;
+      const val = toSeriesNumber(r[valueKey]);
       const serName = seriesKey
         ? String(normalizeValue(r[seriesKey]) ?? "Default")
         : "Default";
@@ -53,9 +57,12 @@ export function transformToRadarData(data: unknown): unknown {
           indicatorExplicitMax.set(indName, explicitMax);
         }
       }
+      // An indicator seen only through null cells still needs an axis — the
+      // indicator list below is built from this map's keys, so skipping the
+      // set() would delete a side of the polygon (#1655).
       indicatorMaxFromData.set(
         indName,
-        Math.max(indicatorMaxFromData.get(indName) ?? 0, val),
+        Math.max(indicatorMaxFromData.get(indName) ?? 0, val ?? 0),
       );
       if (!seriesMap.has(serName)) seriesMap.set(serName, new Map());
       seriesMap.get(serName)!.set(indName, val);
@@ -72,7 +79,9 @@ export function transformToRadarData(data: unknown): unknown {
     }));
     const series = Array.from(seriesMap.entries()).map(([name, valMap]) => ({
       name,
-      values: indicators.map((ind) => valMap.get(ind.name) ?? 0),
+      // `?? null` collapses both "no row for this axis" and "row with a null
+      // cell" to the same missing marker — neither is a measurement of zero.
+      values: indicators.map((ind) => valMap.get(ind.name) ?? null),
     }));
 
     return { indicators, series };
@@ -83,8 +92,8 @@ export function transformToRadarData(data: unknown): unknown {
   let wideGlobalMax = 0;
   for (const r of records) {
     for (const k of keys) {
-      const v = Number(r[k]) || 0;
-      if (v > wideGlobalMax) wideGlobalMax = v;
+      const v = toSeriesNumber(r[k]);
+      if (v !== null && v > wideGlobalMax) wideGlobalMax = v;
     }
   }
   const wideMax = Math.ceil(wideGlobalMax * 1.1) || 100;
@@ -94,7 +103,7 @@ export function transformToRadarData(data: unknown): unknown {
   }));
   const series = records.map((r, i) => ({
     name: String(i + 1),
-    values: keys.map((k) => Number(r[k]) || 0),
+    values: keys.map((k) => toSeriesNumber(r[k])),
   }));
 
   return { indicators, series };

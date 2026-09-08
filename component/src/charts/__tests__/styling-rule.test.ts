@@ -77,7 +77,12 @@ describe("resolveStylingRuleColor", () => {
   describe("parameterRef resolution", () => {
     it("uses resolved param value instead of static value", () => {
       const rules = [
-        rule({ operator: "<=", value: 999, parameterRef: "threshold", color: "#param" }),
+        rule({
+          operator: "<=",
+          value: 999,
+          parameterRef: "threshold",
+          color: "#param",
+        }),
       ];
       const params = { threshold: 50 };
       expect(resolveStylingRuleColor(30, rules, params)).toBe("#param");
@@ -86,7 +91,12 @@ describe("resolveStylingRuleColor", () => {
 
     it("skips rule when parameterRef is set but param is missing", () => {
       const rules = [
-        rule({ operator: "<=", value: 999, parameterRef: "missing", color: "#param" }),
+        rule({
+          operator: "<=",
+          value: 999,
+          parameterRef: "missing",
+          color: "#param",
+        }),
       ];
       expect(resolveStylingRuleColor(30, rules, {})).toBeUndefined();
     });
@@ -95,32 +105,42 @@ describe("resolveStylingRuleColor", () => {
       const rules = [
         rule({ operator: "<=", parameterRef: "threshold", color: "#param" }),
       ];
-      expect(resolveStylingRuleColor(30, rules, { threshold: "50" })).toBe("#param");
+      expect(resolveStylingRuleColor(30, rules, { threshold: "50" })).toBe(
+        "#param",
+      );
     });
 
     it("skips rule when param value is not a valid number", () => {
       const rules = [
         rule({ operator: "<=", parameterRef: "threshold", color: "#param" }),
       ];
-      expect(resolveStylingRuleColor(30, rules, { threshold: "abc" })).toBeUndefined();
+      expect(
+        resolveStylingRuleColor(30, rules, { threshold: "abc" }),
+      ).toBeUndefined();
     });
   });
 
   describe("string operators", () => {
     it("contains: case-insensitive substring match", () => {
-      const rules = [rule({ operator: "contains", value: "world", color: "#a" })];
+      const rules = [
+        rule({ operator: "contains", value: "world", color: "#a" }),
+      ];
       expect(resolveStylingRuleColor("Hello World", rules)).toBe("#a");
       expect(resolveStylingRuleColor("hello", rules)).toBeUndefined();
     });
 
     it("not_contains: true when substring is absent", () => {
-      const rules = [rule({ operator: "not_contains", value: "xyz", color: "#a" })];
+      const rules = [
+        rule({ operator: "not_contains", value: "xyz", color: "#a" }),
+      ];
       expect(resolveStylingRuleColor("Hello", rules)).toBe("#a");
       expect(resolveStylingRuleColor("xyz stuff", rules)).toBeUndefined();
     });
 
     it("starts_with: case-insensitive prefix match", () => {
-      const rules = [rule({ operator: "starts_with", value: "hel", color: "#a" })];
+      const rules = [
+        rule({ operator: "starts_with", value: "hel", color: "#a" }),
+      ];
       expect(resolveStylingRuleColor("Hello", rules)).toBe("#a");
       expect(resolveStylingRuleColor("World", rules)).toBeUndefined();
     });
@@ -148,8 +168,12 @@ describe("resolveStylingRuleColor", () => {
       const rules = [
         rule({ operator: "contains", parameterRef: "search", color: "#a" }),
       ];
-      expect(resolveStylingRuleColor("Hello World", rules, { search: "world" })).toBe("#a");
-      expect(resolveStylingRuleColor("Hello", rules, { search: "xyz" })).toBeUndefined();
+      expect(
+        resolveStylingRuleColor("Hello World", rules, { search: "world" }),
+      ).toBe("#a");
+      expect(
+        resolveStylingRuleColor("Hello", rules, { search: "xyz" }),
+      ).toBeUndefined();
     });
   });
 
@@ -184,14 +208,18 @@ describe("resolveStylingRuleColor", () => {
 
   describe("between operator", () => {
     it("matches when value is within inclusive range", () => {
-      const rules = [rule({ operator: "between", value: 10, valueTo: 50, color: "#a" })];
+      const rules = [
+        rule({ operator: "between", value: 10, valueTo: 50, color: "#a" }),
+      ];
       expect(resolveStylingRuleColor(10, rules)).toBe("#a");
       expect(resolveStylingRuleColor(30, rules)).toBe("#a");
       expect(resolveStylingRuleColor(50, rules)).toBe("#a");
     });
 
     it("does not match when value is outside range", () => {
-      const rules = [rule({ operator: "between", value: 10, valueTo: 50, color: "#a" })];
+      const rules = [
+        rule({ operator: "between", value: 10, valueTo: 50, color: "#a" }),
+      ];
       expect(resolveStylingRuleColor(9, rules)).toBeUndefined();
       expect(resolveStylingRuleColor(51, rules)).toBeUndefined();
     });
@@ -202,26 +230,120 @@ describe("resolveStylingRuleColor", () => {
     });
 
     it("skips when cell value is NaN", () => {
-      const rules = [rule({ operator: "between", value: 10, valueTo: 50, color: "#a" })];
+      const rules = [
+        rule({ operator: "between", value: 10, valueTo: 50, color: "#a" }),
+      ];
       expect(resolveStylingRuleColor("abc", rules)).toBeUndefined();
     });
 
     it("works with parameterRef for lower bound", () => {
-      const rules = [rule({ operator: "between", parameterRef: "min", valueTo: 50, color: "#a" })];
+      const rules = [
+        rule({
+          operator: "between",
+          parameterRef: "min",
+          valueTo: 50,
+          color: "#a",
+        }),
+      ];
       expect(resolveStylingRuleColor(30, rules, { min: 10 })).toBe("#a");
       expect(resolveStylingRuleColor(5, rules, { min: 10 })).toBeUndefined();
     });
 
     it("works with parameterRefTo for upper bound", () => {
-      const rules = [rule({ operator: "between", value: 10, parameterRefTo: "max", color: "#a" })];
+      const rules = [
+        rule({
+          operator: "between",
+          value: 10,
+          parameterRefTo: "max",
+          color: "#a",
+        }),
+      ];
       expect(resolveStylingRuleColor(30, rules, { max: 50 })).toBe("#a");
       expect(resolveStylingRuleColor(60, rules, { max: 50 })).toBeUndefined();
     });
 
     it("works with both parameterRef and parameterRefTo", () => {
-      const rules = [rule({ operator: "between", parameterRef: "min", parameterRefTo: "max", color: "#a" })];
-      expect(resolveStylingRuleColor(30, rules, { min: 10, max: 50 })).toBe("#a");
-      expect(resolveStylingRuleColor(60, rules, { min: 10, max: 50 })).toBeUndefined();
+      const rules = [
+        rule({
+          operator: "between",
+          parameterRef: "min",
+          parameterRefTo: "max",
+          color: "#a",
+        }),
+      ];
+      expect(resolveStylingRuleColor(30, rules, { min: 10, max: 50 })).toBe(
+        "#a",
+      );
+      expect(
+        resolveStylingRuleColor(60, rules, { min: 10, max: 50 }),
+      ).toBeUndefined();
+    });
+  });
+
+  describe("a null cell is absent, not zero (#1655)", () => {
+    // `Number(null) === 0`, and the engine ran Number(cellValue) with no
+    // guard. The shipped demo's own rule — `margin <= 0 -> red` — therefore
+    // painted every product with a NULL cost the same red as a genuinely
+    // loss-making one. Same for `rating < 70 -> red` on movie-highlights: an
+    // unrated relationship read as a reviewer who gave it nothing.
+    const rule = (over: Partial<StylingRule> = {}): StylingRule => ({
+      id: "r",
+      operator: "<=",
+      value: 0,
+      color: "#fee2e2",
+      ...over,
+    });
+
+    it.each([
+      ["<=", 0],
+      ["<", 1],
+      ["==", 0],
+      [">=", 0],
+    ])("does not match a null cell with %s %s", (operator, value) => {
+      expect(
+        resolveStylingRuleColor(null, [
+          rule({ operator: operator as StylingRule["operator"], value }),
+        ]),
+      ).toBeUndefined();
+    });
+
+    it("still matches a genuine zero", () => {
+      // The distinction the whole fix rests on: 0 is a value, null is not.
+      expect(resolveStylingRuleColor(0, [rule()])).toBe("#fee2e2");
+    });
+
+    it("does not match an undefined or empty cell either", () => {
+      expect(resolveStylingRuleColor(undefined, [rule()])).toBeUndefined();
+      expect(resolveStylingRuleColor("", [rule()])).toBeUndefined();
+    });
+
+    it("does not match a null cell with between", () => {
+      expect(
+        resolveStylingRuleColor(null, [
+          rule({ operator: "between", value: -10, valueTo: 10 }),
+        ]),
+      ).toBeUndefined();
+    });
+
+    it("still matches a genuine zero with between", () => {
+      expect(
+        resolveStylingRuleColor(0, [
+          rule({ operator: "between", value: -10, valueTo: 10 }),
+        ]),
+      ).toBe("#fee2e2");
+    });
+
+    it("leaves is_null and is_not_null working", () => {
+      expect(
+        resolveStylingRuleColor(null, [
+          rule({ operator: "is_null", color: "#ccc" }),
+        ]),
+      ).toBe("#ccc");
+      expect(
+        resolveStylingRuleColor(5, [
+          rule({ operator: "is_not_null", color: "#0f0" }),
+        ]),
+      ).toBe("#0f0");
     });
   });
 

@@ -1,4 +1,8 @@
-import { toRecords, normalizeValue } from "../transforms/shared-utils";
+import {
+  toRecords,
+  normalizeValue,
+  toSeriesNumber,
+} from "../transforms/shared-utils";
 
 /**
  * Transform raw query results into choropleth data.
@@ -27,7 +31,10 @@ export function transformToChoroplethData(data: unknown): unknown {
       // Raw row kept for the click payload; detected fields win (#1589).
       properties: row,
       name: String(normalizeValue(row[nameKey]) ?? ""),
-      value: Number(row[valueKey]) || 0,
+      // A region the query has no number for is unmeasured, not zero. The
+      // fabricated 0 painted it in the ramp's lowest band AND dragged
+      // visualMap.min to zero, shifting every real country up a band (#1655).
+      value: toSeriesNumber(row[valueKey]),
     }))
     .filter((d) => d.name);
 }

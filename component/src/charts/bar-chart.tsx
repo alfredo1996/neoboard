@@ -199,7 +199,7 @@ function BarChart({
             typeof rawValue === "number" ? rawValue : Number(rawValue);
 
           // In percent mode, normalize to percentage of row total
-          let displayValue = rawValue as number | string;
+          let displayValue = rawValue as number | string | null;
           if (isPercent) {
             const total = rowTotals[rowIdx];
             displayValue =
@@ -208,9 +208,10 @@ function BarChart({
                 : 0;
           }
 
-          const color = Number.isFinite(numericValue)
-            ? resolveItemColor(numericValue, stylingRules, paramValues)
-            : undefined;
+          // The RAW cell, not numericValue: Number(null) is 0 and finite, so
+          // coercing here handed the rule engine a zero for every missing
+          // cell and `is_null` could never fire (#1655).
+          const color = resolveItemColor(rawValue, stylingRules, paramValues);
           return color
             ? { value: displayValue, itemStyle: { color } }
             : displayValue;

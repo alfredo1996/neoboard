@@ -36,7 +36,14 @@ export function transformToLineData(
   const seriesKeys = resolveValueKeys(keys, xKey, mapping);
 
   return records.map((r) => {
-    const point: Record<string, unknown> = { x: normalizeValue(r[xKey]) };
+    // A NULL grouping value is one real, unnamed category — the same call bar
+    // makes at bar/transform.ts:39 and the same choice the hierarchy charts
+    // made in #1596. NOT wrapped in String(): unlike bar's `label: string`,
+    // `x` is `string | number`, and stringifying numbers would make
+    // isTimeSeriesData read bare years as dates.
+    const point: Record<string, unknown> = {
+      x: normalizeValue(r[xKey]) ?? "",
+    };
     for (const k of seriesKeys) {
       point[k] = toSeriesNumber(r[k]);
     }
