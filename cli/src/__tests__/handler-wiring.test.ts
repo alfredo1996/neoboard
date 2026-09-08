@@ -230,6 +230,41 @@ describe("every other command forwards its options", () => {
     expect(runDbSeed).toHaveBeenCalledWith({ neo4j: true, demo: true });
   });
 
+  it("plugin add passes the package name and its options", async () => {
+    await run("plugin", "add", "@acme/chart", "--override", "--export", "Widget");
+    expect(runPluginAdd).toHaveBeenCalledWith("@acme/chart", {
+      override: true,
+      export: "Widget",
+    });
+  });
+
+  it.each([
+    ["status", runStatus],
+    ["doctor", runDoctor],
+  ])("%s takes no options and is still invoked", async (cmd, fn) => {
+    await run(cmd);
+    expect(fn).toHaveBeenCalled();
+  });
+
+  it.each([
+    [["demo", "list"], runDemoList],
+    [["config", "list"], runConfigList],
+    [["plugin", "list"], runPluginList],
+  ])("%s is wired to its command", async (argv, fn) => {
+    await run(...argv);
+    expect(fn).toHaveBeenCalled();
+  });
+
+  it("doctor sets a failing exit code when a check fails", async () => {
+    // The only handler that does anything beyond forwarding: it reads
+    // printResults' verdict and turns it into process.exitCode. A CI job that
+    // runs `neoboard doctor` depends on that.
+    printResults.mockReturnValueOnce(true);
+    await run("doctor");
+    expect(process.exitCode).toBe(1);
+    process.exitCode = 0;
+  });
+
   it("db dump --output --data-only", async () => {
     await run("db", "dump", "--output", "out.sql", "--data-only");
     expect(runDbDump).toHaveBeenCalledWith({
