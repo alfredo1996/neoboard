@@ -1,5 +1,5 @@
 /**
- * Tests for table, single-value, json, gauge, sankey, hierarchical, radar,
+ * Tests for table, single-value, json, gauge, hierarchical, radar,
  * and parameter-select transforms. The map transform has its own file.
  */
 import { describe, it, expect } from "vitest";
@@ -10,7 +10,6 @@ import {
 } from "../../single-value/transform";
 import { transformToJsonData } from "../../json/transform";
 import { transformToGaugeData } from "../../gauge/transform";
-import { transformToSankeyData } from "../../sankey/transform";
 import { transformToHierarchicalData } from "../hierarchical-utils";
 import { transformToRadarData } from "../../radar/transform";
 import { transformToSelectData } from "../../parameter-select/transform";
@@ -156,30 +155,6 @@ describe("transformToGaugeData", () => {
     const data = [{ value: "bad", name: "Test" }];
     const result = transformToGaugeData(data) as Array<{ value: number }>;
     expect(result[0].value).toBe(0);
-  });
-});
-
-// ── sankey ──────────────────────────────────────────────────────────────────
-
-describe("transformToSankeyData", () => {
-  it("produces { nodes, links }", () => {
-    const data = [{ source: "A", target: "B", value: 10 }];
-    const result = transformToSankeyData(data) as {
-      nodes: Array<{ name: string }>;
-      links: Array<{ source: string; target: string; value: number }>;
-    };
-    expect(result.links).toHaveLength(1);
-    expect(result.links[0].source).toBe("A");
-    expect(result.nodes.length).toBeGreaterThan(0);
-  });
-
-  it("returns empty for empty input", () => {
-    const result = transformToSankeyData([]) as {
-      nodes: unknown[];
-      links: unknown[];
-    };
-    expect(result.nodes).toEqual([]);
-    expect(result.links).toEqual([]);
   });
 });
 
