@@ -24,6 +24,8 @@ type Behaviour = {
   rows?: (n: number) => unknown;
   statuses?: QueryStatus[];
   fail?: boolean;
+  /** Catch the consumer's onSuccess throw and route it to onFail — the #1642 defect. */
+  catchOnSuccess?: boolean;
 };
 
 /** A connector that does whatever `behaviour` says, and nothing else. */
@@ -42,7 +44,17 @@ function fakeModule(behaviour: Behaviour): ConnectionModule {
         return;
       }
       const limit = config.rowLimit ?? 0;
-      callbacks.onSuccess?.(behaviour.rows ? behaviour.rows(limit) : []);
+      const payload = behaviour.rows ? behaviour.rows(limit) : [];
+      if (behaviour.catchOnSuccess) {
+        try {
+          callbacks.onSuccess?.(payload);
+        } catch (e) {
+          callbacks.setStatus?.(QueryStatus.ERROR);
+          callbacks.onFail?.(e as never);
+        }
+        return;
+      }
+      callbacks.onSuccess?.(payload);
     },
   } as unknown as ConnectionModule;
 }
@@ -67,7 +79,7 @@ const caseNamed = (module: ConnectionModule, needle: string) => {
 const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ i }));
 
 describe("query-safety conformance harness", () => {
-  it("registers exactly the three documented cases", () => {
+  it("registers exactly the four documented cases", () => {
     // A case-count guard: deleting one left both connector suites green at
     // two tests each, with nothing to say a rule had stopped being checked.
     const names = buildConformanceCases(() => fakeModule({}), setup).map(
@@ -77,7 +89,20 @@ describe("query-safety conformance harness", () => {
       "rejects a write query under READ access mode",
       "caps results at rowLimit and flags truncation (MAX_ROWS+1)",
       "honors the driver-level timeout",
+      "does not report a throwing onSuccess as a query failure",
     ]);
+  });
+
+  describe("onSuccess isolation (#1642)", () => {
+    it("rejects a connector that routes a throwing onSuccess to onFail", async () => {
+      const c = caseNamed(fakeModule({ catchOnSuccess: true }), "throwing onSuccess");
+      await expect(c.run()).rejects.toThrow(/onSuccess isolation violation/);
+    });
+
+    it("passes a connector that lets the consumer's error propagate", async () => {
+      const c = caseNamed(fakeModule({}), "throwing onSuccess");
+      await expect(c.run()).resolves.toBeUndefined();
+    });
   });
 
   describe("read-only enforcement", () => {

@@ -829,4 +829,36 @@ describe("query-executor", () => {
       expect(result).toEqual([]);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // executeQuery — runQuery rejection backstop (#1642)
+  // -----------------------------------------------------------------------
+  describe("runQuery rejection backstop (#1642)", () => {
+    it("rejects with the connector's own rejection instead of hanging", async () => {
+      // A connector rejects runQuery only when the consumer's onSuccess threw.
+      // executeQuery's onSuccess is a bare resolve() and cannot, but the
+      // promise it wraps must still settle if the contract is ever exercised —
+      // before #1642 it was dropped, and this test would never return.
+      const bug = new Error("consumer handler blew up");
+      mockRunQuery.mockImplementation(() => Promise.reject(bug));
+
+      await expect(
+        executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" }),
+      ).rejects.toBe(bug);
+    });
+
+    it("still resolves when the stubbed runQuery returns nothing at all", async () => {
+      // Every other stub in this file is a block-bodied arrow returning
+      // undefined; the backstop must tolerate that, not throw on `.catch`.
+      mockRunQuery.mockImplementation(
+        (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+          cbs.onSuccess([{ ok: 1 }]);
+        },
+      );
+
+      await expect(
+        executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" }),
+      ).resolves.toMatchObject({ data: [{ ok: 1 }] });
+    });
+  });
 });

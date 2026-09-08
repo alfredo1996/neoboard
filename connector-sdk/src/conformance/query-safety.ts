@@ -164,5 +164,47 @@ export function buildConformanceCases(
         }
       },
     },
+    {
+      name: "does not report a throwing onSuccess as a query failure",
+      run: async () => {
+        // A consumer bug inside onSuccess is the consumer's to handle. A
+        // connector that catches it as its own failure rolls back committed
+        // work, reports ERROR, and fires onFail after onSuccess — two
+        // outcomes for one query (#1642). The contract: let it propagate.
+        const consumerBug = new Error("conformance: onSuccess threw");
+        let failed: unknown;
+        let errorStatus = false;
+        let rejectedWith: unknown = undefined;
+        try {
+          await getModule().runQuery(
+            setup.queries.manyRows(1),
+            {
+              onSuccess: () => {
+                throw consumerBug;
+              },
+              onFail: (e) => {
+                failed = e;
+              },
+              setStatus: (s) => {
+                if (s === QueryStatus.ERROR) errorStatus = true;
+              },
+            },
+            { ...base, rowLimit: 1 },
+          );
+        } catch (e) {
+          rejectedWith = e;
+        }
+        if (failed !== undefined || errorStatus) {
+          throw new Error(
+            "onSuccess isolation violation: a throwing onSuccess handler reached onFail or set ERROR",
+          );
+        }
+        if (rejectedWith !== consumerBug) {
+          throw new Error(
+            "onSuccess isolation violation: runQuery must reject with the consumer's own error, unchanged",
+          );
+        }
+      },
+    },
   ];
 }
