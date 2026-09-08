@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { expect, within } from "storybook/test";
 import { BarChart } from "@/charts/bar-chart";
 
 const meta = {
@@ -35,9 +36,25 @@ const stackedData = [
   { label: "Q4", online: 5200, retail: 2800, wholesale: 2100 },
 ];
 
+/**
+ * What a play function can assert here: BarChart draws its bars to a <canvas>,
+ * so bar geometry, colours, value labels and axis ticks are unreachable from the
+ * DOM. The one data-derived string that IS in the DOM is the `role="img"`
+ * aria-label built by `buildAutoAriaDescription` — it counts rows and names every
+ * series key, so it catches a dropped row, a dropped series or a mis-keyed
+ * column. Everything else on this chart needs a pixel baseline (see #1638).
+ */
 export const Default: Story = {
   args: {
     data: productData,
+  },
+  play: async ({ canvasElement }) => {
+    const chart = await within(canvasElement).findByTestId("base-chart");
+    // 7 rows in productData, single series keyed "value".
+    await expect(chart).toHaveAttribute(
+      "aria-label",
+      "Bar chart with 7 categories and 1 series: value",
+    );
   },
 };
 
@@ -84,6 +101,15 @@ export const GroupedBars: Story = {
     data: stackedData,
     showLegend: true,
   },
+  play: async ({ canvasElement }) => {
+    const chart = await within(canvasElement).findByTestId("base-chart");
+    // Multi-series: the label names each key in order, so a series dropped by
+    // the union-of-keys walk (sparse rows) or renamed by a mapping bug shows up.
+    await expect(chart).toHaveAttribute(
+      "aria-label",
+      "Bar chart with 4 categories and 3 series: online, retail, wholesale",
+    );
+  },
 };
 
 export const StackedBars: Story = {
@@ -103,9 +129,23 @@ export const HorizontalStacked: Story = {
   },
 };
 
+/**
+ * BarChart is the only ECharts chart in the package with a real DOM empty state
+ * (#1053) — every other one still mounts a live, blank canvas. This play function
+ * is the guard on that: DOM status message in, canvas out.
+ */
 export const EmptyState: Story = {
   args: {
     data: [],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const empty = await canvas.findByTestId("bar-chart-empty");
+    await expect(empty).toHaveTextContent("No data");
+    await expect(empty).toHaveAttribute("role", "status");
+    // No ECharts instance at all — not a blank canvas the user can't read.
+    await expect(canvasElement.querySelectorAll("canvas")).toHaveLength(0);
+    await expect(canvas.queryByTestId("base-chart")).toBeNull();
   },
 };
 
