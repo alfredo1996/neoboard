@@ -2,6 +2,12 @@
  * Tests for table, single-value, json, gauge, hierarchical, radar,
  * and parameter-select transforms. The map transform has its own file.
  */
+import {
+  sparseOrders,
+  neo4jNode,
+  timestamp,
+  numericString,
+} from "@/__tests__/fixtures/connector-output";
 import { describe, it, expect } from "vitest";
 import { transformToTableData } from "../../table/transform";
 import {
@@ -308,5 +314,52 @@ describe("transformToSelectData", () => {
 
   it("returns empty array for record with no keys", () => {
     expect(transformToSelectData([{}])).toEqual([]);
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  describe("table transform", () => {
+    // The table shows what the database returned. Nothing is coerced here: a
+    // node stays an object for the renderer to stringify, a null stays null so
+    // it can be shown as null, a Date stays a Date, a numeric string stays a
+    // string.
+    const rows = transformToTableData(sparseOrders()) as Array<
+      Record<string, unknown>
+    >;
+
+    it("passes a node-valued cell through as the parser's plain object", () => {
+      expect(rows[0].customer).toEqual(neo4jNode);
+    });
+
+    it("passes a null cell through as null", () => {
+      expect(rows[0].note).toBeNull();
+      expect(rows[1].total).toBeNull();
+    });
+
+    it("passes a Date cell through as a Date", () => {
+      expect(rows[0].placed_at).toBe(timestamp);
+    });
+
+    it("passes a numeric string through untouched", () => {
+      expect(rows[0].total).toBe(numericString);
+    });
+  });
+
+  describe("gauge transform", () => {
+    // Every shipped gauge query is name-first:
+    //   SELECT 'Delivery rate' AS name, ... AS value
+    // Positional resolution would read the label as the value —
+    // Number("Delivery rate") || 0 — and render every demo gauge at 0.
+    it("resolves value and name by column name in the demo's order", () => {
+      expect(
+        transformToGaugeData([{ name: "Delivery rate", value: 87.5 }]),
+      ).toMatchObject([{ value: 87.5, name: "Delivery rate" }]);
+    });
+
+    it("reads a numeric-string value", () => {
+      expect(
+        transformToGaugeData([{ name: "Delivery rate", value: "87.5" }]),
+      ).toMatchObject([{ value: 87.5, name: "Delivery rate" }]);
+    });
   });
 });

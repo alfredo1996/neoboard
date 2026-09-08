@@ -59,6 +59,10 @@ export default defineConfig({
       include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: [
         "src/**/*.test.{ts,tsx}",
+        // Test helpers and fixtures under __tests__ (echarts-mock.ts, the
+        // connector-output fixture) are test code, not coverable source —
+        // the same rule app/vitest.config.ts applies (#1636).
+        "src/**/__tests__/**",
         "src/**/*.stories.*",
         "src/**/*.d.ts",
       ],

@@ -1,3 +1,4 @@
+import { sparseOrders } from "@/__tests__/fixtures/connector-output";
 import { describe, it, expect } from "vitest";
 import {
   transformToSankeyData,
@@ -145,5 +146,33 @@ describe("validateSankeyData", () => {
     expect(validateSankeyData([{ only: "A" }])).toMatch(
       /needs source and target columns/,
     );
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  const [delivered, pending] = sparseOrders().map((o) => o.status);
+  type Sankey1636 = {
+    nodes: Array<{ name: string }>;
+    links: Array<{ source: string; target: string; value: number }>;
+  };
+
+  it("resolves from/to by name when the columns are not in source-target order", () => {
+    // Positional fallback would read `value` as the source and `to` as the
+    // target; the name-based detection is what every shipped query relies on.
+    const out = transformToSankeyData([
+      { value: 5, to: delivered, from: pending },
+    ]) as Sankey1636;
+    expect(out.links).toEqual([
+      { source: pending, target: delivered, value: 5 },
+    ]);
+  });
+
+  it("drops a row whose endpoint is null instead of linking to an empty node", () => {
+    const out = transformToSankeyData([
+      { from: null, to: delivered, value: 1 },
+      { from: pending, to: delivered, value: 2 },
+    ]) as Sankey1636;
+    expect(out.links).toHaveLength(1);
+    expect(out.nodes.map((n) => n.name)).not.toContain("");
   });
 });

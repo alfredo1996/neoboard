@@ -1,3 +1,4 @@
+import { sparseOrders } from "@/__tests__/fixtures/connector-output";
 import { describe, it, expect } from "vitest";
 import { transformToGanttData, validateGanttData } from "../../gantt/transform";
 
@@ -228,5 +229,35 @@ describe("validateGanttData", () => {
         rows({ task: "A", start: "2026-04-01", end: "2026-04-03" }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  // Ship dates arrive as 'YYYY-MM-DD' strings (#1654) and a not-yet-shipped
+  // order has a null one. A span with a null end is not drawable and is
+  // dropped whole; the rest parse as real instants (#1619 reads the day-only
+  // shape as a local date, not the UTC midnight of #1616).
+  const rows = sparseOrders().map((o) => ({
+    task: String(o.order_id),
+    start: "2026-08-30",
+    end: o.shipped_on,
+  }));
+  const bars = () =>
+    transformToGanttData(rows) as Array<{
+      task: string;
+      start: number;
+      end: number;
+    }>;
+
+  it("drops the row whose end date is null", () => {
+    expect(bars()).toHaveLength(3);
+    expect(bars().map((b) => b.task)).not.toContain("1002");
+  });
+
+  it("parses date-only strings into finite instants", () => {
+    for (const b of bars()) {
+      expect(Number.isFinite(b.start)).toBe(true);
+      expect(Number.isFinite(b.end)).toBe(true);
+    }
   });
 });

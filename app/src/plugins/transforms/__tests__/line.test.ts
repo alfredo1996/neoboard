@@ -1,3 +1,4 @@
+import { sparseOrders } from "@/__tests__/fixtures/connector-output";
 import { describe, it, expect } from "vitest";
 import { transformToLineData, validateLineData } from "../../line/transform";
 
@@ -143,5 +144,24 @@ describe("validateLineData — long format (#1400)", () => {
     expect(
       validateLineData(longFormat, { xAxis: "week", yAxis: ["revenue"] }),
     ).toBeNull();
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  // A gap in a sparse LEFT JOIN result must reach the chart as null so
+  // connectNulls can decide whether to bridge it — never as a dive to zero.
+  const rows = sparseOrders().map((o) => ({
+    month: o.shipped_on ?? "",
+    revenue: o.total,
+  }));
+  const points = () =>
+    transformToLineData(rows) as Array<Record<string, unknown>>;
+
+  it("keeps a null cell null instead of coercing it to zero", () => {
+    expect(points()[1].revenue).toBeNull();
+  });
+
+  it("reads a numeric string as a number", () => {
+    expect(points()[0].revenue).toBe(48210.5);
   });
 });

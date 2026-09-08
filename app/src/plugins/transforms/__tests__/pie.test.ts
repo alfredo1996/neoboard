@@ -1,3 +1,4 @@
+import { sparseOrders } from "@/__tests__/fixtures/connector-output";
 import { describe, it, expect } from "vitest";
 import { transformToPieData, validatePieData } from "../../pie/transform";
 
@@ -53,5 +54,22 @@ describe("validatePieData", () => {
     const err = validatePieData([{ name: "A" }]);
     expect(err).toBeTruthy();
     expect(err).toContain("Pie chart");
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  const rows = sparseOrders().map((o) => ({ name: o.status, value: o.total }));
+  const slices = () =>
+    transformToPieData(rows) as Array<{ name: string; value: number }>;
+
+  it("reads a numeric string as a number", () => {
+    expect(slices()[0].value).toBe(48210.5);
+  });
+
+  it("gives a null cell a zero-area slice, by contract", () => {
+    // A pie has no gap to draw: a null total is a slice with no area, and the
+    // name survives so the legend still lists it. This is the contract as
+    // shipped; changing it should change this assertion knowingly.
+    expect(slices()[1]).toEqual({ name: "pending", value: 0 });
   });
 });

@@ -1,3 +1,4 @@
+import { sparseOrders } from "@/__tests__/fixtures/connector-output";
 import { describe, it, expect } from "vitest";
 import {
   transformToHierarchicalData,
@@ -161,5 +162,22 @@ describe("validateHierarchicalData", () => {
       { parent: "D", name: "U", value: 0 },
     ]);
     expect(msg).toMatch(/value/i);
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  // A null value has no area. It must not become a zero-sized node, which a
+  // treemap or sunburst would draw as a labelled sliver.
+  const rows = sparseOrders().map((o) => ({
+    parent: "orders",
+    name: String(o.order_id),
+    value: o.total,
+  }));
+
+  it("never turns a null value into zero", () => {
+    const json = JSON.stringify(transformToHierarchicalData(rows));
+    expect(json).not.toContain('"value":0');
+    // Its own leaf, or summed with the other delivered order.
+    expect(json).toMatch(/48210\.5|48330\.5/);
   });
 });

@@ -1,3 +1,4 @@
+import { stringCoordinates } from "@/__tests__/fixtures/connector-output";
 import { describe, it, expect } from "vitest";
 import { transformToMapData, validateMapData } from "../../map/transform";
 
@@ -174,5 +175,31 @@ describe("validateMapData", () => {
 
   it("passes a real coordinate pair", () => {
     expect(validateMapData([{ latitude: 1, longitude: 2 }])).toBeNull();
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  // Coordinates arrive as strings from Neo4j string properties and from
+  // connectors that do not promote NUMERIC (#1622). A null coordinate must
+  // become NaN so MapChart's finite filter skips the row and counts it —
+  // Number(null) is 0, which is a real place in the Gulf of Guinea.
+  const rows = [
+    { name: "Milan", ...stringCoordinates },
+    { name: "nowhere", lat: null, lng: 9.19 },
+  ];
+  const markers = () => {
+    const out = transformToMapData(rows) as unknown;
+    return (
+      Array.isArray(out) ? out : (out as { markers: unknown[] }).markers
+    ) as Array<{ lat: number; lng: number }>;
+  };
+
+  it("reads string coordinates as numbers", () => {
+    expect(markers()[0].lat).toBe(45.4642);
+    expect(markers()[0].lng).toBe(9.19);
+  });
+
+  it("turns a null coordinate into NaN, not 0", () => {
+    expect(Number.isNaN(markers()[1].lat)).toBe(true);
   });
 });

@@ -32,6 +32,22 @@ const AGG_SYMBOLS: Record<string, string> = {
   max: "max",
 };
 
+/**
+ * One cell's text. A pg TIMESTAMP is still a Date here; JSON.stringify would
+ * print it with its quotation marks (#1636). ISO is unambiguous and does not
+ * depend on the viewer's locale. Objects (Neo4j nodes) become JSON.
+ */
+function formatCell(v: unknown): string {
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint")
+    return v.toString();
+  // A Neo4j node, an array — anything object-shaped. Never String(v): on an
+  // `unknown` the type still admits an object here, and "[object Object]" is
+  // exactly what the table must never show (#1636, Sonar S6551).
+  return JSON.stringify(v) ?? "";
+}
+
 export interface TableRendererProps {
   data: unknown;
   settings?: Record<string, unknown>;
@@ -119,7 +135,7 @@ export function TableRenderer({
           const v = getValue();
           if (v === null || v === undefined)
             return <span className="text-muted-foreground">null</span>;
-          const display = typeof v === "object" ? JSON.stringify(v) : String(v);
+          const display = formatCell(v);
           return (
             <span className="block truncate max-w-[240px]" title={display}>
               {display}

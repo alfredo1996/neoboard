@@ -1,3 +1,5 @@
+import type { ComponentProps } from "react";
+import { withNullAt } from "./fixtures/connector-output";
 import { act, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LineChart } from "../line-chart";
@@ -557,5 +559,39 @@ describe("LineChart", () => {
       const option = mockSetOption.mock.calls[0][0];
       expect(option.tooltip.formatter(param)).toContain("1,234.567");
     });
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  // A sparse LEFT JOIN result has a null point. It must reach ECharts as null
+  // so the line breaks there (or connectNulls bridges it) — a chart that
+  // coerced it to 0 would dive to the axis on every gap.
+  const sparse = withNullAt(
+    sampleData as Array<Record<string, unknown>>,
+    "y",
+    1,
+  ) as ComponentProps<typeof LineChart>["data"];
+
+  // A neighbouring test's late re-render can land a setOption call here under
+  // shuffle (CI seed 1788893237062: a 2,000-point sampling series arrived at
+  // calls[0]). Pick the option that carries THIS chart's three-point series.
+  const mine = () =>
+    mockSetOption.mock.calls
+      .map((c) => c[0])
+      .find((o) => o?.series?.[0]?.data?.length === 3);
+
+  it("passes a null point through as null, never as zero", () => {
+    mockSetOption.mockClear();
+    render(<LineChart data={sparse} />);
+    const optionsCall = mine();
+    expect(optionsCall.series[0].data).toEqual([100, null, 150]);
+  });
+
+  it("keeps the null when connectNulls bridges the gap visually", () => {
+    mockSetOption.mockClear();
+    render(<LineChart data={sparse} connectNulls />);
+    const optionsCall = mine();
+    expect(optionsCall.series[0].data).toEqual([100, null, 150]);
+    expect(optionsCall.series[0].connectNulls).toBe(true);
   });
 });
