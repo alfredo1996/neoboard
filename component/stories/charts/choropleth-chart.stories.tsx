@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { expect, waitFor, within } from "storybook/test";
 import { ChoroplethChart } from "@/charts/choropleth-chart";
 
 const meta = {
@@ -17,6 +18,76 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+/**
+ * This chart renders to a `<canvas>`, so nothing about the map itself is
+ * queryable as DOM — the aria-label counts regions and is byte-identical for
+ * a correct ramp, an inverted one and a flat one.
+ *
+ * Reading the canvas back is the only way to assert the colours actually
+ * painted. This is not a screenshot baseline (this vitest build has no
+ * `toMatchScreenshot`): it asks one question the ramp bug (#1404/#1655) gets
+ * wrong — "is every stop of the configured ramp on screen?" — and is immune
+ * to layout, fonts and antialiasing, since it only looks for exact fills.
+ */
+function paintedColors(canvasElement: HTMLElement) {
+  const canvas = canvasElement.querySelector("canvas");
+  if (!canvas) return new Set<string>();
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return new Set<string>();
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const seen = new Set<string>();
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue;
+    seen.add(
+      "#" +
+        [data[i], data[i + 1], data[i + 2]]
+          .map((v) => v.toString(16).padStart(2, "0"))
+          .join(""),
+    );
+  }
+  return seen;
+}
+
+/**
+ * The five expected stops are written out rather than computed with
+ * `buildSequentialRamp`, on purpose: calling the same function the chart calls
+ * would make the assertion agree with any ramp the component happens to build,
+ * including a broken one. These literals are an independent oracle — evenly
+ * spaced sRGB interpolation between the two endpoints.
+ */
+const DEFAULT_RAMP = [
+  "#fff7d6",
+  "#e6c6a2",
+  "#cc966d",
+  "#b36539",
+  "#993404",
+] as const;
+const GREEN_RAMP = [
+  "#f7fcf5",
+  "#b9cebf",
+  "#7ca088",
+  "#3e7252",
+  "#00441b",
+] as const;
+
+async function expectRampPainted(
+  canvasElement: HTMLElement,
+  ramp: readonly string[],
+) {
+  await waitFor(
+    () => {
+      const painted = paintedColors(canvasElement);
+      expect(ramp.filter((c) => painted.has(c))).toEqual([...ramp]);
+    },
+    { timeout: 5000 },
+  );
+}
+
+/** A chart that threw inside `setOption` shows this instead of rendering. */
+function expectNoRenderError(canvasElement: HTMLElement) {
+  expect(within(canvasElement).queryByRole("alert")).toBeNull();
+}
 
 // Population data (millions) — names match world.geo.json
 const populationData = [
@@ -76,6 +147,15 @@ export const WorldPopulation: Story = {
   args: {
     data: populationData,
   },
+  play: async ({ canvasElement, args }) => {
+    const chart = await within(canvasElement).findByRole("img");
+    expect(chart).toHaveAttribute(
+      "aria-label",
+      `Choropleth map with ${args.data.length} regions`,
+    );
+    await expectRampPainted(canvasElement, DEFAULT_RAMP);
+    expectNoRenderError(canvasElement);
+  },
 };
 
 const gdpData = [
@@ -128,10 +208,69 @@ export const CustomColors: Story = {
     minColor: "#f7fcf5",
     maxColor: "#00441b",
   },
+  // #1404 — three of the five stops used to be hardcoded warm literals, so a
+  // custom green ramp still painted orange in the middle. Requiring every
+  // interpolated stop of *these* endpoints is what catches that.
+  play: async ({ canvasElement, args }) => {
+    expect([args.minColor, args.maxColor]).toEqual([
+      GREEN_RAMP[0],
+      GREEN_RAMP[GREEN_RAMP.length - 1],
+    ]);
+    await expectRampPainted(canvasElement, GREEN_RAMP);
+    expectNoRenderError(canvasElement);
+  },
+};
+
+/**
+ * #1655 — `null` means "no measurement for this region", not zero. It must
+ * reach ECharts as its own no-data marker without throwing, and must not drag
+ * the ramp's low end down to zero.
+ */
+export const MissingValues: Story = {
+  args: {
+    data: [
+      { name: "China", value: 1425 },
+      { name: "India", value: null },
+      { name: "Brazil", value: 215 },
+      { name: "Nigeria", value: null },
+      { name: "Canada", value: 38 },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const chart = await within(canvasElement).findByRole("img");
+    expect(chart).toHaveAttribute(
+      "aria-label",
+      `Choropleth map with ${args.data.length} regions`,
+    );
+    // Both ends of the ramp are painted, so the map drew measured regions
+    // rather than falling through to the no-data fill for everything. Which
+    // *band* a null pushes the others into is a canvas-only distinction — see
+    // the option-object test for the domain itself.
+    await waitFor(
+      () => {
+        const painted = paintedColors(canvasElement);
+        expect(painted.has(DEFAULT_RAMP[0])).toBe(true);
+        expect(painted.has(DEFAULT_RAMP[4])).toBe(true);
+      },
+      { timeout: 5000 },
+    );
+    expectNoRenderError(canvasElement);
+  },
 };
 
 export const EmptyState: Story = {
   args: {
     data: [],
+  },
+  play: async ({ canvasElement }) => {
+    const chart = await within(canvasElement).findByRole("img");
+    expect(chart).toHaveAttribute(
+      "aria-label",
+      "Choropleth map with 0 regions",
+    );
+    expectNoRenderError(canvasElement);
+    // Note: unlike BarChart, this chart has no DOM empty state — it mounts a
+    // live canvas that happens to be blank, so there is nothing else to assert
+    // and nothing for a screen reader beyond the label.
   },
 };
