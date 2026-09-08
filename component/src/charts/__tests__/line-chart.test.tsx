@@ -572,15 +572,25 @@ describe("connector-shaped fixtures (#1636)", () => {
     1,
   ) as ComponentProps<typeof LineChart>["data"];
 
+  // A neighbouring test's late re-render can land a setOption call here under
+  // shuffle (CI seed 1788893237062: a 2,000-point sampling series arrived at
+  // calls[0]). Pick the option that carries THIS chart's three-point series.
+  const mine = () =>
+    mockSetOption.mock.calls
+      .map((c) => c[0])
+      .find((o) => o?.series?.[0]?.data?.length === 3);
+
   it("passes a null point through as null, never as zero", () => {
+    mockSetOption.mockClear();
     render(<LineChart data={sparse} />);
-    const optionsCall = mockSetOption.mock.calls[0][0];
+    const optionsCall = mine();
     expect(optionsCall.series[0].data).toEqual([100, null, 150]);
   });
 
   it("keeps the null when connectNulls bridges the gap visually", () => {
+    mockSetOption.mockClear();
     render(<LineChart data={sparse} connectNulls />);
-    const optionsCall = mockSetOption.mock.calls[0][0];
+    const optionsCall = mine();
     expect(optionsCall.series[0].data).toEqual([100, null, 150]);
     expect(optionsCall.series[0].connectNulls).toBe(true);
   });

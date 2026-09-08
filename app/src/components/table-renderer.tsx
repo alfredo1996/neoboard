@@ -32,6 +32,17 @@ const AGG_SYMBOLS: Record<string, string> = {
   max: "max",
 };
 
+/**
+ * One cell's text. A pg TIMESTAMP is still a Date here; JSON.stringify would
+ * print it with its quotation marks (#1636). ISO is unambiguous and does not
+ * depend on the viewer's locale. Objects (Neo4j nodes) become JSON.
+ */
+function formatCell(v: unknown): string {
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
 export interface TableRendererProps {
   data: unknown;
   settings?: Record<string, unknown>;
@@ -119,15 +130,7 @@ export function TableRenderer({
           const v = getValue();
           if (v === null || v === undefined)
             return <span className="text-muted-foreground">null</span>;
-          // A pg TIMESTAMP is still a Date here; JSON.stringify would print it
-          // with its quotation marks (#1636). ISO is unambiguous and does not
-          // depend on the viewer's locale.
-          const display =
-            v instanceof Date
-              ? v.toISOString()
-              : typeof v === "object"
-                ? JSON.stringify(v)
-                : String(v);
+          const display = formatCell(v);
           return (
             <span className="block truncate max-w-[240px]" title={display}>
               {display}
