@@ -179,6 +179,34 @@ describe("useParameterStore", () => {
     expect(params["price_max"].value).toBe(500);
   });
 
+  // Companions are written by the widget, never derived by the store. The
+  // ParamDateRelative widget writes none at all — `{name}_from` / `{name}_to`
+  // for a relative window are resolved at query time, so a store that
+  // invented them here would freeze the window at the moment it was picked.
+  it.each([
+    ["date-relative", "last_7_days", ["_from", "_to"]],
+    ["date-range", { from: "2024-01-01", to: "2024-01-31" }, ["_from", "_to"]],
+    ["number-range", [100, 500], ["_min", "_max"]],
+  ] as [ParameterType, unknown, string[]][])(
+    "setting a %s parameter creates no companion keys of its own",
+    (type, value, suffixes) => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter(
+        "window",
+        value,
+        "Parameter Selector",
+        "window",
+        type,
+        "selector-widget",
+      );
+      const params = useParameterStore.getState().parameters;
+      expect(params["window"]).toBeDefined();
+      for (const suffix of suffixes) {
+        expect(params[`window${suffix}`]).toBeUndefined();
+      }
+    },
+  );
+
   // ── clearParameter ─────────────────────────────────────────────────
 
   it("removes only the specified parameter", () => {
@@ -723,6 +751,37 @@ describe("useParameterStore", () => {
       setParameter("q", 123, "click", "q", "text");
       expect(useParameterStore.getState().parameters["q"].value).toBe(123);
     });
+
+    it("converts a Date instance to an ISO string for date type", () => {
+      const { setParameter } = useParameterStore.getState();
+      setParameter(
+        "created",
+        new Date("2024-06-15T00:00:00Z"),
+        "click",
+        "created",
+        "date",
+      );
+      expect(useParameterStore.getState().parameters["created"].value).toBe(
+        "2024-06-15T00:00:00.000Z",
+      );
+    });
+
+    // The pass-through types must not stringify: a Cypher `WHERE n.age = $p`
+    // against the string "42" matches nothing.
+    it.each([
+      ["select", 42, 42],
+      ["select", true, true],
+      ["multi-select", [1, 2, 3], [1, 2, 3]],
+    ] as [ParameterType, unknown, unknown][])(
+      "preserves the runtime type of a %s value",
+      (type, input, expected) => {
+        const { setParameter } = useParameterStore.getState();
+        setParameter("p", input, "click", "p", type);
+        expect(
+          useParameterStore.getState().parameters["p"].value,
+        ).toStrictEqual(expected);
+      },
+    );
   });
 
   describe("shallowEqual", () => {
