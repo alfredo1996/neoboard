@@ -9,15 +9,14 @@ import {
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      role: string;
-      canWrite: boolean;
-      tenantId: string;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
+>();
 
 const mockDb = {
   select: vi.fn(),
@@ -98,11 +97,10 @@ const CONNECTION_ROW = { id: "conn-abc", name: "Neo4j Prod", type: "neo4j" };
 // ---------------------------------------------------------------------------
 
 describe("GET /api/dashboards/[id]/export", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let GET: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
-  ) => Promise<any>;
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();

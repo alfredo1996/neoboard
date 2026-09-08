@@ -37,11 +37,10 @@ vi.mock("next/server", () => nextResponseMockFactory());
 // ---------------------------------------------------------------------------
 
 describe("DELETE /api/keys/[id]", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let DELETE: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
-  ) => Promise<any>;
+  ) => Promise<Response>;
 
   beforeEach(async () => {
     vi.resetModules();
