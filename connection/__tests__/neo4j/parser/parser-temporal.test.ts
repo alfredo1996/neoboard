@@ -144,6 +144,45 @@ describe("Neo4jRecordParser - Temporal Conversion", () => {
     );
   });
 
+  it("normalises an offset that carries seconds", () => {
+    // #1651's own blind spot, found by the fixture audit. Bolt 5.x sends the
+    // driver's offset verbatim, and a pre-1900 LMT zone renders it as
+    // "+00:19:32" — which the guard accepted as "already has an offset" and
+    // returned unchanged. Date.parse rejects a seconds component, so the very
+    // shape that fix existed to repair was still unparseable.
+    const dt = new neo4j.types.DateTime(
+      int(1900),
+      int(6),
+      int(1),
+      int(12),
+      int(0),
+      int(0),
+      int(0),
+      int(1172), // +00:19:32
+      "Europe/Amsterdam",
+    );
+    const value = parser._parse(fakeRecord("dt", dt))["dt"] as string;
+    expect(value).toBe("1900-06-01T12:00:00+00:19");
+    expect(Number.isNaN(Date.parse(value))).toBe(false);
+  });
+
+  it("leaves a whole-minute offset exactly as the driver gave it", () => {
+    const dt = new neo4j.types.DateTime(
+      int(2024),
+      int(6),
+      int(1),
+      int(14),
+      int(30),
+      int(5),
+      int(0),
+      int(7200),
+      "Europe/Rome",
+    );
+    expect(parser._parse(fakeRecord("dt", dt))["dt"]).toBe(
+      "2024-06-01T14:30:05+02:00",
+    );
+  });
+
   it("pads single-digit hour/minute/second in DateTime", () => {
     const dt = new neo4j.types.DateTime(
       int(2024),
