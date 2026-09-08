@@ -87,8 +87,15 @@ function formatOffset(seconds: number): string {
  */
 function zonedDateTimeToIso(value: DateTime): string {
   const withoutZone = value.toString().replace(/\[[^\]]+\]$/, "");
-  // Bolt 5.x: the offset is already there and is exact.
-  if (/(Z|[+-]\d{2}:\d{2}(:\d{2})?)$/.test(withoutZone)) return withoutZone;
+
+  // Bolt 5.x: the offset is already there and is exact — but truncate a
+  // seconds component off it. A pre-1900 LMT zone renders "+00:19:32", and
+  // Date.parse rejects a seconds-bearing offset, so passing it through left
+  // the value as unparseable as the bracketed form this function exists to
+  // repair. Whole minutes match what the Time branch has always emitted.
+  const withOffset = withoutZone.match(/^(.*[+-]\d{2}:\d{2}):\d{2}$/);
+  if (withOffset) return withOffset[1];
+  if (/(Z|[+-]\d{2}:\d{2})$/.test(withoutZone)) return withoutZone;
 
   const zone = value.timeZoneId;
   if (zone == null) return withoutZone;
