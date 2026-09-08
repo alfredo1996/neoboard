@@ -4,6 +4,7 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
+  NeodashRecord,
 } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 
@@ -19,9 +20,10 @@ describe("Query to Neo4j", () => {
 
     let receivedStatus: QueryStatus | null = null;
 
+    let receivedRecords: NeodashRecord[] | null = null;
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
-        expect(res.length).toBeGreaterThan(0);
+        receivedRecords = res;
       },
       onFail: (err) => {
         console.error("Error executing query:", err);
@@ -39,6 +41,9 @@ describe("Query to Neo4j", () => {
     );
 
     expect(receivedStatus).toBe(QueryStatus.COMPLETE);
+
+    expect(receivedRecords).not.toBeNull();
+    expect(receivedRecords!.length).toBeGreaterThan(0);
   });
 
   test("should return COMPLETE_TRUNCATED when result exceeds rowLimit", async () => {
@@ -51,7 +56,7 @@ describe("Query to Neo4j", () => {
     };
 
     let receivedStatus: QueryStatus | null = null;
-    let receivedRecords: any[] | null = null;
+    let receivedRecords: NeodashRecord[] | null = null;
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
@@ -94,9 +99,10 @@ describe("Query to Neo4j", () => {
     // Track the sequence of status changes
     const statusSequence: QueryStatus[] = [];
 
+    let receivedRecords: NeodashRecord[] | null = null;
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
-        expect(res.length).toBeGreaterThan(0);
+        receivedRecords = res;
       },
       onFail: (err) => {
         console.error("Unexpected error:", err);
@@ -120,6 +126,9 @@ describe("Query to Neo4j", () => {
     expect(runningIndex).toBeGreaterThan(-1);
     expect(completeIndex).toBeGreaterThan(-1);
     expect(runningIndex).toBeLessThan(completeIndex);
+
+    expect(receivedRecords).not.toBeNull();
+    expect(receivedRecords!.length).toBeGreaterThan(0);
   });
 
   test("should set NO_DATA when query returns no records", async () => {
@@ -133,9 +142,10 @@ describe("Query to Neo4j", () => {
 
     let receivedStatus: QueryStatus | null = null;
 
+    let receivedRecords: NeodashRecord[] | null = null;
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
-        expect(res.length).toBe(0);
+        receivedRecords = res;
       },
       onFail: () => {
         fail("Query should not fail");
@@ -152,6 +162,9 @@ describe("Query to Neo4j", () => {
     );
 
     expect(receivedStatus).toBe(QueryStatus.NO_DATA);
+
+    expect(receivedRecords).not.toBeNull();
+    expect(receivedRecords!.length).toBe(0);
   });
 
   test("should set ERROR when query is invalid", async () => {
@@ -272,10 +285,10 @@ describe("Query to Neo4j", () => {
       params: {},
     };
     let receivedStatus: QueryStatus | null = null;
+    let receivedRecords: NeodashRecord[] | null = null;
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
-        expect(res.length).toBe(0);
-        expect(receivedStatus).toBe(QueryStatus.NO_DATA);
+        receivedRecords = res;
       },
       onFail: (err) => {
         console.error("Error executing query:", err);
@@ -290,6 +303,10 @@ describe("Query to Neo4j", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(receivedRecords).not.toBeNull();
+    expect(receivedRecords!.length).toBe(0);
+    expect(receivedStatus).toBe(QueryStatus.NO_DATA);
   });
 
   test("Trying to run the query with an empty string should set the status to NO_QUERY", async () => {

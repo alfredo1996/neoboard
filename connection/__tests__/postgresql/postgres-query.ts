@@ -506,4 +506,61 @@ describe("PostgreSQL Query Execution", () => {
     expect(status).toBe(QueryStatus.COMPLETE_TRUNCATED);
     expect(result).toHaveLength(1);
   });
+
+  // #1642: onSuccess used to run inside runQuery's try, so a consumer's own
+  // exception was caught as a database failure — ROLLBACK on a committed
+  // transaction, status ERROR, and onFail fired after onSuccess had already
+  // fired. Before this was fixed, every assertion in this suite that lived
+  // inside onSuccess only failed BECAUSE of that defect.
+  test("a throwing onSuccess does not turn a successful query into a failure", async () => {
+    let succeeded = false;
+    const failures: unknown[] = [];
+    const statuses: QueryStatus[] = [];
+    const consumerBug = new Error("consumer handler blew up");
+
+    await expect(
+      connectionModule.runQuery(
+        { query: "SELECT * FROM users" },
+        {
+          onSuccess: () => {
+            succeeded = true;
+            throw consumerBug;
+          },
+          onFail: (e) => failures.push(e),
+          setStatus: (s) => statuses.push(s),
+        },
+        DEFAULT_CONNECTION_CONFIG,
+      ),
+    ).rejects.toBe(consumerBug);
+
+    expect(succeeded).toBe(true);
+    // Exactly one of onSuccess / onFail per call — and it was onSuccess.
+    expect(failures).toHaveLength(0);
+    // The query completed; the consumer's bug must not rewrite that.
+    expect(statuses).toContain(QueryStatus.COMPLETE);
+    expect(statuses).not.toContain(QueryStatus.ERROR);
+    // The rejection is the consumer's own error, not a wrapped ConnectorError.
+  });
+
+  test("an empty query with a throwing onSuccess rejects the same way", async () => {
+    // handleEmptyQuery delivers onSuccess([]) before any try block, so this
+    // path already rejected before #1642; pinned so the two paths cannot drift.
+    const failures: unknown[] = [];
+    const consumerBug = new Error("consumer handler blew up on empty");
+
+    await expect(
+      connectionModule.runQuery(
+        { query: "   " },
+        {
+          onSuccess: () => {
+            throw consumerBug;
+          },
+          onFail: (e) => failures.push(e),
+          setStatus: () => {},
+        },
+        DEFAULT_CONNECTION_CONFIG,
+      ),
+    ).rejects.toBe(consumerBug);
+    expect(failures).toHaveLength(0);
+  });
 });

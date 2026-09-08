@@ -4,6 +4,9 @@ import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
 import { NeodashRecord } from "@neoboard/connector-sdk";
 
+// #1642: capture in onSuccess, assert after the await — an expect() thrown
+// inside onSuccess is caught by the connector and would not fail the test.
+
 describe("Neo4jRecordParser - config parseToNeodashRecord", () => {
   test("should return parsed NeodashRecord when parseToNeodashRecord is true", async () => {
     const config = getNeo4jAuth();
@@ -15,10 +18,10 @@ describe("Neo4jRecordParser - config parseToNeodashRecord", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result[0]["number"]).toBe(42);
-        expect(result[0] instanceof NeodashRecord).toBe(true);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -30,6 +33,10 @@ describe("Neo4jRecordParser - config parseToNeodashRecord", () => {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       parseToNeodashRecord: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result![0]["number"]).toBe(42);
+    expect(result![0] instanceof NeodashRecord).toBe(true);
   });
 
   test("should return raw result when parseToNeodashRecord is false", async () => {
@@ -42,9 +49,10 @@ describe("Neo4jRecordParser - config parseToNeodashRecord", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result[0] instanceof NeodashRecord).toBe(false);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -56,5 +64,8 @@ describe("Neo4jRecordParser - config parseToNeodashRecord", () => {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       parseToNeodashRecord: false,
     });
+
+    expect(result).toBeDefined();
+    expect(result![0] instanceof NeodashRecord).toBe(false);
   });
 });

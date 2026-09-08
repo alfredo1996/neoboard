@@ -18,9 +18,10 @@ describe("Neo4jConnectionModule - setSchema", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBeGreaterThan(0);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -43,6 +44,9 @@ describe("Neo4jConnectionModule - setSchema", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBeGreaterThan(0);
   });
 
   test("should extract schema from a path structure", async () => {
@@ -58,9 +62,10 @@ describe("Neo4jConnectionModule - setSchema", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBeGreaterThan(0);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -82,6 +87,9 @@ describe("Neo4jConnectionModule - setSchema", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBeGreaterThan(0);
   });
 
   test("should handle undefined field gracefully (field === undefined)", async () => {
@@ -93,9 +101,10 @@ describe("Neo4jConnectionModule - setSchema", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -112,6 +121,9 @@ describe("Neo4jConnectionModule - setSchema", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
   });
 
   test("should recurse over array of nodes from MovieDB (valueIsArray === true)", async () => {
@@ -128,9 +140,10 @@ describe("Neo4jConnectionModule - setSchema", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -150,5 +163,8 @@ describe("Neo4jConnectionModule - setSchema", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
   });
 });

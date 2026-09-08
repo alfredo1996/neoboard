@@ -18,9 +18,10 @@ describe("Neo4jConnectionModule - setFields", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -36,6 +37,9 @@ describe("Neo4jConnectionModule - setFields", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: false,
     });
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
   });
 
   test("getFields should extract node properties grouped by label", async () => {
@@ -51,9 +55,10 @@ describe("Neo4jConnectionModule - setFields", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -73,6 +78,9 @@ describe("Neo4jConnectionModule - setFields", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
   });
 
   test("getFields should extract properties from path segments", async () => {
@@ -88,9 +96,10 @@ describe("Neo4jConnectionModule - setFields", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -111,6 +120,9 @@ describe("Neo4jConnectionModule - setFields", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
   });
 
   test("getFields should extract from array of nodes (array traversal)", async () => {
@@ -126,9 +138,10 @@ describe("Neo4jConnectionModule - setFields", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -149,6 +162,9 @@ describe("Neo4jConnectionModule - setFields", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
   });
 
   test("getFields should return empty array when query returns no records", async () => {
@@ -164,9 +180,10 @@ describe("Neo4jConnectionModule - setFields", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result).toEqual([]);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Query failed:", error);
@@ -182,5 +199,8 @@ describe("Neo4jConnectionModule - setFields", () => {
       parseToNeodashRecord: true,
       useNodePropsAsFields: true,
     });
+
+    expect(result).toBeDefined();
+    expect(result).toEqual([]);
   });
 });
