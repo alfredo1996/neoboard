@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveFormFields } from "@/lib/widget/derive-form-fields";
+import { deriveFormFields } from "../derive-form-fields";
 
 describe("deriveFormFields", () => {
   it("extracts $param_xxx tokens into FormFieldDef[]", () => {

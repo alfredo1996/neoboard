@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  rewriteParamsForPostgres,
-  ensureDatabaseInUri,
-} from "@/lib/query/query-params";
+import { rewriteParamsForPostgres, ensureDatabaseInUri } from "../query-params";
 
 describe("ensureDatabaseInUri", () => {
   it("returns uri unchanged when no database provided", () => {

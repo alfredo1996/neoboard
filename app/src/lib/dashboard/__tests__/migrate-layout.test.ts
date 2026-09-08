@@ -27,31 +27,63 @@ describe("migrateLayout", () => {
       pages: [
         {
           id: "p1",
-          title: "Main",
+          title: "Overview",
+          widgets: [
+            {
+              id: "w1",
+              chartType: "bar",
+              connectionId: "c1",
+              query: "MATCH (n) RETURN n",
+            },
+          ],
+          gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+        },
+        {
+          id: "p2",
+          title: "Details",
           widgets: [],
           gridLayout: [],
         },
       ],
     };
+    // Identity, not deep equality: a v2 layout is passed straight through,
+    // so multi-page layouts are never rebuilt or collapsed into one page.
     expect(migrateLayout(v2)).toBe(v2);
   });
 
   it("wraps a v1 layout into a single default page", () => {
-    const v1 = {
-      widgets: [{ id: "w1" }],
-      gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
-    } as unknown as DashboardLayoutV1;
+    const v1: DashboardLayoutV1 = {
+      widgets: [
+        {
+          id: "w1",
+          chartType: "table",
+          connectionId: "c1",
+          query: "SELECT 1",
+        },
+      ],
+      gridLayout: [{ i: "w1", x: 0, y: 0, w: 6, h: 4 }],
+    };
+
     const result = migrateLayout(v1);
     expect(result.version).toBe(2);
     expect(result.pages).toHaveLength(1);
-    expect(result.pages[0].widgets).toEqual([{ id: "w1" }]);
-    expect(result.pages[0].gridLayout).toEqual([
-      { i: "w1", x: 0, y: 0, w: 4, h: 3 },
-    ]);
+    expect(result.pages[0].id).toBe("page-1");
+    expect(result.pages[0].title).toBe("Page 1");
+    expect(result.pages[0].widgets).toEqual(v1.widgets);
+    expect(result.pages[0].gridLayout).toEqual(v1.gridLayout);
   });
 
   it("handles v1 layouts with no widgets/gridLayout fields", () => {
+    // Exercises the `?? []` fallbacks — the fields are absent, not empty.
     const result = migrateLayout({} as DashboardLayoutV1);
+    expect(result.version).toBe(2);
+    expect(result.pages[0].widgets).toEqual([]);
+    expect(result.pages[0].gridLayout).toEqual([]);
+  });
+
+  it("handles a v1 layout whose widgets/gridLayout are empty arrays", () => {
+    const v1: DashboardLayoutV1 = { widgets: [], gridLayout: [] };
+    const result = migrateLayout(v1);
     expect(result.version).toBe(2);
     expect(result.pages[0].widgets).toEqual([]);
     expect(result.pages[0].gridLayout).toEqual([]);
