@@ -191,6 +191,72 @@ test.describe("New chart types — creation flow", () => {
     await expectWidgetRendered(page);
   });
 
+  test("should draw a Sankey whose result contains a self-loop (#1656)", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Sankey" }).click();
+
+    // The demo's shape: one ordinary flow plus a row whose source and target
+    // are the same node. That row alone used to make echarts throw "Sankey is
+    // a DAG, the original data has cycle!" over the whole widget. The seeded
+    // Chart Playground that produces it is a demo showcase and is not present
+    // in the E2E database (see app/e2e/param-defaults.spec.ts:10-11), so the
+    // shape is reproduced inline.
+    await typeInEditor(
+      dialog,
+      page,
+      "UNWIND [['Europe','Asia'],['Oceania','Oceania']] AS r RETURN r[0] AS source, r[1] AS target, 1 AS value",
+    );
+
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+    await expectWidgetRendered(page);
+
+    // The self-loop row is dropped whole — two nodes, one link.
+    await expect(
+      page.getByRole("img", {
+        name: "Sankey diagram with 2 nodes and 1 links",
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("should report a cyclic Sankey instead of the echarts throw (#1656)", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Sankey" }).click();
+
+    await typeInEditor(
+      dialog,
+      page,
+      "UNWIND [['A','B'],['B','A']] AS r RETURN r[0] AS source, r[1] AS target, 1 AS value",
+    );
+
+    await expect(dialog.getByText("Incompatible data format")).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
   test("should create a Sunburst widget", async ({ page }) => {
     test.setTimeout(60_000);
 
