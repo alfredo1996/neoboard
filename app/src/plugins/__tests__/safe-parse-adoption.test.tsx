@@ -135,3 +135,24 @@ describe("safeParseSettings adoption across all 20 plugins", () => {
     expect(types.size).toBe(20); // unique
   });
 });
+
+/**
+ * Plugin wiring assertions live here because this file already stubs every
+ * heavy import a plugin component pulls in (next/dynamic, @neoboard/components)
+ * and already imports all 20 plugins.
+ *
+ * card-container.tsx calls `chartConfig.validate` and nothing else
+ * (app/src/components/card-container.tsx:314 and :634), so a validator a
+ * plugin does not declare is a fix that does nothing (#1656).
+ */
+describe("plugin validator wiring", () => {
+  it("sankey declares a validator, so a cyclic result is reported not thrown (#1656)", () => {
+    expect(typeof sankeyPlugin.validate).toBe("function");
+    expect(
+      sankeyPlugin.validate?.([
+        { source: "A", target: "B", value: 1 },
+        { source: "B", target: "A", value: 1 },
+      ]),
+    ).toMatch(/loops back/);
+  });
+});

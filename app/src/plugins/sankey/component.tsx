@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { SankeyChartData, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
-import { transformToSankeyData } from "./transform";
+import { transformToSankeyData, validateSankeyData } from "./transform";
 import { useEChartsClick, type PluginProps } from "../utils";
 import { sankeySettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
@@ -52,6 +52,7 @@ export const sankeyPlugin = defineChartPlugin({
   component: SankeyPluginComponent,
   transform: transformToSankeyData,
   transformWithMapping: transformToSankeyData,
+  validate: validateSankeyData,
   options: getChartOptions("sankey"),
   compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: sankeySettingsSchema,
