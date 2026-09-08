@@ -4,6 +4,7 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
+  NeodashRecord,
 } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 
@@ -19,7 +20,7 @@ describe("Query to Neo4j", () => {
 
     let receivedStatus: QueryStatus | null = null;
 
-    let receivedRecords: any[] | null = null;
+    let receivedRecords: NeodashRecord[] | null = null;
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
         receivedRecords = res;
@@ -55,7 +56,7 @@ describe("Query to Neo4j", () => {
     };
 
     let receivedStatus: QueryStatus | null = null;
-    let receivedRecords: any[] | null = null;
+    let receivedRecords: NeodashRecord[] | null = null;
 
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
@@ -98,7 +99,7 @@ describe("Query to Neo4j", () => {
     // Track the sequence of status changes
     const statusSequence: QueryStatus[] = [];
 
-    let receivedRecords: any[] | null = null;
+    let receivedRecords: NeodashRecord[] | null = null;
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
         receivedRecords = res;
@@ -141,7 +142,7 @@ describe("Query to Neo4j", () => {
 
     let receivedStatus: QueryStatus | null = null;
 
-    let receivedRecords: any[] | null = null;
+    let receivedRecords: NeodashRecord[] | null = null;
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
         receivedRecords = res;
@@ -284,7 +285,7 @@ describe("Query to Neo4j", () => {
       params: {},
     };
     let receivedStatus: QueryStatus | null = null;
-    let receivedRecords: any[] | null = null;
+    let receivedRecords: NeodashRecord[] | null = null;
     const queryCallback: QueryCallback<any> = {
       onSuccess: (res) => {
         receivedRecords = res;
