@@ -252,6 +252,17 @@ function DataGrid<TData>({
     columnResizeMode: enableColumnResizing ? ("onChange" as const) : undefined,
     defaultColumn: {
       ...(enableColumnResizing && { minSize: 50 }),
+      // Every column's filter UI is one free-text <Input>, so the only filter
+      // that can honour what the user typed is a case-insensitive substring.
+      // TanStack's `filterFn: "auto"` instead picks from `flatRows[0]`
+      // (ColumnFiltering.ts:274-296): a numeric first cell selects
+      // `inNumberRange`, whose resolveFilterValue array-destructures the typed
+      // string — "300" becomes min "3" / max "0", swapped to [0, 3], so the 300
+      // row disappears and the 2 and 3 rows stay; a null or boolean first cell
+      // selects weakEquals/equals, which never matches typed text at all
+      // (#1657). A column that wants something else still passes its own
+      // `filterFn` — a column-level def wins over defaultColumn.
+      filterFn: "includesString",
       // Format numeric cells with the table-wide numberFormat/decimalPlaces
       // (or formatNumber's smart defaults). Columns that supply an explicit
       // `cell` renderer in their columnDef override this — TanStack uses the
