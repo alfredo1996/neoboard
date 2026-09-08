@@ -39,6 +39,11 @@ import {
   type NumberFormat,
   type NumberFormatConfig,
 } from "@/charts/chart-utils";
+import {
+  inferColumnKind,
+  sortDescFirstForKind,
+  sortingFnForKind,
+} from "@/lib/column-kinds";
 
 export type DataGridColumn<TData> = ColumnDef<TData, unknown>;
 
@@ -73,6 +78,25 @@ export function calcDynamicPageSize(
     DATA_GRID_HEADER_HEIGHT -
     DATA_GRID_PAGINATION_HEIGHT;
   return Math.max(1, Math.floor(availableForRows / DATA_GRID_ROW_HEIGHT));
+}
+
+/**
+ * A column's values across the whole data set, or undefined for a display
+ * column with no accessor.
+ */
+function columnValues<TData>(
+  col: ColumnDef<TData, unknown>,
+  data: TData[],
+): unknown[] | undefined {
+  if ("accessorKey" in col && col.accessorKey !== undefined) {
+    const key = String(col.accessorKey);
+    return data.map((row) => (row as Record<string, unknown>)[key]);
+  }
+  if ("accessorFn" in col && col.accessorFn) {
+    const fn = col.accessorFn;
+    return data.map((row, i) => fn(row, i));
+  }
+  return undefined;
 }
 
 export interface DataGridProps<TData> {
@@ -215,8 +239,29 @@ function DataGrid<TData>({
     return DEFAULT_PAGE_SIZE;
   }, [enablePagination, containerHeight, pageSize, TOOLBAR_HEIGHT]);
 
+  // Which comparator a column gets is decided from ALL of its values, not
+  // from the rows TanStack's `auto` happens to sample (`flatRows.slice(10)` —
+  // empty for ten rows or fewer, so every column fell through to `basic`
+  // and "10" sorted before "9", "Zebra" before "apple"). A column that sets
+  // its own sortingFn or sortDescFirst keeps it — the caller's def is spread
+  // last (#1662).
+  const typedColumns = React.useMemo(
+    () =>
+      columns.map((col) => {
+        const values = columnValues(col, data);
+        if (!values) return col;
+        const kind = inferColumnKind(values);
+        return {
+          sortingFn: sortingFnForKind<TData>(kind),
+          sortDescFirst: sortDescFirstForKind(kind),
+          ...col,
+        };
+      }),
+    [columns, data],
+  );
+
   const allColumns = React.useMemo(() => {
-    if (!enableSelection) return columns;
+    if (!enableSelection) return typedColumns;
     const selectColumn: ColumnDef<TData, unknown> = {
       id: "select",
       header: ({ table }) => (
@@ -240,8 +285,8 @@ function DataGrid<TData>({
       enableHiding: false,
       enableColumnFilter: false,
     };
-    return [selectColumn, ...columns];
-  }, [columns, enableSelection]);
+    return [selectColumn, ...typedColumns];
+  }, [typedColumns, enableSelection]);
 
   const table = useReactTable<TData>({
     data,
