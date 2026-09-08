@@ -39,8 +39,13 @@ const AGG_SYMBOLS: Record<string, string> = {
  */
 function formatCell(v: unknown): string {
   if (v instanceof Date) return v.toISOString();
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint")
+    return v.toString();
+  // A Neo4j node, an array — anything object-shaped. Never String(v): on an
+  // `unknown` the type still admits an object here, and "[object Object]" is
+  // exactly what the table must never show (#1636, Sonar S6551).
+  return JSON.stringify(v) ?? "";
 }
 
 export interface TableRendererProps {
