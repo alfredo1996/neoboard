@@ -2,7 +2,11 @@ import { getNeo4jAuth } from "../utils/setup";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
 import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
-import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
+import {
+  ConnectorError,
+  ConnectorErrorType,
+  NeodashRecord,
+} from "@neoboard/connector-sdk";
 
 describe("Query to Neo4j", () => {
   test("run MATCH (n) RETURN n LIMIT 1 and get Data", async () => {
@@ -14,9 +18,12 @@ describe("Query to Neo4j", () => {
       params: {},
     };
 
+    // #1642: capture here, assert after the await — an expect() thrown inside
+    // onSuccess is caught by the connector and would not fail the test.
+    let res: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (res) => {
-        expect(res.length).toBeGreaterThan(0);
+      onSuccess: (r) => {
+        res = r;
       },
       onFail: (err) => {
         console.error("Error executing query:", err);
@@ -28,6 +35,9 @@ describe("Query to Neo4j", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(res).toBeDefined();
+    expect(res!.length).toBeGreaterThan(0);
   });
 
   test("Run MATCH (p:Person) RETURN p LIMIT 10 and get data", async () => {
@@ -39,9 +49,10 @@ describe("Query to Neo4j", () => {
       params: {},
     };
 
+    let res: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (res) => {
-        expect(res.length).toBeGreaterThan(0);
+      onSuccess: (r) => {
+        res = r;
       },
       onFail: (err) => {
         console.error("Error executing query:", err);
@@ -53,6 +64,9 @@ describe("Query to Neo4j", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(res).toBeDefined();
+    expect(res!.length).toBeGreaterThan(0);
   });
 
   test("Triggering error by forcing query timeout", async () => {

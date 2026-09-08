@@ -13,10 +13,10 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
-        expect(result[0]["number"]).toBe(42);
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -29,6 +29,10 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
+    expect(result![0]["number"]).toBe(42);
   });
 
   test("should correctly parse a Neo4j big int value", async () => {
@@ -41,17 +45,12 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
 
     // expect.assertions guards against the case passing vacuously if
     // onSuccess is never invoked.
-    expect.assertions(3);
+    expect.assertions(4);
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
-        // A string, not a bigint. JSON.stringify cannot serialize a BigInt, so
-        // the old value failed the WHOLE query with an opaque 500 the moment
-        // it reached the API boundary — and disagreed with what PostgreSQL
-        // emits for the same logical int8 (#1304).
-        expect(result[0]["number"]).toBe("9223372036854775807");
-        expect(() => JSON.stringify(result)).not.toThrow();
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -64,6 +63,15 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
+    // A string, not a bigint. JSON.stringify cannot serialize a BigInt, so
+    // the old value failed the WHOLE query with an opaque 500 the moment
+    // it reached the API boundary — and disagreed with what PostgreSQL
+    // emits for the same logical int8 (#1304).
+    expect(result![0]["number"]).toBe("9223372036854775807");
+    expect(() => JSON.stringify(result!)).not.toThrow();
   });
 
   test("should correctly parse a Neo4j String value", async () => {
@@ -74,11 +82,10 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
-        expect(result[0]["message"]).toBe("hello world");
-        expect(typeof result[0]["message"]).toBe("string");
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -91,6 +98,11 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
+    expect(result![0]["message"]).toBe("hello world");
+    expect(typeof result![0]["message"]).toBe("string");
   });
 
   test("should correctly parse a Neo4j Boolean true value", async () => {
@@ -101,11 +113,10 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
-        expect(result[0]["active"]).toBe(true);
-        expect(typeof result[0]["active"]).toBe("boolean"); // Ensure 'active' is of type boolean
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -118,6 +129,11 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
+    expect(result![0]["active"]).toBe(true);
+    expect(typeof result![0]["active"]).toBe("boolean"); // Ensure 'active' is of type boolean
   });
 
   test("should correctly parse a Neo4j Boolean false value", async () => {
@@ -128,11 +144,10 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       params: {},
     };
 
+    let result: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (result: NeodashRecord[]) => {
-        expect(result.length).toBe(1);
-        expect(result[0]["active"]).toBe(false);
-        expect(typeof result[0]["active"]).toBe("boolean"); // Ensure 'active' is of type boolean
+      onSuccess: (r: NeodashRecord[]) => {
+        result = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -145,6 +160,11 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(result).toBeDefined();
+    expect(result!.length).toBe(1);
+    expect(result![0]["active"]).toBe(false);
+    expect(typeof result![0]["active"]).toBe("boolean"); // Ensure 'active' is of type boolean
   });
 
   test('should correctly find the movie "The Matrix"', async () => {
@@ -158,13 +178,10 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       params: {},
     };
 
+    let parsed: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any[]> = {
-      onSuccess: (parsed) => {
-        expect(parsed.length).toBe(1);
-
-        expect(parsed[0]["title"]).toBe("The Matrix");
-
-        expect(typeof parsed[0]["title"]).toBe("string");
+      onSuccess: (r) => {
+        parsed = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -177,6 +194,13 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(parsed).toBeDefined();
+    expect(parsed!.length).toBe(1);
+
+    expect(parsed![0]["title"]).toBe("The Matrix");
+
+    expect(typeof parsed![0]["title"]).toBe("string");
   });
 
   test("should return null", async () => {
@@ -188,13 +212,10 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       params: {},
     };
 
+    let parsed: NeodashRecord[] | undefined;
     const queryCallback: QueryCallback<any> = {
-      onSuccess: (parsed) => {
-        // Verify that the result contains the 'null' key
-        expect(parsed.length).toBe(1); // Since 'RETURN null' returns one record
-
-        // Check that the 'null' key in the result is actually null
-        expect(parsed[0]["null"]).toBe(null);
+      onSuccess: (r) => {
+        parsed = r;
       },
       onFail: (error) => {
         console.error("Error during query execution:", error);
@@ -207,5 +228,12 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
       queryCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(parsed).toBeDefined();
+    // Verify that the result contains the 'null' key
+    expect(parsed!.length).toBe(1); // Since 'RETURN null' returns one record
+
+    // Check that the 'null' key in the result is actually null
+    expect(parsed![0]["null"]).toBe(null);
   });
 });

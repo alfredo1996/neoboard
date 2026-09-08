@@ -29,12 +29,10 @@ describe("Advanced Query to Neo4j", () => {
       },
     };
 
+    let createRes: NeodashRecord[] | undefined;
     const createCallback: QueryCallback<any> = {
-      onSuccess: (createRes: NeodashRecord[]) => {
-        const created = createRes[0]["p"];
-        expect(created).toBeDefined();
-        expect(created.properties.name).toBe("Neo4jTest");
-        expect(created.properties.born).toBe(2025);
+      onSuccess: (r: NeodashRecord[]) => {
+        createRes = r;
       },
       onFail: (err) => {
         console.error("Error creating person:", err);
@@ -50,18 +48,22 @@ describe("Advanced Query to Neo4j", () => {
 
     await connection.runQuery(createQueryParams, createCallback, writeConfig);
 
+    expect(createRes).toBeDefined();
+    const created = createRes![0]["p"];
+    expect(created).toBeDefined();
+    expect(created.properties.name).toBe("Neo4jTest");
+    expect(created.properties.born).toBe(2025);
+
     // STEP 2: Verify the node exists
     const matchQueryParams: QueryParams = {
       query: "MATCH (p:Person {name: $name}) RETURN p LIMIT 1",
       params: { name: "Neo4jTest" },
     };
 
+    let matchRes: NeodashRecord[] | undefined;
     const matchCallback: QueryCallback<any> = {
-      onSuccess: (createRes: NeodashRecord[]) => {
-        const person = createRes[0]["p"];
-        expect(person).toBeDefined();
-        expect(person.properties.name).toBe("Neo4jTest");
-        expect(person.properties.born).toBe(2025);
+      onSuccess: (r: NeodashRecord[]) => {
+        matchRes = r;
       },
       onFail: (err) => {
         console.error("Error verifying created person:", err);
@@ -74,6 +76,12 @@ describe("Advanced Query to Neo4j", () => {
       matchCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(matchRes).toBeDefined();
+    const person = matchRes![0]["p"];
+    expect(person).toBeDefined();
+    expect(person.properties.name).toBe("Neo4jTest");
+    expect(person.properties.born).toBe(2025);
   });
 
   test('should fail to create a Person named "Neo4jTest" because of READ accessMode', async () => {
@@ -122,12 +130,10 @@ test('should create, delete, and verify the deletion of the Person "Nodename"', 
       },
     };
 
+    let parsedCreate: NeodashRecord[] | undefined;
     const createCallback: QueryCallback<any> = {
-      onSuccess: (parsedCreate) => {
-        const created = parsedCreate[0]["p"];
-        expect(created).toBeDefined();
-        expect(created.properties.name).toBe(Nodename);
-        expect(created.properties.born).toBe(2025);
+      onSuccess: (r) => {
+        parsedCreate = r;
       },
       onFail: (err) => {
         console.error("Error creating person:", err);
@@ -142,6 +148,12 @@ test('should create, delete, and verify the deletion of the Person "Nodename"', 
     };
 
     await connection.runQuery(createQueryParams, createCallback, writeConfig);
+
+    expect(parsedCreate).toBeDefined();
+    const created = parsedCreate![0]["p"];
+    expect(created).toBeDefined();
+    expect(created.properties.name).toBe(Nodename);
+    expect(created.properties.born).toBe(2025);
 
     // STEP 2: Delete the node in write mode
     const deleteQueryParams: QueryParams = {
@@ -165,9 +177,10 @@ test('should create, delete, and verify the deletion of the Person "Nodename"', 
       params: { name: Nodename },
     };
 
+    let verifyRes: NeodashRecord[] | undefined;
     const verifyDeletionCallback: QueryCallback<any> = {
-      onSuccess: (res) => {
-        expect(res.length).toBe(0); // The node should be deleted, so the result should be empty
+      onSuccess: (r) => {
+        verifyRes = r;
       },
       onFail: (err) => {
         console.error("Error verifying deleted node:", err);
@@ -180,6 +193,9 @@ test('should create, delete, and verify the deletion of the Person "Nodename"', 
       verifyDeletionCallback,
       writeConfig,
     );
+
+    expect(verifyRes).toBeDefined();
+    expect(verifyRes!.length).toBe(0); // The node should be deleted, so the result should be empty
   } finally {
     await connection.getDriver().close();
   }
@@ -222,10 +238,10 @@ test("should update born and nationality properties for a Person", async () => {
       params: { name: personData.name },
     };
 
+    let updateRes: NeodashRecord[] | undefined;
     const updateCallback: QueryCallback<any> = {
-      onSuccess: (res) => {
-        const [record] = res;
-        expect(toNumber(record["p"].properties.born)).toBe(1965);
+      onSuccess: (r) => {
+        updateRes = r;
       },
       onFail: (err) => {
         throw err;
@@ -234,6 +250,12 @@ test("should update born and nationality properties for a Person", async () => {
 
     await connection.runQuery(updateBorn, updateCallback, writeConfig);
 
+    expect(updateRes).toBeDefined();
+    {
+      const [record] = updateRes!;
+      expect(toNumber(record["p"].properties.born)).toBe(1965);
+    }
+
     // STEP 2: ADD nationality
     const addNationality: QueryParams = {
       query:
@@ -241,10 +263,10 @@ test("should update born and nationality properties for a Person", async () => {
       params: { name: personData.name },
     };
 
+    let addNationalityRes: NeodashRecord[] | undefined;
     const addNationalityCallback: QueryCallback<any> = {
-      onSuccess: (res) => {
-        const [record] = res;
-        expect(record["p"].properties.nationality).toBe("Canadian");
+      onSuccess: (r) => {
+        addNationalityRes = r;
       },
       onFail: (err) => {
         throw err;
@@ -257,18 +279,22 @@ test("should update born and nationality properties for a Person", async () => {
       writeConfig,
     );
 
+    expect(addNationalityRes).toBeDefined();
+    {
+      const [record] = addNationalityRes!;
+      expect(record["p"].properties.nationality).toBe("Canadian");
+    }
+
     // STEP 3: Verify both updates
     const verifyQuery: QueryParams = {
       query: "MATCH (p:Person {name: $name}) RETURN p",
       params: { name: personData.name },
     };
 
+    let verifyRes: NeodashRecord[] | undefined;
     const verifyCallback: QueryCallback<any> = {
-      onSuccess: (res) => {
-        const [record] = res;
-        expect(record["p"].properties.name).toBe("Keanu Reeves");
-        expect(record["p"].properties.nationality).toBe("Canadian");
-        expect(toNumber(record["p"].properties.born)).toBe(1965);
+      onSuccess: (r) => {
+        verifyRes = r;
       },
       onFail: (err) => {
         throw err;
@@ -280,6 +306,14 @@ test("should update born and nationality properties for a Person", async () => {
       verifyCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(verifyRes).toBeDefined();
+    {
+      const [record] = verifyRes!;
+      expect(record["p"].properties.name).toBe("Keanu Reeves");
+      expect(record["p"].properties.nationality).toBe("Canadian");
+      expect(toNumber(record["p"].properties.born)).toBe(1965);
+    }
   } finally {
     await connection.getDriver().close();
   }
@@ -339,9 +373,10 @@ test("should delete a Person node and verify it is no longer present", async () 
       params: { name: personData.name },
     };
 
+    let parsed: NeodashRecord[] | undefined;
     const verifyCallback: QueryCallback<any> = {
-      onSuccess: (parsed) => {
-        expect(parsed.length).toBe(0); // Node was successfully deleted
+      onSuccess: (r) => {
+        parsed = r;
       },
       onFail: (err) => {
         throw err;
@@ -353,6 +388,9 @@ test("should delete a Person node and verify it is no longer present", async () 
       verifyCallback,
       NEO4J_TEST_CONNECTION_CONFIG,
     );
+
+    expect(parsed).toBeDefined();
+    expect(parsed!.length).toBe(0); // Node was successfully deleted
   } finally {
     await connection.getDriver().close();
   }
