@@ -1,5 +1,7 @@
 import {
   boolean,
+  foreignKey,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -39,6 +41,10 @@ export const users = pgTable(
   },
   (table) => [
     unique("user_email_tenant_unique").on(table.email, table.tenantId),
+    // Target of the composite foreign keys below: a row in another table can
+    // only reference a user in its own tenant. Also the index that leads on
+    // tenant_id — user_email_tenant_unique leads on email (#1646).
+    unique("user_tenant_id_unique").on(table.tenantId, table.id),
   ],
 );
 
@@ -103,123 +109,175 @@ export const connectionVisibilityEnum = pgEnum("connection_visibility", [
   "shared",
 ]);
 
-export const connections = pgTable("connection", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  tenantId: text("tenant_id").notNull().default("default"),
-  name: text("name").notNull(),
-  type: text("type").notNull(),
-  configEncrypted: text("configEncrypted").notNull(),
-  /** When true, widget editors can override the connection's default database per-card. */
-  allowPerCardDb: boolean("allow_per_card_db").notNull().default(true),
-  /**
-   * Connection sharing model (#901): "private" = owner + admins only;
-   * "shared" = every user in the tenant may query it and build dashboards
-   * on it. Credentials are never exposed either way; editing stays
-   * owner/admin-only.
-   */
-  visibility: connectionVisibilityEnum("visibility")
-    .notNull()
-    .default("private"),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
-});
+export const connections = pgTable(
+  "connection",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull(),
+    tenantId: text("tenant_id").notNull().default("default"),
+    name: text("name").notNull(),
+    type: text("type").notNull(),
+    configEncrypted: text("configEncrypted").notNull(),
+    /** When true, widget editors can override the connection's default database per-card. */
+    allowPerCardDb: boolean("allow_per_card_db").notNull().default(true),
+    /**
+     * Connection sharing model (#901): "private" = owner + admins only;
+     * "shared" = every user in the tenant may query it and build dashboards
+     * on it. Credentials are never exposed either way; editing stays
+     * owner/admin-only.
+     */
+    visibility: connectionVisibilityEnum("visibility")
+      .notNull()
+      .default("private"),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.userId],
+      foreignColumns: [users.tenantId, users.id],
+      name: "connection_tenant_user_fk",
+    }).onDelete("cascade"),
+    index("connection_tenant_id_idx").on(table.tenantId, table.id),
+  ],
+);
 
-export const dashboards = pgTable("dashboard", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  tenantId: text("tenant_id").notNull().default("default"),
-  name: text("name").notNull(),
-  description: text("description"),
-  layoutJson: jsonb("layoutJson")
-    .$type<DashboardLayoutV2>()
-    .default({
-      version: 2,
-      pages: [{ id: "page-1", title: "Page 1", widgets: [], gridLayout: [] }],
+export const dashboards = pgTable(
+  "dashboard",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull(),
+    tenantId: text("tenant_id").notNull().default("default"),
+    name: text("name").notNull(),
+    description: text("description"),
+    layoutJson: jsonb("layoutJson")
+      .$type<DashboardLayoutV2>()
+      .default({
+        version: 2,
+        pages: [{ id: "page-1", title: "Page 1", widgets: [], gridLayout: [] }],
+      }),
+    /** Optimistic locking counter — incremented on every PUT. Clients must
+     *  send the current version; a mismatch returns 409 Conflict. */
+    version: integer("version").notNull().default(1),
+    isPublic: boolean("isPublic").default(false),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+    // Stays a single-column reference: a composite (tenant_id, updated_by) FK
+    // with ON DELETE SET NULL would null tenant_id too, which is NOT NULL.
+    // Cross-tenant here is still prevented by the route guard (#1646).
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
     }),
-  /** Optimistic locking counter — incremented on every PUT. Clients must
-   *  send the current version; a mismatch returns 409 Conflict. */
-  version: integer("version").notNull().default(1),
-  isPublic: boolean("isPublic").default(false),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
-  updatedBy: text("updated_by").references(() => users.id, {
-    onDelete: "set null",
-  }),
-});
+  },
+  (table) => [
+    // Target of dashboard_share's composite FK, and the leading-tenant_id index.
+    unique("dashboard_tenant_id_unique").on(table.tenantId, table.id),
+    foreignKey({
+      columns: [table.tenantId, table.userId],
+      foreignColumns: [users.tenantId, users.id],
+      name: "dashboard_tenant_user_fk",
+    }).onDelete("cascade"),
+  ],
+);
 
 export const shareRoleEnum = pgEnum("share_role", ["viewer", "editor"]);
 
-export const dashboardShares = pgTable("dashboard_share", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  dashboardId: text("dashboardId")
-    .notNull()
-    .references(() => dashboards.id, { onDelete: "cascade" }),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  tenantId: text("tenant_id").notNull().default("default"),
-  role: shareRoleEnum("role").notNull(),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-});
+export const dashboardShares = pgTable(
+  "dashboard_share",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    dashboardId: text("dashboardId").notNull(),
+    userId: text("userId").notNull(),
+    tenantId: text("tenant_id").notNull().default("default"),
+    role: shareRoleEnum("role").notNull(),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.dashboardId],
+      foreignColumns: [dashboards.tenantId, dashboards.id],
+      name: "dashboard_share_tenant_dashboard_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.tenantId, table.userId],
+      foreignColumns: [users.tenantId, users.id],
+      name: "dashboard_share_tenant_user_fk",
+    }).onDelete("cascade"),
+    index("dashboard_share_tenant_user_idx").on(table.tenantId, table.userId),
+  ],
+);
 
-export const widgetTemplates = pgTable("widget_template", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull(),
-  description: text("description"),
-  tags: text("tags").array().default([]),
-  chartType: text("chartType").notNull(),
-  connectorType: text("connectorType").notNull(),
-  /** Optional binding to a specific connection. Nullable — templates work without it. */
-  connectionId: text("connectionId"),
-  query: text("query").notNull().default(""),
-  params: jsonb("params").$type<Record<string, unknown>>(),
-  settings: jsonb("settings").$type<Record<string, unknown>>(),
-  /** Base64 data-URI PNG preview of the chart, captured on save */
-  previewImageUrl: text("previewImageUrl"),
-  createdBy: text("createdBy")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  tenantId: text("tenant_id").notNull().default("default"),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
-});
+export const widgetTemplates = pgTable(
+  "widget_template",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(),
+    description: text("description"),
+    tags: text("tags").array().default([]),
+    chartType: text("chartType").notNull(),
+    connectorType: text("connectorType").notNull(),
+    /** Optional binding to a specific connection. Nullable — templates work without it. */
+    connectionId: text("connectionId"),
+    query: text("query").notNull().default(""),
+    params: jsonb("params").$type<Record<string, unknown>>(),
+    settings: jsonb("settings").$type<Record<string, unknown>>(),
+    /** Base64 data-URI PNG preview of the chart, captured on save */
+    previewImageUrl: text("previewImageUrl"),
+    createdBy: text("createdBy").notNull(),
+    tenantId: text("tenant_id").notNull().default("default"),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.createdBy],
+      foreignColumns: [users.tenantId, users.id],
+      name: "widget_template_tenant_created_by_fk",
+    }).onDelete("cascade"),
+    index("widget_template_tenant_id_idx").on(table.tenantId, table.id),
+  ],
+);
 
 export type WidgetTemplate = typeof widgetTemplates.$inferSelect;
 export type NewWidgetTemplate = typeof widgetTemplates.$inferInsert;
 
-export const apiKeys = pgTable("api_key", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  tenantId: text("tenant_id").notNull().default("default"),
-  keyHash: text("key_hash").notNull().unique(),
-  /**
-   * Non-secret display prefix captured at creation (e.g. "nb_1a2b3c4d").
-   * Lets the key list correlate a row with a token seen in logs without
-   * ever storing the full secret. Nullable for keys created before #1038.
-   */
-  keyPrefix: text("key_prefix"),
-  name: text("name").notNull(),
-  lastUsedAt: timestamp("last_used_at", { mode: "date" }),
-  expiresAt: timestamp("expires_at", { mode: "date" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
-});
+export const apiKeys = pgTable(
+  "api_key",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull(),
+    tenantId: text("tenant_id").notNull().default("default"),
+    keyHash: text("key_hash").notNull().unique(),
+    /**
+     * Non-secret display prefix captured at creation (e.g. "nb_1a2b3c4d").
+     * Lets the key list correlate a row with a token seen in logs without
+     * ever storing the full secret. Nullable for keys created before #1038.
+     */
+    keyPrefix: text("key_prefix"),
+    name: text("name").notNull(),
+    lastUsedAt: timestamp("last_used_at", { mode: "date" }),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.userId],
+      foreignColumns: [users.tenantId, users.id],
+      name: "api_key_tenant_user_fk",
+    }).onDelete("cascade"),
+    index("api_key_tenant_id_idx").on(table.tenantId, table.id),
+  ],
+);
 
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
@@ -372,19 +430,34 @@ export const ssoProviders = pgTable(
 
 // ─── Audit log ──────────────────────────────────────────────────────
 
-export const auditLogs = pgTable("audit_log", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  tenantId: text("tenant_id").notNull().default("default"),
-  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
-  action: text("action").notNull(),
-  resourceType: text("resource_type"),
-  resourceId: text("resource_id"),
-  details: jsonb("details").$type<Record<string, unknown>>(),
-  ipAddress: text("ip_address"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
-});
+export const auditLogs = pgTable(
+  "audit_log",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tenantId: text("tenant_id").notNull().default("default"),
+    // Single-column on purpose: ON DELETE SET NULL on a composite FK would null
+    // tenant_id as well (#1646). Audit rows are written with the session's
+    // tenant and never re-pointed.
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    action: text("action").notNull(),
+    resourceType: text("resource_type"),
+    resourceId: text("resource_id"),
+    details: jsonb("details").$type<Record<string, unknown>>(),
+    ipAddress: text("ip_address"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+  },
+  (table) => [
+    // Append-only and read newest-first per tenant: ORDER BY created_at DESC.
+    index("audit_log_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt.desc(),
+    ),
+  ],
+);
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
