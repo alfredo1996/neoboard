@@ -119,7 +119,15 @@ export function TableRenderer({
           const v = getValue();
           if (v === null || v === undefined)
             return <span className="text-muted-foreground">null</span>;
-          const display = typeof v === "object" ? JSON.stringify(v) : String(v);
+          // A pg TIMESTAMP is still a Date here; JSON.stringify would print it
+          // with its quotation marks (#1636). ISO is unambiguous and does not
+          // depend on the viewer's locale.
+          const display =
+            v instanceof Date
+              ? v.toISOString()
+              : typeof v === "object"
+                ? JSON.stringify(v)
+                : String(v);
           return (
             <span className="block truncate max-w-[240px]" title={display}>
               {display}

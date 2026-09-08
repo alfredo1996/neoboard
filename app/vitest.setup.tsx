@@ -12,11 +12,14 @@ import { afterEach, vi } from "vitest";
 afterEach(() => cleanup());
 
 // Polyfill ResizeObserver — required by Radix UI primitives (Dialog, Popover, etc.)
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+// A class, not vi.fn().mockImplementation(): an arrow-function mock is not
+// constructible, so any component that calls `new ResizeObserver(...)` itself
+// (TableRenderer does) threw "is not a constructor" on mount (#1636).
+global.ResizeObserver = class {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+};
 
 // Polyfill IntersectionObserver — used by some lazy-loading components
 global.IntersectionObserver = vi.fn().mockImplementation(() => ({

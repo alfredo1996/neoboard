@@ -1,3 +1,4 @@
+import { sparseOrders } from "@/__tests__/fixtures/connector-output";
 import { describe, it, expect } from "vitest";
 import { transformToBarData, validateBarData } from "../../bar/transform";
 
@@ -136,5 +137,27 @@ describe("validateBarData — long format (#1400)", () => {
     expect(
       validateBarData(longFormat, { xAxis: "category", yAxis: ["revenue"] }),
     ).toBeNull();
+  });
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  // A LEFT JOIN month with no revenue is a null cell. It stays null in the
+  // series (#1655): a bar chart draws nothing there, not a zero-height bar.
+  const rows = sparseOrders().map((o) => ({
+    status: o.status,
+    total: o.total,
+  }));
+  const bars = () => transformToBarData(rows) as Array<Record<string, unknown>>;
+
+  it("keeps a null cell null instead of coercing it to zero", () => {
+    expect(bars()[1].total).toBeNull();
+  });
+
+  it("reads a numeric string as a number", () => {
+    expect(bars()[0].total).toBe(48210.5);
+  });
+
+  it("treats a whitespace-only cell as missing, not as zero", () => {
+    expect(bars()[3].total).toBeNull();
   });
 });

@@ -1,3 +1,4 @@
+import { aliasNeedingRegions } from "./fixtures/connector-output";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -88,4 +89,28 @@ describe("ChoroplethChart", () => {
     expect(ramp[ramp.length - 1]).toBe("#993404"); // deep amber max default
     expect(ramp).not.toContain("#2171b5"); // no stock blue stop
   }, 15000);
+});
+
+describe("connector-shaped fixtures (#1636)", () => {
+  it("maps the names real data uses onto the GeoJSON's (USA, Czech Republic)", async () => {
+    // The alias map exists because the demo dataset says "USA" and the world
+    // GeoJSON says "United States". Delete the map and every such region
+    // silently vanishes from the flagship choropleth — this is the test that
+    // fails when it does.
+    render(<ChoroplethChart data={aliasNeedingRegions} />);
+    // The series only builds after the async world.geo.json import resolves —
+    // and with shuffled tests, a *previous* test's late setOption can land
+    // during this one. So retry the assertion itself rather than accept the
+    // first series that appears; it still times out red without the aliases.
+    await waitFor(
+      () => {
+        const series = lastOptionWith("series").series[0];
+        expect(series.data.map((d: { name: string }) => d.name)).toEqual([
+          "United States",
+          "Czechia",
+        ]);
+      },
+      { timeout: 15_000 },
+    );
+  });
 });
