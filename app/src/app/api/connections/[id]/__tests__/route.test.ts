@@ -4,6 +4,8 @@ import {
   resetDbMock,
   makeUpdateChain,
   makeDeleteChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -128,7 +130,8 @@ describe("GET /api/connections/[id]", () => {
       visibility: "private",
       ownerId: "user-1",
     };
-    mockDb.select.mockReturnValue(makeSelectChain([conn]));
+    const chain = makeSelectChain([conn]);
+    mockDb.select.mockReturnValue(chain);
 
     const res = await GET(makeRequest({}), makeParams("c1"));
     expect(res.status).toBe(200);
@@ -138,6 +141,16 @@ describe("GET /api/connections/[id]", () => {
     expect(body.data.isOwner).toBe(true);
     expect(body.data.ownerId).toBeUndefined();
     expect(body.error).toBeNull();
+
+    // The lookup is by id AND session tenant AND own-or-shared (#1607).
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id", "userId", "visibility"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["c1", "t1", "user-1", "shared"]),
+    );
   });
 
   it("non-owner can read a tenant-shared connection's metadata, never the owner id (#901)", async () => {
@@ -173,12 +186,19 @@ describe("GET /api/connections/[id]", () => {
     // First select (owner check) returns empty
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     // Second select (admin fallback) returns the connection
-    mockDb.select.mockReturnValueOnce(makeSelectChain([conn]));
+    const fallback = makeSelectChain([conn]);
+    mockDb.select.mockReturnValueOnce(fallback);
 
     const res = await GET(makeRequest({}), makeParams("c1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.id).toBe("c1");
+
+    // "Any connection" still means any in the admin's own tenant.
+    expect(fallback.calls.where).toHaveLength(1);
+    const [expr] = fallback.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(["id", "tenant_id"]);
+    expect(sqlValues(expr)).toEqual(["c1", "t1"]);
   });
 
   it("returns 404 when not found or not owned", async () => {
@@ -272,10 +292,18 @@ describe("GET /api/connections/[id]", () => {
   it("admin fallback returns 404 when not found in tenant", async () => {
     mockRequireSession.mockResolvedValue(ADMIN_SESSION);
     // Both owner and admin fallback selects return empty
-    mockDb.select.mockReturnValue(makeSelectChain([]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    const fallback = makeSelectChain([]);
+    mockDb.select.mockReturnValueOnce(fallback);
 
     const res = await GET(makeRequest({}), makeParams("nonexistent"));
     expect(res.status).toBe(404);
+
+    // "Not found in tenant": the fallback looked in the admin's tenant only.
+    expect(fallback.calls.where).toHaveLength(1);
+    const [expr] = fallback.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(["id", "tenant_id"]);
+    expect(sqlValues(expr)).toEqual(["nonexistent", "t1"]);
   });
 
   it("returns 500 on unexpected error", async () => {
@@ -343,31 +371,28 @@ describe("PATCH /api/connections/[id]", () => {
 
   it("admin can share an owned connection tenant-wide (#901)", async () => {
     mockRequireSession.mockResolvedValue(ADMIN_SESSION);
-    let captured: Record<string, unknown> = {};
-    const mockSet = vi.fn().mockImplementation((fields) => {
-      captured = fields;
-      return {
-        where: () => ({
-          returning: () =>
-            Promise.resolve([
-              {
-                id: "c1",
-                name: "DB",
-                type: "postgresql",
-                visibility: "shared",
-              },
-            ]),
-        }),
-      };
-    });
-    mockDb.update.mockReturnValue({ set: mockSet });
+    const chain = makeUpdateChain([
+      { id: "c1", name: "DB", type: "postgresql", visibility: "shared" },
+    ]);
+    mockDb.update.mockReturnValue(chain);
 
     const res = await PATCH(
       makeRequest({ visibility: "shared" }),
       makeParams("c1"),
     );
     expect(res.status).toBe(200);
-    expect(captured.visibility).toBe("shared");
+    expect(chain.calls.set[0][0]).toMatchObject({ visibility: "shared" });
+
+    // Sharing stays owner-scoped and tenant-scoped even for admins: the
+    // where-clause is id + owner + session tenant (#901, #1607).
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "userId", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["c1", "admin-1", "t1"]),
+    );
   });
 
   it("returns 404 when connection not owned", async () => {
@@ -388,7 +413,8 @@ describe("PATCH /api/connections/[id]", () => {
       type: "neo4j",
       updatedAt: new Date(),
     };
-    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const chain = makeUpdateChain([updated]);
+    mockDb.update.mockReturnValue(chain);
 
     const res = await PATCH(
       makeRequest({ name: "New name" }),
@@ -398,6 +424,16 @@ describe("PATCH /api/connections/[id]", () => {
     const body = await res.json();
     expect(body.data).toEqual(updated);
     expect(body.error).toBeNull();
+
+    // The update is scoped to id + owner + session tenant (#1607).
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "userId", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["c1", "user-1", "t1"]),
+    );
   });
 
   it("re-encrypts config and triggers prefetch", async () => {
@@ -406,7 +442,8 @@ describe("PATCH /api/connections/[id]", () => {
       configEncrypted: "enc:existing",
       type: "neo4j",
     };
-    mockDb.select.mockReturnValue(makeSelectChain([existing]));
+    const selectChain = makeSelectChain([existing]);
+    mockDb.select.mockReturnValue(selectChain);
     const updated = {
       id: "c1",
       name: "Neo4j",
@@ -424,6 +461,18 @@ describe("PATCH /api/connections/[id]", () => {
         },
       }),
       makeParams("c1"),
+    );
+
+    // The stored-credentials read that feeds the password merge is scoped
+    // to id + owner + session tenant — a cross-tenant read here would leak
+    // another tenant's password into the merged config (#1607).
+    expect(selectChain.calls.where).toHaveLength(1);
+    const [expr] = selectChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "userId", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["c1", "user-1", "t1"]),
     );
 
     expect(mockEncryptJson).toHaveBeenCalledWith({
@@ -686,12 +735,30 @@ describe("DELETE /api/connections/[id]", () => {
 
   it("deletes and returns envelope when no widgets reference the connection", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
+    const selectChain = makeSelectChain([
+      { name: "PostgreSQL", type: "postgresql", configEncrypted: null },
+    ]);
+    mockDb.select.mockReturnValue(selectChain);
+    const deleteChain = makeDeleteChain([{ id: "c1" }]);
+    mockDb.delete.mockReturnValue(deleteChain);
     const res = await DELETE(req(), makeParams("c1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.deleted).toBe(true);
     expect(body.error).toBeNull();
+
+    // Both the pre-delete read and the delete itself are scoped to
+    // id + owner + session tenant (#1607).
+    for (const chain of [selectChain, deleteChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toEqual(
+        expect.arrayContaining(["id", "userId", "tenant_id"]),
+      );
+      expect(sqlValues(expr)).toEqual(
+        expect.arrayContaining(["c1", "user-1", "t1"]),
+      );
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -771,13 +838,26 @@ describe("DELETE /api/connections/[id]", () => {
 
   it("admin deletes using tenant-only WHERE clause (no owner match required)", async () => {
     mockRequireSession.mockResolvedValue(ADMIN_SESSION);
-    mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
+    const selectChain = makeSelectChain([
+      { name: "PostgreSQL", type: "postgresql", configEncrypted: null },
+    ]);
+    mockDb.select.mockReturnValue(selectChain);
+    const deleteChain = makeDeleteChain([{ id: "c1" }]);
+    mockDb.delete.mockReturnValue(deleteChain);
 
     const res = await DELETE(req(), makeParams("c1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.deleted).toBe(true);
     expect(mockDb.delete).toHaveBeenCalled();
+
+    // Exactly id + tenant: no owner column, but never tenant-less (#1607).
+    for (const chain of [selectChain, deleteChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toEqual(["id", "tenant_id"]);
+      expect(sqlValues(expr)).toEqual(["c1", "t1"]);
+    }
   });
 
   it("returns 500 on unexpected error during DELETE", async () => {

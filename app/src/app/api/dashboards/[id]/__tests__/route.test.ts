@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
+  makeDeleteChain,
   resetDbMock,
   makeUpdateChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -19,13 +22,6 @@ const mockRequireSession = vi.fn<
     role: string;
   }>
 >();
-
-function makeDeleteChain() {
-  const c = {
-    where: () => Promise.resolve(),
-  };
-  return c;
-}
 
 const mockDb = {
   select: vi.fn(),
@@ -76,6 +72,22 @@ const OWNER_DASHBOARD = {
   updatedAt: new Date(),
 };
 
+/**
+ * Assert one recorded `where` scoped the dashboard row by id AND by the
+ * session tenant (#1607). Every query in this route that touches
+ * `dashboards` must pass both — a bare primary-key lookup would resolve a
+ * dashboard from any tenant.
+ */
+function expectScopedById(
+  where: unknown[],
+  tenantId = SESSION.tenantId,
+  id = "d1",
+) {
+  const [expr] = where;
+  expect(sqlColumns(expr)).toEqual(expect.arrayContaining(["id", "tenant_id"]));
+  expect(sqlValues(expr)).toEqual(expect.arrayContaining([id, tenantId]));
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -109,12 +121,18 @@ describe("GET /api/dashboards/[id]", () => {
 
   it("returns dashboard for owner", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const chain = makeSelectChain([OWNER_DASHBOARD]);
+    mockDb.select.mockReturnValue(chain);
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.id).toBe("d1");
     expect(body.data.role).toBe("owner");
+    // Owner path makes two selects on the one chain: the access lookup and
+    // the updatedByName join. Both must scope by tenant, not just by id.
+    expect(chain.calls.where).toHaveLength(2);
+    expectScopedById(chain.calls.where[0]);
+    expectScopedById(chain.calls.where[1]);
   });
 
   it("returns dashboard for shared viewer", async () => {
@@ -126,18 +144,31 @@ describe("GET /api/dashboards/[id]", () => {
       tenantId: "tenant-1",
       role: "viewer",
     };
+    const dashboardChain = makeSelectChain([sharedDashboard]);
+    const shareChain = makeSelectChain([share]);
+    const metadataChain = makeSelectChain([{ updatedByName: "Alice" }]);
     mockDb.select
-      .mockReturnValueOnce(makeSelectChain([sharedDashboard]))
-      .mockReturnValueOnce(makeSelectChain([share]))
+      .mockReturnValueOnce(dashboardChain)
+      .mockReturnValueOnce(shareChain)
       // GET makes THREE selects: canAccess does the dashboard and share
       // lookups, then route.ts:117 reads updatedByName. The third was being
       // served by whatever permanent stub an earlier test had left behind
       // (#1630).
-      .mockReturnValue(makeSelectChain([{ updatedByName: "Alice" }]));
+      .mockReturnValue(metadataChain);
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.role).toBe("viewer");
+    expectScopedById(dashboardChain.calls.where[0]);
+    expectScopedById(metadataChain.calls.where[0]);
+    // The share lookup is scoped by dashboard, caller AND tenant.
+    const [shareExpr] = shareChain.calls.where[0];
+    expect(sqlColumns(shareExpr)).toEqual(
+      expect.arrayContaining(["dashboardId", "userId", "tenant_id"]),
+    );
+    expect(sqlValues(shareExpr)).toEqual(
+      expect.arrayContaining(["d1", "user-2", "tenant-1"]),
+    );
   });
 
   it("returns 404 when user has no access", async () => {
@@ -155,9 +186,13 @@ describe("GET /api/dashboards/[id]", () => {
       ...SESSION,
       tenantId: "tenant-other",
     });
-    mockDb.select.mockReturnValue(makeSelectChain([]));
+    const chain = makeSelectChain([]);
+    mockDb.select.mockReturnValue(chain);
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
+    // The 404 is only meaningful if the lookup asked for the session tenant.
+    expect(chain.calls.where).toHaveLength(1);
+    expectScopedById(chain.calls.where[0], "tenant-other");
   });
 
   it("returns public dashboard as viewer for any authenticated user", async () => {
@@ -301,12 +336,15 @@ describe("PUT /api/dashboards/[id]", () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     const updated = { ...OWNER_DASHBOARD, name: "New name" };
-    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const chain = makeUpdateChain([updated]);
+    mockDb.update.mockReturnValue(chain);
 
     const res = await PUT(makeRequest({ name: "New name" }), makeParams("d1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.name).toBe("New name");
+    expect(chain.calls.where).toHaveLength(1);
+    expectScopedById(chain.calls.where[0]);
   });
 
   it("sets updatedBy to session userId on update", async () => {
@@ -317,23 +355,12 @@ describe("PUT /api/dashboards/[id]", () => {
       name: "Updated",
       updatedBy: "user-1",
     };
-    const setSpy = vi.fn();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chain: any = {
-      set: (...args: unknown[]) => {
-        setSpy(...args);
-        return chain;
-      },
-      where: () => chain,
-      returning: () => Promise.resolve([updated]),
-    };
+    const chain = makeUpdateChain([updated]);
     mockDb.update.mockReturnValue(chain);
 
     const res = await PUT(makeRequest({ name: "Updated" }), makeParams("d1"));
     expect(res.status).toBe(200);
-    expect(setSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ updatedBy: "user-1" }),
-    );
+    expect(chain.calls.set[0][0]).toMatchObject({ updatedBy: "user-1" });
   });
 
   it("returns 400 when request body is invalid", async () => {
@@ -471,12 +498,18 @@ describe("DELETE /api/dashboards/[id]", () => {
 
   it("deletes dashboard and returns success", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
-    mockDb.delete.mockReturnValue(makeDeleteChain());
+    const selectChain = makeSelectChain([OWNER_DASHBOARD]);
+    const deleteChain = makeDeleteChain();
+    mockDb.select.mockReturnValue(selectChain);
+    mockDb.delete.mockReturnValue(deleteChain);
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.deleted).toBe(true);
+    // Owner check, then the DELETE itself — both scoped by tenant.
+    expectScopedById(selectChain.calls.where[0]);
+    expect(deleteChain.calls.where).toHaveLength(1);
+    expectScopedById(deleteChain.calls.where[0]);
   });
 
   it("returns 404 when dashboard belongs to different tenant", async () => {
@@ -484,9 +517,12 @@ describe("DELETE /api/dashboards/[id]", () => {
       ...SESSION,
       tenantId: "tenant-other",
     });
-    mockDb.select.mockReturnValue(makeSelectChain([]));
+    const chain = makeSelectChain([]);
+    mockDb.select.mockReturnValue(chain);
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(404);
+    expect(mockDb.delete).not.toHaveBeenCalled();
+    expectScopedById(chain.calls.where[0], "tenant-other");
   });
 
   it("allows admin to delete any dashboard in the tenant", async () => {
@@ -495,10 +531,17 @@ describe("DELETE /api/dashboards/[id]", () => {
       userId: "admin-1",
       role: "admin",
     });
-    mockDb.select.mockReturnValue(makeSelectChain([{ id: "d1" }]));
-    mockDb.delete.mockReturnValue(makeDeleteChain());
+    const selectChain = makeSelectChain([{ id: "d1" }]);
+    const deleteChain = makeDeleteChain();
+    mockDb.select.mockReturnValue(selectChain);
+    mockDb.delete.mockReturnValue(deleteChain);
     const res = await DELETE({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
+    // "Any dashboard" still means any dashboard in the admin's tenant: the
+    // admin existence check and the DELETE both carry the tenant filter.
+    expect(selectChain.calls.where).toHaveLength(1);
+    expectScopedById(selectChain.calls.where[0]);
+    expectScopedById(deleteChain.calls.where[0]);
   });
 });
 
@@ -524,7 +567,8 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
     // canAccess check passes — OWNER_DASHBOARD has version: 3
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
     // update returns empty — version mismatch (client sent 2, server has 3)
-    mockDb.update.mockReturnValue(makeUpdateChain([]));
+    const chain = makeUpdateChain([]);
+    mockDb.update.mockReturnValue(chain);
 
     const res = await PUT(
       makeRequest({
@@ -539,6 +583,14 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error.message).toMatch(/modified by someone else/i);
+    // The lock rides on the same WHERE as the id + tenant scope.
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id", "version"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["d1", "tenant-1", 2]),
+    );
   });
 
   it("succeeds and increments version when expectedVersion matches", async () => {

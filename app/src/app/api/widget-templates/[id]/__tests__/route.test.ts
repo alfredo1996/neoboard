@@ -3,6 +3,8 @@ import {
   makeSelectChain,
   makeUpdateChain,
   makeDeleteChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -43,6 +45,16 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+
+/**
+ * Every query the route makes is scoped by template id AND the session tenant
+ * (#1607). The tenant is non-default so a filter hard-coded to "default"
+ * cannot pass.
+ */
+function expectScopedToTenant(expr: unknown, id: string) {
+  expect(sqlColumns(expr)).toEqual(expect.arrayContaining(["id", "tenant_id"]));
+  expect(sqlValues(expr)).toEqual(expect.arrayContaining([id, "tenant-x"]));
+}
 
 // ---------------------------------------------------------------------------
 // Tests — GET /api/widget-templates/[id]
@@ -91,7 +103,7 @@ describe("GET /api/widget-templates/[id]", () => {
       userId: "user-1",
       role: "creator",
       canWrite: true,
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const template = {
       id: "t1",
@@ -100,7 +112,8 @@ describe("GET /api/widget-templates/[id]", () => {
       connectorType: "neo4j",
       createdBy: "user-1",
     };
-    mockDb.select.mockReturnValue(makeSelectChain([template]));
+    const chain = makeSelectChain([template]);
+    mockDb.select.mockReturnValue(chain);
     const res = await GET({} as Request, {
       params: Promise.resolve({ id: "t1" }),
     });
@@ -108,6 +121,8 @@ describe("GET /api/widget-templates/[id]", () => {
     const body = await res.json();
     expect(body.data).toEqual(template);
     expect(body.error).toBeNull();
+    expect(chain.calls.where).toHaveLength(1);
+    expectScopedToTenant(chain.calls.where[0][0], "t1");
   });
 });
 
@@ -222,23 +237,30 @@ describe("PUT /api/widget-templates/[id]", () => {
       userId: "user-1",
       role: "creator",
       canWrite: true,
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const existing = {
       id: "t1",
       name: "Old",
       createdBy: "user-1",
-      tenantId: "default",
+      tenantId: "tenant-x",
     };
     const updated = { ...existing, name: "Updated" };
-    mockDb.select.mockReturnValue(makeSelectChain([existing]));
-    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const ownerRead = makeSelectChain([existing]);
+    const update = makeUpdateChain([updated]);
+    mockDb.select.mockReturnValue(ownerRead);
+    mockDb.update.mockReturnValue(update);
     const res = await PUT(makeRequest({ name: "Updated" }), {
       params: Promise.resolve({ id: "t1" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual(updated);
+    // Both the ownership read and the write are tenant-scoped (#1607).
+    expect(ownerRead.calls.where).toHaveLength(1);
+    expectScopedToTenant(ownerRead.calls.where[0][0], "t1");
+    expect(update.calls.where).toHaveLength(1);
+    expectScopedToTenant(update.calls.where[0][0], "t1");
   });
 
   // The schema-validation branch reads `parsed.error.issues[0].message`. Under
@@ -352,16 +374,18 @@ describe("DELETE /api/widget-templates/[id]", () => {
       userId: "user-1",
       role: "creator",
       canWrite: true,
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const existing = {
       id: "t1",
       name: "My Template",
       createdBy: "user-1",
-      tenantId: "default",
+      tenantId: "tenant-x",
     };
-    mockDb.select.mockReturnValue(makeSelectChain([existing]));
-    mockDb.delete.mockReturnValue(makeDeleteChain());
+    const ownerRead = makeSelectChain([existing]);
+    const del = makeDeleteChain();
+    mockDb.select.mockReturnValue(ownerRead);
+    mockDb.delete.mockReturnValue(del);
     const res = await DELETE({} as Request, {
       params: Promise.resolve({ id: "t1" }),
     });
@@ -369,6 +393,11 @@ describe("DELETE /api/widget-templates/[id]", () => {
     const body = await res.json();
     expect(body.data).toEqual({ deleted: true });
     expect(body.error).toBeNull();
+    // Both the ownership read and the delete are tenant-scoped (#1607).
+    expect(ownerRead.calls.where).toHaveLength(1);
+    expectScopedToTenant(ownerRead.calls.where[0][0], "t1");
+    expect(del.calls.where).toHaveLength(1);
+    expectScopedToTenant(del.calls.where[0][0], "t1");
   });
 
   it("allows admin to delete any template", async () => {

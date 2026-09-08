@@ -1,13 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession = vi.fn<
-  () => Promise<{ userId: string; role: string; canWrite: boolean; tenantId: string }>
->();
+const mockRequireSession =
+  vi.fn<
+    () => Promise<{
+      userId: string;
+      role: string;
+      canWrite: boolean;
+      tenantId: string;
+    }>
+  >();
 
 const mockDb = {
   select: vi.fn(),
@@ -34,7 +44,12 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SESSION = { userId: "user-1", role: "creator", canWrite: true, tenantId: "tenant-1" };
+const SESSION = {
+  userId: "user-1",
+  role: "creator",
+  canWrite: true,
+  tenantId: "tenant-1",
+};
 
 const DASHBOARD_ROW = {
   id: "dash-1",
@@ -50,8 +65,20 @@ const DASHBOARD_ROW = {
         id: "p1",
         title: "Page 1",
         widgets: [
-          { id: "w1", chartType: "bar", connectionId: "conn-abc", query: "MATCH (n) RETURN n", settings: {} },
-          { id: "w2", chartType: "table", connectionId: "conn-abc", query: "MATCH (m) RETURN m", settings: {} },
+          {
+            id: "w1",
+            chartType: "bar",
+            connectionId: "conn-abc",
+            query: "MATCH (n) RETURN n",
+            settings: {},
+          },
+          {
+            id: "w2",
+            chartType: "table",
+            connectionId: "conn-abc",
+            query: "MATCH (m) RETURN m",
+            settings: {},
+          },
         ],
         gridLayout: [
           { i: "w1", x: 0, y: 0, w: 6, h: 4 },
@@ -72,7 +99,10 @@ const CONNECTION_ROW = { id: "conn-abc", name: "Neo4j Prod", type: "neo4j" };
 
 describe("GET /api/dashboards/[id]/export", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let GET: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<any>;
+  let GET: (
+    req: Request,
+    ctx: { params: Promise<{ id: string }> },
+  ) => Promise<any>;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -119,14 +149,19 @@ describe("GET /api/dashboards/[id]/export", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("application/json");
-    expect(res.headers.get("Content-Disposition")).toContain("dashboard-my-dashboard.json");
+    expect(res.headers.get("Content-Disposition")).toContain(
+      "dashboard-my-dashboard.json",
+    );
 
     const body = await res.json();
     expect(body.formatVersion).toBe(1);
     expect(body.dashboard.name).toBe("My Dashboard");
     expect(body.dashboard.description).toBe("A test dashboard");
     expect(body.connections).toHaveProperty("conn_0");
-    expect(body.connections.conn_0).toEqual({ name: "Neo4j Prod", type: "neo4j" });
+    expect(body.connections.conn_0).toEqual({
+      name: "Neo4j Prod",
+      type: "neo4j",
+    });
   });
 
   it("exports dashboard with no connections (empty layout)", async () => {
@@ -180,7 +215,9 @@ describe("GET /api/dashboards/[id]/export", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Disposition")).toContain("dashboard-my-amazing-dashboard-1.json");
+    expect(res.headers.get("Content-Disposition")).toContain(
+      "dashboard-my-amazing-dashboard-1.json",
+    );
   });
 
   it("returns 500 for unexpected errors", async () => {
@@ -202,7 +239,8 @@ describe("GET /api/dashboards/[id]/export", () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD_ROW]));
     // Return empty connections — simulates user not owning the connection
-    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    const connChain = makeSelectChain([]);
+    mockDb.select.mockReturnValueOnce(connChain);
 
     const res = await GET(new Request("http://localhost"), {
       params: Promise.resolve({ id: "dash-1" }),
@@ -212,6 +250,38 @@ describe("GET /api/dashboards/[id]/export", () => {
     expect(res.status).toBe(500);
     // Verify select was called twice (dashboard + connections)
     expect(mockDb.select).toHaveBeenCalledTimes(2);
+
+    // The connections lookup is id IN (...) AND tenant AND owner for a
+    // non-admin — the tenant comes from the session (#1607).
+    expect(connChain.calls.where).toHaveLength(1);
+    const [expr] = connChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id", "userId"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["conn-abc", "tenant-1", "user-1"]),
+    );
+  });
+
+  it("scopes an admin's connection query to the tenant only", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD_ROW]));
+    const connChain = makeSelectChain([CONNECTION_ROW]);
+    mockDb.select.mockReturnValueOnce(connChain);
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "dash-1" }),
+    });
+
+    expect(res.status).toBe(200);
+    const [expr] = connChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlColumns(expr)).not.toContain("userId");
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["conn-abc", "tenant-1"]),
+    );
   });
 
   it("handles widgets with empty connectionId", async () => {
@@ -220,14 +290,22 @@ describe("GET /api/dashboards/[id]/export", () => {
       ...DASHBOARD_ROW,
       layoutJson: {
         version: 2,
-        pages: [{
-          id: "p1",
-          title: "Page 1",
-          widgets: [
-            { id: "w1", chartType: "bar", connectionId: "", query: "RETURN 1", settings: {} },
-          ],
-          gridLayout: [{ i: "w1", x: 0, y: 0, w: 6, h: 4 }],
-        }],
+        pages: [
+          {
+            id: "p1",
+            title: "Page 1",
+            widgets: [
+              {
+                id: "w1",
+                chartType: "bar",
+                connectionId: "",
+                query: "RETURN 1",
+                settings: {},
+              },
+            ],
+            gridLayout: [{ i: "w1", x: 0, y: 0, w: 6, h: 4 }],
+          },
+        ],
       },
     };
     mockDb.select.mockReturnValueOnce(makeSelectChain([noConnDash]));

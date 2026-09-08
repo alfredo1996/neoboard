@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -181,7 +183,7 @@ describe("POST /api/dashboards/import", () => {
 
   it("returns 400 for invalid payload (missing formatVersion)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     const { formatVersion: _fv, ...noVersion } = VALID_PAYLOAD;
     const res = await POST(
       makeRequest({ payload: noVersion, connectionMapping: {} }),
@@ -213,11 +215,11 @@ describe("POST /api/dashboards/import", () => {
   it("imports a valid NeoBoard export and returns 201 with notes array", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // Connection ownership check returns 1 allowed connection
-    mockDb.select.mockReturnValueOnce(
-      makeSelectChain([{ id: "real-conn-id" }]),
-    );
+    const connectionsChain = makeSelectChain([{ id: "real-conn-id" }]);
+    mockDb.select.mockReturnValueOnce(connectionsChain);
     // No existing dashboard with same name
-    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    const nameChain = makeSelectChain([]);
+    mockDb.select.mockReturnValueOnce(nameChain);
     const created = {
       id: "new-dash",
       name: "Imported Dashboard",
@@ -226,7 +228,8 @@ describe("POST /api/dashboards/import", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+    const insertChain = makeInsertChain([created]);
+    mockDb.insert.mockReturnValue(insertChain);
 
     const res = await POST(
       makeRequest({
@@ -241,6 +244,28 @@ describe("POST /api/dashboards/import", () => {
     expect(Array.isArray(body.data.notes)).toBe(true);
     // Happy-path NeoBoard import has no notes (mapping fully applied)
     expect(body.data.notes).toEqual([]);
+
+    // Every tenant-table query is scoped by the session tenant (#1607):
+    // mapping targets by caller + tenant, the name clash by tenant, and the
+    // new row is stamped with the session tenant.
+    const [connExpr] = connectionsChain.calls.where[0];
+    expect(sqlColumns(connExpr)).toEqual(
+      expect.arrayContaining(["id", "userId", "tenant_id"]),
+    );
+    expect(sqlValues(connExpr)).toEqual(
+      expect.arrayContaining(["real-conn-id", "user-1", "tenant-1"]),
+    );
+    const [nameExpr] = nameChain.calls.where[0];
+    expect(sqlColumns(nameExpr)).toEqual(
+      expect.arrayContaining(["name", "tenant_id"]),
+    );
+    expect(sqlValues(nameExpr)).toEqual(
+      expect.arrayContaining(["Imported Dashboard", "tenant-1"]),
+    );
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      tenantId: "tenant-1",
+      userId: "user-1",
+    });
   });
 
   it("records a dashboard.import audit entry (#1234)", async () => {
@@ -443,7 +468,8 @@ describe("POST /api/dashboards/import", () => {
   it("rejects cross-tenant mapping (connection ownership check fails)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // Ownership/tenant check returns nothing — mapped id is foreign
-    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    const chain = makeSelectChain([]);
+    mockDb.select.mockReturnValueOnce(chain);
 
     const res = await POST(
       makeRequest({
@@ -454,6 +480,17 @@ describe("POST /api/dashboards/import", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.message).toMatch(/invalid connection mapping/i);
+    // The rejection is only "cross-tenant" if the lookup asked for the
+    // caller's tenant and user in the first place.
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["userId", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["foreign-conn-id", "user-1", "tenant-1"]),
+    );
+    expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
   it("appends (imported) to name when dashboard with same name already exists", async () => {

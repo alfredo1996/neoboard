@@ -5,6 +5,7 @@ import {
   makeSelectChain,
   makeUpdateChain,
   makeInsertChain,
+  makeDeleteChain,
   sqlColumns,
   sqlValues,
 } from "../drizzle-mocks";
@@ -33,6 +34,27 @@ describe("query-chain stubs record what the handler passed", () => {
     const chain = makeInsertChain([]);
     chain.values({ id: "u1", tenantId: "t1" });
     expect(chain.calls.values[0]).toEqual([{ id: "u1", tenantId: "t1" }]);
+  });
+
+  it("records the where on a returning delete and still chains to returning()", async () => {
+    const rows = [{ id: "u1" }];
+    const chain = makeDeleteChain(rows);
+    await expect(
+      chain.where(eq(users.tenantId, "tenant-a")).returning(),
+    ).resolves.toEqual(rows);
+    expect(chain.calls.where).toHaveLength(1);
+    expect(sqlColumns(chain.calls.where[0][0])).toContain("tenant_id");
+    expect(sqlValues(chain.calls.where[0][0])).toContain("tenant-a");
+  });
+
+  it("records the where on a void delete and still resolves", async () => {
+    const chain = makeDeleteChain();
+    await expect(
+      chain.where(eq(users.tenantId, "tenant-b")),
+    ).resolves.toBeUndefined();
+    expect(chain.calls.where).toHaveLength(1);
+    expect(sqlColumns(chain.calls.where[0][0])).toContain("tenant_id");
+    expect(sqlValues(chain.calls.where[0][0])).toContain("tenant-b");
   });
 
   it("still resolves to its rows, so existing tests keep working", async () => {

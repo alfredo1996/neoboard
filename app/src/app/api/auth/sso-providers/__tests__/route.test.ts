@@ -1,5 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain } from "@/__tests__/helpers/drizzle-mocks";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  makeSelectChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 // ---------------------------------------------------------------------------
@@ -38,6 +42,10 @@ describe("GET /api/auth/sso-providers", () => {
     GET = mod.GET;
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("returns empty array when no providers configured", async () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await GET(authReq());
@@ -61,6 +69,21 @@ describe("GET /api/auth/sso-providers", () => {
     expect(body.data[0]).not.toHaveProperty("clientId");
     expect(body.data[0]).not.toHaveProperty("clientSecretEncrypted");
     expect(body.data[0]).not.toHaveProperty("issuer");
+  });
+
+  it("lists only enabled providers of the configured tenant", async () => {
+    // Public route: there is no session, so the tenant comes from the
+    // deployment env, never from the request (#1607).
+    vi.stubEnv("TENANT_ID", "tenant-x");
+    const chain = makeSelectChain([]);
+    mockDb.select.mockReturnValue(chain);
+    await GET(authReq());
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["tenant_id", "enabled"]),
+    );
+    expect(sqlValues(expr)).toEqual(expect.arrayContaining(["tenant-x", true]));
   });
 
   it("does not require authentication", async () => {

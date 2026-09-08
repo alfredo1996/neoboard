@@ -117,16 +117,47 @@ export function makeUpdateChain(returning: unknown[] = []): UpdateChain {
   return c;
 }
 
-/** Chainable delete builder. Resolves `returning()` to `returning` array, or `where()` to void. */
-export function makeDeleteChain(returning?: unknown[]) {
+/**
+ * Chainable delete builder. Resolves `returning()` to `returning` array, or
+ * `where()` to void.
+ *
+ * Records `where` like the other chains. It was the one builder #1609 left
+ * discarding its argument, so a DELETE handler that forgot its tenant filter
+ * could not be told apart from one that remembered it (#1607).
+ */
+interface DeleteChainReturning {
+  calls: ChainCalls;
+  where: (...a: unknown[]) => DeleteChainReturning;
+  returning: () => Promise<unknown[]>;
+}
+
+interface DeleteChainVoid {
+  calls: ChainCalls;
+  where: (...a: unknown[]) => Promise<void>;
+}
+
+// Overloaded so `.where(...).returning()` typechecks on the returning form and
+// `await chain.where(...)` on the void form — one signature would type `where`
+// as the union and reject both uses.
+export function makeDeleteChain(returning: unknown[]): DeleteChainReturning;
+export function makeDeleteChain(): DeleteChainVoid;
+export function makeDeleteChain(
+  returning?: unknown[],
+): DeleteChainReturning | DeleteChainVoid {
+  const calls = newCalls();
   if (returning !== undefined) {
-    const c = {
-      where: () => c,
+    const c: DeleteChainReturning = {
+      calls,
+      where: (...a: unknown[]) => (calls.where.push(a), c),
       returning: () => Promise.resolve(returning),
     };
     return c;
   }
-  return { where: () => Promise.resolve() };
+  const c: DeleteChainVoid = {
+    calls,
+    where: (...a: unknown[]) => (calls.where.push(a), Promise.resolve()),
+  };
+  return c;
 }
 
 /**

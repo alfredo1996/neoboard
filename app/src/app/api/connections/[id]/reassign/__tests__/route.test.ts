@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeParams, makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -141,9 +145,11 @@ describe("POST /api/connections/[id]/reassign", () => {
 
   it("succeeds and returns reassign counts for a non-admin owner", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
+    const sourceChain = makeSelectChain([{ id: "c1", type: "postgresql" }]);
+    const targetChain = makeSelectChain([{ id: "c2", type: "postgresql" }]);
     mockDb.select
-      .mockReturnValueOnce(makeSelectChain([{ id: "c1", type: "postgresql" }]))
-      .mockReturnValueOnce(makeSelectChain([{ id: "c2", type: "postgresql" }]));
+      .mockReturnValueOnce(sourceChain)
+      .mockReturnValueOnce(targetChain);
     mockReassignConnectionWidgets.mockResolvedValue({
       dashboardsUpdated: 3,
       widgetsReassigned: 7,
@@ -163,6 +169,23 @@ describe("POST /api/connections/[id]/reassign", () => {
       isAdmin: false,
       tenantId: "t1",
     });
+
+    // Source lookup is owner + tenant scoped for a non-admin (#1607).
+    expect(sourceChain.calls.where).toHaveLength(1);
+    const [sourceExpr] = sourceChain.calls.where[0];
+    expect(sqlColumns(sourceExpr)).toEqual(
+      expect.arrayContaining(["id", "userId", "tenant_id"]),
+    );
+    expect(sqlValues(sourceExpr)).toEqual(
+      expect.arrayContaining(["c1", "user-1", "t1"]),
+    );
+    // Target lookup is tenant scoped; ownership is deliberately not required.
+    expect(targetChain.calls.where).toHaveLength(1);
+    const [targetExpr] = targetChain.calls.where[0];
+    expect(sqlColumns(targetExpr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlValues(targetExpr)).toEqual(expect.arrayContaining(["c2", "t1"]));
   });
 
   it("records a connection.reassign audit entry (#1234)", async () => {
@@ -210,9 +233,11 @@ describe("POST /api/connections/[id]/reassign", () => {
 
   it("allows admins to reassign any connection in their tenant", async () => {
     mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    const sourceChain = makeSelectChain([{ id: "c1", type: "neo4j" }]);
+    const targetChain = makeSelectChain([{ id: "c2", type: "neo4j" }]);
     mockDb.select
-      .mockReturnValueOnce(makeSelectChain([{ id: "c1", type: "neo4j" }]))
-      .mockReturnValueOnce(makeSelectChain([{ id: "c2", type: "neo4j" }]));
+      .mockReturnValueOnce(sourceChain)
+      .mockReturnValueOnce(targetChain);
     mockReassignConnectionWidgets.mockResolvedValue({
       dashboardsUpdated: 0,
       widgetsReassigned: 0,
@@ -230,6 +255,17 @@ describe("POST /api/connections/[id]/reassign", () => {
       isAdmin: true,
       tenantId: "t1",
     });
+
+    // Admin skips the owner check but is still confined to the tenant (#1607).
+    const [sourceExpr] = sourceChain.calls.where[0];
+    expect(sqlColumns(sourceExpr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlColumns(sourceExpr)).not.toContain("userId");
+    expect(sqlValues(sourceExpr)).toEqual(expect.arrayContaining(["c1", "t1"]));
+    const [targetExpr] = targetChain.calls.where[0];
+    expect(sqlColumns(targetExpr)).toContain("tenant_id");
+    expect(sqlValues(targetExpr)).toContain("t1");
   });
 
   it("returns zero counts when nothing uses the source connection", async () => {

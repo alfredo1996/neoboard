@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -10,15 +12,14 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockRequireSession =
-  vi.fn<
-    () => Promise<{
-      userId: string;
-      role: string;
-      canWrite: boolean;
-      tenantId: string;
-    }>
-  >();
+const mockRequireSession = vi.fn<
+  () => Promise<{
+    userId: string;
+    role: string;
+    canWrite: boolean;
+    tenantId: string;
+  }>
+>();
 
 const mockDb = {
   select: vi.fn(),
@@ -71,7 +72,7 @@ describe("GET /api/dashboards", () => {
       userId: "user-1",
       role: "creator",
       canWrite: true,
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const row = {
       id: "d1",
@@ -85,8 +86,10 @@ describe("GET /api/dashboards", () => {
       updatedByName: null,
     };
     // Non-admin: 1) count, 2) selectDistinctOn
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
-    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([row]));
+    const countChain = makeSelectChain([{ count: 1 }]);
+    const rowsChain = makeSelectChain([row]);
+    mockDb.select.mockReturnValueOnce(countChain);
+    mockDb.selectDistinctOn.mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);
@@ -95,6 +98,20 @@ describe("GET /api/dashboards", () => {
     expect(body.data[0].role).toBe("owner");
     expect(body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
     expect(body.error).toBeNull();
+
+    // Both the count and the page query scope by the session tenant and, for
+    // a creator, by the caller as owner (#1607). The share-side tenant filter
+    // lives in the LEFT JOIN condition, which the chain does not record.
+    for (const chain of [countChain, rowsChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toEqual(
+        expect.arrayContaining(["tenant_id", "userId"]),
+      );
+      expect(sqlValues(expr)).toEqual(
+        expect.arrayContaining(["tenant-x", "user-1"]),
+      );
+    }
   });
 
   it("merges owned and shared dashboards (creator role)", async () => {
@@ -147,7 +164,7 @@ describe("GET /api/dashboards", () => {
       userId: "admin-1",
       role: "admin",
       canWrite: true,
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const ownedRow = {
       id: "d1",
@@ -168,13 +185,23 @@ describe("GET /api/dashboards", () => {
       ownerId: "user-1",
     };
     // Admin path: 1) count query, 2) paginated select
+    const countChain = makeSelectChain([{ count: 2 }]);
+    const rowsChain = makeSelectChain([ownedRow, otherRow]);
     mockDb.select
-      .mockReturnValueOnce(makeSelectChain([{ count: 2 }]))
-      .mockReturnValueOnce(makeSelectChain([ownedRow, otherRow]));
+      .mockReturnValueOnce(countChain)
+      .mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
     expect(body.data).toHaveLength(2);
+    // "Every dashboard" means every dashboard in the session tenant — both
+    // admin queries must carry the tenant filter (#1607).
+    for (const chain of [countChain, rowsChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toEqual(["tenant_id"]);
+      expect(sqlValues(expr)).toEqual(["tenant-x"]);
+    }
     expect(body.data.find((d: { id: string }) => d.id === "d1")?.role).toBe(
       "owner",
     );
@@ -194,7 +221,7 @@ describe("GET /api/dashboards", () => {
       userId: "user-1",
       role: "reader",
       canWrite: false,
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const assignedRow = {
       id: "d1",
@@ -207,13 +234,23 @@ describe("GET /api/dashboards", () => {
       shareRole: "viewer",
       updatedByName: null,
     };
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
-    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([assignedRow]));
+    const countChain = makeSelectChain([{ count: 1 }]);
+    const rowsChain = makeSelectChain([assignedRow]);
+    mockDb.select.mockReturnValueOnce(countChain);
+    mockDb.selectDistinctOn.mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
     expect(body.data).toHaveLength(1);
     expect(body.data[0].id).toBe("d1");
+    // A reader's access filter is share-or-public; the user scoping sits in
+    // the share JOIN, so the WHERE must at least pin the tenant (#1607).
+    for (const chain of [countChain, rowsChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toContain("tenant_id");
+      expect(sqlValues(expr)).toContain("tenant-x");
+    }
   });
 
   it("includes public dashboards for creator role", async () => {
@@ -362,7 +399,7 @@ describe("POST /api/dashboards", () => {
       userId: "user-1",
       role: "creator",
       canWrite: true,
-      tenantId: "default",
+      tenantId: "tenant-x",
     });
     const created = {
       id: "d1",
@@ -370,13 +407,24 @@ describe("POST /api/dashboards", () => {
       userId: "user-1",
       createdAt: new Date(),
     };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+    const chain = makeInsertChain([created]);
+    mockDb.insert.mockReturnValue(chain);
 
-    const res = await POST(makeRequest({ name: "My Dashboard" }));
+    // A tenantId in the body must be ignored — the row is stamped with the
+    // session tenant, never the request's (#1607).
+    const res = await POST(
+      makeRequest({ name: "My Dashboard", tenantId: "tenant-evil" }),
+    );
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data).toEqual(created);
     expect(body.error).toBeNull();
+    // values[0] is the dashboard row; the audit log's own insert lands on the
+    // same mocked chain afterwards.
+    expect(chain.calls.values[0][0]).toMatchObject({
+      tenantId: "tenant-x",
+      userId: "user-1",
+    });
   });
 
   it("sets updatedBy to session userId on create", async () => {
@@ -392,22 +440,12 @@ describe("POST /api/dashboards", () => {
       userId: "user-1",
       updatedBy: "user-1",
     };
-    const valuesSpy = vi.fn();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chain: any = {
-      values: (...args: unknown[]) => {
-        valuesSpy(...args);
-        return chain;
-      },
-      returning: () => Promise.resolve([created]),
-    };
+    const chain = makeInsertChain([created]);
     mockDb.insert.mockReturnValue(chain);
 
     const res = await POST(makeRequest({ name: "Test" }));
     expect(res.status).toBe(201);
-    expect(valuesSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ updatedBy: "user-1" }),
-    );
+    expect(chain.calls.values[0][0]).toMatchObject({ updatedBy: "user-1" });
   });
 });
 

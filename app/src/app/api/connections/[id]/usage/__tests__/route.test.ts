@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -87,7 +91,8 @@ describe("GET /api/connections/[id]/usage", () => {
 
   it("returns usage breakdown for the owner", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockDb.select.mockReturnValue(makeSelectChain([{ id: "c1" }]));
+    const chain = makeSelectChain([{ id: "c1" }]);
+    mockDb.select.mockReturnValue(chain);
     mockGetConnectionUsage.mockResolvedValue({
       widgetCount: 3,
       dashboards: [
@@ -109,11 +114,22 @@ describe("GET /api/connections/[id]/usage", () => {
       false,
       "t1",
     );
+
+    // The ownership check is id + owner + session tenant (#1607).
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "userId", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["c1", "user-1", "t1"]),
+    );
   });
 
   it("admin can query usage for any connection in the same tenant", async () => {
     mockRequireSession.mockResolvedValue(ADMIN_SESSION);
-    mockDb.select.mockReturnValue(makeSelectChain([{ id: "c1" }]));
+    const chain = makeSelectChain([{ id: "c1" }]);
+    mockDb.select.mockReturnValue(chain);
     mockGetConnectionUsage.mockResolvedValue({
       widgetCount: 5,
       dashboards: [{ id: "d1", name: "Team dash", widgetCount: 5 }],
@@ -129,6 +145,12 @@ describe("GET /api/connections/[id]/usage", () => {
       true,
       "t1",
     );
+
+    // "Same tenant" is the whole filter for admins: id + tenant, no owner.
+    expect(chain.calls.where).toHaveLength(1);
+    const [expr] = chain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(["id", "tenant_id"]);
+    expect(sqlValues(expr)).toEqual(["c1", "t1"]);
   });
 
   it("returns empty usage when the connection has no widgets", async () => {

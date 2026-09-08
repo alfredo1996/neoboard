@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeUpdateChain,
+  makeDeleteChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -46,12 +49,19 @@ vi.mock("@/lib/audit/audit", () => ({
 }));
 vi.mock("next/server", () => nextResponseMockFactory());
 
-const ADMIN = { userId: "admin-1", canWrite: true, tenantId: "default" };
+// A non-default tenant, so a filter hard-coded to "default" cannot pass (#1607).
+const ADMIN = { userId: "admin-1", canWrite: true, tenantId: "tenant-x" };
 const READONLY_ADMIN = {
   userId: "admin-1",
   canWrite: false,
-  tenantId: "default",
+  tenantId: "tenant-x",
 };
+
+/** The route scopes every users query by id AND the session tenant (#1607). */
+function expectScopedToTenant(expr: unknown, id: string) {
+  expect(sqlColumns(expr)).toEqual(expect.arrayContaining(["id", "tenant_id"]));
+  expect(sqlValues(expr)).toEqual(expect.arrayContaining([id, "tenant-x"]));
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/users/[id]
@@ -91,7 +101,8 @@ describe("GET /api/users/[id]", () => {
       canWrite: true,
       createdAt: new Date(),
     };
-    mockDb.select.mockReturnValue(makeSelectChain([user]));
+    const chain = makeSelectChain([user]);
+    mockDb.select.mockReturnValue(chain);
 
     const res = await GET(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(200);
@@ -99,6 +110,8 @@ describe("GET /api/users/[id]", () => {
     expect(body.data.id).toBe("u1");
     expect(body.data.name).toBe("Alice");
     expect(body.error).toBeNull();
+    expect(chain.calls.where).toHaveLength(1);
+    expectScopedToTenant(chain.calls.where[0][0], "u1");
   });
 
   it("returns 404 when user not found", async () => {
@@ -148,13 +161,16 @@ describe("PATCH /api/users/[id]", () => {
       canWrite: false,
       createdAt: new Date(),
     };
-    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const chain = makeUpdateChain([updated]);
+    mockDb.update.mockReturnValue(chain);
 
     const res = await PATCH(makeRequest({ canWrite: false }), makeParams("u1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.canWrite).toBe(false);
     expect(body.error).toBeNull();
+    expect(chain.calls.where).toHaveLength(1);
+    expectScopedToTenant(chain.calls.where[0][0], "u1");
   });
 
   it("updates both role and canWrite", async () => {
@@ -163,7 +179,8 @@ describe("PATCH /api/users/[id]", () => {
     // (route.ts:100-105). This test passed only because the GET describe's
     // last case had left a select stub behind — reorder the file and it 500s
     // (#1630).
-    mockDb.select.mockReturnValue(makeSelectChain([{ role: "creator" }]));
+    const roleRead = makeSelectChain([{ role: "creator" }]);
+    mockDb.select.mockReturnValue(roleRead);
     const updated = {
       id: "u2",
       name: "Eve",
@@ -172,7 +189,8 @@ describe("PATCH /api/users/[id]", () => {
       canWrite: false,
       createdAt: new Date(),
     };
-    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const update = makeUpdateChain([updated]);
+    mockDb.update.mockReturnValue(update);
 
     const res = await PATCH(
       makeRequest({ role: "creator", canWrite: false }),
@@ -182,6 +200,11 @@ describe("PATCH /api/users/[id]", () => {
     const body = await res.json();
     expect(body.data.role).toBe("creator");
     expect(body.data.canWrite).toBe(false);
+    // Both the demotion read and the write are scoped to the tenant.
+    expect(roleRead.calls.where).toHaveLength(1);
+    expectScopedToTenant(roleRead.calls.where[0][0], "u2");
+    expect(update.calls.where).toHaveLength(1);
+    expectScopedToTenant(update.calls.where[0][0], "u2");
   });
 
   it("emits both user.update and user.role.change on a privilege change (#1234)", async () => {
@@ -429,22 +452,21 @@ describe("DELETE /api/users/[id]", () => {
 
   it("returns 404 when user not found", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN);
-    mockDb.delete.mockReturnValue({
-      where: () => ({ returning: () => Promise.resolve([]) }),
-    });
+    mockDb.delete.mockReturnValue(makeDeleteChain([]));
     const res = await DELETE(makeRequest({}), makeParams("nonexistent"));
     expect(res.status).toBe(404);
   });
 
   it("deletes user and returns envelope", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN);
-    mockDb.delete.mockReturnValue({
-      where: () => ({ returning: () => Promise.resolve([{ id: "u1" }]) }),
-    });
+    const chain = makeDeleteChain([{ id: "u1" }]);
+    mockDb.delete.mockReturnValue(chain);
     const res = await DELETE(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.deleted).toBe(true);
     expect(body.error).toBeNull();
+    expect(chain.calls.where).toHaveLength(1);
+    expectScopedToTenant(chain.calls.where[0][0], "u1");
   });
 });

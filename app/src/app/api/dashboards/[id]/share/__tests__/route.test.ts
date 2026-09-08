@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSelectChain } from "@/__tests__/helpers/drizzle-mocks";
+import {
+  makeSelectChain,
+  makeInsertChain,
+  makeUpdateChain,
+  makeDeleteChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest, makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -15,20 +22,6 @@ const mockRequireSession = vi.fn<
     tenantId: string;
   }>
 >();
-
-function makeInsertChain() {
-  return { values: () => Promise.resolve() };
-}
-
-function makeUpdateChain() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const c: any = { set: () => c, where: () => Promise.resolve() };
-  return c;
-}
-
-function makeDeleteChain() {
-  return { where: () => Promise.resolve() };
-}
 
 const mockDb = {
   select: vi.fn(),
@@ -74,22 +67,24 @@ function makeDeleteRequest(url: string) {
   return { url } as Request;
 }
 
+// Session tenant deliberately differs from the schema default so a route that
+// hard-coded "default" instead of the session tenant would fail (#1607).
 const SESSION = {
   userId: "user-1",
   role: "creator",
   canWrite: true,
-  tenantId: "default",
+  tenantId: "tenant-x",
 };
 const ADMIN_SESSION = {
   userId: "admin-1",
   role: "admin",
   canWrite: true,
-  tenantId: "default",
+  tenantId: "tenant-x",
 };
 const DASHBOARD = {
   id: "d1",
   userId: "user-1",
-  tenantId: "default",
+  tenantId: "tenant-x",
   name: "Dash",
 };
 
@@ -136,11 +131,21 @@ describe("GET /api/dashboards/[id]/share", () => {
         userEmail: "alice@example.com",
       },
     ];
-    mockDb.select.mockReturnValueOnce(makeSelectChain(shares));
+    const sharesChain = makeSelectChain(shares);
+    mockDb.select.mockReturnValueOnce(sharesChain);
     const res = await GET({} as Request, makeParams("d1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(1);
+    // The share listing itself is tenant-scoped, not just the access check.
+    expect(sharesChain.calls.where).toHaveLength(1);
+    const [expr] = sharesChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["dashboardId", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["d1", SESSION.tenantId]),
+    );
   });
 
   it("returns shares for admin accessing any dashboard", async () => {
@@ -242,9 +247,11 @@ describe("POST /api/dashboards/[id]/share", () => {
   it("creates new share when none exists", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "user-2" }]));
+    const userChain = makeSelectChain([{ id: "user-2" }]);
+    mockDb.select.mockReturnValueOnce(userChain);
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
-    mockDb.insert.mockReturnValue(makeInsertChain());
+    const insertChain = makeInsertChain();
+    mockDb.insert.mockReturnValue(insertChain);
     const res = await POST(
       makeRequest({ email: "other@example.com", role: "viewer" }),
       makeParams("d1"),
@@ -252,6 +259,22 @@ describe("POST /api/dashboards/[id]/share", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.success).toBe(true);
+
+    // The sharee lookup is tenant-scoped — an email in another tenant must
+    // not resolve (#1607).
+    const [userExpr] = userChain.calls.where[0];
+    expect(sqlColumns(userExpr)).toEqual(
+      expect.arrayContaining(["email", "tenant_id"]),
+    );
+    expect(sqlValues(userExpr)).toEqual(
+      expect.arrayContaining(["other@example.com", SESSION.tenantId]),
+    );
+    // The new row carries the session tenant, never one from the body.
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: SESSION.tenantId,
+    });
   });
 
   it("records a dashboard.share audit entry (#1234)", async () => {
@@ -362,7 +385,8 @@ describe("DELETE /api/dashboards/[id]/share", () => {
   it("deletes share and returns success", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
-    mockDb.delete.mockReturnValue(makeDeleteChain());
+    const deleteChain = makeDeleteChain();
+    mockDb.delete.mockReturnValue(deleteChain);
     const res = await DELETE(
       makeDeleteRequest("http://localhost/api/dashboards/d1/share?shareId=s1"),
       makeParams("d1"),
@@ -370,6 +394,16 @@ describe("DELETE /api/dashboards/[id]/share", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.success).toBe(true);
+    // Deletes by share id AND dashboard AND tenant, so a share id from another
+    // tenant's dashboard cannot be revoked through this one (#1607).
+    expect(deleteChain.calls.where).toHaveLength(1);
+    const [expr] = deleteChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "dashboardId", "tenant_id"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["s1", "d1", SESSION.tenantId]),
+    );
   });
 
   it("records a dashboard.share.revoke audit entry (#1234)", async () => {

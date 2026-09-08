@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
+  sqlColumns,
+  sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -109,8 +111,10 @@ describe("GET /api/connections", () => {
         ownerId: "user-1",
       },
     ];
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
-    mockDb.select.mockReturnValueOnce(makeSelectChain(rows));
+    const countChain = makeSelectChain([{ count: 1 }]);
+    const rowsChain = makeSelectChain(rows);
+    mockDb.select.mockReturnValueOnce(countChain);
+    mockDb.select.mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest({}, "http://localhost/api/connections"));
     expect(res.status).toBe(200);
@@ -121,6 +125,19 @@ describe("GET /api/connections", () => {
     expect(body.data[0].visibility).toBe("private");
     expect(body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
     expect(body.error).toBeNull();
+
+    // Both the count and the page are scoped to the session tenant and to
+    // own-or-shared rows — the chain records the filter itself (#1607).
+    for (const chain of [countChain, rowsChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toEqual(
+        expect.arrayContaining(["tenant_id", "userId", "visibility"]),
+      );
+      expect(sqlValues(expr)).toEqual(
+        expect.arrayContaining(["t1", "user-1", "shared"]),
+      );
+    }
   });
 
   it("marks tenant-shared connections not owned by the caller (#901)", async () => {
@@ -164,13 +181,23 @@ describe("GET /api/connections", () => {
         updatedAt: new Date(),
       },
     ];
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
-    mockDb.select.mockReturnValueOnce(makeSelectChain(rows));
+    const countChain = makeSelectChain([{ count: 2 }]);
+    const rowsChain = makeSelectChain(rows);
+    mockDb.select.mockReturnValueOnce(countChain);
+    mockDb.select.mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest({}, "http://localhost/api/connections"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(2);
+
+    // "All" means all in the tenant — no owner filter, but still tenant-bound.
+    for (const chain of [countChain, rowsChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toEqual(["tenant_id"]);
+      expect(sqlValues(expr)).toEqual(["t1"]);
+    }
   });
 
   it("respects limit and offset", async () => {
@@ -318,7 +345,8 @@ describe("POST /api/connections", () => {
       type: "neo4j",
       createdAt: new Date(),
     };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+    const insertChain = makeInsertChain([created]);
+    mockDb.insert.mockReturnValue(insertChain);
 
     const res = await POST(
       makeRequest({
@@ -329,6 +357,9 @@ describe("POST /api/connections", () => {
           username: "neo4j",
           password: "pass",
         },
+        // A client-supplied tenant must never reach the row (#1607).
+        tenantId: "other-tenant",
+        userId: "other-user",
       }),
     );
 
@@ -338,5 +369,11 @@ describe("POST /api/connections", () => {
     expect(body.error).toBeNull();
     expect(mockEncryptJson).toHaveBeenCalled();
     expect(mockPrefetchSchema).toHaveBeenCalled();
+
+    expect(insertChain.calls.values).toHaveLength(1);
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      tenantId: "t1",
+      userId: "user-1",
+    });
   });
 });
