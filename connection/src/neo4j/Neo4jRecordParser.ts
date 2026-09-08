@@ -22,6 +22,99 @@ import { NeodashRecord } from "@neoboard/connector-sdk";
  * Parses Neo4j records into plain JavaScript objects,
  * simplifying the handling of integers, nodes, relationships, etc.
  */
+/**
+ * How far ahead of UTC `zone` is at `instant`, in milliseconds.
+ *
+ * Formats the instant in the zone, then reads those wall-clock numbers back as
+ * if they were UTC — the difference is the offset. This is the only way to ask
+ * the platform about a zone; `Intl` exposes no offset directly.
+ */
+function zoneOffsetMs(zone: string, instant: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+
+  const at: Record<string, string> = {};
+  for (const { type, value } of parts) at[type] = value;
+
+  const wallClockAsUtc = Date.UTC(
+    Number(at.year),
+    Number(at.month) - 1,
+    Number(at.day),
+    // Some ICU builds render midnight as hour 24 under hour12:false.
+    Number(at.hour) % 24,
+    Number(at.minute),
+    Number(at.second),
+  );
+  return wallClockAsUtc - instant;
+}
+
+/** `+02:00` / `-05:30` for an offset in seconds, rounded to the minute. */
+function formatOffset(seconds: number): string {
+  const sign = seconds < 0 ? "-" : "+";
+  const abs = Math.abs(seconds);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${sign}${pad(Math.floor(abs / 3600))}:${pad(Math.floor((abs % 3600) / 60))}`;
+}
+
+/**
+ * A DateTime with a named time zone, as an ISO string every JS date parser
+ * accepts.
+ *
+ * The driver's own toString() appends the zone id in brackets —
+ * `2024-06-01T14:30:05+02:00[Europe/Rome]` — and that suffix is not ISO 8601,
+ * so `Date.parse` returns NaN. Every consumer of this value parses it as a
+ * date: the gantt dropped every row and told the user their `datetime()`
+ * column was "a year column such as released", and the line chart fell back to
+ * a category axis without saying so (#1651).
+ *
+ * The offset preserves the instant exactly; the zone NAME does not survive.
+ * That is the right trade for a value whose job is to be a timestamp — and it
+ * is what a DateTime built with an offset has always produced.
+ *
+ * Two shapes reach here. Bolt 5.x sends the offset alongside the zone id, so
+ * stripping the suffix is enough. Bolt 4.x and earlier send only the zone id,
+ * leaving the offset null, so it has to be resolved for that wall clock — and
+ * per instant, not per zone: Europe/Rome is +01:00 in January and +02:00 in
+ * June.
+ */
+function zonedDateTimeToIso(value: DateTime): string {
+  const withoutZone = value.toString().replace(/\[[^\]]+\]$/, "");
+  // Bolt 5.x: the offset is already there and is exact.
+  if (/(Z|[+-]\d{2}:\d{2}(:\d{2})?)$/.test(withoutZone)) return withoutZone;
+
+  const zone = value.timeZoneId;
+  if (zone == null) return withoutZone;
+
+  try {
+    // Sub-second digits do not affect the offset, and more than three of them
+    // are outside what Date.parse promises to read.
+    const wallClock = withoutZone.replace(/\.\d+$/, "");
+    const asUtc = Date.parse(`${wallClock}Z`);
+    if (Number.isNaN(asUtc)) return withoutZone;
+
+    // Read the wall clock as UTC, then find the instant that shows that same
+    // wall clock in the zone. A second pass settles the DST boundaries, where
+    // the first guess lands on the wrong side of a transition.
+    let instant = asUtc;
+    for (let pass = 0; pass < 2; pass++) {
+      instant = asUtc - zoneOffsetMs(zone, instant);
+    }
+    return withoutZone + formatOffset(zoneOffsetMs(zone, instant) / 1000);
+  } catch {
+    // An unknown zone id makes Intl throw. One odd value must not fail the
+    // whole result set — fall back to the zone-less local time.
+    return withoutZone;
+  }
+}
+
 export class Neo4jRecordParser extends NeodashRecordParser {
   constructor() {
     // Constructor can be extended in the future if needed
@@ -220,6 +313,12 @@ export class Neo4jRecordParser extends NeodashRecordParser {
         seconds: value.seconds.toNumber(),
         nanoseconds: value.nanoseconds.toNumber(),
       };
+    }
+
+    // A DateTime carrying a named zone is the one shape the driver's toString()
+    // renders unparseably (#1651) — see zonedDateTimeToIso.
+    if (value instanceof DateTime && value.timeZoneId != null) {
+      return zonedDateTimeToIso(value);
     }
 
     return value.toString();

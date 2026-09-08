@@ -33,6 +33,22 @@ describe("transformToGanttData — parsing dates", () => {
     expect(item(out)?.start).toBe(Date.parse(iso));
   });
 
+  it("reads a zoned Neo4j datetime", () => {
+    // `datetime({timezone: 'Europe/Rome'})`. The connector used to hand this
+    // over as "...T14:30:05[Europe/Rome]", which Date.parse rejects — so every
+    // row was dropped and validate blamed the user's column (#1651). The
+    // parser now resolves the zone to an offset.
+    const out = transformToGanttData(
+      rows({
+        task: "Design",
+        start: "2024-06-01T14:30:05+02:00",
+        end: "2024-06-03T14:30:05+02:00",
+      }),
+    );
+    expect(out).toHaveLength(1);
+    expect(item(out)?.start).toBe(Date.parse("2024-06-01T12:30:05Z"));
+  });
+
   it("leaves a Date instance alone", () => {
     const d = new Date(2026, 3, 1, 9, 30);
     const out = transformToGanttData(

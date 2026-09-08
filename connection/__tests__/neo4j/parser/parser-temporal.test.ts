@@ -44,6 +44,106 @@ describe("Neo4jRecordParser - Temporal Conversion", () => {
     expect(result["dt"]).toBe("2024-06-01T14:30:05.123456789+01:00");
   });
 
+  // ── Named time zones (#1651) ────────────────────────────────────────────
+  //
+  // The driver's own toString() appends the zone id in brackets, and that
+  // suffix is not ISO 8601 — Date.parse returns NaN on it. Every consumer of
+  // this value parses it as a date: the gantt dropped every row and told the
+  // user their datetime() column was "a year column such as released", and
+  // the line chart silently fell back to a category axis.
+  //
+  // Both Bolt shapes are covered. Bolt 5.x sets the offset AND the zone id;
+  // Bolt 4.x and earlier set only the zone id, leaving the offset null, so
+  // the parser has to resolve it.
+
+  it("emits a parseable ISO string for a zoned DateTime (Bolt 5.x: offset present)", () => {
+    const dt = new neo4j.types.DateTime(
+      int(2024),
+      int(6),
+      int(1),
+      int(14),
+      int(30),
+      int(5),
+      int(0),
+      int(7200), // +02:00, as Bolt 5.x supplies alongside the zone id
+      "Europe/Rome",
+    );
+    const value = parser._parse(fakeRecord("dt", dt))["dt"] as string;
+    expect(value).toBe("2024-06-01T14:30:05+02:00");
+    expect(Number.isNaN(Date.parse(value))).toBe(false);
+  });
+
+  it("resolves the offset for a zoned DateTime with none (Bolt 4.x)", () => {
+    const dt = new neo4j.types.DateTime(
+      int(2024),
+      int(6),
+      int(1),
+      int(14),
+      int(30),
+      int(5),
+      int(0),
+      null,
+      "Europe/Rome",
+    );
+    const value = parser._parse(fakeRecord("dt", dt))["dt"] as string;
+    // June in Rome is CEST, +02:00.
+    expect(value).toBe("2024-06-01T14:30:05+02:00");
+    expect(Number.isNaN(Date.parse(value))).toBe(false);
+  });
+
+  it("resolves the winter offset for the same zone", () => {
+    // The same zone is +01:00 in January. A fixed offset per zone would be
+    // wrong for half the year.
+    const dt = new neo4j.types.DateTime(
+      int(2024),
+      int(1),
+      int(15),
+      int(9),
+      int(0),
+      int(0),
+      int(0),
+      null,
+      "Europe/Rome",
+    );
+    expect(parser._parse(fakeRecord("dt", dt))["dt"]).toBe(
+      "2024-01-15T09:00:00+01:00",
+    );
+  });
+
+  it("keeps sub-second digits on a zoned DateTime", () => {
+    const dt = new neo4j.types.DateTime(
+      int(2024),
+      int(6),
+      int(1),
+      int(14),
+      int(30),
+      int(5),
+      int(123456789),
+      null,
+      "Europe/Rome",
+    );
+    expect(parser._parse(fakeRecord("dt", dt))["dt"]).toBe(
+      "2024-06-01T14:30:05.123456789+02:00",
+    );
+  });
+
+  it("handles a zone whose offset is not a whole hour", () => {
+    const dt = new neo4j.types.DateTime(
+      int(2024),
+      int(6),
+      int(1),
+      int(12),
+      int(0),
+      int(0),
+      int(0),
+      null,
+      "Asia/Kolkata",
+    );
+    expect(parser._parse(fakeRecord("dt", dt))["dt"]).toBe(
+      "2024-06-01T12:00:00+05:30",
+    );
+  });
+
   it("pads single-digit hour/minute/second in DateTime", () => {
     const dt = new neo4j.types.DateTime(
       int(2024),
