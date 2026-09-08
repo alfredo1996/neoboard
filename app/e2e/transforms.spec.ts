@@ -11,9 +11,22 @@ import {
 // Helper: open Add Widget dialog, select connection, type query, run it,
 // and wait for preview. Shared across all transform tests.
 // ---------------------------------------------------------------------------
-async function setupWidgetWithQuery(page: import("@playwright/test").Page) {
+async function setupWidgetWithQuery(
+  page: import("@playwright/test").Page,
+  opts: { chartType?: string; query?: string } = {},
+) {
   await page.getByRole("button", { name: "Add Widget" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+  // Chart type before connection — selecting a connection kicks off a schema
+  // fetch that re-renders the dialog, and clicking the second combobox during
+  // it times out. Same order as heavy-widgets.spec.ts.
+  if (opts.chartType) {
+    await dialog.getByRole("combobox").nth(1).click();
+    await page
+      .getByRole("option", { name: opts.chartType, exact: true })
+      .click();
+  }
 
   // Select Neo4j connection
   await dialog.getByRole("combobox").nth(0).click();
@@ -25,7 +38,8 @@ async function setupWidgetWithQuery(page: import("@playwright/test").Page) {
   await typeInEditor(
     dialog,
     page,
-    "MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year",
+    opts.query ??
+      "MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year",
   );
   // Wait for Run button and click it
   const runBtn = dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)");
@@ -76,6 +90,44 @@ test.describe("Data Transforms", () => {
     await expect(
       dialog.getByRole("button", { name: "Add", exact: true }),
     ).toBeVisible();
+  });
+
+  test("a configured filter actually filters the preview", async ({ page }) => {
+    // Everything else in this file asserts editor chrome — a card badge, a
+    // Remove button, a checkbox's own state. Nothing checked that a transform
+    // TRANSFORMS anything, and the case named "controls preview" never read
+    // the preview: `getPreview` was imported and never called (#1635).
+    test.setTimeout(120_000);
+    const dialog = await setupWidgetWithQuery(page, {
+      chartType: "Data Table",
+      query:
+        "UNWIND [1999, 2001, 2003, 2005] AS year RETURN year, year - 1990 AS age ORDER BY year",
+    });
+
+    const preview = getPreview(dialog);
+    const rows = preview.locator("tbody tr");
+    await expect(rows).toHaveCount(4);
+
+    await dialog.getByRole("tab", { name: "Transform" }).click();
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.getByText("1. Filter")).toBeVisible();
+
+    // Configure it: year > 2000. The default is `== ""`, which is why simply
+    // adding a card — all this file did before — proves nothing.
+    const panel = dialog.getByRole("tabpanel");
+    await panel.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "year", exact: true }).click();
+    await panel.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: ">", exact: true }).click();
+    await panel.getByPlaceholder("value or param").fill("2000");
+
+    // Three of the four rows survive, and every one of them is post-2000.
+    await expect(rows).toHaveCount(3, { timeout: 15_000 });
+    const years = await rows
+      .locator("td")
+      .first()
+      .evaluateAll((tds) => tds.map((td) => Number(td.textContent)));
+    for (const year of years) expect(year).toBeGreaterThan(2000);
   });
 
   test("Add a filter transform — card appears with fields", async ({

@@ -16,6 +16,23 @@ import {
 // visual rendering details — chart rendering is verified by unit tests.
 // ---------------------------------------------------------------------------
 
+/**
+ * The widget exists and rendered something.
+ *
+ * Three of these tests used to end at `expect(dialog).not.toBeVisible()` — the
+ * modal closing. A failed POST, a transform that throws, or a chart type that
+ * never mounts all leave that assertion green while dropping the widget on the
+ * floor (#1635).
+ */
+async function expectWidgetRendered(page: import("@playwright/test").Page) {
+  const card = page.locator("[data-testid='widget-card']").first();
+  await expect(card).toBeVisible({ timeout: 20_000 });
+  // role="img" is what BaseChart puts on a mounted chart.
+  await expect(card.getByRole("img").first()).toBeVisible({ timeout: 20_000 });
+  await expect(card.getByText("Chart failed to render")).not.toBeVisible();
+  await expect(card.getByText("Incompatible data format")).not.toBeVisible();
+}
+
 test.describe("New chart types — creation flow", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
@@ -65,6 +82,7 @@ test.describe("New chart types — creation flow", () => {
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+    await expectWidgetRendered(page);
   });
 
   test("does not offer disabled chart types in the picker (#1158)", async ({
@@ -170,6 +188,7 @@ test.describe("New chart types — creation flow", () => {
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+    await expectWidgetRendered(page);
   });
 
   test("should create a Sunburst widget", async ({ page }) => {
@@ -200,6 +219,7 @@ test.describe("New chart types — creation flow", () => {
     });
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+    await expectWidgetRendered(page);
   });
 
   test("should create a Gantt widget", async ({ page }) => {

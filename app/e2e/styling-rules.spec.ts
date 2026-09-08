@@ -228,13 +228,37 @@ test.describe("Styling rules — table widget", () => {
     await page.getByRole("button", { name: "Back" }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
-    // Wait for the table to render with styled rows
-    // The table should have at least one row with inline background-color style
+    // The rule is `released <= 1999 -> #ef4444`. Asserting that SOME row has
+    // SOME background passed whatever the rule said — wrong colour, wrong
+    // rows, inverted condition (#1635). Check the rows the rule names, and
+    // the ones it does not.
+    const rows = page.locator("[data-testid='widget-card'] tbody tr");
+    await expect(rows.first()).toBeVisible({ timeout: 30_000 });
+
     await expect(async () => {
-      const styledRows = page.locator(
-        "[data-testid='widget-card'] tr[style*='background']",
+      const painted = await rows.evaluateAll((trs) =>
+        trs.map((tr) => ({
+          released: Number(tr.querySelectorAll("td")[1]?.textContent),
+          background: getComputedStyle(tr).backgroundColor,
+        })),
       );
-      await expect(styledRows.first()).toBeVisible({ timeout: 5_000 });
+      expect(painted.length).toBeGreaterThan(1);
+      // The fixture has to contain rows on both sides of the boundary, or
+      // "every matching row is red" is satisfied by there being none.
+      expect(painted.some((r) => r.released <= 1999)).toBe(true);
+      expect(painted.some((r) => r.released > 1999)).toBe(true);
+
+      for (const { released, background } of painted) {
+        if (released <= 1999) {
+          expect(background, `released ${released} should be red`).toBe(
+            "rgb(239, 68, 68)",
+          );
+        } else {
+          expect(background, `released ${released} should not be red`).not.toBe(
+            "rgb(239, 68, 68)",
+          );
+        }
+      }
     }).toPass({ timeout: 30_000 });
   });
 });
