@@ -232,3 +232,78 @@ describe("PostgresRecordParser — numeric promotion and interval (#1307)", () =
     expect(rec.toObject().total).toBe("42");
   });
 });
+
+describe("PostgresRecordParser — DATE is a calendar day, not an instant (#1654)", () => {
+  const parser = new PostgresRecordParser();
+  const DATE = 1082;
+  const DATE_ARRAY = 1182;
+  const TIMESTAMPTZ = 1184;
+
+  const fields = (defs: Array<[string, number]>) =>
+    defs.map(([name, dataTypeID]) => ({ name, dataTypeID }));
+
+  it("returns YYYY-MM-DD, not a UTC instant", () => {
+    // node-pg parses a DATE into a JS Date at the SERVER PROCESS's local
+    // midnight, and that JSON-serialises to the previous day for any server
+    // east of UTC — a stored 2024-06-01 reaching the browser as
+    // "2024-05-31T22:00:00.000Z". Neo4j emits "2024-06-01" for the identical
+    // concept, so the two connectors disagreed about what a date is.
+    //
+    // The date-only string is what pg puts on the wire in the first place;
+    // this just stops it being turned into an instant it never was.
+    const [rec] = parser.bulkParse(
+      [{ d: new Date(2024, 5, 1) }], // local midnight, as pg's parser builds it
+      fields([["d", DATE]]),
+    );
+    expect(rec.toObject().d).toBe("2024-06-01");
+  });
+
+  it("is not sensitive to the runtime timezone", () => {
+    // The whole defect was invisible under TZ=UTC, which is why CI never saw
+    // it. Reading the LOCAL components of a Date the local parser built round-
+    // trips exactly, in any zone.
+    const [rec] = parser.bulkParse(
+      [{ d: new Date(2024, 0, 1) }],
+      fields([["d", DATE]]),
+    );
+    expect(rec.toObject().d).toBe("2024-01-01");
+  });
+
+  it("pads single-digit months and days", () => {
+    const [rec] = parser.bulkParse(
+      [{ d: new Date(2024, 0, 9) }],
+      fields([["d", DATE]]),
+    );
+    expect(rec.toObject().d).toBe("2024-01-09");
+  });
+
+  it("leaves TIMESTAMPTZ as an instant", () => {
+    // A timestamp genuinely IS a point in time; only DATE is a calendar day
+    // with no time and no zone.
+    const instant = new Date("2024-06-01T14:30:05.000Z");
+    const [rec] = parser.bulkParse(
+      [{ t: instant }],
+      fields([["t", TIMESTAMPTZ]]),
+    );
+    expect(rec.toObject().t).toBe(instant);
+  });
+
+  it("handles a DATE array", () => {
+    const [rec] = parser.bulkParse(
+      [{ ds: [new Date(2024, 5, 1), new Date(2024, 5, 2)] }],
+      fields([["ds", DATE_ARRAY]]),
+    );
+    expect(rec.toObject().ds).toEqual(["2024-06-01", "2024-06-02"]);
+  });
+
+  it("passes a null date through", () => {
+    const [rec] = parser.bulkParse([{ d: null }], fields([["d", DATE]]));
+    expect(rec.toObject().d).toBeNull();
+  });
+
+  it("leaves an infinite date alone rather than inventing a day", () => {
+    // pg renders 'infinity'::date as Infinity, not a Date.
+    const [rec] = parser.bulkParse([{ d: Infinity }], fields([["d", DATE]]));
+    expect(rec.toObject().d).toBe(Infinity);
+  });
+});

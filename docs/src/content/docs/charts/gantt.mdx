@@ -15,7 +15,7 @@ Return 3+ columns: task name, start date, end date. Optional: category/status fo
 
 | Shape | Example | Read as |
 |-------|---------|---------|
-| Date-only string | `2026-04-01` | Local midnight — the shape a Neo4j `date()` arrives as |
+| Date-only string | `2026-04-01` | Local midnight — the shape both a Neo4j `date()` and a PostgreSQL `DATE` arrive as |
 | ISO datetime | `2026-04-01T10:00:00Z` | Exactly as written |
 | `Date` value | a SQL `date` / `timestamp` column | As given |
 | Unix seconds | `1774994400` | Seconds since the epoch |
