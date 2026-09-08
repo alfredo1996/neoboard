@@ -16,6 +16,25 @@ describe("transformToLineData", () => {
     expect(result[0].sales).toBe(100);
   });
 
+  it("coalesces a null x to the empty string, matching bar (#1655)", () => {
+    const result = transformToLineData([
+      { month: null, sales: 1 },
+      { month: "Feb", sales: 2 },
+    ]) as Array<{ x: string | number }>;
+    // line-chart.tsx:271 does `xValues.map(String)` for the category axis, so
+    // a null x used to draw the literal tick label "null". Bar already writes
+    // "" (bar/transform.ts:39) and so do the hierarchy charts (#1596).
+    expect(result[0].x).toBe("");
+    expect(result[1].x).toBe("Feb");
+  });
+
+  it("leaves a numeric x a number so the time-axis heuristic still works", () => {
+    const result = transformToLineData([{ year: 2020, sales: 1 }]) as Array<{
+      x: string | number;
+    }>;
+    expect(result[0].x).toBe(2020);
+  });
+
   it("returns empty array for empty data", () => {
     expect(transformToLineData([])).toEqual([]);
   });

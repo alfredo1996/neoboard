@@ -186,7 +186,7 @@ function LineChart({
         yAxisIndex: useDualAxis && rightAxisSet.has(key) ? 1 : 0,
         data: useTimeAxis
           ? data.map((d) => [d.x, d[key]])
-          : data.map((d) => d[key] as number),
+          : data.map((d) => d[key] as number | null),
         smooth,
         step: stepped ? ("start" as const) : undefined,
         connectNulls,

@@ -168,6 +168,10 @@ export function resolveStylingRuleColor(
 
     // Between: needs two bounds, numeric only
     if (op === "between") {
+      // A null cell has no value to compare. Number(null) is 0, so without
+      // this the demo's own `margin <= 0 -> red` painted every NULL margin as
+      // if the product were losing money (#1655).
+      if (isNullish(cellValue)) continue;
       const numCell = Number(cellValue);
       if (Number.isNaN(numCell)) continue;
 
@@ -222,6 +226,9 @@ export function resolveStylingRuleColor(
 
     // Numeric operators: try numeric first, fall back to string for ==/!=
     if (NUMERIC_OPS.has(op)) {
+      // Same reason as `between` above: an absent cell is not a zero. Only
+      // is_null / is_not_null, handled earlier, have anything to say about it.
+      if (isNullish(cellValue)) continue;
       const numLeft = Number(cellValue);
       const numRight = Number(compareValue);
 

@@ -29,7 +29,16 @@ echarts.use([
 
 export interface ChoroplethDataItem {
   name: string;
-  value: number;
+  /**
+   * `null` = the query returned no measurement for this region — not a zero.
+   * `normalizeData` below translates it to ECharts' own no-data marker `"-"`,
+   * the only missing value inside `MapSeriesOption["data"]`
+   * (`OptionDataValueNumeric = number | '-'`; the generic `OptionDataValue`
+   * that admits null is NOT the map variant). A `"-"` region keeps
+   * `itemStyle.areaColor` and its tooltip value arrives as NaN, so the
+   * formatter's existing `isNaN` branch already handles it (#1655).
+   */
+  value: number | null;
 }
 
 export interface ChoroplethChartProps extends Omit<BaseChartProps, "options"> {
@@ -59,10 +68,14 @@ const NAME_ALIASES: Record<string, string> = {
   "Czech Republic": "Czechia",
 };
 
-function normalizeData(data: ChoroplethDataItem[]): ChoroplethDataItem[] {
+function normalizeData(data: ChoroplethDataItem[]) {
   return data.map((d) => ({
     ...d,
     name: NAME_ALIASES[d.name] ?? d.name,
+    // ECharts' documented no-data marker, and the only one MapSeriesOption's
+    // data union accepts — so this needs no `as` cast. Translating at this
+    // boundary keeps the exported prop type a plain domain type (#1655).
+    value: d.value ?? ("-" as const),
   }));
 }
 
@@ -114,9 +127,18 @@ function ChoroplethChart({
     if (!mapRegistered) return undefined;
     if (!normalizedData.length) return buildEmptyDataOption(dark);
 
-    const values = normalizedData.map((d) => d.value);
-    const minVal = Math.min(...values);
-    const maxVal = Math.max(...values);
+    // Only measured values set the ramp domain. `Math.min(null, …)` is 0, so
+    // one unmeasured region would anchor the legend at zero and shift every
+    // real country up a band (#1655).
+    const values = normalizedData
+      .map((d) => d.value)
+      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    // ponytail: an all-null result collapses the domain to 0–0. That is exactly
+    // the legend today's all-zeros path already produces, and the map itself
+    // renders correctly (every region on areaColor) — suppress the visualMap
+    // only if someone reports the degenerate legend.
+    const minVal = values.length ? Math.min(...values) : 0;
+    const maxVal = values.length ? Math.max(...values) : 0;
 
     return {
       tooltip: {

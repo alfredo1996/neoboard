@@ -282,6 +282,27 @@ describe("transformToRadarData", () => {
     expect(result.indicators[0].max).toBe(Math.ceil(80 * 1.1));
   });
 
+  it("keeps an unmeasured axis null instead of plotting a zero (#1655)", () => {
+    const data = [
+      { indicator: "Speed", series: "A", value: 80 },
+      { indicator: "Strength", series: "A", value: null },
+    ];
+    const result = transformToRadarData(data) as {
+      indicators: Array<{ name: string }>;
+      series: Array<{ name: string; values: (number | null)[] }>;
+    };
+    // The axis must survive even though its only cell is null.
+    expect(result.indicators.map((i) => i.name)).toEqual(["Speed", "Strength"]);
+    expect(result.series[0].values).toEqual([80, null]);
+  });
+
+  it("keeps a null cell null in wide format (#1655)", () => {
+    const result = transformToRadarData([{ Speed: 80, Strength: null }]) as {
+      series: Array<{ values: (number | null)[] }>;
+    };
+    expect(result.series[0].values).toEqual([80, null]);
+  });
+
   it("handles wide-format tabular data", () => {
     const data = [{ Speed: 80, Strength: 60 }];
     const result = transformToRadarData(data) as {

@@ -686,11 +686,17 @@ export function buildCompactGrid(compact: boolean, showLegend: boolean) {
 }
 
 /**
- * Resolve a color for a numeric value using styling rules (preferred) or
- * legacy color thresholds as fallback. Returns undefined when no rule matches.
+ * Resolve a color for a cell using styling rules (preferred) or legacy color
+ * thresholds as fallback. Returns undefined when no rule matches.
+ *
+ * `unknown`, not `number`: the caller must hand over the RAW cell, because the
+ * rule engine is the only thing that can tell a null from a zero. Coercing
+ * first — `Number(null)` is 0 — made a missing cell indistinguishable from a
+ * real zero, and made `is_null` / `is_not_null` inert on every chart that did
+ * it (#1655).
  */
 export function resolveItemColor(
-  value: number,
+  value: unknown,
   stylingRules: StylingRule[] | undefined,
   paramValues?: Record<string, unknown>,
 ): string | undefined {

@@ -29,7 +29,15 @@ export interface RadarIndicator {
 
 export interface RadarSeries {
   name: string;
-  values: number[];
+  /**
+   * `null` = that axis was not measured for this series. ECharts plots it at
+   * the radar centre (`radarLayout.js` getValueMissingPoint) — with min-0
+   * indicators that is where a zero lands too, so the canvas position is not
+   * the point. What changes is that the tooltip reads "-" instead of a
+   * fabricated "0", the value label is blank rather than "null", and the
+   * styling-rule mean below skips it (#1655).
+   */
+  values: (number | null)[];
 }
 
 export interface RadarChartData {
@@ -112,8 +120,18 @@ function RadarChart({
         {
           type: "radar",
           data: data.series.map((s) => {
+            // Mean of the axes that actually HAVE a value. `sum + null` is
+            // `sum + 0` in JS, so an unmeasured axis dragged the mean toward
+            // zero and fired a `< threshold` rule on data nobody measured
+            // (#1655). An all-null series has no mean at all — pass null
+            // through so only is_null / is_not_null can match it.
+            const measured = s.values.filter(
+              (v): v is number => typeof v === "number",
+            );
             const seriesColor = resolveItemColor(
-              s.values.reduce((sum, v) => sum + v, 0) / (s.values.length || 1),
+              measured.length
+                ? measured.reduce((sum, v) => sum + v, 0) / measured.length
+                : null,
               stylingRules,
               paramValues,
             );
@@ -123,8 +141,14 @@ function RadarChart({
               label: showValues
                 ? {
                     show: true,
-                    formatter: (params: unknown) =>
-                      String((params as { value: number }).value),
+                    // Per-axis scalar, not the whole array. Guarded because
+                    // steps 9-15 are what first put a null in here, and
+                    // String(null) would paint the literal text "null" on an
+                    // axis nobody measured (#1655).
+                    formatter: (params: unknown) => {
+                      const v = (params as { value: unknown }).value;
+                      return v == null ? "" : String(v);
+                    },
                   }
                 : { show: false },
               areaStyle: filled

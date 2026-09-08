@@ -56,13 +56,26 @@ export interface ChartSize {
 }
 
 export interface LineChartDataPoint {
+  /**
+   * Never null — `line/transform.ts` coalesces a NULL grouping value to ""
+   * (#1655). It can still be a `boolean` when the x column is boolean, since
+   * `normalizeValue` returns one; that mismatch is laundered by the
+   * `as LineChartDataPoint[]` cast at the plugin boundary and is not fixed
+   * here — typing the plugin pipeline end to end is separate work.
+   */
   x: string | number;
-  [series: string]: string | number;
+  /**
+   * Series cells may be `null`: the transforms use `toSeriesNumber`, which
+   * keeps "no measurement" distinct from a real zero, and ECharts renders a
+   * null as a gap (bridged only by `connectNulls`).
+   */
+  [series: string]: string | number | null;
 }
 
 export interface BarChartDataPoint {
   label: string;
-  [series: string]: string | number;
+  /** See LineChartDataPoint — series cells may be null, `label` may not. */
+  [series: string]: string | number | null;
 }
 
 export interface PieChartDataPoint {
