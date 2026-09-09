@@ -420,6 +420,10 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
   return (
     <div
       data-testid="markdown-widget"
+      // Scrollable content must be reachable from the keyboard (#1505).
+      tabIndex={0}
+      role="region"
+      aria-label="Markdown content"
       className={cn(
         "h-full overflow-auto p-4 max-w-none",
         "text-sm text-foreground",

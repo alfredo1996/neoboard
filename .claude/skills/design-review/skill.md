@@ -75,10 +75,10 @@ Before touching ANY UI code (pages, components, layouts, modals), read this docu
 | `--foreground`       | `220 13% 9%` (graphite)     | Body text                                                                               |
 | `--card`             | `0 0% 100%` (white)         | Card surfaces                                                                           |
 | `--muted`            | `220 14% 94%` (light gray)  | Disabled bgs, secondary surfaces                                                        |
-| `--muted-foreground` | `220 9% 44%` (medium gray)  | Captions, metadata, descriptions                                                        |
+| `--muted-foreground` | `220 9% 42%` (medium gray)  | Captions, metadata, descriptions                                                        |
 | `--primary`          | `220 13% 9%` (graphite)     | Buttons, active states                                                                  |
 | `--secondary`        | `220 14% 94%` (light gray)  | Secondary buttons                                                                       |
-| `--destructive`      | `0 72% 48%` (red)           | Delete buttons, error states                                                            |
+| `--destructive`      | `0 72% 45%` (red)           | Delete buttons, error states                                                            |
 | `--border`           | `220 13% 91%` (light gray)  | All borders                                                                             |
 | `--input`            | `220 13% 84%` (light gray)  | Input borders                                                                           |
 | `--ring`             | `212 90% 42%` (azure)       | Focus rings, active rail, tab underline, selection accent (#1553)                       |

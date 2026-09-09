@@ -25,11 +25,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Determinate: Story = { args: { value: 40 } };
+export const Determinate: Story = {
+  args: { value: 40, "aria-label": "Upload progress" },
+};
 
-export const Complete: Story = { args: { value: 100 } };
+export const Complete: Story = {
+  args: { value: 100, "aria-label": "Upload progress" },
+};
 
-export const Indeterminate: Story = {};
+export const Indeterminate: Story = { args: { "aria-label": "Loading" } };
 
 function AnimatedDemo() {
   const [value, setValue] = useState(10);
@@ -37,7 +41,7 @@ function AnimatedDemo() {
     const t = setInterval(() => setValue((v) => (v >= 100 ? 10 : v + 10)), 800);
     return () => clearInterval(t);
   }, []);
-  return <Progress value={value} />;
+  return <Progress value={value} aria-label="Upload progress" />;
 }
 
 export const Animated: Story = { render: () => <AnimatedDemo /> };

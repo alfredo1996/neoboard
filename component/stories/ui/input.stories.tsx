@@ -57,7 +57,7 @@ export const Number: Story = {
 };
 
 export const File: Story = {
-  args: { type: "file", placeholder: undefined },
+  args: { type: "file", placeholder: undefined, "aria-label": "Upload file" },
 };
 
 export const Disabled: Story = {

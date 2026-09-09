@@ -124,7 +124,7 @@ describe("#1285 — aria-sort on sortable headers", () => {
       />,
     );
     const filterRow = screen.getByTestId("data-grid-filter-row");
-    for (const cell of within(filterRow).getAllByRole("columnheader")) {
+    for (const cell of within(filterRow).getAllByRole("cell")) {
       expect(cell).not.toHaveAttribute("aria-sort");
     }
   });

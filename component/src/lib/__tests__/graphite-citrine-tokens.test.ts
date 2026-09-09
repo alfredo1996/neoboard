@@ -210,12 +210,92 @@ describe("single error red (Epic B #1126)", () => {
   });
 
   it("--destructive is the deeper AA red (light) / lifted text-safe red (dark)", () => {
-    expect(tokenValue(light, "--destructive")).toBe("0 72% 48%");
-    expect(tokenValue(dark, "--destructive")).toBe("0 80% 66%");
+    expect(tokenValue(light, "--destructive")).toBe("0 72% 45%");
+    expect(tokenValue(dark, "--destructive")).toBe("0 80% 68%");
   });
 
   it("dark destructive foreground is near-black (light-red surface needs dark text)", () => {
     expect(tokenValue(light, "--destructive-foreground")).toBe("0 0% 98%");
     expect(tokenValue(dark, "--destructive-foreground")).toBe("220 13% 9%");
   });
+});
+
+// ─── WCAG contrast ratchet (#1505) ───────────────────────────────────────
+// The Storybook a11y gate measures light mode only; this pins every semantic
+// text/tint/solid pair in BOTH themes at AA (4.5:1), from the token file.
+
+function hsl(value: string | undefined): [number, number, number] {
+  const m = value?.match(
+    /^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/,
+  );
+  if (!m) throw new Error(`not an H S% L% token: ${value}`);
+  const h = Number(m[1]) / 360,
+    sat = Number(m[2]) / 100,
+    l = Number(m[3]) / 100;
+  const q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat,
+    p = 2 * l - q;
+  const ch = (tc: number) => {
+    if (tc < 0) tc += 1;
+    if (tc > 1) tc -= 1;
+    if (tc < 1 / 6) return p + (q - p) * 6 * tc;
+    if (tc < 1 / 2) return q;
+    if (tc < 2 / 3) return p + (q - p) * (2 / 3 - tc) * 6;
+    return p;
+  };
+  return sat === 0 ? [l, l, l] : [ch(h + 1 / 3), ch(h), ch(h - 1 / 3)];
+}
+const lum = (c: [number, number, number]) =>
+  c
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+    .reduce((acc, v, i) => acc + v * [0.2126, 0.7152, 0.0722][i], 0);
+const contrast = (a: [number, number, number], b: [number, number, number]) => {
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+const over = (
+  fg: [number, number, number],
+  alpha: number,
+  bg: [number, number, number],
+) =>
+  fg.map((v, i) => v * alpha + bg[i] * (1 - alpha)) as [number, number, number];
+
+describe("semantic colours meet WCAG AA in both themes (#1505)", () => {
+  const AA = 4.5;
+  for (const [theme, b] of [
+    ["light", light],
+    ["dark", dark],
+  ] as const) {
+    const tok = (n: string) => hsl(tokenValue(b, n));
+    const page = tok("--background"),
+      card = tok("--card"),
+      accent = tok("--accent");
+    for (const [name, tint] of [
+      ["--success", 0.15],
+      ["--warning", 0.15],
+      ["--destructive", 0.1],
+    ] as const) {
+      const fg = tok(name),
+        solidText = tok(`${name}-foreground`);
+      it(`${theme} ${name} text on the page background`, () => {
+        expect(contrast(fg, page)).toBeGreaterThanOrEqual(AA);
+      });
+      it(`${theme} ${name} text on its own ${tint * 100}% tint (badge/alert)`, () => {
+        // the tint sits over whichever ground the badge lands on; take the worse
+        expect(
+          Math.min(
+            contrast(fg, over(fg, tint, card)),
+            contrast(fg, over(fg, tint, page)),
+          ),
+        ).toBeGreaterThanOrEqual(AA);
+      });
+      it(`${theme} ${name}-foreground on the solid fill (button)`, () => {
+        expect(contrast(solidText, fg)).toBeGreaterThanOrEqual(AA);
+      });
+    }
+    it(`${theme} --muted-foreground on the page and on the accent tint`, () => {
+      const mf = tok("--muted-foreground");
+      expect(contrast(mf, page)).toBeGreaterThanOrEqual(AA);
+      expect(contrast(mf, accent)).toBeGreaterThanOrEqual(AA);
+    });
+  }
 });

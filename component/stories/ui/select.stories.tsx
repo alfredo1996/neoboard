@@ -33,7 +33,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   render: (args) => (
     <Select {...args}>
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className="w-[180px]" aria-label="Fruit">
         <SelectValue placeholder="Select a fruit" />
       </SelectTrigger>
       <SelectContent>
@@ -72,7 +72,7 @@ export const WithLabel: Story = {
 export const WithGroups: Story = {
   render: () => (
     <Select>
-      <SelectTrigger className="w-[280px]">
+      <SelectTrigger className="w-[280px]" aria-label="Food">
         <SelectValue placeholder="Select a timezone" />
       </SelectTrigger>
       <SelectContent>
@@ -96,7 +96,7 @@ export const Disabled: Story = {
   args: { disabled: true },
   render: (args) => (
     <Select {...args}>
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className="w-[180px]" aria-label="Fruit">
         <SelectValue placeholder="Select a fruit" />
       </SelectTrigger>
       <SelectContent>
@@ -113,7 +113,7 @@ export const Sizes: Story = {
     <div className="flex w-64 flex-col gap-2">
       {(["sm", "default", "lg"] as const).map((size) => (
         <Select key={size}>
-          <SelectTrigger size={size}>
+          <SelectTrigger size={size} aria-label="Fruit">
             <SelectValue placeholder={size} />
           </SelectTrigger>
           <SelectContent>

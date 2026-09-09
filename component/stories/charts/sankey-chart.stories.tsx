@@ -122,10 +122,6 @@ export const CyclicLinks: Story = {
       ],
     },
   },
-  // The overlay is border-destructive/50 + bg-destructive/10 + text-destructive
-  // — 4.25:1, under AA. That token pair is shared with every chart error state;
-  // re-enable this once it is fixed rather than exempting more stories.
-  parameters: { a11y: { test: "todo" } },
   play: async ({ canvasElement }) => {
     const alert = await within(canvasElement).findByRole("alert");
     await expect(alert).toHaveTextContent("Chart failed to render");

@@ -1,31 +1,32 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Slider } from '@/components/ui/slider';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Slider } from "@/components/ui/slider";
 
 const meta = {
-  title: 'UI/Slider',
+  title: "UI/Slider",
   component: Slider,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     defaultValue: {
-      control: 'object',
-      description: 'The default value(s) of the slider. Use array for range sliders.',
+      control: "object",
+      description:
+        "The default value(s) of the slider. Use array for range sliders.",
     },
     max: {
-      control: { type: 'number', min: 1, max: 1000 },
-      description: 'The maximum value of the slider',
+      control: { type: "number", min: 1, max: 1000 },
+      description: "The maximum value of the slider",
     },
     min: {
-      control: { type: 'number', min: 0, max: 999 },
-      description: 'The minimum value of the slider',
+      control: { type: "number", min: 0, max: 999 },
+      description: "The minimum value of the slider",
     },
     step: {
-      control: { type: 'number', min: 1, max: 100 },
-      description: 'The step increment between values',
+      control: { type: "number", min: 1, max: 100 },
+      description: "The step increment between values",
     },
     disabled: {
-      control: 'boolean',
-      description: 'Whether the slider is disabled',
+      control: "boolean",
+      description: "Whether the slider is disabled",
     },
   },
   args: {
@@ -34,27 +35,33 @@ const meta = {
     min: 0,
     step: 1,
     disabled: false,
-    className: 'w-[60%]',
+    className: "w-[60%]",
   },
 } satisfies Meta<typeof Slider>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Default: Story = { args: { "aria-label": "Volume" } };
 
 export const Range: Story = {
-  args: { defaultValue: [25, 75] },
+  args: { defaultValue: [25, 75], "aria-label": "Volume" },
 };
 
 export const WithSteps: Story = {
-  args: { step: 10 },
+  args: { step: 10, "aria-label": "Volume" },
 };
 
 export const Disabled: Story = {
-  args: { disabled: true },
+  args: { disabled: true, "aria-label": "Volume" },
 };
 
 export const CustomRange: Story = {
-  args: { defaultValue: [20], min: 0, max: 200, step: 5 },
+  args: {
+    defaultValue: [20],
+    min: 0,
+    max: 200,
+    step: 5,
+    "aria-label": "Volume",
+  },
 };

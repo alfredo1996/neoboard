@@ -142,14 +142,8 @@ export const EmptyState: Story = {
 /**
  * BaseChart's `error` branch: the canvas is replaced entirely by a DOM alert, so
  * this state is fully assertable.
- *
- * a11y is "todo" (not "error") on purpose: the alert uses the shared
- * `border-destructive/50 bg-destructive/10 text-destructive` token trio, which
- * measures 4.25:1 and fails color-contrast. Drop this override once that token
- * pair is fixed — it is a design-token defect, not a LineChart one.
  */
 export const ErrorState: Story = {
-  parameters: { a11y: { test: "todo" } },
   args: {
     data: monthlyRevenue,
     error: new Error("Query timed out after 30s"),

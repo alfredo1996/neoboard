@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from "@storybook/react";
 import {
   Calculator,
   Calendar,
@@ -6,7 +6,7 @@ import {
   Settings,
   Smile,
   User,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -16,17 +16,17 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from '@/components/ui/command';
+} from "@/components/ui/command";
 
 const meta = {
-  title: 'UI/Command',
+  title: "UI/Command",
   component: Command,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     className: {
-      control: 'text',
-      description: 'Additional CSS classes for the command palette',
+      control: "text",
+      description: "Additional CSS classes for the command palette",
     },
   },
 } satisfies Meta<typeof Command>;
@@ -35,6 +35,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
+  // #1676: cmdk renders CommandSeparator as a direct child of the listbox (aria-required-children)
+  parameters: { a11y: { test: "todo" } },
   render: () => (
     <Command className="rounded-lg border shadow-md md:min-w-[450px]">
       <CommandInput placeholder="Type a command or search..." />

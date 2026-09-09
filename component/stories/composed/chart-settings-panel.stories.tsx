@@ -1,17 +1,23 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { useState } from 'react';
-import { ChartSettingsPanel } from '@/components/composed/chart-settings-panel';
-import { FieldPicker } from '@/components/composed/field-picker';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import type { Meta, StoryObj } from "@storybook/react";
+import { useState } from "react";
+import { ChartSettingsPanel } from "@/components/composed/chart-settings-panel";
+import { FieldPicker } from "@/components/composed/field-picker";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 const meta = {
-  title: 'Composed/ChartSettingsPanel',
+  title: "Composed/ChartSettingsPanel",
   component: ChartSettingsPanel,
-  parameters: { layout: 'padded' },
-  tags: ['autodocs'],
+  parameters: { layout: "padded" },
+  tags: ["autodocs"],
 } satisfies Meta<typeof ChartSettingsPanel>;
 
 export default meta;
@@ -26,6 +32,8 @@ const fields = [
 ];
 
 export const Default: Story = {
+  // #1676: the Selects inside are not associated with their labels
+  parameters: { a11y: { test: "todo" } },
   args: { dataTab: null, styleTab: null },
   render: () => {
     const [chartType, setChartType] = useState("bar");
@@ -38,7 +46,9 @@ export const Default: Story = {
           dataTab={
             <div className="space-y-4">
               <div>
-                <Label className="text-xs font-medium mb-2 block">Chart Type</Label>
+                <Label className="text-xs font-medium mb-2 block">
+                  Chart Type
+                </Label>
                 <Select value={chartType} onValueChange={setChartType}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -56,7 +66,9 @@ export const Default: Story = {
                   fields={fields}
                   selected={selectedFields}
                   onSelect={(f) => setSelectedFields([...selectedFields, f])}
-                  onRemove={(f) => setSelectedFields(selectedFields.filter((s) => s !== f))}
+                  onRemove={(f) =>
+                    setSelectedFields(selectedFields.filter((s) => s !== f))
+                  }
                 />
               </div>
             </div>
@@ -73,11 +85,15 @@ export const Default: Story = {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="legend" className="text-xs">Show Legend</Label>
+                <Label htmlFor="legend" className="text-xs">
+                  Show Legend
+                </Label>
                 <Switch id="legend" defaultChecked />
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="grid" className="text-xs">Show Grid</Label>
+                <Label htmlFor="grid" className="text-xs">
+                  Show Grid
+                </Label>
                 <Switch id="grid" defaultChecked />
               </div>
             </div>

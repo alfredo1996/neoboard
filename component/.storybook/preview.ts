@@ -3,13 +3,11 @@ import "../src/index.css";
 
 const preview: Preview = {
   parameters: {
-    // 'todo' reports every axe violation without failing the run. The gate is
-    // not 'error' yet because it costs 68 of 400 stories today, in two piles
-    // that are different work: stories that render a primitive with no label
-    // (a story artifact — Switch/Default is a bare <Switch>), and real token
-    // debt (color-contrast on the success/warning/destructive pairs). The
-    // burn-down and the flip to 'error' belong to #1505.
-    a11y: { test: "todo" },
+    // Every story is an axe run in real Chromium, and a violation fails it
+    // (#1505). Exemptions are per story or per file, each carrying the issue
+    // that owns the fix — today all ten point at #1676, the accessible-name
+    // gap on role=combobox triggers. Add one only with an issue number.
+    a11y: { test: "error" },
     controls: {
       matchers: {
         color: /(background|color)$/i,

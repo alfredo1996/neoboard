@@ -64,6 +64,8 @@ export const WithSelection: Story = {
 
 /** Cascading, parent not yet chosen: disabled, prompting for the parent. */
 export const CascadingWaitingForParent: Story = {
+  // #1676: the trigger is not associated with its visible label
+  parameters: { a11y: { test: "todo" } },
   render: (args) => <Controlled {...args} />,
   args: {
     parameterName: "cities",

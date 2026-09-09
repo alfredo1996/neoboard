@@ -39,6 +39,8 @@ export const Empty: Story = {
 };
 
 export const WithScales: Story = {
+  // #1676: the Selects inside are not associated with their labels
+  parameters: { a11y: { test: "todo" } },
   args: Empty.args,
   render: () => (
     <ControlledDemo
