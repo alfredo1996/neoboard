@@ -418,11 +418,11 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
   }
 
   return (
-    <div
+    <section
       data-testid="markdown-widget"
-      // Scrollable content must be reachable from the keyboard (#1505).
-      tabIndex={0}
-      role="region"
+      // A scrollable region must be focusable or keyboard users cannot scroll
+      // it (axe scrollable-region-focusable, #1505); Sonar's S6842 disagrees.
+      tabIndex={0} // NOSONAR
       aria-label="Markdown content"
       className={cn(
         "h-full overflow-auto p-4 max-w-none",
