@@ -1,24 +1,24 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const meta = {
-  title: 'UI/Checkbox',
+  title: "UI/Checkbox",
   component: Checkbox,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     checked: {
-      control: 'boolean',
-      description: 'The controlled checked state',
+      control: "boolean",
+      description: "The controlled checked state",
     },
     disabled: {
-      control: 'boolean',
-      description: 'Whether the checkbox is disabled',
+      control: "boolean",
+      description: "Whether the checkbox is disabled",
     },
     required: {
-      control: 'boolean',
-      description: 'Whether the checkbox is required in a form',
+      control: "boolean",
+      description: "Whether the checkbox is required in a form",
     },
   },
   args: {
@@ -31,7 +31,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  args: { id: 'terms' },
+  args: { id: "terms", "aria-label": "Accept terms" },
 };
 
 export const WithLabel: Story = {

@@ -63,7 +63,7 @@
   --popover: 0 0% 100%;
   --popover-foreground: 220 13% 9%;
   --muted: 220 14% 94%;
-  --muted-foreground: 220 9% 44%;
+  --muted-foreground: 220 9% 42%;
   /* Azure-tinted hover/selected fill (#1553). Deliberately pale: the menu
      highlight is carried by the inset --ring stroke (#1559), not by this fill,
      which at 94% L is ~1.2:1 against a white popover for ANY hue. */
@@ -77,16 +77,16 @@
   --brand: 38 95% 55%;
   /* The one error red (Epic B #1126): deep enough for AA as text on white,
      and the destructive-surface color. The old duplicate danger red is gone. */
-  --destructive: 0 72% 48%;
+  --destructive: 0 72% 45%;
   --destructive-foreground: 0 0% 98%;
   /* Semantic status colors (#1059 follow-up): readable as text on the page
      surface AND as the base for low-alpha tonal badge tints. Mid-luminance
      in light mode; lifted in dark (see .dark). --warning is hue 28: it was
      nudged off 38 while the ring was citrine, and there is no reason to move
      it back now that the ring is azure. */
-  --success: 142 64% 32%;
+  --success: 142 64% 27%;
   --success-foreground: 0 0% 100%;
-  --warning: 28 92% 40%;
+  --warning: 28 92% 32%;
   --warning-foreground: 0 0% 100%;
   --border: 220 13% 91%;
   /* Stronger border for inputs and emphasized dividers. */
@@ -144,7 +144,7 @@
   --popover: 220 13% 11%;
   --popover-foreground: 220 14% 96%;
   --muted: 220 13% 15%;
-  --muted-foreground: 220 9% 62%;
+  --muted-foreground: 220 9% 65%;
   /* Slate hover fill; pale azure-white text (9.2:1). A cool hue at 45%
      chroma over charcoal reads as slate — the amber at the same recipe read
      as olive, which is what #1553 was about. */
@@ -160,7 +160,7 @@
   --brand: 38 95% 58%;
   /* Lifted error red (Epic B #1126) so it reads as text against charcoal;
      as a surface it's light, so its foreground flips to near-black. */
-  --destructive: 0 80% 66%;
+  --destructive: 0 80% 68%;
   --destructive-foreground: 220 13% 9%;
   /* Lifted luminance so the colors read as text/tints against charcoal. */
   --success: 142 58% 55%;

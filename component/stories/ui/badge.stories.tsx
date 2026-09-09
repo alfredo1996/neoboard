@@ -75,7 +75,7 @@ export const WithIcon: Story = {
   render: () => (
     <Badge
       variant="secondary"
-      className="bg-blue-500 text-white dark:bg-blue-600"
+      className="bg-blue-600 text-white dark:bg-blue-700"
     >
       <BadgeCheckIcon />
       Verified

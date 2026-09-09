@@ -30,7 +30,7 @@ export const connectionStatusColors: Record<string, string> = {
 
 /** Syntax-highlight colors for the JSON viewer. */
 export const jsonSyntaxColors = {
-  string: "text-green-600 dark:text-green-400",
+  string: "text-green-700 dark:text-green-400",
   number: "text-blue-600 dark:text-blue-400",
   boolean: "text-purple-600 dark:text-purple-400",
 } as const;

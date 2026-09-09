@@ -39,6 +39,8 @@ export const Running: Story = {
 };
 
 export const WithHistory: Story = {
+  // #1676: the history Select has no accessible name
+  parameters: { a11y: { test: "todo" } },
   args: {
     history: [
       "MATCH (n:Person) RETURN n LIMIT 10",

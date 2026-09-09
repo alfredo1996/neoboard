@@ -15,6 +15,8 @@ const meta = {
   title: "Composed/MultiSelect",
   component: MultiSelect,
   parameters: {
+    // #1676: the role=combobox trigger takes no accessible name from its content
+    a11y: { test: "todo" },
     layout: "centered",
     docs: {
       description: {

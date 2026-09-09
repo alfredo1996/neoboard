@@ -1,24 +1,24 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const meta = {
-  title: 'UI/Switch',
+  title: "UI/Switch",
   component: Switch,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     checked: {
-      control: 'boolean',
-      description: 'The controlled checked state',
+      control: "boolean",
+      description: "The controlled checked state",
     },
     disabled: {
-      control: 'boolean',
-      description: 'Whether the switch is disabled',
+      control: "boolean",
+      description: "Whether the switch is disabled",
     },
     required: {
-      control: 'boolean',
-      description: 'Whether the switch is required in a form',
+      control: "boolean",
+      description: "Whether the switch is required in a form",
     },
   },
   args: {
@@ -31,7 +31,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  args: { id: 'airplane-mode' },
+  args: { id: "airplane-mode", "aria-label": "Airplane mode" },
 };
 
 export const WithLabel: Story = {
@@ -44,9 +44,9 @@ export const WithLabel: Story = {
 };
 
 export const Disabled: Story = {
-  args: { disabled: true },
+  args: { disabled: true, "aria-label": "Airplane mode" },
 };
 
 export const Checked: Story = {
-  args: { checked: true },
+  args: { checked: true, "aria-label": "Airplane mode" },
 };

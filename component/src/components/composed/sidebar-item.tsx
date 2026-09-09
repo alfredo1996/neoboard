@@ -112,7 +112,7 @@ const SidebarSectionLabel = ({
   return (
     <div
       className={cn(
-        "px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground/70",
+        "px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground",
         className,
       )}
       {...rest}

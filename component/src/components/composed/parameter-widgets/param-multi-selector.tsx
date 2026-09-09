@@ -124,7 +124,7 @@ function ParamMultiSelector({
           {parentParameterName && (
             <span
               id={hintId}
-              className="ml-1 text-[10px] normal-case font-normal opacity-60 text-muted-foreground"
+              className="ml-1 text-[10px] normal-case font-normal text-muted-foreground"
             >
               (depends on {parentParameterName})
             </span>

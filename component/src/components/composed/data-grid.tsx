@@ -265,14 +265,20 @@ function DataGrid<TData>({
     const selectColumn: ColumnDef<TData, unknown> = {
       id: "select",
       header: ({ table }) => (
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
+        <>
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+          {/* The <th> itself needs text, not just the checkbox's label (#1505). */}
+          <span className="sr-only">Select</span>
+        </>
       ),
       cell: ({ row }) => (
         <Checkbox
@@ -499,8 +505,9 @@ function DataGrid<TData>({
                         typeof header.column.columnDef.header === "string"
                           ? (header.column.columnDef.header as string)
                           : header.column.id;
+                      // a td, not a th: an empty <th> for a column that cannot filter is an empty header (#1505)
                       return (
-                        <TableHead
+                        <TableCell
                           key={`${header.id}-filter`}
                           colSpan={header.colSpan}
                           className="py-1"
@@ -522,7 +529,7 @@ function DataGrid<TData>({
                               className="h-7 text-xs"
                             />
                           )}
-                        </TableHead>
+                        </TableCell>
                       );
                     })}
                   </TableRow>

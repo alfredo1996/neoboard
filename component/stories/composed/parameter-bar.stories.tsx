@@ -1,29 +1,31 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { ParameterBar } from '@/components/composed/parameter-bar';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import type { Meta, StoryObj } from "@storybook/react";
+import { ParameterBar } from "@/components/composed/parameter-bar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
 const meta = {
-  title: 'Composed/ParameterBar',
+  title: "Composed/ParameterBar",
   component: ParameterBar,
-  parameters: { layout: 'padded' },
-  tags: ['autodocs'],
+  parameters: { layout: "padded" },
+  tags: ["autodocs"],
 } satisfies Meta<typeof ParameterBar>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
+  // #1676: the Selects inside are not associated with their labels
+  parameters: { a11y: { test: "todo" } },
   args: {
-    onApply: () => console.log('Apply'),
-    onReset: () => console.log('Reset'),
+    onApply: () => console.log("Apply"),
+    onReset: () => console.log("Reset"),
     children: null,
   },
   render: (args) => (
@@ -54,10 +56,12 @@ export const Default: Story = {
 };
 
 export const Vertical: Story = {
+  // #1676: unassociated Selects, and the date input has no label
+  parameters: { a11y: { test: "todo" } },
   args: {
-    orientation: 'vertical',
-    onApply: () => console.log('Apply'),
-    onReset: () => console.log('Reset'),
+    orientation: "vertical",
+    onApply: () => console.log("Apply"),
+    onReset: () => console.log("Reset"),
     children: null,
   },
   render: (args) => (

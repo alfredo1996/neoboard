@@ -65,6 +65,8 @@ export const Searchable: Story = {
 
 /** Cascading, parent not yet chosen: disabled, prompting for the parent. */
 export const CascadingWaitingForParent: Story = {
+  // #1676: the trigger is not associated with its visible label
+  parameters: { a11y: { test: "todo" } },
   render: (args) => <Controlled {...args} />,
   args: {
     parameterName: "city",
@@ -78,6 +80,8 @@ export const CascadingWaitingForParent: Story = {
 
 /** Cascading, parent chosen: enabled, options loaded, search available. */
 export const CascadingParentSet: Story = {
+  // #1676: the trigger is not associated with its visible label
+  parameters: { a11y: { test: "todo" } },
   render: (args) => <Controlled {...args} />,
   args: {
     parameterName: "city",

@@ -131,11 +131,13 @@ const enhancedColumns: ColumnDef<Payment, unknown>[] = [
   },
   {
     id: "actions",
+    header: () => <span className="sr-only">Actions</span>,
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-8 w-8 p-0">
             <MoreHorizontal className="h-4 w-4" />
+            <span className="sr-only">Open menu</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -242,6 +244,7 @@ export const WithToolbarAndFilters: Story = {
       <div className="flex items-center gap-2 py-4">
         <Input
           placeholder="Filter emails..."
+          aria-label="Filter emails"
           value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
           onChange={(e) =>
             table.getColumn("email")?.setFilterValue(e.target.value)

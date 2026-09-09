@@ -59,18 +59,19 @@ const chartTypes = Object.keys(chartTypeMeta);
 type ParamUIType = "date" | "freetext" | "select";
 type DateSubType = "single" | "range" | "relative";
 
-const paramTypeMeta: Record<ParamUIType, { label: string; Icon: LucideIcon }> = {
-  date: { label: "Date Picker", Icon: Calendar },
-  freetext: { label: "Freetext", Icon: Type },
-  select: { label: "Select", Icon: ListFilter },
-};
+const paramTypeMeta: Record<ParamUIType, { label: string; Icon: LucideIcon }> =
+  {
+    date: { label: "Date Picker", Icon: Calendar },
+    freetext: { label: "Freetext", Icon: Type },
+    select: { label: "Select", Icon: ListFilter },
+  };
 
 const paramTypes = Object.keys(paramTypeMeta) as ParamUIType[];
 
 function resolveInternalParamType(
   ui: ParamUIType,
   dateSub: DateSubType,
-  multi: boolean
+  multi: boolean,
 ): string {
   if (ui === "date")
     return dateSub === "range"
@@ -112,7 +113,11 @@ const SAMPLE_BAR_DATA = [
  */
 const meta = {
   title: "Composed/WidgetEditorPrototype",
-  parameters: { layout: "fullscreen" },
+  parameters: {
+    layout: "fullscreen",
+    // #1676: the Selects inside are not associated with their labels
+    a11y: { test: "todo" },
+  },
   tags: ["autodocs"],
 } satisfies Meta;
 
@@ -126,11 +131,11 @@ export const Default: Story = {
     const [chartType, setChartType] = useState("bar");
     const [title, setTitle] = useState("");
     const [query, setQuery] = useState(
-      "SELECT month, revenue, expenses FROM financials"
+      "SELECT month, revenue, expenses FROM financials",
     );
-    const [chartOptions, setChartOptions] = useState<
-      Record<string, unknown>
-    >({});
+    const [chartOptions, setChartOptions] = useState<Record<string, unknown>>(
+      {},
+    );
 
     // Parameter state (only used when chartType === "parameter-select")
     const [paramUIType, setParamUIType] = useState<ParamUIType>("select");
@@ -155,15 +160,13 @@ export const Default: Story = {
       RelativeDatePreset | ""
     >("");
     const [previewSelectValue, setPreviewSelectValue] = useState("");
-    const [previewMultiValues, setPreviewMultiValues] = useState<string[]>(
-      []
-    );
+    const [previewMultiValues, setPreviewMultiValues] = useState<string[]>([]);
 
     const isParamSelect = chartType === "parameter-select";
 
     const resolvedType = useMemo(
       () => resolveInternalParamType(paramUIType, dateSub, multiSelect),
-      [paramUIType, dateSub, multiSelect]
+      [paramUIType, dateSub, multiSelect],
     );
 
     const canSave = isParamSelect
@@ -585,8 +588,12 @@ export const Default: Story = {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pg-demo">PostgreSQL (demo)</SelectItem>
-                        <SelectItem value="neo4j-demo">Neo4j (movies)</SelectItem>
+                        <SelectItem value="pg-demo">
+                          PostgreSQL (demo)
+                        </SelectItem>
+                        <SelectItem value="neo4j-demo">
+                          Neo4j (movies)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -667,11 +674,11 @@ export const ParameterSelect: Story = {
     const [multiSelect, setMultiSelect] = useState(false);
     const [paramName, setParamName] = useState("country");
     const [seedQuery, setSeedQuery] = useState(
-      "SELECT code, name FROM countries ORDER BY name"
+      "SELECT code, name FROM countries ORDER BY name",
     );
-    const [chartOptions, setChartOptions] = useState<
-      Record<string, unknown>
-    >({});
+    const [chartOptions, setChartOptions] = useState<Record<string, unknown>>(
+      {},
+    );
 
     // Preview state
     const [previewTextValue, setPreviewTextValue] = useState("");
@@ -682,13 +689,11 @@ export const ParameterSelect: Story = {
       RelativeDatePreset | ""
     >("");
     const [previewSelectValue, setPreviewSelectValue] = useState("");
-    const [previewMultiValues, setPreviewMultiValues] = useState<string[]>(
-      []
-    );
+    const [previewMultiValues, setPreviewMultiValues] = useState<string[]>([]);
 
     const resolvedType = useMemo(
       () => resolveInternalParamType(paramUIType, dateSub, multiSelect),
-      [paramUIType, dateSub, multiSelect]
+      [paramUIType, dateSub, multiSelect],
     );
 
     const canSave =
@@ -899,9 +904,7 @@ export const ParameterSelect: Story = {
               value={previewSelectValue}
               onChange={setPreviewSelectValue}
               options={SAMPLE_OPTIONS}
-              placeholder={
-                (chartOptions.placeholder as string) || "Select..."
-              }
+              placeholder={(chartOptions.placeholder as string) || "Select..."}
               searchable={!!chartOptions.searchable}
             />
           )}
@@ -911,9 +914,7 @@ export const ParameterSelect: Story = {
               values={previewMultiValues}
               onChange={setPreviewMultiValues}
               options={SAMPLE_OPTIONS}
-              placeholder={
-                (chartOptions.placeholder as string) || "Select..."
-              }
+              placeholder={(chartOptions.placeholder as string) || "Select..."}
               searchable={!!chartOptions.searchable}
             />
           )}

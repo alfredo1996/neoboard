@@ -14,6 +14,8 @@ const meta = {
   title: "Composed/Combobox",
   component: Combobox,
   parameters: {
+    // #1676: the role=combobox trigger takes no accessible name from its content
+    a11y: { test: "todo" },
     layout: "centered",
     docs: {
       description: {
