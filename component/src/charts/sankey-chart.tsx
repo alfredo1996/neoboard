@@ -66,9 +66,19 @@ function SankeyChart({
   // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
   const dark = useDarkMode();
 
+  // ECharts keys sankey nodes by name and throws from its layout on a
+  // duplicate. A GROUP BY that is not actually unique produces one; the
+  // app's transform dedupes, but direct callers and external chart plugins
+  // hand nodes over as they are (#1667).
+  const nodes = useMemo(() => {
+    const seen = new Set<string>();
+    return data.nodes.filter((n) =>
+      seen.has(n.name) ? false : (seen.add(n.name), true),
+    );
+  }, [data.nodes]);
+
   const options = useMemo((): EChartsOption => {
-    if (!data.nodes.length || !data.links.length)
-      return buildEmptyDataOption(dark);
+    if (!nodes.length || !data.links.length) return buildEmptyDataOption(dark);
 
     return {
       tooltip: {
@@ -79,7 +89,7 @@ function SankeyChart({
         {
           type: "sankey",
           orient,
-          data: data.nodes,
+          data: nodes,
           links: stylingRules?.length
             ? data.links.map((link) => {
                 const resolvedColor = resolveItemColor(
@@ -110,6 +120,7 @@ function SankeyChart({
       ],
     };
   }, [
+    nodes,
     data,
     orient,
     showLabels,
@@ -127,7 +138,7 @@ function SankeyChart({
         options={options}
         ariaDescription={
           ariaDescription ??
-          `Sankey diagram with ${data.nodes.length} nodes and ${data.links.length} links`
+          `Sankey diagram with ${nodes.length} nodes and ${data.links.length} links`
         }
         {...rest}
       />

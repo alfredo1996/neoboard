@@ -137,9 +137,9 @@ export const CyclicLinks: Story = {
 
 /**
  * Two nodes with the same name — what a GROUP BY that is not actually unique
- * returns. ECharts logs "Graph nodes have duplicate name or id" and then throws
- * from its own layout code. The message is ECharts internals, so only the
- * stable half is asserted.
+ * returns. ECharts keys nodes by name and threw from its layout on the
+ * duplicate; SankeyChart now folds duplicates before ECharts sees them
+ * (#1667). This story pins the render.
  *
  * The links are deliberately acyclic and reference only declared nodes, so the
  * duplicate is the *only* thing wrong here. With a cycle in the data too, this
@@ -153,10 +153,14 @@ export const DuplicateNodeNames: Story = {
       links: [{ source: "A", target: "B", value: 5 }],
     },
   },
-  parameters: { a11y: { test: "todo" } },
   play: async ({ canvasElement }) => {
-    const alert = await within(canvasElement).findByRole("alert");
-    await expect(alert).toHaveTextContent("Chart failed to render");
+    const canvas = within(canvasElement);
+    // Two distinct nodes, one link — the duplicate is folded, not fatal.
+    await canvas.findByRole("img", {
+      name: "Sankey diagram with 2 nodes and 1 links",
+    });
+    await expect(canvasElement.querySelector("canvas")).toBeInTheDocument();
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };
 
