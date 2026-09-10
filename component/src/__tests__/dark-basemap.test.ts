@@ -32,6 +32,14 @@ describe("dark-mode basemap filter (#1529)", () => {
     expect(tokens).not.toMatch(/\.dark\s+\.leaflet-container\s*\{[^}]*invert/);
   });
 
+  it("gives the dark container a ground of its own, without inverting it (#1685)", () => {
+    // With tileLayer "none" the container IS the basemap. Leaflet paints it
+    // #ddd, a light-grey slab on a charcoal dashboard.
+    const rule = tokens.match(/\.dark\s+\.leaflet-container\s*\{[^}]*\}/)?.[0];
+    expect(rule, "container rule missing from design-tokens.css").toBeTruthy();
+    expect(rule).toContain("background-color");
+  });
+
   it("has not drifted back into the Storybook-only stylesheet", () => {
     expect(storybookOnly).not.toContain(".leaflet-tile-pane");
   });

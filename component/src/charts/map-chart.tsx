@@ -10,7 +10,8 @@ import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import { escapeHtml } from "./chart-utils";
 
-export type TileLayerPreset = "osm" | "carto-light" | "carto-dark";
+/** `none` draws no basemap at all — plain ground, zero tile requests (#1685). */
+export type TileLayerPreset = "osm" | "none";
 
 export interface MapMarker {
   id: string;
@@ -29,8 +30,9 @@ export interface MapChartProps {
   zoom?: number;
   minZoom?: number;
   maxZoom?: number;
-  /** Tile layer preset or custom URL */
+  /** Preset, or any Leaflet URL template (`{s}`, `{z}`, `{x}`, `{y}`, `{r}`) */
   tileLayer?: TileLayerPreset | string;
+  /** Plain-text credit for a custom template (escaped); OSM carries its own */
   attribution?: string;
   /** Auto-fit map bounds to markers */
   autoFitBounds?: boolean;
@@ -52,26 +54,10 @@ export interface MapChartProps {
   className?: string;
 }
 
-const TILE_PRESETS: Record<
-  TileLayerPreset,
-  { url: string; attribution: string }
-> = {
-  osm: {
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  },
-  "carto-light": {
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  },
-  "carto-dark": {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  },
-};
+export const OSM_TILE_URL =
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 const DEFAULT_CENTER: [number, number] = [40, -3];
 const DEFAULT_ZOOM = 3;
@@ -84,31 +70,40 @@ const DEFAULT_ZOOM = 3;
 const DEFAULT_FIT_PADDING: [number, number] = [20, 20];
 
 /**
- * Resolve the tile layer, defaulting to OSM when no explicit preset is given.
+ * Resolve the tile layer: `null` for the `none` preset, else a URL template
+ * and its attribution. Empty or missing input means OpenStreetMap.
  *
  * The default used to switch on theme between `carto-light` and `carto-dark`.
  * CARTO now requires an API key for `basemaps.cartocdn.com` and, without one,
  * returns HTTP 200 with a real PNG that has "API KEY REQUIRED" burned into the
  * image — so every map in the product rendered watermarked while nothing
- * errored, logged or fell back (#1529).
+ * errored, logged or fell back (#1529). Those presets are gone (#1685): the
+ * editor takes any template as text, so a keyed CARTO URL still works.
  *
  * OSM needs no key. It has no dark variant, so dark mode is handled by a CSS
  * filter on `.leaflet-tile-pane` (see `design-tokens.css`) rather than by swapping
  * providers here — which is why this no longer depends on the theme at all.
- * The CARTO presets remain selectable for anyone who has a key.
+ *
+ * Attribution: the OSM template always carries the OSM credit — the editor
+ * ships it next to an empty attribution field, and OSM tiles without credit
+ * would break their terms. A custom server gets exactly what the user typed
+ * and nothing else; crediting OSM for someone else's tiles is a licensing
+ * statement, not a cosmetic one. Leaflet injects attribution as innerHTML and
+ * the text comes from a dashboard creator, so it is escaped — a plain-text
+ * credit is what attribution needs, and a viewer's page is not the creator's
+ * to script. The preset keeps its link.
  */
-function resolveTileLayer(tileLayer: string | undefined, attribution?: string) {
-  const effectivePreset = tileLayer ?? "osm";
-  if (effectivePreset in TILE_PRESETS) {
-    const preset = TILE_PRESETS[effectivePreset as TileLayerPreset];
-    return { url: preset.url, attribution: attribution ?? preset.attribution };
-  }
-  return {
-    url: effectivePreset,
-    attribution:
-      attribution ??
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  };
+export function resolveTileLayer(
+  tileLayer: string | undefined,
+  attribution?: string,
+): { url: string; attribution: string } | null {
+  const value = tileLayer?.trim();
+  if (value === "none") return null;
+  const url = !value || value === "osm" ? OSM_TILE_URL : value;
+  let credit = "";
+  if (attribution) credit = escapeHtml(attribution);
+  else if (url === OSM_TILE_URL) credit = OSM_ATTRIBUTION;
+  return { url, attribution: credit };
 }
 
 function buildPropertiesTooltip(marker: MapMarker): string {
@@ -170,9 +165,15 @@ function MapChart({
   const onMarkerClickRef = useRef(onMarkerClick);
   onMarkerClickRef.current = onMarkerClick;
 
+  // Split so the swap effect can depend on two strings; `none` yields
+  // neither, and the effect below then owns an empty tile pane.
   const tile = resolveTileLayer(tileLayer, attribution);
+  const tileUrl = tile?.url;
+  const tileAttribution = tile?.attribution;
 
-  // Initialize map
+  // Initialize map. The tile layer is added by the swap effect below, which
+  // also runs on mount — adding one here too meant every map built two and
+  // tore the first down a tick later.
   useEffect(() => {
     const el = containerRef.current;
     if (!el || mapRef.current) return;
@@ -184,10 +185,6 @@ function MapChart({
       maxZoom,
     });
 
-    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(
-      map,
-    );
-    tileLayerRef.current = tl;
     markersLayerRef.current = (
       clusterMarkers ? L.markerClusterGroup() : L.layerGroup()
     ).addTo(map);
@@ -219,18 +216,19 @@ function MapChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Swap tile layer when theme changes (or when tileLayer prop changes)
+  // Add the tile layer on mount and swap it when the template changes.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
     }
-    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(
-      map,
-    );
-    tileLayerRef.current = tl;
-  }, [tile.url, tile.attribution]);
+    if (!tileUrl) return;
+    tileLayerRef.current = L.tileLayer(tileUrl, {
+      attribution: tileAttribution,
+    }).addTo(map);
+  }, [tileUrl, tileAttribution]);
 
   // Update center/zoom (only when not auto-fitting)
   useEffect(() => {

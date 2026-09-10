@@ -1168,6 +1168,100 @@ test.describe("Map widget", () => {
       timeout: 10_000,
     });
   });
+
+  // #1685 — bring-your-own tiles.
+  const POINTS_QUERY =
+    "UNWIND [{lat: 40.7, lng: -74.0, name: 'NYC'}, {lat: 34.0, lng: -118.2, name: 'LA'}] AS p RETURN p.lat AS lat, p.lng AS lng, p.name AS name";
+
+  test("map uses a custom tile URL template and attribution", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    // The template goes to Leaflet verbatim, so the tile <img src> is the
+    // proof. The host is routed to a 1x1 PNG so the run never touches the
+    // network.
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    await page.route("https://tiles.example.test/**", (route) =>
+      route.fulfill({ status: 200, contentType: "image/png", body: png }),
+    );
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Map", exact: true }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+
+    await typeInEditor(dialog, page, POINTS_QUERY);
+    await expect(
+      dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)"),
+    ).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+    const preview = getPreview(dialog);
+    await expect(preview.locator("[data-testid='map-chart']")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // The Style tab sits beside the preview, so the swap is live.
+    await dialog.getByRole("tab", { name: "Style" }).click();
+    await dialog
+      .locator("#tileLayer")
+      .fill("https://tiles.example.test/{z}/{x}/{y}.png");
+    await dialog.locator("#attribution").fill("Example Corp tiles");
+
+    await expect(preview.locator("img.leaflet-tile").first()).toHaveAttribute(
+      "src",
+      /^https:\/\/tiles\.example\.test\/\d+\/\d+\/\d+\.png$/,
+      { timeout: 15_000 },
+    );
+    await expect(preview.getByText("Example Corp tiles")).toBeVisible();
+    await expect(dialog.getByText("Query Failed")).not.toBeVisible();
+  });
+
+  test("map with no basemap draws markers and requests no tiles", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    // Every tile is an image from somewhere other than the app itself; the
+    // count of those is what "works offline" means.
+    const origin = new URL(page.url()).origin;
+    const tileRequests: string[] = [];
+    page.on("request", (req) => {
+      if (req.resourceType() === "image" && !req.url().startsWith(origin)) {
+        tileRequests.push(req.url());
+      }
+    });
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Map", exact: true }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+
+    // Set before the first render, so not even the default tiles are fetched.
+    await dialog.getByRole("tab", { name: "Style" }).click();
+    await dialog.locator("#tileLayer").fill("none");
+    await dialog.getByRole("tab", { name: "Data" }).click();
+
+    await typeInEditor(dialog, page, POINTS_QUERY);
+    await expect(
+      dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)"),
+    ).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
+
+    const preview = getPreview(dialog);
+    // Leaflet draws each circleMarker as one <path> in the overlay pane.
+    await expect(preview.locator(".leaflet-overlay-pane path")).toHaveCount(2, {
+      timeout: 15_000,
+    });
+    await expect(preview.locator("img.leaflet-tile")).toHaveCount(0);
+    expect(tileRequests).toEqual([]);
+    await expect(dialog.getByText("Query Failed")).not.toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------

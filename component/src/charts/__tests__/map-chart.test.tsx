@@ -52,7 +52,8 @@ vi.mock("leaflet.markercluster/dist/MarkerCluster.css", () => ({}));
 vi.mock("leaflet.markercluster/dist/MarkerCluster.Default.css", () => ({}));
 
 import L from "leaflet";
-import { MapChart } from "../map-chart";
+import { MapChart, OSM_TILE_URL, resolveTileLayer } from "../map-chart";
+import { getDefaultChartSettings } from "@/components/composed/chart-options";
 
 /**
  * jsdom reports every element as 0x0, which is exactly the state that made the
@@ -173,20 +174,111 @@ describe("MapChart", () => {
     expect(opts.attribution).not.toContain("CARTO");
   });
 
-  it("uses carto-light tile preset", () => {
-    render(<MapChart tileLayer="carto-light" />);
-    expect(L.tileLayer).toHaveBeenCalledWith(
-      expect.stringContaining("basemaps.cartocdn.com/light_all"),
-      expect.any(Object),
-    );
-  });
+  // #1685 — the CARTO presets are gone: both returned an "API KEY REQUIRED"
+  // watermark burned into the PNG (#1529), so the product no longer knows
+  // those keys. Anyone with a CARTO key types the full template instead.
+  it.each(["carto-light", "carto-dark"])(
+    "no longer expands %s into a cartocdn URL",
+    (key) => {
+      render(<MapChart tileLayer={key} />);
+      const url = (L.tileLayer as unknown as ReturnType<typeof vi.fn>).mock
+        .calls[0][0] as string;
+      expect(url).not.toContain("cartocdn");
+    },
+  );
 
-  it("uses carto-dark tile preset", () => {
-    render(<MapChart tileLayer="carto-dark" />);
-    expect(L.tileLayer).toHaveBeenCalledWith(
-      expect.stringContaining("basemaps.cartocdn.com/dark_all"),
-      expect.any(Object),
+  describe("bring-your-own tiles (#1685)", () => {
+    const custom = "https://tiles.example.test/{z}/{x}/{y}.png";
+
+    it("passes a custom template and its attribution through verbatim", () => {
+      expect(resolveTileLayer(custom, "© Example Corp")).toEqual({
+        url: custom,
+        attribution: "© Example Corp",
+      });
+    });
+
+    it("escapes HTML in a typed attribution so a creator cannot script a viewer's page", () => {
+      // Leaflet sets the attribution as innerHTML; this string comes from a
+      // text field any dashboard creator can fill.
+      const hostile = '<img src=x onerror="alert(1)">';
+      const credit = resolveTileLayer(custom, hostile)?.attribution;
+      expect(credit).not.toContain("<");
+      expect(credit).toContain("&lt;img");
+    });
+
+    it("does not credit OpenStreetMap for tiles that did not come from it", () => {
+      // The old fallback attributed every custom server to OSM — a licensing
+      // statement about someone else's tiles.
+      expect(resolveTileLayer(custom)?.attribution).toBe("");
+      expect(resolveTileLayer(custom, "")?.attribution).toBe("");
+    });
+
+    it("yields no tile layer for the none preset", () => {
+      expect(resolveTileLayer("none")).toBeNull();
+      expect(resolveTileLayer("none", "ignored")).toBeNull();
+    });
+
+    it.each([undefined, "", "  ", "osm", OSM_TILE_URL])(
+      "resolves %j to OpenStreetMap with its attribution",
+      (value) => {
+        const tile = resolveTileLayer(value);
+        expect(tile?.url).toBe(OSM_TILE_URL);
+        expect(tile?.attribution).toContain("OpenStreetMap");
+      },
     );
+
+    it("keeps the OSM attribution when the attribution option is blank", () => {
+      // The editor default is the OSM template next to an empty attribution
+      // field; OSM tiles served without credit would break their terms.
+      expect(resolveTileLayer(OSM_TILE_URL, "")?.attribution).toContain(
+        "OpenStreetMap",
+      );
+    });
+
+    it("lets a custom attribution override the OSM one", () => {
+      expect(resolveTileLayer("osm", "mine")?.attribution).toBe("mine");
+    });
+
+    it("is what the editor's default option value resolves to", () => {
+      // The option default lives in chart-options/map.ts as a literal; this
+      // pins it to the preset so the two cannot drift apart.
+      expect(getDefaultChartSettings("map").tileLayer).toBe(OSM_TILE_URL);
+    });
+
+    it("draws markers with no tile layer when tileLayer is none", () => {
+      render(
+        <MapChart tileLayer="none" markers={[{ id: "1", lat: 10, lng: 20 }]} />,
+      );
+      expect(L.tileLayer).not.toHaveBeenCalled();
+      expect(L.circleMarker).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("map-chart")).toBeInTheDocument();
+    });
+
+    it("creates exactly one tile layer on mount", () => {
+      // The init effect and the swap effect used to each add one, the first
+      // being torn down a tick later — two tile requests' worth of churn.
+      render(<MapChart />);
+      expect(L.tileLayer).toHaveBeenCalledTimes(1);
+      const layer = (L.tileLayer as unknown as ReturnType<typeof vi.fn>).mock
+        .results[0].value;
+      expect(mockRemoveLayer).not.toHaveBeenCalledWith(layer);
+    });
+
+    it("removes the basemap when tileLayer switches to none", () => {
+      const { rerender } = render(<MapChart />);
+      const layer = (L.tileLayer as unknown as ReturnType<typeof vi.fn>).mock
+        .results[0].value;
+      rerender(<MapChart tileLayer="none" />);
+      expect(mockRemoveLayer).toHaveBeenCalledWith(layer);
+      expect(L.tileLayer).toHaveBeenCalledTimes(1);
+    });
+
+    it("adds a basemap back when tileLayer leaves none", () => {
+      const { rerender } = render(<MapChart tileLayer="none" />);
+      expect(L.tileLayer).not.toHaveBeenCalled();
+      rerender(<MapChart tileLayer={custom} attribution="mine" />);
+      expect(L.tileLayer).toHaveBeenCalledWith(custom, { attribution: "mine" });
+    });
   });
 
   it("uses custom tile URL", () => {

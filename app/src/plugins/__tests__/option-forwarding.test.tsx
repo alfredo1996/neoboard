@@ -33,6 +33,8 @@ vi.mock("next/dynamic", () => ({
         data-sampling-threshold={String(props.samplingThreshold ?? "")}
         data-sampling-method={String(props.samplingMethod ?? "")}
         data-marker-size={String(props.markerSize ?? "")}
+        data-tile-layer={String(props.tileLayer ?? "")}
+        data-attribution={String(props.attribution ?? "")}
         data-show-rel-labels={String(props.showRelationshipLabels ?? "")}
       />
     );
@@ -206,6 +208,19 @@ describe("options advertised by the editor reach the chart (#1472)", () => {
   it("map forwards markerSize", () => {
     render(<MapComponent data={[]} settings={{ markerSize: 14 }} />);
     expect(attr("data-marker-size")).toBe("14");
+  });
+
+  // #1685 — the component accepted any template and an attribution all
+  // along; the plugin was the seam that never handed attribution over.
+  it("map forwards tileLayer and attribution", () => {
+    render(
+      <MapComponent
+        data={[]}
+        settings={{ tileLayer: "none", attribution: "&copy; Example" }}
+      />,
+    );
+    expect(attr("data-tile-layer")).toBe("none");
+    expect(attr("data-attribution")).toBe("&copy; Example");
   });
 
   it("graph forwards showRelationshipLabels", () => {

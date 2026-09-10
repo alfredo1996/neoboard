@@ -40,6 +40,7 @@ function MapPluginComponent({
     <MapChart
       markers={markers}
       tileLayer={settings.tileLayer}
+      attribution={settings.attribution}
       zoom={settings.zoom}
       minZoom={settings.minZoom}
       maxZoom={settings.maxZoom}

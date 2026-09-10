@@ -251,6 +251,13 @@
   filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
 }
 
+/* The container is the basemap when Tile Layer is "none" (#1685), and shows
+   through while tiles load otherwise. Leaflet paints it #ddd — a light-grey
+   slab on a charcoal dashboard. Same surface as the zoom control. */
+.dark .leaflet-container {
+  background-color: hsl(220 13% 11%);
+}
+
 /* Leaflet's own furniture in dark mode (#1154). It lived in
    `component/src/index.css`, which only Storybook loads — so it reviewed fine
    there and did nothing in the product, where a dark map still carried white

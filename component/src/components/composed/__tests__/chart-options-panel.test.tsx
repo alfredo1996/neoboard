@@ -173,6 +173,23 @@ describe("ChartOptionsPanel", () => {
     expect(screen.queryByText("Tile Layer")).not.toBeInTheDocument();
   });
 
+  it("renders text inputs for the map tile layer and attribution (#1685)", () => {
+    render(
+      <ChartOptionsPanel
+        chartType="map"
+        settings={{}}
+        onSettingsChange={vi.fn()}
+      />,
+    );
+    // A three-entry select could not take a self-hosted template.
+    const tile = screen.getByLabelText("Tile Layer");
+    expect(tile.tagName).toBe("INPUT");
+    expect(tile).toHaveValue(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    );
+    expect(screen.getByLabelText("Attribution").tagName).toBe("INPUT");
+  });
+
   it("renders only placeholder and searchable for parameter-select", () => {
     render(
       <ChartOptionsPanel
