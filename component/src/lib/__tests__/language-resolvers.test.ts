@@ -29,6 +29,13 @@ const mockCypher = vi.fn<(...args: any[]) => object>(() => ({
 vi.mock("@codemirror/lang-sql", () => ({
   sql: (...args: unknown[]) => mockSql(...args),
   PostgreSQL: { name: "PostgreSQL" },
+  MySQL: { name: "MySQL" },
+  MariaSQL: { name: "MariaSQL" },
+  SQLite: { name: "SQLite" },
+  MSSQL: { name: "MSSQL" },
+  PLSQL: { name: "PLSQL" },
+  Cassandra: { name: "Cassandra" },
+  StandardSQL: { name: "StandardSQL" },
 }));
 
 vi.mock("@/lib/cypher-lang", () => ({
@@ -36,7 +43,7 @@ vi.mock("@/lib/cypher-lang", () => ({
 }));
 
 // Import AFTER mocks
-const { resolveLanguageExt, languageResolvers } =
+const { resolveLanguageExt, languageResolvers, sqlDialectFor } =
   await import("../language-resolvers");
 
 beforeEach(() => {
@@ -188,6 +195,42 @@ describe("resolveLanguageExt", () => {
     const callArgs = mockCypher.mock.calls[0] as unknown[];
     const arg = callArgs[0] as Record<string, unknown>;
     expect(arg.schema).toBeUndefined();
+  });
+});
+
+// #1696 — the SQL dialect follows the language key instead of being pinned
+// to PostgreSQL, so a registry-supplied MySQL/SQLite/MSSQL connector gets its
+// own keywords and completions.
+describe("SQL dialect selection (#1696)", () => {
+  const dialectPassedTo = () =>
+    (mockSql.mock.calls[0][0] as { dialect: { name: string } }).dialect.name;
+
+  it.each([
+    ["sql", "PostgreSQL"],
+    ["postgresql", "PostgreSQL"],
+    ["mysql", "MySQL"],
+    ["mariadb", "MariaSQL"],
+    ["sqlite", "SQLite"],
+    ["mssql", "MSSQL"],
+    ["plsql", "PLSQL"],
+    ["cassandra", "Cassandra"],
+  ])("%s → %s", async (language, dialect) => {
+    await resolveLanguageExt(language);
+    expect(dialectPassedTo()).toBe(dialect);
+  });
+
+  it("keeps the dialect when a schema is supplied", async () => {
+    await resolveLanguageExt("MySQL", {
+      type: "postgresql",
+      tables: [{ name: "t", columns: [] }],
+    });
+    expect(dialectPassedTo()).toBe("MySQL");
+  });
+
+  it("sqlDialectFor maps a language key to a lang-sql export name", () => {
+    expect(sqlDialectFor("sqlite")).toBe("SQLite");
+    expect(sqlDialectFor("sql")).toBe("PostgreSQL");
+    expect(sqlDialectFor("nope")).toBe("PostgreSQL");
   });
 });
 

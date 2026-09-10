@@ -11,6 +11,7 @@ import { PostgresConnectionModule } from "./PostgresConnectionModule";
 import { PostgresSchemaManager } from "../schema/pg-schema";
 import { postgresFormFields } from "../form-fields";
 import { CONNECTOR_QUERY_LANGUAGES } from "../query-languages";
+import { buildPostgresQuery } from "../query-builders";
 
 export const postgresPlugin: ConnectorPlugin = {
   type: "postgresql",
@@ -30,6 +31,8 @@ export const postgresPlugin: ConnectorPlugin = {
   ) {
     return new PostgresConnectionModule(authConfig, advancedOptions);
   },
+
+  buildQuery: buildPostgresQuery,
 
   createSchemaManager() {
     return new PostgresSchemaManager();

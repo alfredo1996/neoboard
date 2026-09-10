@@ -33,12 +33,22 @@ export {
 } from "./form-fields";
 /// Built-in connector query languages (client-safe — no drivers)
 export { CONNECTOR_QUERY_LANGUAGES } from "./query-languages";
+/// Built-in guided query builders (client-safe — no drivers) (#1696)
+export {
+  CONNECTOR_QUERY_BUILDERS,
+  buildNeo4jQuery,
+  buildPostgresQuery,
+} from "./query-builders";
 /// Connector plugin system
 export type {
   ConnectorPlugin,
   ConnectorRegistry,
   ConnectorFormField,
   SchemaManager,
+  QuerySpec,
+  QueryFilter,
+  QueryFilterOp,
+  BuiltQuery,
 } from "@neoboard/connector-sdk";
 export { createConnectorRegistry } from "@neoboard/connector-sdk";
 export {

@@ -87,6 +87,35 @@ describe("widget-editor-store", () => {
   // alias), so the control rendered empty while the chart drew the right
   // colours. Resolved on the way in, so the editor only ever sees canonical
   // ids and saving migrates the widget.
+  // #1696 — the guided builder binds its filter value as a widget parameter.
+  describe("params (#1696)", () => {
+    it("starts empty, is set whole, and clears with the query state", () => {
+      expect(getState().params).toEqual({});
+      getState().setParams({ param_released: 2000 });
+      expect(getState().params).toEqual({ param_released: 2000 });
+      getState().clearQueryState();
+      expect(getState().params).toEqual({});
+    });
+
+    it("loads from the widget and tolerates a widget without any", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "bar",
+        connectionId: "c1",
+        query: "MATCH (n:Movie) WHERE n.released > $param_released RETURN n",
+        params: { param_released: 2000 },
+      });
+      expect(getState().params).toEqual({ param_released: 2000 });
+      getState().loadFromWidget({
+        id: "w2",
+        chartType: "bar",
+        connectionId: "c1",
+        query: "",
+      });
+      expect(getState().params).toEqual({});
+    });
+  });
+
   describe("loadFromWidget — palette alias resolution (#1520)", () => {
     it("resolves a legacy alias to its canonical palette id", () => {
       getState().loadFromWidget({

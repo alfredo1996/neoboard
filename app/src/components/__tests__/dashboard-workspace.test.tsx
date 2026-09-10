@@ -1050,6 +1050,7 @@ describe("DashboardWorkspace", () => {
     linked.layoutJson.pages[0].widgets[0] = {
       ...linked.layoutJson.pages[0].widgets[0],
       templateId: "t1",
+      params: { param_old: 1 },
     } as never;
     dashboard = linked;
     mockUseWidgetTemplates.mockReturnValue({
@@ -1057,7 +1058,8 @@ describe("DashboardWorkspace", () => {
         {
           id: "t1",
           chartType: "line",
-          query: "SELECT 2",
+          query: "SELECT 2 WHERE x > $param_released",
+          params: { param_released: 2000 },
           settings: { title: "From template" },
           updatedAt: new Date("2026-02-02"),
         },
@@ -1069,7 +1071,9 @@ describe("DashboardWorkspace", () => {
 
     const w = useDashboardStore.getState().layout.pages[0].widgets[0];
     expect(w.chartType).toBe("line");
-    expect(w.query).toBe("SELECT 2");
+    expect(w.query).toBe("SELECT 2 WHERE x > $param_released");
+    // The query's bindings come with it (#1717), not the widget's old ones.
+    expect(w.params).toEqual({ param_released: 2000 });
   });
 
   it("leaves the widget alone when its template was deleted", () => {

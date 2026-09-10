@@ -3,6 +3,8 @@ import {
   extractReferencedParams,
   allReferencedParamsReady,
   getMissingParamNames,
+  withWidgetParams,
+  referencedWidgetParams,
 } from "../use-widget-query";
 import { resolveRelativePreset } from "@/lib/shared/date-utils";
 
@@ -162,6 +164,66 @@ describe("extractReferencedParams", () => {
       { minAge: 18 },
     );
     expect(result).toEqual({ param_minAge: 18 });
+  });
+});
+
+// #1696 — a widget may bind its own `param_x` values (the guided builder's
+// filter). They count as bound for readiness, keyed without the prefix like
+// the dashboard's; a dashboard parameter of the same name takes over.
+describe("withWidgetParams", () => {
+  it("merges widget bindings under the dashboard's, prefix stripped", () => {
+    expect(
+      withWidgetParams(
+        { genre: "Drama" },
+        { param_released: 2000, param_genre: "Comedy" },
+      ),
+    ).toEqual({ genre: "Drama", released: 2000 });
+  });
+
+  it("returns the dashboard values untouched when the widget binds nothing", () => {
+    const dashboard = { genre: "Drama" };
+    expect(withWidgetParams(dashboard, undefined)).toBe(dashboard);
+    expect(withWidgetParams(dashboard, {})).toBe(dashboard);
+  });
+
+  it("makes a widget-bound token ready and not missing", () => {
+    const query = "MATCH (n) WHERE n.released > $param_released RETURN n";
+    const bound = withWidgetParams({}, { param_released: 2000 });
+    expect(allReferencedParamsReady(query, bound)).toBe(true);
+    expect(getMissingParamNames(query, bound)).toEqual([]);
+    expect(allReferencedParamsReady(query, {})).toBe(false);
+  });
+});
+
+// #1717 — a binding whose token was edited out of the query is dropped, so no
+// stale value lingers in the saved widget.
+describe("referencedWidgetParams", () => {
+  it("keeps only the bindings the query still references", () => {
+    expect(
+      referencedWidgetParams("MATCH (n) WHERE n.released > $param_released", {
+        param_released: 2000,
+        param_title: "Matrix",
+      }),
+    ).toEqual({ param_released: 2000 });
+  });
+
+  it("matches whole tokens, not prefixes", () => {
+    expect(
+      referencedWidgetParams("WHERE n.x > $param_released_min", {
+        param_released: 2000,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("keeps a referenced key of any name", () => {
+    expect(referencedWidgetParams("MATCH (n {id: $id})", { id: 7 })).toEqual({
+      id: 7,
+    });
+  });
+
+  it("is undefined when nothing is left", () => {
+    expect(referencedWidgetParams("MATCH (n) RETURN n", { a: 1 })).toBeUndefined();
+    expect(referencedWidgetParams("MATCH (n) RETURN n", undefined)).toBeUndefined();
   });
 });
 

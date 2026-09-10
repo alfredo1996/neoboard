@@ -92,6 +92,8 @@ export interface WidgetEditorState {
   chartType: string;
   connectionId: string;
   query: string;
+  /** Values the widget binds itself (`param_x` keys) — the guided builder's filter (#1696). */
+  params: Record<string, unknown>;
   title: string;
   templateId?: string;
   templateSyncedAt?: string;
@@ -155,6 +157,7 @@ export interface WidgetEditorState {
   setChartType: (t: string) => void;
   setConnectionId: (id: string) => void;
   setQuery: (q: string) => void;
+  setParams: (p: Record<string, unknown>) => void;
   setTitle: (t: string) => void;
   setDatabase: (v: string) => void;
   setAllowWrites: (v: boolean) => void;
@@ -278,6 +281,7 @@ function getInitialState() {
     title: "",
     templateId: undefined as string | undefined,
     templateSyncedAt: undefined as string | undefined,
+    params: {} as Record<string, unknown>,
     database: "",
     allowWrites: false,
     chartOptions: getChartDefaults("bar"),
@@ -325,6 +329,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
   setDatabase: (v) => set({ database: v }),
   setAllowWrites: (v) => set({ allowWrites: v }),
   setQuery: (q) => set({ query: q }),
+  setParams: (p) => set({ params: p }),
   setTitle: (t) => set({ title: t }),
   setChartOptions: (opts) =>
     set((s) => ({
@@ -381,7 +386,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
 
   resetForAdd: () => set(getInitialState()),
   clearQueryState: () =>
-    set({ query: "", availableFields: [], transforms: [] }),
+    set({ query: "", params: {}, availableFields: [], transforms: [] }),
 
   loadFromWidget: (widget) => {
     const s = widget.settings ?? {};
@@ -428,6 +433,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
       chartType: widget.chartType,
       connectionId: widget.connectionId,
       query: widget.query,
+      params: widget.params ?? {},
       title: (s.title as string) ?? "",
       templateId: widget.templateId,
       templateSyncedAt: widget.templateSyncedAt,

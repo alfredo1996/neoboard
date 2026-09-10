@@ -65,6 +65,10 @@ export type {
   ConnectorPlugin,
   ConnectorRegistry,
   ConnectorFormField,
+  QuerySpec,
+  QueryFilter,
+  QueryFilterOp,
+  BuiltQuery,
 } from "./generalized/connector-plugin";
 export { createConnectorRegistry } from "./generalized/connector-plugin";
 

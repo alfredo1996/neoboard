@@ -457,6 +457,8 @@ export function DashboardWorkspace({
         ...widget,
         chartType: tmpl.chartType,
         query: tmpl.query ?? "",
+        // The query's own bindings travel with it (#1717).
+        params: tmpl.params ?? undefined,
         settings: {
           ...widget.settings,
           ...(tmpl.settings ?? undefined),

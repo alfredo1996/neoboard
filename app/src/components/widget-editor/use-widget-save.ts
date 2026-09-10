@@ -5,6 +5,7 @@ import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import type { DashboardWidget, DashboardLayoutV2 } from "@/lib/db/schema";
 import { resolveInternalParamType } from "./parameter-config-section";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
+import { referencedWidgetParams } from "@/hooks/use-widget-query";
 
 /**
  * Builds a DashboardWidget object from the current widget editor store state.
@@ -17,6 +18,7 @@ export function useBuildWidgetForSave(
   const chartType = useWidgetEditorStore((s) => s.chartType);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
   const query = useWidgetEditorStore((s) => s.query);
+  const params = useWidgetEditorStore((s) => s.params);
   const title = useWidgetEditorStore((s) => s.title);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const formFields = useWidgetEditorStore((s) => s.formFields);
@@ -89,7 +91,9 @@ export function useBuildWidgetForSave(
           ? ""
           : connectionId,
       query: isParamSelect || isContentOnly ? "" : query,
-      params: existingWidget?.params,
+      // The store owns params (loaded from the widget, written by the guided
+      // builder, #1696); only what the query still references is kept.
+      params: referencedWidgetParams(query, params),
       database: isContentOnly ? undefined : database || undefined,
       allowWrites: isContentOnly ? undefined : allowWrites || undefined,
       settings: {
@@ -127,6 +131,7 @@ export function useBuildWidgetForSave(
     layout,
     chartType,
     connectionId,
+    params,
     database,
     allowWrites,
     query,
