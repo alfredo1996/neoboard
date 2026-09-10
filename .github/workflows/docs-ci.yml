@@ -8,11 +8,13 @@ on:
     branches: [main, dev, 'release/*']
     paths:
       - 'docs/**'
+      - 'scripts/check-docs-dist.mjs'
       - '.github/workflows/docs-ci.yml'
   pull_request:
     branches: [main, dev, 'release/*']
     paths:
       - 'docs/**'
+      - 'scripts/check-docs-dist.mjs'
       - '.github/workflows/docs-ci.yml'
   workflow_dispatch:
 
@@ -65,6 +67,22 @@ jobs:
             echo "::error::Docs build emitted only $pages page(s) — the content collection is probably empty."
             exit 1
           fi
+
+      # Pages serves the site under /<repo>/ (docs-pages.yml). A root-absolute
+      # link that works in the build above 404s there, and the source-level
+      # link checks in docs-accuracy read slugs, not deployed URLs (#1318).
+      # Build again the way Pages does and read the result.
+      #
+      # No DOCS_SITE yet, so no sitemap check: with a site set, the pinned
+      # @astrojs/sitemap 3.2.1 (docs/package.json overrides) crashes Astro 7's
+      # build. Setting DOCS_SITE here waits on the owner approving that bump
+      # (#1318); the checker already asserts the sitemap once it is set.
+      - name: Build under the Pages base and check its links
+        env:
+          DOCS_BASE: /neoboard
+        run: |
+          npm run build --prefix docs
+          node scripts/check-docs-dist.mjs docs/dist
 
   # scripts/__tests__/docs-accuracy.test.mjs holds the pages to the source —
   # among other things it typechecks the connector-author page's code blocks
