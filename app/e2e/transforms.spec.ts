@@ -163,6 +163,44 @@ test.describe("Data Transforms", () => {
     );
   });
 
+  test("a groupBy sum and average of money carry no float tail (#1415)", async ({
+    page,
+  }) => {
+    // Unrounded, group a reads 0.30000000000000004 and 0.15000000000000002.
+    test.setTimeout(120_000);
+    const dialog = await setupWidgetWithQuery(page, {
+      chartType: "Data Table",
+      query:
+        "UNWIND [['a', 0.1], ['a', 0.2], ['b', 463.45], ['b', 283.66], ['b', 0.01]] AS r RETURN r[0] AS status, r[1] AS total",
+    });
+
+    const preview = getPreview(dialog);
+    await expect(preview.locator("tbody tr")).toHaveCount(5);
+
+    await dialog.getByRole("tab", { name: "Transform" }).click();
+    const panel = dialog.getByRole("tabpanel");
+    await panel.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: /^Group By/ }).click();
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.getByText("1. Group By")).toBeVisible();
+
+    // Cards render above the type picker: 0 group column, then column + fn
+    // per aggregation. The default groups by status with status_count.
+    const pick = async (nth: number, option: string) => {
+      await panel.getByRole("combobox").nth(nth).click();
+      await page.getByRole("option", { name: option, exact: true }).click();
+    };
+    await pick(1, "total");
+    await pick(2, "Sum");
+    await panel.getByRole("button", { name: "Add aggregation" }).click();
+    await pick(3, "total");
+    await pick(4, "Average");
+
+    const cells = (n: number) => preview.locator(`tbody tr td:nth-child(${n})`);
+    await expect(cells(2)).toHaveText(["0.3", "747.12"], { timeout: 15_000 });
+    await expect(cells(3)).toHaveText(["0.15", "249.04"]);
+  });
+
   test("Add a filter transform — card appears with fields", async ({
     page,
   }) => {

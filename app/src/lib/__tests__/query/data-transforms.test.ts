@@ -482,6 +482,29 @@ describe("applyTransforms", () => {
       expect(calc([{ a: 1e-120 }], "a * 2")).toEqual([2e-120]);
     });
 
+    it("keeps every digit of a quotient a double holds exactly", () => {
+      const max = Number.MAX_SAFE_INTEGER;
+      expect(calc([{ a: max }], "a / 1")).toEqual([max]);
+      // Epoch micros to millis: 15 significant digits would drop the .456.
+      expect(calc([{ a: 1757500000123456 }], "a / 1000")).toEqual([
+        1757500000123456 / 1000,
+      ]);
+    });
+
+    it("scales +/- by the operand with more decimals, even on the right", () => {
+      expect(calc([{ a: 1, b: 0.25 }], "a - b")).toEqual([0.75]);
+    });
+
+    it("leaves a quotient inside an addition unbounded", () => {
+      const [out] = calc([{ a: 1, b: 3 }], "a + a / b");
+      expect(out).toBeCloseTo(4 / 3, 14);
+    });
+
+    it("leaves a product after a quotient unbounded", () => {
+      const [out] = calc([{ a: 1, b: 3, c: 2 }], "a / b * c");
+      expect(out).toBeCloseTo(2 / 3, 14);
+    });
+
     const groupTotals = (
       values: unknown[],
       fn: "sum" | "avg" | "min" | "max",
@@ -501,6 +524,10 @@ describe("applyTransforms", () => {
       expect(groupTotals([0.1, 0.2], "sum")).toBe(0.3);
     });
 
+    it("sums to the finest addend's decimals, wherever it sits", () => {
+      expect(groupTotals([1, 0.25], "sum")).toBe(1.25);
+    });
+
     it("does not let noise accumulate over many rows", () => {
       // Summing 0.01 ten thousand times drifts to 100.00000000001425 — far
       // enough that rounding to 15 significant digits would not remove it.
@@ -510,6 +537,11 @@ describe("applyTransforms", () => {
     it("averages without noise when the mean terminates", () => {
       // (0.1 + 0.1 + 0.1) / 3 is 0.10000000000000002 in IEEE-754.
       expect(groupTotals([0.1, 0.1, 0.1], "avg")).toBe(0.1);
+    });
+
+    it("keeps every digit of an average a double holds exactly", () => {
+      const max = Number.MAX_SAFE_INTEGER;
+      expect(groupTotals([max, max], "avg")).toBe(max);
     });
 
     it("does not truncate a non-terminating average", () => {

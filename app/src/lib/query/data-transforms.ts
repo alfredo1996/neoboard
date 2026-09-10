@@ -134,15 +134,19 @@ function decimalsOf(n: number): number {
  * number so later filters and sorts compare the exact value. `scale` is the
  * most decimals the exact answer can have (463.45 − 283.66 has 2), so rounding
  * to it recovers that answer: 179.78999999999996 → 179.79. `null` means
- * unbounded (a quotient): only the digits past double precision go, so 1/3
- * keeps 15 significant digits. Display rounding stays with `decimalPlaces`.
+ * unbounded (a quotient): the value snaps to 15 significant digits only when
+ * that moves it by noise (≤ 2 ulp), so 0.3/0.1 → 3 while 1757500000123.456
+ * and 2^53−1 keep every digit. Display rounding stays with `decimalPlaces`.
  */
 function settle(n: number, scale: number | null): number {
   if (!Number.isFinite(n)) return n;
   // toFixed takes at most 100 digits; a value that small falls back.
-  return scale === null || scale > 100
-    ? Number(n.toPrecision(15))
-    : Number(n.toFixed(scale));
+  if (scale !== null && scale <= 100) return Number(n.toFixed(scale));
+  if (Number.isInteger(n)) return n;
+  const snapped = Number(n.toPrecision(15));
+  return Math.abs(snapped - n) <= Math.abs(n) * 2 * Number.EPSILON
+    ? snapped
+    : n;
 }
 
 /** A sum rounded to its most precise addend, so noise cannot accumulate. */
