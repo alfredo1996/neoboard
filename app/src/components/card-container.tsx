@@ -163,12 +163,12 @@ function ConnectorUnavailable({
   hint,
   detail,
   onRetry,
-}: {
+}: Readonly<{
   hint: string;
   /** The driver's own words — shown to editors, who can fix the connection. */
   detail?: string;
   onRetry?: () => void;
-}) {
+}>) {
   return (
     <div className="p-4">
       <Alert variant="destructive">

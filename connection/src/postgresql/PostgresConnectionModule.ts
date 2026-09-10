@@ -1,24 +1,22 @@
-import { ConnectionModule } from "@neoboard/connector-sdk";
-import { attachClientErrorGuard } from "./utils";
-import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import {
   AuthConfig,
-  PostgresAdvancedOptions,
   ConnectionConfig,
+  ConnectionModule,
+  ConnectorError,
+  ConnectorErrorType,
+  determineQueryStatus,
+  PostgresAdvancedOptions,
   QueryCallback,
   QueryParams,
   QueryStatus,
+  wrapError,
 } from "@neoboard/connector-sdk";
+import { attachClientErrorGuard } from "./utils";
+import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
 import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
 import { extractTableSchemaFromFields, isAuthenticationError } from "./utils";
-import { determineQueryStatus } from "@neoboard/connector-sdk";
-import {
-  wrapError,
-  ConnectorError,
-  ConnectorErrorType,
-} from "@neoboard/connector-sdk";
 
 /**
  * PostgreSQL Connection Module

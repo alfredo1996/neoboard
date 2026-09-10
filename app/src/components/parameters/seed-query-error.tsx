@@ -20,10 +20,10 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
 export function SeedQueryError({
   error,
   onRetry,
-}: {
+}: Readonly<{
   error: Error;
   onRetry: () => void;
-}) {
+}>) {
   const unavailable = error instanceof ConnectorUnavailableError;
   return (
     <div className="space-y-2">
