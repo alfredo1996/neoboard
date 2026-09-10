@@ -9,7 +9,10 @@ import React, {
   useRef,
 } from "react";
 import { useQueryExecution } from "@/hooks/use-query-execution";
-import { allReferencedParamsReady } from "@/hooks/use-widget-query";
+import {
+  allReferencedParamsReady,
+  withWidgetParams,
+} from "@/hooks/use-widget-query";
 import type {
   DashboardWidget,
   DashboardLayoutV2,
@@ -139,6 +142,7 @@ export function WidgetEditorModal({
   const allowWrites = useWidgetEditorStore((s) => s.allowWrites);
   const setAllowWrites = useWidgetEditorStore((s) => s.setAllowWrites);
   const query = useWidgetEditorStore((s) => s.query);
+  const widgetParams = useWidgetEditorStore((s) => s.params);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const setChartOptions = useWidgetEditorStore((s) => s.setChartOptions);
   const actionRules = useWidgetEditorStore((s) => s.actionRules);
@@ -298,7 +302,13 @@ export function WidgetEditorModal({
   }, [seedQueryExecution.data]);
 
   const previewQuery = useQueryExecution();
-  const allParamValues = useParameterValues();
+  // Dashboard parameters plus what the widget binds itself (#1696), so a
+  // guided filter previews and saves without a parameter widget.
+  const dashboardParamValues = useParameterValues();
+  const allParamValues = useMemo(
+    () => withWidgetParams(dashboardParamValues, widgetParams),
+    [dashboardParamValues, widgetParams],
+  );
   // Query references $param_x tokens that aren't all bound — the preview shows
   // a waiting state instead of running the literal token and erroring (#1055).
   const previewWaitingForParams = !allReferencedParamsReady(
@@ -775,6 +785,7 @@ export function WidgetEditorModal({
                         <QueryEditorPanel
                           onRun={isForm ? undefined : handlePreview}
                           editorLanguage={editorLanguage}
+                          connectorType={selectedConnection?.type}
                           running={previewQuery.isPending}
                           maximized={editorMaximized}
                           onToggleMaximized={() =>

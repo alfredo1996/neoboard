@@ -27,6 +27,10 @@
     "./query-languages": {
       "types": "./dist/query-languages.d.ts",
       "import": "./dist/query-languages.js"
+    },
+    "./query-builders": {
+      "types": "./dist/query-builders.d.ts",
+      "import": "./dist/query-builders.js"
     }
   },
   "scripts": {

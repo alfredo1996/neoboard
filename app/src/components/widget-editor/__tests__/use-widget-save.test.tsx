@@ -43,6 +43,7 @@ function setStoreState(overrides: Record<string, unknown> = {}) {
     chartType: "bar",
     connectionId: "conn-1",
     query: "MATCH (n) RETURN n",
+    params: {},
     title: "My Widget",
     chartOptions: {},
     formFields: [],
@@ -105,7 +106,29 @@ describe("useBuildWidgetForSave", () => {
       const widget = result.current();
 
       expect(widget.id).toBe("existing-id");
-      expect(widget.params).toEqual({ foo: "bar" });
+    });
+
+    // #1696 — the store owns params now (loadFromWidget fills them), so the
+    // guided builder's bindings survive a save and an emptied map drops out.
+    it("takes params from the store, omitting an empty map", () => {
+      setStoreState({ params: { param_released: 2000 } });
+      const existing: DashboardWidget = {
+        id: "existing-id",
+        chartType: "bar",
+        connectionId: "conn-1",
+        query: "old query",
+        params: { stale: true },
+      };
+      expect(
+        renderHook(() => useBuildWidgetForSave(existing)).result.current()
+          .params,
+      ).toEqual({ param_released: 2000 });
+
+      setStoreState({ params: {} });
+      expect(
+        renderHook(() => useBuildWidgetForSave(existing)).result.current()
+          .params,
+      ).toBeUndefined();
     });
 
     it("sets title in settings", () => {

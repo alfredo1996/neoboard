@@ -11,6 +11,7 @@ import {
   Database,
   Maximize2,
   Minimize2,
+  Wand2,
 } from "lucide-react";
 import {
   Alert,
@@ -28,9 +29,18 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   SchemaBrowser,
+  GuidedQueryBuilder,
+  guidedSources,
   quoteIdentifier,
+  type GuidedPicks,
   type QueryEditorHandle,
 } from "@neoboard/components";
+import { EMPTY_PICKS } from "@neoboard/components/lib/guided-query";
+import {
+  GUIDED_CHART_TYPES,
+  picksToSpec,
+  queryBuilderFor,
+} from "@/lib/query/guided-query";
 import { FileCode } from "lucide-react";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { useConnectionSchema } from "@/hooks/use-schema";
@@ -124,7 +134,9 @@ const QUERY_TEMPLATES: Record<string, { label: string; query: string }[]> = {
 function getTemplates(lang: string) {
   const key =
     lang === "neo4j" ? "cypher" : lang === "postgresql" ? "sql" : lang;
-  return QUERY_TEMPLATES[key] ?? QUERY_TEMPLATES.sql ?? [];
+  // No SQL starters for a language we don't know (#1696) — a registry-supplied
+  // connector gets a plain-text editor, not misleading templates.
+  return QUERY_TEMPLATES[key] ?? [];
 }
 
 export interface QueryEditorPanelProps {
@@ -132,6 +144,8 @@ export interface QueryEditorPanelProps {
   onRun?: () => void;
   /** Connector type or language name — mapped to editor extension by the language resolver registry. */
   editorLanguage: string;
+  /** The selected connection's connector type — picks the guided builder's dialect (#1696). */
+  connectorType?: string;
   /** When true, shows a running/loading indicator on the query editor. */
   running?: boolean;
   /** #1374 — when true the editor is expanded and the preview pane is unmounted. */
@@ -143,6 +157,7 @@ export interface QueryEditorPanelProps {
 export function QueryEditorPanel({
   onRun,
   editorLanguage,
+  connectorType,
   running,
   maximized = false,
   onToggleMaximized,
@@ -150,6 +165,7 @@ export function QueryEditorPanel({
   const chartType = useWidgetEditorStore((s) => s.chartType);
   const query = useWidgetEditorStore((s) => s.query);
   const onQueryChange = useWidgetEditorStore((s) => s.setQuery);
+  const setParams = useWidgetEditorStore((s) => s.setParams);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
   const queryHistory = useWidgetEditorStore((s) => s.queryHistory);
   // Prefetch schema for autocompletion. The hook caches for 10 min
@@ -165,6 +181,28 @@ export function QueryEditorPanel({
     const text = quoteIdentifier(name, editorLanguage);
     // The editor loads asynchronously; until it has mounted, append instead.
     if (!editorRef.current?.insertAtCursor(text)) onQueryChange(query + text);
+  };
+
+  // #1696 — guided builder: picks → the connector's buildQuery → editor text.
+  // Picks are remembered per connection, so a connection change starts over
+  // without an effect.
+  const buildQuery = queryBuilderFor(connectorType);
+  const guidedAvailable =
+    !!connectionId && !!buildQuery && GUIDED_CHART_TYPES.has(chartType);
+  const [guidedOpen, setGuidedOpen] = useState(false);
+  const [picksFor, setPicksFor] = useState<{
+    connectionId: string;
+    picks: GuidedPicks;
+  }>();
+  const picks =
+    picksFor?.connectionId === connectionId ? picksFor.picks : EMPTY_PICKS;
+  const onPicksChange = (next: GuidedPicks) => {
+    setPicksFor({ connectionId, picks: next });
+    const spec = picksToSpec(next);
+    if (!spec || !buildQuery) return;
+    const built = buildQuery(spec);
+    onQueryChange(built.query);
+    setParams(built.params);
   };
 
   return (
@@ -228,7 +266,20 @@ export function QueryEditorPanel({
               <Database className="h-3 w-3" />
               Schema
             </Button>
-            {!query && (
+            {guidedAvailable && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-5 gap-1 px-1.5 text-xs text-muted-foreground"
+                onClick={() => setGuidedOpen((o) => !o)}
+                aria-expanded={guidedOpen}
+              >
+                <Wand2 className="h-3 w-3" />
+                Guided
+              </Button>
+            )}
+            {!query && getTemplates(editorLanguage).length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -337,6 +388,17 @@ export function QueryEditorPanel({
             execution.
           </AlertDescription>
         </Alert>
+      )}
+      {guidedOpen && guidedAvailable && (
+        <GuidedQueryBuilder
+          sources={guidedSources(schema)}
+          picks={picks}
+          onChange={onPicksChange}
+          loading={isFetching}
+          error={
+            isError ? error?.message || "Failed to load schema" : undefined
+          }
+        />
       )}
       <div className="flex items-stretch gap-2">
         {schemaOpen && connectionId && (

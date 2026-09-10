@@ -82,6 +82,41 @@ export interface ConnectorPlugin {
    * via the registry (#1119), replacing hardcoded per-type dispatch.
    */
   createSchemaManager?(): SchemaManager;
+
+  /**
+   * Turn a guided-builder spec into query text in this connector's own
+   * dialect (#1696). Optional — connectors without one get no guided
+   * builder in the editor. Filter values MUST travel in `params`, never in
+   * the text; identifiers are quoted by the connector.
+   */
+  buildQuery?(spec: QuerySpec): BuiltQuery;
+}
+
+/** Comparison operators a guided filter can express. */
+export type QueryFilterOp = "=" | "!=" | ">" | ">=" | "<" | "<=" | "contains";
+
+export interface QueryFilter {
+  field: string;
+  op: QueryFilterOp;
+  /** Bound as a driver parameter — never interpolated into the text. */
+  value: unknown;
+}
+
+/** What the guided query builder hands a connector (#1696). */
+export interface QuerySpec {
+  /** A node label (graph) or a table (relational). */
+  source: string;
+  /** Properties / columns to return; empty means "everything". */
+  fields: string[];
+  filter?: QueryFilter;
+  /** Positive integer; anything else is ignored. */
+  limit?: number;
+}
+
+export interface BuiltQuery {
+  query: string;
+  /** Keyed `param_<name>` — the placeholder form every built-in runs with. */
+  params: Record<string, unknown>;
 }
 
 /**

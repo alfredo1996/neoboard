@@ -11,7 +11,9 @@ connector works everywhere in NeoBoard without forking the app.
 
 - **`ConnectorPlugin`** — the plugin contract (type, label, category,
   `createModule`, optional `formFields` for the connection UI, query
-  language, allowed protocols).
+  language, allowed protocols, and an optional `buildQuery(spec)` that turns
+  the editor's guided picks — source, fields, filter, limit — into text in
+  the connector's own dialect, with filter values bound as parameters).
 - **`ConnectionModule` / `AuthenticationModule`** — base classes a connector
   implements for connect / query / cancel.
 - **Query-safety helpers** — the invariants every connector must uphold:

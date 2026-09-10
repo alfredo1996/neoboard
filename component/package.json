@@ -18,6 +18,7 @@
     "./charts": "./src/charts/index.ts",
     "./charts/palettes": "./src/charts/palettes.ts",
     "./charts/choropleth-ramp": "./src/charts/choropleth-ramp.ts",
+    "./lib/guided-query": "./src/lib/guided-query.ts",
     "./hooks": "./src/hooks/index.ts",
     "./*": "./src/*"
   },

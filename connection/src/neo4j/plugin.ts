@@ -11,6 +11,7 @@ import { Neo4jConnectionModule } from "./Neo4jConnectionModule";
 import { Neo4jSchemaManager } from "../schema/neo4j-schema";
 import { neo4jFormFields } from "../form-fields";
 import { CONNECTOR_QUERY_LANGUAGES } from "../query-languages";
+import { buildNeo4jQuery } from "../query-builders";
 
 export const neo4jPlugin: ConnectorPlugin = {
   type: "neo4j",
@@ -37,6 +38,8 @@ export const neo4jPlugin: ConnectorPlugin = {
   ) {
     return new Neo4jConnectionModule(authConfig, advancedOptions);
   },
+
+  buildQuery: buildNeo4jQuery,
 
   createSchemaManager() {
     return new Neo4jSchemaManager();

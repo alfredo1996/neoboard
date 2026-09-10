@@ -24,7 +24,36 @@ import type { DatabaseSchema } from "./schema-transforms";
  */
 export type LanguageResolver = (
   schema?: DatabaseSchema,
+  /** The registry key that was asked for — lets one resolver serve several dialects. */
+  language?: string,
 ) => Promise<Extension[]>;
+
+/**
+ * Which `@codemirror/lang-sql` dialect a language key gets (#1696). The
+ * generic `sql` key keeps PostgreSQL — it is what the built-in PostgreSQL
+ * connector declares, and PostgreSQL's keyword set is the broadest — so a
+ * connector wanting another dialect declares it by name.
+ */
+const SQL_DIALECTS = {
+  postgresql: "PostgreSQL",
+  mysql: "MySQL",
+  mariadb: "MariaSQL",
+  sqlite: "SQLite",
+  mssql: "MSSQL",
+  plsql: "PLSQL",
+  cassandra: "Cassandra",
+} as const;
+
+export type SqlDialectName =
+  | (typeof SQL_DIALECTS)[keyof typeof SQL_DIALECTS]
+  | "StandardSQL";
+
+export function sqlDialectFor(language: string): SqlDialectName {
+  const key = language.toLowerCase();
+  return Object.hasOwn(SQL_DIALECTS, key)
+    ? SQL_DIALECTS[key as keyof typeof SQL_DIALECTS]
+    : "PostgreSQL";
+}
 
 /**
  * Registry of supported languages, keyed by language name OR connector type.
@@ -45,17 +74,25 @@ export const languageResolvers: Record<string, LanguageResolver> = {
     return [cypher({ schema: cypherSchema })];
   },
 
-  sql: async (schema) => {
-    const { sql, PostgreSQL } = await import("@codemirror/lang-sql");
+  sql: async (schema, language = "sql") => {
+    const langSql = await import("@codemirror/lang-sql");
+    const dialect = langSql[sqlDialectFor(language)];
     if (schema?.tables) {
-      return [sql({ dialect: PostgreSQL, schema: toSqlSchema(schema) })];
+      return [langSql.sql({ dialect, schema: toSqlSchema(schema) })];
     }
-    return [sql({ dialect: PostgreSQL })];
+    return [langSql.sql({ dialect })];
   },
 
   // Connector-type aliases — so connection.type can be passed directly
   neo4j: async (schema) => languageResolvers.cypher(schema),
-  postgresql: async (schema) => languageResolvers.sql(schema),
+  postgresql: async (schema) => languageResolvers.sql(schema, "postgresql"),
+  // Other SQL dialects a registry-supplied connector may declare (#1696).
+  mysql: async (schema) => languageResolvers.sql(schema, "mysql"),
+  mariadb: async (schema) => languageResolvers.sql(schema, "mariadb"),
+  sqlite: async (schema) => languageResolvers.sql(schema, "sqlite"),
+  mssql: async (schema) => languageResolvers.sql(schema, "mssql"),
+  plsql: async (schema) => languageResolvers.sql(schema, "plsql"),
+  cassandra: async (schema) => languageResolvers.sql(schema, "cassandra"),
 };
 
 /**
@@ -71,5 +108,5 @@ export async function resolveLanguageExt(
 ): Promise<Extension[]> {
   const key = language.toLowerCase();
   if (!Object.hasOwn(languageResolvers, key)) return [];
-  return languageResolvers[key](schema);
+  return languageResolvers[key](schema, key);
 }

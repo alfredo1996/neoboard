@@ -139,7 +139,79 @@ vi.mock("@neoboard/components", () => ({
   ),
   // Tagged rather than real so a test can see that the language reached it.
   quoteIdentifier: (name: string, language: string) => `${language}:${name}`,
+  // #1696 — a stand-in that reports picks the way the real picker does; the
+  // picker itself is covered in component/.
+  GuidedQueryBuilder: ({
+    sources,
+    picks,
+    onChange,
+    loading,
+    error,
+  }: {
+    sources: { name: string; fields: string[] }[];
+    picks: GuidedPicks;
+    onChange: (p: GuidedPicks) => void;
+    loading?: boolean;
+    error?: string;
+  }) => {
+    const fields = sources.find((s) => s.name === picks.source)?.fields ?? [];
+    return (
+      <div
+        data-testid="guided-query-builder"
+        data-source={picks.source}
+        data-loading={String(loading ?? false)}
+        data-error={error ?? ""}
+      >
+        {sources.map((s) => (
+          <button
+            key={s.name}
+            type="button"
+            onClick={() => onChange({ ...picks, source: s.name, fields: [] })}
+          >
+            source:{s.name}
+          </button>
+        ))}
+        {fields.map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => onChange({ ...picks, fields: [...picks.fields, f] })}
+          >
+            field:{f}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() =>
+            onChange({
+              ...picks,
+              filter: { field: "released", op: ">", value: "2000" },
+            })
+          }
+        >
+          filter
+        </button>
+      </div>
+    );
+  },
+  guidedSources: (schema?: DatabaseSchema) =>
+    schema?.tables
+      ? schema.tables.map((t) => ({
+          name: t.name,
+          fields: t.columns.map((c) => c.name),
+        }))
+      : (schema?.labels ?? []).map((name) => ({
+          name,
+          fields: (schema?.nodeProperties?.[name] ?? []).map((p) => p.name),
+        })),
 }));
+
+type GuidedPicks = {
+  source: string;
+  fields: string[];
+  filter: { field: string; op: string; value: string };
+  limit: number;
+};
 
 // Import the component and exported constants after mocks are set up
 const { QueryEditorPanel, QUERY_HINTS } = await import("../query-editor-panel");
@@ -241,12 +313,13 @@ describe("QueryEditorPanel", () => {
     expect(screen.queryByText("Relationships")).not.toBeInTheDocument();
   });
 
-  it("falls back to sql templates for unknown language", () => {
+  it("offers no templates for an unknown language (#1696)", () => {
+    // SQL starters in a plain-text editor for a registry-supplied connector
+    // were misleading; with nothing to offer the button goes too.
     useWidgetEditorStore.getState().setConnectionId("conn-1");
     render(<QueryEditorPanel editorLanguage="unknown-lang" />);
-    // Should fall back to sql templates
-    const items = screen.getAllByTestId("dropdown-item");
-    expect(items.length).toBe(3); // sql has 3 templates
+    expect(screen.queryByTestId("dropdown-item")).not.toBeInTheDocument();
+    expect(screen.queryByText("Templates")).not.toBeInTheDocument();
   });
 
   it("sets query in store when a template item is clicked", async () => {
@@ -495,6 +568,137 @@ describe("QueryEditorPanel schema browser (#1693)", () => {
 
     expect(useWidgetEditorStore.getState().query).toBe(
       "SELECT * FROM postgresql:movies",
+    );
+  });
+});
+
+describe("QueryEditorPanel guided builder (#1696)", () => {
+  const neo4jSchema: DatabaseSchema = {
+    type: "neo4j",
+    labels: ["Movie"],
+    nodeProperties: {
+      Movie: [
+        { name: "title", type: "String" },
+        { name: "released", type: "Integer" },
+      ],
+    },
+  };
+  const guidedToggle = () => screen.queryByRole("button", { name: /^guided$/i });
+
+  beforeEach(() => {
+    useWidgetEditorStore.getState().resetForAdd();
+    useWidgetEditorStore.getState().setChartType("bar");
+    mockSchema = neo4jSchema;
+    mockSchemaQuery.isFetching = false;
+    mockSchemaQuery.isError = false;
+    mockSchemaQuery.error = null;
+  });
+
+  it("hides the toggle without a connection, without a builder, and for expert charts", () => {
+    const { rerender } = render(
+      <QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />,
+    );
+    expect(guidedToggle()).not.toBeInTheDocument();
+
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    rerender(<QueryEditorPanel editorLanguage="" connectorType="mongo" />);
+    expect(guidedToggle()).not.toBeInTheDocument();
+
+    useWidgetEditorStore.getState().setChartType("graph");
+    rerender(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+    expect(guidedToggle()).not.toBeInTheDocument();
+
+    useWidgetEditorStore.getState().setChartType("single-value");
+    rerender(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+    expect(guidedToggle()).toBeInTheDocument();
+  });
+
+  it("opens the builder from the toggle and feeds it the schema state", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    mockSchemaQuery.isFetching = true;
+    render(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+
+    const toggle = guidedToggle()!;
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("guided-query-builder")).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const builder = screen.getByTestId("guided-query-builder");
+    expect(builder).toHaveAttribute("data-loading", "true");
+    expect(screen.getByText("source:Movie")).toBeInTheDocument();
+    await user.click(toggle);
+    expect(screen.queryByTestId("guided-query-builder")).not.toBeInTheDocument();
+  });
+
+  it("writes the connector's query into the store as the picks change, binding the filter as a param", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n");
+    render(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+    await user.click(guidedToggle()!);
+
+    await user.click(screen.getByText("source:Movie"));
+    expect(useWidgetEditorStore.getState().query).toBe(
+      "MATCH (n:Movie)\nRETURN n\nLIMIT 100",
+    );
+    await user.click(screen.getByText("field:title"));
+    await user.click(screen.getByText("field:released"));
+    expect(useWidgetEditorStore.getState().query).toBe(
+      "MATCH (n:Movie)\nRETURN n.title AS title, n.released AS released\nLIMIT 100",
+    );
+    expect(useWidgetEditorStore.getState().params).toEqual({});
+
+    await user.click(screen.getByText("filter"));
+    expect(useWidgetEditorStore.getState().query).toBe(
+      "MATCH (n:Movie)\nWHERE n.released > $param_released\nRETURN n.title AS title, n.released AS released\nLIMIT 100",
+    );
+    expect(useWidgetEditorStore.getState().params).toEqual({
+      param_released: 2000,
+    });
+  });
+
+  it("speaks SQL for a PostgreSQL connection", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-pg");
+    mockSchema = {
+      type: "postgresql",
+      tables: [
+        {
+          name: "movies",
+          columns: [{ name: "title", type: "text", nullable: false }],
+        },
+      ],
+    };
+    render(
+      <QueryEditorPanel editorLanguage="sql" connectorType="postgresql" />,
+    );
+    await user.click(guidedToggle()!);
+    await user.click(screen.getByText("source:movies"));
+    await user.click(screen.getByText("field:title"));
+    expect(useWidgetEditorStore.getState().query).toBe(
+      'SELECT "title"\nFROM "movies"\nLIMIT 100',
+    );
+  });
+
+  it("starts over when the connection changes", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    const { rerender } = render(
+      <QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />,
+    );
+    await user.click(guidedToggle()!);
+    await user.click(screen.getByText("source:Movie"));
+    expect(screen.getByTestId("guided-query-builder")).toHaveAttribute(
+      "data-source",
+      "Movie",
+    );
+
+    useWidgetEditorStore.getState().setConnectionId("conn-2");
+    rerender(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+    expect(screen.getByTestId("guided-query-builder")).toHaveAttribute(
+      "data-source",
+      "",
     );
   });
 });

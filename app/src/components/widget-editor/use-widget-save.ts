@@ -17,6 +17,7 @@ export function useBuildWidgetForSave(
   const chartType = useWidgetEditorStore((s) => s.chartType);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
   const query = useWidgetEditorStore((s) => s.query);
+  const params = useWidgetEditorStore((s) => s.params);
   const title = useWidgetEditorStore((s) => s.title);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const formFields = useWidgetEditorStore((s) => s.formFields);
@@ -89,7 +90,9 @@ export function useBuildWidgetForSave(
           ? ""
           : connectionId,
       query: isParamSelect || isContentOnly ? "" : query,
-      params: existingWidget?.params,
+      // The store owns params (loaded from the widget, written by the guided
+      // builder, #1696); an empty map is left off the widget.
+      params: Object.keys(params).length > 0 ? params : undefined,
       database: isContentOnly ? undefined : database || undefined,
       allowWrites: isContentOnly ? undefined : allowWrites || undefined,
       settings: {
@@ -127,6 +130,7 @@ export function useBuildWidgetForSave(
     layout,
     chartType,
     connectionId,
+    params,
     database,
     allowWrites,
     query,

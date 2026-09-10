@@ -64,6 +64,28 @@ export function allReferencedParamsReady(
 }
 
 /**
+ * The dashboard's parameter values plus the widget's own bindings (#1696 —
+ * the guided builder's filter lives in `widget.params` as `param_x`), keyed
+ * without the prefix like the dashboard's so the readiness checks see both.
+ * A dashboard parameter of the same name takes over the binding.
+ *
+ * @visibleForTesting
+ */
+export function withWidgetParams(
+  dashboardParams: Record<string, unknown>,
+  widgetParams: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!widgetParams || Object.keys(widgetParams).length === 0) {
+    return dashboardParams;
+  }
+  const bound: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(widgetParams)) {
+    bound[key.replace(/^param_/, "")] = value;
+  }
+  return { ...bound, ...dashboardParams };
+}
+
+/**
  * Returns the list of $param_xxx names in the query that have no value yet.
  * Mirrors the logic of allReferencedParamsReady but returns the names
  * instead of a boolean.
@@ -171,6 +193,10 @@ export function useWidgetQuery(
 
   const inputQuery = input?.query;
   const inputParams = input?.params;
+  const boundParameters = useMemo(
+    () => withWidgetParams(allParameters, inputParams),
+    [allParameters, inputParams],
+  );
 
   const mergedParams = useMemo(() => {
     if (!inputQuery) return inputParams;
@@ -220,7 +246,7 @@ export function useWidgetQuery(
       (options?.enabled ?? true) &&
       !!mergedInput?.connectionId &&
       !!mergedInput?.query &&
-      allReferencedParamsReady(mergedInput.query, allParameters),
+      allReferencedParamsReady(mergedInput.query, boundParameters),
     // staleTime controls how long cached data is considered fresh.
     // When enableCache is false on the widget, callers pass 0 (always refetch).
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
@@ -253,9 +279,9 @@ export function useWidgetQuery(
   const missingParams = useMemo(
     () =>
       mergedInput?.query
-        ? getMissingParamNames(mergedInput.query, allParameters)
+        ? getMissingParamNames(mergedInput.query, boundParameters)
         : [],
-    [mergedInput, allParameters],
+    [mergedInput, boundParameters],
   );
 
   return { ...queryResult, missingParams };

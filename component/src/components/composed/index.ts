@@ -193,6 +193,19 @@ export {
 } from "./query-editor";
 export { SchemaBrowser, type SchemaBrowserProps } from "./schema-browser";
 export {
+  GuidedQueryBuilder,
+  type GuidedQueryBuilderProps,
+} from "./guided-query-builder";
+export {
+  guidedSources,
+  withSource,
+  EMPTY_PICKS,
+  GUIDED_FILTER_OPS,
+  type GuidedSource,
+  type GuidedPicks,
+  type GuidedFilterOp,
+} from "@/lib/guided-query";
+export {
   toSchemaTree,
   filterSchemaTree,
   quoteIdentifier,
