@@ -87,9 +87,16 @@ CLAUDE.md
 scripts/claude-setup.sh
 .github/workflows/claude.yml
 
-# Fumadocs generated
-docs/.source
-docs/.next
+# Astro content-collection cache — rewritten by every docs build (#1689)
+docs/.astro/
+
+# Storybook captures from scripts/shoot-stories.mjs — review artefacts, not
+# source (#1689)
+design-shots/
+
+# Before/after captures from the v1.1 redesign (#832–#834). The six README
+# screenshots at screenshots/*.png stay tracked (#1689).
+screenshots/v1.1-redesign/
 
 # CLI build output
 cli/dist/

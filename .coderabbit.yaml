@@ -36,7 +36,6 @@ reviews:
     - "!package-lock.json"
     - "!docs/package-lock.json"
     - "!docs/content/**/*.mdx"
-    - "!docs/.source/**"
     - "!docs/next-env.d.ts"
     - "!app/.screenshots/**"
     - "!app/drizzle/migrations/**"
