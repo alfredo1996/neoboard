@@ -100,7 +100,9 @@ export function buildClickPayload(
 ): Record<string, unknown> | null {
   const eventFields = {
     name: e.name,
-    value: e.value,
+    // A custom series (gantt) hands back its encode tuple as `value`. No click
+    // action can resolve an array, so it is not shipped (#1597).
+    ...(Array.isArray(e.value) ? {} : { value: e.value }),
     seriesName: e.seriesName,
     dataIndex: e.dataIndex,
   };

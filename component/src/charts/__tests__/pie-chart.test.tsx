@@ -463,4 +463,40 @@ describe("PieChart formatter edge cases (#1248)", () => {
       ).toBe("a: 1,234.567");
     });
   });
+
+  // The app's pie transform keeps the query row under `properties`, and the
+  // click payload reads it back off the datum ECharts returns (#1598). A slice
+  // rebuilt as { name, value } would silently break every click action.
+  describe("keeps the caller's extra keys on each slice (#1598)", () => {
+    const rows = [
+      { name: "Desktop", value: 60, properties: { status: "d" } },
+      { name: "Mobile", value: 30, properties: { status: "m" } },
+      { name: "Tablet", value: 10, properties: { status: "t" } },
+    ];
+    const slices = () =>
+      mockSetOption.mock.calls[0][0].series[0].data as Array<{
+        name: string;
+        properties?: { status: string };
+      }>;
+
+    it.each([
+      ["plain", {}],
+      [
+        "styling rules",
+        {
+          stylingRules: [
+            { id: "r1", operator: ">=" as const, value: 0, color: "#f00" },
+          ],
+        },
+      ],
+      ["sortSlices", { sortSlices: true }],
+      ["topN", { topN: 2 }],
+    ])("%s", (_label, props) => {
+      render(<PieChart data={rows} {...props} />);
+      for (const slice of slices().filter((d) => d.name !== "Other")) {
+        const row = rows.find((r) => r.name === slice.name)!;
+        expect(slice.properties).toEqual(row.properties);
+      }
+    });
+  });
 });

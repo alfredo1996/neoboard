@@ -235,6 +235,24 @@ describe("buildClickPayload — a query column wins over a derived field of the 
     expect(resolvedValue(payload, "value")).toBe(42);
   });
 
+  it("gantt: with no value column the custom-series tuple is not shipped as value", () => {
+    const data = transformToGanttData([
+      { task: "Design", start: "2026-01-01", end: "2026-01-02" },
+    ]);
+    const payload = buildClickPayload(
+      ev({
+        seriesType: "custom",
+        dataIndex: 0,
+        name: "Design",
+        value: [0, 1, 2, 1, "", 0],
+      } as unknown as Partial<EChartsClickEvent>),
+      data,
+    );
+    expect(payload).not.toBeNull();
+    expect(payload!.value).toBeUndefined();
+    expect(payload!.task).toBe("Design");
+  });
+
   it("bar: a category column named value beats the clicked bar's number", () => {
     const data = transformToBarData([{ value: "Keanu Reeves", films: 7 }]);
     const payload = buildClickPayload(
