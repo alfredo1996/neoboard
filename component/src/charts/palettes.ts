@@ -147,36 +147,9 @@ export const COLOR_PALETTES: Record<string, ColorPalette> = {
 };
 
 /**
- * Backwards-compatible aliases for renamed palettes.
- * Existing dashboards referencing old IDs will silently map to the new ones.
- */
-const PALETTE_ALIASES: Record<string, string> = {
-  "warm-sunset": "warm",
-  "cool-breeze": "cool",
-  neon: "observable",
-  // v1.1 redesign (#821): the default palette is Citrine; dashboards saved
-  // with the old default keep working.
-  "deep-ocean": "citrine",
-};
-
-/**
- * Canonical palette id for the given id, following the legacy alias map.
- * An id that is neither an alias nor a known palette is returned unchanged,
- * so callers decide how to treat it.
- *
- * Exported so UI that has to *match* a stored id against the palette list can
- * do the same resolution `getPaletteColors` already does internally. Without
- * it, a widget storing a legacy alias rendered the right colours while its
- * editor control showed nothing (#1520).
- */
-export function resolvePaletteId(paletteId: string): string {
-  return PALETTE_ALIASES[paletteId] ?? paletteId;
-}
-
-/**
  * Returns the color array for the given palette ID, or `undefined` if the
- * palette does not exist. Supports legacy aliases for renamed palettes.
+ * palette does not exist.
  */
 export function getPaletteColors(paletteId: string): string[] | undefined {
-  return COLOR_PALETTES[resolvePaletteId(paletteId)]?.colors;
+  return COLOR_PALETTES[paletteId]?.colors;
 }

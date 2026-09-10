@@ -160,11 +160,9 @@ export const appearanceOptions: ChartOptionDef[] = [
     key: "colorPalette",
     label: "Color Palette",
     type: "select",
-    // Canonical id, not the `deep-ocean` alias this defaulted to until #1520.
-    // `options` below is built from COLOR_PALETTES, which holds no alias, so
-    // the old default matched no item and the control rendered empty on every
-    // chart. The alias itself stays in PALETTE_ALIASES — dashboards saved
-    // before #821 still resolve through it.
+    // Must be a COLOR_PALETTES key: `options` below is built from it, and a
+    // default that matches no item leaves the control empty on every chart
+    // (#1520, when this still said `deep-ocean`).
     default: "citrine",
     category: "Appearance",
     description: "Color scheme for chart series and data points.",

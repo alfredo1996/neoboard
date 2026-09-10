@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { CHART_TYPES_WITH_OPTIONS, getChartOptions } from "../index";
-import { getPaletteColors, resolvePaletteId } from "@/charts/palettes";
 
 /**
  * #1520 — the Color Palette option declared `default: "deep-ocean"`, which is
@@ -31,30 +30,4 @@ describe("select option defaults are selectable (#1520)", () => {
       }
     });
   }
-});
-
-describe("resolvePaletteId", () => {
-  it("maps a legacy alias to its canonical palette", () => {
-    expect(resolvePaletteId("deep-ocean")).toBe("citrine");
-    expect(resolvePaletteId("warm-sunset")).toBe("warm");
-    expect(resolvePaletteId("cool-breeze")).toBe("cool");
-    expect(resolvePaletteId("neon")).toBe("observable");
-  });
-
-  it("returns a canonical id unchanged", () => {
-    expect(resolvePaletteId("citrine")).toBe("citrine");
-    expect(resolvePaletteId("tableau")).toBe("tableau");
-  });
-
-  it("returns an unknown id unchanged, so callers can decide", () => {
-    expect(resolvePaletteId("not-a-palette")).toBe("not-a-palette");
-  });
-
-  it("agrees with getPaletteColors on which ids resolve", () => {
-    for (const id of ["deep-ocean", "warm-sunset", "cool-breeze", "neon"]) {
-      expect(getPaletteColors(id)).toEqual(
-        getPaletteColors(resolvePaletteId(id)),
-      );
-    }
-  });
 });

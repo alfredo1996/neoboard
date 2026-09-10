@@ -94,9 +94,9 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"i":"w22","x":0,"y":6,"w":12,"h":5}
        ]},
        {"id":"page-palettes","title":"Color Palettes","widgets":[
-         {"id":"w13","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"deep-ocean","chartOptions":{"colorPalette":"deep-ocean"}}},
-         {"id":"w14","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"warm-sunset","chartOptions":{"colorPalette":"warm-sunset"}}},
-         {"id":"w15","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"neon","chartOptions":{"colorPalette":"neon"}}},
+         {"id":"w13","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"citrine","chartOptions":{"colorPalette":"citrine"}}},
+         {"id":"w14","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"warm","chartOptions":{"colorPalette":"warm"}}},
+         {"id":"w15","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"observable","chartOptions":{"colorPalette":"observable"}}},
          {"id":"w16","chartType":"pie","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() RETURN type(r) AS name, count(*) AS value","settings":{"title":"monochrome","chartOptions":{"colorPalette":"monochrome"}}}
        ],"gridLayout":[
          {"i":"w13","x":0,"y":0,"w":6,"h":4},

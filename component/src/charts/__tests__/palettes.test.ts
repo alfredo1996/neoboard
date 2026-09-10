@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  COLOR_PALETTES,
-  getPaletteColors,
-  resolvePaletteId,
-  type ColorPalette,
-} from "../palettes";
+import { COLOR_PALETTES, getPaletteColors, type ColorPalette } from "../palettes";
 
 describe("COLOR_PALETTES", () => {
   it("contains at least 5 predefined palettes", () => {
@@ -84,16 +79,11 @@ describe("COLOR_PALETTES", () => {
     expect(citrine.colors[0]).toBe("hsl(38, 95%, 55%)"); // Citrine amber anchor
   });
 
-  it("legacy 'deep-ocean' id aliases to the citrine default (#821)", () => {
-    expect(getPaletteColors("deep-ocean")).toEqual(
-      COLOR_PALETTES["citrine"].colors,
-    );
-  });
 });
 
 describe("getPaletteColors", () => {
   it("returns colors array for a valid palette id", () => {
-    const colors = getPaletteColors("deep-ocean");
+    const colors = getPaletteColors("citrine");
     expect(colors).toBeDefined();
     expect(Array.isArray(colors)).toBe(true);
     expect(colors!.length).toBe(10);
@@ -114,27 +104,15 @@ describe("getPaletteColors", () => {
     expect(getPaletteColors("does-not-exist")).toBeUndefined();
   });
 
+  it("has no alias layer: the pre-#821 ids are unknown, not remapped (#1684)", () => {
+    for (const legacy of ["deep-ocean", "warm-sunset", "cool-breeze", "neon"]) {
+      expect(getPaletteColors(legacy), legacy).toBeUndefined();
+    }
+  });
+
   it("returns the same reference as COLOR_PALETTES[id].colors", () => {
     const colors = getPaletteColors("tableau");
     expect(colors).toBe(COLOR_PALETTES["tableau"].colors);
-  });
-});
-
-describe("resolvePaletteId", () => {
-  it("maps legacy ids onto the palette they were renamed to", () => {
-    // base-chart gates the theme-aware colour path on this resolving to
-    // "citrine", so an alias regression would repaint every default chart
-    // with the light array in dark mode (#1295).
-    expect(resolvePaletteId("deep-ocean")).toBe("citrine");
-    expect(resolvePaletteId("warm-sunset")).toBe("warm");
-    expect(resolvePaletteId("cool-breeze")).toBe("cool");
-    expect(resolvePaletteId("neon")).toBe("observable");
-  });
-
-  it("passes through ids that are not aliases", () => {
-    expect(resolvePaletteId("citrine")).toBe("citrine");
-    expect(resolvePaletteId("tableau")).toBe("tableau");
-    expect(resolvePaletteId("does-not-exist")).toBe("does-not-exist");
   });
 });
 

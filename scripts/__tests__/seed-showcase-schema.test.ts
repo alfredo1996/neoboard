@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { neoboardExportSchema } from "../../app/src/lib/dashboard/dashboard-import";
+import { COLOR_PALETTES } from "../../component/src/charts/palettes";
 import { SHOWCASES } from "../demo/showcases.mjs";
 
 /**
@@ -63,6 +64,38 @@ describe("demo showcases validate against the app's export schema", () => {
       });
     });
   }
+});
+
+// #1684 — the palette alias layer is gone, so a seed that still says
+// "deep-ocean" (or "warm-sunset", "neon", …) would render with the theme
+// default and show an empty Color Palette control. Every id a seed emits must
+// be a key of COLOR_PALETTES.
+describe("seeds only use palette ids that exist", () => {
+  const known = Object.keys(COLOR_PALETTES);
+  const paletteIdsIn = (text: string) =>
+    [...text.matchAll(/"colorPalette":\s*"([^"]*)"/g)].map((m) => m[1]);
+
+  it("has palettes to check against", () => {
+    expect(known).toContain("citrine");
+  });
+
+  for (const showcase of SHOWCASES) {
+    it(`${showcase.key}: every colorPalette is a COLOR_PALETTES key`, () => {
+      const ids = paletteIdsIn(readFileSync(showcase.jsonPath, "utf-8"));
+      for (const id of ids) expect(known, id).toContain(id);
+    });
+  }
+
+  it("docker/postgres/seed-neoboard.sql: every colorPalette is a COLOR_PALETTES key", () => {
+    const sql = readFileSync(
+      new URL("../../docker/postgres/seed-neoboard.sql", import.meta.url),
+      "utf-8",
+    );
+    const ids = paletteIdsIn(sql);
+    // The E2E seed has a "Color Palettes" page — the sweep must see it.
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(known, id).toContain(id);
+  });
 });
 
 describe("the schema check itself is wired up", () => {

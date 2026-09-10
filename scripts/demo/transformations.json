@@ -346,7 +346,7 @@
             "settings": {
               "title": "After sort desc + limit 5 — top 5 spenders",
               "chartOptions": {
-                "colorPalette": "deep-ocean",
+                "colorPalette": "citrine",
                 "orientation": "horizontal",
                 "showValues": true,
                 "showLegend": false

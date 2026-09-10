@@ -115,7 +115,7 @@ export const GroupedBars: Story = {
 export const StackedBars: Story = {
   args: {
     data: stackedData,
-    stacked: true,
+    stackMode: "stacked",
     showLegend: true,
   },
 };
@@ -124,7 +124,7 @@ export const HorizontalStacked: Story = {
   args: {
     data: stackedData,
     orientation: "horizontal",
-    stacked: true,
+    stackMode: "stacked",
     showLegend: true,
   },
 };

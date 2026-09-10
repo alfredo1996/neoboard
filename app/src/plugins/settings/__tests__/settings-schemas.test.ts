@@ -82,7 +82,9 @@ describe("barSettingsSchema", () => {
   it("applies correct defaults", () => {
     const result = barSettingsSchema.parse({});
     expect(result.orientation).toBe("vertical");
-    expect(result.stacked).toBe(false);
+    expect(result.stackMode).toBe("none");
+    // #1684: the deprecated boolean is gone — no default resurrects it.
+    expect(result).not.toHaveProperty("stacked");
     expect(result.showValues).toBe(false);
     // Unset means auto: a legend appears once there is more than one series
     // (#1592). Defaulting it to true made that rule unreachable.
@@ -98,14 +100,14 @@ describe("barSettingsSchema", () => {
   it("parses valid settings", () => {
     const result = barSettingsSchema.parse({
       orientation: "horizontal",
-      stacked: true,
+      stackMode: "stacked",
       barWidth: 20,
       xAxisLabel: "Category",
       yAxisLabel: "Count",
       colorPalette: "ocean",
     });
     expect(result.orientation).toBe("horizontal");
-    expect(result.stacked).toBe(true);
+    expect(result.stackMode).toBe("stacked");
     expect(result.barWidth).toBe(20);
     expect(result.xAxisLabel).toBe("Category");
   });

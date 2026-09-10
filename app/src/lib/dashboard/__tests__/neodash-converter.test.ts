@@ -329,6 +329,34 @@ describe("convertNeoDash", () => {
     ).toEqual({ area: true });
   });
 
+  // NeoDash bar reports carry `groupMode: "grouped" | "stacked"`; NeoBoard's
+  // bar plugin reads `chartOptions.stackMode` (#1684).
+  it("maps a NeoDash stacked bar to stackMode: 'stacked'", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({
+        type: "bar",
+        settings: { groupMode: "stacked" },
+      }),
+    );
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toEqual({ stackMode: "stacked" });
+  });
+
+  it("leaves chartOptions alone for a grouped NeoDash bar", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({
+        type: "bar",
+        settings: { groupMode: "grouped" },
+      }),
+    );
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toBeUndefined();
+  });
+
   it("converts $neodash_ parameter syntax to $param_", () => {
     const result = convertNeoDash(
       makeSingleReportDash({

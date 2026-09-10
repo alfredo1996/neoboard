@@ -52,7 +52,7 @@
             "settings": {
               "title": "Revenue by top-level category — click a bar",
               "chartOptions": {
-                "colorPalette": "deep-ocean",
+                "colorPalette": "citrine",
                 "showValues": true
               },
               "clickAction": {

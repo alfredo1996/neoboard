@@ -34,7 +34,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Bar chart\n\nCategorical comparison. Use for **revenue by category**, **orders by region**, or any dimension-vs-metric breakdown.\n\n**Options shown:** `colorPalette: deep-ocean`, `showValues: true`, `showLegend: false`, `orientation: vertical`."
+                "content": "## Bar chart\n\nCategorical comparison. Use for **revenue by category**, **orders by region**, or any dimension-vs-metric breakdown.\n\n**Options shown:** `colorPalette: citrine`, `showValues: true`, `showLegend: false`, `orientation: vertical`."
               }
             }
           },
@@ -46,7 +46,7 @@
             "settings": {
               "title": "Revenue by top-level category",
               "chartOptions": {
-                "colorPalette": "deep-ocean",
+                "colorPalette": "citrine",
                 "showValues": true,
                 "showLegend": false,
                 "orientation": "vertical"
@@ -812,7 +812,7 @@
                 "showLabels": true,
                 "showValues": true,
                 "colorSaturation": "medium",
-                "colorPalette": "deep-ocean"
+                "colorPalette": "citrine"
               }
             }
           }
@@ -910,7 +910,7 @@
                 "shape": "polygon",
                 "filled": true,
                 "showLegend": true,
-                "colorPalette": "deep-ocean"
+                "colorPalette": "citrine"
               }
             }
           }

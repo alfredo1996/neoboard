@@ -192,14 +192,17 @@ describe("BaseChart", () => {
     );
   });
 
-  it("uses default palette colors when colorPalette is 'deep-ocean'", () => {
+  it("falls back to the theme colours for a palette id it does not know", () => {
+    // No alias layer any more (#1684): a pre-#821 id like "deep-ocean" is
+    // simply unknown, and unknown ids land on the CSS-variable path.
     render(
       <BaseChart
         options={{ title: { text: "Test" } }}
         colorPalette="deep-ocean"
       />,
     );
-    // deep-ocean triggers the default CSS-var path (same as unset)
+    expect(vi.mocked(getPaletteColors)).toHaveBeenCalledWith("deep-ocean");
+    expect(vi.mocked(getPaletteColors)).toHaveReturnedWith(undefined);
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
         color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
@@ -208,13 +211,12 @@ describe("BaseChart", () => {
     );
   });
 
-  it("takes the theme-aware path for the citrine default and its alias", () => {
+  it("takes the theme-aware path for the citrine default", () => {
     // jsdom returns "" for CSS custom properties, so both paths end up on
     // CITRINE_LIGHT here and the colour alone cannot tell them apart. What
     // matters is which branch ran: the static array is light-only, the CSS
     // variables are per-theme (#1295).
     render(<BaseChart options={{}} colorPalette="citrine" />);
-    render(<BaseChart options={{}} colorPalette="deep-ocean" />);
     expect(vi.mocked(getPaletteColors)).not.toHaveBeenCalled();
   });
 

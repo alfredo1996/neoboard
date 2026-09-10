@@ -72,7 +72,7 @@ describe("BarChart", () => {
   });
 
   it("supports stacked bars", () => {
-    const opts = renderBarOptions({ data: stackedData, stacked: true });
+    const opts = renderBarOptions({ data: stackedData, stackMode: "stacked" });
     expect(opts.series[0].stack).toBe("total");
     expect(opts.series[1].stack).toBe("total");
   });
@@ -226,22 +226,14 @@ describe("BarChart", () => {
     expect(opts.series[1].stack).toBe("total");
   });
 
-  it("stacks series in stacked mode (backward compat)", () => {
-    const opts = renderBarOptions({
-      data: stackedData,
-      stackMode: "stacked",
-    });
-    expect(opts.series[0].stack).toBe("total");
-  });
-
   it("does not stack in none mode", () => {
     const opts = renderBarOptions({ data: stackedData, stackMode: "none" });
     expect(opts.series[0].stack).toBeUndefined();
   });
 
-  it("backward compat: stacked boolean still works", () => {
-    const opts = renderBarOptions({ data: stackedData, stacked: true });
-    expect(opts.series[0].stack).toBe("total");
+  it("defaults to none when stackMode is omitted", () => {
+    const opts = renderBarOptions({ data: stackedData });
+    expect(opts.series[0].stack).toBeUndefined();
   });
 
   it("handles zero total gracefully in percent mode", () => {

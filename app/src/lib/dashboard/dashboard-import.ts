@@ -44,7 +44,6 @@ const CHART_OPTION_KEYS = new Set([
   "donut",
   "smooth",
   "area",
-  "stacked",
   "showValues",
   "showLegend",
   "showLabels",

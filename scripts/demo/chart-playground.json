@@ -163,7 +163,7 @@
                 "orientation": "vertical",
                 "showValues": true,
                 "showLegend": false,
-                "colorPalette": "deep-ocean",
+                "colorPalette": "citrine",
                 "rules": [
                   {
                     "id": "cat-rule-hi",
@@ -187,7 +187,7 @@
                 "orientation": "horizontal",
                 "showValues": true,
                 "showLegend": false,
-                "colorPalette": "deep-ocean"
+                "colorPalette": "citrine"
               }
             }
           },
@@ -449,7 +449,7 @@
                 "showLabels": true,
                 "showValues": true,
                 "colorSaturation": "medium",
-                "colorPalette": "deep-ocean"
+                "colorPalette": "citrine"
               }
             }
           },
@@ -962,7 +962,7 @@
                 "shape": "polygon",
                 "filled": true,
                 "showLegend": true,
-                "colorPalette": "deep-ocean"
+                "colorPalette": "citrine"
               }
             }
           }
