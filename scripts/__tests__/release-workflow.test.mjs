@@ -209,3 +209,71 @@ describe("release workflow: latest tag safety", () => {
     );
   });
 });
+
+describe("release workflow: GitHub Release", () => {
+  // Raw, not stripped: the awk heading pattern contains `#`.
+  const RELEASE = jobBlock("release");
+  const CREATE = stripComments(
+    RELEASE.slice(RELEASE.indexOf("- name: Create GitHub Release")),
+  );
+
+  it("marks a pre-release tag as a pre-release, so an rc never becomes Latest", () => {
+    // `v1.5.0-rc.1` has a `-`, `v1.5.0` does not — the same line the docker
+    // job's plain-vX.Y.Z filter draws for the `latest` image tag (#1216).
+    expect(CREATE).toContain("softprops/action-gh-release@");
+    expect(CREATE).toMatch(
+      /^ {10}prerelease: \$\{\{ contains\(github\.ref_name, '-'\) \}\}$/m,
+    );
+  });
+
+  it("takes the release body from the CHANGELOG heading for the tag's version", () => {
+    expect(RELEASE).toContain("/^## \\[${VERSION}\\]/");
+  });
+});
+
+describe("release versions", () => {
+  // The release body is the CHANGELOG section for the tag. If the heading and
+  // package.json disagree, release.yml silently publishes "Release vX.Y.Z".
+  const read = (p) => readFileSync(join(ROOT, p), "utf8");
+  const version = JSON.parse(read("package.json")).version;
+
+  function changelogSection(v) {
+    const lines = read("CHANGELOG.md").split("\n");
+    const start = lines.findIndex((l) => l.startsWith(`## [${v}]`));
+    if (start === -1) return "";
+    const end = lines.findIndex((l, i) => i > start && l.startsWith("## ["));
+    return lines
+      .slice(start + 1, end === -1 ? undefined : end)
+      .join("\n")
+      .trim();
+  }
+
+  it("declares a plain X.Y.Z version on the root package", () => {
+    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it.each(["app", "component", "connection", "docs"])(
+    "%s/package.json carries the release version",
+    (pkg) => {
+      expect(JSON.parse(read(`${pkg}/package.json`)).version).toBe(version);
+    },
+  );
+
+  it("keeps package-lock.json in step with the workspace versions", () => {
+    const lock = JSON.parse(read("package-lock.json"));
+    expect(lock.version).toBe(version);
+    for (const key of ["", "app", "component", "connection"]) {
+      expect(lock.packages[key].version, `lock entry "${key}"`).toBe(version);
+    }
+  });
+
+  it("keeps docs/package-lock.json in step with docs/package.json", () => {
+    const lock = JSON.parse(read("docs/package-lock.json"));
+    expect(lock.version).toBe(version);
+    expect(lock.packages[""].version).toBe(version);
+  });
+
+  it("has a non-empty CHANGELOG section for the release version", () => {
+    expect(changelogSection(version)).not.toBe("");
+  });
+});

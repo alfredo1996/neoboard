@@ -35,6 +35,9 @@ jobs:
         with:
           body_path: /tmp/release-body.md
           generate_release_notes: false
+          # A `-` in the tag (v1.5.0-rc.1) makes it a pre-release, which GitHub
+          # never marks Latest — the same rule the docker job applies to `latest`.
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
   docker:
     name: Build and Push Docker Image
