@@ -6,9 +6,9 @@ import { join, relative } from "node:path";
 // runtime (#1683).
 //
 // An air-gapped install works only if that list is known and short. Today it
-// is six URLs: Swagger UI from unpkg on the API docs page, and the basemap
-// tile templates the map widget hands to Leaflet. Both are documented on
-// /deploy/air-gapped. A seventh — a font from Google, a chart library from a
+// is four URLs: Swagger UI from unpkg on the API docs page, and the default
+// OpenStreetMap tile template the map widget hands to Leaflet. Both are
+// documented on /deploy/air-gapped. A fifth — a font from Google, a chart library from a
 // CDN, a fetch to an update endpoint — would break offline installs while
 // every test stayed green, because nothing here runs without a network. This
 // test is the compiler for that: it enumerates every runtime script,
@@ -35,11 +35,12 @@ const ALLOWED = [
   "app/src/app/api/docs/route.ts: https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui.css",
   "app/src/app/api/docs/route.ts: https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-bundle.js",
   "app/src/app/api/docs/route.ts: https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-standalone-preset.js",
-  // Basemap tile presets, fetched by each viewer's browser. The only three
-  // choices until #1685 adds a custom template and a no-basemap option.
+  // The map's default basemap, fetched by each viewer's browser: the
+  // renderer's OSM_TILE_URL and the Tile Layer option's default, the same
+  // literal (#1705). An operator can point Tile Layer at their own tile
+  // server or set it to `none`.
   "component/src/charts/map-chart.tsx: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  "component/src/charts/map-chart.tsx: https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-  "component/src/charts/map-chart.tsx: https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  "component/src/components/composed/chart-options/map.ts: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
 ];
 
 // Scheme optional: `//host/x` is fetched over the page's own scheme.
