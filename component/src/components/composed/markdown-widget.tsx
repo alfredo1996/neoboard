@@ -293,6 +293,20 @@ function parseMarkdown(md: string): string {
   return result.join("\n");
 }
 
+/**
+ * A run of `n` underscores that opens and closes emphasis only outside a word,
+ * per CommonMark's flanking rule, so snake_case and __dunder__-inside-words
+ * survive (#1407). `*` has no such rule, so its passes stay loose.
+ */
+const underscoreRun = (n: number) =>
+  new RegExp(
+    `(^|[^\\p{L}\\p{N}_])_{${n}}(.+?)_{${n}}(?![\\p{L}\\p{N}_])`,
+    "gu",
+  );
+const UNDERSCORE_3 = underscoreRun(3);
+const UNDERSCORE_2 = underscoreRun(2);
+const UNDERSCORE_1 = underscoreRun(1);
+
 /** Escapes only the double-quote character for safe use in HTML attributes. */
 function escapeAttr(value: string): string {
   return value.replace(/"/g, "&quot;");
@@ -324,10 +338,12 @@ function processInline(text: string): string {
   const tags: string[] = [];
   const stash = (tag: string) => `<t${tags.push(tag) - 1}>`;
 
-  // Inline code — $1 is already HTML-escaped, safe to embed directly.
-  result = result.replace(
-    /`([^`]+)`/g,
-    '<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">$1</code>',
+  // Inline code — stashed whole, content included, so no later pass (links,
+  // emphasis) parses inside backticks (#1407). `code` is already HTML-escaped.
+  result = result.replace(/`([^`]+)`/g, (_match, code: string) =>
+    stash(
+      `<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">${code}</code>`,
+    ),
   );
 
   // Images: ![alt](url) — validate URL.
@@ -361,15 +377,15 @@ function processInline(text: string): string {
 
   // Bold+Italic: ***text*** or ___text___
   result = result.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-  result = result.replace(/___(.+?)___/g, "<strong><em>$1</em></strong>");
+  result = result.replace(UNDERSCORE_3, "$1<strong><em>$2</em></strong>");
 
   // Bold: **text** or __text__
   result = result.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  result = result.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  result = result.replace(UNDERSCORE_2, "$1<strong>$2</strong>");
 
   // Italic: *text* or _text_
   result = result.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  result = result.replace(/_(.+?)_/g, "<em>$1</em>");
+  result = result.replace(UNDERSCORE_1, "$1<em>$2</em>");
 
   // Strikethrough: ~~text~~
   result = result.replace(/~~(.+?)~~/g, "<del>$1</del>");

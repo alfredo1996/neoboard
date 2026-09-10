@@ -595,4 +595,77 @@ describe("MarkdownWidget", () => {
         expect(cls.split(/\s+/)).not.toContain(dead);
     });
   });
+
+  // `_` may only open or close emphasis outside a word (CommonMark/GFM
+  // flanking rule), so snake_case identifiers survive; `*` stays loose. Code
+  // spans are literal: nothing inside backticks is parsed (#1407, #1403).
+  describe("underscores and code spans (#1407)", () => {
+    const container = () => screen.getByTestId("markdown-widget");
+
+    it.each([
+      "Join total_revenue to order_items on order_id",
+      "snake_case_with_many_parts",
+      "MAX_ROWS and QUERY_TIMEOUT_MS",
+      "a__b__c and x__y__z",
+      "snake___case___name",
+      "café_au_lait and maß_größe_ und",
+      "_größe_ärger",
+      "pass class_ or from_ as kwargs",
+    ])("renders %s verbatim", (md) => {
+      render(<MarkdownWidget content={md} />);
+      expect(container().textContent).toBe(md);
+      expect(container().querySelector("em, strong")).toBeNull();
+    });
+
+    it.each([
+      ["_emphasis_", "em", "emphasis"],
+      ["__bold__", "strong", "bold"],
+      ["___both___", "strong > em", "both"],
+      ["_foo_bar_", "em", "foo_bar"],
+      ["(_paren_)", "em", "paren"],
+      // CommonMark: a flanked __init__ in prose is bold; backticks keep it.
+      ["__init__", "strong", "init"],
+    ])("still emphasises %s at word boundaries", (md, selector, text) => {
+      render(<MarkdownWidget content={md} />);
+      const el = container().querySelectorAll(selector);
+      expect(el).toHaveLength(1);
+      expect(el[0].textContent).toBe(text);
+    });
+
+    it("emphasises only the delimited word on a line with snake_case", () => {
+      render(<MarkdownWidget content="use _this_ on order_items" />);
+      const ems = container().querySelectorAll("em");
+      expect(ems).toHaveLength(1);
+      expect(ems[0].textContent).toBe("this");
+      expect(container().textContent).toBe("use this on order_items");
+    });
+
+    it("leaves the loose * rules unchanged", () => {
+      render(<MarkdownWidget content="*intra*word*" />);
+      const ems = container().querySelectorAll("em");
+      expect(ems).toHaveLength(1);
+      expect(ems[0].textContent).toBe("intra");
+    });
+
+    it.each([
+      ["`neoboard_demo_public.feedback`", "neoboard_demo_public.feedback"],
+      ["`__init__`", "__init__"],
+      ["`_a_ *b* **c** ~~d~~`", "_a_ *b* **c** ~~d~~"],
+      ["`[x](https://y.com)`", "[x](https://y.com)"],
+    ])("does not parse inside the code span %s", (md, text) => {
+      render(<MarkdownWidget content={md} />);
+      const code = container().querySelectorAll("code");
+      expect(code).toHaveLength(1);
+      expect(code[0].innerHTML).toBe(text);
+      expect(container().querySelector("em, strong, del, a")).toBeNull();
+    });
+
+    it("renders a code span and real _emphasis_ on the same line", () => {
+      render(<MarkdownWidget content="`order_id` is _required_ here" />);
+      expect(container().querySelector("code")!.textContent).toBe("order_id");
+      const ems = container().querySelectorAll("em");
+      expect(ems).toHaveLength(1);
+      expect(ems[0].textContent).toBe("required");
+    });
+  });
 });
