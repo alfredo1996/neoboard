@@ -72,6 +72,10 @@ export default defineConfig({
     starlight({
       title: "NeoBoard",
       description: "Open-source dashboarding for Neo4j & PostgreSQL",
+      // The wordmark's citrine square (#1319); public/favicon.svg is the same
+      // mark at Starlight's default favicon path.
+      logo: { src: "./src/assets/mark.svg", alt: "" },
+      customCss: ["./src/styles/brand.css"],
       social: [
         {
           icon: "github",

@@ -43,6 +43,14 @@ jobs:
       - name: Build docs site
         run: npm run build --prefix docs
 
+      # The brand (#1319) is unlayered CSS over Starlight's variables: this
+      # holds it to component/design-tokens.css, to the variable names the
+      # installed Starlight still reads, and to what the build emitted.
+      - name: Fail if the build lost the brand
+        run: node --test scripts/__tests__/docs-brand.node-test.mjs
+        env:
+          DOCS_BUILT: '1'
+
       # `astro build` exits 0 even when the `docs` collection resolves empty —
       # it emits a lone 404 page and mentions "The collection "docs" does not
       # exist or is empty" in passing. That is exactly what the Starlight 0.41

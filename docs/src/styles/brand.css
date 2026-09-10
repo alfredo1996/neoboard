@@ -1,0 +1,58 @@
+/*
+ * NeoBoard brand on Starlight (#1319) — the product's Graphite & Citrine look.
+ *
+ * Values are copies of component/design-tokens.css: graphite ground and ink,
+ * azure interaction (#1553), citrine only in the logo mark. Starlight themes
+ * with `:root` (dark) and `:root[data-theme='light']` rather than the app's
+ * `.dark`, so the token file can't be imported directly;
+ * scripts/__tests__/docs-brand.node-test.mjs holds each copy to its token.
+ *
+ * Unlayered on purpose: it beats Starlight's `@layer starlight.*` rules, which
+ * is also why both theme blocks must set the same colours.
+ */
+
+/* The app's own woff2, not a CDN or a new package. */
+@font-face {
+  font-family: "Geist Sans";
+  src: url("../../../component/fonts/geist-sans-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --sl-font: "Geist Sans";
+
+  --sl-color-white: hsl(220 14% 96%); /* --foreground */
+  --sl-color-black: hsl(220 13% 8%); /* --background */
+  --sl-color-accent-low: hsl(212 45% 24%); /* --accent */
+  --sl-color-accent: hsl(212 90% 62%); /* --ring */
+  --sl-color-accent-high: hsl(212 100% 92%); /* --accent-foreground */
+}
+
+:root[data-theme="light"] {
+  --sl-color-white: hsl(220 13% 9%); /* --foreground */
+  --sl-color-black: hsl(220 14% 98%); /* --background */
+  --sl-color-accent-low: hsl(212 100% 94%); /* --accent */
+  --sl-color-accent: hsl(212 90% 42%); /* --ring */
+  --sl-color-accent-high: hsl(212 90% 30%);
+}
+
+/* Wordmark: graphite text, tight tracking, a small citrine square. */
+.site-title {
+  color: var(--sl-color-white);
+  gap: 0.5rem;
+  letter-spacing: -0.025em;
+}
+
+.site-title img {
+  height: 0.55em;
+}
+
+/* The app's primary button is graphite (near-white in dark), not the accent. */
+.sl-link-button.primary,
+.sl-link-button.primary:hover {
+  background: var(--sl-color-white);
+  border-color: var(--sl-color-white);
+  color: var(--sl-color-black);
+}
