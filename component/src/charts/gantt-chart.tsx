@@ -247,6 +247,8 @@ function GanttChart({
         }
       : {};
 
+    const inset = compact ? 8 : 16;
+
     return {
       tooltip: {
         trigger: "item",
@@ -271,12 +273,12 @@ function GanttChart({
       // matched the 100px truncation budget at a 667px canvas — narrower than
       // that and task names were hard-clipped (#1289).
       grid: {
-        left: compact ? 8 : 16,
-        right: compact ? 8 : 16,
-        top: compact ? 8 : 16,
+        left: inset,
+        right: inset,
+        top: inset,
         // Room for the zoom slider: height 20 + bottom 5 + gap. Without the
         // slider the plot takes it back.
-        bottom: enableDataZoom ? 40 : compact ? 8 : 16,
+        bottom: enableDataZoom ? 40 : inset,
         containLabel: true,
       },
       xAxis: {
