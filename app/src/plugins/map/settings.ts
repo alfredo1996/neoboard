@@ -7,6 +7,7 @@ export const mapSettingsSchema = z
   .object({
     tileLayer: z.string().optional(),
     attribution: z.string().optional(),
+    invertTilesInDarkMode: z.boolean().default(true),
     zoom: z.coerce.number().optional(),
     minZoom: z.coerce.number().optional(),
     maxZoom: z.coerce.number().optional(),

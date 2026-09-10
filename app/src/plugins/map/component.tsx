@@ -41,6 +41,7 @@ function MapPluginComponent({
       markers={markers}
       tileLayer={settings.tileLayer}
       attribution={settings.attribution}
+      invertTilesInDarkMode={settings.invertTilesInDarkMode}
       zoom={settings.zoom}
       minZoom={settings.minZoom}
       maxZoom={settings.maxZoom}

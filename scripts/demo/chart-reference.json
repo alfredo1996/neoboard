@@ -2526,7 +2526,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Map (Leaflet) — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: tileLayer (osm/carto-light/carto-dark), zoom/minZoom/maxZoom, autoFitBounds, markerSize, clusterMarkers, showPopup.\n\n*Refresh the page to reset all parameters.*"
+                "content": "## Map (Leaflet) — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: tileLayer (osm/custom template/none), attribution, zoom/minZoom/maxZoom, autoFitBounds, markerSize, clusterMarkers, showPopup.\n\n*Refresh the page to reset all parameters.*"
               }
             }
           },
@@ -2546,9 +2546,9 @@
             "connectionId": "conn_postgres_read",
             "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
             "settings": {
-              "title": "tileLayer = carto-light",
+              "title": "tileLayer = none",
               "chartOptions": {
-                "tileLayer": "carto-light"
+                "tileLayer": "none"
               }
             }
           },
@@ -2558,9 +2558,10 @@
             "connectionId": "conn_postgres_read",
             "query": "SELECT name, city, lat, lng FROM neoboard_demo_public.customers LIMIT 100",
             "settings": {
-              "title": "tileLayer = carto-dark",
+              "title": "tileLayer = custom template + attribution",
               "chartOptions": {
-                "tileLayer": "carto-dark"
+                "tileLayer": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                "attribution": "© OpenStreetMap contributors, via a custom template"
               }
             }
           },

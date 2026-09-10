@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock leaflet
 const mockSetView = vi.fn();
@@ -27,6 +27,8 @@ const mockCircleMarker = {
 const mockLatLngBounds = { isValid: () => true };
 
 const mockRemoveLayer = vi.fn();
+const mockAddAttribution = vi.fn();
+const mockRemoveAttribution = vi.fn();
 
 vi.mock("leaflet", () => ({
   default: {
@@ -36,8 +38,17 @@ vi.mock("leaflet", () => ({
       invalidateSize: mockInvalidateSize,
       remove: mockRemove,
       removeLayer: mockRemoveLayer,
+      attributionControl: {
+        addAttribution: mockAddAttribution,
+        removeAttribution: mockRemoveAttribution,
+      },
     })),
-    tileLayer: vi.fn(() => ({ addTo: mockAddTo })),
+    // Real tile layers carry their options; the in-place attribution update
+    // reads and writes `options.attribution` on the live layer.
+    tileLayer: vi.fn((_url: string, options: object) => ({
+      addTo: mockAddTo,
+      options,
+    })),
     layerGroup: vi.fn(() => mockLayerGroup),
     markerClusterGroup: vi.fn(() => mockLayerGroup),
     circleMarker: vi.fn(() => mockCircleMarker),
@@ -95,6 +106,10 @@ describe("MapChart", () => {
     measured.width = 800;
     measured.height = 600;
     resizeCallbacks.length = 0;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders map container", () => {
@@ -237,6 +252,189 @@ describe("MapChart", () => {
 
     it("lets a custom attribution override the OSM one", () => {
       expect(resolveTileLayer("osm", "mine")?.attribution).toBe("mine");
+    });
+
+    // A stray space is how a user "clears" the field; it must not drop the
+    // credit OSM's terms require. Pins `attribution?.trim()`.
+    it.each([" ", "  ", "\t"])(
+      "keeps the OSM attribution when the attribution option is %j",
+      (blank) => {
+        expect(resolveTileLayer(OSM_TILE_URL, blank)?.attribution).toContain(
+          "OpenStreetMap",
+        );
+        expect(resolveTileLayer("osm", blank)?.attribution).toContain(
+          "OpenStreetMap",
+        );
+      },
+    );
+
+    it("trims a typed attribution", () => {
+      expect(resolveTileLayer(custom, "  mine  ")?.attribution).toBe("mine");
+    });
+
+    // OSM's other official template has no {s}; the CustomTileServer story
+    // and the docs both use it. The credit is a licensing statement about
+    // the host, not about one literal.
+    it.each([
+      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "http://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png?foo=1",
+    ])("credits OpenStreetMap for its no-subdomain template %j", (url) => {
+      const tile = resolveTileLayer(url);
+      expect(tile?.url).toBe(url);
+      expect(tile?.attribution).toContain("OpenStreetMap");
+    });
+
+    it("does not credit OpenStreetMap for a host that merely contains its name", () => {
+      expect(
+        resolveTileLayer("https://tile.openstreetmap.org.example.test/{z}/{x}/{y}.png")
+          ?.attribution,
+      ).toBe("");
+    });
+
+    // Leaflet's Util.template throws synchronously from addTo(map) on any
+    // placeholder it was not handed — {apikey}, {accessToken}, {id} straight
+    // from a provider's docs, or a {Z} typo. Inside the swap effect that
+    // crash latched the ChartErrorBoundary for the rest of the editor session.
+    describe("a placeholder Leaflet cannot fill", () => {
+      const keyed =
+        "https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey={apikey}";
+
+      it.each([keyed, "https://tiles.example.test/{Z}/{x}/{y}.png"])(
+        "resolves %j to no tile layer",
+        (url) => {
+          expect(resolveTileLayer(url)).toBeNull();
+        },
+      );
+
+      it("renders the map without throwing and creates no tile layer", () => {
+        expect(() =>
+          render(
+            <MapChart tileLayer={keyed} markers={[{ id: "1", lat: 1, lng: 2 }]} />,
+          ),
+        ).not.toThrow();
+        expect(L.tileLayer).not.toHaveBeenCalled();
+        expect(L.circleMarker).toHaveBeenCalledTimes(1);
+      });
+
+      it("removes the basemap while the template is broken and restores it once fixed", () => {
+        vi.useFakeTimers();
+        const { rerender } = render(<MapChart />);
+        const layer = (L.tileLayer as unknown as ReturnType<typeof vi.fn>).mock
+          .results[0].value;
+        rerender(<MapChart tileLayer={keyed} />);
+        expect(mockRemoveLayer).toHaveBeenCalledWith(layer);
+        rerender(<MapChart tileLayer={custom} />);
+        // A restore is a replacement, so it settles like any other.
+        act(() => {
+          vi.advanceTimersByTime(300);
+        });
+        expect(L.tileLayer).toHaveBeenLastCalledWith(custom, expect.anything());
+      });
+    });
+
+    // The editor feeds every keystroke straight into the chart. Recreating the
+    // layer per attribution character re-fetched every visible tile.
+    it("updates the credit in place when only the attribution changes", () => {
+      const { rerender } = render(
+        <MapChart tileLayer={custom} attribution="one" />,
+      );
+      rerender(<MapChart tileLayer={custom} attribution="two" />);
+      expect(L.tileLayer).toHaveBeenCalledTimes(1);
+      expect(mockRemoveAttribution).toHaveBeenCalledWith("one");
+      expect(mockAddAttribution).toHaveBeenCalledWith("two");
+      const layer = (L.tileLayer as unknown as ReturnType<typeof vi.fn>).mock
+        .results[0].value as { options: { attribution: string } };
+      expect(layer.options.attribution).toBe("two");
+    });
+
+    it("lets the swap remove the credit the layer currently carries, not the one it was born with", () => {
+      // Leaflet's layerremove hook reads getAttribution() at removal time;
+      // if options.attribution were stale the old credit would linger.
+      const { rerender } = render(
+        <MapChart tileLayer={custom} attribution="one" />,
+      );
+      rerender(<MapChart tileLayer={custom} attribution="two" />);
+      rerender(<MapChart tileLayer="none" attribution="two" />);
+      expect(mockRemoveAttribution).not.toHaveBeenCalledWith("two");
+    });
+
+    // Typing a template character by character replaced the layer per
+    // keystroke — a full viewport of tile requests for every prefix, first
+    // as relative URLs against the app server, then as DNS lookups for
+    // partial hostnames.
+    it("settles rapid template changes into one replacement layer", () => {
+      vi.useFakeTimers();
+      const { rerender } = render(<MapChart tileLayer={custom} />);
+      expect(L.tileLayer).toHaveBeenCalledTimes(1);
+      const prefixes = [
+        "https://a/{z}/{x}/{y}.png",
+        "https://ab/{z}/{x}/{y}.png",
+        "https://abc/{z}/{x}/{y}.png",
+      ];
+      for (const url of prefixes) rerender(<MapChart tileLayer={url} />);
+      expect(L.tileLayer).toHaveBeenCalledTimes(1);
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(L.tileLayer).toHaveBeenCalledTimes(2);
+      expect(L.tileLayer).toHaveBeenLastCalledWith(
+        prefixes[2],
+        expect.anything(),
+      );
+    });
+
+    it("does not delay the first tile layer of a map", () => {
+      // A dashboard full of maps must not paint 300 ms late; only a
+      // replacement waits for the typing to stop.
+      vi.useFakeTimers();
+      render(<MapChart tileLayer={custom} />);
+      expect(L.tileLayer).toHaveBeenCalledTimes(1);
+    });
+
+    it("uses the attribution current at settle time for a settled layer", () => {
+      vi.useFakeTimers();
+      const { rerender } = render(<MapChart tileLayer={custom} />);
+      rerender(<MapChart tileLayer="https://b/{z}/{x}/{y}.png" />);
+      rerender(
+        <MapChart tileLayer="https://b/{z}/{x}/{y}.png" attribution="late" />,
+      );
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(L.tileLayer).toHaveBeenLastCalledWith("https://b/{z}/{x}/{y}.png", {
+        attribution: "late",
+      });
+    });
+
+    it("drops a pending replacement on unmount", () => {
+      vi.useFakeTimers();
+      const { rerender, unmount } = render(<MapChart tileLayer={custom} />);
+      rerender(<MapChart tileLayer="https://b/{z}/{x}/{y}.png" />);
+      unmount();
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(L.tileLayer).toHaveBeenCalledTimes(1);
+    });
+
+    // The dark-mode invert filter (#1529) is a CSS rule keyed on this
+    // attribute; a tileset that is already dark must be able to opt out or
+    // it comes out light in dark mode.
+    describe("invertTilesInDarkMode", () => {
+      it("marks the container for the dark-mode invert filter by default", () => {
+        render(<MapChart />);
+        expect(screen.getByTestId("map-chart")).toHaveAttribute(
+          "data-invert-tiles",
+        );
+      });
+
+      it("drops the mark when turned off", () => {
+        render(<MapChart invertTilesInDarkMode={false} />);
+        expect(screen.getByTestId("map-chart")).not.toHaveAttribute(
+          "data-invert-tiles",
+        );
+      });
     });
 
     it("is what the editor's default option value resolves to", () => {

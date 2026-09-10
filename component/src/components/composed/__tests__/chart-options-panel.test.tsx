@@ -190,6 +190,39 @@ describe("ChartOptionsPanel", () => {
     expect(screen.getByLabelText("Attribution").tagName).toBe("INPUT");
   });
 
+  it("flags a tile template with a placeholder Leaflet cannot fill (#1685)", () => {
+    // Thunderforest's documented template, pasted verbatim. Leaflet would
+    // throw from inside addTo(map); the chart now draws no tiles and the
+    // panel says why, inline, before the creator saves it.
+    render(
+      <ChartOptionsPanel
+        chartType="map"
+        settings={{
+          tileLayer:
+            "https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey={apikey}",
+        }}
+        onSettingsChange={vi.fn()}
+      />,
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("{apikey}");
+    expect(screen.getByLabelText("Tile Layer")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  });
+
+  it("shows no message for the default tile template", () => {
+    render(
+      <ChartOptionsPanel
+        chartType="map"
+        settings={{}}
+        onSettingsChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("renders only placeholder and searchable for parameter-select", () => {
     render(
       <ChartOptionsPanel

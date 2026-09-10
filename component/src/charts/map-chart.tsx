@@ -9,6 +9,7 @@ import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import { escapeHtml } from "./chart-utils";
+import { unknownTilePlaceholders } from "@/components/composed/chart-options/validate-tile-template";
 
 /** `none` draws no basemap at all — plain ground, zero tile requests (#1685). */
 export type TileLayerPreset = "osm" | "none";
@@ -34,6 +35,11 @@ export interface MapChartProps {
   tileLayer?: TileLayerPreset | string;
   /** Plain-text credit for a custom template (escaped); OSM carries its own */
   attribution?: string;
+  /**
+   * Apply the dark-mode invert filter to the tiles (default). Turn off for a
+   * tileset that is already dark, which the filter would flip to light.
+   */
+  invertTilesInDarkMode?: boolean;
   /** Auto-fit map bounds to markers */
   autoFitBounds?: boolean;
   /** Padding for fitBounds */
@@ -58,6 +64,14 @@ export const OSM_TILE_URL =
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+/** Both official OSM templates — with the `{s}` subdomain and without. */
+const OSM_HOST_RE = /^https?:\/\/(\{s\}\.)?tile\.openstreetmap\.org\//;
+/**
+ * How long a replacement tile layer waits for the template to stop changing.
+ * The editor feeds every keystroke straight in; each prefix would otherwise
+ * fetch a full viewport of tiles from a half-typed host.
+ */
+const TILE_SETTLE_MS = 300;
 
 const DEFAULT_CENTER: [number, number] = [40, -3];
 const DEFAULT_ZOOM = 3;
@@ -92,6 +106,11 @@ const DEFAULT_FIT_PADDING: [number, number] = [20, 20];
  * the text comes from a dashboard creator, so it is escaped — a plain-text
  * credit is what attribution needs, and a viewer's page is not the creator's
  * to script. The preset keeps its link.
+ *
+ * A template with a placeholder Leaflet cannot fill (`{apikey}`, `{id}`, a
+ * `{Z}` typo) also yields `null`: Leaflet throws for it synchronously from
+ * `addTo`, which latched the chart's error boundary until the editor was
+ * reopened. The option's `validate` hook says why in the panel.
  */
 export function resolveTileLayer(
   tileLayer: string | undefined,
@@ -100,9 +119,11 @@ export function resolveTileLayer(
   const value = tileLayer?.trim();
   if (value === "none") return null;
   const url = !value || value === "osm" ? OSM_TILE_URL : value;
+  if (unknownTilePlaceholders(url).length > 0) return null;
+  const typed = attribution?.trim();
   let credit = "";
-  if (attribution) credit = escapeHtml(attribution);
-  else if (url === OSM_TILE_URL) credit = OSM_ATTRIBUTION;
+  if (typed) credit = escapeHtml(typed);
+  else if (OSM_HOST_RE.test(url)) credit = OSM_ATTRIBUTION;
   return { url, attribution: credit };
 }
 
@@ -125,6 +146,7 @@ function MapChart({
   maxZoom = 18,
   tileLayer,
   attribution,
+  invertTilesInDarkMode = true,
   autoFitBounds = false,
   fitBoundsPadding = DEFAULT_FIT_PADDING,
   markerSize = 6,
@@ -141,6 +163,8 @@ function MapChart({
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  /** Set once a tile layer has been replaced; later adds wait to settle. */
+  const tileSettleRef = useRef(false);
   /** A fit that was asked for while the container had no size to fit into. */
   const pendingFitRef = useRef(false);
   /** The current fit, so the ResizeObserver can run it without re-arming. */
@@ -170,6 +194,14 @@ function MapChart({
   const tile = resolveTileLayer(tileLayer, attribution);
   const tileUrl = tile?.url;
   const tileAttribution = tile?.attribution;
+  // Latest-ref so a settled layer is born with the credit current at settle
+  // time, without the swap effect depending on the attribution. Assigned in
+  // an effect declared before the swap effect, so it is current by the time
+  // that effect adds a layer in the same commit.
+  const tileAttributionRef = useRef(tileAttribution);
+  useEffect(() => {
+    tileAttributionRef.current = tileAttribution;
+  }, [tileAttribution]);
 
   // Initialize map. The tile layer is added by the swap effect below, which
   // also runs on mount — adding one here too meant every map built two and
@@ -216,19 +248,43 @@ function MapChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Add the tile layer on mount and swap it when the template changes.
+  // Add the tile layer on mount and swap it when the template changes. The
+  // first layer of a map is added at once; a replacement waits for the
+  // template to settle, since the editor sends every keystroke.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
       tileLayerRef.current = null;
+      tileSettleRef.current = true;
     }
     if (!tileUrl) return;
-    tileLayerRef.current = L.tileLayer(tileUrl, {
-      attribution: tileAttribution,
-    }).addTo(map);
-  }, [tileUrl, tileAttribution]);
+    const add = () => {
+      tileLayerRef.current = L.tileLayer(tileUrl, {
+        attribution: tileAttributionRef.current,
+      }).addTo(map);
+    };
+    if (!tileSettleRef.current) {
+      add();
+      return;
+    }
+    const timer = setTimeout(add, TILE_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [tileUrl]);
+
+  // Swap the credit in place: recreating the layer for it re-fetched every
+  // visible tile per character typed into the Attribution field. The layer's
+  // own `options.attribution` is updated too, because Leaflet reads
+  // `getAttribution()` again when the layer is eventually removed.
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = tileLayerRef.current;
+    if (!map || !layer || layer.options.attribution === tileAttribution) return;
+    map.attributionControl?.removeAttribution(layer.options.attribution ?? "");
+    layer.options.attribution = tileAttribution;
+    map.attributionControl?.addAttribution(tileAttribution ?? "");
+  }, [tileAttribution]);
 
   // Update center/zoom (only when not auto-fitting)
   useEffect(() => {
@@ -353,6 +409,8 @@ function MapChart({
         ref={containerRef}
         className="h-full w-full"
         data-testid="map-chart"
+        // `.dark [data-invert-tiles] .leaflet-tile-pane` in design-tokens.css
+        data-invert-tiles={invertTilesInDarkMode ? "" : undefined}
       />
       {skippedCount > 0 && (
         // Dropping the rows silently would hide the data problem, which is the

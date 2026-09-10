@@ -1,4 +1,5 @@
 import { type ChartOptionDef } from "./shared";
+import { validateTileTemplate } from "./validate-tile-template";
 
 export const mapOptions: ChartOptionDef[] = [
   {
@@ -11,6 +12,7 @@ export const mapOptions: ChartOptionDef[] = [
     category: "Map",
     description:
       'Tile URL template with {z}/{x}/{y}, or "none" for a plain background and no tiles.',
+    validate: validateTileTemplate,
   },
   {
     key: "attribution",
@@ -20,6 +22,15 @@ export const mapOptions: ChartOptionDef[] = [
     category: "Map",
     description:
       "Credit shown on the map for a custom tile server. OpenStreetMap is credited by itself.",
+  },
+  {
+    key: "invertTilesInDarkMode",
+    label: "Invert Tiles in Dark Mode",
+    type: "boolean",
+    default: true,
+    category: "Map",
+    description:
+      "Flip a light basemap to dark in dark mode. Untick for tiles that are already dark.",
   },
   {
     key: "zoom",

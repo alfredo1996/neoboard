@@ -246,8 +246,12 @@
 
    Scoped to `.leaflet-tile-pane` deliberately — the marker, popup and control
    panes are siblings, so they keep their real colours. Inverting the whole
-   container would flip the citrine markers to blue. */
-.dark .leaflet-tile-pane {
+   container would flip the citrine markers to blue.
+
+   Keyed on `[data-invert-tiles]`, which MapChart sets from its
+   `invertTilesInDarkMode` option (#1685): a bring-your-own tileset that is
+   already dark would otherwise come out light in dark mode. */
+.dark [data-invert-tiles] .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
 }
 
