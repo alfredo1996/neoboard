@@ -198,6 +198,21 @@ describe("Database migrations", () => {
     await client.end();
   }, 60_000);
 
+  it("gives dashboard a NOT NULL text[] tags column defaulting to empty (#1692)", async () => {
+    const client = postgres(connectionString, { max: 1 });
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    const [col] = await client`
+      SELECT data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'dashboard' AND column_name = 'tags'
+    `;
+    expect(col, "dashboard.tags missing").toBeDefined();
+    expect(col.data_type).toBe("ARRAY");
+    expect(col.is_nullable).toBe("NO");
+    expect(col.column_default).toMatch(/'\{\}'::text\[\]/);
+    await client.end();
+  }, 60_000);
+
   it("rejects a connection that references a user in another tenant (#1646)", async () => {
     // The structural guarantee itself: before this, nothing but convention
     // stopped tenant A's row from pointing at tenant B's user.
@@ -300,6 +315,9 @@ describe("Database migrations", () => {
       const rows = await client.unsafe(`SELECT count(*)::int AS n FROM "${t}"`);
       expect(rows[0].n, `${t} lost rows across the upgrade`).toBe(1);
     }
+    // A pre-existing dashboard picks up the empty tags default (#1692).
+    const [d1] = await client`SELECT tags FROM dashboard WHERE id = 'd1'`;
+    expect(d1.tags).toEqual([]);
     await client.end();
   }, 90_000);
 });

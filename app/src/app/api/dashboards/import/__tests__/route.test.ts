@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
+  resetDbMock,
   sqlColumns,
   sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
@@ -157,6 +158,9 @@ describe("POST /api/dashboards/import", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    // clearAllMocks keeps implementations and unconsumed Once-queues; a test
+    // that bails before draining its queue would otherwise feed the next one.
+    resetDbMock(mockDb);
     const mod = await import("../route");
     POST = mod.POST;
   });
@@ -210,6 +214,57 @@ describe("POST /api/dashboards/import", () => {
     const body = await res.json();
     expect(typeof body.error?.message).toBe("string");
     expect(body.error.message.length).toBeGreaterThan(0);
+  });
+
+  it("persists the export's tags, and defaults to none when absent (#1692)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const insertChain = makeInsertChain([{ id: "new-dash" }]);
+    mockDb.insert.mockReturnValue(insertChain);
+    const mapping = { conn_0: "real-conn-id" };
+    // Each import: 1) connection ownership check, 2) name-collision lookup.
+    const queueSelects = () =>
+      mockDb.select
+        .mockReturnValueOnce(makeSelectChain([{ id: "real-conn-id" }]))
+        .mockReturnValueOnce(makeSelectChain([]));
+
+    queueSelects();
+    const tagged = await POST(
+      makeRequest({
+        payload: {
+          ...VALID_PAYLOAD,
+          dashboard: { ...VALID_PAYLOAD.dashboard, tags: ["sales", "sales"] },
+        },
+        connectionMapping: mapping,
+      }),
+    );
+    expect(tagged.status).toBe(201);
+    expect(insertChain.calls.values[0][0]).toMatchObject({ tags: ["sales"] });
+
+    queueSelects();
+    const untagged = await POST(
+      makeRequest({ payload: VALID_PAYLOAD, connectionMapping: mapping }),
+    );
+    expect(untagged.status).toBe(201);
+    // Dashboard rows only — the audit log's inserts share the mocked chain.
+    const rows = insertChain.calls.values
+      .map((v) => v[0] as { name?: string; tags?: string[] })
+      .filter((v) => v.name === "Imported Dashboard");
+    expect(rows[1]).toMatchObject({ tags: [] });
+  });
+
+  it("rejects an export whose tags exceed the limits (#1692)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const res = await POST(
+      makeRequest({
+        payload: {
+          ...VALID_PAYLOAD,
+          dashboard: { ...VALID_PAYLOAD.dashboard, tags: ["x".repeat(31)] },
+        },
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
   it("imports a valid NeoBoard export and returns 201 with notes array", async () => {

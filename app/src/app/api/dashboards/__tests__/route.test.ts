@@ -447,6 +447,46 @@ describe("POST /api/dashboards", () => {
     expect(res.status).toBe(201);
     expect(chain.calls.values[0][0]).toMatchObject({ updatedBy: "user-1" });
   });
+
+  it("persists tags — trimmed and deduped (#1692)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const chain = makeInsertChain([
+      { id: "d1", name: "Tagged", tags: ["sales", "kpi"] },
+    ]);
+    mockDb.insert.mockReturnValue(chain);
+
+    const res = await POST(
+      makeRequest({ name: "Tagged", tags: [" sales ", "kpi", "sales"] }),
+    );
+    expect(res.status).toBe(201);
+    expect(chain.calls.values[0][0]).toMatchObject({ tags: ["sales", "kpi"] });
+  });
+
+  it("returns 400 when tags exceed the limits (#1692)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const tooMany = Array.from({ length: 11 }, (_, i) => `t${i}`);
+    expect(
+      (await POST(makeRequest({ name: "Tagged", tags: tooMany }))).status,
+    ).toBe(400);
+    expect(
+      (await POST(makeRequest({ name: "Tagged", tags: ["x".repeat(31)] })))
+        .status,
+    ).toBe(400);
+    expect(
+      (await POST(makeRequest({ name: "Tagged", tags: "sales" }))).status,
+    ).toBe(400);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET /api/dashboards — updatedByName", () => {

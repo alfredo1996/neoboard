@@ -7,7 +7,7 @@ import type {
 export interface NeoboardExport {
   formatVersion: 1;
   exportedAt: string;
-  dashboard: { name: string; description: string | null };
+  dashboard: { name: string; description: string | null; tags: string[] };
   connections: Record<string, { name: string; type: string }>;
   layout: DashboardLayoutV2;
 }
@@ -71,6 +71,7 @@ export function buildExportPayload(
     dashboard: {
       name: dashboard.name,
       description: dashboard.description ?? null,
+      tags: dashboard.tags,
     },
     connections: connectionMap,
     layout: clonedLayout,

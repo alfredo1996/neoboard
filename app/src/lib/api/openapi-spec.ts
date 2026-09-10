@@ -855,6 +855,7 @@ const SPEC = {
           id: { type: "string" },
           name: { type: "string" },
           description: { type: "string", nullable: true },
+          tags: { type: "array", items: { type: "string" } },
           isPublic: { type: "boolean" },
           userId: { type: "string" },
           tenantId: { type: "string" },
@@ -895,6 +896,11 @@ const SPEC = {
         properties: {
           name: { type: "string", minLength: 1, example: "Sales Overview" },
           description: { type: "string" },
+          tags: {
+            type: "array",
+            items: { type: "string", maxLength: 30 },
+            maxItems: 10,
+          },
         },
       },
       UpdateDashboardRequest: {
@@ -902,6 +908,11 @@ const SPEC = {
         properties: {
           name: { type: "string", minLength: 1 },
           description: { type: "string", nullable: true },
+          tags: {
+            type: "array",
+            items: { type: "string", maxLength: 30 },
+            maxItems: 10,
+          },
           isPublic: { type: "boolean" },
           layoutJson: { type: "object", nullable: true },
         },

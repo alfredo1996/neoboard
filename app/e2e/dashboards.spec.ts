@@ -94,9 +94,9 @@ test.describe("Dashboard CRUD", () => {
       .first();
     await expect(card).toBeVisible({ timeout: 10_000 });
     await card.getByRole("button", { name: "Dashboard options" }).click();
-    await page.getByRole("menuitem", { name: "Rename" }).click();
+    await page.getByRole("menuitem", { name: "Edit details" }).click();
 
-    const renameDialog = page.getByRole("dialog", { name: "Rename Dashboard" });
+    const renameDialog = page.getByRole("dialog", { name: "Edit Dashboard" });
     await expect(renameDialog).toBeVisible({ timeout: 5_000 });
     // Pre-filled with the current name.
     await expect(renameDialog.locator("#dashboard-rename")).toHaveValue(
@@ -106,7 +106,7 @@ test.describe("Dashboard CRUD", () => {
     await renameDialog.getByRole("button", { name: "Save" }).click();
 
     await expect(
-      page.getByText("Dashboard renamed", { exact: true }),
+      page.getByText("Dashboard updated", { exact: true }),
     ).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText(renamed)).toBeVisible({ timeout: 10_000 });
     // Survives reload (persisted, not just local state).
@@ -123,6 +123,80 @@ test.describe("Dashboard CRUD", () => {
       .click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Delete" }).click();
+  });
+
+  test("creates a dashboard with tags, shows them as chips, filters by one (#1692)", async ({
+    page,
+  }) => {
+    const stamp = Date.now();
+    const name = `Tagged Board ${stamp}`;
+    const tag = `e2e-${stamp}`;
+
+    await page.getByRole("button", { name: /New Dashboard/i }).click();
+    const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
+    await createDialog.locator("#dashboard-name").fill(name);
+    await createDialog.locator("#dashboard-tags").fill(` ${tag}, kpi , ${tag}`);
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/dashboards") &&
+          r.request().method() === "POST" &&
+          r.status() === 201,
+        { timeout: 10_000 },
+      ),
+      createDialog.getByRole("button", { name: "Create" }).click(),
+    ]);
+    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+    await page.goto("/");
+
+    const card = page
+      .locator("div[class*='cursor-pointer']")
+      .filter({ hasText: name })
+      .first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    // Chips: trimmed and deduped server-side, so the unique tag appears once.
+    await expect(card.getByText(tag, { exact: true })).toHaveCount(1);
+    await expect(card.getByText("kpi", { exact: true })).toBeVisible();
+
+    // The seeded "Movie Analytics" has no tags, so it must drop out.
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("combobox", { name: "Filter by tag" }).click();
+    await page.getByRole("option", { name: tag }).click();
+    await expect(card).toBeVisible();
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).not.toBeVisible();
+
+    // Back to all.
+    await page.getByRole("combobox", { name: "Filter by tag" }).click();
+    await page.getByRole("option", { name: "All tags" }).click();
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible();
+
+    // Edit details: dropping every tag hides the chips again.
+    await card.getByRole("button", { name: "Dashboard options" }).click();
+    await page.getByRole("menuitem", { name: "Edit details" }).click();
+    const editDialog = page.getByRole("dialog", { name: "Edit Dashboard" });
+    await expect(editDialog.locator("#dashboard-rename-tags")).toHaveValue(
+      `${tag}, kpi`,
+    );
+    await editDialog.locator("#dashboard-rename-tags").fill("");
+    await editDialog.getByRole("button", { name: "Save" }).click();
+    await expect(
+      page.getByText("Dashboard updated", { exact: true }),
+    ).toBeVisible({ timeout: 5_000 });
+    await expect(card.getByText(tag, { exact: true })).toHaveCount(0, {
+      timeout: 10_000,
+    });
+
+    // Clean up.
+    await card.getByRole("button", { name: "Dashboard options" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    await page.getByRole("button", { name: "Delete" }).click();
+    await expect(card).not.toBeVisible({ timeout: 10_000 });
   });
 
   test("should delete a dashboard", async ({ page }) => {

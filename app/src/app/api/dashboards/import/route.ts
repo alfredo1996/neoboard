@@ -171,6 +171,7 @@ export async function POST(request: Request) {
         tenantId,
         name,
         description: exportData.dashboard.description ?? null,
+        tags: exportData.dashboard.tags ?? [],
         layoutJson: mappedLayout,
         isPublic: false,
         updatedBy: userId,

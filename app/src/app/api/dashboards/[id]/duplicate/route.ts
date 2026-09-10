@@ -46,6 +46,7 @@ export async function POST(
         tenantId,
         name: `${source.name} (copy)`,
         description: source.description,
+        tags: source.tags,
         layoutJson: source.layoutJson,
         isPublic: false,
         updatedBy: userId,

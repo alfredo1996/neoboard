@@ -36,6 +36,8 @@ export interface DashboardListItem {
   id: string;
   name: string;
   description: string | null;
+  /** Never null — the column defaults to `{}` (#1692). */
+  tags: string[];
   isPublic: boolean | null;
   createdAt: string;
   updatedAt: string;
@@ -89,7 +91,11 @@ export function useCreateDashboard() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { name: string; description?: string }) => {
+    mutationFn: async (input: {
+      name: string;
+      description?: string;
+      tags?: string[];
+    }) => {
       const res = await fetch("/api/dashboards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,6 +123,7 @@ export function useUpdateDashboard() {
       description?: string;
       layoutJson?: DashboardLayoutV2;
       isPublic?: boolean;
+      tags?: string[];
       /** Optimistic lock — when provided, server returns 409 on mismatch. */
       expectedVersion?: number;
     }) => {

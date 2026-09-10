@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import { validateBody, forbidden, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
+import { dashboardTagsSchema } from "@/lib/dashboard/dashboard-tags";
 
 function countWidgets(layout: DashboardLayoutV2 | null | undefined): number {
   if (!layout?.pages) return 0;
@@ -16,6 +17,7 @@ function countWidgets(layout: DashboardLayoutV2 | null | undefined): number {
 const createDashboardSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
+  tags: dashboardTagsSchema.optional(),
 });
 
 export async function GET(request: Request) {
@@ -36,6 +38,7 @@ export async function GET(request: Request) {
           id: dashboards.id,
           name: dashboards.name,
           description: dashboards.description,
+          tags: dashboards.tags,
           isPublic: dashboards.isPublic,
           createdAt: dashboards.createdAt,
           updatedAt: dashboards.updatedAt,
@@ -94,6 +97,7 @@ export async function GET(request: Request) {
         id: dashboards.id,
         name: dashboards.name,
         description: dashboards.description,
+        tags: dashboards.tags,
         isPublic: dashboards.isPublic,
         createdAt: dashboards.createdAt,
         updatedAt: dashboards.updatedAt,
@@ -155,6 +159,7 @@ export async function POST(request: Request) {
         tenantId,
         name: result.data.name,
         description: result.data.description,
+        tags: result.data.tags ?? [],
         updatedBy: userId,
       })
       .returning();

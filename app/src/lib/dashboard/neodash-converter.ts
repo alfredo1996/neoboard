@@ -99,8 +99,7 @@ function convertReportActions(
   }
 
   const customization = rule.customization as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 
   if (customization?.type === "set-parameter") {
     return {
@@ -420,6 +419,8 @@ export function convertNeoDashWithNotes(
       dashboard: {
         name: nd.title ?? "Imported Dashboard",
         description: nd.description ?? null,
+        // NeoDash has no tag concept; the user adds them after import (#1692).
+        tags: [],
       },
       connections: {},
       layout,
