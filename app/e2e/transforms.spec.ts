@@ -179,22 +179,27 @@ test.describe("Data Transforms", () => {
 
     await dialog.getByRole("tab", { name: "Transform" }).click();
     const panel = dialog.getByRole("tabpanel");
-    await panel.getByRole("combobox").first().click();
-    await page.getByRole("option", { name: /^Group By/ }).click();
+    const combos = panel.getByRole("combobox");
+    // Pick by typeahead on the closed trigger. Clicking an option in the open
+    // list failed on CI: with a five-row preview the trigger sits low, and the
+    // list's scroll button covered the option. Every choice here has a unique
+    // first letter, so one key selects it without depending on layout.
+    const pick = async (nth: number, key: string, expected: string) => {
+      await combos.nth(nth).focus();
+      await page.keyboard.press(key);
+      await expect(combos.nth(nth)).toHaveText(expected);
+    };
+    await pick(0, "g", "Group By");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog.getByText("1. Group By")).toBeVisible();
 
     // Cards render above the type picker: 0 group column, then column + fn
     // per aggregation. The default groups by status with status_count.
-    const pick = async (nth: number, option: string) => {
-      await panel.getByRole("combobox").nth(nth).click();
-      await page.getByRole("option", { name: option, exact: true }).click();
-    };
-    await pick(1, "total");
-    await pick(2, "Sum");
+    await pick(1, "t", "total");
+    await pick(2, "s", "Sum");
     await panel.getByRole("button", { name: "Add aggregation" }).click();
-    await pick(3, "total");
-    await pick(4, "Average");
+    await pick(3, "t", "total");
+    await pick(4, "a", "Average");
 
     const cells = (n: number) => preview.locator(`tbody tr td:nth-child(${n})`);
     await expect(cells(2)).toHaveText(["0.3", "747.12"], { timeout: 15_000 });
