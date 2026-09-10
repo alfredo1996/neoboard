@@ -5,7 +5,7 @@
     <br />
     <em>The modern alternative to NeoDash</em>
     <br />
-    <a href="https://alfredo1996.github.io/neoboard/"><strong>Documentation</strong></a>
+    <a href="docs/src/content/docs/"><strong>Documentation</strong></a>
   </p>
   <p align="center">
     <a href="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml/badge.svg?branch=dev" /></a>
@@ -51,7 +51,7 @@ bash install.sh   # installs deps, starts Docker, runs migrations
 
 > **Note:** an `npx @neoboard/cli` standalone install path is on the roadmap but the package is not on npm yet — clone the repo for now.
 
-If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see [Troubleshooting Setup](https://alfredo1996.github.io/neoboard/start-here/troubleshooting/).
+If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see [Troubleshooting Setup](docs/src/content/docs/start-here/troubleshooting.mdx).
 
 ### Demo showcases
 
@@ -105,7 +105,7 @@ Back up `docker/.env.production.local` with the database — losing `ENCRYPTION_
 
 `--build` builds the image from your checkout. Released images are published as `ghcr.io/alfredo1996/neoboard`; once a release is out, drop `--build` and pin one with `NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:X.Y.Z`.
 
-`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](https://alfredo1996.github.io/neoboard/deploy/production/) for health verification and TLS, and [`app/.env.example`](app/.env.example) for every variable.
+`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](docs/src/content/docs/deploy/production.mdx) for health verification and TLS, and [`app/.env.example`](app/.env.example) for every variable.
 
 Browse the [screenshots](#screenshots) below for a feel of the UI without installing.
 
@@ -170,7 +170,7 @@ Three packages with **strict boundaries**: `app/` orchestrates, `component/` ren
 
 ## Documentation
 
-The full documentation — install, deployment, every chart type, security and the plugin SDK — is at **<https://alfredo1996.github.io/neoboard/>**.
+The full documentation — install, deployment, every chart type, security and the plugin SDK — lives in [`docs/src/content/docs/`](docs/src/content/docs/) until the docs site is published.
 
 ## Contributing
 
@@ -190,7 +190,7 @@ Feature and fix branches target `dev` by default, or the active `release/X.Y` br
 
 ## Migrating from NeoDash
 
-NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](https://alfredo1996.github.io/neoboard/start-here/migration-from-neodash/) for step-by-step instructions and the supported widget mappings.
+NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/start-here/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
 
 ## API Documentation
 

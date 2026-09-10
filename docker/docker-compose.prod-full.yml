@@ -4,23 +4,23 @@
 # use docker-compose.prod.yml instead.
 #
 # Required env vars: POSTGRES_PASSWORD, ENCRYPTION_KEY, NEXTAUTH_SECRET,
-#                    API_KEY_HMAC_SECRET
+#                    API_KEY_HMAC_SECRET, plus ADMIN_BOOTSTRAP_TOKEN to create
+#                    the first admin at /signup
 # See ../app/.env.example for documentation on every variable.
 #
-# Usage:
-#   cp ../app/.env.example .env
-#   # Set POSTGRES_PASSWORD, ENCRYPTION_KEY, NEXTAUTH_SECRET,
-#   # API_KEY_HMAC_SECRET (at minimum)
-#   docker compose -f docker/docker-compose.prod-full.yml up -d
+# Usage (from the repo root): generate the secrets ONCE into docker/.env.production.local
+# with the snippet in README.md or docs/src/content/docs/deploy/production.mdx
+# (never docker/.env, which the CLI owns), then:
+#   docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml up -d --build
 #
 # Optional Neo4j data source (adds a neo4j service):
-#   docker compose -f docker/docker-compose.prod-full.yml --profile neo4j up -d
+#   docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml --profile neo4j up -d
 #
 # Rollback to a previous release:
 #   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:X.Y.Z \
-#     docker compose -f docker/docker-compose.prod-full.yml pull neoboard
+#     docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml pull neoboard
 #   NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:X.Y.Z \
-#     docker compose -f docker/docker-compose.prod-full.yml up -d --force-recreate
+#     docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml up -d --force-recreate
 services:
   postgres:
     image: postgres:16-alpine

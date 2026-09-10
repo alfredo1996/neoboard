@@ -1,7 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  readFileSync,
+  existsSync,
+  readdirSync,
+  mkdtempSync,
+  mkdirSync,
+  statSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -324,12 +333,21 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
     ).toEqual([]);
   });
 
-  it("links the docs at the Pages project site docs-pages.yml deploys", () => {
-    const { owner, repo } = ownerRepo();
+  it("links the docs as in-repo pages while the Pages site is off", () => {
+    // docs-pages.yml deploys only when the DOCS_DEPLOY variable is on, which
+    // waits for the org transfer (#1214), so every github.io link 404s. The
+    // .mdx sources render on GitHub today. Switch to the site URL, and flip
+    // this test, in the PR that turns Pages on.
     expect(readDoc(".github/workflows/docs-pages.yml")).toContain(
-      "DOCS_BASE: /${{ github.event.repository.name }}",
+      "vars.DOCS_DEPLOY == 'true'",
     );
-    expect(readme()).toContain(`https://${owner}.github.io/${repo}/`);
+    expect(readme()).not.toContain("github.io");
+    for (const page of [
+      "start-here/troubleshooting",
+      "deploy/production",
+      "start-here/migration-from-neodash",
+    ])
+      expect(readme()).toContain(`(docs/src/content/docs/${page}.mdx)`);
   });
 
   it("installs from a clone with the script the repo ships", () => {
@@ -370,6 +388,36 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
     ).not.toThrow();
     // ghcr's `latest` is a stale pre-release, not this checkout: build it.
     expect(block).toMatch(/ up -d --build$/m);
+  });
+
+  it("runs its secrets block as promised: a 0600 file, and a second paste refused", () => {
+    const block =
+      /\(set -o noclobber[\s\S]*?\nEOF\n\)/.exec(fence(PROD_COMPOSE))?.[0] ??
+      "";
+    expect(block).not.toBe("");
+    const envFile = /cat > (\S+) <</.exec(block)![1];
+    const dir = mkdtempSync(join(tmpdir(), "neoboard-1217-"));
+    try {
+      mkdirSync(join(dir, "docker"));
+      const paste = () =>
+        spawnSync("bash", ["-c", block], { cwd: dir, encoding: "utf8" });
+      expect(paste().status).toBe(0);
+      const file = join(dir, envFile);
+      // umask 077: the file holds ENCRYPTION_KEY, nobody else may read it.
+      expect(statSync(file).mode & 0o777).toBe(0o600);
+      const first = readFileSync(file, "utf8");
+      for (const key of [
+        "ENCRYPTION_KEY",
+        "POSTGRES_PASSWORD",
+        "ADMIN_BOOTSTRAP_TOKEN",
+      ])
+        expect(first, key).toMatch(new RegExp(`^${key}=\\S+$`, "m"));
+      // noclobber inside the subshell: a second paste must not rotate the keys.
+      expect(paste().status).not.toBe(0);
+      expect(readFileSync(file, "utf8")).toBe(first);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("says the CLI is not on npm yet, and runs nothing from npm", () => {
