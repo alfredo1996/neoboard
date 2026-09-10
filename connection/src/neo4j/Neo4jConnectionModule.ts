@@ -12,10 +12,23 @@ import {
 } from "@neoboard/connector-sdk";
 import { Neo4jRecordParser } from "./Neo4jRecordParser";
 import { extractNodeAndRelPropertiesFromRecords } from "./utils";
-import { determineQueryStatus } from "@neoboard/connector-sdk";
+import {
+  DEFAULT_CONNECTION_CONFIG,
+  determineQueryStatus,
+} from "@neoboard/connector-sdk";
 import { collectUpToLimit, drainRetainingUpTo } from "@neoboard/connector-sdk";
 import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
 import { toNeo4jParams } from "./coerce-params";
+
+/**
+ * Transaction config for the hardcoded introspection and health-check queries,
+ * which ran with no timeout at all (#1302).
+ *
+ * ponytail: `timeout` is enforced by the server. The driver has no client-side
+ * query bound, so a server that accepts the connection and then stops
+ * answering still hangs the await; bound it at the caller if that shows up.
+ */
+const INTROSPECTION_TX_CONFIG = { timeout: DEFAULT_CONNECTION_CONFIG.timeout };
 
 /**
  * Neo4jConnectionModule
@@ -191,6 +204,8 @@ export class Neo4jConnectionModule extends ConnectionModule {
     try {
       const result = await session.run(
         "SHOW DATABASES YIELD name, currentStatus WHERE name <> 'system' AND currentStatus = 'online' RETURN name",
+        {},
+        INTROSPECTION_TX_CONFIG,
       );
       return result.records.map((r) => r.get("name") as string);
     } catch {
@@ -213,7 +228,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
       database: connectionConfig?.database,
     });
     try {
-      await session.run("RETURN 1 AS connected");
+      await session.run("RETURN 1 AS connected", {}, INTROSPECTION_TX_CONFIG);
       return true;
     } catch (error) {
       const wrapped = wrapError(error, "neo4j");

@@ -250,3 +250,111 @@ describe("PostgresConnectionModule — error-path routing", () => {
     errSpy.mockRestore();
   });
 });
+
+// #1302: a falsy timeout used to skip SET LOCAL entirely — no bound at all,
+// rather than the documented default bound.
+describe("PostgresConnectionModule — statement timeout is unconditional (#1302)", () => {
+  it.each([
+    ["undefined", undefined],
+    ["0", 0],
+  ])(
+    "falls back to the 30s default when timeout is %s",
+    async (_l, timeout) => {
+      const mod = makeModule();
+      const queries: string[] = [];
+      const pool = {
+        connect: jest.fn().mockResolvedValue(fakeClient(queries)),
+      };
+      jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+
+      await mod.runQuery(
+        { query: "SELECT 1", params: {} },
+        { onSuccess: jest.fn(), onFail: jest.fn() } as any,
+        CONFIG({ timeout: timeout as any, parseToNeodashRecord: false }),
+      );
+
+      expect(queries).toContain("SET LOCAL statement_timeout = '30000'");
+    },
+  );
+
+  it("keeps an explicit timeout", async () => {
+    const mod = makeModule();
+    const queries: string[] = [];
+    const pool = { connect: jest.fn().mockResolvedValue(fakeClient(queries)) };
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+
+    await mod.runQuery(
+      { query: "SELECT 1", params: {} },
+      { onSuccess: jest.fn(), onFail: jest.fn() } as any,
+      CONFIG({ timeout: 1234.9, parseToNeodashRecord: false }),
+    );
+
+    expect(queries).toContain("SET LOCAL statement_timeout = '1234'");
+  });
+});
+
+// #1302: introspection and health checks ran with no bound once a connection
+// was established. Each now routes through one bounded, guarded checkout.
+describe("PostgresConnectionModule — introspection and health checks are bounded (#1302)", () => {
+  function guardedClient(result: Promise<unknown>) {
+    return {
+      query: jest.fn().mockReturnValue(result),
+      release: jest.fn(),
+      on: jest.fn(),
+      removeListener: jest.fn(),
+    };
+  }
+
+  const cases: [
+    string,
+    (m: PostgresConnectionModule) => Promise<unknown>,
+    unknown,
+  ][] = [
+    ["listDatabases", (m) => m.listDatabases(), ["postgres"]],
+    ["listSchemas", (m) => m.listSchemas(), ["postgres"]],
+    ["checkConnection", (m) => m.checkConnection(), true],
+  ];
+
+  it.each(cases)(
+    "%s runs with a client-side query_timeout on a guarded client",
+    async (_name, call, expected) => {
+      const mod = makeModule();
+      const client = guardedClient(
+        Promise.resolve({
+          rows: [{ datname: "postgres", schema_name: "postgres" }],
+        }),
+      );
+      const pool = { connect: jest.fn().mockResolvedValue(client) };
+      jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+
+      await expect(call(mod)).resolves.toEqual(expected);
+
+      expect(client.query).toHaveBeenCalledWith(
+        expect.objectContaining({ query_timeout: 30_000 }),
+      );
+      const listener = client.on.mock.calls[0][1];
+      expect(client.on).toHaveBeenCalledWith("error", listener);
+      expect(client.removeListener).toHaveBeenCalledWith("error", listener);
+      expect(client.release).toHaveBeenCalledWith(undefined);
+    },
+  );
+
+  // A timed-out client may still be running (or wedged) on the server;
+  // handing it back would give the next caller a client that never answers.
+  it.each(cases)(
+    "%s destroys the client instead of returning it to the pool when the query fails",
+    async (_name, call) => {
+      const mod = makeModule();
+      const timeout = new Error("Query read timeout");
+      const client = guardedClient(Promise.reject(timeout));
+      const pool = { connect: jest.fn().mockResolvedValue(client) };
+      jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+      jest.spyOn(console, "warn").mockImplementation(() => {});
+
+      await call(mod).catch(() => undefined);
+
+      expect(client.release).toHaveBeenCalledWith(timeout);
+      expect(client.removeListener).toHaveBeenCalled();
+    },
+  );
+});

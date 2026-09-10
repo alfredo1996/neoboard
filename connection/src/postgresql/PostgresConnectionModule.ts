@@ -4,6 +4,7 @@ import {
   ConnectionModule,
   ConnectorError,
   ConnectorErrorType,
+  DEFAULT_CONNECTION_CONFIG,
   determineQueryStatus,
   PostgresAdvancedOptions,
   QueryCallback,
@@ -11,7 +12,7 @@ import {
   QueryStatus,
   wrapError,
 } from "@neoboard/connector-sdk";
-import { attachClientErrorGuard } from "./utils";
+import { attachClientErrorGuard, runBoundedQuery } from "./utils";
 import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
@@ -145,14 +146,16 @@ export class PostgresConnectionModule extends ConnectionModule {
       const isReadOnly = config.accessMode !== "WRITE";
       await this._beginTransaction(client, isReadOnly);
 
-      // Set statement timeout if specified.
-      // SET does not support parameterized queries ($1) in PostgreSQL,
-      // so we use SET LOCAL with a validated integer. SET LOCAL scopes the
-      // change to the current transaction — it auto-reverts on COMMIT/ROLLBACK.
-      if (config.timeout) {
-        const timeoutMs = Math.floor(config.timeout);
-        await client.query(`SET LOCAL statement_timeout = '${timeoutMs}'`);
-      }
+      // Set statement timeout — always. A falsy config.timeout falls back to
+      // the documented default; it used to skip SET LOCAL and run unbounded
+      // (#1302). SET does not support parameterized queries ($1) in
+      // PostgreSQL, so we use SET LOCAL with a validated integer. SET LOCAL
+      // scopes the change to the current transaction — it auto-reverts on
+      // COMMIT/ROLLBACK.
+      const timeoutMs = Math.floor(
+        config.timeout || DEFAULT_CONNECTION_CONFIG.timeout,
+      );
+      await client.query(`SET LOCAL statement_timeout = '${timeoutMs}'`);
 
       // Handle parameter substitution
       // PostgreSQL (pg library) uses $1, $2, etc. for positional parameters.
@@ -314,18 +317,11 @@ export class PostgresConnectionModule extends ConnectionModule {
           .catch(() => false);
         if (!authenticated) return [];
       }
-      const pool = this.authModule.getPool()!;
-      const client = await pool.connect();
-      const releaseErrorGuard = attachClientErrorGuard(client);
-      try {
-        const result = await client.query(
-          "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname",
-        );
-        return result.rows.map((row: { datname: string }) => row.datname);
-      } finally {
-        releaseErrorGuard();
-        client.release();
-      }
+      const rows = await runBoundedQuery<{ datname: string }>(
+        this.authModule.getPool()!,
+        "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname",
+      );
+      return rows.map((row) => row.datname);
     } catch {
       return [];
     }
@@ -344,20 +340,11 @@ export class PostgresConnectionModule extends ConnectionModule {
           .catch(() => false);
         if (!authenticated) return [];
       }
-      const pool = this.authModule.getPool()!;
-      const client = await pool.connect();
-      const releaseErrorGuard = attachClientErrorGuard(client);
-      try {
-        const result = await client.query(
-          "SELECT schema_name FROM information_schema.schemata WHERE schema_name <> 'information_schema' AND schema_name NOT LIKE 'pg\\_%' ORDER BY schema_name",
-        );
-        return result.rows.map(
-          (row: { schema_name: string }) => row.schema_name,
-        );
-      } finally {
-        releaseErrorGuard();
-        client.release();
-      }
+      const rows = await runBoundedQuery<{ schema_name: string }>(
+        this.authModule.getPool()!,
+        "SELECT schema_name FROM information_schema.schemata WHERE schema_name <> 'information_schema' AND schema_name NOT LIKE 'pg\\_%' ORDER BY schema_name",
+      );
+      return rows.map((row) => row.schema_name);
     } catch {
       return [];
     }
@@ -383,15 +370,8 @@ export class PostgresConnectionModule extends ConnectionModule {
         await this.authModule.verifyAuthentication();
       }
 
-      const client = await this.authModule.getPool()!.connect();
-      const releaseErrorGuard = attachClientErrorGuard(client);
-      try {
-        await client.query("SELECT 1");
-        return true;
-      } finally {
-        releaseErrorGuard();
-        client.release();
-      }
+      await runBoundedQuery(this.authModule.getPool()!, "SELECT 1");
+      return true;
     } catch (error) {
       const wrapped = wrapError(error, "postgresql");
       // Log only error type — never the full error which may contain connection details

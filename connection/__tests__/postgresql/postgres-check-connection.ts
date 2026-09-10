@@ -13,6 +13,7 @@ import {
 import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
 import { AuthType } from "@neoboard/connector-sdk";
 import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
+import { runBoundedQuery } from "../../src/postgresql/utils";
 
 describe("PostgresConnectionModule.checkConnection", () => {
   let container: StartedPostgreSqlContainer;
@@ -103,5 +104,29 @@ describe("PostgresConnectionModule.checkConnection", () => {
       await mod.close().catch(() => undefined);
     }
     expect(returned).toBeUndefined();
+  });
+
+  // #1302: connectionTimeoutMillis bounds only acquiring a client; nothing
+  // bounded a query once it was running, so a slow catalog or a stalled
+  // backend pinned a pooled client forever. The bound is client-side, so it
+  // holds even when the server never answers.
+  test("runBoundedQuery rejects a query that outlives its budget and destroys the client (#1302)", async () => {
+    const mod = new PostgresConnectionModule(validConfig());
+    const pool = mod.getPool()!;
+    try {
+      const started = Date.now();
+      await expect(
+        runBoundedQuery(pool, "SELECT pg_sleep(5)", 300),
+      ).rejects.toThrow(/timeout/i);
+      expect(Date.now() - started).toBeLessThan(4_000);
+
+      // Not handed back to the pool: a still-busy client would stall the
+      // next caller behind the query it abandoned.
+      await new Promise((r) => setImmediate(r));
+      expect(pool.idleCount).toBe(0);
+      await expect(mod.checkConnection()).resolves.toBe(true);
+    } finally {
+      await mod.close();
+    }
   });
 });

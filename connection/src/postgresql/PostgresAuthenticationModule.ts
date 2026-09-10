@@ -1,7 +1,7 @@
 import { AuthenticationModule } from "@neoboard/connector-sdk";
 import { AuthConfig, PostgresAdvancedOptions } from "@neoboard/connector-sdk";
 import { Pool } from "pg";
-import { isAuthenticationError, attachClientErrorGuard } from "./utils";
+import { isAuthenticationError, runBoundedQuery } from "./utils";
 
 /**
  * Translate libpq's `sslmode` into node-pg's `ssl` option (#1299).
@@ -107,15 +107,15 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
         ...(ssl !== undefined ? { ssl } : {}),
       });
 
-      // Suppress unhandled errors from idle connections during shutdown
+      // Idle clients re-emit their errors on the pool; without a listener that
+      // is an unhandled 'error' that kills the process. 57P01 is the server
+      // shutting down (restart, failover, container stop) and stays quiet;
+      // anything else logs its SQLSTATE only — never the message (#1266).
       pool.on("error", (err) => {
-        // Only log error code/type if this is not a shutdown error — never log the full error
-        if (!err.message?.includes("terminating connection")) {
-          // pg errors carry a `code` (SQLSTATE) that plain Error doesn't declare
-          console.error(
-            "Pool error:",
-            (err as Error & { code?: string }).code ?? "unknown",
-          );
+        // pg errors carry a `code` (SQLSTATE) that plain Error doesn't declare
+        const code = (err as Error & { code?: string }).code;
+        if (code !== "57P01") {
+          console.error("Pool error:", code ?? "unknown");
         }
       });
 
@@ -158,15 +158,8 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
         this.pool = this.createDriver();
       }
 
-      const client = await this.pool.connect();
-      const releaseErrorGuard = attachClientErrorGuard(client);
-      try {
-        await client.query("SELECT 1");
-        return true;
-      } finally {
-        releaseErrorGuard();
-        client.release();
-      }
+      await runBoundedQuery(this.pool, "SELECT 1");
+      return true;
     } catch (error: unknown) {
       if (isAuthenticationError(error)) {
         return false;
@@ -207,9 +200,10 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
   async close(): Promise<void> {
     if (this.pool) {
       try {
-        // Remove error handlers before closing to suppress shutdown errors
-        this.pool.removeAllListeners("error");
-
+        // Keep the pool's 'error' listener. end() resolves while idle clients
+        // are still closing, and pg-pool re-emits their errors on the pool: a
+        // shutdown 57P01 in that window with the listener stripped was an
+        // unhandled 'error' that failed the connection suite (#1266).
         // End the pool - drains existing connections and rejects new ones
         await this.pool.end();
       } catch (error) {
