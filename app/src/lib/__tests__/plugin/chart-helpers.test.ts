@@ -251,7 +251,7 @@ describe("supportsColumnMapping", () => {
 describe("getAllChartTypes", () => {
   it("returns all 18 registered types", () => {
     const types = getAllChartTypes();
-    expect(types.length).toBe(18);
+    expect(types).toHaveLength(18);
     for (const t of CHART_TYPES) {
       expect(types).toContain(t);
     }
