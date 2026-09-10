@@ -796,3 +796,54 @@ describe("production options: Run from a build (#1679)", () => {
     expect(checklist).not.toMatch(/Docker resource limits/);
   });
 });
+
+describe("air-gapped install (#1683)", () => {
+  const PAGE = "docs/src/content/docs/deploy/air-gapped.mdx";
+  const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
+
+  it("pins image tags the registry publishes — no leading v", () => {
+    // release.yml tags the image with docker/metadata-action's
+    // `{{version}}`, which strips the `v` from the git tag: the registry has
+    // `1.5.0`, never `v1.5.0`. A page whose whole point is "set NEOBOARD_IMAGE
+    // to the exact tag you mirrored" must not show the shape that 404s.
+    const release = readFileSync(
+      join(ROOT, ".github/workflows/release.yml"),
+      "utf8",
+    );
+    expect(release).toMatch(/type=semver,pattern=\{\{version\}\}/); // still why
+    const compose = [
+      "docker/docker-compose.prod.yml",
+      "docker/docker-compose.prod-full.yml",
+    ].map((path) => ({ path, text: readFileSync(join(ROOT, path), "utf8") }));
+    const offenders = [...DOCS, ...compose]
+      .filter(({ text }) => /neoboard:v[0-9A-Z]/.test(text))
+      .map(({ path }) => path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("describes the map's Tile Layer option as it is, not as #1705 will make it", () => {
+    // The page was written against a Tile Layer text field and a `none`
+    // value that only exist on an unmerged branch. Read the option schema and
+    // hold the page to it — when the field changes, this flips and the page
+    // has to follow.
+    const schema = readFileSync(
+      join(ROOT, "component/src/components/composed/chart-options/map.ts"),
+      "utf8",
+    );
+    const start = schema.indexOf('key: "tileLayer"');
+    const tile = schema.slice(start, schema.indexOf("\n  {", start));
+    expect(tile).not.toBe("");
+    const body = page();
+    const section = body.slice(
+      body.indexOf("### Map basemap tiles"),
+      body.indexOf("### API docs page"),
+    );
+    expect(section).not.toBe("");
+    for (const [, label] of tile.matchAll(/label: "([^"]+)"/g))
+      if (label !== "Tile Layer") expect(section).toContain(label);
+    expect(section.includes("`none`")).toBe(/"none"/.test(tile));
+    expect(/own (network|tile server)/.test(section)).toBe(
+      /type: "text"/.test(tile),
+    );
+  });
+});

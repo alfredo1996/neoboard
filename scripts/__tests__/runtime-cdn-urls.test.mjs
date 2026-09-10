@@ -30,22 +30,31 @@ const SKIP = /(^|\/)(__tests__|e2e)\/|\.(test|stories)\.[jt]sx?$/;
 /** Allowed as `<repo path>: <url as written in source>`. */
 const ALLOWED = [
   // Swagger UI on the API docs page. Blank offline; stays until
-  // swagger-ui-dist is vendored (#1683 — a new dependency, owner approval).
+  // swagger-ui-dist is vendored — the open half of #1683 (a new dependency,
+  // owner approval).
   "app/src/app/api/docs/route.ts: https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui.css",
   "app/src/app/api/docs/route.ts: https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-bundle.js",
   "app/src/app/api/docs/route.ts: https://unpkg.com/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-standalone-preset.js",
-  // Basemap tile presets. Fetched by each viewer's browser; the map chart
-  // page documents self-hosted tiles and the no-basemap option.
+  // Basemap tile presets, fetched by each viewer's browser. The only three
+  // choices until #1685 adds a custom template and a no-basemap option.
   "component/src/charts/map-chart.tsx: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   "component/src/charts/map-chart.tsx: https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
   "component/src/charts/map-chart.tsx: https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
 ];
 
-const URL_CHARS = String.raw`https?:\/\/[^"'\`\s>)]+`;
+// Scheme optional: `//host/x` is fetched over the page's own scheme.
+const URL_CHARS = String.raw`(?:https?:)?\/\/[^"'\`\s>)]+`;
+// `src=` as HTML (`src="…"`), JSX (`src={"…"}`) or a template (`src={\`…\`}`).
+const ATTR = String.raw`=\{?["'\`]?`;
 /** One pattern per way a URL becomes a network request. */
 const LOADERS = [
-  new RegExp(String.raw`<script\b[^>]*\bsrc=["']?(${URL_CHARS})`, "g"),
-  new RegExp(String.raw`<link\b[^>]*\bhref=["']?(${URL_CHARS})`, "g"),
+  // `<Script>` is next/script — a real loader. `<Link>` is next/link — a
+  // navigation, deliberately NOT matched, so no `i` flag here.
+  new RegExp(
+    String.raw`<(?:[sS]cript|img|iframe|video|audio)\b[^>]*\bsrc${ATTR}(${URL_CHARS})`,
+    "g",
+  ),
+  new RegExp(String.raw`<link\b[^>]*\bhref${ATTR}(${URL_CHARS})`, "g"),
   new RegExp(String.raw`@import\s+(?:url\()?["']?(${URL_CHARS})`, "g"),
   new RegExp(String.raw`\burl\(\s*["']?(${URL_CHARS})`, "g"),
   new RegExp(String.raw`\b(?:fetch|import)\(\s*["'\`](${URL_CHARS})`, "g"),
@@ -57,14 +66,17 @@ const LOADERS = [
 ];
 const COMMENT = /^\s*(\/\/|\/\*|\*)/;
 
-/** Every URL `text` would load at runtime, deduplicated, in source order. */
+/** Every URL `text` would load at runtime, deduplicated, in loader order. */
 export function runtimeUrls(text) {
+  // Drop comment lines first, then match the whole text: Prettier wraps a
+  // `<script>` tag or a `fetch(` call over several lines, and a per-line
+  // scan never sees the URL on the line after the loader.
+  const code = text
+    .split("\n")
+    .filter((line) => !COMMENT.test(line))
+    .join("\n");
   const found = new Set();
-  for (const line of text.split("\n")) {
-    if (COMMENT.test(line)) continue;
-    for (const re of LOADERS)
-      for (const m of line.matchAll(re)) found.add(m[1]);
-  }
+  for (const re of LOADERS) for (const m of code.matchAll(re)) found.add(m[1]);
   return [...found];
 }
 
@@ -95,23 +107,54 @@ describe("runtime network dependencies (#1683)", () => {
 
   it("recognises every way a URL becomes a request", () => {
     // The guard is only as good as its patterns. Each shape below is one an
-    // offline install has been broken by somewhere, so each gets a line.
+    // offline install has been broken by somewhere, so each gets a line —
+    // including the multi-line shapes Prettier produces, which a per-line
+    // scan cannot see, next/script's `<Script>`, JSX `src={...}` attributes
+    // and protocol-relative `//host` URLs.
     expect(
       runtimeUrls(`
         <script src="https://cdn.example/lib.js"></script>
+        <script
+          src="https://cdn.example/wrapped.js"
+          async
+        ></script>
+        <Script src="https://cdn.example/analytics.js" strategy="afterInteractive" />
+        <script src={"https://cdn.example/jsx.js"} />
+        <script src={\`https://unpkg.com/lib@\${v}/lib.js\`} />
+        <script src="//cdn.example/protocol-relative.js"></script>
+        <img src="https://cdn.example/logo.png" alt="" />
         <link rel="stylesheet" href="https://cdn.example/lib.css" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter&display=swap"
+          crossOrigin="anonymous"
+        />
         @import url("https://fonts.googleapis.com/css2?family=Inter");
+        @import url("//fonts.googleapis.com/css2?family=Geist");
         src: url(https://cdn.example/font.woff2) format("woff2");
         const res = await fetch("https://api.example/latest");
+        const json = await fetch(
+          "https://updates.example.com/neoboard/latest-version.json",
+          { cache: "no-store" },
+        );
         const mod = await import("https://esm.example/mod.js");
         url: "https://{s}.tiles.example/{z}/{x}/{y}.png",
       `),
     ).toEqual([
       "https://cdn.example/lib.js",
+      "https://cdn.example/wrapped.js",
+      "https://cdn.example/analytics.js",
+      "https://cdn.example/jsx.js",
+      "https://unpkg.com/lib@${v}/lib.js",
+      "//cdn.example/protocol-relative.js",
+      "https://cdn.example/logo.png",
       "https://cdn.example/lib.css",
+      "https://fonts.googleapis.com/css2?family=Inter&display=swap",
       "https://fonts.googleapis.com/css2?family=Inter",
+      "//fonts.googleapis.com/css2?family=Geist",
       "https://cdn.example/font.woff2",
       "https://api.example/latest",
+      "https://updates.example.com/neoboard/latest-version.json",
       "https://esm.example/mod.js",
       "https://{s}.tiles.example/{z}/{x}/{y}.png",
     ]);
@@ -121,6 +164,7 @@ describe("runtime network dependencies (#1683)", () => {
     expect(
       runtimeUrls(`
         <a href="https://neoboard.app/docs">Docs</a>
+        <Link href="https://neoboard.app/docs">Docs</Link>
         <svg xmlns="http://www.w3.org/2000/svg" />
         // see https://react.dev/learn for why
         /* <script src="https://cdn.example/commented-out.js"> */

@@ -5,28 +5,28 @@ sidebar:
   order: 3
 ---
 
-NeoBoard runs without internet access once its images are in a registry your hosts can reach. The server makes no outbound calls of its own — no update check, no telemetry, no licence check. This page covers what to mirror, how to point a deployment at the mirror, what is already offline-safe, and what still needs a network — two features that fetch from the public internet unless you tell them otherwise, and one that needs to reach your identity provider.
+NeoBoard runs without internet access once its images are in a registry your hosts can reach. The server makes no outbound calls of its own — no update check, no telemetry, no licence check. This page covers what to mirror, how to point a deployment at the mirror, what is already offline-safe, and what still needs a network — two features that fetch from the public internet, and one that needs to reach your identity provider.
 
 ## Mirror the images
 
-| Image                                 | Used by                                                                                                              |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `ghcr.io/alfredo1996/neoboard:vX.Y.Z` | The app. Published on every release tag, along with a moving `X.Y` tag and — for the newest release only — `latest`  |
-| `postgres:16-alpine`                  | The application database in `docker-compose.prod-full.yml`                                                           |
-| `neo4j:5.26-community`                | The optional bundled Neo4j data source (`--profile neo4j`). Skip it if your dashboards query a Neo4j you already run |
+| Image                                | Used by                                                                                                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ghcr.io/alfredo1996/neoboard:X.Y.Z` | The app. Published on every release tag `vX.Y.Z` as `X.Y.Z` — the tag without its `v` — along with a moving `X.Y` tag and, for the newest release only, `latest` |
+| `postgres:16-alpine`                 | The application database in `docker-compose.prod-full.yml`                                                                                                       |
+| `neo4j:5.26-community`               | The optional bundled Neo4j data source (`--profile neo4j`). Skip it if your dashboards query a Neo4j you already run                                             |
 
 On a connected machine, pull and push to the internal registry:
 
 ```bash
-docker pull ghcr.io/alfredo1996/neoboard:vX.Y.Z
-docker tag  ghcr.io/alfredo1996/neoboard:vX.Y.Z registry.internal.example/neoboard/neoboard:vX.Y.Z
-docker push registry.internal.example/neoboard/neoboard:vX.Y.Z
+docker pull ghcr.io/alfredo1996/neoboard:X.Y.Z
+docker tag  ghcr.io/alfredo1996/neoboard:X.Y.Z registry.internal.example/neoboard/neoboard:X.Y.Z
+docker push registry.internal.example/neoboard/neoboard:X.Y.Z
 ```
 
 Or, when nothing routes between the two networks, move the images as a file. `docker load` keeps the original names and tags, so the compose files need no edits:
 
 ```bash
-docker save ghcr.io/alfredo1996/neoboard:vX.Y.Z postgres:16-alpine neo4j:5.26-community \
+docker save ghcr.io/alfredo1996/neoboard:X.Y.Z postgres:16-alpine neo4j:5.26-community \
   | gzip > neoboard-images.tgz
 # ... carry the file across ...
 gunzip -c neoboard-images.tgz | docker load
@@ -41,7 +41,7 @@ Both production compose files default to `:latest` and carry a `build:` section:
 **Docker Compose** — the recommended path, unchanged from [Production deployment](/deploy/production) except for the image reference:
 
 ```bash
-export NEOBOARD_IMAGE=registry.internal.example/neoboard/neoboard:vX.Y.Z
+export NEOBOARD_IMAGE=registry.internal.example/neoboard/neoboard:X.Y.Z
 docker compose -f docker/docker-compose.prod-full.yml pull neoboard   # after docker login; skip if you used docker load
 docker compose -f docker/docker-compose.prod-full.yml up -d
 ```
@@ -56,7 +56,7 @@ spec:
     - name: internal-registry
   containers:
     - name: neoboard
-      image: registry.internal.example/neoboard/neoboard:vX.Y.Z
+      image: registry.internal.example/neoboard/neoboard:X.Y.Z
 ```
 
 Everything else is the same as a connected install: the required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `API_KEY_HMAC_SECRET`) and `ADMIN_BOOTSTRAP_TOKEN` for the first admin. Set `NEXTAUTH_URL` to the address users reach on the internal network — it is the origin the sign-in flow redirects back to. The image sets `MIGRATE_ON_START=1` and `MIGRATIONS_DIR`, so the schema is created at first boot from the migration journal inside the image; nothing is downloaded for it.
@@ -73,9 +73,9 @@ Everything else is the same as a connected install: the required variables (`DAT
 
 ### Map basemap tiles
 
-The [Map chart](/charts/map) draws its basemap from tiles that **each viewer's browser** fetches from the server in the widget's **Tile Layer** option. The default is OpenStreetMap's public tile server, which an air-gapped browser cannot reach — the markers still render, on an empty background.
+The [Map chart](/charts/map) draws its basemap from tiles that **each viewer's browser** fetches from the server chosen in the widget's **Tile Layer** option. The option is a fixed list — OpenStreetMap (the default), Carto Light and Carto Dark — and all three are public tile servers, so an air-gapped browser reaches none of them: the markers still render, on an empty background.
 
-Two ways to fix it, both set per widget: point **Tile Layer** at a tile server on your own network, or set it to `none` for a plain background and no tile requests at all. The [Map chart page](/charts/map) covers both, including which self-hosted tile servers work.
+There is no offline setting yet. A private tile server, and a no-basemap option, are [issue #1685](https://github.com/alfredo1996/neoboard/issues/1685); this page will say how once it ships.
 
 ### API docs page
 
