@@ -131,6 +131,19 @@ describe("PUT /api/users/me", () => {
     });
   });
 
+  it("writes nothing when the DB update fails (#1276)", async () => {
+    mockUpdate.mockReturnValueOnce({
+      set: () => ({ where: () => Promise.reject(new Error("db down")) }),
+    });
+    const req = new Request("http://localhost/api/users/me", {
+      method: "PUT",
+      body: JSON.stringify({ name: "Bob" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    await expect(PUT(req)).rejects.toThrow("db down");
+    expect(mockAuditRequest).not.toHaveBeenCalled();
+  });
+
   it("writes nothing on invalid JSON (#1276)", async () => {
     const req = new Request("http://localhost/api/users/me", {
       method: "PUT",

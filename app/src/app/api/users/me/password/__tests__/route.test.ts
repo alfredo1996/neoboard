@@ -219,7 +219,8 @@ describe("PUT /api/users/me/password", () => {
       expect(mockAuditRequest).toHaveBeenCalledTimes(1);
       const [auditedReq, entry] = mockAuditRequest.mock.calls[0];
       expect(auditedReq).toBe(req);
-      expect(entry).toMatchObject({
+      // Exact match: any extra key (e.g. derived password data) fails.
+      expect(entry).toEqual({
         action: "user.password.change",
         resourceType: "user",
         resourceId: "u1",
@@ -250,6 +251,16 @@ describe("PUT /api/users/me/password", () => {
       mockUnstableUpdate.mockRejectedValueOnce(new Error("cookie store gone"));
       await PUT(put({ currentPassword: "old123", newPassword: "newPass1" }));
       expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("writes nothing when the DB update fails", async () => {
+      mockUpdate.mockReturnValueOnce({
+        set: () => ({ where: () => Promise.reject(new Error("db down")) }),
+      });
+      await expect(
+        PUT(put({ currentPassword: "old123", newPassword: "newPass1" })),
+      ).rejects.toThrow("db down");
+      expect(mockAuditRequest).not.toHaveBeenCalled();
     });
 
     it("writes nothing when the current password is wrong", async () => {
