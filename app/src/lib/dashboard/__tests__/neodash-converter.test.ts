@@ -344,6 +344,28 @@ describe("convertNeoDash", () => {
     ).toEqual({ stackMode: "stacked" });
   });
 
+  // NeoDash defaults an unset groupMode to "stacked" (ReportConfig.tsx /
+  // BarChart.tsx), so an untouched bar must import as stacked too.
+  it("maps a NeoDash bar with no groupMode to stackMode: 'stacked'", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({ type: "bar", settings: {} }),
+    );
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toEqual({ stackMode: "stacked" });
+  });
+
+  it("does not stack a non-bar report that carries a stray groupMode", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({ type: "table", settings: { groupMode: "stacked" } }),
+    );
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toBeUndefined();
+  });
+
   it("leaves chartOptions alone for a grouped NeoDash bar", () => {
     const result = convertNeoDash(
       makeSingleReportDash({

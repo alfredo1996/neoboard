@@ -363,8 +363,11 @@ export function convertNeoDashWithNotes(
       const chartOptions = {
         // NeoDash "area" chart type → line with area fill
         ...(originalType === "area" ? { area: true } : {}),
-        // NeoDash bar `groupMode: "stacked"` → NeoBoard `stackMode` (#1684)
-        ...(reportSettings.groupMode === "stacked"
+        // NeoDash bar `groupMode` → NeoBoard `stackMode` (#1684). NeoDash
+        // defaults an unset groupMode to "stacked", so only an explicit
+        // "grouped" opts out; gated on the bar type so a stray key elsewhere
+        // doesn't stack a non-bar.
+        ...(originalType === "bar" && reportSettings.groupMode !== "grouped"
           ? { stackMode: "stacked" }
           : {}),
       };
