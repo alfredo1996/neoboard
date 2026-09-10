@@ -54,6 +54,24 @@ async function setupWidgetWithQuery(
   return dialog;
 }
 
+/**
+ * Pick a Radix Select value by typeahead on the closed trigger. Clicking an
+ * option in the open list flaked on CI two ways: the list's scroll button
+ * covered the option, and a preview re-render detached it mid-click. A key
+ * press never opens the list, so neither can happen. `key` must be unique
+ * among the options' first characters.
+ */
+async function pickByKey(
+  page: import("@playwright/test").Page,
+  trigger: import("@playwright/test").Locator,
+  key: string,
+  expected: string,
+) {
+  await trigger.focus();
+  await page.keyboard.press(key);
+  await expect(trigger).toHaveText(expected);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -115,10 +133,8 @@ test.describe("Data Transforms", () => {
     // Configure it: year > 2000. The default is `== ""`, which is why simply
     // adding a card — all this file did before — proves nothing.
     const panel = dialog.getByRole("tabpanel");
-    await panel.getByRole("combobox").first().click();
-    await page.getByRole("option", { name: "year", exact: true }).click();
-    await panel.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: ">", exact: true }).click();
+    await pickByKey(page, panel.getByRole("combobox").first(), "y", "year");
+    await pickByKey(page, panel.getByRole("combobox").nth(1), ">", ">");
     await panel.getByPlaceholder("value or param").fill("2000");
 
     // Three of the four rows survive, and every one of them is post-2000.
@@ -180,15 +196,8 @@ test.describe("Data Transforms", () => {
     await dialog.getByRole("tab", { name: "Transform" }).click();
     const panel = dialog.getByRole("tabpanel");
     const combos = panel.getByRole("combobox");
-    // Pick by typeahead on the closed trigger. Clicking an option in the open
-    // list failed on CI: with a five-row preview the trigger sits low, and the
-    // list's scroll button covered the option. Every choice here has a unique
-    // first letter, so one key selects it without depending on layout.
-    const pick = async (nth: number, key: string, expected: string) => {
-      await combos.nth(nth).focus();
-      await page.keyboard.press(key);
-      await expect(combos.nth(nth)).toHaveText(expected);
-    };
+    const pick = (nth: number, key: string, expected: string) =>
+      pickByKey(page, combos.nth(nth), key, expected);
     await pick(0, "g", "Group By");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog.getByText("1. Group By")).toBeVisible();
