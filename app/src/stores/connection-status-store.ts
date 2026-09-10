@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { ConnectionState } from "@neoboard/components";
+import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 
 /**
  * Live connection-test results, keyed by connection id.
@@ -34,6 +36,19 @@ interface ConnectionStatusStore {
    * because there the progress state is the feedback the user asked for.
    */
   beginBackgroundProbe: (id: string) => void;
+  /**
+   * What a dashboard query learned about its connection (#1678).
+   *
+   * A `ConnectorUnavailableError` flags the connection with the classifier's
+   * hint, so every sibling widget paints "Connector unavailable" at once —
+   * including the ones gated on a parameter whose seed query is on the same
+   * dead connector and will therefore never arrive. Anything else — rows, or
+   * a query the database itself rejected — proves the connector answered,
+   * and clears a flag this path (or the Connections page) had set. It never
+   * writes a verdict for a connection nobody has flagged: that is the
+   * Connections page's probe to run, not a dashboard's side effect.
+   */
+  noteQueryOutcome: (id: string, error: unknown) => void;
   /** Drop a connection that no longer exists. */
   forget: (id: string) => void;
   reset: () => void;
@@ -65,6 +80,14 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
         return { statuses: { ...prev.statuses, [id]: "connecting" } };
       }),
 
+    noteQueryOutcome: (id, error) => {
+      if (error instanceof ConnectorUnavailableError) {
+        get().setStatus(id, "error", hintForConnectionErrorCode(error.reason));
+      } else if (get().statuses[id] === "error") {
+        get().setStatus(id, "connected");
+      }
+    },
+
     forget: (id) =>
       set((prev) => {
         const statuses = { ...prev.statuses };
@@ -77,3 +100,23 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
     reset: () => set({ statuses: {}, errors: {} }),
   }),
 );
+
+/**
+ * Run a `/api/query` unwrap and report its outcome for `connectionId`.
+ * Shared by the widget and seed-query hooks so the two never disagree on
+ * what counts as a dead connector (#1678).
+ */
+export async function trackConnectorOutcome<T>(
+  connectionId: string,
+  unwrap: Promise<T>,
+): Promise<T> {
+  const { noteQueryOutcome } = useConnectionStatusStore.getState();
+  try {
+    const value = await unwrap;
+    noteQueryOutcome(connectionId, null);
+    return value;
+  } catch (error) {
+    noteQueryOutcome(connectionId, error);
+    throw error;
+  }
+}

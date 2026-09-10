@@ -3,6 +3,7 @@ import { apiError } from "./api-response";
 import { EnterpriseRequiredError } from "@/lib/features/require-feature";
 import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
 import { isTransientQueryError } from "@/lib/query/transient-error-classifier";
+import { classifyConnectionError } from "@/lib/connector/connection-error-classifier";
 import { apiLogger } from "@/lib/logger";
 import { redactString } from "@/lib/log-redact";
 import { headers } from "next/headers";
@@ -105,6 +106,20 @@ export function validateBody<T>(
 // Generic catch handler
 // ---------------------------------------------------------------------------
 
+/**
+ * Did a connector raise this? `wrapError` in the SDK names every raw driver
+ * error `ConnectorError`. Matched by name, not instanceof: app/ does not
+ * depend on the SDK, and connection/ resolves its own copy of it anyway.
+ *
+ * The scope matters as much as the match. This handler catches for every
+ * route, including ones that only touch NeoBoard's own database — if *that*
+ * refuses a connection, telling the user to check their connector's host
+ * would be a misdiagnosis.
+ */
+function isConnectorError(error: unknown): error is Error {
+  return error instanceof Error && error.name === "ConnectorError";
+}
+
 export async function handleRouteError(
   error: unknown,
   fallbackMsg = "Internal server error",
@@ -138,6 +153,26 @@ export async function handleRouteError(
     return apiError("REQUEST_TIMEOUT", error.message, undefined, {
       "Retry-After": "5",
     });
+  }
+  // A connector nobody can reach — unroutable host, refused port, bad
+  // credentials. Checked BEFORE the transient branch on purpose: a connect
+  // timeout says "timeout", which the transient classifier reads as "retry
+  // me", so every widget on a dead connection used to get 408 + Retry-After
+  // and retry three times, each attempt waiting the full connect timeout,
+  // and the dashboard never settled (#1678). 502 with no Retry-After — the
+  // client only auto-retries 503/408, so this is one request per widget per
+  // refresh cycle. `reason` lets the UI show the classifier's hint.
+  if (isConnectorError(error)) {
+    const reason = classifyConnectionError(error.message);
+    if (reason === "network" || reason === "auth_failed") {
+      return apiError(
+        "CONNECTOR_UNAVAILABLE",
+        options?.safeMessage
+          ? fallbackMsg
+          : sanitizeErrorMessage(error.message, fallbackMsg),
+        { reason },
+      );
+    }
   }
   // Driver-level transient failures (statement_timeout, ETIMEDOUT,
   // ECONNRESET, dropped connections). These look like 500s but a quick

@@ -3,8 +3,45 @@ import {
   extractReferencedParams,
   allReferencedParamsReady,
   getMissingParamNames,
+  shouldRetryWidgetQuery,
 } from "../use-widget-query";
 import { resolveRelativePreset } from "@/lib/shared/date-utils";
+import {
+  ClientQueueTimeoutError,
+  ConnectorUnavailableError,
+  QueueFullError,
+} from "@/lib/api/api-client";
+
+/**
+ * #1678 — the retry predicate is the client half of the storm. It must keep
+ * refusing everything that is not a backpressure signal, and specifically
+ * the new connector-unavailable class, at every failure count.
+ */
+describe("shouldRetryWidgetQuery", () => {
+  it.each([0, 1, 2, 3])(
+    "never retries ConnectorUnavailableError (failureCount=%i)",
+    (n) => {
+      expect(
+        shouldRetryWidgetQuery(
+          n,
+          new ConnectorUnavailableError("dead", "network"),
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it("retries backpressure signals up to three attempts", () => {
+    const busy = new QueueFullError("busy", 2000);
+    const queued = new ClientQueueTimeoutError("queued", 5000);
+    expect(shouldRetryWidgetQuery(0, busy)).toBe(true);
+    expect(shouldRetryWidgetQuery(2, queued)).toBe(true);
+    expect(shouldRetryWidgetQuery(3, busy)).toBe(false);
+  });
+
+  it("never retries a plain query error", () => {
+    expect(shouldRetryWidgetQuery(0, new Error("syntax error"))).toBe(false);
+  });
+});
 
 describe("extractReferencedParams", () => {
   it("returns empty object when query has no placeholders", () => {

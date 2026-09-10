@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { unwrapFullResponse } from "@/lib/api/api-client";
+import { trackConnectorOutcome } from "@/stores/connection-status-store";
 import type { ParamSelectorOption } from "@neoboard/components";
 
 interface SeedQueryData {
@@ -37,11 +38,17 @@ export function useSeedQuery(
           ...(tenantId ? { tenantId } : {}),
         }),
       });
-      const { data: queryData } = await unwrapFullResponse<SeedQueryData>(res);
+      // connectionId is non-empty whenever the query is enabled (see below).
+      const { data: queryData } = await trackConnectorOutcome(
+        connectionId!,
+        unwrapFullResponse<SeedQueryData>(res),
+      );
       return queryData;
     },
     enabled: enabled && !!connectionId && !!query,
     staleTime: 30_000, // 30 s — options don't change often
+    // A dead connector must not be re-probed on every alt-tab (#1678).
+    refetchOnWindowFocus: false,
     retry: false,
   });
 

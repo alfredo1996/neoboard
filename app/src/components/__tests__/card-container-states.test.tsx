@@ -149,6 +149,119 @@ vi.mock("@/lib/plugin/chart-helpers", async () => {
 /* ---------- import under test ---------- */
 import { CardContainer } from "../card-container";
 import type { DashboardWidget } from "@/lib/db/schema";
+import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
+
+/**
+ * #1678 — a dead connector used to be indistinguishable from an unset
+ * parameter: the seed query failed silently, the parameter never arrived,
+ * and every dependent widget said "Waiting for parameters…" forever. These
+ * pin the two new arms and the one that must NOT change.
+ */
+describe("CardContainer — connector unavailable (#1678)", () => {
+  const idleWaitingForParam = () =>
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      data: undefined,
+      missingParams: ["region"],
+    });
+  const paramWidget = () =>
+    makeWidget({
+      connectionId: "conn-1",
+      query: "MATCH (n) WHERE n.region = $param_region RETURN n",
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useConnectionStatusStore.getState().reset();
+  });
+
+  it("names the connector, not the parameter, when a sibling has flagged the connection", () => {
+    useConnectionStatusStore
+      .getState()
+      .setStatus("conn-1", "error", hintForConnectionErrorCode("network"));
+    idleWaitingForParam();
+
+    render(<CardContainer widget={paramWidget()} />);
+
+    expect(screen.getByText("Connector unavailable")).toBeDefined();
+    expect(
+      screen.getByText(hintForConnectionErrorCode("network")),
+    ).toBeDefined();
+    expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
+  });
+
+  it("still renders the waiting state for a genuinely unset parameter", () => {
+    idleWaitingForParam();
+
+    render(<CardContainer widget={paramWidget()} />);
+
+    expect(screen.getByText(/Waiting for parameters/)).toBeDefined();
+    expect(screen.getByText("$param_region")).toBeDefined();
+    expect(screen.queryByText("Connector unavailable")).toBeNull();
+  });
+
+  it("ignores a flag on a different connection", () => {
+    useConnectionStatusStore.getState().setStatus("other", "error", "nope");
+    idleWaitingForParam();
+
+    render(<CardContainer widget={paramWidget()} />);
+
+    expect(screen.getByText(/Waiting for parameters/)).toBeDefined();
+  });
+
+  it("shows the hint and a working Retry on ConnectorUnavailableError; hides the driver text from viewers", () => {
+    const refetch = vi.fn();
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: true,
+      error: new ConnectorUnavailableError(
+        "timeout exceeded when trying to connect",
+        "network",
+      ),
+      data: undefined,
+      missingParams: [],
+      refetch,
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.getByText("Connector unavailable")).toBeDefined();
+    expect(
+      screen.getByText(hintForConnectionErrorCode("network")),
+    ).toBeDefined();
+    expect(screen.queryByText("Query Failed")).toBeNull();
+    expect(screen.queryByText(/timeout exceeded/)).toBeNull();
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("adds the driver message for editors, who can fix the connection", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: true,
+      error: new ConnectorUnavailableError(
+        "The client is unauthorized due to authentication failure.",
+        "auth_failed",
+      ),
+      data: undefined,
+      missingParams: [],
+      refetch: vi.fn(),
+    });
+
+    render(<CardContainer widget={makeWidget()} isEditMode />);
+
+    expect(
+      screen.getByText(hintForConnectionErrorCode("auth_failed")),
+    ).toBeDefined();
+    expect(screen.getByText(/authentication failure/)).toBeDefined();
+  });
+});
 
 /** Helper to create a minimal widget. */
 function makeWidget(overrides: Partial<DashboardWidget> = {}): DashboardWidget {

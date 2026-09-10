@@ -34,6 +34,8 @@ vi.mock("@neoboard/components", () => ({
 
 /* ---------- import under test ---------- */
 import { ParamMultiSelect } from "../param-multi-select";
+import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 
 /* ---------- helpers ---------- */
 
@@ -60,6 +62,7 @@ function makeSeed(overrides: Partial<SeedQueryResult> = {}): SeedQueryResult {
   return {
     options: [],
     loading: false,
+    error: null,
     setSearchTerm: vi.fn(),
     parentValue: undefined,
     ...overrides,
@@ -97,6 +100,22 @@ function fireChange(vals: string[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   multiProps.length = 0;
+});
+
+/** #1678 — same contract as ParamSelect: a rejected seed query is not "no rows". */
+describe("ParamMultiSelect — seed query error (#1678)", () => {
+  it("names the connector instead of rendering an empty multi-select", () => {
+    renderWidget(
+      makeActions(undefined, false),
+      makeSeed({
+        error: new ConnectorUnavailableError("dead", "auth_failed"),
+      }),
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Connector unavailable");
+    expect(alert).toHaveTextContent(hintForConnectionErrorCode("auth_failed"));
+    expect(screen.queryByTestId("multi-tags")).toBeNull();
+  });
 });
 
 describe("ParamMultiSelect — reading the stored value", () => {

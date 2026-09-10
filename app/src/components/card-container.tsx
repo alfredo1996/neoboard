@@ -21,7 +21,13 @@ import {
 } from "@/lib/widget/card-utils";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Clock, Play } from "lucide-react";
-import { QueueFullError, ClientQueueTimeoutError } from "@/lib/api/api-client";
+import {
+  QueueFullError,
+  ClientQueueTimeoutError,
+  ConnectorUnavailableError,
+} from "@/lib/api/api-client";
+import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
 import {
   Skeleton,
   Alert,
@@ -147,6 +153,42 @@ function MissingParamBadge({
 }
 
 /**
+ * The connector cannot be reached (#1678). Rendered both when this widget's
+ * own query came back CONNECTOR_UNAVAILABLE and when a sibling on the same
+ * connection did while this one is still gated on a parameter — so the
+ * whole dashboard names the connector at once instead of one card saying
+ * "unavailable" and the rest "waiting".
+ */
+function ConnectorUnavailable({
+  hint,
+  detail,
+  onRetry,
+}: {
+  hint: string;
+  /** The driver's own words — shown to editors, who can fix the connection. */
+  detail?: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="p-4">
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Connector unavailable</AlertTitle>
+        <AlertDescription className="space-y-2">
+          <p>{hint}</p>
+          {detail && <p className="text-xs font-mono opacity-70">{detail}</p>}
+          {onRetry && (
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              Retry
+            </Button>
+          )}
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
+/**
  * CardContainer: Fetches query results and renders the appropriate chart.
  * Uses React Query caching so queries are deduplicated across view->edit navigation.
  *
@@ -236,6 +278,16 @@ export function CardContainer({
     refetchInterval,
     enabled: manualEnabled,
   });
+
+  // What the other widgets on this connection have learned about it (#1678).
+  // A widget that never gets to run — gated on a parameter whose seed query
+  // is on the same dead connector — has no error of its own to show.
+  const connectionStatus = useConnectionStatusStore(
+    (s) => s.statuses[widget.connectionId],
+  );
+  const connectionError = useConnectionStatusStore(
+    (s) => s.errors[widget.connectionId],
+  );
 
   // Resolve the current column mapping from widget settings.
   const columnMapping = useMemo<ColumnMapping>(() => {
@@ -519,6 +571,19 @@ export function CardContainer({
       );
     }
 
+    // The parameter this widget waits for will never arrive if its seed
+    // query runs on a connector a sibling has already found dead (#1678).
+    // Name the connector; "Waiting for parameters…" here was a lie that only
+    // a page reload could dispel. No Retry: the query is disabled, and the
+    // sibling that discovered the failure owns the retry.
+    if (connectionStatus === "error") {
+      return (
+        <ConnectorUnavailable
+          hint={connectionError ?? hintForConnectionErrorCode("network")}
+        />
+      );
+    }
+
     // Genuine unresolved $param_xxx placeholders — show parameter badges.
     return (
       <div className="flex h-full items-center justify-center p-6">
@@ -554,6 +619,18 @@ export function CardContainer({
   }
 
   if (widgetQuery.isError) {
+    // The connector itself is unreachable (#1678). Never retried
+    // automatically — see shouldRetryWidgetQuery — so the Retry here is the
+    // only re-probe, and it is the user's call.
+    if (widgetQuery.error instanceof ConnectorUnavailableError) {
+      return (
+        <ConnectorUnavailable
+          hint={hintForConnectionErrorCode(widgetQuery.error.reason)}
+          detail={isEditMode ? widgetQuery.error.message : undefined}
+          onRetry={() => widgetQuery.refetch()}
+        />
+      );
+    }
     // Backpressure states — retries already exhausted at this point, but
     // render a softer message (not "Query Failed") with a manual retry
     // button so the user understands it's a transient server-load issue.

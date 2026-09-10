@@ -40,6 +40,38 @@ function lastCallArgs(): SeedSpyArgs {
   return last;
 }
 
+/**
+ * #1678 — `error` used to be dropped here, so a dead connector behind a
+ * select was an empty dropdown with no message and no way to tell it apart
+ * from "no rows".
+ */
+describe("useSeedQueryOptions — threads the seed query error through (#1678)", () => {
+  beforeEach(() => {
+    seedQuerySpy.mockClear();
+    useParameterStore.getState().clearAll();
+  });
+
+  it("exposes the seed query's error", () => {
+    const dead = new Error("timeout exceeded when trying to connect");
+    seedQuerySpy.mockReturnValueOnce({
+      options: [],
+      loading: false,
+      error: dead,
+    });
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+    expect(result.current.error).toBe(dead);
+  });
+
+  it("exposes null when the seed query succeeded", () => {
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+    expect(result.current.error).toBeNull();
+  });
+});
+
 describe("useSeedQueryOptions — cascading is keyed on the parent, not a type (#1360)", () => {
   beforeEach(() => {
     seedQuerySpy.mockClear();

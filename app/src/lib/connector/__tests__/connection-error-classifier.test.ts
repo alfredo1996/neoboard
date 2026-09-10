@@ -26,8 +26,30 @@ describe("classifyConnectionError", () => {
       "ServiceUnavailable: Could not perform discovery. No routing servers available.",
       "WebSocket connection failure",
       "Network is unreachable",
+      // What the drivers actually say about an unroutable host (#1678):
+      // pg-pool (>=3.14 wraps the client's connect timeout; the older
+      // wording is its pool-full message), pg.Client on its own, then the
+      // Neo4j channel on connectionTimeout. None of them names a network
+      // code. The first one is the E2E-observed storm trigger.
+      "Connection terminated due to connection timeout",
+      "timeout exceeded when trying to connect",
+      "timeout expired",
+      "Failed to connect to server. Please ensure that your database is listening on the correct host and port and that you have compatible encryption settings both on Neo4j server and driver. Note that the default encryption setting has changed in Neo4j 4.0. Caused by: Failed to establish connection in 30000ms",
+      "Failed to establish connection in 30000ms",
     ])("classifies %j as network", (msg) => {
       expect(classifyConnectionError(msg)).toBe("network");
+    });
+
+    it.each([
+      // A query the database itself cut short is not a dead connector.
+      "canceling statement due to statement timeout",
+      // A backend dying mid-query says "terminated" too; only the full
+      // pg-pool connect-timeout phrase means the host never answered.
+      "Connection terminated unexpectedly",
+      "The transaction has been terminated. Retry your operation in a new transaction, and you should see a successful result. The transaction has not completed within the specified timeout (dbms.transaction.timeout).",
+      "Connection acquisition timed out in 60000 ms. Pool status: Active conn count = 100, Idle conn count = 0.",
+    ])("leaves a query/pool timeout %j as unknown (#1678)", (msg) => {
+      expect(classifyConnectionError(msg)).toBe("unknown");
     });
   });
 

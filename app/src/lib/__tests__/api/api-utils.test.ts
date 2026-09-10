@@ -202,6 +202,113 @@ describe("handleRouteError", () => {
     });
   });
 
+  /**
+   * #1678 — a dead connector used to fall into the transient branch (a
+   * connect timeout says "timeout"), so every widget got 408 + Retry-After
+   * and retried three times against a host that never answers.
+   */
+  describe("connector unavailable (#1678)", () => {
+    /** What the connectors throw: `wrapError` names every raw driver error. */
+    const connectorError = (message: string) =>
+      Object.assign(new Error(message), { name: "ConnectorError" });
+
+    it.each([
+      // pg-pool >=3.14 on connectionTimeoutMillis — the exact storm trigger,
+      // observed end to end against an unroutable host.
+      "Connection terminated due to connection timeout",
+      // pg-pool's pool-full wording.
+      "timeout exceeded when trying to connect",
+      // Neo4j channel on connectionTimeout.
+      "Failed to connect to server. Please ensure that your database is listening on the correct host and port. Caused by: Failed to establish connection in 30000ms",
+      "connect ETIMEDOUT 10.255.255.1:5432",
+      "connect ECONNREFUSED 127.0.0.1:5432",
+    ])(
+      "returns 502 CONNECTOR_UNAVAILABLE with no Retry-After for %j",
+      async (message) => {
+        const res = await handleRouteError(
+          connectorError(message),
+          "Query execution failed",
+        );
+        expect(res.status).toBe(502);
+        expect(res.headers.get("Retry-After")).toBeNull();
+        const body = await res.json();
+        expect(body.error.code).toBe("CONNECTOR_UNAVAILABLE");
+        expect(body.error.details).toEqual({ reason: "network" });
+      },
+    );
+
+    it("classifies bad credentials as auth_failed, not as a retryable error", async () => {
+      const res = await handleRouteError(
+        connectorError(
+          "The client is unauthorized due to authentication failure.",
+        ),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(502);
+      const body = await res.json();
+      expect(body.error.details).toEqual({ reason: "auth_failed" });
+    });
+
+    it("keeps a genuine statement timeout on the 408 retry path", async () => {
+      const res = await handleRouteError(
+        connectorError("canceling statement due to statement timeout"),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(408);
+      expect(res.headers.get("Retry-After")).toBe("3");
+    });
+
+    it("keeps a pool-acquisition timeout on the 408 retry path", async () => {
+      const res = await handleRouteError(
+        connectorError(
+          "Connection acquisition timed out in 60000 ms. Pool status: Active conn count = 100, Idle conn count = 0.",
+        ),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(408);
+    });
+
+    it("only classifies errors the connectors raised — the app's own DB being down is still a 500", async () => {
+      // Same message, plain Error: this is drizzle/pg talking to NeoBoard's
+      // own database. Telling the user to check *their* connector's host
+      // would be a misdiagnosis.
+      const res = await handleRouteError(
+        new Error("connect ECONNREFUSED 127.0.0.1:5432"),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(500);
+    });
+
+    it("does not swallow an app-level Unauthorized into auth_failed", async () => {
+      // api-key.ts throws a plain Error("Unauthorized"); the classifier's
+      // auth keyword list contains "unauthorized".
+      const res = await handleRouteError(new Error("Unauthorized"));
+      expect(res.status).toBe(401);
+    });
+
+    it("sanitizes the driver message on the 502", async () => {
+      const res = await handleRouteError(
+        connectorError(
+          "connect ECONNREFUSED postgresql://neo:s3cret@db.internal:5432/x",
+        ),
+        "Query execution failed",
+      );
+      const body = await res.json();
+      expect(body.error.message).not.toMatch(/s3cret/);
+    });
+
+    it("safeMessage collapses the 502 message to the fallback", async () => {
+      const res = await handleRouteError(
+        connectorError("connect ECONNREFUSED db-prod-1.internal:5432"),
+        "Write query failed",
+        { safeMessage: true },
+      );
+      expect(res.status).toBe(502);
+      const body = await res.json();
+      expect(body.error.message).toBe("Write query failed");
+    });
+  });
+
   describe("safeMessage option", () => {
     it("collapses raw driver errors to fallback when safeMessage=true", async () => {
       const res = await handleRouteError(

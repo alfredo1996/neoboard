@@ -8,6 +8,7 @@ import {
   ClientQueueTimeoutError,
 } from "@/lib/api/api-client";
 import { useParameterStore } from "@/stores/parameter-store";
+import { trackConnectorOutcome } from "@/stores/connection-status-store";
 import { resolveRelativePreset } from "@/lib/shared/date-utils";
 import type { RelativeDatePreset } from "@neoboard/components";
 
@@ -118,6 +119,25 @@ export function extractReferencedParams(
 }
 
 /**
+ * Retry only on backpressure (503/408) — every other error fails fast so
+ * the user sees it immediately. Capped at 3 attempts to avoid hammering a
+ * server that is already overloaded. A `ConnectorUnavailableError` (502) is
+ * refused here on purpose: retrying a dead host only waits the full connect
+ * timeout again (#1678).
+ *
+ * @visibleForTesting
+ */
+export function shouldRetryWidgetQuery(
+  failureCount: number,
+  error: unknown,
+): boolean {
+  if (failureCount >= 3) return false;
+  return (
+    error instanceof QueueFullError || error instanceof ClientQueueTimeoutError
+  );
+}
+
+/**
  * Cached query hook for widget data. Uses React Query's cache with a stable
  * key based on connectionId + query text, so the same query is never executed
  * twice (e.g. when navigating from view mode to edit mode).
@@ -200,10 +220,11 @@ export function useWidgetQuery(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mergedInput),
       });
-      const { data, meta } = await unwrapFullResponse<{
-        data: unknown;
-        fields?: unknown;
-      }>(res);
+      // mergedInput is non-null whenever the query is enabled (see below).
+      const { data, meta } = await trackConnectorOutcome(
+        mergedInput!.connectionId,
+        unwrapFullResponse<{ data: unknown; fields?: unknown }>(res),
+      );
       const result: QueryResult = {
         ...data,
         ...meta,
@@ -227,16 +248,11 @@ export function useWidgetQuery(
     staleTime: options?.staleTime ?? 0,
     gcTime: options?.gcTime,
     refetchInterval: options?.refetchInterval,
-    // Retry only on backpressure (503/408) — all other errors fail fast
-    // so the user sees them immediately. Cap at 3 attempts to avoid
-    // hammering a server that's already overloaded.
-    retry: (failureCount, error) => {
-      if (failureCount >= 3) return false;
-      return (
-        error instanceof QueueFullError ||
-        error instanceof ClientQueueTimeoutError
-      );
-    },
+    // Every alt-tab used to re-fire every widget on the dashboard; against a
+    // dead connector that overlapped with the refresh cycle (#1678). The
+    // interval and the manual refresh are the refresh paths.
+    refetchOnWindowFocus: false,
+    retry: shouldRetryWidgetQuery,
     // Honour the server's Retry-After hint when available; otherwise fall
     // back to exponential backoff (500ms, 1s, 2s) with a 5s cap.
     retryDelay: (attemptIndex, error) => {
