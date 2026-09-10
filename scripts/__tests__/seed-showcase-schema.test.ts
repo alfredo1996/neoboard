@@ -58,8 +58,6 @@ describe("demo showcases validate against the app's export schema", () => {
     expect(SHOWCASES.length).toBeGreaterThan(0);
   });
 
-  // A stale allow-list entry (a type since re-enabled) would silently widen
-  // the exception the moment that type is disabled again.
   // Every seed is clean, so the per-file checks below only ever expect [].
   // Pin the detector itself: it must flag a hidden type in both the
   // pretty-printed JSON and compact SQL forms, and spare choropleth.
@@ -90,6 +88,8 @@ describe("demo showcases validate against the app's export schema", () => {
     }
   });
 
+  // A stale allow-list entry (a type since re-enabled) would silently widen
+  // the exception the moment that type is disabled again.
   it("allows only types that are actually hidden", () => {
     for (const t of SEEDED_HIDDEN_TYPES) {
       expect(DISABLED_CHART_TYPES.has(t), t).toBe(true);
