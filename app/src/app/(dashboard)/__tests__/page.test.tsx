@@ -296,4 +296,18 @@ describe("DashboardListPage — tag limits (#1715 review)", () => {
     expect(tagsInput).toHaveAttribute("aria-describedby", error.id);
     expect(screen.getByLabelText("Name")).not.toHaveAttribute("aria-invalid");
   });
+
+  it("puts an empty-name error under the edit dialog's Name field, not its Tags field", () => {
+    render(<DashboardListPage />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit details" })[0]);
+    const nameInput = screen.getByLabelText("Name");
+    fireEvent.change(nameInput, { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    const error = screen.getByText("Name is required");
+    expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(nameInput).toHaveAttribute("aria-describedby", error.id);
+    expect(screen.getByLabelText(/^Tags/)).not.toHaveAttribute("aria-invalid");
+  });
 });

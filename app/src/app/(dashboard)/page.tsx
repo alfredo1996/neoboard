@@ -683,6 +683,36 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
   );
 }
 
+// ── Shared field ──────────────────────────────────────────────────────
+
+/**
+ * Input with an inline error, wired through aria-invalid/aria-describedby.
+ * Serves the edit dialog's Name and both dialogs' Tags fields; the create
+ * dialog's Name keeps its own three-way hint (error / duplicate / help).
+ */
+function FieldInput({
+  id,
+  error,
+  ...props
+}: React.ComponentProps<typeof Input> & { id: string; error: string | null }) {
+  return (
+    <>
+      <Input
+        id={id}
+        className={`mt-2 ${error ? "border-destructive" : ""}`}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        {...props}
+      />
+      {error && (
+        <p id={`${id}-error`} className="text-xs text-destructive mt-1">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────
 
 export default function DashboardListPage() {
@@ -894,28 +924,16 @@ export default function DashboardListPage() {
                   (optional, comma-separated)
                 </span>
               </Label>
-              <Input
+              <FieldInput
                 id="dashboard-tags"
+                error={tagsError}
                 value={newTags}
                 onChange={(e) => {
                   setNewTags(e.target.value);
                   if (tagsError) setTagsError(null);
                 }}
                 placeholder="e.g. sales, weekly, kpi"
-                className={`mt-2 ${tagsError ? "border-destructive" : ""}`}
-                aria-invalid={tagsError ? "true" : undefined}
-                aria-describedby={
-                  tagsError ? "dashboard-tags-error" : undefined
-                }
               />
-              {tagsError && (
-                <p
-                  id="dashboard-tags-error"
-                  className="text-xs text-destructive mt-1"
-                >
-                  {tagsError}
-                </p>
-              )}
             </div>
             <DialogFooter>
               <Button
@@ -957,57 +975,33 @@ export default function DashboardListPage() {
             </DialogHeader>
             <div className="py-4">
               <Label htmlFor="dashboard-rename">Name</Label>
-              <Input
+              <FieldInput
                 id="dashboard-rename"
+                error={renameError}
                 value={renameValue}
                 onChange={(e) => {
                   setRenameValue(e.target.value);
                   if (renameError) setRenameError(null);
                 }}
                 placeholder="Dashboard name"
-                className={`mt-2 ${renameError ? "border-destructive" : ""}`}
                 autoFocus
-                aria-invalid={renameError ? "true" : undefined}
-                aria-describedby={
-                  renameError ? "dashboard-rename-error" : undefined
-                }
               />
-              {renameError && (
-                <p
-                  id="dashboard-rename-error"
-                  className="text-xs text-destructive mt-1"
-                >
-                  {renameError}
-                </p>
-              )}
               <Label htmlFor="dashboard-rename-tags" className="mt-4 block">
                 Tags{" "}
                 <span className="text-muted-foreground text-xs">
                   (optional, comma-separated)
                 </span>
               </Label>
-              <Input
+              <FieldInput
                 id="dashboard-rename-tags"
+                error={renameTagsError}
                 value={renameTags}
                 onChange={(e) => {
                   setRenameTags(e.target.value);
                   if (renameTagsError) setRenameTagsError(null);
                 }}
                 placeholder="e.g. sales, weekly, kpi"
-                className={`mt-2 ${renameTagsError ? "border-destructive" : ""}`}
-                aria-invalid={renameTagsError ? "true" : undefined}
-                aria-describedby={
-                  renameTagsError ? "dashboard-rename-tags-error" : undefined
-                }
               />
-              {renameTagsError && (
-                <p
-                  id="dashboard-rename-tags-error"
-                  className="text-xs text-destructive mt-1"
-                >
-                  {renameTagsError}
-                </p>
-              )}
             </div>
             <DialogFooter>
               <Button
