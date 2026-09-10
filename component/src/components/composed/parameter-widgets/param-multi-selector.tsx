@@ -11,6 +11,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandList,
+  filterOnLabel,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -187,7 +188,7 @@ function ParamMultiSelector({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full min-w-[200px] p-0" align="start">
-          <Command>
+          <Command filter={filterOnLabel}>
             {/*
               CommandInput only renders when `searchable` is true. The
               previous version always rendered the input but stripped its
@@ -208,9 +209,8 @@ function ParamMultiSelector({
                 {options.map((opt) => (
                   <MultiSelectItem
                     key={opt.value}
-                    // Machine value retained — the label-vs-value filtering
-                    // fix is #1411 / #1284 defect 2, not this change.
                     value={opt.value}
+                    keywords={[opt.label]}
                     isSelected={values.includes(opt.value)}
                     onToggle={() => handleToggle(opt.value)}
                   >

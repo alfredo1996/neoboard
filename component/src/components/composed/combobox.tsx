@@ -12,6 +12,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  filterOnLabel,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -95,7 +96,7 @@ function Combobox({
         className="p-0"
         style={{ width: "var(--radix-popover-trigger-width)" }}
       >
-        <Command>
+        <Command filter={filterOnLabel}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList ref={listRef}>
             <CommandEmpty>{emptyText}</CommandEmpty>
@@ -103,9 +104,10 @@ function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  // Use label as the cmdk filter value so typing the connection
-                  // name (not the UUID) finds the right item.
-                  value={option.label}
+                  // Filter on the label so typing the connection name (not the
+                  // UUID) finds the item; value stays unique (#1411).
+                  value={option.value}
+                  keywords={[option.label]}
                   disabled={option.disabled}
                   onSelect={() => {
                     onChange?.(option.value === value ? "" : option.value);

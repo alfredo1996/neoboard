@@ -462,6 +462,78 @@ test.describe("Parameter widget types", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 6b. searchable select — typing the visible label keeps its option (#1411)
+  //     The realistic seed shape: an opaque id as the value, a name as the
+  //     label. cmdk used to filter on the id, so typing the name emptied the
+  //     list.
+  // ─────────────────────────────────────────────────────────────────────────
+  test("searchable select filters on the visible label, not the id behind it", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await createParamDashboard(
+      page.request,
+      `param-label-search ${Date.now()}`,
+      {
+        widgets: [
+          {
+            id: "p-label",
+            chartType: "parameter-select",
+            connectionId: "conn-neo4j-001",
+            query: "",
+            settings: {
+              title: "Actor",
+              chartOptions: {
+                parameterType: "select",
+                parameterName: "actor",
+                seedQuery:
+                  "MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: 'The Matrix'}) RETURN elementId(p) AS value, p.name AS label ORDER BY label",
+              },
+            },
+          },
+          {
+            id: "t-label",
+            chartType: "table",
+            connectionId: "conn-neo4j-001",
+            query:
+              "MATCH (p:Person) WHERE elementId(p) = $param_actor RETURN p.name AS name",
+            settings: { title: "Picked" },
+          },
+        ],
+        gridLayout: [
+          { i: "p-label", x: 0, y: 0, w: 4, h: 3 },
+          { i: "t-label", x: 4, y: 0, w: 6, h: 6 },
+        ],
+      },
+    );
+
+    try {
+      await page.goto(`/${id}`);
+
+      const trigger = page.getByRole("combobox").first();
+      await trigger.waitFor({ state: "visible", timeout: 15_000 });
+      await trigger.click();
+      await expect(page.getByRole("option").first()).toBeVisible({
+        timeout: 10_000,
+      });
+
+      await page.getByPlaceholder("Search\u2026").fill("Keanu");
+      // Assert inside the 300ms search debounce. Once it fires, the seed query
+      // refetches and the popover remounts with an empty input and every
+      // option, which would let the unfixed filter pass unnoticed.
+      const option = page.getByRole("option", { name: "Keanu Reeves" });
+      await expect(option).toBeVisible({ timeout: 250 });
+      await expect(page.getByRole("option")).toHaveCount(1, { timeout: 250 });
+      await option.click();
+
+      // The id reached the dependent query: header row + Keanu's row.
+      await expect(trigger).toHaveText(/Keanu Reeves/);
+      await expect(page.getByRole("row")).toHaveCount(2, { timeout: 15_000 });
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 7. cascading-select — child options depend on parent; clearing resets
   // ─────────────────────────────────────────────────────────────────────────
   test("cascading-select refreshes child options when parent changes and resets on clear", async ({

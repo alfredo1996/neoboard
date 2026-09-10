@@ -72,3 +72,34 @@ describe("Combobox", () => {
     expect(homeSvgs.length).toBeGreaterThan(otherSvgs.length);
   });
 });
+
+// #1411: combobox already filtered on the label, by making the label cmdk's
+// value — which merged options that share a label into one cmdk identity.
+describe("Combobox — filters on the visible label (#1411)", () => {
+  it("keeps an option whose label matches although its value does not", async () => {
+    const user = userEvent.setup();
+    render(<Combobox options={options} />);
+    await user.click(screen.getByRole("combobox"));
+    await user.type(screen.getByPlaceholderText("Search..."), "Char");
+    expect(screen.getByText("Charlie")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  });
+
+  it("keeps options that share a label distinct for keyboard selection", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Combobox
+        options={[
+          { value: "c-1", label: "Movies (neo4j)" },
+          { value: "c-2", label: "Movies (neo4j)" },
+        ]}
+        onChange={onChange}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByPlaceholderText("Search..."));
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith("c-2");
+  });
+});

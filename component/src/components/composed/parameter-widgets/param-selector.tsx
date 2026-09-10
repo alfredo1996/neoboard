@@ -18,6 +18,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  filterOnLabel,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -185,7 +186,7 @@ function ParamSelector({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full min-w-[200px] p-0" align="start">
-              <Command>
+              <Command filter={filterOnLabel}>
                 <CommandInput
                   placeholder="Search…"
                   onValueChange={(term) => onSearch?.(term)}
@@ -197,6 +198,7 @@ function ParamSelector({
                       <CommandItem
                         key={opt.value}
                         value={opt.value}
+                        keywords={[opt.label]}
                         onSelect={() => {
                           onChange(opt.value === value ? "" : opt.value);
                           setOpen(false);

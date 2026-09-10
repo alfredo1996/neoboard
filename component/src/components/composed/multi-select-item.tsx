@@ -13,6 +13,8 @@ export interface MultiSelectItemProps {
    * in the one surface that does not have it.
    */
   readonly value?: string;
+  /** Visible label for a Command using `filterOnLabel` (#1411). */
+  readonly keywords?: string[];
   readonly isSelected: boolean;
   readonly onToggle: () => void;
   readonly disabled?: boolean;
@@ -37,13 +39,20 @@ export interface MultiSelectItemProps {
  */
 function MultiSelectItem({
   value,
+  keywords,
   isSelected,
   onToggle,
   disabled,
   children,
 }: MultiSelectItemProps) {
   return (
-    <CommandItem asChild value={value} disabled={disabled} onSelect={onToggle}>
+    <CommandItem
+      asChild
+      value={value}
+      keywords={keywords}
+      disabled={disabled}
+      onSelect={onToggle}
+    >
       {/* asChild so Radix Slot lets these props win: cmdk would otherwise
           drive role from its own state. Note aria-CHECKED, not aria-selected:
           cmdk uses aria-selected as its internal marker for the highlighted

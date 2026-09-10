@@ -1,6 +1,6 @@
 import * as React from "react";
 import { type DialogProps } from "@radix-ui/react-dialog";
-import { Command as CommandPrimitive } from "cmdk";
+import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import { Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -28,6 +28,18 @@ const Command = React.forwardRef<
   />
 ));
 Command.displayName = CommandPrimitive.displayName;
+
+/**
+ * `filter` for a `<Command>` whose items carry a machine `value` (an id) and
+ * pass their visible label as `keywords={[label]}`. Scores the label only.
+ * Scoring `value` hides an option when its id differs from its label, and
+ * making the label the `value` merges options that share a label into one
+ * cmdk identity — keyboard navigation then cannot reach the second (#1411).
+ * Every item under such a Command must pass `keywords`.
+ */
+function filterOnLabel(_value: string, search: string, keywords?: string[]) {
+  return defaultFilter(keywords?.join(" ") ?? "", search);
+}
 
 const CommandDialog = ({ children, ...props }: DialogProps) => {
   return (
@@ -154,6 +166,7 @@ export {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  filterOnLabel,
   CommandShortcut,
   CommandSeparator,
 };

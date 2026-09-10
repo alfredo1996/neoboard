@@ -1,5 +1,7 @@
+import type { ComponentProps } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { MultiSelect } from "../multi-select";
 
 const options = [
@@ -154,5 +156,63 @@ describe("MultiSelect", () => {
     } finally {
       Element.prototype.scrollIntoView = originalScrollIntoView;
     }
+  });
+});
+
+// #1411: value is a machine id, label is what the user sees and types.
+describe("MultiSelect — filters on the visible label (#1411)", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterAll(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  const idOptions = [
+    { value: "w-1", label: "Revenue by month" },
+    { value: "w-2", label: "Top customers" },
+  ];
+
+  async function openAndType(
+    props: Partial<ComponentProps<typeof MultiSelect>>,
+    term: string,
+  ) {
+    const user = userEvent.setup();
+    render(<MultiSelect options={idOptions} value={[]} {...props} />);
+    await user.click(screen.getByRole("combobox"));
+    const input = screen.getByPlaceholderText("Search...");
+    await user.click(input);
+    if (term) await user.type(input, term);
+    return user;
+  }
+
+  it("keeps an option whose label matches although its value does not", async () => {
+    await openAndType({}, "Revenue");
+    expect(screen.getByText("Revenue by month")).toBeInTheDocument();
+    expect(screen.queryByText("Top customers")).not.toBeInTheDocument();
+  });
+
+  it("selects the underlying value, not the label", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType({ onChange }, "Revenue");
+    await user.click(screen.getByText("Revenue by month"));
+    expect(onChange).toHaveBeenCalledWith(["w-1"]);
+  });
+
+  it("keeps options that share a label distinct for keyboard selection", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType(
+      {
+        onChange,
+        options: [
+          { value: "w-1", label: "Untitled" },
+          { value: "w-2", label: "Untitled" },
+        ],
+      },
+      "",
+    );
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith(["w-2"]);
   });
 });
