@@ -319,7 +319,9 @@ function GanttChart({
         // - weakFilter: the series encodes x as [start, end], and the default
         //   'filter' drops a bar when *either* end leaves the window, so bars
         //   vanished at the edges as you zoomed in. Set on both x zooms; the
-        //   wheel and the slider filter independently.
+        //   wheel and the slider filter independently. Safe only because the
+        //   series sets clip: true — a custom series is unclipped by default,
+        //   and a kept bar would otherwise paint over the label gutter.
         // - labelFormatter: the slider's fallback label takes its precision
         //   from the tick interval, not the value (seconds on a two-week
         //   range, a bare date once the ticks are years). The data are
@@ -367,6 +369,9 @@ function GanttChart({
       series: [
         {
           type: "custom",
+          // weakFilter keeps bars that extend past the window; without this
+          // they draw across the task-label gutter and past the plot's edge.
+          clip: true,
           renderItem: renderItem as never,
           encode: {
             x: [1, 2],

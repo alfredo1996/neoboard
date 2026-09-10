@@ -382,12 +382,35 @@ test.describe("New chart types — creation flow", () => {
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 
-    // The setting round-trips through the schema and still draws — the
-    // slider itself is canvas, so "rendered with the option off" is the
-    // observable half of the toggle here; the option shape is unit-tested.
+    // Save, reload, reopen. The chart's aria-label reads the same whether
+    // the option is on, off, or never persisted (the slider is canvas), so
+    // the round-trip editor → layout JSON → editor is what this pins — the
+    // one leg the unit tests do not cover.
+    await page.getByRole("button", { name: "Save" }).click();
     await expect(
-      page.getByRole("img", { name: "Gantt chart with 2 tasks" }),
+      page.getByText("Dashboard saved", { exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.reload();
+    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const card = page.locator("[data-testid='widget-card']").first();
+    await expect(
+      card.getByRole("img", { name: "Gantt chart with 2 tasks" }),
     ).toBeVisible({ timeout: 15_000 });
+    await card.hover();
+    await card.getByRole("button", { name: "Widget actions" }).click();
+    await page.getByRole("menuitem", { name: /edit/i }).click();
+
+    const editDialog = page.getByRole("dialog", { name: "Edit Widget" });
+    await expect(editDialog).toBeVisible({ timeout: 10_000 });
+    await editDialog.getByRole("tab", { name: "Style" }).click();
+    await editDialog.getByRole("button", { name: "Interaction" }).click();
+    await expect(editDialog.locator("#enableDataZoom")).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
   });
 });
 

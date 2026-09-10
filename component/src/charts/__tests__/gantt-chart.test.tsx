@@ -285,6 +285,15 @@ describe("GanttChart", () => {
       }
     });
 
+    it("clips the bars to the plot — what makes weakFilter safe here", () => {
+      // weakFilter keeps a bar whose far end is outside the window, and a
+      // custom series is unclipped by default (echarts 6.1.0
+      // CustomSeries.js `clip: false`), so the kept bar was painted across
+      // the task-label gutter and past the plot's right edge.
+      const { series } = optionOf({ data: sampleData });
+      expect(series[0].clip).toBe(true);
+    });
+
     it("leaves the slider on ECharts' own alignment to the plot", () => {
       // Verified against echarts 6.1.0 SliderZoomView._layout: with no
       // left/right the slider takes the coordinate system's rect, which is
