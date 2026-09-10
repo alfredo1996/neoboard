@@ -149,9 +149,13 @@ vi.mock("@/lib/plugin/chart-helpers", async () => {
 /* ---------- import under test ---------- */
 import { CardContainer } from "../card-container";
 import type { DashboardWidget } from "@/lib/db/schema";
-import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import {
+  ClientQueueTimeoutError,
+  ConnectorUnavailableError,
+} from "@/lib/api/api-client";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
+import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 
 /**
  * #1678 — a dead connector used to be indistinguishable from an unset
@@ -168,11 +172,24 @@ describe("CardContainer — connector unavailable (#1678)", () => {
       data: undefined,
       missingParams: ["region"],
     });
-  const paramWidget = () =>
+  const paramWidget = (over: Partial<DashboardWidget> = {}) =>
     makeWidget({
       connectionId: "conn-1",
       query: "MATCH (n) WHERE n.region = $param_region RETURN n",
+      ...over,
     });
+  /** `region` is set by a selector whose seed query runs on conn-a. */
+  const regionFromConnA: ParameterSourceMap = {
+    region: [
+      {
+        widgetId: "sel",
+        widgetTitle: "Region",
+        pageId: "p1",
+        pageTitle: "Main",
+        connectionId: "conn-a",
+      },
+    ],
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -211,6 +228,74 @@ describe("CardContainer — connector unavailable (#1678)", () => {
     render(<CardContainer widget={paramWidget()} />);
 
     expect(screen.getByText(/Waiting for parameters/)).toBeDefined();
+  });
+
+  // The parameter's source can live on a connection other than the
+  // widget's own. A healthy widget fed by a selector on a dead connector is
+  // exactly the "parameter not chosen" vs "parameter source is broken"
+  // ambiguity the issue asked to remove.
+  it("names the connector behind the parameter when the widget's own connection is fine", () => {
+    useConnectionStatusStore
+      .getState()
+      .setStatus("conn-a", "error", hintForConnectionErrorCode("auth_failed"));
+    idleWaitingForParam();
+
+    render(
+      <CardContainer
+        widget={paramWidget({ connectionId: "conn-b" })}
+        parameterSourceMap={regionFromConnA}
+      />,
+    );
+
+    expect(screen.getByText("Connector unavailable")).toBeDefined();
+    expect(
+      screen.getByText(hintForConnectionErrorCode("auth_failed")),
+    ).toBeDefined();
+    expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
+  });
+
+  it("still waits when the flagged connection is neither its own nor the parameter's source", () => {
+    useConnectionStatusStore.getState().setStatus("conn-x", "error", "nope");
+    idleWaitingForParam();
+
+    render(
+      <CardContainer
+        widget={paramWidget({ connectionId: "conn-b" })}
+        parameterSourceMap={regionFromConnA}
+      />,
+    );
+
+    expect(screen.getByText(/Waiting for parameters/)).toBeDefined();
+    expect(screen.queryByText("Connector unavailable")).toBeNull();
+  });
+
+  // Above maxPerUser the overflow widgets get a 408 from the scheduler, and
+  // shouldRetryWidgetQuery refuses the retry once the connection is flagged.
+  // The card must then say what its siblings say, not "Server timed out".
+  it("names the connector, not the queue, when a 408 lands on a connection a sibling has flagged", () => {
+    useConnectionStatusStore
+      .getState()
+      .setStatus("conn-1", "error", hintForConnectionErrorCode("network"));
+    const refetch = vi.fn();
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: true,
+      error: new ClientQueueTimeoutError("queued", 5000),
+      data: undefined,
+      missingParams: [],
+      refetch,
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.getByText("Connector unavailable")).toBeDefined();
+    expect(
+      screen.getByText(hintForConnectionErrorCode("network")),
+    ).toBeDefined();
+    expect(screen.queryByText("Server timed out")).toBeNull();
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(refetch).toHaveBeenCalled();
   });
 
   it("shows the hint and a working Retry on ConnectorUnavailableError; hides the driver text from viewers", () => {

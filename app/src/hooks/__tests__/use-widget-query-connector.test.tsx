@@ -9,7 +9,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { QueryObserverOptions } from "@tanstack/react-query";
 import React from "react";
 import { useWidgetQuery } from "../use-widget-query";
-import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import {
+  ClientQueueTimeoutError,
+  ConnectorUnavailableError,
+} from "@/lib/api/api-client";
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
 
 function envelopeResponse(status: number, body: unknown): Response {
@@ -28,6 +31,13 @@ const DEAD_502 = envelopeResponse(502, {
     message: "timeout exceeded when trying to connect",
     details: { reason: "network" },
   },
+  meta: null,
+});
+
+/** What the scheduler says to the sixth widget on a five-slot connection. */
+const QUEUED_408 = envelopeResponse(408, {
+  data: null,
+  error: { code: "REQUEST_TIMEOUT", message: "queued too long" },
   meta: null,
 });
 
@@ -57,9 +67,7 @@ afterEach(() => {
 
 describe("useWidgetQuery on a dead connector (#1678)", () => {
   it("sends exactly one request, fails with ConnectorUnavailableError, and flags the connection", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(DEAD_502);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(DEAD_502);
 
     const { result } = renderHook(
       () => useWidgetQuery({ connectionId: "dead", query: "SELECT 1" }),
@@ -72,9 +80,33 @@ describe("useWidgetQuery on a dead connector (#1678)", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(result.current.error).toBeInstanceOf(ConnectorUnavailableError);
-    expect(useConnectionStatusStore.getState().getStatus("dead")).toBe(
-      "error",
+    expect(useConnectionStatusStore.getState().getStatus("dead")).toBe("error");
+  });
+
+  it("does not auto-retry a queue timeout on a connection already flagged dead", async () => {
+    useConnectionStatusStore
+      .getState()
+      .noteQueryOutcome(
+        "dead",
+        new ConnectorUnavailableError("dead", "network"),
+      );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(QUEUED_408);
+
+    const { result } = renderHook(
+      () => useWidgetQuery({ connectionId: "dead", query: "SELECT 1" }),
+      { wrapper },
     );
+
+    await waitFor(() => expect(result.current.isError).toBe(true), {
+      timeout: 3_000,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeInstanceOf(ClientQueueTimeoutError);
+    // And the 408 did not talk the store out of its verdict.
+    expect(useConnectionStatusStore.getState().getStatus("dead")).toBe("error");
   });
 
   it("does not refetch on window focus", async () => {

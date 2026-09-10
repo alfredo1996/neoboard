@@ -249,6 +249,22 @@ describe("handleRouteError", () => {
       expect(body.error.details).toEqual({ reason: "auth_failed" });
     });
 
+    it("classifies the PostgreSQL connector's refused-credentials error as auth_failed", async () => {
+      // The exact message PostgresConnectionModule emits when
+      // verifyAuthentication resolves false (#1678) — a plain Error there
+      // used to fall all the way through to a 500.
+      const res = await handleRouteError(
+        connectorError(
+          "PostgreSQL authentication failed: the server rejected the username or password",
+        ),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(502);
+      const body = await res.json();
+      expect(body.error.code).toBe("CONNECTOR_UNAVAILABLE");
+      expect(body.error.details).toEqual({ reason: "auth_failed" });
+    });
+
     it("keeps a genuine statement timeout on the 408 retry path", async () => {
       const res = await handleRouteError(
         connectorError("canceling statement due to statement timeout"),

@@ -23,11 +23,13 @@ type SeedSpyReturn = {
   options: { value: string; label: string }[];
   loading: boolean;
   error: Error | null;
+  refetch: () => void;
 };
 const seedQuerySpy = vi.fn<(...args: SeedSpyArgs) => SeedSpyReturn>(() => ({
   options: [],
   loading: false,
   error: null,
+  refetch: vi.fn(),
 }));
 vi.mock("@/hooks/use-seed-query", () => ({
   useSeedQuery: (...args: SeedSpyArgs) => seedQuerySpy(...args),
@@ -51,12 +53,27 @@ describe("useSeedQueryOptions — threads the seed query error through (#1678)",
     useParameterStore.getState().clearAll();
   });
 
+  it("exposes the seed query's refetch — the Retry behind SeedQueryError", () => {
+    const refetch = vi.fn();
+    seedQuerySpy.mockReturnValue({
+      options: [],
+      loading: false,
+      error: null,
+      refetch,
+    });
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+    expect(result.current.refetch).toBe(refetch);
+  });
+
   it("exposes the seed query's error", () => {
     const dead = new Error("timeout exceeded when trying to connect");
     seedQuerySpy.mockReturnValueOnce({
       options: [],
       loading: false,
       error: dead,
+      refetch: vi.fn(),
     });
     const { result } = renderHook(() =>
       useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),

@@ -648,6 +648,9 @@ describe("buildParameterSourceMap", () => {
           widgetTitle: "Region Picker",
           pageId: "p1",
           pageTitle: "Page 1",
+          // So a gated widget can tell whether the selector feeding it sits
+          // on a connection a sibling has found dead (#1678).
+          connectionId: "c1",
         },
       ],
     });
@@ -687,6 +690,7 @@ describe("buildParameterSourceMap", () => {
           widgetTitle: "Sales Chart",
           pageId: "p1",
           pageTitle: "Overview",
+          connectionId: "c1",
         },
       ],
     });
@@ -780,12 +784,14 @@ describe("buildParameterSourceMap", () => {
       widgetTitle: "Selector A",
       pageId: "p1",
       pageTitle: "Page A",
+      connectionId: "c1",
     });
     expect(map.region[1]).toEqual({
       widgetId: "w2",
       widgetTitle: "Bar Widget",
       pageId: "p2",
       pageTitle: "Page B",
+      connectionId: "c1",
     });
   });
 

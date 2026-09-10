@@ -28,7 +28,9 @@ export function ParamSelect({
   const selectValue = actions.currentEntry
     ? String(actions.currentEntry.value ?? "")
     : "";
-  if (seed.error) return <SeedQueryError error={seed.error} />;
+  if (seed.error) {
+    return <SeedQueryError error={seed.error} onRetry={seed.refetch} />;
+  }
   return (
     <ParamSelector
       parameterName={parameterName}

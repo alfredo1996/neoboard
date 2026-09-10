@@ -8,7 +8,10 @@ import {
   ClientQueueTimeoutError,
 } from "@/lib/api/api-client";
 import { useParameterStore } from "@/stores/parameter-store";
-import { trackConnectorOutcome } from "@/stores/connection-status-store";
+import {
+  trackConnectorOutcome,
+  useConnectionStatusStore,
+} from "@/stores/connection-status-store";
 import { resolveRelativePreset } from "@/lib/shared/date-utils";
 import type { RelativeDatePreset } from "@neoboard/components";
 
@@ -125,15 +128,27 @@ export function extractReferencedParams(
  * refused here on purpose: retrying a dead host only waits the full connect
  * timeout again (#1678).
  *
+ * Backpressure on a connection a sibling has already flagged dead is refused
+ * too: above `maxPerUser` the scheduler answers the overflow widgets with 408
+ * while the first batch sits in its connect timeout, and re-queueing behind
+ * the next batch is a second request per cycle for nothing.
+ *
  * @visibleForTesting
  */
 export function shouldRetryWidgetQuery(
   failureCount: number,
   error: unknown,
+  connectionId?: string,
 ): boolean {
   if (failureCount >= 3) return false;
-  return (
+  if (!(
     error instanceof QueueFullError || error instanceof ClientQueueTimeoutError
+  )) {
+    return false;
+  }
+  return (
+    connectionId === undefined ||
+    useConnectionStatusStore.getState().statuses[connectionId] !== "error"
   );
 }
 
@@ -252,7 +267,8 @@ export function useWidgetQuery(
     // dead connector that overlapped with the refresh cycle (#1678). The
     // interval and the manual refresh are the refresh paths.
     refetchOnWindowFocus: false,
-    retry: shouldRetryWidgetQuery,
+    retry: (failureCount, error) =>
+      shouldRetryWidgetQuery(failureCount, error, mergedInput?.connectionId),
     // Honour the server's Retry-After hint when available; otherwise fall
     // back to exponential backoff (500ms, 1s, 2s) with a 5s cap.
     retryDelay: (attemptIndex, error) => {

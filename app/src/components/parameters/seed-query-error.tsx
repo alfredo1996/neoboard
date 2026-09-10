@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@neoboard/components";
 import { ConnectorUnavailableError } from "@/lib/api/api-client";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 
@@ -11,16 +12,31 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
  * gets the classifier's hint — the driver text is not useful to a viewer and
  * can carry the host; any other failure gets its message, since the seed
  * query is the author's and the message is how they fix it.
+ *
+ * Retry is the only way back: the seed query has no interval, no auto-retry,
+ * and nothing else on the dashboard invalidates it, so without this the
+ * select — and everything gated on it — would stay dead until a reload.
  */
-export function SeedQueryError({ error }: { error: Error }) {
+export function SeedQueryError({
+  error,
+  onRetry,
+}: {
+  error: Error;
+  onRetry: () => void;
+}) {
   const unavailable = error instanceof ConnectorUnavailableError;
   return (
-    <p role="alert" className="text-xs text-destructive">
-      <span className="font-medium">
-        {unavailable ? "Connector unavailable" : "Couldn't load options"}
-      </span>
-      {" — "}
-      {unavailable ? hintForConnectionErrorCode(error.reason) : error.message}
-    </p>
+    <div className="space-y-2">
+      <p role="alert" className="text-xs text-destructive">
+        <span className="font-medium">
+          {unavailable ? "Connector unavailable" : "Couldn't load options"}
+        </span>
+        {" — "}
+        {unavailable ? hintForConnectionErrorCode(error.reason) : error.message}
+      </p>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Retry
+      </Button>
+    </div>
   );
 }

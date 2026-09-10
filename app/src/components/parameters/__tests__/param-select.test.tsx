@@ -27,6 +27,12 @@ import type { SeedQueryResult } from "../use-seed-query-options";
 const paramSelectorProps: Array<Record<string, unknown>> = [];
 
 vi.mock("@neoboard/components", () => ({
+  Button: ({
+    children,
+    ...rest
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...rest}>{children}</button>
+  ),
   ParamSelector: (p: Record<string, unknown>) => {
     paramSelectorProps.push(p);
     return (
@@ -90,6 +96,7 @@ function makeSeed(over: Partial<SeedQueryResult> = {}): SeedQueryResult {
     options: [{ value: "42", label: "Forty-Two", rawValue: 42 }],
     loading: false,
     error: null,
+    refetch: vi.fn(),
     setSearchTerm,
     parentValue: undefined,
     ...over,
@@ -223,6 +230,22 @@ describe("ParamSelect — seed query error (#1678)", () => {
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("relation x does not exist");
     expect(alert).not.toHaveTextContent("Connector unavailable");
+  });
+
+  // The seed query has no interval and no auto-retry, and nothing else on the
+  // dashboard invalidates it: without this button the select — and everything
+  // gated on it — stays dead until a reload, which the issue rules out.
+  it("offers a Retry that re-runs the seed query", () => {
+    const refetch = vi.fn();
+    renderSelect({
+      seed: {
+        options: [],
+        error: new ConnectorUnavailableError("timeout exceeded", "network"),
+        refetch,
+      },
+    });
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
 

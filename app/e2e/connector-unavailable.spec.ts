@@ -1,4 +1,10 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  TEST_PG_PORT,
+  createTestDashboard,
+} from "./fixtures";
 import type { APIRequestContext, Page } from "@playwright/test";
 
 /**
@@ -10,7 +16,10 @@ import type { APIRequestContext, Page } from "@playwright/test";
  * covered), one at the seeded test container. Everything on the dead one
  * must name the connector within the connect timeout, fire at most one
  * request per widget per refresh cycle, and leave the rest of the dashboard
- * — and the editor — usable without a reload.
+ * — and the editor — usable without a reload. So must a widget on the
+ * healthy connection that waits on the dead selector's parameter. Once the
+ * connection is repointed, the selector's Retry brings everything back —
+ * still without a reload.
  *
  * `widget-states.spec.ts` covers bad *queries*; this covers a bad *host*.
  */
@@ -26,6 +35,8 @@ const DEAD_PLAIN = "SELECT 1 AS n";
 /** Gated on the parameter the dead seed query can never provide. */
 const DEAD_DEPENDENT = "SELECT $param_pick AS picked";
 const HEALTHY = "SELECT 'healthy' AS status";
+/** Same gate, but the widget itself is on the healthy connection. */
+const HEALTHY_DEPENDENT = "SELECT $param_pick AS picked_elsewhere";
 
 async function createDeadConnection(request: APIRequestContext, stamp: number) {
   const res = await request.post("/api/connections", {
@@ -101,12 +112,20 @@ async function createDashboard(
                 query: HEALTHY,
                 settings: { title: "Healthy" },
               },
+              {
+                id: "w-dep-ok",
+                chartType: "table",
+                connectionId: HEALTHY_PG,
+                query: HEALTHY_DEPENDENT,
+                settings: { title: "Healthy but gated" },
+              },
             ],
             gridLayout: [
               { i: "p-dead", x: 0, y: 0, w: 4, h: 3 },
               { i: "w-dead", x: 4, y: 0, w: 4, h: 4 },
               { i: "w-dep", x: 8, y: 0, w: 4, h: 4 },
               { i: "w-ok", x: 0, y: 4, w: 6, h: 4 },
+              { i: "w-dep-ok", x: 6, y: 4, w: 6, h: 4 },
             ],
           },
         ],
@@ -155,14 +174,15 @@ test.describe("Dead connector (#1678)", () => {
         timeout: 15_000,
       });
 
-      // Every widget on the dead connection names the connector within the
-      // connect timeout: the plain widget from its own 502, the parameter
-      // widget from its seed query, and the dependent widget from the
-      // status the other two wrote — it never ran. Before the fix the plain
+      // Every widget waiting on the dead connection names the connector
+      // within the connect timeout: the plain widget from its own 502, the
+      // parameter widget from its seed query, and both dependent widgets —
+      // one on the dead connection, one on the healthy one — from the status
+      // the other two wrote; neither ever ran. Before the fix the plain
       // widget sat on a skeleton through three retries (~4× the timeout)
-      // and the dependent one said "Waiting for parameters…" forever.
+      // and the dependent ones said "Waiting for parameters…" forever.
       const unavailable = page.getByText("Connector unavailable");
-      await expect(unavailable).toHaveCount(3, {
+      await expect(unavailable).toHaveCount(4, {
         timeout: CONNECT_TIMEOUT_MS + 5_000,
       });
       await expect(page.getByText(/Waiting for parameters/)).toHaveCount(0);
@@ -181,6 +201,7 @@ test.describe("Dead connector (#1678)", () => {
       expect(requestsFor(DEAD_SEED)).toBe(1);
       // Gated on a parameter that never arrived: never ran.
       expect(requestsFor(DEAD_DEPENDENT)).toBe(0);
+      expect(requestsFor(HEALTHY_DEPENDENT)).toBe(0);
 
       // Still interactive, no reload: edit mode and the widget editor open.
       await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -190,9 +211,38 @@ test.describe("Dead connector (#1678)", () => {
       ).toBeVisible();
       await expect(unavailable.first()).toBeVisible();
       await page.getByRole("button", { name: "Add Widget" }).first().click();
-      await expect(
-        page.getByRole("dialog", { name: "Add Widget" }),
-      ).toBeVisible();
+      const addWidget = page.getByRole("dialog", { name: "Add Widget" });
+      await expect(addWidget).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(addWidget).toBeHidden();
+
+      // Recovery, still without a reload: repoint the connection at the
+      // healthy host and use the selector's Retry — the seed query has no
+      // interval and nothing else invalidates it. The gated widgets follow
+      // the store back to "waiting", and the plain widget's next refresh
+      // cycle clears its own card.
+      const repoint = await page.request.patch(`/api/connections/${deadId}`, {
+        data: {
+          config: {
+            uri: `postgresql://localhost:${TEST_PG_PORT}`,
+            username: "neoboard",
+            password: "neoboard",
+            database: "movies",
+          },
+        },
+      });
+      expect(repoint.ok(), await repoint.text()).toBe(true);
+      await page
+        .locator('[data-widget-id="p-dead"]')
+        .getByRole("button", { name: "Retry" })
+        .click();
+      await expect(page.getByText("Select a value…")).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(unavailable).toHaveCount(0, {
+        timeout: REFRESH_SECONDS * 1000 + 15_000,
+      });
+      expect(requestsFor(DEAD_SEED)).toBe(2);
     } finally {
       await cleanup();
       await page.request.delete(`/api/connections/${deadId}`);

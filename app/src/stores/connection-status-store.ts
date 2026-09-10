@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { ConnectionState } from "@neoboard/components";
-import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import {
+  ClientQueueTimeoutError,
+  ConnectorUnavailableError,
+  QueueFullError,
+} from "@/lib/api/api-client";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 
 /**
@@ -44,9 +48,11 @@ interface ConnectionStatusStore {
    * including the ones gated on a parameter whose seed query is on the same
    * dead connector and will therefore never arrive. Anything else — rows, or
    * a query the database itself rejected — proves the connector answered,
-   * and clears a flag this path (or the Connections page) had set. It never
-   * writes a verdict for a connection nobody has flagged: that is the
-   * Connections page's probe to run, not a dashboard's side effect.
+   * and clears a flag this path (or the Connections page) had set. Scheduler
+   * backpressure (408/503) is neither: that request never reached the
+   * connector, so it is no information at all. It never writes a verdict
+   * for a connection nobody has flagged: that is the Connections page's
+   * probe to run, not a dashboard's side effect.
    */
   noteQueryOutcome: (id: string, error: unknown) => void;
   /** Drop a connection that no longer exists. */
@@ -83,6 +89,11 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
     noteQueryOutcome: (id, error) => {
       if (error instanceof ConnectorUnavailableError) {
         get().setStatus(id, "error", hintForConnectionErrorCode(error.reason));
+      } else if (
+        error instanceof QueueFullError ||
+        error instanceof ClientQueueTimeoutError
+      ) {
+        return;
       } else if (get().statuses[id] === "error") {
         get().setStatus(id, "connected");
       }

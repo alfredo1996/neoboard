@@ -32,7 +32,9 @@ export function ParamMultiSelect({
       ? [String(rawValues)]
       : [];
 
-  if (seed.error) return <SeedQueryError error={seed.error} />;
+  if (seed.error) {
+    return <SeedQueryError error={seed.error} onRetry={seed.refetch} />;
+  }
   return (
     <ParamMultiSelector
       parameterName={parameterName}

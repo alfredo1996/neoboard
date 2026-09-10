@@ -11,6 +11,7 @@ import {
   ConnectorUnavailableError,
   QueueFullError,
 } from "@/lib/api/api-client";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
 
 /**
  * #1678 — the retry predicate is the client half of the storm. It must keep
@@ -40,6 +41,30 @@ describe("shouldRetryWidgetQuery", () => {
 
   it("never retries a plain query error", () => {
     expect(shouldRetryWidgetQuery(0, new Error("syntax error"))).toBe(false);
+  });
+
+  // Above maxPerUser the scheduler answers the overflow widgets with 408
+  // before their requests reach the connector. Once a sibling has proven the
+  // connector dead, re-queueing behind the next batch of connect timeouts is
+  // a second request per cycle for nothing — the issue's storm, one tier up.
+  it("refuses a backpressure retry once a sibling has flagged the connection dead", () => {
+    useConnectionStatusStore.getState().reset();
+    const queued = new ClientQueueTimeoutError("queued", 5000);
+    expect(shouldRetryWidgetQuery(0, queued, "dead")).toBe(true);
+
+    useConnectionStatusStore
+      .getState()
+      .noteQueryOutcome(
+        "dead",
+        new ConnectorUnavailableError("dead", "network"),
+      );
+    expect(shouldRetryWidgetQuery(0, queued, "dead")).toBe(false);
+    expect(
+      shouldRetryWidgetQuery(0, new QueueFullError("busy", 2000), "dead"),
+    ).toBe(false);
+    // Another connection's flag is not this widget's business.
+    expect(shouldRetryWidgetQuery(0, queued, "alive")).toBe(true);
+    useConnectionStatusStore.getState().reset();
   });
 });
 

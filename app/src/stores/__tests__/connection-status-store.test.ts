@@ -3,7 +3,11 @@ import {
   useConnectionStatusStore,
   trackConnectorOutcome,
 } from "../connection-status-store";
-import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import {
+  ClientQueueTimeoutError,
+  ConnectorUnavailableError,
+  QueueFullError,
+} from "@/lib/api/api-client";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 
 /**
@@ -142,6 +146,30 @@ describe("noteQueryOutcome (#1678)", () => {
     expect(store().statuses).toBe(before);
     expect(store().getStatus("fresh")).toBe("unknown");
   });
+
+  // Above maxPerUser, the scheduler answers a widget with 408/503 before its
+  // request ever reaches the connector. That says nothing about the
+  // connector, so it must not clear a flag a sibling's 502 just set — or
+  // every gated widget flips back to "Waiting for parameters…" once per
+  // refresh cycle.
+  it.each([
+    [
+      "a queue timeout (408)",
+      () => new ClientQueueTimeoutError("queued", 5000),
+    ],
+    ["a full queue (503)", () => new QueueFullError("busy", 2000)],
+  ])(
+    "keeps the flag on %s — backpressure never reached the connector",
+    (_, make) => {
+      store().noteQueryOutcome(
+        "c",
+        new ConnectorUnavailableError("dead", "network"),
+      );
+      store().noteQueryOutcome("c", make());
+      expect(store().getStatus("c")).toBe("error");
+      expect(store().getError("c")).toBe(hintForConnectionErrorCode("network"));
+    },
+  );
 });
 
 describe("trackConnectorOutcome (#1678)", () => {
@@ -164,9 +192,9 @@ describe("trackConnectorOutcome (#1678)", () => {
 
   it("rethrows the same error after noting it", async () => {
     const err = new ConnectorUnavailableError("dead", "network");
-    await expect(
-      trackConnectorOutcome("c", Promise.reject(err)),
-    ).rejects.toBe(err);
+    await expect(trackConnectorOutcome("c", Promise.reject(err))).rejects.toBe(
+      err,
+    );
     expect(store().getStatus("c")).toBe("error");
   });
 });

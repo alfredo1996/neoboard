@@ -26,6 +26,12 @@ import type { SeedQueryResult } from "../use-seed-query-options";
 const multiProps: Array<Record<string, unknown>> = [];
 
 vi.mock("@neoboard/components", () => ({
+  Button: ({
+    children,
+    ...rest
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...rest}>{children}</button>
+  ),
   ParamMultiSelector: (p: Record<string, unknown>) => {
     multiProps.push(p);
     return <div data-testid={`multi-${p.parameterName}`} />;
@@ -63,6 +69,7 @@ function makeSeed(overrides: Partial<SeedQueryResult> = {}): SeedQueryResult {
     options: [],
     loading: false,
     error: null,
+    refetch: vi.fn(),
     setSearchTerm: vi.fn(),
     parentValue: undefined,
     ...overrides,
@@ -115,6 +122,19 @@ describe("ParamMultiSelect — seed query error (#1678)", () => {
     expect(alert).toHaveTextContent("Connector unavailable");
     expect(alert).toHaveTextContent(hintForConnectionErrorCode("auth_failed"));
     expect(screen.queryByTestId("multi-tags")).toBeNull();
+  });
+
+  it("offers a Retry that re-runs the seed query", () => {
+    const refetch = vi.fn();
+    renderWidget(
+      makeActions(undefined, false),
+      makeSeed({
+        error: new ConnectorUnavailableError("dead", "network"),
+        refetch,
+      }),
+    );
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
 

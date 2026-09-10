@@ -195,8 +195,7 @@ describe("useSeedQuery", () => {
     it("POSTs to /api/query with correct body", async () => {
       const { useQuery } = await import("@tanstack/react-query");
       let capturedQueryFn:
-        | ((ctx: { signal: AbortSignal }) => Promise<unknown>)
-        | undefined;
+        ((ctx: { signal: AbortSignal }) => Promise<unknown>) | undefined;
 
       vi.mocked(useQuery).mockImplementation(((
         config: Record<string, unknown>,
@@ -244,8 +243,7 @@ describe("useSeedQuery", () => {
       useConnectionStatusStore.getState().reset();
 
       let capturedQueryFn:
-        | ((ctx: { signal: AbortSignal }) => Promise<unknown>)
-        | undefined;
+        ((ctx: { signal: AbortSignal }) => Promise<unknown>) | undefined;
       vi.mocked(useQuery).mockImplementation(((
         config: Record<string, unknown>,
       ) => {
@@ -265,9 +263,22 @@ describe("useSeedQuery", () => {
       await expect(
         capturedQueryFn!({ signal: new AbortController().signal }),
       ).rejects.toBe(dead);
-      expect(
-        useConnectionStatusStore.getState().getStatus("conn-dead"),
-      ).toBe("error");
+      expect(useConnectionStatusStore.getState().getStatus("conn-dead")).toBe(
+        "error",
+      );
+    });
+
+    it("exposes refetch so a parameter widget can retry a failed seed query (#1678)", async () => {
+      const { useQuery } = await import("@tanstack/react-query");
+      const refetch = vi.fn();
+      vi.mocked(useQuery).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        refetch,
+      } as unknown as ReturnType<typeof useQuery>);
+
+      const { useSeedQuery } = await import("../use-seed-query");
+      expect(useSeedQuery("conn-1", "RETURN 1", true).refetch).toBe(refetch);
     });
 
     it("does not refetch on window focus (#1678)", async () => {

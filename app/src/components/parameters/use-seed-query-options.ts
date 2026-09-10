@@ -18,6 +18,8 @@ export interface SeedQueryResult {
    * and every widget gated on the parameter waited for it forever.
    */
   error: Error | null;
+  /** Re-run the seed query; nothing else on the dashboard invalidates it. */
+  refetch: () => void;
   setSearchTerm: (term: string) => void;
   parentValue: string | undefined;
 }
@@ -121,7 +123,7 @@ export function useSeedQueryOptions(
     return Object.keys(parentParams).length > 0 ? parentParams : undefined;
   }, [parentParams, searchable, debouncedSearch]);
 
-  const { options, loading, error } = useSeedQuery(
+  const { options, loading, error, refetch } = useSeedQuery(
     connectionId,
     seedQuery,
     needsSeed && parentReady,
@@ -129,5 +131,5 @@ export function useSeedQueryOptions(
     tenantId,
   );
 
-  return { options, loading, error, setSearchTerm, parentValue };
+  return { options, loading, error, refetch, setSearchTerm, parentValue };
 }
