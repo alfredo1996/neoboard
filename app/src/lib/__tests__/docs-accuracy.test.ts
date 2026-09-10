@@ -1,6 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  readFileSync,
+  existsSync,
+  readdirSync,
+  mkdtempSync,
+  mkdirSync,
+  statSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -280,5 +290,186 @@ describe("documentation accuracy", () => {
     const skill = readDoc(".claude/skills/deploy/SKILL.md");
     expect(skill).toContain("MIGRATE_ON_START");
     expect(skill).toContain("there is no `--skip-migrations` CLI flag");
+  });
+});
+
+describe("README.md works verbatim for a first-time reader (#1217)", () => {
+  // The README is a stranger's first read, and the one doc nobody re-reads
+  // after a rename: its badge pointed at ghcr.io/neoboard, an image
+  // release.yml never published, and its production snippet regenerated
+  // ENCRYPTION_KEY every time it was pasted.
+  const readme = () => readDoc("README.md");
+  const PROD_COMPOSE = "docker/docker-compose.prod-full.yml";
+
+  /** The ```bash block that contains `needle`, or "". */
+  const fence = (needle: string) =>
+    (readme().match(/```bash\n[\s\S]*?```/g) ?? []).find((b) =>
+      b.includes(needle),
+    ) ?? "";
+
+  /**
+   * owner/repo, from the image the prod compose files pull. release.yml
+   * publishes ghcr.io/${{ github.repository }}, so it is the GitHub repo too.
+   */
+  const ownerRepo = () => {
+    const m = /ghcr\.io\/([\w-]+)\/([\w-]+):latest/.exec(readDoc(PROD_COMPOSE));
+    expect(m, `${PROD_COMPOSE} no longer names a ghcr image`).not.toBeNull();
+    return { owner: m![1], repo: m![2] };
+  };
+
+  it("names only the image release.yml publishes", () => {
+    const { owner, repo } = ownerRepo();
+    expect(readDoc(".github/workflows/release.yml")).toContain(
+      "images: ghcr.io/${{ github.repository }}",
+    );
+    // Badges URL-encode the slash (ghcr.io%2Fowner%2Frepo).
+    const text = readme().replace(/%2F/gi, "/");
+    const at = [...text.matchAll(/ghcr\.io/g)].map((m) => m.index);
+    expect(at.length).toBeGreaterThan(0);
+    expect(
+      at
+        .filter((i) => !text.startsWith(`ghcr.io/${owner}/${repo}`, i))
+        .map((i) => text.slice(i, i + 40)),
+    ).toEqual([]);
+  });
+
+  it("links the docs as in-repo pages while the Pages site is off", () => {
+    // docs-pages.yml deploys only when the DOCS_DEPLOY variable is on, which
+    // waits for the org transfer (#1214), so every github.io link 404s. The
+    // .mdx sources render on GitHub today. Switch to the site URL, and flip
+    // this test, in the PR that turns Pages on.
+    expect(readDoc(".github/workflows/docs-pages.yml")).toContain(
+      "vars.DOCS_DEPLOY == 'true'",
+    );
+    expect(readme()).not.toContain("github.io");
+    for (const page of [
+      "start-here/troubleshooting",
+      "deploy/production",
+      "start-here/migration-from-neodash",
+    ])
+      expect(readme()).toContain(`(docs/src/content/docs/${page}.mdx)`);
+  });
+
+  it("installs from a clone with the script the repo ships", () => {
+    const { owner, repo } = ownerRepo();
+    const block = fence("bash install.sh");
+    expect(block).toContain(
+      `git clone https://github.com/${owner}/${repo}.git`,
+    );
+    expect(block).toMatch(new RegExp(`^cd ${repo}(?:\\s|$)`, "m"));
+    expect(existsSync(resolve(REPO_ROOT, "install.sh"))).toBe(true);
+  });
+
+  it("generates every secret the production compose requires, once, into a file git ignores", () => {
+    const required = [
+      ...new Set(
+        [...readDoc(PROD_COMPOSE).matchAll(/\$\{(\w+):\?/g)].map((m) => m[1]),
+      ),
+    ];
+    expect(required.length).toBeGreaterThan(0);
+    const block = fence(PROD_COMPOSE);
+    // Self-registration is closed and signup refuses the first admin without
+    // ADMIN_BOOTSTRAP_TOKEN, so a stack with only the required keys is one
+    // nobody can log into.
+    for (const key of [...required, "ADMIN_BOOTSTRAP_TOKEN"])
+      expect(
+        block.match(new RegExp(`^${key}=\\$\\(openssl rand `, "gm")),
+        key,
+      ).toHaveLength(1);
+    // Pasting the block again must not rotate ENCRYPTION_KEY (stored
+    // credentials become unrecoverable) or POSTGRES_PASSWORD (the initialised
+    // volume keeps the old one).
+    expect(block).toContain("set -o noclobber");
+    const envFile = /cat > (\S+) <</.exec(block)?.[1] ?? "";
+    expect(envFile).not.toBe("");
+    expect(block).toContain(`--env-file ${envFile} -f ${PROD_COMPOSE}`);
+    expect(() =>
+      execFileSync("git", ["check-ignore", "-q", envFile], { cwd: REPO_ROOT }),
+    ).not.toThrow();
+    // ghcr's `latest` is a stale pre-release, not this checkout: build it.
+    expect(block).toMatch(/ up -d --build$/m);
+  });
+
+  it("runs its secrets block as promised: a 0600 file, and a second paste refused", () => {
+    const block =
+      /\(set -o noclobber[\s\S]*?\nEOF\n\)/.exec(fence(PROD_COMPOSE))?.[0] ??
+      "";
+    expect(block).not.toBe("");
+    const envFile = /cat > (\S+) <</.exec(block)![1];
+    const dir = mkdtempSync(join(tmpdir(), "neoboard-1217-"));
+    try {
+      mkdirSync(join(dir, "docker"));
+      const paste = () =>
+        spawnSync("bash", ["-c", block], { cwd: dir, encoding: "utf8" });
+      expect(paste().status).toBe(0);
+      const file = join(dir, envFile);
+      // umask 077: the file holds ENCRYPTION_KEY, nobody else may read it.
+      expect(statSync(file).mode & 0o777).toBe(0o600);
+      const first = readFileSync(file, "utf8");
+      for (const key of [
+        "ENCRYPTION_KEY",
+        "POSTGRES_PASSWORD",
+        "ADMIN_BOOTSTRAP_TOKEN",
+      ])
+        expect(first, key).toMatch(new RegExp(`^${key}=\\S+$`, "m"));
+      // noclobber inside the subshell: a second paste must not rotate the keys.
+      expect(paste().status).not.toBe(0);
+      expect(readFileSync(file, "utf8")).toBe(first);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("says the CLI is not on npm yet, and runs nothing from npm", () => {
+    expect(readme()).toContain("not on npm yet");
+    expect(
+      (readme().match(/```bash\n[\s\S]*?```/g) ?? []).filter((b) =>
+        /npx @neoboard\/cli|npm (?:i|install) (?:-g |--global )?@neoboard\/cli/.test(
+          b,
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it("points badges and relative links at things that exist", () => {
+    const { owner, repo } = ownerRepo();
+    const md = readme();
+
+    const repos = [
+      ...md.matchAll(
+        /(?:github\.com|img\.shields\.io\/github\/[\w-]+)\/([\w-]+)\/([\w-]+)/g,
+      ),
+    ].map((m) => `${m[1]}/${m[2]}`);
+    expect(repos.length).toBeGreaterThan(0);
+    expect(repos.filter((r) => r !== `${owner}/${repo}`)).toEqual([]);
+
+    const workflows = [
+      ...md.matchAll(/actions\/workflows\/([\w.-]+\.ya?ml)/g),
+    ].map((m) => m[1]);
+    expect(workflows.length).toBeGreaterThan(0);
+    expect(
+      workflows.filter(
+        (w) => !existsSync(resolve(REPO_ROOT, ".github/workflows", w)),
+      ),
+    ).toEqual([]);
+
+    const key = /^sonar\.projectKey=(.+)$/m.exec(
+      readDoc("sonar-project.properties"),
+    )?.[1];
+    const sonar = [
+      ...md.matchAll(/sonarcloud\.io\/[^"]*?[?&](?:id|project)=([\w-]+)/g),
+    ].map((m) => m[1]);
+    expect(sonar.length).toBeGreaterThan(0);
+    expect(sonar.filter((k) => k !== key)).toEqual([]);
+
+    const relative = [
+      ...md.matchAll(
+        /(?:href|src)="(?!https?:|#)([^"]+)"|\]\((?!https?:|#|<)([^)\s]+)\)/g,
+      ),
+    ].map((m) => (m[1] ?? m[2]).split("#")[0]);
+    expect(relative.length).toBeGreaterThan(0);
+    expect(relative.filter((p) => !existsSync(resolve(REPO_ROOT, p)))).toEqual(
+      [],
+    );
   });
 });

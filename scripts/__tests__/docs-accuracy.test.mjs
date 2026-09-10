@@ -5,9 +5,12 @@ import {
   readdirSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -596,13 +599,13 @@ describe("the seven-group information architecture (#1681)", () => {
       .map(({ path, line, match }) => ({
         path,
         line,
-        slug:
-          match
-            .replace(
-              /^(neoboard\.app\/docs|alfredo1996\.github\.io\/neoboard)/,
-              "",
-            )
-            .replace(/\/+$/, "") || "/",
+        slug: match
+          .replace(
+            /^(neoboard\.app\/docs|alfredo1996\.github\.io\/neoboard)/,
+            "",
+          )
+          // The site root is index.mdx, whose pageSlug is "" (#1217).
+          .replace(/\/+$/, ""),
       }))
       .filter(({ slug }) => !covered.has(slug))
       .map(({ path, line, slug }) => `${slug} (${path}:${line})`);
@@ -814,6 +817,67 @@ describe("production options: Run from a build (#1679)", () => {
   });
 });
 
+describe("production deployment: secrets survive a second paste (#1217)", () => {
+  // `export ENCRYPTION_KEY=$(openssl rand ...)` makes a new key on every
+  // paste: stored credentials become unrecoverable and the initialised
+  // Postgres volume keeps the old POSTGRES_PASSWORD. README.md was fixed in
+  // #1217; this holds the site page it links to the same snippet.
+  const PAGE = "docs/src/content/docs/deploy/production.mdx";
+  const COMPOSE = "docker/docker-compose.prod-full.yml";
+  const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
+
+  it("no page exports a freshly generated secret", () => {
+    const offenders = DOCS.filter(({ text }) =>
+      /export\s+[A-Z_]+=\$\(openssl rand/.test(text),
+    ).map(({ path }) => path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("writes the secrets once into a 0600 file, and refuses a second paste", () => {
+    const block = /\(set -o noclobber[\s\S]*?\nEOF\n\)/.exec(page())?.[0] ?? "";
+    expect(block).not.toBe("");
+    const envFile = /cat > (\S+) <</.exec(block)[1];
+    const required = [
+      ...readFileSync(join(ROOT, COMPOSE), "utf8").matchAll(/\$\{(\w+):\?/g),
+    ].map((m) => m[1]);
+    const dir = mkdtempSync(join(tmpdir(), "neoboard-1217-"));
+    try {
+      mkdirSync(join(dir, "docker"));
+      const paste = () =>
+        spawnSync("bash", ["-c", block], { cwd: dir, encoding: "utf8" });
+      expect(paste().status).toBe(0);
+      const file = join(dir, envFile);
+      expect(statSync(file).mode & 0o777).toBe(0o600);
+      const first = readFileSync(file, "utf8");
+      for (const key of [...required, "ADMIN_BOOTSTRAP_TOKEN"])
+        expect(first, key).toMatch(new RegExp(`^${key}=\\S+$`, "m"));
+      expect(paste().status).not.toBe(0);
+      expect(readFileSync(file, "utf8")).toBe(first);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+    // Every compose command on the page reads that file; without it the
+    // `:?` secrets are unset and compose refuses to start.
+    const commands = page().match(/^docker compose .*$/gm) ?? [];
+    expect(commands.length).toBeGreaterThan(0);
+    expect(
+      commands.filter(
+        (c) => !c.includes(`--env-file ${envFile} -f ${COMPOSE}`),
+      ),
+    ).toEqual([]);
+  });
+
+  it("the compose file's usage comment passes the same env file", () => {
+    const header = readFileSync(join(ROOT, COMPOSE), "utf8").split(
+      /^services:/m,
+    )[0];
+    expect(header).not.toContain("cp ../app/.env.example .env");
+    const commands = header.match(/docker compose .*/g) ?? [];
+    expect(commands.length).toBeGreaterThan(0);
+    expect(commands.filter((c) => !c.includes("--env-file"))).toEqual([]);
+  });
+});
+
 describe("air-gapped install (#1683)", () => {
   const PAGE = "docs/src/content/docs/deploy/air-gapped.mdx";
   const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
@@ -877,7 +941,7 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
   /** The body of the fence the page titles `name` (```json title="name"). */
   const titled = (name) =>
     page().match(
-      new RegExp("```\\w+ title=\"" + name + "\"\\n([\\s\\S]*?)```"),
+      new RegExp('```\\w+ title="' + name + '"\\n([\\s\\S]*?)```'),
     )?.[1];
   const tsc = (args) =>
     spawnSync(process.execPath, [TSC, ...args], { encoding: "utf8" });
