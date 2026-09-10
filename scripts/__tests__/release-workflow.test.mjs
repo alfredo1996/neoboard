@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // Guards the release pipeline's supply-chain invariants (#1224).
@@ -55,6 +57,67 @@ function jobBlock(name) {
     }
   }
   return lines.slice(start, end).join("\n");
+}
+
+/**
+ * The `run: |` script of one step inside a job block, dedented, so a test can
+ * execute what the workflow executes instead of a JS copy of it.
+ */
+function stepScript(block, name) {
+  const lines = block.split("\n");
+  const at = lines.findIndex((l) => l.trim() === `- name: ${name}`);
+  expect(at, `step "${name}" not found`).toBeGreaterThan(-1);
+  const next = lines.findIndex((l, i) => i > at && l.trim().startsWith("- name:"));
+  const run = lines.findIndex((l, i) => i > at && /^\s+run: \|$/.test(l));
+  expect(run, `step "${name}" has no run: | script`).toBeGreaterThan(-1);
+  if (next !== -1) expect(run).toBeLessThan(next);
+  const indent = lines[run].search(/\S/);
+  const body = [];
+  for (const l of lines.slice(run + 1)) {
+    if (l.trim() !== "" && l.search(/\S/) <= indent) break;
+    body.push(l.slice(indent + 2));
+  }
+  return body.join("\n");
+}
+
+/**
+ * Runs a step script the way Actions does (`bash -e`), with the release body
+ * redirected into a temp dir. Returns the step's outputs and that body.
+ */
+function runStep(script, { cwd, ref }) {
+  const dir = mkdtempSync(join(tmpdir(), "release-step-"));
+  const read = (f) => {
+    try {
+      return readFileSync(join(dir, f), "utf8");
+    } catch {
+      return "";
+    }
+  };
+  try {
+    execFileSync(
+      "bash",
+      ["-e", "-c", script.replaceAll("/tmp/release-body.md", join(dir, "body.md"))],
+      { cwd, env: { ...process.env, GITHUB_REF: ref, GITHUB_OUTPUT: join(dir, "output") }, stdio: "pipe" },
+    );
+    const outputs = Object.fromEntries(
+      read("output").split("\n").filter(Boolean).map((l) => l.split("=")),
+    );
+    return { outputs, body: read("body.md") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** The trimmed CHANGELOG.md text under `## [v]`, up to the next heading. */
+function changelogSection(v) {
+  const lines = readFileSync(join(ROOT, "CHANGELOG.md"), "utf8").split("\n");
+  const start = lines.findIndex((l) => l.startsWith(`## [${v}]`));
+  if (start === -1) return "";
+  const end = lines.findIndex((l, i) => i > start && l.startsWith("## ["));
+  return lines
+    .slice(start + 1, end === -1 ? undefined : end)
+    .join("\n")
+    .trim();
 }
 
 // Stripped: every assertion below is about what the job does, not what its
@@ -198,14 +261,137 @@ describe("release workflow: vulnerability scanning", () => {
   });
 });
 
-describe("release workflow: latest tag safety", () => {
-  it("considers only plain vX.Y.Z tags when picking the highest version", () => {
-    // `sort -V` ranks v1.4.0-rc.1 ABOVE v1.4.0, so without this filter a
-    // throwaway rc tag steals `latest` — and keeps it even after the real
-    // release ships. Verified: `printf 'v1.4.0\nv1.4.0-rc.1\n' | sort -V`.
-    // This also makes an rc tag a safe way to dry-run the whole workflow.
-    expect(DOCKER).toMatch(
-      /git tag -l 'v\*' \| grep -E '\^v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\$' \| sort -V/,
+describe("release workflow: tag classification", () => {
+  // Raw, not stripped: the scripts contain `#` (`${GITHUB_REF#refs/tags/}`).
+  const RELEASE = jobBlock("release");
+  const CREATE = stripComments(
+    RELEASE.slice(RELEASE.indexOf("- name: Create GitHub Release")),
+  );
+
+  /** A throwaway repo holding exactly these tags. */
+  function repoWithTags(tags) {
+    const dir = mkdtempSync(join(tmpdir(), "release-tags-"));
+    const git = (...args) =>
+      execFileSync(
+        "git",
+        ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", ...args],
+        { cwd: dir, stdio: "pipe" },
+      );
+    git("init", "-q");
+    git("commit", "-q", "--allow-empty", "-m", "x");
+    for (const t of tags) git("tag", t);
+    return dir;
+  }
+
+  function classify(tag, tags) {
+    const cwd = repoWithTags(tags);
+    try {
+      return runStep(stepScript(RELEASE, "Classify the tag"), { cwd, ref: `refs/tags/${tag}` }).outputs;
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+
+  it("treats only plain vX.Y.Z as a full release", () => {
+    for (const tag of ["v1.5.0-rc.1", "vnext", "v1.5", "v1.5.0+build.1"]) {
+      expect(classify(tag, ["v1.4.0", tag]).plain, tag).toBe("false");
+    }
+    expect(classify("v1.5.0", ["v1.5.0"]).plain).toBe("true");
+  });
+
+  it("makes the highest plain tag latest", () => {
+    expect(classify("v1.5.0", ["v1.4.0", "v1.5.0"]).is_latest).toBe("true");
+  });
+
+  it("never lets a back-published patch take latest (#982)", () => {
+    expect(classify("v1.5.1", ["v1.5.0", "v1.6.0", "v1.5.1"]).is_latest).toBe("false");
+  });
+
+  it("never lets an rc take latest, though sort -V ranks it above the release (#1224)", () => {
+    // `printf 'v1.4.0\nv1.4.0-rc.1\n' | sort -V` puts the rc last. This is
+    // also what makes an rc tag a safe way to dry-run the whole workflow.
+    expect(classify("v1.4.0-rc.1", ["v1.4.0", "v1.4.0-rc.1"]).is_latest).toBe("false");
+    expect(classify("v1.4.0-rc.1", ["v1.4.0-rc.1"]).is_latest).toBe("false");
+  });
+
+  it("checks out every tag, or the highest-version comparison sees none", () => {
+    const checkout = RELEASE.slice(
+      RELEASE.indexOf("- name: Checkout"),
+      RELEASE.indexOf("- name: Classify the tag"),
     );
+    expect(stripComments(checkout)).toMatch(/fetch-depth: 0/);
+  });
+
+  it("feeds both facts to the GitHub Release, so its Latest badge matches the image's", () => {
+    expect(CREATE).toContain("softprops/action-gh-release@");
+    expect(CREATE).toMatch(/^ {10}prerelease: \$\{\{ steps\.tag\.outputs\.plain != 'true' \}\}$/m);
+    expect(CREATE).toMatch(/^ {10}make_latest: \$\{\{ steps\.tag\.outputs\.is_latest \}\}$/m);
+  });
+
+  it("moves the docker latest tag on the same fact, computed once", () => {
+    expect(stripComments(RELEASE)).toMatch(/^ {6}is_latest: \$\{\{ steps\.tag\.outputs\.is_latest \}\}$/m);
+    expect(DOCKER).toContain(
+      "type=raw,value=latest,enable=${{ needs.release.outputs.is_latest == 'true' }}",
+    );
+    expect(DOCKER).toMatch(/needs: release/);
+  });
+});
+
+describe("release workflow: GitHub Release body", () => {
+  const EXTRACT = stepScript(jobBlock("release"), "Extract changelog for this version");
+  const version = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
+
+  it("is the CHANGELOG section for the tag's version, and only that section", () => {
+    const { body } = runStep(EXTRACT, { cwd: ROOT, ref: `refs/tags/v${version}` });
+    expect(body.trim()).toBe(changelogSection(version));
+    expect(body).not.toContain("## [");
+  });
+
+  it("falls back to the tag name when the CHANGELOG has no section for it", () => {
+    const { body } = runStep(EXTRACT, { cwd: ROOT, ref: `refs/tags/v${version}-rc.1` });
+    expect(body.trim()).toBe(`Release v${version}-rc.1`);
+  });
+});
+
+describe("release versions", () => {
+  // The release body is the CHANGELOG section for the tag. If the heading and
+  // package.json disagree, release.yml silently publishes "Release vX.Y.Z".
+  const read = (p) => readFileSync(join(ROOT, p), "utf8");
+  const version = JSON.parse(read("package.json")).version;
+
+  it("declares a plain X.Y.Z version on the root package", () => {
+    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it.each(["app", "component", "connection", "docs"])(
+    "%s/package.json carries the release version",
+    (pkg) => {
+      expect(JSON.parse(read(`${pkg}/package.json`)).version).toBe(version);
+    },
+  );
+
+  it("keeps cli/package.json off the release version, so publish-cli skips", () => {
+    // v1.5 plan decision: the CLI stays at its own version so the publish-cli
+    // job (tag == cli version) skips on v1.5.0; NPM_TOKEN is not configured.
+    // Delete this case in v1.7, when @neoboard/cli is published for the first time.
+    expect(JSON.parse(read("cli/package.json")).version).not.toBe(version);
+  });
+
+  it("keeps package-lock.json in step with the workspace versions", () => {
+    const lock = JSON.parse(read("package-lock.json"));
+    expect(lock.version).toBe(version);
+    for (const key of ["", "app", "component", "connection"]) {
+      expect(lock.packages[key].version, `lock entry "${key}"`).toBe(version);
+    }
+  });
+
+  it("keeps docs/package-lock.json in step with docs/package.json", () => {
+    const lock = JSON.parse(read("docs/package-lock.json"));
+    expect(lock.version).toBe(version);
+    expect(lock.packages[""].version).toBe(version);
+  });
+
+  it("has a non-empty CHANGELOG section for the release version", () => {
+    expect(changelogSection(version)).not.toBe("");
   });
 });

@@ -4,18 +4,36 @@ All notable changes to NeoBoard are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-NeoBoard versioning resets at **1.0.0** to mark the first public release. The 2.0.0 entry below documents the pre-public development cycle and is kept for historical reference.
+NeoBoard versioning resets at **1.0.0**. The 2.0.0 entry below documents the pre-public development cycle and is kept for historical reference.
 
-> **On versions and tags.** No 1.x version has been git-tagged yet and `main` has not received a release —
-> the dates below are the dates each release branch was consolidated into `dev`. Cutting the first tagged
-> release is tracked in #1216.
+> **On versions and tags.** 1.5.0 is the first version that is git-tagged and published, as a GitHub Release and a
+> `ghcr.io` container image. 1.0.0 to 1.4.0 were never tagged or published: each was a release branch consolidated
+> into `dev`, and the date beside it is the date of that consolidation.
 
-## [Unreleased] — v1.5 in progress
+## [1.5.0] — First public release
 
-Chart-experience release: chart authoring, editing, rule-based styling and click actions. Merged on `release/1.5` so far:
+The first tagged and published release. Chart authoring, editing, rule-based styling and click actions, then a correctness pass on what charts, tables and connectors display, security hardening, and a documentation site built for GitHub Pages. `@neoboard/cli` keeps its own version and is not published with this tag.
 
 ### Fixed
 
+- A single-value widget whose metric is null shows a dash instead of `0` or the period label, and a query returning no rows shows one announced empty state on every chart and in the editor preview, instead of a `0` that was never in the data (#1671, #1584)
+- A null cell no longer counts as zero: the demo's own `margin <= 0` styling rule painted every null red, and charts plotted nulls as zeros (#1655)
+- Calculated columns round to the precision their inputs allow, so `0.1 + 0.2` is `0.3` (#1415)
+- Tables sort a column by what the whole column holds rather than a sample of rows, offer a text filter that works whatever the first row contains, and a column-scoped styling rule paints only its own column (#1662, #1657, #1418)
+- A PostgreSQL `DATE` and a date-only gantt value are calendar days and no longer land a day early west of UTC, and a zoned Neo4j datetime, including an offset with seconds, now parses (#1654, #1616, #1651, #1653)
+- Gantt measures its task-name gutter instead of reserving 15%, themes its zoom slider and labels the handles with date and time, keeps bars that are partly outside the zoom window (clipped to the plot), and no longer marks today in red (#1289, #1273, #1686)
+- Maps take coordinates from the columns you named rather than any column containing the word, re-measure instead of rendering blank after a page switch, and style the zoom control, attribution, popups and tooltips in dark mode (#1622, #1398, #1399)
+- A sankey with a self-loop or cycle no longer crashes on click (the shipped demo's own sankey did), and duplicate node names are folded instead of throwing (#1656, #1667)
+- Sunburst builds its hierarchy from the leaf-row query the docs publish, and a click fires the action for the segment you clicked rather than a neighbour (#1601, #1599)
+- Line charts colour each point by its own value instead of the series' last value (#1417), horizontal bar charts keep category labels level and whole (#1420), and **Decimal Places** reaches tooltips and value labels on bar, line and pie while percent-stack labels stay at one decimal (#1582, #1588)
+- Charts re-theme when the dark class is toggled directly, and text on coloured cells and slices picks a readable colour for `hsl()` palettes (#1585, #1295)
+- Choropleth ranks regions correctly in dark mode and **Show Legend** hides only the legend; gantt and choropleth click actions receive every raw query column the editor offers (#1402, #1590)
+- Four editor options that did nothing now reach the chart: line sampling threshold and method, map marker size and graph relationship labels (#1472)
+- Comboboxes and parameter selectors filter on the label you see, not the underlying value (#1411)
+- The markdown widget keeps `snake_case` words and code spans intact instead of italicising them (#1407)
+- The iframe **Sandbox Policy** field warns when it discards a token instead of dropping it silently (#1413)
+- The unset-`TENANT_ID` warning is logged once per process instead of on every login (#1338)
+- A connector consumer's `onSuccess` callback that throws is no longer reported as a database failure (#1642)
 - A connection whose host is unreachable no longer storms retries or hangs dependent widgets on "Waiting for parameters…": the API answers `502 CONNECTOR_UNAVAILABLE` (no auto-retry) instead of `408`, every widget on that connection says "Connector unavailable" with the classifier's hint — including the ones gated on a parameter whose seed query is on a dead connection, their own or another — parameter widgets show the failure with a Retry instead of an empty list, refused PostgreSQL credentials answer `502` too (they were a bare `500`), scheduler backpressure (`408`/`503`) neither clears the flag nor auto-retries on a flagged connection, widget queries no longer re-fire on window focus, and the Neo4j driver's connection-acquisition timeout is bounded (#1678)
 - A password embedded in a connection URI is now rejected when you save the connection, and a URI that fails to parse no longer quotes the URI back to you; a bare username stays accepted (#1303)
 - Tables whose saved grouping arrived as an array — from a seeded layout, an imported dashboard or a NeoDash conversion — now group correctly instead of rendering flat with no group rows and no aggregates (#1395)
@@ -26,6 +44,7 @@ Chart-experience release: chart authoring, editing, rule-based styling and click
 - **Breaking:** `numberFormat: "percent"` now takes a ratio and scales it, so a KPI computing `401 / 2000` renders `20.05%` rather than `0.2%`; queries that pre-multiplied by 100 to work around the old behaviour need updating (#1396)
 - A client-side `groupBy` now reports `count` as the number of non-null values, matching SQL's `COUNT(col)`, so `count`, `sum` and `avg` agree on columns containing nulls instead of contradicting each other (#1414)
 - Dialogs, sheets, popovers, tooltips, toasts, selects and menus honour `prefers-reduced-motion`, and the E2E suite now runs as a reduced-motion user so the preference is exercised rather than merely declared (#1458)
+- Success, warning, destructive and muted text colours now meet WCAG AA contrast in both themes; the data grid no longer emits empty header cells, its rows-per-page selector has an accessible name, the markdown widget's scroll region is keyboard-focusable, and every Storybook story is now gated on axe (#1505, #1677)
 - The "Sync to URL" toggle on a parameter-select widget is honoured, and URL sync is now opt-in. **Breaking for shared links** — a URL carrying values for widgets that never opted in no longer reproduces them (#1388)
 - Map widgets no longer throw a Leaflet error when torn down mid-zoom, so the visual-regression gate runs against the whole Storybook project instead of two files (#1384)
 - Reassigning a dashboard's connection now bumps its version, so an editor left open in another tab can no longer silently revert the reassignment on its next save (#1376)
@@ -40,6 +59,9 @@ Chart-experience release: chart authoring, editing, rule-based styling and click
 
 ### Changed
 
+- A new single-series bar or line chart draws no legend; two or more series get the bottom legend, and existing widgets keep theirs (#1593)
+- The documentation is reorganised into seven ordered groups with duplicate tutorials merged, builds for GitHub Pages under a base path with its links and sitemap checked in CI, carries the Graphite & Citrine brand in light and dark, reaches the authentication pages, describes tenant isolation as it is actually enforced, and the README's install commands work as written (#1681, #1318, #1319, #1575, #1573, #1217)
+- Test and CI hygiene: CI runs for PRs confined to `connector-sdk/` or `docker/`; tests run shuffled; every package has a coverage floor; E2E collects the server-side coverage it declared; test files are linted; SonarCloud no longer excludes measurable code; ratchets, hooks and test collection that could pass silently now fail; route tests assert the tenant filter each handler passed; the connector-SDK row-limit conformance case has a lower bound; `connection/` actually typechecks; `component/` drops five unused runtime dependencies; admin routes drop a `canWrite` check that could never fail; build artefacts are untracked (#1627, #1630, #1610, #1612, #1611, #1613, #1632, #1633, #1634, #1607, #1631, #1628, #1595, #1297, #1578, #1689)
 - `npm audit fix` applied, taking the dependency tree from 15 advisories to 9 and moving Next to 16.3.0 with no `package.json` change. The nine that remain come from `@neo4j-nvl/react` and `drizzle-kit`, and neither has a forward fix — npm's only suggestion for each is a downgrade to an older major (#1465)
 - Docs site upgraded to astro 7.1.4 and starlight 0.41.5, replacing two Dependabot bumps that could never pass together, and CI now fails the docs build when it emits fewer than 10 pages so an empty site cannot ship green (#1461, ahead of deployment in #1318)
 - `zod` upgraded to 4.4.3 and the duplicate v3/v4 pair in the tree collapsed to a single copy; chart options still preserve unknown keys (#1397), and invalid request bodies still return a helpful 400 (#1436)
@@ -53,6 +75,25 @@ Chart-experience release: chart authoring, editing, rule-based styling and click
 - Bulk connector reassignment for a single dashboard, from the **Dashboard options** menu. Reassignment previously rewrote every dashboard you could edit and was reachable only from inside the delete-connection dialog (#1376)
 - After an import that skipped a connection, the unassigned widgets can be fixed in one action instead of one widget editor at a time (#1377)
 - A maximize toggle on the widget editor's query editor, doubling the editing width and giving 2.64× the height on open (#1374)
+- Maps take any tile URL template and attribution, including a self-hosted tile server, plus a **none** basemap that makes no tile requests (#1685)
+- A gantt **Enable Time Zoom** option, on by default, that removes the zoom slider and gives its height back to the plot (#1686)
+- Documentation pages for an air-gapped install and for running from a build (node, systemd, Kubernetes), and a connector-author guide rewritten against the real SDK with type-checked examples (#1683, #1712, #1697)
+
+### Removed
+
+- **Breaking:** circle packing and treemap are no longer chart types in the app, and a NeoDash import skips those reports with a note (#1687)
+- **Breaking:** the Carto Light and Carto Dark map presets are gone, since without an API key they served tiles watermarked "API KEY REQUIRED"; a map saved with one needs a new Tile Layer (#1685)
+- **Breaking (component API):** the deprecated `DEEP_OCEAN_*` palette exports, the palette-id alias layer and the bar chart's boolean `stacked` prop (use `stackMode`). NeoDash bar reports now import stacked unless set to grouped, matching NeoDash's default (#1684)
+- The legend-position option (legends always sit at the bottom) and six editor options that never had an effect: graph node size and physics, JSON font size, copy button and theme, and map popups (#1593, #1472)
+- Radar tiles in the demo dashboards, since radar is not offered in the chart picker (#1722)
+
+### Security
+
+- Every tenant table has an index leading on `tenant_id`, and composite foreign keys make the database reject a connection, dashboard, share, template or API key that references a user or dashboard in another tenant. Ships as one migration (#1646)
+- The unauthenticated `/api/docs` page loads its pinned Swagger UI assets with `integrity` and `crossorigin`, so an altered CDN response is blocked instead of running on the NeoBoard origin (#1721)
+- Self-service password changes and profile updates are audited, with no password material recorded (#1276)
+- Next.js 16.3.4 clears the high-severity `sharp` advisory (#1723)
+- The build-time tenant-scope ratchet checks where a tenant value comes from rather than whether the word `tenantId` appears, judges raw SQL per table and sees namespace-imported tables. It is still a safety net, not runtime enforcement (#1626)
 
 ## [1.4.0] — 2026-07-29 — Audit, observability & correctness
 
@@ -284,7 +325,7 @@ NeoBoard's UI was, visually, thinly-reskinned shadcn defaults. This release repl
 - The app no longer pulls a second copy of Inter from Google Fonts; the self-hosted `--font-body` face is the single source (#1059)
 - Dead `chartTypePreviewColors` map (#1102)
 
-## [1.0.0] — 2026-05-17 — First public release
+## [1.0.0] — 2026-05-17 — Pre-launch polish
 
 The polish cycle on top of `2.0.0` ahead of v1.0 going public. Focuses on first-time-user experience: clearer errors, actionable hints, troubleshooting docs, and fail-fast configuration.
 
