@@ -129,20 +129,78 @@ describe("transformToValueData", () => {
       expect(out.previous).toBe(80);
     });
 
-    it("does not depend on the metric column being named `value`", () => {
-      const [, pending, , cancelled] = sparseOrders();
-      // total: null, beside a text status
+    it("prefers a column named `value` even when it is null", () => {
+      expect(
+        transformToValueData([{ label: "2026-09", value: null, target: 100 }])
+          .value,
+      ).toBeNull();
+    });
+
+    it("keeps a numeric-in-a-later-row column whatever its name", () => {
+      const [, pending, shipped] = sparseOrders();
+      // row 0: status "pending", total null; row 1: total "120"
+      const out = transformToValueData([
+        { status: pending.status, total: pending.total },
+        { status: shipped.status, total: shipped.total },
+      ]);
+      expect(out.value).toBeNull();
+      expect(out.previous).toBe(120);
+    });
+
+    it("sees a metric key that is missing from row 0", () => {
+      const out = transformToValueData([
+        { label: "2026-09" },
+        { label: "2026-08", value: 5 },
+      ]);
+      expect(out.value).toBeNull();
+      expect(out.previous).toBe(5);
+    });
+
+    it("treats a blank-text metric as no data", () => {
+      const [, , , cancelled] = sparseOrders();
+      expect(
+        transformToValueData([{ value: cancelled.total }]).value,
+      ).toBeNull();
+    });
+  });
+
+  // Review of #1671: the rule order is row-0 numeric, then any-row numeric,
+  // then column one. A blank column never beats a real value.
+  describe("column rule order", () => {
+    it("a column numeric in row 0 beats a label numeric only in a later row", () => {
       expect(
         transformToValueData([
-          { status: pending.status, total: pending.total },
-        ]).value,
-      ).toBeNull();
-      // total: "  " — a blank cell is no data too
+          { label: "Total", value: 500 },
+          { label: "2025", value: 400 },
+        ]),
+      ).toEqual({ value: 500, previous: 400 });
       expect(
         transformToValueData([
-          { status: cancelled.status, total: cancelled.total },
+          { label: "Total", total: 500 },
+          { label: "2025", total: 400 },
+        ]),
+      ).toEqual({ value: 500, previous: 400 });
+    });
+
+    it("a null column before a numeric one does not win", () => {
+      const [, , shipped] = sparseOrders();
+      // note: null, total: "120"
+      expect(
+        transformToValueData([{ note: shipped.note, total: shipped.total }])
+          .value,
+      ).toBe(120);
+    });
+
+    it("a text KPI beside a nullable column shows the text", () => {
+      const [delivered] = sparseOrders();
+      expect(
+        transformToValueData([
+          { status: delivered.status, note: delivered.note },
         ]).value,
-      ).toBeNull();
+      ).toBe("delivered");
+      expect(transformToValueData([{ name: null, value: "ok" }]).value).toBe(
+        "ok",
+      );
     });
   });
 });

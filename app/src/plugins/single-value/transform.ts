@@ -37,9 +37,11 @@ function isBlank(raw: unknown): boolean {
  * `$2026-03`. A non-numeric column is still returned when the result has no
  * numeric column at all, which is the legitimate "status text" case.
  *
- * A column counts as numeric when *any* row is, and a column blank in every row
- * is preferred over a text one: a `LEFT JOIN` KPI with no row for this period
- * is a null metric, and it is no data — not 0, and not the label (#1671).
+ * A null metric is no data, not 0 and not the label (#1671). Column order:
+ * a column named `value` (even when blank), then the first column numeric in
+ * row 0, then the first numeric in any row (a `LEFT JOIN` KPI with no row for
+ * this period), then column one. Keys are the union across rows, so a metric
+ * missing from row 0 is still seen.
  *
  * The second row's value in the same column is exposed as `previous` so the
  * plugin can compute a trend; the scalar alone cannot express one.
@@ -47,10 +49,11 @@ function isBlank(raw: unknown): boolean {
 export function transformToValueData(data: unknown): SingleValueData {
   const records = toRecords(data);
   if (records.length > 0) {
-    const keys = Object.keys(records[0]);
+    const keys = [...new Set(records.flatMap((r) => Object.keys(r)))];
     const key =
+      keys.find((k) => /^value$/i.test(k)) ??
+      keys.find((k) => toNumber(records[0][k]) !== null) ??
       keys.find((k) => records.some((r) => toNumber(r[k]) !== null)) ??
-      keys.find((k) => records.every((r) => isBlank(r[k]))) ??
       keys[0];
 
     const raw = key === undefined ? undefined : records[0][key];
