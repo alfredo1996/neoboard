@@ -15,7 +15,7 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 const mockRequireAdmin =
   vi.fn<
-    () => Promise<{ userId: string; canWrite: boolean; tenantId: string }>
+    () => Promise<{ userId: string; tenantId: string }>
   >();
 
 const mockAuditRequest = vi.fn();
@@ -50,12 +50,7 @@ vi.mock("@/lib/audit/audit", () => ({
 vi.mock("next/server", () => nextResponseMockFactory());
 
 // A non-default tenant, so a filter hard-coded to "default" cannot pass (#1607).
-const ADMIN = { userId: "admin-1", canWrite: true, tenantId: "tenant-x" };
-const READONLY_ADMIN = {
-  userId: "admin-1",
-  canWrite: false,
-  tenantId: "tenant-x",
-};
+const ADMIN = { userId: "admin-1", tenantId: "tenant-x" };
 
 /** The route scopes every users query by id AND the session tenant (#1607). */
 function expectScopedToTenant(expr: unknown, id: string) {
@@ -297,12 +292,13 @@ describe("PATCH /api/users/[id]", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 403 when admin has canWrite=false", async () => {
-    mockRequireAdmin.mockResolvedValue(READONLY_ADMIN);
+  it("returns 403 and updates nothing when caller is not admin", async () => {
+    mockRequireAdmin.mockRejectedValue(new ForbiddenError());
     const res = await PATCH(makeRequest({ role: "reader" }), makeParams("u1"));
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error.message).toBe("Forbidden");
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 
   it("disables a user by setting disabled=true", async () => {
@@ -436,12 +432,13 @@ describe("DELETE /api/users/[id]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when admin has canWrite=false", async () => {
-    mockRequireAdmin.mockResolvedValue(READONLY_ADMIN);
+  it("returns 403 and deletes nothing when caller is not admin", async () => {
+    mockRequireAdmin.mockRejectedValue(new ForbiddenError());
     const res = await DELETE(makeRequest({}), makeParams("u1"));
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error.message).toBe("Forbidden");
+    expect(mockDb.delete).not.toHaveBeenCalled();
   });
 
   it("returns 400 when self-deleting", async () => {

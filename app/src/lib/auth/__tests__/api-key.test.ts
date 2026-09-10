@@ -382,6 +382,30 @@ describe("resolveApiKeyAuth", () => {
     });
   });
 
+  it("returns canWrite=true for an admin key whose user row has canWrite=false (#1297)", async () => {
+    const token = "nb_" + "9".repeat(64);
+    const keyHash = createHmac("sha256", TEST_HMAC_SECRET)
+      .update(token)
+      .digest("hex");
+    mockHeadersGet.mockReturnValue("Bearer " + token);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        {
+          id: "key-6",
+          userId: "admin-6",
+          tenantId: "default",
+          keyHash,
+          role: "admin",
+          canWrite: false,
+          expiresAt: null,
+        },
+      ]),
+    );
+    mockDb.update.mockReturnValue(makeUpdateChain());
+    const result = await resolveApiKeyAuth();
+    expect(result?.canWrite).toBe(true);
+  });
+
   it("calls db.update to set lastUsedAt on successful resolution", async () => {
     const token = "nb_" + "d".repeat(64);
     const keyHash = createHmac("sha256", TEST_HMAC_SECRET)

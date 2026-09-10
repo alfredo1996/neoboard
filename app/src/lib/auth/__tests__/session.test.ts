@@ -110,6 +110,34 @@ describe("requireAdmin", () => {
     mockAuth.mockResolvedValue(null);
     await expect(requireAdmin()).rejects.toThrow("Unauthorized");
   });
+
+  // #1297: admins always write, so requireAdmin() hands back nothing to gate on.
+  it("returns only userId and tenantId, never a canWrite to gate on (#1297)", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "admin-1", role: "admin", tenantId: "tenant-x" },
+    });
+    expect(await requireAdmin()).toEqual({
+      userId: "admin-1",
+      tenantId: "tenant-x",
+    });
+  });
+
+  it("lets an admin through even when the stored canWrite is false (#1297)", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "admin-1", role: "admin", tenantId: "t1", canWrite: false },
+    });
+    await expect(requireAdmin()).resolves.toMatchObject({ userId: "admin-1" });
+  });
+
+  it("throws Forbidden for a non-admin API key (#1297)", async () => {
+    mockResolveApiKeyAuth.mockResolvedValue({
+      userId: "api-user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "t1",
+    });
+    await expect(requireAdmin()).rejects.toThrow("Forbidden");
+  });
 });
 
 describe("requireSession", () => {
@@ -187,6 +215,14 @@ describe("requireSession", () => {
     });
     const session = await requireSession();
     expect(session.canWrite).toBe(false);
+  });
+
+  it("returns canWrite=true for an admin whose stored canWrite is false (#1297)", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "admin-1", role: "admin", tenantId: "t1", canWrite: false },
+    });
+    const session = await requireSession();
+    expect(session.canWrite).toBe(true);
   });
 
   it("returns canWrite=true for admin role", async () => {

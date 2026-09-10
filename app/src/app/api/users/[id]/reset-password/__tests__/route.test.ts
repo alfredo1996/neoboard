@@ -12,7 +12,7 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
 const mockRequireAdmin =
   vi.fn<
-    () => Promise<{ userId: string; canWrite: boolean; tenantId: string }>
+    () => Promise<{ userId: string; tenantId: string }>
   >();
 
 const mockDb = {
@@ -85,23 +85,19 @@ describe("POST /api/users/[id]/reset-password", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when admin cannot write", async () => {
-    mockRequireAdmin.mockResolvedValue({
-      userId: "admin-1",
-      canWrite: false,
-      tenantId: "tenant-a",
-    });
+  it("returns 403 and resets nothing when caller is not admin", async () => {
+    mockRequireAdmin.mockRejectedValue(new ForbiddenError());
     const res = await POST(
       makeRequest({ newPassword: "NewPassword1!" }),
       makeParams("user-2"),
     );
     expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 
   it("returns 400 when admin tries to reset own password", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     const res = await POST(
@@ -114,7 +110,6 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("returns error when body is invalid", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     const res = await POST(makeRequest({}), makeParams("user-2"));
@@ -125,7 +120,6 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("resets password for a user in the same tenant", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     const chain = makeUpdateChain([{ id: "user-2" }]);
@@ -151,7 +145,6 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("returns 404 when target user belongs to a different tenant", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     // Simulate no rows returned because tenant filter excludes user from tenant-b
@@ -177,7 +170,6 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("returns generated password when generatePassword is true", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     mockDb.update.mockReturnValue(makeUpdateChain([{ id: "user-2" }]));
@@ -195,7 +187,6 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("records a user.password.reset audit entry with no password (#1234)", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     mockDb.update.mockReturnValue(makeUpdateChain([{ id: "user-2" }]));
@@ -221,7 +212,6 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("does not record the generated password either (#1234)", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     mockDb.update.mockReturnValue(makeUpdateChain([{ id: "user-2" }]));
@@ -240,7 +230,6 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("writes no audit entry when the target user is not found (#1234)", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     mockDb.update.mockReturnValue(makeUpdateChain([]));
@@ -257,7 +246,6 @@ describe("POST /api/users/[id]/reset-password", () => {
   it("sets passwordChangedAt when admin resets password", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
-      canWrite: true,
       tenantId: "tenant-a",
     });
     const chain = makeUpdateChain([{ id: "user-2" }]);

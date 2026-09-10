@@ -5,18 +5,23 @@ import { UnauthorizedError, ForbiddenError } from "./errors";
 
 /**
  * Require the current user to be an admin.
- * Throws if not authenticated, not admin, or not allowed to write.
+ * Throws if not authenticated or not an admin.
+ *
+ * Admins always have write permission: both auth paths force `canWrite` to
+ * `true` for the admin role, whatever the `users` row holds. So there is no
+ * `canWrite` on the result, and admin routes must not gate on it (#1297).
+ * A read-only admin would mean changing that rule in `requireSession()` and
+ * `resolveApiKeyAuth()` first, then gating every admin mutation route.
  */
 export async function requireAdmin(): Promise<{
   userId: string;
-  canWrite: boolean;
   tenantId: string;
 }> {
-  const { userId, role, canWrite, tenantId } = await requireSession();
+  const { userId, role, tenantId } = await requireSession();
   if (role !== "admin") {
     throw new ForbiddenError();
   }
-  return { userId, canWrite, tenantId };
+  return { userId, tenantId };
 }
 /**
  * Get the current authenticated user ID.
