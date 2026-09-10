@@ -27,7 +27,7 @@ import {
   THEME_DARK,
   CITRINE_LIGHT,
 } from "./theme";
-import { getPaletteColors, resolvePaletteId } from "./palettes";
+import { getPaletteColors } from "./palettes";
 
 echarts.use([
   EBarChart,
@@ -65,10 +65,9 @@ function hslToComma(hslValues: string): string {
  * The series colours a chart should paint with.
  *
  * A chosen palette is a static, light-only array, so only non-default palettes
- * take it. The citrine default (and its "deep-ocean" alias) go through the CSS
- * variables instead, which carry the dark-mode values — gating on the alias
- * alone left every default chart painting light citrine on the dark canvas
- * (#1295).
+ * take it. The citrine default goes through the CSS variables instead, which
+ * carry the dark-mode values (#1295). An id no palette answers to falls back
+ * to the same theme path.
  *
  * Exported because a chart that assigns colours inside its own option — the
  * treemap maps a hue per top-level group — must follow the same rule rather
@@ -76,7 +75,7 @@ function hslToComma(hslValues: string): string {
  */
 export function resolveSeriesPalette(colorPalette?: string): string[] {
   const paletteColors =
-    colorPalette && resolvePaletteId(colorPalette) !== "citrine"
+    colorPalette && colorPalette !== "citrine"
       ? getPaletteColors(colorPalette)
       : undefined;
   return paletteColors ?? resolveChartColors();

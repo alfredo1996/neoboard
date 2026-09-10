@@ -329,6 +329,56 @@ describe("convertNeoDash", () => {
     ).toEqual({ area: true });
   });
 
+  // NeoDash bar reports carry `groupMode: "grouped" | "stacked"`; NeoBoard's
+  // bar plugin reads `chartOptions.stackMode` (#1684).
+  it("maps a NeoDash stacked bar to stackMode: 'stacked'", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({
+        type: "bar",
+        settings: { groupMode: "stacked" },
+      }),
+    );
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toEqual({ stackMode: "stacked" });
+  });
+
+  // NeoDash defaults an unset groupMode to "stacked" (ReportConfig.tsx /
+  // BarChart.tsx), so an untouched bar must import as stacked too.
+  it("maps a NeoDash bar with no groupMode to stackMode: 'stacked'", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({ type: "bar", settings: {} }),
+    );
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toEqual({ stackMode: "stacked" });
+  });
+
+  it("does not stack a non-bar report that carries a stray groupMode", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({ type: "table", settings: { groupMode: "stacked" } }),
+    );
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toBeUndefined();
+  });
+
+  it("leaves chartOptions alone for a grouped NeoDash bar", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({
+        type: "bar",
+        settings: { groupMode: "grouped" },
+      }),
+    );
+    expect(
+      (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
+        .chartOptions,
+    ).toBeUndefined();
+  });
+
   it("converts $neodash_ parameter syntax to $param_", () => {
     const result = convertNeoDash(
       makeSingleReportDash({

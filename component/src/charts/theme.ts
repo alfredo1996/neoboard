@@ -46,15 +46,6 @@ export const CITRINE_DARK = [
 ];
 
 /**
- * @deprecated Renamed in the v1.1 redesign (#821) — use CITRINE_LIGHT /
- * CITRINE_DARK. Kept so external chart plugins compiled against the old
- * names keep working; the palette id "deep-ocean" aliases too.
- */
-export const DEEP_OCEAN_LIGHT = CITRINE_LIGHT;
-/** @deprecated See DEEP_OCEAN_LIGHT. */
-export const DEEP_OCEAN_DARK = CITRINE_DARK;
-
-/**
  * Compact axis number formatting (#822): 8000 → "8K", 45200 → "45.2K",
  * 1200000 → "1.2M". Non-numeric category labels pass through untouched.
  */

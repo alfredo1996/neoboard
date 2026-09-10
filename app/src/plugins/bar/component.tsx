@@ -34,7 +34,6 @@ function BarPluginComponent({
       data={(data as BarChartDataPoint[]) ?? []}
       orientation={settings.orientation}
       stackMode={settings.stackMode}
-      stacked={settings.stacked}
       showValues={settings.showValues}
       decimalPlaces={settings.decimalPlaces}
       showLegend={settings.showLegend}

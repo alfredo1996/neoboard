@@ -51,8 +51,8 @@ describe("widget-editor-store", () => {
 
   describe("setChartOptions", () => {
     it("accepts a direct object", () => {
-      getState().setChartOptions({ colorPalette: "neon" });
-      expect(getState().chartOptions).toEqual({ colorPalette: "neon" });
+      getState().setChartOptions({ colorPalette: "tableau" });
+      expect(getState().chartOptions).toEqual({ colorPalette: "tableau" });
     });
 
     it("accepts an updater function", () => {
@@ -82,13 +82,10 @@ describe("widget-editor-store", () => {
     });
   });
 
-  // #1520 — a stored legacy palette alias matched no item in the editor's
-  // Color Palette select (its items come from COLOR_PALETTES, which holds no
-  // alias), so the control rendered empty while the chart drew the right
-  // colours. Resolved on the way in, so the editor only ever sees canonical
-  // ids and saving migrates the widget.
-  describe("loadFromWidget — palette alias resolution (#1520)", () => {
-    it("resolves a legacy alias to its canonical palette id", () => {
+  // #1684 — the palette alias layer (#1520) is gone: there is no deployed
+  // dashboard to migrate, so chart options enter the editor exactly as stored.
+  describe("loadFromWidget — chart options are taken as stored", () => {
+    it("does not special-case a pre-#821 palette id", () => {
       getState().loadFromWidget({
         id: "w1",
         chartType: "bar",
@@ -96,27 +93,10 @@ describe("widget-editor-store", () => {
         query: "q",
         settings: { chartOptions: { colorPalette: "deep-ocean" } },
       });
-      expect(getState().chartOptions.colorPalette).toBe("citrine");
+      expect(getState().chartOptions.colorPalette).toBe("deep-ocean");
     });
 
-    it("resolves the other legacy aliases too", () => {
-      for (const [stored, expected] of [
-        ["warm-sunset", "warm"],
-        ["cool-breeze", "cool"],
-        ["neon", "observable"],
-      ] as const) {
-        getState().loadFromWidget({
-          id: "w1",
-          chartType: "bar",
-          connectionId: "c1",
-          query: "q",
-          settings: { chartOptions: { colorPalette: stored } },
-        });
-        expect(getState().chartOptions.colorPalette).toBe(expected);
-      }
-    });
-
-    it("leaves a canonical id untouched", () => {
+    it("keeps a canonical id", () => {
       getState().loadFromWidget({
         id: "w1",
         chartType: "bar",
@@ -135,13 +115,13 @@ describe("widget-editor-store", () => {
         query: "q",
         settings: {
           chartOptions: {
-            colorPalette: "deep-ocean",
+            colorPalette: "citrine",
             showValues: true,
             orientation: "horizontal",
           },
         },
       });
-      expect(getState().chartOptions).toMatchObject({
+      expect(getState().chartOptions).toEqual({
         colorPalette: "citrine",
         showValues: true,
         orientation: "horizontal",

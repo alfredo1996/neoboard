@@ -7,7 +7,8 @@ vi.mock("next/dynamic", () => ({
     const Stub = (props: Record<string, unknown>) => (
       <div
         data-testid="bar-chart"
-        data-stacked={String(props.stacked ?? false)}
+        data-stack-mode={String(props.stackMode)}
+        data-has-stacked={String("stacked" in props)}
         data-orientation={String(props.orientation ?? "vertical")}
       />
     );
@@ -48,12 +49,14 @@ describe("barPlugin", () => {
     render(
       <Component
         data={[]}
-        settings={{ stacked: true, orientation: "horizontal" }}
+        settings={{ stackMode: "stacked", orientation: "horizontal" }}
       />,
     );
     const chart = screen.getByTestId("bar-chart");
-    expect(chart).toHaveAttribute("data-stacked", "true");
+    expect(chart).toHaveAttribute("data-stack-mode", "stacked");
     expect(chart).toHaveAttribute("data-orientation", "horizontal");
+    // The boolean `stacked` prop is gone (#1684) — stackMode is the only knob.
+    expect(chart).toHaveAttribute("data-has-stacked", "false");
   });
 
   it("has transform and validate from chart registry", () => {

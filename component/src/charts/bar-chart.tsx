@@ -29,8 +29,6 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   orientation?: "vertical" | "horizontal";
   /** Stack mode: none (grouped), stacked (absolute), percent (100% stacked) */
   stackMode?: BarStackMode;
-  /** @deprecated Use stackMode instead. Stack bars when multiple series */
-  stacked?: boolean;
   /** Show values on bars */
   showValues?: boolean;
   /** Fixed decimal places in the tooltip and value labels; -1 or unset = automatic */
@@ -69,8 +67,7 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
 function BarChart({
   data,
   orientation = "vertical",
-  stackMode: stackModeProp,
-  stacked = false,
+  stackMode = "none",
   showValues = false,
   decimalPlaces,
   showLegend,
@@ -89,9 +86,6 @@ function BarChart({
   const { width, height, containerRef } = useContainerSize();
   const { compact, hideLegend } = getCompactState(width, height);
 
-  // Resolve stack mode: prefer explicit stackMode, fall back to legacy boolean
-  const stackMode: BarStackMode =
-    stackModeProp ?? (stacked ? "stacked" : "none");
   const isPercent = stackMode === "percent";
   const isStacked = stackMode === "stacked" || isPercent;
 

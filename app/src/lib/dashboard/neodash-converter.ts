@@ -359,6 +359,19 @@ export function convertNeoDashWithNotes(
         notes.push('Imported markdown content for "' + report.title + '"');
       }
 
+      // Options NeoBoard reads from `settings.chartOptions`, not the root.
+      const chartOptions = {
+        // NeoDash "area" chart type → line with area fill
+        ...(originalType === "area" ? { area: true } : {}),
+        // NeoDash bar `groupMode` → NeoBoard `stackMode` (#1684). NeoDash
+        // defaults an unset groupMode to "stacked", so only an explicit
+        // "grouped" opts out; gated on the bar type so a stray key elsewhere
+        // doesn't stack a non-bar.
+        ...(originalType === "bar" && reportSettings.groupMode !== "grouped"
+          ? { stackMode: "stacked" }
+          : {}),
+      };
+
       widgets.push({
         id: widgetId,
         chartType,
@@ -369,8 +382,7 @@ export function convertNeoDashWithNotes(
           ...reportSettings,
           // Preserve report title as widget title
           ...(report.title ? { title: report.title } : {}),
-          // Set area mode for NeoDash "area" chart type
-          ...(originalType === "area" ? { chartOptions: { area: true } } : {}),
+          ...(Object.keys(chartOptions).length ? { chartOptions } : {}),
           // Markdown: content moved out of report.query
           ...(isMarkdown ? { content: report.query ?? "" } : {}),
           // Mapped settings

@@ -38,7 +38,7 @@
             "settings": {
               "title": "Revenue by category — colored by threshold",
               "chartOptions": {
-                "colorPalette": "deep-ocean",
+                "colorPalette": "citrine",
                 "showValues": true,
                 "showLegend": false
               },

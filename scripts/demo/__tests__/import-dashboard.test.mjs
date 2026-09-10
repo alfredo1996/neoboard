@@ -157,7 +157,7 @@ describe("neoboardExportSchema", () => {
                 chartType: "bar",
                 connectionId: "conn_a",
                 query: "SELECT 1",
-                settings: { colorPalette: "deep-ocean" },
+                settings: { colorPalette: "citrine" },
               },
             ],
             gridLayout: [],
