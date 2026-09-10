@@ -50,6 +50,20 @@ function backtickedTokens() {
   return found;
 }
 
+/** Keys env-config.ts marks `required: true` — the app exits at boot without them. */
+function requiredFromRegistry() {
+  const registry = readFileSync(
+    join(ROOT, "app/src/lib/env-config.ts"),
+    "utf8",
+  );
+  const keys = [
+    ...registry.matchAll(/key:\s*"([A-Z0-9_]+)"[^}]*?required:\s*true/gs),
+  ].map((m) => m[1]);
+  if (keys.length === 0)
+    throw new Error("env-config.ts parse found no required keys");
+  return keys;
+}
+
 describe("docs accuracy guards (#1316)", () => {
   it("documents no environment variable that does not exist in source", () => {
     // SCREAMING_SNAKE with at least one underscore. Requiring the underscore
@@ -90,14 +104,7 @@ describe("docs accuracy guards (#1316)", () => {
     // be wrong by omitting as well as by inventing. Both production setup
     // snippets left out API_KEY_HMAC_SECRET, which env-config marks required,
     // so a deployment that followed the page failed startup validation.
-    const registry = readFileSync(
-      join(ROOT, "app/src/lib/env-config.ts"),
-      "utf8",
-    );
-    const required = [
-      ...registry.matchAll(/key:\s*"([A-Z0-9_]+)"[^}]*?required:\s*true/gs),
-    ].map((m) => m[1]);
-    expect(required.length).toBeGreaterThan(0); // the regex still matches
+    const required = requiredFromRegistry();
 
     const documented = new Set(
       backtickedTokens()
@@ -637,5 +644,155 @@ describe("the seven-group information architecture (#1681)", () => {
       ))
         stale.push(`${m[1]} (${path})`);
     expect(stale).toEqual([]);
+  });
+});
+
+describe("production options: Run from a build (#1679)", () => {
+  // Every production page presented Docker Compose as the only way to run
+  // NeoBoard, while the Dockerfile shows nothing is Docker-specific except
+  // the file assembly: `node app/server.js` on the standalone build, config
+  // entirely via env. These keep the non-Docker page real and un-drifted.
+  const PAGE = "docs/src/content/docs/deploy/run-from-a-build.mdx";
+  const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
+  const text = (p) => DOCS.find(({ path }) => path === p)?.text ?? "";
+
+  it("exists under Deploy and operate, ordered, and is offered from Install", () => {
+    expect(page()).not.toBe("");
+    expect(page().match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "").toMatch(
+      /^sidebar:\n[ \t]+order:\s*\d+/m,
+    );
+    expect(text("docs/src/content/docs/start-here/install.mdx")).toContain(
+      "/deploy/run-from-a-build",
+    );
+  });
+
+  it("lists exactly the variables app/.env.example marks required", () => {
+    // The Dockerfile names app/.env.example as the single documented list
+    // (#931). The page's Required table is a copy, and copies drift — this
+    // fails when either side gains or loses a variable.
+    const example = readFileSync(join(ROOT, "app/.env.example"), "utf8");
+    const requiredBlock = example
+      .split(/^# ── /m)
+      .find((s) => s.startsWith("Required"));
+    const fromExample = [...requiredBlock.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)]
+      .map((m) => m[1])
+      .sort();
+    expect(fromExample.length).toBeGreaterThan(0); // the parse still works
+
+    const body = page();
+    const section = body.slice(
+      body.indexOf("### Required"),
+      body.indexOf("\n##", body.indexOf("### Required") + 1),
+    );
+    const fromPage = [...section.matchAll(/^\|\s*`([A-Z][A-Z0-9_]+)`/gm)]
+      .map((m) => m[1])
+      .sort();
+
+    expect(fromPage).toEqual(fromExample);
+
+    // Both are copies of env-config.ts. Page == example only proves the two
+    // copies agree; a variable added to the registry and documented on the
+    // Configuration page still left this table — "Every option reads these
+    // at boot" — silently short. NEXTAUTH_URL is the page's deliberate
+    // operational addition, hence arrayContaining, not equality.
+    const fromRegistry = requiredFromRegistry();
+    expect(fromPage).toEqual(expect.arrayContaining(fromRegistry));
+    expect(fromExample).toEqual(expect.arrayContaining(fromRegistry));
+  });
+
+  it("generates the secrets once, before the first run, and never again", () => {
+    // The systemd step said "move the configuration into a root-only file"
+    // and then ran `openssl rand` again for every secret — a reader who
+    // followed it rotated ENCRYPTION_KEY between the foreground run that
+    // created the schema and first admin and the unit that took over,
+    // losing every credential stored in between.
+    const body = page();
+    const option1 = body.slice(
+      body.indexOf("## Option 1"),
+      body.indexOf("## Option 2"),
+    );
+    const generated = option1.match(/ENCRYPTION_KEY=\$\(openssl rand/g) ?? [];
+    expect(generated).toHaveLength(1);
+    expect(option1.indexOf("ENCRYPTION_KEY=$(openssl rand")).toBeLessThan(
+      option1.indexOf("node app/server.js"),
+    );
+    // The foreground run reads the file the unit will read, rather than
+    // taking its own inline copy of the secrets.
+    const foreground =
+      option1.match(/```bash\n[^`]*node app\/server\.js[^`]*```/)?.[0] ?? "";
+    expect(foreground).toContain("/etc/neoboard.env");
+    expect(foreground).not.toMatch(/ENCRYPTION_KEY=/);
+    // The token lives in a 0600 root file; the reader is told how to see it.
+    expect(option1).toMatch(/grep ADMIN_BOOTSTRAP_TOKEN \/etc\/neoboard\.env/);
+  });
+
+  it("never expands the env file onto a command line", () => {
+    // `env $(sudo cat /etc/neoboard.env)` put every secret in sudo's argv:
+    // sudo logs the full command to auth.log, and `ps` shows it to every
+    // local user for the life of the run. Source the file in a root shell
+    // and drop privileges after, as the systemd unit does.
+    for (const { path, text } of DOCS) {
+      expect(text, path).not.toMatch(/\$\((?:sudo\s+)?cat\s+[^)]*\.env\b/);
+    }
+    const foreground =
+      page().match(/```bash\n[^`]*node app\/server\.js[^`]*```/)?.[0] ?? "";
+    expect(foreground).toMatch(/\. \/etc\/neoboard\.env/);
+  });
+
+  it("gives every option a first admin", () => {
+    // Self-registration is closed by default and signup.ts refuses the
+    // first admin without ADMIN_BOOTSTRAP_TOKEN, so an option that sets only
+    // the required variables ends in a healthy pod nobody can log into.
+    const body = page();
+    const options = body.split(/^## Option /m).slice(1);
+    expect(options.length).toBeGreaterThan(1);
+    for (const option of options) {
+      expect(option).toContain("ADMIN_BOOTSTRAP_TOKEN");
+      expect(option).toContain("/deploy/production#3-create-the-first-admin");
+    }
+  });
+
+  it("does not call replicas safe while rate limiting is per-process", () => {
+    // migrate-on-boot serializes on pg_advisory_lock, so migrations are
+    // replica-safe. The rate limiter on the public /api/auth/* routes (#819)
+    // is an in-memory Map per process, so N replicas hand every IP N times
+    // the budget. The page must say the second half, not just the first.
+    const limiter = readFileSync(
+      join(ROOT, "app/src/lib/crypto/rate-limiter.ts"),
+      "utf8",
+    );
+    expect(limiter).toMatch(/single-instance/); // still the reason
+    const body = page();
+    const replicas = body.match(/^- \*\*Replicas\.\*\*.*$/m)?.[0] ?? "";
+    expect(replicas).not.toBe("");
+    expect(replicas).not.toMatch(/safe to raise/i);
+    expect(replicas).toMatch(/rate.limit/i);
+    expect(replicas).toMatch(/advisory lock/);
+  });
+
+  it("names only the image that is published", () => {
+    // reverse-proxy's Traefik example pulled neoboard/community:latest —
+    // an image that does not exist; everything else says ghcr.io/....
+    const offenders = DOCS.filter(({ text }) =>
+      text.includes("neoboard/community"),
+    ).map(({ path }) => path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("pins image tags the way release.yml publishes them (X.Y.Z, X.Y — no v)", () => {
+    // docker/metadata-action's type=semver strips the tag's leading v, so
+    // ghcr.io/.../neoboard:vX.Y.Z is a pull that fails.
+    const offenders = DOCS.filter(({ text }) => /neoboard:v/.test(text)).map(
+      ({ path }) => path,
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the deployment checklist option-neutral", () => {
+    const checklist = text(
+      "docs/src/content/docs/deploy/deployment-checklist.mdx",
+    );
+    expect(checklist).not.toMatch(/NeoBoard container/);
+    expect(checklist).not.toMatch(/Docker resource limits/);
   });
 });
