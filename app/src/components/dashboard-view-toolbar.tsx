@@ -121,10 +121,15 @@ export function DashboardViewToolbar({
           Back
         </Button>
       </ToolbarSection>
-      <ToolbarSection className="flex-1">
-        <h1 className="text-lg font-bold">{name}</h1>
+      {/* min-w-0 + truncate: the title never wraps, so the toolbar is the
+          same height as the edit toolbar and <main> does not shift on mode
+          toggle (#1163/#1370 guard). */}
+      <ToolbarSection className="min-w-0 flex-1">
+        <h1 className="truncate text-lg font-bold" title={name}>
+          {name}
+        </h1>
         <Badge variant="secondary">{role}</Badge>
-        <span className="text-xs text-muted-foreground">
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
           · updated <TimeAgo date={updatedAt} showTooltip={false} />
           {updatedByName ? <> by {updatedByName}</> : null}
         </span>

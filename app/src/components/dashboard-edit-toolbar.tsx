@@ -57,8 +57,10 @@ export function DashboardEditToolbar({
           Back
         </Button>
       </ToolbarSection>
-      <ToolbarSection className="flex-1">
-        <h1 className="text-lg font-bold">{`Editing: ${name}`}</h1>
+      <ToolbarSection className="min-w-0 flex-1">
+        <h1 className="truncate text-lg font-bold" title={name}>
+          {`Editing: ${name}`}
+        </h1>
       </ToolbarSection>
       <ToolbarSection>
         {isAdmin && (
