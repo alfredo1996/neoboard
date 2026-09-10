@@ -39,7 +39,7 @@ function GuidedQueryBuilder({
   loading = false,
   error,
   className,
-}: GuidedQueryBuilderProps) {
+}: Readonly<GuidedQueryBuilderProps>) {
   const id = React.useId();
   const fields = sources.find((s) => s.name === picks.source)?.fields ?? [];
   const filtering = picks.filter.field !== "";

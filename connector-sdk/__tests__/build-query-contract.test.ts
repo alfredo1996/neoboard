@@ -3,7 +3,7 @@ import {
   type BuiltQuery,
   type ConnectorPlugin,
   type QuerySpec,
-} from "../src";
+} from "../src/generalized/connector-plugin";
 
 // #1696 — a connector may own its query dialect through an optional
 // buildQuery(spec). The registry hands it back untouched; connectors without
