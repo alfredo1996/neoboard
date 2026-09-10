@@ -18,6 +18,8 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  filterOnLabel,
+  toCmdkValue,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -55,6 +57,12 @@ export interface ParamSelectorProps {
   /** Called with the search term as the user types (for server-side filtering). */
   onSearch?: (term: string) => void;
   /**
+   * The options already come back filtered by the server (the seed query uses
+   * `$param_search`). cmdk then renders them as given: a server match on a
+   * column other than the label would otherwise be hidden again (#1411).
+   */
+  serverFiltered?: boolean;
+  /**
    * Current value of the parent parameter this select cascades from.
    * Absent while `parentParameterName` is set = the cascade is not ready yet.
    */
@@ -89,6 +97,7 @@ function ParamSelector({
   loading = false,
   searchable = false,
   onSearch,
+  serverFiltered = false,
   parentValue,
   parentParameterName,
   className,
@@ -185,7 +194,7 @@ function ParamSelector({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full min-w-[200px] p-0" align="start">
-              <Command>
+              <Command filter={filterOnLabel} shouldFilter={!serverFiltered}>
                 <CommandInput
                   placeholder="Search…"
                   onValueChange={(term) => onSearch?.(term)}
@@ -196,7 +205,8 @@ function ParamSelector({
                     {options.map((opt) => (
                       <CommandItem
                         key={opt.value}
-                        value={opt.value}
+                        value={toCmdkValue(opt.value)}
+                        keywords={[opt.label]}
                         onSelect={() => {
                           onChange(opt.value === value ? "" : opt.value);
                           setOpen(false);

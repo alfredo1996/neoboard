@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeAll } from "vitest";
@@ -173,5 +174,197 @@ describe("ParamMultiSelector — searchable mode", () => {
 
     // Search input should still be functional (popover stays open for multi-select)
     expect(input).toBeInTheDocument();
+  });
+});
+
+// #1411: the realistic seed shape is `id AS value, name AS label`. cmdk used
+// to score items on `value`, so typing a visible label hid its own option.
+const idOptions = [
+  { value: "4:p:1", label: "Keanu Reeves" },
+  { value: "4:p:2", label: "Carrie-Anne Moss" },
+  { value: "4:p:3", label: "Laurence Fishburne" },
+];
+// Two people can share a name; only the id tells them apart.
+const sameNameOptions = [
+  { value: "4:p:10", label: "Tom Smith" },
+  { value: "4:p:11", label: "Tom Smith" },
+];
+
+describe("ParamSelector — filters on the visible label (#1411)", () => {
+  async function openAndType(
+    props: Partial<ComponentProps<typeof ParamSelector>>,
+    term: string,
+  ) {
+    const user = userEvent.setup();
+    render(
+      <ParamSelector
+        parameterName="actor"
+        options={idOptions}
+        value=""
+        onChange={vi.fn()}
+        searchable
+        {...props}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    const input = screen.getByPlaceholderText("Search…");
+    await user.click(input);
+    if (term) await user.type(input, term);
+    return user;
+  }
+
+  it("keeps an option whose label matches although its value does not", async () => {
+    await openAndType({}, "Keanu");
+    expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
+    expect(screen.queryByText("Carrie-Anne Moss")).not.toBeInTheDocument();
+    expect(screen.queryByText("No options found.")).not.toBeInTheDocument();
+  });
+
+  it("does not match on the hidden value", async () => {
+    await openAndType({}, "4:p");
+    expect(screen.getByText("No options found.")).toBeInTheDocument();
+  });
+
+  it("still passes the typed term to onSearch", async () => {
+    const onSearch = vi.fn();
+    await openAndType({ onSearch }, "Keanu");
+    expect(onSearch).toHaveBeenLastCalledWith("Keanu");
+  });
+
+  it("selects the underlying value, not the label", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType({ onChange }, "Keanu");
+    await user.click(screen.getByText("Keanu Reeves"));
+    expect(onChange).toHaveBeenCalledWith("4:p:1");
+  });
+
+  it("keeps options that share a label distinct for keyboard selection", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType({ onChange, options: sameNameOptions }, "");
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith("4:p:11");
+  });
+
+  it("keeps an option with an empty value findable by its label", async () => {
+    await openAndType(
+      { options: [{ value: "", label: "(none)" }, ...idOptions] },
+      "none",
+    );
+    expect(
+      screen.getByRole("option", { name: "(none)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType(
+      {
+        onChange,
+        options: [
+          { value: "NY", label: "New York" },
+          { value: "NY ", label: "New York (padded)" },
+        ],
+      },
+      "",
+    );
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith("NY ");
+  });
+
+  it("renders server-filtered results unfiltered", async () => {
+    // The seed matched "keanu@" on an email column; the label cannot match.
+    await openAndType({ serverFiltered: true }, "keanu@");
+    expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
+    expect(screen.getByText("Carrie-Anne Moss")).toBeInTheDocument();
+    expect(screen.queryByText("No options found.")).not.toBeInTheDocument();
+  });
+});
+
+describe("ParamMultiSelector — filters on the visible label (#1411)", () => {
+  async function openAndType(
+    props: Partial<ComponentProps<typeof ParamMultiSelector>>,
+    term: string,
+  ) {
+    const user = userEvent.setup();
+    render(
+      <ParamMultiSelector
+        parameterName="actors"
+        options={idOptions}
+        values={[]}
+        onChange={vi.fn()}
+        searchable
+        {...props}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    const input = screen.getByPlaceholderText("Search…");
+    await user.click(input);
+    if (term) await user.type(input, term);
+    return user;
+  }
+
+  it("keeps an option whose label matches although its value does not", async () => {
+    await openAndType({}, "Keanu");
+    expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
+    expect(screen.queryByText("Carrie-Anne Moss")).not.toBeInTheDocument();
+  });
+
+  it("still passes the typed term to onSearch", async () => {
+    const onSearch = vi.fn();
+    await openAndType({ onSearch }, "Keanu");
+    expect(onSearch).toHaveBeenLastCalledWith("Keanu");
+  });
+
+  it("selects the underlying value, not the label", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType({ onChange }, "Keanu");
+    await user.click(screen.getByText("Keanu Reeves"));
+    expect(onChange).toHaveBeenCalledWith(["4:p:1"]);
+  });
+
+  it("keeps options that share a label distinct for keyboard selection", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType({ onChange, options: sameNameOptions }, "");
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith(["4:p:11"]);
+  });
+
+  it("does not match on the hidden value", async () => {
+    await openAndType({}, "4:p");
+    expect(screen.getByText("No options found.")).toBeInTheDocument();
+  });
+
+  it("keeps an option with an empty value findable by its label", async () => {
+    await openAndType(
+      { options: [{ value: "", label: "(none)" }, ...idOptions] },
+      "none",
+    );
+    expect(
+      screen.getByRole("option", { name: "(none)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType(
+      {
+        onChange,
+        options: [
+          { value: "NY", label: "New York" },
+          { value: "NY ", label: "New York (padded)" },
+        ],
+      },
+      "",
+    );
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith(["NY "]);
+  });
+
+  it("renders server-filtered results unfiltered", async () => {
+    // The seed matched "keanu@" on an email column; the label cannot match.
+    await openAndType({ serverFiltered: true }, "keanu@");
+    expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
+    expect(screen.getByText("Carrie-Anne Moss")).toBeInTheDocument();
+    expect(screen.queryByText("No options found.")).not.toBeInTheDocument();
   });
 });

@@ -11,6 +11,8 @@ import {
   CommandGroup,
   CommandInput,
   CommandList,
+  filterOnLabel,
+  toCmdkValue,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -38,6 +40,12 @@ export interface ParamMultiSelectorProps {
   searchable?: boolean;
   /** Called with the search term as the user types (for server-side filtering). */
   onSearch?: (term: string) => void;
+  /**
+   * The options already come back filtered by the server (the seed query uses
+   * `$param_search`). cmdk then renders them as given: a server match on a
+   * column other than the label would otherwise be hidden again (#1411).
+   */
+  serverFiltered?: boolean;
   /**
    * Current value of the parent parameter this multi-select cascades from.
    * Absent while `parentParameterName` is set = the cascade is not ready yet.
@@ -67,6 +75,7 @@ function ParamMultiSelector({
   maxDisplay = 3,
   searchable = false,
   onSearch,
+  serverFiltered = false,
   parentValue,
   parentParameterName,
   className,
@@ -187,7 +196,7 @@ function ParamMultiSelector({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full min-w-[200px] p-0" align="start">
-          <Command>
+          <Command filter={filterOnLabel} shouldFilter={!serverFiltered}>
             {/*
               CommandInput only renders when `searchable` is true. The
               previous version always rendered the input but stripped its
@@ -208,9 +217,8 @@ function ParamMultiSelector({
                 {options.map((opt) => (
                   <MultiSelectItem
                     key={opt.value}
-                    // Machine value retained — the label-vs-value filtering
-                    // fix is #1411 / #1284 defect 2, not this change.
-                    value={opt.value}
+                    value={toCmdkValue(opt.value)}
+                    keywords={[opt.label]}
                     isSelected={values.includes(opt.value)}
                     onToggle={() => handleToggle(opt.value)}
                   >

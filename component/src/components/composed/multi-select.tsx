@@ -13,6 +13,8 @@ import {
   CommandGroup,
   CommandInput,
   CommandList,
+  filterOnLabel,
+  toCmdkValue,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -129,7 +131,7 @@ function MultiSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
-        <Command>
+        <Command filter={filterOnLabel}>
           <CommandInput placeholder={searchPlaceholder} />
           {/* #1284: cmdk never sets aria-multiselectable, so this prop does
               pass through (unlike role/aria-selected on the items). */}
@@ -139,10 +141,8 @@ function MultiSelect({
               {options.map((option) => (
                 <MultiSelectItem
                   key={option.value}
-                  // NOTE: still the machine value — cmdk then filters on UUIDs
-                  // rather than labels. That is #1411 / #1284 defect 2, fixed
-                  // there, not here.
-                  value={option.value}
+                  value={toCmdkValue(option.value)}
+                  keywords={[option.label]}
                   isSelected={value.includes(option.value)}
                   disabled={option.disabled}
                   onToggle={() => handleToggle(option.value)}

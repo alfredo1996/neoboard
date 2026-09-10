@@ -99,6 +99,7 @@ function makeSeed(over: Partial<SeedQueryResult> = {}): SeedQueryResult {
     refetch: vi.fn(),
     setSearchTerm,
     parentValue: undefined,
+    serverFiltered: false,
     ...over,
   };
 }
@@ -250,6 +251,14 @@ describe("ParamSelect — seed query error (#1678)", () => {
 });
 
 describe("ParamSelect — prop forwarding", () => {
+  it.each([true, false])(
+    "forwards seed.serverFiltered=%s (#1411)",
+    (serverFiltered) => {
+      const props = renderSelect({ searchable: true, seed: { serverFiltered } });
+      expect(props.serverFiltered).toBe(serverFiltered);
+    },
+  );
+
   it("withholds onSearch when the select is not searchable", () => {
     const props = renderSelect({ searchable: false });
     expect(props.searchable).toBe(false);

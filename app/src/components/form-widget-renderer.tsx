@@ -23,6 +23,7 @@ import {
 import { useParameterValues } from "@/stores/parameter-store";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
+import { seedFiltersOnServer } from "@/components/parameters/use-seed-query-options";
 import { buildFormParams } from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import { validateFieldValue } from "@/lib/widget/form-field-validation";
@@ -122,6 +123,8 @@ function FieldInput({
   );
 
   const options = hasStaticOptions ? staticOptionsList : seedOptions;
+  const serverFiltered =
+    !hasStaticOptions && seedFiltersOnServer(field.searchable, field.seedQuery);
 
   // Clear cascading child when parent changes. Also drop the typed search
   // term, so it can't keep filtering the option set the new parent loads.
@@ -185,6 +188,7 @@ function FieldInput({
           loading={loading}
           searchable={field.searchable}
           onSearch={field.searchable ? setSearchTerm : undefined}
+          serverFiltered={serverFiltered}
           parentValue={parentValue}
           parentParameterName={field.parentParameterName}
         />
@@ -218,6 +222,7 @@ function FieldInput({
           loading={loading}
           searchable={field.searchable}
           onSearch={field.searchable ? setSearchTerm : undefined}
+          serverFiltered={serverFiltered}
         />
       );
     }
