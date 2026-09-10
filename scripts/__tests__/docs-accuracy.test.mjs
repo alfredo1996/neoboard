@@ -781,10 +781,19 @@ describe("production options: Run from a build (#1679)", () => {
 
   it("pins image tags the way release.yml publishes them (X.Y.Z, X.Y — no v)", () => {
     // docker/metadata-action's type=semver strips the tag's leading v, so
-    // ghcr.io/.../neoboard:vX.Y.Z is a pull that fails.
-    const offenders = DOCS.filter(({ text }) => /neoboard:v/.test(text)).map(
-      ({ path }) => path,
-    );
+    // ghcr.io/.../neoboard:vX.Y.Z is a pull that fails. The prod compose
+    // files' rollback comments are copied as often as the docs are.
+    const read = (path) => readFileSync(join(ROOT, path), "utf8");
+    expect(read(".github/workflows/release.yml")).toMatch(
+      /type=semver,pattern=\{\{version\}\}/,
+    ); // still why
+    const compose = [
+      "docker/docker-compose.prod.yml",
+      "docker/docker-compose.prod-full.yml",
+    ].map((path) => ({ path, text: read(path) }));
+    const offenders = [...DOCS, ...compose]
+      .filter(({ text }) => /neoboard:v/.test(text))
+      .map(({ path }) => path);
     expect(offenders).toEqual([]);
   });
 
@@ -794,5 +803,40 @@ describe("production options: Run from a build (#1679)", () => {
     );
     expect(checklist).not.toMatch(/NeoBoard container/);
     expect(checklist).not.toMatch(/Docker resource limits/);
+  });
+});
+
+describe("air-gapped install (#1683)", () => {
+  const PAGE = "docs/src/content/docs/deploy/air-gapped.mdx";
+  const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
+
+  it("describes the map's Tile Layer option as it is (#1705)", () => {
+    // Read the option schema and hold the page to it — when the field
+    // changes, this flips and the page has to follow.
+    const schema = readFileSync(
+      join(ROOT, "component/src/components/composed/chart-options/map.ts"),
+      "utf8",
+    );
+    const option = (key) => {
+      const start = schema.indexOf(`key: "${key}"`);
+      return start < 0
+        ? ""
+        : schema.slice(start, schema.indexOf("\n  {", start));
+    };
+    const tile = option("tileLayer");
+    expect(tile).not.toBe("");
+    const body = page();
+    const section = body.slice(
+      body.indexOf("### Map basemap tiles"),
+      body.indexOf("### API docs page"),
+    );
+    expect(section).not.toBe("");
+    expect(section.includes("`none`")).toBe(/"none"/.test(tile));
+    expect(/own tile server/.test(section)).toBe(/type: "text"/.test(tile));
+    expect(section.includes("**Attribution**")).toBe(
+      option("attribution") !== "",
+    );
+    expect(/openstreetmap/i.test(section)).toBe(/openstreetmap/.test(tile));
+    expect(/carto/i.test(section)).toBe(/carto/i.test(tile));
   });
 });

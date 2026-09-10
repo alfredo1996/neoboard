@@ -1,0 +1,90 @@
+---
+title: Air-gapped install
+description: Run NeoBoard on hosts with no internet access — the images to mirror, how to point a deployment at the mirror, what already works offline, and the two features that still reach out.
+sidebar:
+  order: 3
+---
+
+NeoBoard runs without internet access once its images are in a registry your hosts can reach. The server makes no outbound calls of its own — no update check, no telemetry, no licence check. This page covers what to mirror, how to point a deployment at the mirror, what is already offline-safe, and what still needs a network — two features that fetch from the public internet by default, and one that needs to reach your identity provider.
+
+## Mirror the images
+
+| Image                                | Used by                                                                                                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ghcr.io/alfredo1996/neoboard:X.Y.Z` | The app. Published on every release tag `vX.Y.Z` as `X.Y.Z` — the tag without its `v` — along with a moving `X.Y` tag and, for the newest release only, `latest` |
+| `postgres:16-alpine`                 | The application database in `docker-compose.prod-full.yml`                                                                                                       |
+| `neo4j:5.26-community`               | The optional bundled Neo4j data source (`--profile neo4j`). Skip it if your dashboards query a Neo4j you already run                                             |
+
+On a connected machine, pull and push to the internal registry:
+
+```bash
+docker pull ghcr.io/alfredo1996/neoboard:X.Y.Z
+docker tag  ghcr.io/alfredo1996/neoboard:X.Y.Z registry.internal.example/neoboard/neoboard:X.Y.Z
+docker push registry.internal.example/neoboard/neoboard:X.Y.Z
+```
+
+Or, when nothing routes between the two networks, move the images as a file. `docker load` keeps the original names and tags, so the compose files need no edits:
+
+```bash
+docker save ghcr.io/alfredo1996/neoboard:X.Y.Z postgres:16-alpine neo4j:5.26-community \
+  | gzip > neoboard-images.tgz
+# ... carry the file across ...
+gunzip -c neoboard-images.tgz | docker load
+```
+
+:::caution[Pin the release tag, and get the image onto the host first]
+Both production compose files default to `:latest` and carry a `build:` section: when the image is not on the host, `docker compose up` **builds it from source** rather than failing. On an air-gapped host that build dies partway through `npm ci` — a confusing error for what is really "image not found". Set `NEOBOARD_IMAGE` to the exact tag you mirrored and put that image on the host before `up`, with `docker load` or an explicit `pull`, as below.
+:::
+
+## Point the deployment at the mirror
+
+**Docker Compose** — the recommended path, unchanged from [Production deployment](/deploy/production) except for the image reference:
+
+```bash
+export NEOBOARD_IMAGE=registry.internal.example/neoboard/neoboard:X.Y.Z
+docker compose -f docker/docker-compose.prod-full.yml pull neoboard   # after docker login; skip if you used docker load
+docker compose -f docker/docker-compose.prod-full.yml up -d
+```
+
+The PostgreSQL and Neo4j image names are written into the compose file. When they come from a registry under a different name, edit the two `image:` lines; when they arrived by `docker load`, leave them.
+
+**Kubernetes** — in the [Deployment manifest](/deploy/run-from-a-build#option-2-kubernetes-with-the-published-image), point `image:` at the mirror and add a pull secret if the registry needs one:
+
+```yaml
+spec:
+  imagePullSecrets:
+    - name: internal-registry
+  containers:
+    - name: neoboard
+      image: registry.internal.example/neoboard/neoboard:X.Y.Z
+```
+
+Everything else is the same as a connected install: the required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `API_KEY_HMAC_SECRET`) and `ADMIN_BOOTSTRAP_TOKEN` for the first admin. Set `NEXTAUTH_URL` to the address users reach on the internal network — it is the origin the sign-in flow redirects back to. The image sets `MIGRATE_ON_START=1` and `MIGRATIONS_DIR`, so the schema is created at first boot from the migration journal inside the image; nothing is downloaded for it.
+
+## What already works offline
+
+- **Fonts.** Geist Sans and Inter ship inside the app as `woff2` files (`component/fonts/`). Nothing is loaded from Google Fonts.
+- **Chart libraries.** ECharts, Leaflet, the marker-cluster plugin and Neo4j NVL are bundled JavaScript served by the app itself.
+- **Choropleth boundaries.** The world map (`world.geo.json`) is bundled with the [Choropleth chart](/charts/choropleth), not fetched.
+- **Plugins.** External chart and connector plugins are resolved at **build time** from `neoboard-plugins.json` and compiled into the app; the running server never runs `npm install` or fetches a plugin. That also means a plugin has to be in the manifest **when the image is built** — to ship [external plugins](/extend/external-plugins) into an air-gapped site, build the image on a connected machine and mirror that build.
+- **Migrations.** The journal is inside the image and applied at boot; `drizzle-kit` is not needed and not shipped.
+
+## What still needs a network
+
+### Map basemap tiles
+
+The [Map chart](/charts/map) draws its basemap from tiles that **each viewer's browser** fetches from the URL template in the widget's **Tile Layer** option. It defaults to the public OpenStreetMap template, which an air-gapped browser cannot reach: the markers still render, on an empty background.
+
+Two settings work offline. Point **Tile Layer** at your own tile server — any server on the internal network that speaks the `/{z}/{x}/{y}` scheme, reachable from every viewer's machine — and fill in **Attribution** with the credit its tiles require; [Self-hosted tile servers](/charts/map#self-hosted-tile-servers) lists servers that work. Or set **Tile Layer** to `none`: no basemap is drawn and the map makes no network requests at all. Either is set per widget, so existing map widgets keep the OpenStreetMap default until they are edited.
+
+### API docs page
+
+`/api/docs` renders the OpenAPI spec with Swagger UI, and the page loads Swagger UI's script and stylesheet from `unpkg.com`. Offline, the page is blank. The spec itself is served by the app: fetch `/api/openapi.json` and open it in any OpenAPI viewer you run inside the network. Nothing else depends on the docs page — the API, and [API keys](/security/api-keys) for it, work as usual.
+
+### Enterprise SSO
+
+Not a public-internet dependency, but a network one: with [OIDC single sign-on](/security/sso) configured, the NeoBoard server has to reach the identity provider at `OIDC_ISSUER` for discovery and token exchange, and so does every user's browser. An identity provider inside the air gap is fine; one outside it is not.
+
+## The CLI is not an air-gapped path
+
+`neoboard setup` and `neoboard start` drive a **source checkout**: they need the cloned repository, run `npm install` against the npm registry, and build the image with `docker compose … --build` rather than pulling it. None of that works without internet access. Use the production compose files or the Kubernetes manifest with the mirrored image instead; the [Deployment Checklist](/deploy/deployment-checklist) applies unchanged.
