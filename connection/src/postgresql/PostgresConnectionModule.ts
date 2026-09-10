@@ -12,12 +12,15 @@ import {
   QueryStatus,
   wrapError,
 } from "@neoboard/connector-sdk";
-import { attachClientErrorGuard } from "./utils";
+import {
+  attachClientErrorGuard,
+  extractTableSchemaFromFields,
+  isAuthenticationError,
+} from "./utils";
 import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
 import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
-import { extractTableSchemaFromFields, isAuthenticationError } from "./utils";
 
 /**
  * PostgreSQL Connection Module
