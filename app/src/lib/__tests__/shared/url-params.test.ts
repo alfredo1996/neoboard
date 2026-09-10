@@ -197,3 +197,71 @@ describe("extractSyncParams", () => {
     expect(extractSyncParams(layout)).toEqual(new Set());
   });
 });
+
+// Non-scalar parameters (#1691 review). Ranges write `{from,to}` / `[min,max]`
+// beside their scalar companions; multi-select writes an array. None of them
+// has a String() form that survives a URL round-trip.
+describe("parseUrlParams — non-scalar values", () => {
+  it("turns a repeated key into an array (multi-select)", () => {
+    const sp = new URLSearchParams("param_tags=a&param_tags=b");
+    expect(parseUrlParams(sp)).toEqual({ tags: ["a", "b"] });
+  });
+
+  it("rebuilds a date-range parent from its companions", () => {
+    const sp = new URLSearchParams(
+      "param_period_from=2024-01-01&param_period_to=2024-12-31",
+    );
+    expect(parseUrlParams(sp)).toEqual({
+      period_from: "2024-01-01",
+      period_to: "2024-12-31",
+      period: { from: "2024-01-01", to: "2024-12-31" },
+    });
+  });
+
+  it("rebuilds a date-range parent from one side alone", () => {
+    const sp = new URLSearchParams("param_period_from=2024-01-01");
+    expect(parseUrlParams(sp)).toEqual({
+      period_from: "2024-01-01",
+      period: { from: "2024-01-01", to: "" },
+    });
+  });
+
+  it("rebuilds a number-range parent from both companions, never from one", () => {
+    expect(
+      parseUrlParams(
+        new URLSearchParams("param_yr_min=1999&param_yr_max=2005"),
+      ),
+    ).toEqual({ yr_min: "1999", yr_max: "2005", yr: ["1999", "2005"] });
+    expect(parseUrlParams(new URLSearchParams("param_yr_min=1999"))).toEqual({
+      yr_min: "1999",
+    });
+  });
+});
+
+describe("buildUrlParams — non-scalar values", () => {
+  it("emits a multi-select array as repeated keys", () => {
+    const sp = buildUrlParams({ tags: ["a", "b"] }, ALL("tags"));
+    expect(sp.toString()).toBe("param_tags=a&param_tags=b");
+  });
+
+  it("leaves a range parent to its companions", () => {
+    const sp = buildUrlParams(
+      {
+        period: { from: "2024-01-01", to: "2024-12-31" },
+        period_from: "2024-01-01",
+        period_to: "2024-12-31",
+        yr: [1999, 2005],
+        yr_min: 1999,
+        yr_max: 2005,
+      },
+      ALL("period", "period_from", "period_to", "yr", "yr_min", "yr_max"),
+    );
+    expect(sp.toString()).toBe(
+      "param_period_from=2024-01-01&param_period_to=2024-12-31&param_yr_max=2005&param_yr_min=1999",
+    );
+  });
+
+  it("never serialises an object as [object Object]", () => {
+    expect(buildUrlParams({ x: { a: 1 } }, ALL("x")).toString()).toBe("");
+  });
+});

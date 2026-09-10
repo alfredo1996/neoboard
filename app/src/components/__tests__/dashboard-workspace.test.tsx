@@ -159,8 +159,16 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 vi.mock("@/components/widget-editor-modal", () => ({
-  WidgetEditorModal: ({ open }: { open?: boolean }) =>
-    open ? <div data-testid="widget-editor-modal" /> : null,
+  WidgetEditorModal: ({
+    open,
+    widget,
+  }: {
+    open?: boolean;
+    widget?: { id: string };
+  }) =>
+    open ? (
+      <div data-testid="widget-editor-modal" data-widget={widget?.id} />
+    ) : null,
 }));
 
 vi.mock("@/components/dashboard-assign-panel", () => ({
@@ -246,7 +254,7 @@ vi.mock("@neoboard/components", () => {
     "DropdownMenuSeparator",
     "DropdownMenuTrigger",
   ];
-  const buttons = ["Button", "LoadingButton"];
+  const buttons = ["Button", "LoadingButton", "ToastAction"];
 
   const pass = (name: string) => {
     const C = ({ children }: { children?: React.ReactNode }) => (
@@ -1254,6 +1262,18 @@ describe("DashboardWorkspace", () => {
     expect(useParameterStore.getState().parameters.year?.value).toBe("1999");
   });
 
+  it("rebuilds a range parent from the URL's companions", () => {
+    // Only the companions have a URL form; the picker reads the parent.
+    searchParams = new URLSearchParams(
+      "param_period_from=2024-01-01&param_period_to=2024-12-31",
+    );
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    expect(useParameterStore.getState().parameters.period?.value).toEqual({
+      from: "2024-01-01",
+      to: "2024-12-31",
+    });
+  });
+
   // URL sync is OPT-IN per widget (#1388): only a parameter-select widget that
   // sets `syncToUrl: true` may put its parameter in the address bar. These two
   // cases pin both directions of that contract — without the negative one, an
@@ -1468,12 +1488,108 @@ describe("DashboardWorkspace", () => {
     );
   });
 
-  it("offers the copy-link button only in view mode", () => {
+  it("shows the link in an error toast when there is no clipboard at all", async () => {
+    // A plain-http deployment has no navigator.clipboard: the call itself
+    // throws, not the promise. Hoisting it out of the try would pass the
+    // rejecting-writeText case above and crash here.
+    dashboard = withSyncableParam();
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    });
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link with current filters" }),
+    );
+
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        description: "http://localhost:3000/d1",
+      }),
+    );
+  });
+
+  it("the toast's shortcut opens the editor on the widget that owns the toggle", async () => {
+    dashboard = withMixedSyncParams();
+    stubClipboard(vi.fn().mockResolvedValue(undefined));
+    const { rerender } = render(
+      <DashboardWorkspace id="d1" editMode={false} />,
+    );
+    setBothParams();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link with current filters" }),
+    );
+
+    const { action } = mockToast.mock.calls[0][0];
+    expect(action).toBeDefined();
+    render(action);
+    await userEvent.click(screen.getByRole("button", { name: "Open editor" }));
+
+    expect(mockPush).toHaveBeenCalledWith("/d1/edit?page=0", { scroll: false });
+    // The route change re-renders this same workspace in edit mode (#1370),
+    // so the editor state set by the shortcut is what the edit route shows.
     pathname = "/d1/edit";
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    rerender(<DashboardWorkspace id="d1" editMode={true} />);
     expect(
-      screen.queryByRole("button", { name: "Copy link with current filters" }),
-    ).toBeNull();
+      screen.getByTestId("widget-editor-modal").getAttribute("data-widget"),
+    ).toBe("pw2");
+  });
+
+  it("tells a reader what is missing, not how to fix it", async () => {
+    dashboard = withMixedSyncParams();
+    dashboard.role = "viewer";
+    stubClipboard(vi.fn().mockResolvedValue(undefined));
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    setBothParams();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link with current filters" }),
+    );
+
+    const arg = mockToast.mock.calls[0][0];
+    expect(arg.description).toBe("Not included: region.");
+    expect(arg.action).toBeUndefined();
+  });
+
+  it("gives a click-action parameter no toggle hint and no shortcut", async () => {
+    dashboard = withSyncableParam();
+    stubClipboard(vi.fn().mockResolvedValue(undefined));
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    useParameterStore
+      .getState()
+      .setParameter(
+        "region",
+        "EMEA",
+        "Sales by region",
+        "region",
+        "text",
+        "click-action",
+        "w1",
+      );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link with current filters" }),
+    );
+
+    const arg = mockToast.mock.calls[0][0];
+    expect(arg.description).toBe("Not included: region.");
+    expect(arg.action).toBeUndefined();
+  });
+
+  it("the link carries the page being viewed", async () => {
+    // Three pages and no parameters: the page is all the link adds.
+    const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined));
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    await userEvent.click(screen.getAllByTestId("page-tab")[1]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link with current filters" }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith("http://localhost:3000/d1?page=1");
   });
 
   // ── Toolbar odds and ends ───────────────────────────────────────────
