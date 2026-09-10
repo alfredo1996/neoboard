@@ -1,0 +1,92 @@
+---
+title: Connecting an AI Assistant (MCP)
+description: Let Claude or any MCP client list your dashboards and connections and run read-only queries through NeoBoard.
+---
+
+NeoBoard runs a [Model Context Protocol](https://modelcontextprotocol.io) server at `/api/mcp`. An assistant such as Claude Code, or any agent that speaks MCP, connects with an [API key](/guides/api-keys) and gets exactly the access of the user who owns that key. It can see the same dashboards and connections that user sees and run the same read-only queries.
+
+## 1. Create an API key
+
+Create a key under **Settings > API Keys** (see [API Key Authentication](/guides/api-keys)). Give each assistant its own key, and set an expiry date, so you can revoke one without affecting the others.
+
+The assistant acts as you. If you are an admin, it can read every connection in the workspace.
+
+## 2. Point your client at NeoBoard
+
+| Setting | Value |
+|---------|-------|
+| URL | `https://your-neoboard.example.com/api/mcp` |
+| Transport | Streamable HTTP |
+| Header | `Authorization: Bearer nb_your_key_here` |
+
+**Claude Code:**
+
+```bash
+claude mcp add --transport http neoboard https://your-neoboard.example.com/api/mcp \
+  --header "Authorization: Bearer nb_your_key_here"
+```
+
+Other clients need two things: support for remote (Streamable HTTP) servers, and a way to send a custom `Authorization` header. NeoBoard does not offer OAuth yet, so connectors that only sign in through OAuth, such as claude.ai custom connectors, cannot use it.
+
+**Check the connection with curl:**
+
+```bash
+curl -s https://your-neoboard.example.com/api/mcp \
+  -H "Authorization: Bearer nb_your_key_here" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ping"}}'
+```
+
+A working key returns your user id and role.
+
+## Tools
+
+| Tool | Arguments | What it returns |
+|------|-----------|-----------------|
+| `ping` | none | Your user id and role. Use it to confirm the key works. |
+| `list_dashboards` | `limit`, `offset` (optional) | Dashboards you can open, with your role on each, plus `total` |
+| `list_connections` | `limit`, `offset` (optional) | Connections you can query, plus `total`. Never includes credentials. |
+| `get_schema` | `connectionId` | Labels, relationship types and properties (Neo4j), or tables and columns (PostgreSQL) |
+| `run_query` | `connectionId`, `query`, `params`, `database` (optional) | `data` rows, `fields`, `rowLimit`, and `truncated: true` if rows were cut off |
+
+Lists return 25 items unless you pass `limit` (maximum 1000). For query parameters, write `$param_<name>` in the query and pass `{"param_<name>": value}` in `params`. This works for both Cypher and SQL.
+
+Assistants cannot create or change widgets and dashboards yet.
+
+## Safety guarantees
+
+`run_query` takes the same code path as a dashboard widget (`POST /api/query`), so every guarantee from [Query Safety](/concepts/query-safety) applies:
+
+- **Read-only.** PostgreSQL queries run in `BEGIN READ ONLY` transactions and Neo4j queries run in read access mode. A write query fails.
+- **Your query runs unchanged.** NeoBoard never rewrites it or adds a `LIMIT`.
+- **Row limit.** Rows are capped at the connection's limit (default 5,000). `truncated: true` tells the assistant it did not get everything.
+- **Timeout.** The connection's query timeout applies (default 30 seconds).
+- **Fair queueing.** Assistant queries share the per-connection scheduler with dashboard users. When the queue is full, the tool returns an error instead of piling on more load.
+- **Audit trail.** Every query is logged with who ran it, against which connection, how long it took and how many rows it returned.
+
+Access follows the key's user:
+
+- **Workspace.** The workspace comes from the API key. Nothing in a tool's arguments can change it.
+- **Connections.** An assistant can query the connections its user owns, connections shared with the workspace, and, for admins, every connection in the workspace.
+- **Shared dashboards.** If the user can reach a connection only as a *viewer* of a shared or public dashboard, `run_query` accepts only the queries that dashboard contains. `get_schema` requires ownership or a shared connection.
+- **Errors.** When a tool fails, the assistant gets the error message with any credentials redacted.
+- **Browsers.** Requests carrying a browser `Origin` header from another site are refused with `403`. Set `NEXTAUTH_URL` to your public URL so this check compares against the configured address rather than the request's `Host` header.
+
+## Protocol details
+
+NeoBoard implements the Streamable HTTP transport in its stateless form: each `POST` carries one JSON-RPC 2.0 message and gets a JSON response. It does not open SSE streams, keep sessions, or accept batches.
+
+| Situation | Response |
+|-----------|----------|
+| Supported protocol versions | `2025-11-25`, `2025-06-18`. If the client requests another version, `initialize` answers with the newest. |
+| Notification (for example `notifications/initialized`) | `202`, no body |
+| `GET` or `DELETE` | `405` |
+| Missing, invalid, expired or revoked key | `401` |
+| Foreign `Origin` header | `403` |
+| Body is not JSON | `400`, JSON-RPC error `-32700` |
+| Not a JSON-RPC 2.0 message, or a batch | `400`, JSON-RPC error `-32600` |
+| Unsupported `MCP-Protocol-Version` header | `400` |
+| Unknown method | JSON-RPC error `-32601` |
+| Unknown tool or invalid arguments | JSON-RPC error `-32602` |
+| Tool failed (connection not found, query error, queue full) | Normal result with `isError: true` and the message as text |

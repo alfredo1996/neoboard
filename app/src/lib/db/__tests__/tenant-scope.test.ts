@@ -246,7 +246,7 @@ const ALLOWLIST: Record<string, { count: number; reason: string }> = {
   // holds because the column is written from a session user, but it is NOT
   // enforced by a database constraint — a composite FK on (tenant_id, id)
   // would make it structural. Tracked in #1626.
-  "app/api/dashboards/route.ts::users::join": {
+  "lib/dashboard/list-dashboards.ts::users::join": {
     count: 2,
     reason:
       "leftJoin on dashboards.updatedBy to name the last editor; the " +
