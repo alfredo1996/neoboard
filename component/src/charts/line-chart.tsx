@@ -1,6 +1,8 @@
 import { useMemo } from "react";
+import * as echarts from "echarts/core";
+import { VisualMapComponent } from "echarts/components";
 import type { EChartsOption } from "echarts";
-import { BaseChart, useDarkMode } from "./base-chart";
+import { BaseChart, resolveSeriesPalette, useDarkMode } from "./base-chart";
 import type { BaseChartProps, LineChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
@@ -20,6 +22,9 @@ import {
   fadeToTransparent,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
+
+// Rule colours that vary along a line are drawn by a hidden visualMap (#1417).
+echarts.use([VisualMapComponent]);
 
 export interface LineChartProps extends Omit<BaseChartProps, "options"> {
   /** Array of data points. Each object has an `x` key and one or more numeric series keys. */
@@ -93,16 +98,89 @@ function collectSeriesKeys(data: LineChartDataPoint[]): string[] {
   return keys;
 }
 
-/** Find the most recent numeric value for `key`, scanning from the tail. */
-function findLastNumericValue(
-  data: LineChartDataPoint[],
-  key: string,
-): number | undefined {
-  for (let i = data.length - 1; i >= 0; i -= 1) {
-    const candidate = data[i][key];
-    if (typeof candidate === "number") return candidate;
+type RulePiece = { gt?: number; lt?: number; value?: number; color: string };
+
+/**
+ * The value intervals a line is coloured by (#1417). A rule's verdict on a
+ * number can only change at one of the rules' own bounds, so asking the rule
+ * engine at every bound and once inside every gap reproduces it exactly: the
+ * line changes colour where it crosses the threshold, and a value no rule
+ * matches keeps the series' palette colour.
+ *
+ * No finite bound (only text rules, or a missing parameter) means no gap to
+ * sample, so it returns no pieces: ECharts 6.1.0 throws on a lone open-ended
+ * piece and the line keeps its palette colour instead.
+ *
+ * ponytail: text operators (contains, starts_with) are not constant between
+ * bounds on a number; next to a numeric bound they get one sample per gap.
+ */
+function buildRulePieces(
+  rules: StylingRule[],
+  paramValues: Record<string, unknown> | undefined,
+  fallback: string,
+): RulePiece[] {
+  const bounds = [
+    ...new Set(
+      rules
+        .flatMap((r) => [
+          r.parameterRef ? paramValues?.[r.parameterRef] : r.value,
+          r.parameterRefTo ? paramValues?.[r.parameterRefTo] : r.valueTo,
+        ])
+        .filter((b) => b !== null && b !== undefined && b !== "")
+        .map(Number)
+        .filter(Number.isFinite),
+    ),
+  ].sort((a, b) => a - b);
+  if (!bounds.length) return [];
+  const colourAt = (v: number) =>
+    resolveItemColor(v, rules, paramValues) ?? fallback;
+
+  let prev = bounds[0];
+  const pieces: RulePiece[] = [
+    { lt: prev, color: colourAt(prev - Math.abs(prev) - 1) },
+  ];
+  for (const bound of bounds) {
+    if (bound !== prev) {
+      pieces.push({ gt: prev, lt: bound, color: colourAt((prev + bound) / 2) });
+    }
+    pieces.push({ value: bound, color: colourAt(bound) });
+    prev = bound;
   }
-  return undefined;
+  pieces.push({ gt: prev, color: colourAt(prev + Math.abs(prev) + 1) });
+  return pieces;
+}
+
+/**
+ * Colour a series by its rules: one line colour when every drawn point gets
+ * the same answer, otherwise value pieces for a visualMap (#1417). It used to
+ * ask only the LAST point, so a rising series was drawn wholly "above".
+ *
+ * A single-value piece coloured unlike both neighbours (`==`, or `between`
+ * with equal bounds) has zero width in the line gradient, so when a point
+ * lands on one the series shows its symbols, which the visualMap colours.
+ */
+function resolveSeriesRuleColour(
+  values: unknown[],
+  rules: StylingRule[] | undefined,
+  paramValues: Record<string, unknown> | undefined,
+  fallback: () => string,
+): { seriesColor?: string; pieces?: RulePiece[]; markPoints?: boolean } {
+  if (!rules?.length) return {};
+  const numbers = values.filter((v): v is number => typeof v === "number");
+  const colours = new Set(
+    numbers.map((v) => resolveItemColor(v, rules, paramValues)),
+  );
+  if (colours.size <= 1) return { seriesColor: [...colours][0] };
+  const pieces = buildRulePieces(rules, paramValues, fallback());
+  if (!pieces.length) return {};
+  const markPoints = pieces.some(
+    (p, i) =>
+      p.value !== undefined &&
+      p.color !== pieces[i - 1].color &&
+      p.color !== pieces[i + 1].color &&
+      numbers.includes(p.value),
+  );
+  return { pieces, markPoints };
 }
 
 function LineChart({
@@ -127,6 +205,7 @@ function LineChart({
   rightAxisSeries,
   rightYAxisLabel,
   ariaDescription,
+  colorPalette,
   samplingThreshold = 1000,
   samplingMethod = "lttb",
   ...rest
@@ -174,12 +253,34 @@ function LineChart({
       splitLine: { show: false },
     };
 
+    const visualMap: Array<{
+      type: "piecewise";
+      show: false;
+      seriesIndex: number;
+      dimension: number;
+      pieces: RulePiece[];
+    }> = [];
     const buildSeries = (key: string, idx: number) => {
-      const lastValue = findLastNumericValue(data, key);
-      const seriesColor =
-        lastValue !== undefined
-          ? resolveItemColor(lastValue, stylingRules, paramValues)
-          : undefined;
+      const { seriesColor, pieces, markPoints } = resolveSeriesRuleColour(
+        data.map((d) => d[key]),
+        stylingRules,
+        paramValues,
+        () => {
+          const palette = resolveSeriesPalette(colorPalette);
+          return palette[idx % palette.length];
+        },
+      );
+      if (pieces) {
+        // dimension 1 is the value on both axis types; ECharts only draws a
+        // line gradient along an x or y dimension.
+        visualMap.push({
+          type: "piecewise",
+          show: false,
+          seriesIndex: idx,
+          dimension: 1,
+          pieces,
+        });
+      }
       return {
         name: key,
         type: "line" as const,
@@ -193,7 +294,7 @@ function LineChart({
         endLabel: endLabel ? { show: true, formatter: "{a}" } : undefined,
         lineStyle: { width: lineWidth, color: seriesColor },
         itemStyle: seriesColor ? { color: seriesColor } : undefined,
-        showSymbol: showPoints,
+        showSymbol: showPoints || !!markPoints,
         // Subtle fill (#822): a soft gradient when the series color is
         // known, otherwise a low flat opacity (ECharts applies the series
         // color automatically).
@@ -236,7 +337,10 @@ function LineChart({
       };
     };
 
+    const series = seriesKeys.map((key, idx) => buildSeries(key, idx));
+
     return {
+      ...(visualMap.length ? { visualMap } : {}),
       tooltip: {
         trigger: "axis",
         formatter: buildTooltipFormatter({
@@ -277,7 +381,7 @@ function LineChart({
             }),
           },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
-      series: seriesKeys.map((key, idx) => buildSeries(key, idx)),
+      series,
     };
   }, [
     data,
@@ -304,6 +408,7 @@ function LineChart({
     samplingMethod,
     dark,
     decimalPlaces,
+    colorPalette,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the
@@ -316,7 +421,12 @@ function LineChart({
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <BaseChart options={options} {...rest} ariaDescription={effectiveAria} />
+      <BaseChart
+        options={options}
+        colorPalette={colorPalette}
+        {...rest}
+        ariaDescription={effectiveAria}
+      />
     </div>
   );
 }

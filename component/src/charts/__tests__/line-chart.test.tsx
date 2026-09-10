@@ -3,7 +3,9 @@ import { withNullAt } from "./fixtures/connector-output";
 import { act, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LineChart } from "../line-chart";
-import { fadeToTransparent } from "../chart-utils";
+import { BarChart } from "../bar-chart";
+import { resolveSeriesPalette } from "../base-chart";
+import { fadeToTransparent, resolveItemColor } from "../chart-utils";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
@@ -593,5 +595,309 @@ describe("connector-shaped fixtures (#1636)", () => {
     const optionsCall = mine();
     expect(optionsCall.series[0].data).toEqual([100, null, 150]);
     expect(optionsCall.series[0].connectNulls).toBe(true);
+  });
+});
+
+describe("styling rules colour each point by its own value (#1417)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const blue = "#2563eb";
+  const red = "#ef4444";
+  // The seeded "Weekly revenue — colored by magnitude" rules.
+  const thresholdRules = [
+    { id: "hi", operator: ">=" as const, value: 10000, color: blue },
+    { id: "lo", operator: "<" as const, value: 10000, color: red },
+  ];
+  // Rises through the threshold and ends far above it — the shape that drew
+  // the whole seeded line blue, because only the last point was consulted.
+  const revenues = [2000, 6000, 10000, 40000, 130000];
+  const categoryData = revenues.map((revenue, i) => ({
+    x: `W${i + 1}`,
+    revenue,
+  }));
+  const timeData = revenues.map((revenue, i) => ({
+    x: `2024-01-0${i + 1}`,
+    revenue,
+  }));
+
+  type Piece = {
+    gt?: number;
+    gte?: number;
+    lt?: number;
+    lte?: number;
+    value?: number;
+    color: string;
+  };
+  type Option = {
+    visualMap?: Array<{ seriesIndex: number; pieces: Piece[] }>;
+    series: Array<{ lineStyle: { color?: string }; data: unknown[] }>;
+  };
+
+  /** The interval test ECharts' piecewise visualMap runs for a value. */
+  const pieceColour = (pieces: Piece[], v: number) =>
+    pieces.find((p) =>
+      p.value === undefined
+        ? (p.gt === undefined || v > p.gt) &&
+          (p.gte === undefined || v >= p.gte) &&
+          (p.lt === undefined || v < p.lt) &&
+          (p.lte === undefined || v <= p.lte)
+        : p.value === v,
+    )?.color;
+
+  const optionFor = (props: ComponentProps<typeof LineChart>): Option => {
+    render(<LineChart {...props} />);
+    return mockSetOption.mock.calls[mockSetOption.mock.calls.length - 1][0];
+  };
+
+  /** The colour series `i` is drawn in where it passes through value `v`. */
+  const lineColourAt = (option: Option, i: number, v: number) => {
+    const map = option.visualMap?.find((m) => m.seriesIndex === i);
+    return map ? pieceColour(map.pieces, v) : option.series[i].lineStyle.color;
+  };
+
+  it.each([
+    ["category", categoryData],
+    ["time", timeData],
+  ])(
+    "draws a %s-axis line that crosses a threshold in more than one colour",
+    (_axis, data) => {
+      const option = optionFor({ data, stylingRules: thresholdRules });
+      const colours = revenues.map((v) => lineColourAt(option, 0, v));
+      expect(new Set(colours).size).toBeGreaterThan(1);
+      // A line colour would override the per-value gradient.
+      expect(option.series[0].lineStyle.color).toBeUndefined();
+      expect(option.visualMap?.[0]).toMatchObject({
+        type: "piecewise",
+        show: false,
+        seriesIndex: 0,
+        // The value dimension on both axis types: ECharts only draws the
+        // gradient along an x or y dimension.
+        dimension: 1,
+      });
+    },
+  );
+
+  it("gives each point the colour of the rule its own value satisfies", () => {
+    const option = optionFor({
+      data: categoryData,
+      stylingRules: thresholdRules,
+    });
+    // 10000 sits exactly on the bound: `>=` owns it, `<` does not.
+    expect(revenues.map((v) => lineColourAt(option, 0, v))).toEqual([
+      red,
+      red,
+      blue,
+      blue,
+      blue,
+    ]);
+  });
+
+  it("agrees with the bar chart on every point for the same rule", () => {
+    render(
+      <BarChart
+        data={revenues.map((revenue, i) => ({ label: `W${i + 1}`, revenue }))}
+        stylingRules={thresholdRules}
+      />,
+    );
+    const barColours = (
+      mockSetOption.mock.calls[0][0].series[0].data as Array<{
+        itemStyle: { color: string };
+      }>
+    ).map((d) => d.itemStyle.color);
+
+    const option = optionFor({
+      data: categoryData,
+      stylingRules: thresholdRules,
+    });
+    expect(revenues.map((v) => lineColourAt(option, 0, v))).toEqual(barColours);
+  });
+
+  it("includes both bounds of a between rule", () => {
+    const green = "#16a34a";
+    const option = optionFor({
+      data: categoryData,
+      stylingRules: [
+        {
+          id: "b",
+          operator: "between",
+          value: 6000,
+          valueTo: 40000,
+          color: green,
+        },
+      ],
+    });
+    const colours = revenues.map((v) => lineColourAt(option, 0, v));
+    expect(colours.slice(1, 4)).toEqual([green, green, green]);
+    expect(colours[0]).not.toBe(green);
+    expect(colours[4]).not.toBe(green);
+  });
+
+  it("reads a threshold from a parameter", () => {
+    const option = optionFor({
+      data: categoryData,
+      stylingRules: [
+        { id: "p", operator: ">=", value: 0, parameterRef: "t", color: blue },
+      ],
+      paramValues: { t: 10000 },
+    });
+    expect(lineColourAt(option, 0, 6000)).not.toBe(blue);
+    expect(lineColourAt(option, 0, 10000)).toBe(blue);
+  });
+
+  it("keeps each series' own palette colour where no rule matches", () => {
+    const palette = resolveSeriesPalette();
+    const option = optionFor({
+      data: revenues.map((revenue, i) => ({
+        x: `W${i + 1}`,
+        revenue,
+        cost: revenue,
+      })),
+      stylingRules: [thresholdRules[0]],
+    });
+    expect(lineColourAt(option, 0, 2000)).toBe(palette[0]);
+    expect(lineColourAt(option, 1, 2000)).toBe(palette[1]);
+    expect(lineColourAt(option, 1, 40000)).toBe(blue);
+  });
+
+  it("keeps a single line colour when every point satisfies the same rule", () => {
+    const option = optionFor({
+      data: categoryData,
+      // Two rules, one colour: every point resolves to blue.
+      stylingRules: [thresholdRules[0], { ...thresholdRules[0], value: 0 }],
+    });
+    expect(option.visualMap).toBeUndefined();
+    expect(option.series[0].lineStyle.color).toBe(blue);
+  });
+
+  it("adds no visual map without styling rules", () => {
+    expect(optionFor({ data: categoryData }).visualMap).toBeUndefined();
+  });
+
+  // Review of #1734: a text rule has no numeric bound, so there is no gap to
+  // sample. A single open-ended piece made ECharts 6.1.0 throw in
+  // LineView.getVisualGradient and the widget lost its line.
+  it("emits no visual map when no rule has a numeric bound", () => {
+    const option = optionFor({
+      data: [1, 1.5, 2].map((revenue, i) => ({ x: `W${i}`, revenue })),
+      stylingRules: [{ id: "t", operator: "contains", value: ".", color: red }],
+    });
+    expect(option.visualMap).toBeUndefined();
+  });
+
+  const green = "#16a34a";
+  const amber = "#f59e0b";
+  it.each([
+    // Descending bounds in rule order: [100000, 50000] unsorted.
+    [
+      "descending, overlapping",
+      [
+        { id: "g", operator: ">=" as const, value: 100000, color: green },
+        { id: "a", operator: ">=" as const, value: 50000, color: amber },
+        { id: "r", operator: "<" as const, value: 50000, color: red },
+      ],
+      [20000, 60000, 100000, 120000],
+    ],
+    // Ascending numerically, but "10000" sorts before "9000" as text.
+    [
+      "lexicographically misordered",
+      [
+        { id: "r", operator: "<" as const, value: 9000, color: red },
+        { id: "a", operator: "<" as const, value: 10000, color: amber },
+        { id: "b", operator: ">=" as const, value: 10000, color: blue },
+      ],
+      [8000, 9500, 10000, 12000],
+    ],
+  ])(
+    "matches the rule engine's first match with %s bounds",
+    (_label, rules, values) => {
+      const option = optionFor({
+        data: values.map((revenue, i) => ({ x: `W${i}`, revenue })),
+        stylingRules: rules,
+      });
+      const probes = [
+        ...values,
+        ...rules.flatMap((r) => [r.value - 1, r.value, r.value + 1]),
+      ];
+      for (const v of probes) {
+        expect(lineColourAt(option, 0, v)).toBe(resolveItemColor(v, rules));
+      }
+    },
+  );
+
+  it.each(["<=", ">", "==", "!="] as const)(
+    "colours a line at and around the bound for %s",
+    (operator) => {
+      const rules = [{ id: "o", operator, value: 3, color: green }];
+      const option = optionFor({
+        data: [1, 2, 3, 4, 5].map((y, i) => ({ x: `P${i}`, y })),
+        stylingRules: rules,
+      });
+      const palette = resolveSeriesPalette();
+      for (const v of [2, 2.5, 3, 3.5, 4]) {
+        expect(lineColourAt(option, 0, v)).toBe(
+          resolveItemColor(v, rules) ?? palette[0],
+        );
+      }
+    },
+  );
+
+  it("reads both bounds of a between rule from parameters", () => {
+    const option = optionFor({
+      data: categoryData,
+      stylingRules: [
+        {
+          id: "b",
+          operator: "between",
+          value: 0,
+          parameterRef: "a",
+          // Disagrees with the parameter on purpose: the parameter wins.
+          valueTo: 0,
+          parameterRefTo: "b",
+          color: green,
+        },
+      ],
+      paramValues: { a: 6000, b: 40000 },
+    });
+    expect(lineColourAt(option, 0, 40000)).toBe(green);
+    expect(lineColourAt(option, 0, 40001)).not.toBe(green);
+    expect(lineColourAt(option, 0, 130000)).not.toBe(green);
+  });
+
+  it("falls back to the chosen palette, not the default one", () => {
+    const palette = resolveSeriesPalette("tableau");
+    expect(palette).not.toEqual(resolveSeriesPalette());
+    const option = optionFor({
+      data: revenues.map((revenue, i) => ({
+        x: `W${i + 1}`,
+        revenue,
+        cost: revenue,
+      })),
+      stylingRules: [thresholdRules[0]],
+      colorPalette: "tableau",
+    });
+    expect(lineColourAt(option, 0, 2000)).toBe(palette[0]);
+    expect(lineColourAt(option, 1, 2000)).toBe(palette[1]);
+  });
+
+  it("marks a point that only a zero-width rule (==) matches", () => {
+    type SymbolOption = Option & { series: Array<{ showSymbol?: boolean }> };
+    const option = optionFor({
+      data: [1, 2, 3, 4, 5].map((y, i) => ({ x: `P${i}`, y })),
+      stylingRules: [{ id: "e", operator: "==", value: 3, color: green }],
+    }) as SymbolOption;
+    // The gradient gives 3 no width, so only a symbol can show the match;
+    // ECharts colours symbols from the same visual map.
+    expect(option.series[0].showSymbol).toBe(true);
+    expect(lineColourAt(option, 0, 3)).toBe(green);
+  });
+
+  it("keeps symbols off when every rule colour has width on the line", () => {
+    const option = optionFor({
+      data: categoryData,
+      stylingRules: thresholdRules,
+    }) as Option & { series: Array<{ showSymbol?: boolean }> };
+    expect(option.series[0].showSymbol).toBe(false);
   });
 });

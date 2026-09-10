@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RadarChart } from "../radar-chart";
+import type { StylingRule } from "../styling-rule";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
@@ -128,6 +129,31 @@ describe("RadarChart", () => {
     // fired on a series whose only measurement was 80.
     expect(seriesData[0].itemStyle?.color).toBeUndefined();
     expect(seriesData[0].lineStyle).toBeUndefined();
+  });
+
+  it("colours a whole radar series by the MEAN of its values (#1417)", () => {
+    // Radar reduces a series to one number on purpose — asserted so the
+    // reduction is a decision, not an accident. [90, 20, 10] has mean 40,
+    // max 90, last and min 10: only the mean satisfies both rules below.
+    const data = {
+      indicators: [
+        { name: "Speed", max: 100 },
+        { name: "Strength", max: 100 },
+        { name: "Agility", max: 100 },
+      ],
+      series: [{ name: "Mixed", values: [90, 20, 10] }],
+    };
+    const colourFor = (stylingRules: StylingRule[]) => {
+      mockSetOption.mockClear();
+      render(<RadarChart data={data} stylingRules={stylingRules} />);
+      return mockSetOption.mock.calls[0][0].series[0].data[0].itemStyle?.color;
+    };
+    expect(
+      colourFor([{ id: "a", operator: ">=", value: 40, color: "#ff0000" }]),
+    ).toBe("#ff0000");
+    expect(
+      colourFor([{ id: "b", operator: "<", value: 41, color: "#00ff00" }]),
+    ).toBe("#00ff00");
   });
 
   it("renders no label for an unmeasured axis when showValues is on (#1655)", () => {

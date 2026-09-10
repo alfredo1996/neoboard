@@ -157,3 +157,27 @@ export const ErrorState: Story = {
     await expect(canvasElement.querySelectorAll("canvas")).toHaveLength(0);
   },
 };
+
+/**
+ * Rule-based styling colours each point by its own value (#1417): the line is
+ * red below 10,000 and turns blue where it crosses it, not blue throughout
+ * because the last point is high.
+ */
+export const StylingRulesCrossThreshold: Story = {
+  args: {
+    data: [
+      { x: "W1", revenue: 2100 },
+      { x: "W2", revenue: 4800 },
+      { x: "W3", revenue: 7600 },
+      { x: "W4", revenue: 9400 },
+      { x: "W5", revenue: 12800 },
+      { x: "W6", revenue: 17500 },
+      { x: "W7", revenue: 15200 },
+      { x: "W8", revenue: 22400 },
+    ],
+    stylingRules: [
+      { id: "hi", operator: ">=", value: 10000, color: "#2563eb" },
+      { id: "lo", operator: "<", value: 10000, color: "#ef4444" },
+    ],
+  },
+};
