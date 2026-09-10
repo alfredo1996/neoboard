@@ -620,6 +620,27 @@ export function buildEmptyDataOption(dark: boolean): EChartsOption {
 }
 
 /**
+ * Series keys — every key but `labelKey` — in first-seen order across ALL rows,
+ * so a series missing from the first row is not dropped. An object under
+ * `properties` is the app's raw query row, kept for click actions (#1598), not
+ * a series; a scalar series that is itself named `properties` still counts.
+ */
+export function collectSeriesKeys(
+  data: Record<string, unknown>[],
+  labelKey: string,
+): string[] {
+  const seen = new Set<string>();
+  for (const row of data) {
+    for (const [k, v] of Object.entries(row)) {
+      const isContainer =
+        k === "properties" && typeof v === "object" && v !== null;
+      if (k !== labelKey && !isContainer) seen.add(k);
+    }
+  }
+  return [...seen];
+}
+
+/**
  * Auto-derive a screen-reader description from a chart's data shape.
  * Used by bar/line/etc. when the caller does not pass an explicit
  * ariaDescription — replaces the generic ECharts "This is a chart"
@@ -638,16 +659,7 @@ export function buildAutoAriaDescription(
   rowNoun: string,
 ): string {
   if (!data.length) return `${chartType} with no data`;
-  const seen = new Set<string>();
-  const seriesKeys: string[] = [];
-  for (const row of data) {
-    for (const k of Object.keys(row)) {
-      if (k !== labelKey && !seen.has(k)) {
-        seen.add(k);
-        seriesKeys.push(k);
-      }
-    }
-  }
+  const seriesKeys = collectSeriesKeys(data, labelKey);
   const seriesPart = seriesKeys.length
     ? `${seriesKeys.length} series: ${seriesKeys.join(", ")}`
     : "0 series";

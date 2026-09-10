@@ -901,3 +901,25 @@ describe("styling rules colour each point by its own value (#1417)", () => {
     expect(option.series[0].showSymbol).toBe(false);
   });
 });
+
+describe("LineChart — raw-row passthrough (#1598)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const seriesNames = () =>
+    mockSetOption.mock.calls[0][0].series.map((s: { name: string }) => s.name);
+
+  it("does not draw the app's properties container as a series", () => {
+    const data = [
+      { x: "Jan", revenue: 1, properties: { month: "Jan", revenue: 1 } },
+    ] as unknown as ComponentProps<typeof LineChart>["data"];
+    render(<LineChart data={data} />);
+    expect(seriesNames()).toEqual(["revenue"]);
+  });
+
+  it("still draws a numeric series that is itself named properties", () => {
+    render(<LineChart data={[{ x: "Jan", properties: 4 }]} />);
+    expect(seriesNames()).toEqual(["properties"]);
+  });
+});

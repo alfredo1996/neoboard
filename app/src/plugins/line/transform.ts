@@ -42,6 +42,8 @@ export function transformToLineData(
     // `x` is `string | number`, and stringifying numbers would make
     // isTimeSeriesData read bare years as dates.
     const point: Record<string, unknown> = {
+      // Raw row for the click payload (#1598); first, as in bar/transform.ts.
+      properties: r,
       x: normalizeValue(r[xKey]) ?? "",
     };
     for (const k of seriesKeys) {

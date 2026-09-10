@@ -13,11 +13,9 @@ type Sankey = {
 const build = (rows: Record<string, unknown>[]) =>
   transformToSankeyData(rows) as Sankey;
 const names = (s: Sankey) => s.nodes.map((n) => n.name);
-const link = (source: string, target: string, value = 1) => ({
-  source,
-  target,
-  value,
-});
+// Links also carry their raw row under `properties` (#1598); passthrough.test.ts owns that.
+const link = (source: string, target: string, value = 1) =>
+  expect.objectContaining({ source, target, value });
 
 describe("transformToSankeyData", () => {
   it("produces { nodes, links }", () => {
@@ -163,7 +161,7 @@ describe("connector-shaped fixtures (#1636)", () => {
       { value: 5, to: delivered, from: pending },
     ]) as Sankey1636;
     expect(out.links).toEqual([
-      { source: pending, target: delivered, value: 5 },
+      expect.objectContaining({ source: pending, target: delivered, value: 5 }),
     ]);
   });
 

@@ -8,6 +8,7 @@ import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildAutoAriaDescription,
   buildEmptyDataOption,
+  collectSeriesKeys,
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
@@ -79,25 +80,6 @@ export interface LineChartProps extends Omit<BaseChartProps, "options"> {
  * - Below 300px wide: hides axis labels, tightens grid margins
  * - Below 200px tall: hides legend
  */
-/**
- * Collect series keys (every non-"x" column) in first-seen order across rows.
- * Lifted out of the options builder so the memo body stays under the
- * cognitive-complexity budget.
- */
-function collectSeriesKeys(data: LineChartDataPoint[]): string[] {
-  const seen = new Set<string>();
-  const keys: string[] = [];
-  for (const row of data) {
-    for (const k of Object.keys(row)) {
-      if (k !== "x" && !seen.has(k)) {
-        seen.add(k);
-        keys.push(k);
-      }
-    }
-  }
-  return keys;
-}
-
 type RulePiece = { gt?: number; lt?: number; value?: number; color: string };
 
 /**
@@ -219,7 +201,7 @@ function LineChart({
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption(dark);
 
-    const seriesKeys = collectSeriesKeys(data);
+    const seriesKeys = collectSeriesKeys(data, "x");
     const effectiveShowLegend = resolveShowLegend(
       showLegend,
       seriesKeys.length,

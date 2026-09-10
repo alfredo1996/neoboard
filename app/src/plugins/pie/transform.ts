@@ -30,6 +30,8 @@ export function transformToPieData(
       : (keys.find((k) => k !== nameKey) ?? keys[1]);
 
   return records.map((r) => ({
+    // Raw row for the click payload (#1598). ECharts ignores the unknown key.
+    properties: r,
     name: String(normalizeValue(r[nameKey]) ?? ""),
     value: Number(r[valueKey]) || 0,
   }));

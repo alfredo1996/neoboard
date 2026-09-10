@@ -436,3 +436,35 @@ describe("null cells and styling rules (#1655)", () => {
     expect(colourOf(series[0].data[1])).toBe("#ef4444");
   });
 });
+
+describe("BarChart — raw-row passthrough (#1598)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // The app's bar transform keeps each query row under `properties` so a click
+  // action can resolve any raw column; it is not a series.
+  const withContainer = [
+    { label: "rock", films: 3, properties: { genre: "rock", films: 3 } },
+    { label: "jazz", films: 5, properties: { genre: "jazz", films: 5 } },
+  ] as unknown as BarChartProps["data"];
+
+  it("does not draw the properties container as a series", () => {
+    const opts = renderBarOptions({ data: withContainer });
+    expect(opts.series.map((s: { name: string }) => s.name)).toEqual(["films"]);
+  });
+
+  it("leaves the container out of the auto-derived aria-label", () => {
+    render(<BarChart data={withContainer} />);
+    const label =
+      screen.getByTestId("base-chart").getAttribute("aria-label") ?? "";
+    expect(label).toMatch(/2 categories and 1 series: films$/i);
+  });
+
+  it("still draws a numeric series that is itself named properties", () => {
+    const opts = renderBarOptions({ data: [{ label: "a", properties: 4 }] });
+    expect(opts.series.map((s: { name: string }) => s.name)).toEqual([
+      "properties",
+    ]);
+  });
+});

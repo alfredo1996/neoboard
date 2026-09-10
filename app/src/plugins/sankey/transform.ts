@@ -5,6 +5,8 @@
 import { toRecords, normalizeValue } from "../transforms/shared-utils";
 
 interface SankeyLink {
+  /** The query row this link came from, for the click payload (#1598). */
+  properties: Record<string, unknown>;
   source: string;
   target: string;
   value: number;
@@ -52,6 +54,7 @@ function buildLinks(records: Record<string, unknown>[]) {
     if (!source || !target || source === target) continue;
 
     links.push({
+      properties: r,
       source,
       target,
       value: valueKey ? Number(r[valueKey]) || 0 : 1,

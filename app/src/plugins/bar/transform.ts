@@ -36,6 +36,10 @@ export function transformToBarData(
 
   return records.map((r) => {
     const point: Record<string, unknown> = {
+      // The raw row rides along so a click action can name any query column
+      // the editor offered (#1598). First, so a series column that is itself
+      // named `properties` still overwrites it and renders.
+      properties: r,
       label: String(normalizeValue(r[labelKey]) ?? ""),
     };
     for (const k of valueKeys) {
