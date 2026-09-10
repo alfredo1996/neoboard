@@ -5,8 +5,8 @@
 import { toRecords, normalizeValue } from "../transforms/shared-utils";
 
 export interface SingleValueData {
-  /** The headline value. */
-  value: string | number;
+  /** The headline value; null when the metric has no data (#1671). */
+  value: string | number | null;
   /** Second row's value in the same column, when numeric — drives the trend. */
   previous?: number;
 }
@@ -22,6 +22,11 @@ function toNumber(raw: unknown): number | null {
   return null;
 }
 
+/** A cell that carries no value: null, undefined, or blank text. */
+function isBlank(raw: unknown): boolean {
+  return raw == null || (typeof raw === "string" && raw.trim() === "");
+}
+
 /**
  * Transform to a single value for SingleValueChart.
  *
@@ -32,27 +37,34 @@ function toNumber(raw: unknown): number | null {
  * `$2026-03`. A non-numeric column is still returned when the result has no
  * numeric column at all, which is the legitimate "status text" case.
  *
+ * A null metric is no data, not 0 and not the label (#1671). Column order:
+ * a column named `value` (even when blank), then the first column numeric in
+ * row 0, then the first numeric in any row (a `LEFT JOIN` KPI with no row for
+ * this period), then column one. Keys are the union across rows, so a metric
+ * missing from row 0 is still seen.
+ *
  * The second row's value in the same column is exposed as `previous` so the
  * plugin can compute a trend; the scalar alone cannot express one.
  */
 export function transformToValueData(data: unknown): SingleValueData {
   const records = toRecords(data);
   if (records.length > 0) {
-    const first = records[0];
-    const keys = Object.keys(first);
-    const numericKey = keys.find((k) => toNumber(first[k]) !== null);
-    const key = numericKey ?? keys[0];
+    const keys = [...new Set(records.flatMap((r) => Object.keys(r)))];
+    const key =
+      keys.find((k) => /^value$/i.test(k)) ??
+      keys.find((k) => toNumber(records[0][k]) !== null) ??
+      keys.find((k) => records.some((r) => toNumber(r[k]) !== null)) ??
+      keys[0];
 
-    const raw = key === undefined ? undefined : first[key];
-    const value =
-      (numericKey ? toNumber(raw) : (normalizeValue(raw) ?? 0)) ?? 0;
+    const raw = key === undefined ? undefined : records[0][key];
+    const value = isBlank(raw) ? null : (toNumber(raw) ?? normalizeValue(raw));
 
     const previous =
       records.length > 1 && key !== undefined
         ? (toNumber(records[1][key]) ?? undefined)
         : undefined;
 
-    return { value: value as string | number, previous };
+    return { value: value as string | number | null, previous };
   }
   if (typeof data === "number" || typeof data === "string")
     return { value: data };

@@ -183,4 +183,16 @@ describe("SingleValueChart", () => {
     render(<SingleValueChart value={3.14159} decimalPlaces={-1} />);
     expect(screen.getByText("3.14159")).toBeInTheDocument();
   });
+
+  // #1671 — a null metric is no data: not 0, and not dressed as "$0M".
+  it("renders a null value as a dash without prefix or suffix", () => {
+    const { container } = render(
+      <SingleValueChart value={null} prefix="$" suffix="M" />,
+    );
+    expect(screen.getByText("\u2014")).toBeInTheDocument();
+    expect(screen.getByText("No value")).toHaveClass("sr-only");
+    expect(container).not.toHaveTextContent("0");
+    expect(container).not.toHaveTextContent("$");
+    expect(container).not.toHaveTextContent("M");
+  });
 });

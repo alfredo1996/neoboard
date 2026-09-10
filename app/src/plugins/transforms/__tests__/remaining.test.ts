@@ -105,6 +105,104 @@ describe("transformToValueData", () => {
       ).toBeUndefined();
     });
   });
+
+  // #1671 — a LEFT JOIN KPI with no row for this period is a null metric. It is
+  // no data: not 0, and not the label promoted because the null removed the
+  // only numeric cell.
+  describe("null metric (#1671)", () => {
+    it("returns null, not 0, for a lone null metric", () => {
+      expect(transformToValueData([{ value: null }]).value).toBeNull();
+    });
+
+    it("returns null, never the label, for a null metric beside a label", () => {
+      expect(
+        transformToValueData([{ label: "2026-09", value: null }]).value,
+      ).toBeNull();
+    });
+
+    it("keeps the metric column when only a later row is numeric", () => {
+      const out = transformToValueData([
+        { label: "2026-09", value: null },
+        { label: "2026-08", value: 80 },
+      ]);
+      expect(out.value).toBeNull();
+      expect(out.previous).toBe(80);
+    });
+
+    it("prefers a column named `value` even when it is null", () => {
+      expect(
+        transformToValueData([{ label: "2026-09", value: null, target: 100 }])
+          .value,
+      ).toBeNull();
+    });
+
+    it("keeps a numeric-in-a-later-row column whatever its name", () => {
+      const [, pending, shipped] = sparseOrders();
+      // row 0: status "pending", total null; row 1: total "120"
+      const out = transformToValueData([
+        { status: pending.status, total: pending.total },
+        { status: shipped.status, total: shipped.total },
+      ]);
+      expect(out.value).toBeNull();
+      expect(out.previous).toBe(120);
+    });
+
+    it("sees a metric key that is missing from row 0", () => {
+      const out = transformToValueData([
+        { label: "2026-09" },
+        { label: "2026-08", value: 5 },
+      ]);
+      expect(out.value).toBeNull();
+      expect(out.previous).toBe(5);
+    });
+
+    it("treats a blank-text metric as no data", () => {
+      const [, , , cancelled] = sparseOrders();
+      expect(
+        transformToValueData([{ value: cancelled.total }]).value,
+      ).toBeNull();
+    });
+  });
+
+  // Review of #1671: the rule order is row-0 numeric, then any-row numeric,
+  // then column one. A blank column never beats a real value.
+  describe("column rule order", () => {
+    it("a column numeric in row 0 beats a label numeric only in a later row", () => {
+      expect(
+        transformToValueData([
+          { label: "Total", value: 500 },
+          { label: "2025", value: 400 },
+        ]),
+      ).toEqual({ value: 500, previous: 400 });
+      expect(
+        transformToValueData([
+          { label: "Total", total: 500 },
+          { label: "2025", total: 400 },
+        ]),
+      ).toEqual({ value: 500, previous: 400 });
+    });
+
+    it("a null column before a numeric one does not win", () => {
+      const [, , shipped] = sparseOrders();
+      // note: null, total: "120"
+      expect(
+        transformToValueData([{ note: shipped.note, total: shipped.total }])
+          .value,
+      ).toBe(120);
+    });
+
+    it("a text KPI beside a nullable column shows the text", () => {
+      const [delivered] = sparseOrders();
+      expect(
+        transformToValueData([
+          { status: delivered.status, note: delivered.note },
+        ]).value,
+      ).toBe("delivered");
+      expect(transformToValueData([{ name: null, value: "ok" }]).value).toBe(
+        "ok",
+      );
+    });
+  });
 });
 
 describe("validateValueData", () => {

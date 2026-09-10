@@ -30,6 +30,7 @@ vi.mock("next/dynamic", () => ({
           (props.trend as { label?: string } | undefined)?.label ?? ""
         }
         data-value={String(props.value ?? "")}
+        data-value-type={props.value === null ? "null" : typeof props.value}
         data-decimal-places={String(props.decimalPlaces ?? "")}
         data-sampling-threshold={String(props.samplingThreshold ?? "")}
         data-sampling-method={String(props.samplingMethod ?? "")}
@@ -150,6 +151,23 @@ describe("single-value trendEnabled forwarding (#1397)", () => {
       />,
     );
     expect(screen.getByTestId("chart").getAttribute("data-value")).toBe("100");
+  });
+
+  // #1671 — a null current period is no data: forwarded as null (the chart
+  // draws its dash), never "null" or 0, and no trend against the previous row.
+  it("forwards a null metric as null and draws no trend", () => {
+    render(
+      <SingleValueComponent
+        data={transformToValueData([
+          { label: "2026-09", value: null },
+          { label: "2026-08", value: 80 },
+        ])}
+        settings={{ trendEnabled: true }}
+      />,
+    );
+    const el = screen.getByTestId("chart");
+    expect(el.getAttribute("data-value-type")).toBe("null");
+    expect(el.getAttribute("data-trend-direction")).toBe("");
   });
 });
 

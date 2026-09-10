@@ -470,6 +470,29 @@ test.describe("Empty result set — No data UX", () => {
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
 
+  test("single-value with a null metric shows a dash, not 0 or the label", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createWidgetDashboard(
+      page.request,
+      "single-value",
+      "RETURN '2026-09' AS label, null AS value",
+    );
+    dashboardCleanup = cleanup;
+
+    await page.goto(`/${id}`);
+    const widget = page.locator("[data-testid='widget-card']");
+    // A LEFT JOIN KPI with no row for this period is no data (#1671).
+    await expect(widget.getByText("\u2014", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(widget.getByText("2026-09")).not.toBeVisible();
+    await expect(widget.getByText("0", { exact: true })).not.toBeVisible();
+    await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+
   test("pie chart with empty result renders without error", async ({
     authPage,
     page,
