@@ -406,20 +406,76 @@ describe("the seven-group information architecture (#1681)", () => {
   const redirects = [...config.matchAll(/"(\/[^"]+)":\s*"(\/[^"]+)"/g)].map(
     (m) => [m[1], m[2].replace(/\/$/, "")],
   );
+  // Every slug the base branch served that no longer exists (`comm -23` of
+  // the two content trees). A hand-picked dozen guarded a 46-entry map, so
+  // the other 34 could lose their redirect without a test noticing.
   const RETIRED = [
+    "/getting-started",
+    "/getting-started/installation",
     "/getting-started/quick-start",
+    "/getting-started/configuration",
+    "/getting-started/migration-from-neodash",
+    "/getting-started/troubleshooting",
+    "/guides",
     "/guides/first-dashboard",
-    "/developer/extending/new-chart-type",
-    "/developer/extending/new-connector",
+    "/guides/connecting-databases",
+    "/guides/keyboard-shortcuts",
+    "/guides/query-history",
+    "/guides/managing-users",
+    "/guides/api-keys",
+    "/concepts",
+    "/concepts/dashboards",
+    "/concepts/widgets",
+    "/concepts/parameters",
+    "/concepts/connectors",
+    "/concepts/architecture",
+    "/concepts/multi-tenancy",
+    "/concepts/query-safety",
+    "/administration",
+    "/administration/reverse-proxy",
+    "/administration/backup-restore",
+    "/administration/monitoring",
+    "/administration/deployment-checklist",
+    "/authentication",
+    "/authentication/password-login",
+    "/authentication/sso",
+    "/authentication/roles",
     "/cli/docker-setup",
     "/cli/local-setup",
-    "/getting-started",
-    "/guides",
-    "/concepts",
-    "/administration",
-    "/authentication",
     "/developer",
+    "/developer/extending/new-chart-plugin",
+    "/developer/extending/new-chart-type",
+    "/developer/extending/new-connector-plugin",
+    "/developer/extending/new-connector",
+    "/developer/extending/new-parameter-type",
+    "/developer/extending/new-widget-type",
+    "/developer/plugins",
+    "/developer/plugins/mongodb-connector",
+    "/developer/plugins/community",
+    "/developer/contributing/setup",
+    "/developer/contributing/code-style",
+    "/developer/contributing/testing",
+    "/developer/contributing/pr-workflow",
   ];
+  /** `git grep -noE` over tracked files as { path, line, match }; [] when nothing matches. */
+  const gitGrep = (pattern, pathspecs) => {
+    let out = "";
+    try {
+      out = execFileSync("git", ["grep", "-noE", pattern, "--", ...pathspecs], {
+        cwd: ROOT,
+        encoding: "utf8",
+      });
+    } catch (e) {
+      if (e.status !== 1) throw e; // 1 = no matches, anything else is real
+    }
+    return out
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => {
+        const [path, line, ...rest] = l.split(":");
+        return { path, line, match: rest.join(":") };
+      });
+  };
 
   it("has exactly the seven groups, in reading order, one directory each", () => {
     const sidebar = config.slice(config.indexOf("sidebar:"));
@@ -494,6 +550,81 @@ describe("the seven-group information architecture (#1681)", () => {
     expect(bad).toEqual([]);
     const covered = new Set(redirects.map(([from]) => from));
     expect(RETIRED.filter((s) => !covered.has(s))).toEqual([]);
+  });
+
+  it("references docs source files from the rest of the repo by paths that exist", () => {
+    // Astro redirects cover the site's old slugs, not the repository's file
+    // paths. cli/README.md (in the npm tarball), the CLI's plugin-validator
+    // hint, docs/NEODASH_MIGRATION_GUIDE.md and the deploy skill all named
+    // docs/src/content/docs/<old path>.mdx by file, and every one 404'd after
+    // the move. A `content/docs/...` string anywhere outside the site must be
+    // a file or directory that is still there.
+    const stale = gitGrep("content/docs/[A-Za-z0-9_./-]*[A-Za-z0-9_]", [
+      ".",
+      ":!docs/src",
+      ":!docs/.astro",
+    ])
+      .filter(({ match }) => !existsSync(join(ROOT, "docs/src", match)))
+      .map(({ path, line, match }) => `${match} (${path}:${line})`);
+    expect(stale).toEqual([]);
+  });
+
+  it("lands every docs-site link from the app, the CLI and the READMEs on a page or a redirect", () => {
+    // The dashboard page's "Widget guide" pointed at /guides/widgets/ — a slug
+    // that never existed (the page was /concepts/widgets) and one the redirect
+    // map did not know either — so the app shipped a 404 in its own help link.
+    const covered = new Set([...slugs, ...redirects.map(([from]) => from)]);
+    const dead = gitGrep(
+      "(neoboard\\.app/docs|alfredo1996\\.github\\.io/neoboard)/[A-Za-z0-9_./-]*",
+      ["app/src", "cli", "README.md", "PLUGINS.md"],
+    )
+      .map(({ path, line, match }) => ({
+        path,
+        line,
+        slug:
+          match
+            .replace(
+              /^(neoboard\.app\/docs|alfredo1996\.github\.io\/neoboard)/,
+              "",
+            )
+            .replace(/\/+$/, "") || "/",
+      }))
+      .filter(({ slug }) => !covered.has(slug))
+      .map(({ path, line, slug }) => `${slug} (${path}:${line})`);
+    expect(dead).toEqual([]);
+  });
+
+  it("anchors every #fragment link to a heading on the target page", () => {
+    // backup-restore's "Key rotation" link resolved to Configuration after the
+    // rotation procedure was carved out of it — a live page with no rotation
+    // on it, which the slug check waves through. An anchor pins the section,
+    // and this keeps the anchor honest. Ids follow Starlight's slugger:
+    // lowercase, punctuation dropped, whitespace to hyphens.
+    const idsOf = new Map(
+      DOCS.map(({ path, text }) => [
+        pageSlug(path),
+        new Set(
+          [...text.matchAll(/^#{1,6}[ \t]+(.+?)[ \t]*$/gm)].map((m) =>
+            m[1]
+              .toLowerCase()
+              .replace(/[^\w\s-]/g, "")
+              .replace(/\s/g, "-"),
+          ),
+        ),
+      ]),
+    );
+    const dangling = [];
+    for (const { path, text } of DOCS)
+      for (const m of text.matchAll(
+        /(?:href="|\]\()(\/[^"#?)\s]*)#([^"#?)\s]+)/g,
+      )) {
+        const [, target, anchor] = m;
+        // A target that is not a page is the slug check's finding, not this one's.
+        const ids = idsOf.get(target.replace(/\/$/, ""));
+        if (ids && !ids.has(anchor))
+          dangling.push(`${target}#${anchor} (${relative(DOCS_ROOT, path)})`);
+      }
+    expect(dangling).toEqual([]);
   });
 
   it("links to GitHub on a branch that still moves", () => {

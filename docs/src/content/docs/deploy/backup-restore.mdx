@@ -13,7 +13,7 @@ If you lose your `ENCRYPTION_KEY`, **all stored database credentials and SSO sec
 
 :::danger[Rotating the key expires every earlier backup]
 A backup is only restorable with the key that was active when it was **taken**.
-[Key rotation](/deploy/configuration) re-encrypts the live database
+[Key rotation](/security/credential-encryption#how-to-rotate-zero-data-loss) re-encrypts the live database
 with the new key, and its final step tells you to remove `ENCRYPTION_KEY_OLD` —
 at which point every dump taken before the rotation still holds ciphertext for
 the old key, and nothing can read it.

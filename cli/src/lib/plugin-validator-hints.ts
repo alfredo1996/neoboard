@@ -7,7 +7,7 @@
  */
 
 export const PLUGIN_DOCS_URL =
-  "https://github.com/alfredo1996/neoboard/blob/main/docs/src/content/docs/developer/extending/new-chart-plugin.mdx";
+  "https://github.com/alfredo1996/neoboard/blob/main/docs/src/content/docs/extend/new-chart-plugin.mdx";
 
 interface HintRule {
   /** Substring (case-insensitive) that identifies the validator error. */

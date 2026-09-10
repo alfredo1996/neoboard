@@ -32,6 +32,8 @@ export default defineConfig({
     "/guides/query-history": "/using/query-history",
     "/guides/managing-users": "/security/managing-users",
     "/guides/api-keys": "/security/api-keys",
+    // Never a page: the app's "Widget guide" help link has always pointed here.
+    "/guides/widgets": "/using/widgets",
     "/concepts": "/using/dashboards",
     "/concepts/dashboards": "/using/dashboards",
     "/concepts/widgets": "/using/widgets",

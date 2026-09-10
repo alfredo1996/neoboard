@@ -35,7 +35,7 @@ Run `neoboard <command> --help` for flags and details on any command.
 
 ## Troubleshooting
 
-Failed commands print actionable hints (missing env vars, validator failures, migration drift). If something still doesn't make sense, see the [Troubleshooting Setup](https://github.com/alfredo1996/neoboard/blob/main/docs/src/content/docs/getting-started/troubleshooting.mdx) guide.
+Failed commands print actionable hints (missing env vars, validator failures, migration drift). If something still doesn't make sense, see the [Troubleshooting Setup](https://github.com/alfredo1996/neoboard/blob/main/docs/src/content/docs/start-here/troubleshooting.mdx) guide.
 
 ## License
 
