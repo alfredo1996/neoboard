@@ -1,6 +1,6 @@
 import { aliasNeedingRegions } from "./fixtures/connector-output";
-import { render, screen, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // echarts/charts, components, renderers are mocked globally in vitest.setup.ts.
 // Mock echarts/core here to capture setOption + stub map registration.
@@ -89,6 +89,84 @@ describe("ChoroplethChart", () => {
     expect(ramp[ramp.length - 1]).toBe("#993404"); // deep amber max default
     expect(ramp).not.toContain("#2171b5"); // no stock blue stop
   }, 15000);
+});
+
+// Independent oracles: sRGB interpolation between the default ends (light) and
+// between their perceptual-lightness inversions (dark), computed in Python.
+const LIGHT_RAMP = ["#fff7d6", "#e6c6a2", "#cc966d", "#b36539", "#993404"];
+const DARK_RAMP = ["#0b0b08", "#372c29", "#634e49", "#8e6f6a", "#ba908a"];
+
+describe("ChoroplethChart legend and theme (#1402)", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => document.documentElement.classList.remove("dark"));
+
+  // "Show Legend" off used to drop the whole visualMap, and with it the only
+  // thing that maps values to colours — every region fell to the no-data fill.
+  it("showVisualMap=false hides only the legend, keeping the colour encoding", async () => {
+    render(<ChoroplethChart data={data} showVisualMap={false} />);
+    await waitFor(
+      () => {
+        const { visualMap } = lastOptionWith("series");
+        expect(visualMap).toBeDefined();
+        expect(visualMap.show).toBe(false);
+        expect(visualMap.min).toBe(80);
+        expect(visualMap.max).toBe(100);
+        expect(visualMap.inRange.color).toEqual([...LIGHT_RAMP]);
+      },
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+
+  it("shows the legend by default", async () => {
+    render(<ChoroplethChart data={data} />);
+    await waitFor(
+      () => expect(lastOptionWith("series").visualMap.show).toBe(true),
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+
+  // Light-to-dark on a dark canvas ranks regions backwards; dark mode inverts
+  // the ends' perceptual lightness so the highest value is the most prominent.
+  it("inverts the ramp's lightness in dark mode", async () => {
+    document.documentElement.classList.add("dark");
+    render(<ChoroplethChart data={data} />);
+    await waitFor(
+      () =>
+        expect(lastOptionWith("series").visualMap.inRange.color).toEqual([
+          ...DARK_RAMP,
+        ]),
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+
+  // #1583 was a chart frozen on its mount-time theme. Toggling the class after
+  // mount must rebuild the ramp, both ways.
+  it("rebuilds the ramp when the theme toggles after mount", async () => {
+    render(<ChoroplethChart data={data} />);
+    await waitFor(
+      () =>
+        expect(lastOptionWith("series").visualMap.inRange.color).toEqual([
+          ...LIGHT_RAMP,
+        ]),
+      { timeout: 15_000 },
+    );
+    act(() => document.documentElement.classList.add("dark"));
+    await waitFor(
+      () =>
+        expect(lastOptionWith("series").visualMap.inRange.color).toEqual([
+          ...DARK_RAMP,
+        ]),
+      { timeout: 15_000 },
+    );
+    act(() => document.documentElement.classList.remove("dark"));
+    await waitFor(
+      () =>
+        expect(lastOptionWith("series").visualMap.inRange.color).toEqual([
+          ...LIGHT_RAMP,
+        ]),
+      { timeout: 15_000 },
+    );
+  }, 45_000);
 });
 
 describe("connector-shaped fixtures (#1636)", () => {

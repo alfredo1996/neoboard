@@ -63,6 +63,14 @@ const DEFAULT_RAMP = [
   "#b36539",
   "#993404",
 ] as const;
+/** DEFAULT_RAMP's ends with CIE L* inverted (Python oracle), then interpolated. */
+const DARK_DEFAULT_RAMP = [
+  "#0b0b08",
+  "#372c29",
+  "#634e49",
+  "#8e6f6a",
+  "#ba908a",
+] as const;
 const GREEN_RAMP = [
   "#f7fcf5",
   "#b9cebf",
@@ -82,6 +90,58 @@ async function expectRampPainted(
     },
     { timeout: 5000 },
   );
+}
+
+/** Any CSS colour, resolved by the browser to sRGBA bytes. */
+function cssColorBytes(color: string): number[] {
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) throw new Error("no 2d context");
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data];
+}
+
+/** WCAG relative luminance of sRGB bytes. */
+function luminance([r, g, b]: number[]): number {
+  const lin = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/**
+ * The canvas is transparent, so a region is read against the nearest opaque
+ * background behind it — the page's `bg-background` in either theme.
+ */
+function backdropLuminance(canvasElement: HTMLElement): number {
+  for (let el: Element | null = canvasElement; el; el = el.parentElement) {
+    const bytes = cssColorBytes(getComputedStyle(el).backgroundColor);
+    if (bytes[3] === 255) return luminance(bytes);
+  }
+  return luminance([255, 255, 255]);
+}
+
+/**
+ * With the legend hidden, every ramp colour on the canvas is a region. Each
+ * stop must be painted, and its contrast against the backdrop must rise with
+ * value — the "higher reads as more prominent" rule, in whichever theme.
+ */
+async function expectProminenceRises(
+  canvasElement: HTMLElement,
+  ramp: readonly string[],
+) {
+  await expectRampPainted(canvasElement, ramp);
+  const bg = backdropLuminance(canvasElement);
+  const contrast = ramp.map((c) => {
+    const l = luminance(cssColorBytes(c));
+    return (Math.max(l, bg) + 0.05) / (Math.min(l, bg) + 0.05);
+  });
+  for (let i = 1; i < contrast.length; i++) {
+    expect(contrast[i], `stop ${i} vs stop ${i - 1}`).toBeGreaterThan(
+      contrast[i - 1],
+    );
+  }
 }
 
 /** A chart that threw inside `setOption` shows this instead of rendering. */
@@ -154,6 +214,50 @@ export const WorldPopulation: Story = {
       `Choropleth map with ${args.data.length} regions`,
     );
     await expectRampPainted(canvasElement, DEFAULT_RAMP);
+    expectNoRenderError(canvasElement);
+  },
+};
+
+/**
+ * One large country per band (splitNumber 5 over 10–90), so with the legend
+ * hidden every ramp stop is painted by a region — skewed population data
+ * leaves the middle bands empty.
+ */
+const oneRegionPerBand = [
+  { name: "Brazil", value: 10 },
+  { name: "Canada", value: 30 },
+  { name: "Australia", value: 50 },
+  { name: "Russia", value: 70 },
+  { name: "China", value: 90 },
+];
+
+/**
+ * #1402 — on the dark canvas the light end is the prominent one, so the
+ * light-to-dark ramp painted as-is ranked regions backwards. Dark mode paints
+ * the lightness-inverted ramp: lowest values dark, highest bright.
+ */
+export const DarkMode: Story = {
+  // Legend off, so a matched ramp colour can only be a region, not a swatch.
+  args: { data: oneRegionPerBand, showVisualMap: false },
+  globals: { theme: "dark" },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    await expectProminenceRises(canvasElement, DARK_DEFAULT_RAMP);
+    expectNoRenderError(canvasElement);
+  },
+};
+
+/**
+ * #1402 — "Show Legend" off used to drop the visualMap entirely, painting
+ * every region the no-data fill. With the legend hidden no swatch paints a
+ * ramp colour, so a ramp colour on the canvas can only be a region.
+ */
+export const LegendHidden: Story = {
+  args: { data: oneRegionPerBand, showVisualMap: false },
+  globals: { theme: "light" },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    await expectProminenceRises(canvasElement, DEFAULT_RAMP);
     expectNoRenderError(canvasElement);
   },
 };

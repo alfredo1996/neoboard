@@ -157,6 +157,12 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
 import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 
+// Every describe below renders widgets on "conn-1". The store is a module
+// singleton, so a #1678 test that flags conn-1 would otherwise turn a later
+// test's expected state into "Connector unavailable" — only in the orders
+// shuffle happens to pick (seed 1789047212035 reproduces it).
+beforeEach(() => useConnectionStatusStore.getState().reset());
+
 /**
  * #1678 — a dead connector used to be indistinguishable from an unset
  * parameter: the seed query failed silently, the parameter never arrived,
@@ -193,7 +199,6 @@ describe("CardContainer — connector unavailable (#1678)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useConnectionStatusStore.getState().reset();
   });
 
   it("names the connector, not the parameter, when a sibling has flagged the connection", () => {

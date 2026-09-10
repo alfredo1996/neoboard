@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildSequentialRamp,
+  invertLightness,
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "../choropleth-ramp";
@@ -131,5 +132,68 @@ describe("buildSequentialRamp (#1404)", () => {
     expect(luminance(CHOROPLETH_DEFAULT_MIN_COLOR)).toBeGreaterThan(
       luminance(CHOROPLETH_DEFAULT_MAX_COLOR),
     );
+  });
+});
+
+/**
+ * #1402 — on a dark canvas the prominent end of a ramp is the LIGHT one, so a
+ * light-to-dark ramp painted as-is ranks regions backwards: the lowest values
+ * blaze, the highest sink into the background.
+ *
+ * Every ramp the demo seeds is a hex pair (chart-gallery and chart-playground
+ * pin the old Blues ends; chart-reference adds white→red and yellow→green),
+ * and saved widgets carry their pair too — so swapping only the *default* ends
+ * would fix none of them. Dark mode inverts each end's lightness instead.
+ */
+describe("invertLightness (#1402)", () => {
+  // Independent oracle: a Python script — CIE L* from WCAG luminance, L*' =
+  // 100 − L*, then linear-light RGB scaled toward black (darker) or mixed
+  // toward white (lighter) to hit that luminance, hue kept.
+  it.each([
+    ["#fff7d6", "#0b0b08"],
+    ["#993404", "#ba908a"],
+    ["#e8f4f8", "#0f1010"],
+    ["#08306b", "#c2c4cc"],
+    ["#ffffff", "#000000"],
+    ["#000000", "#ffffff"],
+    ["#b91c1c", "#c97c7c"],
+    ["#ffd700", "#292100"],
+    ["#8b0000", "#c5aaaa"],
+  ])("inverts %s to %s on the perceptual lightness axis", (input, expected) => {
+    expect(invertLightness(input)).toBe(expected);
+  });
+
+  it("expands 3-digit shorthand", () => {
+    expect(invertLightness("#fff")).toBe("#000000");
+  });
+
+  // The acceptance criterion: higher values read as more prominent against the
+  // canvas in BOTH themes — darker on light, lighter on dark. The saturated
+  // pairs are the ones an HSL flip gets wrong: pure hues all sit at HSL
+  // L = 0.5, so yellow stayed brighter than red after "inverting".
+  it.each([
+    [
+      "shipped default",
+      CHOROPLETH_DEFAULT_MIN_COLOR,
+      CHOROPLETH_DEFAULT_MAX_COLOR,
+    ],
+    ["gallery/playground Blues", "#e8f4f8", "#08306b"],
+    ["reference white → red", "#ffffff", "#b91c1c"],
+    ["reference yellow → green", "#fef3c7", "#166534"],
+    ["gold → dark red", "#ffd700", "#8b0000"],
+    ["amber → red", "#ffeb3b", "#d50000"],
+    ["yellow → red", "#ffff00", "#ff0000"],
+    ["cyan → blue", "#00ffff", "#0000ff"],
+  ])("%s ramp gains prominence with value in both themes", (_n, min, max) => {
+    const light = buildSequentialRamp(min, max, 5).map(luminance);
+    const dark = buildSequentialRamp(
+      invertLightness(min),
+      invertLightness(max),
+      5,
+    ).map(luminance);
+    for (let i = 1; i < 5; i++) {
+      expect(light[i], `light stop ${i}`).toBeLessThan(light[i - 1]);
+      expect(dark[i], `dark stop ${i}`).toBeGreaterThan(dark[i - 1]);
+    }
   });
 });

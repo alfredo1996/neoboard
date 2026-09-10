@@ -253,7 +253,7 @@ export function resolveStylingRuleColor(
 // Color scale (gradient interpolation)
 // ---------------------------------------------------------------------------
 
-function parseHex(hex: string): [number, number, number] {
+export function parseHex(hex: string): [number, number, number] {
   let h = hex.replace("#", "");
   // Expand 3-char shorthand: #f00 → ff0000
   if (h.length === 3) {
@@ -266,7 +266,7 @@ function parseHex(hex: string): [number, number, number] {
   ];
 }
 
-function toHex(r: number, g: number, b: number): string {
+export function toHex(r: number, g: number, b: number): string {
   const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
   return (
     "#" +

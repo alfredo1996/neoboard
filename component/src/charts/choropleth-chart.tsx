@@ -14,6 +14,7 @@ import type { BaseChartProps } from "./types";
 import { buildEmptyDataOption, fillLabelStyle } from "./chart-utils";
 import {
   buildSequentialRamp,
+  invertLightness,
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "./choropleth-ramp";
@@ -160,30 +161,39 @@ function ChoroplethChart({
           );
         },
       },
-      visualMap: showVisualMap
-        ? {
-            type: "piecewise" as const,
-            right: 16,
-            top: 16,
-            orient: "vertical",
-            splitNumber: 5,
-            min: minVal,
-            max: maxVal,
-            inRange: {
-              // Interpolated end-to-end so every band lies on the ramp between
-              // the configured colours — see buildSequentialRamp (#1404).
-              color: buildSequentialRamp(minColor, maxColor, 5),
-            },
-            textStyle: { fontSize: 10 },
-            itemWidth: 12,
-            itemHeight: 12,
-            itemGap: 4,
-            formatter: ((a: number, b: number) =>
-              Math.round(a).toLocaleString() +
-              " \u2013 " +
-              Math.round(b).toLocaleString()) as never,
-          }
-        : undefined,
+      // Always emitted: the visualMap is what maps values to colours, so
+      // "Show Legend" toggles only its visibility (#1402).
+      visualMap: {
+        type: "piecewise" as const,
+        show: showVisualMap,
+        right: 16,
+        top: 16,
+        orient: "vertical",
+        splitNumber: 5,
+        min: minVal,
+        max: maxVal,
+        inRange: {
+          // Interpolated end-to-end so every band lies on the ramp between
+          // the configured colours — see buildSequentialRamp (#1404). Dark
+          // mode inverts the ends' lightness so the highest value stays the
+          // most prominent against the canvas (#1402).
+          color: dark
+            ? buildSequentialRamp(
+                invertLightness(minColor),
+                invertLightness(maxColor),
+                5,
+              )
+            : buildSequentialRamp(minColor, maxColor, 5),
+        },
+        textStyle: { fontSize: 10 },
+        itemWidth: 12,
+        itemHeight: 12,
+        itemGap: 4,
+        formatter: ((a: number, b: number) =>
+          Math.round(a).toLocaleString() +
+          " \u2013 " +
+          Math.round(b).toLocaleString()) as never,
+      },
       series: [
         {
           type: "map",
