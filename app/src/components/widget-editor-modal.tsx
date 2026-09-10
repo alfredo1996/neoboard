@@ -9,6 +9,7 @@ import React, {
   useRef,
 } from "react";
 import { useQueryExecution } from "@/hooks/use-query-execution";
+import { useSettledData } from "@/hooks/use-settled-data";
 import { allReferencedParamsReady } from "@/hooks/use-widget-query";
 import type {
   DashboardWidget,
@@ -298,6 +299,10 @@ export function WidgetEditorModal({
   }, [seedQueryExecution.data]);
 
   const previewQuery = useQueryExecution();
+  // A re-run (the debounced auto-preview) blanks `data` until it settles;
+  // the column pickers read the last settled result so they don't unmount
+  // under an open dropdown.
+  const settledPreview = useSettledData(previewQuery);
   const allParamValues = useParameterValues();
   // Query references $param_x tokens that aren't all bound — the preview shows
   // a waiting state instead of running the literal token and erroring (#1055).
@@ -494,7 +499,7 @@ export function WidgetEditorModal({
 
   // Derive available fields from preview query results
   const availableFields = useMemo(() => {
-    const src = previewQuery.data?.data ?? initialPreviewData?.data;
+    const src = settledPreview?.data ?? initialPreviewData?.data;
     if (!src) return [];
     if (
       Array.isArray(src) &&
@@ -505,11 +510,11 @@ export function WidgetEditorModal({
       return Object.keys(src[0] as Record<string, unknown>);
     }
     return [];
-  }, [previewQuery.data, initialPreviewData]);
+  }, [settledPreview, initialPreviewData]);
 
   // First row of query results — used for column pipeline simulation in TransformEditor
   const sampleRow = useMemo(() => {
-    const src = previewQuery.data?.data ?? initialPreviewData?.data;
+    const src = settledPreview?.data ?? initialPreviewData?.data;
     if (
       Array.isArray(src) &&
       src.length > 0 &&
@@ -519,7 +524,7 @@ export function WidgetEditorModal({
       return src[0] as Record<string, unknown>;
     }
     return undefined;
-  }, [previewQuery.data, initialPreviewData]);
+  }, [settledPreview, initialPreviewData]);
 
   // Push derived data to the store so sub-editors can access it via selectors.
   // These are computed in the modal but not directly settable by sub-editors.

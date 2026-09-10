@@ -115,8 +115,6 @@ export function buildClickPayload(
     // `children` would drag the whole subtree into a payload of scalars;
     // `properties` is the passthrough container, spread below as columns.
     const { children: _children, properties: _container, ...datum } = e.data;
-    void _children;
-    void _container;
     return { ...datum, ...eventFields, ...rawColumnsOf(e.data) };
   }
 
@@ -126,7 +124,6 @@ export function buildClickPayload(
   // `properties` is the passthrough container, not data — dropping it here
   // stops it shadowing a query column that is itself named `properties`.
   const { properties: _container, ...itemFields } = row ?? {};
-  void _container;
   return {
     ...itemFields,
     ...eventFields,
