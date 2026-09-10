@@ -329,5 +329,14 @@ describe(
       assert.match(html, /class="sl-link-button[^"]* primary /);
       assert.match(html, /class="sl-link-button[^"]* secondary /);
     });
+
+    it("titles the home page once, as NeoBoard (#1318)", () => {
+      // Starlight renders `<page title> | <site title>`, which read
+      // "NeoBoard | NeoBoard" until index.mdx set its own head title.
+      const html = readFileSync(join(DIST, "index.html"), "utf8");
+      assert.deepEqual(html.match(/<title>[^<]*<\/title>/g), [
+        "<title>NeoBoard</title>",
+      ]);
+    });
   },
 );

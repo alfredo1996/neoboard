@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -217,12 +218,75 @@ describe("check-docs-dist reads the built site the way Pages serves it (#1318)",
       expect(problems[0]).toContain(`${site}/a/`);
     });
 
+    it("compares the host case-insensitively, as @astrojs/sitemap lowercases it", () => {
+      // new URL("/neoboard/", "https://Owner.github.io") is how the sitemap
+      // builds its URLs, and a mixed-case org login is what github.repository_owner gives.
+      write({
+        "index.html": page(),
+        "sitemap-index.xml": "<sitemapindex/>",
+        "sitemap-0.xml": sitemap(`${site}/neoboard/`),
+      });
+      expect(
+        checkDist({ dist, base: "/neoboard", site: "https://Owner.github.io" }),
+      ).toEqual([]);
+    });
+
+    it("accepts a site written with a trailing slash", () => {
+      write({
+        "index.html": page(),
+        "sitemap-index.xml": "<sitemapindex/>",
+        "sitemap-0.xml": sitemap(`${site}/neoboard/`, `${site}//a/`),
+      });
+      const problems = checkDist({ dist, base: "/neoboard", site: `${site}/` });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain(`${site}//a/`);
+    });
+
     it("reports a sitemap index that lists no URLs", () => {
       write({ "index.html": page(), "sitemap-index.xml": "<sitemapindex/>" });
       expect(checkDist({ dist, base: "/neoboard", site })).toEqual([
         expect.stringContaining("no URLs"),
       ]);
     });
+  });
+});
+
+describe("check-docs-dist on the command line, as the workflows run it (#1318)", () => {
+  let dist;
+  const cli = (env) =>
+    spawnSync(process.execPath, [join(ROOT, "scripts/check-docs-dist.mjs"), dist], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, ...env },
+    });
+
+  beforeEach(() => {
+    dist = mkdtempSync(join(tmpdir(), "1318-cli-"));
+    mkdirSync(join(dist, "a"));
+    writeFileSync(join(dist, "a/index.html"), "<p>a</p>");
+  });
+  afterEach(() => rmSync(dist, { recursive: true, force: true }));
+
+  it("exits non-zero with an ::error:: line when DOCS_BASE's links are broken", () => {
+    writeFileSync(join(dist, "index.html"), '<a href="/a/">a</a>');
+    const run = cli({ DOCS_BASE: "/neoboard" });
+    expect(run.status).toBe(1);
+    expect(run.stderr).toMatch(/^::error::index\.html: \/a\/ does not resolve under \/neoboard$/m);
+  });
+
+  it("exits zero on a clean build under DOCS_BASE", () => {
+    // The same link would be broken under base "/", so this also proves the
+    // CLI reads DOCS_BASE rather than defaulting.
+    writeFileSync(join(dist, "index.html"), '<a href="/neoboard/a/">a</a>');
+    const run = cli({ DOCS_BASE: "/neoboard" });
+    expect(run.stderr).toBe("");
+    expect(run.status).toBe(0);
+  });
+
+  it("checks the sitemap only when DOCS_SITE is set", () => {
+    writeFileSync(join(dist, "index.html"), '<a href="/neoboard/a/">a</a>');
+    const run = cli({ DOCS_BASE: "/neoboard", DOCS_SITE: "https://owner.github.io" });
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain("::error::sitemap-index.xml was not emitted");
   });
 });
 
@@ -284,11 +348,12 @@ describe("docs-pages.yml deploys the site to GitHub Pages (#1318)", () => {
       );
   });
 
-  it("builds with the project-site URL and base, checks the result, then uploads it", () => {
+  it("builds with the project base, checks the result, then uploads it", () => {
     const build = jobBlock(yml, "build");
-    expect(build).toContain(
-      "DOCS_SITE: https://${{ github.repository_owner }}.github.io",
-    );
+    // No DOCS_SITE yet: with a site set, the pinned @astrojs/sitemap 3.2.1
+    // crashes Astro 7's build. DOCS_SITE comes back with the owner-approved
+    // sitemap bump (#1318), and this assertion goes with it.
+    expect(build).not.toContain("DOCS_SITE");
     expect(build).toContain("DOCS_BASE: /${{ github.event.repository.name }}");
     const order = [
       "npm ci --prefix docs",
@@ -317,8 +382,9 @@ describe("docs-ci.yml checks the built site under the Pages base (#1318)", () =>
   );
   const build = jobBlock(yml, "docs-build");
 
-  it("builds once with a site and the /neoboard base and runs the checker on it", () => {
-    expect(build).toMatch(/DOCS_SITE: https:\/\/.+\.github\.io$/m);
+  it("builds once under the /neoboard base, without a site, and runs the checker on it", () => {
+    // Without a site until the sitemap bump; see the docs-pages.yml test.
+    expect(build).not.toContain("DOCS_SITE");
     expect(build.indexOf("DOCS_BASE: /neoboard")).toBeGreaterThan(-1);
     expect(
       build.lastIndexOf("node scripts/check-docs-dist.mjs docs/dist"),

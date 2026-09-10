@@ -72,9 +72,13 @@ jobs:
       # link that works in the build above 404s there, and the source-level
       # link checks in docs-accuracy read slugs, not deployed URLs (#1318).
       # Build again the way Pages does and read the result.
-      - name: Build under the Pages base, check links and the sitemap
+      #
+      # No DOCS_SITE yet, so no sitemap check: with a site set, the pinned
+      # @astrojs/sitemap 3.2.1 (docs/package.json overrides) crashes Astro 7's
+      # build. Setting DOCS_SITE here waits on the owner approving that bump
+      # (#1318); the checker already asserts the sitemap once it is set.
+      - name: Build under the Pages base and check its links
         env:
-          DOCS_SITE: https://${{ github.repository_owner }}.github.io
           DOCS_BASE: /neoboard
         run: |
           npm run build --prefix docs

@@ -35,8 +35,10 @@ jobs:
     name: Build docs for Pages
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # DOCS_SITE (https://${{ github.repository_owner }}.github.io) is left out
+    # until the owner approves bumping the @astrojs/sitemap override: 3.2.1
+    # crashes Astro 7's build whenever a site is set (#1318).
     env:
-      DOCS_SITE: https://${{ github.repository_owner }}.github.io
       DOCS_BASE: /${{ github.event.repository.name }}
 
     steps:
@@ -59,7 +61,7 @@ jobs:
       - name: Build docs site
         run: npm run build --prefix docs
 
-      - name: Check links under the base, and the sitemap
+      - name: Check links under the base
         run: node scripts/check-docs-dist.mjs docs/dist
 
       - name: Upload Pages artifact

@@ -61,7 +61,8 @@ export function checkDist({ dist, base = "/", site }) {
     if (!isFile(join(dist, "sitemap-index.xml"))) {
       problems.push("sitemap-index.xml was not emitted");
     } else {
-      const want = `${site.replace(/\/+$/, "")}${prefix}/`;
+      // Resolved the way @astrojs/sitemap builds its URLs: lowercased host, one slash.
+      const want = new URL(`${prefix}/`, site).href;
       const locs = files
         .filter((f) => /sitemap-\d+\.xml$/.test(f))
         .flatMap((f) =>
