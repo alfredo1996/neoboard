@@ -5,7 +5,6 @@ import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import {
   validateBody,
-  forbidden,
   badRequest,
   notFound,
   handleRouteError,
@@ -67,8 +66,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, canWrite, tenantId } = await requireAdmin();
-    if (!canWrite) return forbidden();
+    const { userId, tenantId } = await requireAdmin();
     const { id } = await params;
 
     if (id === userId) {
@@ -163,8 +161,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, canWrite, tenantId } = await requireAdmin();
-    if (!canWrite) return forbidden();
+    const { userId, tenantId } = await requireAdmin();
     const { id } = await params;
 
     if (id === userId) {

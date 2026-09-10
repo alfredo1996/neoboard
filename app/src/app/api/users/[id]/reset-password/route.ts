@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import {
-  forbidden,
   badRequest,
   notFound,
   handleRouteError,
@@ -36,8 +35,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, canWrite, tenantId } = await requireAdmin();
-    if (!canWrite) return forbidden();
+    const { userId, tenantId } = await requireAdmin();
     const { id } = await params;
 
     if (id === userId) {
