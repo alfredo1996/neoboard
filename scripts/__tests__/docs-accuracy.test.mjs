@@ -779,6 +779,15 @@ describe("production options: Run from a build (#1679)", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("pins image tags the way release.yml publishes them (X.Y.Z, X.Y — no v)", () => {
+    // docker/metadata-action's type=semver strips the tag's leading v, so
+    // ghcr.io/.../neoboard:vX.Y.Z is a pull that fails.
+    const offenders = DOCS.filter(({ text }) => /neoboard:v/.test(text)).map(
+      ({ path }) => path,
+    );
+    expect(offenders).toEqual([]);
+  });
+
   it("keeps the deployment checklist option-neutral", () => {
     const checklist = text(
       "docs/src/content/docs/deploy/deployment-checklist.mdx",

@@ -187,7 +187,7 @@ spec:
     spec:
       containers:
         - name: neoboard
-          image: ghcr.io/alfredo1996/neoboard:vX.Y.Z
+          image: ghcr.io/alfredo1996/neoboard:X.Y.Z
           ports:
             - containerPort: 3000
           envFrom:
@@ -239,5 +239,5 @@ Then create the first admin on `/signup` with the `ADMIN_BOOTSTRAP_TOKEN` from t
 - **Probes.** `/api/health` returns 503 when required configuration is missing or the metadata database is unreachable — exactly when a pod should not take traffic. The 30 s liveness delay covers the boot migration, the same reason the image's own healthcheck has a 30 s start period. [Monitoring](/deploy/monitoring#using-with-kubernetes) has the probe reference.
 - **Replicas.** Migrations are replica-safe: replicas booting together serialize on a Postgres advisory lock, the first applies it, the rest wait and find nothing left to do. Rate limiting is not: the per-IP limit on the public `/api/auth/*` routes and the SSO provider cache are in-memory per process, so N replicas give every IP N times the budget. Stay at 1, or rate-limit at the ingress, until there is a shared store.
 - **Ingress.** Terminate TLS at the ingress and make sure `X-Forwarded-Proto` reaches the pod; `NEXTAUTH_URL` must be the public URL. The rules are the same as for any [load balancer](/deploy/reverse-proxy#cloud-load-balancers).
-- **Roll back.** If the release you are leaving migrated the schema, disable boot migration first, then move the tag: `kubectl set env deployment/neoboard MIGRATE_ON_START=0`, then `kubectl set image deployment/neoboard neoboard=ghcr.io/alfredo1996/neoboard:vPREVIOUS`. Why, and what to do with the database, is in [Controlling migrations at boot](/deploy/deployment-checklist#controlling-migrations-at-boot).
+- **Roll back.** If the release you are leaving migrated the schema, disable boot migration first, then move the tag: `kubectl set env deployment/neoboard MIGRATE_ON_START=0`, then `kubectl set image deployment/neoboard neoboard=ghcr.io/alfredo1996/neoboard:PREVIOUS`. Why, and what to do with the database, is in [Controlling migrations at boot](/deploy/deployment-checklist#controlling-migrations-at-boot).
 - **Helm.** There is no chart yet; the manifest above is the whole surface.

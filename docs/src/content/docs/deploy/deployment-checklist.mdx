@@ -23,7 +23,7 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 
 - [ ] PostgreSQL 16+ running and accessible from the NeoBoard process
 - [ ] TLS/SSL certificate configured on the reverse proxy
-- [ ] Version pinned — an explicit image tag (e.g. `ghcr.io/…/neoboard:v1.3.0`, **not** `:latest`) via `NEOBOARD_IMAGE` for Docker Compose or the manifest for Kubernetes, a release tag checkout for a build you run yourself — so deploys are reproducible and an upgrade cannot cross a major version unintentionally
+- [ ] Version pinned — an explicit image tag (e.g. `ghcr.io/…/neoboard:1.5.0`, **not** `:latest`) via `NEOBOARD_IMAGE` for Docker Compose or the manifest for Kubernetes, a release tag checkout for a build you run yourself — so deploys are reproducible and an upgrade cannot cross a major version unintentionally
 - [ ] Resource limits set (CPU: 2 cores, memory: 1 GB recommended) — compose `deploy.resources`, Kubernetes `resources`, or a systemd `MemoryMax=`
 - [ ] Log rotation configured (max 10MB, 3 files) — the compose files set the json-file driver; journald and the kubelet rotate on their own
 - [ ] Backup strategy in place (see [Backup & Restore](/deploy/backup-restore))
