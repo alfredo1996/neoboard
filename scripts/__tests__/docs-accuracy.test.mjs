@@ -323,7 +323,9 @@ describe("the site's own navigation and links resolve (#1574)", () => {
     const broken = [];
 
     for (const { path, text } of DOCS) {
-      const targets = [...text.matchAll(/href="(\/[^"#?]*)"|\]\((\/[^)#?\s]*)\)/g)]
+      const targets = [
+        ...text.matchAll(/href="(\/[^"#?]*)"|\]\((\/[^)#?\s]*)\)/g),
+      ]
         .map((m) => (m[1] ?? m[2]).replace(/\/$/, ""))
         .filter(Boolean);
 
@@ -352,7 +354,35 @@ describe("the site's own navigation and links resolve (#1574)", () => {
     const config = readFileSync(join(ROOT, "app/vitest.config.ts"), "utf8");
 
     expect(config).toContain("jsdom");
-    expect(page).not.toMatch(/Do NOT add `?@testing-library\/react`? render tests/i);
+    expect(page).not.toMatch(
+      /Do NOT add `?@testing-library\/react`? render tests/i,
+    );
     expect(page).not.toMatch(/Vitest in `?app\/`? is for pure logic only/i);
+  });
+});
+
+describe("the site's chart counts match the registry (#1687)", () => {
+  it("states the registered count wherever it states one", () => {
+    // Unregistering two charts left community.mdx and cli/commands.mdx saying
+    // 20 because nothing pinned the number. Every "N chart types",
+    // "N built-in chart types" or "Charts (N built-in" must equal the
+    // CHART_TYPES array the app registers from.
+    const registered = [
+      ...readFileSync(
+        join(ROOT, "app/src/plugins/chart-types.ts"),
+        "utf8",
+      ).matchAll(/^\s+"([\w-]+)",$/gm),
+    ].length;
+    expect(registered).toBeGreaterThan(0); // the regex still matches
+
+    const CLAIM =
+      /\b(\d+) (?:built-in )?chart types\b|Charts \((\d+) built-in/g;
+    const claims = DOCS.flatMap(({ path, text }) =>
+      [...text.matchAll(CLAIM)].map((m) => ({ path, n: Number(m[1] ?? m[2]) })),
+    );
+    expect(claims.length).toBeGreaterThan(0);
+    expect(
+      claims.filter((c) => c.n !== registered).map((c) => `${c.path}: ${c.n}`),
+    ).toEqual([]);
   });
 });

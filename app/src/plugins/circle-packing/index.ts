@@ -1,1 +1,0 @@
-export { circlePackingPlugin } from "./component";

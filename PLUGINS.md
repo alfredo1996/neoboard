@@ -2,7 +2,7 @@
 
 NeoBoard's plugin system lets you extend the platform with custom chart types and database connectors. Plugins are npm packages that integrate seamlessly via the CLI.
 
-## Built-in Charts (20)
+## Built-in Charts (18)
 
 | Chart Type       | Description                                      | Data Sources      |
 | ---------------- | ------------------------------------------------ | ----------------- |
@@ -17,9 +17,7 @@ NeoBoard's plugin system lets you extend the platform with custom chart types an
 | Sankey           | Weighted flow diagrams                           | Neo4j, PostgreSQL |
 | Sunburst         | Multi-level hierarchical drill-down              | Neo4j, PostgreSQL |
 | Radar            | Multi-dimensional comparison                     | Neo4j, PostgreSQL |
-| Treemap          | Nested rectangles for hierarchy                  | Neo4j, PostgreSQL |
 | Gantt            | Timeline bars for scheduling                     | Neo4j, PostgreSQL |
-| Circle Packing   | Nested circles for containment                   | Neo4j, PostgreSQL |
 | Choropleth       | Geographic heatmap by region                     | Neo4j, PostgreSQL |
 | JSON Viewer      | Collapsible JSON tree                            | Neo4j, PostgreSQL |
 | Form             | Input fields executing write queries             | Neo4j, PostgreSQL |

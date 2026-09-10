@@ -19,9 +19,6 @@ const CHART_TYPE_MAP: Record<string, string> = {
   value: "single-value",
   gauge: "gauge",
   sunburst: "sunburst",
-  circle_packing: "circle-packing",
-  circlePacking: "circle-packing",
-  treemap: "treemap",
   sankey: "sankey",
   radar: "radar",
   area: "line",
@@ -34,6 +31,19 @@ const CHART_TYPE_MAP: Record<string, string> = {
   form: "form",
   json: "json",
 };
+
+/**
+ * NeoDash types NeoBoard deliberately does not ship (#1687). Unlike an unknown
+ * type, these are not worth a JSON Viewer fallback: the report is dropped and
+ * the user told why, so the imported dashboard has no dead tile. NeoDash's own
+ * key is the camel-cased `treeMap`; `treemap` is kept as an alias.
+ */
+const UNSUPPORTED_TYPES = new Set([
+  "circle_packing",
+  "circlePacking",
+  "treemap",
+  "treeMap",
+]);
 
 /** NeoDash types that get mapped to a different NeoBoard type. */
 const DOWNGRADED_TYPES: Record<string, string> = {
@@ -99,8 +109,7 @@ function convertReportActions(
   }
 
   const customization = rule.customization as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 
   if (customization?.type === "set-parameter") {
     return {
@@ -315,15 +324,28 @@ export function convertNeoDashWithNotes(
     const gridLayout: GridLayoutItem[] = [];
 
     for (const report of page.reports) {
-      const widgetId = crypto.randomUUID();
       const originalType = report.type;
+      // The type says `title: string`, but NeoDash exports can omit it and
+      // the notes used to print "undefined".
+      const title = report.title ?? "Untitled widget";
+      if (UNSUPPORTED_TYPES.has(originalType)) {
+        notes.push(
+          '"' +
+            title +
+            '" (' +
+            originalType +
+            ") → unsupported in NeoBoard, skipped",
+        );
+        continue;
+      }
+      const widgetId = crypto.randomUUID();
       const chartType = CHART_TYPE_MAP[originalType] ?? "json";
 
       // Track downgrades
       if (DOWNGRADED_TYPES[originalType]) {
         notes.push(
           '"' +
-            report.title +
+            title +
             '" (' +
             originalType +
             ") → " +
@@ -332,11 +354,7 @@ export function convertNeoDashWithNotes(
       }
       if (!CHART_TYPE_MAP[originalType]) {
         notes.push(
-          '"' +
-            report.title +
-            '" (unknown type "' +
-            originalType +
-            '") → JSON Viewer',
+          '"' + title + '" (unknown type "' + originalType + '") → JSON Viewer',
         );
       }
 

@@ -27,7 +27,7 @@ describe("buildClickPayload — hierarchical series (#1596)", () => {
     { name: "Beta", region: "APAC", value: 20 },
   ];
 
-  it.each(["treemap", "sunburst"])(
+  it.each(["sunburst"])(
     "%s reads the clicked datum, not the array position",
     (seriesType) => {
       // dataIndex 1 is Alpha once the virtual root occupies 0 — indexing the
@@ -52,7 +52,7 @@ describe("buildClickPayload — hierarchical series (#1596)", () => {
   it("omits children so the payload stays a flat scalar bag", () => {
     const payload = buildClickPayload(
       ev({
-        seriesType: "treemap",
+        seriesType: "sunburst",
         dataIndex: 1,
         name: "Alpha",
         data: { name: "Alpha", region: "EMEA", children: [{ name: "A-1" }] },
@@ -118,6 +118,25 @@ describe("buildClickPayload — hierarchical series (#1596)", () => {
 });
 
 describe("buildClickPayload — row-indexed series are untouched", () => {
+  it("no longer treats treemap as a datum series (#1687)", () => {
+    // The app dropped its treemap plugin, so an ECharts treemap click can
+    // only come from an external plugin — which gets the generic row path.
+    const payload = buildClickPayload(
+      ev({
+        seriesType: "treemap",
+        dataIndex: 1,
+        name: "Alpha",
+        data: { name: "Alpha", region: "EMEA" },
+        treePathInfo: [{ name: "" }, { name: "Alpha" }],
+      } as Partial<EChartsClickEvent>),
+      [
+        { name: "Alpha", region: "EMEA" },
+        { name: "Beta", region: "APAC" },
+      ],
+    );
+    expect(payload!.region).toBe("APAC");
+  });
+
   it("keeps the row branch for a bar whose datum is an object from a styling rule", () => {
     // bar-chart.tsx emits { value, itemStyle } whenever a rule coloured the
     // bar. Keying the rule on "is data an object" instead of seriesType would
@@ -143,7 +162,7 @@ describe("buildClickPayload — row-indexed series are untouched", () => {
 
   it("keeps the row branch when a tree series hands back a non-object datum", () => {
     const payload = buildClickPayload(
-      ev({ seriesType: "treemap", dataIndex: 1, name: "Beta", data: 20 }),
+      ev({ seriesType: "sunburst", dataIndex: 1, name: "Beta", data: 20 }),
       rowsForFallback,
     );
     expect(payload).not.toBeNull();

@@ -17,9 +17,7 @@ import {
   Workflow,
   Sun,
   Radar,
-  LayoutGrid,
   GanttChart as GanttChartIcon,
-  Circle,
   MapPin,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -45,9 +43,7 @@ export const chartTypeIcons: Record<ChartType, LucideIcon> = {
   sankey: Workflow,
   sunburst: Sun,
   radar: Radar,
-  treemap: LayoutGrid,
   gantt: GanttChartIcon,
-  "circle-packing": Circle,
   choropleth: MapPin,
 };
 

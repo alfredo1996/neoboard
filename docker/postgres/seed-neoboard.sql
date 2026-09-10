@@ -59,7 +59,6 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"id":"w6","chartType":"gauge","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN count(m) AS value, ''Total Movies'' AS name","settings":{"title":"Movie Count"}},
          {"id":"w7","chartType":"radar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value","settings":{"title":"Relationship Radar"}},
          {"id":"w8","chartType":"sankey","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) WHERE type(r) IN [''ACTED_IN'',''DIRECTED''] WITH p.name AS source, m.title AS target, 1 AS value RETURN source, target, value LIMIT 20","settings":{"title":"People → Movies"}},
-         {"id":"w9","chartType":"treemap","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m, count(p) AS cast RETURN m.title AS name, cast AS value ORDER BY cast DESC LIMIT 15","settings":{"title":"Movies by Cast Size"}},
          {"id":"w10","chartType":"sunburst","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() WITH type(r) AS relType, count(*) AS cnt RETURN '''' AS parent, relType AS name, cnt AS value UNION ALL MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS relType, m.title AS movie, count(p) AS cnt RETURN relType AS parent, movie AS name, cnt AS value UNION ALL MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS parent, p.name AS name, 1 AS value LIMIT 20","settings":{"title":"Movies by Relationship"}}
        ],"gridLayout":[
          {"i":"w1","x":0,"y":0,"w":6,"h":4},
@@ -70,8 +69,7 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"i":"w6","x":0,"y":8,"w":3,"h":3},
          {"i":"w7","x":3,"y":8,"w":4,"h":4},
          {"i":"w8","x":7,"y":8,"w":5,"h":4},
-         {"i":"w9","x":0,"y":12,"w":6,"h":4},
-         {"i":"w10","x":6,"y":12,"w":6,"h":4}
+         {"i":"w10","x":0,"y":12,"w":6,"h":4}
        ]},
        {"id":"page-styling","title":"Rule-Based Styling","widgets":[
          {"id":"w11","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN (m.released / 10) * 10 AS decade, count(*) AS count ORDER BY decade","settings":{"title":"Movies by Decade (styled bars)","stylingConfig":{"enabled":true,"rules":[{"id":"r1","operator":"<=","value":3,"color":"#ef4444","target":"color"},{"id":"r2","operator":"<=","value":8,"color":"#f59e0b","target":"color"},{"id":"r3","operator":">=","value":1,"color":"#22c55e","target":"color"}]}}},

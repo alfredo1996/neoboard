@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { neoboardExportSchema } from "../../app/src/lib/dashboard/dashboard-import";
 import { COLOR_PALETTES } from "../../component/src/charts/palettes";
+import { CHART_TYPES } from "../../app/src/plugins/chart-types";
 import { SHOWCASES } from "../demo/showcases.mjs";
 
 /**
@@ -30,6 +31,13 @@ function readShowcase(jsonPath: string): unknown {
   return JSON.parse(readFileSync(jsonPath, "utf-8"));
 }
 
+/** Every chartType a seed declares, in file order. */
+const chartTypesIn = (text: string): string[] =>
+  [...text.matchAll(/"chartType":\s*"([^"]+)"/g)].map((m) => m[1]);
+
+const unregistered = (types: string[]): string[] =>
+  types.filter((t) => !(CHART_TYPES as readonly string[]).includes(t));
+
 describe("demo showcases validate against the app's export schema", () => {
   // Guards the sweep itself: an empty manifest would make the per-showcase
   // tests below vanish, and a suite that generates no cases passes.
@@ -47,6 +55,14 @@ describe("demo showcases validate against the app's export schema", () => {
 
       it("is valid JSON", () => {
         expect(() => readShowcase(showcase.jsonPath)).not.toThrow();
+      });
+
+      it("uses only registered chart types", () => {
+        // The schema accepts any chartType string; the app renders an
+        // unregistered one as an "Unknown chart type" tile (#1687).
+        expect(
+          unregistered(chartTypesIn(readFileSync(showcase.jsonPath, "utf-8"))),
+        ).toEqual([]);
       });
 
       it("matches neoboardExportSchema", () => {
@@ -127,5 +143,21 @@ describe("the schema check itself is wired up", () => {
 
     // Not an object at all.
     expect(neoboardExportSchema.safeParse("nope").success).toBe(false);
+  });
+});
+
+describe("docker/postgres/seed-neoboard.sql", () => {
+  // Playwright's global-setup seeds this file. A widget of an unregistered
+  // type renders "Unknown chart type" yet still counts as a widget card, so
+  // the showcase E2E stayed green over the treemap #1687 left behind.
+  it("uses only registered chart types", () => {
+    const types = chartTypesIn(
+      readFileSync(
+        new URL("../../docker/postgres/seed-neoboard.sql", import.meta.url),
+        "utf-8",
+      ),
+    );
+    expect(types.length).toBeGreaterThan(0); // the regex still matches
+    expect(unregistered(types)).toEqual([]);
   });
 });

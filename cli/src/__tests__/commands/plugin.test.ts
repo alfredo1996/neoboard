@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 vi.mock("../../lib/config.js", () => ({
   assertCheckout: vi.fn(),
@@ -300,6 +302,43 @@ describe("runPluginAdd", () => {
 });
 
 describe("runPluginList", () => {
+  it("lists exactly the chart types the app registers (#1687)", () => {
+    // The CLI cannot import app/ at runtime, so its built-in list is typed by
+    // hand. Read the app's CHART_TYPES array here so re-adding a type the app
+    // no longer registers fails this test instead of nothing.
+    const registered = [
+      ...readFileSync(
+        fileURLToPath(
+          new URL(
+            "../../../../app/src/plugins/chart-types.ts",
+            import.meta.url,
+          ),
+        ),
+        "utf8",
+      ).matchAll(/^\s+"([\w-]+)",$/gm),
+    ].map((m) => m[1]);
+    expect(registered.length).toBeGreaterThan(0); // the regex still matches
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      runPluginList();
+      const builtIns = logSpy.mock.calls
+        .map((c) => c[0] as string)
+        .filter((line) => line.endsWith("built-in"))
+        .map((line) => line.trim().split(/\s+/)[0]);
+      expect(builtIns).toEqual([...registered, "neo4j", "postgresql"]);
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.stringMatching(
+          new RegExp(
+            `Charts \\(${registered.length} built-in, \\d+ external\\)`,
+          ),
+        ),
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   it("prints both built-in and external charts/connectors with counts", () => {
     mockReadManifest.mockImplementation((path) => {
       if (path.includes("neoboard-plugins.json")) {

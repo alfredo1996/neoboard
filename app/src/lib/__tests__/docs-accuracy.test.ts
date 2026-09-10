@@ -52,6 +52,21 @@ function referencedPaths(markdown: string): string[] {
 const countFiles = (dir: string, ext = ".tsx") =>
   readdirSync(resolve(REPO_ROOT, dir)).filter((f) => f.endsWith(ext)).length;
 
+/**
+ * The registry is the authority: `app/src/plugins/index.ts` imports one
+ * `<name>Plugin` per plugin directory. Counting directories instead would
+ * include `transforms/`, a shared utility module that is not a plugin.
+ */
+const registeredPlugins = (): string[] => [
+  ...new Set(
+    [
+      ...readDoc("app/src/plugins/index.ts").matchAll(
+        /import \{ \w+Plugin \} from "\.\/([\w-]+)";/g,
+      ),
+    ].map((m) => m[1]),
+  ),
+];
+
 describe("documentation accuracy", () => {
   describe.each([".claude/CLAUDE.md", "ARCHITECTURE.md"])("%s", (docName) => {
     it("references only file paths that exist", () => {
@@ -164,21 +179,6 @@ describe("documentation accuracy", () => {
     // backticked component counts stayed correct (#1572).
     const doc = () => readDoc("ARCHITECTURE.md");
 
-    /**
-     * The registry is the authority: `app/src/plugins/index.ts` imports one
-     * `<name>Plugin` per plugin directory. Counting directories instead would
-     * include `transforms/`, a shared utility module that is not a plugin.
-     */
-    const registeredPlugins = (): string[] => [
-      ...new Set(
-        [
-          ...readDoc("app/src/plugins/index.ts").matchAll(
-            /import \{ \w+Plugin \} from "\.\/([\w-]+)";/g,
-          ),
-        ].map((m) => m[1]),
-      ),
-    ];
-
     it("counts chart plugins", () => {
       const claimed = /Chart plugin definitions \((\d+)\)/.exec(doc());
       expect(
@@ -227,6 +227,48 @@ describe("documentation accuracy", () => {
       const names = listed![2].split(",").map((n) => n.trim());
       expect([...names].sort()).toEqual([...registeredPlugins()].sort());
       expect(Number(listed![1])).toBe(names.length);
+    });
+  });
+
+  describe("stated chart counts match the registry (#1687)", () => {
+    // Unregistering two charts was swept with grep, which missed README.md,
+    // PLUGINS.md and two journey narrations. Pinning every stated count here
+    // makes the next unregistration fail a test instead.
+    const CLAIM = /\b(\d+) (?:built-in )?chart(?: types|s)\b/g;
+
+    it.each([
+      "README.md",
+      "scripts/record-journeys/journeys/00-full-tour.mjs",
+      "scripts/record-journeys/journeys/03-chart-gallery-tour.mjs",
+    ])("%s", (docName) => {
+      const claims = [...readDoc(docName).matchAll(CLAIM)].map((m) =>
+        Number(m[1]),
+      );
+      expect(claims, `${docName} no longer states a chart count`).not.toEqual(
+        [],
+      );
+      expect(claims).toEqual(claims.map(() => registeredPlugins().length));
+    });
+
+    it("PLUGINS.md lists exactly the plugins the registry loads", () => {
+      const doc = readDoc("PLUGINS.md");
+      const heading = /## Built-in Charts \((\d+)\)/.exec(doc);
+      expect(
+        heading,
+        "PLUGINS.md no longer states a chart count",
+      ).not.toBeNull();
+      // The table under the heading, up to the next section. Its first
+      // column is a display name that slugs to the plugin directory, with
+      // one exception.
+      const table = doc.slice(heading!.index).split(/\n## /)[0];
+      const rows = [...table.matchAll(/^\| ([^|]+?)\s+\|/gm)]
+        .map((m) => m[1])
+        .filter((cell) => cell !== "Chart Type" && !/^-+$/.test(cell));
+      const DISPLAY_TO_TYPE: Record<string, string> = { "json-viewer": "json" };
+      const slug = (label: string) => label.toLowerCase().replace(/\s+/g, "-");
+      const types = rows.map((r) => DISPLAY_TO_TYPE[slug(r)] ?? slug(r));
+      expect([...types].sort()).toEqual([...registeredPlugins()].sort());
+      expect(Number(heading![1])).toBe(types.length);
     });
   });
 

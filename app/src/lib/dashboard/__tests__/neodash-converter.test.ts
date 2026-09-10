@@ -309,8 +309,6 @@ describe("convertNeoDash", () => {
     { type: "gantt", expected: "gantt" },
     { type: "graph3d", expected: "graph" },
     { type: "3d-graph", expected: "graph" },
-    { type: "circle_packing", expected: "circle-packing" },
-    { type: "circlePacking", expected: "circle-packing" },
     { type: "choropleth", expected: "choropleth" },
     { type: "areamap", expected: "choropleth" },
     { type: "text", expected: "markdown" },
@@ -556,7 +554,6 @@ describe("convertNeoDash", () => {
       "pie",
       "gauge",
       "sunburst",
-      "treemap",
       "sankey",
       "radar",
       "gantt",
@@ -605,12 +602,41 @@ describe("convertNeoDash", () => {
     expect(result.layout.pages[0].widgets[0].chartType).toBe("graph");
   });
 
-  it("maps circle_packing to circle-packing (native)", () => {
-    const result = convertNeoDash(
-      makeSingleReportDash({ dashTitle: "T", type: "circle_packing" }),
-    );
-    expect(result.layout.pages[0].widgets[0].chartType).toBe("circle-packing");
-  });
+  // #1687 — circle packing and treemap are no longer registered in the app,
+  // so a NeoDash report of either type is skipped with a note rather than
+  // imported as a widget that would render "Unknown chart type". NeoDash's
+  // own key is the camel-cased `treeMap`; `treemap` is kept as an alias.
+  it.each(["circle_packing", "circlePacking", "treemap", "treeMap"])(
+    "skips a %s report with an unsupported-type note and no widget",
+    (type) => {
+      const { export: result, notes } = convertNeoDashWithNotes(
+        makeSingleReportDash({ dashTitle: "T", type }),
+      );
+      expect(result.layout.pages[0].widgets).toEqual([]);
+      expect(result.layout.pages[0].gridLayout).toEqual([]);
+      expect(notes).toEqual([
+        `"W" (${type}) → unsupported in NeoBoard, skipped`,
+      ]);
+    },
+  );
+
+  it.each([
+    [
+      "treeMap",
+      '"Untitled widget" (treeMap) → unsupported in NeoBoard, skipped',
+    ],
+    ["wat", '"Untitled widget" (unknown type "wat") → JSON Viewer'],
+    ["graph3d", '"Untitled widget" (graph3d) → graph (2D — 3D view lost)'],
+  ])(
+    "names a titleless %s report 'Untitled widget' in its note",
+    (type, note) => {
+      // NeoDash exports can omit `title`; the notes used to print "undefined".
+      const { notes } = convertNeoDashWithNotes(
+        makeSingleReportDash({ dashTitle: "T", type, title: undefined }),
+      );
+      expect(notes).toEqual([note]);
+    },
+  );
 
   it("maps choropleth to choropleth (native)", () => {
     const result = convertNeoDash(

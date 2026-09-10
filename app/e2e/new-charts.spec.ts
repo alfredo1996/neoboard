@@ -10,7 +10,7 @@ import {
 // New chart types — creation flow tests
 // ---------------------------------------------------------------------------
 // These tests verify the end-to-end creation flow for each new chart type:
-// Gauge, Sankey, Sunburst, Radar, Treemap, Gantt.
+// Gauge, Sankey, Sunburst, Radar, Gantt.
 //
 // We focus on the creation flow (dialog → query → add widget) rather than
 // visual rendering details — chart rendering is verified by unit tests.
@@ -100,9 +100,9 @@ test.describe("New chart types — creation flow", () => {
     // Open the chart-type picker
     await dialog.getByRole("combobox").nth(1).click();
 
-    // The four disabled types (circle-packing, treemap, choropleth, radar)
-    // must not appear as options — their implementations stay in the codebase
-    // but they're not offered for new widgets.
+    // Radar and choropleth stay registered but disabled in the picker (#1158);
+    // treemap and circle packing are not registered in the app at all (#1687).
+    // None of the four may be offered for new widgets.
     for (const rx of [/^radar$/i, /treemap/i, /choropleth/i, /circle pack/i]) {
       await expect(page.getByRole("option", { name: rx })).toHaveCount(0);
     }
@@ -469,18 +469,22 @@ test.describe("Widget Showcase seed dashboard", () => {
     // Click the Simple Charts page tab
     await page.getByRole("tab", { name: "Simple Charts" }).click();
 
-    // Multiple widget cards should be present (bar, line, pie, single-value, table, gauge, radar, sankey, treemap, sunburst)
+    // Multiple widget cards should be present (bar, line, pie, single-value, table, gauge, radar, sankey, sunburst)
     await expect(
       page.locator("[data-testid='widget-card']").first(),
     ).toBeVisible({
       timeout: 15_000,
     });
 
-    // At least 10 widgets should be on this page
+    // At least 9 widgets should be on this page
     const widgetCount = await page
       .locator("[data-testid='widget-card']")
       .count();
-    expect(widgetCount).toBeGreaterThanOrEqual(10);
+    expect(widgetCount).toBeGreaterThanOrEqual(9);
+
+    // A seed widget of an unregistered type still renders a card, so the
+    // count alone cannot tell (#1687 left a treemap tile here).
+    await expect(page.getByText("Unknown chart type")).toHaveCount(0);
   });
 
   test("should show Color Palettes page tab", async ({ page }) => {

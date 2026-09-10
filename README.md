@@ -23,14 +23,14 @@
 
 ![NeoBoard Dashboard](screenshots/03-dashboard-edit.png)
 
-**NeoBoard** is a free, self-hosted dashboarding platform for teams working with Neo4j graph databases and PostgreSQL. Build interactive dashboards with 20 chart types, write queries directly, and share insights — all from a modern web interface.
+**NeoBoard** is a free, self-hosted dashboarding platform for teams working with Neo4j graph databases and PostgreSQL. Build interactive dashboards with 18 chart types, write queries directly, and share insights — all from a modern web interface.
 
 ## Why NeoBoard?
 
 - **NeoDash alternative** — built for teams migrating from Neo4j's deprecated NeoDash
 - **Hybrid databases** — connect Neo4j and PostgreSQL in the same dashboard
 - **Modern stack** — Next.js 16, React 19, TypeScript, ECharts, Zustand, TanStack Query
-- **Extensible charts** — 20 chart types with rule-based styling, click actions, and color palettes
+- **Extensible charts** — 18 chart types with rule-based styling, click actions, and color palettes
 
 ## Quick Start
 
@@ -101,7 +101,7 @@ Browse the [screenshots](#screenshots) below for a feel of the UI without instal
 
 | Category          | Details                                                                                                                                                                               |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Charts**        | 20 types: Bar, Line, Pie, Table, Single Value, Gauge, Radar, Sankey, Sunburst, Treemap, Gantt, Circle Packing, Choropleth, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select |
+| **Charts**        | 18 types: Bar, Line, Pie, Table, Single Value, Gauge, Radar, Sankey, Sunburst, Gantt, Choropleth, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select |
 | **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                                                                                                              |
 | **Parameters**    | Select, Multi-Select, Date, Date Range, Freetext — with cross-widget binding                                                                                                          |
 | **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                                                                                                                 |
@@ -115,7 +115,7 @@ Browse the [screenshots](#screenshots) below for a feel of the UI without instal
 
 NeoBoard has a plugin system for custom chart types and database connectors. See the full [Plugin Ecosystem](PLUGINS.md) directory.
 
-- **20 built-in charts** — Bar, Line, Pie, Table, Graph, Map, Gauge, Sankey, and more
+- **18 built-in charts** — Bar, Line, Pie, Table, Graph, Map, Gauge, Sankey, and more
 - **2 built-in connectors** — Neo4j and PostgreSQL
 - **Extensible** — Build and publish your own plugins via npm
 - **Community directory** — Share and discover third-party extensions

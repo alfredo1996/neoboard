@@ -1364,9 +1364,9 @@ interface ChartPluginConfig {
 }
 ```
 
-### Built-in Plugins (17 chart types)
+### Built-in Plugins (18 chart types)
 
-The `plugins/` directory contains 17 chart type plugins plus 2 shared utility directories:
+The `plugins/` directory contains 18 chart type plugins plus 2 shared utility directories:
 
 | Plugin           | Directory                   | Renderer              |
 | ---------------- | --------------------------- | --------------------- |
@@ -1384,13 +1384,14 @@ The `plugins/` directory contains 17 chart type plugins plus 2 shared utility di
 | Sankey           | `plugins/sankey/`           | ECharts               |
 | Sunburst         | `plugins/sunburst/`         | ECharts               |
 | Radar            | `plugins/radar/`            | ECharts               |
-| Treemap          | `plugins/treemap/`          | ECharts               |
+| Gantt            | `plugins/gantt/`            | ECharts               |
+| Choropleth       | `plugins/choropleth/`       | ECharts               |
 | Parameter Select | `plugins/parameter-select/` | Custom select         |
 | iFrame           | `plugins/iframe/`           | HTML iframe           |
 
 **Shared utility directories (not chart types):**
 
-- `plugins/transforms/` — Data transform functions per chart type (e.g., `transformToBarData`, `transformToPieData`, `transformToHierarchicalData`). Also includes `shared-utils.ts` (record normalization, column auto-detection) and `hierarchical-utils.ts` (tree-building for sunburst/treemap).
+- `plugins/transforms/` — Data transform functions per chart type (e.g., `transformToBarData`, `transformToPieData`, `transformToHierarchicalData`). Also includes `shared-utils.ts` (record normalization, column auto-detection) and `hierarchical-utils.ts` (tree-building for sunburst).
 - `plugins/settings/` — Per-plugin Zod settings schemas (e.g., `barSettingsSchema` with orientation, stacked, showValues, colorPalette, etc.)
 
 ### Per-Plugin Settings Schema

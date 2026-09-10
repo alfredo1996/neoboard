@@ -2376,267 +2376,8 @@
         ]
       },
       {
-        "id": "page-treemap",
-        "title": "10. Treemap",
-        "widgets": [
-          {
-            "id": "page-treemap-md-119",
-            "chartType": "markdown",
-            "connectionId": "conn_postgres_read",
-            "query": "",
-            "settings": {
-              "title": "",
-              "chartOptions": {
-                "content": "## Treemap — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: showLabels, showValues, showBreadcrumb, colorSaturation (low/medium/high), palette.\n\n*Refresh the page to reset all parameters.*"
-              }
-            }
-          },
-          {
-            "id": "page-treemap-v-120",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "default",
-              "chartOptions": {}
-            }
-          },
-          {
-            "id": "page-treemap-v-121",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "showLabels = false",
-              "chartOptions": {
-                "showLabels": false
-              }
-            }
-          },
-          {
-            "id": "page-treemap-v-122",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "showValues = true",
-              "chartOptions": {
-                "showValues": true
-              }
-            }
-          },
-          {
-            "id": "page-treemap-v-126",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "palette = warm",
-              "chartOptions": {
-                "colorPalette": "warm"
-              }
-            }
-          },
-          {
-            "id": "page-treemap-v-127",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "palette = earth-tones",
-              "chartOptions": {
-                "colorPalette": "earth-tones"
-              }
-            }
-          }
-        ],
-        "gridLayout": [
-          {
-            "i": "page-treemap-md-119",
-            "x": 0,
-            "y": 0,
-            "w": 12,
-            "h": 3
-          },
-          {
-            "i": "page-treemap-v-120",
-            "x": 0,
-            "y": 3,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-treemap-v-121",
-            "x": 6,
-            "y": 3,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-treemap-v-122",
-            "x": 0,
-            "y": 8,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-treemap-v-126",
-            "x": 0,
-            "y": 18,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-treemap-v-127",
-            "x": 6,
-            "y": 18,
-            "w": 6,
-            "h": 5
-          }
-        ]
-      },
-      {
-        "id": "page-circle-packing",
-        "title": "11. Circle Packing",
-        "widgets": [
-          {
-            "id": "page-circle-packing-md-128",
-            "chartType": "markdown",
-            "connectionId": "conn_postgres_read",
-            "query": "",
-            "settings": {
-              "title": "",
-              "chartOptions": {
-                "content": "## Circle packing — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: showLabels, padding, palette.\n\n*Refresh the page to reset all parameters.*"
-              }
-            }
-          },
-          {
-            "id": "page-circle-packing-v-129",
-            "chartType": "circle-packing",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "default",
-              "chartOptions": {}
-            }
-          },
-          {
-            "id": "page-circle-packing-v-130",
-            "chartType": "circle-packing",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "showLabels = false",
-              "chartOptions": {
-                "showLabels": false
-              }
-            }
-          },
-          {
-            "id": "page-circle-packing-v-131",
-            "chartType": "circle-packing",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "padding = 0 (touching)",
-              "chartOptions": {
-                "padding": 0
-              }
-            }
-          },
-          {
-            "id": "page-circle-packing-v-132",
-            "chartType": "circle-packing",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "padding = 12 (spaced)",
-              "chartOptions": {
-                "padding": 12
-              }
-            }
-          },
-          {
-            "id": "page-circle-packing-v-133",
-            "chartType": "circle-packing",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "palette = warm",
-              "chartOptions": {
-                "colorPalette": "warm"
-              }
-            }
-          },
-          {
-            "id": "page-circle-packing-v-134",
-            "chartType": "circle-packing",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 20",
-            "settings": {
-              "title": "palette = earth-tones",
-              "chartOptions": {
-                "colorPalette": "earth-tones"
-              }
-            }
-          }
-        ],
-        "gridLayout": [
-          {
-            "i": "page-circle-packing-md-128",
-            "x": 0,
-            "y": 0,
-            "w": 12,
-            "h": 3
-          },
-          {
-            "i": "page-circle-packing-v-129",
-            "x": 0,
-            "y": 3,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-circle-packing-v-130",
-            "x": 6,
-            "y": 3,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-circle-packing-v-131",
-            "x": 0,
-            "y": 8,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-circle-packing-v-132",
-            "x": 6,
-            "y": 8,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-circle-packing-v-133",
-            "x": 0,
-            "y": 13,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-circle-packing-v-134",
-            "x": 6,
-            "y": 13,
-            "w": 6,
-            "h": 5
-          }
-        ]
-      },
-      {
         "id": "page-gantt",
-        "title": "12. Gantt",
+        "title": "10. Gantt",
         "widgets": [
           {
             "id": "page-gantt-md-135",
@@ -2775,7 +2516,7 @@
       },
       {
         "id": "page-map",
-        "title": "13. Map (Leaflet)",
+        "title": "11. Map (Leaflet)",
         "widgets": [
           {
             "id": "page-map-md-142",
@@ -2934,7 +2675,7 @@
       },
       {
         "id": "page-choropleth",
-        "title": "14. Choropleth",
+        "title": "12. Choropleth",
         "widgets": [
           {
             "id": "page-choropleth-md-151",
@@ -3113,7 +2854,7 @@
       },
       {
         "id": "page-graph",
-        "title": "15. Graph (Neo4j)",
+        "title": "13. Graph (Neo4j)",
         "widgets": [
           {
             "id": "page-graph-md-160",
@@ -3233,7 +2974,7 @@
       },
       {
         "id": "page-json",
-        "title": "16. JSON",
+        "title": "14. JSON",
         "widgets": [
           {
             "id": "page-json-md-169",
@@ -3334,7 +3075,7 @@
       },
       {
         "id": "page-markdown",
-        "title": "17. Markdown",
+        "title": "15. Markdown",
         "widgets": [
           {
             "id": "page-markdown-md-178",
@@ -3513,7 +3254,7 @@
       },
       {
         "id": "page-iframe",
-        "title": "18. iframe",
+        "title": "16. iframe",
         "widgets": [
           {
             "id": "page-iframe-md-187",
@@ -3622,7 +3363,7 @@
       },
       {
         "id": "page-parameter-select",
-        "title": "19. Parameter Select",
+        "title": "17. Parameter Select",
         "widgets": [
           {
             "id": "page-parameter-select-md-192",
@@ -3820,7 +3561,7 @@
       },
       {
         "id": "page-form",
-        "title": "20. Form (write)",
+        "title": "18. Form (write)",
         "widgets": [
           {
             "id": "page-form-md-201",

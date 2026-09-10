@@ -20,7 +20,6 @@ const { Stub, OPTION_COUNTS, fakeGetChartOptions } = vi.hoisted(() => {
     sankey: 7,
     sunburst: 6,
     radar: 7,
-    treemap: 7,
   };
   function makeFakeOption(key: string) {
     return {
@@ -56,7 +55,6 @@ vi.mock("@neoboard/components", () => ({
   SankeyChart: Stub,
   SunburstChart: Stub,
   RadarChart: Stub,
-  TreemapChart: Stub,
   EmptyState: Stub,
   Skeleton: Stub,
 }));
@@ -111,8 +109,8 @@ describe("plugin options (Phase 5)", () => {
     }
   });
 
-  it("all 20 chart types are registered", () => {
-    expect(CHART_TYPES.length).toBe(20);
+  it("all 18 chart types are registered", () => {
+    expect(CHART_TYPES).toHaveLength(18);
     for (const type of CHART_TYPES) {
       expect(pluginRegistry.has(type), `${type} should be registered`).toBe(
         true,

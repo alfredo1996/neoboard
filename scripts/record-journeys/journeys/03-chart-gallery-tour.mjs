@@ -17,9 +17,8 @@ const TABS_TO_VISIT = [
   { name: "5. Single Value (KPI)", desc: "Single Value — key metrics at a glance" },
   { name: "6. Gauge", desc: "Gauge — bounded metrics with thresholds" },
   { name: "14. Sankey", desc: "Sankey — flow between categories" },
-  { name: "15. Treemap", desc: "Treemap — hierarchical proportions" },
-  { name: "16. Sunburst", desc: "Sunburst — nested arcs" },
-  { name: "17. Radar", desc: "Radar — multi-axis comparison" },
+  { name: "15. Sunburst", desc: "Sunburst — nested arcs" },
+  { name: "16. Radar", desc: "Radar — multi-axis comparison" },
 ];
 
 export async function run(page) {
@@ -68,7 +67,7 @@ export async function run(page) {
   await narrate(page, "Gauge in dark mode — theme-aware colors");
   await wait(page, LONG);
 
-  await page.getByRole("tab", { name: "17. Radar" }).click();
+  await page.getByRole("tab", { name: "16. Radar" }).click();
   await wait(page, LONG);
   await scrollToFirstChart(page);
   await wait(page, HERO);
@@ -82,7 +81,7 @@ export async function run(page) {
   await page.getByRole("menuitemradio", { name: "Light" }).click();
   await wait(page, MEDIUM);
 
-  await narrate(page, "That's the Chart Gallery — 17 chart types, all customizable");
+  await narrate(page, "That's the Chart Gallery — 18 chart types, all customizable");
   await wait(page, HERO);
 
   await clearNarration(page);

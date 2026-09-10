@@ -505,74 +505,8 @@
         ]
       },
       {
-        "id": "page-treemap",
-        "title": "7. Treemap",
-        "widgets": [
-          {
-            "id": "tm-md",
-            "chartType": "markdown",
-            "connectionId": "conn_postgres_read",
-            "query": "",
-            "settings": {
-              "title": "",
-              "chartOptions": {
-                "content": "## Styling rules — Treemap\n\nRectangles colored by value. Good for spotting outliers in a long-tail dataset.\n\n**Rules shown:**\n- `value >= 10000` → green\n- `value <  10000` → grey"
-              }
-            }
-          },
-          {
-            "id": "tm-chart",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 30",
-            "settings": {
-              "title": "Top 30 products — outliers in green",
-              "chartOptions": {
-                "showLabels": true,
-                "showValues": true
-              },
-              "stylingConfig": {
-                "enabled": true,
-                "rules": [
-                  {
-                    "id": "tm-r1",
-                    "operator": ">=",
-                    "value": 10000,
-                    "color": "#22c55e",
-                    "target": "color"
-                  },
-                  {
-                    "id": "tm-r2",
-                    "operator": "<",
-                    "value": 10000,
-                    "color": "#94a3b8",
-                    "target": "color"
-                  }
-                ]
-              }
-            }
-          }
-        ],
-        "gridLayout": [
-          {
-            "i": "tm-md",
-            "x": 0,
-            "y": 0,
-            "w": 12,
-            "h": 3
-          },
-          {
-            "i": "tm-chart",
-            "x": 0,
-            "y": 3,
-            "w": 12,
-            "h": 7
-          }
-        ]
-      },
-      {
         "id": "page-radar",
-        "title": "8. Radar",
+        "title": "7. Radar",
         "widgets": [
           {
             "id": "rd-md",
@@ -639,7 +573,7 @@
       },
       {
         "id": "page-table",
-        "title": "9. Table",
+        "title": "8. Table",
         "widgets": [
           {
             "id": "tbl-md",

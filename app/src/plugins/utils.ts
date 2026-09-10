@@ -74,7 +74,7 @@ function rawColumnsOf(
  * last ECharts GraphChart registration was removed in #1594, so no ECharts
  * graph-series click can occur.
  */
-const DATUM_SERIES = new Set(["sankey", "sunburst", "treemap"]);
+const DATUM_SERIES = new Set(["sankey", "sunburst"]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);

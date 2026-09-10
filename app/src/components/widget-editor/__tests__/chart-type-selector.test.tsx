@@ -1,5 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
+import { CHART_TYPES } from "@/plugins/chart-types";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 vi.mock("@neoboard/components", () => ({
@@ -72,32 +73,11 @@ describe("getChartTypeMeta", () => {
 });
 
 describe("chartTypeIcons", () => {
-  it("has entries for all 20 chart types", () => {
-    const expected = [
-      "bar",
-      "line",
-      "pie",
-      "single-value",
-      "graph",
-      "map",
-      "table",
-      "json",
-      "parameter-select",
-      "form",
-      "markdown",
-      "iframe",
-      "gauge",
-      "sankey",
-      "sunburst",
-      "radar",
-      "treemap",
-      "gantt",
-      "circle-packing",
-      "choropleth",
-    ];
-    for (const type of expected) {
-      expect(chartTypeIcons[type as ChartType]).toBeDefined();
-    }
+  it("has exactly one icon per CHART_TYPES entry", () => {
+    // Pinned to the registry rather than a hand-copied list: an icon for a
+    // type the app no longer registers (#1687 removed treemap and
+    // circle-packing) would be dead code, and a missing one a blank button.
+    expect(Object.keys(chartTypeIcons).sort()).toEqual([...CHART_TYPES].sort());
   });
 });
 

@@ -786,57 +786,8 @@
         ]
       },
       {
-        "id": "page-treemap",
-        "title": "15. Treemap",
-        "widgets": [
-          {
-            "id": "treemap-md",
-            "chartType": "markdown",
-            "connectionId": "conn_postgres_read",
-            "query": "",
-            "settings": {
-              "title": "",
-              "chartOptions": {
-                "content": "## Treemap\n\nProportional rectangles — each box's area is its value relative to the total. Good for **top-N breakdowns** or hierarchical data.\n\n**Options shown:** `showLabels: true`, `showValues: true`, `colorSaturation: medium`."
-              }
-            }
-          },
-          {
-            "id": "treemap-chart",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY value DESC LIMIT 30",
-            "settings": {
-              "title": "Top 30 products by revenue",
-              "chartOptions": {
-                "showLabels": true,
-                "showValues": true,
-                "colorSaturation": "medium",
-                "colorPalette": "citrine"
-              }
-            }
-          }
-        ],
-        "gridLayout": [
-          {
-            "i": "treemap-md",
-            "x": 0,
-            "y": 0,
-            "w": 12,
-            "h": 3
-          },
-          {
-            "i": "treemap-chart",
-            "x": 0,
-            "y": 3,
-            "w": 12,
-            "h": 7
-          }
-        ]
-      },
-      {
         "id": "page-sunburst",
-        "title": "16. Sunburst",
+        "title": "15. Sunburst",
         "widgets": [
           {
             "id": "sunburst-md",
@@ -846,7 +797,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Sunburst\n\nRadial hierarchy. Center ring is the root; outer rings expand detail. Alternative to treemap when you want to emphasize hierarchy over proportions.\n\nThis example nests **three levels** — category → subcategory → product — by returning `name, parent, value` rows (a `NULL` parent marks a root ring).\n\n**Options shown:** `showLabels: true`, `sort: desc`, `highlightOnHover: true`."
+                "content": "## Sunburst\n\nRadial hierarchy. Center ring is the root; outer rings expand detail.\n\nThis example nests **three levels** — category → subcategory → product — by returning `name, parent, value` rows (a `NULL` parent marks a root ring).\n\n**Options shown:** `showLabels: true`, `sort: desc`, `highlightOnHover: true`."
               }
             }
           },
@@ -885,7 +836,7 @@
       },
       {
         "id": "page-radar",
-        "title": "17. Radar",
+        "title": "16. Radar",
         "widgets": [
           {
             "id": "radar-md",
@@ -934,7 +885,7 @@
       },
       {
         "id": "page-gantt",
-        "title": "18. Gantt",
+        "title": "17. Gantt",
         "widgets": [
           {
             "id": "gantt-md",
@@ -982,56 +933,8 @@
         ]
       },
       {
-        "id": "page-circle-packing",
-        "title": "19. Circle Packing",
-        "widgets": [
-          {
-            "id": "circle-packing-md",
-            "chartType": "markdown",
-            "connectionId": "conn_postgres_read",
-            "query": "",
-            "settings": {
-              "title": "",
-              "chartOptions": {
-                "content": "## Circle Packing\n\nNested circles showing hierarchical data — similar to treemap but uses area of circles instead of rectangles. Best for **proportional comparisons** across a hierarchy.\n\n**Data shape:** query returns `name`, `value`, and `parent` columns. Rows with empty `parent` become outer circles; rows with a matching parent name nest inside.\n\n**Options shown:** `showLabels: true`, `padding: 3`."
-              }
-            }
-          },
-          {
-            "id": "circle-packing-chart",
-            "chartType": "circle-packing",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT cat.name AS name, SUM(oi.qty * oi.price)::float AS value, '' AS parent FROM neoboard_demo_public.categories cat JOIN neoboard_demo_public.products p ON p.category_id = cat.id JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id GROUP BY cat.name UNION ALL SELECT p.name AS name, SUM(oi.qty * oi.price)::float AS value, cat.name AS parent FROM neoboard_demo_public.products p JOIN neoboard_demo_public.categories cat ON cat.id = p.category_id JOIN neoboard_demo_public.order_items oi ON oi.product_id = p.id GROUP BY p.name, cat.name",
-            "settings": {
-              "title": "Revenue by category → product",
-              "chartOptions": {
-                "showLabels": true,
-                "padding": 3,
-                "colorPalette": "tableau"
-              }
-            }
-          }
-        ],
-        "gridLayout": [
-          {
-            "i": "circle-packing-md",
-            "x": 0,
-            "y": 0,
-            "w": 12,
-            "h": 3
-          },
-          {
-            "i": "circle-packing-chart",
-            "x": 2,
-            "y": 3,
-            "w": 8,
-            "h": 7
-          }
-        ]
-      },
-      {
         "id": "page-choropleth",
-        "title": "20. Choropleth Map",
+        "title": "18. Choropleth Map",
         "widgets": [
           {
             "id": "choropleth-md",
