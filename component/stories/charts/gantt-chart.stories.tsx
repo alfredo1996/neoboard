@@ -27,6 +27,13 @@ type GanttOption = {
   yAxis?: { data?: string[] }[];
   xAxis?: { splitLine?: { show?: boolean } }[];
   title?: { text?: string }[];
+  grid?: { bottom?: number }[];
+  dataZoom?: {
+    type: string;
+    xAxisIndex?: number | number[];
+    filterMode?: string;
+    labelFormatter?: (ms: number) => string;
+  }[];
 };
 
 /**
@@ -261,6 +268,65 @@ export const LargeDataset: Story = {
       </div>
     ),
   ],
+};
+
+// Helper: hours into a ten-day sprint
+const at = (dayOffset: number, hour: number) =>
+  new Date(2026, 3, 13 + dayOffset, hour).getTime();
+
+/**
+ * Datetimes, not dates (#1686): shifts that start mid-morning and end late
+ * afternoon across a working fortnight. The slider handles should read
+ * `2026-04-13 09:00`, whatever tick interval the axis settles on, and the
+ * slider should sit under the plot, not under the task labels.
+ */
+export const MultiDayDatetime: Story = {
+  args: {
+    data: [
+      { task: "Kick-off", start: at(0, 9), end: at(0, 11), category: "Plan" },
+      { task: "Discovery", start: at(0, 13), end: at(2, 17), category: "Plan" },
+      { task: "API spike", start: at(1, 10), end: at(3, 15), category: "Build" },
+      { task: "Schema", start: at(2, 9), end: at(4, 18), category: "Build" },
+      { task: "UI", start: at(3, 14), end: at(7, 12), category: "Build" },
+      { task: "Load test", start: at(6, 8), end: at(8, 20), category: "Verify" },
+      { task: "Review", start: at(8, 10), end: at(9, 16), category: "Verify" },
+      { task: "Release", start: at(9, 17), end: at(9, 18), category: "Ship" },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const option = await ganttOption(canvasElement);
+    const xZooms = (option.dataZoom ?? []).filter((z) =>
+      Array.isArray(z.xAxisIndex)
+        ? z.xAxisIndex.includes(0)
+        : z.xAxisIndex === 0,
+    );
+    // Slider and wheel both filter weakly: a bar stays while either end is in
+    // the window instead of vanishing at the edge as you zoom in.
+    expect(xZooms.map((z) => z.filterMode)).toEqual([
+      "weakFilter",
+      "weakFilter",
+    ]);
+    // The handle label is the datetime, in a fixed shape.
+    const slider = xZooms.find((z) => z.type === "slider");
+    expect(slider?.labelFormatter?.(args.data[0].start)).toBe(
+      "2026-04-13 09:00",
+    );
+  },
+};
+
+/** The other half of the toggle: no slider, and the plot takes its room back. */
+export const WithoutTimeZoom: Story = {
+  args: {
+    data: projectData,
+    enableDataZoom: false,
+  },
+  play: async ({ canvasElement }) => {
+    const option = await ganttOption(canvasElement);
+    expect(
+      (option.dataZoom ?? []).filter((z) => z.xAxisIndex !== undefined),
+    ).toEqual([]);
+    expect(option.grid?.[0]?.bottom).toBe(16);
+  },
 };
 
 export const NoTodayLine: Story = {

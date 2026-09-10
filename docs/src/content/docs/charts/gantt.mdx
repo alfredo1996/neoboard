@@ -47,16 +47,18 @@ ORDER BY start_date
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| Show Today Line | `true` | Red dashed vertical line marking today's date |
+| Show Today Line | `true` | Muted grey dashed vertical line marking today's date |
 | Show Progress | `false` | Overlay showing completion percentage (requires progress column) |
 | Show Grid Lines | `true` | Vertical grid lines on the time axis |
 | Bar Corner Radius | `2` | Corner roundness for task bars |
+| Enable Time Zoom | `true` | Range slider under the chart plus scroll-to-zoom on the time axis. Off hides both and gives the plot the slider's room |
 
 ## Features
 
+- **Time slider** — a range slider under the plot, aligned with it; drag the handles or the window to narrow the view. Each handle is labelled with its datetime (`2026-04-01 09:00`) whatever the zoom level. A bar stays visible while either end is inside the window
 - **Zoom & pan** — scroll to zoom the time axis, drag to pan
-- **Vertical scroll** — automatic scrollbar when more than 15 tasks
+- **Vertical scroll** — automatic scrollbar when more than 15 tasks (independent of Enable Time Zoom)
 - **Color by category** — use rule-based styling to color bars by status
 - **Progress overlay** — semi-transparent fill showing completion percentage
-- **Today marker** — red dashed line with "Today" label
+- **Today marker** — muted grey dashed line with a "Today" label: a reference, not a warning
 - **Click actions** — click a bar to navigate or set a parameter

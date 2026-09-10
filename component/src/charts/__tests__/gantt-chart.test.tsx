@@ -243,4 +243,110 @@ describe("GanttChart", () => {
       expect(html).toContain("Apr 1, 2026 → Apr 3, 2026");
     });
   });
+
+  describe("time-axis zoom (#1686)", () => {
+    type Zoom = Record<string, unknown> & {
+      type: string;
+      xAxisIndex?: number;
+      yAxisIndex?: number;
+    };
+    const optionOf = (props: Parameters<typeof GanttChart>[0]) => {
+      mockSetOption.mockClear();
+      render(<GanttChart {...props} />);
+      return mockSetOption.mock.calls[0][0];
+    };
+    const xZooms = (zooms: Zoom[]) => zooms.filter((z) => z.xAxisIndex === 0);
+    const xSlider = (zooms: Zoom[]) =>
+      xZooms(zooms).find((z) => z.type === "slider");
+
+    it("labels the slider handles with the datetime, not the axis tick precision", () => {
+      // Without a labelFormatter the slider falls back to TimeScale.getLabel,
+      // whose precision follows the tick interval: seconds on a two-week
+      // range, a bare date once the ticks are years. The data are datetimes,
+      // so the handle says so — every time, in a fixed shape.
+      const { dataZoom } = optionOf({ data: sampleData });
+      const formatter = xSlider(dataZoom)?.labelFormatter as (
+        ms: number,
+      ) => string;
+      expect(formatter(new Date(2026, 3, 1, 9, 5).getTime())).toBe(
+        "2026-04-01 09:05",
+      );
+    });
+
+    it("keeps a bar while either end is inside the window", () => {
+      // The custom series encodes x as [start, end]; the default 'filter'
+      // mode drops an item when *either* dimension leaves the window, so
+      // bars vanished at the edges as you zoomed in. Both x zooms, because
+      // the wheel and the slider filter independently.
+      const { dataZoom } = optionOf({ data: sampleData });
+      expect(xZooms(dataZoom)).toHaveLength(2);
+      for (const zoom of xZooms(dataZoom)) {
+        expect(zoom.filterMode).toBe("weakFilter");
+      }
+    });
+
+    it("clips the bars to the plot — what makes weakFilter safe here", () => {
+      // weakFilter keeps a bar whose far end is outside the window, and a
+      // custom series is unclipped by default (echarts 6.1.0
+      // CustomSeries.js `clip: false`), so the kept bar was painted across
+      // the task-label gutter and past the plot's right edge.
+      const { series } = optionOf({ data: sampleData });
+      expect(series[0].clip).toBe(true);
+    });
+
+    it("leaves the slider on ECharts' own alignment to the plot", () => {
+      // Verified against echarts 6.1.0 SliderZoomView._layout: with no
+      // left/right the slider takes the coordinate system's rect, which is
+      // the plot area *after* the task-label gutter. Copying grid.left/right
+      // onto it — the obvious "fix" — widens the slider under the labels and
+      // puts the handles off the data ends.
+      const { dataZoom } = optionOf({ data: sampleData });
+      const slider = xSlider(dataZoom);
+      expect(slider).toBeDefined();
+      expect(slider?.left).toBeUndefined();
+      expect(slider?.right).toBeUndefined();
+    });
+
+    it("is on by default", () => {
+      const { dataZoom, grid } = optionOf({ data: sampleData });
+      expect(xSlider(dataZoom)).toBeDefined();
+      expect(grid.bottom).toBe(40);
+    });
+
+    it("drops every time-axis zoom and the slider's room when off", () => {
+      const { dataZoom, grid } = optionOf({
+        data: sampleData,
+        enableDataZoom: false,
+      });
+      expect(xZooms(dataZoom ?? [])).toEqual([]);
+      expect(grid.bottom).toBe(16);
+    });
+
+    it("shrinks the freed room with the compact padding", () => {
+      measured.width = 240;
+      const { grid } = optionOf({ data: sampleData, enableDataZoom: false });
+      expect(grid.bottom).toBe(8);
+    });
+
+    it("keeps the task-list scrollbar when off — it is not a zoom", () => {
+      const many = Array.from({ length: 20 }, (_, i) => ({
+        task: `Task ${i}`,
+        start: 1700000000000 + i * 1000,
+        end: 1700500000000 + i * 1000,
+      }));
+      const { dataZoom } = optionOf({ data: many, enableDataZoom: false });
+      expect(xZooms(dataZoom)).toEqual([]);
+      expect(
+        (dataZoom as Zoom[]).filter((z) => z.yAxisIndex === 0),
+      ).toHaveLength(2);
+    });
+
+    it("consumes the prop itself rather than handing it to BaseChart", () => {
+      // BaseChart's own enableDataZoom merge replaces the whole dataZoom array
+      // with two inside zooms — an explicit true would silently lose the
+      // slider if the prop reached it.
+      const { dataZoom } = optionOf({ data: sampleData, enableDataZoom: true });
+      expect(xSlider(dataZoom)).toBeDefined();
+    });
+  });
 });

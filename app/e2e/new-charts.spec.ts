@@ -346,6 +346,72 @@ test.describe("New chart types — creation flow", () => {
       timeout: 15_000,
     });
   });
+
+  test("should create a Gantt widget with the time zoom switched off (#1686)", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Gantt" }).click();
+
+    // Datetimes, the shape the slider labels were getting wrong.
+    await typeInEditor(
+      dialog,
+      page,
+      "UNWIND [['Design', datetime('2026-04-01T09:00:00'), datetime('2026-04-03T17:30:00')], ['Build', datetime('2026-04-03T10:00:00'), datetime('2026-04-10T16:00:00')]] AS r RETURN r[0] AS task, r[1] AS start, r[2] AS end",
+    );
+
+    // The option lives in the Style tab under its own, collapsed category.
+    await dialog.getByRole("tab", { name: "Style" }).click();
+    await dialog.getByRole("button", { name: "Interaction" }).click();
+    const toggle = dialog.locator("#enableDataZoom");
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+    // Save, reload, reopen. The chart's aria-label reads the same whether
+    // the option is on, off, or never persisted (the slider is canvas), so
+    // the round-trip editor → layout JSON → editor is what this pins — the
+    // one leg the unit tests do not cover.
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(
+      page.getByText("Dashboard saved", { exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.reload();
+    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const card = page.locator("[data-testid='widget-card']").first();
+    await expect(
+      card.getByRole("img", { name: "Gantt chart with 2 tasks" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await card.hover();
+    await card.getByRole("button", { name: "Widget actions" }).click();
+    await page.getByRole("menuitem", { name: /edit/i }).click();
+
+    const editDialog = page.getByRole("dialog", { name: "Edit Widget" });
+    await expect(editDialog).toBeVisible({ timeout: 10_000 });
+    await editDialog.getByRole("tab", { name: "Style" }).click();
+    await editDialog.getByRole("button", { name: "Interaction" }).click();
+    await expect(editDialog.locator("#enableDataZoom")).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

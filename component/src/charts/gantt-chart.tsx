@@ -18,6 +18,7 @@ import {
   buildEmptyDataOption,
   getCompactState,
   formatDate,
+  formatDateTime,
 } from "./chart-utils";
 import { resolveStylingRuleColor, type StylingRule } from "./styling-rule";
 
@@ -55,6 +56,12 @@ export interface GanttChartProps extends Omit<BaseChartProps, "options"> {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
+  /**
+   * Time-axis zoom: the range slider under the chart plus scroll-to-zoom.
+   * On by default. Consumed here, not by BaseChart — its own merge would
+   * replace this chart's dataZoom array with two bare inside zooms.
+   */
+  enableDataZoom?: boolean;
 }
 
 /** Format ms duration to human-readable string. */
@@ -74,6 +81,7 @@ function GanttChart({
   showGridLines = true,
   stylingRules,
   paramValues,
+  enableDataZoom = true,
   ariaDescription,
   ...rest
 }: GanttChartProps) {
@@ -239,6 +247,8 @@ function GanttChart({
         }
       : {};
 
+    const inset = compact ? 8 : 16;
+
     return {
       tooltip: {
         trigger: "item",
@@ -263,11 +273,12 @@ function GanttChart({
       // matched the 100px truncation budget at a 667px canvas — narrower than
       // that and task names were hard-clipped (#1289).
       grid: {
-        left: compact ? 8 : 16,
-        right: compact ? 8 : 16,
-        top: compact ? 8 : 16,
-        // Room for the zoom slider: height 20 + bottom 5 + gap.
-        bottom: 40,
+        left: inset,
+        right: inset,
+        top: inset,
+        // Room for the zoom slider: height 20 + bottom 5 + gap. Without the
+        // slider the plot takes it back.
+        bottom: enableDataZoom ? 40 : inset,
         containLabel: true,
       },
       xAxis: {
@@ -306,17 +317,38 @@ function GanttChart({
       // No colours here: the slider's palette lives in the registered theme,
       // so every chart's zoom control looks the same (#1273).
       dataZoom: [
-        // Horizontal: time axis zoom
-        {
-          type: "slider",
-          xAxisIndex: 0,
-          height: 20,
-          bottom: 5,
-        },
-        {
-          type: "inside",
-          xAxisIndex: 0,
-        },
+        // Horizontal: time axis zoom (#1686).
+        // - weakFilter: the series encodes x as [start, end], and the default
+        //   'filter' drops a bar when *either* end leaves the window, so bars
+        //   vanished at the edges as you zoomed in. Set on both x zooms; the
+        //   wheel and the slider filter independently. Safe only because the
+        //   series sets clip: true — a custom series is unclipped by default,
+        //   and a kept bar would otherwise paint over the label gutter.
+        // - labelFormatter: the slider's fallback label takes its precision
+        //   from the tick interval, not the value (seconds on a two-week
+        //   range, a bare date once the ticks are years). The data are
+        //   datetimes; say so, in one fixed shape.
+        // - No left/right: ECharts aligns a slider with no explicit position
+        //   to the plot rect *after* the task-label gutter (SliderZoomView
+        //   _layout, 6.1.0). Copying grid.left/right here widens it under the
+        //   labels and moves the handles off the data ends.
+        ...(enableDataZoom
+          ? [
+              {
+                type: "slider" as const,
+                xAxisIndex: 0,
+                height: 20,
+                bottom: 5,
+                filterMode: "weakFilter" as const,
+                labelFormatter: (ms: number) => formatDateTime(ms),
+              },
+              {
+                type: "inside" as const,
+                xAxisIndex: 0,
+                filterMode: "weakFilter" as const,
+              },
+            ]
+          : []),
         // Vertical: task list scroll (show ~15 tasks at a time)
         ...(taskNames.length > 15
           ? [
@@ -339,6 +371,9 @@ function GanttChart({
       series: [
         {
           type: "custom",
+          // weakFilter keeps bars that extend past the window; without this
+          // they draw across the task-label gutter and past the plot's edge.
+          clip: true,
           renderItem: renderItem as never,
           encode: {
             x: [1, 2],
@@ -359,6 +394,7 @@ function GanttChart({
     showGridLines,
     stylingRules,
     paramValues,
+    enableDataZoom,
     dark,
     // Read above for the grid and the label width. Omitting it latches the
     // first measurement — the #1546/#1562 class.
