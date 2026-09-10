@@ -48,6 +48,7 @@ export function ParamSelect({
       loading={seed.loading}
       searchable={searchable}
       onSearch={searchable ? seed.setSearchTerm : undefined}
+      serverFiltered={seed.serverFiltered}
       parentValue={seed.parentValue}
       parentParameterName={parentParameterName}
       className={className}

@@ -102,4 +102,54 @@ describe("Combobox — filters on the visible label (#1411)", () => {
     await user.keyboard("{ArrowDown}{Enter}");
     expect(onChange).toHaveBeenCalledWith("c-2");
   });
+
+  it("does not match on the hidden value", async () => {
+    const user = userEvent.setup();
+    render(
+      <Combobox
+        options={[
+          { value: "conn-uuid-1", label: "Movies" },
+          { value: "conn-uuid-2", label: "Orders" },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    await user.type(screen.getByPlaceholderText("Search..."), "uuid");
+    expect(screen.getByText("No option found.")).toBeInTheDocument();
+  });
+
+  it("keeps an option with an empty value findable by its label", async () => {
+    const user = userEvent.setup();
+    render(
+      <Combobox
+        options={[
+          { value: "", label: "(none)" },
+          { value: "a", label: "Alpha" },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    await user.type(screen.getByPlaceholderText("Search..."), "none");
+    expect(
+      screen.getByRole("option", { name: "(none)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Combobox
+        options={[
+          { value: "NY", label: "New York" },
+          { value: "NY ", label: "New York (padded)" },
+        ]}
+        onChange={onChange}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByPlaceholderText("Search..."));
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith("NY ");
+  });
 });

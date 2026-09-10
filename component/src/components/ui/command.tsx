@@ -35,10 +35,20 @@ Command.displayName = CommandPrimitive.displayName;
  * Scoring `value` hides an option when its id differs from its label, and
  * making the label the `value` merges options that share a label into one
  * cmdk identity — keyboard navigation then cannot reach the second (#1411).
- * Every item under such a Command must pass `keywords`.
+ * An item without keywords (e.g. a "Create…" row) is scored on its value.
  */
-function filterOnLabel(_value: string, search: string, keywords?: string[]) {
-  return defaultFilter(keywords?.join(" ") ?? "", search);
+function filterOnLabel(value: string, search: string, keywords?: string[]) {
+  return defaultFilter(keywords?.length ? keywords.join(" ") : value, search);
+}
+
+/**
+ * cmdk identity for an option value. cmdk trims `value` and scores an empty
+ * one as 0 before any filter runs, so "" would be hidden on every search and
+ * "NY" / "NY " would collapse into one item. JSON quoting is never empty and
+ * keeps the whitespace inside the quotes.
+ */
+function toCmdkValue(value: string) {
+  return JSON.stringify(value);
 }
 
 const CommandDialog = ({ children, ...props }: DialogProps) => {
@@ -167,6 +177,7 @@ export {
   CommandGroup,
   CommandItem,
   filterOnLabel,
+  toCmdkValue,
   CommandShortcut,
   CommandSeparator,
 };

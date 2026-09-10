@@ -244,6 +244,40 @@ describe("ParamSelector — filters on the visible label (#1411)", () => {
     await user.keyboard("{ArrowDown}{Enter}");
     expect(onChange).toHaveBeenCalledWith("4:p:11");
   });
+
+  it("keeps an option with an empty value findable by its label", async () => {
+    await openAndType(
+      { options: [{ value: "", label: "(none)" }, ...idOptions] },
+      "none",
+    );
+    expect(
+      screen.getByRole("option", { name: "(none)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType(
+      {
+        onChange,
+        options: [
+          { value: "NY", label: "New York" },
+          { value: "NY ", label: "New York (padded)" },
+        ],
+      },
+      "",
+    );
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith("NY ");
+  });
+
+  it("renders server-filtered results unfiltered", async () => {
+    // The seed matched "keanu@" on an email column; the label cannot match.
+    await openAndType({ serverFiltered: true }, "keanu@");
+    expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
+    expect(screen.getByText("Carrie-Anne Moss")).toBeInTheDocument();
+    expect(screen.queryByText("No options found.")).not.toBeInTheDocument();
+  });
 });
 
 describe("ParamMultiSelector — filters on the visible label (#1411)", () => {
@@ -293,5 +327,44 @@ describe("ParamMultiSelector — filters on the visible label (#1411)", () => {
     const user = await openAndType({ onChange, options: sameNameOptions }, "");
     await user.keyboard("{ArrowDown}{Enter}");
     expect(onChange).toHaveBeenCalledWith(["4:p:11"]);
+  });
+
+  it("does not match on the hidden value", async () => {
+    await openAndType({}, "4:p");
+    expect(screen.getByText("No options found.")).toBeInTheDocument();
+  });
+
+  it("keeps an option with an empty value findable by its label", async () => {
+    await openAndType(
+      { options: [{ value: "", label: "(none)" }, ...idOptions] },
+      "none",
+    );
+    expect(
+      screen.getByRole("option", { name: "(none)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType(
+      {
+        onChange,
+        options: [
+          { value: "NY", label: "New York" },
+          { value: "NY ", label: "New York (padded)" },
+        ],
+      },
+      "",
+    );
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith(["NY "]);
+  });
+
+  it("renders server-filtered results unfiltered", async () => {
+    // The seed matched "keanu@" on an email column; the label cannot match.
+    await openAndType({ serverFiltered: true }, "keanu@");
+    expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
+    expect(screen.getByText("Carrie-Anne Moss")).toBeInTheDocument();
+    expect(screen.queryByText("No options found.")).not.toBeInTheDocument();
   });
 });

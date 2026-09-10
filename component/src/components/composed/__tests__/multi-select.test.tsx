@@ -215,4 +215,40 @@ describe("MultiSelect — filters on the visible label (#1411)", () => {
     await user.keyboard("{ArrowDown}{Enter}");
     expect(onChange).toHaveBeenCalledWith(["w-2"]);
   });
+
+  it("does not match on the hidden value", async () => {
+    await openAndType({}, "w-");
+    expect(screen.getByText("No option found.")).toBeInTheDocument();
+  });
+
+  it("keeps an option with an empty value findable by its label", async () => {
+    await openAndType(
+      {
+        options: [
+          { value: "", label: "(none)" },
+          { value: "w-1", label: "Revenue by month" },
+        ],
+      },
+      "none",
+    );
+    expect(
+      screen.getByRole("option", { name: "(none)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {
+    const onChange = vi.fn();
+    const user = await openAndType(
+      {
+        onChange,
+        options: [
+          { value: "NY", label: "New York" },
+          { value: "NY ", label: "New York (padded)" },
+        ],
+      },
+      "",
+    );
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onChange).toHaveBeenCalledWith(["NY "]);
+  });
 });

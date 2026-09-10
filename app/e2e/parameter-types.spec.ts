@@ -507,6 +507,10 @@ test.describe("Parameter widget types", () => {
     );
 
     try {
+      // A fake clock lets the test hold the 300ms search debounce. Once it
+      // fires, the seed query refetches and the popover remounts with an empty
+      // input and every option, which would let the unfixed filter pass.
+      await page.clock.install();
       await page.goto(`/${id}`);
 
       const trigger = page.getByRole("combobox").first();
@@ -516,14 +520,14 @@ test.describe("Parameter widget types", () => {
         timeout: 10_000,
       });
 
+      const now = await page.evaluate(() => Date.now());
+      await page.clock.pauseAt(now + 1_000);
       await page.getByPlaceholder("Search\u2026").fill("Keanu");
-      // Assert inside the 300ms search debounce. Once it fires, the seed query
-      // refetches and the popover remounts with an empty input and every
-      // option, which would let the unfixed filter pass unnoticed.
       const option = page.getByRole("option", { name: "Keanu Reeves" });
-      await expect(option).toBeVisible({ timeout: 250 });
-      await expect(page.getByRole("option")).toHaveCount(1, { timeout: 250 });
+      await expect(option).toBeVisible();
+      await expect(page.getByRole("option")).toHaveCount(1);
       await option.click();
+      await page.clock.resume();
 
       // The id reached the dependent query: header row + Keanu's row.
       await expect(trigger).toHaveText(/Keanu Reeves/);

@@ -72,6 +72,7 @@ function makeSeed(overrides: Partial<SeedQueryResult> = {}): SeedQueryResult {
     refetch: vi.fn(),
     setSearchTerm: vi.fn(),
     parentValue: undefined,
+    serverFiltered: false,
     ...overrides,
   };
 }
@@ -219,6 +220,18 @@ describe("ParamMultiSelect — writing the selection back", () => {
 });
 
 describe("ParamMultiSelect — prop forwarding", () => {
+  it.each([true, false])(
+    "forwards seed.serverFiltered=%s (#1411)",
+    (serverFiltered) => {
+      const props = renderWidget(
+        makeActions(undefined, false),
+        makeSeed({ serverFiltered }),
+        { searchable: true },
+      );
+      expect(props.serverFiltered).toBe(serverFiltered);
+    },
+  );
+
   it("passes seed options, loading and parentValue straight through", () => {
     const options = [{ value: "a", label: "A" }];
     const props = renderWidget(

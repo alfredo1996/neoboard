@@ -14,6 +14,7 @@ import {
   CommandInput,
   CommandList,
   filterOnLabel,
+  toCmdkValue,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -140,7 +141,7 @@ function MultiSelect({
               {options.map((option) => (
                 <MultiSelectItem
                   key={option.value}
-                  value={option.value}
+                  value={toCmdkValue(option.value)}
                   keywords={[option.label]}
                   isSelected={value.includes(option.value)}
                   disabled={option.disabled}

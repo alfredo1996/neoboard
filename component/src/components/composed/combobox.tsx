@@ -13,6 +13,7 @@ import {
   CommandItem,
   CommandList,
   filterOnLabel,
+  toCmdkValue,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -106,7 +107,7 @@ function Combobox({
                   key={option.value}
                   // Filter on the label so typing the connection name (not the
                   // UUID) finds the item; value stays unique (#1411).
-                  value={option.value}
+                  value={toCmdkValue(option.value)}
                   keywords={[option.label]}
                   disabled={option.disabled}
                   onSelect={() => {
