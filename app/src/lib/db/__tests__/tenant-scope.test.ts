@@ -34,12 +34,17 @@ const APP_SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
  *
  * Read with the TypeScript AST rather than a regex (#1626): the regex needed
  * a newline before the closing `);`, so a table declared on one line was
- * silently absent — and an absent table is unguarded by everything below. A
- * table name the parser cannot read throws instead of being skipped.
+ * silently absent — and an absent table is unguarded by everything below.
+ * Nothing is skipped quietly: a table name the parser cannot read throws, and
+ * so does a `"tenant_id"` literal outside every `pgTable(...)` call (a spread
+ * shared column, `pgTable` imported under another name), because a pin on
+ * the derived map cannot notice a table that was never derived.
  */
 export function tenantTablesIn(src: string): Record<string, string> {
   const sf = ts.createSourceFile("schema.ts", src, ts.ScriptTarget.Latest, true);
   const out: Record<string, string> = {};
+  const tables: ts.CallExpression[] = [];
+  const literals: ts.StringLiteral[] = [];
   const declaresTenant = (n: ts.Node): boolean =>
     (ts.isCallExpression(n) &&
       n.arguments.length > 0 &&
@@ -47,22 +52,40 @@ export function tenantTablesIn(src: string): Record<string, string> {
       n.arguments[0].text === "tenant_id") ||
     (ts.forEachChild(n, declaresTenant) ?? false);
   const visit = (n: ts.Node): void => {
+    if (ts.isStringLiteral(n) && n.text === "tenant_id") literals.push(n);
     if (
-      ts.isVariableDeclaration(n) &&
-      ts.isIdentifier(n.name) &&
-      n.initializer &&
-      ts.isCallExpression(n.initializer) &&
-      n.initializer.expression.getText(sf) === "pgTable"
+      ts.isCallExpression(n) &&
+      ts.isIdentifier(n.expression) &&
+      n.expression.text === "pgTable"
     ) {
-      const [physical, columns] = n.initializer.arguments;
-      if (!physical || !ts.isStringLiteral(physical)) {
-        throw new Error(`cannot read the table name of ${n.name.text}`);
+      tables.push(n);
+      // The export it is bound to, through any wrapper: withAudit(pgTable(…)).
+      let owner: ts.Node = n.parent;
+      while (!ts.isVariableDeclaration(owner) && !ts.isSourceFile(owner)) {
+        owner = owner.parent;
       }
-      if (columns && declaresTenant(columns)) out[n.name.text] = physical.text;
+      const name = ts.isVariableDeclaration(owner)
+        ? owner.name.getText(sf)
+        : "an unbound pgTable";
+      const [physical, columns] = n.arguments;
+      if (!ts.isVariableDeclaration(owner) || !physical || !ts.isStringLiteral(physical)) {
+        throw new Error(`cannot read the table name of ${name}`);
+      }
+      if (columns && declaresTenant(columns)) out[name] = physical.text;
     }
     ts.forEachChild(n, visit);
   };
   visit(sf);
+  const stray = literals.find(
+    (l) => !tables.some((t) => l.pos >= t.pos && l.end <= t.end),
+  );
+  if (stray) {
+    const line = sf.getLineAndCharacterOfPosition(stray.getStart(sf)).line + 1;
+    throw new Error(
+      `tenant_id outside any pgTable(...) call at schema.ts:${line}; ` +
+        "teach tenantTablesIn this declaration shape",
+    );
+  }
   return out;
 }
 
@@ -74,22 +97,211 @@ const TENANT_TABLES = tenantTablesIn(
   readFileSync(join(APP_SRC, "lib/db/schema.ts"), "utf8"),
 );
 
+// ─── Provenance ──────────────────────────────────────────────────────
+//
+// CLAUDE.md, verbatim: "Take `tenantId` from `requireSession()`, NEVER from the
+// request body." A list of banned names cannot enforce that — a destructure or
+// a renamed request object walks past it — so the rule is an allowlist: a
+// value is credited only when it resolves, binding by binding and in its own
+// scope, to one of the sources below.
+
+/** Calls whose result is the caller's own session. */
+const SESSION_SOURCES = new Set(["requireSession", "requireAdmin"]);
+/** Database clients: a row they return carries the tenant it was stored with. */
+const DB_CLIENTS = new Set(["db", "tx"]);
+/** Next.js route handlers, whose parameters are the request itself. */
+const HANDLERS = /^(?:GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$/;
+
+/** One file under scan, bound, so an identifier resolves to its own declaration. */
+interface Src {
+  sf: ts.SourceFile;
+  checker: ts.TypeChecker;
+  /** A "use server" module: every parameter arrives from the client. */
+  serverActions: boolean;
+}
+
+function bind(file: string, src: string): Src {
+  const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true);
+  const options: ts.CompilerOptions = { noLib: true, noResolve: true, types: [] };
+  const host = ts.createCompilerHost(options);
+  host.getSourceFile = () => sf;
+  const first = sf.statements[0];
+  return {
+    sf,
+    checker: ts.createProgram([file], options, host).getTypeChecker(),
+    serverActions:
+      first !== undefined &&
+      ts.isExpressionStatement(first) &&
+      ts.isStringLiteral(first.expression) &&
+      first.expression.text === "use server",
+  };
+}
+
+/** Strip what does not change a value: parens, await, `as`, `!`, `satisfies`. */
+function unwrap(n: ts.Node): ts.Node {
+  let e = n;
+  while (
+    ts.isParenthesizedExpression(e) ||
+    ts.isAwaitExpression(e) ||
+    ts.isAsExpression(e) ||
+    ts.isNonNullExpression(e) ||
+    ts.isSatisfiesExpression(e)
+  ) {
+    e = e.expression;
+  }
+  return e;
+}
+
+function declOf(id: ts.Identifier, s: Src): ts.Declaration | undefined {
+  const symbol =
+    ts.isShorthandPropertyAssignment(id.parent) && id.parent.name === id
+      ? s.checker.getShorthandAssignmentValueSymbol(id.parent)
+      : s.checker.getSymbolAtLocation(id);
+  return symbol?.valueDeclaration ?? symbol?.declarations?.[0];
+}
+
+/** `const x = <this>` for a plain (non-destructured) local. */
+function initializerOf(id: ts.Identifier, s: Src): ts.Expression | undefined {
+  const d = declOf(id, s);
+  return d && ts.isVariableDeclaration(d) ? d.initializer : undefined;
+}
+
+/** The function a call goes to, when this file declares it. */
+function localFunction(
+  callee: ts.Node,
+  s: Src,
+): ts.FunctionLikeDeclaration | undefined {
+  if (!ts.isIdentifier(callee)) return undefined;
+  const d = declOf(callee, s);
+  if (d && ts.isFunctionDeclaration(d)) return d;
+  const init = d && ts.isVariableDeclaration(d) && d.initializer && unwrap(d.initializer);
+  return init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))
+    ? init
+    : undefined;
+}
+
 /**
- * Where a tenant value must NOT come from. CLAUDE.md, verbatim: "Take
- * `tenantId` from `requireSession()`, NEVER from the request body."
+ * Everything a function can return; `undefined` for a bare `return;` or for
+ * falling off the end of the body.
  */
-const CALLER_CONTROLLED = new Set([
-  "body",
-  "req",
-  "request",
-  "params",
-  "searchParams",
-  "query",
-  "json",
-  "input",
-  "payload",
-  "url",
-]);
+function returnsOf(fn: ts.FunctionLikeDeclaration): (ts.Expression | undefined)[] {
+  if (!fn.body) return [undefined];
+  if (!ts.isBlock(fn.body)) return [fn.body];
+  const out: (ts.Expression | undefined)[] = [];
+  const walk = (n: ts.Node): void => {
+    if (ts.isReturnStatement(n)) out.push(n.expression);
+    else if (!ts.isFunctionLike(n)) ts.forEachChild(n, walk);
+  };
+  walk(fn.body);
+  const last = fn.body.statements.at(-1);
+  if (!last || !ts.isReturnStatement(last)) out.push(undefined);
+  return out;
+}
+
+/** Does this value trace to the session (or a stored row, or operator config)? */
+function trusted(n: ts.Node, s: Src, depth = 8): boolean {
+  const e = unwrap(n);
+  if (depth === 0) return false;
+  if (ts.isIdentifier(e)) return trustedDecl(declOf(e, s), s, depth - 1);
+  if (
+    ts.isBinaryExpression(e) &&
+    e.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+  ) {
+    // `process.env.TENANT_ID ?? "default"` — the session's own fallback.
+    return (
+      trusted(e.left, s, depth - 1) &&
+      (ts.isStringLiteral(e.right) || trusted(e.right, s, depth - 1))
+    );
+  }
+  if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) {
+    if (e.expression.getText(s.sf) === "process.env") return true;
+    return (
+      trusted(e.expression, s, depth - 1) ||
+      (ts.isPropertyAccessExpression(e) && trustedReturn(e, s, depth - 1))
+    );
+  }
+  if (ts.isCallExpression(e)) {
+    let root: ts.Node = e;
+    while (
+      ts.isCallExpression(root) ||
+      ts.isPropertyAccessExpression(root) ||
+      ts.isElementAccessExpression(root)
+    ) {
+      root = root.expression;
+    }
+    return (
+      ts.isIdentifier(root) &&
+      (DB_CLIENTS.has(root.text) ||
+        (root === e.expression && SESSION_SOURCES.has(root.text)))
+    );
+  }
+  return false;
+}
+
+function trustedDecl(
+  d: ts.Declaration | undefined,
+  s: Src,
+  depth: number,
+): boolean {
+  let p: ts.Node | undefined = d;
+  while (
+    p &&
+    (ts.isBindingElement(p) ||
+      ts.isObjectBindingPattern(p) ||
+      ts.isArrayBindingPattern(p))
+  ) {
+    p = p.parent;
+  }
+  if (p && ts.isVariableDeclaration(p)) {
+    return p.initializer !== undefined && trusted(p.initializer, s, depth);
+  }
+  if (!p || !ts.isParameter(p) || s.serverActions) return false;
+  // ponytail: a named function's parameter is its caller's responsibility and
+  // is credited without tracing the argument; a callback's is not (it is fed
+  // by whatever calls it, a request body included), nor is a route
+  // handler's. Trace call-site arguments if a helper is ever fed the body.
+  const fn = p.parent;
+  const name =
+    ts.isFunctionDeclaration(fn) || ts.isMethodDeclaration(fn)
+      ? fn.name
+      : ts.isVariableDeclaration(fn.parent)
+        ? fn.parent.name
+        : undefined;
+  return name !== undefined && !HANDLERS.test(name.getText(s.sf));
+}
+
+/**
+ * `result.session`, where `result = await guard()` and every object `guard`
+ * returns with a `session` sets it from a trusted value — the
+ * widget-templates `requireOwnedTemplate` shape.
+ */
+function trustedReturn(
+  e: ts.PropertyAccessExpression,
+  s: Src,
+  depth: number,
+): boolean {
+  const target = unwrap(e.expression);
+  const call = unwrap(
+    (ts.isIdentifier(target) && initializerOf(target, s)) || target,
+  );
+  const fn = ts.isCallExpression(call) ? localFunction(call.expression, s) : undefined;
+  const props = (fn ? returnsOf(fn) : []).flatMap((r) => {
+    const o = r && unwrap(r);
+    return o && ts.isObjectLiteralExpression(o)
+      ? o.properties.filter((p) => p.name?.getText(s.sf) === e.name.text)
+      : [];
+  });
+  return (
+    props.length > 0 &&
+    props.every(
+      (p) =>
+        (ts.isShorthandPropertyAssignment(p) && trusted(p.name, s, depth)) ||
+        (ts.isPropertyAssignment(p) && trusted(p.initializer, s, depth)),
+    )
+  );
+}
+
+// ─── Builder predicates ──────────────────────────────────────────────
 
 /**
  * `<tenantTable>.tenantId` — a COLUMN reference. Anything else spelled
@@ -117,19 +329,6 @@ function tableOf(n: ts.Node | undefined): string | undefined {
     : undefined;
 }
 
-/** Does this expression trace back to something the caller controls? */
-function isCallerControlled(n: ts.Node): boolean {
-  let root: ts.Node = n;
-  while (
-    ts.isPropertyAccessExpression(root) ||
-    ts.isElementAccessExpression(root) ||
-    ts.isCallExpression(root)
-  ) {
-    root = root.expression;
-  }
-  return ts.isIdentifier(root) && CALLER_CONTROLLED.has(root.text);
-}
-
 /**
  * Does this predicate CONSTRAIN the tenant, or merely mention it?
  *
@@ -137,237 +336,168 @@ function isCallerControlled(n: ts.Node): boolean {
  * leaks (#1626): a column compared to itself returns every tenant, `ne`
  * returns exactly the other tenants, a value read off the request body returns
  * whichever tenant the caller names, and an `or` makes the whole filter
- * optional. Each of those has a negative control in the tests below.
+ * optional. Each of those has a negative control in the tests below. So does
+ * a branch — a ternary arm, a helper's early return — that drops the filter:
+ * every branch has to carry it.
  *
- * `table`, when given, requires the constrained column to belong to THAT
- * table — the outer `where` of a join scopes the table it names, not the one
- * joined to it.
+ * The constrained column must belong to `table` — the outer `where` of a join
+ * scopes the table it names, not the one joined to it.
  */
 function constrainsTenant(
-  text: string,
+  n: ts.Node,
   table: string,
-  defs: Defs,
+  s: Src,
+  depth = 4,
 ): boolean {
-  const sf = ts.createSourceFile(
-    "predicate.ts",
-    `(${text})`,
-    ts.ScriptTarget.Latest,
-    true,
-  );
+  const e = unwrap(n);
+  const sub = (x: ts.Node) => constrainsTenant(x, table, s, depth);
+  const resolved = (x: ts.Node | undefined) =>
+    x !== undefined && depth > 0 && constrainsTenant(x, table, s, depth - 1);
 
-  const qualifies = (n: ts.Node): boolean => {
-    // A raw `sql` fragment inside a builder predicate: it must constrain
-    // THIS table's own column — `${dashboards.tenantId} = ${tenantId}` — on
-    // every branch. A subquery's alias scopes the subquery, not this row, so
-    // aliases are not credited here.
-    // ponytail: a subquery naming this same table by its physical name is
-    // still credited; a real SQL parser is the upgrade if that shape appears.
-    if (isSqlTag(n)) {
-      return sqlVariants(n, defs).every((v) =>
-        sqlConstrains(sqlCode(v), table, new Map()),
-      );
-    }
+  // A raw `sql` fragment: it must compare THIS table's own column —
+  // `${dashboards.tenantId} = ${tenantId}` — at its own level, on every
+  // variant. A subquery's alias scopes the subquery, not this row.
+  if (isSqlTag(e)) {
+    return sqlVariants(e, s).every((v) => fragmentConstrains(sqlCode(v), table));
+  }
+  if (ts.isConditionalExpression(e)) return sub(e.whenTrue) && sub(e.whenFalse);
+  if (ts.isIdentifier(e)) return resolved(initializerOf(e, s));
+  if (!ts.isCallExpression(e)) return ts.forEachChild(e, sub) ?? false;
 
-    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
-      const fn = n.expression.text;
-      // Every branch must carry it, or the filter is optional.
-      if (fn === "or")
-        return n.arguments.length > 0 && n.arguments.every(qualifies);
-      // Inverting a tenant filter selects the other tenants.
-      if (fn === "not") return false;
-      if (fn === "eq") {
-        if (n.arguments.length !== 2) return false;
-        const [a, b] = n.arguments;
-        const colA = tenantColumnOf(a);
-        const colB = tenantColumnOf(b);
-        // Two columns is a tautology, not a filter.
-        if (colA !== undefined && colB !== undefined) return false;
-        const owner = colA ?? colB;
-        if (owner === undefined) return false;
-        if (owner !== table) return false;
-        return !isCallerControlled(colA !== undefined ? b : a);
-      }
-      // and(), plus any comparator we do not model: credit it only if one of
-      // its arguments qualifies on its own terms.
-      return n.arguments.some(qualifies);
-    }
-    return ts.forEachChild(n, qualifies) ?? false;
-  };
+  const fn = localFunction(e.expression, s);
+  if (fn) return returnsOf(fn).every(resolved);
 
-  return qualifies(sf) === true;
+  const name = ts.isIdentifier(e.expression) ? e.expression.text : undefined;
+  // Every branch must carry it, or the filter is optional.
+  if (name === "or") return e.arguments.length > 0 && e.arguments.every(sub);
+  // Inverting a tenant filter selects the other tenants.
+  if (name === "not") return false;
+  if (name === "eq") {
+    if (e.arguments.length !== 2) return false;
+    const [a, b] = e.arguments;
+    const colA = tenantColumnOf(a);
+    const colB = tenantColumnOf(b);
+    // Two columns is a tautology, not a filter.
+    if (colA !== undefined && colB !== undefined) return false;
+    if ((colA ?? colB) !== table) return false;
+    return trusted(colA === undefined ? a : b, s);
+  }
+  // and(), plus any comparator we do not model: credit it only if one of
+  // its arguments qualifies on its own terms.
+  return e.arguments.some(sub);
 }
 
-/** An insert is scoped when its values() sets a tenantId it did not read off the request. */
-function valuesSetTenant(text: string): boolean {
-  const sf = ts.createSourceFile(
-    "values.ts",
-    `(${text})`,
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  let ok = false;
-  const walk = (n: ts.Node): void => {
-    if (ts.isShorthandPropertyAssignment(n) && n.name.text === "tenantId") {
-      ok = true;
-    } else if (
-      ts.isPropertyAssignment(n) &&
-      n.name.getText(sf).replace(/["']/g, "") === "tenantId" &&
-      !isCallerControlled(n.initializer)
-    ) {
-      ok = true;
-    }
-    ts.forEachChild(n, walk);
-  };
-  walk(sf);
-  return ok;
+/** An insert is scoped when its values() sets a tenantId that traces to the session. */
+function valuesSetTenant(n: ts.Node, s: Src, depth = 4): boolean {
+  const e = unwrap(n);
+  if (ts.isShorthandPropertyAssignment(e) && e.name.text === "tenantId") {
+    return trusted(e.name, s);
+  }
+  if (
+    ts.isPropertyAssignment(e) &&
+    e.name.getText(s.sf).replace(/["']/g, "") === "tenantId"
+  ) {
+    return trusted(e.initializer, s);
+  }
+  if (ts.isIdentifier(e)) {
+    const init = initializerOf(e, s);
+    return depth > 0 && init !== undefined && valuesSetTenant(init, s, depth - 1);
+  }
+  return ts.forEachChild(e, (c) => valuesSetTenant(c, s, depth) || undefined) ?? false;
 }
 
 // ─── Raw SQL ─────────────────────────────────────────────────────────
 //
-// Held to the same rules as the builder, read off the SQL text: each table is
-// judged on its own predicate, the value must not come off the request, and
-// the predicate must not be negated or OR-ed away. Before #1626 one mention of
-// tenant_id anywhere in a template marked every table in it scoped.
+// Held to the same rules as the builder, read off the rendered SQL text. Every
+// reference to a tenant table (each FROM/JOIN/UPDATE/INTO/USING, or comma
+// join) is judged on its own: it needs `<its name>.tenant_id = <session value>`
+// in the same SELECT (the same UNION branch of it), in a clause that filters
+// that reference's rows, and not negated or OR-ed away. A table is scoped
+// only when every reference to it is. Before #1626 one mention of tenant_id
+// anywhere in a template marked every table in it scoped.
+//
+// ponytail: this is regex and parenthesis counting, not a SQL parser, so a
+// `CASE WHEN tenant_id = …` inside a WHERE is still credited. A real parser
+// is the upgrade if that shape appears.
 
-/** Locals and helpers in the file under scan, by name: initializer or function body. */
-type Defs = Map<string, ts.Node>;
+/** A trusted value, a value that does not trace to the session, and SQL of unknown shape. */
+const VALUE = "$VALUE";
+const CALLER = "$CALLER";
+const OPAQUE = "$OPAQUE";
 
 const isSqlTag = (n: ts.Node): n is ts.TaggedTemplateExpression =>
   ts.isTaggedTemplateExpression(n) && n.tag.getText() === "sql";
 
-/** The outermost `sql` templates under a node — one per branch of a helper. */
-function sqlTemplatesIn(
-  n: ts.Node,
-  out: ts.TaggedTemplateExpression[] = [],
-): ts.TaggedTemplateExpression[] {
-  if (isSqlTag(n)) out.push(n);
-  else ts.forEachChild(n, (c) => void sqlTemplatesIn(c, out));
-  return out;
-}
-
 /**
- * Every SQL text a template can render. An interpolated sql helper or local
- * is inlined once per branch, so a helper that drops the filter on one path
- * cannot hide behind the path that keeps it. A tenant column renders as the
- * column; any other value as `$VALUE`, or `$CALLER` when it traces to the
- * request.
+ * Every SQL text a template can render. An interpolated sql helper, local or
+ * conditional is inlined once per branch, so a path that drops the filter
+ * cannot hide behind the path that keeps it.
  */
 function sqlVariants(
   t: ts.TaggedTemplateExpression,
-  defs: Defs,
+  s: Src,
   depth = 3,
 ): string[] {
   const tpl = t.template;
   if (ts.isNoSubstitutionTemplateLiteral(tpl)) return [tpl.text];
-  // ponytail: variants multiply per helper span (32 at most today); cap or
+  // ponytail: variants multiply per branching span (32 at most today); cap or
   // memoise if a template ever interpolates many branching helpers.
   let out = [tpl.head.text];
   for (const span of tpl.templateSpans) {
-    const alts = renderSql(span.expression, defs, depth);
+    const alts = renderSql(span.expression, s, depth);
     out = out.flatMap((pre) => alts.map((a) => pre + a + span.literal.text));
   }
   return out;
 }
 
-function renderSql(e: ts.Expression, defs: Defs, depth: number): string[] {
+/**
+ * What an interpolation renders as. A tenant table or column renders as its
+ * physical name; a plain identifier or property read as a value, `$VALUE`
+ * when it traces to the session and `$CALLER` when not. Anything whose SQL
+ * cannot be known — `sql.raw`, `sql.join`, a call this file does not declare —
+ * is `$OPAQUE`, which makes a predicate beside it optional: it could be an OR.
+ */
+function renderSql(n: ts.Expression, s: Src, depth: number): string[] {
+  const e = unwrap(n) as ts.Expression;
   const column = tenantColumnOf(e);
   if (column !== undefined) return [`"${TENANT_TABLES[column]}".tenant_id`];
-  if (isCallerControlled(e)) return ["$CALLER"];
-  const callee = ts.isCallExpression(e) ? e.expression : e;
-  const def =
-    depth > 0 && ts.isIdentifier(callee) ? defs.get(callee.text) : undefined;
-  if (def === undefined) return ["$VALUE"];
-  const templates = sqlTemplatesIn(def);
-  if (templates.length > 0)
-    return templates.flatMap((x) => sqlVariants(x, defs, depth - 1));
-  // `const match = helper(x)` or `const tenantId = body.tenantId`: follow it.
-  return ts.isExpression(def) ? renderSql(def, defs, depth - 1) : ["$VALUE"];
+  const table = tableOf(e);
+  if (table !== undefined) return [`"${TENANT_TABLES[table]}"`];
+  if (isSqlTag(e)) return sqlVariants(e, s, depth);
+  if (depth === 0) return [OPAQUE];
+  if (ts.isConditionalExpression(e)) {
+    return [
+      ...renderSql(e.whenTrue, s, depth - 1),
+      ...renderSql(e.whenFalse, s, depth - 1),
+    ];
+  }
+  if (ts.isCallExpression(e)) {
+    const fn = localFunction(e.expression, s);
+    return fn
+      ? returnsOf(fn).flatMap((r) => (r ? renderSql(r, s, depth - 1) : [OPAQUE]))
+      : [OPAQUE];
+  }
+  const init = ts.isIdentifier(e) ? initializerOf(e, s) : undefined;
+  if (init) return renderSql(init, s, depth - 1);
+  // ponytail: a parameter holding a SQL fragment still renders as a value.
+  if (ts.isIdentifier(e) || ts.isPropertyAccessExpression(e) || ts.isLiteralExpression(e)) {
+    return [trusted(e, s) ? VALUE : CALLER];
+  }
+  return [OPAQUE];
 }
 
-/** SQL minus what cannot constrain anything: string literals and comments. */
+/**
+ * SQL minus what cannot constrain anything: string literals and comments. One
+ * left-to-right pass, so an apostrophe inside a comment, or a comment marker
+ * inside a string, is read as part of whatever it sits in.
+ */
 const sqlCode = (text: string) =>
-  text.replace(/'(?:[^']|'')*'/g, "''").replace(/--[^\n]*/g, "");
-
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/** Tenant tables the SQL reads or writes → every name it goes by there. */
-function sqlTables(code: string): Map<string, string[]> {
-  const found = new Map<string, string[]>();
-  for (const [name, physical] of Object.entries(TENANT_TABLES)) {
-    const ref = new RegExp(
-      `(?:\\b(?:FROM|JOIN|UPDATE|INTO|USING)|,)\\s+(?:public\\.)?"?${physical}"?(?!\\w)(?:\\s+(?:AS\\s+)?(\\w+))?`,
-      "gi",
-    );
-    const aliases = [...code.matchAll(ref)].map((m) => m[1] ?? physical);
-    if (aliases.length > 0)
-      found.set(name, [physical, `"${physical}"`, ...aliases]);
-  }
-  return found;
-}
-
-/**
- * Does this SQL fix `table` to one tenant? `<name>.tenant_id = $VALUE`, where
- * `<name>` is how the SQL refers to that table — bare `tenant_id` only when
- * no other tenant table could own the column — and nothing around it makes it
- * optional.
- */
-function sqlConstrains(
-  code: string,
-  table: string,
-  tables: Map<string, string[]>,
-): boolean {
-  const physical = TENANT_TABLES[table];
-  const names = tables.get(table) ?? [physical, `"${physical}"`];
-  const bare = tables.size === 1 && tables.has(table) ? "?" : "";
-  const predicate = new RegExp(
-    `(?<![\\w."])(?:(?:${names.map(escapeRe).join("|")})\\.)${bare}"?tenant_id"?\\s*=\\s*\\$VALUE\\b`,
-    "g",
+  text.replace(/'(?:[^']|'')*'|--[^\n]*|\/\*[\s\S]*?\*\//g, (m) =>
+    m.startsWith("'") ? "''" : " ",
   );
-  return [...code.matchAll(predicate)].some(
-    (m) => !isOptional(code, m.index, m.index + m[0].length),
-  );
-}
 
-/** SQL clause keywords; the last one before a predicate says what it does. */
-const CLAUSE =
-  /\b(WHERE|ON|HAVING|SET|SELECT|FROM|VALUES|RETURNING|ORDER|GROUP|LIMIT)\b/gi;
-const FILTERS = new Set(["WHERE", "ON", "HAVING"]);
-
-/** Drop every balanced parenthesised group, leaving one level of SQL. */
-function flatten(sqlText: string): string {
-  let out = sqlText;
-  for (let prev = ""; prev !== out; ) {
-    prev = out;
-    out = out.replace(/\([^()]*\)/g, "");
-  }
-  return out;
-}
-
-/**
- * Does the predicate at [from, to) fail to filter? It does when it sits in a
- * SET list or a projection rather than WHERE/ON/HAVING, when it is negated,
- * or when it is OR-ed with anything at its own level or an enclosing one — up
- * to the SELECT it belongs to. Past that SELECT it is a subquery, and the
- * outer OR decides whether the subquery matters, not which tenant it reads.
- */
-function isOptional(code: string, from: number, to: number): boolean {
-  if (/\bNOT\s*$/i.test(code.slice(0, from))) return true;
-  let [innerOpen, innerClose] = [from, to - 1];
-  let clause: string | undefined;
-  for (;;) {
-    const open = enclosingParen(code, innerOpen - 1, -1);
-    const close = enclosingParen(code, innerClose + 1, 1);
-    const before = flatten(code.slice(open + 1, innerOpen));
-    const after = flatten(code.slice(innerClose + 1, close));
-    clause ??= [...before.matchAll(CLAUSE)].pop()?.[1].toUpperCase();
-    if (/\bOR\b/i.test(`${before} ${after}`)) return true;
-    if (open < 0 || /^\s*SELECT\b/i.test(before)) {
-      return clause !== undefined && !FILTERS.has(clause);
-    }
-    if (/\bNOT\s*$/i.test(code.slice(0, open))) return true;
-    [innerOpen, innerClose] = [open, close];
-  }
-}
+/** [start, end) of a SELECT, or of one UNION branch of it. */
+type Span = readonly [number, number];
 
 /** The unmatched paren walking from `i` in `step` direction; -1 or length when none. */
 function enclosingParen(code: string, i: number, step: 1 | -1): number {
@@ -380,8 +510,196 @@ function enclosingParen(code: string, i: number, step: 1 | -1): number {
   return i;
 }
 
-/** Join methods that can bring a tenant table into a query. */
-const JOINS = new Set(["leftJoin", "innerJoin", "rightJoin", "fullJoin"]);
+/** Blank every parenthesised group, offsets kept, leaving one level of SQL. */
+function mask(text: string): string {
+  let out = text;
+  for (let prev = ""; prev !== out; ) {
+    prev = out;
+    out = out.replace(/\([^()]*\)/g, (g) => " ".repeat(g.length));
+  }
+  return out;
+}
+
+/** The SELECT — and the UNION/INTERSECT/EXCEPT branch of it — a position belongs to. */
+function scopeOf(code: string, at: number): Span {
+  let [lo, hi] = [at, at];
+  for (;;) {
+    const open = enclosingParen(code, lo - 1, -1);
+    const close = enclosingParen(code, hi, 1);
+    if (open < 0 || /^\s*(?:SELECT|WITH)\b/i.test(code.slice(open + 1))) {
+      let start = open + 1;
+      for (const m of mask(code.slice(start, close)).matchAll(
+        /\b(?:UNION|INTERSECT|EXCEPT)\b/gi,
+      )) {
+        const i = open + 1 + m.index;
+        if (i >= at) return [start, i];
+        start = i + m[0].length;
+      }
+      return [start, close];
+    }
+    [lo, hi] = [open, close + 1];
+  }
+}
+
+/** A tenant table as one statement names it: where, under what name, in which SELECT. */
+interface Ref {
+  table: string;
+  at: number;
+  name: string;
+  scope: Span;
+}
+
+/** Words that can follow a table reference without being its alias. */
+const NOT_ALIAS =
+  "WHERE|ON|JOIN|INNER|LEFT|RIGHT|FULL|CROSS|NATURAL|SET|USING|GROUP|ORDER|" +
+  "LIMIT|OFFSET|RETURNING|UNION|INTERSECT|EXCEPT|HAVING|WINDOW|FOR|VALUES|" +
+  "SELECT|DEFAULT|LATERAL";
+
+function sqlRefs(code: string): Ref[] {
+  return Object.entries(TENANT_TABLES).flatMap(([table, physical]) =>
+    [
+      ...code.matchAll(
+        new RegExp(
+          `(?:\\b(?:FROM|JOIN|UPDATE|INTO|USING)\\s+|,\\s*)(?:"?public"?\\.)?"?${physical}"?(?![\\w"])` +
+            `(?:\\s+(?:AS\\s+)?(?!(?:${NOT_ALIAS})\\b)(\\w+))?`,
+          "gi",
+        ),
+      ),
+    ].map((m) => ({
+      table,
+      at: m.index,
+      name: m[1] ?? physical,
+      scope: scopeOf(code, m.index),
+    })),
+  );
+}
+
+/** SQL clause keywords; the last one before a predicate says what it does. */
+const CLAUSE =
+  /\b(WHERE|ON|HAVING|SET|SELECT|FROM|VALUES|RETURNING|ORDER|GROUP|LIMIT)\b/gi;
+const FILTERS = new Set(["WHERE", "ON", "HAVING"]);
+const JOIN_KEYWORD = /\b(?:(LEFT|RIGHT|FULL|INNER|CROSS)\s+)?(?:OUTER\s+)?JOIN\b/gi;
+
+/** `[<qualifier>.]tenant_id = $VALUE`, schema-qualified or not. */
+const PREDICATE = /(?<![\w."])((?:(?:\w+|"\w+")\.)*)"?tenant_id"?\s*=\s*\$VALUE\b/g;
+
+interface Predicate {
+  /** The name it qualifies the column with; undefined when bare. */
+  qualifier: string | undefined;
+  /** The clause keyword it sits under, and the level that keyword is on. */
+  clause: { name: string; at: number; level: number } | undefined;
+  scope: Span;
+}
+
+/** Every tenant predicate in the SQL that actually filters. */
+function predicatesIn(code: string): Predicate[] {
+  return [...code.matchAll(PREDICATE)].flatMap((m) => {
+    const where = filterAt(code, m.index, m.index + m[0].length);
+    const qualifier = m[1] ? m[1].split(".").at(-2)?.replaceAll('"', "") : undefined;
+    return where ? [{ ...where, qualifier }] : [];
+  });
+}
+
+/**
+ * Where does the predicate at [from, to) filter, if it does? Not when it sits
+ * in a SET list or a projection rather than WHERE/ON/HAVING, when it is
+ * negated, or when it is OR-ed — or placed beside SQL of unknown shape — at
+ * its own level or an enclosing one, up to the SELECT it belongs to. Past that
+ * SELECT it is a subquery, and the outer OR decides whether the subquery
+ * matters, not which tenant it reads.
+ */
+function filterAt(
+  code: string,
+  from: number,
+  to: number,
+): Omit<Predicate, "qualifier"> | undefined {
+  if (/\bNOT\s*$/i.test(code.slice(0, from))) return undefined;
+  const scope = scopeOf(code, from);
+  let [lo, hi] = [from, to];
+  let clause: Predicate["clause"];
+  for (;;) {
+    const open = enclosingParen(code, lo - 1, -1);
+    const atScope = open < scope[0];
+    const [start, end] = atScope ? scope : [open + 1, enclosingParen(code, hi, 1)];
+    const before = mask(code.slice(start, lo));
+    const keyword = [...before.matchAll(CLAUSE)].pop();
+    clause ??= keyword && {
+      name: keyword[1].toUpperCase(),
+      at: start + keyword.index,
+      level: start,
+    };
+    if (/\bOR\b|\$OPAQUE\b/i.test(`${before} ${mask(code.slice(hi, end))}`)) {
+      return undefined;
+    }
+    if (atScope) {
+      return clause === undefined || FILTERS.has(clause.name)
+        ? { clause, scope }
+        : undefined;
+    }
+    if (/\bNOT\s*$/i.test(code.slice(0, open))) return undefined;
+    [lo, hi] = [open, end + 1];
+  }
+}
+
+/**
+ * Does predicate `p` fix `ref`'s rows to one tenant? Same SELECT, the
+ * reference's own name (bare only when it is the one tenant table there), and
+ * a clause that filters it: an ON filters the rows its join brings in — both
+ * sides for an inner join, the joined table for a LEFT, the preserved-against
+ * side for a RIGHT, neither for a FULL.
+ */
+function credits(code: string, ref: Ref, p: Predicate, refs: Ref[]): boolean {
+  const sameScope = (r: { scope: Span }) =>
+    r.scope[0] === ref.scope[0] && r.scope[1] === ref.scope[1];
+  if (!sameScope(p)) return false;
+  const named =
+    p.qualifier === undefined
+      ? refs.filter(sameScope).length === 1
+      : p.qualifier === ref.name;
+  if (!named || p.clause?.name !== "ON") return named;
+  const join = [
+    ...mask(code.slice(p.clause.level, p.clause.at)).matchAll(JOIN_KEYWORD),
+  ].pop();
+  if (!join) return false;
+  const joinAt = p.clause.level + join.index + join[0].length - "JOIN".length;
+  switch (join[1]?.toUpperCase()) {
+    case "LEFT":
+      return ref.at === joinAt;
+    case "RIGHT":
+      return ref.at < joinAt;
+    case "FULL":
+      return false;
+    default:
+      return ref.at < p.clause.at;
+  }
+}
+
+/** Per tenant table in one rendered statement: is every reference to it scoped? */
+function rawVerdicts(code: string): Map<string, boolean> {
+  const refs = sqlRefs(code);
+  const predicates = predicatesIn(code);
+  const out = new Map<string, boolean>();
+  for (const ref of refs) {
+    const scoped = predicates.some((p) => credits(code, ref, p, refs));
+    out.set(ref.table, (out.get(ref.table) ?? true) && scoped);
+  }
+  return out;
+}
+
+/** A builder fragment scopes `table` by `"<table>".tenant_id = $VALUE` at its own top level. */
+function fragmentConstrains(code: string, table: string): boolean {
+  return predicatesIn(code).some(
+    (p) => p.scope[0] === 0 && p.qualifier === TENANT_TABLES[table],
+  );
+}
+
+/** Join methods that can bring a tenant table in → does their ON filter its rows? */
+const JOINS = new Map([
+  ["innerJoin", true],
+  ["leftJoin", true],
+  ["rightJoin", false],
+  ["fullJoin", false],
+]);
 
 export interface Hit {
   file: string;
@@ -521,6 +839,15 @@ const ALLOWLIST: Record<string, { count: number; reason: string }> = {
     count: 1,
     reason: "keys off the row returned by the tenant-verified select above",
   },
+  // Sign-in's fire-and-forget lastLoginAt bump. It carries no tenant
+  // predicate: before #1626 the scanner credited it only because it pasted
+  // the text of `user`'s initializer, a tenant-scoped lookup, into the where.
+  "lib/auth/config.ts::users::update": {
+    count: 1,
+    reason:
+      "keys off users.id of the row the tenant-scoped credentials lookup " +
+      "just returned",
+  },
 };
 
 // ─── Scanner ─────────────────────────────────────────────────────────
@@ -529,49 +856,14 @@ const BUILDERS = new Set(["from", "insert", "update", "delete"]);
 
 /**
  * Find every query against a tenant-scoped table in one source file and
- * decide whether its predicate mentions the tenant.
+ * decide whether its predicate constrains the tenant.
  *
  * Exported so the tests below can run it against inline fixtures — a
  * scanner that silently matches nothing would otherwise "pass" forever.
  */
 export function scanSource(file: string, src: string): Hit[] {
-  const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true);
-
-  // Locals and helpers get inlined before matching, so the very common
-  // `const whereClause = and(..., eq(t.tenantId, tenantId)); …where(whereClause)`
-  // and the raw-SQL `WHERE ${editableDashboardsScope(...)}` both resolve.
-  const defs = new Map<string, string>();
-  const nodes: Defs = new Map();
-  const collect = (n: ts.Node): void => {
-    if (
-      ts.isVariableDeclaration(n) &&
-      ts.isIdentifier(n.name) &&
-      n.initializer
-    ) {
-      defs.set(n.name.text, n.initializer.getText(sf));
-      nodes.set(n.name.text, n.initializer);
-    } else if (ts.isFunctionDeclaration(n) && n.name && n.body) {
-      defs.set(n.name.text, n.body.getText(sf));
-      nodes.set(n.name.text, n.body);
-    }
-    ts.forEachChild(n, collect);
-  };
-  collect(sf);
-
-  const expand = (text: string, depth = 3): string => {
-    if (depth === 0) return text;
-    let out = text;
-    for (const [name, body] of defs) {
-      if (
-        new RegExp(`\\b${name}\\b`).test(out) &&
-        !new RegExp(`\\b${name}\\b`).test(body)
-      ) {
-        out += "\n" + expand(body, depth - 1);
-      }
-    }
-    return out;
-  };
-
+  const s = bind(file, src);
+  const { sf } = s;
   const at = (n: ts.Node) =>
     sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
   const brief = (t: string) => t.replace(/\s+/g, " ").slice(0, 120);
@@ -607,57 +899,44 @@ export function scanSource(file: string, src: string): Hit[] {
       // orderBy is not a filter — an earlier draft of this scanner passed
       // lib/auth/api-key.ts for exactly that reason.
       const gate = kind === "insert" ? "values" : "where";
-      const predicates: string[] = [];
-      const findGate = (n: ts.Node): void => {
-        if (
-          ts.isCallExpression(n) &&
-          ts.isPropertyAccessExpression(n.expression) &&
-          n.expression.name.text === gate
-        ) {
-          predicates.push(n.arguments.map((a) => a.getText(sf)).join(","));
+      const predicates: ts.Node[] = [];
+      const joins: { table: string; on?: ts.Node; filters: boolean; line: number }[] = [];
+      const findClauses = (n: ts.Node): void => {
+        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
+          const method = n.expression.name.text;
+          if (method === gate) predicates.push(...n.arguments);
+          // Every tenant table joined into this statement is its own query
+          // surface. These produced no Hit at all before #1626 — not an
+          // unscoped Hit, none — so 8 live joins were invisible to the guard.
+          const joined = JOINS.has(method) ? tableOf(n.arguments[0]) : undefined;
+          if (joined !== undefined) {
+            joins.push({
+              table: joined,
+              on: n.arguments[1],
+              filters: JOINS.get(method) === true,
+              line: at(n),
+            });
+          }
         }
-        ts.forEachChild(n, findGate);
+        ts.forEachChild(n, findClauses);
       };
-      findGate(top);
+      findClauses(top);
 
-      const predicateText = expand(predicates.join("\n"));
       hits.push({
         file,
         line: at(node),
         table,
         kind,
-        scoped:
-          predicates.length > 0 &&
-          (kind === "insert"
-            ? valuesSetTenant(predicateText)
-            : constrainsTenant(predicateText, table, nodes)),
+        scoped: predicates.some((p) =>
+          kind === "insert"
+            ? valuesSetTenant(p, s)
+            : constrainsTenant(p, table, s),
+        ),
         snippet: brief(top.getText(sf)),
       });
 
-      // Every tenant table joined into this statement is its own query
-      // surface. These produced no Hit at all before #1626 — not an unscoped
-      // Hit, none — so 8 live joins were invisible to the only guard there is.
-      const joins: { table: string; on: string; line: number }[] = [];
-      const findJoins = (n: ts.Node): void => {
-        const joined =
-          ts.isCallExpression(n) &&
-          ts.isPropertyAccessExpression(n.expression) &&
-          JOINS.has(n.expression.name.text)
-            ? tableOf(n.arguments[0])
-            : undefined;
-        if (joined !== undefined) {
-          joins.push({
-            table: joined,
-            on: (n as ts.CallExpression).arguments[1]?.getText(sf) ?? "",
-            line: at(n),
-          });
-        }
-        ts.forEachChild(n, findJoins);
-      };
-      findJoins(top);
-
       for (const j of joins) {
-        // Either the join's own on-clause constrains it, or the statement's
+        // Either the join's own on-clause filters it, or the statement's
         // where does — for that table, not merely for the one it hangs off.
         hits.push({
           file,
@@ -665,9 +944,9 @@ export function scanSource(file: string, src: string): Hit[] {
           table: j.table,
           kind: "join",
           scoped:
-            constrainsTenant(expand(j.on), j.table, nodes) ||
-            constrainsTenant(predicateText, j.table, nodes),
-          snippet: brief(j.on),
+            (j.filters && j.on !== undefined && constrainsTenant(j.on, j.table, s)) ||
+            predicates.some((p) => constrainsTenant(p, j.table, s)),
+          snippet: brief(j.on?.getText(sf) ?? ""),
         });
       }
     }
@@ -677,20 +956,15 @@ export function scanSource(file: string, src: string): Hit[] {
     // written entirely in raw SQL. One Hit per table, and a table is scoped
     // only if every variant of the template that touches it constrains it.
     if (isSqlTag(node)) {
-      const variants = sqlVariants(node, nodes).map((v) => {
-        const code = sqlCode(v);
-        return { code, tables: sqlTables(code) };
-      });
-      const touched = new Set(variants.flatMap((v) => [...v.tables.keys()]));
+      const variants = sqlVariants(node, s).map((v) => rawVerdicts(sqlCode(v)));
+      const touched = new Set(variants.flatMap((v) => [...v.keys()]));
       for (const name of touched) {
         hits.push({
           file,
           line: at(node),
           table: name,
           kind: "raw",
-          scoped: variants.every(
-            (v) => !v.tables.has(name) || sqlConstrains(v.code, name, v.tables),
-          ),
+          scoped: variants.every((v) => v.get(name) ?? true),
           snippet: brief(node.template.getText(sf)),
         });
       }
@@ -789,8 +1063,10 @@ describe("tenant scoping guard (#1226)", () => {
 });
 
 describe("scanSource", () => {
+  /** Every positive fixture binds the tenant the way routes do: off the session. */
+  const SESSION = "const { tenantId } = await requireSession();";
   const wrap = (body: string) =>
-    `import { db } from "@/lib/db";\nimport { dashboards } from "@/lib/db/schema";\n${body}`;
+    `import { db } from "@/lib/db";\nimport { dashboards } from "@/lib/db/schema";\n${SESSION}\n${body}`;
 
   it("accepts a query whose where() carries the tenant filter", () => {
     const [hit] = scanSource(
@@ -934,6 +1210,47 @@ describe("scanSource", () => {
     expect(hit.scoped).toBe(true);
   });
 
+  it("rejects a builder predicate with a branch that drops the filter", () => {
+    const scoped = "and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId))";
+    for (const [label, prelude, where] of [
+      ["ternary", "", `isAdmin ? eq(dashboards.id, id) : ${scoped}`],
+      [
+        "helper with an early return",
+        `function scope(a) { if (a) return eq(dashboards.id, id); return ${scoped}; }`,
+        "scope(isAdmin)",
+      ],
+      [
+        "sql helper with an early return",
+        "function s(a) { if (a) return sql`TRUE`; return sql`${dashboards.tenantId} = ${tenantId}`; }",
+        "sql`${s(isAdmin)}`",
+      ],
+    ]) {
+      const [hit] = scanSource(
+        "f.ts",
+        wrap(`${prelude}\nawait db.select().from(dashboards).where(${where});`),
+      );
+      expect(hit.scoped, label).toBe(false);
+    }
+  });
+
+  it("accepts a builder predicate whose every branch carries the filter", () => {
+    const scoped = "and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId))";
+    for (const [label, prelude, where] of [
+      ["ternary", "", `isAdmin ? eq(dashboards.tenantId, tenantId) : ${scoped}`],
+      [
+        "helper",
+        `function scope(a) { if (a) return eq(dashboards.tenantId, tenantId); return ${scoped}; }`,
+        "scope(isAdmin)",
+      ],
+    ]) {
+      const [hit] = scanSource(
+        "f.ts",
+        wrap(`${prelude}\nawait db.select().from(dashboards).where(${where});`),
+      );
+      expect(hit.scoped, label).toBe(true);
+    }
+  });
+
   it("sees a JOIN onto a tenant table at all", () => {
     // Not "joins are allowlisted" — joins produced no Hit whatsoever, so the
     // 8 live joins in app/src were invisible to the only cross-tenant guard.
@@ -941,6 +1258,7 @@ describe("scanSource", () => {
       "f.ts",
       `import { db } from "@/lib/db";
        import { dashboards, users } from "@/lib/db/schema";
+       ${SESSION}
        const r = await db.select().from(dashboards)
          .leftJoin(users, eq(dashboards.updatedBy, users.id))
          .where(eq(dashboards.tenantId, tenantId));`,
@@ -952,16 +1270,26 @@ describe("scanSource", () => {
     expect(join?.scoped).toBe(false);
   });
 
-  it("accepts a join whose own on-clause carries the tenant filter", () => {
-    const hits = scanSource(
-      "f.ts",
-      `import { db } from "@/lib/db";
-       import { dashboards, users } from "@/lib/db/schema";
-       const r = await db.select().from(dashboards)
-         .innerJoin(users, and(eq(dashboards.updatedBy, users.id), eq(users.tenantId, tenantId)))
-         .where(eq(dashboards.tenantId, tenantId));`,
-    );
-    expect(hits.find((h) => h.table === "users")?.scoped).toBe(true);
+  it("credits a join's on-clause only where it filters the joined table", () => {
+    // A left/inner join's ON filters the rows it brings in; a right or full
+    // join preserves every row of the joined table whatever the ON says.
+    for (const [join, scoped] of [
+      ["innerJoin", true],
+      ["leftJoin", true],
+      ["rightJoin", false],
+      ["fullJoin", false],
+    ] as const) {
+      const hits = scanSource(
+        "f.ts",
+        `import { db } from "@/lib/db";
+         import { dashboards, users } from "@/lib/db/schema";
+         ${SESSION}
+         const r = await db.select().from(dashboards)
+           .${join}(users, and(eq(dashboards.updatedBy, users.id), eq(users.tenantId, tenantId)))
+           .where(eq(dashboards.tenantId, tenantId));`,
+      );
+      expect(hits.find((h) => h.table === "users")?.scoped, join).toBe(scoped);
+    }
   });
 
   it("flags raw SQL against a tenant table with no tenant_id predicate", () => {
@@ -979,7 +1307,8 @@ describe("scanSource", () => {
   it("accepts raw SQL whose tenant predicate lives in an interpolated helper", () => {
     const [hit] = scanSource(
       "f.ts",
-      `function scope() { return sql\`d.tenant_id = \${tenantId}\`; }
+      `${SESSION}
+       function scope() { return sql\`d.tenant_id = \${tenantId}\`; }
        await db.execute(sql\`SELECT id FROM "dashboard" d WHERE \${scope()}\`);`,
     );
     expect(hit.scoped).toBe(true);
@@ -998,6 +1327,7 @@ describe("scanSource", () => {
       scanSource(
         "f.ts",
         `const schema = await import("@/lib/db/schema");
+         ${SESSION}
          const r = await db.select().from(schema.connections).where(${where});`,
       );
     const [bad] = run("eq(schema.connections.id, id)");
@@ -1022,6 +1352,17 @@ describe("scanSource", () => {
     expect(outer).toMatchObject({ table: "dashboards", scoped: false });
   });
 
+  it("does not credit a builder sql fragment whose own-table predicate sits in a subquery", () => {
+    const [outer] = scanSource(
+      "f.ts",
+      wrap(
+        `const r = await db.select().from(dashboards).where(
+           sql\`EXISTS (SELECT 1 FROM "dashboard" WHERE \${dashboards.tenantId} = \${tenantId})\`);`,
+      ),
+    );
+    expect(outer).toMatchObject({ table: "dashboards", scoped: false });
+  });
+
   it("accepts a builder sql fragment that compares the table's own tenant column", () => {
     const [hit] = scanSource(
       "f.ts",
@@ -1033,10 +1374,77 @@ describe("scanSource", () => {
     expect(hit.scoped).toBe(true);
   });
 
-  // ── Raw SQL: the same rules as the builder, one verdict per table ─────────
+  // ── Provenance: the value must trace to the session ─────────────────────
+  //
+  // Not "the value is not called body": a destructure, a renamed request
+  // object or a same-named local in another handler all dodge a list of
+  // banned names. Only a binding that resolves to the session is credited.
+
+  describe("tenant value provenance", () => {
+    const raw = 'await db.execute(sql`SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId}`);';
+    const builder = "await db.select().from(dashboards).where(eq(dashboards.tenantId, tenantId));";
+    // No import prelude: a "use server" directive only counts as the first statement.
+    const scan = (src: string) =>
+      scanSource("f.ts", src)
+        .filter((h) => h.table === "dashboards")
+        .map((h) => h.scoped);
+
+    it("rejects a tenant value that does not trace to the session", () => {
+      for (const [label, src] of [
+        ["destructured from the body, raw", `export async function POST(req) { const body = await req.json(); const { tenantId } = body; ${raw} }`],
+        ["destructured from req.json(), builder", `export async function POST(req) { const { tenantId } = await req.json(); ${builder} }`],
+        ["property of a renamed body, raw", 'export async function POST(req) { const data = await req.json(); await db.execute(sql`SELECT id FROM "dashboard" d WHERE d.tenant_id = ${data.tenantId}`); }'],
+        ["renamed request object", "export async function PUT(r) { const b = await r.json(); await db.select().from(dashboards).where(eq(dashboards.tenantId, b.tenantId)); }"],
+        ["a route handler's own parameter", `export const DELETE = async (tenantId) => { ${builder} };`],
+        ["a callback's parameter", "await Promise.all(items.map((tenantId) => db.select().from(dashboards).where(eq(dashboards.tenantId, tenantId))));"],
+        ["a server action's parameter", `"use server";\nexport async function save(tenantId) { ${builder} }`],
+        ["destructured from the body, insert", "export async function POST(req) { const { tenantId } = await req.json(); await db.insert(dashboards).values({ name, tenantId }); }"],
+        ["bound nowhere", builder],
+      ]) {
+        expect(scan(src), label).toEqual([false]);
+      }
+    });
+
+    it("resolves each binding in its own scope, not by name across the file", () => {
+      expect(
+        scan(`
+          export async function GET(req) {
+            const body = await req.json();
+            const tenantId = body.tenantId;
+            ${builder}
+          }
+          export async function POST() {
+            const session = await requireSession();
+            const tenantId = session.tenantId;
+            ${builder}
+          }`),
+      ).toEqual([false, true]);
+    });
+
+    it("accepts the session bindings the codebase writes", () => {
+      for (const [label, src] of [
+        ["destructured requireSession()", `const { tenantId } = await requireSession(); ${raw} ${builder}`],
+        ["destructured requireAdmin()", `const { tenantId } = await requireAdmin(); ${raw} ${builder}`],
+        ["renamed destructure", "const { tenantId: sessionTenantId } = await requireSession(); await db.select().from(dashboards).where(eq(dashboards.tenantId, sessionTenantId));"],
+        ["session.tenantId through a local", `const session = await requireSession(); const tenantId = session.tenantId; ${raw} ${builder}`],
+        [
+          "session returned by a local guard",
+          `async function owned() { const session = await requireSession(); if (x) return { error: 1 }; return { template, session }; }
+           export async function DELETE() { const result = await owned(); const { tenantId } = result.session; ${builder} }`,
+        ],
+        ["a library helper's parameter", `export async function usage(tenantId: string) { ${raw} ${builder} }`],
+        ["a row fetched from the database", "const [row] = await db.select().from(users); await db.insert(dashboards).values({ tenantId: row.tenantId });"],
+        ["operator config", "const tenantId = process.env.TENANT_ID ?? \"default\"; await db.insert(dashboards).values({ tenantId });"],
+      ]) {
+        expect(scan(src).every(Boolean), label).toBe(true);
+      }
+    });
+  });
+
+  // ── Raw SQL: the same rules as the builder, one verdict per reference ─────
 
   describe("raw SQL", () => {
-    const run = (body: string, prelude = "") =>
+    const run = (body: string, prelude = SESSION) =>
       scanSource("f.ts", `${prelude}\nawait db.execute(sql\`${body}\`);`);
     const verdicts = (hits: Hit[], table: string) =>
       hits.filter((h) => h.table === table).map((h) => h.scoped);
@@ -1056,6 +1464,51 @@ describe("scanSource", () => {
       expect(verdicts(hits, "dashboardShares")).toEqual([false]);
     });
 
+    it("judges every reference to a table in its own SELECT, not the first one scoped", () => {
+      for (const body of [
+        // A UNION branch that reads every tenant.
+        'SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId} UNION ALL SELECT id FROM "dashboard" x',
+        // The same alias in both branches: only the branch split separates them.
+        'SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId} UNION ALL SELECT id FROM "dashboard" d',
+        // A scalar subquery counting across tenants.
+        'SELECT (SELECT count(*) FROM "dashboard") AS total FROM "dashboard" d WHERE d.tenant_id = ${tenantId}',
+        // A CTE over every tenant's rows.
+        'WITH a AS (SELECT * FROM "dashboard") SELECT 1 FROM a JOIN "dashboard" d ON d.id = a.id WHERE d.tenant_id = ${tenantId}',
+        // An alias reused by a subquery over another table.
+        'SELECT id FROM "dashboard" x WHERE x.id IN (SELECT s."dashboardId" FROM "dashboard_share" x WHERE x.tenant_id = ${tenantId})',
+      ]) {
+        expect(verdicts(run(body), "dashboards"), body).toEqual([false]);
+      }
+      expect(
+        verdicts(
+          run(
+            'SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId} UNION SELECT id FROM "dashboard" x WHERE x.tenant_id = ${tenantId}',
+          ),
+          "dashboards",
+        ),
+      ).toEqual([true]);
+    });
+
+    it("credits an ON predicate only for the rows that join actually filters", () => {
+      const on = (kind: string) =>
+        run(
+          `SELECT 1 FROM "dashboard" d ${kind} "connection" c ON c.id = d."connectionId" AND d.tenant_id = \${tenantId} AND c.tenant_id = \${tenantId}`,
+        );
+      for (const [kind, dashboards, connections] of [
+        ["JOIN", true, true],
+        ["INNER JOIN", true, true],
+        // A LEFT JOIN keeps every row of the left side whatever its ON says.
+        ["LEFT JOIN", false, true],
+        ["LEFT OUTER JOIN", false, true],
+        ["RIGHT JOIN", true, false],
+        ["FULL JOIN", false, false],
+      ] as const) {
+        const hits = on(kind);
+        expect(verdicts(hits, "dashboards"), kind).toEqual([dashboards]);
+        expect(verdicts(hits, "connections"), kind).toEqual([connections]);
+      }
+    });
+
     it("rejects predicates that mention tenant_id without constraining it", () => {
       for (const where of [
         "d.tenant_id = d.tenant_id",
@@ -1071,6 +1524,18 @@ describe("scanSource", () => {
         "(d.tenant_id = ${tenantId}) OR d.\"isPublic\"",
         "d.name = 'd.tenant_id = ${tenantId}'",
         "d.id = ${id} -- d.tenant_id = ${tenantId}\n",
+        // A block comment is not a filter either.
+        "d.id = ${id} /* AND d.tenant_id = ${tenantId} */",
+        // An apostrophe in a comment must not swallow the OR after it.
+        "d.tenant_id = ${tenantId} -- don't widen\n OR d.\"isPublic\" = 'x'",
+        // A different column that merely ends in tenant_id.
+        "d.parent_tenant_id = ${tenantId}",
+        // What an interpolation renders is unknown, so it can carry an OR.
+        "d.tenant_id = ${tenantId} ${isAdmin ? sql`OR TRUE` : sql``}",
+        "d.tenant_id = ${tenantId} ${isAdmin ? sql`AND d.id = ${id}` : sql`OR TRUE`}",
+        "d.tenant_id = ${sql.raw('d.tenant_id')}",
+        "d.tenant_id = ${tenantId} AND ${sql.raw('TRUE OR TRUE')}",
+        "d.tenant_id = ${tenantId} AND ${importedScope()}",
       ]) {
         const hits = run(`SELECT id FROM "dashboard" d WHERE ${where}`);
         expect(verdicts(hits, "dashboards"), where).toEqual([false]);
@@ -1086,12 +1551,12 @@ describe("scanSource", () => {
       ]) {
         expect(verdicts(run(body), table), body).toEqual([false]);
       }
-      expect(
-        verdicts(
-          run('UPDATE "dashboard" d SET name = ${n} WHERE d.tenant_id = ${tenantId}'),
-          "dashboards",
-        ),
-      ).toEqual([true]);
+      for (const body of [
+        'UPDATE "dashboard" d SET name = ${n} WHERE d.tenant_id = ${tenantId}',
+        'SELECT d."userId", count(*) FROM "dashboard" d GROUP BY d."userId", d.tenant_id HAVING d.tenant_id = ${tenantId}',
+      ]) {
+        expect(verdicts(run(body), "dashboards"), body).toEqual([true]);
+      }
     });
 
     it("rejects an unqualified tenant_id when two tenant tables could own it", () => {
@@ -1101,10 +1566,29 @@ describe("scanSource", () => {
       expect(hits.map((h) => h.scoped)).toEqual([false, false]);
     });
 
+    it("sees every way a statement names a tenant table", () => {
+      for (const [body, table] of [
+        ['DELETE FROM "dashboard" d USING "dashboard_share" s WHERE s."dashboardId" = d.id AND d.tenant_id = ${tenantId}', "dashboardShares"],
+        ['INSERT INTO "dashboard" (id, name) VALUES (${id}, ${n})', "dashboards"],
+        ["SELECT id FROM public.dashboard WHERE id = ${id}", "dashboards"],
+        ['SELECT id FROM "public"."dashboard" WHERE id = ${id}', "dashboards"],
+        ["SELECT * FROM ${dashboards} WHERE ${dashboards.id} = ${id}", "dashboards"],
+        ["SELECT * FROM ${schema.dashboards} WHERE id = ${id}", "dashboards"],
+      ]) {
+        expect(verdicts(run(body), table), body).toEqual([false]);
+      }
+      for (const body of [
+        "SELECT id FROM public.dashboard d WHERE d.tenant_id = ${tenantId}",
+        "SELECT * FROM ${dashboards} WHERE ${dashboards.tenantId} = ${tenantId}",
+      ]) {
+        expect(verdicts(run(body), "dashboards"), body).toEqual([true]);
+      }
+    });
+
     it("rejects a helper whose branches do not all carry the filter", () => {
       const hits = run(
         'SELECT id FROM "dashboard" d WHERE ${scope(isAdmin)}',
-        "function scope(isAdmin) { if (isAdmin) return sql`TRUE`; return sql`d.tenant_id = ${tenantId}`; }",
+        `${SESSION} function scope(isAdmin) { if (isAdmin) return sql\`TRUE\`; return sql\`d.tenant_id = \${tenantId}\`; }`,
       );
       expect(verdicts(hits, "dashboards")).toEqual([false]);
     });
@@ -1112,7 +1596,14 @@ describe("scanSource", () => {
     it("accepts a helper where every branch carries the filter", () => {
       const hits = run(
         'SELECT id FROM "dashboard" d WHERE ${scope(isAdmin)}',
-        "function scope(isAdmin) { if (isAdmin) return sql`d.tenant_id = ${tenantId}`; return sql`d.tenant_id = ${tenantId} AND d.\"userId\" = ${userId}`; }",
+        `${SESSION} function scope(isAdmin) { if (isAdmin) return sql\`d.tenant_id = \${tenantId}\`; return sql\`d.tenant_id = \${tenantId} AND d."userId" = \${userId}\`; }`,
+      );
+      expect(verdicts(hits, "dashboards")).toEqual([true]);
+    });
+
+    it("inlines both branches of an interpolated conditional fragment", () => {
+      const hits = run(
+        'SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId} ${dashboardId ? sql`AND d.id = ${dashboardId}` : sql``}',
       );
       expect(verdicts(hits, "dashboards")).toEqual([true]);
     });
@@ -1123,7 +1614,10 @@ describe("scanSource", () => {
         verdicts(run(where, "const tenantId = body.tenantId;"), "dashboards"),
       ).toEqual([false]);
       expect(
-        verdicts(run(where, "const tenantId = session.tenantId;"), "dashboards"),
+        verdicts(
+          run(where, "const session = await requireSession(); const tenantId = session.tenantId;"),
+          "dashboards",
+        ),
       ).toEqual([true]);
     });
 
@@ -1175,16 +1669,30 @@ describe("tenantTablesIn", () => {
         export const b = pgTable(
           "b",
           { id: text("id") },
-          (t) => [index("b_tenant_id_idx").on(t.id)],
+          (t) => [index("tenant_id").on(t.id)],
         );
         const c = pgTable("c", (t) => ({ tenantId: t.text("tenant_id") }));
+        export const d = withAudit(pgTable("d", { tenantId: text("tenant_id") }));
       `),
-    ).toEqual({ a: "a", c: "c" });
+    ).toEqual({ a: "a", c: "c", d: "d" });
   });
 
   it("fails loudly on a table name it cannot read", () => {
     expect(() =>
       tenantTablesIn(`export const a = pgTable(NAME, { tenantId: text("tenant_id") });`),
     ).toThrow(/cannot read the table name of a/);
+  });
+
+  it("fails loudly on a tenant_id column it cannot attribute to a table", () => {
+    for (const src of [
+      // A shared column spread into the table.
+      `const tc = { tenantId: text("tenant_id") };
+       export const x = pgTable("x", { ...tc, id: text("id") });`,
+      // pgTable under another name.
+      `import { pgTable as table } from "drizzle-orm/pg-core";
+       export const x = table("x", { tenantId: text("tenant_id") });`,
+    ]) {
+      expect(() => tenantTablesIn(src), src).toThrow(/tenant_id outside/);
+    }
   });
 });
