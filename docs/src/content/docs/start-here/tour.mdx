@@ -1,11 +1,17 @@
 ---
-title: Tour with demo data
-description: Seed the showcase dashboards and log in as the demo admin, creator or reader.
+title: Tour NeoBoard with demo data
+description: Run neoboard demo, log in as the demo admin, walk the seven sample dashboards, then edit a widget, add a parameter, copy a link and share a dashboard.
 sidebar:
   order: 3
 ---
 
-`neoboard demo` turns a fresh checkout into a working showcase: it starts the stack, runs migrations, loads a movie graph into Neo4j, creates demo users and imports sample dashboards such as *Movie Highlights* and *Chart Gallery*. It is the quickest way to see NeoBoard with data in it before you connect your own databases.
+{/*
+  The screenshots on this page are written by app/e2e/showcase.walkthrough.ts,
+  so they follow the app instead of drifting from it. Regenerate them from app/:
+    DOCS_SCREENSHOTS=1 npx playwright test --config playwright.showcase.config.ts
+*/}
+
+`neoboard demo` turns a fresh checkout into a NeoBoard with data in it. It starts the stack, runs migrations, loads a movie graph into Neo4j and an e-commerce schema into PostgreSQL, creates three demo users and imports seven sample dashboards. This page runs it, walks through what you get, and covers the everyday moves: editing a widget, adding a parameter, copying a link and sharing a dashboard.
 
 ## Prerequisites
 
@@ -13,7 +19,7 @@ sidebar:
 - **Node.js 20+** -- to build and run the CLI
 - **Git** -- to clone the repository
 
-## Run the demo
+## 1. Run the demo
 
 If you already ran `install.sh` from the [install guide](/start-here/install), the CLI is on your path and `neoboard demo` is all you need. From a bare clone:
 
@@ -30,11 +36,17 @@ This single command does everything:
 1. **init** -- creates `neoboard.config.json` and `.neoboard.local`
 2. **start** -- launches Docker containers via `docker compose`, waits for health checks
 3. **migrate** -- runs Drizzle database migrations against PostgreSQL
-4. **seed** -- loads Neo4j graph data and creates the demo users and sample dashboards
+4. **seed** -- loads the movie graph into Neo4j, then runs `scripts/seed-demo.mjs`: the demo users, their connections, the `neoboard_demo_public` e-commerce schema and the sample dashboards
 
-## Log in
+It ends by printing the demo logins and the address to open.
 
-Navigate to [http://localhost:3000](http://localhost:3000). The command prints three accounts, one per role:
+:::caution
+The demo accounts have fixed passwords, published on this page. Run the demo on your own machine, never on a host other people can reach.
+:::
+
+## 2. Log in
+
+Open [http://localhost:3000](http://localhost:3000). The command prints three accounts, one per role:
 
 | Role | Email | Password |
 |------|-------|----------|
@@ -42,9 +54,72 @@ Navigate to [http://localhost:3000](http://localhost:3000). The command prints t
 | Creator | `creator@neoboard.local` | `creator123` |
 | Reader (read-only) | `reader@neoboard.local` | `reader123` |
 
-Sign in as the admin first, open a showcase dashboard from the dashboard list, and switch to edit mode to see how each widget is configured. Sign in as the reader to see what a read-only user gets -- [Roles & Permissions](/security/roles) explains the difference.
+![The login page with the demo admin's email and password filled in](/screenshots/tour/login.png)
 
-When you are ready to build your own, continue with [Your first dashboard](/start-here/first-dashboard); the demo Neo4j connection is already there to query.
+Sign in as the admin for this tour. The creator builds and edits dashboards; the reader can only view the ones made public or shared with them. [Roles & Permissions](/security/roles) has the full matrix.
+
+## 3. Walk the sample dashboards
+
+The dashboard list opens on the seven showcases:
+
+![The dashboard list after neoboard demo, showing the seven showcases](/screenshots/tour/dashboard-list.png)
+
+| Dashboard | What it shows | Data |
+|-----------|---------------|------|
+| **Movie Highlights** | One page of live Cypher over the movie graph: KPIs, top actors, where the movies were filmed, releases per year, top reviews and a co-star network. | Neo4j |
+| **Chart Gallery** | One page per chart type, from bar to choropleth map. | Neo4j, PostgreSQL |
+| **Click Actions** | Clicking a chart to set a parameter, jump to another page, or both. | PostgreSQL |
+| **Transformations** | Before and after, side by side, for each transform: filter, sort, groupBy, calculatedColumn, renameColumns and limit. | PostgreSQL |
+| **Rule-Based Styling** | One page per stylable chart, each coloured by two or three threshold rules. | PostgreSQL |
+| **Chart Playground** | Every chart, with parameter selectors as knobs for its options. | Neo4j, PostgreSQL |
+| **Chart Reference** | One page per chart type, with its customization options demonstrated. | Neo4j, PostgreSQL |
+
+Start with **Movie Highlights**:
+
+![Movie Highlights: KPI tiles, top actors, filming locations, releases per year and top reviews](/screenshots/tour/movie-highlights.png)
+
+Further down, the **Actor** selector drives the co-star network under it. Pick another actor, or click a bar in *Top actors by film count*: the bar's click action sets the same `actor` parameter. The other showcases spread over several pages; switch between them with the page tabs above the widgets.
+
+## 4. Edit a widget
+
+Click **Edit** in the dashboard toolbar. Every widget now has a **Widget actions** menu; open it on *Top actors by film count* and choose **Edit Widget**:
+
+![The Edit Widget dialog for the top-actors bar chart](/screenshots/tour/edit-widget.png)
+
+The **Data** tab holds the connection, chart type and query; **Style**, **Transform** and **Advanced** hold the rest, including the click action that sets `actor`. The preview on the right redraws when you click **Run**. Change `LIMIT 10` to `LIMIT 5`, run it, click **Save Changes**, then **Save** in the toolbar. To undo your experiments later, see [Reset the showcases](#reset-the-showcases).
+
+## 5. Add a parameter
+
+A parameter is a named value that a selector sets and any query reads as `$param_<name>` -- it is how the Actor selector feeds `$param_actor` to the co-star network's query. Still in edit mode, click **Add Widget**, pick **Parameter Selector** as the type and **Neo4j Movies** as the connection, then give it a seed query and a name:
+
+![Adding a Parameter Selector named year, with a seed query](/screenshots/tour/add-parameter.png)
+
+```cypher
+MATCH (m:Movie) RETURN DISTINCT m.released AS value ORDER BY value
+```
+
+Each row of the seed query becomes an option: name the columns `value` and `label`, or let the first column be the value and the second the label. Click **Add Widget**, then **Save**. Any query on the dashboard can now filter on `$param_year`. [Parameters](/using/parameters) covers every parameter type.
+
+## 6. Copy a link
+
+A dashboard's link is its address: copy it from the browser's address bar, and anyone who can see the dashboard lands on it. To carry a parameter's value in that link, turn on **Sync to URL** in the selector's **Style** tab:
+
+![Sync to URL switched on in the Style tab of the parameter selector](/screenshots/tour/sync-to-url.png)
+
+Save, pick a value, and the address gains `param_year=` followed by your choice, so whoever opens the copied link starts from the same selection. Sync is off by default: a parameter reaches the URL only when its author turns it on.
+
+## 7. Share a dashboard
+
+A link opens only for people allowed to see the dashboard. In edit mode, admins set that under **Sharing**:
+
+![The Sharing panel with public access on and the demo creator added as an Editor](/screenshots/tour/share.png)
+
+- **Public access** -- anyone in the organization can view the dashboard. The demo turns it on for every showcase, which is why the reader sees all seven.
+- **People** -- add a user by email as a **Viewer** or an **Editor**. Add `creator@neoboard.local` as an Editor, sign in as the creator, and *Movie Highlights* opens for editing; without the share, the creator can only view it.
+
+## Reset the showcases
+
+Your edits change the showcases in place. `neoboard demo list` prints their keys, `neoboard demo seed --only=movie-highlights` re-imports one and restores its layout, and `neoboard demo seed` re-imports them all. `neoboard demo reset --force` deletes the showcases and drops the `neoboard_demo_public` schema instead.
 
 ## Default ports
 
@@ -81,4 +156,4 @@ node cli/dist/index.js stop --volumes
 node cli/dist/index.js demo
 ```
 
-Port conflicts, a stopped Docker daemon and containers that will not start are covered in [Troubleshooting](/start-here/troubleshooting); every command and flag is in the [CLI reference](/cli/commands).
+When you are ready to build your own, continue with [Your first dashboard](/start-here/first-dashboard); the demo's **Neo4j Movies** connection is already there to query. Port conflicts, a stopped Docker daemon and containers that will not start are covered in [Troubleshooting](/start-here/troubleshooting); every command and flag is in the [CLI reference](/cli/commands).

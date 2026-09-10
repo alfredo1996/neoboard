@@ -13,6 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import { SHOWCASES } from "../demo/showcases.mjs";
 
 // Guards against documentation that describes software we did not write.
 //
@@ -1104,5 +1105,111 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
         text.match(/plugin add neoboard-connector-mongodb|Example\s*\|/g) ?? [],
     );
     expect(phantom).toEqual([]);
+  });
+});
+
+describe("Tour NeoBoard with demo data (#1682)", () => {
+  // `neoboard demo` was documented as a command-table row, and the hand-taken
+  // screenshots in docs/public/screenshots drift with every UI change. The
+  // tour's images are written by app/e2e/showcase.walkthrough.ts instead —
+  // regenerate them from app/ with
+  //   DOCS_SCREENSHOTS=1 npx playwright test --config playwright.showcase.config.ts
+  // — so the page, the spec and the committed files must name the same
+  // images, and the page must name the logins and showcases the demo creates.
+  const PAGE = "docs/src/content/docs/start-here/tour.mdx";
+  const SHOTS_DIR = join(ROOT, "docs/public/screenshots/tour");
+  const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
+  const text = (p) => DOCS.find(({ path }) => path === p)?.text ?? "";
+  const walkthrough = () =>
+    readFileSync(join(ROOT, "app/e2e/showcase.walkthrough.ts"), "utf8");
+
+  it("references only images that exist under docs/public", () => {
+    // The link checks above only follow leading-slash `](/x.png)` targets. An
+    // `<img src>` or a relative image path passes them and renders broken.
+    const missing = [];
+    let seen = 0;
+    for (const { path, text: body } of DOCS)
+      for (const m of body.matchAll(
+        /!\[[^\]]*\]\(\s*<?([^)\s>]+)>?[^)]*\)|<img\b[^>]*?\ssrc=["']([^"']+)["']/g,
+      )) {
+        seen++;
+        const src = (m[1] ?? m[2]).replace(/[?#].*$/, "");
+        if (/^(https?:|data:)/.test(src)) continue;
+        if (!src.startsWith("/") || !existsSync(join(ROOT, "docs/public", src)))
+          missing.push(`${src} (${path})`);
+      }
+    expect(seen).toBeGreaterThan(0); // the image regex still matches
+    expect(missing).toEqual([]);
+  });
+
+  it("shows exactly the screenshots the walkthrough writes, committed at 1280x1024", () => {
+    const written = [
+      ...new Set(
+        [...walkthrough().matchAll(/docsShot\(\s*page,\s*"([\w-]+)"\s*\)/g)].map(
+          (m) => `${m[1]}.png`,
+        ),
+      ),
+    ].sort();
+    expect(written.length).toBeGreaterThan(0); // the call regex still matches
+    const shown = [
+      ...new Set(
+        [...page().matchAll(/\(\/screenshots\/tour\/([\w-]+\.png)\)/g)].map(
+          (m) => m[1],
+        ),
+      ),
+    ].sort();
+    expect(shown).toEqual(written);
+    // A renamed shot leaves its old file behind unless the directory is held
+    // to the list.
+    expect(
+      readdirSync(SHOTS_DIR)
+        .filter((f) => f.endsWith(".png"))
+        .sort(),
+    ).toEqual(written);
+    for (const name of written) {
+      // PNG IHDR: width and height are big-endian uint32s at bytes 16 and 20.
+      const png = readFileSync(join(SHOTS_DIR, name));
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)], name).toEqual([
+        1280, 1024,
+      ]);
+    }
+  });
+
+  it("regenerates the images only when asked, in the light theme", () => {
+    // Ungated, every showcase run would overwrite the committed images.
+    const spec = walkthrough();
+    expect(spec).toMatch(
+      /test\.skip\(\s*process\.env\.DOCS_SCREENSHOTS !== "1"/,
+    );
+    expect(spec).toMatch(/colorScheme:\s*"light"/);
+  });
+
+  it("is the Start here tour, offered from Install and Your first dashboard", () => {
+    expect(page().match(/^title:\s*(.+)$/m)?.[1]).toBe(
+      "Tour NeoBoard with demo data",
+    );
+    for (const from of ["install", "first-dashboard"])
+      expect(text(`docs/src/content/docs/start-here/${from}.mdx`)).toContain(
+        "](/start-here/tour)",
+      );
+  });
+
+  it("gives the logins `neoboard demo` prints, not invented ones", () => {
+    const cli = readFileSync(join(ROOT, "cli/src/commands/demo.ts"), "utf8");
+    const printed = [...cli.matchAll(/(\w+@neoboard\.local) \/ (\w+)/g)].map(
+      (m) => `${m[1]} ${m[2]}`,
+    );
+    expect(printed.length).toBeGreaterThan(0); // the banner regex still matches
+    const documented = [
+      ...page().matchAll(/`(\w+@neoboard\.local)`\s*\|\s*`(\w+)`/g),
+    ].map((m) => `${m[1]} ${m[2]}`);
+    expect(documented).toEqual(printed);
+  });
+
+  it("walks every showcase `neoboard demo` seeds", () => {
+    expect(SHOWCASES.length).toBeGreaterThan(0);
+    expect(
+      SHOWCASES.map((s) => s.label).filter((label) => !page().includes(label)),
+    ).toEqual([]);
   });
 });
