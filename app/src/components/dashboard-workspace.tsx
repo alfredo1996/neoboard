@@ -35,6 +35,7 @@ import {
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
 import { classifySaveError } from "@/lib/dashboard/save-error";
+import { buildShareLink } from "@/lib/dashboard/share-link";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
 import { DashboardViewToolbar } from "@/components/dashboard-view-toolbar";
@@ -264,6 +265,37 @@ export function DashboardWorkspace({
     syncUrl(useParameterStore.getState());
     return useParameterStore.subscribe(syncUrl);
   }, [pathname, router, syncParams]);
+
+  // "Copy link with current filters" (#1691). Reads the store directly rather
+  // than the `parameters` selector below so the handler's identity does not
+  // churn on every keystroke in a text filter.
+  const handleCopyLink = useCallback(async () => {
+    const { url, unsynced } = buildShareLink(
+      window.location.origin,
+      pathname,
+      useParameterStore.getState().parameters,
+      syncParams ?? new Set(),
+    );
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Insecure context or permission denied — hand the link over anyway.
+      toast({
+        title: "Couldn't copy the link",
+        description: url,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast(
+      unsynced.length === 0
+        ? { title: "Link copied" }
+        : {
+            title: "Link copied",
+            description: `Not included: ${unsynced.join(", ")}. Turn on "Sync to URL" in each widget's editor to share them.`,
+          },
+    );
+  }, [pathname, syncParams, toast]);
   const activeLayout = editMode ? layout : (serverLayout ?? layout);
   const safeIndex = Math.max(
     0,
@@ -707,6 +739,7 @@ export function DashboardWorkspace({
           parameterCount={parameterCount}
           showParameterBar={effectiveShowBar}
           onToggleParameterBar={toggleParameterBar}
+          onCopyLink={handleCopyLink}
           isEnteringEdit={isPending}
           onBack={() => router.push("/")}
           onEdit={() => startTransition(enterEditMode)}

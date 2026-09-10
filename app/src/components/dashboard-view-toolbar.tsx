@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { ArrowLeft, Filter, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, Filter, Link, Pencil, RefreshCw } from "lucide-react";
 import { ShortcutHint } from "@/components/shortcut-hint";
 import { useCountdown } from "@/hooks/use-countdown";
 import {
@@ -48,6 +48,8 @@ interface DashboardViewToolbarProps {
   parameterCount: number;
   showParameterBar: boolean;
   onToggleParameterBar: () => void;
+  /** #1691: copy the dashboard URL with every URL-synced parameter applied. */
+  onCopyLink: () => void;
   isEnteringEdit: boolean;
   onBack: () => void;
   onEdit: () => void;
@@ -72,6 +74,7 @@ export function DashboardViewToolbar({
   parameterCount,
   showParameterBar,
   onToggleParameterBar,
+  onCopyLink,
   isEnteringEdit,
   onBack,
   onEdit,
@@ -142,6 +145,17 @@ export function DashboardViewToolbar({
               {parameterCount}
             </span>
           )}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onCopyLink}
+          aria-label="Copy link with current filters"
+          title="Copy link with current filters"
+        >
+          <Link className="mr-2 h-4 w-4" />
+          Copy link
         </Button>
         {canEdit && (
           <>

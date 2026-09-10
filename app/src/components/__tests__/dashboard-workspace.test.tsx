@@ -123,6 +123,7 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "d1" }),
 }));
 
+const mockToast = vi.fn();
 const mockUseSession = vi.fn();
 vi.mock("next-auth/react", () => ({
   useSession: () => mockUseSession(),
@@ -334,7 +335,7 @@ vi.mock("@neoboard/components", () => {
     ),
     ConfirmDialog: ({ open, title }: { open?: boolean; title?: string }) =>
       open ? <div role="dialog">{title}</div> : null,
-    useToast: () => ({ toast: vi.fn(), dismiss: vi.fn() }),
+    useToast: () => ({ toast: mockToast, dismiss: vi.fn() }),
     cn: (...classes: unknown[]) => classes.filter(Boolean).join(" "),
   };
 });
@@ -1355,6 +1356,124 @@ describe("DashboardWorkspace", () => {
       "pw1",
     );
     expect(mockReplace).toHaveBeenCalledWith("/d1", { scroll: false });
+  });
+
+  // ── #1691: "Copy link with current filters" ─────────────────────────
+  // The link carries exactly what the address bar would: opted-in parameters
+  // only. Everything else the user has set is named in the toast, so they can
+  // see what the recipient will NOT get and where to fix it.
+  function withMixedSyncParams() {
+    const d = withSyncableParam();
+    d.layoutJson.pages[0].widgets.push({
+      id: "pw2",
+      chartType: "parameter-select",
+      connectionId: "c1",
+      query: "",
+      settings: { chartOptions: { parameterName: "region", syncToUrl: false } },
+    } as unknown as (typeof d.layoutJson.pages)[0]["widgets"][0]);
+    return d;
+  }
+
+  function setBothParams() {
+    const store = useParameterStore.getState();
+    store.setParameter(
+      "dept",
+      "Sales",
+      "Sales",
+      "dept",
+      "text",
+      "selector-widget",
+      "pw1",
+    );
+    store.setParameter(
+      "region",
+      "EMEA",
+      "EMEA",
+      "region",
+      "text",
+      "selector-widget",
+      "pw2",
+    );
+  }
+
+  function stubClipboard(writeText: () => Promise<void>) {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    return writeText;
+  }
+
+  it("copies a link with the synced parameters and names the rest", async () => {
+    dashboard = withMixedSyncParams();
+    const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined));
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    setBothParams();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link with current filters" }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith(
+      "http://localhost:3000/d1?param_dept=Sales",
+    );
+    expect(mockToast).toHaveBeenCalledTimes(1);
+    const arg = mockToast.mock.calls[0][0];
+    expect(arg.title).toBe("Link copied");
+    expect(String(arg.description)).toContain("region");
+    expect(String(arg.description)).toContain("Sync to URL");
+    expect(String(arg.description)).not.toContain("dept");
+  });
+
+  it("copies a plain confirmation when every set parameter is in the link", async () => {
+    dashboard = withSyncableParam();
+    const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined));
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    useParameterStore
+      .getState()
+      .setParameter(
+        "dept",
+        "Sales",
+        "Sales",
+        "dept",
+        "text",
+        "selector-widget",
+        "pw1",
+      );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link with current filters" }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith(
+      "http://localhost:3000/d1?param_dept=Sales",
+    );
+    expect(mockToast).toHaveBeenCalledWith({ title: "Link copied" });
+  });
+
+  it("shows the link in an error toast when the clipboard is unavailable", async () => {
+    dashboard = withSyncableParam();
+    stubClipboard(vi.fn().mockRejectedValue(new Error("denied")));
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy link with current filters" }),
+    );
+
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        description: "http://localhost:3000/d1",
+      }),
+    );
+  });
+
+  it("offers the copy-link button only in view mode", () => {
+    pathname = "/d1/edit";
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(
+      screen.queryByRole("button", { name: "Copy link with current filters" }),
+    ).toBeNull();
   });
 
   // ── Toolbar odds and ends ───────────────────────────────────────────
