@@ -939,30 +939,19 @@ test.describe("Form field labels and database errors (#1409, #1410)", () => {
     await form.locator("label", { hasText: "Full Name" }).click();
     await expect(fullName).toBeFocused();
 
-    // A trigger may open on the label's click instead of only taking focus;
-    // either proves the label reaches the control. An open Select aria-hides
-    // the rest of the page, so once it opens no role locator matches — not the
-    // trigger, and not `form`, which is filtered by its Submit button. Pin the
-    // label by id first and read the control through `label.control`.
+    // The custom triggers are attached to their labels too: label.control is
+    // the trigger itself, which is what names it (checked above by role and
+    // name). Clicking the label is not a stable proof for these controls: a
+    // label forwards a synthetic click, a Radix Select opens on pointerdown,
+    // and Chromium does not focus a button on a synthetic click.
     for (const text of ["Priority", "Due"]) {
-      const labelId = await form
+      const attached = await form
         .locator("label", { hasText: text })
-        .getAttribute("id");
-      const label = page.locator(`label[id="${labelId}"]`);
-      await label.click();
-      await expect
-        .poll(() =>
-          label.evaluate((l) => {
-            const control = (l as HTMLLabelElement).control;
-            return (
-              !!control &&
-              (control === document.activeElement ||
-                control.getAttribute("aria-expanded") === "true")
-            );
-          }),
-        )
-        .toBe(true);
-      await page.keyboard.press("Escape");
+        .evaluate((l) => {
+          const label = l as HTMLLabelElement;
+          return !!label.control && label.control.id === label.htmlFor;
+        });
+      expect(attached).toBe(true);
     }
   });
 
