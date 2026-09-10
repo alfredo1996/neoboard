@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join, relative } from "node:path";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, relative } from "node:path";
 
 // Guards against documentation that describes software we did not write.
 //
@@ -838,5 +845,75 @@ describe("air-gapped install (#1683)", () => {
     );
     expect(/openstreetmap/i.test(section)).toBe(/openstreetmap/.test(tile));
     expect(/carto/i.test(section)).toBe(/carto/i.test(tile));
+  });
+});
+
+describe("the connector-author page compiles against the SDK (#1697)", () => {
+  // The page predated @neoboard/connector-sdk: it imported from core-relative
+  // paths, told authors to edit connector-registry.ts, and its runQuery
+  // called `callbacks.setRecords` / `setError` — neither exists on
+  // QueryCallback. Every one of those is a type error, so the compiler is
+  // the check: each ```ts block names its file on line 1, the blocks are
+  // written out as one package, and tsc runs them against connector-sdk/src
+  // (mapped by the fixture tsconfig). Pseudo-code therefore may not use
+  // ```ts — a shape sketch goes in prose or a ```txt fence.
+  const PAGE = "docs/src/content/docs/extend/new-connector-plugin.mdx";
+  const FIXTURE = join(ROOT, "scripts/__tests__/fixtures/docs-ts-blocks");
+  const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
+  const tsBlocks = () =>
+    [...page().matchAll(/```ts[^\n]*\n([\s\S]*?)```/g)].map((m) => m[1]);
+
+  it("names the file on the first line of every ```ts block", () => {
+    const blocks = tsBlocks();
+    expect(blocks.length).toBeGreaterThan(3); // the fence regex still matches
+    const unnamed = blocks
+      .filter((code) => !/^\/\/ [\w./-]+\.ts(\s|$)/.test(code))
+      .map((code) => code.split("\n")[0]);
+    expect(unnamed).toEqual([]);
+  });
+
+  it("typechecks the blocks as one package against connector-sdk/src", () => {
+    // Inside the repo (not os.tmpdir) so `vitest` and `@types/node` resolve
+    // by walking up to the root node_modules; the SDK itself is mapped to
+    // its source by the fixture tsconfig, so no build is needed.
+    const out = join(FIXTURE, ".out");
+    rmSync(out, { recursive: true, force: true });
+    try {
+      for (const [i, code] of tsBlocks().entries()) {
+        const name = code.match(/^\/\/ ([\w./-]+\.ts)/)?.[1] ?? `block-${i}.ts`;
+        const file = join(out, name);
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, code);
+      }
+      writeFileSync(
+        join(out, "tsconfig.json"),
+        JSON.stringify({ extends: "../tsconfig.json", include: ["**/*.ts"] }),
+      );
+      const tsc = spawnSync(
+        process.execPath,
+        [join(ROOT, "node_modules/typescript/bin/tsc"), "-p", out],
+        { encoding: "utf8" },
+      );
+      expect(tsc.stdout + tsc.stderr).toBe("");
+      expect(tsc.status).toBe(0);
+    } finally {
+      rmSync(out, { recursive: true, force: true });
+    }
+  });
+
+  it("lists no community connector that does not exist", () => {
+    // PLUGINS.md and the Community page both offered
+    // `neoboard plugin add neoboard-connector-mongodb` as an "Example". No
+    // such package or repo exists; the command fails at npm install. The
+    // MongoDB connector is planned (#1702) and is listed as such.
+    const phantom = [
+      readFileSync(join(ROOT, "PLUGINS.md"), "utf8"),
+      DOCS.find(({ path }) => path.endsWith("/extend/community.mdx"))?.text ??
+        "",
+    ].flatMap(
+      (text) =>
+        text.match(/plugin add neoboard-connector-mongodb|Example\s*\|/g) ?? [],
+    );
+    expect(phantom).toEqual([]);
   });
 });

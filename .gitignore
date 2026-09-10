@@ -110,3 +110,6 @@ docker/.env
 
 # Staged by cli/scripts/stage-compose.mjs at prepack; never committed (#1315)
 cli/docker/
+
+# Scratch output of the docs-accuracy typecheck (#1697); removed after each run
+scripts/__tests__/fixtures/docs-ts-blocks/.out/

@@ -13,7 +13,7 @@ connector works everywhere in NeoBoard without forking the app.
   `createModule`, optional `formFields` for the connection UI, query
   language, allowed protocols).
 - **`ConnectionModule` / `AuthenticationModule`** — base classes a connector
-  implements for connect / query / cancel.
+  implements for connect / query / schema.
 - **Query-safety helpers** — the invariants every connector must uphold:
   read-only access modes, the `MAX_ROWS + 1` row-limit pattern, statement
   timeouts, and cancellation.
@@ -26,10 +26,7 @@ connector works everywhere in NeoBoard without forking the app.
 ## Quick start
 
 ```ts
-import {
-  type ConnectorPlugin,
-  registerConnector,
-} from "@neoboard/connector-sdk";
+import type { ConnectorPlugin } from "@neoboard/connector-sdk";
 
 const mysqlPlugin: ConnectorPlugin = {
   type: "mysql",
@@ -47,8 +44,13 @@ const mysqlPlugin: ConnectorPlugin = {
   },
 };
 
-registerConnector(mysqlPlugin);
+export default mysqlPlugin;
 ```
+
+NeoBoard loads the package through `neoboard-connectors.json` (`neoboard plugin
+add <package>` from a checkout) and registers the default export at startup.
+The full walkthrough — connection module, query-safety invariants, conformance
+harness — is the [connector plugin guide](https://alfredo1996.github.io/neoboard/extend/new-connector-plugin/).
 
 The built-in `neo4j` and `postgresql` connectors in `@neoboard/connection`
 are themselves built on this SDK — see them for complete reference

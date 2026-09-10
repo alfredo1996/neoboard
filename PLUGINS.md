@@ -34,9 +34,9 @@ NeoBoard's plugin system lets you extend the platform with custom chart types an
 
 ## Community Connectors
 
-| Name    | Author    | Install                                          | Status     |
-| ------- | --------- | ------------------------------------------------ | ---------- |
-| MongoDB | @neoboard | `neoboard plugin add neoboard-connector-mongodb` | 📘 Example |
+| Name    | Author | Install                                                                          | Status     |
+| ------- | ------ | -------------------------------------------------------------------------------- | ---------- |
+| MongoDB | —      | Not published yet — [#1702](https://github.com/alfredo1996/neoboard/issues/1702) | 🔵 Planned |
 
 > Want to add yours? See [Publishing Your Plugin](#publishing-your-plugin) below.
 
@@ -65,6 +65,7 @@ NeoBoard's plugin system lets you extend the platform with custom chart types an
 - 🟢 **Maintained** — Actively maintained, compatible with latest NeoBoard
 - 🟡 **Experimental** — Working but may have rough edges
 - 🔴 **Archived** — No longer maintained
+- 🔵 **Planned** — Tracked in an issue; no package to install yet
 
 ## Plugin Compatibility
 
