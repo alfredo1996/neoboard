@@ -58,8 +58,14 @@ describe("GET /api/docs", () => {
       const url = `https://unpkg.com/swagger-ui-dist@5.18.2/${file}"`;
       const matching = tags.filter((t) => t.includes(url));
       expect(matching).toHaveLength(1);
-      expect(matching[0]).toContain(`integrity="${hash}"`);
-      expect(matching[0]).toContain('crossorigin="anonymous"');
+      // Anchored on whitespace and counted: data-integrity= is ignored by the
+      // browser, and with a duplicate attribute the browser uses the first.
+      expect(matching[0].match(/\sintegrity="[^"]*"/g)).toEqual([
+        ` integrity="${hash}"`,
+      ]);
+      expect(matching[0].match(/\scrossorigin="[^"]*"/g)).toEqual([
+        ' crossorigin="anonymous"',
+      ]);
     },
   );
 
@@ -67,6 +73,9 @@ describe("GET /api/docs", () => {
     const body = await (await GET()).text();
     const external = body.match(/<(?:script|link)\b[^>]*https?:\/\/[^>]*>/g) ?? [];
     expect(external).toHaveLength(3);
-    for (const t of external) expect(t).toMatch(/integrity="sha384-/);
+    for (const t of external) {
+      expect(t.match(/\sintegrity="[^"]*"/g)).toHaveLength(1);
+      expect(t).toMatch(/\sintegrity="sha384-[A-Za-z0-9+/]{64}"/);
+    }
   });
 });
