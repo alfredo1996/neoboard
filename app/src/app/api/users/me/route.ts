@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { auditRequest } from "@/lib/audit/audit";
 
 /** GET /api/users/me — return current user profile */
 export async function GET() {
@@ -57,6 +58,15 @@ export async function PUT(req: Request) {
     .update(users)
     .set({ name: parsed.data.name })
     .where(eq(users.id, session.userId));
+
+  auditRequest(req, {
+    tenantId: session.tenantId,
+    userId: session.userId,
+    action: "user.profile.update",
+    resourceType: "user",
+    resourceId: session.userId,
+    details: { fields: Object.keys(parsed.data) },
+  });
 
   return NextResponse.json({ data: { success: true } });
 }

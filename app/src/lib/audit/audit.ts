@@ -30,6 +30,8 @@ export type AuditAction =
   | "user.disable"
   | "user.role.change"
   | "user.password.reset"
+  | "user.password.change"
+  | "user.profile.update"
   | "key.create"
   | "key.revoke"
   | "admin.key.rotate"

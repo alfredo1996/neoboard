@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { auditRequest } from "@/lib/audit/audit";
 import { unstable_update } from "@/lib/auth/config";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 
@@ -67,6 +68,15 @@ export async function PUT(req: Request) {
       passwordChangedAt: new Date(),
     })
     .where(eq(users.id, session.userId));
+
+  auditRequest(req, {
+    tenantId: session.tenantId,
+    userId: session.userId,
+    action: "user.password.change",
+    resourceType: "user",
+    resourceId: session.userId,
+    // Never the password — current, new, or hashed.
+  });
 
   // Re-issue the session cookie in this response. The proxy decodes the raw
   // JWT cookie (getToken never hits the DB), so without this the stale
