@@ -124,9 +124,19 @@ describe("buildCategoryAxisLabel", () => {
     });
 
     it("falls back to the default length before the width is measured", () => {
-      const fmt = buildCategoryAxisLabel(3, { categoryAxis: "y" })
+      const fmt = buildCategoryAxisLabel(10, { categoryAxis: "y" })
         .formatter as (value: string) => string;
       expect(fmt("This is a very long label text")).toBe("This is a very\u2026");
+    });
+
+    it("leaves fewer than 8 names whole where they were whole before", () => {
+      expect(
+        buildCategoryAxisLabel(5, { containerWidth: 450, categoryAxis: "y" })
+          .formatter,
+      ).toBeUndefined();
+      expect(
+        buildCategoryAxisLabel(3, { categoryAxis: "y" }).formatter,
+      ).toBeUndefined();
     });
   });
 });

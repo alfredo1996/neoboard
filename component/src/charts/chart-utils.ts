@@ -460,9 +460,10 @@ export function buildCategoryAxisLabel(
       ? Math.min(maxLabelLength, 10)
       : maxLabelLength;
   const needsTruncation =
-    categoryAxis === "y" ||
     categoryCount >= 8 ||
     (containerWidth !== undefined && containerWidth < 400);
+  // Where truncation applies, a "y" axis budgets against the left gutter
+  // instead of the fixed length; fewer names in a wide card stay whole.
   // ponytail: ~7px per char at 12px font, gutter capped at a third of the
   // width. A pixel-measured `overflow: "truncate"` is the upgrade if the
   // estimate proves too coarse for wide glyphs.
