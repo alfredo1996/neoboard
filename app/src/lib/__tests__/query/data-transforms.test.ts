@@ -432,6 +432,91 @@ describe("applyTransforms", () => {
     });
   });
 
+  // #1415 — derived numbers used to carry IEEE-754 noise straight into the
+  // table: `price - cost` over 463.45/283.66 rendered 179.78999999999996.
+  describe("float artifacts (#1415)", () => {
+    const calc = (data: Record<string, unknown>[], expression: string) =>
+      applyTransforms(data, [
+        { type: "calculatedColumn", name: "out", expression },
+      ]).map((r) => r.out);
+
+    it("subtracting two-decimal money yields two-decimal money", () => {
+      const data = [
+        { price: 463.45, cost: 283.66 },
+        { price: 462.52, cost: 296.68 },
+        { price: 507.68, cost: 290.14 },
+      ];
+      expect(calc(data, "price - cost")).toEqual([179.79, 165.84, 217.54]);
+    });
+
+    it("accepts numeric strings, as node-pg returns NUMERIC", () => {
+      expect(
+        calc([{ price: "463.45", cost: "283.66" }], "price - cost"),
+      ).toEqual([179.79]);
+    });
+
+    it("keeps an expression over integer columns an integer", () => {
+      const [out] = calc([{ a: 7, b: 3 }], "a * b - a");
+      expect(out).toBe(14);
+      expect(Number.isInteger(out)).toBe(true);
+    });
+
+    it("keeps the full precision of a product (decimals add up)", () => {
+      // 1.1 * 1.1 is 1.2100000000000002 in IEEE-754; the exact answer has 2dp.
+      expect(calc([{ a: 1.1 }], "a * a")).toEqual([1.21]);
+      // One-decimal operands must not truncate a two-decimal product.
+      expect(calc([{ a: 0.5 }], "a * 0.5")).toEqual([0.25]);
+    });
+
+    it("does not truncate a genuine ratio", () => {
+      const [out] = calc([{ a: 1, b: 3 }], "a / b");
+      expect(out).toBeCloseTo(1 / 3, 14);
+    });
+
+    it("strips the noise from a ratio that terminates", () => {
+      // 0.3 / 0.1 is 2.9999999999999996 in IEEE-754.
+      expect(calc([{ a: 0.3, b: 0.1 }], "a / b")).toEqual([3]);
+    });
+
+    it("does not zero out a very small value", () => {
+      expect(calc([{ a: 1e-120 }], "a * 2")).toEqual([2e-120]);
+    });
+
+    const groupTotals = (
+      values: unknown[],
+      fn: "sum" | "avg" | "min" | "max",
+    ) =>
+      applyTransforms(
+        values.map((total) => ({ k: "x", total })),
+        [
+          {
+            type: "groupBy",
+            column: "k",
+            aggregations: [{ column: "total", fn }],
+          },
+        ],
+      )[0][`total_${fn}`];
+
+    it("sums two-decimal money to two decimals", () => {
+      expect(groupTotals([0.1, 0.2], "sum")).toBe(0.3);
+    });
+
+    it("does not let noise accumulate over many rows", () => {
+      // Summing 0.01 ten thousand times drifts to 100.00000000001425 — far
+      // enough that rounding to 15 significant digits would not remove it.
+      expect(groupTotals(Array(10_000).fill(0.01), "sum")).toBe(100);
+    });
+
+    it("averages without noise when the mean terminates", () => {
+      // (0.1 + 0.1 + 0.1) / 3 is 0.10000000000000002 in IEEE-754.
+      expect(groupTotals([0.1, 0.1, 0.1], "avg")).toBe(0.1);
+    });
+
+    it("does not truncate a non-terminating average", () => {
+      expect(groupTotals([1, 1, 2], "avg")).toBeCloseTo(4 / 3, 14);
+    });
+  });
+
   describe("renameColumns", () => {
     it("renames columns", () => {
       const transforms: Transform[] = [

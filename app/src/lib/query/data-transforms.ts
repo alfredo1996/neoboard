@@ -119,6 +119,42 @@ function matchesFilter(
 }
 
 // ---------------------------------------------------------------------------
+// Float noise (#1415)
+// ---------------------------------------------------------------------------
+
+/** Decimal places in a number's shortest representation: 1.25 → 2, 1.5e-7 → 8. */
+function decimalsOf(n: number): number {
+  const [mantissa, exponent = "0"] = String(n).split("e");
+  const fraction = mantissa.split(".")[1]?.length ?? 0;
+  return Math.max(0, fraction - Number(exponent));
+}
+
+/**
+ * Strip IEEE-754 noise from a number this pipeline derived, keeping it a
+ * number so later filters and sorts compare the exact value. `scale` is the
+ * most decimals the exact answer can have (463.45 − 283.66 has 2), so rounding
+ * to it recovers that answer: 179.78999999999996 → 179.79. `null` means
+ * unbounded (a quotient): only the digits past double precision go, so 1/3
+ * keeps 15 significant digits. Display rounding stays with `decimalPlaces`.
+ */
+function settle(n: number, scale: number | null): number {
+  if (!Number.isFinite(n)) return n;
+  // toFixed takes at most 100 digits; a value that small falls back.
+  return scale === null || scale > 100
+    ? Number(n.toPrecision(15))
+    : Number(n.toFixed(scale));
+}
+
+/** A sum rounded to its most precise addend, so noise cannot accumulate. */
+function sumOf(nums: number[]): number {
+  const scale = nums.reduce((d, n) => Math.max(d, decimalsOf(n)), 0);
+  return settle(
+    nums.reduce((a, b) => a + b, 0),
+    scale,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Individual transform functions
 // ---------------------------------------------------------------------------
 
@@ -194,11 +230,11 @@ function applyGroupBy(data: Row[], t: GroupByTransform): Row[] {
           aggregated[outKey] = values.length;
           break;
         case "sum":
-          aggregated[outKey] = nums.reduce((a, b) => a + b, 0);
+          aggregated[outKey] = sumOf(nums);
           break;
         case "avg":
           aggregated[outKey] = nums.length
-            ? nums.reduce((a, b) => a + b, 0) / nums.length
+            ? settle(sumOf(nums) / nums.length, null)
             : 0;
           break;
         case "min":
@@ -272,6 +308,8 @@ function safeEvaluateExpression(
   // Pass 1: resolve * and / into intermediate values
   // Pass 2: resolve + and -
   const values: (number | null)[] = [resolveToken(tokens[0])];
+  // Decimals each value can carry exactly; null once a division is involved.
+  const scales: (number | null)[] = [decimalsOf(values[0] ?? 0)];
   const ops: string[] = [];
 
   for (let i = 1; i < tokens.length; i += 2) {
@@ -280,14 +318,20 @@ function safeEvaluateExpression(
     if (right === null || values[values.length - 1] === null) return null;
 
     if (op === "*" || op === "/") {
-      const left = values[values.length - 1]!;
+      const last = values.length - 1;
+      const left = values[last]!;
+      const leftScale = scales[last];
       if (op === "*") {
-        values[values.length - 1] = left * right;
+        values[last] = left * right;
+        scales[last] =
+          leftScale === null ? null : leftScale + decimalsOf(right);
       } else {
-        values[values.length - 1] = right !== 0 ? left / right : Infinity;
+        values[last] = right !== 0 ? left / right : Infinity;
+        scales[last] = null;
       }
     } else if (op === "+" || op === "-") {
       values.push(right);
+      scales.push(decimalsOf(right));
       ops.push(op);
     } else {
       return null;
@@ -296,15 +340,21 @@ function safeEvaluateExpression(
 
   // Pass 2: evaluate + and - left-to-right
   let result = values[0];
+  let scale = scales[0];
   if (result === null) return null;
 
   for (let i = 0; i < ops.length; i++) {
     const right = values[i + 1];
+    const rightScale = scales[i + 1];
     if (right === null) return null;
     result = ops[i] === "+" ? result! + right : result! - right;
+    scale =
+      scale === null || rightScale === null
+        ? null
+        : Math.max(scale, rightScale);
   }
 
-  return result;
+  return settle(result, scale);
 }
 
 function applyCalculatedColumn(

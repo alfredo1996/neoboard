@@ -130,6 +130,39 @@ test.describe("Data Transforms", () => {
     for (const year of years) expect(year).toBeGreaterThan(2000);
   });
 
+  test("a calculated column renders exact money, not float noise (#1415)", async ({
+    page,
+  }) => {
+    // 463.45 − 283.66 is 179.78999999999996 in IEEE-754, and the table used to
+    // print exactly that.
+    test.setTimeout(120_000);
+    const dialog = await setupWidgetWithQuery(page, {
+      chartType: "Data Table",
+      query:
+        "UNWIND [[463.45, 283.66], [462.52, 296.68], [507.68, 290.14]] AS r RETURN r[0] AS price, r[1] AS cost",
+    });
+
+    const preview = getPreview(dialog);
+    await expect(preview.locator("tbody tr")).toHaveCount(3);
+
+    await dialog.getByRole("tab", { name: "Transform" }).click();
+    const panel = dialog.getByRole("tabpanel");
+    // With no cards yet, the only combobox is the type picker next to Add.
+    await panel.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: /^Calculated Column/ }).click();
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.getByText("1. Calculated Column")).toBeVisible();
+    await panel
+      .getByPlaceholder("e.g. salary * 0.1 or col + $param_rate")
+      .fill("price - cost");
+
+    // The derived column is appended after price and cost.
+    await expect(preview.locator("tbody tr td:nth-child(3)")).toHaveText(
+      ["179.79", "165.84", "217.54"],
+      { timeout: 15_000 },
+    );
+  });
+
   test("Add a filter transform — card appears with fields", async ({
     page,
   }) => {
