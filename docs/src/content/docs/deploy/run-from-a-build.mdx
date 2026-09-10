@@ -93,10 +93,12 @@ A first foreground run, to watch the boot migration create the schema:
 
 ```bash
 cd /opt/neoboard
-sudo -u neoboard env $(sudo cat /etc/neoboard.env) \
+# Read the file as root, then drop to neoboard for the process. Nothing here
+# puts a secret on a command line, where sudo would log it and ps would show it.
+sudo bash -c 'set -a; . /etc/neoboard.env; set +a
   NODE_ENV=production MIGRATE_ON_START=1 \
   MIGRATIONS_DIR=/opt/neoboard/app/drizzle/migrations \
-  node app/server.js
+  exec setpriv --reuid=neoboard --regid=neoboard --init-groups node app/server.js'
 ```
 
 ```bash

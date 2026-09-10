@@ -56,9 +56,12 @@ function requiredFromRegistry() {
     join(ROOT, "app/src/lib/env-config.ts"),
     "utf8",
   );
-  return [
+  const keys = [
     ...registry.matchAll(/key:\s*"([A-Z0-9_]+)"[^}]*?required:\s*true/gs),
   ].map((m) => m[1]);
+  if (keys.length === 0)
+    throw new Error("env-config.ts parse found no required keys");
+  return keys;
 }
 
 describe("docs accuracy guards (#1316)", () => {
@@ -102,7 +105,6 @@ describe("docs accuracy guards (#1316)", () => {
     // snippets left out API_KEY_HMAC_SECRET, which env-config marks required,
     // so a deployment that followed the page failed startup validation.
     const required = requiredFromRegistry();
-    expect(required.length).toBeGreaterThan(0); // the regex still matches
 
     const documented = new Set(
       backtickedTokens()
@@ -722,6 +724,19 @@ describe("production options: Run from a build (#1679)", () => {
     expect(foreground).not.toMatch(/ENCRYPTION_KEY=/);
     // The token lives in a 0600 root file; the reader is told how to see it.
     expect(option1).toMatch(/grep ADMIN_BOOTSTRAP_TOKEN \/etc\/neoboard\.env/);
+  });
+
+  it("never expands the env file onto a command line", () => {
+    // `env $(sudo cat /etc/neoboard.env)` put every secret in sudo's argv:
+    // sudo logs the full command to auth.log, and `ps` shows it to every
+    // local user for the life of the run. Source the file in a root shell
+    // and drop privileges after, as the systemd unit does.
+    for (const { path, text } of DOCS) {
+      expect(text, path).not.toMatch(/\$\((?:sudo\s+)?cat\s+[^)]*\.env\b/);
+    }
+    const foreground =
+      page().match(/```bash\n[^`]*node app\/server\.js[^`]*```/)?.[0] ?? "";
+    expect(foreground).toMatch(/\. \/etc\/neoboard\.env/);
   });
 
   it("gives every option a first admin", () => {
