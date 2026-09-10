@@ -1,5 +1,6 @@
 import { type ChartOptionDef } from "./shared";
 import { validateIframeUrl } from "./validate-iframe-url";
+import { validateIframeSandbox } from "./iframe-sandbox";
 
 export const iframeOptions: ChartOptionDef[] = [
   {
@@ -29,5 +30,6 @@ export const iframeOptions: ChartOptionDef[] = [
     category: "Security",
     description:
       "Sandbox attributes controlling what the embedded page can do. Restrict if untrusted.",
+    validate: validateIframeSandbox,
   },
 ];

@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { EmptyState } from "./empty-state";
+import { sanitizeSandbox } from "./chart-options/iframe-sandbox";
 
 export interface IframeWidgetProps {
   /** URL to embed */
@@ -34,37 +35,6 @@ function isValidUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * Allowlist of safe sandbox tokens. Any token not in this list is stripped
- * so that saved widget config cannot smuggle in dangerous combinations like
- * "allow-same-origin allow-scripts" (which lets the iframe remove its sandbox).
- */
-const SAFE_SANDBOX_TOKENS = new Set([
-  "allow-scripts",
-  "allow-popups",
-  "allow-popups-to-escape-sandbox",
-  "allow-forms",
-  "allow-modals",
-  "allow-downloads",
-  "allow-presentation",
-  "allow-orientation-lock",
-  "allow-pointer-lock",
-  "allow-top-navigation-by-user-activation",
-]);
-
-/**
- * Normalise a sandbox string by keeping only safe tokens. This prevents
- * callers (including persisted widget config) from injecting dangerous
- * tokens like "allow-same-origin" which, combined with "allow-scripts",
- * lets the embedded page remove the sandbox entirely.
- */
-function sanitizeSandbox(raw: string): string {
-  return raw
-    .split(/\s+/)
-    .filter((token) => SAFE_SANDBOX_TOKENS.has(token))
-    .join(" ");
 }
 
 function IframeWidget({
