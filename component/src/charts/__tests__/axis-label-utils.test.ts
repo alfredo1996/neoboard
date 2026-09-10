@@ -78,4 +78,55 @@ describe("buildCategoryAxisLabel", () => {
     const many = buildCategoryAxisLabel(20, { rotateOverride: -1 });
     expect(many.rotate).toBe(45);
   });
+
+  // #1420: a horizontal bar chart stacks its categories vertically, so the
+  // crowding constraint is height and the free space is the left gutter.
+  describe("category axis on y (horizontal bars)", () => {
+    it("does not auto-rotate, whatever the width or count", () => {
+      expect(
+        buildCategoryAxisLabel(10, { containerWidth: 530, categoryAxis: "y" })
+          .rotate,
+      ).toBe(0);
+      expect(buildCategoryAxisLabel(20, { categoryAxis: "y" }).rotate).toBe(0);
+      expect(
+        buildCategoryAxisLabel(10, { rotateOverride: -1, categoryAxis: "y" })
+          .rotate,
+      ).toBe(0);
+    });
+
+    it("still honours an explicit rotation", () => {
+      expect(
+        buildCategoryAxisLabel(10, {
+          containerWidth: 530,
+          rotateOverride: 45,
+          categoryAxis: "y",
+        }).rotate,
+      ).toBe(45);
+    });
+
+    it("truncates against a third of the width, not a fixed 15 chars", () => {
+      const fmt = buildCategoryAxisLabel(10, {
+        containerWidth: 530,
+        categoryAxis: "y",
+      }).formatter as (value: string) => string;
+      expect(fmt("Laurence Fishburne")).toBe("Laurence Fishburne");
+      // 530 / 3 / 7 px per char = 25 chars
+      expect(fmt("a".repeat(40))).toBe("a".repeat(24) + "\u2026");
+    });
+
+    it("keeps a 10-char floor in a very narrow container (#1247)", () => {
+      const fmt = buildCategoryAxisLabel(4, {
+        containerWidth: 150,
+        categoryAxis: "y",
+      }).formatter as (value: string) => string;
+      expect(fmt("Widget A")).toBe("Widget A");
+      expect(fmt("Electronics")).toBe("Electroni\u2026");
+    });
+
+    it("falls back to the default length before the width is measured", () => {
+      const fmt = buildCategoryAxisLabel(3, { categoryAxis: "y" })
+        .formatter as (value: string) => string;
+      expect(fmt("This is a very long label text")).toBe("This is a very\u2026");
+    });
+  });
 });

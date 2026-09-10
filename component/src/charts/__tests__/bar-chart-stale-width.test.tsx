@@ -129,3 +129,55 @@ describe("BarChart container width (#1546)", () => {
     expect(latestOptions().legend).toBeUndefined();
   });
 });
+
+describe("BarChart horizontal category labels (#1420)", () => {
+  // Movie Highlights -> "Top actors by film count": ten names, several past
+  // the old 15-char cut.
+  const actors = [
+    "Tom Hanks",
+    "Keanu Reeves",
+    "Hugo Weaving",
+    "Jack Nicholson",
+    "Meg Ryan",
+    "Tom Cruise",
+    "Carrie-Anne Moss",
+    "Laurence Fishburne",
+    "Cuba Gooding Jr.",
+    "Kevin Bacon",
+  ].map((label, i) => ({ label, value: 10 - i }));
+
+  it("leaves the labels unrotated and untruncated by default", () => {
+    render(<BarChart data={actors} orientation="horizontal" />);
+    const { axisLabel, nameGap } = latestOptions().yAxis;
+    expect(axisLabel.rotate).toBe(0);
+    expect(axisLabel.formatter("Laurence Fishburne")).toBe(
+      "Laurence Fishburne",
+    );
+    expect(nameGap).toBe(30);
+  });
+
+  it("keeps the width-based rotation for the same data vertical (#337)", () => {
+    render(<BarChart data={actors} />);
+    expect(latestOptions().xAxis.axisLabel.rotate).toBe(WIDTH_BASED_ROTATION);
+    expect(latestOptions().xAxis.nameGap).toBe(50);
+  });
+
+  it.each(["vertical", "horizontal"] as const)(
+    "honours an explicit rotation when %s",
+    (orientation) => {
+      render(
+        <BarChart
+          data={actors}
+          orientation={orientation}
+          axisLabelRotation={20}
+        />,
+      );
+      const axis =
+        orientation === "horizontal"
+          ? latestOptions().yAxis
+          : latestOptions().xAxis;
+      expect(axis.axisLabel.rotate).toBe(20);
+      expect(axis.nameGap).toBe(50);
+    },
+  );
+});

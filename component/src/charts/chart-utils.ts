@@ -387,6 +387,13 @@ export interface CategoryAxisLabelOptions {
   maxLabelLength?: number;
   /** Container width in pixels — used for width-based auto-rotation. */
   containerWidth?: number;
+  /**
+   * The axis the categories sit on (default "x"). On "y" (horizontal bars)
+   * they stack vertically, so width-per-label says nothing about crowding and
+   * the free space is the left gutter: no auto-rotation, and truncation is
+   * budgeted against the width instead of a fixed length (#1420).
+   */
+  categoryAxis?: "x" | "y";
 }
 
 export interface CategoryAxisLabelConfig {
@@ -412,7 +419,7 @@ export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
 ): CategoryAxisLabelConfig {
-  const { maxLabelLength = 15, containerWidth } = options;
+  const { maxLabelLength = 15, containerWidth, categoryAxis = "x" } = options;
   // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
   // default auto-rotation instead of receiving an invalid rotate: -1.
   const rotateOverride =
@@ -421,6 +428,8 @@ export function buildCategoryAxisLabel(
   let rotate: number;
   if (rotateOverride !== undefined) {
     rotate = rotateOverride;
+  } else if (categoryAxis === "y") {
+    rotate = 0;
   } else if (containerWidth && categoryCount > 0) {
     // Width-aware rotation: compute available space per label.
     // Rough budget: label width ≈ maxLabelLength * 7px at 12px font.
@@ -451,12 +460,20 @@ export function buildCategoryAxisLabel(
       ? Math.min(maxLabelLength, 10)
       : maxLabelLength;
   const needsTruncation =
+    categoryAxis === "y" ||
     categoryCount >= 8 ||
     (containerWidth !== undefined && containerWidth < 400);
+  // ponytail: ~7px per char at 12px font, gutter capped at a third of the
+  // width. A pixel-measured `overflow: "truncate"` is the upgrade if the
+  // estimate proves too coarse for wide glyphs.
+  const maxLength =
+    categoryAxis === "y" && containerWidth
+      ? Math.max(10, Math.floor(containerWidth / 3 / 7))
+      : effectiveMaxLength;
   const formatter = needsTruncation
     ? (value: string) =>
-        value.length > effectiveMaxLength
-          ? value.slice(0, effectiveMaxLength - 1) + "\u2026"
+        value.length > maxLength
+          ? value.slice(0, maxLength - 1) + "\u2026"
           : value
     : undefined;
 
