@@ -9,6 +9,18 @@ import { useSeedQuery } from "@/hooks/use-seed-query";
 /** Debounce delay (ms) before the typed search term is sent to the seed query. */
 export const SEED_QUERY_SEARCH_DEBOUNCE_MS = 300;
 
+/**
+ * The seed query filters on the server: the widget is searchable and the seed
+ * consumes `$param_search`. Its rows then arrive already matched, possibly on
+ * a column other than the label, and must not be filtered again (#1411).
+ */
+export function seedFiltersOnServer(
+  searchable: boolean | undefined,
+  seedQuery: string | undefined,
+): boolean {
+  return !!searchable && /\$param_search\b/.test(seedQuery ?? "");
+}
+
 export interface SeedQueryResult {
   options: { value: string; label: string; rawValue?: unknown }[];
   loading: boolean;
@@ -22,6 +34,8 @@ export interface SeedQueryResult {
   refetch: () => void;
   setSearchTerm: (term: string) => void;
   parentValue: string | undefined;
+  /** See `seedFiltersOnServer`. */
+  serverFiltered: boolean;
 }
 
 /**
@@ -131,5 +145,13 @@ export function useSeedQueryOptions(
     tenantId,
   );
 
-  return { options, loading, error, refetch, setSearchTerm, parentValue };
+  return {
+    options,
+    loading,
+    error,
+    refetch,
+    setSearchTerm,
+    parentValue,
+    serverFiltered: seedFiltersOnServer(searchable, seedQuery),
+  };
 }

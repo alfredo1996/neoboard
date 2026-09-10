@@ -1,6 +1,6 @@
 import * as React from "react";
 import { type DialogProps } from "@radix-ui/react-dialog";
-import { Command as CommandPrimitive } from "cmdk";
+import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import { Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -28,6 +28,28 @@ const Command = React.forwardRef<
   />
 ));
 Command.displayName = CommandPrimitive.displayName;
+
+/**
+ * `filter` for a `<Command>` whose items carry a machine `value` (an id) and
+ * pass their visible label as `keywords={[label]}`. Scores the label only.
+ * Scoring `value` hides an option when its id differs from its label, and
+ * making the label the `value` merges options that share a label into one
+ * cmdk identity — keyboard navigation then cannot reach the second (#1411).
+ * An item without keywords (e.g. a "Create…" row) is scored on its value.
+ */
+function filterOnLabel(value: string, search: string, keywords?: string[]) {
+  return defaultFilter(keywords?.length ? keywords.join(" ") : value, search);
+}
+
+/**
+ * cmdk identity for an option value. cmdk trims `value` and scores an empty
+ * one as 0 before any filter runs, so "" would be hidden on every search and
+ * "NY" / "NY " would collapse into one item. JSON quoting is never empty and
+ * keeps the whitespace inside the quotes.
+ */
+function toCmdkValue(value: string) {
+  return JSON.stringify(value);
+}
 
 const CommandDialog = ({ children, ...props }: DialogProps) => {
   return (
@@ -154,6 +176,8 @@ export {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  filterOnLabel,
+  toCmdkValue,
   CommandShortcut,
   CommandSeparator,
 };

@@ -419,6 +419,55 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     expect(typeof last.onSearch).toBe("function");
   });
 
+  // #1411: a seed that consumes $param_search is already filtered by the
+  // server, so the combobox must render its rows as given.
+  it("marks a searchable seed select that uses $param_search as server-filtered", () => {
+    renderForm([
+      makeField({
+        id: "s",
+        parameterName: "person",
+        parameterType: "select",
+        seedQuery:
+          "MATCH (p) WHERE p.email STARTS WITH $param_search RETURN p.id AS value",
+        searchable: true,
+      }),
+    ]);
+    const last = paramSelectorProps[paramSelectorProps.length - 1];
+    expect(last.serverFiltered).toBe(true);
+  });
+
+  it("keeps client filtering for static options even with a $param_search seed", () => {
+    renderForm([
+      makeField({
+        id: "s",
+        parameterName: "country",
+        parameterType: "select",
+        staticOptions: "US,UK",
+        seedQuery: "RETURN $param_search AS value",
+        searchable: true,
+      }),
+    ]);
+    const last = paramSelectorProps[paramSelectorProps.length - 1];
+    expect(last.serverFiltered).toBe(false);
+  });
+
+  it.each([
+    ["RETURN $param_search AS value", true],
+    ["MATCH (n) RETURN n.tag AS value", false],
+  ])("forwards serverFiltered to a searchable multi-select (%s)", (seedQuery, expected) => {
+    renderForm([
+      makeField({
+        id: "m",
+        parameterName: "tags",
+        parameterType: "multi-select",
+        seedQuery,
+        searchable: true,
+      }),
+    ]);
+    const last = paramMultiProps[paramMultiProps.length - 1];
+    expect(last.serverFiltered).toBe(expected);
+  });
+
   it("passes a plain select's parentParameterName through as undefined", () => {
     renderForm([
       makeField({

@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useParameterStore } from "@/stores/parameter-store";
 import {
   useSeedQueryOptions,
+  seedFiltersOnServer,
   SEED_QUERY_SEARCH_DEBOUNCE_MS,
 } from "../use-seed-query-options";
 
@@ -404,5 +405,62 @@ describe("useSeedQueryOptions — debouncedSearch reset (regression: #859)", () 
     // include the stale `param_search`. (No parent params either, so
     // the hook returns undefined for extraParams.)
     expect(lastCallArgs()[3]).toBeUndefined();
+  });
+});
+
+// #1411: when the seed query consumes `$param_search`, the server has already
+// filtered the rows and the combobox must not filter them a second time.
+describe("seedFiltersOnServer (#1411)", () => {
+  it("is true for a searchable seed that uses $param_search", () => {
+    expect(
+      seedFiltersOnServer(
+        true,
+        "MATCH (p:Person) WHERE p.email STARTS WITH $param_search RETURN p",
+      ),
+    ).toBe(true);
+  });
+
+  it("is false when the seed ignores the search term", () => {
+    expect(seedFiltersOnServer(true, "MATCH (p:Person) RETURN p")).toBe(false);
+  });
+
+  it("does not mistake a longer parameter name for $param_search", () => {
+    expect(seedFiltersOnServer(true, "RETURN $param_search_scope")).toBe(false);
+  });
+
+  it("is false when the widget is not searchable", () => {
+    expect(seedFiltersOnServer(false, "RETURN $param_search")).toBe(false);
+    expect(seedFiltersOnServer(undefined, "RETURN $param_search")).toBe(false);
+  });
+
+  it("is false without a seed query", () => {
+    expect(seedFiltersOnServer(true, undefined)).toBe(false);
+  });
+});
+
+describe("useSeedQueryOptions — exposes serverFiltered (#1411)", () => {
+  beforeEach(() => {
+    seedQuerySpy.mockClear();
+    useParameterStore.getState().clearAll();
+  });
+
+  it("is true for a searchable seed that uses $param_search", () => {
+    const { result } = renderHook(() =>
+      useSeedQueryOptions(
+        "select",
+        "conn-1",
+        "RETURN $param_search AS value",
+        undefined,
+        true,
+      ),
+    );
+    expect(result.current.serverFiltered).toBe(true);
+  });
+
+  it("is false for a seed that ignores the search term", () => {
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, true),
+    );
+    expect(result.current.serverFiltered).toBe(false);
   });
 });
