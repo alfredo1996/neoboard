@@ -28,12 +28,12 @@ function Node({
   open,
   onToggle,
   onInsert,
-}: {
+}: Readonly<{
   node: SchemaTreeNode;
   open: boolean;
   onToggle: () => void;
   onInsert: (identifier: string) => void;
-}) {
+}>) {
   const hasChildren = node.children.length > 0;
   return (
     <li>
@@ -95,7 +95,7 @@ function SchemaBrowser({
   error,
   onInsert,
   className,
-}: SchemaBrowserProps) {
+}: Readonly<SchemaBrowserProps>) {
   const [search, setSearch] = React.useState("");
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const searching = search.trim().length > 0;
