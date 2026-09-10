@@ -4,6 +4,7 @@ import { barPlugin } from "../bar";
 import { graphPlugin } from "../graph";
 import { mapPlugin } from "../map";
 import { gaugePlugin } from "../gauge";
+import { ganttPlugin } from "../gantt";
 import { linePlugin } from "../line";
 import { piePlugin } from "../pie";
 import { singleValuePlugin } from "../single-value";
@@ -34,6 +35,7 @@ vi.mock("next/dynamic", () => ({
         data-sampling-method={String(props.samplingMethod ?? "")}
         data-marker-size={String(props.markerSize ?? "")}
         data-show-rel-labels={String(props.showRelationshipLabels ?? "")}
+        data-enable-data-zoom={String(props.enableDataZoom ?? "")}
       />
     );
     Stub.displayName = "ChartStub";
@@ -216,5 +218,17 @@ describe("options advertised by the editor reach the chart (#1472)", () => {
       />,
     );
     expect(attr("data-show-rel-labels")).toBe("false");
+  });
+
+  it("gantt forwards enableDataZoom, on unless switched off (#1686)", () => {
+    const GanttComponent = ganttPlugin.component;
+    render(<GanttComponent data={[]} settings={{}} />);
+    expect(attr("data-enable-data-zoom")).toBe("true");
+  });
+
+  it("gantt forwards an explicit enableDataZoom: false", () => {
+    const GanttComponent = ganttPlugin.component;
+    render(<GanttComponent data={[]} settings={{ enableDataZoom: false }} />);
+    expect(attr("data-enable-data-zoom")).toBe("false");
   });
 });

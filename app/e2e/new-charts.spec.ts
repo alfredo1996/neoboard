@@ -346,6 +346,49 @@ test.describe("New chart types — creation flow", () => {
       timeout: 15_000,
     });
   });
+
+  test("should create a Gantt widget with the time zoom switched off (#1686)", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Gantt" }).click();
+
+    // Datetimes, the shape the slider labels were getting wrong.
+    await typeInEditor(
+      dialog,
+      page,
+      "UNWIND [['Design', datetime('2026-04-01T09:00:00'), datetime('2026-04-03T17:30:00')], ['Build', datetime('2026-04-03T10:00:00'), datetime('2026-04-10T16:00:00')]] AS r RETURN r[0] AS task, r[1] AS start, r[2] AS end",
+    );
+
+    // The option lives in the Style tab under its own, collapsed category.
+    await dialog.getByRole("tab", { name: "Style" }).click();
+    await dialog.getByRole("button", { name: "Interaction" }).click();
+    const toggle = dialog.locator("#enableDataZoom");
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+
+    await expect(
+      dialog.getByRole("button", { name: "Add Widget" }),
+    ).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+    // The setting round-trips through the schema and still draws — the
+    // slider itself is canvas, so "rendered with the option off" is the
+    // observable half of the toggle here; the option shape is unit-tested.
+    await expect(
+      page.getByRole("img", { name: "Gantt chart with 2 tasks" }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
 });
 
 // ---------------------------------------------------------------------------

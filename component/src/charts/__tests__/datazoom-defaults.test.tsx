@@ -76,6 +76,10 @@ const GEOMETRY_KEYS = new Set([
   "filterMode",
   "throttle",
   "disabled",
+  // What the handle label *says* depends on the axis (a datetime on the
+  // gantt), not on the theme; how it looks — textStyle — still does not
+  // belong here (#1686).
+  "labelFormatter",
 ]);
 
 const ganttData = [

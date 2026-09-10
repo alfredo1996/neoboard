@@ -35,6 +35,7 @@ function GanttPluginComponent({
       showProgress={settings.showProgress}
       showGridLines={settings.showGridLines}
       barBorderRadius={settings.barBorderRadius}
+      enableDataZoom={settings.enableDataZoom}
       colorPalette={settings.colorPalette}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}

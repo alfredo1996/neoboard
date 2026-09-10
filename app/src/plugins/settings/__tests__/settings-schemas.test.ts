@@ -14,6 +14,7 @@ import { barSettingsSchema } from "../../bar/settings";
 import { lineSettingsSchema } from "../../line/settings";
 import { pieSettingsSchema } from "../../pie/settings";
 import { gaugeSettingsSchema } from "../../gauge/settings";
+import { ganttSettingsSchema } from "../../gantt/settings";
 import { radarSettingsSchema } from "../../radar/settings";
 import { sankeySettingsSchema } from "../../sankey/settings";
 import { sunburstSettingsSchema } from "../../sunburst/settings";
@@ -37,6 +38,7 @@ const schemas = [
   { name: "line", schema: lineSettingsSchema },
   { name: "pie", schema: pieSettingsSchema },
   { name: "gauge", schema: gaugeSettingsSchema },
+  { name: "gantt", schema: ganttSettingsSchema },
   { name: "radar", schema: radarSettingsSchema },
   { name: "sankey", schema: sankeySettingsSchema },
   { name: "sunburst", schema: sunburstSettingsSchema },
@@ -212,6 +214,34 @@ describe("gaugeSettingsSchema", () => {
     const result = gaugeSettingsSchema.parse({ min: "10", max: "200" });
     expect(result.min).toBe(10);
     expect(result.max).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gantt settings
+// ---------------------------------------------------------------------------
+
+describe("ganttSettingsSchema", () => {
+  it("applies correct defaults", () => {
+    const result = ganttSettingsSchema.parse({});
+    expect(result.showTodayLine).toBe(true);
+    expect(result.showProgress).toBe(false);
+    expect(result.showGridLines).toBe(true);
+    expect(result.barBorderRadius).toBe(2);
+    // On by default: the slider was always drawn before the option existed,
+    // so a dashboard saved without the key keeps looking the same (#1686).
+    expect(result.enableDataZoom).toBe(true);
+    expect(result.colorblindMode).toBe(false);
+  });
+
+  it("lets the editor switch the time-axis zoom off", () => {
+    expect(
+      ganttSettingsSchema.parse({ enableDataZoom: false }).enableDataZoom,
+    ).toBe(false);
+  });
+
+  it("coerces string numbers for barBorderRadius", () => {
+    expect(ganttSettingsSchema.parse({ barBorderRadius: "4" }).barBorderRadius).toBe(4);
   });
 });
 

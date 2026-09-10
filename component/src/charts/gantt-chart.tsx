@@ -18,6 +18,7 @@ import {
   buildEmptyDataOption,
   getCompactState,
   formatDate,
+  formatDateTime,
 } from "./chart-utils";
 import { resolveStylingRuleColor, type StylingRule } from "./styling-rule";
 
@@ -55,6 +56,12 @@ export interface GanttChartProps extends Omit<BaseChartProps, "options"> {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
+  /**
+   * Time-axis zoom: the range slider under the chart plus scroll-to-zoom.
+   * On by default. Consumed here, not by BaseChart — its own merge would
+   * replace this chart's dataZoom array with two bare inside zooms.
+   */
+  enableDataZoom?: boolean;
 }
 
 /** Format ms duration to human-readable string. */
@@ -74,6 +81,7 @@ function GanttChart({
   showGridLines = true,
   stylingRules,
   paramValues,
+  enableDataZoom = true,
   ariaDescription,
   ...rest
 }: GanttChartProps) {
@@ -266,8 +274,9 @@ function GanttChart({
         left: compact ? 8 : 16,
         right: compact ? 8 : 16,
         top: compact ? 8 : 16,
-        // Room for the zoom slider: height 20 + bottom 5 + gap.
-        bottom: 40,
+        // Room for the zoom slider: height 20 + bottom 5 + gap. Without the
+        // slider the plot takes it back.
+        bottom: enableDataZoom ? 40 : compact ? 8 : 16,
         containLabel: true,
       },
       xAxis: {
@@ -306,17 +315,36 @@ function GanttChart({
       // No colours here: the slider's palette lives in the registered theme,
       // so every chart's zoom control looks the same (#1273).
       dataZoom: [
-        // Horizontal: time axis zoom
-        {
-          type: "slider",
-          xAxisIndex: 0,
-          height: 20,
-          bottom: 5,
-        },
-        {
-          type: "inside",
-          xAxisIndex: 0,
-        },
+        // Horizontal: time axis zoom (#1686).
+        // - weakFilter: the series encodes x as [start, end], and the default
+        //   'filter' drops a bar when *either* end leaves the window, so bars
+        //   vanished at the edges as you zoomed in. Set on both x zooms; the
+        //   wheel and the slider filter independently.
+        // - labelFormatter: the slider's fallback label takes its precision
+        //   from the tick interval, not the value (seconds on a two-week
+        //   range, a bare date once the ticks are years). The data are
+        //   datetimes; say so, in one fixed shape.
+        // - No left/right: ECharts aligns a slider with no explicit position
+        //   to the plot rect *after* the task-label gutter (SliderZoomView
+        //   _layout, 6.1.0). Copying grid.left/right here widens it under the
+        //   labels and moves the handles off the data ends.
+        ...(enableDataZoom
+          ? [
+              {
+                type: "slider" as const,
+                xAxisIndex: 0,
+                height: 20,
+                bottom: 5,
+                filterMode: "weakFilter" as const,
+                labelFormatter: (ms: number) => formatDateTime(ms),
+              },
+              {
+                type: "inside" as const,
+                xAxisIndex: 0,
+                filterMode: "weakFilter" as const,
+              },
+            ]
+          : []),
         // Vertical: task list scroll (show ~15 tasks at a time)
         ...(taskNames.length > 15
           ? [
@@ -359,6 +387,7 @@ function GanttChart({
     showGridLines,
     stylingRules,
     paramValues,
+    enableDataZoom,
     dark,
     // Read above for the grid and the label width. Omitting it latches the
     // first measurement — the #1546/#1562 class.

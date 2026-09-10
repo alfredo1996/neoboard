@@ -9,6 +9,9 @@ export const ganttSettingsSchema = z
     showProgress: z.boolean().default(false),
     showGridLines: z.boolean().default(true),
     barBorderRadius: z.coerce.number().default(2),
+    // On by default: the slider predates the option, so a dashboard saved
+    // without the key keeps its slider (#1686).
+    enableDataZoom: z.boolean().default(true),
     colorPalette: z.string().optional(),
     colorblindMode: z.boolean().default(false),
   })

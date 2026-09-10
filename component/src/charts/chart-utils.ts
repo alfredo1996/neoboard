@@ -55,6 +55,18 @@ export function formatDate(ms: number): string {
   return DATE_FMT.format(ms);
 }
 
+/**
+ * `yyyy-MM-dd HH:mm` in local time — the gantt slider's handle labels
+ * (#1686). Fixed width so the handles never jump as the window moves; local
+ * time because that is what the axis ticks under it show.
+ */
+export function formatDateTime(ms: number): string {
+  if (!Number.isFinite(ms)) return "—";
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function formatNumber(
   value: number | string,
   config: NumberFormatConfig = {},
