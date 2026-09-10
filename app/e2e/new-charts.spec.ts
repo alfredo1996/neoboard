@@ -535,22 +535,25 @@ test.describe("Widget Showcase seed dashboard", () => {
     // Click the Simple Charts page tab
     await page.getByRole("tab", { name: "Simple Charts" }).click();
 
-    // Multiple widget cards should be present (bar, line, pie, single-value, table, gauge, radar, sankey, sunburst)
+    // Multiple widget cards should be present (bar, line, pie, single-value, table, gauge, sankey, sunburst)
     await expect(
       page.locator("[data-testid='widget-card']").first(),
     ).toBeVisible({
       timeout: 15_000,
     });
 
-    // At least 9 widgets should be on this page
+    // At least 8 widgets should be on this page
     const widgetCount = await page
       .locator("[data-testid='widget-card']")
       .count();
-    expect(widgetCount).toBeGreaterThanOrEqual(9);
+    expect(widgetCount).toBeGreaterThanOrEqual(8);
 
     // A seed widget of an unregistered type still renders a card, so the
     // count alone cannot tell (#1687 left a treemap tile here).
     await expect(page.getByText("Unknown chart type")).toHaveCount(0);
+
+    // Radar is hidden from the picker, so the seed no longer shows it (#1722).
+    await expect(page.getByText("Relationship Radar")).toHaveCount(0);
   });
 
   test("should show Color Palettes page tab", async ({ page }) => {

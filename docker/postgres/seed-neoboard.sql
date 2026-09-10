@@ -57,7 +57,6 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"id":"w4","chartType":"single-value","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN count(m) AS value","settings":{"title":"Total Movies"}},
          {"id":"w5","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN m.title AS title, m.released AS released ORDER BY m.released DESC","settings":{"title":"All Movies"}},
          {"id":"w6","chartType":"gauge","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN count(m) AS value, ''Total Movies'' AS name","settings":{"title":"Movie Count"}},
-         {"id":"w7","chartType":"radar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS indicator, count(*) AS value RETURN indicator, value","settings":{"title":"Relationship Radar"}},
          {"id":"w8","chartType":"sankey","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) WHERE type(r) IN [''ACTED_IN'',''DIRECTED''] WITH p.name AS source, m.title AS target, 1 AS value RETURN source, target, value LIMIT 20","settings":{"title":"People → Movies"}},
          {"id":"w10","chartType":"sunburst","connectionId":"conn-neo4j-001","query":"MATCH ()-[r]->() WITH type(r) AS relType, count(*) AS cnt RETURN '''' AS parent, relType AS name, cnt AS value UNION ALL MATCH (p:Person)-[r]->(m:Movie) WITH type(r) AS relType, m.title AS movie, count(p) AS cnt RETURN relType AS parent, movie AS name, cnt AS value UNION ALL MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS parent, p.name AS name, 1 AS value LIMIT 20","settings":{"title":"Movies by Relationship"}}
        ],"gridLayout":[
@@ -67,8 +66,7 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"i":"w4","x":4,"y":4,"w":4,"h":2},
          {"i":"w5","x":8,"y":4,"w":4,"h":4},
          {"i":"w6","x":0,"y":8,"w":3,"h":3},
-         {"i":"w7","x":3,"y":8,"w":4,"h":4},
-         {"i":"w8","x":7,"y":8,"w":5,"h":4},
+         {"i":"w8","x":3,"y":8,"w":9,"h":4},
          {"i":"w10","x":0,"y":12,"w":6,"h":4}
        ]},
        {"id":"page-styling","title":"Rule-Based Styling","widgets":[

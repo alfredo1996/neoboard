@@ -19,10 +19,12 @@ import {
   CONNECTOR_TYPES,
   type ConnectorType,
 } from "@/lib/connector/connector-types";
+import { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
 
 // Re-export types for backward compatibility
 export type { ChartType } from "@/plugins/chart-types";
 export { CHART_TYPES } from "@/plugins/chart-types";
+export { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
 export type { ConnectorType } from "@/lib/connector/connector-types";
 export type { ColumnMapping } from "@neoboard/components";
 export type { ChartPlugin };
@@ -32,17 +34,6 @@ export type { ChartPlugin };
 // ---------------------------------------------------------------------------
 
 const COLUMN_MAPPING_TYPES = new Set<string>(["bar", "line", "pie"]);
-
-/**
- * Chart types disabled in the picker (#1158) — "ship less, but better".
- * Their plugins stay REGISTERED so existing dashboards keep rendering; they're
- * just filtered out of the new-widget / change-type list. To re-enable one,
- * remove it here — no other change needed.
- */
-export const DISABLED_CHART_TYPES: ReadonlySet<string> = new Set([
-  "choropleth",
-  "radar",
-]);
 
 // ---------------------------------------------------------------------------
 // Lightweight plugin registration (no React component imports)

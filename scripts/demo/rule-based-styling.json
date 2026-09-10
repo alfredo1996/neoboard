@@ -505,75 +505,8 @@
         ]
       },
       {
-        "id": "page-radar",
-        "title": "7. Radar",
-        "widgets": [
-          {
-            "id": "rd-md",
-            "chartType": "markdown",
-            "connectionId": "conn_postgres_read",
-            "query": "",
-            "settings": {
-              "title": "",
-              "chartOptions": {
-                "content": "## Styling rules — Radar\n\nRules color the radar polygon based on the average value across its indicators.\n\n**Rules shown:**\n- `avg >= 500` → blue\n- `avg <  500` → grey"
-              }
-            }
-          },
-          {
-            "id": "rd-chart",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'regions', COUNT(*)::float, 12 FROM neoboard_demo_public.regions",
-            "settings": {
-              "title": "Dataset magnitudes — styled by average",
-              "chartOptions": {
-                "shape": "polygon",
-                "filled": true,
-                "showLegend": true
-              },
-              "stylingConfig": {
-                "enabled": true,
-                "rules": [
-                  {
-                    "id": "rd-r1",
-                    "operator": ">=",
-                    "value": 500,
-                    "color": "#2563eb",
-                    "target": "color"
-                  },
-                  {
-                    "id": "rd-r2",
-                    "operator": "<",
-                    "value": 500,
-                    "color": "#94a3b8",
-                    "target": "color"
-                  }
-                ]
-              }
-            }
-          }
-        ],
-        "gridLayout": [
-          {
-            "i": "rd-md",
-            "x": 0,
-            "y": 0,
-            "w": 12,
-            "h": 3
-          },
-          {
-            "i": "rd-chart",
-            "x": 2,
-            "y": 3,
-            "w": 8,
-            "h": 6
-          }
-        ]
-      },
-      {
         "id": "page-table",
-        "title": "8. Table",
+        "title": "7. Table",
         "widgets": [
           {
             "id": "tbl-md",
