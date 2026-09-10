@@ -25,7 +25,8 @@ The sandbox field accepts standard HTML `sandbox` attribute values. Common value
 
 | Value | Effect |
 |-------|--------|
-| (empty) | Maximum restrictions: no scripts, no forms, no popups |
+| (cleared) | No tokens: no scripts, no forms, no popups. New widgets start here |
+| (never set) | A stored widget with no sandbox value runs as `allow-scripts allow-popups`, even though the field shows empty |
 | `allow-scripts` | Allow JavaScript execution |
 | `allow-forms` | Allow form submission |
 | `allow-popups` | Allow the embedded page to open new windows |
@@ -35,5 +36,5 @@ Tokens outside NeoBoard's allow-list are removed before the page is embedded, an
 ## Tips
 
 - Always use `https://` URLs. Most browsers block mixed content (HTTP inside HTTPS).
-- Leave the Sandbox Policy empty for untrusted content to apply maximum restrictions.
+- For untrusted content, type a restrictive value such as `allow-forms` instead of relying on an empty field. An empty field is fully sandboxed only if it was saved empty; a widget that never stored a value allows scripts and popups.
 - Some sites block embedding via `X-Frame-Options` or `Content-Security-Policy` headers -- if the page appears blank, the target site may not allow iframing.

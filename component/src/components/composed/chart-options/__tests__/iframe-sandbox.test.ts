@@ -51,6 +51,19 @@ describe("validateIframeSandbox (#1413)", () => {
     expect(refused?.message).not.toMatch(/not a recognised/);
   });
 
+  it("does not mistake inherited Object members for refused tokens", () => {
+    for (const token of [
+      "toString",
+      "constructor",
+      "__proto__",
+      "hasOwnProperty",
+    ]) {
+      const r = validateIframeSandbox(`${token} allow-scripts`);
+      expect(r?.message).toMatch(new RegExp(`"${token}" is not a recognised`));
+      expect(r?.message).not.toMatch(/refused|native code/);
+    }
+  });
+
   it("reports each discarded token once, and an empty result as none", () => {
     const r = validateIframeSandbox(
       "allow-same-origin allow-same-origin bogus",

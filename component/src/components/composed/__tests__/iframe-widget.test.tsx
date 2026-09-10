@@ -105,6 +105,24 @@ describe("IframeWidget", () => {
     expect(iframe.getAttribute("sandbox")).not.toContain("allow-same-origin");
   });
 
+  // #1413: an absent sandbox (a stored widget with no key) and a cleared one
+  // are different policies; docs/charts/iframe.mdx documents both.
+  it("runs an absent sandbox as allow-scripts allow-popups, a cleared one as none", () => {
+    const { unmount } = render(
+      <IframeWidget url="https://example.com" sandbox={undefined} />,
+    );
+    expect(screen.getByTitle("Embedded content")).toHaveAttribute(
+      "sandbox",
+      "allow-scripts allow-popups",
+    );
+    unmount();
+    render(<IframeWidget url="https://example.com" sandbox="" />);
+    expect(screen.getByTitle("Embedded content")).toHaveAttribute(
+      "sandbox",
+      "",
+    );
+  });
+
   it("strips dangerous sandbox tokens like allow-same-origin", () => {
     render(
       <IframeWidget

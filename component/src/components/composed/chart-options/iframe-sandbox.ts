@@ -50,13 +50,14 @@ export function validateIframeSandbox(
   if (discarded.length === 0) return null;
 
   const reasons = discarded.map((token) =>
-    token in REFUSED_SANDBOX_TOKENS
+    Object.hasOwn(REFUSED_SANDBOX_TOKENS, token)
       ? `"${token}" is refused: ${REFUSED_SANDBOX_TOKENS[token]}.`
       : `"${token}" is not a recognised sandbox token and is ignored.`,
   );
   const applied = sanitizeSandbox(value);
+  const appliedText = applied ? `"${applied}"` : "none (fully sandboxed)";
   return {
     level: "warning",
-    message: `${reasons.join(" ")} Applied: ${applied ? `"${applied}"` : "none (fully sandboxed)"}.`,
+    message: `${reasons.join(" ")} Applied: ${appliedText}.`,
   };
 }
