@@ -114,7 +114,7 @@ export async function run(page) {
   await wait(page, LONG);
 
   // ── 4. CHART GALLERY TOUR ─────────────────────────────────────────
-  await narrate(page, "4/11  Chart Gallery — 18 chart types");
+  await narrate(page, "4/11  Chart Gallery — NeoBoard registers 18 chart types");
   await openDashboard(page, "Chart Gallery");
 
   const chartTabs = [
@@ -124,7 +124,6 @@ export async function run(page) {
     { name: "6. Gauge", desc: "Gauge" },
     { name: "14. Sankey", desc: "Sankey" },
     { name: "15. Sunburst", desc: "Sunburst" },
-    { name: "16. Radar", desc: "Radar" },
   ];
 
   for (const tab of chartTabs) {

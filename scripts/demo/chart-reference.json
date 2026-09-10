@@ -2197,187 +2197,8 @@
         ]
       },
       {
-        "id": "page-radar",
-        "title": "9. Radar",
-        "widgets": [
-          {
-            "id": "page-radar-md-110",
-            "chartType": "markdown",
-            "connectionId": "conn_postgres_read",
-            "query": "",
-            "settings": {
-              "title": "",
-              "chartOptions": {
-                "content": "## Radar chart — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: shape (polygon/circle), filled, showValues, showLegend, palette.\n\n*Refresh the page to reset all parameters.*"
-              }
-            }
-          },
-          {
-            "id": "page-radar-v-111",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
-            "settings": {
-              "title": "default (polygon, filled)",
-              "chartOptions": {}
-            }
-          },
-          {
-            "id": "page-radar-v-112",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
-            "settings": {
-              "title": "shape = circle",
-              "chartOptions": {
-                "shape": "circle"
-              }
-            }
-          },
-          {
-            "id": "page-radar-v-113",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
-            "settings": {
-              "title": "filled = false",
-              "chartOptions": {
-                "filled": false
-              }
-            }
-          },
-          {
-            "id": "page-radar-v-114",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
-            "settings": {
-              "title": "showValues = true",
-              "chartOptions": {
-                "showValues": true
-              }
-            }
-          },
-          {
-            "id": "page-radar-v-115",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
-            "settings": {
-              "title": "showLegend = false",
-              "chartOptions": {
-                "showLegend": false
-              }
-            }
-          },
-          {
-            "id": "page-radar-v-116",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
-            "settings": {
-              "title": "palette = warm",
-              "chartOptions": {
-                "colorPalette": "warm"
-              }
-            }
-          },
-          {
-            "id": "page-radar-v-117",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
-            "settings": {
-              "title": "palette = monochrome",
-              "chartOptions": {
-                "colorPalette": "monochrome"
-              }
-            }
-          },
-          {
-            "id": "page-radar-v-118",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 2500::float AS max FROM neoboard_demo_public.orders UNION ALL SELECT 'customers', COUNT(*)::float, 250 FROM neoboard_demo_public.customers UNION ALL SELECT 'products', COUNT(*)::float, 120 FROM neoboard_demo_public.products UNION ALL SELECT 'order_items', COUNT(*)::float, 7500 FROM neoboard_demo_public.order_items UNION ALL SELECT 'feedback', COUNT(*)::float, 25 FROM neoboard_demo_public.feedback",
-            "settings": {
-              "title": "circle + unfilled + values",
-              "chartOptions": {
-                "shape": "circle",
-                "filled": false,
-                "showValues": true
-              }
-            }
-          }
-        ],
-        "gridLayout": [
-          {
-            "i": "page-radar-md-110",
-            "x": 0,
-            "y": 0,
-            "w": 12,
-            "h": 3
-          },
-          {
-            "i": "page-radar-v-111",
-            "x": 0,
-            "y": 3,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-radar-v-112",
-            "x": 6,
-            "y": 3,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-radar-v-113",
-            "x": 0,
-            "y": 8,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-radar-v-114",
-            "x": 6,
-            "y": 8,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-radar-v-115",
-            "x": 0,
-            "y": 13,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-radar-v-116",
-            "x": 6,
-            "y": 13,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-radar-v-117",
-            "x": 0,
-            "y": 18,
-            "w": 6,
-            "h": 5
-          },
-          {
-            "i": "page-radar-v-118",
-            "x": 6,
-            "y": 18,
-            "w": 6,
-            "h": 5
-          }
-        ]
-      },
-      {
         "id": "page-gantt",
-        "title": "10. Gantt",
+        "title": "9. Gantt",
         "widgets": [
           {
             "id": "page-gantt-md-135",
@@ -2516,7 +2337,7 @@
       },
       {
         "id": "page-map",
-        "title": "11. Map (Leaflet)",
+        "title": "10. Map (Leaflet)",
         "widgets": [
           {
             "id": "page-map-md-142",
@@ -2676,7 +2497,7 @@
       },
       {
         "id": "page-choropleth",
-        "title": "12. Choropleth",
+        "title": "11. Choropleth",
         "widgets": [
           {
             "id": "page-choropleth-md-151",
@@ -2855,7 +2676,7 @@
       },
       {
         "id": "page-graph",
-        "title": "13. Graph (Neo4j)",
+        "title": "12. Graph (Neo4j)",
         "widgets": [
           {
             "id": "page-graph-md-160",
@@ -2975,7 +2796,7 @@
       },
       {
         "id": "page-json",
-        "title": "14. JSON",
+        "title": "13. JSON",
         "widgets": [
           {
             "id": "page-json-md-169",
@@ -3076,7 +2897,7 @@
       },
       {
         "id": "page-markdown",
-        "title": "15. Markdown",
+        "title": "14. Markdown",
         "widgets": [
           {
             "id": "page-markdown-md-178",
@@ -3255,7 +3076,7 @@
       },
       {
         "id": "page-iframe",
-        "title": "16. iframe",
+        "title": "15. iframe",
         "widgets": [
           {
             "id": "page-iframe-md-187",
@@ -3364,7 +3185,7 @@
       },
       {
         "id": "page-parameter-select",
-        "title": "17. Parameter Select",
+        "title": "16. Parameter Select",
         "widgets": [
           {
             "id": "page-parameter-select-md-192",
@@ -3562,7 +3383,7 @@
       },
       {
         "id": "page-form",
-        "title": "18. Form (write)",
+        "title": "17. Form (write)",
         "widgets": [
           {
             "id": "page-form-md-201",

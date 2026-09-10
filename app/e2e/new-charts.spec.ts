@@ -5,6 +5,8 @@ import {
   createTestDashboard,
   typeInEditor,
 } from "./fixtures";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 // ---------------------------------------------------------------------------
 // New chart types — creation flow tests
@@ -535,22 +537,25 @@ test.describe("Widget Showcase seed dashboard", () => {
     // Click the Simple Charts page tab
     await page.getByRole("tab", { name: "Simple Charts" }).click();
 
-    // Multiple widget cards should be present (bar, line, pie, single-value, table, gauge, radar, sankey, sunburst)
+    // Multiple widget cards should be present (bar, line, pie, single-value, table, gauge, sankey, sunburst)
     await expect(
       page.locator("[data-testid='widget-card']").first(),
     ).toBeVisible({
       timeout: 15_000,
     });
 
-    // At least 9 widgets should be on this page
+    // At least 8 widgets should be on this page
     const widgetCount = await page
       .locator("[data-testid='widget-card']")
       .count();
-    expect(widgetCount).toBeGreaterThanOrEqual(9);
+    expect(widgetCount).toBeGreaterThanOrEqual(8);
 
     // A seed widget of an unregistered type still renders a card, so the
     // count alone cannot tell (#1687 left a treemap tile here).
     await expect(page.getByText("Unknown chart type")).toHaveCount(0);
+
+    // Radar is hidden from the picker, so the seed no longer shows it (#1722).
+    await expect(page.getByText("Relationship Radar")).toHaveCount(0);
   });
 
   test("should show Color Palettes page tab", async ({ page }) => {
@@ -558,4 +563,63 @@ test.describe("Widget Showcase seed dashboard", () => {
       { timeout: 10_000 },
     );
   });
+});
+
+// ---------------------------------------------------------------------------
+// Demo showcases — no radar (#1722)
+// ---------------------------------------------------------------------------
+// The E2E database does not seed the demo showcases, so import the real files
+// the way a user would and look for radar on every page. Connections are
+// skipped: widget titles render whether or not a widget has data.
+
+test.describe("Demo showcases hide radar", () => {
+  for (const file of ["chart-gallery.json", "chart-reference.json"]) {
+    test(`${file} has no radar page or tile`, async ({ authPage, page }) => {
+      test.setTimeout(120_000);
+      await authPage.login(ALICE.email, ALICE.password);
+
+      const payload = JSON.parse(
+        fs.readFileSync(
+          path.resolve(__dirname, "../../scripts/demo", file),
+          "utf-8",
+        ),
+      );
+      const res = await page.request.post("/api/dashboards/import", {
+        data: {
+          payload,
+          skippedConnections: Object.keys(payload.connections),
+        },
+      });
+      expect(res.status()).toBe(201);
+      const id = (await res.json()).data.id as string;
+
+      try {
+        await page.goto(`/${id}`);
+        const tabs = page.getByRole("tab");
+        await expect(tabs.first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("tab", { name: /radar/i })).toHaveCount(0);
+
+        const count = await tabs.count();
+        expect(count).toBe(payload.layout.pages.length);
+        for (let i = 0; i < count; i++) {
+          await tabs.nth(i).click();
+          // Visited pages stay mounted but hidden, so wait for this page's
+          // cards, not the first card in the DOM.
+          await expect(
+            page
+              .locator("[data-testid='widget-card']")
+              .filter({ visible: true })
+              .first(),
+          ).toBeVisible({ timeout: 15_000 });
+          await expect(
+            page
+              .locator("[data-testid='widget-card']")
+              .filter({ hasText: /radar/i }),
+          ).toHaveCount(0);
+        }
+      } finally {
+        await page.request.delete(`/api/dashboards/${id}`);
+      }
+    });
+  }
 });

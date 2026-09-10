@@ -678,7 +678,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Single-value, table, gauge, JSON & radar\n\nTwiddle the knobs above each chart to see how it responds. The single-value row shows three variant tiles of the same metric with different formatting. The table pair shows the same query rendered raw vs with a transform.\n\n> Refresh the page to reset all parameters to defaults."
+                "content": "## Single-value, table, gauge & JSON\n\nTwiddle the knobs above each chart to see how it responds. The single-value row shows three variant tiles of the same metric with different formatting. The table pair shows the same query rendered raw vs with a transform.\n\n> Refresh the page to reset all parameters to defaults."
               }
             }
           },
@@ -904,37 +904,6 @@
                 "initialExpanded": 2
               }
             }
-          },
-          {
-            "id": "tab-radar-region",
-            "chartType": "parameter-select",
-            "connectionId": "conn_postgres_read",
-            "query": "",
-            "settings": {
-              "title": "Radar — region",
-              "chartOptions": {
-                "parameterType": "select",
-                "parameterName": "tab_radar_region",
-                "seedQuery": "SELECT name AS value, name AS label FROM neoboard_demo_public.regions ORDER BY name",
-                "searchable": true,
-                "placeholder": "Pick a region…"
-              }
-            }
-          },
-          {
-            "id": "tab-radar",
-            "chartType": "radar",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT 'orders' AS indicator, COUNT(*)::float AS value, 300::float AS max FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_tab_radar_region UNION ALL SELECT 'customers', COUNT(DISTINCT c.id)::float, 30 FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_tab_radar_region UNION ALL SELECT 'revenue (k)', (COALESCE(SUM(o.total), 0) / 1000.0)::float, 500 FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_tab_radar_region UNION ALL SELECT 'avg order ($)', COALESCE((SUM(o.total) / NULLIF(COUNT(o.id), 0))::float, 0), 1800 FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id WHERE r.name = $param_tab_radar_region",
-            "settings": {
-              "title": "Magnitudes for $param_tab_radar_region",
-              "chartOptions": {
-                "shape": "polygon",
-                "filled": true,
-                "showLegend": true,
-                "colorPalette": "citrine"
-              }
-            }
           }
         ],
         "gridLayout": [
@@ -952,9 +921,7 @@
           { "i": "tab-table-raw", "x": 0, "y": 22, "w": 6, "h": 7 },
           { "i": "tab-table-transform", "x": 6, "y": 22, "w": 6, "h": 7 },
           { "i": "tab-json-limit", "x": 0, "y": 29, "w": 12, "h": 3 },
-          { "i": "tab-json", "x": 0, "y": 32, "w": 12, "h": 6 },
-          { "i": "tab-radar-region", "x": 0, "y": 38, "w": 12, "h": 3 },
-          { "i": "tab-radar", "x": 2, "y": 41, "w": 8, "h": 7 }
+          { "i": "tab-json", "x": 0, "y": 32, "w": 12, "h": 6 }
         ]
       },
       {

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { neoboardExportSchema } from "../../app/src/lib/dashboard/dashboard-import";
 import { COLOR_PALETTES } from "../../component/src/charts/palettes";
 import { CHART_TYPES } from "../../app/src/plugins/chart-types";
+import { DISABLED_CHART_TYPES } from "../../app/src/plugins/disabled-chart-types";
 import { SHOWCASES } from "../demo/showcases.mjs";
 import { sanitizeSandbox } from "../../component/src/components/composed/chart-options/iframe-sandbox";
 
@@ -39,11 +40,61 @@ const chartTypesIn = (text: string): string[] =>
 const unregistered = (types: string[]): string[] =>
   types.filter((t) => !(CHART_TYPES as readonly string[]).includes(t));
 
+/**
+ * #1722 — hidden types the demo may still seed. Choropleth stays because
+ * #1402 fixes it in v1.5; every other type the picker hides (radar) would show
+ * `neoboard demo` users a chart they cannot add.
+ */
+const SEEDED_HIDDEN_TYPES: ReadonlySet<string> = new Set(["choropleth"]);
+
+const hiddenFromPicker = (types: string[]): string[] =>
+  types.filter(
+    (t) => DISABLED_CHART_TYPES.has(t) && !SEEDED_HIDDEN_TYPES.has(t),
+  );
+
 describe("demo showcases validate against the app's export schema", () => {
   // Guards the sweep itself: an empty manifest would make the per-showcase
   // tests below vanish, and a suite that generates no cases passes.
   it("has showcases to check", () => {
     expect(SHOWCASES.length).toBeGreaterThan(0);
+  });
+
+  // Every seed is clean, so the per-file checks below only ever expect [].
+  // Pin the detector itself: it must flag a hidden type in both the
+  // pretty-printed JSON and compact SQL forms, and spare choropleth.
+  it("flags a hidden type and spares choropleth", () => {
+    expect(
+      hiddenFromPicker(
+        chartTypesIn(
+          '"chartType": "radar" "chartType":"choropleth" "chartType": "bar"',
+        ),
+      ),
+    ).toEqual(["radar"]);
+  });
+
+  // #1722 — the gallery no longer has a page per registered type (radar is
+  // registered but hidden), so a stated page count drifts silently.
+  it("states no page count a showcase does not have", () => {
+    for (const showcase of SHOWCASES) {
+      const json = readShowcase(showcase.jsonPath) as {
+        dashboard: { description?: string };
+        layout: { pages: unknown[] };
+      };
+      const claims = [showcase.description, json.dashboard.description ?? ""]
+        .flatMap((text) => [...text.matchAll(/\b(\d+) pages\b/g)])
+        .map((m) => Number(m[1]));
+      for (const n of claims) {
+        expect(n, showcase.key).toBe(json.layout.pages.length);
+      }
+    }
+  });
+
+  // A stale allow-list entry (a type since re-enabled) would silently widen
+  // the exception the moment that type is disabled again.
+  it("allows only types that are actually hidden", () => {
+    for (const t of SEEDED_HIDDEN_TYPES) {
+      expect(DISABLED_CHART_TYPES.has(t), t).toBe(true);
+    }
   });
 
   for (const showcase of SHOWCASES) {
@@ -63,6 +114,14 @@ describe("demo showcases validate against the app's export schema", () => {
         // unregistered one as an "Unknown chart type" tile (#1687).
         expect(
           unregistered(chartTypesIn(readFileSync(showcase.jsonPath, "utf-8"))),
+        ).toEqual([]);
+      });
+
+      it("uses no chart type hidden from the picker, except choropleth", () => {
+        expect(
+          hiddenFromPicker(
+            chartTypesIn(readFileSync(showcase.jsonPath, "utf-8")),
+          ),
         ).toEqual([]);
       });
 
@@ -205,5 +264,15 @@ describe("docker/postgres/seed-neoboard.sql", () => {
     );
     expect(types.length).toBeGreaterThan(0); // the regex still matches
     expect(unregistered(types)).toEqual([]);
+  });
+
+  it("uses no chart type hidden from the picker, except choropleth", () => {
+    const types = chartTypesIn(
+      readFileSync(
+        new URL("../../docker/postgres/seed-neoboard.sql", import.meta.url),
+        "utf-8",
+      ),
+    );
+    expect(hiddenFromPicker(types)).toEqual([]);
   });
 });

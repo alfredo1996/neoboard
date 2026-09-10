@@ -18,7 +18,6 @@ const TABS_TO_VISIT = [
   { name: "6. Gauge", desc: "Gauge — bounded metrics with thresholds" },
   { name: "14. Sankey", desc: "Sankey — flow between categories" },
   { name: "15. Sunburst", desc: "Sunburst — nested arcs" },
-  { name: "16. Radar", desc: "Radar — multi-axis comparison" },
 ];
 
 export async function run(page) {
@@ -67,21 +66,13 @@ export async function run(page) {
   await narrate(page, "Gauge in dark mode — theme-aware colors");
   await wait(page, LONG);
 
-  await page.getByRole("tab", { name: "16. Radar" }).click();
-  await wait(page, LONG);
-  await scrollToFirstChart(page);
-  await wait(page, HERO);
-
-  await narrate(page, "Radar in dark mode — readable axis labels, subtle grid");
-  await wait(page, LONG);
-
   // Switch back to light
   await page.getByRole("button", { name: "Theme" }).click();
   await wait(page, SHORT);
   await page.getByRole("menuitemradio", { name: "Light" }).click();
   await wait(page, MEDIUM);
 
-  await narrate(page, "That's the Chart Gallery — 18 chart types, all customizable");
+  await narrate(page, "That's the Chart Gallery — NeoBoard registers 18 chart types, all customizable");
   await wait(page, HERO);
 
   await clearNarration(page);
