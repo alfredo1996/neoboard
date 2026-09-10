@@ -81,7 +81,7 @@ export async function run(page) {
   await page.getByRole("menuitemradio", { name: "Light" }).click();
   await wait(page, MEDIUM);
 
-  await narrate(page, "That's the Chart Gallery — 17 chart types, all customizable");
+  await narrate(page, "That's the Chart Gallery — 18 chart types, all customizable");
   await wait(page, HERO);
 
   await clearNarration(page);

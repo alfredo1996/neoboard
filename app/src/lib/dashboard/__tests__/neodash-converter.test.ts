@@ -604,8 +604,9 @@ describe("convertNeoDash", () => {
 
   // #1687 — circle packing and treemap are no longer registered in the app,
   // so a NeoDash report of either type is skipped with a note rather than
-  // imported as a widget that would render "Unknown chart type".
-  it.each(["circle_packing", "circlePacking", "treemap"])(
+  // imported as a widget that would render "Unknown chart type". NeoDash's
+  // own key is the camel-cased `treeMap`; `treemap` is kept as an alias.
+  it.each(["circle_packing", "circlePacking", "treemap", "treeMap"])(
     "skips a %s report with an unsupported-type note and no widget",
     (type) => {
       const { export: result, notes } = convertNeoDashWithNotes(
@@ -616,6 +617,24 @@ describe("convertNeoDash", () => {
       expect(notes).toEqual([
         `"W" (${type}) → unsupported in NeoBoard, skipped`,
       ]);
+    },
+  );
+
+  it.each([
+    [
+      "treeMap",
+      '"Untitled widget" (treeMap) → unsupported in NeoBoard, skipped',
+    ],
+    ["wat", '"Untitled widget" (unknown type "wat") → JSON Viewer'],
+    ["graph3d", '"Untitled widget" (graph3d) → graph (2D — 3D view lost)'],
+  ])(
+    "names a titleless %s report 'Untitled widget' in its note",
+    (type, note) => {
+      // NeoDash exports can omit `title`; the notes used to print "undefined".
+      const { notes } = convertNeoDashWithNotes(
+        makeSingleReportDash({ dashTitle: "T", type, title: undefined }),
+      );
+      expect(notes).toEqual([note]);
     },
   );
 

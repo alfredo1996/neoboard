@@ -108,8 +108,9 @@ describe("transformToHierarchicalData — identity and values", () => {
   });
 
   it("keeps a lone root wrapped", () => {
-    // Circle packing uses the root's name as its first breadcrumb crumb, so
-    // the transform must not unwrap it.
+    // The output shape is kept stable for the component/ charts that still
+    // consume it (#1687): circle packing there reads the root's name as its
+    // first breadcrumb, so the transform must not unwrap a lone root.
     const out = asNodes(
       transformToHierarchicalData([{ parent: "All", name: "A", value: 1 }]),
     );

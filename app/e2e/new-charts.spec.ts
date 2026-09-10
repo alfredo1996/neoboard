@@ -476,11 +476,15 @@ test.describe("Widget Showcase seed dashboard", () => {
       timeout: 15_000,
     });
 
-    // At least 10 widgets should be on this page
+    // At least 9 widgets should be on this page
     const widgetCount = await page
       .locator("[data-testid='widget-card']")
       .count();
-    expect(widgetCount).toBeGreaterThanOrEqual(10);
+    expect(widgetCount).toBeGreaterThanOrEqual(9);
+
+    // A seed widget of an unregistered type still renders a card, so the
+    // count alone cannot tell (#1687 left a treemap tile here).
+    await expect(page.getByText("Unknown chart type")).toHaveCount(0);
   });
 
   test("should show Color Palettes page tab", async ({ page }) => {
