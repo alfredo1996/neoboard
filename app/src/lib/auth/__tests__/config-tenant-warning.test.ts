@@ -77,11 +77,19 @@ describe("TENANT_ID default warning (#1338)", () => {
   });
 
   it("warns once when TENANT_ID is the empty string the prod compose file passes", async () => {
+    // docker-compose.prod*.yml pass `TENANT_ID: ${TENANT_ID:-}`. `??` keeps ""
+    // here, matching signup/bootstrap/session, so every user row and every
+    // login query agree on "". The pinned message ("defaulting to 'default'")
+    // is KNOWN-WRONG for this case; tracked in #1728.
     process.env.TENANT_ID = "";
 
     await loadAndRunFlows(3);
 
     expect(tenantWarnings()).toHaveLength(1);
+    expect(getCachedSsoProviders).toHaveBeenCalledTimes(3);
+    for (const [tenantId] of getCachedSsoProviders.mock.calls) {
+      expect(tenantId).toBe("");
+    }
   });
 
   it("never warns and uses the env value when TENANT_ID is set", async () => {
