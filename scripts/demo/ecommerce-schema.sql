@@ -23,7 +23,7 @@ CREATE TABLE regions (
 CREATE INDEX regions_continent_idx ON regions (continent);
 
 -- ---------------------------------------------------------------------------
--- Categories (hierarchical — drives sunburst/treemap)
+-- Categories (hierarchical — drives sunburst)
 -- ---------------------------------------------------------------------------
 CREATE TABLE categories (
   id           INTEGER PRIMARY KEY,

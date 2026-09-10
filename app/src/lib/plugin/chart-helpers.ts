@@ -40,8 +40,6 @@ const COLUMN_MAPPING_TYPES = new Set<string>(["bar", "line", "pie"]);
  * remove it here — no other change needed.
  */
 export const DISABLED_CHART_TYPES: ReadonlySet<string> = new Set([
-  "circle-packing",
-  "treemap",
   "choropleth",
   "radar",
 ]);
@@ -205,13 +203,6 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
       isECharts: true,
       supportsStyling: true,
     },
-  },
-  {
-    type: "treemap",
-    label: "Treemap",
-    compatibleWith: ["neo4j", "postgresql"],
-    stylingTargets: [{ value: "color", label: "Block Color" }],
-    capabilities: { isECharts: true, supportsStyling: true },
   },
 ];
 
@@ -387,7 +378,7 @@ export function getAllChartTypes(): string[] {
  * - With a connector: its compatible types (already excludes disabled types).
  * - Without a connector: all registered types minus disabled ones.
  * - When editing a widget whose `currentType` is disabled (a legacy
- *   radar/treemap/etc.), that type is appended so the selector still shows it
+ *   radar/choropleth), that type is appended so the selector still shows it
  *   rather than a blank value.
  */
 export function getSelectableChartTypes(

@@ -1,7 +1,7 @@
 /**
  * Sunburst chart data transform.
  *
- * Shares the hierarchical transform and validator with Treemap and Circle Packing.
+ * Re-exports the shared hierarchical transform and validator.
  */
 
 export {

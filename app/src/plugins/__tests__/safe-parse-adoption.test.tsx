@@ -4,7 +4,7 @@
  *
  * Each plugin component runs `safeParseSettings(...)` at the top, BEFORE any
  * hooks or chart rendering. Running the component once with junk settings is
- * the cheapest way to cover the migrated line in each of the 20 plugin
+ * the cheapest way to cover the migrated line in each of the 18 plugin
  * components — which keeps SonarCloud's new_coverage gate happy without
  * writing one full render test per plugin.
  *
@@ -16,7 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
 
 // Stub @neoboard/components — null-rendering components + minimal helpers.
-// Listed names cover both the 20 plugin components AND their downstream
+// Listed names cover both the 18 plugin components AND their downstream
 // imports (e.g. table-renderer imports parseColorThresholds).
 vi.mock("@neoboard/components", () => {
   const Stub = ({ children }: { children?: React.ReactNode } = {}) =>
@@ -57,7 +57,6 @@ vi.mock("@/components/graph-exploration-wrapper", () => ({
 // Import plugins AFTER mocks are set up
 const { barPlugin } = await import("../bar");
 const { choroplethPlugin } = await import("../choropleth");
-const { circlePackingPlugin } = await import("../circle-packing");
 const { formPlugin } = await import("../form");
 const { ganttPlugin } = await import("../gantt");
 const { gaugePlugin } = await import("../gauge");
@@ -74,12 +73,10 @@ const { sankeyPlugin } = await import("../sankey");
 const { singleValuePlugin } = await import("../single-value");
 const { sunburstPlugin } = await import("../sunburst");
 const { tablePlugin } = await import("../table");
-const { treemapPlugin } = await import("../treemap");
 
 const ALL_PLUGINS = [
   barPlugin,
   choroplethPlugin,
-  circlePackingPlugin,
   formPlugin,
   ganttPlugin,
   gaugePlugin,
@@ -96,7 +93,6 @@ const ALL_PLUGINS = [
   singleValuePlugin,
   sunburstPlugin,
   tablePlugin,
-  treemapPlugin,
 ];
 
 const GARBAGE_PROPS = {
@@ -109,7 +105,7 @@ const GARBAGE_PROPS = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;
 
-describe("safeParseSettings adoption across all 20 plugins", () => {
+describe("safeParseSettings adoption across all 18 plugins", () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -129,17 +125,17 @@ describe("safeParseSettings adoption across all 20 plugins", () => {
     });
   }
 
-  it("covers all 20 plugins (sanity check on the array)", () => {
-    expect(ALL_PLUGINS).toHaveLength(20);
+  it("covers all 18 plugins (sanity check on the array)", () => {
+    expect(ALL_PLUGINS).toHaveLength(18);
     const types = new Set(ALL_PLUGINS.map((p) => p.type));
-    expect(types.size).toBe(20); // unique
+    expect(types.size).toBe(18); // unique
   });
 });
 
 /**
  * Plugin wiring assertions live here because this file already stubs every
  * heavy import a plugin component pulls in (next/dynamic, @neoboard/components)
- * and already imports all 20 plugins.
+ * and already imports all 18 plugins.
  *
  * card-container.tsx calls `chartConfig.validate` and nothing else
  * (app/src/components/card-container.tsx:314 and :634), so a validator a

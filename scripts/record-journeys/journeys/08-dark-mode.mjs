@@ -61,17 +61,6 @@ export async function run(page) {
   await narrate(page, "Gauge in dark mode — ticks and labels now theme-aware");
   await wait(page, LONG);
 
-  // Show treemap in dark
-  await scrollToTop(page);
-  await wait(page, SHORT);
-  await page.getByRole("tab", { name: "15. Treemap" }).click();
-  await wait(page, LONG);
-  await scrollToFirstChart(page);
-  await wait(page, HERO);
-
-  await narrate(page, "Treemap — neutral borders, no white-on-dark clash");
-  await wait(page, LONG);
-
   // Switch back to light
   await scrollToTop(page);
   await wait(page, SHORT);

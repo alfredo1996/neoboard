@@ -184,9 +184,7 @@ const KNOWN_CHART_TYPES = new Set([
   "sankey",
   "sunburst",
   "radar",
-  "treemap",
   "gantt",
-  "circle-packing",
   "choropleth",
 ]);
 

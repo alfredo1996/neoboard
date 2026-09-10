@@ -23,9 +23,7 @@ export const CHART_TYPES = [
   "sankey",
   "sunburst",
   "radar",
-  "treemap",
   "gantt",
-  "circle-packing",
   "choropleth",
 ] as const;
 

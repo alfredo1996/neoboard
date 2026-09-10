@@ -135,7 +135,7 @@ flowchart LR
     end
 ```
 
-**20 chart plugins:** bar, line, pie, gauge, single-value, table, graph, map, json, markdown, form, iframe, sankey, sunburst, radar, treemap, parameter-select, circle-packing, choropleth, gantt
+**18 chart plugins:** bar, line, pie, gauge, single-value, table, graph, map, json, markdown, form, iframe, sankey, sunburst, radar, parameter-select, choropleth, gantt
 
 ## State Management
 
@@ -179,7 +179,7 @@ app/src/
 ├── components/             # App-level React components
 ├── hooks/                  # TanStack Query hooks (20+)
 ├── stores/                 # Zustand stores (7)
-├── plugins/                # Chart plugin definitions (20)
+├── plugins/                # Chart plugin definitions (18)
 │   ├── transforms/         # Data transform functions
 │   └── settings/           # Zod settings schemas
 ├── lib/

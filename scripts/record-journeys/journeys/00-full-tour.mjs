@@ -123,9 +123,8 @@ export async function run(page) {
     { name: "3. Pie / Donut", desc: "Pie & Donut" },
     { name: "6. Gauge", desc: "Gauge" },
     { name: "14. Sankey", desc: "Sankey" },
-    { name: "15. Treemap", desc: "Treemap" },
-    { name: "16. Sunburst", desc: "Sunburst" },
-    { name: "17. Radar", desc: "Radar" },
+    { name: "15. Sunburst", desc: "Sunburst" },
+    { name: "16. Radar", desc: "Radar" },
   ];
 
   for (const tab of chartTabs) {

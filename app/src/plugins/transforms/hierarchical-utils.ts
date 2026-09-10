@@ -1,6 +1,7 @@
 /**
- * Hierarchical data transform shared by the Sunburst, Treemap and Circle
- * Packing charts.
+ * Hierarchical data transform for the Sunburst chart. Treemap and circle
+ * packing consumed the same shape until #1687 unregistered them from the app;
+ * both still live in component/, so keep the output shape stable.
  */
 
 import { toRecords, normalizeValue } from "./shared-utils";
@@ -142,7 +143,7 @@ function buildTree(
 }
 
 /**
- * Transform to Sunburst/Treemap/Circle-Packing hierarchical format.
+ * Transform to the Sunburst hierarchical format.
  * 1. Data already has `children` — pass through.
  * 2. Flat data with a `parent` column — build the hierarchy.
  * 3. Flat name/value pairs — return them flat.
@@ -180,7 +181,7 @@ export function validateHierarchicalData(data: unknown): string | null {
 
   const resolved = resolveColumns(records);
   if (!resolved.valueKey) {
-    return `Sunburst, treemap and circle packing need a numeric value column. Found: ${resolved.keys.join(", ")}`;
+    return `Sunburst needs a numeric value column. Found: ${resolved.keys.join(", ")}`;
   }
 
   const valueKey = resolved.valueKey;

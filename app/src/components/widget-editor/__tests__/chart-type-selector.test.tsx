@@ -72,7 +72,7 @@ describe("getChartTypeMeta", () => {
 });
 
 describe("chartTypeIcons", () => {
-  it("has entries for all 20 chart types", () => {
+  it("has entries for all 18 chart types", () => {
     const expected = [
       "bar",
       "line",
@@ -90,14 +90,15 @@ describe("chartTypeIcons", () => {
       "sankey",
       "sunburst",
       "radar",
-      "treemap",
       "gantt",
-      "circle-packing",
       "choropleth",
     ];
     for (const type of expected) {
       expect(chartTypeIcons[type as ChartType]).toBeDefined();
     }
+    // #1687 — unregistered from the app; an icon entry would be dead code.
+    expect(Object.keys(chartTypeIcons)).not.toContain("treemap");
+    expect(Object.keys(chartTypeIcons)).not.toContain("circle-packing");
   });
 });
 

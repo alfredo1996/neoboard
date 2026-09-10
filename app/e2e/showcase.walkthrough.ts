@@ -121,17 +121,7 @@ test("chart fixes walkthrough", async ({ authPage, page }) => {
         title: "Relationships by type — sunburst",
         query:
           "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS parent, m.title AS name, 1 AS value LIMIT 24",
-        w: 6,
-        h: 5,
-      },
-      {
-        id: "treemap",
-        chartType: "treemap",
-        title: "The same rows as a treemap",
-        query:
-          "MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS parent, m.title AS name, 1 AS value LIMIT 24",
-        x: 6,
-        w: 6,
+        w: 12,
         h: 5,
       },
     ],
@@ -147,7 +137,7 @@ test("chart fixes walkthrough", async ({ authPage, page }) => {
   await caption(
     page,
     "A hierarchy from leaf rows alone",
-    "This is the query our docs publish: it returns only leaf rows, naming each parent in a column. Those parents are now created for you — until this week they were dropped, and both charts drew a single flat ring.",
+    "This is the query our docs publish: it returns only leaf rows, naming each parent in a column. Those parents are now created for you — until this week they were dropped, and the chart drew a single flat ring.",
   );
   await page.waitForTimeout(BEAT * 2);
   await page.screenshot({ path: "showcase-output/01-hierarchy.png" });

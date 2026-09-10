@@ -101,7 +101,7 @@ Browse the [screenshots](#screenshots) below for a feel of the UI without instal
 
 | Category          | Details                                                                                                                                                                               |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Charts**        | 20 types: Bar, Line, Pie, Table, Single Value, Gauge, Radar, Sankey, Sunburst, Treemap, Gantt, Circle Packing, Choropleth, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select |
+| **Charts**        | 18 types: Bar, Line, Pie, Table, Single Value, Gauge, Radar, Sankey, Sunburst, Gantt, Choropleth, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select |
 | **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                                                                                                              |
 | **Parameters**    | Select, Multi-Select, Date, Date Range, Freetext — with cross-widget binding                                                                                                          |
 | **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                                                                                                                 |

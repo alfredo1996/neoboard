@@ -19,9 +19,6 @@ const CHART_TYPE_MAP: Record<string, string> = {
   value: "single-value",
   gauge: "gauge",
   sunburst: "sunburst",
-  circle_packing: "circle-packing",
-  circlePacking: "circle-packing",
-  treemap: "treemap",
   sankey: "sankey",
   radar: "radar",
   area: "line",
@@ -34,6 +31,13 @@ const CHART_TYPE_MAP: Record<string, string> = {
   form: "form",
   json: "json",
 };
+
+/**
+ * NeoDash types NeoBoard deliberately does not ship (#1687). Unlike an unknown
+ * type, these are not worth a JSON Viewer fallback: the report is dropped and
+ * the user told why, so the imported dashboard has no dead tile.
+ */
+const UNSUPPORTED_TYPES = new Set(["circle_packing", "circlePacking", "treemap"]);
 
 /** NeoDash types that get mapped to a different NeoBoard type. */
 const DOWNGRADED_TYPES: Record<string, string> = {
@@ -315,8 +319,18 @@ export function convertNeoDashWithNotes(
     const gridLayout: GridLayoutItem[] = [];
 
     for (const report of page.reports) {
-      const widgetId = crypto.randomUUID();
       const originalType = report.type;
+      if (UNSUPPORTED_TYPES.has(originalType)) {
+        notes.push(
+          '"' +
+            report.title +
+            '" (' +
+            originalType +
+            ") → unsupported in NeoBoard, skipped",
+        );
+        continue;
+      }
+      const widgetId = crypto.randomUUID();
       const chartType = CHART_TYPE_MAP[originalType] ?? "json";
 
       // Track downgrades

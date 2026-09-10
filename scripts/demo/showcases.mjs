@@ -26,7 +26,7 @@ export const SHOWCASES = [
   {
     key: "chart-gallery",
     label: "Chart Gallery",
-    description: "One page per chart type — 17 pages covering every registered widget.",
+    description: "One page per chart type — 18 pages covering every registered widget.",
     jsonPath: join(__dirname, "chart-gallery.json"),
   },
   {

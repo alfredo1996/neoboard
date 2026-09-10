@@ -17,9 +17,7 @@ vi.mock("@neoboard/components", () => ({
   SankeyChart: Stub,
   SunburstChart: Stub,
   RadarChart: Stub,
-  TreemapChart: Stub,
   GanttChart: Stub,
-  CirclePackingChart: Stub,
   ChoroplethChart: Stub,
   EmptyState: Stub,
   Skeleton: Stub,
@@ -169,12 +167,7 @@ describe("getCompatibleChartTypes", () => {
   it("excludes disabled chart types from the pickable list", () => {
     const neo4j = getCompatibleChartTypes("neo4j");
     const pg = getCompatibleChartTypes("postgresql");
-    for (const disabled of [
-      "circle-packing",
-      "treemap",
-      "choropleth",
-      "radar",
-    ]) {
+    for (const disabled of ["choropleth", "radar"]) {
       expect(neo4j, `neo4j should not offer ${disabled}`).not.toContain(
         disabled,
       );
@@ -186,15 +179,19 @@ describe("getCompatibleChartTypes", () => {
 
   it("keeps disabled chart plugins registered so existing widgets still render", () => {
     // getChartConfig hits the registry directly (the render path) — must
-    // still resolve so a saved radar/treemap/etc. widget renders.
-    for (const disabled of [
-      "circle-packing",
-      "treemap",
-      "choropleth",
-      "radar",
-    ]) {
+    // still resolve so a saved radar/choropleth widget renders.
+    for (const disabled of ["choropleth", "radar"]) {
       expect(getChartConfig(disabled), disabled).toBeDefined();
     }
+  });
+
+  it("registers neither treemap nor circle-packing, not even as a stub (#1687)", () => {
+    // Unlike the disabled types above these are gone from the app entirely,
+    // so the render path must fall through to "Unknown chart type".
+    expect(getChartConfig("treemap")).toBeUndefined();
+    expect(getChartConfig("circle-packing")).toBeUndefined();
+    expect(getAllChartTypes()).not.toContain("treemap");
+    expect(getAllChartTypes()).not.toContain("circle-packing");
   });
 });
 
@@ -252,9 +249,9 @@ describe("supportsColumnMapping", () => {
 // getAllChartTypes
 // ---------------------------------------------------------------------------
 describe("getAllChartTypes", () => {
-  it("returns all 20 registered types", () => {
+  it("returns all 18 registered types", () => {
     const types = getAllChartTypes();
-    expect(types.length).toBe(20);
+    expect(types.length).toBe(18);
     for (const t of CHART_TYPES) {
       expect(types).toContain(t);
     }
@@ -265,7 +262,7 @@ describe("getAllChartTypes", () => {
 // getSelectableChartTypes (#1158) — the widget picker's list
 // ---------------------------------------------------------------------------
 describe("getSelectableChartTypes", () => {
-  const DISABLED = ["circle-packing", "treemap", "choropleth", "radar"];
+  const DISABLED = ["choropleth", "radar"];
 
   it("excludes disabled types for a connector", () => {
     const types = getSelectableChartTypes("neo4j");

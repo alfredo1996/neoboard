@@ -15,7 +15,6 @@ vi.mock("@neoboard/components", () => ({
   SankeyChart: () => null,
   SunburstChart: () => null,
   RadarChart: () => null,
-  TreemapChart: () => null,
   EmptyState: () => null,
   Skeleton: () => null,
   getChartOptions: () => [],
@@ -52,6 +51,18 @@ describe("CHART_TYPES constant", () => {
         chartTypeSet.has(t),
         `"${t}" is registered but not in CHART_TYPES`,
       ).toBe(true);
+    }
+  });
+
+  it("no longer declares or registers treemap and circle-packing (#1687)", () => {
+    // Both live on in component/ (charts + stories) but the app must not
+    // import them. A CHART_TYPES entry without a plugin, or a plugin without
+    // an entry, is caught by the two tests above.
+    for (const gone of ["treemap", "circle-packing"]) {
+      expect(CHART_TYPES).not.toContain(gone);
+      expect(pluginRegistry.has(gone), `"${gone}" is still registered`).toBe(
+        false,
+      );
     }
   });
 

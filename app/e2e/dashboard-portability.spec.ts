@@ -177,15 +177,23 @@ test.describe("NeoDash legacy import", () => {
     await expect(importBtn).toBeEnabled({ timeout: 5_000 });
     await importBtn.click();
 
-    // Post-success view replaces the form — click "View dashboard"
+    // Post-success view replaces the form with the import notes. The fixture's
+    // circle_packing report is one of the types NeoBoard no longer ships, so
+    // it is dropped and the user told why (#1687).
+    await expect(
+      page.getByText(
+        '"Genre Hierarchy" (circle_packing) → unsupported in NeoBoard, skipped',
+      ),
+    ).toBeVisible({ timeout: 15_000 });
     await page
       .getByRole("button", { name: "View dashboard" })
       .click({ timeout: 15_000 });
     await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
 
-    // Verify 6 widget cards rendered — includes gantt and graph3d→graph
+    // Verify 7 widget cards rendered — the 8 reports minus the skipped
+    // circle_packing one; includes gantt and graph3d→graph.
     // Report titles are now preserved as widget settings.title
-    await expect(page.locator("[data-testid='widget-card']")).toHaveCount(8, {
+    await expect(page.locator("[data-testid='widget-card']")).toHaveCount(7, {
       timeout: 15_000,
     });
 

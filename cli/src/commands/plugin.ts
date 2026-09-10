@@ -163,9 +163,7 @@ export function runPluginList(): void {
     "sankey",
     "sunburst",
     "radar",
-    "treemap",
     "gantt",
-    "circle-packing",
     "choropleth",
   ];
 

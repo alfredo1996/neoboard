@@ -17,7 +17,6 @@ import { gaugeSettingsSchema } from "../../gauge/settings";
 import { radarSettingsSchema } from "../../radar/settings";
 import { sankeySettingsSchema } from "../../sankey/settings";
 import { sunburstSettingsSchema } from "../../sunburst/settings";
-import { treemapSettingsSchema } from "../../treemap/settings";
 import { singleValueSettingsSchema } from "../../single-value/settings";
 import { tableSettingsSchema } from "../../table/settings";
 import { jsonSettingsSchema } from "../../json/settings";
@@ -40,7 +39,6 @@ const schemas = [
   { name: "radar", schema: radarSettingsSchema },
   { name: "sankey", schema: sankeySettingsSchema },
   { name: "sunburst", schema: sunburstSettingsSchema },
-  { name: "treemap", schema: treemapSettingsSchema },
   { name: "single-value", schema: singleValueSettingsSchema },
   { name: "table", schema: tableSettingsSchema },
   { name: "json", schema: jsonSettingsSchema },
@@ -274,29 +272,6 @@ describe("sunburstSettingsSchema", () => {
     expect(() => sunburstSettingsSchema.parse({ sort: "random" })).toThrow(
       ZodError,
     );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Treemap settings
-// ---------------------------------------------------------------------------
-
-describe("treemapSettingsSchema", () => {
-  it("applies correct defaults", () => {
-    const result = treemapSettingsSchema.parse({});
-    expect(result.showLabels).toBe(true);
-    expect(result.showValues).toBe(false);
-  });
-
-  it("ignores colorSaturation and showBreadcrumb, removed in #1405", () => {
-    // Stored values on existing widgets pass through the schema untouched and
-    // are simply never read — no migration needed.
-    const result = treemapSettingsSchema.parse({
-      colorSaturation: "high",
-      showBreadcrumb: false,
-    });
-    expect(result).not.toHaveProperty("colorSaturation.__typed");
-    expect(result.showLabels).toBe(true);
   });
 });
 

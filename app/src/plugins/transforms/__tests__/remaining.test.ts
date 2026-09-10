@@ -164,7 +164,7 @@ describe("transformToGaugeData", () => {
   });
 });
 
-// ── hierarchical (sunburst/treemap) ────────────────────────────────────────
+// ── hierarchical (sunburst) ────────────────────────────────────────
 
 describe("transformToHierarchicalData", () => {
   it("passes through pre-hierarchical data", () => {

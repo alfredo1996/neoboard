@@ -17,8 +17,8 @@ const byName = (nodes: Node[], name: string) =>
   nodes.find((n) => n.name === name);
 
 describe("transformToHierarchicalData — parents that only appear as references", () => {
-  // The query shape our own docs publish (docs/charts/sunburst.mdx:18,
-  // treemap.mdx:18) returns LEAF rows only: the parent is named in a column
+  // The query shape our own docs publish (docs/charts/sunburst.mdx:18)
+  // returns LEAF rows only: the parent is named in a column
   // but never returned as a row of its own. Every parent was therefore
   // dropped and the chart painted one flat ring.
   const leafRows = [

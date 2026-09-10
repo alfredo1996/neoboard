@@ -35,9 +35,7 @@ import { gaugePlugin } from "./gauge";
 import { sankeyPlugin } from "./sankey";
 import { sunburstPlugin } from "./sunburst";
 import { radarPlugin } from "./radar";
-import { treemapPlugin } from "./treemap";
 import { ganttPlugin } from "./gantt";
-import { circlePackingPlugin } from "./circle-packing";
 import { choroplethPlugin } from "./choropleth";
 
 const BUILT_IN_PLUGINS = [
@@ -57,9 +55,7 @@ const BUILT_IN_PLUGINS = [
   sankeyPlugin,
   sunburstPlugin,
   radarPlugin,
-  treemapPlugin,
   ganttPlugin,
-  circlePackingPlugin,
   choroplethPlugin,
 ];
 

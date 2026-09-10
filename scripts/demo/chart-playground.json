@@ -401,7 +401,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Three views of the same hierarchy\n\nThe **treemap**, **sunburst**, and **circle-packing** charts all consume the same query — twiddle the knobs to see how each renders the same data. The **dimension** select changes the GROUP BY column; **limit** trims the result.\n\n> Refresh the page to reset all parameters to defaults."
+                "content": "## One hierarchy, live knobs\n\nThe **sunburst** re-renders as you twiddle the knobs. The **dimension** select changes the GROUP BY column; **limit** trims the result.\n\n> Refresh the page to reset all parameters to defaults."
               }
             }
           },
@@ -439,21 +439,6 @@
             }
           },
           {
-            "id": "dist-treemap",
-            "chartType": "treemap",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit_max",
-            "settings": {
-              "title": "Treemap",
-              "chartOptions": {
-                "showLabels": true,
-                "showValues": true,
-                "colorSaturation": "medium",
-                "colorPalette": "citrine"
-              }
-            }
-          },
-          {
             "id": "dist-sunburst",
             "chartType": "sunburst",
             "connectionId": "conn_postgres_read",
@@ -467,28 +452,13 @@
                 "colorPalette": "tableau"
               }
             }
-          },
-          {
-            "id": "dist-circle",
-            "chartType": "circle-packing",
-            "connectionId": "conn_postgres_read",
-            "query": "SELECT CASE WHEN $param_dist_dim = 'product' THEN p.name WHEN $param_dist_dim = 'category' THEN parent.name ELSE r.name END AS name, SUM(oi.qty * oi.price)::float AS value FROM neoboard_demo_public.order_items oi JOIN neoboard_demo_public.products p ON p.id = oi.product_id JOIN neoboard_demo_public.categories sub ON sub.id = p.category_id JOIN neoboard_demo_public.categories parent ON parent.id = sub.parent_id JOIN neoboard_demo_public.orders o ON o.id = oi.order_id JOIN neoboard_demo_public.customers c ON c.id = o.customer_id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY 1 ORDER BY value DESC LIMIT $param_dist_limit_max",
-            "settings": {
-              "title": "Circle packing",
-              "chartOptions": {
-                "showLabels": true,
-                "padding": 3
-              }
-            }
           }
         ],
         "gridLayout": [
           { "i": "dist-md", "x": 0, "y": 0, "w": 12, "h": 4 },
           { "i": "dist-dim", "x": 0, "y": 4, "w": 6, "h": 3 },
           { "i": "dist-limit", "x": 6, "y": 4, "w": 6, "h": 3 },
-          { "i": "dist-treemap", "x": 0, "y": 7, "w": 4, "h": 7 },
-          { "i": "dist-sunburst", "x": 4, "y": 7, "w": 4, "h": 7 },
-          { "i": "dist-circle", "x": 8, "y": 7, "w": 4, "h": 7 }
+          { "i": "dist-sunburst", "x": 0, "y": 7, "w": 12, "h": 7 }
         ]
       },
       {
