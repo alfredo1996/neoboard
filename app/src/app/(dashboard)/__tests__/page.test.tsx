@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
 
@@ -8,6 +8,11 @@ import type { DashboardListItem } from "@/hooks/use-dashboards";
 // ---------------------------------------------------------------------------
 
 let mockDashboards: DashboardListItem[] = [];
+const { mockCreate, mockUpdate, mockToast } = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockToast: vi.fn(),
+}));
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: { user: { role: "creator" } } }),
@@ -27,10 +32,10 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/hooks/use-dashboards", () => ({
   useDashboards: () => ({ data: mockDashboards, isLoading: false }),
-  useCreateDashboard: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreateDashboard: () => ({ mutateAsync: mockCreate, isPending: false }),
   useDeleteDashboard: () => ({ mutate: vi.fn(), isPending: false }),
   useDuplicateDashboard: () => ({ mutate: vi.fn(), isPending: false }),
-  useUpdateDashboard: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateDashboard: () => ({ mutateAsync: mockUpdate, isPending: false }),
   useImportDashboard: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
@@ -125,7 +130,7 @@ vi.mock("@neoboard/components", () => {
     LoadingOverlay: pass(),
     ConfirmDialog: () => null,
     TimeAgo: () => <span />,
-    useToast: () => ({ toast: vi.fn(), dismiss: vi.fn() }),
+    useToast: () => ({ toast: mockToast, dismiss: vi.fn() }),
   };
 });
 
@@ -214,5 +219,81 @@ describe("DashboardListPage — tags (#1692)", () => {
     render(<DashboardListPage />);
     fireEvent.click(screen.getByRole("button", { name: /New Dashboard/ }));
     expect(screen.getByLabelText(/^Tags/)).toBeInTheDocument();
+  });
+
+  // A tag literally named "all" must not collide with the "All tags" item.
+  it('filters on a dashboard tagged "all"', () => {
+    mockDashboards = [
+      item("d1", "Everything", ["all"]),
+      item("d2", "Ops Board", ["ops"]),
+    ];
+    render(<DashboardListPage />);
+    fireEvent.change(screen.getByLabelText("Filter by tag"), {
+      target: { value: "all" },
+    });
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]).toHaveTextContent("Everything");
+  });
+});
+
+describe("DashboardListPage — tag limits (#1715 review)", () => {
+  const ELEVEN = Array.from({ length: 11 }, (_, i) => `t${i}`).join(", ");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDashboards = [item("d1", "Sales Overview", ["sales"])];
+  });
+
+  it("shows the tag cap under the create dialog's Tags field instead of submitting", () => {
+    render(<DashboardListPage />);
+    fireEvent.click(screen.getByRole("button", { name: /New Dashboard/ }));
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Board" },
+    });
+    const tagsInput = screen.getByLabelText(/^Tags/);
+    fireEvent.change(tagsInput, { target: { value: ELEVEN } });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const error = screen.getByText("Use at most 10 tags");
+    expect(tagsInput).toHaveAttribute("aria-invalid", "true");
+    expect(tagsInput).toHaveAttribute("aria-describedby", error.id);
+    expect(screen.getByLabelText("Name")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("keeps the create dialog open and toasts when the server rejects", async () => {
+    mockCreate.mockRejectedValueOnce(new Error("Forbidden"));
+    render(<DashboardListPage />);
+    fireEvent.click(screen.getByRole("button", { name: /New Dashboard/ }));
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Board" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Failed to create dashboard",
+          description: "Forbidden",
+          variant: "destructive",
+        }),
+      ),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("puts a tag error under the edit dialog's Tags field, not its Name field", () => {
+    render(<DashboardListPage />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit details" })[0]);
+    const tagsInput = screen.getByLabelText(/^Tags/);
+    fireEvent.change(tagsInput, { target: { value: "x".repeat(31) } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    const error = screen.getByText("Each tag must be 30 characters or fewer");
+    expect(tagsInput).toHaveAttribute("aria-invalid", "true");
+    expect(tagsInput).toHaveAttribute("aria-describedby", error.id);
+    expect(screen.getByLabelText("Name")).not.toHaveAttribute("aria-invalid");
   });
 });

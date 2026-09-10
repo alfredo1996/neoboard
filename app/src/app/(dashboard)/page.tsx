@@ -82,9 +82,12 @@ import {
   isDuplicateDashboardName,
 } from "@/lib/dashboard/dashboard-list-helpers";
 import {
+  ALL_TAGS,
   collectDashboardTags,
   filterDashboardsByTag,
   parseTagsInput,
+  sameTags,
+  tagsInputError,
 } from "@/lib/dashboard/dashboard-tags";
 
 // ── Types for import dialog ──────────────────────────────────────────
@@ -696,6 +699,7 @@ export default function DashboardListPage() {
   const [newName, setNewName] = useState("");
   const [newTags, setNewTags] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
+  const [tagsError, setTagsError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
@@ -711,6 +715,7 @@ export default function DashboardListPage() {
   const [renameValue, setRenameValue] = useState("");
   const [renameTags, setRenameTags] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [renameTagsError, setRenameTagsError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   // Bulk connection-change dialog (#1376), also the post-import remedy (#1377).
   // One dialog serves both entry points because both live on this page.
@@ -739,14 +744,30 @@ export default function DashboardListPage() {
       return;
     }
     setNameError(null);
-    const dashboard = await createDashboard.mutateAsync({
-      name: newName,
-      tags: parseTagsInput(newTags),
-    });
-    setNewName("");
-    setNewTags("");
-    setShowCreate(false);
-    router.push(`/${dashboard.id}/edit`);
+    // Same rule the API applies — surfaced here so a 400 never gets swallowed.
+    const tags = parseTagsInput(newTags);
+    const tagsProblem = tagsInputError(tags);
+    if (tagsProblem) {
+      setTagsError(tagsProblem);
+      return;
+    }
+    try {
+      const dashboard = await createDashboard.mutateAsync({
+        name: newName,
+        tags,
+      });
+      setNewName("");
+      setNewTags("");
+      setShowCreate(false);
+      router.push(`/${dashboard.id}/edit`);
+    } catch (err) {
+      toast({
+        title: "Failed to create dashboard",
+        description:
+          err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
+      });
+    }
   }
 
   function openRename(d: { id: string; name: string; tags: string[] }) {
@@ -754,6 +775,7 @@ export default function DashboardListPage() {
     setRenameValue(d.name);
     setRenameTags(d.tags.join(", "));
     setRenameError(null);
+    setRenameTagsError(null);
   }
 
   async function handleRename(e: React.FormEvent) {
@@ -765,10 +787,12 @@ export default function DashboardListPage() {
       return;
     }
     const tags = parseTagsInput(renameTags);
-    if (
-      trimmed === renameTarget.name &&
-      tags.join(",") === renameTarget.tags.join(",")
-    ) {
+    const tagsProblem = tagsInputError(tags);
+    if (tagsProblem) {
+      setRenameTagsError(tagsProblem);
+      return;
+    }
+    if (trimmed === renameTarget.name && sameTags(tags, renameTarget.tags)) {
       setRenameTarget(null);
       return;
     }
@@ -816,6 +840,7 @@ export default function DashboardListPage() {
             setNewName("");
             setNewTags("");
             setNameError(null);
+            setTagsError(null);
           }
         }}
       >
@@ -872,10 +897,25 @@ export default function DashboardListPage() {
               <Input
                 id="dashboard-tags"
                 value={newTags}
-                onChange={(e) => setNewTags(e.target.value)}
+                onChange={(e) => {
+                  setNewTags(e.target.value);
+                  if (tagsError) setTagsError(null);
+                }}
                 placeholder="e.g. sales, weekly, kpi"
-                className="mt-2"
+                className={`mt-2 ${tagsError ? "border-destructive" : ""}`}
+                aria-invalid={tagsError ? "true" : undefined}
+                aria-describedby={
+                  tagsError ? "dashboard-tags-error" : undefined
+                }
               />
+              {tagsError && (
+                <p
+                  id="dashboard-tags-error"
+                  className="text-xs text-destructive mt-1"
+                >
+                  {tagsError}
+                </p>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -903,6 +943,7 @@ export default function DashboardListPage() {
           if (!open) {
             setRenameTarget(null);
             setRenameError(null);
+            setRenameTagsError(null);
           }
         }}
       >
@@ -948,10 +989,25 @@ export default function DashboardListPage() {
               <Input
                 id="dashboard-rename-tags"
                 value={renameTags}
-                onChange={(e) => setRenameTags(e.target.value)}
+                onChange={(e) => {
+                  setRenameTags(e.target.value);
+                  if (renameTagsError) setRenameTagsError(null);
+                }}
                 placeholder="e.g. sales, weekly, kpi"
-                className="mt-2"
+                className={`mt-2 ${renameTagsError ? "border-destructive" : ""}`}
+                aria-invalid={renameTagsError ? "true" : undefined}
+                aria-describedby={
+                  renameTagsError ? "dashboard-rename-tags-error" : undefined
+                }
               />
+              {renameTagsError && (
+                <p
+                  id="dashboard-rename-tags-error"
+                  className="text-xs text-destructive mt-1"
+                >
+                  {renameTagsError}
+                </p>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -1064,8 +1120,8 @@ export default function DashboardListPage() {
                 />
                 {allTags.length > 0 && (
                   <Select
-                    value={activeTag || "all"}
-                    onValueChange={(v) => setFilterTag(v === "all" ? "" : v)}
+                    value={activeTag || ALL_TAGS}
+                    onValueChange={(v) => setFilterTag(v === ALL_TAGS ? "" : v)}
                   >
                     <SelectTrigger
                       className="w-[160px]"
@@ -1074,7 +1130,7 @@ export default function DashboardListPage() {
                       <SelectValue placeholder="Tag" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All tags</SelectItem>
+                      <SelectItem value={ALL_TAGS}>All tags</SelectItem>
                       {allTags.map((tag) => (
                         <SelectItem key={tag} value={tag}>
                           {tag}
