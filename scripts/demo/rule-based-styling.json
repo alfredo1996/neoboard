@@ -100,7 +100,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Styling rules — Line\n\nRules color each series based on an aggregate over its values. Useful when a chart has multiple series and you want to highlight the underperforming / leading one.\n\n**Rules shown:**\n- `revenue >= 10000` → blue\n- `revenue < 10000` → red"
+                "content": "## Styling rules — Line\n\nRules color the line by the value at each point, so it changes color where it crosses a threshold. Where no rule matches, the series keeps its own color.\n\n**Rules shown:**\n- `revenue >= 10000` → blue\n- `revenue < 10000` → red"
               }
             }
           },
