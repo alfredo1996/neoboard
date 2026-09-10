@@ -136,6 +136,7 @@ function BarChart({
     const axisLabelConfig = buildCategoryAxisLabel(categoryLabels.length, {
       rotateOverride: axisLabelRotation,
       containerWidth: width,
+      categoryAxis: isHorizontal ? "y" : "x",
     });
 
     const categoryAxis = {
@@ -181,7 +182,18 @@ function BarChart({
           : buildTooltipFormatter({ decimalPlaces: dp }),
       },
       legend: buildLegend(effectiveShowLegend),
-      grid: buildCompactGrid(compact, effectiveShowLegend),
+      grid: isHorizontal
+        ? {
+            ...buildCompactGrid(compact, effectiveShowLegend),
+            // Level category labels fill the left gutter, and containLabel
+            // stops ECharts moving the axis name clear of them. Containing
+            // "all" moves the name past the labels and keeps it on the canvas
+            // (#1420).
+            containLabel: false,
+            outerBoundsMode: "same" as const,
+            outerBoundsContain: "all" as const,
+          }
+        : buildCompactGrid(compact, effectiveShowLegend),
       xAxis: isHorizontal ? valueAxis : categoryAxis,
       yAxis: isHorizontal ? categoryAxis : valueAxis,
       series: seriesKeys.map((key, idx) => ({

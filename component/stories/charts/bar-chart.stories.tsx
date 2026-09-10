@@ -65,6 +65,38 @@ export const Horizontal: Story = {
   },
 };
 
+/**
+ * #1420: ten long category names, the Movie Highlights "Top actors" shape.
+ * Horizontal bars stack categories vertically, so the labels stay level and
+ * whole in the left gutter; before the fix they were rotated 45° and cut at
+ * 15 characters. Wrapped at 530px, the demo card's width.
+ */
+export const HorizontalLongNames: Story = {
+  args: {
+    data: [
+      "Tom Hanks",
+      "Keanu Reeves",
+      "Hugo Weaving",
+      "Jack Nicholson",
+      "Meg Ryan",
+      "Tom Cruise",
+      "Carrie-Anne Moss",
+      "Laurence Fishburne",
+      "Cuba Gooding Jr.",
+      "Kevin Bacon",
+    ].map((label, i) => ({ label, value: 12 - i })),
+    orientation: "horizontal",
+    showValues: true,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 530, height: 400 }}>
+        <Story />
+      </div>
+    ),
+  ],
+};
+
 export const WithValues: Story = {
   args: {
     data: productData,

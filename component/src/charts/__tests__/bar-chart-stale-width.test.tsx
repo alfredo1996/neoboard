@@ -129,3 +129,79 @@ describe("BarChart container width (#1546)", () => {
     expect(latestOptions().legend).toBeUndefined();
   });
 });
+
+describe("BarChart horizontal category labels (#1420)", () => {
+  // Movie Highlights -> "Top actors by film count": ten names, several past
+  // the old 15-char cut.
+  const actors = [
+    "Tom Hanks",
+    "Keanu Reeves",
+    "Hugo Weaving",
+    "Jack Nicholson",
+    "Meg Ryan",
+    "Tom Cruise",
+    "Carrie-Anne Moss",
+    "Laurence Fishburne",
+    "Cuba Gooding Jr.",
+    "Kevin Bacon",
+  ].map((label, i) => ({ label, value: 10 - i }));
+
+  it("leaves the labels unrotated and untruncated by default", () => {
+    render(<BarChart data={actors} orientation="horizontal" />);
+    const { axisLabel, nameGap } = latestOptions().yAxis;
+    expect(axisLabel.rotate).toBe(0);
+    expect(axisLabel.formatter("Laurence Fishburne")).toBe(
+      "Laurence Fishburne",
+    );
+    expect(nameGap).toBe(30);
+  });
+
+  // Level labels fill the left gutter, and `containLabel` switches off
+  // ECharts' own name-vs-label overlap move while leaving the name out of the
+  // contained area. Containing "all" turns the move back on and keeps the
+  // moved name on the canvas; a bigger nameGap alone pushes it off the left
+  // edge instead (checked with a real ECharts SSR render).
+  it("lays the grid out around the axis name as well as the labels", () => {
+    render(
+      <BarChart data={actors} orientation="horizontal" yAxisLabel="Actor" />,
+    );
+    const { grid, yAxis } = latestOptions();
+    expect(yAxis.name).toBe("Actor");
+    expect(grid).toMatchObject({
+      containLabel: false,
+      outerBoundsMode: "same",
+      outerBoundsContain: "all",
+    });
+  });
+
+  it("keeps the vertical grid as it was", () => {
+    render(<BarChart data={actors} xAxisLabel="Actor" />);
+    expect(latestOptions().grid.containLabel).toBe(true);
+    expect(latestOptions().grid.outerBoundsContain).toBeUndefined();
+  });
+
+  it("keeps the width-based rotation for the same data vertical (#337)", () => {
+    render(<BarChart data={actors} />);
+    expect(latestOptions().xAxis.axisLabel.rotate).toBe(WIDTH_BASED_ROTATION);
+    expect(latestOptions().xAxis.nameGap).toBe(50);
+  });
+
+  it.each(["vertical", "horizontal"] as const)(
+    "honours an explicit rotation when %s",
+    (orientation) => {
+      render(
+        <BarChart
+          data={actors}
+          orientation={orientation}
+          axisLabelRotation={20}
+        />,
+      );
+      const axis =
+        orientation === "horizontal"
+          ? latestOptions().yAxis
+          : latestOptions().xAxis;
+      expect(axis.axisLabel.rotate).toBe(20);
+      expect(axis.nameGap).toBe(50);
+    },
+  );
+});
