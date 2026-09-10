@@ -42,6 +42,15 @@ const loginSchema = z.object({
   password: z.string().min(6),
 });
 
+// Module scope, not the per-flow factory below: TENANT_ID cannot change while
+// the process runs, so warn once at load instead of on every login (#1338).
+const tenantId = process.env.TENANT_ID ?? "default";
+if (!process.env.TENANT_ID) {
+  logger.warn(
+    "TENANT_ID not set — defaulting to 'default'. Set TENANT_ID explicitly for multi-tenant deployments.",
+  );
+}
+
 /**
  * Auth.js config uses lazy initialization so SSO providers can be loaded
  * dynamically from the database on each auth flow. The Credentials provider
@@ -49,12 +58,6 @@ const loginSchema = z.object({
  */
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
   async () => {
-    const tenantId = process.env.TENANT_ID ?? "default";
-    if (!process.env.TENANT_ID) {
-      logger.warn(
-        "TENANT_ID not set — defaulting to 'default'. Set TENANT_ID explicitly for multi-tenant deployments.",
-      );
-    }
     const ssoProviders = await getCachedSsoProviders(tenantId);
 
     return {
