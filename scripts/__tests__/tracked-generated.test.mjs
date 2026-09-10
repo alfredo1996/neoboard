@@ -25,3 +25,36 @@ describe("generated artefacts are not tracked (#1689)", () => {
     });
   }
 });
+
+// The rules themselves, so a reverted `.gitignore` block fails here before
+// anyone's `git add -A` re-tracks the cache. `--no-index` consults the rules
+// only (tracked files are never reported as ignored), and one spawn per path
+// because `-q` with several paths exits 0 if ANY of them is ignored.
+const IGNORED = [
+  "docs/.astro/settings.json",
+  "design-shots/after/x.png",
+  "screenshots/v1.1-redesign/x.png",
+];
+const KEPT = ["screenshots/01-login.png"];
+
+function isIgnored(path) {
+  const res = spawnSync("git", ["check-ignore", "--no-index", "-q", "--", path], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  expect(res.status, res.stderr).not.toBe(128);
+  return res.status === 0;
+}
+
+describe(".gitignore rules (#1689)", () => {
+  for (const path of IGNORED) {
+    it(`${path} is ignored`, () => {
+      expect(isIgnored(path)).toBe(true);
+    });
+  }
+  for (const path of KEPT) {
+    it(`${path} is not ignored`, () => {
+      expect(isIgnored(path)).toBe(false);
+    });
+  }
+});
