@@ -175,7 +175,7 @@ app/src/
 ├── app/                    # Next.js App Router
 │   ├── (auth)/             # Public: login, signup, change-password
 │   ├── (dashboard)/        # Protected: dashboard pages
-│   └── api/                # 38 API routes
+│   └── api/                # 39 API routes
 ├── components/             # App-level React components
 ├── hooks/                  # TanStack Query hooks (20+)
 ├── stores/                 # Zustand stores (7)
@@ -189,6 +189,7 @@ app/src/
 │   ├── crypto/             # AES-256-GCM encryption, rate limiter
 │   ├── dashboard/          # Export, import, migrate, thumbnails
 │   ├── db/                 # Drizzle ORM client + schema
+│   ├── mcp/                # MCP tools served by /api/mcp
 │   ├── parameter/          # Collect, format, apply defaults
 │   ├── plugin/             # Chart registry, helpers
 │   ├── query/              # Executor, hash, cache, params, transforms

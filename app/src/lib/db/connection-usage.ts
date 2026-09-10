@@ -26,7 +26,7 @@ export interface ConnectionUsage {
  *   true blast radius, not a filtered view.
  * - **Non-admin callers** see dashboards they own, ones shared with them,
  *   and public ones within their tenant — mirroring the scoping in
- *   `userHasDashboardAccessToConnection` (api/query/route.ts:142-175).
+ *   `dashboardAccessToConnection` (lib/query/run-read-query.ts).
  *
  * The implementation uses raw SQL with `jsonb_array_elements` because the
  * connection id lives inside the `layoutJson` JSONB column at

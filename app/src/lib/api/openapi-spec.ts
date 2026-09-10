@@ -87,6 +87,11 @@ const SPEC = {
     { name: "Connections", description: "Database connector management" },
     { name: "Dashboards", description: "Dashboard CRUD and sharing" },
     { name: "Query", description: "Query execution" },
+    {
+      name: "MCP",
+      description:
+        "Model Context Protocol endpoint for AI assistants and agents",
+    },
     { name: "Users", description: "User management (admin only)" },
     {
       name: "Widget Templates",
@@ -489,6 +494,36 @@ const SPEC = {
           401: R.unauthorized,
           403: R.forbidden,
           500: R.serverError,
+        },
+      },
+    },
+
+    // ── MCP ───────────────────────────────────────────────────────────
+    "/api/mcp": {
+      post: {
+        tags: ["MCP"],
+        summary: "Model Context Protocol (Streamable HTTP)",
+        description:
+          "MCP Streamable HTTP transport, stateless, JSON responses only. The body is one JSON-RPC 2.0 message: " +
+          "`initialize`, `ping`, `tools/list`, `tools/call`, or a notification. Tools: `ping`, `list_dashboards`, " +
+          "`list_connections`, `get_schema`, `run_query` (read-only, same access rules, scheduler and row limit as " +
+          "`POST /api/query`). A failed tool returns a result with `isError: true`. GET and DELETE return 405.",
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+        responses: {
+          200: {
+            description: "JSON-RPC response (result or error)",
+            content: { "application/json": { schema: { type: "object" } } },
+          },
+          202: { description: "Notification accepted; no body" },
+          400: {
+            description:
+              "Parse error (-32700), invalid JSON-RPC message (-32600) or unsupported MCP-Protocol-Version header",
+          },
+          401: R.unauthorized,
+          403: { description: "Origin header is not this app's origin" },
         },
       },
     },

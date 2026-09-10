@@ -92,8 +92,8 @@ export function apiError(
 // Pagination parser
 // ---------------------------------------------------------------------------
 
-const DEFAULT_LIMIT = 25;
-const MAX_LIMIT = 1000;
+export const DEFAULT_LIMIT = 25;
+export const MAX_LIMIT = 1000;
 
 /** Extract and validate limit/offset from request URL search params. */
 export function parsePagination(request: Request): {

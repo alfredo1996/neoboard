@@ -1,11 +1,5 @@
-import { and, eq, or } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { decryptJson } from "@/lib/crypto/crypto";
-import { fetchConnectionSchema } from "@/lib/connector/schema-prefetch";
-import type { ConnectionCredentials } from "@/lib/query/query-executor";
-import type { ConnectorType } from "@/lib/connector/connector-types";
+import { getVisibleConnectionSchema } from "@/lib/connector/visible-connections";
 import { apiSuccess } from "@/lib/api/api-response";
 import { notFound, handleRouteError } from "@/lib/api/api-utils";
 
@@ -14,38 +8,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const session = await requireSession();
     const { id } = await params;
 
-    const [connection] = await db
-      .select()
-      .from(connections)
-      .where(
-        and(
-          eq(connections.id, id),
-          eq(connections.tenantId, tenantId),
-          or(
-            eq(connections.userId, userId),
-            eq(connections.visibility, "shared"),
-          ),
-        ),
-      )
-      .limit(1);
-
-    if (!connection) {
+    const found = await getVisibleConnectionSchema(session, id);
+    if (!found) {
       return notFound("Connection not found");
     }
 
-    const credentials = decryptJson<ConnectionCredentials>(
-      connection.configEncrypted,
-    );
-
-    const schema = await fetchConnectionSchema(
-      connection.type as ConnectorType,
-      credentials,
-    );
-
-    return apiSuccess(schema);
+    return apiSuccess(found.schema);
   } catch (error) {
     return handleRouteError(error, "Failed to fetch schema");
   }
