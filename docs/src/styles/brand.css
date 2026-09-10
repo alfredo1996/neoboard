@@ -38,6 +38,21 @@
   --sl-color-accent-high: hsl(212 90% 30%);
 }
 
+/*
+ * Paper is light whatever the screen theme. Starlight's print.css does this
+ * for its own colours, but it loads before this file, so without this block
+ * the dark `:root` above would win and print near-white headings.
+ */
+@media print {
+  :root {
+    --sl-color-white: hsl(220 13% 9%);
+    --sl-color-black: hsl(220 14% 98%);
+    --sl-color-accent-low: hsl(212 100% 94%);
+    --sl-color-accent: hsl(212 90% 42%);
+    --sl-color-accent-high: hsl(212 90% 30%);
+  }
+}
+
 /* Wordmark: graphite text, tight tracking, a small citrine square. */
 .site-title {
   color: var(--sl-color-white);
