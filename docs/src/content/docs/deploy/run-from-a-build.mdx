@@ -1,0 +1,240 @@
+---
+title: Run from a build
+description: Run NeoBoard without Docker Compose — a Node.js process on the standalone build, under systemd, or on Kubernetes with the published image.
+sidebar:
+  order: 2
+---
+
+[Docker Compose](/deploy/production) is the recommended way to run NeoBoard in production. This page covers the other two options: a **Node.js process** on a build you make yourself, kept up by systemd, and **Kubernetes** running the published image. All three run the same thing — `node app/server.js` on a Next.js standalone build, configured only through environment variables. The `Dockerfile` in the repository root is the reference for the file assembly below; nothing in it is Docker-specific except the copying.
+
+## Environment
+
+### Required
+
+Every option reads these at boot. The list is the Required block of `app/.env.example`, and a guard test fails when the two drift.
+
+| Variable | What it is | Generate |
+| --- | --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string for NeoBoard's own metadata | — |
+| `ENCRYPTION_KEY` | AES-256-GCM key for stored connection credentials. **Losing it makes every stored credential unrecoverable** — back it up like the database | `openssl rand -hex 32` |
+| `NEXTAUTH_SECRET` | Signs session tokens | `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Public URL users hit. The app boots without it, but behind a proxy every Auth.js callback is then built wrong | — |
+| `API_KEY_HMAC_SECRET` | Hashes API keys at rest. Required on every install — the app exits at boot without it | `openssl rand -hex 32` |
+
+### Set by the image, set by you on a bare build
+
+The Docker image bakes these in. On a build you run yourself they are yours to set:
+
+| Variable | Value | Why |
+| --- | --- | --- |
+| `NODE_ENV` | `production` | Production behaviour: HTTPS redirect on, JSON logs |
+| `PORT` | `3000` | Listen port; the standalone server defaults to 3000 |
+| `HOSTNAME` | `127.0.0.1` or `0.0.0.0` | Bind address. The server defaults to all interfaces; bind loopback when the reverse proxy is on the same host |
+| `MIGRATE_ON_START` | `1` | Apply pending schema migrations at boot. **Unset means no migration**, and the build ships no `drizzle-kit`, so this is the only way a build creates its schema |
+| `MIGRATIONS_DIR` | absolute path to `app/drizzle/migrations` inside the build directory | Where the migrator finds the journal |
+
+Everything optional — first-admin bootstrap, logging, scheduler tuning, SSO — is in [Configuration](/deploy/configuration).
+
+## Option 1: Node.js on a standalone build
+
+You need Node.js 22 (what the image uses) and a PostgreSQL 16+ you operate. Build on any machine — the output is self-contained — and run it as a dedicated user.
+
+### Build
+
+```bash
+git clone --branch vX.Y.Z https://github.com/alfredo1996/neoboard.git
+cd neoboard
+CI=1 npm ci        # CI=1 skips the dev-only postinstall that links the CLI globally
+npm run build      # connector-sdk → connection → app, in that order
+```
+
+### Assemble
+
+`next build` writes a self-contained server to `app/.next/standalone`. Next.js deliberately leaves out the static assets and the public folder, and the migration journal is not imported by the server, so copy the three in — exactly what the Dockerfile does:
+
+```bash
+DEST=/opt/neoboard
+sudo mkdir -p "$DEST"
+sudo cp -r app/.next/standalone/. "$DEST"/
+sudo cp -r app/.next/static "$DEST"/app/.next/static
+sudo cp -r app/public "$DEST"/app/public
+sudo cp -r app/drizzle "$DEST"/app/drizzle
+
+# next/image needs sharp, which output tracing does not carry over.
+npm i --prefix /tmp/sharp sharp
+sudo mkdir -p "$DEST"/app/node_modules
+sudo mv /tmp/sharp/node_modules/sharp "$DEST"/app/node_modules/sharp
+
+# Tracing can carry a .env.local from the checkout into the build. Secrets
+# come from the environment at runtime, never from a file inside the build.
+sudo find "$DEST" \( -name '.env' -o -name '.env.*' \) -delete
+
+sudo useradd --system --home "$DEST" --shell /usr/sbin/nologin neoboard
+sudo chown -R neoboard:neoboard "$DEST"
+```
+
+### Run
+
+A first foreground run, to watch the boot migration create the schema:
+
+```bash
+cd /opt/neoboard
+sudo -u neoboard env \
+  NODE_ENV=production MIGRATE_ON_START=1 \
+  MIGRATIONS_DIR=/opt/neoboard/app/drizzle/migrations \
+  DATABASE_URL=postgresql://neoboard:...@db.internal:5432/neoboard \
+  ENCRYPTION_KEY=... NEXTAUTH_SECRET=... API_KEY_HMAC_SECRET=... \
+  NEXTAUTH_URL=https://neoboard.example.com \
+  ADMIN_BOOTSTRAP_TOKEN=... \
+  node app/server.js
+```
+
+```bash
+curl -fsS http://localhost:3000/api/health   # status "ok"
+```
+
+Then create the first admin on `/signup` with the `ADMIN_BOOTSTRAP_TOKEN` — the same two paths as [Production deployment](/deploy/production#3-create-the-first-admin).
+
+### Keep it running with systemd
+
+Move the configuration into a root-only file and let systemd own the process:
+
+```bash
+sudo install -m 600 /dev/null /etc/neoboard.env
+sudo tee /etc/neoboard.env >/dev/null <<EOF
+DATABASE_URL=postgresql://neoboard:...@db.internal:5432/neoboard
+ENCRYPTION_KEY=$(openssl rand -hex 32)
+NEXTAUTH_SECRET=$(openssl rand -base64 32)
+API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
+NEXTAUTH_URL=https://neoboard.example.com
+ADMIN_BOOTSTRAP_TOKEN=$(openssl rand -hex 32)
+EOF
+```
+
+```ini title="/etc/systemd/system/neoboard.service"
+[Unit]
+Description=NeoBoard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=neoboard
+Group=neoboard
+WorkingDirectory=/opt/neoboard
+# 0600 root:root is enough — systemd reads it before dropping privileges.
+EnvironmentFile=/etc/neoboard.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Loopback: the reverse proxy is on this host. Use 0.0.0.0 if it is not.
+Environment=HOSTNAME=127.0.0.1
+Environment=MIGRATE_ON_START=1
+Environment=MIGRATIONS_DIR=/opt/neoboard/app/drizzle/migrations
+ExecStart=/usr/bin/node /opt/neoboard/app/server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now neoboard
+curl -fsS http://127.0.0.1:3000/api/health
+journalctl -u neoboard -f
+```
+
+Logs land in journald as JSON lines (the default `LOG_FORMAT`), so the `jq` filters on [Monitoring](/deploy/monitoring#filtering-logs) work on `journalctl -u neoboard -o cat`. Put nginx or Caddy in front for TLS — [Reverse proxy](/deploy/reverse-proxy) — and work through the [Deployment Checklist](/deploy/deployment-checklist) before going live.
+
+### Upgrade and roll back
+
+Build the next release into a fresh directory, back up the database, point `WorkingDirectory`, `ExecStart` and `MIGRATIONS_DIR` at it, and `systemctl restart neoboard`. To roll back, point the unit at the previous build **with `MIGRATE_ON_START=0`** added — migrations are forward-only, and an older build booting against a newer schema must not try to migrate. The full procedure is the checklist's [rollback](/deploy/deployment-checklist#rollback-procedure).
+
+## Option 2: Kubernetes with the published image
+
+The image `ghcr.io/alfredo1996/neoboard` already sets `PORT`, `HOSTNAME`, `NODE_ENV`, `MIGRATE_ON_START` and `MIGRATIONS_DIR`, so a pod needs only the five required variables. Pin a release tag — never `:latest` — so a rollout is reproducible.
+
+```yaml title="neoboard.yaml"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: neoboard-env
+type: Opaque
+stringData:
+  DATABASE_URL: postgresql://neoboard:...@postgres:5432/neoboard
+  ENCRYPTION_KEY: "<openssl rand -hex 32>"
+  NEXTAUTH_SECRET: "<openssl rand -base64 32>"
+  API_KEY_HMAC_SECRET: "<openssl rand -hex 32>"
+  NEXTAUTH_URL: https://neoboard.example.com
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neoboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neoboard
+  template:
+    metadata:
+      labels:
+        app: neoboard
+    spec:
+      containers:
+        - name: neoboard
+          image: ghcr.io/alfredo1996/neoboard:vX.Y.Z
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: neoboard-env
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            requests:
+              cpu: 500m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neoboard
+spec:
+  selector:
+    app: neoboard
+  ports:
+    - port: 3000
+      targetPort: 3000
+```
+
+```bash
+kubectl apply -f neoboard.yaml
+kubectl rollout status deployment/neoboard
+kubectl port-forward svc/neoboard 3000:3000 &
+curl -fsS http://localhost:3000/api/health
+```
+
+- **Probes.** `/api/health` returns 503 when required configuration is missing or the metadata database is unreachable — exactly when a pod should not take traffic. The 30 s liveness delay covers the boot migration, the same reason the image's own healthcheck has a 30 s start period. [Monitoring](/deploy/monitoring#using-with-kubernetes) has the probe reference.
+- **Replicas.** Safe to raise. Replicas booting together serialize the migration on a Postgres advisory lock: the first applies it, the rest wait and find nothing left to do.
+- **Ingress.** Terminate TLS at the ingress and make sure `X-Forwarded-Proto` reaches the pod; `NEXTAUTH_URL` must be the public URL. The rules are the same as for any [load balancer](/deploy/reverse-proxy#cloud-load-balancers).
+- **Roll back.** If the release you are leaving migrated the schema, disable boot migration first, then move the tag: `kubectl set env deployment/neoboard MIGRATE_ON_START=0`, then `kubectl set image deployment/neoboard neoboard=ghcr.io/alfredo1996/neoboard:vPREVIOUS`. Why, and what to do with the database, is in [Controlling migrations at boot](/deploy/deployment-checklist#controlling-migrations-at-boot).
+- **Helm.** There is no chart yet; the manifest above is the whole surface.

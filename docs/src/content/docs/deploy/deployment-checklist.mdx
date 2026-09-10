@@ -2,10 +2,10 @@
 title: Deployment Checklist
 description: Pre-deployment and post-deployment verification for production NeoBoard.
 sidebar:
-  order: 6
+  order: 7
 ---
 
-Use this checklist before deploying NeoBoard to production or to a new customer.
+Use this checklist before deploying NeoBoard to production or to a new customer. It applies to every production option — Docker Compose, a Node.js process under systemd, or Kubernetes ([Run from a build](/deploy/run-from-a-build)); where a step is option-specific it says so.
 
 ## Pre-deployment
 
@@ -21,11 +21,11 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 
 ### Infrastructure
 
-- [ ] PostgreSQL 16+ running and accessible from the NeoBoard container
+- [ ] PostgreSQL 16+ running and accessible from the NeoBoard process
 - [ ] TLS/SSL certificate configured on the reverse proxy
-- [ ] `NEOBOARD_IMAGE` pinned to an explicit version tag (e.g. `ghcr.io/…/neoboard:v1.3.0`), **not** `:latest`, so deploys are reproducible and `docker compose pull` can't cross a major version unintentionally
-- [ ] Docker resource limits set (CPU: 2 cores, Memory: 1GB recommended)
-- [ ] Log rotation configured (max 10MB, 3 files)
+- [ ] Version pinned — an explicit image tag (e.g. `ghcr.io/…/neoboard:v1.3.0`, **not** `:latest`) via `NEOBOARD_IMAGE` for Docker Compose or the manifest for Kubernetes, a release tag checkout for a build you run yourself — so deploys are reproducible and an upgrade cannot cross a major version unintentionally
+- [ ] Resource limits set (CPU: 2 cores, memory: 1 GB recommended) — compose `deploy.resources`, Kubernetes `resources`, or a systemd `MemoryMax=`
+- [ ] Log rotation configured (max 10MB, 3 files) — the compose files set the json-file driver; journald and the kubelet rotate on their own
 - [ ] Backup strategy in place (see [Backup & Restore](/deploy/backup-restore))
 - [ ] Health check configured (see [Monitoring](/deploy/monitoring))
 
@@ -85,7 +85,7 @@ After first deployment, record baseline metrics:
 
 ## Rollback procedure
 
-If a deployment fails:
+If a deployment fails — the commands are for Docker Compose; under systemd, stop the unit, point it at the previous build and add `MIGRATE_ON_START=0` before starting; on Kubernetes, `kubectl set env deployment/neoboard MIGRATE_ON_START=0` and then `kubectl set image` to the previous tag. Steps 3 and 4 are the same everywhere.
 
 1. **Stop the new version:**
    ```bash
@@ -130,7 +130,7 @@ Always create a database backup **before** upgrading NeoBoard, especially if the
 
 `MIGRATE_ON_START` is the only switch. The production image sets it to `1`, so a
 container applies pending migrations as it starts; set it to `0` to boot without
-migrating.
+migrating. A build you run yourself has no such default — set it to `1` explicitly, as [Run from a build](/deploy/run-from-a-build) does, or the schema is never created.
 
 ```bash
 MIGRATE_ON_START=0 docker compose -f docker/docker-compose.prod.yml up -d

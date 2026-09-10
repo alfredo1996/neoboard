@@ -2,7 +2,7 @@
 title: Reverse proxy
 description: Example nginx, Caddy and Traefik configurations for running NeoBoard behind a reverse proxy.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 NeoBoard is designed to run behind a reverse proxy in production:
@@ -86,7 +86,7 @@ neoboard.example.com {
 ```yaml
 services:
   neoboard:
-    image: neoboard/community:latest
+    image: ghcr.io/alfredo1996/neoboard:vX.Y.Z # pin a release tag
     environment:
       NEXTAUTH_URL: https://neoboard.example.com
     labels:

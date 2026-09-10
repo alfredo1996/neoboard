@@ -639,3 +639,65 @@ describe("the seven-group information architecture (#1681)", () => {
     expect(stale).toEqual([]);
   });
 });
+
+describe("production options: Run from a build (#1679)", () => {
+  // Every production page presented Docker Compose as the only way to run
+  // NeoBoard, while the Dockerfile shows nothing is Docker-specific except
+  // the file assembly: `node app/server.js` on the standalone build, config
+  // entirely via env. These keep the non-Docker page real and un-drifted.
+  const PAGE = "docs/src/content/docs/deploy/run-from-a-build.mdx";
+  const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
+  const text = (p) => DOCS.find(({ path }) => path === p)?.text ?? "";
+
+  it("exists under Deploy and operate, ordered, and is offered from Install", () => {
+    expect(page()).not.toBe("");
+    expect(page().match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "").toMatch(
+      /^sidebar:\n[ \t]+order:\s*\d+/m,
+    );
+    expect(text("docs/src/content/docs/start-here/install.mdx")).toContain(
+      "/deploy/run-from-a-build",
+    );
+  });
+
+  it("lists exactly the variables app/.env.example marks required", () => {
+    // The Dockerfile names app/.env.example as the single documented list
+    // (#931). The page's Required table is a copy, and copies drift — this
+    // fails when either side gains or loses a variable.
+    const example = readFileSync(join(ROOT, "app/.env.example"), "utf8");
+    const requiredBlock = example
+      .split(/^# ── /m)
+      .find((s) => s.startsWith("Required"));
+    const fromExample = [...requiredBlock.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)]
+      .map((m) => m[1])
+      .sort();
+    expect(fromExample.length).toBeGreaterThan(0); // the parse still works
+
+    const body = page();
+    const section = body.slice(
+      body.indexOf("### Required"),
+      body.indexOf("\n##", body.indexOf("### Required") + 1),
+    );
+    const fromPage = [...section.matchAll(/^\|\s*`([A-Z][A-Z0-9_]+)`/gm)]
+      .map((m) => m[1])
+      .sort();
+
+    expect(fromPage).toEqual(fromExample);
+  });
+
+  it("names only the image that is published", () => {
+    // reverse-proxy's Traefik example pulled neoboard/community:latest —
+    // an image that does not exist; everything else says ghcr.io/....
+    const offenders = DOCS.filter(({ text }) =>
+      text.includes("neoboard/community"),
+    ).map(({ path }) => path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the deployment checklist option-neutral", () => {
+    const checklist = text(
+      "docs/src/content/docs/deploy/deployment-checklist.mdx",
+    );
+    expect(checklist).not.toMatch(/NeoBoard container/);
+    expect(checklist).not.toMatch(/Docker resource limits/);
+  });
+});
