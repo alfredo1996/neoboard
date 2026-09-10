@@ -8,7 +8,8 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, posix, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 
 // Guards against documentation that describes software we did not write.
 //
@@ -853,52 +854,176 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
   // paths, told authors to edit connector-registry.ts, and its runQuery
   // called `callbacks.setRecords` / `setError` — neither exists on
   // QueryCallback. Every one of those is a type error, so the compiler is
-  // the check: each ```ts block names its file on line 1, the blocks are
-  // written out as one package, and tsc runs them against connector-sdk/src
-  // (mapped by the fixture tsconfig). Pseudo-code therefore may not use
-  // ```ts — a shape sketch goes in prose or a ```txt fence.
+  // the check: each TypeScript block names its file on line 1, the blocks
+  // are written out as one package beside the page's own package.json and
+  // tsconfig.json, and tsc runs them against connector-sdk/src. Pseudo-code
+  // therefore may not use a TypeScript fence — a shape sketch goes in prose
+  // or a ```txt fence.
   const PAGE = "docs/src/content/docs/extend/new-connector-plugin.mdx";
-  const FIXTURE = join(ROOT, "scripts/__tests__/fixtures/docs-ts-blocks");
+  const OUT = join(ROOT, "scripts/__tests__/fixtures/docs-ts-blocks/.out");
+  const TSC = join(ROOT, "node_modules/typescript/bin/tsc");
+  const SDK = "@neoboard/connector-sdk";
   const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
+  const prose = () => page().replace(/\s+/g, " ");
+  // Every fence whose info string names TypeScript: matching ```ts alone let
+  // a ```typescript block skip both the name check and the typecheck.
   const tsBlocks = () =>
-    [...page().matchAll(/```ts[^\n]*\n([\s\S]*?)```/g)].map((m) => m[1]);
+    [
+      ...page().matchAll(
+        /```(?:ts|tsx|mts|cts|typescript)\b[^\n]*\n([\s\S]*?)```/g,
+      ),
+    ].map((m) => m[1]);
+  const fileOf = (code) => code.match(/^\/\/ ([\w./-]+\.ts)(\s|$)/)?.[1];
+  /** The body of the fence the page titles `name` (```json title="name"). */
+  const titled = (name) =>
+    page().match(
+      new RegExp("```\\w+ title=\"" + name + "\"\\n([\\s\\S]*?)```"),
+    )?.[1];
+  const tsc = (args) =>
+    spawnSync(process.execPath, [TSC, ...args], { encoding: "utf8" });
 
-  it("names the file on the first line of every ```ts block", () => {
+  it("names the file on the first line of every TypeScript block, once", () => {
     const blocks = tsBlocks();
     expect(blocks.length).toBeGreaterThan(3); // the fence regex still matches
     const unnamed = blocks
-      .filter((code) => !/^\/\/ [\w./-]+\.ts(\s|$)/.test(code))
+      .filter((code) => !fileOf(code))
       .map((code) => code.split("\n")[0]);
     expect(unnamed).toEqual([]);
+    // Blocks are written out by name, so a second block with the same name
+    // would silently replace the first and never be compiled.
+    const names = blocks.map(fileOf);
+    expect(names.filter((name, i) => names.indexOf(name) !== i)).toEqual([]);
   });
 
-  it("typechecks the blocks as one package against connector-sdk/src", () => {
-    // Inside the repo (not os.tmpdir) so `vitest` and `@types/node` resolve
-    // by walking up to the root node_modules; the SDK itself is mapped to
-    // its source by the fixture tsconfig, so no build is needed.
-    const out = join(FIXTURE, ".out");
-    rmSync(out, { recursive: true, force: true });
+  it("imports nothing but the SDK, vitest and the package's own files", () => {
+    // The page says the package imports only the SDK. tsc cannot hold it to
+    // that: .out sits inside the repo, so `@neoboard/connection` resolves
+    // through the root node_modules and compiles.
+    const blocks = tsBlocks();
+    const own = new Set(blocks.map(fileOf));
+    const imports = blocks.flatMap((code) =>
+      [...code.matchAll(/\b(?:from|import)\s*\(?\s*["']([^"']+)["']/g)].map(
+        (m) => ({ file: fileOf(code) ?? "", spec: m[1] }),
+      ),
+    );
+    expect(imports.map(({ spec }) => spec)).toContain(SDK); // regex still matches
+    const outside = imports
+      .filter(({ file, spec }) =>
+        spec.startsWith(".")
+          ? !own.has(
+              posix.join(posix.dirname(file), spec).replace(/\.js$/, ".ts"),
+            )
+          : spec !== SDK && spec !== "vitest",
+      )
+      .map(({ file, spec }) => `${file}: ${spec}`);
+    expect(outside).toEqual([]);
+  });
+
+  it("typechecks the blocks with the page's own package.json and tsconfig.json", () => {
+    // Compiled the way Node loads the package: the page's "type": "module"
+    // and NodeNext settings, where an extensionless relative import is
+    // TS2835. Bundler resolution accepted those imports, and the package
+    // they produced could not be loaded.
+    const pkg = titled("package.json");
+    const tsconfig = titled("tsconfig.json");
+    expect(pkg).toBeDefined();
+    expect(tsconfig).toBeDefined();
+    rmSync(OUT, { recursive: true, force: true });
     try {
+      mkdirSync(OUT, { recursive: true });
       for (const [i, code] of tsBlocks().entries()) {
-        const name = code.match(/^\/\/ ([\w./-]+\.ts)/)?.[1] ?? `block-${i}.ts`;
-        const file = join(out, name);
+        const file = join(OUT, fileOf(code) ?? `block-${i}.ts`);
         mkdirSync(dirname(file), { recursive: true });
         writeFileSync(file, code);
       }
+      writeFileSync(join(OUT, "package.json"), pkg);
+      writeFileSync(join(OUT, "tsconfig.page.json"), tsconfig);
+      // Only what the harness adds: no emit, the tests too, the SDK mapped to
+      // its source so nothing needs building, and a rootDir wide enough to
+      // hold that source.
       writeFileSync(
-        join(out, "tsconfig.json"),
-        JSON.stringify({ extends: "../tsconfig.json", include: ["**/*.ts"] }),
+        join(OUT, "tsconfig.json"),
+        JSON.stringify({
+          extends: "./tsconfig.page.json",
+          compilerOptions: {
+            noEmit: true,
+            rootDir: ROOT,
+            paths: { [SDK]: [join(ROOT, "connector-sdk/src/index.ts")] },
+          },
+          include: ["**/*.ts"],
+        }),
       );
-      const tsc = spawnSync(
+      const result = tsc(["-p", OUT]);
+      expect(result.stdout + result.stderr).toBe("");
+      expect(result.status).toBe(0);
+    } finally {
+      rmSync(OUT, { recursive: true, force: true });
+    }
+  });
+
+  it("says `neoboard plugin add` fails exactly while Node cannot load the SDK's build", () => {
+    // The CLI validates a package with a plain Node import() and uninstalls
+    // it when that throws (cli/src/commands/plugin.ts). A connector imports
+    // the SDK's base classes at runtime, so `plugin add` works only once Node
+    // can load the SDK as it is built. Build it with its own config, try,
+    // and hold the page to the answer in both directions.
+    const sdk = join(OUT, "sdk");
+    rmSync(OUT, { recursive: true, force: true });
+    try {
+      mkdirSync(sdk, { recursive: true });
+      // Its package.json decides how Node reads dist/ ("type").
+      writeFileSync(
+        join(sdk, "package.json"),
+        readFileSync(join(ROOT, "connector-sdk/package.json")),
+      );
+      const build = tsc([
+        "-p",
+        join(ROOT, "connector-sdk/tsconfig.build.json"),
+        "--outDir",
+        join(sdk, "dist"),
+        "--declaration",
+        "false",
+        "--declarationMap",
+        "false",
+        "--sourceMap",
+        "false",
+      ]);
+      expect(build.stdout + build.stderr).toBe("");
+      const load = spawnSync(
         process.execPath,
-        [join(ROOT, "node_modules/typescript/bin/tsc"), "-p", out],
+        [
+          "--input-type=module",
+          "-e",
+          `await import(${JSON.stringify(pathToFileURL(join(sdk, "dist/index.js")).href)})`,
+        ],
         { encoding: "utf8" },
       );
-      expect(tsc.stdout + tsc.stderr).toBe("");
-      expect(tsc.status).toBe(0);
+      const saysItFails = prose().includes(
+        "`neoboard plugin add` does not work for a connector built on the SDK yet",
+      );
+      expect(saysItFails, load.stderr.slice(0, 400)).toBe(load.status !== 0);
     } finally {
-      rmSync(out, { recursive: true, force: true });
+      rmSync(OUT, { recursive: true, force: true });
     }
+  });
+
+  it("states the chart-type and template gates while the code still has them", () => {
+    // A connection of a registry-supplied type can be created and queried,
+    // but two gates list only the built-in types. Each check reads the line
+    // that imposes its gate, so the page has to change when the gate does.
+    const src = (path) => readFileSync(join(ROOT, path), "utf8");
+    expect(
+      prose().includes("treats no chart type as compatible with your type"),
+    ).toBe(
+      src("app/src/lib/plugin/chart-helpers.ts").includes(
+        "if (!CONNECTOR_TYPES.includes(connectorType as ConnectorType)) return [];",
+      ),
+    );
+    expect(prose().includes("the widget-templates API rejects")).toBe(
+      src("app/src/app/api/widget-templates/route.ts").includes(
+        "connectorType: z.enum(CONNECTOR_TYPES),",
+      ),
+    );
   });
 
   it("lists no community connector that does not exist", () => {

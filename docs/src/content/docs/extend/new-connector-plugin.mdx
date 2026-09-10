@@ -7,13 +7,14 @@ sidebar:
 
 A connector teaches NeoBoard how to talk to a database: how to connect, how to run a query safely, and (optionally) how to describe the schema. The built-in Neo4j and PostgreSQL connectors are written against the same contract you will use — `@neoboard/connector-sdk` — so they are the reference implementations, not special cases.
 
-This page builds a complete connector for an imaginary database, "MyDB", as an **external package**. Every TypeScript block below names its file on the first line, and the blocks together form one package that compiles against the SDK — a test in the NeoBoard repo checks that on every run, so what you read here is what the types accept.
+This page builds a complete connector for an imaginary database, "MyDB", as an **external package**. Every TypeScript block below names its file on the first line, and the blocks together form one package that compiles against the SDK with the `package.json` and `tsconfig.json` from step 6 — a test in the NeoBoard repo checks that in CI, so what you read here is what the types accept.
 
 ## What you build
 
 ```txt
 neoboard-connector-mydb/
 ├── package.json
+├── tsconfig.json
 ├── src/
 │   ├── index.ts        default export: the ConnectorPlugin object
 │   ├── auth.ts         AuthenticationModule — URI validation, driver lifecycle
@@ -73,7 +74,7 @@ export declare function connect(
 ```ts
 // src/auth.ts
 import { AuthenticationModule, type AuthConfig } from "@neoboard/connector-sdk";
-import { connect, type Driver } from "./driver";
+import { connect, type Driver } from "./driver.js";
 
 /** URI schemes this connector accepts. Declared on the plugin too — enforced here. */
 export const ALLOWED_PROTOCOLS = ["mydb:", "mydb+tls:"];
@@ -138,7 +139,7 @@ import {
   type QueryCallback,
   type QueryParams,
 } from "@neoboard/connector-sdk";
-import { MyDbAuthenticationModule } from "./auth";
+import { MyDbAuthenticationModule } from "./auth.js";
 
 type Row = Record<string, unknown>;
 
@@ -260,7 +261,7 @@ import type {
   DatabaseSchema,
   SchemaManager,
 } from "@neoboard/connector-sdk";
-import { MyDbConnectionModule } from "./connection";
+import { MyDbConnectionModule } from "./connection.js";
 
 export class MyDbSchemaManager implements SchemaManager {
   async fetchSchema(authConfig: AuthConfig): Promise<DatabaseSchema> {
@@ -282,9 +283,9 @@ The package's default export is the `ConnectorPlugin`. `createModule` is the onl
 ```ts
 // src/index.ts
 import type { ConnectorPlugin } from "@neoboard/connector-sdk";
-import { ALLOWED_PROTOCOLS } from "./auth";
-import { MyDbConnectionModule } from "./connection";
-import { MyDbSchemaManager } from "./schema";
+import { ALLOWED_PROTOCOLS } from "./auth.js";
+import { MyDbConnectionModule } from "./connection.js";
+import { MyDbSchemaManager } from "./schema.js";
 
 const plugin: ConnectorPlugin = {
   type: "mydb",
@@ -328,7 +329,7 @@ What NeoBoard does with each field today — read this before relying on one:
 
 | Field                                                | Required | Used by                                                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `type`                                               | yes      | Everything. Stored on each connection; the API accepts any registered type; it selects your module for queries, connection tests, database listing and schema fetches.                                                                                                                     |
+| `type`                                               | yes      | Stored on each connection; the API accepts any registered type; it selects your module for queries, connection tests, database listing and schema fetches. Chart types and widget templates do not accept it yet — see step 7.                                                                                                                     |
 | `label`, `category`                                  | yes      | Validated by the registry and by `neoboard plugin add` (`category` must be `database`, `graph`, `api` or `file`).                                                                                                                                                                          |
 | `createModule(authConfig, advancedOptions)`          | yes      | Called once per connection and credential set. The instance is cached, reused for every query, and `close()`d after 30 minutes idle or when the credentials change. `advancedOptions` carries the connection's pool and timeout settings; ignore what does not apply.                       |
 | `createSchemaManager()`                              | no       | The connection's schema endpoint and the editor's autocomplete prefetch.                                                                                                                                                                                                                   |
@@ -339,7 +340,7 @@ What NeoBoard does with each field today — read this before relying on one:
 
 ## 6. Package it
 
-```json
+```json title="package.json"
 {
   "name": "neoboard-connector-mydb",
   "version": "0.1.0",
@@ -353,33 +354,65 @@ What NeoBoard does with each field today — read this before relying on one:
   },
   "peerDependencies": {
     "@neoboard/connector-sdk": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
   }
 }
 ```
 
 Name it `neoboard-connector-<name>` so it is findable, and depend on the SDK as a **peer** dependency so your connector and NeoBoard share one copy of the base classes — `instanceof` and the registry's checks depend on that.
 
-The SDK is versioned with NeoBoard and lives at `connector-sdk/` in the repository. It is not on the npm registry yet, so until it is, install it from a checkout: `npm install ../neoboard/connector-sdk` from your package's directory adds a `file:` dependency and builds it on install.
-
-## 7. Load it into NeoBoard
-
-External connectors are compiled into the server, not discovered at runtime. The manifest at the repository root lists them, and a generator turns the manifest into a static import list that the registry reads at startup:
-
-```json
+```json title="tsconfig.json"
 {
-  "connectors": [{ "package": "neoboard-connector-mydb" }]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
 }
 ```
 
+The package is an ES module (`"type": "module"`) compiled with `NodeNext` resolution, which is why every relative import in the blocks above ends in `.js`: Node's module loader does not add extensions, and TypeScript resolves `./auth.js` to `src/auth.ts`. `npm run build` writes `dist/`, where `main` points.
+
+The SDK is versioned with NeoBoard and lives at `connector-sdk/` in the repository. It is not on the npm registry yet, so until it is, install it from a checkout: `npm install --save-dev ../neoboard/connector-sdk` from your package's directory adds a `file:` dev dependency and builds it on install. Keep it out of `dependencies` — NeoBoard supplies the peer, and a `file:` path there would ship inside your package.
+
+## 7. Load it into NeoBoard
+
+External connectors are compiled into the server, not discovered at runtime. The manifest at the repository root lists them, and a generator turns the manifest into a static import list that the registry reads at startup. From the root of a NeoBoard checkout:
+
+1. Install your package under its package name. Once it is on the npm registry that is `npm install neoboard-connector-mydb`. Until then, pack it and install the tarball, which copies it into `node_modules` the way a registry install does:
+
+   ```bash
+   # in neoboard-connector-mydb/
+   npm run build && npm pack
+   # in the NeoBoard checkout
+   npm install ../neoboard-connector-mydb/neoboard-connector-mydb-0.1.0.tgz
+   ```
+
+2. Add it to `neoboard-connectors.json`:
+
+   ```json
+   {
+     "connectors": [{ "package": "neoboard-connector-mydb" }]
+   }
+   ```
+
+3. Run `npm run dev` or `npm run build`. Both run `scripts/generate-connector-imports.mjs` first, which checks that every listed package is installed and writes `connection/src/external-connectors.generated.ts`. The connector is part of that build.
+
 Each entry may also carry `"export": "<name>"` when the plugin is not the package's default export, and `"overrides": true` to replace a connector with the same `type` — without it, a duplicate `type` throws at startup so a conflict cannot pass silently.
 
-From a NeoBoard checkout, the CLI does all of it in one step:
+A Docker image built from the checkout installs dependencies with `npm ci` from `package.json` and `package-lock.json` alone, so it can include your connector only once the package is installed from a registry.
 
-```bash
-neoboard plugin add neoboard-connector-mydb
-```
-
-That installs the package, imports it and validates the export (`type`, `label`, `category`, `createModule`) — uninstalling it again if validation fails — appends it to `neoboard-connectors.json`, and runs `scripts/generate-connector-imports.mjs`, which writes `connection/src/external-connectors.generated.ts`. `npm run dev` and `npm run build` run the same generator first, so editing the manifest by hand works too. The connector then ships in the next build, or in a Docker image built from that checkout.
+`neoboard plugin add` does not work for a connector built on the SDK yet. It is meant to replace steps 1 and 2: it installs a package, imports it to validate the export (`type`, `label`, `category`, `createModule`), adds the manifest entry and runs the generator. But it imports the package in plain Node, and Node cannot load the SDK's build — the SDK compiles to ES modules whose relative imports carry no file extension, which only a bundler resolves — so the import throws and the CLI uninstalls the package again. It also installs and imports the name you give it, so it needs a published package. Use the three steps above until both change (#1697).
 
 To create a connection of your type, call the API (the dialog offers only the built-in types today):
 
@@ -399,7 +432,7 @@ curl -X POST http://localhost:3000/api/connections \
   }'
 ```
 
-The key needs a creator or admin role ([API keys](/security/api-keys)). From there on the connection is first-class: widgets query it, "Test connection" calls your `checkConnection`, the database picker calls `listDatabases`, and the editor fetches your schema.
+The key needs a creator or admin role ([API keys](/security/api-keys)). "Test connection" then calls your `checkConnection`, the database picker calls `listDatabases`, and the editor fetches your schema. Charting it is limited today, because two places still know only the built-in types. The widget editor treats no chart type as compatible with your type (`getCompatibleChartTypes` returns nothing for a type outside `CONNECTOR_TYPES`): choosing the connection resets the widget to a table, and the chart picker offers only the widget's current type. And the widget-templates API rejects a template whose `connectorType` is not a built-in one, so such a widget cannot be saved as a template.
 
 ## 8. Prove query safety
 
@@ -414,7 +447,7 @@ import {
   buildConformanceCases,
   type ConformanceSetup,
 } from "@neoboard/connector-sdk";
-import { MyDbConnectionModule } from "../src/connection";
+import { MyDbConnectionModule } from "../src/connection.js";
 
 describe("MyDB query-safety conformance", () => {
   let connection: MyDbConnectionModule;
