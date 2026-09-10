@@ -30,4 +30,52 @@ describe("GET /api/docs", () => {
     expect(body).toContain("<title>");
     expect(body).toContain("NeoBoard");
   });
+
+  // #1721: an altered CDN response must not run on the NeoBoard origin. The
+  // hashes are sha384 of the exact pinned swagger-ui-dist@5.18.2 files, checked
+  // in here on purpose, so a changed hash in route.ts fails this test.
+  it.each([
+    [
+      "link",
+      "swagger-ui.css",
+      "sha384-rcbEi6xgdPk0iWkAQzT2F3FeBJXdG+ydrawGlfHAFIZG7wU6aKbQaRewysYpmrlW",
+    ],
+    [
+      "script",
+      "swagger-ui-bundle.js",
+      "sha384-NXtFPpN61oWCuN4D42K6Zd5Rt2+uxeIT36R7kpXBuY9tLnZorzrJ4ykpqwJfgjpZ",
+    ],
+    [
+      "script",
+      "swagger-ui-standalone-preset.js",
+      "sha384-qr68CD0cvHa88PmVu7e1a58Ego4qvKtcvcLdS2a8Mo5zILI01gyIV9jVwJk7X2NU",
+    ],
+  ])(
+    "pins <%s> %s with integrity and crossorigin",
+    async (tag, file, hash) => {
+      const body = await (await GET()).text();
+      const tags = body.match(new RegExp(`<${tag}\\b[^>]*>`, "g")) ?? [];
+      const url = `https://unpkg.com/swagger-ui-dist@5.18.2/${file}"`;
+      const matching = tags.filter((t) => t.includes(url));
+      expect(matching).toHaveLength(1);
+      // Anchored on whitespace and counted: data-integrity= is ignored by the
+      // browser, and with a duplicate attribute the browser uses the first.
+      expect(matching[0].match(/\sintegrity="[^"]*"/g)).toEqual([
+        ` integrity="${hash}"`,
+      ]);
+      expect(matching[0].match(/\scrossorigin="[^"]*"/g)).toEqual([
+        ' crossorigin="anonymous"',
+      ]);
+    },
+  );
+
+  it("loads no external asset without an integrity attribute", async () => {
+    const body = await (await GET()).text();
+    const external = body.match(/<(?:script|link)\b[^>]*https?:\/\/[^>]*>/g) ?? [];
+    expect(external).toHaveLength(3);
+    for (const t of external) {
+      expect(t.match(/\sintegrity="[^"]*"/g)).toHaveLength(1);
+      expect(t).toMatch(/\sintegrity="sha384-[A-Za-z0-9+/]{64}"/);
+    }
+  });
 });
