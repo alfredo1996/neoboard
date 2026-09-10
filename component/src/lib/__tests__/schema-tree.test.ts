@@ -31,7 +31,10 @@ const postgres: DatabaseSchema = {
         { name: "title", type: "text", nullable: false },
       ],
     },
-    { name: "people", columns: [{ name: "name", type: "text", nullable: true }] },
+    {
+      name: "people",
+      columns: [{ name: "name", type: "text", nullable: true }],
+    },
   ],
 };
 
@@ -83,6 +86,30 @@ describe("toSchemaTree", () => {
     expect(tree[0].nodes).toEqual([{ name: "Orphan", children: [] }]);
   });
 
+  // A stale or foreign schema can still carry the NULL property row Neo4j
+  // emits for a property-less label (#1714); it must not become a child.
+  it("drops a null-named property the way the completion transform does", () => {
+    const tree = toSchemaTree({
+      type: "neo4j",
+      labels: ["Empty"],
+      relationshipTypes: ["DIRECTED"],
+      nodeProperties: {
+        Empty: [{ name: null as unknown as string, type: "null" }],
+      },
+      relProperties: {
+        DIRECTED: [{ name: null as unknown as string, type: "null" }],
+      },
+    });
+    expect(tree).toEqual([
+      { title: "Labels", nodes: [{ name: "Empty", children: [] }] },
+      {
+        title: "Relationship types",
+        nodes: [{ name: "DIRECTED", children: [] }],
+      },
+    ]);
+    expect(() => filterSchemaTree(tree, "rol")).not.toThrow();
+  });
+
   it("drops null labels the way the completion transform does", () => {
     const tree = toSchemaTree({
       type: "neo4j",
@@ -107,9 +134,7 @@ describe("filterSchemaTree", () => {
 
   it("keeps a node whose name matches, with all its children", () => {
     const out = filterSchemaTree(tree, "mov");
-    expect(out).toEqual([
-      { title: "Labels", nodes: [tree[0].nodes[0]] },
-    ]);
+    expect(out).toEqual([{ title: "Labels", nodes: [tree[0].nodes[0]] }]);
   });
 
   it("keeps a node whose child matches, with only the matching children", () => {
@@ -117,7 +142,9 @@ describe("filterSchemaTree", () => {
     expect(out).toEqual([
       {
         title: "Labels",
-        nodes: [{ name: "Movie", children: [{ name: "title", type: "String" }] }],
+        nodes: [
+          { name: "Movie", children: [{ name: "title", type: "String" }] },
+        ],
       },
     ]);
   });
@@ -141,6 +168,18 @@ describe("quoteIdentifier", () => {
   it("double-quotes SQL identifiers that need it", () => {
     expect(quoteIdentifier("Order Items", "postgresql")).toBe('"Order Items"');
     expect(quoteIdentifier("MixedCase", "sql")).toBe('"MixedCase"');
+  });
+
+  it("double-quotes SQL reserved words, which PostgreSQL would misparse", () => {
+    expect(quoteIdentifier("user", "sql")).toBe('"user"');
+    expect(quoteIdentifier("order", "postgresql")).toBe('"order"');
+    expect(quoteIdentifier("end", "sql")).toBe('"end"');
+    expect(quoteIdentifier("left", "sql")).toBe('"left"');
+  });
+
+  it("leaves Cypher keywords bare — labels and property keys accept them", () => {
+    expect(quoteIdentifier("end", "cypher")).toBe("end");
+    expect(quoteIdentifier("Match", "neo4j")).toBe("Match");
   });
 
   it("escapes an embedded quote character", () => {

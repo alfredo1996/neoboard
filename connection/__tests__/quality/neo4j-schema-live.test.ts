@@ -73,13 +73,16 @@ beforeAll(async () => {
     .withPassword("schema-live-test-pw")
     .start();
   connection = new Neo4jConnectionModule(getAuth());
-  // Complex model: three labels (one node dual-labeled), two relationship
-  // types, distinct property sets per label and per relationship.
+  // Complex model: four labels (one node dual-labeled, one property-less),
+  // three relationship types (one property-less), distinct property sets per
+  // label and per relationship.
   await runWrite(`
     CREATE (c:CoverageTestCompany {ctName: 'Acme', ctFounded: 1999})
     CREATE (p:CoverageTestPerson:CoverageTestEmployee {ctName: 'Ada', ctAge: 36, ctBadge: 7})
+    CREATE (t:CoverageTestTag)
     CREATE (p)-[:CT_WORKS_AT {ctSince: 2020, ctRole: 'engineer'}]->(c)
     CREATE (p)-[:CT_MANAGES {ctTeamSize: 4}]->(c)
+    CREATE (c)-[:CT_TAGGED]->(t)
   `);
 });
 
@@ -120,6 +123,10 @@ describe("Neo4j schema introspection — complex live model (#742 item 7)", () =
     expect(propsFor("CT_MANAGES")).toEqual(
       expect.arrayContaining(["ctTeamSize"]),
     );
+    // A property-less type is reported as one row with a NULL propertyName;
+    // that is not a property (#1714).
+    expect(schema.relationshipTypes).toContain("CT_TAGGED");
+    expect(propsFor("CT_TAGGED")).toEqual([]);
   });
 
   it("maps node properties to each bare label, splitting multi-label node types", async () => {
@@ -143,6 +150,8 @@ describe("Neo4j schema introspection — complex live model (#742 item 7)", () =
     expect(
       Object.keys(schema.nodeProperties).filter((k) => k.includes("`")),
     ).toEqual([]);
+    // Property-less label: one NULL row from the procedure, zero properties.
+    expect(propsFor("CoverageTestTag")).toEqual([]);
   });
 });
 

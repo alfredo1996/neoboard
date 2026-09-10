@@ -56,8 +56,8 @@ const relTypeRecord = (rt: string) => ({
 /** Helper: create a nodeTypeProperties record */
 const nodePropRecord = (
   nodeType: string,
-  propertyName: string,
-  propertyTypes: string[],
+  propertyName: string | null,
+  propertyTypes: string[] | null,
 ) => ({
   keys: ["nodeType", "propertyName", "propertyTypes"],
   get: (k: string) => ({ nodeType, propertyName, propertyTypes })[k],
@@ -66,8 +66,8 @@ const nodePropRecord = (
 /** Helper: create a relTypeProperties record */
 const relPropRecord = (
   relType: string,
-  propertyName: string,
-  propertyTypes: string[],
+  propertyName: string | null,
+  propertyTypes: string[] | null,
 ) => ({
   keys: ["relType", "propertyName", "propertyTypes"],
   get: (k: string) => ({ relType, propertyName, propertyTypes })[k],
@@ -201,6 +201,34 @@ describe("Neo4jSchemaManager", () => {
         { name: "oscars", type: "Long" },
       ],
     });
+  });
+
+  // A label or type with no properties is still reported — as one row whose
+  // propertyName and propertyTypes are NULL. It is not a property.
+  it("skips the NULL row Neo4j emits for a property-less label or type", async () => {
+    mockFourCalls(
+      [],
+      [],
+      [
+        nodePropRecord(":`Empty`", null, null),
+        nodePropRecord(":`Movie`", "title", ["String"]),
+      ],
+      [
+        relPropRecord(":`DIRECTED`", null, null),
+        relPropRecord(":`ACTED_IN`", "roles", ["StringArray"]),
+      ],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties?.Empty ?? []).toEqual([]);
+    expect(schema.nodeProperties?.Movie).toEqual([
+      { name: "title", type: "String" },
+    ]);
+    expect(schema.relProperties?.DIRECTED ?? []).toEqual([]);
+    expect(schema.relProperties?.ACTED_IN).toEqual([
+      { name: "roles", type: "StringArray" },
+    ]);
   });
 
   it("returns empty collections for empty databases", async () => {

@@ -28,12 +28,10 @@ async function placeCursor(dialog: Locator, pos: number) {
 
 /** The live CM6 document — what the panel's click actually produced. */
 function editorDoc(dialog: Locator) {
-  return dialog
-    .locator("[data-testid='codemirror-container']")
-    .evaluate(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (el: HTMLElement) => (el as any).__cmView?.state.doc.toString() ?? "",
-    );
+  return dialog.locator("[data-testid='codemirror-container']").evaluate(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (el: HTMLElement) => (el as any).__cmView?.state.doc.toString() ?? "",
+  );
 }
 
 test.describe("Schema browser (#1693)", () => {
@@ -107,23 +105,45 @@ test.describe("Schema browser (#1693)", () => {
       browser.getByRole("button", { name: /^title\b/ }),
     ).toBeVisible();
 
-    // Cursor sits right after the ":" — insertion must land there, not at the end.
-    const before = "MATCH (n:) RETURN n.title AS title ORDER BY title";
+    // Six seeded relationship types have no properties, which Neo4j reports
+    // as a NULL-named row; the search must skip it, not crash on it (#1714).
+    const search = browser.getByRole("searchbox", { name: "Search schema" });
+    await search.fill("rol");
+    const roles = browser.getByRole("button", { name: /^roles\b/ });
+    await expect(roles).toBeVisible();
+    await expect(
+      browser.getByRole("button", { name: "Movie", exact: true }),
+    ).toHaveCount(0);
+
+    // Cursor sits mid-document — each insertion must land there, not at the end.
+    const before =
+      "MATCH (n:)-[r:ACTED_IN]->(:Movie) RETURN n.name AS name, r. AS roles ORDER BY name";
     await typeInEditor(dialog, page, before);
-    await placeCursor(dialog, "MATCH (n:".length);
-    await browser.getByRole("button", { name: "Movie", exact: true }).click();
+    await placeCursor(dialog, before.indexOf(" AS roles"));
+    await roles.click();
     await expect
       .poll(() => editorDoc(dialog))
-      .toBe("MATCH (n:Movie) RETURN n.title AS title ORDER BY title");
+      .toBe(
+        "MATCH (n:)-[r:ACTED_IN]->(:Movie) RETURN n.name AS name, r.roles AS roles ORDER BY name",
+      );
+
+    await search.fill("");
+    await placeCursor(dialog, "MATCH (n:".length);
+    await browser.getByRole("button", { name: "Person", exact: true }).click();
+    await expect
+      .poll(() => editorDoc(dialog))
+      .toBe(
+        "MATCH (n:Person)-[r:ACTED_IN]->(:Movie) RETURN n.name AS name, r.roles AS roles ORDER BY name",
+      );
 
     await expect(dialog.getByTitle(RUN_BUTTON)).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByTitle(RUN_BUTTON).click();
     await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
-    await expect(
-      dialog.locator("th").filter({ hasText: "title" }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(dialog.locator("th").filter({ hasText: "roles" })).toBeVisible(
+      { timeout: 10_000 },
+    );
     await expect(dialog.locator("tbody tr").first()).toBeVisible({
       timeout: 10_000,
     });
@@ -166,8 +186,8 @@ test.describe("Schema browser (#1693)", () => {
     });
     await dialog.getByTitle(RUN_BUTTON).click();
     await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
-    await expect(
-      dialog.locator("th").filter({ hasText: "title" }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(dialog.locator("th").filter({ hasText: "title" })).toBeVisible(
+      { timeout: 10_000 },
+    );
   });
 });

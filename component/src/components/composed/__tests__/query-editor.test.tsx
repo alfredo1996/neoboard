@@ -467,6 +467,23 @@ describe("QueryEditor insertAtCursor", () => {
     expect(mockFocus).toHaveBeenCalled();
   });
 
+  it("replaces a non-empty selection and lands the cursor after the inserted text", async () => {
+    const ref = createRef<QueryEditorHandle>();
+    render(<QueryEditor handleRef={ref} value="MATCH (n:Foo) RETURN n" />);
+    await flushAsync();
+
+    // "Foo" is selected; the insert must replace it, not sit beside it.
+    fakeState.selection = { main: { from: 9, to: 12 } };
+    mockDispatch.mockClear();
+
+    expect(ref.current?.insertAtCursor("Movie")).toBe(true);
+    expect(mockDispatch).toHaveBeenCalledWith({
+      changes: { from: 9, to: 12, insert: "Movie" },
+      // from + text.length — not to + text.length.
+      selection: { anchor: 14 },
+    });
+  });
+
   it("reports false before the editor view exists", () => {
     const ref = createRef<QueryEditorHandle>();
     render(<QueryEditor handleRef={ref} />);

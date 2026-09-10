@@ -27,10 +27,11 @@ function nodesFrom(
 ): SchemaTreeNode[] {
   return (names ?? []).filter(Boolean).map((name) => ({
     name,
-    children: (props?.[name] ?? []).map((p) => ({
-      name: p.name,
-      type: p.type,
-    })),
+    // A property-less label arrives with one null-named "property" from
+    // older schema payloads; the completion transform drops it too (#1714).
+    children: (props?.[name] ?? [])
+      .filter((p) => p.name)
+      .map((p) => ({ name: p.name, type: p.type })),
   }));
 }
 
@@ -77,14 +78,35 @@ export function filterSchemaTree(
 }
 
 /**
+ * PostgreSQL's reserved keywords (Appendix C, "reserved" and "reserved, can
+ * be function or type"): bare, they misparse as a column or table name —
+ * `SELECT end FROM t` is a syntax error and `FROM user` is the current role.
+ * Cypher needs no such list: labels after `:` and keys after `.` take keywords.
+ */
+const SQL_RESERVED = new Set(
+  `all analyse analyze and any array as asc asymmetric authorization binary
+   both case cast check collate collation column concurrently constraint
+   create cross current_catalog current_date current_role current_schema
+   current_time current_timestamp current_user default deferrable desc
+   distinct do else end except false fetch for foreign freeze from full grant
+   group having ilike in initially inner intersect into is isnull join lateral
+   leading left like limit localtime localtimestamp natural not notnull null
+   offset on only or order outer overlaps placing primary references returning
+   right select session_user similar some symmetric system_user table
+   tablesample then to trailing true union unique user using variadic verbose
+   when where window with`.split(/\s+/),
+);
+
+/**
  * Quote an identifier only when the language would otherwise misparse it:
  * backticks for Cypher, double quotes for SQL (where an unquoted name folds
- * to lower case, so anything with capitals must be quoted to round-trip).
+ * to lower case, so anything with capitals must be quoted to round-trip, and
+ * a reserved word must be quoted to be a name at all).
  */
 export function quoteIdentifier(name: string, language: string): string {
   const cypher = language === "cypher" || language === "neo4j";
   const plain = cypher ? /^[A-Za-z_]\w*$/ : /^[a-z_][a-z0-9_]*$/;
-  if (plain.test(name)) return name;
+  if (plain.test(name) && (cypher || !SQL_RESERVED.has(name))) return name;
   const q = cypher ? "`" : '"';
   return q + name.replaceAll(q, q + q) + q;
 }

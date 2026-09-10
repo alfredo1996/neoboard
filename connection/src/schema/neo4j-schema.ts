@@ -21,10 +21,13 @@ function typeNames(typeName: string): string[] {
 function addProperty(
   map: Record<string, PropertyDef[]>,
   key: string,
-  name: string,
-  types: string[] | string,
+  name: string | null,
+  types: string[] | string | null,
 ) {
   const list = (map[key] ??= []);
+  // A label or type with no properties is reported as one row whose
+  // propertyName is NULL — keep the key, drop the phantom property (#1714).
+  if (name == null) return;
   // ":Person" and ":Person:Actor" both report `name` — one property of Person.
   if (list.some((p) => p.name === name)) return;
   list.push({
@@ -66,16 +69,16 @@ export class Neo4jSchemaManager implements SchemaManager {
           ),
           this._runQuery<{
             nodeType: string;
-            propertyName: string;
-            propertyTypes: string[];
+            propertyName: string | null;
+            propertyTypes: string[] | null;
           }>(
             driver,
             "CALL db.schema.nodeTypeProperties() YIELD nodeType, propertyName, propertyTypes",
           ),
           this._runQuery<{
             relType: string;
-            propertyName: string;
-            propertyTypes: string[];
+            propertyName: string | null;
+            propertyTypes: string[] | null;
           }>(
             driver,
             "CALL db.schema.relTypeProperties() YIELD relType, propertyName, propertyTypes",
