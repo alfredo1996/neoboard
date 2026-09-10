@@ -6,6 +6,8 @@ import type { FormFieldDef } from "./form-field-def";
  */
 const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
+export const REQUIRED_MESSAGE = "This field is required";
+
 /** Determine whether a field's current value should be treated as "empty". */
 function isEmptyValue(field: FormFieldDef, value: unknown): boolean {
   if (value === undefined || value === null || value === "") return true;
@@ -33,7 +35,7 @@ export function validateFieldValue(
   const empty = isEmptyValue(field, value);
 
   if (field.required && empty) {
-    return "This field is required";
+    return REQUIRED_MESSAGE;
   }
 
   if (empty) return null;
@@ -63,4 +65,27 @@ export function validateFieldValue(
     default:
       return null;
   }
+}
+
+const normalize = (name: string) => name.toLowerCase().replaceAll(/[\W_]/g, "");
+
+/**
+ * The field that feeds a database column, for putting a server-side "column X
+ * is required" error on the field that caused it (#1409). Authors name a field
+ * or its label after the column, so match the parameter name first, then the
+ * label, ignoring case and separators.
+ *
+ * ponytail: a name heuristic — a field named unlike its column falls back to
+ * the form-level message; reading the INSERT column list would close that gap.
+ */
+export function findFieldForColumn(
+  fields: FormFieldDef[],
+  column: string | undefined,
+): FormFieldDef | undefined {
+  const target = normalize(column ?? "");
+  if (!target) return undefined;
+  return (
+    fields.find((f) => normalize(f.parameterName) === target) ??
+    fields.find((f) => normalize(f.label) === target)
+  );
 }

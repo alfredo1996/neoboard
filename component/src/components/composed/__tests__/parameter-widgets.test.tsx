@@ -1,3 +1,4 @@
+import * as React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 
@@ -1530,5 +1531,247 @@ describe("ParamMultiSelector — cascading props", () => {
     );
     expect(screen.getByRole("combobox")).not.toBeDisabled();
     expect(screen.queryByText(/depends on/)).toBeNull();
+  });
+});
+
+// ─── External label (#1410) ───────────────────────────────────────────────────
+//
+// These widgets were built for the parameter bar, where the raw parameter name
+// IS the label. A form field already has the author's label, so a caller can
+// pass `labelledBy` (the id of its own label) and `id` (for that label's
+// htmlFor): the widget then renders no label and names its control from the
+// caller's. jsdom cannot compute accessible names, so these assert the wiring
+// itself; Playwright covers the names (form-widget.spec.ts).
+
+describe("parameter widgets with an external label (#1410)", () => {
+  const external = { id: "ctl", labelledBy: "ext-label" };
+  const noop = vi.fn();
+  const cases: Array<[string, (p: typeof external) => React.ReactElement]> = [
+    [
+      "TextInputParameter",
+      (p) => (
+        <TextInputParameter
+          parameterName="rf1_category"
+          value=""
+          onChange={noop}
+          {...p}
+        />
+      ),
+    ],
+    [
+      "ParamSelector",
+      (p) => (
+        <ParamSelector
+          parameterName="rf1_category"
+          options={[]}
+          value=""
+          onChange={noop}
+          {...p}
+        />
+      ),
+    ],
+    [
+      "ParamSelector (searchable)",
+      (p) => (
+        <ParamSelector
+          parameterName="rf1_category"
+          options={[]}
+          value=""
+          onChange={noop}
+          searchable
+          {...p}
+        />
+      ),
+    ],
+    [
+      "ParamMultiSelector",
+      (p) => (
+        <ParamMultiSelector
+          parameterName="rf1_category"
+          options={[]}
+          values={[]}
+          onChange={noop}
+          {...p}
+        />
+      ),
+    ],
+    [
+      "DatePickerParameter",
+      (p) => (
+        <DatePickerParameter
+          parameterName="rf1_category"
+          value=""
+          onChange={noop}
+          {...p}
+        />
+      ),
+    ],
+    [
+      "DateRangeParameter",
+      (p) => (
+        <DateRangeParameter
+          parameterName="rf1_category"
+          from=""
+          to=""
+          onChange={noop}
+          {...p}
+        />
+      ),
+    ],
+    [
+      "DateRelativePicker",
+      (p) => (
+        <DateRelativePicker
+          parameterName="rf1_category"
+          value=""
+          onChange={noop}
+          {...p}
+        />
+      ),
+    ],
+    [
+      "NumberRangeSlider",
+      (p) => (
+        <NumberRangeSlider
+          parameterName="rf1_category"
+          min={1}
+          max={5}
+          value={null}
+          onChange={noop}
+          onClear={noop}
+          {...p}
+        />
+      ),
+    ],
+  ];
+
+  it.each(cases)("%s renders its own label by default", (_name, make) => {
+    const { container } = render(make({} as typeof external));
+    expect(container.querySelectorAll("label")).toHaveLength(1);
+    expect(screen.getByText("rf1_category")).toBeInTheDocument();
+  });
+
+  it.each(cases)(
+    "%s renders no label and no parameter name when labelled externally",
+    (_name, make) => {
+      const { container } = render(make(external));
+      expect(container.querySelectorAll("label")).toHaveLength(0);
+      expect(screen.queryByText("rf1_category")).toBeNull();
+    },
+  );
+
+  it.each(cases)(
+    "%s puts the caller's id on its control and names it from the caller's label",
+    (_name, make) => {
+      const { container } = render(make(external));
+      const control = container.querySelector("#ctl");
+      expect(control).not.toBeNull();
+      // Every reference to a label now points at the caller's — none dangles
+      // at the widget's own, which is no longer rendered.
+      const referenced = [...container.querySelectorAll("[aria-labelledby]")]
+        .flatMap((el) => el.getAttribute("aria-labelledby")!.split(" "))
+        .filter((id) => !container.querySelector(`[id="${id}"]`));
+      expect(referenced.length).toBeGreaterThan(0);
+      expect(new Set(referenced)).toEqual(new Set(["ext-label"]));
+    },
+  );
+
+  it("TextInputParameter's id is its input, so a caller's label htmlFor resolves to it", () => {
+    render(
+      <>
+        <label id="ext-label" htmlFor="ctl">
+          Category
+        </label>
+        <TextInputParameter
+          parameterName="rf1_category"
+          value=""
+          onChange={noop}
+          {...external}
+        />
+      </>,
+    );
+    const label = screen.getByText("Category") as HTMLLabelElement;
+    expect(label.control).toBe(screen.getByRole("textbox"));
+  });
+
+  it.each([
+    ["ParamSelector", "combobox"],
+    ["ParamSelector (searchable)", "combobox"],
+    ["ParamMultiSelector", "combobox"],
+    ["DatePickerParameter", "button"],
+    ["DateRangeParameter", "button"],
+  ])("%s's id is its %s trigger", (name, role) => {
+    const make = cases.find(([n]) => n === name)![1];
+    render(make(external));
+    expect(screen.getAllByRole(role)[0].id).toBe("ctl");
+  });
+
+  it("NumberRangeSlider's id is its minimum input", () => {
+    const make = cases.find(([n]) => n === "NumberRangeSlider")![1];
+    render(make(external));
+    expect(screen.getAllByRole("spinbutton")[0].id).toBe("ctl");
+  });
+
+  it("DateRelativePicker's id is its preset group", () => {
+    const make = cases.find(([n]) => n === "DateRelativePicker")![1];
+    render(make(external));
+    expect(screen.getByRole("group").id).toBe("ctl");
+  });
+
+  it.each([
+    [
+      "TextInputParameter",
+      <TextInputParameter
+        key="t"
+        parameterName="p"
+        value=""
+        onChange={noop}
+        required
+      />,
+      "textbox",
+    ],
+    [
+      "ParamSelector",
+      <ParamSelector
+        key="s"
+        parameterName="p"
+        options={[]}
+        value=""
+        onChange={noop}
+        required
+      />,
+      "combobox",
+    ],
+    [
+      "ParamSelector (searchable)",
+      <ParamSelector
+        key="ss"
+        parameterName="p"
+        options={[]}
+        value=""
+        onChange={noop}
+        searchable
+        required
+      />,
+      "combobox",
+    ],
+    [
+      "ParamMultiSelector",
+      <ParamMultiSelector
+        key="m"
+        parameterName="p"
+        options={[]}
+        values={[]}
+        onChange={noop}
+        required
+      />,
+      "combobox",
+    ],
+  ])("%s exposes required as aria-required", (_name, element, role) => {
+    const { unmount } = render(element);
+    expect(screen.getByRole(role)).toHaveAttribute("aria-required", "true");
+    unmount();
+    render(React.cloneElement(element, { required: undefined }));
+    expect(screen.getByRole(role)).not.toHaveAttribute("aria-required");
   });
 });

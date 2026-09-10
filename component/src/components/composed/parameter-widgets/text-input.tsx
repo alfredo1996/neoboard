@@ -5,12 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { ExternalLabelProps } from "./external-label";
 
-export interface TextInputParameterProps {
+export interface TextInputParameterProps extends ExternalLabelProps {
   parameterName: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /** Marks the input `aria-required`. */
+  required?: boolean;
   className?: string;
 }
 
@@ -24,17 +27,27 @@ function TextInputParameter({
   onChange,
   placeholder = "Enter a value…",
   className,
+  labelledBy,
+  id,
+  required,
 }: TextInputParameterProps) {
-  const inputId = `param-text-${parameterName}`;
+  const inputId = id ?? `param-text-${parameterName}`;
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label htmlFor={inputId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {parameterName}
-      </Label>
+      {!labelledBy && (
+        <Label
+          htmlFor={inputId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
+          {parameterName}
+        </Label>
+      )}
       <div className="relative flex items-center">
         <Input
           id={inputId}
+          aria-labelledby={labelledBy}
+          aria-required={required || undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

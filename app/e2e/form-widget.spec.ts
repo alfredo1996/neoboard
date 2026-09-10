@@ -549,8 +549,9 @@ test.describe("Form widget", () => {
       await page.getByRole("option").first().click({ timeout: 2_000 });
     }).toPass({ timeout: 15_000 });
 
-    // The form's "Movie Title" text field should be pre-populated with the selected value
-    const formInput = page.getByRole("textbox", { name: "movie_title" });
+    // The form's "Movie Title" text field should be pre-populated with the selected value.
+    // Its accessible name is the author's label, not the parameter name (#1410).
+    const formInput = page.getByRole("textbox", { name: "Movie Title" });
     await expect(formInput).not.toHaveValue("", { timeout: 10_000 });
   });
 
@@ -802,5 +803,165 @@ test.describe("Write permission enforcement", () => {
       await readerContext.close();
       await adminContext.close();
     }
+  });
+});
+
+/**
+ * #1410 and #1409 on a real render: jsdom can check how labels are wired, but
+ * only a browser computes the accessible names that wiring produces, and only
+ * a real database reports the NOT NULL column.
+ */
+test.describe("Form field labels and database errors (#1409, #1410)", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  /** Put `widget` on a fresh dashboard and open it in view mode. */
+  async function openForm(page: Page, widget: Record<string, unknown>) {
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Form Labels ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    const res = await page.request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "page-1",
+              title: "Page 1",
+              widgets: [widget],
+              gridLayout: [{ i: widget.id, x: 0, y: 0, w: 12, h: 10 }],
+            },
+          ],
+        },
+      },
+    });
+    expect(res.ok()).toBeTruthy();
+    await page.goto(`/${id}`);
+    const form = page
+      .locator("form")
+      .filter({ has: page.getByRole("button", { name: "Submit" }) });
+    await expect(form).toBeVisible({ timeout: 15_000 });
+    // Let the dev-mode StrictMode double fetch settle before interacting.
+    await page.waitForLoadState("networkidle");
+    return form;
+  }
+
+  test.beforeEach(async ({ authPage }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("each field shows one label, the author's, attached to its control", async ({
+    page,
+  }) => {
+    const form = await openForm(page, {
+      id: "w-labels",
+      chartType: "form",
+      connectionId: "conn-neo4j-001",
+      query:
+        "CREATE (n:FormLabelE2E {name: $param_full_name, prio: $param_prio}) RETURN n.name AS name",
+      settings: {
+        title: "Labels",
+        formFields: [
+          {
+            id: "f-name",
+            label: "Full Name",
+            parameterName: "full_name",
+            parameterType: "text",
+            required: true,
+          },
+          {
+            id: "f-prio",
+            label: "Priority",
+            parameterName: "prio",
+            parameterType: "select",
+            staticOptions: "low,high",
+          },
+          {
+            id: "f-score",
+            label: "Score",
+            parameterName: "score",
+            parameterType: "number-range",
+            rangeMin: 1,
+            rangeMax: 5,
+          },
+        ],
+      },
+    });
+
+    // One label per field, and no parameter name rendered as a second one.
+    await expect(form.locator("label")).toHaveCount(3);
+    for (const name of ["full_name", "prio", "score"]) {
+      await expect(form.getByText(name, { exact: true })).toHaveCount(0);
+    }
+
+    // Each control is named by the author's label — the required asterisk is
+    // decorative, so the name is exactly the label.
+    const fullName = form.getByRole("textbox", {
+      name: "Full Name",
+      exact: true,
+    });
+    await expect(fullName).toBeVisible();
+    await expect(fullName).toHaveAttribute("aria-required", "true");
+    const priority = form.getByRole("combobox", {
+      name: "Priority",
+      exact: true,
+    });
+    await expect(priority).toBeVisible();
+    await expect(priority).not.toHaveAttribute("aria-required");
+    await expect(
+      form.getByRole("slider", { name: "Score minimum", exact: true }),
+    ).toBeVisible();
+
+    // htmlFor resolves: clicking the label focuses its control.
+    await form.locator("label", { hasText: "Full Name" }).click();
+    await expect(fullName).toBeFocused();
+  });
+
+  test("a blank field the database requires is a 400 shown on that field", async ({
+    page,
+  }) => {
+    // people.name is NOT NULL. The field is optional in the form, so the form
+    // sends NULL and only the database knows it is required.
+    const form = await openForm(page, {
+      id: "w-people",
+      chartType: "form",
+      connectionId: "conn-pg-001",
+      query:
+        "INSERT INTO people (name) VALUES ($param_person_name) RETURNING id",
+      settings: {
+        title: "People",
+        formFields: [
+          {
+            id: "f-person",
+            label: "Name",
+            parameterName: "person_name",
+            parameterType: "text",
+          },
+        ],
+      },
+    });
+
+    const writeResponse = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/query/write") && r.request().method() === "POST",
+      { timeout: 15_000 },
+    );
+    await form.getByRole("button", { name: "Submit" }).click();
+    const response = await writeResponse;
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.error.details).toEqual({ column: "name" });
+
+    // The error sits in the Name field, not at the bottom of the form.
+    const field = form.locator("label", { hasText: /^Name$/ }).locator("..");
+    await expect(field.getByText("This field is required")).toBeVisible();
+    await expect(form.getByText('The field "name" is required.')).toHaveCount(
+      0,
+    );
   });
 });

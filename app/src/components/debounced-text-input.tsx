@@ -7,7 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { TextInputParameter } from "@neoboard/components";
+import {
+  TextInputParameter,
+  type TextInputParameterProps,
+} from "@neoboard/components";
 
 export interface DebouncedTextInputHandle {
   /** Flush any pending debounced value immediately. */
@@ -23,17 +26,8 @@ export interface DebouncedTextInputHandle {
  */
 export const DebouncedTextInput = forwardRef<
   DebouncedTextInputHandle,
-  {
-    parameterName: string;
-    value: string;
-    onChange: (v: string) => void;
-    placeholder?: string;
-    className?: string;
-  }
->(function DebouncedTextInput(
-  { parameterName, value, onChange, placeholder, className },
-  ref,
-) {
+  TextInputParameterProps
+>(function DebouncedTextInput({ value, onChange, ...inputProps }, ref) {
   const [draft, setDraft] = useState(value);
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -85,11 +79,9 @@ export const DebouncedTextInput = forwardRef<
 
   return (
     <TextInputParameter
-      parameterName={parameterName}
+      {...inputProps}
       value={draft}
       onChange={(v) => setDraft(v ?? "")}
-      placeholder={placeholder}
-      className={className}
     />
   );
 });

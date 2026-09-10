@@ -27,6 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import type { ExternalLabelProps } from "./external-label";
 import { ParamWidgetSkeleton } from "./param-widget-skeleton";
 
 export interface ParamSelectorOption {
@@ -45,7 +46,7 @@ export interface ParamSelectorOption {
  */
 export const PARAM_SELECTOR_EMPTY_SENTINEL = "__nb_param_selector_empty__";
 
-export interface ParamSelectorProps {
+export interface ParamSelectorProps extends ExternalLabelProps {
   parameterName: string;
   options: ParamSelectorOption[];
   value: string;
@@ -73,6 +74,8 @@ export interface ParamSelectorProps {
    * disabled until the parent has a value.
    */
   parentParameterName?: string;
+  /** Marks the trigger `aria-required`. */
+  required?: boolean;
   className?: string;
 }
 
@@ -100,10 +103,13 @@ function ParamSelector({
   serverFiltered = false,
   parentValue,
   parentParameterName,
+  required,
   className,
+  labelledBy,
+  id,
 }: ParamSelectorProps) {
   const [open, setOpen] = React.useState(false);
-  const labelId = `param-select-label-${parameterName}`;
+  const labelId = labelledBy ?? `param-select-label-${parameterName}`;
 
   // Truthiness, not `!== undefined`: the widget editor's parent-name input
   // writes "" when the user clears it, and an empty name is no parent — the
@@ -138,12 +144,14 @@ function ParamSelector({
   const hintId = parentParameterName ? `${labelId}-hint` : undefined;
   const label = (
     <>
-      <Label
-        id={labelId}
-        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-      >
-        {parameterName}
-      </Label>
+      {!labelledBy && (
+        <Label
+          id={labelId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
+          {parameterName}
+        </Label>
+      )}
       {parentParameterName && (
         <span
           id={hintId}
@@ -178,8 +186,10 @@ function ParamSelector({
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
+                id={id}
                 role="combobox"
                 aria-expanded={open}
+                aria-required={required || undefined}
                 aria-labelledby={labelId}
                 aria-describedby={hintId}
                 disabled={isWaitingForParent}
@@ -245,7 +255,9 @@ function ParamSelector({
           disabled={isWaitingForParent}
         >
           <SelectTrigger
+            id={id}
             className="flex-1"
+            aria-required={required || undefined}
             aria-labelledby={labelId}
             aria-describedby={hintId}
           >

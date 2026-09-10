@@ -7,6 +7,9 @@ import { describeWriteError } from "../db-error-message";
  * user message (#1162). It surfaces the constraint kind + column/constraint
  * name, which describe the schema the user is already writing to — but never
  * the raw SQL, the driver message, or the row `detail` (which leaks data).
+ *
+ * It also says which 4xx the error is (#1409): every recognised code is a
+ * problem with what the user submitted, never a server fault.
  */
 describe("describeWriteError", () => {
   // The real-world case from the form demo: NOT NULL on feedback.rating.
@@ -19,17 +22,30 @@ describe("describeWriteError", () => {
   };
 
   it("names the required column for a NOT NULL violation (23502)", () => {
-    const msg = describeWriteError(notNullRaw);
-    expect(msg).toBeDefined();
-    expect(msg).toContain("rating");
-    expect(msg!.toLowerCase()).toContain("required");
+    const described = describeWriteError(notNullRaw);
+    expect(described).toBeDefined();
+    expect(described!.message).toContain("rating");
+    expect(described!.message.toLowerCase()).toContain("required");
+  });
+
+  it("carries the NOT NULL column so the form can attach the error to its field (#1409)", () => {
+    expect(describeWriteError(notNullRaw)).toMatchObject({
+      code: "VALIDATION_ERROR",
+      column: "rating",
+    });
+  });
+
+  it("has no column for a NOT NULL violation the driver did not name", () => {
+    const described = describeWriteError({ code: "23502" });
+    expect(described!.message).toBe("A required field is missing.");
+    expect(described!.column).toBeUndefined();
   });
 
   it("never leaks the row detail, driver message, or SQL", () => {
-    const msg = describeWriteError(notNullRaw)!;
-    expect(msg).not.toContain("Failing row");
-    expect(msg).not.toContain("null value in column");
-    expect(msg).not.toContain("2026-07-03");
+    const { message } = describeWriteError(notNullRaw)!;
+    expect(message).not.toContain("Failing row");
+    expect(message).not.toContain("null value in column");
+    expect(message).not.toContain("2026-07-03");
   });
 
   it("unwraps a ConnectorError's originalError", () => {
@@ -38,21 +54,27 @@ describe("describeWriteError", () => {
       ConnectorErrorType.QUERY,
       notNullRaw,
     );
-    const msg = describeWriteError(wrapped);
-    expect(msg).toContain("rating");
+    expect(describeWriteError(wrapped)).toMatchObject({ column: "rating" });
   });
 
   it.each([
-    ["23505", "already exists"],
-    ["23503", "referenced"],
-    ["23514", "constraint"],
-    ["22P02", "format"],
-    ["22003", "range"],
-  ])("maps PG code %s to a specific message", (code, needle) => {
-    const msg = describeWriteError({ code });
-    expect(msg, `code ${code}`).toBeDefined();
-    expect(msg!.toLowerCase()).toContain(needle);
-  });
+    ["23505", "already exists", "CONFLICT"],
+    ["23503", "referenced", "VALIDATION_ERROR"],
+    ["23514", "constraint", "VALIDATION_ERROR"],
+    ["22P02", "format", "VALIDATION_ERROR"],
+    ["22003", "range", "VALIDATION_ERROR"],
+    ["25006", "read-only", "FORBIDDEN"],
+  ])(
+    "maps PG code %s to a specific message and a 4xx code",
+    (code, needle, apiCode) => {
+      // A column on a non-NOT-NULL error is not "the field that was blank".
+      const described = describeWriteError({ code, column: "c" });
+      expect(described, `code ${code}`).toBeDefined();
+      expect(described!.message.toLowerCase()).toContain(needle);
+      expect(described!.code).toBe(apiCode);
+      expect(described!.column).toBeUndefined();
+    },
+  );
 
   it.each(["42601", "42P01", "42703"])(
     "leaves query-structure error %s generic (not form-user-actionable; keeps the safe-message contract)",
@@ -60,12 +82,6 @@ describe("describeWriteError", () => {
       expect(describeWriteError({ code })).toBeUndefined();
     },
   );
-
-  it("surfaces a read-only violation (25006)", () => {
-    expect(describeWriteError({ code: "25006" })!.toLowerCase()).toContain(
-      "read-only",
-    );
-  });
 
   it("returns undefined for unknown / unmapped codes (caller falls back)", () => {
     expect(describeWriteError({ code: "XX999" })).toBeUndefined();

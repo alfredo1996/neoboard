@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { ExternalLabelProps } from "./external-label";
 
-export interface NumberRangeSliderProps {
+export interface NumberRangeSliderProps extends ExternalLabelProps {
   parameterName: string;
   min: number;
   max: number;
@@ -35,8 +36,10 @@ function NumberRangeSlider({
   step = 1,
   showInputs = true,
   className,
+  labelledBy,
+  id,
 }: NumberRangeSliderProps) {
-  const labelId = `param-numrange-label-${parameterName}`;
+  const labelId = labelledBy ?? `param-numrange-label-${parameterName}`;
   const current: [number, number] = value ?? [min, max];
   const hasValue = value !== null;
 
@@ -69,12 +72,14 @@ function NumberRangeSlider({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between">
-        <Label
-          id={labelId}
-          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-        >
-          {parameterName}
-        </Label>
+        {!labelledBy && (
+          <Label
+            id={labelId}
+            className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+          >
+            {parameterName}
+          </Label>
+        )}
         {hasValue && (
           <Button
             type="button"
@@ -93,6 +98,7 @@ function NumberRangeSlider({
       {showInputs && (
         <div className="flex items-center gap-2">
           <Input
+            id={id}
             type="number"
             value={current[0]}
             onChange={(e) => handleMinInput(e.target.value)}

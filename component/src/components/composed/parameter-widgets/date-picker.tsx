@@ -12,9 +12,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import type { ExternalLabelProps } from "./external-label";
 import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
 
-export interface DatePickerParameterProps {
+export interface DatePickerParameterProps extends ExternalLabelProps {
   parameterName: string;
   /** ISO date string (YYYY-MM-DD) or empty string for no selection */
   value: string;
@@ -32,9 +33,11 @@ function DatePickerParameter({
   value,
   onChange,
   className,
+  labelledBy,
+  id,
 }: DatePickerParameterProps) {
   const [open, setOpen] = React.useState(false);
-  const labelId = `param-date-label-${parameterName}`;
+  const labelId = labelledBy ?? `param-date-label-${parameterName}`;
 
   const selected = parseIsoDate(value);
 
@@ -45,16 +48,19 @@ function DatePickerParameter({
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label
-        id={labelId}
-        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-      >
-        {parameterName}
-      </Label>
+      {!labelledBy && (
+        <Label
+          id={labelId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
+          {parameterName}
+        </Label>
+      )}
       <div className="flex items-center gap-1">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
+              id={id}
               variant="outline"
               aria-labelledby={labelId}
               className={cn(

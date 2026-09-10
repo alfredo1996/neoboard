@@ -7,7 +7,7 @@
  * empty-fields fast path, and submit-button states.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import React from "react";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 
@@ -32,6 +32,7 @@ vi.mock("@neoboard/components", () => ({
     paramSelectorProps.push(p);
     return (
       <button
+        id={p.id as string}
         data-testid={`param-selector-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("ok")}
       >
@@ -43,6 +44,7 @@ vi.mock("@neoboard/components", () => ({
     paramMultiProps.push(p);
     return (
       <button
+        id={p.id as string}
         data-testid={`param-multi-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string[]) => void)(["a", "b"])}
       >
@@ -54,6 +56,7 @@ vi.mock("@neoboard/components", () => ({
     datePickerProps.push(p);
     return (
       <button
+        id={p.id as string}
         data-testid={`date-picker-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("2026-01-01")}
       >
@@ -65,6 +68,7 @@ vi.mock("@neoboard/components", () => ({
     dateRangeProps.push(p);
     return (
       <button
+        id={p.id as string}
         data-testid={`date-range-${p.parameterName}`}
         onClick={() =>
           (p.onChange as (f: string, t: string) => void)(
@@ -81,6 +85,7 @@ vi.mock("@neoboard/components", () => ({
     dateRelativeProps.push(p);
     return (
       <button
+        id={p.id as string}
         data-testid={`date-relative-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("last_7_days")}
       >
@@ -91,7 +96,7 @@ vi.mock("@neoboard/components", () => ({
   NumberRangeSlider: (p: Record<string, unknown>) => {
     numberRangeProps.push(p);
     return (
-      <div data-testid={`number-range-${p.parameterName}`}>
+      <div id={p.id as string} data-testid={`number-range-${p.parameterName}`}>
         <button
           data-testid={`nrs-change-${p.parameterName}`}
           onClick={() =>
@@ -112,10 +117,16 @@ vi.mock("@neoboard/components", () => ({
   Label: ({
     children,
     htmlFor,
+    id,
   }: {
     children: React.ReactNode;
     htmlFor?: string;
-  }) => <label htmlFor={htmlFor}>{children}</label>,
+    id?: string;
+  }) => (
+    <label id={id} htmlFor={htmlFor}>
+      {children}
+    </label>
+  ),
 }));
 
 vi.mock("@/components/debounced-text-input", () => ({
@@ -124,13 +135,22 @@ vi.mock("@/components/debounced-text-input", () => ({
     value,
     onChange,
     placeholder,
+    id,
+    labelledBy,
+    required,
   }: {
     parameterName: string;
     value: string;
     onChange: (v: string) => void;
     placeholder?: string;
+    id?: string;
+    labelledBy?: string;
+    required?: boolean;
   }) => (
     <input
+      id={id}
+      aria-labelledby={labelledBy}
+      aria-required={required || undefined}
       aria-label={parameterName}
       data-testid={`input-${parameterName}`}
       value={value}
@@ -614,5 +634,179 @@ describe("FormWidgetRenderer — empty state + submit flow", () => {
     }) as HTMLButtonElement;
     expect(btn).toBeDefined();
     expect(btn.disabled).toBe(true);
+  });
+});
+
+/*
+ * #1410 — the form owns each field's one label. jsdom cannot compute
+ * accessible names, so these pin the wiring that produces them: one <label>
+ * per field, its htmlFor on the widget's control id, and the widget told to
+ * name that control from the label instead of rendering the parameter name.
+ * Playwright checks the resulting names (form-widget.spec.ts).
+ */
+describe("FormWidgetRenderer — one label per field (#1410)", () => {
+  const typed: Array<[FormFieldDef["parameterType"], () => unknown[]]> = [
+    ["select", () => paramSelectorProps],
+    ["multi-select", () => paramMultiProps],
+    ["date", () => datePickerProps],
+    ["date-range", () => dateRangeProps],
+    ["date-relative", () => dateRelativeProps],
+    ["number-range", () => numberRangeProps],
+  ];
+
+  it.each(typed)(
+    "a %s field has one label, pointing at the control the widget names from it",
+    (parameterType, captured) => {
+      const { container } = renderForm([
+        makeField({
+          id: "f1",
+          label: "Category",
+          parameterName: "rf1_category",
+          parameterType,
+          staticOptions: "a,b",
+        }),
+      ]);
+      const labels = container.querySelectorAll("label");
+      expect(labels).toHaveLength(1);
+      const label = labels[0];
+      expect(label.textContent).toBe("Category");
+      const props = captured().at(-1) as { id: string; labelledBy: string };
+      expect(label.htmlFor).toBeTruthy();
+      expect(props.id).toBe(label.htmlFor);
+      expect(props.labelledBy).toBe(label.id);
+      // htmlFor resolves to an element the widget rendered.
+      expect(container.querySelector(`[id="${label.htmlFor}"]`)).not.toBeNull();
+    },
+  );
+
+  it("a text field's label is the label of its input", () => {
+    const { container } = renderForm([
+      makeField({ label: "Comment", parameterName: "rf1_comment" }),
+    ]);
+    const label = container.querySelector("label")!;
+    const input = screen.getByTestId("input-rf1_comment");
+    expect(label.control).toBe(input);
+    expect(input.getAttribute("aria-labelledby")).toBe(label.id);
+  });
+
+  it("gives every field its own ids, even two forms with the same field", () => {
+    const field = makeField({ label: "Name", parameterName: "name" });
+    const { container } = render(
+      <>
+        <FormWidgetRenderer
+          connectionId="c"
+          query="q"
+          settings={{ formFields: [field] }}
+        />
+        <FormWidgetRenderer
+          connectionId="c"
+          query="q"
+          settings={{ formFields: [field, { ...field, id: "f2" }] }}
+        />
+      </>,
+    );
+    const ids = [...container.querySelectorAll("label")].flatMap((l) => [
+      l.id,
+      l.htmlFor,
+    ]);
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(6);
+    // No id is built from the field's own strings — they are author data.
+    expect(ids.some((id) => id.includes("name"))).toBe(false);
+  });
+
+  it("marks the asterisk decorative, so the control's name is the label alone", () => {
+    const { container } = renderForm([
+      makeField({ label: "Name", required: true }),
+    ]);
+    const star = within(container.querySelector("label")!).getByText("*");
+    expect(star.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it.each([
+    ["text", () => screen.getByTestId("input-v").getAttribute("aria-required")],
+    ["select", () => String(paramSelectorProps.at(-1)?.required)],
+    ["cascading-select", () => String(paramSelectorProps.at(-1)?.required)],
+    ["multi-select", () => String(paramMultiProps.at(-1)?.required)],
+  ] as const)(
+    "tells a required %s field's control it is required",
+    (parameterType, read) => {
+      renderForm([makeField({ parameterType, required: true })]);
+      expect(read()).toBe("true");
+    },
+  );
+});
+
+/*
+ * #1409 — the database, not the form, knows a column is NOT NULL. When the
+ * write route names the blank column, the error belongs on that field.
+ */
+describe("FormWidgetRenderer — server field errors (#1409)", () => {
+  const seeded = [
+    makeField({
+      id: "rf1-c",
+      label: "Category",
+      parameterName: "rf1_category",
+    }),
+    makeField({ id: "rf1-co", label: "Comment", parameterName: "rf1_comment" }),
+  ];
+
+  function failWith(details?: Record<string, unknown>) {
+    mockMutate.mockImplementation(
+      (_p: unknown, opts: { onError?: (e: Error) => void }) => {
+        opts.onError?.(
+          Object.assign(new Error('The field "category" is required.'), {
+            details,
+          }),
+        );
+      },
+    );
+  }
+
+  const fieldOf = (container: HTMLElement, label: string) =>
+    [...container.querySelectorAll("label")].find(
+      (l) => l.textContent === label,
+    )!.parentElement!;
+
+  it("puts a NOT NULL column error on the field that feeds the column", () => {
+    failWith({ column: "category" });
+    const { container } = renderForm(seeded);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(
+      within(fieldOf(container, "Category")).getByText(
+        "This field is required",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(fieldOf(container, "Comment")).queryByText(
+        "This field is required",
+      ),
+    ).toBeNull();
+    // On the field instead of at the bottom of the form, not as well as.
+    expect(screen.queryByText('The field "category" is required.')).toBeNull();
+  });
+
+  it("clears the field error once the user fills the field", () => {
+    failWith({ column: "category" });
+    renderForm(seeded);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.change(screen.getByTestId("input-rf1_category"), {
+      target: { value: "shipping" },
+    });
+    expect(screen.queryByText("This field is required")).toBeNull();
+  });
+
+  it.each([
+    ["no field matches the column", { column: "submitted_at" }],
+    ["the error names no column", undefined],
+  ])("falls back to the form-level message when %s", (_case, details) => {
+    failWith(details);
+    renderForm(seeded);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(
+      screen.getByText('The field "category" is required.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("This field is required")).toBeNull();
   });
 });

@@ -20,9 +20,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import type { ExternalLabelProps } from "./external-label";
 import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
 
-export interface DateRangeParameterProps {
+export interface DateRangeParameterProps extends ExternalLabelProps {
   parameterName: string;
   /** ISO date string (YYYY-MM-DD) for the start of the range */
   from: string;
@@ -78,9 +79,11 @@ function DateRangeParameter({
   to,
   onChange,
   className,
+  labelledBy,
+  id,
 }: DateRangeParameterProps) {
   const [open, setOpen] = React.useState(false);
-  const labelId = `param-daterange-label-${parameterName}`;
+  const labelId = labelledBy ?? `param-daterange-label-${parameterName}`;
 
   const fromDate = parseIsoDate(from);
   const toDate = parseIsoDate(to);
@@ -104,16 +107,19 @@ function DateRangeParameter({
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label
-        id={labelId}
-        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-      >
-        {parameterName}
-      </Label>
+      {!labelledBy && (
+        <Label
+          id={labelId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
+          {parameterName}
+        </Label>
+      )}
       <div className="flex items-center gap-1">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
+              id={id}
               variant="outline"
               aria-labelledby={labelId}
               className={cn(

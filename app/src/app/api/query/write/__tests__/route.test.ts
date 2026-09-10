@@ -303,12 +303,48 @@ describe("POST /api/query/write", () => {
         dashboardId: "d1",
       }),
     );
-    expect(res.status).toBe(500);
+    // A blank field is the user's error, not the server's (#1409).
+    expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.message).toBe('The field "rating" is required.');
+    // The column lets the form put the error on the field that caused it.
+    expect(body.error.details).toEqual({ column: "rating" });
     // No row data, driver message, or SQL leaks through.
-    expect(body.error.message).not.toMatch(/Failing row|null value|INSERT/i);
+    expect(JSON.stringify(body)).not.toMatch(/Failing row|null value|INSERT/i);
   });
+
+  it.each([
+    ["23505", 409, "A record with these values already exists."],
+    ["23514", 400, "A value failed a validation constraint."],
+    ["25006", 403, "This connection is read-only; writes are not permitted."],
+  ])(
+    "responds to a recognised PG error %s with %i, not 500 (#1409)",
+    async (code, status, message) => {
+      mockRequireSession.mockResolvedValue(writerSession);
+      mockConnectionAndDashboard();
+      mockDecryptJson.mockReturnValue({ uri: "postgresql://localhost" });
+      const pgError = Object.assign(new Error("INSERT INTO t ... secret"), {
+        code,
+      });
+      mockExecuteQuery.mockRejectedValue(
+        new ConnectorError("query failed", ConnectorErrorType.QUERY, pgError),
+      );
+
+      const res = await POST(
+        makeRequest({
+          connectionId: "c1",
+          query: "INSERT INTO t (a) VALUES ($param_a)",
+          widgetId: "w1",
+          dashboardId: "d1",
+        }),
+      );
+      expect(res.status).toBe(status);
+      const body = await res.json();
+      expect(body.error.message).toBe(message);
+      expect(body.error.details).toBeUndefined();
+      expect(JSON.stringify(body)).not.toMatch(/INSERT|secret/);
+    },
+  );
 
   it("returns 404 when connection belongs to another user", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
