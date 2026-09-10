@@ -293,6 +293,31 @@ function parseMarkdown(md: string): string {
   return result.join("\n");
 }
 
+/**
+ * A run of `n` underscores that opens and closes emphasis only outside a word,
+ * per CommonMark's flanking rule, so snake_case and __dunder__-inside-words
+ * survive (#1407). `*` has no such rule, so its passes stay loose. Combining
+ * marks (\p{M}) are part of a word. The body is capped at 500 characters, like
+ * the link text, so an unclosed opener scans a bounded window instead of the
+ * rest of the line (otherwise a line of `(_a)` runs is quadratic).
+ */
+const underscoreRun = (n: number) =>
+  new RegExp(
+    String.raw`(^|[^\p{L}\p{M}\p{N}_])_{${n}}(.{1,500}?)_{${n}}(?![\p{L}\p{M}\p{N}_])`,
+    "gu",
+  );
+const UNDERSCORE_3 = underscoreRun(3);
+const UNDERSCORE_2 = underscoreRun(2);
+const UNDERSCORE_1 = underscoreRun(1);
+
+const CODE_OPEN =
+  '<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">';
+const CODE_CLOSE = "</code>";
+
+/** processInline's stash placeholder, `<tN>`. */
+const PLACEHOLDER = /<t\d+>/;
+const PLACEHOLDERS = /<t(\d+)>/g;
+
 /** Escapes only the double-quote character for safe use in HTML attributes. */
 function escapeAttr(value: string): string {
   return value.replace(/"/g, "&quot;");
@@ -324,20 +349,28 @@ function processInline(text: string): string {
   const tags: string[] = [];
   const stash = (tag: string) => `<t${tags.push(tag) - 1}>`;
 
-  // Inline code — $1 is already HTML-escaped, safe to embed directly.
-  result = result.replace(
-    /`([^`]+)`/g,
-    '<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">$1</code>',
+  // Inline code — stashed whole, content included, so no later pass (links,
+  // emphasis) parses inside backticks (#1407). `code` is already HTML-escaped.
+  result = result.replace(/`([^`]+)`/g, (_match, code: string) =>
+    stash(CODE_OPEN + code + CODE_CLOSE),
   );
 
   // Images: ![alt](url) — validate URL.
   // alt is already HTML-escaped; url needs attribute-quoting via escapeAttr.
   result = result.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
-    (_match, alt: string, url: string) => {
+    (match, alt: string, url: string) => {
+      // A code span is literal text, never a URL.
+      if (PLACEHOLDER.test(url)) return match;
       if (!isSafeImageUrl(url)) return `[image blocked: unsafe URL]`;
+      // alt is an attribute: a code span in it collapses to its plain text.
+      // Only code spans are stashed before this pass, so every placeholder
+      // here is CODE_OPEN + text + CODE_CLOSE.
+      const plainAlt = alt.replace(PLACEHOLDERS, (_m, i: string) =>
+        tags[+i].slice(CODE_OPEN.length, -CODE_CLOSE.length),
+      );
       return stash(
-        `<img src="${escapeAttr(url)}" alt="${alt}" class="max-w-full rounded my-1" />`,
+        `<img src="${escapeAttr(url)}" alt="${plainAlt}" class="max-w-full rounded my-1" />`,
       );
     },
   );
@@ -347,7 +380,8 @@ function processInline(text: string): string {
   // Use atomic-style groups (negated char classes) to prevent catastrophic backtracking.
   result = result.replace(
     /\[([^\]]{1,500})\]\(([^)\s]{1,2000})\)/g,
-    (_match, linkText: string, url: string) => {
+    (match, linkText: string, url: string) => {
+      if (PLACEHOLDER.test(url)) return match;
       if (!isSafeLinkUrl(url)) return linkText;
       return (
         stash(
@@ -361,20 +395,20 @@ function processInline(text: string): string {
 
   // Bold+Italic: ***text*** or ___text___
   result = result.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-  result = result.replace(/___(.+?)___/g, "<strong><em>$1</em></strong>");
+  result = result.replace(UNDERSCORE_3, "$1<strong><em>$2</em></strong>");
 
   // Bold: **text** or __text__
   result = result.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  result = result.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  result = result.replace(UNDERSCORE_2, "$1<strong>$2</strong>");
 
   // Italic: *text* or _text_
   result = result.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  result = result.replace(/_(.+?)_/g, "<em>$1</em>");
+  result = result.replace(UNDERSCORE_1, "$1<em>$2</em>");
 
   // Strikethrough: ~~text~~
   result = result.replace(/~~(.+?)~~/g, "<del>$1</del>");
 
-  return result.replace(/<t(\d+)>/g, (_m, i: string) => tags[+i]);
+  return result.replace(PLACEHOLDERS, (_m, i: string) => tags[+i]);
 }
 
 function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
