@@ -75,29 +75,7 @@ sudo chown -R neoboard:neoboard "$DEST"
 
 ### Run
 
-A first foreground run, to watch the boot migration create the schema:
-
-```bash
-cd /opt/neoboard
-sudo -u neoboard env \
-  NODE_ENV=production MIGRATE_ON_START=1 \
-  MIGRATIONS_DIR=/opt/neoboard/app/drizzle/migrations \
-  DATABASE_URL=postgresql://neoboard:...@db.internal:5432/neoboard \
-  ENCRYPTION_KEY=... NEXTAUTH_SECRET=... API_KEY_HMAC_SECRET=... \
-  NEXTAUTH_URL=https://neoboard.example.com \
-  ADMIN_BOOTSTRAP_TOKEN=... \
-  node app/server.js
-```
-
-```bash
-curl -fsS http://localhost:3000/api/health   # status "ok"
-```
-
-Then create the first admin on `/signup` with the `ADMIN_BOOTSTRAP_TOKEN` — the same two paths as [Production deployment](/deploy/production#3-create-the-first-admin).
-
-### Keep it running with systemd
-
-Move the configuration into a root-only file and let systemd own the process:
+Generate the secrets once, into a root-only file, before the first boot. The foreground run below and the systemd unit after it both read this file, so `ENCRYPTION_KEY` is the same on every boot — a key that changes between the two makes every credential stored under the first one unrecoverable.
 
 ```bash
 sudo install -m 600 /dev/null /etc/neoboard.env
@@ -110,6 +88,26 @@ NEXTAUTH_URL=https://neoboard.example.com
 ADMIN_BOOTSTRAP_TOKEN=$(openssl rand -hex 32)
 EOF
 ```
+
+A first foreground run, to watch the boot migration create the schema:
+
+```bash
+cd /opt/neoboard
+sudo -u neoboard env $(sudo cat /etc/neoboard.env) \
+  NODE_ENV=production MIGRATE_ON_START=1 \
+  MIGRATIONS_DIR=/opt/neoboard/app/drizzle/migrations \
+  node app/server.js
+```
+
+```bash
+curl -fsS http://localhost:3000/api/health   # status "ok"
+```
+
+Then create the first admin on `/signup` with the `ADMIN_BOOTSTRAP_TOKEN` — `sudo grep ADMIN_BOOTSTRAP_TOKEN /etc/neoboard.env` prints it — the same two paths as [Production deployment](/deploy/production#3-create-the-first-admin).
+
+### Keep it running with systemd
+
+Let systemd own the process, reading the same `/etc/neoboard.env`:
 
 ```ini title="/etc/systemd/system/neoboard.service"
 [Unit]
@@ -155,7 +153,7 @@ Build the next release into a fresh directory, back up the database, point `Work
 
 ## Option 2: Kubernetes with the published image
 
-The image `ghcr.io/alfredo1996/neoboard` already sets `PORT`, `HOSTNAME`, `NODE_ENV`, `MIGRATE_ON_START` and `MIGRATIONS_DIR`, so a pod needs only the five required variables. Pin a release tag — never `:latest` — so a rollout is reproducible.
+The image `ghcr.io/alfredo1996/neoboard` already sets `PORT`, `HOSTNAME`, `NODE_ENV`, `MIGRATE_ON_START` and `MIGRATIONS_DIR`, so a pod needs only the five required variables, plus `ADMIN_BOOTSTRAP_TOKEN` for the first admin. Pin a release tag — never `:latest` — so a rollout is reproducible.
 
 ```yaml title="neoboard.yaml"
 apiVersion: v1
@@ -169,6 +167,7 @@ stringData:
   NEXTAUTH_SECRET: "<openssl rand -base64 32>"
   API_KEY_HMAC_SECRET: "<openssl rand -hex 32>"
   NEXTAUTH_URL: https://neoboard.example.com
+  ADMIN_BOOTSTRAP_TOKEN: "<openssl rand -hex 32>"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -233,8 +232,10 @@ kubectl port-forward svc/neoboard 3000:3000 &
 curl -fsS http://localhost:3000/api/health
 ```
 
+Then create the first admin on `/signup` with the `ADMIN_BOOTSTRAP_TOKEN` from the Secret — the same two paths as [Production deployment](/deploy/production#3-create-the-first-admin). Self-registration is closed by default, so a pod that passes the health check is not yet one anyone can log into.
+
 - **Probes.** `/api/health` returns 503 when required configuration is missing or the metadata database is unreachable — exactly when a pod should not take traffic. The 30 s liveness delay covers the boot migration, the same reason the image's own healthcheck has a 30 s start period. [Monitoring](/deploy/monitoring#using-with-kubernetes) has the probe reference.
-- **Replicas.** Safe to raise. Replicas booting together serialize the migration on a Postgres advisory lock: the first applies it, the rest wait and find nothing left to do.
+- **Replicas.** Migrations are replica-safe: replicas booting together serialize on a Postgres advisory lock, the first applies it, the rest wait and find nothing left to do. Rate limiting is not: the per-IP limit on the public `/api/auth/*` routes and the SSO provider cache are in-memory per process, so N replicas give every IP N times the budget. Stay at 1, or rate-limit at the ingress, until there is a shared store.
 - **Ingress.** Terminate TLS at the ingress and make sure `X-Forwarded-Proto` reaches the pod; `NEXTAUTH_URL` must be the public URL. The rules are the same as for any [load balancer](/deploy/reverse-proxy#cloud-load-balancers).
 - **Roll back.** If the release you are leaving migrated the schema, disable boot migration first, then move the tag: `kubectl set env deployment/neoboard MIGRATE_ON_START=0`, then `kubectl set image deployment/neoboard neoboard=ghcr.io/alfredo1996/neoboard:vPREVIOUS`. Why, and what to do with the database, is in [Controlling migrations at boot](/deploy/deployment-checklist#controlling-migrations-at-boot).
 - **Helm.** There is no chart yet; the manifest above is the whole surface.

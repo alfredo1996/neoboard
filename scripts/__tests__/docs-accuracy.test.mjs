@@ -50,6 +50,17 @@ function backtickedTokens() {
   return found;
 }
 
+/** Keys env-config.ts marks `required: true` — the app exits at boot without them. */
+function requiredFromRegistry() {
+  const registry = readFileSync(
+    join(ROOT, "app/src/lib/env-config.ts"),
+    "utf8",
+  );
+  return [
+    ...registry.matchAll(/key:\s*"([A-Z0-9_]+)"[^}]*?required:\s*true/gs),
+  ].map((m) => m[1]);
+}
+
 describe("docs accuracy guards (#1316)", () => {
   it("documents no environment variable that does not exist in source", () => {
     // SCREAMING_SNAKE with at least one underscore. Requiring the underscore
@@ -90,13 +101,7 @@ describe("docs accuracy guards (#1316)", () => {
     // be wrong by omitting as well as by inventing. Both production setup
     // snippets left out API_KEY_HMAC_SECRET, which env-config marks required,
     // so a deployment that followed the page failed startup validation.
-    const registry = readFileSync(
-      join(ROOT, "app/src/lib/env-config.ts"),
-      "utf8",
-    );
-    const required = [
-      ...registry.matchAll(/key:\s*"([A-Z0-9_]+)"[^}]*?required:\s*true/gs),
-    ].map((m) => m[1]);
+    const required = requiredFromRegistry();
     expect(required.length).toBeGreaterThan(0); // the regex still matches
 
     const documented = new Set(
@@ -682,6 +687,72 @@ describe("production options: Run from a build (#1679)", () => {
       .sort();
 
     expect(fromPage).toEqual(fromExample);
+
+    // Both are copies of env-config.ts. Page == example only proves the two
+    // copies agree; a variable added to the registry and documented on the
+    // Configuration page still left this table — "Every option reads these
+    // at boot" — silently short. NEXTAUTH_URL is the page's deliberate
+    // operational addition, hence arrayContaining, not equality.
+    const fromRegistry = requiredFromRegistry();
+    expect(fromPage).toEqual(expect.arrayContaining(fromRegistry));
+    expect(fromExample).toEqual(expect.arrayContaining(fromRegistry));
+  });
+
+  it("generates the secrets once, before the first run, and never again", () => {
+    // The systemd step said "move the configuration into a root-only file"
+    // and then ran `openssl rand` again for every secret — a reader who
+    // followed it rotated ENCRYPTION_KEY between the foreground run that
+    // created the schema and first admin and the unit that took over,
+    // losing every credential stored in between.
+    const body = page();
+    const option1 = body.slice(
+      body.indexOf("## Option 1"),
+      body.indexOf("## Option 2"),
+    );
+    const generated = option1.match(/ENCRYPTION_KEY=\$\(openssl rand/g) ?? [];
+    expect(generated).toHaveLength(1);
+    expect(option1.indexOf("ENCRYPTION_KEY=$(openssl rand")).toBeLessThan(
+      option1.indexOf("node app/server.js"),
+    );
+    // The foreground run reads the file the unit will read, rather than
+    // taking its own inline copy of the secrets.
+    const foreground =
+      option1.match(/```bash\n[^`]*node app\/server\.js[^`]*```/)?.[0] ?? "";
+    expect(foreground).toContain("/etc/neoboard.env");
+    expect(foreground).not.toMatch(/ENCRYPTION_KEY=/);
+    // The token lives in a 0600 root file; the reader is told how to see it.
+    expect(option1).toMatch(/grep ADMIN_BOOTSTRAP_TOKEN \/etc\/neoboard\.env/);
+  });
+
+  it("gives every option a first admin", () => {
+    // Self-registration is closed by default and signup.ts refuses the
+    // first admin without ADMIN_BOOTSTRAP_TOKEN, so an option that sets only
+    // the required variables ends in a healthy pod nobody can log into.
+    const body = page();
+    const options = body.split(/^## Option /m).slice(1);
+    expect(options.length).toBeGreaterThan(1);
+    for (const option of options) {
+      expect(option).toContain("ADMIN_BOOTSTRAP_TOKEN");
+      expect(option).toContain("/deploy/production#3-create-the-first-admin");
+    }
+  });
+
+  it("does not call replicas safe while rate limiting is per-process", () => {
+    // migrate-on-boot serializes on pg_advisory_lock, so migrations are
+    // replica-safe. The rate limiter on the public /api/auth/* routes (#819)
+    // is an in-memory Map per process, so N replicas hand every IP N times
+    // the budget. The page must say the second half, not just the first.
+    const limiter = readFileSync(
+      join(ROOT, "app/src/lib/crypto/rate-limiter.ts"),
+      "utf8",
+    );
+    expect(limiter).toMatch(/single-instance/); // still the reason
+    const body = page();
+    const replicas = body.match(/^- \*\*Replicas\.\*\*.*$/m)?.[0] ?? "";
+    expect(replicas).not.toBe("");
+    expect(replicas).not.toMatch(/safe to raise/i);
+    expect(replicas).toMatch(/rate.limit/i);
+    expect(replicas).toMatch(/advisory lock/);
   });
 
   it("names only the image that is published", () => {
