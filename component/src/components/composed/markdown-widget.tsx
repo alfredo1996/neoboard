@@ -303,12 +303,16 @@ function parseMarkdown(md: string): string {
  */
 const underscoreRun = (n: number) =>
   new RegExp(
-    `(^|[^\\p{L}\\p{M}\\p{N}_])_{${n}}(.{1,500}?)_{${n}}(?![\\p{L}\\p{M}\\p{N}_])`,
+    String.raw`(^|[^\p{L}\p{M}\p{N}_])_{${n}}(.{1,500}?)_{${n}}(?![\p{L}\p{M}\p{N}_])`,
     "gu",
   );
 const UNDERSCORE_3 = underscoreRun(3);
 const UNDERSCORE_2 = underscoreRun(2);
 const UNDERSCORE_1 = underscoreRun(1);
+
+const CODE_OPEN =
+  '<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">';
+const CODE_CLOSE = "</code>";
 
 /** processInline's stash placeholder, `<tN>`. */
 const PLACEHOLDER = /<t\d+>/;
@@ -348,9 +352,7 @@ function processInline(text: string): string {
   // Inline code — stashed whole, content included, so no later pass (links,
   // emphasis) parses inside backticks (#1407). `code` is already HTML-escaped.
   result = result.replace(/`([^`]+)`/g, (_match, code: string) =>
-    stash(
-      `<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">${code}</code>`,
-    ),
+    stash(CODE_OPEN + code + CODE_CLOSE),
   );
 
   // Images: ![alt](url) — validate URL.
@@ -362,8 +364,10 @@ function processInline(text: string): string {
       if (PLACEHOLDER.test(url)) return match;
       if (!isSafeImageUrl(url)) return `[image blocked: unsafe URL]`;
       // alt is an attribute: a code span in it collapses to its plain text.
+      // Only code spans are stashed before this pass, so every placeholder
+      // here is CODE_OPEN + text + CODE_CLOSE.
       const plainAlt = alt.replace(PLACEHOLDERS, (_m, i: string) =>
-        tags[+i].replace(/<[^>]*>/g, ""),
+        tags[+i].slice(CODE_OPEN.length, -CODE_CLOSE.length),
       );
       return stash(
         `<img src="${escapeAttr(url)}" alt="${plainAlt}" class="max-w-full rounded my-1" />`,
