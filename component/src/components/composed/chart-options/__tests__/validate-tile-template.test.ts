@@ -36,6 +36,22 @@ describe("validateTileTemplate (#1685)", () => {
     ).toEqual(["id", "apikey"]);
   });
 
+  it.each(["{ z}", "{  z}"])(
+    "skips leading spaces the way Leaflet's ` *` does — %s is {z}",
+    (braces) => {
+      expect(
+        unknownTilePlaceholders(`https://t/${braces}/{x}/{y}.png`),
+      ).toEqual([]);
+    },
+  );
+
+  it("still rejects braces holding only spaces — Leaflet throws for those too", () => {
+    // Util.template matches `{ }` (capture " "), finds no data for it, throws.
+    expect(validateTileTemplate("https://t/{ }/{z}/{x}/{y}.png")?.level).toBe(
+      "error",
+    );
+  });
+
   it("treats a space inside the braces the way Leaflet does — as part of the name", () => {
     // Util.template captures "z " for "{z }", looks up data["z "], and throws.
     expect(unknownTilePlaceholders("https://t/{z }/{x}/{y}.png")).toEqual([

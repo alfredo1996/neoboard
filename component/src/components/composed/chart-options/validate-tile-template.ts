@@ -15,15 +15,22 @@
  * panel can never disagree about what is a valid template.
  */
 
-/** Leaflet's own `templateRe` (core/Util.js), so this sees what it sees. */
-const TEMPLATE_RE = /\{ *([\w_ -]+) *\}/g;
+/**
+ * Leaflet's own `templateRe` (core/Util.js) is `/\{ *([\w_ -]+) *\}/g`. Same
+ * match set, minus the overlapping ` *` / `[\w -]+` quantifiers that
+ * backtrack super-linearly (Sonar S8786): the leading-space skip that ` *`
+ * did is `trimStart()` on the capture instead, so `{ z }` still names `"z "`.
+ */
+const TEMPLATE_RE = /\{([\w -]+)\}/g;
 
 /** What `TileLayer.getTileUrl` supplies on its own. */
 const LEAFLET_PLACEHOLDERS = new Set(["s", "z", "x", "y", "r", "-y"]);
 
 /** Placeholder names in `template` that Leaflet would throw on, deduplicated. */
 export function unknownTilePlaceholders(template: string): string[] {
-  const names = [...template.matchAll(TEMPLATE_RE)].map((m) => m[1]);
+  const names = [...template.matchAll(TEMPLATE_RE)].map((m) =>
+    m[1].trimStart(),
+  );
   return [...new Set(names)].filter((n) => !LEAFLET_PLACEHOLDERS.has(n));
 }
 

@@ -276,6 +276,19 @@
 .dark .leaflet-control-zoom a:hover {
   background-color: hsl(220 13% 17%);
 }
+/* Tailwind's preflight strips the UA underline from every <a>, and Leaflet
+   colours attribution links without restoring it. With a plain-text
+   attribution (a bring-your-own tileset, #1685) the "Leaflet" credit sits in a
+   block of text distinguished only by colour — and no link colour can reach
+   3:1 against Leaflet's #333 text while staying 4.5:1 on its white strip, so
+   the underline is the only thing that can fix axe's link-in-text-block.
+   Theme-neutral: the dark rules below only recolour. `.leaflet-container`
+   is needed for the same reason as the dark strip below — Leaflet's own
+   `.leaflet-control-attribution a { text-decoration: none }` ties a bare
+   selector on specificity and loads later. */
+.leaflet-container .leaflet-control-attribution a {
+  text-decoration: underline;
+}
 /* Needs .leaflet-container in the selector: Leaflet's own
    `.leaflet-container .leaflet-control-attribution { background: … }` ties a
    bare `.dark .leaflet-control-attribution` on specificity and loads later
