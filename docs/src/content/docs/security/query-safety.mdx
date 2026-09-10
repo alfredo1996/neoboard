@@ -1,0 +1,68 @@
+---
+title: Query Safety
+description: How NeoBoard protects your databases from harmful queries.
+sidebar:
+  order: 7
+---
+
+NeoBoard enforces multiple layers of safety to protect your databases.
+
+## Parameterized Queries
+
+User input is **never** interpolated into query strings. All parameters use the database driver's native parameterization:
+
+- **Neo4j**: Cypher parameters (`$param_name`)
+- **PostgreSQL**: Positional parameters (`$1`, `$2`)
+
+## Read-Only by Default
+
+Non-form widgets execute queries in read-only mode:
+
+- **PostgreSQL**: `BEGIN READ ONLY` transactions
+- **Neo4j**: Read access mode sessions
+
+Write operations are only allowed through **Form widgets** with the `can_write` permission, enforced server-side.
+
+## Timeouts
+
+Every query has a timeout enforced inside the transaction, not in application code — so it still applies if the app process dies mid-query:
+
+- **PostgreSQL**: `SET LOCAL statement_timeout` inside the current transaction
+- **Neo4j**: the managed-transaction `timeout` option, enforced by the server
+- Default: **30 seconds**, set per connection in the Connections UI
+
+## Row Limits
+
+Results are consumed with a `MAX_ROWS + 1` pattern:
+
+- The extra row detects if results were truncated, so the UI can show a "results truncated" banner
+- NeoBoard **never** adds `LIMIT` clauses to user queries
+- Default limit: **5,000 rows**, overridable per connection (`maxRows`, range 100–100,000)
+
+## Concurrency Control
+
+Each connection gets its own **query scheduler** — a priority queue with per-user fairness and backpressure. It sits above the drivers' own connection pools.
+
+**Priority tiers** — P1 always beats P2, which always beats P3:
+
+| Tier | Traffic |
+|------|---------|
+| 1 | Interactive — a user ran a query or opened a widget |
+| 2 | Dashboard load |
+| 3 | Background auto-refresh |
+
+**Fairness** — within a tier, users take turns via round-robin dequeue, so one user running heavy queries cannot starve everyone else on the same connection.
+
+**Backpressure** — when the queue is full, new work is rejected fast (HTTP 503) rather than piling up. Waiting too long in the queue returns a timeout instead of hanging.
+
+**Priority shedding** — once the queue fill ratio crosses `QUERY_SHED_THRESHOLD`, new P3 (auto-refresh) work is rejected to protect interactive latency. Dashboards left open on a wall display degrade first; people actively clicking keep working.
+
+Tune with the `QUERY_*` variables — see [Configuration → Query scheduler](/deploy/configuration#query-scheduler).
+
+## Credential Protection
+
+- **AES-256-GCM** encryption at rest, for database credentials and SSO client secrets
+- The 32-byte `ENCRYPTION_KEY` is used as the AES key directly — every blob carries its own random IV and auth tag, stored as `iv:authTag:ciphertext`
+- Wrong-key or tampered ciphertext **fails closed** — GCM authentication rejects it rather than returning garbage
+- Decrypted credentials are never logged
+- Lost `ENCRYPTION_KEY` = unrecoverable credentials. See [key rotation](/security/credential-encryption#how-to-rotate-zero-data-loss)

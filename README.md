@@ -49,7 +49,7 @@ bash install.sh   # installs deps, starts Docker, runs migrations
 
 > **Note:** an `npx @neoboard/cli` standalone install path is on the roadmap but the package is not on npm yet — clone the repo for now.
 
-If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see [Troubleshooting Setup](docs/src/content/docs/getting-started/troubleshooting.mdx).
+If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see [Troubleshooting Setup](docs/src/content/docs/start-here/troubleshooting.mdx).
 
 ### Demo showcases
 
@@ -93,7 +93,7 @@ export API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
 docker compose -f docker/docker-compose.prod-full.yml up -d
 ```
 
-`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](docs/src/content/docs/getting-started/installation.mdx) for first-admin bootstrap, health verification, and TLS, and [`app/.env.example`](app/.env.example) for every variable.
+`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](docs/src/content/docs/deploy/production.mdx) for first-admin bootstrap, health verification, and TLS, and [`app/.env.example`](app/.env.example) for every variable.
 
 Browse the [screenshots](#screenshots) below for a feel of the UI without installing.
 
@@ -174,7 +174,7 @@ Feature and fix branches target `dev` by default, or the active `release/X.Y` br
 
 ## Migrating from NeoDash
 
-NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/getting-started/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
+NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/start-here/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
 
 ## API Documentation
 
