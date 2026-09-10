@@ -603,8 +603,13 @@ test.describe("Demo showcases hide radar", () => {
         expect(count).toBe(payload.layout.pages.length);
         for (let i = 0; i < count; i++) {
           await tabs.nth(i).click();
+          // Visited pages stay mounted but hidden, so wait for this page's
+          // cards, not the first card in the DOM.
           await expect(
-            page.locator("[data-testid='widget-card']").first(),
+            page
+              .locator("[data-testid='widget-card']")
+              .filter({ visible: true })
+              .first(),
           ).toBeVisible({ timeout: 15_000 });
           await expect(
             page
