@@ -1,6 +1,6 @@
 import { AuthenticationModule } from "@neoboard/connector-sdk";
 import { AuthConfig, PostgresAdvancedOptions } from "@neoboard/connector-sdk";
-import { Pool } from "pg";
+import { Pool, QueryResultRow } from "pg";
 import { isAuthenticationError, runBoundedQuery } from "./utils";
 
 /**
@@ -158,7 +158,7 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
         this.pool = this.createDriver();
       }
 
-      await runBoundedQuery(this.pool, "SELECT 1");
+      await this.introspect("SELECT 1");
       return true;
     } catch (error: unknown) {
       if (isAuthenticationError(error)) {
@@ -189,6 +189,20 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
    * Returns the active connection pool.
    * @returns The Pool instance or null if not connected
    */
+  /**
+   * Runs a hardcoded introspection or health-check statement on this pool,
+   * bounded by `pgIntrospectionTimeoutMillis` (default 30s) (#1302).
+   */
+  introspect<R extends QueryResultRow = QueryResultRow>(
+    text: string,
+  ): Promise<R[]> {
+    return runBoundedQuery<R>(
+      this.getPool()!,
+      text,
+      this._advancedOptions?.pgIntrospectionTimeoutMillis,
+    );
+  }
+
   getPool(): Pool | null {
     return this.pool;
   }

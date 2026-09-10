@@ -164,12 +164,18 @@ describe("PostgresSchemaManager", () => {
       return { rows: [] };
     });
 
+    // Removed BEFORE release, so listeners don't pile up on pooled clients:
+    // checked inside release() itself, not after the whole call returns.
+    let listenersAtRelease: number | undefined;
+    mockClient.release.mockImplementation(() => {
+      listenersAtRelease = mockClient.listenerCount("error");
+    });
+
     await expect(
       new PostgresSchemaManager().fetchSchema(authConfig),
     ).resolves.toEqual({ type: "postgresql", tables: [] });
 
-    // Removed before release, so listeners don't pile up on pooled clients.
-    expect(mockClient.listenerCount("error")).toBe(0);
+    expect(listenersAtRelease).toBe(0);
   });
 
   it("bounds the information_schema query with a client-side query_timeout", async () => {
@@ -179,6 +185,18 @@ describe("PostgresSchemaManager", () => {
 
     expect(mockClient.query).toHaveBeenCalledWith(
       expect.objectContaining({ query_timeout: 30_000 }),
+    );
+  });
+
+  it("uses pgIntrospectionTimeoutMillis from the advanced options", async () => {
+    mockClient.query.mockResolvedValue({ rows: [] });
+
+    await new PostgresSchemaManager().fetchSchema(authConfig, {
+      pgIntrospectionTimeoutMillis: 45_000,
+    });
+
+    expect(mockClient.query).toHaveBeenCalledWith(
+      expect.objectContaining({ query_timeout: 45_000 }),
     );
   });
 

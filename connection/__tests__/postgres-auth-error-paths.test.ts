@@ -25,6 +25,7 @@ jest.mock("pg", () => ({
   }),
 }));
 
+import { EventEmitter } from "events";
 import { AuthType } from "@neoboard/connector-sdk";
 import { PostgresAuthenticationModule } from "../src/postgresql/PostgresAuthenticationModule";
 
@@ -182,6 +183,31 @@ describe("PostgresAuthenticationModule error paths (#1303)", () => {
 
       expect(logged()).toContain("57P02");
     });
+
+    // The silence is keyed on the SQLSTATE, not the text: the shutdown message
+    // without its code (a wrapped or non-pg error) must still log.
+    it("logs the shutdown message when it carries no 57P01 code", () => {
+      poolErrorHandler()(
+        new Error("terminating connection due to administrator command"),
+      );
+
+      expect(logged()).toContain("unknown");
+    });
+
+    // No process-wide suppression: an 'error' on any emitter that is not the
+    // pool, with no listener of its own, still throws after the module exists
+    // and has closed.
+    it("does not swallow an unhandled 'error' anywhere else", async () => {
+      const auth = new PostgresAuthenticationModule(CONFIG);
+      await auth.close();
+
+      expect(() =>
+        new EventEmitter().emit(
+          "error",
+          Object.assign(new Error("terminating connection"), { code: "57P01" }),
+        ),
+      ).toThrow("terminating connection");
+    });
   });
 
   // #1302: the auth probe runs on a pooled client like every introspection
@@ -209,6 +235,26 @@ describe("PostgresAuthenticationModule error paths (#1303)", () => {
         client.on.mock.calls[0][1],
       );
       expect(client.release).toHaveBeenCalledWith(undefined);
+    });
+
+    it("uses pgIntrospectionTimeoutMillis when the connection sets one", async () => {
+      const client = {
+        query: jest.fn().mockResolvedValue({ rows: [] }),
+        release: jest.fn(),
+        on: jest.fn(),
+        removeListener: jest.fn(),
+      };
+      mockConnect.mockResolvedValue(client);
+      const auth = new PostgresAuthenticationModule(CONFIG, {
+        pgIntrospectionTimeoutMillis: 45_000,
+      });
+
+      await expect(auth.verifyAuthentication()).resolves.toBe(true);
+
+      expect(client.query).toHaveBeenCalledWith({
+        text: "SELECT 1",
+        query_timeout: 45_000,
+      });
     });
   });
 });

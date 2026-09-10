@@ -12,7 +12,7 @@ import {
   QueryStatus,
   wrapError,
 } from "@neoboard/connector-sdk";
-import { attachClientErrorGuard, runBoundedQuery } from "./utils";
+import { attachClientErrorGuard } from "./utils";
 import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
@@ -317,8 +317,7 @@ export class PostgresConnectionModule extends ConnectionModule {
           .catch(() => false);
         if (!authenticated) return [];
       }
-      const rows = await runBoundedQuery<{ datname: string }>(
-        this.authModule.getPool()!,
+      const rows = await this.authModule.introspect<{ datname: string }>(
         "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname",
       );
       return rows.map((row) => row.datname);
@@ -340,8 +339,7 @@ export class PostgresConnectionModule extends ConnectionModule {
           .catch(() => false);
         if (!authenticated) return [];
       }
-      const rows = await runBoundedQuery<{ schema_name: string }>(
-        this.authModule.getPool()!,
+      const rows = await this.authModule.introspect<{ schema_name: string }>(
         "SELECT schema_name FROM information_schema.schemata WHERE schema_name <> 'information_schema' AND schema_name NOT LIKE 'pg\\_%' ORDER BY schema_name",
       );
       return rows.map((row) => row.schema_name);
@@ -370,7 +368,7 @@ export class PostgresConnectionModule extends ConnectionModule {
         await this.authModule.verifyAuthentication();
       }
 
-      await runBoundedQuery(this.authModule.getPool()!, "SELECT 1");
+      await this.authModule.introspect("SELECT 1");
       return true;
     } catch (error) {
       const wrapped = wrapError(error, "postgresql");

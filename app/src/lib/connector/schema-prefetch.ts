@@ -1,4 +1,7 @@
-import type { ConnectionCredentials } from "@/lib/query/query-executor";
+import {
+  buildAdvancedOptions,
+  type ConnectionCredentials,
+} from "@/lib/query/query-executor";
 import { ensureDatabaseInUri } from "@/lib/query/query-params";
 import { getSchemaManager } from "@/lib/connector/connection-adapter";
 
@@ -27,7 +30,10 @@ export async function fetchConnectionSchema(
   // Registry-keyed dispatch (#1119) — no hardcoded per-type branching.
   const manager = getSchemaManager(type);
   if (!manager) return null; // connector type has no schema introspection
-  return manager.fetchSchema(buildAuthConfig(credentials));
+  return manager.fetchSchema(
+    buildAuthConfig(credentials),
+    buildAdvancedOptions(credentials),
+  );
 }
 
 /**

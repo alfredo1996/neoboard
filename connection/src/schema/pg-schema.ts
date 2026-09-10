@@ -1,6 +1,9 @@
 import { PostgresConnectionModule } from "../postgresql/PostgresConnectionModule";
 import { runBoundedQuery } from "../postgresql/utils";
-import type { AuthConfig } from "@neoboard/connector-sdk";
+import type {
+  AuthConfig,
+  PostgresAdvancedOptions,
+} from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
 import type {
   DatabaseSchema,
@@ -35,8 +38,11 @@ interface SchemaRow {
  * to retrieve all tables and their column definitions in the public schema.
  */
 export class PostgresSchemaManager implements SchemaManager {
-  async fetchSchema(authConfig: AuthConfig): Promise<DatabaseSchema> {
-    const module = new PostgresConnectionModule(authConfig);
+  async fetchSchema(
+    authConfig: AuthConfig,
+    advancedOptions?: PostgresAdvancedOptions,
+  ): Promise<DatabaseSchema> {
+    const module = new PostgresConnectionModule(authConfig, advancedOptions);
     const pool = module.getPool();
 
     if (!pool) {
@@ -50,7 +56,11 @@ export class PostgresSchemaManager implements SchemaManager {
     // checked-out client and bounds the query — this was the one checkout in
     // the package without the guard (#1302).
     try {
-      const rows = await runBoundedQuery<SchemaRow>(pool, SCHEMA_QUERY);
+      const rows = await runBoundedQuery<SchemaRow>(
+        pool,
+        SCHEMA_QUERY,
+        advancedOptions?.pgIntrospectionTimeoutMillis,
+      );
 
       const tableMap = new Map<string, ColumnDef[]>();
       for (const row of rows) {

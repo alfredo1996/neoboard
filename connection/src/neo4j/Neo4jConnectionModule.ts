@@ -142,7 +142,10 @@ export class Neo4jConnectionModule extends ConnectionModule {
           return collectUpToLimit(res, config.rowLimit);
         },
         {
-          timeout: config.timeout, // Sets dbms.transaction.timeout for this transaction.
+          // Sets dbms.transaction.timeout for this transaction. A falsy value
+          // would mean the server default (unlimited on Neo4j 5) or no timeout
+          // at all, so fall back to the documented default like PostgreSQL (#1302).
+          timeout: config.timeout || DEFAULT_CONNECTION_CONFIG.timeout,
           // Note: this covers the entire transaction lifecycle, not just query execution.
           // Very long-running queries within the timeout window will still complete.
         },

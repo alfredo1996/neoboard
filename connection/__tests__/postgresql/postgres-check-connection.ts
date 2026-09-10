@@ -129,4 +129,46 @@ describe("PostgresConnectionModule.checkConnection", () => {
       await mod.close();
     }
   });
+
+  // #1302: the module's own introspection and health checks are bounded, not
+  // just the helper. SIGSTOP on the backend behind the pool's only client is
+  // the stall the bound exists for: the TCP session stays up and nothing
+  // answers, so a server-side statement_timeout would never fire.
+  test("checkConnection and listSchemas give up on a stalled backend within a sub-second budget (#1302)", async () => {
+    const mod = new PostgresConnectionModule(validConfig(), {
+      pgMaxPoolSize: 1,
+      pgIntrospectionTimeoutMillis: 300,
+    });
+    const stalled: number[] = [];
+    const stallPooledBackend = async () => {
+      const [{ pid }] = await mod.authModule.introspect<{ pid: number }>(
+        "SELECT pg_backend_pid() AS pid",
+      );
+      const { exitCode } = await container.exec(["kill", "-STOP", `${pid}`]);
+      expect(exitCode).toBe(0);
+      stalled.push(pid);
+    };
+    try {
+      await expect(mod.listSchemas()).resolves.toContain("public");
+
+      await stallPooledBackend();
+      let started = Date.now();
+      await expect(mod.checkConnection()).rejects.toBeInstanceOf(
+        ConnectorError,
+      );
+      expect(Date.now() - started).toBeLessThan(4_000);
+
+      // listSchemas swallows its failure into [], so the empty list against a
+      // database that has `public` is the rejection.
+      await stallPooledBackend();
+      started = Date.now();
+      await expect(mod.listSchemas()).resolves.toEqual([]);
+      expect(Date.now() - started).toBeLessThan(4_000);
+    } finally {
+      for (const pid of stalled) {
+        await container.exec(["kill", "-CONT", `${pid}`]);
+      }
+      await mod.close();
+    }
+  });
 });

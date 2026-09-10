@@ -190,7 +190,7 @@ function effectiveQueryTimeout(
   return credentials.queryTimeout;
 }
 
-function buildAdvancedOptions(credentials: ConnectionCredentials) {
+export function buildAdvancedOptions(credentials: ConnectionCredentials) {
   // Per-query timeouts are NOT advanced options — they flow through
   // config.timeout in executeQuery (#973). Only pool/connection-level
   // settings that the auth modules read at construction belong here.
@@ -202,6 +202,9 @@ function buildAdvancedOptions(credentials: ConnectionCredentials) {
     pgIdleTimeoutMillis: credentials.idleTimeout,
     pgMaxPoolSize: credentials.maxPoolSize,
     pgSslRejectUnauthorized: credentials.sslRejectUnauthorized,
+    // Introspection and health checks share the connection's statement
+    // timeout instead of a fixed 30s a big catalog can outlast (#1302).
+    pgIntrospectionTimeoutMillis: credentials.statementTimeout,
   };
 }
 

@@ -131,8 +131,27 @@ describe("fetchConnectionSchema", () => {
     // Manager receives the built auth config (db embedded, NATIVE auth).
     expect(fetchSchema).toHaveBeenCalledWith(
       expect.objectContaining({ uri: creds.uri, authType: 1 }),
+      expect.any(Object),
     );
     expect(result).toBe(schema);
+  });
+
+  // #1302: a big catalog can outlast the 30s introspection default; the
+  // connection's statement timeout is the setting that raises it.
+  it("passes the connection's statement timeout as the introspection bound", async () => {
+    const fetchSchema = vi.fn().mockResolvedValue({});
+    getSchemaManager.mockReturnValue({ fetchSchema });
+
+    await fetchConnectionSchema("postgresql", {
+      ...creds,
+      uri: "postgresql://localhost:5432/db",
+      statementTimeout: 120_000,
+    });
+
+    expect(fetchSchema).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ pgIntrospectionTimeoutMillis: 120_000 }),
+    );
   });
 
   it("returns null when the connector type has no schema manager", async () => {
