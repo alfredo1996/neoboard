@@ -107,8 +107,12 @@ type RulePiece = { gt?: number; lt?: number; value?: number; color: string };
  * line changes colour where it crosses the threshold, and a value no rule
  * matches keeps the series' palette colour.
  *
+ * No finite bound (only text rules, or a missing parameter) means no gap to
+ * sample, so it returns no pieces: ECharts 6.1.0 throws on a lone open-ended
+ * piece and the line keeps its palette colour instead.
+ *
  * ponytail: text operators (contains, starts_with) are not constant between
- * bounds on a number; they get one sample per gap.
+ * bounds on a number; next to a numeric bound they get one sample per gap.
  */
 function buildRulePieces(
   rules: StylingRule[],
@@ -127,25 +131,22 @@ function buildRulePieces(
         .filter(Number.isFinite),
     ),
   ].sort((a, b) => a - b);
+  if (!bounds.length) return [];
   const colourAt = (v: number) =>
     resolveItemColor(v, rules, paramValues) ?? fallback;
 
-  const pieces: RulePiece[] = [];
-  let prev: number | undefined;
+  let prev = bounds[0];
+  const pieces: RulePiece[] = [
+    { lt: prev, color: colourAt(prev - Math.abs(prev) - 1) },
+  ];
   for (const bound of bounds) {
-    pieces.push(
-      prev === undefined
-        ? { lt: bound, color: colourAt(bound - Math.abs(bound) - 1) }
-        : { gt: prev, lt: bound, color: colourAt((prev + bound) / 2) },
-      { value: bound, color: colourAt(bound) },
-    );
+    if (bound !== prev) {
+      pieces.push({ gt: prev, lt: bound, color: colourAt((prev + bound) / 2) });
+    }
+    pieces.push({ value: bound, color: colourAt(bound) });
     prev = bound;
   }
-  pieces.push(
-    prev === undefined
-      ? { color: colourAt(0) }
-      : { gt: prev, color: colourAt(prev + Math.abs(prev) + 1) },
-  );
+  pieces.push({ gt: prev, color: colourAt(prev + Math.abs(prev) + 1) });
   return pieces;
 }
 
@@ -153,22 +154,33 @@ function buildRulePieces(
  * Colour a series by its rules: one line colour when every drawn point gets
  * the same answer, otherwise value pieces for a visualMap (#1417). It used to
  * ask only the LAST point, so a rising series was drawn wholly "above".
+ *
+ * A single-value piece coloured unlike both neighbours (`==`, or `between`
+ * with equal bounds) has zero width in the line gradient, so when a point
+ * lands on one the series shows its symbols, which the visualMap colours.
  */
 function resolveSeriesRuleColour(
   values: unknown[],
   rules: StylingRule[] | undefined,
   paramValues: Record<string, unknown> | undefined,
   fallback: () => string,
-): { seriesColor?: string; pieces?: RulePiece[] } {
+): { seriesColor?: string; pieces?: RulePiece[]; markPoints?: boolean } {
   if (!rules?.length) return {};
+  const numbers = values.filter((v): v is number => typeof v === "number");
   const colours = new Set(
-    values
-      .filter((v) => typeof v === "number")
-      .map((v) => resolveItemColor(v, rules, paramValues)),
+    numbers.map((v) => resolveItemColor(v, rules, paramValues)),
   );
-  return colours.size > 1
-    ? { pieces: buildRulePieces(rules, paramValues, fallback()) }
-    : { seriesColor: [...colours][0] };
+  if (colours.size <= 1) return { seriesColor: [...colours][0] };
+  const pieces = buildRulePieces(rules, paramValues, fallback());
+  if (!pieces.length) return {};
+  const markPoints = pieces.some(
+    (p, i) =>
+      p.value !== undefined &&
+      p.color !== pieces[i - 1].color &&
+      p.color !== pieces[i + 1].color &&
+      numbers.includes(p.value),
+  );
+  return { pieces, markPoints };
 }
 
 function LineChart({
@@ -249,7 +261,7 @@ function LineChart({
       pieces: RulePiece[];
     }> = [];
     const buildSeries = (key: string, idx: number) => {
-      const { seriesColor, pieces } = resolveSeriesRuleColour(
+      const { seriesColor, pieces, markPoints } = resolveSeriesRuleColour(
         data.map((d) => d[key]),
         stylingRules,
         paramValues,
@@ -282,7 +294,7 @@ function LineChart({
         endLabel: endLabel ? { show: true, formatter: "{a}" } : undefined,
         lineStyle: { width: lineWidth, color: seriesColor },
         itemStyle: seriesColor ? { color: seriesColor } : undefined,
-        showSymbol: showPoints,
+        showSymbol: showPoints || !!markPoints,
         // Subtle fill (#822): a soft gradient when the series color is
         // known, otherwise a low flat opacity (ECharts applies the series
         // color automatically).
