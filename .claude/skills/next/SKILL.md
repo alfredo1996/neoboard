@@ -48,7 +48,7 @@ Before implementing, run `/drill <number>` to gather requirements, edge cases, a
 
 ## Step 4 — Read the issue and relevant docs
 
-Read the full issue body. Check `claude_code_docs/` for relevant context.
+Read the full issue body. Check `~/Desktop/neoboard-vault` for relevant context.
 Identify which package(s) are affected: app/, component/, connection/.
 
 ## Step 5 — Implement
