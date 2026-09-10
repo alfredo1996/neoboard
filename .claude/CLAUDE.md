@@ -186,6 +186,10 @@ The `.claude/settings.json` hooks enforce critical rules automatically:
 
 Before touching any UI code, read `.claude/skills/design-review/skill.md` — tokens, spacing, typography, color, chart patterns.
 
+## Dev Notes
+
+Durable notes — plans, drills, decisions, reviews — live in the Obsidian vault at `~/Desktop/neoboard-vault`, filed under its branch (`roadmap/`, `security/`, `product/`, …) and linked from the branch hub. The vault is its own git repo: commit there with a conventional message. `claude_code_docs/` (gitignored) is agent scratch only — the browser agents dump mid-run findings there and nothing in it is expected to survive. `scripts/__tests__/dev-notes-convention.test.mjs` fails if any other `.claude/` definition points at it.
+
 ## Agent Pipeline (develop → review → assess)
 
 Agents work together in a pipeline. Each stage gates the next:

@@ -12,13 +12,13 @@ Turn a product spec into GitHub milestones and issues. Use ultrathink.
 
 ## Input
 
-$ARGUMENTS should be a path to the spec file (e.g. `claude_code_docs/PROJECT.md`) or a description of what to plan.
+$ARGUMENTS should be a path to the spec file (e.g. `~/Desktop/neoboard-vault/roadmap/Roadmap.md`) or a description of what to plan.
 
 ## Step 1 — Read the spec
 
 Read the file provided in $ARGUMENTS. If no file given, check these locations:
 
-- `claude_code_docs/` — any .md files
+- `~/Desktop/neoboard-vault/roadmap/` — any .md files
 - `PROJECT.md`
 - `docs/`
 
@@ -74,4 +74,4 @@ Depends on: v0.1
 ...
 ```
 
-Save to `claude_code_docs/release-plan.md`.
+Save to `~/Desktop/neoboard-vault/roadmap/Release plan <date>.md`.

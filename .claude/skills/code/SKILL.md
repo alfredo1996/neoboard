@@ -18,7 +18,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Bash(npm *), Bash(npx *), Bash(git 
 2. **Run `/drill <number>`** — mandatory requirements gathering before implementation. No exceptions.
 3. If existing PR: `gh pr view <number> --comments` — check CodeRabbit & SonarCloud feedback
 4. Identify package: component/ (UI only), connection/ (DB only), app/ (orchestration)
-5. Read relevant docs in `claude_code_docs/`
+5. Read relevant notes in `~/Desktop/neoboard-vault` (architecture, decisions, security)
 
 ## TDD Workflow (mandatory — no exceptions)
 
