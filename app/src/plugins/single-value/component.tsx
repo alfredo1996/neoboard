@@ -35,7 +35,7 @@ const SingleValueChart = dynamic(
  */
 function buildTrend(
   enabled: boolean,
-  value: string | number,
+  value: string | number | null,
   previous: number | undefined,
 ): { direction: "up" | "down" | "neutral"; label?: string } | undefined {
   if (!enabled || typeof value !== "number" || previous === undefined) {
@@ -88,7 +88,9 @@ function SingleValuePluginComponent({
   return (
     <SingleValueChart
       value={
-        typeof val === "number" || typeof val === "string" ? val : String(val)
+        val === null || typeof val === "number" || typeof val === "string"
+          ? val
+          : String(val)
       }
       title={settings.title}
       prefix={settings.prefix}

@@ -105,6 +105,46 @@ describe("transformToValueData", () => {
       ).toBeUndefined();
     });
   });
+
+  // #1671 — a LEFT JOIN KPI with no row for this period is a null metric. It is
+  // no data: not 0, and not the label promoted because the null removed the
+  // only numeric cell.
+  describe("null metric (#1671)", () => {
+    it("returns null, not 0, for a lone null metric", () => {
+      expect(transformToValueData([{ value: null }]).value).toBeNull();
+    });
+
+    it("returns null, never the label, for a null metric beside a label", () => {
+      expect(
+        transformToValueData([{ label: "2026-09", value: null }]).value,
+      ).toBeNull();
+    });
+
+    it("keeps the metric column when only a later row is numeric", () => {
+      const out = transformToValueData([
+        { label: "2026-09", value: null },
+        { label: "2026-08", value: 80 },
+      ]);
+      expect(out.value).toBeNull();
+      expect(out.previous).toBe(80);
+    });
+
+    it("does not depend on the metric column being named `value`", () => {
+      const [, pending, , cancelled] = sparseOrders();
+      // total: null, beside a text status
+      expect(
+        transformToValueData([
+          { status: pending.status, total: pending.total },
+        ]).value,
+      ).toBeNull();
+      // total: "  " — a blank cell is no data too
+      expect(
+        transformToValueData([
+          { status: cancelled.status, total: cancelled.total },
+        ]).value,
+      ).toBeNull();
+    });
+  });
 });
 
 describe("validateValueData", () => {

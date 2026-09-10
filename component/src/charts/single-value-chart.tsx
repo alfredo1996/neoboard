@@ -22,8 +22,8 @@ const FONT_SIZE_CLASS: Record<SingleValueFontSize, string> = {
 };
 
 export interface SingleValueChartProps {
-  /** The main value to display */
-  value: string | number;
+  /** The main value to display; null is "no data" and renders a dash */
+  value: string | number | null;
   /** Title above the value */
   title?: string;
   /** Prefix before value (e.g. "$") */
@@ -88,7 +88,7 @@ function SingleValueChart({
     );
   }
 
-  let displayValue: string | number;
+  let displayValue: string | number | null;
   if (typeof value === "number") {
     if (format) {
       displayValue = format(value);
@@ -174,9 +174,20 @@ function SingleValueChart({
               )}
               style={{ color: thresholdColor ?? autoContrast ?? undefined }}
             >
-              {prefix}
-              {displayValue}
-              {suffix}
+              {value === null ? (
+                <>
+                  <span aria-hidden="true" className="text-muted-foreground">
+                    {"\u2014"}
+                  </span>
+                  <span className="sr-only">No value</span>
+                </>
+              ) : (
+                <>
+                  {prefix}
+                  {displayValue}
+                  {suffix}
+                </>
+              )}
             </div>
             {trend && (
               <div className={cn("mt-1 text-sm", trendColor)}>
