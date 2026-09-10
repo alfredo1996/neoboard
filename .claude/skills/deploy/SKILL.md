@@ -66,7 +66,7 @@ cat docker/docker-compose.prod-full.yml
 ```bash
 # Confirm with user FIRST. Then:
 # Try to stand up using ONLY the documented procedure (no shortcuts)
-# Start from docs/src/content/docs/getting-started/ — whatever the docs say to do
+# Start from docs/src/content/docs/start-here/ — whatever the docs say to do
 # If docs are missing, that itself is a finding.
 
 cd docker
@@ -86,10 +86,10 @@ docker compose -f docker-compose.prod.yml logs --tail 50 app  # or whatever the 
 
 ## Phase 2 — Deployment checklist walk-through (~20 min)
 
-Walk every checkbox in `docs/src/content/docs/administration/deployment-checklist.mdx` against current code reality.
+Walk every checkbox in `docs/src/content/docs/deploy/deployment-checklist.mdx` against current code reality.
 
 ```bash
-cat docs/src/content/docs/administration/deployment-checklist.mdx
+cat docs/src/content/docs/deploy/deployment-checklist.mdx
 ```
 
 For every checkbox, verify the **code actually requires what the docs say**:
@@ -115,7 +115,7 @@ The procedures in admin docs must actually work. Run them.
 
 ```bash
 # Confirm with user FIRST, including which DB this targets. Then:
-# Rotate ENCRYPTION_KEY following docs/src/content/docs/administration/*
+# Rotate ENCRYPTION_KEY following docs/src/content/docs/security/credential-encryption.mdx
 # Verify: existing encrypted credentials decrypt with the old key, re-encrypt with new
 # Verify: docs warn that mid-flight rotation requires a re-encryption step
 ```
@@ -131,7 +131,7 @@ The procedures in admin docs must actually work. Run them.
 Read-only first:
 
 ```bash
-cat docs/src/content/docs/administration/backup-restore.mdx
+cat docs/src/content/docs/deploy/backup-restore.mdx
 ```
 
 ⚠️ **DESTRUCTIVE — requires approval gate**. `down -v` destroys the DB volume. If the drill is run against the wrong stack, real data is lost. Run only against the audit-scratch stack, never a live one.
@@ -192,7 +192,7 @@ docker logs <app-container> --tail 100
 # Is there structured JSON? Levels? Request IDs?
 
 # Monitoring doc
-cat docs/src/content/docs/administration/monitoring.mdx
+cat docs/src/content/docs/deploy/monitoring.mdx
 ```
 
 **Capture as issues**:

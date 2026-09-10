@@ -6,7 +6,7 @@ hero:
   tagline: Visual dashboards for Neo4j & PostgreSQL. Connect your databases, write queries, and build interactive charts — all from the browser.
   actions:
     - text: Get Started
-      link: /getting-started/installation/
+      link: /start-here/install/
       icon: right-arrow
       variant: primary
     - text: View on GitHub
@@ -18,18 +18,7 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 ## What is NeoBoard?
 
-NeoBoard is an open-source dashboarding tool for hybrid database architectures. It connects to **Neo4j** and **PostgreSQL** databases, letting you build rich, interactive dashboards without writing frontend code.
-
-**Key capabilities:**
-
-- **18 chart types** -- bar, line, pie, single value, table, gauge, radar, sankey, sunburst, gantt, choropleth, graph visualization, map, JSON viewer, form, markdown, iframe, and parameter select
-- **Interactive parameters** -- dropdowns, date pickers, sliders, and text fields that filter data across all widgets
-- **Form widgets** -- run write queries (INSERT, CREATE, UPDATE) directly from the dashboard
-- **Multi-page dashboards** -- organize related views into pages with drag-and-drop layouts
-- **Export and import** -- share dashboards as JSON files across NeoBoard instances
-- **Role-based access** -- Admin, Creator, and Reader roles with granular write permissions
-- **Encrypted credentials** -- AES-256-GCM encryption for all stored database passwords
-- **Multi-tenancy** -- full tenant isolation for SaaS deployments
+NeoBoard is an open-source dashboarding tool for hybrid database architectures. It connects to **Neo4j** and **PostgreSQL** databases, letting you build rich, interactive dashboards without writing frontend code -- 18 chart types, interactive parameters, form widgets that write back, multi-page dashboards, JSON export/import, role-based access, encrypted credentials and multi-tenancy. [What is NeoBoard](/start-here/what-is-neoboard/) has the full list and a map of these docs.
 
 ## Get Started
 
@@ -41,13 +30,13 @@ Choose the path that fits your setup:
 | **Manual setup** | `npm install` + `neoboard env` + `npm run dev` | Contributors hacking on the source |
 | **Production** | `docker compose -f docker/docker-compose.prod-full.yml up -d` | Real deployments |
 
-See the [Installation guide](/getting-started/installation/) for full instructions.
+See the [Install guide](/start-here/install/) for the first two and [Production deployment](/deploy/production/) for the third.
 
 ## Explore the Docs
 
 <CardGrid>
-  <LinkCard title="Quick Start" description="Create your first dashboard in 5 minutes" href="/getting-started/quick-start/" />
+  <LinkCard title="Your first dashboard" description="From login to a saved chart" href="/start-here/first-dashboard/" />
+  <LinkCard title="Tour with demo data" description="Seed the showcase dashboards and look around" href="/start-here/tour/" />
   <LinkCard title="CLI Reference" description="All commands at a glance" href="/cli/commands/" />
-  <LinkCard title="User Guides" description="Step-by-step walkthroughs" href="/guides/first-dashboard/" />
-  <LinkCard title="Concepts" description="Architecture, connectors, widgets, parameters" href="/concepts/architecture/" />
+  <LinkCard title="Extend NeoBoard" description="Architecture, chart and connector plugins" href="/extend/architecture/" />
 </CardGrid>

@@ -1,6 +1,9 @@
 ---
 title: CLI Overview
 description: Install, run, and manage NeoBoard from the command line.
+sidebar:
+  order: 1
+  label: Overview
 ---
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
@@ -67,12 +70,12 @@ npm run cli:build
 node cli/dist/index.js demo
 ```
 
-Open `http://localhost:3000` and log in with `admin@neoboard.local` / `admin123`.
+Open `http://localhost:3000` and log in with the demo accounts it prints — [Tour with demo data](/start-here/tour) shows what got seeded.
 
 ## Next Steps
 
 <CardGrid>
-  <LinkCard title="Docker Setup" href="/cli/docker-setup" />
-  <LinkCard title="Local Setup" href="/cli/local-setup" />
+  <LinkCard title="Tour with demo data" href="/start-here/tour" />
+  <LinkCard title="Development setup" href="/extend/setup" />
   <LinkCard title="Command Reference" href="/cli/commands" />
 </CardGrid>

@@ -1,0 +1,77 @@
+---
+title: Development setup
+description: Run NeoBoard from source with hot reload, against Docker databases or your own.
+sidebar:
+  order: 9
+---
+
+Read the [Architecture](/extend/architecture) page first: the three packages have strict boundaries, and most review comments are about crossing them.
+
+## Prerequisites
+
+- **Node.js 20+**
+- **Docker** and Docker Compose -- optional if you bring your own **PostgreSQL 14+** and **Neo4j 5+**
+- **npm** (not pnpm or yarn)
+- **Git**
+
+## Clone and install
+
+The CLI's local mode installs every package, generates `app/.env.local` with fresh secrets, and starts the databases in Docker when they are not already running:
+
+```bash
+git clone https://github.com/alfredo1996/neoboard.git
+cd neoboard
+npm run cli:build
+node cli/dist/index.js init --mode local   # installs dependencies, writes app/.env.local
+node cli/dist/index.js start               # checks database health, runs migrations
+node cli/dist/index.js dev                 # Next.js dev server with hot reload
+```
+
+Open [http://localhost:3000](http://localhost:3000). The first signup needs the `ADMIN_BOOTSTRAP_TOKEN` printed during `init`; the first user gets the **admin** role automatically.
+
+Prefer plain npm? The manual path in [Install](/start-here/install) -- `npm install`, `docker compose up`, `neoboard env`, `npm run db:migrate`, `npm run dev` -- ends in the same place.
+
+### Bring your own databases
+
+Point `DATABASE_URL` in `app/.env.local` at your PostgreSQL instance, and tell the CLI where the databases live so its health checks and the dev-server fallback agree with you:
+
+```bash
+node cli/dist/index.js config set ports.postgres 5433
+node cli/dist/index.js config set postgres.user myuser
+node cli/dist/index.js config set postgres.password mypassword
+```
+
+Every key is listed under [Configuration → Project config file](/deploy/configuration). To regenerate all secrets or check that every required variable is set:
+
+```bash
+node cli/dist/index.js env --regenerate
+node cli/dist/index.js env --validate
+```
+
+## Available commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server (port 3000) |
+| `npm run build` | Production build + type-check |
+| `npm run lint` | ESLint all packages |
+| `cd app && npm test` | App unit tests |
+| `cd component && npm test` | Component unit tests |
+| `cd connection && npm test` | Connection integration tests (needs Docker) |
+| `npm run test:e2e` | Playwright E2E tests |
+| `npm run storybook` | Component library viewer |
+| `npm run db:migrate` | Run Drizzle migrations |
+| `npm run db:generate` | Generate migration from schema |
+
+## IDE setup
+
+Recommended VS Code extensions:
+- ESLint
+- Tailwind CSS IntelliSense
+- Prettier
+
+## Next
+
+- [Testing](/extend/testing) -- the TDD workflow and where each kind of test lives
+- [Code style](/extend/code-style) -- TypeScript conventions and lint rules
+- [PR workflow](/extend/pr-workflow) -- branches, labels, review and CI

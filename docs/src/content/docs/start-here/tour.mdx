@@ -1,0 +1,84 @@
+---
+title: Tour with demo data
+description: Seed the showcase dashboards and log in as the demo admin, creator or reader.
+sidebar:
+  order: 3
+---
+
+`neoboard demo` turns a fresh checkout into a working showcase: it starts the stack, runs migrations, loads a movie graph into Neo4j, creates demo users and imports sample dashboards such as *Movie Highlights* and *Chart Gallery*. It is the quickest way to see NeoBoard with data in it before you connect your own databases.
+
+## Prerequisites
+
+- **Docker Desktop** -- running and accessible from the terminal
+- **Node.js 20+** -- to build and run the CLI
+- **Git** -- to clone the repository
+
+## Run the demo
+
+If you already ran `install.sh` from the [install guide](/start-here/install), the CLI is on your path and `neoboard demo` is all you need. From a bare clone:
+
+```bash
+git clone https://github.com/alfredo1996/neoboard.git
+cd neoboard
+npm run cli:build
+node cli/dist/index.js doctor   # Docker running, Node 20+, ports free, config present
+node cli/dist/index.js demo
+```
+
+This single command does everything:
+
+1. **init** -- creates `neoboard.config.json` and `.neoboard.local`
+2. **start** -- launches Docker containers via `docker compose`, waits for health checks
+3. **migrate** -- runs Drizzle database migrations against PostgreSQL
+4. **seed** -- loads Neo4j graph data and creates the demo users and sample dashboards
+
+## Log in
+
+Navigate to [http://localhost:3000](http://localhost:3000). The command prints three accounts, one per role:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@neoboard.local` | `admin123` |
+| Creator | `creator@neoboard.local` | `creator123` |
+| Reader (read-only) | `reader@neoboard.local` | `reader123` |
+
+Sign in as the admin first, open a showcase dashboard from the dashboard list, and switch to edit mode to see how each widget is configured. Sign in as the reader to see what a read-only user gets -- [Roles & Permissions](/security/roles) explains the difference.
+
+When you are ready to build your own, continue with [Your first dashboard](/start-here/first-dashboard); the demo Neo4j connection is already there to query.
+
+## Default ports
+
+| Service | Port | URL |
+|---------|------|-----|
+| NeoBoard app | 3000 | `http://localhost:3000` |
+| Neo4j Browser | 7474 | `http://localhost:7474` |
+| Neo4j Bolt | 7687 | `bolt://localhost:7687` |
+| PostgreSQL | 5432 | `localhost:5432` |
+
+Change ports with `neoboard config set`:
+
+```bash
+node cli/dist/index.js config set ports.app 4000
+```
+
+## Stopping and restarting
+
+```bash
+# Stop containers (keeps data)
+node cli/dist/index.js stop
+
+# Stop containers and delete all data
+node cli/dist/index.js stop --volumes
+
+# Restart
+node cli/dist/index.js start
+```
+
+To start completely fresh -- the fix when the demo migration fails against an old volume:
+
+```bash
+node cli/dist/index.js stop --volumes
+node cli/dist/index.js demo
+```
+
+Port conflicts, a stopped Docker daemon and containers that will not start are covered in [Troubleshooting](/start-here/troubleshooting); every command and flag is in the [CLI reference](/cli/commands).

@@ -1,0 +1,79 @@
+---
+title: Your first dashboard
+description: Log in, connect a database, and put your first chart on a dashboard.
+sidebar:
+  order: 4
+---
+
+This tutorial takes you from the login screen to a saved dashboard with one chart widget. It assumes NeoBoard is [installed](/start-here/install) and running on `http://localhost:3000`.
+
+## 1. Log in
+
+Open NeoBoard in your browser. Sign in with the admin account you created during installation -- or, if you ran `neoboard demo`, with one of the demo accounts listed in [Tour with demo data](/start-here/tour).
+
+![NeoBoard login screen](/screenshots/login.png)
+
+## 2. Add a connection
+
+1. Click **Connections** in the sidebar
+2. Click **Add Connection**
+3. Fill in your database details (name, type, URI, credentials)
+4. Click **Test Connection** to verify, then **Save**
+
+The demo environment already has connections -- **Neo4j Movies** and **PostgreSQL Ecommerce (demo, read)** -- so you can skip this step there. [Connecting to your database](/using/connecting-databases) covers each connector's fields.
+
+## 3. Create a dashboard
+
+![Dashboard list](/screenshots/dashboard-list.png)
+
+1. Click **Dashboards** in the sidebar
+2. Click **New Dashboard** in the top-right corner
+3. Enter a **name** (e.g., "Movie Analytics") and an optional **description**, then click **Create**
+
+You land in **edit mode** on your new, empty dashboard.
+
+## 4. Add a widget
+
+1. Click **Add Widget** in the toolbar
+2. Select a **connection** from the dropdown -- this tells NeoBoard which database to query
+3. Choose **Bar Chart** as the chart type. It works well with most data shapes.
+4. Enter a query. The chart uses the first column as labels and the second as values, so return at least two columns.
+
+**Neo4j (Cypher)** -- against the demo movie graph (**Neo4j Movies**):
+
+```cypher
+MATCH (m:Movie)
+RETURN m.released AS year, count(*) AS movies
+ORDER BY year
+```
+
+**PostgreSQL (SQL)** -- against the demo e-commerce schema (**PostgreSQL Ecommerce (demo, read)**):
+
+```sql
+SELECT status, count(*) AS orders
+FROM neoboard_demo_public.orders
+GROUP BY status
+ORDER BY orders DESC
+```
+
+> Replace the label and table with your own if you have connected a different database.
+
+5. Click **Run** to preview the result. Your data renders as a bar chart below the query editor.
+6. Click **Save** to add the widget to your dashboard.
+
+## 5. Arrange the layout
+
+- **Drag** widgets to reposition them
+- **Resize** by dragging widget edges
+- Click **Save** when you are happy with the layout
+
+## 6. Exit edit mode
+
+Click the **Edit** toggle in the toolbar to exit edit mode. Your dashboard is now live. Anyone with access can view it.
+
+## Next steps
+
+- Add [parameters](/using/parameters) to make your dashboard interactive
+- Explore the other [widget types](/using/widgets) -- tables, graphs, maps, forms -- and the [chart reference](/charts)
+- Learn about [dashboard export and import](/using/dashboards)
+- Control who can see your dashboards in [Managing users and permissions](/security/managing-users)
