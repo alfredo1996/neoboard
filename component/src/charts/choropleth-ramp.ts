@@ -81,7 +81,8 @@ export function invertLightness(hex: string): string {
   const target = luminanceOf(100 - lightnessOf(y));
   const out =
     target <= y
-      ? rgb.map((c) => (y === 0 ? 0 : (c * target) / y))
+      ? // target <= y implies y > 0: black (y = 0) has target 1.
+        rgb.map((c) => (c * target) / y)
       : rgb.map((c) => c + ((1 - c) * (target - y)) / (1 - y));
   const [r, g, b] = out.map(toByte);
   return toHex(r, g, b);
