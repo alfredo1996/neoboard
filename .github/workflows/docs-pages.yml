@@ -1,0 +1,86 @@
+# Publishes the docs site to GitHub Pages as a project site,
+# https://<owner>.github.io/<repo>/ (#1318). docs-ci.yml builds and checks the
+# same way on every PR; this workflow only ships what dev already passed.
+#
+# OFF until the owner turns it on: both jobs are skipped unless the repository
+# variable DOCS_DEPLOY is "true". Pages is enabled after the org transfer so the
+# first public URL is the final one, and until then configure-pages and
+# deploy-pages would fail on every push to dev. To turn it on:
+#   1. Settings > Pages > Build and deployment > Source: GitHub Actions
+#   2. Settings > Secrets and variables > Actions > Variables: DOCS_DEPLOY = true
+#   3. Actions > Docs Pages > Run workflow
+name: Docs Pages
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'docs/**'
+      - 'scripts/check-docs-dist.mjs'
+      - '.github/workflows/docs-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time. A newer push queues behind a running one instead of
+# cancelling it mid-deploy.
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: vars.DOCS_DEPLOY == 'true'
+    name: Build docs for Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DOCS_SITE: https://${{ github.repository_owner }}.github.io
+      DOCS_BASE: /${{ github.event.repository.name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Install docs dependencies
+        run: npm ci --prefix docs
+
+      - name: Build docs site
+        run: npm run build --prefix docs
+
+      - name: Check links under the base, and the sitemap
+        run: node scripts/check-docs-dist.mjs docs/dist
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/dist
+
+  deploy:
+    if: vars.DOCS_DEPLOY == 'true'
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -2,11 +2,16 @@
 title: NeoBoard
 description: Visual dashboards for Neo4j & PostgreSQL
 template: splash
+# The page title equals the site title, so Starlight's default rendered "NeoBoard | NeoBoard".
+head:
+  - tag: title
+    content: NeoBoard
 hero:
   tagline: Visual dashboards for Neo4j & PostgreSQL. Connect your databases, write queries, and build interactive charts — all from the browser.
   actions:
     - text: Get Started
-      link: /start-here/install/
+      # Relative: frontmatter skips the base rewrite; this page is the base root.
+      link: start-here/install/
       icon: right-arrow
       variant: primary
     - text: View on GitHub

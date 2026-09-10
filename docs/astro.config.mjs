@@ -1,5 +1,19 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import rehypeBaseLinks from "./rehype-base-links.mjs";
+
+// Published as a GitHub Pages project site (#1318): docs-pages.yml sets
+// DOCS_SITE=https://<owner>.github.io and DOCS_BASE=/<repo>. Locally both are
+// unset, so the site serves from / and emits no sitemap.
+const site = process.env.DOCS_SITE || undefined;
+const base = process.env.DOCS_BASE || "/";
+const withBase = (redirects) =>
+  Object.fromEntries(
+    Object.entries(redirects).map(([from, to]) => [
+      from,
+      base.replace(/\/+$/, "") + to,
+    ]),
+  );
 
 /**
  * Two Starlight breaking changes are handled here, both introduced between
@@ -15,9 +29,14 @@ import starlight from "@astrojs/starlight";
  * first page is its landing; there are no index pages.
  */
 export default defineConfig({
+  site,
+  base,
+  // Content links are root-absolute; Astro does not prefix `base` onto them.
+  markdown: { rehypePlugins: [[rehypeBaseLinks, { base }]] },
   // Slugs retired by the #1681 restructure. Each old path still resolves so
-  // links from the README, the app and search engines keep working.
-  redirects: {
+  // links from the README, the app and search engines keep working. Astro puts
+  // `base` on the source path but not on the target, hence the map (#1318).
+  redirects: withBase({
     "/getting-started": "/start-here/what-is-neoboard",
     "/getting-started/installation": "/start-here/install",
     "/getting-started/quick-start": "/start-here/first-dashboard",
@@ -67,7 +86,7 @@ export default defineConfig({
     "/developer/contributing/code-style": "/extend/code-style",
     "/developer/contributing/testing": "/extend/testing",
     "/developer/contributing/pr-workflow": "/extend/pr-workflow",
-  },
+  }),
   integrations: [
     starlight({
       title: "NeoBoard",
