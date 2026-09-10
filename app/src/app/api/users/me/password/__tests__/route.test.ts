@@ -33,6 +33,12 @@ vi.mock("bcryptjs", () => ({
   },
 }));
 
+const { mockAuditRequest } = vi.hoisted(() => ({ mockAuditRequest: vi.fn() }));
+vi.mock("@/lib/audit/audit", () => ({
+  auditRequest: mockAuditRequest,
+  auditLog: vi.fn(),
+}));
+
 const mockUnstableUpdate = vi.fn().mockResolvedValue(null);
 vi.mock("@/lib/auth/config", () => ({
   unstable_update: mockUnstableUpdate,
@@ -193,5 +199,111 @@ describe("PUT /api/users/me/password", () => {
     });
     const res = await PUT(req);
     expect(res.status).toBe(200);
+  });
+
+  describe("audit (#1276)", () => {
+    const put = (body: unknown) =>
+      new Request("http://localhost/api/users/me/password", {
+        method: "PUT",
+        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json" },
+      });
+
+    it("writes exactly one user.password.change entry with no password material", async () => {
+      const req = put({
+        currentPassword: "OldSecret1",
+        newPassword: "NewSecret1",
+      });
+      const res = await PUT(req);
+      expect(res.status).toBe(200);
+      expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+      const [auditedReq, entry] = mockAuditRequest.mock.calls[0];
+      expect(auditedReq).toBe(req);
+      // Exact match: any extra key (e.g. derived password data) fails.
+      expect(entry).toEqual({
+        action: "user.password.change",
+        resourceType: "user",
+        resourceId: "u1",
+        tenantId: "default",
+        userId: "u1",
+      });
+      const serialized = JSON.stringify(entry);
+      expect(serialized).not.toContain("OldSecret1");
+      expect(serialized).not.toContain("NewSecret1");
+      expect(serialized).not.toContain("$2a$12$");
+    });
+
+    it("takes tenantId and userId from the session, never the body", async () => {
+      await PUT(
+        put({
+          currentPassword: "old123",
+          newPassword: "newPass1",
+          tenantId: "evil-tenant",
+          userId: "evil-user",
+        }),
+      );
+      const [, entry] = mockAuditRequest.mock.calls[0];
+      expect(entry.tenantId).toBe("default");
+      expect(entry.userId).toBe("u1");
+    });
+
+    it("still audits when the cookie refresh fails", async () => {
+      mockUnstableUpdate.mockRejectedValueOnce(new Error("cookie store gone"));
+      await PUT(put({ currentPassword: "old123", newPassword: "newPass1" }));
+      expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("writes nothing when the DB update fails", async () => {
+      mockUpdate.mockReturnValueOnce({
+        set: () => ({ where: () => Promise.reject(new Error("db down")) }),
+      });
+      await expect(
+        PUT(put({ currentPassword: "old123", newPassword: "newPass1" })),
+      ).rejects.toThrow("db down");
+      expect(mockAuditRequest).not.toHaveBeenCalled();
+    });
+
+    it("writes nothing when the current password is wrong", async () => {
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+      const res = await PUT(
+        put({ currentPassword: "wrong", newPassword: "newPass1" }),
+      );
+      expect(res.status).toBe(403);
+      expect(mockAuditRequest).not.toHaveBeenCalled();
+    });
+
+    it("writes nothing when validation fails", async () => {
+      const res = await PUT(
+        put({ currentPassword: "old123", newPassword: "short" }),
+      );
+      expect(res.status).toBe(400);
+      expect(mockAuditRequest).not.toHaveBeenCalled();
+    });
+
+    it("writes nothing on invalid JSON", async () => {
+      const res = await PUT(
+        new Request("http://localhost/api/users/me/password", {
+          method: "PUT",
+          body: "{not json",
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect(mockAuditRequest).not.toHaveBeenCalled();
+    });
+
+    it("writes nothing when the user has no password", async () => {
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => Promise.resolve([{ id: "u1", passwordHash: null }]),
+          }),
+        }),
+      });
+      const res = await PUT(
+        put({ currentPassword: "old123", newPassword: "newPass1" }),
+      );
+      expect(res.status).toBe(404);
+      expect(mockAuditRequest).not.toHaveBeenCalled();
+    });
   });
 });
