@@ -54,6 +54,24 @@ async function setupWidgetWithQuery(
   return dialog;
 }
 
+/**
+ * Pick a Radix Select value by typeahead on the closed trigger. Clicking an
+ * option in the open list flaked on CI two ways: the list's scroll button
+ * covered the option, and a preview re-render detached it mid-click. A key
+ * press never opens the list, so neither can happen. `key` must be unique
+ * among the options' first characters.
+ */
+async function pickByKey(
+  page: import("@playwright/test").Page,
+  trigger: import("@playwright/test").Locator,
+  key: string,
+  expected: string,
+) {
+  await trigger.focus();
+  await page.keyboard.press(key);
+  await expect(trigger).toHaveText(expected);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -115,10 +133,8 @@ test.describe("Data Transforms", () => {
     // Configure it: year > 2000. The default is `== ""`, which is why simply
     // adding a card — all this file did before — proves nothing.
     const panel = dialog.getByRole("tabpanel");
-    await panel.getByRole("combobox").first().click();
-    await page.getByRole("option", { name: "year", exact: true }).click();
-    await panel.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: ">", exact: true }).click();
+    await pickByKey(page, panel.getByRole("combobox").first(), "y", "year");
+    await pickByKey(page, panel.getByRole("combobox").nth(1), ">", ">");
     await panel.getByPlaceholder("value or param").fill("2000");
 
     // Three of the four rows survive, and every one of them is post-2000.
@@ -128,6 +144,75 @@ test.describe("Data Transforms", () => {
       .first()
       .evaluateAll((tds) => tds.map((td) => Number(td.textContent)));
     for (const year of years) expect(year).toBeGreaterThan(2000);
+  });
+
+  test("a calculated column renders exact money, not float noise (#1415)", async ({
+    page,
+  }) => {
+    // 463.45 − 283.66 is 179.78999999999996 in IEEE-754, and the table used to
+    // print exactly that.
+    test.setTimeout(120_000);
+    const dialog = await setupWidgetWithQuery(page, {
+      chartType: "Data Table",
+      query:
+        "UNWIND [[463.45, 283.66], [462.52, 296.68], [507.68, 290.14]] AS r RETURN r[0] AS price, r[1] AS cost",
+    });
+
+    const preview = getPreview(dialog);
+    await expect(preview.locator("tbody tr")).toHaveCount(3);
+
+    await dialog.getByRole("tab", { name: "Transform" }).click();
+    const panel = dialog.getByRole("tabpanel");
+    // With no cards yet, the only combobox is the type picker next to Add.
+    await panel.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: /^Calculated Column/ }).click();
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.getByText("1. Calculated Column")).toBeVisible();
+    await panel
+      .getByPlaceholder("e.g. salary * 0.1 or col + $param_rate")
+      .fill("price - cost");
+
+    // The derived column is appended after price and cost.
+    await expect(preview.locator("tbody tr td:nth-child(3)")).toHaveText(
+      ["179.79", "165.84", "217.54"],
+      { timeout: 15_000 },
+    );
+  });
+
+  test("a groupBy sum and average of money carry no float tail (#1415)", async ({
+    page,
+  }) => {
+    // Unrounded, group a reads 0.30000000000000004 and 0.15000000000000002.
+    test.setTimeout(120_000);
+    const dialog = await setupWidgetWithQuery(page, {
+      chartType: "Data Table",
+      query:
+        "UNWIND [['a', 0.1], ['a', 0.2], ['b', 463.45], ['b', 283.66], ['b', 0.01]] AS r RETURN r[0] AS status, r[1] AS total",
+    });
+
+    const preview = getPreview(dialog);
+    await expect(preview.locator("tbody tr")).toHaveCount(5);
+
+    await dialog.getByRole("tab", { name: "Transform" }).click();
+    const panel = dialog.getByRole("tabpanel");
+    const combos = panel.getByRole("combobox");
+    const pick = (nth: number, key: string, expected: string) =>
+      pickByKey(page, combos.nth(nth), key, expected);
+    await pick(0, "g", "Group By");
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.getByText("1. Group By")).toBeVisible();
+
+    // Cards render above the type picker: 0 group column, then column + fn
+    // per aggregation. The default groups by status with status_count.
+    await pick(1, "t", "total");
+    await pick(2, "s", "Sum");
+    await panel.getByRole("button", { name: "Add aggregation" }).click();
+    await pick(3, "t", "total");
+    await pick(4, "a", "Average");
+
+    const cells = (n: number) => preview.locator(`tbody tr td:nth-child(${n})`);
+    await expect(cells(2)).toHaveText(["0.3", "747.12"], { timeout: 15_000 });
+    await expect(cells(3)).toHaveText(["0.15", "249.04"]);
   });
 
   test("Add a filter transform — card appears with fields", async ({
