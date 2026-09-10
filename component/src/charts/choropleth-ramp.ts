@@ -1,4 +1,4 @@
-import { interpolateColor } from "./styling-rule";
+import { interpolateColor, parseHex, toHex } from "./styling-rule";
 
 /**
  * Choropleth colour-ramp construction, kept in its own module rather than in
@@ -44,4 +44,21 @@ export function buildSequentialRamp(
   return Array.from({ length: stops }, (_, i) =>
     interpolateColor(i, 0, stops - 1, minColor, maxColor),
   );
+}
+
+/**
+ * `hex` with its HSL lightness flipped (L -> 1 - L), hue and saturation kept.
+ *
+ * On a dark canvas the prominent end of a ramp is the light one, so a
+ * light-to-dark ramp painted as-is ranks regions backwards (#1402). Inverting
+ * each end keeps the hue a user picked for "lowest" on the lowest value while
+ * restoring "higher reads as more prominent".
+ *
+ * Flipping L mirrors a colour's channel extremes about the midpoint, so every
+ * channel shifts by the same `255 - max - min` — no HSL round trip needed.
+ */
+export function invertLightness(hex: string): string {
+  const rgb = parseHex(hex);
+  const shift = 255 - Math.max(...rgb) - Math.min(...rgb);
+  return toHex(rgb[0] + shift, rgb[1] + shift, rgb[2] + shift);
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildSequentialRamp,
+  invertLightness,
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "../choropleth-ramp";
@@ -131,5 +132,63 @@ describe("buildSequentialRamp (#1404)", () => {
     expect(luminance(CHOROPLETH_DEFAULT_MIN_COLOR)).toBeGreaterThan(
       luminance(CHOROPLETH_DEFAULT_MAX_COLOR),
     );
+  });
+});
+
+/**
+ * #1402 — on a dark canvas the prominent end of a ramp is the LIGHT one, so a
+ * light-to-dark ramp painted as-is ranks regions backwards: the lowest values
+ * blaze, the highest sink into the background.
+ *
+ * Every ramp the demo seeds is a hex pair (chart-gallery and chart-playground
+ * pin the old Blues ends; chart-reference adds white→red and yellow→green),
+ * and saved widgets carry their pair too — so swapping only the *default* ends
+ * would fix none of them. Dark mode inverts each end's lightness instead.
+ */
+describe("invertLightness (#1402)", () => {
+  // Independent oracle: Python colorsys, rgb_to_hls → L' = 1 − L → hls_to_rgb.
+  it.each([
+    ["#fff7d6", "#292100"],
+    ["#993404", "#fb9666"],
+    ["#e8f4f8", "#071317"],
+    ["#08306b", "#94bcf7"],
+    ["#ffffff", "#000000"],
+    ["#b91c1c", "#e34646"],
+  ])("inverts %s to %s, keeping hue and saturation", (input, expected) => {
+    expect(invertLightness(input)).toBe(expected);
+  });
+
+  it("expands 3-digit shorthand", () => {
+    expect(invertLightness("#fff")).toBe("#000000");
+  });
+
+  it("is its own inverse", () => {
+    for (const hex of ["#fff7d6", "#993404", "#08306b", "#123456"]) {
+      expect(invertLightness(invertLightness(hex))).toBe(hex);
+    }
+  });
+
+  // The acceptance criterion: higher values read as more prominent against the
+  // canvas in BOTH themes — darker on light, lighter on dark.
+  it.each([
+    [
+      "shipped default",
+      CHOROPLETH_DEFAULT_MIN_COLOR,
+      CHOROPLETH_DEFAULT_MAX_COLOR,
+    ],
+    ["gallery/playground Blues", "#e8f4f8", "#08306b"],
+    ["reference white → red", "#ffffff", "#b91c1c"],
+    ["reference yellow → green", "#fef3c7", "#166534"],
+  ])("%s ramp gains prominence with value in both themes", (_n, min, max) => {
+    const light = buildSequentialRamp(min, max, 5).map(luminance);
+    const dark = buildSequentialRamp(
+      invertLightness(min),
+      invertLightness(max),
+      5,
+    ).map(luminance);
+    for (let i = 1; i < 5; i++) {
+      expect(light[i], `light stop ${i}`).toBeLessThan(light[i - 1]);
+      expect(dark[i], `dark stop ${i}`).toBeGreaterThan(dark[i - 1]);
+    }
   });
 });

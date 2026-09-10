@@ -63,6 +63,14 @@ const DEFAULT_RAMP = [
   "#b36539",
   "#993404",
 ] as const;
+/** DEFAULT_RAMP's ends with HSL lightness inverted (Python colorsys), then interpolated. */
+const DARK_DEFAULT_RAMP = [
+  "#292100",
+  "#5e3e1a",
+  "#925c33",
+  "#c7794d",
+  "#fb9666",
+] as const;
 const GREEN_RAMP = [
   "#f7fcf5",
   "#b9cebf",
@@ -154,6 +162,42 @@ export const WorldPopulation: Story = {
       `Choropleth map with ${args.data.length} regions`,
     );
     await expectRampPainted(canvasElement, DEFAULT_RAMP);
+    expectNoRenderError(canvasElement);
+  },
+};
+
+/**
+ * #1402 — on the dark canvas the light end is the prominent one, so the
+ * light-to-dark ramp painted as-is ranked regions backwards. Dark mode paints
+ * the lightness-inverted ramp: lowest values dark, highest bright.
+ */
+export const DarkMode: Story = {
+  args: { data: populationData },
+  globals: { theme: "dark" },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    await expectRampPainted(canvasElement, DARK_DEFAULT_RAMP);
+    expectNoRenderError(canvasElement);
+  },
+};
+
+/**
+ * #1402 — "Show Legend" off used to drop the visualMap entirely, painting
+ * every region the no-data fill. With the legend hidden no swatch paints a
+ * ramp colour, so a ramp colour on the canvas can only be a region.
+ */
+export const LegendHidden: Story = {
+  args: { data: populationData, showVisualMap: false },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    await waitFor(
+      () => {
+        const painted = paintedColors(canvasElement);
+        expect(painted.has(DEFAULT_RAMP[0])).toBe(true);
+        expect(painted.has(DEFAULT_RAMP[4])).toBe(true);
+      },
+      { timeout: 5000 },
+    );
     expectNoRenderError(canvasElement);
   },
 };

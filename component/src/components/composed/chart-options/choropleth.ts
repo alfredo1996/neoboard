@@ -28,7 +28,7 @@ export const choroplethOptions: ChartOptionDef[] = [
     type: "text",
     default: "#fff7d6",
     category: "Style",
-    description: "Color for the lowest value.",
+    description: "Color for the lowest value. Dark mode inverts its lightness.",
   },
   {
     key: "maxColor",
@@ -36,6 +36,7 @@ export const choroplethOptions: ChartOptionDef[] = [
     type: "text",
     default: "#993404",
     category: "Style",
-    description: "Color for the highest value.",
+    description:
+      "Color for the highest value. Dark mode inverts its lightness.",
   },
 ];
