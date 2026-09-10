@@ -220,13 +220,6 @@ jobs:
       - name: Story smoke tests (Vitest browser project)
         run: npm run test:visual
 
-      # Every chart at 1k and 10k rows against the static Storybook build
-      # (#1688). Budgets are a printed report, not a gate: the step fails only
-      # on a chart that throws or never paints. The table it prints is the
-      # source for component/CHARTS.md.
-      - name: Chart render benchmark
-        run: npm run bench:charts
-
       - name: Upload unit coverage
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
@@ -240,6 +233,37 @@ jobs:
             connection/coverage-quality/lcov.info
             cli/coverage/lcov.info
             connector-sdk/coverage/lcov.info
+
+  # ── Chart render benchmark (#1688) ────────────────────────────────────────
+  # Every chart at 1k and 10k rows against a static Storybook build. Budgets
+  # are a printed report, not a gate: the job fails only on a chart that
+  # throws or never paints, and the table it prints is the source for
+  # component/CHARTS.md. Its own job with its own timeout: as a step of
+  # unit-tests it took 7.3 of that job's 20 minutes, so a slower runner would
+  # have cancelled the job before it uploaded the coverage Sonar scans.
+  chart-benchmark:
+    name: Chart Render Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npm -w component exec -- playwright install --with-deps chromium
+
+      - name: Chart render benchmark
+        run: npm run bench:charts
 
   # ── Job 2: E2E tests — 5 shards with isolated containers ──────────────────
   # Each shard gets its own runner + Testcontainers (no shared state).

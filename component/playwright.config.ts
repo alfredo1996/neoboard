@@ -15,9 +15,10 @@ export default defineConfig({
   testMatch: "**/*.spec.ts",
   workers: 1,
   retries: 0,
-  // Two themes per test, up to a minute to first paint each — and the 10k
-  // graph story keeps NVL's main-thread layout running through the
-  // screenshot (72 s locally, so room for a CI runner).
+  // Truncates the samples file; the teardown it returns prints the table.
+  globalSetup: "./e2e/benchmark-global-setup.ts",
+  // Two themes per test, up to a minute to first paint each. Graph at 10k is
+  // the slowest: its failure checks wait on NVL's main-thread layout.
   timeout: 300_000,
   reporter: "list",
   use: {

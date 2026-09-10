@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { registerTheme } from "echarts/core";
 import type { Meta, StoryObj } from "@storybook/react";
 import {
   benchmarkProps,
@@ -20,6 +21,19 @@ import { ChoroplethChart } from "@/charts/choropleth-chart";
 import { MapChart } from "@/charts/map-chart";
 import { GraphChart } from "@/charts/graph-chart";
 import { SingleValueChart } from "@/charts/single-value-chart";
+import { registerNeoboardThemes } from "@/charts/theme";
+
+// The benchmark times the whole chart, so the two NeoBoard themes are
+// re-registered (same names, nothing added) with entry animation and
+// progressive rendering off. Otherwise the timed frame of a series past 3000
+// items is its first 400-item chunk — circle-packing at 10k had drawn 3,997 of
+// its 22,799 canvas calls — and a gauge or sankey frame is the start of its
+// animation. Themes are global to the preview iframe: a story opened after a
+// benchmark story in the same Storybook session also renders without them,
+// until the page reloads.
+registerNeoboardThemes((name, theme) =>
+  registerTheme(name, { ...theme, animation: false, progressive: 0 }),
+);
 
 /**
  * Benchmark stories (#1688): every chart at 1k and 10k seeded rows, driven by
@@ -33,7 +47,7 @@ const meta = {
   tags: ["benchmark", "!test", "!autodocs"],
   decorators: [
     (Story) => {
-      // Read back by the spec as the start of time-to-first-paint: this runs
+      // Read back by the spec as the start of the timed window: this runs
       // as React begins rendering the story, before the chart's own render
       // (where the 10k-row option object is built), its commit and effects.
       performance.mark("neoboard:bench:render");
