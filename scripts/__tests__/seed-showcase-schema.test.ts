@@ -60,6 +60,36 @@ describe("demo showcases validate against the app's export schema", () => {
 
   // A stale allow-list entry (a type since re-enabled) would silently widen
   // the exception the moment that type is disabled again.
+  // Every seed is clean, so the per-file checks below only ever expect [].
+  // Pin the detector itself: it must flag a hidden type in both the
+  // pretty-printed JSON and compact SQL forms, and spare choropleth.
+  it("flags a hidden type and spares choropleth", () => {
+    expect(
+      hiddenFromPicker(
+        chartTypesIn(
+          '"chartType": "radar" "chartType":"choropleth" "chartType": "bar"',
+        ),
+      ),
+    ).toEqual(["radar"]);
+  });
+
+  // #1722 — the gallery no longer has a page per registered type (radar is
+  // registered but hidden), so a stated page count drifts silently.
+  it("states no page count a showcase does not have", () => {
+    for (const showcase of SHOWCASES) {
+      const json = readShowcase(showcase.jsonPath) as {
+        dashboard: { description?: string };
+        layout: { pages: unknown[] };
+      };
+      const claims = [showcase.description, json.dashboard.description ?? ""]
+        .flatMap((text) => [...text.matchAll(/\b(\d+) pages\b/g)])
+        .map((m) => Number(m[1]));
+      for (const n of claims) {
+        expect(n, showcase.key).toBe(json.layout.pages.length);
+      }
+    }
+  });
+
   it("allows only types that are actually hidden", () => {
     for (const t of SEEDED_HIDDEN_TYPES) {
       expect(DISABLED_CHART_TYPES.has(t), t).toBe(true);

@@ -3,7 +3,7 @@
   "exportedAt": "2026-04-15T00:00:00.000Z",
   "dashboard": {
     "name": "Chart Gallery",
-    "description": "One page per registered chart type — showcases every widget NeoBoard supports on the demo e-commerce and movies datasets."
+    "description": "One page per chart type the picker offers, on the demo e-commerce and movies datasets."
   },
   "connections": {
     "conn_neo4j": {

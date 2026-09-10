@@ -27,7 +27,7 @@ neoboard --help
 | `neoboard status`                     | Health of Postgres, Neo4j, and the app                                          |
 | `neoboard doctor`                     | Diagnose common setup problems with actionable hints                            |
 | `neoboard db migrate`                 | Apply pending database migrations                                               |
-| `neoboard demo`                       | Seed showcase dashboards demonstrating every chart type                         |
+| `neoboard demo`                       | Seed showcase dashboards, one page per chart type the picker offers             |
 | `neoboard plugin add <pkg>`           | Install and register a chart or connector plugin                                |
 | `neoboard logs [-f] [-n N] [service]` | Tail container logs                                                             |
 
