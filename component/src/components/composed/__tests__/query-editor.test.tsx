@@ -18,8 +18,9 @@
  */
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createRef } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { QueryEditor } from "../query-editor";
+import { QueryEditor, type QueryEditorHandle } from "../query-editor";
 
 // ---------------------------------------------------------------------------
 // Mock CodeMirror dynamic imports
@@ -28,6 +29,11 @@ import { QueryEditor } from "../query-editor";
 const mockDispatch = vi.fn();
 const mockDestroy = vi.fn();
 const mockFocus = vi.fn();
+// Every fake view shares this state so a test can shape the selection.
+const fakeState = {
+  doc: { toString: () => "", length: 0 },
+  selection: { main: { from: 0, to: 0 } },
+};
 
 // Track the update listener callback so tests can trigger it
 let capturedUpdateListener:
@@ -39,7 +45,7 @@ let capturedUpdateListener:
 
 vi.mock("@codemirror/view", () => {
   class FakeEditorView {
-    state = { doc: { toString: () => "", length: 0 } };
+    state = fakeState;
     dispatch = mockDispatch;
     destroy = mockDestroy;
     focus = mockFocus;
@@ -120,6 +126,7 @@ beforeEach(() => {
   mockFocus.mockClear();
   mockResolveLanguageExt.mockClear();
   capturedUpdateListener = null;
+  fakeState.selection = { main: { from: 0, to: 0 } };
 });
 
 // Ensure no dangling timers leak between tests
@@ -436,5 +443,35 @@ describe("QueryEditor — history select", () => {
     await flushAsync();
 
     expect(screen.getByText("History")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Imperative handle (#1693) — the schema browser inserts at the cursor
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor insertAtCursor", () => {
+  it("replaces the current selection, moves the cursor after it and focuses", async () => {
+    const ref = createRef<QueryEditorHandle>();
+    render(<QueryEditor handleRef={ref} value="MATCH (n:) RETURN n" />);
+    await flushAsync();
+
+    fakeState.selection = { main: { from: 9, to: 9 } };
+    mockDispatch.mockClear();
+
+    expect(ref.current?.insertAtCursor("Movie")).toBe(true);
+    expect(mockDispatch).toHaveBeenCalledWith({
+      changes: { from: 9, to: 9, insert: "Movie" },
+      selection: { anchor: 14 },
+    });
+    expect(mockFocus).toHaveBeenCalled();
+  });
+
+  it("reports false before the editor view exists", () => {
+    const ref = createRef<QueryEditorHandle>();
+    render(<QueryEditor handleRef={ref} />);
+    // No flushAsync: the dynamic imports have not resolved, so no view yet.
+    expect(ref.current?.insertAtCursor("x")).toBe(false);
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 });

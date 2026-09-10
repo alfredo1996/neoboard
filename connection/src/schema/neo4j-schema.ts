@@ -5,6 +5,35 @@ import type { SchemaManager } from "./schema-manager";
 import type { DatabaseSchema, PropertyDef } from "@neoboard/connector-sdk";
 
 /**
+ * `db.schema.nodeTypeProperties()` names a node type by its whole label
+ * combination, each label backticked — ":`Person`", ":`Person`:`Actor`" — and
+ * `relTypeProperties()` does the same with one type. Return the bare names so
+ * callers can key by label (#1693); a name that isn't quoted just loses its
+ * leading colon.
+ */
+function typeNames(typeName: string): string[] {
+  const quoted = [...typeName.matchAll(/`((?:[^`]|``)*)`/g)].map((m) =>
+    m[1].replaceAll("``", "`"),
+  );
+  return quoted.length > 0 ? quoted : [typeName.replace(/^:/, "")];
+}
+
+function addProperty(
+  map: Record<string, PropertyDef[]>,
+  key: string,
+  name: string,
+  types: string[] | string,
+) {
+  const list = (map[key] ??= []);
+  // ":Person" and ":Person:Actor" both report `name` — one property of Person.
+  if (list.some((p) => p.name === name)) return;
+  list.push({
+    name,
+    type: Array.isArray(types) ? (types[0] ?? "String") : String(types),
+  });
+}
+
+/**
  * Fetches schema information from a Neo4j database.
  *
  * Runs four APOC/built-in procedures:
@@ -55,26 +84,21 @@ export class Neo4jSchemaManager implements SchemaManager {
 
       const nodePropsMap: Record<string, PropertyDef[]> = {};
       for (const row of nodeProperties) {
-        const label = row.nodeType.replace(/^:/, "");
-        if (!nodePropsMap[label]) nodePropsMap[label] = [];
-        nodePropsMap[label].push({
-          name: row.propertyName,
-          type: Array.isArray(row.propertyTypes)
-            ? (row.propertyTypes[0] ?? "String")
-            : String(row.propertyTypes),
-        });
+        for (const label of typeNames(row.nodeType)) {
+          addProperty(nodePropsMap, label, row.propertyName, row.propertyTypes);
+        }
       }
 
       const relPropsMap: Record<string, PropertyDef[]> = {};
       for (const row of relProperties) {
-        const relType = row.relType.replace(/^:/, "");
-        if (!relPropsMap[relType]) relPropsMap[relType] = [];
-        relPropsMap[relType].push({
-          name: row.propertyName,
-          type: Array.isArray(row.propertyTypes)
-            ? (row.propertyTypes[0] ?? "String")
-            : String(row.propertyTypes),
-        });
+        for (const relType of typeNames(row.relType)) {
+          addProperty(
+            relPropsMap,
+            relType,
+            row.propertyName,
+            row.propertyTypes,
+          );
+        }
       }
 
       return {

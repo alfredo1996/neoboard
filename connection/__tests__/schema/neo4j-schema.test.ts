@@ -157,6 +157,52 @@ describe("Neo4jSchemaManager", () => {
     expect(schema.relProperties?.[":ACTED_IN"]).toBeUndefined();
   });
 
+  // Neo4j 4+/5 names the type with each label backticked: ":`Movie`". The
+  // schema browser (#1693) keys by bare label, so the quoting must go.
+  it("strips Neo4j's backtick quoting from nodeType and relType", async () => {
+    mockFourCalls(
+      [],
+      [],
+      [nodePropRecord(":`Movie`", "title", ["String"])],
+      [relPropRecord(":`ACTED_IN`", "roles", ["StringArray"])],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties).toEqual({
+      Movie: [{ name: "title", type: "String" }],
+    });
+    expect(schema.relProperties).toEqual({
+      ACTED_IN: [{ name: "roles", type: "StringArray" }],
+    });
+  });
+
+  it("credits a multi-label node type's properties to every label, once each", async () => {
+    mockFourCalls(
+      [],
+      [],
+      [
+        nodePropRecord(":`Person`", "name", ["String"]),
+        nodePropRecord(":`Person`:`Actor`", "name", ["String"]),
+        nodePropRecord(":`Person`:`Actor`", "oscars", ["Long"]),
+      ],
+      [],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties).toEqual({
+      Person: [
+        { name: "name", type: "String" },
+        { name: "oscars", type: "Long" },
+      ],
+      Actor: [
+        { name: "name", type: "String" },
+        { name: "oscars", type: "Long" },
+      ],
+    });
+  });
+
   it("returns empty collections for empty databases", async () => {
     mockFourCalls([], [], [], []);
 
