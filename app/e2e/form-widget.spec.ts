@@ -889,13 +889,19 @@ test.describe("Form field labels and database errors (#1409, #1410)", () => {
             rangeMin: 1,
             rangeMax: 5,
           },
+          {
+            id: "f-due",
+            label: "Due",
+            parameterName: "due",
+            parameterType: "date",
+          },
         ],
       },
     });
 
     // One label per field, and no parameter name rendered as a second one.
-    await expect(form.locator("label")).toHaveCount(3);
-    for (const name of ["full_name", "prio", "score"]) {
+    await expect(form.locator("label")).toHaveCount(4);
+    for (const name of ["full_name", "prio", "score", "due"]) {
       await expect(form.getByText(name, { exact: true })).toHaveCount(0);
     }
 
@@ -916,10 +922,41 @@ test.describe("Form field labels and database errors (#1409, #1410)", () => {
     await expect(
       form.getByRole("slider", { name: "Score minimum", exact: true }),
     ).toBeVisible();
+    // The range's typed inputs and its Reset button too — aria-label text is
+    // invisible to getByText, so check the names themselves.
+    for (const name of ["Score minimum", "Score maximum"]) {
+      await expect(
+        form.getByRole("spinbutton", { name, exact: true }),
+      ).toBeVisible();
+    }
+    await expect(
+      form.getByRole("button", { name: "Clear Score", exact: true }),
+    ).toBeVisible();
+    const due = form.getByRole("button", { name: "Due", exact: true });
+    await expect(due).toBeVisible();
 
     // htmlFor resolves: clicking the label focuses its control.
     await form.locator("label", { hasText: "Full Name" }).click();
     await expect(fullName).toBeFocused();
+
+    // A trigger may open on the label's click instead of only taking focus;
+    // either proves the label reaches the control.
+    for (const [text, control] of [
+      ["Priority", priority],
+      ["Due", due],
+    ] as const) {
+      await form.locator("label", { hasText: text }).click();
+      await expect
+        .poll(() =>
+          control.evaluate(
+            (el) =>
+              el === document.activeElement ||
+              el.getAttribute("aria-expanded") === "true",
+          ),
+        )
+        .toBe(true);
+      await page.keyboard.press("Escape");
+    }
   });
 
   test("a blank field the database requires is a 400 shown on that field", async ({

@@ -671,11 +671,14 @@ describe("FormWidgetRenderer — one label per field (#1410)", () => {
       const label = labels[0];
       expect(label.textContent).toBe("Category");
       const props = captured().at(-1) as { id: string; labelledBy: string };
-      expect(label.htmlFor).toBeTruthy();
-      expect(props.id).toBe(label.htmlFor);
       expect(props.labelledBy).toBe(label.id);
-      // htmlFor resolves to an element the widget rendered.
-      expect(container.querySelector(`[id="${label.htmlFor}"]`)).not.toBeNull();
+      expect(props.id).toBeTruthy();
+      // The widget puts `id` on a labelable control (the component tests
+      // check `label.control` on the real widgets) — except date-relative,
+      // whose id sits on a group of buttons, which no label may point at.
+      expect(label.getAttribute("for")).toBe(
+        parameterType === "date-relative" ? null : props.id,
+      );
     },
   );
 
@@ -785,6 +788,40 @@ describe("FormWidgetRenderer — server field errors (#1409)", () => {
     ).toBeNull();
     // On the field instead of at the bottom of the form, not as well as.
     expect(screen.queryByText('The field "category" is required.')).toBeNull();
+  });
+
+  it("keeps the field error when the still-blank field loses focus", () => {
+    failWith({ column: "category" });
+    const { container } = renderForm(seeded);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.blur(screen.getByTestId("input-rf1_category"));
+    expect(
+      within(fieldOf(container, "Category")).getByText(
+        "This field is required",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the form-level message when the column matches a filled field", () => {
+    // Label "Name" matches column "name", but that field has a value — the
+    // blank one is fed by a parameter named unlike the column.
+    failWith({ column: "name" });
+    const { container } = renderForm([
+      makeField({ id: "a", label: "Name", parameterName: "nickname" }),
+      makeField({ id: "b", label: "Full name", parameterName: "full_name" }),
+    ]);
+    fireEvent.change(screen.getByTestId("input-nickname"), {
+      target: { value: "Al" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(
+      screen.getByText('The field "category" is required.'),
+    ).toBeInTheDocument();
+    expect(within(container).queryByText("This field is required")).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
   });
 
   it("clears the field error once the user fills the field", () => {

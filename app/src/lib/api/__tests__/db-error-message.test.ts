@@ -63,9 +63,19 @@ describe("describeWriteError", () => {
     ["23514", "constraint", "VALIDATION_ERROR"],
     ["22P02", "format", "VALIDATION_ERROR"],
     ["22003", "range", "VALIDATION_ERROR"],
+    ["22001", "too long", "VALIDATION_ERROR"],
+    ["22007", "date or time", "VALIDATION_ERROR"],
+    ["22008", "date or time", "VALIDATION_ERROR"],
+    ["23P01", "conflicts", "VALIDATION_ERROR"],
     ["25006", "read-only", "FORBIDDEN"],
+    // Neo4j: a unique or property-existence constraint the submission broke.
+    [
+      "Neo.ClientError.Schema.ConstraintValidationFailed",
+      "constraint",
+      "VALIDATION_ERROR",
+    ],
   ])(
-    "maps PG code %s to a specific message and a 4xx code",
+    "maps driver code %s to a specific message and a 4xx code",
     (code, needle, apiCode) => {
       // A column on a non-NOT-NULL error is not "the field that was blank".
       const described = describeWriteError({ code, column: "c" });

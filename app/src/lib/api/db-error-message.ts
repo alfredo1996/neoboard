@@ -64,6 +64,16 @@ export function describeWriteError(
       return invalid("A value has an invalid format.");
     case "22003": // numeric_value_out_of_range
       return invalid("A numeric value is out of range.");
+    case "22001": // string_data_right_truncation
+      return invalid("A value is too long.");
+    case "22007": // invalid_datetime_format
+    case "22008": // datetime_field_overflow
+      return invalid("A date or time value is invalid.");
+    case "23P01": // exclusion_violation
+      return invalid("A record conflicts with an existing one.");
+    // Neo4j's one code for a unique, existence or key constraint.
+    case "Neo.ClientError.Schema.ConstraintValidationFailed":
+      return invalid("A value violates a database constraint.");
     case "25006": // read_only_sql_transaction
       return {
         code: "FORBIDDEN",

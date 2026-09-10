@@ -65,10 +65,9 @@ function DateRelativePicker({
           {parameterName}
         </Label>
       )}
-      <div
+      <fieldset
         id={id}
-        className="flex flex-wrap gap-1.5"
-        role="group"
+        className="flex min-w-0 flex-wrap gap-1.5"
         aria-labelledby={labelId}
       >
         {RELATIVE_DATE_PRESETS.map((preset) => {
@@ -87,7 +86,7 @@ function DateRelativePicker({
             </Button>
           );
         })}
-      </div>
+      </fieldset>
     </div>
   );
 }

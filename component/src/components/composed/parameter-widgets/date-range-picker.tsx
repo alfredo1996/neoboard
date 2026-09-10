@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { ExternalLabelProps } from "./external-label";
+import { qualifiedName, type ExternalLabelProps } from "./external-label";
 import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
 
 export interface DateRangeParameterProps extends ExternalLabelProps {
@@ -84,6 +84,7 @@ function DateRangeParameter({
 }: DateRangeParameterProps) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-daterange-label-${parameterName}`;
+  const clearId = React.useId();
 
   const fromDate = parseIsoDate(from);
   const toDate = parseIsoDate(to);
@@ -176,10 +177,20 @@ function DateRangeParameter({
             size="icon"
             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => onChange("", "")}
-            aria-label={`Clear ${parameterName}`}
+            {...qualifiedName(
+              labelledBy,
+              clearId,
+              `Clear ${parameterName}`,
+              true,
+            )}
           >
             <X className="h-4 w-4" />
           </Button>
+        )}
+        {labelledBy && (
+          <span id={clearId} hidden>
+            Clear
+          </span>
         )}
       </div>
     </div>

@@ -27,7 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { ExternalLabelProps } from "./external-label";
+import { qualifiedName, type ExternalLabelProps } from "./external-label";
 import { ParamWidgetSkeleton } from "./param-widget-skeleton";
 
 export interface ParamSelectorOption {
@@ -110,6 +110,7 @@ function ParamSelector({
 }: ParamSelectorProps) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-select-label-${parameterName}`;
+  const clearId = React.useId();
 
   // Truthiness, not `!== undefined`: the widget editor's parent-name input
   // writes "" when the user clears it, and an empty name is no parent — the
@@ -164,16 +165,23 @@ function ParamSelector({
   );
 
   const clearButton = value && (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-      onClick={() => onChange("")}
-      aria-label={`Clear ${parameterName}`}
-    >
-      <X className="h-4 w-4" />
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+        onClick={() => onChange("")}
+        {...qualifiedName(labelledBy, clearId, `Clear ${parameterName}`, true)}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+      {labelledBy && (
+        <span id={clearId} hidden>
+          Clear
+        </span>
+      )}
+    </>
   );
 
   // Searchable mode: command popover with server-side search

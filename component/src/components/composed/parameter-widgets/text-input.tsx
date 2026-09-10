@@ -1,11 +1,12 @@
 "use client";
 
+import { useId } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { ExternalLabelProps } from "./external-label";
+import { qualifiedName, type ExternalLabelProps } from "./external-label";
 
 export interface TextInputParameterProps extends ExternalLabelProps {
   parameterName: string;
@@ -32,6 +33,7 @@ function TextInputParameter({
   required,
 }: TextInputParameterProps) {
   const inputId = id ?? `param-text-${parameterName}`;
+  const clearId = useId();
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -60,10 +62,20 @@ function TextInputParameter({
             size="icon"
             className="absolute right-1 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => onChange("")}
-            aria-label={`Clear ${parameterName}`}
+            {...qualifiedName(
+              labelledBy,
+              clearId,
+              `Clear ${parameterName}`,
+              true,
+            )}
           >
             <X className="h-3 w-3" />
           </Button>
+        )}
+        {labelledBy && (
+          <span id={clearId} hidden>
+            Clear
+          </span>
         )}
       </div>
     </div>

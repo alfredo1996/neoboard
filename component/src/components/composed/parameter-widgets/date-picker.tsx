@@ -12,7 +12,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { ExternalLabelProps } from "./external-label";
+import { qualifiedName, type ExternalLabelProps } from "./external-label";
 import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
 
 export interface DatePickerParameterProps extends ExternalLabelProps {
@@ -38,6 +38,7 @@ function DatePickerParameter({
 }: DatePickerParameterProps) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-date-label-${parameterName}`;
+  const clearId = React.useId();
 
   const selected = parseIsoDate(value);
 
@@ -88,10 +89,20 @@ function DatePickerParameter({
             size="icon"
             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => onChange("")}
-            aria-label={`Clear ${parameterName}`}
+            {...qualifiedName(
+              labelledBy,
+              clearId,
+              `Clear ${parameterName}`,
+              true,
+            )}
           >
             <X className="h-4 w-4" />
           </Button>
+        )}
+        {labelledBy && (
+          <span id={clearId} hidden>
+            Clear
+          </span>
         )}
       </div>
     </div>

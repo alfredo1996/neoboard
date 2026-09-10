@@ -342,6 +342,12 @@ export function FormWidgetRenderer({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Errors the database reported for a field (#1409). Kept apart from client
+  // validation, which knows nothing of them and would drop them on blur; only
+  // editing the field or submitting again clears one.
+  const [serverFieldErrors, setServerFieldErrors] = useState<
+    Record<string, string>
+  >({});
   // Label ids come from useId + the field's index, never from author strings:
   // two forms may share a parameter name, and an id list cannot hold spaces.
   const idPrefix = useId();
@@ -431,12 +437,14 @@ export function FormWidgetRenderer({
     setLocalValues((prev) => ({ ...prev, [name]: value }));
     setSuccessMessage(null);
     setErrorMessage(null);
-    setFieldErrors((prev) => {
+    const withoutName = (prev: Record<string, string>) => {
       if (!prev[name]) return prev;
       const next = { ...prev };
       delete next[name];
       return next;
-    });
+    };
+    setFieldErrors(withoutName);
+    setServerFieldErrors(withoutName);
   }, []);
 
   const handleFieldBlur = useCallback(
@@ -479,6 +487,7 @@ export function FormWidgetRenderer({
 
     setSuccessMessage(null);
     setErrorMessage(null);
+    setServerFieldErrors({});
 
     // Validate required + validationType for all fields
     const errors: Record<string, string> = {};
@@ -519,8 +528,17 @@ export function FormWidgetRenderer({
             fields,
             typeof column === "string" ? column : undefined,
           );
-          if (field) {
-            setFieldErrors({ [field.parameterName]: REQUIRED_MESSAGE });
+          // Only a blank field can be the one the column rejected: a match on
+          // a filled field is a name coincidence, and its message would hide
+          // the real one.
+          const blank =
+            field &&
+            validateFieldValue(
+              { ...field, required: true },
+              localValues[field.parameterName],
+            ) === REQUIRED_MESSAGE;
+          if (field && blank) {
+            setServerFieldErrors({ [field.parameterName]: REQUIRED_MESSAGE });
           } else {
             setErrorMessage(err.message);
           }
@@ -596,7 +614,16 @@ export function FormWidgetRenderer({
                 className="space-y-1.5"
                 onBlur={() => handleFieldBlur(field)}
               >
-                <Label id={labelId} htmlFor={controlId}>
+                {/* date-relative's control is a group of buttons, which no
+                    label may point at; it is named by aria-labelledby alone. */}
+                <Label
+                  id={labelId}
+                  htmlFor={
+                    field.parameterType === "date-relative"
+                      ? undefined
+                      : controlId
+                  }
+                >
                   {field.label || field.parameterName}
                   {field.required && (
                     <span
@@ -630,9 +657,11 @@ export function FormWidgetRenderer({
                       : undefined
                   }
                 />
-                {fieldErrors[field.parameterName] && (
+                {(fieldErrors[field.parameterName] ??
+                  serverFieldErrors[field.parameterName]) && (
                   <p className="text-xs text-destructive">
-                    {fieldErrors[field.parameterName]}
+                    {fieldErrors[field.parameterName] ??
+                      serverFieldErrors[field.parameterName]}
                   </p>
                 )}
               </div>
@@ -652,7 +681,8 @@ export function FormWidgetRenderer({
           disabled={
             readOnly ||
             writeQuery.isPending ||
-            Object.keys(fieldErrors).length > 0
+            Object.keys(fieldErrors).length > 0 ||
+            Object.keys(serverFieldErrors).length > 0
           }
           title={
             readOnly

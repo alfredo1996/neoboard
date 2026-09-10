@@ -1676,46 +1676,167 @@ describe("parameter widgets with an external label (#1410)", () => {
     },
   );
 
-  it("TextInputParameter's id is its input, so a caller's label htmlFor resolves to it", () => {
-    render(
-      <>
-        <label id="ext-label" htmlFor="ctl">
-          Category
-        </label>
-        <TextInputParameter
-          parameterName="rf1_category"
-          value=""
-          onChange={noop}
-          {...external}
-        />
-      </>,
-    );
-    const label = screen.getByText("Category") as HTMLLabelElement;
-    expect(label.control).toBe(screen.getByRole("textbox"));
-  });
-
+  // `label.control` is what the browser focuses on a label click — it is null
+  // unless htmlFor names a labelable element, so a div with the id fails here.
   it.each([
+    ["TextInputParameter", "textbox"],
     ["ParamSelector", "combobox"],
     ["ParamSelector (searchable)", "combobox"],
     ["ParamMultiSelector", "combobox"],
     ["DatePickerParameter", "button"],
     ["DateRangeParameter", "button"],
-  ])("%s's id is its %s trigger", (name, role) => {
+    ["NumberRangeSlider", "spinbutton"],
+  ])("a caller's label htmlFor resolves to %s's %s", (name, role) => {
     const make = cases.find(([n]) => n === name)![1];
-    render(make(external));
-    expect(screen.getAllByRole(role)[0].id).toBe("ctl");
+    render(
+      <>
+        <label id="ext-label" htmlFor="ctl">
+          Category
+        </label>
+        {make(external)}
+      </>,
+    );
+    const label = screen.getByText("Category") as HTMLLabelElement;
+    expect(label.control).not.toBeNull();
+    expect(label.control).toBe(screen.getAllByRole(role)[0]);
   });
 
-  it("NumberRangeSlider's id is its minimum input", () => {
-    const make = cases.find(([n]) => n === "NumberRangeSlider")![1];
-    render(make(external));
-    expect(screen.getAllByRole("spinbutton")[0].id).toBe("ctl");
-  });
-
+  // A group of buttons has no labelable control, so the caller names it with
+  // aria-labelledby alone and must not point a label's htmlFor at it.
   it("DateRelativePicker's id is its preset group", () => {
     const make = cases.find(([n]) => n === "DateRelativePicker")![1];
     render(make(external));
-    expect(screen.getByRole("group").id).toBe("ctl");
+    const group = screen.getByRole("group");
+    expect(group.id).toBe("ctl");
+    // A native fieldset, not a div with role="group" (Sonar a11y rule).
+    expect(group.tagName).toBe("FIELDSET");
+  });
+
+  /** The text an element's aria-labelledby id list resolves to. */
+  const labelledText = (el: Element) =>
+    (el.getAttribute("aria-labelledby") ?? "")
+      .split(" ")
+      .map((ref) => document.getElementById(ref)?.textContent ?? "")
+      .join(" ");
+
+  // Every widget with a value, so its clear button renders.
+  const withValue: Array<[string, React.ReactElement]> = [
+    [
+      "TextInputParameter",
+      <TextInputParameter
+        key="t"
+        parameterName="rf1_category"
+        value="x"
+        onChange={noop}
+        {...external}
+      />,
+    ],
+    [
+      "ParamSelector",
+      <ParamSelector
+        key="s"
+        parameterName="rf1_category"
+        options={[{ value: "a", label: "a" }]}
+        value="a"
+        onChange={noop}
+        {...external}
+      />,
+    ],
+    [
+      "DatePickerParameter",
+      <DatePickerParameter
+        key="d"
+        parameterName="rf1_category"
+        value="2026-01-01"
+        onChange={noop}
+        {...external}
+      />,
+    ],
+    [
+      "DateRangeParameter",
+      <DateRangeParameter
+        key="r"
+        parameterName="rf1_category"
+        from="2026-01-01"
+        to="2026-01-02"
+        onChange={noop}
+        {...external}
+      />,
+    ],
+    [
+      "NumberRangeSlider",
+      <NumberRangeSlider
+        key="n"
+        parameterName="rf1_category"
+        min={1}
+        max={5}
+        value={[2, 4]}
+        onChange={noop}
+        onClear={noop}
+        {...external}
+      />,
+    ],
+  ];
+
+  it.each(withValue)(
+    "%s names its clear button from the caller's label, not the parameter name",
+    (_name, element) => {
+      const { container } = render(
+        <>
+          <span id="ext-label">Category</span>
+          {element}
+        </>,
+      );
+      const names = [...container.querySelectorAll("[aria-label]")].map((el) =>
+        el.getAttribute("aria-label"),
+      );
+      expect(names.filter((n) => n!.includes("rf1_category"))).toEqual([]);
+      const clear = screen
+        .getAllByRole("button")
+        .filter((b) => labelledText(b) === "Clear Category");
+      expect(clear).toHaveLength(1);
+    },
+  );
+
+  it("NumberRangeSlider names its min and max inputs from the caller's label", () => {
+    render(
+      <>
+        <span id="ext-label">Score</span>
+        <NumberRangeSlider
+          parameterName="rf1_score"
+          min={1}
+          max={5}
+          value={null}
+          onChange={noop}
+          onClear={noop}
+          {...external}
+        />
+      </>,
+    );
+    const [minInput, maxInput] = screen.getAllByRole("spinbutton");
+    expect(minInput).not.toHaveAttribute("aria-label");
+    expect(labelledText(minInput)).toBe("Score minimum");
+    expect(maxInput).not.toHaveAttribute("aria-label");
+    expect(labelledText(maxInput)).toBe("Score maximum");
+  });
+
+  it("NumberRangeSlider keeps parameter-name input names without an external label", () => {
+    render(
+      <NumberRangeSlider
+        parameterName="rf1_score"
+        min={1}
+        max={5}
+        value={[2, 4]}
+        onChange={noop}
+        onClear={noop}
+      />,
+    );
+    expect(
+      screen.getByRole("spinbutton", { name: "rf1_score minimum" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear rf1_score" }),
+    ).toBeInTheDocument();
   });
 
   it.each([

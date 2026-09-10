@@ -1,12 +1,13 @@
 "use client";
 
+import { useId } from "react";
 import { X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { ExternalLabelProps } from "./external-label";
+import { qualifiedName, type ExternalLabelProps } from "./external-label";
 
 export interface NumberRangeSliderProps extends ExternalLabelProps {
   parameterName: string;
@@ -42,6 +43,7 @@ function NumberRangeSlider({
   const labelId = labelledBy ?? `param-numrange-label-${parameterName}`;
   const current: [number, number] = value ?? [min, max];
   const hasValue = value !== null;
+  const qualifierId = useId();
 
   const handleSliderChange = (vals: number[]) => {
     onChange([vals[0], vals[1]]);
@@ -87,13 +89,31 @@ function NumberRangeSlider({
             size="sm"
             className="h-5 px-1 text-xs text-muted-foreground hover:text-foreground"
             onClick={onClear}
-            aria-label={`Clear ${parameterName}`}
+            {...qualifiedName(
+              labelledBy,
+              `${qualifierId}-clear`,
+              `Clear ${parameterName}`,
+              true,
+            )}
           >
             <X className="h-3 w-3 mr-0.5" />
             Reset
           </Button>
         )}
       </div>
+      {labelledBy && (
+        <>
+          <span id={`${qualifierId}-clear`} hidden>
+            Clear
+          </span>
+          <span id={`${qualifierId}-min`} hidden>
+            minimum
+          </span>
+          <span id={`${qualifierId}-max`} hidden>
+            maximum
+          </span>
+        </>
+      )}
 
       {showInputs && (
         <div className="flex items-center gap-2">
@@ -106,7 +126,11 @@ function NumberRangeSlider({
             max={current[1]}
             step={step}
             className="w-20 text-center text-sm h-7"
-            aria-label={`${parameterName} minimum`}
+            {...qualifiedName(
+              labelledBy,
+              `${qualifierId}-min`,
+              `${parameterName} minimum`,
+            )}
           />
           <span className="text-xs text-muted-foreground flex-shrink-0">
             to
@@ -119,7 +143,11 @@ function NumberRangeSlider({
             max={max}
             step={step}
             className="w-20 text-center text-sm h-7"
-            aria-label={`${parameterName} maximum`}
+            {...qualifiedName(
+              labelledBy,
+              `${qualifierId}-max`,
+              `${parameterName} maximum`,
+            )}
           />
         </div>
       )}

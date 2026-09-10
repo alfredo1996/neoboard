@@ -317,8 +317,16 @@ describe("POST /api/query/write", () => {
     ["23505", 409, "A record with these values already exists."],
     ["23514", 400, "A value failed a validation constraint."],
     ["25006", 403, "This connection is read-only; writes are not permitted."],
+    ["22001", 400, "A value is too long."],
+    ["22007", 400, "A date or time value is invalid."],
+    ["23P01", 400, "A record conflicts with an existing one."],
+    [
+      "Neo.ClientError.Schema.ConstraintValidationFailed",
+      400,
+      "A value violates a database constraint.",
+    ],
   ])(
-    "responds to a recognised PG error %s with %i, not 500 (#1409)",
+    "responds to a recognised driver error %s with %i, not 500 (#1409)",
     async (code, status, message) => {
       mockRequireSession.mockResolvedValue(writerSession);
       mockConnectionAndDashboard();
