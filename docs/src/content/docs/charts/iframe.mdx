@@ -28,8 +28,9 @@ The sandbox field accepts standard HTML `sandbox` attribute values. Common value
 | (empty) | Maximum restrictions: no scripts, no forms, no popups |
 | `allow-scripts` | Allow JavaScript execution |
 | `allow-forms` | Allow form submission |
-| `allow-same-origin` | Treat embedded content as same-origin |
-| `allow-scripts allow-same-origin` | Allow scripts and same-origin access (use with trusted content only) |
+| `allow-popups` | Allow the embedded page to open new windows |
+
+Tokens outside NeoBoard's allow-list are removed before the page is embedded, and the editor warns under the field when that happens. `allow-same-origin` is always refused: combined with `allow-scripts` it would let the embedded page remove its own sandbox. `allow-top-navigation` is refused too; use `allow-top-navigation-by-user-activation` instead.
 
 ## Tips
 

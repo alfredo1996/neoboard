@@ -4,6 +4,7 @@ import { neoboardExportSchema } from "../../app/src/lib/dashboard/dashboard-impo
 import { COLOR_PALETTES } from "../../component/src/charts/palettes";
 import { CHART_TYPES } from "../../app/src/plugins/chart-types";
 import { SHOWCASES } from "../demo/showcases.mjs";
+import { sanitizeSandbox } from "../../component/src/components/composed/chart-options/iframe-sandbox";
 
 /**
  * #1515 — demo content, validated against the schema the app actually enforces.
@@ -112,6 +113,42 @@ describe("seeds only use palette ids that exist", () => {
     expect(ids.length).toBeGreaterThan(0);
     for (const id of ids) expect(known, id).toContain(id);
   });
+});
+
+// #1413 — Chart Reference titled a tile "allow-scripts + allow-same-origin"
+// while the widget silently ran it as allow-scripts. A seeded iframe whose
+// sandbox loses tokens at render must say so in its title.
+describe("seeded iframe tiles do not claim a sandbox the widget discards", () => {
+  type Widget = {
+    chartType: string;
+    settings?: { title?: string; chartOptions?: { sandbox?: string } };
+  };
+  const iframesIn = (text: string): Widget[] =>
+    (
+      JSON.parse(text) as { layout: { pages: { widgets: Widget[] }[] } }
+    ).layout.pages
+      .flatMap((p) => p.widgets)
+      .filter((w) => w.chartType === "iframe");
+
+  it("finds the iframe tiles it checks", () => {
+    const all = SHOWCASES.flatMap((s) =>
+      iframesIn(readFileSync(s.jsonPath, "utf-8")),
+    );
+    expect(all.some((w) => w.settings?.chartOptions?.sandbox)).toBe(true);
+  });
+
+  for (const showcase of SHOWCASES) {
+    it(`${showcase.key}: a tile with discarded sandbox tokens says "refused"`, () => {
+      for (const w of iframesIn(readFileSync(showcase.jsonPath, "utf-8"))) {
+        const configured = (w.settings?.chartOptions?.sandbox ?? "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .join(" ");
+        if (sanitizeSandbox(configured) === configured) continue;
+        expect(w.settings?.title ?? "", configured).toMatch(/refused/);
+      }
+    });
+  }
 });
 
 describe("the schema check itself is wired up", () => {

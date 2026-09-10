@@ -3264,7 +3264,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## iframe widget — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: url (different embeddable targets), iframeTitle (accessibility), sandbox (restrictive vs permissive).\n\n*Refresh the page to reset all parameters.*"
+                "content": "## iframe widget — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: url (different embeddable targets), iframeTitle (accessibility), sandbox (restrictive, and what happens when a token is refused).\n\n*Refresh the page to reset all parameters.*"
               }
             }
           },
@@ -3314,7 +3314,7 @@
             "connectionId": "conn_postgres_read",
             "query": "",
             "settings": {
-              "title": "sandbox = allow-scripts + allow-same-origin",
+              "title": "sandbox: allow-same-origin is refused, runs as allow-scripts",
               "chartOptions": {
                 "url": "https://en.wikipedia.org/wiki/Dashboard_(business)",
                 "iframeTitle": "Wikipedia (sandboxed)",
