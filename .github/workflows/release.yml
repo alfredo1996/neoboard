@@ -13,9 +13,45 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # softprops/action-gh-release creates the release
+    outputs:
+      is_latest: ${{ steps.tag.outputs.is_latest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need all tags to compute the highest version
+
+      # Two facts about the pushed tag, computed once and used by both the
+      # GitHub Release and the docker job's `latest` image tag.
+      #
+      # plain: only `vX.Y.Z` is a full release. Filtering positively (rather
+      # than testing for `-`) also makes `vnext`, `v1.5` and `v1.5.0+build.1`
+      # pre-releases instead of full releases.
+      #
+      # is_latest: `latest` must only move forward — back-publishing an older
+      # patch (e.g. v1.0.1 after v1.1.0) must NOT steal it (#982). The grep
+      # narrows the comparison to plain tags (#1224): `sort -V` ranks
+      # v1.4.0-rc.1 ABOVE v1.4.0, so without it a throwaway rc takes `latest`
+      # and keeps it after the real release ships. Consequence, and intended:
+      # a pre-release never becomes latest, which makes an rc tag a safe way
+      # to rehearse this workflow. No stable tags yet => HIGHEST empty =>
+      # is_latest=false. Safe default.
+      - name: Classify the tag
+        id: tag
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "plain=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "plain=false" >> "$GITHUB_OUTPUT"
+          fi
+          HIGHEST=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+          if [ "$TAG" = "$HIGHEST" ]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$TAG is not the highest release tag ($HIGHEST) — it will not be marked Latest."
+          fi
 
       - name: Extract changelog for this version
         id: changelog
@@ -35,9 +71,11 @@ jobs:
         with:
           body_path: /tmp/release-body.md
           generate_release_notes: false
-          # A `-` in the tag (v1.5.0-rc.1) makes it a pre-release, which GitHub
-          # never marks Latest — the same rule the docker job applies to `latest`.
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          # Without make_latest the API defaults to true, so a back-published
+          # patch would take the Releases page's Latest badge while the image's
+          # `latest` stayed put. Both now follow the Classify step.
+          prerelease: ${{ steps.tag.outputs.plain != 'true' }}
+          make_latest: ${{ steps.tag.outputs.is_latest }}
 
   docker:
     name: Build and Push Docker Image
@@ -63,8 +101,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0 # need all tags to compute the highest version
 
       # arm64 on an x86 runner is emulated. buildx does not install the binfmt
       # handlers itself, so without this the linux/arm64 leg fails immediately.
@@ -81,42 +117,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # `latest` must only move forward — back-publishing an older patch
-      # (e.g. v1.0.1 after v1.1.0) must NOT steal it (#982). Compare the
-      # pushed tag against the highest semver tag in the repo.
-      #
-      # The grep narrows that to plain `vX.Y.Z` releases (#1224). `sort -V`
-      # ranks v1.4.0-rc.1 ABOVE v1.4.0, so without it a throwaway rc tag takes
-      # `latest` and then keeps it even after the real release ships. Filtering
-      # positively (rather than excluding `-`) also drops `vnext`-style junk
-      # tags and avoids relying on how a given grep treats `-` as a pattern.
-      # Consequence, and intended: a pre-release tag never becomes `latest`,
-      # which is what makes an rc tag a safe way to rehearse this workflow.
-      # No stable tags yet => HIGHEST empty => is_latest=false. Safe default.
-      - name: Determine if this is the newest release
-        id: newest
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          HIGHEST=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
-          if [ "$TAG" = "$HIGHEST" ]; then
-            echo "is_latest=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_latest=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::$TAG is not the highest tag ($HIGHEST) — 'latest' will not move."
-          fi
-
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
-          # latest=false here; the conditional type=raw below owns it.
+          # latest=false here; the conditional type=raw below owns it, fed by
+          # the release job's Classify step.
           flavor: |
             latest=false
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ steps.newest.outputs.is_latest == 'true' }}
+            type=raw,value=latest,enable=${{ needs.release.outputs.is_latest == 'true' }}
 
       - name: Build and push
         id: build
