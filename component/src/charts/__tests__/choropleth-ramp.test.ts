@@ -146,15 +146,20 @@ describe("buildSequentialRamp (#1404)", () => {
  * would fix none of them. Dark mode inverts each end's lightness instead.
  */
 describe("invertLightness (#1402)", () => {
-  // Independent oracle: Python colorsys, rgb_to_hls → L' = 1 − L → hls_to_rgb.
+  // Independent oracle: a Python script — CIE L* from WCAG luminance, L*' =
+  // 100 − L*, then linear-light RGB scaled toward black (darker) or mixed
+  // toward white (lighter) to hit that luminance, hue kept.
   it.each([
-    ["#fff7d6", "#292100"],
-    ["#993404", "#fb9666"],
-    ["#e8f4f8", "#071317"],
-    ["#08306b", "#94bcf7"],
+    ["#fff7d6", "#0b0b08"],
+    ["#993404", "#ba908a"],
+    ["#e8f4f8", "#0f1010"],
+    ["#08306b", "#c2c4cc"],
     ["#ffffff", "#000000"],
-    ["#b91c1c", "#e34646"],
-  ])("inverts %s to %s, keeping hue and saturation", (input, expected) => {
+    ["#000000", "#ffffff"],
+    ["#b91c1c", "#c97c7c"],
+    ["#ffd700", "#292100"],
+    ["#8b0000", "#c5aaaa"],
+  ])("inverts %s to %s on the perceptual lightness axis", (input, expected) => {
     expect(invertLightness(input)).toBe(expected);
   });
 
@@ -162,14 +167,10 @@ describe("invertLightness (#1402)", () => {
     expect(invertLightness("#fff")).toBe("#000000");
   });
 
-  it("is its own inverse", () => {
-    for (const hex of ["#fff7d6", "#993404", "#08306b", "#123456"]) {
-      expect(invertLightness(invertLightness(hex))).toBe(hex);
-    }
-  });
-
   // The acceptance criterion: higher values read as more prominent against the
-  // canvas in BOTH themes — darker on light, lighter on dark.
+  // canvas in BOTH themes — darker on light, lighter on dark. The saturated
+  // pairs are the ones an HSL flip gets wrong: pure hues all sit at HSL
+  // L = 0.5, so yellow stayed brighter than red after "inverting".
   it.each([
     [
       "shipped default",
@@ -179,6 +180,10 @@ describe("invertLightness (#1402)", () => {
     ["gallery/playground Blues", "#e8f4f8", "#08306b"],
     ["reference white → red", "#ffffff", "#b91c1c"],
     ["reference yellow → green", "#fef3c7", "#166534"],
+    ["gold → dark red", "#ffd700", "#8b0000"],
+    ["amber → red", "#ffeb3b", "#d50000"],
+    ["yellow → red", "#ffff00", "#ff0000"],
+    ["cyan → blue", "#00ffff", "#0000ff"],
   ])("%s ramp gains prominence with value in both themes", (_n, min, max) => {
     const light = buildSequentialRamp(min, max, 5).map(luminance);
     const dark = buildSequentialRamp(
