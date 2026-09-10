@@ -611,6 +611,17 @@ describe("MarkdownWidget", () => {
       "café_au_lait and maß_größe_ und",
       "_größe_ärger",
       "pass class_ or from_ as kwargs",
+      "1_000_000 rows",
+      "utf8mb4_0900_ai_ci",
+      "use my__var_ here",
+      "_Foo__bar",
+      // A digit or a combining mark on either side keeps the `_` in the word.
+      "hash sha256_hex_ value",
+      "_tmp_1 table",
+      "_id_\u0301 x",
+      // Combining marks belong to the word: NFD Latin and Devanagari.
+      "cafe\u0301_id and the\u0301_ x",
+      "की_सूची_ ok",
     ])("renders %s verbatim", (md) => {
       render(<MarkdownWidget content={md} />);
       expect(container().textContent).toBe(md);
@@ -630,6 +641,44 @@ describe("MarkdownWidget", () => {
       const el = container().querySelectorAll(selector);
       expect(el).toHaveLength(1);
       expect(el[0].textContent).toBe(text);
+    });
+
+    it.each([
+      ["x __a__ y", "strong"],
+      ["x ___a___ y", "strong > em"],
+    ])("emphasises %s after a preceding character", (md, selector) => {
+      render(<MarkdownWidget content={md} />);
+      const el = container().querySelectorAll(selector);
+      expect(el).toHaveLength(1);
+      expect(el[0].textContent).toBe("a");
+      expect(container().textContent).toBe("x a y");
+    });
+
+    it("closes each _emphasis_ at its own delimiter", () => {
+      render(<MarkdownWidget content="_a_ and _b_" />);
+      const ems = [...container().querySelectorAll("em")];
+      expect(ems.map((e) => e.textContent)).toEqual(["a", "b"]);
+    });
+
+    it("parses a long line of unclosed underscores in linear time", () => {
+      const start = performance.now();
+      render(<MarkdownWidget content={"(_a)".repeat(25_000)} />);
+      expect(performance.now() - start).toBeLessThan(1000);
+    });
+
+    it.each([
+      ["[a](`b`)", "[a](b)"],
+      ["![a](`b`)", "![a](b)"],
+    ])("keeps %s as text: a code span is not a URL", (md, text) => {
+      render(<MarkdownWidget content={md} />);
+      expect(container().querySelector("a, img")).toBeNull();
+      expect(container().querySelector("code")!.textContent).toBe("b");
+      expect(container().textContent).toBe(text);
+    });
+
+    it("gives an image the plain text of a code span in its alt", () => {
+      render(<MarkdownWidget content={"![`x`](a.png)"} />);
+      expect(container().querySelector("img")!.getAttribute("alt")).toBe("x");
     });
 
     it("emphasises only the delimited word on a line with snake_case", () => {

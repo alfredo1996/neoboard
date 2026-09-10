@@ -296,16 +296,23 @@ function parseMarkdown(md: string): string {
 /**
  * A run of `n` underscores that opens and closes emphasis only outside a word,
  * per CommonMark's flanking rule, so snake_case and __dunder__-inside-words
- * survive (#1407). `*` has no such rule, so its passes stay loose.
+ * survive (#1407). `*` has no such rule, so its passes stay loose. Combining
+ * marks (\p{M}) are part of a word. The body is capped at 500 characters, like
+ * the link text, so an unclosed opener scans a bounded window instead of the
+ * rest of the line (otherwise a line of `(_a)` runs is quadratic).
  */
 const underscoreRun = (n: number) =>
   new RegExp(
-    `(^|[^\\p{L}\\p{N}_])_{${n}}(.+?)_{${n}}(?![\\p{L}\\p{N}_])`,
+    `(^|[^\\p{L}\\p{M}\\p{N}_])_{${n}}(.{1,500}?)_{${n}}(?![\\p{L}\\p{M}\\p{N}_])`,
     "gu",
   );
 const UNDERSCORE_3 = underscoreRun(3);
 const UNDERSCORE_2 = underscoreRun(2);
 const UNDERSCORE_1 = underscoreRun(1);
+
+/** processInline's stash placeholder, `<tN>`. */
+const PLACEHOLDER = /<t\d+>/;
+const PLACEHOLDERS = /<t(\d+)>/g;
 
 /** Escapes only the double-quote character for safe use in HTML attributes. */
 function escapeAttr(value: string): string {
@@ -350,10 +357,16 @@ function processInline(text: string): string {
   // alt is already HTML-escaped; url needs attribute-quoting via escapeAttr.
   result = result.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
-    (_match, alt: string, url: string) => {
+    (match, alt: string, url: string) => {
+      // A code span is literal text, never a URL.
+      if (PLACEHOLDER.test(url)) return match;
       if (!isSafeImageUrl(url)) return `[image blocked: unsafe URL]`;
+      // alt is an attribute: a code span in it collapses to its plain text.
+      const plainAlt = alt.replace(PLACEHOLDERS, (_m, i: string) =>
+        tags[+i].replace(/<[^>]*>/g, ""),
+      );
       return stash(
-        `<img src="${escapeAttr(url)}" alt="${alt}" class="max-w-full rounded my-1" />`,
+        `<img src="${escapeAttr(url)}" alt="${plainAlt}" class="max-w-full rounded my-1" />`,
       );
     },
   );
@@ -363,7 +376,8 @@ function processInline(text: string): string {
   // Use atomic-style groups (negated char classes) to prevent catastrophic backtracking.
   result = result.replace(
     /\[([^\]]{1,500})\]\(([^)\s]{1,2000})\)/g,
-    (_match, linkText: string, url: string) => {
+    (match, linkText: string, url: string) => {
+      if (PLACEHOLDER.test(url)) return match;
       if (!isSafeLinkUrl(url)) return linkText;
       return (
         stash(
@@ -390,7 +404,7 @@ function processInline(text: string): string {
   // Strikethrough: ~~text~~
   result = result.replace(/~~(.+?)~~/g, "<del>$1</del>");
 
-  return result.replace(/<t(\d+)>/g, (_m, i: string) => tags[+i]);
+  return result.replace(PLACEHOLDERS, (_m, i: string) => tags[+i]);
 }
 
 function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
