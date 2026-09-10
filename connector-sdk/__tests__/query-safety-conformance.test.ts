@@ -235,14 +235,16 @@ describe("query-safety conformance harness", () => {
       await expect(c.run()).resolves.toBeUndefined();
     });
 
+    // Against the documented value, not a snapshot taken at the start: a
+    // case that leaked its lowered default would already have poisoned that
+    // snapshot in an earlier test.
     it("restores the default afterwards, even when the case fails", async () => {
-      const before = DEFAULT_CONNECTION_CONFIG.timeout;
       const c = caseNamed(
         budgetModule((config) => config.timeout ?? 0),
         "timeout is unset",
       );
-      await c.run().catch(() => undefined);
-      expect(DEFAULT_CONNECTION_CONFIG.timeout).toBe(before);
+      await expect(c.run()).rejects.toThrow(/timeout violation/);
+      expect(DEFAULT_CONNECTION_CONFIG.timeout).toBe(30_000);
     });
   });
 });
