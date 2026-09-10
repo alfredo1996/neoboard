@@ -12,7 +12,7 @@ Docker Compose is the **recommended** way to run NeoBoard in production; the [in
 | `docker-compose.prod-full.yml` (recommended)  | Single-server deployment — bundles PostgreSQL, with optional Neo4j        |
 | `docker-compose.prod.yml`                     | You bring your own PostgreSQL (RDS, Cloud SQL, an existing server)        |
 
-Both files pull the released image (`ghcr.io/alfredo1996/neoboard`) and fall back to building from source when no image is available. Pin a specific release with `NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:X.Y.Z`.
+Both files pull the released image (`ghcr.io/alfredo1996/neoboard`) and fall back to building from source when no image is available. Pin a specific release with `NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:X.Y.Z`. Hosts with no internet access? [Air-gapped install](/deploy/air-gapped) lists what to mirror and what still needs a network.
 
 ### 1. Generate secrets
 
