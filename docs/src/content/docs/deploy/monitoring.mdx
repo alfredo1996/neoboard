@@ -2,7 +2,7 @@
 title: Monitoring
 description: Monitor NeoBoard health, performance, and resource usage.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 ## Health check endpoint
@@ -87,6 +87,8 @@ readinessProbe:
   periodSeconds: 10
   timeoutSeconds: 5
 ```
+
+A complete Deployment and Service using these probes is on [Run from a build](/deploy/run-from-a-build#option-2-kubernetes-with-the-published-image).
 
 ## Key metrics to monitor
 

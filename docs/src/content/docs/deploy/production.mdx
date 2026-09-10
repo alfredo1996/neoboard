@@ -5,14 +5,14 @@ sidebar:
   order: 1
 ---
 
-The [install](/start-here/install) paths set up a **development** stack. For production, use the dedicated compose files in `docker/`:
+Docker Compose is the **recommended** way to run NeoBoard in production; the [install](/start-here/install) paths set up a development stack. Prefer a plain Node.js process, systemd, or Kubernetes? [Run from a build](/deploy/run-from-a-build) covers those — same app, same variables. Otherwise use the dedicated compose files in `docker/`:
 
 | File                                          | Use when                                                                  |
 | --------------------------------------------- | ------------------------------------------------------------------------- |
 | `docker-compose.prod-full.yml` (recommended)  | Single-server deployment — bundles PostgreSQL, with optional Neo4j        |
 | `docker-compose.prod.yml`                     | You bring your own PostgreSQL (RDS, Cloud SQL, an existing server)        |
 
-Both files pull the released image (`ghcr.io/alfredo1996/neoboard`) and fall back to building from source when no image is available. Pin a specific release with `NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:vX.Y.Z`.
+Both files pull the released image (`ghcr.io/alfredo1996/neoboard`) and fall back to building from source when no image is available. Pin a specific release with `NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:X.Y.Z`.
 
 ### 1. Generate secrets
 
