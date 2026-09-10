@@ -63,6 +63,20 @@ describe("buildShareLink", () => {
     expect(unsynced).toEqual([]);
   });
 
+  it("reports a set multi-select or range parent, not an empty multi-select", () => {
+    const { unsynced } = buildShareLink(
+      ORIGIN,
+      "/d1",
+      {
+        tags: entry(["a", "b"]),
+        period: entry({ from: "2024-01-01", to: "" }),
+        none: entry([]),
+      },
+      new Set(),
+    );
+    expect(unsynced.map((u) => u.name)).toEqual(["tags", "period"]);
+  });
+
   it("names a range parameter once, by its widget name, not per companion", () => {
     const { unsynced } = buildShareLink(
       ORIGIN,

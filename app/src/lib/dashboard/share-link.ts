@@ -1,5 +1,5 @@
 import type { ParameterEntry } from "@/stores/parameter-store";
-import { buildParamsUrl } from "@/lib/shared/url-params";
+import { buildParamsUrl, isSet } from "@/lib/shared/url-params";
 
 /**
  * Companion keys that range widgets write beside their parameter name
@@ -40,9 +40,7 @@ export function buildShareLink(
 ): { url: string; unsynced: UnsyncedParameter[] } {
   const unsynced: UnsyncedParameter[] = [];
   for (const [name, entry] of Object.entries(parameters)) {
-    if (!entry) continue;
-    const value = entry.value;
-    if (value === undefined || value === null || String(value) === "") continue;
+    if (!entry || !isSet(entry.value)) continue;
     if (syncable.has(name) || entry.sourceType === "default") continue;
     // ponytail: a text parameter literally named `x_from` shows as `x`;
     // the store carries no widget link to disambiguate, and the URL layer

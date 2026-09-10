@@ -4,6 +4,7 @@ import {
   buildUrlParams,
   buildParamsUrl,
   extractSyncParams,
+  isSet,
 } from "@/lib/shared/url-params";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
@@ -263,5 +264,28 @@ describe("buildUrlParams — non-scalar values", () => {
 
   it("never serialises an object as [object Object]", () => {
     expect(buildUrlParams({ x: { a: 1 } }, ALL("x")).toString()).toBe("");
+  });
+});
+
+// Pins what `String(v) !== ""` answered before isSet stopped stringifying
+// (Sonar S6551): an object is set, an array is empty only when it holds
+// nothing or one unset item — `String(["", ""])` is ",".
+describe("isSet", () => {
+  it.each([
+    ["undefined", false, undefined],
+    ["null", false, null],
+    ["an empty string", false, ""],
+    ["a string", true, "Sales"],
+    ["zero", true, 0],
+    ["false", true, false],
+    ["a range parent", true, { from: "", to: "" }],
+    ["an empty array", false, []],
+    ["an array of one empty string", false, [""]],
+    ["an array of one null", false, [null]],
+    ["an array of one value", true, ["a"]],
+    ["an array of two empty strings", true, ["", ""]],
+    ["an array holding an object", true, [{ from: "", to: "" }]],
+  ])("%s → %s", (_label, expected, value) => {
+    expect(isSet(value)).toBe(expected);
   });
 });

@@ -20,7 +20,16 @@ const COMPANION_KEY = /^(.+)_(from|to|min|max)$/;
  */
 export type UrlParamValue = string | string[] | { from: string; to: string };
 
-const isSet = (v: unknown) => v !== undefined && v !== null && String(v) !== "";
+/**
+ * A parameter value worth carrying: not empty, not cleared. Answers what
+ * `String(v) !== ""` did without stringifying an object: an array is empty
+ * only when it holds nothing or one unset item (`String(["", ""])` is ","),
+ * and any other object is set — the callers that cannot serialise it drop it.
+ */
+export const isSet = (v: unknown): boolean => {
+  if (v === undefined || v === null || v === "") return false;
+  return !Array.isArray(v) || v.length > 1 || isSet(v[0]);
+};
 
 /**
  * Extract parameter values from URL search params.
@@ -44,6 +53,12 @@ export function parseUrlParams(
     result[key.slice(PARAM_PREFIX.length)] =
       values.length === 1 ? values[0] : values;
   }
+  rebuildRangeParents(result);
+  return result;
+}
+
+/** Rebuild `x` from `x_from`/`x_to` or `x_min`/`x_max` when `x` is absent. */
+function rebuildRangeParents(result: Record<string, UrlParamValue>): void {
   const scalar = (name: string) => {
     const v = result[name];
     return typeof v === "string" ? v : undefined;
@@ -65,7 +80,6 @@ export function parseUrlParams(
       if (min !== undefined && max !== undefined) result[base] = [min, max];
     }
   }
-  return result;
 }
 
 /**
