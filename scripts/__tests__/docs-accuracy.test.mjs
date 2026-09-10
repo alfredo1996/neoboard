@@ -602,7 +602,8 @@ describe("the seven-group information architecture (#1681)", () => {
               /^(neoboard\.app\/docs|alfredo1996\.github\.io\/neoboard)/,
               "",
             )
-            .replace(/\/+$/, "") || "/",
+            // The site root is index.mdx, whose pageSlug is "" (#1217).
+            .replace(/\/+$/, ""),
       }))
       .filter(({ slug }) => !covered.has(slug))
       .map(({ path, line, slug }) => `${slug} (${path}:${line})`);

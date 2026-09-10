@@ -4,6 +4,8 @@
     Open-source dashboards for Neo4j + PostgreSQL
     <br />
     <em>The modern alternative to NeoDash</em>
+    <br />
+    <a href="https://alfredo1996.github.io/neoboard/"><strong>Documentation</strong></a>
   </p>
   <p align="center">
     <a href="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml/badge.svg?branch=dev" /></a>
@@ -13,7 +15,7 @@
   </p>
   <p align="center">
     <img alt="Node >= 20" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" />
-    <a href="https://github.com/alfredo1996/neoboard/pkgs/container/neoboard"><img alt="Docker" src="https://img.shields.io/badge/docker-ghcr.io%2Fneoboard-2496ED?logo=docker&logoColor=white" /></a>
+    <a href="https://github.com/alfredo1996/neoboard/pkgs/container/neoboard"><img alt="Docker" src="https://img.shields.io/badge/docker-ghcr.io%2Falfredo1996%2Fneoboard-2496ED?logo=docker&logoColor=white" /></a>
     <a href="https://github.com/alfredo1996/neoboard/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/alfredo1996/neoboard?style=social" /></a>
     <a href="https://github.com/alfredo1996/neoboard/issues?q=label%3A%22good+first+issue%22"><img alt="Good First Issues" src="https://img.shields.io/github/issues/alfredo1996/neoboard/good%20first%20issue?color=7057ff&label=good%20first%20issues" /></a>
   </p>
@@ -49,7 +51,7 @@ bash install.sh   # installs deps, starts Docker, runs migrations
 
 > **Note:** an `npx @neoboard/cli` standalone install path is on the roadmap but the package is not on npm yet — clone the repo for now.
 
-If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see [Troubleshooting Setup](docs/src/content/docs/start-here/troubleshooting.mdx).
+If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see [Troubleshooting Setup](https://alfredo1996.github.io/neoboard/start-here/troubleshooting/).
 
 ### Demo showcases
 
@@ -83,33 +85,43 @@ Demo login: `admin@neoboard.local` / `admin123`
 
 ### Docker (Production)
 
-All Compose files live in [`docker/`](docker/) — there is intentionally no root-level `docker-compose.yml`, so pass `-f`:
+All Compose files live in [`docker/`](docker/) — there is intentionally no root-level `docker-compose.yml`, so pass `-f`. From the root of the clone:
 
 ```bash
-export POSTGRES_PASSWORD=$(openssl rand -hex 16)
-export ENCRYPTION_KEY=$(openssl rand -hex 32)     # lost key = stored credentials unrecoverable
-export NEXTAUTH_SECRET=$(openssl rand -base64 32)
-export API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
-docker compose -f docker/docker-compose.prod-full.yml up -d
+# Generate the secrets ONCE, into a gitignored file. noclobber refuses to
+# overwrite it: a new ENCRYPTION_KEY makes stored credentials unrecoverable.
+(set -o noclobber; umask 077; cat > docker/.env.production.local <<EOF
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+ENCRYPTION_KEY=$(openssl rand -hex 32)
+NEXTAUTH_SECRET=$(openssl rand -base64 32)
+API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
+ADMIN_BOOTSTRAP_TOKEN=$(openssl rand -hex 32)
+EOF
+)
+docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml up -d --build
 ```
 
-`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](docs/src/content/docs/deploy/production.mdx) for first-admin bootstrap, health verification, and TLS, and [`app/.env.example`](app/.env.example) for every variable.
+Back up `docker/.env.production.local` with the database — losing `ENCRYPTION_KEY` means every stored connection credential is gone. Once the app is healthy, create the first admin at <http://localhost:3000/signup> with the token from `grep ADMIN_BOOTSTRAP_TOKEN docker/.env.production.local`.
+
+`--build` builds the image from your checkout. Released images are published as `ghcr.io/alfredo1996/neoboard`; once a release is out, drop `--build` and pin one with `NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:X.Y.Z`.
+
+`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](https://alfredo1996.github.io/neoboard/deploy/production/) for health verification and TLS, and [`app/.env.example`](app/.env.example) for every variable.
 
 Browse the [screenshots](#screenshots) below for a feel of the UI without installing.
 
 ## Features
 
-| Category          | Details                                                                                                                                                                               |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Category          | Details                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Charts**        | 18 types: Bar, Line, Pie, Table, Single Value, Gauge, Radar, Sankey, Sunburst, Gantt, Choropleth, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select |
-| **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                                                                                                              |
-| **Parameters**    | Select, Multi-Select, Date, Date Range, Freetext — with cross-widget binding                                                                                                          |
-| **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                                                                                                                 |
-| **Transforms**    | Client-side filter, sort, groupBy, calculatedColumn, rename, limit pipeline                                                                                                           |
-| **Styling**       | Rule-based conditional styling, color scales, colorblind mode                                                                                                                         |
-| **Interactivity** | Click actions (set parameter, navigate page), fullscreen widgets                                                                                                                      |
-| **Export**        | CSV export, JSON dashboard import/export                                                                                                                                              |
-| **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries                                                                                                      |
+| **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                                                                                     |
+| **Parameters**    | Select, Multi-Select, Date, Date Range, Freetext — with cross-widget binding                                                                                 |
+| **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                                                                                        |
+| **Transforms**    | Client-side filter, sort, groupBy, calculatedColumn, rename, limit pipeline                                                                                  |
+| **Styling**       | Rule-based conditional styling, color scales, colorblind mode                                                                                                |
+| **Interactivity** | Click actions (set parameter, navigate page), fullscreen widgets                                                                                             |
+| **Export**        | CSV export, JSON dashboard import/export                                                                                                                     |
+| **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries                                                                             |
 
 ## Ecosystem & Community
 
@@ -156,6 +168,10 @@ neoboard/
 
 Three packages with **strict boundaries**: `app/` orchestrates, `component/` renders, `connection/` queries. No cross-imports between `component/` and `connection/`.
 
+## Documentation
+
+The full documentation — install, deployment, every chart type, security and the plugin SDK — is at **<https://alfredo1996.github.io/neoboard/>**.
+
 ## Contributing
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for local setup, project structure, and development workflow. For PR etiquette, branch naming, and code style, see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
@@ -174,7 +190,7 @@ Feature and fix branches target `dev` by default, or the active `release/X.Y` br
 
 ## Migrating from NeoDash
 
-NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/start-here/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
+NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](https://alfredo1996.github.io/neoboard/start-here/migration-from-neodash/) for step-by-step instructions and the supported widget mappings.
 
 ## API Documentation
 
