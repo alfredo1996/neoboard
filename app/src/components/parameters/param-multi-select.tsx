@@ -3,6 +3,7 @@
 import { ParamMultiSelector } from "@neoboard/components";
 import type { ParamActions } from "./use-param-actions";
 import type { SeedQueryResult } from "./use-seed-query-options";
+import { SeedQueryError } from "./seed-query-error";
 
 interface ParamMultiSelectProps {
   parameterName: string;
@@ -31,6 +32,9 @@ export function ParamMultiSelect({
       ? [String(rawValues)]
       : [];
 
+  if (seed.error) {
+    return <SeedQueryError error={seed.error} onRetry={seed.refetch} />;
+  }
   return (
     <ParamMultiSelector
       parameterName={parameterName}

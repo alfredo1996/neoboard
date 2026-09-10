@@ -4,6 +4,7 @@ import {
   unwrapFullResponse,
   QueueFullError,
   ClientQueueTimeoutError,
+  ConnectorUnavailableError,
   parseRetryAfter,
 } from "@/lib/api/api-client";
 
@@ -310,5 +311,76 @@ describe("error classes", () => {
     expect(err.name).toBe("ClientQueueTimeoutError");
     expect(err.retryAfterMs).toBe(4000);
     expect(err).toBeInstanceOf(Error);
+  });
+
+  it("ConnectorUnavailableError exposes the classifier reason", () => {
+    const err = new ConnectorUnavailableError("dead", "auth_failed");
+    expect(err.name).toBe("ConnectorUnavailableError");
+    expect(err.reason).toBe("auth_failed");
+    expect(err).toBeInstanceOf(Error);
+  });
+});
+
+/**
+ * #1678 — the 502 the route returns for a dead connector must arrive as a
+ * typed error, so the retry predicate can refuse it and the widget can name
+ * the connector instead of printing the raw driver text.
+ */
+describe("CONNECTOR_UNAVAILABLE envelope (#1678)", () => {
+  const envelope = (reason?: string) => ({
+    data: null,
+    error: {
+      code: "CONNECTOR_UNAVAILABLE",
+      message: "timeout exceeded when trying to connect",
+      ...(reason ? { details: { reason } } : {}),
+    },
+    meta: null,
+  });
+
+  it.each([
+    ["unwrapResponse", unwrapResponse],
+    ["unwrapFullResponse", unwrapFullResponse],
+  ] as const)("%s throws ConnectorUnavailableError", async (_n, unwrap) => {
+    const p = unwrap(fakeResponse(envelope("network"), 502));
+    await expect(p).rejects.toBeInstanceOf(ConnectorUnavailableError);
+    await expect(p).rejects.toMatchObject({
+      reason: "network",
+      message: "timeout exceeded when trying to connect",
+    });
+  });
+
+  it("carries auth_failed through", async () => {
+    await expect(
+      unwrapResponse(fakeResponse(envelope("auth_failed"), 502)),
+    ).rejects.toMatchObject({ reason: "auth_failed" });
+  });
+
+  it("defaults the reason to network when details are missing", async () => {
+    await expect(
+      unwrapResponse(fakeResponse(envelope(), 502)),
+    ).rejects.toMatchObject({ reason: "network" });
+  });
+
+  it("is not a backpressure error — no retryAfterMs", async () => {
+    const err = await unwrapResponse(
+      fakeResponse(envelope("network"), 502),
+    ).catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(QueueFullError);
+    expect(err).not.toBeInstanceOf(ClientQueueTimeoutError);
+  });
+
+  it("leaves other envelope errors as plain Error", async () => {
+    const err = await unwrapResponse(
+      fakeResponse(
+        {
+          data: null,
+          error: { code: "INTERNAL_ERROR", message: "syntax error" },
+          meta: null,
+        },
+        500,
+      ),
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(ConnectorUnavailableError);
   });
 });

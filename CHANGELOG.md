@@ -16,6 +16,7 @@ Chart-experience release: chart authoring, editing, rule-based styling and click
 
 ### Fixed
 
+- A connection whose host is unreachable no longer storms retries or hangs dependent widgets on "Waiting for parameters…": the API answers `502 CONNECTOR_UNAVAILABLE` (no auto-retry) instead of `408`, every widget on that connection says "Connector unavailable" with the classifier's hint — including the ones gated on a parameter whose seed query is on a dead connection, their own or another — parameter widgets show the failure with a Retry instead of an empty list, refused PostgreSQL credentials answer `502` too (they were a bare `500`), scheduler backpressure (`408`/`503`) neither clears the flag nor auto-retries on a flagged connection, widget queries no longer re-fire on window focus, and the Neo4j driver's connection-acquisition timeout is bounded (#1678)
 - A password embedded in a connection URI is now rejected when you save the connection, and a URI that fails to parse no longer quotes the URI back to you; a bare username stays accepted (#1303)
 - Tables whose saved grouping arrived as an array — from a seeded layout, an imported dashboard or a NeoDash conversion — now group correctly instead of rendering flat with no group rows and no aggregates (#1395)
 - Default values on parameter widgets are now applied when a dashboard loads, so dashboards relying on them no longer open empty; a URL value or restored session still wins (#1421, after #1234 and #1388; the general dead-export check is #1477)

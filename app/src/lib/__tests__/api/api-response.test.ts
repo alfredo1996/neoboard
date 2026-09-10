@@ -91,6 +91,11 @@ describe("apiError", () => {
     const res = apiError("INTERNAL_ERROR", "Something broke");
     expect(res.status).toBe(500);
   });
+
+  it("returns CONNECTOR_UNAVAILABLE with 502 (#1678)", () => {
+    const res = apiError("CONNECTOR_UNAVAILABLE", "connect ECONNREFUSED");
+    expect(res.status).toBe(502);
+  });
 });
 
 describe("parsePagination", () => {

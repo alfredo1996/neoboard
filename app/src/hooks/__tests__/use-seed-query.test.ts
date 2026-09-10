@@ -14,7 +14,12 @@ vi.mock("@tanstack/react-query", () => ({
   })),
 }));
 
-vi.mock("@/lib/api/api-client", () => ({
+vi.mock("@/lib/api/api-client", async () => ({
+  // The error classes stay real: the hook reports outcomes to the connection
+  // status store, which matches on `instanceof ConnectorUnavailableError`.
+  ...(await vi.importActual<typeof import("@/lib/api/api-client")>(
+    "@/lib/api/api-client",
+  )),
   unwrapFullResponse: vi.fn(async (res: Response) => {
     const body = await res.json();
     if (!res.ok) throw new Error("Request failed");
@@ -190,8 +195,7 @@ describe("useSeedQuery", () => {
     it("POSTs to /api/query with correct body", async () => {
       const { useQuery } = await import("@tanstack/react-query");
       let capturedQueryFn:
-        | ((ctx: { signal: AbortSignal }) => Promise<unknown>)
-        | undefined;
+        ((ctx: { signal: AbortSignal }) => Promise<unknown>) | undefined;
 
       vi.mocked(useQuery).mockImplementation(((
         config: Record<string, unknown>,
@@ -222,6 +226,76 @@ describe("useSeedQuery", () => {
           tenantId: "tenant-1",
         }),
       });
+    });
+
+    /**
+     * #1678 — a dead connector behind a parameter widget used to be an empty
+     * dropdown and nothing else. The seed query must (a) report the failure
+     * to the connection status store so the widgets gated on this parameter
+     * can name the connector, and (b) not re-fire on every alt-tab.
+     */
+    it("reports a ConnectorUnavailableError to the connection status store (#1678)", async () => {
+      const { useQuery } = await import("@tanstack/react-query");
+      const { unwrapFullResponse, ConnectorUnavailableError } =
+        await import("@/lib/api/api-client");
+      const { useConnectionStatusStore } =
+        await import("@/stores/connection-status-store");
+      useConnectionStatusStore.getState().reset();
+
+      let capturedQueryFn:
+        ((ctx: { signal: AbortSignal }) => Promise<unknown>) | undefined;
+      vi.mocked(useQuery).mockImplementation(((
+        config: Record<string, unknown>,
+      ) => {
+        capturedQueryFn = config.queryFn as typeof capturedQueryFn;
+        return { data: null, isLoading: false };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any);
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ data: null, error: { code: "x" }, meta: null }, 502),
+      );
+      const dead = new ConnectorUnavailableError("dead", "network");
+      vi.mocked(unwrapFullResponse).mockRejectedValueOnce(dead);
+
+      const { useSeedQuery } = await import("../use-seed-query");
+      useSeedQuery("conn-dead", "RETURN 1", true);
+
+      await expect(
+        capturedQueryFn!({ signal: new AbortController().signal }),
+      ).rejects.toBe(dead);
+      expect(useConnectionStatusStore.getState().getStatus("conn-dead")).toBe(
+        "error",
+      );
+    });
+
+    it("exposes refetch so a parameter widget can retry a failed seed query (#1678)", async () => {
+      const { useQuery } = await import("@tanstack/react-query");
+      const refetch = vi.fn();
+      vi.mocked(useQuery).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        refetch,
+      } as unknown as ReturnType<typeof useQuery>);
+
+      const { useSeedQuery } = await import("../use-seed-query");
+      expect(useSeedQuery("conn-1", "RETURN 1", true).refetch).toBe(refetch);
+    });
+
+    it("does not refetch on window focus (#1678)", async () => {
+      const { useQuery } = await import("@tanstack/react-query");
+      let captured: Record<string, unknown> | undefined;
+      vi.mocked(useQuery).mockImplementation(((
+        config: Record<string, unknown>,
+      ) => {
+        captured = config;
+        return { data: null, isLoading: false };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any);
+
+      const { useSeedQuery } = await import("../use-seed-query");
+      useSeedQuery("conn-1", "RETURN 1", true);
+
+      expect(captured?.refetchOnWindowFocus).toBe(false);
     });
   });
 });

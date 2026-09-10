@@ -119,6 +119,47 @@ describe("Neo4jAuthenticationModule with advanced options", () => {
     );
   });
 
+  /**
+   * #1678 — left unset, the driver waits its own 60 s default to acquire a
+   * connection, doubling every attempt against a dead host. It is pinned
+   * just above the connect timeout rather than equal to it: the pool arms
+   * its acquisition timer before the socket arms its connect timer, so an
+   * equal value fires first and the failure reads as a (retryable) pool
+   * timeout instead of the connect failure the API maps to
+   * CONNECTOR_UNAVAILABLE.
+   */
+  it("bounds connectionAcquisitionTimeout just above the default connect timeout (#1678)", () => {
+    const {
+      Neo4jAuthenticationModule,
+    } = require("../src/neo4j/Neo4jAuthenticationModule");
+    new Neo4jAuthenticationModule(neo4jAuth);
+
+    expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
+      neo4jAuth.uri,
+      expect.anything(),
+      expect.objectContaining({
+        connectionTimeout: 30000,
+        connectionAcquisitionTimeout: 35000,
+      }),
+    );
+  });
+
+  it("follows a custom connect timeout when no acquisition timeout is given (#1678)", () => {
+    const {
+      Neo4jAuthenticationModule,
+    } = require("../src/neo4j/Neo4jAuthenticationModule");
+    new Neo4jAuthenticationModule(neo4jAuth, { neo4jConnectionTimeout: 5000 });
+
+    expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
+      neo4jAuth.uri,
+      expect.anything(),
+      expect.objectContaining({
+        connectionTimeout: 5000,
+        connectionAcquisitionTimeout: 10000,
+      }),
+    );
+  });
+
   it("passes custom connectionTimeout from advanced options", () => {
     const {
       Neo4jAuthenticationModule,

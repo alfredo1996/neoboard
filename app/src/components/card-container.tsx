@@ -21,7 +21,13 @@ import {
 } from "@/lib/widget/card-utils";
 import React, { useMemo, useCallback, useState } from "react";
 import { AlertCircle, Clock, Play } from "lucide-react";
-import { QueueFullError, ClientQueueTimeoutError } from "@/lib/api/api-client";
+import {
+  QueueFullError,
+  ClientQueueTimeoutError,
+  ConnectorUnavailableError,
+} from "@/lib/api/api-client";
+import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
 import {
   Skeleton,
   Alert,
@@ -147,6 +153,42 @@ function MissingParamBadge({
 }
 
 /**
+ * The connector cannot be reached (#1678). Rendered both when this widget's
+ * own query came back CONNECTOR_UNAVAILABLE and when a sibling on the same
+ * connection did while this one is still gated on a parameter — so the
+ * whole dashboard names the connector at once instead of one card saying
+ * "unavailable" and the rest "waiting".
+ */
+function ConnectorUnavailable({
+  hint,
+  detail,
+  onRetry,
+}: Readonly<{
+  hint: string;
+  /** The driver's own words — shown to editors, who can fix the connection. */
+  detail?: string;
+  onRetry?: () => void;
+}>) {
+  return (
+    <div className="p-4">
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Connector unavailable</AlertTitle>
+        <AlertDescription className="space-y-2">
+          <p>{hint}</p>
+          {detail && <p className="text-xs font-mono opacity-70">{detail}</p>}
+          {onRetry && (
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              Retry
+            </Button>
+          )}
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
+/**
  * CardContainer: Fetches query results and renders the appropriate chart.
  * Uses React Query caching so queries are deduplicated across view->edit navigation.
  *
@@ -236,6 +278,22 @@ export function CardContainer({
     refetchInterval,
     enabled: manualEnabled,
   });
+
+  // What the other widgets have learned about their connections (#1678). A
+  // widget that never gets to run — gated on a parameter whose seed query is
+  // on a dead connector — has no error of its own to show, so it borrows the
+  // verdict on the connector it is waiting on: its own, or the one behind a
+  // parameter it is missing (a selector on a dead connection feeds widgets on
+  // healthy ones too).
+  const connectionStatuses = useConnectionStatusStore((s) => s.statuses);
+  const connectionErrors = useConnectionStatusStore((s) => s.errors);
+  const ownConnectionDead = connectionStatuses[widget.connectionId] === "error";
+  const deadConnectionId = ownConnectionDead
+    ? widget.connectionId
+    : missingParams
+        .flatMap((name) => parameterSourceMap?.[name] ?? [])
+        .find((src) => connectionStatuses[src.connectionId] === "error")
+        ?.connectionId;
 
   // Resolve the current column mapping from widget settings.
   const columnMapping = useMemo<ColumnMapping>(() => {
@@ -519,6 +577,22 @@ export function CardContainer({
       );
     }
 
+    // The parameter this widget waits for will never arrive if its seed
+    // query runs on a connector a sibling has already found dead (#1678).
+    // Name the connector; "Waiting for parameters…" here was a lie that only
+    // a page reload could dispel. No Retry: the query is disabled, and the
+    // sibling that discovered the failure owns the retry.
+    if (deadConnectionId) {
+      return (
+        <ConnectorUnavailable
+          hint={
+            connectionErrors[deadConnectionId] ??
+            hintForConnectionErrorCode("network")
+          }
+        />
+      );
+    }
+
     // Genuine unresolved $param_xxx placeholders — show parameter badges.
     return (
       <div className="flex h-full items-center justify-center p-6">
@@ -554,13 +628,39 @@ export function CardContainer({
   }
 
   if (widgetQuery.isError) {
+    // The connector itself is unreachable (#1678). Never retried
+    // automatically — see shouldRetryWidgetQuery — so the Retry here is the
+    // only re-probe, and it is the user's call.
+    if (widgetQuery.error instanceof ConnectorUnavailableError) {
+      return (
+        <ConnectorUnavailable
+          hint={hintForConnectionErrorCode(widgetQuery.error.reason)}
+          detail={isEditMode ? widgetQuery.error.message : undefined}
+          onRetry={() => widgetQuery.refetch()}
+        />
+      );
+    }
+    const backpressure =
+      widgetQuery.error instanceof QueueFullError ||
+      widgetQuery.error instanceof ClientQueueTimeoutError;
+    // A 408 the scheduler handed the overflow widgets on a connection a
+    // sibling has already found dead: shouldRetryWidgetQuery refused the
+    // retry, and the card says what its siblings say, not "Server timed out".
+    if (backpressure && ownConnectionDead) {
+      return (
+        <ConnectorUnavailable
+          hint={
+            connectionErrors[widget.connectionId] ??
+            hintForConnectionErrorCode("network")
+          }
+          onRetry={() => widgetQuery.refetch()}
+        />
+      );
+    }
     // Backpressure states — retries already exhausted at this point, but
     // render a softer message (not "Query Failed") with a manual retry
     // button so the user understands it's a transient server-load issue.
-    if (
-      widgetQuery.error instanceof QueueFullError ||
-      widgetQuery.error instanceof ClientQueueTimeoutError
-    ) {
+    if (backpressure) {
       const isBusy = widgetQuery.error instanceof QueueFullError;
       return (
         <div className="p-4">

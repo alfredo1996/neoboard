@@ -27,6 +27,12 @@ import type { SeedQueryResult } from "../use-seed-query-options";
 const paramSelectorProps: Array<Record<string, unknown>> = [];
 
 vi.mock("@neoboard/components", () => ({
+  Button: ({
+    children,
+    ...rest
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...rest}>{children}</button>
+  ),
   ParamSelector: (p: Record<string, unknown>) => {
     paramSelectorProps.push(p);
     return (
@@ -56,6 +62,8 @@ vi.mock("@neoboard/components", () => ({
 
 /* ---------- import under test ---------- */
 import { ParamSelect } from "../param-select";
+import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 
 type Entry = ParamActions["currentEntry"];
 
@@ -87,6 +95,8 @@ function makeSeed(over: Partial<SeedQueryResult> = {}): SeedQueryResult {
   return {
     options: [{ value: "42", label: "Forty-Two", rawValue: 42 }],
     loading: false,
+    error: null,
+    refetch: vi.fn(),
     setSearchTerm,
     parentValue: undefined,
     ...over,
@@ -190,6 +200,52 @@ describe("ParamSelect — write mapping", () => {
     fireEvent.click(screen.getByTestId("ps-clear"));
     expect(actions.clear).toHaveBeenCalledTimes(1);
     expect(actions.set).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * #1678 — a seed query that rejects used to render as an empty dropdown:
+ * no message, no way to tell a dead connector from "no rows", and every
+ * widget gated on this parameter stuck on "Waiting for parameters…".
+ */
+describe("ParamSelect — seed query error (#1678)", () => {
+  it("names the connector and shows the classifier hint instead of an empty list", () => {
+    renderSelect({
+      seed: {
+        options: [],
+        error: new ConnectorUnavailableError("timeout exceeded", "network"),
+      },
+    });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Connector unavailable");
+    expect(alert).toHaveTextContent(hintForConnectionErrorCode("network"));
+    // No dropdown at all — the failure is not "no options".
+    expect(screen.queryByTestId("param-selector-choice")).toBeNull();
+  });
+
+  it("shows the message of any other seed query failure", () => {
+    renderSelect({
+      seed: { options: [], error: new Error("relation x does not exist") },
+    });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("relation x does not exist");
+    expect(alert).not.toHaveTextContent("Connector unavailable");
+  });
+
+  // The seed query has no interval and no auto-retry, and nothing else on the
+  // dashboard invalidates it: without this button the select — and everything
+  // gated on it — stays dead until a reload, which the issue rules out.
+  it("offers a Retry that re-runs the seed query", () => {
+    const refetch = vi.fn();
+    renderSelect({
+      seed: {
+        options: [],
+        error: new ConnectorUnavailableError("timeout exceeded", "network"),
+        refetch,
+      },
+    });
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
 

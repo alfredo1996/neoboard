@@ -23,11 +23,13 @@ type SeedSpyReturn = {
   options: { value: string; label: string }[];
   loading: boolean;
   error: Error | null;
+  refetch: () => void;
 };
 const seedQuerySpy = vi.fn<(...args: SeedSpyArgs) => SeedSpyReturn>(() => ({
   options: [],
   loading: false,
   error: null,
+  refetch: vi.fn(),
 }));
 vi.mock("@/hooks/use-seed-query", () => ({
   useSeedQuery: (...args: SeedSpyArgs) => seedQuerySpy(...args),
@@ -39,6 +41,53 @@ function lastCallArgs(): SeedSpyArgs {
   if (!last) throw new Error("useSeedQuery was never called");
   return last;
 }
+
+/**
+ * #1678 — `error` used to be dropped here, so a dead connector behind a
+ * select was an empty dropdown with no message and no way to tell it apart
+ * from "no rows".
+ */
+describe("useSeedQueryOptions — threads the seed query error through (#1678)", () => {
+  beforeEach(() => {
+    seedQuerySpy.mockClear();
+    useParameterStore.getState().clearAll();
+  });
+
+  it("exposes the seed query's refetch — the Retry behind SeedQueryError", () => {
+    const refetch = vi.fn();
+    seedQuerySpy.mockReturnValue({
+      options: [],
+      loading: false,
+      error: null,
+      refetch,
+    });
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+    expect(result.current.refetch).toBe(refetch);
+  });
+
+  it("exposes the seed query's error", () => {
+    const dead = new Error("timeout exceeded when trying to connect");
+    seedQuerySpy.mockReturnValueOnce({
+      options: [],
+      loading: false,
+      error: dead,
+      refetch: vi.fn(),
+    });
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+    expect(result.current.error).toBe(dead);
+  });
+
+  it("exposes null when the seed query succeeded", () => {
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+    expect(result.current.error).toBeNull();
+  });
+});
 
 describe("useSeedQueryOptions — cascading is keyed on the parent, not a type (#1360)", () => {
   beforeEach(() => {

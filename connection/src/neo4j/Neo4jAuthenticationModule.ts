@@ -68,11 +68,21 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
       this._authConfig.authType === AuthType.NATIVE
         ? neo4j.auth.basic(this._authConfig.username, this._authConfig.password)
         : undefined;
+    const connectionTimeout =
+      this._advancedOptions?.neo4jConnectionTimeout ?? 30000;
     return neo4j.driver(this._authConfig.uri, auth, {
-      connectionTimeout: this._advancedOptions?.neo4jConnectionTimeout ?? 30000,
+      connectionTimeout,
       maxConnectionPoolSize: this._advancedOptions?.neo4jMaxPoolSize,
+      // Left unset, the driver waits its own 60 s default to acquire a
+      // connection — doubling every attempt against a dead host (#1678).
+      // Pinned just ABOVE the connect timeout, not equal to it: the pool
+      // arms its acquisition timer before the socket arms its connect timer,
+      // so an equal value fires first and a dead host reads as a retryable
+      // pool timeout instead of the connect failure the API maps to
+      // CONNECTOR_UNAVAILABLE.
       connectionAcquisitionTimeout:
-        this._advancedOptions?.neo4jAcquisitionTimeout,
+        this._advancedOptions?.neo4jAcquisitionTimeout ??
+        connectionTimeout + 5000,
     });
   }
 

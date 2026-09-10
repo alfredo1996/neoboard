@@ -133,6 +133,9 @@ export interface ParameterSource {
   widgetTitle: string;
   pageId: string;
   pageTitle: string;
+  /** Where the source's own query runs — a gated widget checks whether a
+   *  sibling has found that connection dead (#1678). */
+  connectionId: string;
 }
 
 export type ParameterSourceMap = Record<string, ParameterSource[]>;
@@ -165,6 +168,7 @@ export function buildParameterSourceMap(
         widgetTitle,
         pageId: page.id,
         pageTitle: page.title,
+        connectionId: widget.connectionId,
       };
 
       for (const name of paramNames) {

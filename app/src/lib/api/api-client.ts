@@ -6,10 +6,13 @@
  * `{ data, error, meta }` envelope.
  */
 
+import type { ConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
+
 /** Shape of the standardized API error envelope. */
 interface ApiEnvelopeError {
   code: string;
   message?: string;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -37,6 +40,39 @@ export class ClientQueueTimeoutError extends Error {
     this.name = "ClientQueueTimeoutError";
     this.retryAfterMs = retryAfterMs;
   }
+}
+
+/**
+ * Thrown when the server responds with 502 CONNECTOR_UNAVAILABLE — the
+ * user's connector cannot be reached or refuses the credentials (#1678).
+ * Not a backpressure error: there is no Retry-After, and the widget retry
+ * predicate must refuse it, because retrying a dead host only waits the
+ * full connect timeout again. `reason` is the classifier code the route
+ * attached, so the UI can show the matching hint.
+ */
+export class ConnectorUnavailableError extends Error {
+  readonly reason: ConnectionErrorCode;
+  constructor(message: string, reason: ConnectionErrorCode) {
+    super(message);
+    this.name = "ConnectorUnavailableError";
+    this.reason = reason;
+  }
+}
+
+/**
+ * Turn an error envelope into the Error the caller should throw. Typed for
+ * CONNECTOR_UNAVAILABLE so the widget layer can recognise it; a plain Error
+ * carrying the message for everything else.
+ */
+function envelopeError(error: ApiEnvelopeError): Error {
+  const message = error.message || error.code;
+  if (error.code === "CONNECTOR_UNAVAILABLE") {
+    // The route emits exactly two reasons; anything else is a network fault.
+    const reason =
+      error.details?.reason === "auth_failed" ? "auth_failed" : "network";
+    return new ConnectorUnavailableError(message, reason);
+  }
+  return new Error(message);
 }
 
 /**
@@ -147,7 +183,7 @@ export async function unwrapResponse<T = unknown>(res: Response): Promise<T> {
   // Envelope format: { data, error, meta }
   if (isEnvelope(body)) {
     if (body.error) {
-      throw new Error(body.error.message || body.error.code);
+      throw envelopeError(body.error);
     }
     return body.data as T;
   }
@@ -171,7 +207,7 @@ export async function unwrapFullResponse<T = unknown>(
 
   if (isEnvelope(body)) {
     if (body.error) {
-      throw new Error(body.error.message || body.error.code);
+      throw envelopeError(body.error);
     }
     return {
       data: body.data as T,

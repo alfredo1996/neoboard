@@ -3,6 +3,7 @@
 import { ParamSelector } from "@neoboard/components";
 import type { ParamActions } from "./use-param-actions";
 import type { SeedQueryResult } from "./use-seed-query-options";
+import { SeedQueryError } from "./seed-query-error";
 
 interface ParamSelectProps {
   parameterName: string;
@@ -27,6 +28,9 @@ export function ParamSelect({
   const selectValue = actions.currentEntry
     ? String(actions.currentEntry.value ?? "")
     : "";
+  if (seed.error) {
+    return <SeedQueryError error={seed.error} onRetry={seed.refetch} />;
+  }
   return (
     <ParamSelector
       parameterName={parameterName}

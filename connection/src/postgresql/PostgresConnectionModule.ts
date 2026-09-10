@@ -1,20 +1,22 @@
-import { ConnectionModule } from "@neoboard/connector-sdk";
-import { attachClientErrorGuard } from "./utils";
-import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import {
   AuthConfig,
-  PostgresAdvancedOptions,
   ConnectionConfig,
+  ConnectionModule,
+  ConnectorError,
+  ConnectorErrorType,
+  determineQueryStatus,
+  PostgresAdvancedOptions,
   QueryCallback,
   QueryParams,
   QueryStatus,
+  wrapError,
 } from "@neoboard/connector-sdk";
+import { attachClientErrorGuard } from "./utils";
+import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
 import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
 import { extractTableSchemaFromFields, isAuthenticationError } from "./utils";
-import { determineQueryStatus } from "@neoboard/connector-sdk";
-import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
 
 /**
  * PostgreSQL Connection Module
@@ -81,9 +83,16 @@ export class PostgresConnectionModule extends ConnectionModule {
             throw err;
           });
         if (!authenticated) {
+          // A ConnectorError, not a plain Error: the query route only
+          // classifies connector-raised failures, and "authentication failed"
+          // is what its classifier reads as auth_failed → 502 (#1678). A
+          // plain Error here went out as a 500 with no hint.
           callbacks.setStatus?.(QueryStatus.ERROR);
           callbacks.onFail?.(
-            new Error("Failed to authenticate with PostgreSQL"),
+            new ConnectorError(
+              "PostgreSQL authentication failed: the server rejected the username or password",
+              ConnectorErrorType.AUTHENTICATION,
+            ),
           );
           return;
         }

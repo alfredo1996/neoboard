@@ -96,6 +96,15 @@ const NETWORK_KEYWORDS = [
   "websocket connection failure",
   "connection refused",
   "host is down",
+  // What the drivers actually say about an unroutable host (#1678). None of
+  // these carries a network code, and two of them say "timeout" — which the
+  // transient classifier reads as "retry me". A host that drops packets is
+  // not transient within a request's lifetime.
+  "connection terminated due to connection timeout", // pg-pool ≥3.14 wraps the client's connect timeout
+  "timeout exceeded when trying to connect", // pg-pool: pool full, no client freed in time
+  "timeout expired", // pg.Client connectionTimeoutMillis (no pool)
+  "failed to connect", // Neo4j channel: "Failed to connect to server…"
+  "failed to establish connection", // Neo4j channel connectionTimeout
 ];
 
 function containsAny(text: string, keywords: string[]): boolean {

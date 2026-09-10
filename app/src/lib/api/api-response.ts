@@ -22,7 +22,13 @@ export type ApiErrorCode =
   | "TENANT_MISMATCH"
   | "ENTERPRISE_REQUIRED"
   | "REQUEST_TIMEOUT"
-  | "SERVICE_UNAVAILABLE";
+  | "SERVICE_UNAVAILABLE"
+  /**
+   * The user's connector cannot be reached or refuses the credentials
+   * (#1678). Deliberately NOT a 408/503: those carry Retry-After and the
+   * client auto-retries them, which against a dead host is a retry storm.
+   */
+  | "CONNECTOR_UNAVAILABLE";
 
 const ERROR_STATUS: Record<ApiErrorCode, number> = {
   UNAUTHORIZED: 401,
@@ -36,6 +42,7 @@ const ERROR_STATUS: Record<ApiErrorCode, number> = {
   ENTERPRISE_REQUIRED: 402,
   REQUEST_TIMEOUT: 408,
   SERVICE_UNAVAILABLE: 503,
+  CONNECTOR_UNAVAILABLE: 502,
 };
 
 // ---------------------------------------------------------------------------

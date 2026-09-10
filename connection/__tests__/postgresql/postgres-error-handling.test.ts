@@ -10,6 +10,8 @@ import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectio
 import {
   DEFAULT_CONNECTION_CONFIG,
   AuthType,
+  ConnectorErrorType,
+  QueryStatus,
   type ConnectionConfig,
 } from "@neoboard/connector-sdk";
 
@@ -154,7 +156,7 @@ describe("PostgresConnectionModule — error-path routing", () => {
   it("routes an auth failure (verifyAuthentication rejects with an auth error) to onFail", async () => {
     const mod = makeModule();
     jest.spyOn(mod.authModule, "getPool").mockReturnValue(null);
-    // Auth-classified rejection → swallowed to `false` → "Failed to authenticate".
+    // Auth-classified rejection → swallowed to `false` → the same ConnectorError.
     jest.spyOn(mod.authModule, "verifyAuthentication").mockRejectedValue({
       code: "28P01",
       message: "password authentication failed",
@@ -171,8 +173,36 @@ describe("PostgresConnectionModule — error-path routing", () => {
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onFail).toHaveBeenCalledTimes(1);
     expect(String((onFail.mock.calls[0][0] as Error).message)).toMatch(
-      /authenticate/i,
+      /authentication failed/i,
     );
+  });
+
+  /**
+   * #1678 — the real path for bad credentials: verifyAuthentication swallows
+   * the driver's 28P01 and resolves `false`. This used to emit a plain
+   * Error("Failed to authenticate…"), which the query route could not tell
+   * from a bug and answered with 500 — no hint, no store flag, gated siblings
+   * left on "Waiting for parameters…". It must be a ConnectorError whose
+   * message the route's classifier reads as auth_failed.
+   */
+  it("reports refused credentials as a ConnectorError the route can classify (#1678)", async () => {
+    const mod = makeModule();
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(null);
+    jest.spyOn(mod.authModule, "verifyAuthentication").mockResolvedValue(false);
+
+    const onFail = jest.fn();
+    const setStatus = jest.fn();
+    await mod.runQuery(
+      { query: "SELECT 1", params: {} },
+      { onFail, onSuccess: jest.fn(), setStatus } as any,
+      CONFIG({}),
+    );
+
+    const err = onFail.mock.calls[0][0] as Error & { type: ConnectorErrorType };
+    expect(err.name).toBe("ConnectorError");
+    expect(err.type).toBe(ConnectorErrorType.AUTHENTICATION);
+    expect(err.message).toMatch(/authentication failed/i);
+    expect(setStatus).toHaveBeenCalledWith(QueryStatus.ERROR);
   });
 
   it("still reports onFail when ROLLBACK itself fails (rollback error logged, not rethrown)", async () => {
