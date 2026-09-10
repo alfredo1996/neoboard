@@ -79,3 +79,22 @@ describe("CI path filters (#1627)", () => {
     }
   });
 });
+
+describe("a docs-only change runs the docs-accuracy guard (#1697)", () => {
+  // ci.yml leaves docs/** out on purpose, so a prose edit does not start E2E.
+  // That also meant a PR editing only a page ran none of the checks the page
+  // is held to — among them the typecheck of the connector-author page.
+  const docsCi = readFileSync(
+    join(ROOT, ".github/workflows/docs-ci.yml"),
+    "utf8",
+  );
+
+  it("runs scripts/__tests__/docs-accuracy.test.mjs in the Docs workflow", () => {
+    const filters = pathFilters(docsCi);
+    expect(filters.length).toBeGreaterThanOrEqual(2);
+    for (const f of filters) expect(f).toContain("docs/**");
+    expect(docsCi).toMatch(
+      /^\s+run: npx vitest run scripts\/__tests__\/docs-accuracy\.test\.mjs$/m,
+    );
+  });
+});
