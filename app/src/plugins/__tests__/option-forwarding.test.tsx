@@ -33,6 +33,9 @@ vi.mock("next/dynamic", () => ({
         data-sampling-threshold={String(props.samplingThreshold ?? "")}
         data-sampling-method={String(props.samplingMethod ?? "")}
         data-marker-size={String(props.markerSize ?? "")}
+        data-tile-layer={String(props.tileLayer ?? "")}
+        data-attribution={String(props.attribution ?? "")}
+        data-invert-tiles={String(props.invertTilesInDarkMode ?? "")}
         data-show-rel-labels={String(props.showRelationshipLabels ?? "")}
       />
     );
@@ -206,6 +209,31 @@ describe("options advertised by the editor reach the chart (#1472)", () => {
   it("map forwards markerSize", () => {
     render(<MapComponent data={[]} settings={{ markerSize: 14 }} />);
     expect(attr("data-marker-size")).toBe("14");
+  });
+
+  // #1685 — the component accepted any template and an attribution all
+  // along; the plugin was the seam that never handed attribution over.
+  it("map forwards tileLayer and attribution", () => {
+    // Plain text: the credit is escaped downstream, so "&copy;" would show
+    // literally — the fixture types the character the docs tell users to.
+    render(
+      <MapComponent
+        data={[]}
+        settings={{ tileLayer: "none", attribution: "© Example" }}
+      />,
+    );
+    expect(attr("data-tile-layer")).toBe("none");
+    expect(attr("data-attribution")).toBe("© Example");
+  });
+
+  it("map forwards invertTilesInDarkMode, defaulting it on", () => {
+    const { unmount } = render(<MapComponent data={[]} settings={{}} />);
+    expect(attr("data-invert-tiles")).toBe("true");
+    unmount();
+    render(
+      <MapComponent data={[]} settings={{ invertTilesInDarkMode: false }} />,
+    );
+    expect(attr("data-invert-tiles")).toBe("false");
   });
 
   it("graph forwards showRelationshipLabels", () => {

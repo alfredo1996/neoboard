@@ -65,6 +65,15 @@ describe("demo showcases validate against the app's export schema", () => {
         ).toEqual([]);
       });
 
+      // #1685 dropped the carto-light / carto-dark presets; any string that
+      // is not "osm"/"none" now reaches Leaflet verbatim, so a leftover
+      // preset name renders a blank basemap of 404s against the app origin.
+      it("names no removed tile-layer preset", () => {
+        expect(readFileSync(showcase.jsonPath, "utf-8")).not.toMatch(
+          /carto-(light|dark)/,
+        );
+      });
+
       it("matches neoboardExportSchema", () => {
         const result = neoboardExportSchema.safeParse(
           readShowcase(showcase.jsonPath),

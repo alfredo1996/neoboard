@@ -1,19 +1,36 @@
 import { type ChartOptionDef } from "./shared";
+import { validateTileTemplate } from "./validate-tile-template";
 
 export const mapOptions: ChartOptionDef[] = [
   {
     key: "tileLayer",
     label: "Tile Layer",
-    type: "select",
-    default: "osm",
+    type: "text",
+    // Same literal as OSM_TILE_URL in charts/map-chart.tsx; a test pins the
+    // two together. Not imported: this module must not pull Leaflet in.
+    default: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     category: "Map",
     description:
-      "Base-map tiles. OpenStreetMap is free; Carto variants suit data overlays better.",
-    options: [
-      { label: "OpenStreetMap", value: "osm" },
-      { label: "Carto Light", value: "carto-light" },
-      { label: "Carto Dark", value: "carto-dark" },
-    ],
+      'Tile URL template with {z}/{x}/{y}, or "none" for a plain background and no tiles.',
+    validate: validateTileTemplate,
+  },
+  {
+    key: "attribution",
+    label: "Attribution",
+    type: "text",
+    default: "",
+    category: "Map",
+    description:
+      "Credit shown on the map for a custom tile server. OpenStreetMap is credited by itself.",
+  },
+  {
+    key: "invertTilesInDarkMode",
+    label: "Invert Tiles in Dark Mode",
+    type: "boolean",
+    default: true,
+    category: "Map",
+    description:
+      "Flip a light basemap to dark in dark mode. Untick for tiles that are already dark.",
   },
   {
     key: "zoom",

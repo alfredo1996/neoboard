@@ -9,8 +9,10 @@ import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import { escapeHtml } from "./chart-utils";
+import { unknownTilePlaceholders } from "@/components/composed/chart-options/validate-tile-template";
 
-export type TileLayerPreset = "osm" | "carto-light" | "carto-dark";
+/** `none` draws no basemap at all — plain ground, zero tile requests (#1685). */
+export type TileLayerPreset = "osm" | "none";
 
 export interface MapMarker {
   id: string;
@@ -29,9 +31,15 @@ export interface MapChartProps {
   zoom?: number;
   minZoom?: number;
   maxZoom?: number;
-  /** Tile layer preset or custom URL */
+  /** Preset, or any Leaflet URL template (`{s}`, `{z}`, `{x}`, `{y}`, `{r}`) */
   tileLayer?: TileLayerPreset | string;
+  /** Plain-text credit for a custom template (escaped); OSM carries its own */
   attribution?: string;
+  /**
+   * Apply the dark-mode invert filter to the tiles (default). Turn off for a
+   * tileset that is already dark, which the filter would flip to light.
+   */
+  invertTilesInDarkMode?: boolean;
   /** Auto-fit map bounds to markers */
   autoFitBounds?: boolean;
   /** Padding for fitBounds */
@@ -52,26 +60,18 @@ export interface MapChartProps {
   className?: string;
 }
 
-const TILE_PRESETS: Record<
-  TileLayerPreset,
-  { url: string; attribution: string }
-> = {
-  osm: {
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  },
-  "carto-light": {
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  },
-  "carto-dark": {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  },
-};
+export const OSM_TILE_URL =
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+/** Both official OSM templates — with the `{s}` subdomain and without. */
+const OSM_HOST_RE = /^https?:\/\/(\{s\}\.)?tile\.openstreetmap\.org\//;
+/**
+ * How long a replacement tile layer waits for the template to stop changing.
+ * The editor feeds every keystroke straight in; each prefix would otherwise
+ * fetch a full viewport of tiles from a half-typed host.
+ */
+const TILE_SETTLE_MS = 300;
 
 const DEFAULT_CENTER: [number, number] = [40, -3];
 const DEFAULT_ZOOM = 3;
@@ -84,31 +84,47 @@ const DEFAULT_ZOOM = 3;
 const DEFAULT_FIT_PADDING: [number, number] = [20, 20];
 
 /**
- * Resolve the tile layer, defaulting to OSM when no explicit preset is given.
+ * Resolve the tile layer: `null` for the `none` preset, else a URL template
+ * and its attribution. Empty or missing input means OpenStreetMap.
  *
  * The default used to switch on theme between `carto-light` and `carto-dark`.
  * CARTO now requires an API key for `basemaps.cartocdn.com` and, without one,
  * returns HTTP 200 with a real PNG that has "API KEY REQUIRED" burned into the
  * image — so every map in the product rendered watermarked while nothing
- * errored, logged or fell back (#1529).
+ * errored, logged or fell back (#1529). Those presets are gone (#1685): the
+ * editor takes any template as text, so a keyed CARTO URL still works.
  *
  * OSM needs no key. It has no dark variant, so dark mode is handled by a CSS
  * filter on `.leaflet-tile-pane` (see `design-tokens.css`) rather than by swapping
  * providers here — which is why this no longer depends on the theme at all.
- * The CARTO presets remain selectable for anyone who has a key.
+ *
+ * Attribution: the OSM template always carries the OSM credit — the editor
+ * ships it next to an empty attribution field, and OSM tiles without credit
+ * would break their terms. A custom server gets exactly what the user typed
+ * and nothing else; crediting OSM for someone else's tiles is a licensing
+ * statement, not a cosmetic one. Leaflet injects attribution as innerHTML and
+ * the text comes from a dashboard creator, so it is escaped — a plain-text
+ * credit is what attribution needs, and a viewer's page is not the creator's
+ * to script. The preset keeps its link.
+ *
+ * A template with a placeholder Leaflet cannot fill (`{apikey}`, `{id}`, a
+ * `{Z}` typo) also yields `null`: Leaflet throws for it synchronously from
+ * `addTo`, which latched the chart's error boundary until the editor was
+ * reopened. The option's `validate` hook says why in the panel.
  */
-function resolveTileLayer(tileLayer: string | undefined, attribution?: string) {
-  const effectivePreset = tileLayer ?? "osm";
-  if (effectivePreset in TILE_PRESETS) {
-    const preset = TILE_PRESETS[effectivePreset as TileLayerPreset];
-    return { url: preset.url, attribution: attribution ?? preset.attribution };
-  }
-  return {
-    url: effectivePreset,
-    attribution:
-      attribution ??
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  };
+export function resolveTileLayer(
+  tileLayer: string | undefined,
+  attribution?: string,
+): { url: string; attribution: string } | null {
+  const value = tileLayer?.trim();
+  if (value === "none") return null;
+  const url = !value || value === "osm" ? OSM_TILE_URL : value;
+  if (unknownTilePlaceholders(url).length > 0) return null;
+  const typed = attribution?.trim();
+  let credit = "";
+  if (typed) credit = escapeHtml(typed);
+  else if (OSM_HOST_RE.test(url)) credit = OSM_ATTRIBUTION;
+  return { url, attribution: credit };
 }
 
 function buildPropertiesTooltip(marker: MapMarker): string {
@@ -130,6 +146,7 @@ function MapChart({
   maxZoom = 18,
   tileLayer,
   attribution,
+  invertTilesInDarkMode = true,
   autoFitBounds = false,
   fitBoundsPadding = DEFAULT_FIT_PADDING,
   markerSize = 6,
@@ -146,6 +163,8 @@ function MapChart({
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  /** Set once a tile layer has been replaced; later adds wait to settle. */
+  const tileSettleRef = useRef(false);
   /** A fit that was asked for while the container had no size to fit into. */
   const pendingFitRef = useRef(false);
   /** The current fit, so the ResizeObserver can run it without re-arming. */
@@ -170,9 +189,23 @@ function MapChart({
   const onMarkerClickRef = useRef(onMarkerClick);
   onMarkerClickRef.current = onMarkerClick;
 
+  // Split so the swap effect can depend on two strings; `none` yields
+  // neither, and the effect below then owns an empty tile pane.
   const tile = resolveTileLayer(tileLayer, attribution);
+  const tileUrl = tile?.url;
+  const tileAttribution = tile?.attribution;
+  // Latest-ref so a settled layer is born with the credit current at settle
+  // time, without the swap effect depending on the attribution. Assigned in
+  // an effect declared before the swap effect, so it is current by the time
+  // that effect adds a layer in the same commit.
+  const tileAttributionRef = useRef(tileAttribution);
+  useEffect(() => {
+    tileAttributionRef.current = tileAttribution;
+  }, [tileAttribution]);
 
-  // Initialize map
+  // Initialize map. The tile layer is added by the swap effect below, which
+  // also runs on mount — adding one here too meant every map built two and
+  // tore the first down a tick later.
   useEffect(() => {
     const el = containerRef.current;
     if (!el || mapRef.current) return;
@@ -184,10 +217,6 @@ function MapChart({
       maxZoom,
     });
 
-    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(
-      map,
-    );
-    tileLayerRef.current = tl;
     markersLayerRef.current = (
       clusterMarkers ? L.markerClusterGroup() : L.layerGroup()
     ).addTo(map);
@@ -219,18 +248,43 @@ function MapChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Swap tile layer when theme changes (or when tileLayer prop changes)
+  // Add the tile layer on mount and swap it when the template changes. The
+  // first layer of a map is added at once; a replacement waits for the
+  // template to settle, since the editor sends every keystroke.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+      tileSettleRef.current = true;
     }
-    const tl = L.tileLayer(tile.url, { attribution: tile.attribution }).addTo(
-      map,
-    );
-    tileLayerRef.current = tl;
-  }, [tile.url, tile.attribution]);
+    if (!tileUrl) return;
+    const add = () => {
+      tileLayerRef.current = L.tileLayer(tileUrl, {
+        attribution: tileAttributionRef.current,
+      }).addTo(map);
+    };
+    if (!tileSettleRef.current) {
+      add();
+      return;
+    }
+    const timer = setTimeout(add, TILE_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [tileUrl]);
+
+  // Swap the credit in place: recreating the layer for it re-fetched every
+  // visible tile per character typed into the Attribution field. The layer's
+  // own `options.attribution` is updated too, because Leaflet reads
+  // `getAttribution()` again when the layer is eventually removed.
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = tileLayerRef.current;
+    if (!map || !layer || layer.options.attribution === tileAttribution) return;
+    map.attributionControl?.removeAttribution(layer.options.attribution ?? "");
+    layer.options.attribution = tileAttribution;
+    map.attributionControl?.addAttribution(tileAttribution ?? "");
+  }, [tileAttribution]);
 
   // Update center/zoom (only when not auto-fitting)
   useEffect(() => {
@@ -355,6 +409,8 @@ function MapChart({
         ref={containerRef}
         className="h-full w-full"
         data-testid="map-chart"
+        // `.dark [data-invert-tiles] .leaflet-tile-pane` in design-tokens.css
+        data-invert-tiles={invertTilesInDarkMode ? "" : undefined}
       />
       {skippedCount > 0 && (
         // Dropping the rows silently would hide the data problem, which is the

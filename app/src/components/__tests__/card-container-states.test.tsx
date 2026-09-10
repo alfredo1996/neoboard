@@ -362,6 +362,9 @@ function makeWidget(overrides: Partial<DashboardWidget> = {}): DashboardWidget {
 describe("CardContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The #1678 block flags conn-1 in this module-level store; without a
+    // reset, shuffled order leaks "Connector unavailable" into these cases.
+    useConnectionStatusStore.getState().reset();
   });
 
   // ----- Missing connection -----

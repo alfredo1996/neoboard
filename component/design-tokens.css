@@ -246,9 +246,20 @@
 
    Scoped to `.leaflet-tile-pane` deliberately — the marker, popup and control
    panes are siblings, so they keep their real colours. Inverting the whole
-   container would flip the citrine markers to blue. */
-.dark .leaflet-tile-pane {
+   container would flip the citrine markers to blue.
+
+   Keyed on `[data-invert-tiles]`, which MapChart sets from its
+   `invertTilesInDarkMode` option (#1685): a bring-your-own tileset that is
+   already dark would otherwise come out light in dark mode. */
+.dark [data-invert-tiles] .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
+}
+
+/* The container is the basemap when Tile Layer is "none" (#1685), and shows
+   through while tiles load otherwise. Leaflet paints it #ddd — a light-grey
+   slab on a charcoal dashboard. Same surface as the zoom control. */
+.dark .leaflet-container {
+  background-color: hsl(220 13% 11%);
 }
 
 /* Leaflet's own furniture in dark mode (#1154). It lived in
@@ -264,6 +275,19 @@
 }
 .dark .leaflet-control-zoom a:hover {
   background-color: hsl(220 13% 17%);
+}
+/* Tailwind's preflight strips the UA underline from every <a>, and Leaflet
+   colours attribution links without restoring it. With a plain-text
+   attribution (a bring-your-own tileset, #1685) the "Leaflet" credit sits in a
+   block of text distinguished only by colour — and no link colour can reach
+   3:1 against Leaflet's #333 text while staying 4.5:1 on its white strip, so
+   the underline is the only thing that can fix axe's link-in-text-block.
+   Theme-neutral: the dark rules below only recolour. `.leaflet-container`
+   is needed for the same reason as the dark strip below — Leaflet's own
+   `.leaflet-control-attribution a { text-decoration: none }` ties a bare
+   selector on specificity and loads later. */
+.leaflet-container .leaflet-control-attribution a {
+  text-decoration: underline;
 }
 /* Needs .leaflet-container in the selector: Leaflet's own
    `.leaflet-container .leaflet-control-attribution { background: … }` ties a

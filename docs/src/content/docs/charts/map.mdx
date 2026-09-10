@@ -41,7 +41,9 @@ FROM locations
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| Tile Layer | select | osm | Base-map provider: OpenStreetMap, Carto Light, or Carto Dark |
+| Tile Layer | text | OpenStreetMap template | Leaflet URL template for the basemap, or `none` for no basemap at all |
+| Attribution | text | *(empty)* | Plain-text credit shown in the map corner for a custom tile server |
+| Invert Tiles in Dark Mode | boolean | true | Flip a light basemap to dark in dark mode. Untick for a tileset that is already dark |
 | Default Zoom | number | 3 | Initial zoom level (1 = world, 18 = street level) |
 | Min Zoom | number | 0 | Minimum zoom level the user can zoom out to. 0 fits the whole world in a small card |
 | Max Zoom | number | 18 | Maximum zoom level the user can zoom in to |
@@ -50,8 +52,46 @@ FROM locations
 | Cluster Markers | boolean | false | Group nearby markers into cluster badges at lower zoom levels |
 | Show Popup on Click | boolean | true | Show a popup with row data when clicking a marker |
 
+## Basemap tiles
+
+The basemap is fetched from whatever **Tile Layer** template you give the widget. Everything else the map needs — Leaflet, the marker cluster plugin, their stylesheets — ships inside NeoBoard; the markers are vector circles, not images. The tile server is the only thing the map ever fetches.
+
+The default is OpenStreetMap's public template, which needs no API key:
+
+```
+https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+```
+
+Dark mode is handled by a CSS filter that inverts the tile layer, so one light template serves both themes. The filter does not know what it is inverting: a tileset that is already dark comes out light. Untick **Invert Tiles in Dark Mode** for those.
+
+### Bring your own tiles
+
+Paste any [Leaflet URL template](https://leafletjs.com/reference.html#tilelayer) into **Tile Layer**. `{z}`, `{x}` and `{y}` are the tile coordinates; `{s}` picks a subdomain and `{r}` requests retina tiles where the server offers them. A provider that needs a key takes it in the template, for example `https://tiles.example.com/{z}/{x}/{y}.png?key=YOUR_KEY` — the key is stored with the dashboard and sent by every viewer's browser, so use a key you are happy to expose.
+
+Those five are the only placeholders Leaflet fills in. A provider's documentation often hands out a template with its own — `{apikey}`, `{accessToken}`, `{id}` — for you to replace with real values before pasting. Left in, the field shows an error and the map draws no tiles until it is fixed.
+
+Fill in **Attribution** with the credit the provider requires. It is plain text — HTML is shown literally — so type `©` rather than `&copy;`. OpenStreetMap's own credit is added automatically whenever the template points at `tile.openstreetmap.org` (with or without the `{s}` subdomain), and only then: a custom server is credited with exactly what you type.
+
+### Self-hosted tile servers
+
+For an air-gapped deployment or one that must not call out to the public internet, point the template at a tile server on your own network. Any server that speaks the `/{z}/{x}/{y}` (XYZ, "slippy map") scheme works:
+
+- [tileserver-gl](https://github.com/maptiler/tileserver-gl) serving an [OpenMapTiles](https://openmaptiles.org/) or [Protomaps](https://protomaps.com/) extract as raster tiles
+- [Martin](https://martin.maplibre.org/) or [mod_tile](https://github.com/openstreetmap/mod_tile) rendering from a PostGIS import
+- A GeoServer or MapProxy instance with an XYZ / TMS endpoint enabled
+
+```
+http://tiles.internal.example/styles/basic/{z}/{x}/{y}.png
+```
+
+The browser fetches the tiles, not the NeoBoard server, so the tile server must be reachable from each viewer's machine. A plain WMS `GetMap` endpoint is not a tile template; enable its XYZ or tile-cache front end instead.
+
+### No basemap
+
+Set **Tile Layer** to `none` to draw no basemap: the markers render on a plain background and the map makes no network requests at all. Use it when the data is the whole picture, when no tile server is reachable, or to prove a dashboard works fully offline.
+
 ## Tips
 
 - Enable Cluster Markers when plotting hundreds of points to keep the map readable at low zoom levels.
-- Use Carto Dark or Carto Light tile layers for a cleaner background when the data overlay is the focus.
 - Set Auto-fit Bounds to true so the map automatically frames all your data points on first load.
+- If a provider's tiles come back with a watermark or an "API key required" message, the template needs a key — NeoBoard cannot detect this, because the server answers with a valid image.

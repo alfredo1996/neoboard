@@ -111,19 +111,42 @@ export const AutoFitBounds: Story = {
   },
 };
 
-export const CartoLight: Story = {
+// #1685: "none" draws no basemap — plain ground, zero tile requests, so a map
+// still works offline. The markers are the whole picture.
+export const NoBasemap: Story = {
   args: {
     markers: worldCities,
-    tileLayer: "carto-light",
+    tileLayer: "none",
     autoFitBounds: true,
+  },
+  play: async ({ canvasElement, args }) => {
+    await waitFor(() =>
+      expect(markerPaths(canvasElement)).toHaveLength(args.markers!.length),
+    );
+    expect(canvasElement.querySelectorAll("img.leaflet-tile")).toHaveLength(0);
   },
 };
 
-export const CartoDark: Story = {
+export const CustomTileServer: Story = {
   args: {
     markers: worldCities,
-    tileLayer: "carto-dark",
+    tileLayer: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "© OpenStreetMap contributors, via a self-hosted server",
     autoFitBounds: true,
+  },
+  play: async ({ canvasElement, args }) => {
+    await waitFor(() =>
+      expect(markerPaths(canvasElement)).toHaveLength(args.markers!.length),
+    );
+    // The template is used verbatim, and the attribution is the user's own.
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector<HTMLImageElement>("img.leaflet-tile")?.src,
+      ).toMatch(/^https:\/\/tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png$/),
+    );
+    expect(
+      within(canvasElement).getByText(/via a self-hosted server/),
+    ).toBeInTheDocument();
   },
 };
 

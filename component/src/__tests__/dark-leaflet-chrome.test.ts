@@ -39,6 +39,15 @@ describe("dark Leaflet chrome (#1399)", () => {
     expect(storybookOnly).not.toContain(".leaflet");
   });
 
+  it("underlines attribution links in the sheet the app loads (#1685)", () => {
+    // Line-anchored so the `.dark …` rule above cannot satisfy it: a plain-text
+    // attribution puts Leaflet's credit link in a text block, and only an
+    // underline can distinguish it there (axe link-in-text-block).
+    expect(tokens).toMatch(
+      /\n\.leaflet-container\s+\.leaflet-control-attribution\s+a\s*\{[^}]*text-decoration:\s*underline/,
+    );
+  });
+
   it("keeps the attribution link on the interaction token", () => {
     const rule = tokens.match(
       /\.dark\s+\.leaflet-container\s+\.leaflet-control-attribution\s+a\s*\{[^}]*\}/,
