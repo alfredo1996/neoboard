@@ -582,4 +582,93 @@ test.describe("Parameter widget types", () => {
       await cleanup();
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 8. searchable select — the typed term survives its own refetch (#1742)
+  // ─────────────────────────────────────────────────────────────────────────
+  test("searchable select and multi-select keep the typed search term through the debounced refetch", async ({
+    page,
+  }) => {
+    // A literal list keeps the options independent of the seeded graph, and
+    // value doubling as label lets cmdk's client-side filter match the typed
+    // name whether it filters on value or on label (#1411).
+    const seedQuery =
+      "UNWIND ['Carrie-Anne Moss', 'Hugo Weaving', 'Keanu Reeves'] AS value RETURN value";
+    const { id, cleanup } = await createParamDashboard(
+      page.request,
+      `param-search ${Date.now()}`,
+      {
+        widgets: [
+          {
+            id: "p-search-single",
+            chartType: "parameter-select",
+            connectionId: "conn-neo4j-001",
+            query: "",
+            settings: {
+              title: "Star",
+              chartOptions: {
+                parameterType: "select",
+                parameterName: "star",
+                seedQuery,
+              },
+            },
+          },
+          {
+            id: "p-search-multi",
+            chartType: "parameter-select",
+            connectionId: "conn-neo4j-001",
+            query: "",
+            settings: {
+              title: "Cast",
+              chartOptions: {
+                parameterType: "multi-select",
+                parameterName: "cast",
+                seedQuery,
+              },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: "p-search-single", x: 0, y: 0, w: 4, h: 3 },
+          { i: "p-search-multi", x: 4, y: 0, w: 4, h: 3 },
+        ],
+      },
+    );
+
+    try {
+      await page.goto(`/${id}`);
+
+      // A different term per widget: both share one seed query, so a repeated
+      // term would be served from the query cache and never hit the network.
+      for (const [name, term, match] of [
+        ["star", "Keanu", "Keanu Reeves"],
+        ["cast", "Hugo", "Hugo Weaving"],
+      ] as const) {
+        const trigger = page.getByRole("combobox", { name });
+        await expect(trigger).toBeEnabled({ timeout: 15_000 });
+        await trigger.click();
+        await expect(page.getByRole("option")).toHaveCount(3, {
+          timeout: 10_000,
+        });
+
+        const searched = page.waitForResponse(
+          (res) =>
+            res.url().endsWith("/api/query") &&
+            res.request().postDataJSON()?.params?.param_search === term,
+        );
+        const search = page.getByPlaceholder("Search…");
+        await search.fill(term);
+        await searched;
+
+        // Before #1742 the debounced refetch swapped the popover for a
+        // skeleton, then brought it back with an empty input over the full
+        // list. Past the response, only a surviving input can show this.
+        await expect(page.getByRole("option")).toHaveText([match]);
+        await expect(search).toHaveValue(term);
+        await page.keyboard.press("Escape");
+      }
+    } finally {
+      await cleanup();
+    }
+  });
 });
