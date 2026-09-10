@@ -30,12 +30,15 @@ import {
   DropdownMenuItem,
   SchemaBrowser,
   GuidedQueryBuilder,
-  guidedSources,
   quoteIdentifier,
   type GuidedPicks,
   type QueryEditorHandle,
 } from "@neoboard/components";
-import { EMPTY_PICKS } from "@neoboard/components/lib/guided-query";
+import {
+  EMPTY_PICKS,
+  guidedSources,
+} from "@neoboard/components/lib/guided-query";
+import type { BuiltQuery } from "@neoboard/connection";
 import {
   GUIDED_CHART_TYPES,
   picksToSpec,
@@ -184,25 +187,34 @@ export function QueryEditorPanel({
   };
 
   // #1696 — guided builder: picks → the connector's buildQuery → editor text.
-  // Picks are remembered per connection, so a connection change starts over
-  // without an effect.
   const buildQuery = queryBuilderFor(connectorType);
   const guidedAvailable =
     !!connectionId && !!buildQuery && GUIDED_CHART_TYPES.has(chartType);
   const [guidedOpen, setGuidedOpen] = useState(false);
-  const [picksFor, setPicksFor] = useState<{
-    connectionId: string;
-    picks: GuidedPicks;
-  }>();
-  const picks =
-    picksFor?.connectionId === connectionId ? picksFor.picks : EMPTY_PICKS;
+  // Picks start over whenever the connection changes, adjusted during render
+  // so the builder never shows another connection's picks (#1717).
+  const [picks, setPicks] = useState(EMPTY_PICKS);
+  const [picksConnection, setPicksConnection] = useState(connectionId);
+  if (picksConnection !== connectionId) {
+    setPicksConnection(connectionId);
+    setPicks(EMPTY_PICKS);
+  }
+  const sources = guidedSources(schema);
+  const build = (p: GuidedPicks): BuiltQuery | undefined => {
+    const spec = buildQuery ? picksToSpec(p, sources) : undefined;
+    return spec && buildQuery?.(spec);
+  };
+  const built = build(picks);
+  // Picks rewrite the editor only while it is empty or still holds the
+  // builder's own text — a hand edit is never replaced without asking (#1717).
+  const inSync = !query.trim() || query === built?.query;
+  const writeBuilt = (b: BuiltQuery | undefined) => {
+    onQueryChange(b?.query ?? "");
+    setParams(b?.params ?? {});
+  };
   const onPicksChange = (next: GuidedPicks) => {
-    setPicksFor({ connectionId, picks: next });
-    const spec = picksToSpec(next);
-    if (!spec || !buildQuery) return;
-    const built = buildQuery(spec);
-    onQueryChange(built.query);
-    setParams(built.params);
+    setPicks(next);
+    if (inSync) writeBuilt(build(next));
   };
 
   return (
@@ -391,7 +403,7 @@ export function QueryEditorPanel({
       )}
       {guidedOpen && guidedAvailable && (
         <GuidedQueryBuilder
-          sources={guidedSources(schema)}
+          sources={sources}
           picks={picks}
           onChange={onPicksChange}
           loading={isFetching}
@@ -399,6 +411,20 @@ export function QueryEditorPanel({
             isError ? error?.message || "Failed to load schema" : undefined
           }
         />
+      )}
+      {guidedOpen && guidedAvailable && !inSync && built && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Picks won&apos;t overwrite a query you&apos;ve edited.</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => writeBuilt(built)}
+          >
+            Replace query
+          </Button>
+        </div>
       )}
       <div className="flex items-stretch gap-2">
         {schemaOpen && connectionId && (

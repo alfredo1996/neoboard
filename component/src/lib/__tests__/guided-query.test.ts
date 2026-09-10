@@ -40,17 +40,26 @@ const postgres: DatabaseSchema = {
 };
 
 describe("guidedSources", () => {
+  // The types travel too (#1717): the app binds a filter value by them.
   it("offers node labels with their properties, not relationship types", () => {
     expect(guidedSources(neo4j)).toEqual([
-      { name: "Movie", fields: ["title", "released"] },
-      { name: "Person", fields: [] },
+      {
+        name: "Movie",
+        fields: ["title", "released"],
+        types: { title: "String", released: "Integer" },
+      },
+      { name: "Person", fields: [], types: {} },
     ]);
   });
 
   it("offers tables with their columns", () => {
     expect(guidedSources(postgres)).toEqual([
-      { name: "movies", fields: ["title", "released"] },
-      { name: "people", fields: [] },
+      {
+        name: "movies",
+        fields: ["title", "released"],
+        types: { title: "text", released: "integer" },
+      },
+      { name: "people", fields: [], types: {} },
     ]);
   });
 

@@ -85,9 +85,13 @@ export interface ConnectorPlugin {
 
   /**
    * Turn a guided-builder spec into query text in this connector's own
-   * dialect (#1696). Optional — connectors without one get no guided
-   * builder in the editor. Filter values MUST travel in `params`, never in
-   * the text; identifiers are quoted by the connector.
+   * dialect (#1696). Filter values MUST travel in `params`, never in the
+   * text; identifiers are quoted by the connector.
+   *
+   * Not yet called by the editor: it builds on the client with the built-in
+   * connectors' builders (`@neoboard/connection/query-builders`), so today
+   * only neo4j and postgresql get the guided builder, whatever a registry
+   * connector implements here.
    */
   buildQuery?(spec: QuerySpec): BuiltQuery;
 }

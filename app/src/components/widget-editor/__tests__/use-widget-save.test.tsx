@@ -109,9 +109,9 @@ describe("useBuildWidgetForSave", () => {
     });
 
     // #1696 — the store owns params now (loadFromWidget fills them), so the
-    // guided builder's bindings survive a save and an emptied map drops out.
-    it("takes params from the store, omitting an empty map", () => {
-      setStoreState({ params: { param_released: 2000 } });
+    // guided builder's bindings survive a save; #1717 — only the ones the
+    // query still references, and an emptied map drops out.
+    it("takes params from the store, keeping only referenced tokens", () => {
       const existing: DashboardWidget = {
         id: "existing-id",
         chartType: "bar",
@@ -119,16 +119,21 @@ describe("useBuildWidgetForSave", () => {
         query: "old query",
         params: { stale: true },
       };
-      expect(
+      const save = () =>
         renderHook(() => useBuildWidgetForSave(existing)).result.current()
-          .params,
-      ).toEqual({ param_released: 2000 });
+          .params;
+
+      setStoreState({
+        query: "MATCH (n) WHERE n.released > $param_released RETURN n",
+        params: { param_released: 2000, param_title: "edited away" },
+      });
+      expect(save()).toEqual({ param_released: 2000 });
+
+      setStoreState({ params: { param_released: 2000 } });
+      expect(save()).toBeUndefined();
 
       setStoreState({ params: {} });
-      expect(
-        renderHook(() => useBuildWidgetForSave(existing)).result.current()
-          .params,
-      ).toBeUndefined();
+      expect(save()).toBeUndefined();
     });
 
     it("sets title in settings", () => {

@@ -138,9 +138,18 @@ export function useAutoPreview({
   const handleRunAndSave = useCallback(() => {
     if (chartType === "markdown" || chartType === "iframe") return;
     if (!query.trim() || saveStatus === "saving") return;
+    // Bind what the query references, as handlePreview does — a guided filter
+    // carries its own value (#1717); an unbound token would only fail the run.
+    const allParams = allParamValuesRef.current;
+    if (!allReferencedParamsReady(query, allParams)) return;
+    const referenced = extractReferencedParams(query, allParams);
     setSaveStatus("saving");
     previewQueryRef.current.mutate(
-      { connectionId, query },
+      {
+        connectionId,
+        query,
+        params: Object.keys(referenced).length > 0 ? referenced : undefined,
+      },
       {
         onSuccess: () => {
           if (savedTimerRef.current !== null) {

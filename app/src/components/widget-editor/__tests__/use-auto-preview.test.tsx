@@ -364,6 +364,63 @@ describe("useAutoPreview", () => {
       expect(opts.onOpenChange).toHaveBeenCalledWith(false);
     });
 
+    // #1717 — a guided filter's value is bound by the widget itself, so the
+    // run before the save has to send it, as handlePreview does.
+    it("sends the params the query references", () => {
+      const mutate = vi.fn();
+      const query = "MATCH (n) WHERE n.released > $param_released RETURN n";
+      const opts = createDefaults({
+        query,
+        allParamValues: { released: 2000, other: 1 },
+        previewQuery: { mutate },
+      });
+      renderHook(() => useAutoPreview(opts));
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      mutate.mockClear();
+
+      act(() => {
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            metaKey: true,
+            shiftKey: true,
+          }),
+        );
+      });
+
+      expect(mutate).toHaveBeenCalledWith(
+        { connectionId: "conn-1", query, params: { param_released: 2000 } },
+        expect.any(Object),
+      );
+    });
+
+    it("neither runs nor saves while a referenced param is unbound", () => {
+      const mutate = vi.fn();
+      const opts = createDefaults({
+        query: "MATCH (n) WHERE n.released > $param_released RETURN n",
+        previewQuery: { mutate },
+      });
+      const { result } = renderHook(() => useAutoPreview(opts));
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+
+      act(() => {
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            metaKey: true,
+            shiftKey: true,
+          }),
+        );
+      });
+
+      expect(mutate).not.toHaveBeenCalled();
+      expect(result.current.saveStatus).toBe("idle");
+    });
+
     it("resets saveStatus to idle on error", () => {
       const mutate = vi.fn();
       const opts = createDefaults({ previewQuery: { mutate } });

@@ -5,6 +5,7 @@ import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import type { DashboardWidget, DashboardLayoutV2 } from "@/lib/db/schema";
 import { resolveInternalParamType } from "./parameter-config-section";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
+import { referencedWidgetParams } from "@/hooks/use-widget-query";
 
 /**
  * Builds a DashboardWidget object from the current widget editor store state.
@@ -91,8 +92,8 @@ export function useBuildWidgetForSave(
           : connectionId,
       query: isParamSelect || isContentOnly ? "" : query,
       // The store owns params (loaded from the widget, written by the guided
-      // builder, #1696); an empty map is left off the widget.
-      params: Object.keys(params).length > 0 ? params : undefined,
+      // builder, #1696); only what the query still references is kept.
+      params: referencedWidgetParams(query, params),
       database: isContentOnly ? undefined : database || undefined,
       allowWrites: isContentOnly ? undefined : allowWrites || undefined,
       settings: {

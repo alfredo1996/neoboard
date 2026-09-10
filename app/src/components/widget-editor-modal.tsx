@@ -11,6 +11,7 @@ import React, {
 import { useQueryExecution } from "@/hooks/use-query-execution";
 import {
   allReferencedParamsReady,
+  referencedWidgetParams,
   withWidgetParams,
 } from "@/hooks/use-widget-query";
 import type {
@@ -193,6 +194,7 @@ export function WidgetEditorModal({
       store.setChartType(templateProp.chartType);
       store.setConnectionId(templateProp.connectionId ?? "");
       store.setQuery(templateProp.query ?? "");
+      store.setParams(templateProp.params ?? {});
       store.setTitle((templateProp.settings?.title as string) ?? "");
       store.setChartOptions(
         (templateProp.settings?.chartOptions as Record<string, unknown>) ??
@@ -345,6 +347,8 @@ export function WidgetEditorModal({
     });
     store.setChartType(t.chartType);
     store.setQuery(t.query ?? "");
+    // A guided filter's value lives in params — it travels with the query (#1717).
+    store.setParams(t.params ?? {});
     store.setTitle((t.settings?.title as string) ?? "");
     store.setChartOptions(
       (t.settings?.chartOptions as Record<string, unknown>) ??
@@ -581,6 +585,9 @@ export function WidgetEditorModal({
       connectorType,
       connectionId: isContentOnly ? undefined : connectionId || undefined,
       query: isContentOnly ? "" : query,
+      params: isContentOnly
+        ? undefined
+        : referencedWidgetParams(query, widgetParams),
       settings: {
         title: title || undefined,
         chartOptions,

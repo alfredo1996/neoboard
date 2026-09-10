@@ -86,6 +86,20 @@ export function withWidgetParams(
 }
 
 /**
+ * The widget's own bindings its query still references (#1717). A binding
+ * whose `$token` was edited out of the query goes, so no stale value is saved
+ * with the widget. Undefined when none are left.
+ */
+export function referencedWidgetParams(
+  query: string,
+  params: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  const tokens = new Set(Array.from(query.matchAll(/\$(\w+)/g), (m) => m[1]));
+  const kept = Object.entries(params ?? {}).filter(([key]) => tokens.has(key));
+  return kept.length > 0 ? Object.fromEntries(kept) : undefined;
+}
+
+/**
  * Returns the list of $param_xxx names in the query that have no value yet.
  * Mirrors the logic of allReferencedParamsReady but returns the names
  * instead of a boolean.

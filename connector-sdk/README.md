@@ -12,8 +12,11 @@ connector works everywhere in NeoBoard without forking the app.
 - **`ConnectorPlugin`** — the plugin contract (type, label, category,
   `createModule`, optional `formFields` for the connection UI, query
   language, allowed protocols, and an optional `buildQuery(spec)` that turns
-  the editor's guided picks — source, fields, filter, limit — into text in
-  the connector's own dialect, with filter values bound as parameters).
+  guided picks — source, fields, filter, limit — into text in the
+  connector's own dialect, with filter values bound as parameters. The
+  editor's guided builder does not call it yet: it runs the built-in neo4j
+  and postgresql builders on the client, so a registry connector's
+  `buildQuery` gets no builder in the editor today).
 - **`ConnectionModule` / `AuthenticationModule`** — base classes a connector
   implements for connect / query / cancel.
 - **Query-safety helpers** — the invariants every connector must uphold:

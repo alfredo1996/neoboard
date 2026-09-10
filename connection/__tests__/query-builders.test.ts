@@ -63,7 +63,8 @@ describe("buildNeo4jQuery", () => {
         filter: { field: "title", op: "contains", value: "x" },
       }).query,
     ).toContain(
-      "WHERE toLower(toString(n.title)) CONTAINS toLower($param_title)",
+      // toString on the parameter too: toLower rejects an Integer (#1717).
+      "WHERE toLower(toString(n.title)) CONTAINS toLower(toString($param_title))",
     );
   });
 

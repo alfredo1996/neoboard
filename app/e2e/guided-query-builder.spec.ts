@@ -1,10 +1,10 @@
 /**
  * E2E: guided query builder in the widget editor (#1696).
  *
- * Against the seeded databases: build a bar chart from picks alone — source,
+ * Against the seeded databases: build a chart from picks alone — source,
  * fields, a filter — watch the connector's text land in the editor, run it,
- * then save the widget and see the dashboard run it with the filter value the
- * widget binds itself (no parameter widget involved).
+ * then save the widget, reload, and see the dashboard run it with the filter
+ * value the widget binds itself (no parameter widget involved).
  */
 import {
   test,
@@ -107,24 +107,70 @@ test.describe("Guided query builder (#1696)", () => {
     await expect(preview.locator("canvas")).toBeVisible({ timeout: 10_000 });
     await expect(dialog.getByText(/waiting for parameters/i)).toHaveCount(0);
 
-    // Saved, the dashboard runs it with the binding the widget carries.
+    // Saved and reloaded, the dashboard runs it with the binding the widget
+    // carries — proof the params survived the round trip, not just memory.
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
     await saveDashboard(page);
+    await page.reload();
     const card = page.locator("[data-testid='widget-card']").first();
     await expect(card).toBeVisible({ timeout: 10_000 });
     await expect(card.locator("canvas")).toBeVisible({ timeout: 15_000 });
     await expect(card.getByText(/waiting for parameters/i)).toHaveCount(0);
   });
 
-  test("PostgreSQL: a bar chart from picks alone speaks SQL", async ({
+  test("Neo4j: a digits-only contains filter searches text", async ({
+    page,
+  }) => {
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+
+    const toggle = dialog.getByRole("button", { name: "Guided", exact: true });
+    await expect(toggle).toBeVisible({ timeout: 5_000 });
+    await toggle.click();
+    const builder = dialog.getByTestId("guided-query-builder");
+    const source = builder.getByRole("combobox", { name: "Source" });
+    await expect(source).toBeVisible({ timeout: 20_000 });
+    await source.selectOption("Movie");
+    await builder.getByRole("checkbox", { name: "title" }).click();
+    await builder
+      .getByRole("combobox", { name: "Filter field" })
+      .selectOption("title");
+    await builder
+      .getByRole("combobox", { name: "Filter operator" })
+      .selectOption("contains");
+    // "13" is all digits: it must still search as text, not bind an Integer.
+    await builder.getByRole("textbox", { name: "Filter value" }).fill("13");
+    await expect
+      .poll(() => editorDoc(dialog))
+      .toBe(
+        "MATCH (n:Movie)\nWHERE toLower(toString(n.title)) CONTAINS toLower(toString($param_title))\nRETURN n.title AS title\nLIMIT 100",
+      );
+
+    await expect(dialog.getByTitle(RUN_BUTTON)).toBeEnabled({
+      timeout: 10_000,
+    });
+    await dialog.getByTitle(RUN_BUTTON).click();
+    await expect(
+      getPreview(dialog).getByRole("cell", { name: "Apollo 13", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("PostgreSQL: a filtered table from picks alone speaks SQL, saved and reloaded", async ({
     page,
   }) => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /PostgreSQL/i }).click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
 
-    await dialog.getByRole("button", { name: "Guided", exact: true }).click();
+    const toggle = dialog.getByRole("button", { name: "Guided", exact: true });
+    await expect(toggle).toBeVisible({ timeout: 5_000 });
+    await toggle.click();
     const builder = dialog.getByTestId("guided-query-builder");
     const source = builder.getByRole("combobox", { name: "Source" });
     await expect(source).toBeVisible({ timeout: 20_000 });
@@ -135,13 +181,38 @@ test.describe("Guided query builder (#1696)", () => {
       .poll(() => editorDoc(dialog))
       .toBe('SELECT "title", "released"\nFROM "movies"\nLIMIT 100');
 
+    // The ILIKE spelling and the positional rewrite of a widget-bound param
+    // both have to hold against a real PostgreSQL.
+    await builder
+      .getByRole("combobox", { name: "Filter field" })
+      .selectOption("title");
+    await builder
+      .getByRole("combobox", { name: "Filter operator" })
+      .selectOption("contains");
+    await builder.getByRole("textbox", { name: "Filter value" }).fill("13");
+    await expect
+      .poll(() => editorDoc(dialog))
+      .toBe(
+        'SELECT "title", "released"\nFROM "movies"\nWHERE CAST("title" AS text) ILIKE \'%\' || $param_title || \'%\'\nLIMIT 100',
+      );
+
     await expect(dialog.getByTitle(RUN_BUTTON)).toBeEnabled({
       timeout: 10_000,
     });
     await dialog.getByTitle(RUN_BUTTON).click();
-    const preview = getPreview(dialog);
-    await expect(preview).toBeVisible({ timeout: 15_000 });
-    await expect(preview.locator("canvas")).toBeVisible({ timeout: 10_000 });
+    await expect(
+      getPreview(dialog).getByRole("cell", { name: "Apollo 13", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await expect(dialog).not.toBeVisible();
+    await saveDashboard(page);
+    await page.reload();
+    const card = page.locator("[data-testid='widget-card']").first();
+    await expect(
+      card.getByRole("cell", { name: "Apollo 13", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByText(/waiting for parameters/i)).toHaveCount(0);
   });
 
   test("stays out of the way for expert chart types", async ({ page }) => {

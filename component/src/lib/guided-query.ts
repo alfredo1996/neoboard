@@ -9,6 +9,8 @@ import type { DatabaseSchema } from "./schema-transforms";
 export interface GuidedSource {
   name: string;
   fields: string[];
+  /** Each field's type as the schema reports it — the app binds a filter value by it (#1717). */
+  types?: Record<string, string>;
 }
 
 /** Mirrors `QueryFilterOp` in connector-sdk (component/ must not import it). */
@@ -38,22 +40,28 @@ export const EMPTY_PICKS: GuidedPicks = {
   limit: 100,
 };
 
+function source(
+  name: string,
+  defs: readonly { name: string; type: string }[],
+): GuidedSource {
+  // A property-less label arrives with one null-named property (#1714).
+  const named = defs.filter((d) => d.name);
+  return {
+    name,
+    fields: named.map((d) => d.name),
+    types: Object.fromEntries(named.map((d) => [d.name, d.type])),
+  };
+}
+
 /** Node labels (with properties) or tables (with columns) — relationship types are not a `MATCH (n:…)` source. */
 export function guidedSources(schema?: DatabaseSchema): GuidedSource[] {
   if (!schema) return [];
   if (schema.tables) {
-    return schema.tables.map((t) => ({
-      name: t.name,
-      fields: t.columns.map((c) => c.name),
-    }));
+    return schema.tables.map((t) => source(t.name, t.columns));
   }
-  return (schema.labels ?? []).map((name) => ({
-    name,
-    // A property-less label arrives with one null-named property (#1714).
-    fields: (schema.nodeProperties?.[name] ?? [])
-      .map((p) => p.name)
-      .filter(Boolean),
-  }));
+  return (schema.labels ?? []).map((name) =>
+    source(name, schema.nodeProperties?.[name] ?? []),
+  );
 }
 
 /** Change the source; fields and the filter field belong to the old one, so they go. */

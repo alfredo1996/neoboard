@@ -191,20 +191,31 @@ vi.mock("@neoboard/components", () => ({
         >
           filter
         </button>
+        <button
+          type="button"
+          onClick={() =>
+            onChange({ ...picks, filter: { ...picks.filter, field: "" } })
+          }
+        >
+          clear filter
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({ ...EMPTY_STUB_PICKS, limit: picks.limit })}
+        >
+          clear source
+        </button>
       </div>
     );
   },
-  guidedSources: (schema?: DatabaseSchema) =>
-    schema?.tables
-      ? schema.tables.map((t) => ({
-          name: t.name,
-          fields: t.columns.map((c) => c.name),
-        }))
-      : (schema?.labels ?? []).map((name) => ({
-          name,
-          fields: (schema?.nodeProperties?.[name] ?? []).map((p) => p.name),
-        })),
 }));
+
+const EMPTY_STUB_PICKS = {
+  source: "",
+  fields: [],
+  filter: { field: "", op: "=", value: "" },
+  limit: 100,
+};
 
 type GuidedPicks = {
   source: string;
@@ -631,36 +642,96 @@ describe("QueryEditorPanel guided builder (#1696)", () => {
     expect(screen.queryByTestId("guided-query-builder")).not.toBeInTheDocument();
   });
 
+  const MOVIE = "MATCH (n:Movie)\nRETURN n\nLIMIT 100";
+  const FILTERED =
+    "MATCH (n:Movie)\nWHERE n.released > $param_released\nRETURN n.title AS title, n.released AS released\nLIMIT 100";
+  const replaceButton = () =>
+    screen.queryByRole("button", { name: "Replace query" });
+  const store = () => useWidgetEditorStore.getState();
+
   it("writes the connector's query into the store as the picks change, binding the filter as a param", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
-    useWidgetEditorStore.getState().setConnectionId("conn-1");
-    useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n");
+    store().setConnectionId("conn-1");
     render(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
     await user.click(guidedToggle()!);
 
     await user.click(screen.getByText("source:Movie"));
-    expect(useWidgetEditorStore.getState().query).toBe(
-      "MATCH (n:Movie)\nRETURN n\nLIMIT 100",
-    );
+    expect(store().query).toBe(MOVIE);
     await user.click(screen.getByText("field:title"));
     await user.click(screen.getByText("field:released"));
-    expect(useWidgetEditorStore.getState().query).toBe(
+    expect(store().query).toBe(
       "MATCH (n:Movie)\nRETURN n.title AS title, n.released AS released\nLIMIT 100",
     );
-    expect(useWidgetEditorStore.getState().params).toEqual({});
+    expect(store().params).toEqual({});
 
+    // `released` is an Integer in the schema, so the value binds as a number.
     await user.click(screen.getByText("filter"));
-    expect(useWidgetEditorStore.getState().query).toBe(
-      "MATCH (n:Movie)\nWHERE n.released > $param_released\nRETURN n.title AS title, n.released AS released\nLIMIT 100",
+    expect(store().query).toBe(FILTERED);
+    expect(store().params).toEqual({ param_released: 2000 });
+
+    // #1717 — removing the filter takes its binding with it.
+    await user.click(screen.getByText("clear filter"));
+    expect(store().query).not.toContain("$param_released");
+    expect(store().params).toEqual({});
+    expect(replaceButton()).not.toBeInTheDocument();
+  });
+
+  // #1717 — a query the builder did not write is never replaced silently.
+  it("leaves a hand-written query and its params alone, offering to replace them", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    store().setConnectionId("conn-1");
+    store().setQuery("MATCH (n) RETURN n.name ORDER BY n.name");
+    store().setParams({ param_mine: 1 });
+    render(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+    await user.click(guidedToggle()!);
+    expect(replaceButton()).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("source:Movie"));
+    expect(store().query).toBe("MATCH (n) RETURN n.name ORDER BY n.name");
+    expect(store().params).toEqual({ param_mine: 1 });
+
+    await user.click(replaceButton()!);
+    expect(store().query).toBe(MOVIE);
+    expect(store().params).toEqual({});
+    expect(replaceButton()).not.toBeInTheDocument();
+  });
+
+  it("stops writing once the builder's query is edited by hand", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    store().setConnectionId("conn-1");
+    const { rerender } = render(
+      <QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />,
     );
-    expect(useWidgetEditorStore.getState().params).toEqual({
-      param_released: 2000,
-    });
+    await user.click(guidedToggle()!);
+    await user.click(screen.getByText("source:Movie"));
+    await user.click(screen.getByText("filter"));
+
+    const edited = store().query + "\nORDER BY n.released DESC";
+    store().setQuery(edited);
+    rerender(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+    await user.click(screen.getByText("field:title"));
+    expect(store().query).toBe(edited);
+    expect(store().params).toEqual({ param_released: 2000 });
+    expect(replaceButton()).toBeInTheDocument();
+  });
+
+  it("clears the builder's query and params when the source is cleared", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    store().setConnectionId("conn-1");
+    render(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+    await user.click(guidedToggle()!);
+    await user.click(screen.getByText("source:Movie"));
+    await user.click(screen.getByText("filter"));
+    expect(store().params).toEqual({ param_released: 2000 });
+
+    await user.click(screen.getByText("clear source"));
+    expect(store().query).toBe("");
+    expect(store().params).toEqual({});
   });
 
   it("speaks SQL for a PostgreSQL connection", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
-    useWidgetEditorStore.getState().setConnectionId("conn-pg");
+    store().setConnectionId("conn-pg");
     mockSchema = {
       type: "postgresql",
       tables: [
@@ -676,30 +747,28 @@ describe("QueryEditorPanel guided builder (#1696)", () => {
     await user.click(guidedToggle()!);
     await user.click(screen.getByText("source:movies"));
     await user.click(screen.getByText("field:title"));
-    expect(useWidgetEditorStore.getState().query).toBe(
-      'SELECT "title"\nFROM "movies"\nLIMIT 100',
-    );
+    expect(store().query).toBe('SELECT "title"\nFROM "movies"\nLIMIT 100');
   });
 
-  it("starts over when the connection changes", async () => {
+  it("starts over whenever the connection changes, including back to the first", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
-    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    store().setConnectionId("conn-1");
     const { rerender } = render(
       <QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />,
     );
     await user.click(guidedToggle()!);
     await user.click(screen.getByText("source:Movie"));
-    expect(screen.getByTestId("guided-query-builder")).toHaveAttribute(
-      "data-source",
-      "Movie",
-    );
+    const builder = () => screen.getByTestId("guided-query-builder");
+    expect(builder()).toHaveAttribute("data-source", "Movie");
 
-    useWidgetEditorStore.getState().setConnectionId("conn-2");
+    store().setConnectionId("conn-2");
     rerender(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
-    expect(screen.getByTestId("guided-query-builder")).toHaveAttribute(
-      "data-source",
-      "",
-    );
+    expect(builder()).toHaveAttribute("data-source", "");
+
+    // Back on conn-1 the old picks do not return to disagree with the editor.
+    store().setConnectionId("conn-1");
+    rerender(<QueryEditorPanel editorLanguage="neo4j" connectorType="neo4j" />);
+    expect(builder()).toHaveAttribute("data-source", "");
   });
 });
 

@@ -73,8 +73,10 @@ const cypher: Dialect = {
   quote: (name) =>
     /^[A-Za-z_]\w*$/.test(name) ? name : "`" + name.replaceAll("`", "``") + "`",
   ref: (field) => "n." + cypher.quote(field),
+  // toString on both sides: toLower rejects anything but a string, and a
+  // digits-only value may arrive as a number the driver binds as Integer.
   contains: (ref, param) =>
-    `toLower(toString(${ref})) CONTAINS toLower(${param})`,
+    `toLower(toString(${ref})) CONTAINS toLower(toString(${param}))`,
 };
 
 export function buildNeo4jQuery(spec: QuerySpec): BuiltQuery {
