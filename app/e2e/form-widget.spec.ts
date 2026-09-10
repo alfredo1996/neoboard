@@ -940,11 +940,15 @@ test.describe("Form field labels and database errors (#1409, #1410)", () => {
     await expect(fullName).toBeFocused();
 
     // A trigger may open on the label's click instead of only taking focus;
-    // either proves the label reaches the control. Read the control through
-    // `label.control`: an open Select aria-hides the rest of the page, so a
-    // role locator for the trigger stops matching once it opens.
+    // either proves the label reaches the control. An open Select aria-hides
+    // the rest of the page, so once it opens no role locator matches — not the
+    // trigger, and not `form`, which is filtered by its Submit button. Pin the
+    // label by id first and read the control through `label.control`.
     for (const text of ["Priority", "Due"]) {
-      const label = form.locator("label", { hasText: text });
+      const labelId = await form
+        .locator("label", { hasText: text })
+        .getAttribute("id");
+      const label = page.locator(`label[id="${labelId}"]`);
       await label.click();
       await expect
         .poll(() =>
