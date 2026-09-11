@@ -18,8 +18,8 @@ import type { APIRequestContext, Page } from "@playwright/test";
  * request per widget per refresh cycle, and leave the rest of the dashboard
  * — and the editor — usable without a reload. So must a widget on the
  * healthy connection that waits on the dead selector's parameter. Once the
- * connection is repointed, the selector's Retry brings everything back —
- * still without a reload.
+ * connection is repointed, the Retry on the selector and the one on the plain
+ * widget bring everything back — still without a reload.
  *
  * `widget-states.spec.ts` covers bad *queries*; this covers a bad *host*.
  */
@@ -219,8 +219,7 @@ test.describe("Dead connector (#1678)", () => {
       // Recovery, still without a reload: repoint the connection at the
       // healthy host and use the selector's Retry — the seed query has no
       // interval and nothing else invalidates it. The gated widgets follow
-      // the store back to "waiting", and the plain widget's next refresh
-      // cycle clears its own card.
+      // the store back to "waiting".
       const repoint = await page.request.patch(`/api/connections/${deadId}`, {
         data: {
           config: {
@@ -239,9 +238,21 @@ test.describe("Dead connector (#1678)", () => {
       await expect(page.getByText("Select a value…")).toBeVisible({
         timeout: 15_000,
       });
-      await expect(unavailable).toHaveCount(0, {
-        timeout: REFRESH_SECONDS * 1000 + 15_000,
+
+      // The plain widget recovers through its own Retry: edit mode does not
+      // poll (#1419), so no refresh cycle is coming for it. Waiting on its
+      // row — not on the banner going away — is what keeps this honest: an
+      // attempt still on the dead host shows a skeleton with no banner at all,
+      // and that transient passed the old check before its 502 landed (#1748).
+      const plain = page.locator('[data-widget-id="w-dead"]');
+      const plainRow = plain.getByRole("cell", { name: "1", exact: true });
+      const plainRetry = plain.getByRole("button", { name: "Retry" });
+      await expect(plainRow.or(plainRetry)).toBeVisible({
+        timeout: CONNECT_TIMEOUT_MS + 5_000,
       });
+      if (await plainRetry.isVisible()) await plainRetry.click();
+      await expect(plainRow).toBeVisible({ timeout: 15_000 });
+      await expect(unavailable).toHaveCount(0);
       expect(requestsFor(DEAD_SEED)).toBe(2);
     } finally {
       await cleanup();
