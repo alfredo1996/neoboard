@@ -3,6 +3,7 @@ import {
   expect,
   ALICE,
   createTestDashboard,
+  saveDashboard,
   typeInEditor,
   getPreview,
 } from "./fixtures";
@@ -211,20 +212,12 @@ test.describe("Parameter-to-refresh cycle", () => {
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
 
-    // Save the dashboard
-    await page.getByRole("button", { name: "Save" }).click();
-    // Wait for save to complete (button text changes while saving)
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
-    });
+    // Save, and wait for it to land before leaving: a Back click while the
+    // save is in flight opens the unsaved-changes guard (#1767).
+    await saveDashboard(page);
 
     // Navigate to view mode via the "Back" button
     await page.getByRole("button", { name: "Back" }).click();
-    // Handle unsaved-changes dialog if it appears (grid compaction race)
-    const leaveBtn = page.getByRole("button", { name: "Leave" });
-    if (await leaveBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await leaveBtn.click();
-    }
     await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The parameter-select widget should render a dropdown with "year" label

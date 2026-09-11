@@ -1,4 +1,4 @@
-import { test, expect, ALICE, typeInEditor } from "./fixtures";
+import { test, expect, ALICE, saveDashboard, typeInEditor } from "./fixtures";
 
 test.describe("Dashboard viewer — uncovered states", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -56,11 +56,8 @@ test.describe("Dashboard viewer — uncovered states", () => {
       dialog.getByRole("button", { name: "Create" }).click(),
     ]);
     await page.waitForURL(/\/edit/, { timeout: 15_000 });
-    // Save the empty dashboard
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
-    });
+    // Save the empty dashboard, and wait for it to land before leaving (#1767)
+    await saveDashboard(page);
     // Go to view mode
     await page.getByRole("button", { name: /Back/ }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
@@ -276,18 +273,8 @@ test.describe("Dashboard editor — uncovered states", () => {
     await dialog2.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog2).not.toBeVisible({ timeout: 5_000 });
 
-    // Save — wait for the PUT response to confirm save is complete
-    const saveResponse = page.waitForResponse(
-      (res) =>
-        res.url().includes("/api/dashboards/") &&
-        res.request().method() === "PUT",
-      { timeout: 15_000 },
-    );
-    await page.getByRole("button", { name: "Save" }).click();
-    await saveResponse;
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 10_000,
-    });
+    // Save, and wait for it to land before navigating away (#1767)
+    await saveDashboard(page);
 
     // Go to view mode — extract dashboard ID from URL and navigate directly
     const editUrl = page.url();

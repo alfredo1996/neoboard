@@ -4,6 +4,7 @@ import {
   ALICE,
   CAROL,
   createTestDashboard,
+  saveDashboard,
   typeInEditor,
   getPreview,
 } from "./fixtures";
@@ -604,10 +605,8 @@ test.describe("Widget Library", () => {
         await mainDialog.getByRole("button", { name: "Add Widget" }).click();
         await expect(mainDialog).not.toBeVisible();
 
-        // Save dashboard
-        await page.getByRole("button", { name: "Save" }).click();
-        // eslint-disable-next-line playwright/no-wait-for-timeout
-        await page.waitForTimeout(1_000);
+        // Save, and wait for it to land before navigating away (#1767)
+        await saveDashboard(page);
 
         // 3. Edit the template in Widget Library — change its name
         await page.goto("/widget-library");
