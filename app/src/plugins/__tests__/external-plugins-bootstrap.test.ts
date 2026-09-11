@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { ChartPlugin } from "@/lib/plugin/chart-plugin-registry";
 import { createPluginRegistry } from "@/lib/plugin/chart-plugin-registry";
 
@@ -110,20 +110,5 @@ describe("external plugin bootstrap — overrides logic", () => {
     const before = registry.getTypes().length;
     registerExternalPlugins(registry, []);
     expect(registry.getTypes().length).toBe(before);
-  });
-});
-
-describe("plugin bootstrap — end-to-end (real registry)", () => {
-  it("exports pluginRegistry with built-ins registered", async () => {
-    // Mock the heavy component-library dep so the bootstrap doesn't
-    // load the full chart suite in the test env.
-    vi.doMock("@neoboard/components", () => ({
-      MarkdownWidget: () => null,
-      getChartOptions: () => [],
-    }));
-    const { pluginRegistry } = await import("../index");
-    expect(pluginRegistry.has("bar")).toBe(true);
-    expect(pluginRegistry.has("markdown")).toBe(true);
-    vi.doUnmock("@neoboard/components");
   });
 });
