@@ -1,30 +1,8 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard } from "./fixtures";
 
 test.describe("Dashboard CRUD", () => {
   test.beforeEach(async ({ authPage }) => {
     await authPage.login(ALICE.email, ALICE.password);
-  });
-
-  // Defensive cleanup: delete any "Movie Analytics (copy)" dashboards left
-  // behind by the "should duplicate a dashboard" test. If that test's
-  // inline cleanup path throws (e.g. dropdown click races), the copy can
-  // leak across tests and cause strict-mode `getByText("Movie Analytics")`
-  // collisions elsewhere. This afterEach runs via the API (no UI race) and
-  // is idempotent, so the cost is one GET + at most one DELETE per test.
-  test.afterEach(async ({ page }) => {
-    try {
-      const res = await page.request.get("/api/dashboards?limit=100");
-      if (!res.ok()) return;
-      const body = await res.json();
-      const copies = (
-        (body.data ?? []) as Array<{ id: string; name: string }>
-      ).filter((d) => d.name === "Movie Analytics (copy)");
-      for (const copy of copies) {
-        await page.request.delete(`/api/dashboards/${copy.id}`);
-      }
-    } catch {
-      // Best-effort cleanup — never fail the test on this path.
-    }
   });
 
   test("should create a new dashboard", async ({ page }) => {
@@ -39,8 +17,6 @@ test.describe("Dashboard CRUD", () => {
   });
 
   test("should open dashboard in view mode", async ({ page }) => {
-    // Use exact match to avoid substring collision with any stray
-    // "Movie Analytics (copy)" left by a parallel duplicate test.
     await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
     await expect(
@@ -183,32 +159,65 @@ test.describe("Dashboard CRUD", () => {
   });
 
   test("should duplicate a dashboard via card dropdown", async ({ page }) => {
-    // Find the "Movie Analytics" card and open its dropdown
-    const dashCard = page
-      .locator("div[class*='cursor-pointer']")
-      .filter({ hasText: "Movie Analytics" })
-      .first();
-    await expect(dashCard).toBeVisible({ timeout: 10_000 });
-    await dashCard.getByRole("button", { name: "Dashboard options" }).click();
-    await page.getByRole("menuitem", { name: "Duplicate" }).click();
+    // Duplicate a dashboard only this test knows (#1749). A copy of the shared
+    // "Movie Analytics" was visible to every test in the file, and the by-name
+    // cleanup that followed each of them deleted it mid-run from the other
+    // worker — after which the UI's own delete 404'd over a stale card.
+    const source = `Duplicate Me ${Date.now()}`;
+    const copyName = `${source} (copy)`;
+    const { id: sourceId, cleanup } = await createTestDashboard(
+      page.request,
+      source,
+    );
+    let copyId: string | undefined;
 
-    // A copy card should appear
-    await expect(page.getByText("Movie Analytics (copy)")).toBeVisible({
-      timeout: 15_000,
-    });
-    // Original should still be visible
-    await expect(page.getByText("Movie Analytics").first()).toBeVisible();
+    try {
+      await page.goto("/");
+      const sourceCard = page
+        .locator("div[class*='cursor-pointer']")
+        .filter({ has: page.getByText(source, { exact: true }) })
+        .first();
+      await sourceCard
+        .getByRole("button", { name: "Dashboard options" })
+        .click();
+      const [duplicated] = await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().endsWith(`/api/dashboards/${sourceId}/duplicate`) &&
+            r.request().method() === "POST",
+        ),
+        page.getByRole("menuitem", { name: "Duplicate" }).click(),
+      ]);
+      expect(duplicated.status()).toBe(201);
+      copyId = (await duplicated.json()).data.id as string;
 
-    // Clean up — delete the copy to avoid polluting other tests
-    const copyCard = page
-      .locator("div[class*='cursor-pointer']")
-      .filter({ hasText: "Movie Analytics (copy)" })
-      .first();
-    await copyCard.getByRole("button", { name: "Dashboard options" }).click();
-    await page.getByRole("menuitem", { name: "Delete" }).click();
-    await page.getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByText("Movie Analytics (copy)")).not.toBeVisible({
-      timeout: 5_000,
-    });
+      // The copy appears next to the original.
+      await expect(page.getByText(copyName, { exact: true })).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(page.getByText(source, { exact: true })).toBeVisible();
+
+      // Delete the copy through its card, and wait for the server to agree.
+      const copyCard = page
+        .locator("div[class*='cursor-pointer']")
+        .filter({ has: page.getByText(copyName, { exact: true }) })
+        .first();
+      await copyCard.getByRole("button", { name: "Dashboard options" }).click();
+      await page.getByRole("menuitem", { name: "Delete" }).click();
+      const [deleted] = await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().endsWith(`/api/dashboards/${copyId}`) &&
+            r.request().method() === "DELETE",
+        ),
+        page.getByRole("button", { name: "Delete" }).click(),
+      ]);
+      expect(deleted.ok()).toBe(true);
+      await expect(page.getByText(copyName, { exact: true })).not.toBeVisible();
+    } finally {
+      // Deleting by id is idempotent: a 404 for the removed copy is fine.
+      if (copyId) await page.request.delete(`/api/dashboards/${copyId}`);
+      await cleanup();
+    }
   });
 });
