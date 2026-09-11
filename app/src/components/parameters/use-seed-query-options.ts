@@ -21,6 +21,24 @@ export function seedFiltersOnServer(
   return !!searchable && /\$param_search\b/.test(seedQuery ?? "");
 }
 
+/**
+ * The extra params a seed request carries: the parent's value, plus the typed
+ * search term. A seed that consumes `$param_search` always gets the term, ""
+ * while the box is empty — a missing `$param_*` fails the whole query, so it
+ * could never load before a term was typed, nor after the box closed (#1743).
+ */
+export function buildSeedExtraParams(
+  parentParams: Record<string, string>,
+  searchable: boolean | undefined,
+  seedQuery: string | undefined,
+  search: string,
+): Record<string, string> | undefined {
+  if (searchable && (search || seedFiltersOnServer(searchable, seedQuery))) {
+    return { ...parentParams, param_search: search };
+  }
+  return Object.keys(parentParams).length > 0 ? parentParams : undefined;
+}
+
 export interface SeedQueryResult {
   options: { value: string; label: string; rawValue?: unknown }[];
   loading: boolean;
@@ -130,12 +148,16 @@ export function useSeedQueryOptions(
 
   const parentReady = !hasParent || !!parentValue;
 
-  const seedExtraParams = useMemo(() => {
-    if (searchable && debouncedSearch) {
-      return { ...parentParams, param_search: debouncedSearch };
-    }
-    return Object.keys(parentParams).length > 0 ? parentParams : undefined;
-  }, [parentParams, searchable, debouncedSearch]);
+  const seedExtraParams = useMemo(
+    () =>
+      buildSeedExtraParams(
+        parentParams,
+        searchable,
+        seedQuery,
+        debouncedSearch,
+      ),
+    [parentParams, searchable, seedQuery, debouncedSearch],
+  );
 
   const { options, loading, error, refetch } = useSeedQuery(
     connectionId,

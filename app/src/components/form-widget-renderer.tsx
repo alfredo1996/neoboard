@@ -24,7 +24,10 @@ import {
 import { useParameterValues } from "@/stores/parameter-store";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
-import { seedFiltersOnServer } from "@/components/parameters/use-seed-query-options";
+import {
+  buildSeedExtraParams,
+  seedFiltersOnServer,
+} from "@/components/parameters/use-seed-query-options";
 import { buildFormParams } from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import {
@@ -115,12 +118,16 @@ function FieldInput({
 
   const cascadingEnabled = !field.parentParameterName || !!parentValue;
 
-  const seedExtraParams = useMemo(() => {
-    if (field.searchable && debouncedSearch) {
-      return { ...parentParams, param_search: debouncedSearch };
-    }
-    return Object.keys(parentParams).length > 0 ? parentParams : undefined;
-  }, [field.searchable, parentParams, debouncedSearch]);
+  const seedExtraParams = useMemo(
+    () =>
+      buildSeedExtraParams(
+        parentParams,
+        field.searchable,
+        field.seedQuery,
+        debouncedSearch,
+      ),
+    [parentParams, field.searchable, field.seedQuery, debouncedSearch],
+  );
 
   const {
     options: seedOptions,
@@ -356,8 +363,7 @@ export function FormWidgetRenderer({
   const refreshWidgetIds = useMemo(
     () =>
       ((chartOptions as Record<string, unknown>).refreshWidgetIds as
-        | string[]
-        | undefined) ?? [],
+        string[] | undefined) ?? [],
     [chartOptions],
   );
 

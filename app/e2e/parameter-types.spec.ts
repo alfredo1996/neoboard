@@ -750,23 +750,14 @@ test.describe("Parameter widget types", () => {
 
   // ─────────────────────────────────────────────────────────────────────────
   // 9. searchable select — closing the popover drops the typed term (#1743)
+  //    The seed filters on $param_search, so a term that outlived the box
+  //    would keep the list narrowed underneath an empty search input.
   // ─────────────────────────────────────────────────────────────────────────
-  test("searchable select and multi-select drop the search term when the popover closes", async ({
+  test("searchable selects bring the full list back when the popover closes", async ({
     page,
   }) => {
-    // Every seed request that carries a search term, in the order sent.
-    const searches: unknown[] = [];
-    page.on("request", (req) => {
-      if (!req.url().endsWith("/api/query")) return;
-      const term = req.postDataJSON()?.params?.param_search;
-      if (term !== undefined) searches.push(term);
-    });
-
-    // A seed that filters on $param_search cannot load before a term is typed
-    // (Neo4j rejects the missing parameter), so the stale term is caught in
-    // the requests it sends rather than in the list it narrows.
     const seedQuery =
-      "UNWIND ['Carrie-Anne Moss', 'Hugo Weaving', 'Keanu Reeves'] AS value RETURN value";
+      "UNWIND ['Carrie-Anne Moss', 'Hugo Weaving', 'Keanu Reeves'] AS value WITH value WHERE value CONTAINS $param_search RETURN value";
     const { id, cleanup } = await createParamDashboard(
       page.request,
       `param-search-close ${Date.now()}`,
@@ -778,7 +769,7 @@ test.describe("Parameter widget types", () => {
             connectionId: "conn-neo4j-001",
             query: "",
             settings: {
-              title: "Star",
+              title: "Star picker",
               chartOptions: {
                 parameterType: "select",
                 parameterName: "star",
@@ -792,7 +783,7 @@ test.describe("Parameter widget types", () => {
             connectionId: "conn-neo4j-001",
             query: "",
             settings: {
-              title: "Cast",
+              title: "Cast picker",
               chartOptions: {
                 parameterType: "multi-select",
                 parameterName: "cast",
@@ -800,56 +791,97 @@ test.describe("Parameter widget types", () => {
               },
             },
           },
+          {
+            id: "f-close",
+            chartType: "form",
+            connectionId: "conn-neo4j-001",
+            query: "RETURN $param_guest AS guest",
+            settings: {
+              title: "Guest form",
+              formFields: [
+                {
+                  id: "f-guest",
+                  label: "Guest",
+                  parameterName: "guest",
+                  parameterType: "select",
+                  seedQuery,
+                  searchable: true,
+                },
+              ],
+            },
+          },
         ],
         gridLayout: [
           { i: "p-close-single", x: 0, y: 0, w: 4, h: 3 },
           { i: "p-close-multi", x: 4, y: 0, w: 4, h: 3 },
+          { i: "f-close", x: 8, y: 0, w: 4, h: 4 },
         ],
       },
     );
 
     try {
-      // A fake clock holds the 300ms search debounce, so the popover closes
-      // before the typed term would have been sent.
-      await page.clock.install();
       await page.goto(`/${id}`);
+      const search = page.getByPlaceholder("Search…");
+      const options = page.getByRole("option");
 
-      // Distinct terms throughout: both widgets share one seed query, so a
-      // repeated term would be served from the query cache off the network.
-      for (const [name, stale, fresh] of [
-        ["star", "Keanu", "Hugo"],
-        ["cast", "Carrie", "Weaving"],
-      ] as const) {
+      // One way of closing per widget: picking in the single select, clicking
+      // away from the multi-select (a pick leaves it open), and Escape on the
+      // form widget's select.
+      const cases: {
+        name: string;
+        term: string;
+        match: string;
+        close: () => Promise<void>;
+      }[] = [
+        {
+          name: "star",
+          term: "Keanu",
+          match: "Keanu Reeves",
+          close: () =>
+            page.getByRole("option", { name: "Keanu Reeves" }).click(),
+        },
+        {
+          name: "cast",
+          term: "Hugo",
+          match: "Hugo Weaving",
+          close: async () => {
+            await page.getByRole("option", { name: "Hugo Weaving" }).click();
+            // The pick leaves the popover, and so the term, where it was.
+            await expect(search).toHaveValue("Hugo");
+            await page.getByText("Star picker", { exact: true }).click();
+          },
+        },
+        {
+          name: "guest",
+          term: "Carrie",
+          match: "Carrie-Anne Moss",
+          close: () => page.keyboard.press("Escape"),
+        },
+      ];
+
+      for (const { name, term, match, close } of cases) {
         const trigger = page.getByRole("combobox", { name });
-        const search = page.getByPlaceholder("Search…");
         await expect(trigger).toBeEnabled({ timeout: 15_000 });
         await trigger.click();
-        await expect(page.getByRole("option")).toHaveCount(3, {
-          timeout: 10_000,
-        });
+        await expect(options).toHaveCount(3, { timeout: 10_000 });
 
-        searches.length = 0;
-        const now = await page.evaluate(() => Date.now());
-        await page.clock.pauseAt(now + 1_000);
-        await search.fill(stale);
-        await page.keyboard.press("Escape");
+        // The server narrows the list: cmdk renders this seed's rows as given.
+        await search.fill(term);
+        await expect(options).toHaveText([match], { timeout: 10_000 });
+
+        await close();
         await expect(search).toHaveCount(0);
-        await page.clock.runFor(1_000);
-        await page.clock.resume();
 
-        await trigger.click();
+        // Before #1743 the term outlived the box and held the list at one row.
+        // Reopen from the chevron end: a picked multi-select value puts its
+        // remove button in the middle of the trigger.
+        const box = await trigger.boundingBox();
+        if (!box) throw new Error(`${name} trigger is not rendered`);
+        await trigger.click({
+          position: { x: box.width - 12, y: box.height / 2 },
+        });
         await expect(search).toHaveValue("");
-        const searched = page.waitForResponse(
-          (res) =>
-            res.url().endsWith("/api/query") &&
-            res.request().postDataJSON()?.params?.param_search === fresh,
-        );
-        await search.fill(fresh);
-        await searched;
-
-        // Before #1743 the closed box's term still went out once the debounce
-        // fired, and went on filtering behind the empty box.
-        expect(searches).toEqual([fresh]);
+        await expect(options).toHaveCount(3, { timeout: 10_000 });
         await page.keyboard.press("Escape");
       }
     } finally {

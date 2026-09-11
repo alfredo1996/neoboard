@@ -408,6 +408,54 @@ describe("useSeedQueryOptions — debouncedSearch reset (regression: #859)", () 
   });
 });
 
+// #1743: a missing `$param_*` fails the whole query, so a seed that consumes
+// `$param_search` must get the empty term rather than no term at all — before
+// anything is typed, and again once the box is cleared or closed.
+describe("useSeedQueryOptions — a seed that consumes $param_search (#1743)", () => {
+  const seed =
+    "MATCH (p:Person) WHERE p.name CONTAINS $param_search RETURN p.name AS value";
+
+  beforeEach(() => {
+    seedQuerySpy.mockClear();
+    useParameterStore.getState().clearAll();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sends an empty term before anything is typed", () => {
+    renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", seed, undefined, true),
+    );
+    expect(lastCallArgs()[3]).toEqual({ param_search: "" });
+  });
+
+  it("goes back to the empty term when the box is cleared", () => {
+    const { result } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", seed, undefined, true),
+    );
+    act(() => result.current.setSearchTerm("Kea"));
+    act(() => {
+      vi.advanceTimersByTime(SEED_QUERY_SEARCH_DEBOUNCE_MS);
+    });
+    expect(lastCallArgs()[3]).toEqual({ param_search: "Kea" });
+
+    act(() => result.current.setSearchTerm(""));
+    act(() => {
+      vi.advanceTimersByTime(SEED_QUERY_SEARCH_DEBOUNCE_MS);
+    });
+    expect(lastCallArgs()[3]).toEqual({ param_search: "" });
+  });
+
+  it("still leaves param_search out of a seed that does not consume it", () => {
+    renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, true),
+    );
+    expect(lastCallArgs()[3]).toBeUndefined();
+  });
+});
+
 // #1411: when the seed query consumes `$param_search`, the server has already
 // filtered the rows and the combobox must not filter them a second time.
 describe("seedFiltersOnServer (#1411)", () => {
