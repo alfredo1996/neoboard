@@ -6,14 +6,35 @@ test.describe("Dashboard CRUD", () => {
   });
 
   test("should create a new dashboard", async ({ page }) => {
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
-    await dialog.locator("#dashboard-name").fill("E2E Test Dashboard");
-    await dialog.getByRole("button", { name: "Create" }).click();
-    // After creation, app navigates to edit page
-    await expect(page.getByText("E2E Test Dashboard")).toBeVisible({
-      timeout: 10000,
-    });
+    // A name only this run knows, removed by id (#1768). A fixed name outlived
+    // the test, so every later run matched its card and the dialog's
+    // duplicate-name warning at once.
+    const name = `E2E Test Dashboard ${Date.now()}`;
+    let id: string | undefined;
+
+    try {
+      await page.getByRole("button", { name: /New Dashboard/i }).click();
+      const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
+      await dialog.locator("#dashboard-name").fill(name);
+      const [created] = await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().endsWith("/api/dashboards") &&
+            r.request().method() === "POST",
+        ),
+        dialog.getByRole("button", { name: "Create" }).click(),
+      ]);
+      expect(created.status()).toBe(201);
+      id = (await created.json()).data.id as string;
+
+      // The app lands on the new dashboard's edit page.
+      await page.waitForURL((url) => url.pathname === `/${id}/edit`);
+      await expect(
+        page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+    } finally {
+      if (id) await page.request.delete(`/api/dashboards/${id}`);
+    }
   });
 
   test("should open dashboard in view mode", async ({ page }) => {
