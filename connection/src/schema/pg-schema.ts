@@ -2,14 +2,12 @@ import { PostgresConnectionModule } from "../postgresql/PostgresConnectionModule
 import { runBoundedQuery } from "../postgresql/utils";
 import type {
   AuthConfig,
+  ColumnDef,
+  DatabaseSchema,
   PostgresAdvancedOptions,
+  TableDef,
 } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
-import type {
-  DatabaseSchema,
-  TableDef,
-  ColumnDef,
-} from "@neoboard/connector-sdk";
 
 const SCHEMA_QUERY = `
 SELECT
