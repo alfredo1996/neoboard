@@ -112,6 +112,13 @@ function ParamSelector({
   const labelId = labelledBy ?? `param-select-label-${parameterName}`;
   const clearId = React.useId();
 
+  // Closing unmounts the search box without cmdk reporting its value going
+  // empty, so the caller would keep filtering on a term nobody can see (#1743).
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) onSearch?.("");
+  };
+
   // Truthiness, not `!== undefined`: the widget editor's parent-name input
   // writes "" when the user clears it, and an empty name is no parent — the
   // alternative is a select stuck asking for a parent with no name (#1360).
@@ -190,7 +197,7 @@ function ParamSelector({
       <div className={cn("space-y-1.5", className)}>
         {label}
         <div className="flex items-center gap-1">
-          <Popover open={open} onOpenChange={setOpen}>
+          <Popover open={open} onOpenChange={handleOpenChange}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -227,7 +234,7 @@ function ParamSelector({
                         keywords={[opt.label]}
                         onSelect={() => {
                           onChange(opt.value === value ? "" : opt.value);
-                          setOpen(false);
+                          handleOpenChange(false);
                         }}
                       >
                         <div

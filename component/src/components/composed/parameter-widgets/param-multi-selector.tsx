@@ -89,6 +89,13 @@ function ParamMultiSelector({
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-multi-label-${parameterName}`;
 
+  // Closing unmounts the search box without cmdk reporting its value going
+  // empty, so the caller would keep filtering on a term nobody can see (#1743).
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) onSearch?.("");
+  };
+
   // Truthiness, not `!== undefined`: the editor's parent-name input writes ""
   // when cleared, and an empty name is no parent (#1360).
   const isWaitingForParent = !!parentParameterName && !parentValue;
@@ -160,7 +167,7 @@ function ParamMultiSelector({
           </Button>
         )}
       </div>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"

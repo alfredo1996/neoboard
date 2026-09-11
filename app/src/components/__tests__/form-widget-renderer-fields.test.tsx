@@ -175,11 +175,16 @@ vi.mock("@/hooks/use-write-query-execution", () => ({
   }),
 }));
 
+// The arguments each FieldInput hands the seed query, in call order.
+const seedQueryCalls: unknown[][] = [];
 vi.mock("@/hooks/use-seed-query", () => ({
-  useSeedQuery: () => ({
-    options: [{ value: "ok", label: "OK", rawValue: 42 }],
-    loading: false,
-  }),
+  useSeedQuery: (...args: unknown[]) => {
+    seedQueryCalls.push(args);
+    return {
+      options: [{ value: "ok", label: "OK", rawValue: 42 }],
+      loading: false,
+    };
+  },
 }));
 
 vi.mock("@tanstack/react-query", async () => {
@@ -232,6 +237,7 @@ beforeEach(() => {
   dateRangeProps.length = 0;
   dateRelativeProps.length = 0;
   numberRangeProps.length = 0;
+  seedQueryCalls.length = 0;
   mutateIsPending = false;
   mockUseSession.mockReturnValue(ADMIN_SESSION);
 });
@@ -456,6 +462,22 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     expect(last.serverFiltered).toBe(true);
   });
 
+  // #1743: a missing $param_search fails the seed query outright, so an empty
+  // search box has to send the empty term.
+  it("sends an empty $param_search to a searchable seed that consumes it", () => {
+    renderForm([
+      makeField({
+        id: "s",
+        parameterName: "person",
+        parameterType: "select",
+        seedQuery:
+          "MATCH (p) WHERE p.name CONTAINS $param_search RETURN p.name AS value",
+        searchable: true,
+      }),
+    ]);
+    expect(seedQueryCalls.at(-1)?.[3]).toEqual({ param_search: "" });
+  });
+
   it("keeps client filtering for static options even with a $param_search seed", () => {
     renderForm([
       makeField({
@@ -474,19 +496,22 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
   it.each([
     ["RETURN $param_search AS value", true],
     ["MATCH (n) RETURN n.tag AS value", false],
-  ])("forwards serverFiltered to a searchable multi-select (%s)", (seedQuery, expected) => {
-    renderForm([
-      makeField({
-        id: "m",
-        parameterName: "tags",
-        parameterType: "multi-select",
-        seedQuery,
-        searchable: true,
-      }),
-    ]);
-    const last = paramMultiProps[paramMultiProps.length - 1];
-    expect(last.serverFiltered).toBe(expected);
-  });
+  ])(
+    "forwards serverFiltered to a searchable multi-select (%s)",
+    (seedQuery, expected) => {
+      renderForm([
+        makeField({
+          id: "m",
+          parameterName: "tags",
+          parameterType: "multi-select",
+          seedQuery,
+          searchable: true,
+        }),
+      ]);
+      const last = paramMultiProps[paramMultiProps.length - 1];
+      expect(last.serverFiltered).toBe(expected);
+    },
+  );
 
   it("passes a plain select's parentParameterName through as undefined", () => {
     renderForm([
