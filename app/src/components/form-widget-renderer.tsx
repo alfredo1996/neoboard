@@ -317,6 +317,12 @@ export function FormWidgetRenderer({
   );
 
   const [localValues, setLocalValues] = useState<Record<string, unknown>>({});
+  // localValues as of the latest change. A text draft flushed on blur or
+  // submit reaches handleFieldChange before `localValues` re-renders (#1771).
+  const localValuesRef = useRef(localValues);
+  useEffect(() => {
+    localValuesRef.current = localValues;
+  }, [localValues]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -325,8 +331,7 @@ export function FormWidgetRenderer({
   const refreshWidgetIds = useMemo(
     () =>
       ((chartOptions as Record<string, unknown>).refreshWidgetIds as
-        | string[]
-        | undefined) ?? [],
+        string[] | undefined) ?? [],
     [chartOptions],
   );
 
@@ -403,6 +408,7 @@ export function FormWidgetRenderer({
 
   const handleFieldChange = useCallback((name: string, value: unknown) => {
     touchedFields.current.add(name);
+    localValuesRef.current = { ...localValuesRef.current, [name]: value };
     setLocalValues((prev) => ({ ...prev, [name]: value }));
     setSuccessMessage(null);
     setErrorMessage(null);
@@ -414,25 +420,26 @@ export function FormWidgetRenderer({
     });
   }, []);
 
-  const handleFieldBlur = useCallback(
-    (field: FormFieldDef) => {
-      const error = validateFieldValue(field, localValues[field.parameterName]);
-      setFieldErrors((prev) => {
-        if (error) {
-          if (prev[field.parameterName] === error) return prev;
-          return { ...prev, [field.parameterName]: error };
-        }
-        if (!prev[field.parameterName]) return prev;
-        const next = { ...prev };
-        delete next[field.parameterName];
-        return next;
-      });
-    },
-    [localValues],
-  );
-
-  // Refs for text inputs — used to flush pending debounce on submit
+  // Refs for text inputs — used to flush pending debounce on blur and submit
   const textInputRefs = useRef(new Map<string, DebouncedTextInputHandle>());
+
+  const handleFieldBlur = useCallback((field: FormFieldDef) => {
+    textInputRefs.current.get(field.parameterName)?.flush();
+    const error = validateFieldValue(
+      field,
+      localValuesRef.current[field.parameterName],
+    );
+    setFieldErrors((prev) => {
+      if (error) {
+        if (prev[field.parameterName] === error) return prev;
+        return { ...prev, [field.parameterName]: error };
+      }
+      if (!prev[field.parameterName]) return prev;
+      const next = { ...prev };
+      delete next[field.parameterName];
+      return next;
+    });
+  }, []);
 
   const writeQuery = useWriteQueryExecution();
 
@@ -447,10 +454,11 @@ export function FormWidgetRenderer({
     // Guard against double-submit while a mutation is in flight
     if (writeQuery.isPending) return;
 
-    // Flush any pending debounced text inputs so localValues is current
+    // Flush any pending debounced text inputs so localValuesRef is current
     for (const handle of textInputRefs.current.values()) {
       handle.flush();
     }
+    const values = localValuesRef.current;
 
     setSuccessMessage(null);
     setErrorMessage(null);
@@ -458,7 +466,7 @@ export function FormWidgetRenderer({
     // Validate required + validationType for all fields
     const errors: Record<string, string> = {};
     for (const field of fields) {
-      const error = validateFieldValue(field, localValues[field.parameterName]);
+      const error = validateFieldValue(field, values[field.parameterName]);
       if (error) {
         errors[field.parameterName] = error;
       }
@@ -470,7 +478,7 @@ export function FormWidgetRenderer({
     }
 
     setFieldErrors({});
-    const params = buildFormParams(fields, localValues);
+    const params = buildFormParams(fields, values);
 
     writeQuery.mutate(
       { connectionId, query, params },
@@ -492,7 +500,6 @@ export function FormWidgetRenderer({
     );
   }, [
     fields,
-    localValues,
     connectionId,
     query,
     chartOptions,

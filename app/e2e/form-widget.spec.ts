@@ -226,24 +226,25 @@ test.describe("Form widget", () => {
       await expect(nameInput).toHaveValue("E2E Test Person");
     }).toPass({ timeout: 10_000 });
 
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
-
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
-
     // Submit the form
     await page.getByRole("button", { name: "Submit" }).click();
 
     // Wait for success message
-    await expect(page.getByText("Form submitted successfully")).toBeVisible({
-      timeout: 15_000,
-    });
+    const successMessage = page.getByText("Form submitted successfully");
+    await expect(successMessage).toBeVisible({ timeout: 15_000 });
 
     // After success, resetOnSuccess (default true) clears the input
     await expect(nameInput).toHaveValue("", { timeout: 5_000 });
+
+    // Type and click Submit at once, inside the 200 ms debounce (#1771): the
+    // click's blur used to flag the typed field as required, and the error
+    // line moved Submit out from under the click. Only a submit that lands
+    // resets the input. Wait out the success message first — clearing it on
+    // the change would move Submit as well.
+    await expect(successMessage).toBeHidden({ timeout: 10_000 });
+    await nameInput.fill("E2E Second Person");
+    await page.getByRole("button", { name: "Submit" }).click();
+    await expect(nameInput).toHaveValue("", { timeout: 15_000 });
   });
 
   test("form widget shows empty state when no fields configured", async ({
@@ -349,10 +350,6 @@ test.describe("Form widget", () => {
     // Fill the required field — error should clear
     const nameInput = page.getByRole("textbox", { name: "name" });
     await nameInput.fill("Alice");
-
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
 
     await expect(page.getByText("This field is required")).not.toBeVisible({
       timeout: 3_000,
