@@ -30,6 +30,12 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - Choropleth ranks regions correctly in dark mode and **Show Legend** hides only the legend; gantt and choropleth click actions receive every raw query column the editor offers (#1402, #1590)
 - Four editor options that did nothing now reach the chart: line sampling threshold and method, map marker size and graph relationship labels (#1472)
 - Comboboxes and parameter selectors filter on the label you see, not the underlying value (#1411)
+- Typing in a searchable parameter select or multi-select no longer empties the box and brings back the full list about 300 ms later, closing the popover drops the typed term instead of letting it filter the list on reopen, and a seed query that filters on `$param_search` loads before anything is typed (#1742, #1743)
+- Chart click actions on bar, line, pie and sankey resolve the raw query columns the Source Field picker offers instead of `undefined`, and a query column named `value` wins over the chart's own value, gantt included (#1597, #1598)
+- A database constraint violation on a form write answers `400`, `409` or `403` instead of `500`, a NOT NULL violation shows its error under the field it names, and each form field has one label, attached to its control, with `aria-required` on required fields (#1409, #1410)
+- Deleting a dashboard that was already deleted elsewhere removes its card with a "Dashboard already deleted" toast, instead of a failure toast over a card that stayed until a reload (#1750)
+- The widget editor's auto-preview no longer re-runs a query that just ran, which sent it to the connector twice and briefly emptied the transform editor (#1762)
+- PostgreSQL introspection, database listing and health checks run under a 30s bound with a client error guard, the Neo4j equivalents get a transaction timeout, a widget query always runs under `statement_timeout`, and a pool closing during a failover no longer crashes the process on an unhandled `57P01` (#1302, #1266)
 - The markdown widget keeps `snake_case` words and code spans intact instead of italicising them (#1407)
 - The iframe **Sandbox Policy** field warns when it discards a token instead of dropping it silently (#1413)
 - The unset-`TENANT_ID` warning is logged once per process instead of on every login (#1338)
@@ -62,6 +68,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - A new single-series bar or line chart draws no legend; two or more series get the bottom legend, and existing widgets keep theirs (#1593)
 - The documentation is reorganised into seven ordered groups with duplicate tutorials merged, builds for GitHub Pages under a base path with its links and sitemap checked in CI, carries the Graphite & Citrine brand in light and dark, reaches the authentication pages, describes tenant isolation as it is actually enforced, and the README's install commands work as written (#1681, #1318, #1319, #1575, #1573, #1217)
 - Test and CI hygiene: CI runs for PRs confined to `connector-sdk/` or `docker/`; tests run shuffled; every package has a coverage floor; E2E collects the server-side coverage it declared; test files are linted; SonarCloud no longer excludes measurable code; ratchets, hooks and test collection that could pass silently now fail; route tests assert the tenant filter each handler passed; the connector-SDK row-limit conformance case has a lower bound; `connection/` actually typechecks; `component/` drops five unused runtime dependencies; admin routes drop a `canWrite` check that could never fail; build artefacts are untracked (#1627, #1630, #1610, #1612, #1611, #1613, #1632, #1633, #1634, #1607, #1631, #1628, #1595, #1297, #1578, #1689)
+- Flaky tests fixed at their cause rather than retried: E2E tests own and delete by id the dashboards they create, wait for a save to land before leaving edit mode, and recover a dead-connector widget through its own Retry; the E2E server no longer idle-closes sockets Playwright's API context reuses; and the plugin bootstrap tests load at collection and run against the real `registerExternalPlugins` (#1748, #1749, #1760, #1767, #1768, #1759, #1765)
 - `npm audit fix` applied, taking the dependency tree from 15 advisories to 9 and moving Next to 16.3.0 with no `package.json` change. The nine that remain come from `@neo4j-nvl/react` and `drizzle-kit`, and neither has a forward fix — npm's only suggestion for each is a downgrade to an older major (#1465)
 - Docs site upgraded to astro 7.1.4 and starlight 0.41.5, replacing two Dependabot bumps that could never pass together, and CI now fails the docs build when it emits fewer than 10 pages so an empty site cannot ship green (#1461, ahead of deployment in #1318)
 - `zod` upgraded to 4.4.3 and the duplicate v3/v4 pair in the tree collapsed to a single copy; chart options still preserve unknown keys (#1397), and invalid request bodies still return a helpful 400 (#1436)
@@ -78,6 +85,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - Maps take any tile URL template and attribution, including a self-hosted tile server, plus a **none** basemap that makes no tile requests (#1685)
 - A gantt **Enable Time Zoom** option, on by default, that removes the zoom slider and gives its height back to the plot (#1686)
 - Documentation pages for an air-gapped install and for running from a build (node, systemd, Kubernetes), and a connector-author guide rewritten against the real SDK with type-checked examples (#1683, #1712, #1697)
+- A **Tour NeoBoard with demo data** page in Start here, walking the seven demo showcases with screenshots the showcase walkthrough writes, so they cannot drift from the app (#1682)
 
 ### Removed
 
