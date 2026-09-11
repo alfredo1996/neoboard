@@ -340,6 +340,13 @@ export default async function globalSetup() {
     "start",
     "--port",
     String(serverPort),
+    // `page.request` pools keep-alive sockets with no idle timeout, so only the
+    // server ever retires one. At Node's 5 s default it does so on its own
+    // clock, and a request written in that instant fails with `read
+    // ECONNRESET`, which Node's agent, unlike Chromium, never retries (#1760).
+    // A day outlasts any run; past ~24.8 days Node's timer overflows to 1 ms.
+    "--keepAliveTimeout",
+    String(24 * 60 * 60 * 1000),
   ];
   const server = spawn(process.execPath, args, {
     cwd: appDir,
