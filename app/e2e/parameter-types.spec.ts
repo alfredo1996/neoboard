@@ -747,4 +747,113 @@ test.describe("Parameter widget types", () => {
       await cleanup();
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 9. searchable select — closing the popover drops the typed term (#1743)
+  // ─────────────────────────────────────────────────────────────────────────
+  test("searchable select and multi-select drop the search term when the popover closes", async ({
+    page,
+  }) => {
+    // Every seed request that carries a search term, in the order sent.
+    const searches: unknown[] = [];
+    page.on("request", (req) => {
+      if (!req.url().endsWith("/api/query")) return;
+      const term = req.postDataJSON()?.params?.param_search;
+      if (term !== undefined) searches.push(term);
+    });
+
+    // A seed that filters on $param_search cannot load before a term is typed
+    // (Neo4j rejects the missing parameter), so the stale term is caught in
+    // the requests it sends rather than in the list it narrows.
+    const seedQuery =
+      "UNWIND ['Carrie-Anne Moss', 'Hugo Weaving', 'Keanu Reeves'] AS value RETURN value";
+    const { id, cleanup } = await createParamDashboard(
+      page.request,
+      `param-search-close ${Date.now()}`,
+      {
+        widgets: [
+          {
+            id: "p-close-single",
+            chartType: "parameter-select",
+            connectionId: "conn-neo4j-001",
+            query: "",
+            settings: {
+              title: "Star",
+              chartOptions: {
+                parameterType: "select",
+                parameterName: "star",
+                seedQuery,
+              },
+            },
+          },
+          {
+            id: "p-close-multi",
+            chartType: "parameter-select",
+            connectionId: "conn-neo4j-001",
+            query: "",
+            settings: {
+              title: "Cast",
+              chartOptions: {
+                parameterType: "multi-select",
+                parameterName: "cast",
+                seedQuery,
+              },
+            },
+          },
+        ],
+        gridLayout: [
+          { i: "p-close-single", x: 0, y: 0, w: 4, h: 3 },
+          { i: "p-close-multi", x: 4, y: 0, w: 4, h: 3 },
+        ],
+      },
+    );
+
+    try {
+      // A fake clock holds the 300ms search debounce, so the popover closes
+      // before the typed term would have been sent.
+      await page.clock.install();
+      await page.goto(`/${id}`);
+
+      // Distinct terms throughout: both widgets share one seed query, so a
+      // repeated term would be served from the query cache off the network.
+      for (const [name, stale, fresh] of [
+        ["star", "Keanu", "Hugo"],
+        ["cast", "Carrie", "Weaving"],
+      ] as const) {
+        const trigger = page.getByRole("combobox", { name });
+        const search = page.getByPlaceholder("Search…");
+        await expect(trigger).toBeEnabled({ timeout: 15_000 });
+        await trigger.click();
+        await expect(page.getByRole("option")).toHaveCount(3, {
+          timeout: 10_000,
+        });
+
+        searches.length = 0;
+        const now = await page.evaluate(() => Date.now());
+        await page.clock.pauseAt(now + 1_000);
+        await search.fill(stale);
+        await page.keyboard.press("Escape");
+        await expect(search).toHaveCount(0);
+        await page.clock.runFor(1_000);
+        await page.clock.resume();
+
+        await trigger.click();
+        await expect(search).toHaveValue("");
+        const searched = page.waitForResponse(
+          (res) =>
+            res.url().endsWith("/api/query") &&
+            res.request().postDataJSON()?.params?.param_search === fresh,
+        );
+        await search.fill(fresh);
+        await searched;
+
+        // Before #1743 the closed box's term still went out once the debounce
+        // fired, and went on filtering behind the empty box.
+        expect(searches).toEqual([fresh]);
+        await page.keyboard.press("Escape");
+      }
+    } finally {
+      await cleanup();
+    }
+  });
 });

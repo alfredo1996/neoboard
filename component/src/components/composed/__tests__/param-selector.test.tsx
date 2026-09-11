@@ -231,6 +231,24 @@ describe("ParamSelector — filters on the visible label (#1411)", () => {
     expect(onSearch).toHaveBeenLastCalledWith("Keanu");
   });
 
+  // #1743: closing unmounts the search box without cmdk reporting the empty
+  // value, so the caller kept filtering on a term nobody could see.
+  it("clears the search term when Escape closes the popover (#1743)", async () => {
+    const onSearch = vi.fn();
+    const user = await openAndType({ onSearch }, "Keanu");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByPlaceholderText("Search…")).not.toBeInTheDocument();
+    expect(onSearch).toHaveBeenLastCalledWith("");
+  });
+
+  it("clears the search term when picking an option closes the popover (#1743)", async () => {
+    const onSearch = vi.fn();
+    const user = await openAndType({ onSearch }, "Keanu");
+    await user.click(screen.getByText("Keanu Reeves"));
+    expect(screen.queryByPlaceholderText("Search…")).not.toBeInTheDocument();
+    expect(onSearch).toHaveBeenLastCalledWith("");
+  });
+
   it("selects the underlying value, not the label", async () => {
     const onChange = vi.fn();
     const user = await openAndType({ onChange }, "Keanu");
@@ -250,9 +268,7 @@ describe("ParamSelector — filters on the visible label (#1411)", () => {
       { options: [{ value: "", label: "(none)" }, ...idOptions] },
       "none",
     );
-    expect(
-      screen.getByRole("option", { name: "(none)" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "(none)" })).toBeInTheDocument();
   });
 
   it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {
@@ -315,6 +331,21 @@ describe("ParamMultiSelector — filters on the visible label (#1411)", () => {
     expect(onSearch).toHaveBeenLastCalledWith("Keanu");
   });
 
+  it("clears the search term when Escape closes the popover (#1743)", async () => {
+    const onSearch = vi.fn();
+    const user = await openAndType({ onSearch }, "Keanu");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByPlaceholderText("Search…")).not.toBeInTheDocument();
+    expect(onSearch).toHaveBeenLastCalledWith("");
+  });
+
+  it("keeps the search term while a pick leaves the popover open", async () => {
+    const onSearch = vi.fn();
+    const user = await openAndType({ onSearch }, "Keanu");
+    await user.click(screen.getByText("Keanu Reeves"));
+    expect(onSearch).toHaveBeenLastCalledWith("Keanu");
+  });
+
   it("selects the underlying value, not the label", async () => {
     const onChange = vi.fn();
     const user = await openAndType({ onChange }, "Keanu");
@@ -339,9 +370,7 @@ describe("ParamMultiSelector — filters on the visible label (#1411)", () => {
       { options: [{ value: "", label: "(none)" }, ...idOptions] },
       "none",
     );
-    expect(
-      screen.getByRole("option", { name: "(none)" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "(none)" })).toBeInTheDocument();
   });
 
   it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {
