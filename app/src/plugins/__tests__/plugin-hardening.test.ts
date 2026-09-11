@@ -29,11 +29,10 @@ function makePlugin(
 
 describe("plugin hardening", () => {
   /**
-   * These four cases used to assert on `registerExternalPluginsSafe`, a
-   * function the test file declared itself — the file never imported
-   * app/src/plugins/index.ts, so the loop it guards was never executed and
-   * every hardening guarantee was proven about a local re-implementation
-   * (#1629). They now run the real thing.
+   * Every case here runs the real `registerExternalPlugins`. Two files used to
+   * assert on copies they declared themselves: this one (#1629) and
+   * external-plugins-bootstrap.test.ts, whose copy threw on the conflict that
+   * production logs and skips (#1765).
    */
   describe("external plugin crash prevention", () => {
     let registry: ReturnType<typeof createPluginRegistry>;
@@ -75,9 +74,36 @@ describe("plugin hardening", () => {
       ]);
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain("conflicts");
+      // The log is the operator's only clue at startup, so it names the fix.
+      expect(errors[0]).toContain('"overrides": true');
       // The original survives — a conflicting external plugin must not win by
       // arriving second.
       expect(registry.get("bar")).toBe(original);
+    });
+
+    it("keeps registering after a conflict", () => {
+      registry.register(makePlugin("bar"));
+      registerExternalPlugins(registry, [
+        { plugin: makePlugin("bar"), overrides: false },
+        { plugin: makePlugin("safe"), overrides: false },
+      ]);
+      expect(errors).toHaveLength(1);
+      expect(registry.has("safe")).toBe(true);
+    });
+
+    it("registers multiple plugins in manifest order", () => {
+      registerExternalPlugins(registry, [
+        { plugin: makePlugin("heatmap"), overrides: false },
+        { plugin: makePlugin("funnel"), overrides: false },
+      ]);
+      expect(registry.getTypes()).toEqual(["heatmap", "funnel"]);
+    });
+
+    // The default path: external-plugins.generated.ts ships EXTERNAL_PLUGINS = [].
+    it("does nothing for an empty manifest", () => {
+      registerExternalPlugins(registry, []);
+      expect(registry.getTypes()).toEqual([]);
+      expect(errors).toHaveLength(0);
     });
 
     it("replaces a built-in only when the manifest says overrides", () => {
