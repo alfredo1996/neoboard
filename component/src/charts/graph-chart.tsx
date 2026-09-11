@@ -128,13 +128,24 @@ export interface GraphChartProps {
   className?: string;
 }
 
-/** NVL layout names for each of our public layout identifiers. */
+/**
+ * NVL layout names for each of our public layout identifiers.
+ *
+ * "force" is NVL's CPU `d3Force`, not its WebGL `forceDirected`. For graphs of
+ * up to 100 nodes `forceDirected` runs a CoseBilkent pre-layout and then steps
+ * its GPU physics in a blocking loop, reading back a 256x256 float texture
+ * with `gl.readPixels` on every step. That is hundreds of synchronous GPU
+ * stalls in one main-thread task: ~1.2 s per mount on software GL locally,
+ * ~8 s on a loaded CI runner, and nothing paints meanwhile (#1777). NVL
+ * deprecates that path in favour of `d3Force` for small datasets, and uses
+ * `d3Force` itself when WebGL compute is unavailable.
+ */
 function toNvlLayout(
   layout: GraphLayout,
-): "forceDirected" | "circular" | "hierarchical" {
+): "d3Force" | "circular" | "hierarchical" {
   if (layout === "circular") return "circular";
   if (layout === "hierarchical") return "hierarchical";
-  return "forceDirected";
+  return "d3Force";
 }
 
 const LAYOUT_LABELS: Record<GraphLayout, string> = {
