@@ -1,21 +1,34 @@
-import { ConnectionModule } from "@neoboard/connector-sdk";
-import neo4j, { ManagedTransaction } from "neo4j-driver";
-import { Neo4jAuthenticationModule } from "./Neo4jAuthenticationModule";
-import { Driver } from "neo4j-driver-core";
 import {
   AuthConfig,
-  Neo4jAdvancedOptions,
+  collectUpToLimit,
   ConnectionConfig,
+  ConnectionModule,
+  ConnectorErrorType,
+  DEFAULT_CONNECTION_CONFIG,
+  determineQueryStatus,
+  drainRetainingUpTo,
+  Neo4jAdvancedOptions,
   QueryCallback,
   QueryParams,
   QueryStatus,
+  wrapError,
 } from "@neoboard/connector-sdk";
+import neo4j, { ManagedTransaction } from "neo4j-driver";
+import { Neo4jAuthenticationModule } from "./Neo4jAuthenticationModule";
+import { Driver } from "neo4j-driver-core";
 import { Neo4jRecordParser } from "./Neo4jRecordParser";
 import { extractNodeAndRelPropertiesFromRecords } from "./utils";
-import { determineQueryStatus } from "@neoboard/connector-sdk";
-import { collectUpToLimit, drainRetainingUpTo } from "@neoboard/connector-sdk";
-import { wrapError, ConnectorErrorType } from "@neoboard/connector-sdk";
 import { toNeo4jParams } from "./coerce-params";
+
+/**
+ * Transaction config for the hardcoded introspection and health-check queries,
+ * which ran with no timeout at all (#1302).
+ *
+ * ponytail: `timeout` is enforced by the server. The driver has no client-side
+ * query bound, so a server that accepts the connection and then stops
+ * answering still hangs the await; bound it at the caller if that shows up.
+ */
+const INTROSPECTION_TX_CONFIG = { timeout: DEFAULT_CONNECTION_CONFIG.timeout };
 
 /**
  * Neo4jConnectionModule
@@ -129,7 +142,10 @@ export class Neo4jConnectionModule extends ConnectionModule {
           return collectUpToLimit(res, config.rowLimit);
         },
         {
-          timeout: config.timeout, // Sets dbms.transaction.timeout for this transaction.
+          // Sets dbms.transaction.timeout for this transaction. A falsy value
+          // would mean the server default (unlimited on Neo4j 5) or no timeout
+          // at all, so fall back to the documented default like PostgreSQL (#1302).
+          timeout: config.timeout || DEFAULT_CONNECTION_CONFIG.timeout,
           // Note: this covers the entire transaction lifecycle, not just query execution.
           // Very long-running queries within the timeout window will still complete.
         },
@@ -191,6 +207,8 @@ export class Neo4jConnectionModule extends ConnectionModule {
     try {
       const result = await session.run(
         "SHOW DATABASES YIELD name, currentStatus WHERE name <> 'system' AND currentStatus = 'online' RETURN name",
+        {},
+        INTROSPECTION_TX_CONFIG,
       );
       return result.records.map((r) => r.get("name") as string);
     } catch {
@@ -213,7 +231,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
       database: connectionConfig?.database,
     });
     try {
-      await session.run("RETURN 1 AS connected");
+      await session.run("RETURN 1 AS connected", {}, INTROSPECTION_TX_CONFIG);
       return true;
     } catch (error) {
       const wrapped = wrapError(error, "neo4j");

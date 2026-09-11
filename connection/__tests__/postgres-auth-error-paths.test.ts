@@ -10,6 +10,7 @@
 const mockEnd = jest.fn();
 const mockOn = jest.fn();
 const mockRemoveAllListeners = jest.fn();
+const mockConnect = jest.fn();
 let poolShouldThrow: Error | null = null;
 
 jest.mock("pg", () => ({
@@ -18,11 +19,13 @@ jest.mock("pg", () => ({
     return {
       on: mockOn,
       end: mockEnd,
+      connect: mockConnect,
       removeAllListeners: mockRemoveAllListeners,
     };
   }),
 }));
 
+import { EventEmitter } from "events";
 import { AuthType } from "@neoboard/connector-sdk";
 import { PostgresAuthenticationModule } from "../src/postgresql/PostgresAuthenticationModule";
 
@@ -131,6 +134,127 @@ describe("PostgresAuthenticationModule error paths (#1303)", () => {
       await auth.close();
 
       expect(logged()).toBe("");
+    });
+  });
+
+  // #1266: pg-pool's end() resolves while its idle clients are still closing,
+  // and it leaves its idle listener on them — so a 57P01 the server sends
+  // during that window (container.stop(), a failover) is re-emitted on the
+  // POOL. Stripping the pool's 'error' listeners first turned that into an
+  // unhandled 'error' event that failed the whole suite.
+  describe("pool error listener (#1266)", () => {
+    function poolErrorHandler(): (err: Error & { code?: string }) => void {
+      new PostgresAuthenticationModule(CONFIG);
+      const call = mockOn.mock.calls.findLast(([event]) => event === "error");
+      return call![1];
+    }
+
+    it("close() leaves the pool's error listener attached", async () => {
+      const auth = new PostgresAuthenticationModule(CONFIG);
+      mockRemoveAllListeners.mockClear();
+
+      await auth.close();
+
+      expect(mockRemoveAllListeners).not.toHaveBeenCalled();
+    });
+
+    it("stays silent for the admin-shutdown SQLSTATE 57P01", () => {
+      poolErrorHandler()(
+        Object.assign(
+          new Error("terminating connection due to administrator command"),
+          { code: "57P01" },
+        ),
+      );
+
+      expect(logged()).toBe("");
+    });
+
+    // Narrowed to the SQLSTATE, not the message: a crash of another backend
+    // also says "terminating connection" and is worth a log line.
+    it("still logs any other code, even one whose message says 'terminating connection'", () => {
+      poolErrorHandler()(
+        Object.assign(
+          new Error(
+            "terminating connection because of crash of another server process",
+          ),
+          { code: "57P02" },
+        ),
+      );
+
+      expect(logged()).toContain("57P02");
+    });
+
+    // The silence is keyed on the SQLSTATE, not the text: the shutdown message
+    // without its code (a wrapped or non-pg error) must still log.
+    it("logs the shutdown message when it carries no 57P01 code", () => {
+      poolErrorHandler()(
+        new Error("terminating connection due to administrator command"),
+      );
+
+      expect(logged()).toContain("unknown");
+    });
+
+    // No process-wide suppression: an 'error' on any emitter that is not the
+    // pool, with no listener of its own, still throws after the module exists
+    // and has closed.
+    it("does not swallow an unhandled 'error' anywhere else", async () => {
+      const auth = new PostgresAuthenticationModule(CONFIG);
+      await auth.close();
+
+      expect(() =>
+        new EventEmitter().emit(
+          "error",
+          Object.assign(new Error("terminating connection"), { code: "57P01" }),
+        ),
+      ).toThrow("terminating connection");
+    });
+  });
+
+  // #1302: the auth probe runs on a pooled client like every introspection
+  // query — bounded, guarded, and destroyed rather than returned if it fails.
+  describe("verifyAuthentication is bounded (#1302)", () => {
+    it("runs SELECT 1 with a client-side query_timeout and a guarded client", async () => {
+      const client = {
+        query: jest.fn().mockResolvedValue({ rows: [] }),
+        release: jest.fn(),
+        on: jest.fn(),
+        removeListener: jest.fn(),
+      };
+      mockConnect.mockResolvedValue(client);
+      const auth = new PostgresAuthenticationModule(CONFIG);
+
+      await expect(auth.verifyAuthentication()).resolves.toBe(true);
+
+      expect(client.query).toHaveBeenCalledWith({
+        text: "SELECT 1",
+        query_timeout: 30_000,
+      });
+      expect(client.on).toHaveBeenCalledWith("error", expect.any(Function));
+      expect(client.removeListener).toHaveBeenCalledWith(
+        "error",
+        client.on.mock.calls[0][1],
+      );
+      expect(client.release).toHaveBeenCalledWith(undefined);
+    });
+
+    it("uses pgIntrospectionTimeoutMillis when the connection sets one", async () => {
+      const client = {
+        query: jest.fn().mockResolvedValue({ rows: [] }),
+        release: jest.fn(),
+        on: jest.fn(),
+        removeListener: jest.fn(),
+      };
+      mockConnect.mockResolvedValue(client);
+      const auth = new PostgresAuthenticationModule(CONFIG, {
+        pgIntrospectionTimeoutMillis: 45_000,
+      });
+
+      await expect(auth.verifyAuthentication()).resolves.toBe(true);
+
+      expect(client.query).toHaveBeenCalledWith({
+        text: "SELECT 1",
+        query_timeout: 45_000,
+      });
     });
   });
 });

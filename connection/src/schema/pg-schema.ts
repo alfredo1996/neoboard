@@ -1,11 +1,13 @@
 import { PostgresConnectionModule } from "../postgresql/PostgresConnectionModule";
-import type { AuthConfig } from "@neoboard/connector-sdk";
-import type { SchemaManager } from "./schema-manager";
+import { runBoundedQuery } from "../postgresql/utils";
 import type {
-  DatabaseSchema,
-  TableDef,
+  AuthConfig,
   ColumnDef,
+  DatabaseSchema,
+  PostgresAdvancedOptions,
+  TableDef,
 } from "@neoboard/connector-sdk";
+import type { SchemaManager } from "./schema-manager";
 
 const SCHEMA_QUERY = `
 SELECT
@@ -34,8 +36,11 @@ interface SchemaRow {
  * to retrieve all tables and their column definitions in the public schema.
  */
 export class PostgresSchemaManager implements SchemaManager {
-  async fetchSchema(authConfig: AuthConfig): Promise<DatabaseSchema> {
-    const module = new PostgresConnectionModule(authConfig);
+  async fetchSchema(
+    authConfig: AuthConfig,
+    advancedOptions?: PostgresAdvancedOptions,
+  ): Promise<DatabaseSchema> {
+    const module = new PostgresConnectionModule(authConfig, advancedOptions);
     const pool = module.getPool();
 
     if (!pool) {
@@ -44,38 +49,39 @@ export class PostgresSchemaManager implements SchemaManager {
 
     // pool.end() must run even if pool.connect() itself throws (bad creds,
     // unreachable host) — otherwise every failed introspection leaks a Pool
-    // with its idle timers and error listener. So connect() lives inside the
-    // try whose finally ends the pool. (#MEDIUM)
+    // with its idle timers and error listener. So the checkout lives inside the
+    // try whose finally ends the pool. (#MEDIUM) runBoundedQuery guards the
+    // checked-out client and bounds the query — this was the one checkout in
+    // the package without the guard (#1302).
     try {
-      const client = await pool.connect();
-      try {
-        const result = await client.query<SchemaRow>(SCHEMA_QUERY);
+      const rows = await runBoundedQuery<SchemaRow>(
+        pool,
+        SCHEMA_QUERY,
+        advancedOptions?.pgIntrospectionTimeoutMillis,
+      );
 
-        const tableMap = new Map<string, ColumnDef[]>();
-        for (const row of result.rows) {
-          let columns = tableMap.get(row.table_name);
-          if (!columns) {
-            columns = [];
-            tableMap.set(row.table_name, columns);
-          }
-          columns.push({
-            name: row.column_name,
-            type: row.data_type,
-            nullable: row.is_nullable === "YES",
-          });
+      const tableMap = new Map<string, ColumnDef[]>();
+      for (const row of rows) {
+        let columns = tableMap.get(row.table_name);
+        if (!columns) {
+          columns = [];
+          tableMap.set(row.table_name, columns);
         }
-
-        const tables: TableDef[] = Array.from(tableMap.entries()).map(
-          ([name, columns]) => ({
-            name,
-            columns,
-          }),
-        );
-
-        return { type: "postgresql", tables };
-      } finally {
-        client.release();
+        columns.push({
+          name: row.column_name,
+          type: row.data_type,
+          nullable: row.is_nullable === "YES",
+        });
       }
+
+      const tables: TableDef[] = Array.from(tableMap.entries()).map(
+        ([name, columns]) => ({
+          name,
+          columns,
+        }),
+      );
+
+      return { type: "postgresql", tables };
     } finally {
       await pool.end();
     }

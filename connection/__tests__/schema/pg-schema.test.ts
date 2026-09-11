@@ -1,11 +1,13 @@
+import { EventEmitter } from "events";
 import { PostgresSchemaManager } from "../../src/schema/pg-schema";
 import { AuthType } from "@neoboard/connector-sdk";
 
-// Mock pg pool
-const mockClient = {
+// Mock pg pool. A real EventEmitter, so an 'error' emitted with no listener
+// throws exactly as it would on a node-postgres client.
+const mockClient = Object.assign(new EventEmitter(), {
   query: jest.fn(),
   release: jest.fn(),
-};
+});
 
 const mockPool = {
   connect: jest.fn().mockResolvedValue(mockClient),
@@ -147,6 +149,66 @@ describe("PostgresSchemaManager", () => {
     await manager.fetchSchema(authConfig);
 
     expect(mockClient.release).toHaveBeenCalledTimes(1);
+    expect(mockPool.end).toHaveBeenCalledTimes(1);
+  });
+
+  // #1302: the only pool.connect() in the package with no error guard — and on
+  // the one path whose rejection is swallowed (fire-and-forget prefetch).
+  it("absorbs an 'error' emitted on the checked-out client mid-query", async () => {
+    mockClient.query.mockImplementation(async () => {
+      expect(mockClient.listenerCount("error")).toBe(1);
+      mockClient.emit(
+        "error",
+        Object.assign(new Error("terminating connection"), { code: "57P01" }),
+      );
+      return { rows: [] };
+    });
+
+    // Removed BEFORE release, so listeners don't pile up on pooled clients:
+    // checked inside release() itself, not after the whole call returns.
+    let listenersAtRelease: number | undefined;
+    mockClient.release.mockImplementation(() => {
+      listenersAtRelease = mockClient.listenerCount("error");
+    });
+
+    await expect(
+      new PostgresSchemaManager().fetchSchema(authConfig),
+    ).resolves.toEqual({ type: "postgresql", tables: [] });
+
+    expect(listenersAtRelease).toBe(0);
+  });
+
+  it("bounds the information_schema query with a client-side query_timeout", async () => {
+    mockClient.query.mockResolvedValue({ rows: [] });
+
+    await new PostgresSchemaManager().fetchSchema(authConfig);
+
+    expect(mockClient.query).toHaveBeenCalledWith(
+      expect.objectContaining({ query_timeout: 30_000 }),
+    );
+  });
+
+  it("uses pgIntrospectionTimeoutMillis from the advanced options", async () => {
+    mockClient.query.mockResolvedValue({ rows: [] });
+
+    await new PostgresSchemaManager().fetchSchema(authConfig, {
+      pgIntrospectionTimeoutMillis: 45_000,
+    });
+
+    expect(mockClient.query).toHaveBeenCalledWith(
+      expect.objectContaining({ query_timeout: 45_000 }),
+    );
+  });
+
+  it("destroys the client and still ends the pool when the query times out", async () => {
+    const timeout = new Error("Query read timeout");
+    mockClient.query.mockRejectedValue(timeout);
+
+    await expect(
+      new PostgresSchemaManager().fetchSchema(authConfig),
+    ).rejects.toBe(timeout);
+
+    expect(mockClient.release).toHaveBeenCalledWith(timeout);
     expect(mockPool.end).toHaveBeenCalledTimes(1);
   });
 });

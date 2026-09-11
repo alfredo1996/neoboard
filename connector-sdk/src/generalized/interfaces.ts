@@ -236,12 +236,17 @@ export interface PostgresAdvancedOptions {
   pgIdleTimeoutMillis?: number;
   pgMaxPoolSize?: number;
   pgSslRejectUnauthorized?: boolean;
+  /**
+   * Client-side bound (ms) on introspection and health-check queries —
+   * schema, database and schema lists, connection checks (#1302). Defaults to
+   * `DEFAULT_CONNECTION_CONFIG.timeout`.
+   */
+  pgIntrospectionTimeoutMillis?: number;
 }
 
 /** Union of all per-connector advanced options. The factory accepts this; each module narrows to its own type. */
 export type AdvancedConnectionOptions =
-  | Neo4jAdvancedOptions
-  | PostgresAdvancedOptions;
+  Neo4jAdvancedOptions | PostgresAdvancedOptions;
 
 // Re-export ConnectionTypes for convenience
 export { ConnectionTypes } from "../ConnectionModuleConfig";

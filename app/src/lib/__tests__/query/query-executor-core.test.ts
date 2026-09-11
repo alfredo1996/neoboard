@@ -499,6 +499,9 @@ describe("query-executor", () => {
         pgIdleTimeoutMillis: 15000,
         pgMaxPoolSize: 20,
         pgSslRejectUnauthorized: false,
+        // Introspection and health checks are bounded by the connection's
+        // statement timeout, not a fixed 30s (#1302).
+        pgIntrospectionTimeoutMillis: 60000,
       }),
     );
   });

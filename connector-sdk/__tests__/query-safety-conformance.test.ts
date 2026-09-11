@@ -1,5 +1,8 @@
 import { buildConformanceCases } from "../src/conformance/query-safety";
-import { QueryStatus } from "../src/generalized/interfaces";
+import {
+  DEFAULT_CONNECTION_CONFIG,
+  QueryStatus,
+} from "../src/generalized/interfaces";
 import type {
   ConnectionConfig,
   QueryParams,
@@ -79,7 +82,7 @@ const caseNamed = (module: ConnectionModule, needle: string) => {
 const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ i }));
 
 describe("query-safety conformance harness", () => {
-  it("registers exactly the four documented cases", () => {
+  it("registers exactly the five documented cases", () => {
     // A case-count guard: deleting one left both connector suites green at
     // two tests each, with nothing to say a rule had stopped being checked.
     const names = buildConformanceCases(() => fakeModule({}), setup).map(
@@ -89,13 +92,17 @@ describe("query-safety conformance harness", () => {
       "rejects a write query under READ access mode",
       "caps results at rowLimit and flags truncation (MAX_ROWS+1)",
       "honors the driver-level timeout",
+      "bounds a slow query when timeout is unset",
       "does not report a throwing onSuccess as a query failure",
     ]);
   });
 
   describe("onSuccess isolation (#1642)", () => {
     it("rejects a connector that routes a throwing onSuccess to onFail", async () => {
-      const c = caseNamed(fakeModule({ catchOnSuccess: true }), "throwing onSuccess");
+      const c = caseNamed(
+        fakeModule({ catchOnSuccess: true }),
+        "throwing onSuccess",
+      );
       await expect(c.run()).rejects.toThrow(/onSuccess isolation violation/);
     });
 
@@ -184,6 +191,60 @@ describe("query-safety conformance harness", () => {
         "timeout",
       );
       await expect(c.run()).resolves.toBeUndefined();
+    });
+  });
+
+  // #1302: a falsy timeout must mean the documented default, not "no bound".
+  // The harness lowers the default for the one case so a slow query need not
+  // outlast 30s.
+  describe("timeout unset", () => {
+    /** Times the query out when its effective budget is short. */
+    function budgetModule(effective: (c: ConnectionConfig) => number) {
+      return {
+        runQuery: async (
+          _q: QueryParams,
+          callbacks: QueryCallback<unknown>,
+          config: ConnectionConfig,
+        ) => {
+          const budget = effective(config);
+          if (budget > 0 && budget < 5000) {
+            callbacks.setStatus?.(QueryStatus.TIMED_OUT);
+            return;
+          }
+          callbacks.setStatus?.(QueryStatus.COMPLETE);
+          callbacks.onSuccess?.(rows(1));
+        },
+      } as unknown as ConnectionModule;
+    }
+
+    it("rejects a connector that runs unbounded when timeout is unset", async () => {
+      const c = caseNamed(
+        budgetModule((config) => config.timeout ?? 0),
+        "timeout is unset",
+      );
+      await expect(c.run()).rejects.toThrow(/timeout violation/);
+    });
+
+    it("passes a connector that falls back to the default timeout", async () => {
+      const c = caseNamed(
+        budgetModule(
+          (config) => config.timeout || DEFAULT_CONNECTION_CONFIG.timeout,
+        ),
+        "timeout is unset",
+      );
+      await expect(c.run()).resolves.toBeUndefined();
+    });
+
+    // Against the documented value, not a snapshot taken at the start: a
+    // case that leaked its lowered default would already have poisoned that
+    // snapshot in an earlier test.
+    it("restores the default afterwards, even when the case fails", async () => {
+      const c = caseNamed(
+        budgetModule((config) => config.timeout ?? 0),
+        "timeout is unset",
+      );
+      await expect(c.run()).rejects.toThrow(/timeout violation/);
+      expect(DEFAULT_CONNECTION_CONFIG.timeout).toBe(30_000);
     });
   });
 });

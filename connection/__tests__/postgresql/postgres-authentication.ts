@@ -148,4 +148,33 @@ describe("PostgreSQL Authentication", () => {
       });
     }).toThrow();
   });
+
+  // #1266: pool.end() resolves while its idle clients are still closing, and
+  // pg-pool leaves its idle listener on them. A 57P01 the server sends in that
+  // window — exactly what container.stop() produces — is re-emitted on the
+  // pool. close() used to strip the pool's 'error' listeners first, so that
+  // re-emit became an unhandled 'error' event and failed the whole suite.
+  test("an admin shutdown racing close() is absorbed, not thrown (#1266)", async () => {
+    const mod = new PostgresAuthenticationModule({
+      username: container.getUsername(),
+      password: container.getPassword(),
+      authType: AuthType.NATIVE,
+      uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
+    });
+    const pool = mod.getPool()!;
+    const clients: import("events").EventEmitter[] = [];
+    pool.on("connect", (c) => clients.push(c));
+    await mod.verifyAuthentication(); // leaves one idle client in the pool
+
+    await mod.close();
+
+    expect(pool.ended).toBe(true);
+    expect(clients).toHaveLength(1);
+    // What node-postgres emits when the backend sends FATAL 57P01.
+    const adminShutdown = Object.assign(
+      new Error("terminating connection due to administrator command"),
+      { code: "57P01", severity: "FATAL" },
+    );
+    expect(() => clients[0].emit("error", adminShutdown)).not.toThrow();
+  });
 });

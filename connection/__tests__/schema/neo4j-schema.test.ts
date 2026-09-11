@@ -167,4 +167,18 @@ describe("Neo4jSchemaManager", () => {
     expect(schema.nodeProperties).toEqual({});
     expect(schema.relProperties).toEqual({});
   });
+
+  // #1302: each procedure ran as a bare session.run(query) with no transaction
+  // timeout, so db.schema.nodeTypeProperties() on a big store could run for
+  // as long as the server let it.
+  it("passes a transaction timeout to every introspection query", async () => {
+    mockFourCalls([], [], [], []);
+
+    await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(_mockRun).toHaveBeenCalledTimes(4);
+    for (const call of _mockRun.mock.calls) {
+      expect(call[2]).toEqual({ timeout: 30_000 });
+    }
+  });
 });

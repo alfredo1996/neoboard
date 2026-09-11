@@ -1,5 +1,6 @@
 import neo4j from "neo4j-driver";
 import { Neo4jConnectionModule } from "../neo4j/Neo4jConnectionModule";
+import { DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
 import type { AuthConfig } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
 import type { DatabaseSchema, PropertyDef } from "@neoboard/connector-sdk";
@@ -95,7 +96,12 @@ export class Neo4jSchemaManager implements SchemaManager {
   ): Promise<T[]> {
     const session = driver.session({ defaultAccessMode: neo4j.session.READ });
     try {
-      const result = await session.run(query);
+      // Server-enforced transaction timeout; these ran unbounded (#1302).
+      const result = await session.run(
+        query,
+        {},
+        { timeout: DEFAULT_CONNECTION_CONFIG.timeout },
+      );
       return result.records.map((record) => {
         const obj: Record<string, unknown> = {};
         for (const key of record.keys) {

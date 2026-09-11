@@ -19,7 +19,10 @@
 
 import type { ConnectionModule } from "../generalized/ConnectionModule";
 import type { ConnectionConfig, QueryParams } from "../generalized/interfaces";
-import { QueryStatus } from "../generalized/interfaces";
+import {
+  DEFAULT_CONNECTION_CONFIG,
+  QueryStatus,
+} from "../generalized/interfaces";
 
 export interface ConformanceQueries {
   /** A query that mutates data — must be rejected under READ access mode. */
@@ -160,6 +163,35 @@ export function buildConformanceCases(
         if (!timedOut) {
           throw new Error(
             "timeout violation: a slow query neither timed out nor failed within the configured timeout",
+          );
+        }
+      },
+    },
+    {
+      // A falsy timeout must mean the documented default, not "no bound"
+      // (#1302). The default is lowered for this one case, so the slow query
+      // need not outlast 30s; connectors must read it at call time.
+      name: "bounds a slow query when timeout is unset",
+      run: async () => {
+        const saved = DEFAULT_CONNECTION_CONFIG.timeout;
+        DEFAULT_CONNECTION_CONFIG.timeout = 250;
+        let captured: Captured;
+        try {
+          captured = await execute(getModule(), setup.queries.slow, {
+            ...base,
+            accessMode: "READ",
+            // What a direct SDK consumer passes from untyped JS.
+            timeout: undefined as unknown as number,
+          });
+        } finally {
+          DEFAULT_CONNECTION_CONFIG.timeout = saved;
+        }
+        const timedOut =
+          captured.statuses.includes(QueryStatus.TIMED_OUT) ||
+          captured.error !== undefined;
+        if (!timedOut) {
+          throw new Error(
+            "timeout violation: with no timeout configured, a slow query ran past the default timeout",
           );
         }
       },
