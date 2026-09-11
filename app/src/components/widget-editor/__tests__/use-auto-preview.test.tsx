@@ -271,6 +271,60 @@ describe("useAutoPreview", () => {
     });
   });
 
+  // ── Duplicate auto-runs (#1762) ──────────────────────────────────
+  //
+  // The preview is a mutation: a run empties its data until the result lands,
+  // and the Transform tab unmounts its controls while it is empty. An auto-run
+  // of the query that just ran re-opened that window for nothing.
+
+  describe("duplicate auto-runs (#1762)", () => {
+    function typeQuery() {
+      const opts = createDefaults({ mode: "add", query: "" });
+      const hook = renderHook((props) => useAutoPreview(props), {
+        initialProps: opts,
+      });
+      // One change, as a paste or the E2E editor dispatch produces.
+      hook.rerender({ ...opts, query: "MATCH (n) RETURN n" });
+      return { opts, ...hook };
+    }
+
+    it("a manual Run leaves no auto-run of the same query pending", () => {
+      const { opts, result } = typeQuery();
+
+      act(() => {
+        result.current.handlePreview();
+      });
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
+
+      expect(opts.previewQuery.mutate).toHaveBeenCalledTimes(1);
+    });
+
+    it("one query change auto-runs once, not once per timer", () => {
+      const { opts } = typeQuery();
+
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
+
+      expect(opts.previewQuery.mutate).toHaveBeenCalledTimes(1);
+    });
+
+    it("a manual Run of the query that just ran still runs", () => {
+      const { opts, result } = typeQuery();
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
+
+      act(() => {
+        result.current.handlePreview();
+      });
+
+      expect(opts.previewQuery.mutate).toHaveBeenCalledTimes(2);
+    });
+  });
+
   // ── handleRunAndSave (CMD+Shift+Enter) ───────────────────────────
 
   describe("handleRunAndSave", () => {

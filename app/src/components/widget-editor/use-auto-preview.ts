@@ -77,7 +77,13 @@ export function useAutoPreview({
     "idle",
   );
 
-  const handlePreview = useCallback(() => {
+  // What the last run sent. The preview is a mutation, so every run empties its
+  // data until the result lands, and the Transform tab unmounts its controls
+  // while it is empty — an auto-run of what just ran re-opened that window for
+  // nothing (#1762). Auto-runs skip a repeat; a manual Run always runs.
+  const lastRunRef = useRef<string | null>(null);
+
+  const runPreview = useCallback((auto: boolean) => {
     const cId = connectionIdRef.current;
     const q = queryRef.current;
     if (cId && q.trim()) {
@@ -90,14 +96,19 @@ export function useAutoPreview({
       const params =
         Object.keys(referenced).length > 0 ? referenced : undefined;
       const connectorType = selectedConnectionRef.current?.type ?? "neo4j";
-      const previewQuery_ = wrapWithPreviewLimit(q, connectorType);
-      previewQueryRef.current.mutate({
+      const input = {
         connectionId: cId,
-        query: previewQuery_,
+        query: wrapWithPreviewLimit(q, connectorType),
         params,
-      });
+      };
+      const key = JSON.stringify(input);
+      if (auto && key === lastRunRef.current) return;
+      lastRunRef.current = key;
+      previewQueryRef.current.mutate(input);
     }
   }, []);
+
+  const handlePreview = useCallback(() => runPreview(false), [runPreview]);
 
   // Auto-run preview when connection and query are present so column selectors
   // are populated. Skip if initialPreviewData was provided.
@@ -105,6 +116,8 @@ export function useAutoPreview({
   useEffect(() => {
     if (!open) {
       autoPreviewTriggered.current = false;
+      // The modal resets the preview on open, so a reopen must run again.
+      lastRunRef.current = null;
       return;
     }
     if (autoPreviewTriggered.current) return;
@@ -116,10 +129,10 @@ export function useAutoPreview({
     autoPreviewTriggered.current = true;
     const delay = mode === "add" ? 300 : 50;
     const timer = setTimeout(() => {
-      handlePreview();
+      runPreview(true);
     }, delay);
     return () => clearTimeout(timer);
-  }, [open, mode, connectionId, query, handlePreview, initialPreviewData]);
+  }, [open, mode, connectionId, query, runPreview, initialPreviewData]);
 
   // Auto-run preview when the query changes (debounced 800ms).
   const prevQueryRef = useRef(query);
@@ -129,10 +142,10 @@ export function useAutoPreview({
     prevQueryRef.current = query;
     if (!connectionId || !query.trim()) return;
     const timer = setTimeout(() => {
-      handlePreview();
+      runPreview(true);
     }, 800);
     return () => clearTimeout(timer);
-  }, [open, query, connectionId, handlePreview]);
+  }, [open, query, connectionId, runPreview]);
 
   // CMD+Shift+Enter: run query, then save on success.
   const handleRunAndSave = useCallback(() => {
