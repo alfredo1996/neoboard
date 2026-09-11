@@ -936,11 +936,18 @@ export default function DashboardListPage() {
             // users-page convention (name-free description: the name in a
             // toast would linger after the card disappears and read as stale).
             deleteDashboard.mutate(deleteTarget.id, {
-              onSuccess: () =>
-                toast({
-                  title: "Dashboard deleted",
-                  description: "The dashboard has been removed.",
-                }),
+              onSuccess: ({ alreadyDeleted }) =>
+                toast(
+                  alreadyDeleted
+                    ? {
+                        title: "Dashboard already deleted",
+                        description: "It had been removed elsewhere.",
+                      }
+                    : {
+                        title: "Dashboard deleted",
+                        description: "The dashboard has been removed.",
+                      },
+                ),
               onError: (err) =>
                 toast({
                   title: "Failed to delete dashboard",

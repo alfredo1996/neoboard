@@ -146,6 +146,43 @@ test.describe("Dashboard CRUD", () => {
     await expect(page.getByText("To Delete Dashboard")).not.toBeVisible();
   });
 
+  test("deleting a dashboard already deleted elsewhere removes its card (#1750)", async ({
+    page,
+  }) => {
+    const name = `Deleted Elsewhere ${Date.now()}`;
+    const { id } = await createTestDashboard(page.request, name);
+
+    await page.goto("/");
+    const card = page
+      .locator("div[class*='cursor-pointer']")
+      .filter({ has: page.getByText(name, { exact: true }) })
+      .first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    // Someone else deletes it; this page still shows the card.
+    const gone = await page.request.delete(`/api/dashboards/${id}`);
+    expect(gone.ok()).toBe(true);
+
+    await card.getByRole("button", { name: "Dashboard options" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    const [deleted] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().endsWith(`/api/dashboards/${id}`) &&
+          r.request().method() === "DELETE",
+      ),
+      page.getByRole("button", { name: "Delete" }).click(),
+    ]);
+    expect(deleted.status()).toBe(404);
+
+    await expect(
+      page.getByText("Dashboard already deleted", { exact: true }),
+    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(name, { exact: true })).not.toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("explicit Save confirms with a toast (#1046)", async ({ page }) => {
     await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
