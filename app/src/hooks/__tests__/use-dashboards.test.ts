@@ -265,9 +265,42 @@ describe("use-dashboards", () => {
         mutationFn: (id: string) => Promise<unknown>;
       };
       const result = await config.mutationFn("d1");
-      expect(result).toEqual({ success: true });
+      expect(result).toEqual({ alreadyDeleted: false });
       expect(globalThis.fetch).toHaveBeenCalledWith("/api/dashboards/d1", {
         method: "DELETE",
+      });
+    });
+
+    it("resolves as already deleted on 404 instead of failing (#1750)", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse(
+          {
+            data: null,
+            error: { code: "NOT_FOUND", message: "Not found" },
+            meta: null,
+          },
+          404,
+        ),
+      );
+      const config = useDeleteDashboard() as unknown as {
+        mutationFn: (id: string) => Promise<unknown>;
+      };
+      await expect(config.mutationFn("d1")).resolves.toEqual({
+        alreadyDeleted: true,
+      });
+    });
+
+    it("onSuccess refreshes the dashboards list", async () => {
+      const { useQueryClient } = await import("@tanstack/react-query");
+      const config = useDeleteDashboard() as unknown as {
+        onSuccess: () => void;
+      };
+      const client = vi.mocked(useQueryClient).mock.results.at(-1)!.value as {
+        invalidateQueries: ReturnType<typeof vi.fn>;
+      };
+      config.onSuccess();
+      expect(client.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["dashboards"],
       });
     });
 
@@ -279,6 +312,23 @@ describe("use-dashboards", () => {
         mutationFn: (id: string) => Promise<unknown>;
       };
       await expect(config.mutationFn("d1")).rejects.toThrow("Forbidden");
+    });
+
+    it("still throws on a 500, so only 404 counts as already deleted (#1750)", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse(
+          {
+            data: null,
+            error: { code: "INTERNAL", message: "boom" },
+            meta: null,
+          },
+          500,
+        ),
+      );
+      const config = useDeleteDashboard() as unknown as {
+        mutationFn: (id: string) => Promise<unknown>;
+      };
+      await expect(config.mutationFn("d1")).rejects.toThrow("boom");
     });
   });
 

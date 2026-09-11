@@ -77,6 +77,7 @@ import {
 import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
 import { ExportError, classifyExportError } from "@/lib/dashboard/export-error";
 import { dashboardListSubtitle } from "./dashboard-list-subtitle";
+import { deleteDashboardToast } from "./delete-dashboard-toast";
 import {
   filterDashboardsByName,
   isDuplicateDashboardName,
@@ -936,11 +937,8 @@ export default function DashboardListPage() {
             // users-page convention (name-free description: the name in a
             // toast would linger after the card disappears and read as stale).
             deleteDashboard.mutate(deleteTarget.id, {
-              onSuccess: () =>
-                toast({
-                  title: "Dashboard deleted",
-                  description: "The dashboard has been removed.",
-                }),
+              onSuccess: ({ alreadyDeleted }) =>
+                toast(deleteDashboardToast(alreadyDeleted)),
               onError: (err) =>
                 toast({
                   title: "Failed to delete dashboard",

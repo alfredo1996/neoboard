@@ -178,9 +178,13 @@ export function useDeleteDashboard() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: string): Promise<{ alreadyDeleted: boolean }> => {
       const res = await fetch(`/api/dashboards/${id}`, { method: "DELETE" });
-      return unwrapResponse(res);
+      // 404: someone else deleted it first. The goal is met, so settle as a
+      // success and let onSuccess refresh the stale list (#1750).
+      if (res.status === 404) return { alreadyDeleted: true };
+      await unwrapResponse(res);
+      return { alreadyDeleted: false };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
