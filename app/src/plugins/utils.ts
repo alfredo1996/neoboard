@@ -70,11 +70,15 @@ function rawColumnsOf(
  * `{ value, itemStyle }` whenever a styling rule coloured it, and sending bar
  * down this path would drop every raw query column (#1589).
  *
+ * Pie is here because pie-chart.tsx reorders slices (sortSlices, topN
+ * grouping) before ECharts sees them, so its dataIndex is a position in the
+ * reordered list, not in the transformed array (#1598).
+ *
  * `graph` is absent on purpose — the graph widget renders through NVL, and the
  * last ECharts GraphChart registration was removed in #1594, so no ECharts
  * graph-series click can occur.
  */
-const DATUM_SERIES = new Set(["sankey", "sunburst"]);
+const DATUM_SERIES = new Set(["pie", "sankey", "sunburst"]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -83,6 +87,12 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 /**
  * Build the payload a click action resolves against, or null when the click
  * should fire nothing.
+ *
+ * Precedence (#1597): a key that names a raw query column carries that column.
+ * The editor offers raw columns by name, so `value` means the query's `value`
+ * column — not the event's value (on gantt always a 6-element tuple) and not a
+ * field the transform derived from some other column. The transformed item and
+ * the event only fill the names the query does not have.
  */
 export function buildClickPayload(
   e: EChartsClickEvent,
@@ -90,7 +100,9 @@ export function buildClickPayload(
 ): Record<string, unknown> | null {
   const eventFields = {
     name: e.name,
-    value: e.value,
+    // A custom series (gantt) hands back its encode tuple as `value`. No click
+    // action can resolve an array, so it is not shipped (#1597).
+    ...(Array.isArray(e.value) ? {} : { value: e.value }),
     seriesName: e.seriesName,
     dataIndex: e.dataIndex,
   };
@@ -100,10 +112,10 @@ export function buildClickPayload(
     // `name === ""` instead would silence every real node whose name column
     // was NULL — hierarchical-utils coerces those to "" (#1596).
     if (e.treePathInfo && e.treePathInfo.length <= 1) return null;
-    // `children` would drag the whole subtree into a payload of scalars.
-    const { children: _children, ...datum } = e.data;
-    void _children;
-    return { ...datum, ...eventFields };
+    // `children` would drag the whole subtree into a payload of scalars;
+    // `properties` is the passthrough container, spread below as columns.
+    const { children: _children, properties: _container, ...datum } = e.data;
+    return { ...datum, ...eventFields, ...rawColumnsOf(e.data) };
   }
 
   const row = Array.isArray(data)
@@ -112,16 +124,15 @@ export function buildClickPayload(
   // `properties` is the passthrough container, not data — dropping it here
   // stops it shadowing a query column that is itself named `properties`.
   const { properties: _container, ...itemFields } = row ?? {};
-  void _container;
   return {
+    ...itemFields,
+    ...eventFields,
     // The click-action editor offers every RAW query column as a Source
     // Field, but a transform that rebuilds items from only the fields it
     // detects drops the rest — so the action resolved to `undefined` and
     // was discarded in silence (#1589). Transforms keep the row under
-    // `properties`; it goes in first so the transformed fields still win.
+    // `properties`; it goes in last so the column the author picked wins.
     ...rawColumnsOf(row),
-    ...itemFields,
-    ...eventFields,
   };
 }
 

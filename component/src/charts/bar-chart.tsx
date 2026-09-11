@@ -5,6 +5,7 @@ import type { BaseChartProps, BarChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildAutoAriaDescription,
+  collectSeriesKeys,
   getCompactState,
   resolveShowLegend,
   buildCompactGrid,
@@ -95,18 +96,7 @@ function BarChart({
     // built on that path was never handed to ECharts. The body below is
     // total over an empty array — it produces an unused option, not a throw.
 
-    // Union keys across every row so sparse data (a series missing from the
-    // first row) doesn't get dropped from the chart.
-    const seenKeys = new Set<string>();
-    const seriesKeys: string[] = [];
-    for (const row of data) {
-      for (const k of Object.keys(row)) {
-        if (k !== "label" && !seenKeys.has(k)) {
-          seenKeys.add(k);
-          seriesKeys.push(k);
-        }
-      }
-    }
+    const seriesKeys = collectSeriesKeys(data, "label");
 
     // Pre-compute row totals for percentage normalization
     const rowTotals = isPercent

@@ -33,12 +33,13 @@ describe("useEChartsClick raw-row passthrough (#1589)", () => {
     expect(payload.region).toBe("EU");
   });
 
-  it("lets the transformed item win over a raw column of the same name", () => {
+  it("lets a raw column win over the transformed field of the same name (#1597)", () => {
+    // The editor offers raw columns by name, so `task` means the query column.
     const payload = payloadFor({
       task: "Design",
       properties: { task: "raw-untransformed" },
     });
-    expect(payload.task).toBe("Design");
+    expect(payload.task).toBe("raw-untransformed");
   });
 
   it("never lets a raw column impersonate a click-resolution control key", () => {

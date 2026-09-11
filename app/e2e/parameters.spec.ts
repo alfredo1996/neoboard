@@ -2154,3 +2154,121 @@ test.describe("Parameter collision warning", () => {
     });
   });
 });
+
+/**
+ * #1597 / #1598 — a bar chart's click action resolves the RAW query column the
+ * editor offered, and a column named `value` means that column, not the
+ * clicked bar's number. The first case is the Movie Highlights shape
+ * (name/value, Source Field `name`), which must keep setting the actor.
+ */
+test.describe("Bar click actions resolve raw query columns", () => {
+  const cases = [
+    {
+      label: "the Movie Highlights name column",
+      query:
+        "MATCH (p:Person {name: 'Keanu Reeves'})-[:ACTED_IN]->(m:Movie) RETURN p.name AS name, count(m) AS value",
+      sourceField: "name",
+    },
+    {
+      label: "a category column named value",
+      query:
+        "MATCH (p:Person {name: 'Keanu Reeves'})-[:ACTED_IN]->(m:Movie) RETURN p.name AS value, count(m) AS films",
+      sourceField: "value",
+    },
+  ];
+
+  for (const c of cases) {
+    test(`clicking the bar sets the actor from ${c.label}`, async ({
+      authPage,
+      page,
+    }) => {
+      await authPage.login(ALICE.email, ALICE.password);
+      const res = await page.request.post("/api/dashboards", {
+        data: { name: `Bar click ${Date.now()}` },
+      });
+      expect(res.ok()).toBe(true);
+      const { id } = (await res.json()).data;
+
+      try {
+        const put = await page.request.put(`/api/dashboards/${id}`, {
+          data: {
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "page-bar-click",
+                  title: "Bar click",
+                  widgets: [
+                    {
+                      id: "bar-click",
+                      chartType: "bar",
+                      connectionId: "conn-neo4j-001",
+                      query: c.query,
+                      settings: {
+                        title: "Films per actor (click the bar)",
+                        clickAction: {
+                          type: "set-parameter",
+                          rules: [
+                            {
+                              id: "rule-actor",
+                              type: "set-parameter",
+                              parameterMapping: {
+                                parameterName: "actor",
+                                sourceField: c.sourceField,
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                    {
+                      id: "costars",
+                      chartType: "table",
+                      connectionId: "conn-neo4j-001",
+                      query:
+                        "MATCH (a:Person {name: $param_actor})-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(c:Person) RETURN DISTINCT c.name AS costar ORDER BY costar",
+                      settings: { title: "Co-stars" },
+                    },
+                  ],
+                  gridLayout: [
+                    { i: "bar-click", x: 0, y: 0, w: 6, h: 5 },
+                    { i: "costars", x: 6, y: 0, w: 6, h: 5 },
+                  ],
+                },
+              ],
+            },
+          },
+        });
+        expect(put.ok()).toBe(true);
+
+        await page.goto(`/${id}`);
+        const canvas = page
+          .getByTestId("widget-card")
+          .filter({ hasText: "Films per actor" })
+          .locator("canvas")
+          .first();
+        await expect(canvas).toBeVisible({ timeout: 15_000 });
+
+        // One category, so the bar fills the middle of the plot. Retried
+        // because the first click can land while the bar is still animating in.
+        await expect(async () => {
+          const box = await canvas.boundingBox();
+          if (!box) throw new Error("bar canvas has no bounding box");
+          await canvas.click({
+            position: { x: box.width / 2, y: box.height / 2 },
+          });
+          await expect(page.getByText("Reset")).toBeVisible({
+            timeout: 2_000,
+          });
+        }).toPass({ timeout: 20_000 });
+
+        // Only the actor's NAME finds co-stars — the film count finds nobody.
+        await expect(page.getByText("Carrie-Anne Moss")).toBeVisible({
+          timeout: 15_000,
+        });
+      } finally {
+        await page.request.delete(`/api/dashboards/${id}`);
+      }
+    });
+  }
+});

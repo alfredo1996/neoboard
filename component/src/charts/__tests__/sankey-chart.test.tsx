@@ -151,4 +151,32 @@ describe("SankeyChart", () => {
       expect(mine()?.series[0].links).toHaveLength(1);
     });
   });
+
+  // The app's sankey transform keeps the query row under `properties` on each
+  // link, and the click payload reads it off the clicked link (#1598).
+  describe("keeps the caller's extra keys on each link (#1598)", () => {
+    const withRows = {
+      nodes: sampleData.nodes,
+      links: sampleData.links.map((l) => ({
+        ...l,
+        properties: { dst: l.target },
+      })),
+    };
+
+    it.each([
+      ["plain", undefined],
+      [
+        "styling rules",
+        [{ id: "r1", operator: ">=" as const, value: 0, color: "#f00" }],
+      ],
+    ])("%s", (_label, stylingRules) => {
+      render(<SankeyChart data={withRows} stylingRules={stylingRules} />);
+      const links = mockSetOption.mock.calls[0][0].series[0].links as Array<{
+        properties?: { dst: string };
+      }>;
+      expect(links.map((l) => l.properties)).toEqual(
+        withRows.links.map((l) => l.properties),
+      );
+    });
+  });
 });

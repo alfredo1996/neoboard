@@ -13,7 +13,7 @@ describe("transformToPieData", () => {
       value: number;
     }>;
     expect(result).toHaveLength(2);
-    expect(result[0]).toEqual({ name: "Apples", value: 30 });
+    expect(result[0]).toMatchObject({ name: "Apples", value: 30 });
   });
 
   it("returns empty array for empty input", () => {
@@ -70,6 +70,6 @@ describe("connector-shaped fixtures (#1636)", () => {
     // A pie has no gap to draw: a null total is a slice with no area, and the
     // name survives so the legend still lists it. This is the contract as
     // shipped; changing it should change this assertion knowingly.
-    expect(slices()[1]).toEqual({ name: "pending", value: 0 });
+    expect(slices()[1]).toMatchObject({ name: "pending", value: 0 });
   });
 });

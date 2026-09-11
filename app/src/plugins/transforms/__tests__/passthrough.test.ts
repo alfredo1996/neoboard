@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import { transformToGanttData } from "../../gantt/transform";
 import { transformToChoroplethData } from "../../choropleth/transform";
 import { transformToMapData } from "../../map/transform";
+import { transformToBarData } from "../../bar/transform";
+import { transformToLineData } from "../../line/transform";
+import { transformToPieData } from "../../pie/transform";
+import { transformToSankeyData } from "../../sankey/transform";
 
 /**
  * Ratchet (#1589). The click-action editor offers every RAW query column as a
@@ -12,10 +16,11 @@ import { transformToMapData } from "../../map/transform";
  * `undefined`, and `resolve-click-action.ts:78` drops the action in silence.
  *
  * Every transform whose chart builds a click payload from transformed items
- * keeps the raw row under `properties` — the shape map has always used. Charts
- * whose items ARE ECharts data objects (pie, sunburst, treemap, sankey) are
- * deliberately absent: an extra key there can change rendering. Add a row here
- * when a plugin joins the payload surface.
+ * keeps the raw row under `properties` — the shape map has always used. Pie
+ * items and sankey links are ECharts data objects, but ECharts ignores a key it
+ * does not know: an SSR render of both with and without `properties` is
+ * byte-identical (echarts 6.1.0, #1598). Sunburst carries its columns on the
+ * datum itself. Add a row here when a plugin joins the payload surface.
  */
 describe("transform row passthrough (#1589)", () => {
   const cases = [
@@ -40,6 +45,27 @@ describe("transform row passthrough (#1589)", () => {
       type: "map",
       transform: (rows: Record<string, unknown>[]) => transformToMapData(rows),
       row: { name: "x", lat: 1, lng: 2, owner: "bob" },
+    },
+    {
+      type: "bar",
+      transform: (rows: Record<string, unknown>[]) => transformToBarData(rows),
+      row: { genre: "rock", films: 3, owner: "bob" },
+    },
+    {
+      type: "line",
+      transform: (rows: Record<string, unknown>[]) => transformToLineData(rows),
+      row: { month: "Jan", revenue: 1, owner: "bob" },
+    },
+    {
+      type: "pie",
+      transform: (rows: Record<string, unknown>[]) => transformToPieData(rows),
+      row: { status: "open", total: 3, owner: "bob" },
+    },
+    {
+      type: "sankey",
+      transform: (rows: Record<string, unknown>[]) =>
+        (transformToSankeyData(rows) as { links: unknown[] }).links,
+      row: { src: "A", dst: "B", amount: 1, owner: "bob" },
     },
   ];
 
@@ -85,4 +111,27 @@ describe("transform row passthrough (#1589)", () => {
     expect(out[0].value).toBe(3);
     expect((out[0].properties as Record<string, unknown>).name).toBe(42);
   });
+
+  it("sankey: a link keeps its own row when an earlier row was dropped", () => {
+    const { links } = transformToSankeyData([
+      { source: "A", target: "A", value: 1, owner: "loop" },
+      { source: "A", target: "B", value: 2, owner: "bob" },
+    ]) as { links: Record<string, unknown>[] };
+    expect(links).toHaveLength(1);
+    expect((links[0].properties as Record<string, unknown>).owner).toBe("bob");
+  });
+
+  it.each([
+    ["bar", transformToBarData],
+    ["line", transformToLineData],
+  ] as const)(
+    "%s: a series column that is itself named properties still renders",
+    (_type, transform) => {
+      const out = transform([{ k: "a", properties: 4 }]) as Record<
+        string,
+        unknown
+      >[];
+      expect(out[0].properties).toBe(4);
+    },
+  );
 });
