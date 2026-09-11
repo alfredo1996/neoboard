@@ -131,16 +131,30 @@ describe("GraphChart", () => {
 
   // --- Layout mapping ---
 
-  it("uses forceDirected layout by default", () => {
+  // "force" is NVL's CPU d3Force, not its WebGL forceDirected: for graphs of
+  // up to 100 nodes forceDirected steps its GPU physics in a blocking loop of
+  // 256x256 readPixels, which froze the page for ~8 s on software GL (#1777).
+  it("uses d3Force layout by default", () => {
     render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
-    expect(capturedProps.layout).toBe("forceDirected");
+    expect(capturedProps.layout).toBe("d3Force");
   });
 
-  it("maps 'force' layout to 'forceDirected'", () => {
+  it("maps 'force' layout to 'd3Force' (#1777)", () => {
     render(
       <GraphChart nodes={sampleNodes} edges={sampleEdges} layout="force" />,
     );
-    expect(capturedProps.layout).toBe("forceDirected");
+    expect(capturedProps.layout).toBe("d3Force");
+  });
+
+  // No size split: above NVL's 100-node blocking-loop gate, d3Force still did
+  // less main-thread work than forceDirected on hardware GL (#1777).
+  it("keeps d3Force for graphs over 100 nodes (#1777)", () => {
+    const many = Array.from({ length: 150 }, (_, i) => ({
+      id: String(i),
+      label: `N${i}`,
+    }));
+    render(<GraphChart nodes={many} edges={[]} layout="force" />);
+    expect(capturedProps.layout).toBe("d3Force");
   });
 
   it("maps 'circular' layout to 'circular'", () => {

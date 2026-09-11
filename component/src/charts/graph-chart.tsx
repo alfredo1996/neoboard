@@ -128,13 +128,35 @@ export interface GraphChartProps {
   className?: string;
 }
 
-/** NVL layout names for each of our public layout identifiers. */
+/**
+ * NVL layout names for each of our public layout identifiers.
+ *
+ * "force" is NVL's CPU `d3Force`, not its WebGL `forceDirected`. For graphs of
+ * up to 100 nodes `forceDirected` runs a CoseBilkent pre-layout and then steps
+ * its GPU physics in a blocking loop, reading back a 256x256 float texture
+ * with `gl.readPixels` on every step. That is hundreds of synchronous GPU
+ * stalls in one main-thread task: ~1.2 s per mount on software GL locally,
+ * ~8 s on a loaded CI runner, and nothing paints meanwhile (#1777). NVL
+ * deprecates that path in favour of `d3Force` for small datasets, and uses
+ * `d3Force` itself when WebGL compute is unavailable.
+ *
+ * Above 100 nodes the blocking loop does not run, but `d3Force` is still the
+ * cheaper choice, so there is no size split. Measured on hardware GL (Apple M1
+ * Max, headed Chromium), main-thread long tasks over 10 s:
+ * - 1,200 nodes: forceDirected 4.7-5.2 s total with ~550 readbacks;
+ *   d3Force 1.4-1.9 s. d3Force's longest single task is 0.4-0.8 s against
+ *   0.3-0.4 s.
+ * - 6,000 nodes: forceDirected 11.1-11.4 s total, longest task 0.55-0.63 s;
+ *   d3Force 6.8-7.0 s, longest task 0.44-0.45 s.
+ * The arrangement differs from forceDirected's. Stored settings still say
+ * "force", so nothing migrates.
+ */
 function toNvlLayout(
   layout: GraphLayout,
-): "forceDirected" | "circular" | "hierarchical" {
+): "d3Force" | "circular" | "hierarchical" {
   if (layout === "circular") return "circular";
   if (layout === "hierarchical") return "hierarchical";
-  return "forceDirected";
+  return "d3Force";
 }
 
 const LAYOUT_LABELS: Record<GraphLayout, string> = {
