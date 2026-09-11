@@ -1,10 +1,14 @@
-import { test, expect, ALICE } from "./fixtures";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { test, expect, ALICE, TEST_NEO4J_BOLT_URL } from "./fixtures";
 import type { Page, APIRequestContext } from "@playwright/test";
 
 /**
  * A single continuous walkthrough of the chart fixes, recorded to video.
  *
  * Run with: npx playwright test --config playwright.showcase.config.ts
+ * With DOCS_SCREENSHOTS=1 it also rewrites the images of the docs page "Tour
+ * NeoBoard with demo data" (docs/public/screenshots/tour, see the end of file).
  *
  * Every widget below is seeded through the real API against the real seeded
  * Neo4j movies dataset, so what the video shows is the product, not a mock.
@@ -295,4 +299,183 @@ test("chart fixes walkthrough", async ({ authPage, page }) => {
   await page.waitForTimeout(BEAT);
   await clearCaption(page);
   await page.waitForTimeout(SHORT);
+});
+
+// ── Docs: "Tour NeoBoard with demo data" (#1682) ────────────────────────────
+
+/** Two of the logins `neoboard demo` prints (cli/src/commands/demo.ts). */
+const DEMO_ADMIN = {
+  name: "Admin",
+  email: "admin@neoboard.local",
+  password: "admin123",
+};
+const DEMO_CREATOR = {
+  name: "Creator",
+  email: "creator@neoboard.local",
+  password: "creator123",
+};
+
+const TOUR_SHOTS = path.resolve(
+  __dirname,
+  "../../docs/public/screenshots/tour",
+);
+
+/**
+ * One image of docs/src/content/docs/start-here/tour.mdx, shown there as
+ * /screenshots/tour/<name>.png. scripts/__tests__/docs-accuracy.test.mjs reads
+ * these calls to hold the page to them, so pass the name as a string literal.
+ */
+async function docsShot(page: Page, name: string) {
+  await page.screenshot({ path: path.join(TOUR_SHOTS, name + ".png") });
+}
+
+test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
+  // Off unless asked, so a plain showcase run leaves the committed images alone.
+  test.skip(
+    process.env.DOCS_SCREENSHOTS !== "1",
+    "set DOCS_SCREENSHOTS=1 to rewrite docs/public/screenshots/tour",
+  );
+  test.use({
+    viewport: { width: 1280, height: 1024 },
+    colorScheme: "light",
+    // Stills want settled frames, not the motion the chart video shows off.
+    contextOptions: { reducedMotion: "reduce" },
+  });
+
+  test("tour screenshots", async ({ authPage, page }) => {
+    test.slow();
+    const api = page.request;
+    // Dynamic: a static import runs showcases.mjs through Playwright's CJS
+    // transform, where its `import.meta` is a syntax error.
+    const { SHOWCASES } = await import("../../scripts/demo/showcases.mjs");
+
+    // ── Make the E2E stack look like `neoboard demo` left it ───────────────
+    // Its admin and creator, its Neo4j connection, its showcases — and no
+    // other dashboards.
+    await authPage.login(ALICE.email, ALICE.password);
+    for (const [persona, role] of [
+      [DEMO_ADMIN, "admin"],
+      [DEMO_CREATOR, "creator"],
+    ] as const) {
+      const res = await api.post("/api/users", { data: { ...persona, role } });
+      expect(res.ok(), persona.email).toBe(true);
+    }
+    await page.context().clearCookies();
+
+    await page.goto("/login");
+    await page.locator('form[data-hydrated="true"]').waitFor();
+    await page.getByLabel("Email").fill(DEMO_ADMIN.email);
+    await page.getByLabel("Password").fill(DEMO_ADMIN.password);
+    await docsShot(page, "login");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL("/");
+
+    const conn = await api.post("/api/connections", {
+      data: {
+        name: "Neo4j Movies",
+        type: "neo4j",
+        config: {
+          uri: TEST_NEO4J_BOLT_URL,
+          username: "neo4j",
+          password: "neoboard123",
+        },
+      },
+    });
+    expect(conn.ok()).toBe(true);
+    const neo4jId: string = (await conn.json()).data.id;
+
+    // An admin sees the whole tenant: the E2E seed dashboards, and the chart
+    // walkthrough's when it ran first. None of them is in the demo.
+    const existing = await api.get("/api/dashboards");
+    for (const { id } of (await existing.json()).data as { id: string }[]) {
+      expect((await api.delete("/api/dashboards/" + id)).ok()).toBe(true);
+    }
+
+    let highlightsId = "";
+    for (const showcase of SHOWCASES) {
+      const payload = JSON.parse(fs.readFileSync(showcase.jsonPath, "utf8"));
+      // Only the movie graph exists here, not the demo's e-commerce schema, so
+      // PostgreSQL widgets import unconnected: those showcases appear in the
+      // list and in no screenshot.
+      const res = await api.post("/api/dashboards/import", {
+        data: {
+          payload,
+          connectionMapping: { conn_neo4j: neo4jId },
+          skippedConnections: Object.keys(payload.connections).filter(
+            (key) => key !== "conn_neo4j",
+          ),
+        },
+      });
+      expect(res.ok(), showcase.key).toBe(true);
+      const { id } = (await res.json()).data;
+      // scripts/seed-demo.mjs makes every showcase public.
+      const pub = await api.put("/api/dashboards/" + id, {
+        data: { isPublic: true },
+      });
+      expect(pub.ok(), showcase.key).toBe(true);
+      if (showcase.key === "movie-highlights") highlightsId = id;
+    }
+
+    // ── The tour ───────────────────────────────────────────────────────────
+    await page.goto("/");
+    await expect(
+      page.getByText(SHOWCASES[SHOWCASES.length - 1].label, { exact: true }),
+    ).toBeVisible();
+    await docsShot(page, "dashboard-list");
+
+    await page.goto("/" + highlightsId);
+    await expect(page.locator("[data-testid='widget-card']").first()).toBeVisible(
+      { timeout: 30_000 },
+    );
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(BEAT);
+    await docsShot(page, "movie-highlights");
+
+    await page.goto("/" + highlightsId + "/edit");
+    // Clicking before the edit page finishes loading its dashboard opens the
+    // editor into a workspace that is about to re-render without it.
+    await page.waitForLoadState("networkidle");
+    await page
+      .locator("[data-widget-id='mh-bar-actors']")
+      .getByRole("button", { name: "Widget actions" })
+      .click();
+    await page.getByRole("menuitem", { name: "Edit Widget" }).click();
+    const editor = page.getByRole("dialog", { name: "Edit Widget" });
+    await expect(editor).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(SHORT);
+    await docsShot(page, "edit-widget");
+    await page.keyboard.press("Escape");
+    await expect(editor).not.toBeVisible();
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const adder = page.getByRole("dialog", { name: "Add Widget" });
+    await adder.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Parameter Selector" }).click();
+    await adder.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: "Neo4j Movies" }).click();
+    await adder.locator("#widget-title").fill("Release year");
+    await adder
+      .locator("#seed-query")
+      .fill("MATCH (m:Movie) RETURN DISTINCT m.released AS value ORDER BY value");
+    await adder.locator("#param-widget-name").fill("year");
+    await docsShot(page, "add-parameter");
+    await adder.getByRole("tab", { name: "Style" }).click();
+    await adder.getByLabel("Sync to URL").click();
+    await docsShot(page, "sync-to-url");
+    await page.keyboard.press("Escape");
+    await expect(adder).not.toBeVisible();
+
+    await page.getByRole("button", { name: "Sharing" }).click();
+    // Not getByText: Movie Highlights' own markdown mentions "133 people".
+    await expect(page.getByRole("heading", { name: "People" })).toBeVisible();
+    await page.locator("#assign-email").fill(DEMO_CREATOR.email);
+    await page.locator("#assign-role").click();
+    await page.getByRole("option", { name: "Editor" }).click();
+    await page.getByRole("button", { name: "Assign" }).click();
+    await expect(
+      page.getByRole("combobox", { name: "Role for " + DEMO_CREATOR.email }),
+    ).toBeVisible();
+    await docsShot(page, "share");
+  });
 });
