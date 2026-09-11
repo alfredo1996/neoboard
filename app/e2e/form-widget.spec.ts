@@ -3,30 +3,20 @@ import {
   expect,
   ALICE,
   createTestDashboard,
+  saveDashboard,
   typeInEditor,
 } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 /**
  * Click Back to leave edit mode and wait for the URL to drop the /edit
- * suffix. Handles the unsaved-changes "Leave" dialog that sometimes
- * appears because a post-Save grid compaction effect marks the page
- * dirty before React state has fully settled.
- *
- * Previous inline pattern used a 1s probe for the Leave button which
- * missed the dialog under load — this helper gives it 3s and then
- * waits up to 15s for the URL change, which is enough headroom on
- * a busy CI machine.
+ * suffix. Call it only after `saveDashboard(page)`: the store is clean by
+ * then, so the unsaved-changes guard never opens. Clicking its "Leave" would
+ * reload the page and abort a save still in flight, which is how these tests
+ * used to lose the widgets they had just added (#1767).
  */
 async function leaveEditMode(page: Page) {
   await page.getByRole("button", { name: "Back" }).click();
-  const leaveBtn = page.getByRole("button", { name: "Leave" });
-  try {
-    await leaveBtn.waitFor({ state: "visible", timeout: 3_000 });
-    await leaveBtn.click();
-  } catch {
-    // No dialog — the direct navigation path will resolve the URL wait below.
-  }
   await expect(page).not.toHaveURL(/\/edit$/, { timeout: 15_000 });
 }
 
@@ -155,12 +145,9 @@ test.describe("Form widget", () => {
     await expect(dialog).not.toBeVisible();
 
     // Save the dashboard
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 15_000,
-    });
+    await saveDashboard(page);
 
-    // Navigate to view mode (handles unsaved-changes dialog race)
+    // Navigate to view mode
     await leaveEditMode(page);
 
     // The form widget should render with the configured fields
@@ -200,10 +187,7 @@ test.describe("Form widget", () => {
     await expect(dialog).not.toBeVisible();
 
     // Save and go to view mode
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 15_000,
-    });
+    await saveDashboard(page);
     await leaveEditMode(page);
 
     // Wait for the form to render — the label "Name" should be visible
@@ -277,10 +261,7 @@ test.describe("Form widget", () => {
     await expect(dialog).not.toBeVisible();
 
     // Save and navigate to view mode
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 15_000,
-    });
+    await saveDashboard(page);
     await leaveEditMode(page);
 
     // The form widget should show the empty-state message
@@ -324,10 +305,7 @@ test.describe("Form widget", () => {
     await expect(dialog).not.toBeVisible();
 
     // Save and go to view mode
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 15_000,
-    });
+    await saveDashboard(page);
     await leaveEditMode(page);
 
     // Label includes asterisk for required fields
@@ -370,10 +348,15 @@ test.describe("Form widget", () => {
   }) => {
     // This test creates TWO widgets with query execution, so it needs extra time
     test.setTimeout(60_000);
-    // Add a table widget first
+    // Add a table widget first — as a Data Table, explicitly. Left on the
+    // default Bar Chart, any FormRefreshNode an earlier run's submit left in the
+    // shared Neo4j comes back as one-column rows, and the preview shows
+    // "Incompatible data format" instead of a table or "No data" (#1767).
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const tableDialog = page.getByRole("dialog", { name: "Add Widget" });
 
+    await tableDialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
     await tableDialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
@@ -389,9 +372,9 @@ test.describe("Form widget", () => {
       tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
     ).toBeEnabled({ timeout: 10_000 });
     await tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
-    // The seed query returns no rows yet (the form creates the node), so the
-    // preview renders the host's "No data" status (#1584) rather than a chart
-    // — either way the widget mounted.
+    // The Data Table preview is a table if earlier runs left FormRefreshNode
+    // rows, or the host's "No data" status (#1584) if there are none; either
+    // way the widget mounted.
     await expect(
       tableDialog
         .locator("[data-testid='base-chart'], [role='status'], table")
@@ -441,10 +424,7 @@ test.describe("Form widget", () => {
     await expect(formDialog).not.toBeVisible();
 
     // Save and go to view mode
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 15_000,
-    });
+    await saveDashboard(page);
     await leaveEditMode(page);
 
     // Wait for form to render (label includes asterisk for required fields)
@@ -533,10 +513,7 @@ test.describe("Form widget", () => {
     await expect(dialog).not.toBeVisible();
 
     // Save and go to view mode
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled({
-      timeout: 15_000,
-    });
+    await saveDashboard(page);
     await leaveEditMode(page);
 
     // Wait for the parameter-select dropdown to render
