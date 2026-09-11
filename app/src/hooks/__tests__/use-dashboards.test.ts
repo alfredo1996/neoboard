@@ -313,6 +313,23 @@ describe("use-dashboards", () => {
       };
       await expect(config.mutationFn("d1")).rejects.toThrow("Forbidden");
     });
+
+    it("still throws on a 500, so only 404 counts as already deleted (#1750)", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse(
+          {
+            data: null,
+            error: { code: "INTERNAL", message: "boom" },
+            meta: null,
+          },
+          500,
+        ),
+      );
+      const config = useDeleteDashboard() as unknown as {
+        mutationFn: (id: string) => Promise<unknown>;
+      };
+      await expect(config.mutationFn("d1")).rejects.toThrow("boom");
+    });
   });
 
   // ── useDuplicateDashboard ───────────────────────────────────────────
