@@ -146,6 +146,17 @@ describe("GraphChart", () => {
     expect(capturedProps.layout).toBe("d3Force");
   });
 
+  // No size split: above NVL's 100-node blocking-loop gate, d3Force still did
+  // less main-thread work than forceDirected on hardware GL (#1777).
+  it("keeps d3Force for graphs over 100 nodes (#1777)", () => {
+    const many = Array.from({ length: 150 }, (_, i) => ({
+      id: String(i),
+      label: `N${i}`,
+    }));
+    render(<GraphChart nodes={many} edges={[]} layout="force" />);
+    expect(capturedProps.layout).toBe("d3Force");
+  });
+
   it("maps 'circular' layout to 'circular'", () => {
     render(
       <GraphChart nodes={sampleNodes} edges={sampleEdges} layout="circular" />,
