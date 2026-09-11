@@ -935,24 +935,45 @@ test.describe("Form field labels and database errors (#1409, #1410)", () => {
     const due = form.getByRole("button", { name: "Due", exact: true });
     await expect(due).toBeVisible();
 
-    // htmlFor resolves: clicking the label focuses its control.
+    // htmlFor resolves: clicking a label reaches the named control. The fields
+    // below Full Name go first. Full Name is required and empty, so leaving it
+    // shows "This field is required", which pushes every later field down
+    // between the mousedown and mouseup of the next label click; the click
+    // then lands on Full Name's field and the label never forwards it.
+    // A trigger may open on the label's click instead of only taking focus;
+    // either proves the label reaches the control. An open Select aria-hides
+    // the rest of the page, so pin the label by id before clicking and read
+    // the control through `label.control`.
+    for (const [text, trigger] of [
+      ["Priority", priority],
+      ["Due", due],
+    ] as const) {
+      const labelId = await form
+        .locator("label", { hasText: text })
+        .getAttribute("id");
+      const label = page.locator(`label[id="${labelId}"]`);
+      await expect(trigger).toHaveAttribute(
+        "id",
+        (await label.getAttribute("for")) ?? "",
+      );
+      await label.click();
+      await expect
+        .poll(() =>
+          label.evaluate((l) => {
+            const control = (l as HTMLLabelElement).control;
+            return (
+              !!control &&
+              (control === document.activeElement ||
+                control.getAttribute("aria-expanded") === "true")
+            );
+          }),
+        )
+        .toBe(true);
+      await page.keyboard.press("Escape");
+    }
+
     await form.locator("label", { hasText: "Full Name" }).click();
     await expect(fullName).toBeFocused();
-
-    // The custom triggers are attached to their labels too: label.control is
-    // the trigger itself, which is what names it (checked above by role and
-    // name). Clicking the label is not a stable proof for these controls: a
-    // label forwards a synthetic click, a Radix Select opens on pointerdown,
-    // and Chromium does not focus a button on a synthetic click.
-    for (const text of ["Priority", "Due"]) {
-      const attached = await form
-        .locator("label", { hasText: text })
-        .evaluate((l) => {
-          const label = l as HTMLLabelElement;
-          return !!label.control && label.control.id === label.htmlFor;
-        });
-      expect(attached).toBe(true);
-    }
   });
 
   test("a blank field the database requires is a 400 shown on that field", async ({
