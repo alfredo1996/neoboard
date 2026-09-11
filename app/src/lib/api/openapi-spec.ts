@@ -478,7 +478,10 @@ const SPEC = {
         tags: ["Query"],
         summary: "Execute write query",
         description:
-          "Executes a write query against a connected database. Requires `canWrite` permission on the session.",
+          "Executes a write query against a connected database. Requires `canWrite` permission on the session. " +
+          "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
+          "foreign-key, check, exclusion, length, format or date/time violation, or a Neo4j constraint violation, answers 400 (a NOT NULL violation names its column in " +
+          "`error.details.column`), a unique violation 409, and a read-only connection 403.",
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
           200: jsonResponse(
@@ -488,6 +491,10 @@ const SPEC = {
           400: R.badRequest,
           401: R.unauthorized,
           403: R.forbidden,
+          409: jsonResponse(
+            "A record with these values already exists",
+            "#/components/schemas/Error",
+          ),
           500: R.serverError,
         },
       },

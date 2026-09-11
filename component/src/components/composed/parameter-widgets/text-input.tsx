@@ -1,16 +1,20 @@
 "use client";
 
+import { useId } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { qualifiedName, type ExternalLabelProps } from "./external-label";
 
-export interface TextInputParameterProps {
+export interface TextInputParameterProps extends ExternalLabelProps {
   parameterName: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /** Marks the input `aria-required`. */
+  required?: boolean;
   className?: string;
 }
 
@@ -24,17 +28,28 @@ function TextInputParameter({
   onChange,
   placeholder = "Enter a value…",
   className,
+  labelledBy,
+  id,
+  required,
 }: TextInputParameterProps) {
-  const inputId = `param-text-${parameterName}`;
+  const inputId = id ?? `param-text-${parameterName}`;
+  const clearId = useId();
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label htmlFor={inputId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {parameterName}
-      </Label>
+      {!labelledBy && (
+        <Label
+          htmlFor={inputId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
+          {parameterName}
+        </Label>
+      )}
       <div className="relative flex items-center">
         <Input
           id={inputId}
+          aria-labelledby={labelledBy}
+          aria-required={required || undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -47,10 +62,20 @@ function TextInputParameter({
             size="icon"
             className="absolute right-1 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => onChange("")}
-            aria-label={`Clear ${parameterName}`}
+            {...qualifiedName(
+              labelledBy,
+              clearId,
+              `Clear ${parameterName}`,
+              true,
+            )}
           >
             <X className="h-3 w-3" />
           </Button>
+        )}
+        {labelledBy && (
+          <span id={clearId} hidden>
+            Clear
+          </span>
         )}
       </div>
     </div>

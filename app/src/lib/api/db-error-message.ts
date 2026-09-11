@@ -1,3 +1,13 @@
+import type { ApiErrorCode } from "./api-response";
+
+/** A recognised write error: what to tell the user, and which 4xx it is. */
+export interface WriteErrorDescription {
+  code: Extract<ApiErrorCode, "VALIDATION_ERROR" | "CONFLICT" | "FORBIDDEN">;
+  message: string;
+  /** The column a NOT NULL violation names, so the form can find the field (#1409). */
+  column?: string;
+}
+
 /**
  * Turn a database / ConnectorError into a SPECIFIC but SAFE user-facing
  * message for write (form) submissions (#1162).
@@ -10,10 +20,16 @@
  * writing to — into an actionable message. It NEVER includes the raw message,
  * the SQL, or the row `detail`.
  *
+ * Every code it recognises is a problem with what was submitted, not a server
+ * fault, so each carries a 4xx code — a 500 here trips alerting and tells a
+ * retry layer to resend a submission that can never succeed (#1409).
+ *
  * Returns `undefined` for unknown/unmapped errors so the caller can fall back
- * to its generic message.
+ * to its generic message (and its 500).
  */
-export function describeWriteError(error: unknown): string | undefined {
+export function describeWriteError(
+  error: unknown,
+): WriteErrorDescription | undefined {
   const raw = unwrap(error);
   if (!raw) return undefined;
 
@@ -21,26 +37,48 @@ export function describeWriteError(error: unknown): string | undefined {
   const column = typeof raw.column === "string" ? raw.column : undefined;
   const constraint =
     typeof raw.constraint === "string" ? raw.constraint : undefined;
+  const invalid = (message: string): WriteErrorDescription => ({
+    code: "VALIDATION_ERROR",
+    message,
+  });
 
   switch (code) {
     case "23502": // not_null_violation
       return column
-        ? `The field "${column}" is required.`
-        : "A required field is missing.";
+        ? { ...invalid(`The field "${column}" is required.`), column }
+        : invalid("A required field is missing.");
     case "23505": // unique_violation
-      return "A record with these values already exists.";
+      return {
+        code: "CONFLICT",
+        message: "A record with these values already exists.",
+      };
     case "23503": // foreign_key_violation
-      return "A referenced record does not exist.";
+      return invalid("A referenced record does not exist.");
     case "23514": // check_violation
-      return constraint
-        ? `A value failed a validation constraint (${constraint}).`
-        : "A value failed a validation constraint.";
+      return invalid(
+        constraint
+          ? `A value failed a validation constraint (${constraint}).`
+          : "A value failed a validation constraint.",
+      );
     case "22P02": // invalid_text_representation
-      return "A value has an invalid format.";
+      return invalid("A value has an invalid format.");
     case "22003": // numeric_value_out_of_range
-      return "A numeric value is out of range.";
+      return invalid("A numeric value is out of range.");
+    case "22001": // string_data_right_truncation
+      return invalid("A value is too long.");
+    case "22007": // invalid_datetime_format
+    case "22008": // datetime_field_overflow
+      return invalid("A date or time value is invalid.");
+    case "23P01": // exclusion_violation
+      return invalid("A record conflicts with an existing one.");
+    // Neo4j's one code for a unique, existence or key constraint.
+    case "Neo.ClientError.Schema.ConstraintValidationFailed":
+      return invalid("A value violates a database constraint.");
     case "25006": // read_only_sql_transaction
-      return "This connection is read-only; writes are not permitted.";
+      return {
+        code: "FORBIDDEN",
+        message: "This connection is read-only; writes are not permitted.",
+      };
     default:
       return undefined;
   }

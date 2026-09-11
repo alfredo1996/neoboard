@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
 } from "react";
@@ -26,7 +27,11 @@ import { useSeedQuery } from "@/hooks/use-seed-query";
 import { seedFiltersOnServer } from "@/components/parameters/use-seed-query-options";
 import { buildFormParams } from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
-import { validateFieldValue } from "@/lib/widget/form-field-validation";
+import {
+  findFieldForColumn,
+  REQUIRED_MESSAGE,
+  validateFieldValue,
+} from "@/lib/widget/form-field-validation";
 import {
   DebouncedTextInput,
   type DebouncedTextInputHandle,
@@ -42,6 +47,12 @@ export interface FormWidgetRendererProps {
 
 interface FieldInputProps {
   field: FormFieldDef;
+  /**
+   * The form's label for this field (#1410): `id` goes on the control so the
+   * label's htmlFor resolves, and the widget names its control from
+   * `labelledBy` instead of rendering the parameter name as a second label.
+   */
+  label: { id: string; labelledBy: string };
   value: unknown;
   onChange: (name: string, value: unknown) => void;
   connectionId: string;
@@ -54,6 +65,7 @@ interface FieldInputProps {
 
 function FieldInput({
   field,
+  label,
   value,
   onChange,
   connectionId,
@@ -154,6 +166,8 @@ function FieldInput({
       return (
         <DebouncedTextInput
           ref={textInputRef}
+          {...label}
+          required={field.required}
           parameterName={field.parameterName}
           value={textValue}
           onChange={(v) => onChange(field.parameterName, v || undefined)}
@@ -170,6 +184,8 @@ function FieldInput({
         value !== undefined && value !== null ? String(value) : "";
       return (
         <ParamSelector
+          {...label}
+          required={field.required}
           parameterName={field.parameterName}
           options={options}
           value={selectValue}
@@ -204,6 +220,8 @@ function FieldInput({
           : [];
       return (
         <ParamMultiSelector
+          {...label}
+          required={field.required}
           parameterName={field.parameterName}
           options={options}
           values={multiValues}
@@ -232,6 +250,7 @@ function FieldInput({
         value !== undefined && value !== null ? String(value) : "";
       return (
         <DatePickerParameter
+          {...label}
           parameterName={field.parameterName}
           value={dateValue}
           onChange={(v) => onChange(field.parameterName, v || undefined)}
@@ -245,6 +264,7 @@ function FieldInput({
       const toVal = rangeEntry?.to ?? "";
       return (
         <DateRangeParameter
+          {...label}
           parameterName={field.parameterName}
           from={fromVal}
           to={toVal}
@@ -263,6 +283,7 @@ function FieldInput({
       const relValue = value ? (value as RelativeDatePreset | "") : "";
       return (
         <DateRelativePicker
+          {...label}
           parameterName={field.parameterName}
           value={relValue}
           onChange={(preset) =>
@@ -279,6 +300,7 @@ function FieldInput({
         : null;
       return (
         <NumberRangeSlider
+          {...label}
           parameterName={field.parameterName}
           min={field.rangeMin ?? 0}
           max={field.rangeMax ?? 100}
@@ -320,6 +342,15 @@ export function FormWidgetRenderer({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Errors the database reported for a field (#1409). Kept apart from client
+  // validation, which knows nothing of them and would drop them on blur; only
+  // editing the field or submitting again clears one.
+  const [serverFieldErrors, setServerFieldErrors] = useState<
+    Record<string, string>
+  >({});
+  // Label ids come from useId + the field's index, never from author strings:
+  // two forms may share a parameter name, and an id list cannot hold spaces.
+  const idPrefix = useId();
 
   const queryClient = useQueryClient();
   const refreshWidgetIds = useMemo(
@@ -406,12 +437,14 @@ export function FormWidgetRenderer({
     setLocalValues((prev) => ({ ...prev, [name]: value }));
     setSuccessMessage(null);
     setErrorMessage(null);
-    setFieldErrors((prev) => {
+    const withoutName = (prev: Record<string, string>) => {
       if (!prev[name]) return prev;
       const next = { ...prev };
       delete next[name];
       return next;
-    });
+    };
+    setFieldErrors(withoutName);
+    setServerFieldErrors(withoutName);
   }, []);
 
   const handleFieldBlur = useCallback(
@@ -454,6 +487,7 @@ export function FormWidgetRenderer({
 
     setSuccessMessage(null);
     setErrorMessage(null);
+    setServerFieldErrors({});
 
     // Validate required + validationType for all fields
     const errors: Record<string, string> = {};
@@ -486,7 +520,28 @@ export function FormWidgetRenderer({
           }
         },
         onError: (err) => {
-          setErrorMessage(err.message);
+          // The route names the column a NOT NULL violation hit (#1409); put
+          // the error on the field that feeds it when one does.
+          const column = (err as { details?: { column?: unknown } }).details
+            ?.column;
+          const field = findFieldForColumn(
+            fields,
+            typeof column === "string" ? column : undefined,
+          );
+          // Only a blank field can be the one the column rejected: a match on
+          // a filled field is a name coincidence, and its message would hide
+          // the real one.
+          const blank =
+            field &&
+            validateFieldValue(
+              { ...field, required: true },
+              localValues[field.parameterName],
+            ) === REQUIRED_MESSAGE;
+          if (field && blank) {
+            setServerFieldErrors({ [field.parameterName]: REQUIRED_MESSAGE });
+          } else {
+            setErrorMessage(err.message);
+          }
         },
       },
     );
@@ -550,47 +605,68 @@ export function FormWidgetRenderer({
             readOnly ? "select-none space-y-4 opacity-60" : "space-y-4"
           }
         >
-          {fields.map((field) => (
-            <div
-              key={field.id}
-              className="space-y-1.5"
-              onBlur={() => handleFieldBlur(field)}
-            >
-              <Label htmlFor={`form-field-${field.parameterName}`}>
-                {field.label || field.parameterName}
-                {field.required && (
-                  <span className="text-destructive ml-0.5">*</span>
-                )}
-              </Label>
-              <FieldInput
-                field={field}
-                value={localValues[field.parameterName]}
-                onChange={handleFieldChange}
-                connectionId={connectionId}
-                tenantId={tenantId}
-                localValues={localValues}
-                textInputRef={
-                  field.parameterType === "text"
-                    ? (handle) => {
-                        if (handle) {
-                          textInputRefs.current.set(
-                            field.parameterName,
-                            handle,
-                          );
-                        } else {
-                          textInputRefs.current.delete(field.parameterName);
+          {fields.map((field, index) => {
+            const controlId = `${idPrefix}-field-${index}`;
+            const labelId = `${controlId}-label`;
+            return (
+              <div
+                key={field.id}
+                className="space-y-1.5"
+                onBlur={() => handleFieldBlur(field)}
+              >
+                {/* date-relative's control is a group of buttons, which no
+                    label may point at; it is named by aria-labelledby alone. */}
+                <Label
+                  id={labelId}
+                  htmlFor={
+                    field.parameterType === "date-relative"
+                      ? undefined
+                      : controlId
+                  }
+                >
+                  {field.label || field.parameterName}
+                  {field.required && (
+                    <span
+                      aria-hidden="true"
+                      className="text-destructive ml-0.5"
+                    >
+                      *
+                    </span>
+                  )}
+                </Label>
+                <FieldInput
+                  field={field}
+                  label={{ id: controlId, labelledBy: labelId }}
+                  value={localValues[field.parameterName]}
+                  onChange={handleFieldChange}
+                  connectionId={connectionId}
+                  tenantId={tenantId}
+                  localValues={localValues}
+                  textInputRef={
+                    field.parameterType === "text"
+                      ? (handle) => {
+                          if (handle) {
+                            textInputRefs.current.set(
+                              field.parameterName,
+                              handle,
+                            );
+                          } else {
+                            textInputRefs.current.delete(field.parameterName);
+                          }
                         }
-                      }
-                    : undefined
-                }
-              />
-              {fieldErrors[field.parameterName] && (
-                <p className="text-xs text-destructive">
-                  {fieldErrors[field.parameterName]}
-                </p>
-              )}
-            </div>
-          ))}
+                      : undefined
+                  }
+                />
+                {(fieldErrors[field.parameterName] ??
+                  serverFieldErrors[field.parameterName]) && (
+                  <p className="text-xs text-destructive">
+                    {fieldErrors[field.parameterName] ??
+                      serverFieldErrors[field.parameterName]}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {successMessage && (
@@ -605,7 +681,8 @@ export function FormWidgetRenderer({
           disabled={
             readOnly ||
             writeQuery.isPending ||
-            Object.keys(fieldErrors).length > 0
+            Object.keys(fieldErrors).length > 0 ||
+            Object.keys(serverFieldErrors).length > 0
           }
           title={
             readOnly

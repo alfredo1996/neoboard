@@ -384,3 +384,29 @@ describe("CONNECTOR_UNAVAILABLE envelope (#1678)", () => {
     expect(err).not.toBeInstanceOf(ConnectorUnavailableError);
   });
 });
+
+/**
+ * #1409 — a 4xx write error carries the offending column in `details`; the
+ * form needs it on the thrown error to put the message on the right field.
+ */
+describe("envelope error details (#1409)", () => {
+  const envelope = {
+    data: null,
+    error: {
+      code: "VALIDATION_ERROR",
+      message: 'The field "category" is required.',
+      details: { column: "category" },
+    },
+    meta: null,
+  };
+
+  it.each([
+    ["unwrapResponse", unwrapResponse],
+    ["unwrapFullResponse", unwrapFullResponse],
+  ] as const)("%s keeps the error details", async (_n, unwrap) => {
+    await expect(unwrap(fakeResponse(envelope, 400))).rejects.toMatchObject({
+      message: 'The field "category" is required.',
+      details: { column: "category" },
+    });
+  });
+});

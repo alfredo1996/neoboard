@@ -20,6 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import type { ExternalLabelProps } from "./external-label";
 import { ParamWidgetSkeleton } from "./param-widget-skeleton";
 import { MultiSelectItem } from "../multi-select-item";
 
@@ -28,7 +29,7 @@ export interface ParamMultiSelectorOption {
   value: string;
 }
 
-export interface ParamMultiSelectorProps {
+export interface ParamMultiSelectorProps extends ExternalLabelProps {
   parameterName: string;
   options: ParamMultiSelectorOption[];
   values: string[];
@@ -58,6 +59,8 @@ export interface ParamMultiSelectorProps {
    * configuration of select, single or multi, not a widget type (#1360).
    */
   parentParameterName?: string;
+  /** Marks the trigger `aria-required`. */
+  required?: boolean;
   className?: string;
 }
 
@@ -78,10 +81,13 @@ function ParamMultiSelector({
   serverFiltered = false,
   parentValue,
   parentParameterName,
+  required,
   className,
+  labelledBy,
+  id,
 }: ParamMultiSelectorProps) {
   const [open, setOpen] = React.useState(false);
-  const labelId = `param-multi-label-${parameterName}`;
+  const labelId = labelledBy ?? `param-multi-label-${parameterName}`;
 
   // Truthiness, not `!== undefined`: the editor's parent-name input writes ""
   // when cleared, and an empty name is no parent (#1360).
@@ -124,12 +130,14 @@ function ParamMultiSelector({
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-center justify-between">
         <div>
-          <Label
-            id={labelId}
-            className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-          >
-            {parameterName}
-          </Label>
+          {!labelledBy && (
+            <Label
+              id={labelId}
+              className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+            >
+              {parameterName}
+            </Label>
+          )}
           {parentParameterName && (
             <span
               id={hintId}
@@ -156,8 +164,10 @@ function ParamMultiSelector({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
+            id={id}
             role="combobox"
             aria-expanded={open}
+            aria-required={required || undefined}
             aria-labelledby={labelId}
             aria-describedby={hintId}
             disabled={isWaitingForParent}

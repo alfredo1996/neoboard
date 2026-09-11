@@ -18,7 +18,7 @@ import {
   notFound,
   handleRouteError,
 } from "@/lib/api/api-utils";
-import { apiSuccess } from "@/lib/api/api-response";
+import { apiError, apiSuccess } from "@/lib/api/api-response";
 import { describeWriteError } from "@/lib/api/db-error-message";
 import { logRoute } from "@/lib/api/log-route";
 import { apiLogger } from "@/lib/logger";
@@ -167,8 +167,17 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     // But surface a specific, sanitized reason (constraint/column) when we can
     // recognise the driver error, so form users see "The field X is required"
     // instead of a bare "execution failed" (#1162).
-    const specific = describeWriteError(error);
-    return handleRouteError(error, specific ?? "Write query execution failed", {
+    // Recognised errors are the user's to fix, so they answer 4xx, with the
+    // blank column attached for the form to put on its field (#1409).
+    const described = describeWriteError(error);
+    if (described) {
+      return apiError(
+        described.code,
+        described.message,
+        described.column ? { column: described.column } : undefined,
+      );
+    }
+    return handleRouteError(error, "Write query execution failed", {
       safeMessage: true,
     });
   }

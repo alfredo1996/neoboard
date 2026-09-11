@@ -3,6 +3,7 @@
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { ExternalLabelProps } from "./external-label";
 
 export type RelativeDatePreset =
   | "today"
@@ -26,7 +27,7 @@ export const RELATIVE_DATE_PRESETS: RelativeDateOption[] = [
   { key: "this_year", label: "This year" },
 ];
 
-export interface DateRelativePickerProps {
+export interface DateRelativePickerProps extends ExternalLabelProps {
   parameterName: string;
   /** The currently selected preset key, or empty string for no selection */
   value: RelativeDatePreset | "";
@@ -44,8 +45,10 @@ function DateRelativePicker({
   value,
   onChange,
   className,
+  labelledBy,
+  id,
 }: DateRelativePickerProps) {
-  const labelId = `param-daterel-label-${parameterName}`;
+  const labelId = labelledBy ?? `param-daterel-label-${parameterName}`;
 
   const handleClick = (key: RelativeDatePreset) => {
     // Toggle: clicking the active preset clears it
@@ -54,10 +57,19 @@ function DateRelativePicker({
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label id={labelId} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {parameterName}
-      </Label>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby={labelId}>
+      {!labelledBy && (
+        <Label
+          id={labelId}
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
+          {parameterName}
+        </Label>
+      )}
+      <fieldset
+        id={id}
+        className="flex min-w-0 flex-wrap gap-1.5"
+        aria-labelledby={labelId}
+      >
         {RELATIVE_DATE_PRESETS.map((preset) => {
           const isActive = value === preset.key;
           return (
@@ -66,10 +78,7 @@ function DateRelativePicker({
               type="button"
               size="sm"
               variant={isActive ? "default" : "outline"}
-              className={cn(
-                "text-xs h-7 px-2.5",
-                isActive && "shadow-sm"
-              )}
+              className={cn("text-xs h-7 px-2.5", isActive && "shadow-sm")}
               onClick={() => handleClick(preset.key)}
               aria-pressed={isActive}
             >
@@ -77,7 +86,7 @@ function DateRelativePicker({
             </Button>
           );
         })}
-      </div>
+      </fieldset>
     </div>
   );
 }

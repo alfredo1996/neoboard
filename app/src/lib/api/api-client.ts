@@ -72,7 +72,9 @@ function envelopeError(error: ApiEnvelopeError): Error {
       error.details?.reason === "auth_failed" ? "auth_failed" : "network";
     return new ConnectorUnavailableError(message, reason);
   }
-  return new Error(message);
+  // `details` rides along so a caller can act on it — e.g. the form puts a
+  // write error on the field its `column` names (#1409).
+  return Object.assign(new Error(message), { details: error.details });
 }
 
 /**

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { validateFieldValue } from "@/lib/widget/form-field-validation";
+import {
+  findFieldForColumn,
+  validateFieldValue,
+} from "@/lib/widget/form-field-validation";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 
 describe("validateFieldValue", () => {
@@ -151,5 +154,55 @@ describe("validateFieldValue", () => {
       expect(validateFieldValue(field, "anything")).toBeNull();
       expect(validateFieldValue(field, "")).toBeNull();
     });
+  });
+});
+
+/**
+ * #1409 — the database names the column that was blank; the form has to find
+ * the field that feeds it. The author usually names the field or its label
+ * after the column, so match either, ignoring case and separators.
+ */
+describe("findFieldForColumn", () => {
+  const field = (
+    id: string,
+    label: string,
+    parameterName: string,
+  ): FormFieldDef => ({ id, label, parameterName, parameterType: "text" });
+  // The seeded Chart Reference form: parameter names are prefixed, labels are not.
+  const seeded = [
+    field("rf1-r", "Rating", "rf1_rating"),
+    field("rf1-c", "Category", "rf1_category"),
+    field("rf1-co", "Comment", "rf1_comment"),
+  ];
+
+  it("matches a field whose label is the column name", () => {
+    expect(findFieldForColumn(seeded, "category")?.id).toBe("rf1-c");
+  });
+
+  it("matches a field whose parameter name is the column name", () => {
+    expect(
+      findFieldForColumn([field("a", "Who", "full_name")], "full_name")?.id,
+    ).toBe("a");
+  });
+
+  it("ignores case, spaces and underscores", () => {
+    expect(
+      findFieldForColumn([field("a", "Full Name", "x")], "FULL_NAME")?.id,
+    ).toBe("a");
+  });
+
+  it("prefers the parameter name over another field's label", () => {
+    const fields = [field("a", "name", "x"), field("b", "Other", "name")];
+    expect(findFieldForColumn(fields, "name")?.id).toBe("b");
+  });
+
+  it("returns undefined when no field matches or there is no column", () => {
+    expect(findFieldForColumn(seeded, "submitted_at")).toBeUndefined();
+    expect(findFieldForColumn(seeded, undefined)).toBeUndefined();
+    expect(findFieldForColumn(seeded, "")).toBeUndefined();
+  });
+
+  it("never matches an unnamed field to a column made only of separators", () => {
+    expect(findFieldForColumn([field("a", "", "x")], "__")).toBeUndefined();
   });
 });
