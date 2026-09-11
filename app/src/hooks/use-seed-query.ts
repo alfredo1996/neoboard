@@ -1,11 +1,25 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { hashKey, useQuery } from "@tanstack/react-query";
+import type { QueryKey } from "@tanstack/react-query";
 import { unwrapFullResponse } from "@/lib/api/api-client";
 import { trackConnectorOutcome } from "@/stores/connection-status-store";
 import type { ParamSelectorOption } from "@neoboard/components";
 
 interface SeedQueryData {
   data: unknown;
+}
+
+/** A seed query key, hashed without `param_search` — the part a search changes. */
+function hashWithoutSearch([
+  scope,
+  connectionId,
+  query,
+  params,
+  tenantId,
+]: QueryKey): string {
+  const rest = { ...(params as Record<string, unknown> | undefined) };
+  delete rest.param_search;
+  return hashKey([scope, connectionId, query, rest, tenantId]);
 }
 
 /**
@@ -30,8 +44,9 @@ export function useSeedQuery(
   /** Re-run the seed query — the only recovery path after it fails (#1678). */
   refetch: () => void;
 } {
+  const queryKey = ["param-seed", connectionId, query, extraParams, tenantId];
   const { data, isLoading, error, refetch } = useQuery<SeedQueryData>({
-    queryKey: ["param-seed", connectionId, query, extraParams, tenantId],
+    queryKey,
     queryFn: async ({ signal }) => {
       const res = await fetch("/api/query", {
         method: "POST",
@@ -56,6 +71,15 @@ export function useSeedQuery(
     // A dead connector must not be re-probed on every alt-tab (#1678).
     refetchOnWindowFocus: false,
     retry: false,
+    // A new search term keeps the current options on screen while it loads:
+    // `loading` swaps the selectors for a skeleton, and that unmount wiped the
+    // text being typed (#1742). Anything else changing — a cascading parent
+    // above all — starts empty, so the old parent's options can't linger (#1360).
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery &&
+      hashWithoutSearch(previousQuery.queryKey) === hashWithoutSearch(queryKey)
+        ? previousData
+        : undefined,
   });
 
   const options = useMemo((): ParamSelectorOption[] => {
