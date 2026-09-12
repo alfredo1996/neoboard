@@ -27,9 +27,7 @@ NeoBoard includes a variety of chart and widget types to visualize data from Neo
 | [Gauge](/charts/gauge) | Semicircular dial for percentage or threshold values | Neo4j, PostgreSQL |
 | [Sankey](/charts/sankey) | Flow diagram showing weighted connections between nodes | Neo4j, PostgreSQL |
 | [Sunburst](/charts/sunburst) | Multi-level pie for hierarchical drill-down | Neo4j, PostgreSQL |
-| [Radar](/charts/radar) | Spider/polar chart for multi-dimensional comparison | Neo4j, PostgreSQL |
 | [Gantt](/charts/gantt) | Timeline bars for project scheduling and task duration | Neo4j, PostgreSQL |
-| [Choropleth](/charts/choropleth) | Geographic heatmap with region-based color encoding | Neo4j, PostgreSQL |
 
 ## Choosing a Chart Type
 
@@ -44,9 +42,11 @@ NeoBoard includes a variety of chart and widget types to visualize data from Neo
 - **Showing progress toward a goal?** Use a [Gauge](/charts/gauge).
 - **Visualizing flow or transfers?** Use a [Sankey](/charts/sankey) diagram.
 - **Hierarchical drill-down?** Use a [Sunburst](/charts/sunburst).
-- **Multi-dimensional comparison?** Use a [Radar](/charts/radar) chart.
 - **Project timelines?** Use a [Gantt](/charts/gantt) chart.
-- **Region-based geographic data?** Use a [Choropleth](/charts/choropleth) map.
+
+## Hidden from the picker
+
+[Radar](/charts/radar) and [Choropleth](/charts/choropleth) are not offered when you add a widget or change its type. Widgets of those types, from an older dashboard or a NeoDash import, keep rendering and can still be edited.
 
 ## Shared Options
 

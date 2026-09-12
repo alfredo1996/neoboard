@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
 
 /**
  * Guards the repo's own documentation against drift (#1235).
@@ -240,11 +241,18 @@ describe("documentation accuracy", () => {
     });
   });
 
-  describe("stated chart counts match the registry (#1687)", () => {
+  describe("stated chart counts match the registry (#1687, #1782)", () => {
     // Unregistering two charts was swept with grep, which missed README.md,
     // PLUGINS.md and two journey narrations. Pinning every stated count here
     // makes the next unregistration fail a test instead.
+    //
+    // A reader counts what the widget picker offers, not what is registered:
+    // radar and choropleth stay registered so old dashboards render, but the
+    // picker hides them (#1158), so "18 chart types" promised two a user
+    // cannot add (#1782). PLUGINS.md and ARCHITECTURE.md count registrations.
     const CLAIM = /\b(\d+) (?:built-in )?chart(?: types|s)\b/g;
+    const selectable = () =>
+      registeredPlugins().filter((t) => !DISABLED_CHART_TYPES.has(t));
 
     it.each([
       "README.md",
@@ -257,7 +265,20 @@ describe("documentation accuracy", () => {
       expect(claims, `${docName} no longer states a chart count`).not.toEqual(
         [],
       );
-      expect(claims).toEqual(claims.map(() => registeredPlugins().length));
+      expect(claims).toEqual(claims.map(() => selectable().length));
+    });
+
+    it("README.md's Charts row lists exactly the types the picker offers", () => {
+      const row = /^\| \*\*Charts\*\*\s+\| (\d+) types: ([^|]+)\|/m.exec(
+        readDoc("README.md"),
+      );
+      expect(row, "README.md no longer lists chart types").not.toBeNull();
+      // Display names slug to the type ids ("Single Value" -> single-value).
+      const types = row![2]
+        .split(",")
+        .map((n) => n.trim().toLowerCase().replace(/\s+/g, "-"));
+      expect([...types].sort()).toEqual([...selectable()].sort());
+      expect(Number(row![1])).toBe(types.length);
     });
 
     it("PLUGINS.md lists exactly the plugins the registry loads", () => {
