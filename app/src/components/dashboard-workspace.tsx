@@ -20,7 +20,10 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterEntry } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
-import { filterParentParams } from "@/lib/parameter/format-parameter-value";
+import {
+  filterParentParams,
+  formatParameterValue,
+} from "@/lib/parameter/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import {
@@ -35,6 +38,7 @@ import {
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { getRefetchInterval } from "@/lib/dashboard/dashboard-settings";
 import { classifySaveError } from "@/lib/dashboard/save-error";
+import { buildShareLink } from "@/lib/dashboard/share-link";
 import { DashboardContainer } from "@/components/dashboard-container";
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
 import { DashboardViewToolbar } from "@/components/dashboard-view-toolbar";
@@ -56,6 +60,7 @@ import {
   ConfirmDialog,
   EmptyState,
   Skeleton,
+  ToastAction,
   useToast,
 } from "@neoboard/components";
 
@@ -113,7 +118,15 @@ export function DashboardWorkspace({
     const urlParams = parseUrlParams(searchParams);
     const store = useParameterStore.getState();
     for (const [name, value] of Object.entries(urlParams)) {
-      store.setParameter(name, value, value, "", "text", "url", "");
+      store.setParameter(
+        name,
+        value,
+        formatParameterValue(value),
+        "",
+        "text",
+        "url",
+        "",
+      );
     }
   }, [searchParams]);
 
@@ -593,6 +606,73 @@ export function DashboardWorkspace({
     dashboard?.role === "editor" ||
     dashboard?.role === "admin";
 
+  // #1691: the copy-link toast's shortcut. Enter edit mode on the widget's
+  // page with its editor already open — the workspace survives the route
+  // change (#1370), so the editor state set here is what the edit route shows.
+  const openSyncToggle = useCallback(
+    (widgetId: string) => {
+      const pageIndex = activeLayout.pages.findIndex((p) =>
+        p.widgets.some((w) => w.id === widgetId),
+      );
+      const widget = activeLayout.pages[pageIndex]?.widgets.find(
+        (w) => w.id === widgetId,
+      );
+      if (!widget) return;
+      handleSelectPage(pageIndex);
+      openEditWidget(widget);
+      router.push(`/${id}/edit?page=${pageIndex}`, { scroll: false });
+    },
+    [activeLayout, handleSelectPage, openEditWidget, id, router],
+  );
+
+  // "Copy link with current filters" (#1691). Reads the store directly rather
+  // than the `parameters` selector so the handler's identity does not churn
+  // on every keystroke in a text filter.
+  const handleCopyLink = useCallback(async () => {
+    const { url, unsynced } = buildShareLink(
+      window.location.origin,
+      pathname,
+      useParameterStore.getState().parameters,
+      syncParams ?? new Set(),
+      safeIndex,
+    );
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Insecure context or permission denied — hand the link over anyway.
+      toast({
+        title: "Couldn't copy the link",
+        description: url,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (unsynced.length === 0) {
+      toast({ title: "Link copied" });
+      return;
+    }
+    // The hint and the shortcut need a toggle to flip and a user who may
+    // flip it: a click-action value has no toggle, a reader has no editor.
+    const fixWidgetId = canEdit
+      ? unsynced.find((u) => u.widgetId)?.widgetId
+      : undefined;
+    const names = unsynced.map((u) => u.name).join(", ");
+    toast({
+      title: "Link copied",
+      description: fixWidgetId
+        ? `Not included: ${names}. Turn on "Sync to URL" in each widget's editor to share them.`
+        : `Not included: ${names}.`,
+      action: fixWidgetId ? (
+        <ToastAction
+          altText="Open the widget editor"
+          onClick={() => openSyncToggle(fixWidgetId)}
+        >
+          Open editor
+        </ToastAction>
+      ) : undefined,
+    });
+  }, [pathname, syncParams, safeIndex, canEdit, openSyncToggle, toast]);
+
   const leaveEditMode = useCallback(() => {
     // Route through the unsaved-changes guard (same as the Back button).
     // Deliberately no `?page=`: the store carries the active page across the
@@ -707,6 +787,7 @@ export function DashboardWorkspace({
           parameterCount={parameterCount}
           showParameterBar={effectiveShowBar}
           onToggleParameterBar={toggleParameterBar}
+          onCopyLink={handleCopyLink}
           isEnteringEdit={isPending}
           onBack={() => router.push("/")}
           onEdit={() => startTransition(enterEditMode)}

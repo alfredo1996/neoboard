@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { ArrowLeft, Filter, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, Filter, Link, Pencil, RefreshCw } from "lucide-react";
 import { ShortcutHint } from "@/components/shortcut-hint";
 import { useCountdown } from "@/hooks/use-countdown";
 import {
@@ -48,6 +48,8 @@ interface DashboardViewToolbarProps {
   parameterCount: number;
   showParameterBar: boolean;
   onToggleParameterBar: () => void;
+  /** #1691: copy the dashboard URL with every URL-synced parameter applied. */
+  onCopyLink: () => void;
   isEnteringEdit: boolean;
   onBack: () => void;
   onEdit: () => void;
@@ -72,6 +74,7 @@ export function DashboardViewToolbar({
   parameterCount,
   showParameterBar,
   onToggleParameterBar,
+  onCopyLink,
   isEnteringEdit,
   onBack,
   onEdit,
@@ -118,10 +121,15 @@ export function DashboardViewToolbar({
           Back
         </Button>
       </ToolbarSection>
-      <ToolbarSection className="flex-1">
-        <h1 className="text-lg font-bold">{name}</h1>
+      {/* min-w-0 + truncate: the title never wraps, so the toolbar is the
+          same height as the edit toolbar and <main> does not shift on mode
+          toggle (#1163/#1370 guard). */}
+      <ToolbarSection className="min-w-0 flex-1">
+        <h1 className="truncate text-lg font-bold" title={name}>
+          {name}
+        </h1>
         <Badge variant="secondary">{role}</Badge>
-        <span className="text-xs text-muted-foreground">
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
           · updated <TimeAgo date={updatedAt} showTooltip={false} />
           {updatedByName ? <> by {updatedByName}</> : null}
         </span>
@@ -142,6 +150,17 @@ export function DashboardViewToolbar({
               {parameterCount}
             </span>
           )}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onCopyLink}
+          aria-label="Copy link with current filters"
+          title="Copy link with current filters"
+        >
+          <Link className="mr-2 h-4 w-4" />
+          Copy link
         </Button>
         {canEdit && (
           <>
