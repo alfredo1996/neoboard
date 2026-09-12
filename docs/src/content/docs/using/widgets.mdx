@@ -40,13 +40,12 @@ Parameter widgets collect user input and pass it to other widgets' queries. They
 | Parameter type | Input control | Value produced |
 |---------------|---------------|----------------|
 | Select | Dropdown (populated by a seed query) | Single string |
-| Text | Free-text input | String |
-| Number | Numeric input | Number |
-| Date | Date picker | ISO date string |
-| Date Range | Start/end date pickers | `{start, end}` object |
-| Boolean | Toggle switch | `true` or `false` |
-| Multiselect | Multi-value dropdown | Array of strings |
-| Slider | Range slider | Number |
+| Multi-select | Dropdown with **Allow multiple selections** ticked | Array of strings |
+| Freetext | Free-text input | String |
+| Date | **Date Picker**, mode Single Date | ISO date string |
+| Date Range | **Date Picker**, mode Date Range | `$param_<name>_from` and `$param_<name>_to` |
+| Relative Date | **Date Picker**, mode Relative Date (Today, Last 7 days, ...) | `$param_<name>_from` and `$param_<name>_to` |
+| Number Range | Dual-handle slider with a min, max and step | `$param_<name>_min` and `$param_<name>_max` |
 
 Other widgets reference parameter values with `$param_name` in their queries. See [Parameters](/using/parameters) for details.
 

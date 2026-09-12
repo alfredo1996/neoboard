@@ -443,6 +443,20 @@ describe("the site's chart counts match the registry (#1687, #1782)", () => {
     expect(offending).toEqual([]);
   });
 
+  it("what-is-neoboard lists exactly the picker's types after its count", () => {
+    const m = /\*\*(\d+) chart types\*\* -- (.+)$/m.exec(
+      page("start-here/what-is-neoboard.mdx"),
+    );
+    expect(m).not.toBeNull(); // the list still has this shape
+    const DISPLAY_TO_TYPE = { "graph-visualization": "graph", "json-viewer": "json" };
+    const listed = m[2]
+      .split(/,\s*(?:and\s+)?/)
+      .map((name) => name.trim().toLowerCase().replace(/\s+/g, "-"))
+      .map((s) => DISPLAY_TO_TYPE[s] ?? s);
+    expect(listed.length).toBe(Number(m[1]));
+    expect([...listed].sort()).toEqual([...selectable].sort());
+  });
+
   it("the chart index offers exactly the picker's types, and recommends no hidden one", () => {
     const index = page("charts/index.mdx");
     const SLUG_TO_TYPE = { "param-select": "parameter-select" };
@@ -484,18 +498,25 @@ describe("the documented parameter types are the ones the editor offers (#1782)"
     expect(offered).toContain("date-relative");
   });
 
-  it.each(["using/parameters.mdx", "charts/param-select.mdx"])(
+  it.each([
+    "using/parameters.mdx",
+    "charts/param-select.mdx",
+    "using/widgets.mdx",
+  ])(
     "%s lists exactly those types",
     (p) => {
+      // widgets.mdx titles its section "Parameter Widgets" and its column
+      // "Parameter type", so match either heading and skip the header rows.
       const table =
-        doc(p).split("\n## Parameter Types\n")[1]?.split("\n## ")[0] ?? "";
+        doc(p).split(/\n## Parameter (?:Types|Widgets)\n/)[1]?.split("\n## ")[0] ??
+        "";
       const DISPLAY_TO_TYPE = {
         freetext: "text",
         "relative-date": "date-relative",
       };
       const types = [...table.matchAll(/^\| ([^|]+?)\s+\|/gm)]
+        .slice(1) // the header; `|----|` has no space, so it never matches
         .map((m) => m[1])
-        .filter((cell) => cell !== "Type")
         .map((cell) => cell.toLowerCase().replace(/\s+/g, "-"))
         .map((s) => DISPLAY_TO_TYPE[s] ?? s);
       expect([...types].sort()).toEqual([...offered].sort());
