@@ -65,106 +65,85 @@ test.describe("Dashboard CRUD", () => {
   test("should rename a dashboard via card dropdown (#1045)", async ({
     page,
   }) => {
+    // Its own dashboard, deleted by id however the test ends (#1784).
     const original = `Rename Me ${Date.now()}`;
     const renamed = `${original} Renamed`;
+    const { cleanup } = await createTestDashboard(page.request, original);
 
-    // Create a dashboard to rename.
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
-    await createDialog.locator("#dashboard-name").fill(original);
-    await Promise.all([
-      page.waitForResponse(
-        (r) =>
-          r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST" &&
-          r.status() === 201,
-        { timeout: 10_000 },
-      ),
-      createDialog.getByRole("button", { name: "Create" }).click(),
-    ]);
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
-    await page.goto("/");
+    try {
+      await page.goto("/");
+      const card = page
+        .locator("div[class*='cursor-pointer']")
+        .filter({ has: page.getByText(original, { exact: true }) })
+        .first();
+      await expect(card).toBeVisible({ timeout: 10_000 });
+      await card.getByRole("button", { name: "Dashboard options" }).click();
+      await page.getByRole("menuitem", { name: "Rename" }).click();
 
-    const card = page
-      .locator("div[class*='cursor-pointer']")
-      .filter({ hasText: original })
-      .first();
-    await expect(card).toBeVisible({ timeout: 10_000 });
-    await card.getByRole("button", { name: "Dashboard options" }).click();
-    await page.getByRole("menuitem", { name: "Rename" }).click();
+      const renameDialog = page.getByRole("dialog", {
+        name: "Rename Dashboard",
+      });
+      await expect(renameDialog).toBeVisible({ timeout: 5_000 });
+      // Pre-filled with the current name.
+      await expect(renameDialog.locator("#dashboard-rename")).toHaveValue(
+        original,
+      );
+      await renameDialog.locator("#dashboard-rename").fill(renamed);
+      await renameDialog.getByRole("button", { name: "Save" }).click();
 
-    const renameDialog = page.getByRole("dialog", { name: "Rename Dashboard" });
-    await expect(renameDialog).toBeVisible({ timeout: 5_000 });
-    // Pre-filled with the current name.
-    await expect(renameDialog.locator("#dashboard-rename")).toHaveValue(
-      original,
-    );
-    await renameDialog.locator("#dashboard-rename").fill(renamed);
-    await renameDialog.getByRole("button", { name: "Save" }).click();
-
-    await expect(
-      page.getByText("Dashboard renamed", { exact: true }),
-    ).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(renamed)).toBeVisible({ timeout: 10_000 });
-    // Survives reload (persisted, not just local state).
-    await page.reload();
-    await expect(page.getByText(renamed)).toBeVisible({ timeout: 10_000 });
-
-    // Clean up.
-    const renamedCard = page
-      .locator("div[class*='cursor-pointer']")
-      .filter({ hasText: renamed })
-      .first();
-    await renamedCard
-      .getByRole("button", { name: "Dashboard options" })
-      .click();
-    await page.getByRole("menuitem", { name: "Delete" }).click();
-    await page.getByRole("button", { name: "Delete" }).click();
+      await expect(
+        page.getByText("Dashboard renamed", { exact: true }),
+      ).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByText(renamed, { exact: true })).toBeVisible({
+        timeout: 10_000,
+      });
+      // Survives reload (persisted, not just local state).
+      await page.reload();
+      await expect(page.getByText(renamed, { exact: true })).toBeVisible({
+        timeout: 10_000,
+      });
+    } finally {
+      await cleanup();
+    }
   });
 
   test("should delete a dashboard", async ({ page }) => {
-    // Create one to delete. Await POST to avoid the create-then-wait race.
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
-    await dialog.locator("#dashboard-name").fill("To Delete Dashboard");
-    await Promise.all([
-      page.waitForResponse(
-        (r) =>
-          r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST" &&
-          r.status() === 201,
-        { timeout: 10_000 },
-      ),
-      dialog.getByRole("button", { name: "Create" }).click(),
-    ]);
-    // After creation, app navigates to edit page — go back to list
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
-    await page.goto("/");
-    await expect(page.getByText("To Delete Dashboard")).toBeVisible({
-      timeout: 10000,
-    });
+    // Its own dashboard under a name only this run knows (#1784). With a fixed
+    // name, the card found and deleted could be a parallel repeat's.
+    const name = `To Delete ${Date.now()}`;
+    const { id, cleanup } = await createTestDashboard(page.request, name);
 
-    // Open the dashboard options dropdown (Delete is inside a DropdownMenu)
-    const dashCard = page
-      .locator("div[class*='cursor-pointer']")
-      .filter({ hasText: "To Delete Dashboard" })
-      .first();
-    await expect(
-      dashCard.getByRole("button", { name: "Dashboard options" }),
-    ).toBeVisible({ timeout: 5_000 });
-    await dashCard.getByRole("button", { name: "Dashboard options" }).click();
-    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible({
-      timeout: 5_000,
-    });
-    await page.getByRole("menuitem", { name: "Delete" }).click();
-    // Confirm deletion in the confirmation dialog
-    await page.getByRole("button", { name: "Delete" }).click();
-    // Destructive actions confirm success (#1046) — exact match to avoid the
-    // aria-live announcement duplicate.
-    await expect(
-      page.getByText("Dashboard deleted", { exact: true }),
-    ).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("To Delete Dashboard")).not.toBeVisible();
+    try {
+      await page.goto("/");
+      const card = page
+        .locator("div[class*='cursor-pointer']")
+        .filter({ has: page.getByText(name, { exact: true }) })
+        .first();
+      await expect(card).toBeVisible({ timeout: 10_000 });
+
+      // Delete is inside the card's DropdownMenu, behind a confirmation.
+      await card.getByRole("button", { name: "Dashboard options" }).click();
+      await page.getByRole("menuitem", { name: "Delete" }).click();
+      const [deleted] = await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().endsWith(`/api/dashboards/${id}`) &&
+            r.request().method() === "DELETE",
+        ),
+        page.getByRole("button", { name: "Delete" }).click(),
+      ]);
+      expect(deleted.ok()).toBe(true);
+
+      // Destructive actions confirm success (#1046) — exact match to avoid the
+      // aria-live announcement duplicate.
+      await expect(
+        page.getByText("Dashboard deleted", { exact: true }),
+      ).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByText(name, { exact: true })).not.toBeVisible();
+    } finally {
+      // Deleting by id is idempotent: a 404 after the UI's delete is fine.
+      await cleanup();
+    }
   });
 
   test("deleting a dashboard already deleted elsewhere removes its card (#1750)", async ({

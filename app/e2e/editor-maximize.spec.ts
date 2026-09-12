@@ -1,4 +1,10 @@
-import { test, expect, ALICE, typeInEditor } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  typeInEditor,
+} from "./fixtures";
 
 /**
  * #1374 — query editor maximize toggle.
@@ -53,28 +59,26 @@ const LONG_QUERY = Array.from(
 ).join("\n");
 
 test.describe("Query editor maximize (#1374)", () => {
+  // Each test's own dashboard, deleted by id afterwards (#1784).
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+    dashboardCleanup = undefined;
+  });
+
   test.beforeEach(async ({ authPage, page }) => {
     // A short laptop viewport — the height where the modal budget is tightest.
     await page.setViewportSize({ width: 1280, height: 720 });
     await authPage.login(ALICE.email, ALICE.password);
 
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const create = page.getByRole("dialog", { name: "Create Dashboard" });
-    await create.locator("#dashboard-name").fill("Editor Maximize Test");
-    await Promise.all([
-      page.waitForResponse(
-        (r) =>
-          r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST" &&
-          r.status() === 201,
-        { timeout: 10_000 },
-      ),
-      create.getByRole("button", { name: "Create" }).click(),
-    ]);
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+    const name = `Editor Maximize ${Date.now()}`;
+    const { id, cleanup } = await createTestDashboard(page.request, name);
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+      page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
