@@ -47,3 +47,17 @@ describe("prod compose files forward MIGRATE_ON_START (#1796)", () => {
     },
   );
 });
+
+describe("the .env.example files describe Enforce SSO as it behaves (#1796)", () => {
+  // OIDC_ENFORCE_SSO is stored and reported by /api/auth/sso-providers
+  // (env-provider.ts), never enforced: password login stays available.
+  // ponytail: `it.fails` because agent permissions deny edits to .env* and the
+  // comments are still wrong. It records that bug until someone fixes them; then
+  // it fails, and `it.fails` becomes `it`.
+  it.fails.each([".env.example", "app/.env.example"])(
+    "%s does not say it disables password login",
+    (path) => {
+      expect(read(path)).not.toMatch(/OIDC_ENFORCE_SSO[^\n]*disable password login/i);
+    },
+  );
+});
