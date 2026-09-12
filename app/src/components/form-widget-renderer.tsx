@@ -22,6 +22,7 @@ import {
   type RelativeDatePreset,
 } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
+import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
 import {
@@ -327,6 +328,21 @@ function FieldInput({
 
 // ─── Main renderer ────────────────────────────────────────────────────────────
 
+/**
+ * The seed queries behind a widget's option lists (use-seed-query.ts), read
+ * where use-widget-save.ts stores them: a parameter selector's under
+ * chartOptions, a form's on each of its fields.
+ */
+function seedQueriesOf(settings: Record<string, unknown> | undefined) {
+  const chartOptions = settings?.chartOptions as
+    | { seedQuery?: unknown }
+    | undefined;
+  const formFields = (settings?.formFields as FormFieldDef[] | undefined) ?? [];
+  return [chartOptions?.seedQuery, ...formFields.map((f) => f.seedQuery)].filter(
+    (q): q is string => typeof q === "string",
+  );
+}
+
 export function FormWidgetRenderer({
   connectionId,
   query,
@@ -558,8 +574,28 @@ export function FormWidgetRenderer({
           if (chartOptions.resetOnSuccess !== false) {
             setLocalValues({});
           }
-          for (const id of refreshWidgetIds) {
-            queryClient.invalidateQueries({ queryKey: ["widget-query", id] });
+          // Widget queries are keyed by what they run, never by widget id
+          // (#1799): resolve each id to its widget and invalidate the prefix
+          // the card's refresh button uses (dashboard-container.tsx).
+          const targets = new Set(refreshWidgetIds);
+          const widgets = useDashboardStore
+            .getState()
+            .layout.pages.flatMap((p) => p.widgets)
+            .filter((w) => targets.has(w.id));
+          for (const w of widgets) {
+            void queryClient.invalidateQueries({
+              queryKey: [
+                "widget-query",
+                w.connectionId,
+                w.database ?? null,
+                w.query,
+              ],
+            });
+            for (const seedQuery of seedQueriesOf(w.settings)) {
+              void queryClient.invalidateQueries({
+                queryKey: ["param-seed", w.connectionId, seedQuery],
+              });
+            }
           }
         },
         onError: (err) => {
