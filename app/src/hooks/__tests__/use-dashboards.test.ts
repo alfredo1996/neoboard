@@ -43,13 +43,16 @@ describe("use-dashboards", () => {
 
   // ── useDashboards ───────────────────────────────────────────────────
   describe("useDashboards queryFn", () => {
-    /** A fake GET /api/dashboards that pages `all` like the route does. */
-    function serveDashboards(all: { id: string; name: string }[]) {
+    /**
+     * A fake GET /api/dashboards that pages `all` like the route does,
+     * clamping `limit` to the server's cap (parsePagination's MAX_LIMIT).
+     */
+    function serveDashboards(all: { id: string; name: string }[], cap = 1000) {
       return vi
         .spyOn(globalThis, "fetch")
         .mockImplementation(async (input) => {
           const url = new URL(String(input), "http://localhost");
-          const limit = Number(url.searchParams.get("limit"));
+          const limit = Math.min(Number(url.searchParams.get("limit")), cap);
           const offset = Number(url.searchParams.get("offset"));
           return mockResponse({
             data: all.slice(offset, offset + limit),
@@ -78,7 +81,20 @@ describe("use-dashboards", () => {
       expect(isDuplicateDashboardName(last.name, result)).toBe(true);
     });
 
-    it("lists a dashboard once when an update shifts it across a page boundary mid-load", async () => {
+    it("steps by the limit the server granted, so a lower server cap skips no dashboards", async () => {
+      const all = Array.from({ length: 1000 }, (_, i) => ({
+        id: `d${i}`,
+        name: `Dashboard ${i}`,
+      }));
+      serveDashboards(all, 400);
+      const config = useDashboards() as unknown as {
+        queryFn: () => Promise<{ id: string; name: string }[]>;
+      };
+
+      expect(await config.queryFn()).toEqual(all);
+    });
+
+    it("lists every dashboard exactly once when an update shifts a page boundary mid-load", async () => {
       const all = Array.from({ length: 1500 }, (_, i) => ({
         id: `d${i}`,
         name: `Dashboard ${i}`,
@@ -99,7 +115,8 @@ describe("use-dashboards", () => {
 
       const ids = (await config.queryFn()).map((d) => d.id);
 
-      expect(new Set(ids).size).toBe(ids.length);
+      // The moved row is neither repeated nor lost.
+      expect([...ids].sort()).toEqual(all.map((d) => d.id).sort());
     });
 
     it("treats a raw (non-envelope) array as the whole list", async () => {
