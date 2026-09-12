@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, saveDashboard } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 test.describe("Dashboard grid", () => {
@@ -52,19 +52,137 @@ test.describe("Dashboard grid", () => {
       page.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible();
   });
+});
 
-  test("should save layout changes", async ({ page }) => {
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeVisible({
-      timeout: 10000,
-    });
+// Container = viewport − sidebar (192) − page padding (48), so 1600 gives
+// ~1360 (at or above the lg breakpoint of 1200) and 1280 gives ~1040 (below
+// it). Both are asserted where they matter rather than assumed.
+const WIDE = { width: 1600, height: 1000 };
+const NARROW = { width: 1280, height: 1000 };
 
-    // Click Save and verify the button is present and clickable
-    const saveButton = page.getByRole("button", { name: "Save" });
-    await expect(saveButton).toBeVisible();
-    await saveButton.click();
-    // Verify the save button returns to normal state (not stuck in loading)
-    await expect(saveButton).toBeEnabled({ timeout: 10000 });
+const item = (page: Page, id: string) =>
+  page.locator(`[data-widget-id="${id}"]`);
+
+async function openEditor(page: Page, id: string) {
+  await page.goto(`/${id}/edit`);
+  await expect(item(page, "left")).toBeVisible({ timeout: 15_000 });
+  await expect(item(page, "right")).toBeVisible();
+}
+
+/** Width the grid measured for its column maths — what picks the breakpoint. */
+const gridWidth = (page: Page) =>
+  item(page, "left").evaluate((el) => el.parentElement?.clientWidth ?? -1);
+
+/** Both widgets on one row, side by side. */
+async function expectSideBySide(page: Page, when: string) {
+  await expect(async () => {
+    const left = await item(page, "left").boundingBox();
+    const right = await item(page, "right").boundingBox();
+    const where = `${when}: left=${JSON.stringify(left)} right=${JSON.stringify(right)}`;
+    expect(left && right, where).toBeTruthy();
+    // Same row: a stacked pair differs by a full widget height (h:4 = 320px).
+    expect(
+      Math.abs(left!.y - right!.y),
+      `not on one row — ${where}`,
+    ).toBeLessThan(8);
+    // And genuinely in different columns, not overlapping.
+    expect(right!.x, `not side by side — ${where}`).toBeGreaterThan(
+      left!.x + left!.width / 2,
+    );
+  }).toPass({ timeout: 10_000 });
+}
+
+/** Two markdown widgets (no connection needed) placed by `gridLayout`. */
+async function seedMarkdownPair(
+  page: Page,
+  id: string,
+  gridLayout: { i: string; x: number; y: number; w: number; h: number }[],
+) {
+  const seed = await page.request.put(`/api/dashboards/${id}`, {
+    data: {
+      layoutJson: {
+        version: 2,
+        pages: [
+          {
+            id: "p1",
+            title: "Main",
+            widgets: ["left", "right"].map((side) => ({
+              id: side,
+              chartType: "markdown",
+              connectionId: "",
+              query: "",
+              settings: {
+                title: side,
+                chartOptions: { content: `## ${side}` },
+              },
+            })),
+            gridLayout,
+          },
+        ],
+      },
+    },
+  });
+  expect(seed.ok(), `seeding the layout failed: ${seed.status()}`).toBe(true);
+}
+
+/**
+ * #1787 — the old "should save layout changes" clicked Save on the seeded
+ * "Movie Analytics" without changing anything and asserted Save was enabled,
+ * which it always is. The #1375 test below cannot stand in for it: it asserts
+ * the authored layout survives, so a save that drops layout changes passes it.
+ */
+test.describe("Dashboard grid saves a layout change (#1787)", () => {
+  test("a widget dragged beside another is still there after save and reload", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Grid save ${Date.now()}`,
+    );
+    try {
+      // Stacked: right under left, columns 6–11 of the top row empty.
+      await seedMarkdownPair(page, id, [
+        { i: "left", x: 0, y: 0, w: 6, h: 4 },
+        { i: "right", x: 0, y: 4, w: 6, h: 4 },
+      ]);
+
+      await page.setViewportSize(WIDE);
+      await openEditor(page, id);
+      // ── Before: genuinely stacked, or the drag below proves nothing.
+      await expect(async () => {
+        const left = (await item(page, "left").boundingBox())!;
+        const right = (await item(page, "right").boundingBox())!;
+        expect(right.y, "right must start below left").toBeGreaterThan(
+          left.y + left.height / 2,
+        );
+      }).toPass({ timeout: 10_000 });
+
+      // Drag right up beside left: a bit over half the grid is six columns.
+      const leftBox = (await item(page, "left").boundingBox())!;
+      const grip = (await item(page, "right")
+        .locator(".drag-handle")
+        .boundingBox())!;
+      const [cx, cy] = [grip.x + grip.width / 2, grip.y + grip.height / 2];
+      const dx = (await gridWidth(page)) * 0.55;
+      const dy = leftBox.y - (await item(page, "right").boundingBox())!.y;
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await page.mouse.move(cx + dx, cy + dy, { steps: 12 });
+      await page.mouse.up();
+      await expectSideBySide(page, "after the drag");
+
+      await saveDashboard(page);
+
+      // ── After: a fresh load renders what the server stored.
+      await openEditor(page, id);
+      await expectSideBySide(page, "after save and reload");
+    } finally {
+      await cleanup();
+    }
   });
 });
 
@@ -92,44 +210,6 @@ test.describe("Dashboard grid", () => {
  * symptom at all, hence the purpose-built two-up fixture.
  */
 test.describe("Grid layout survives a save on a narrow window (#1375)", () => {
-  // Container = viewport − sidebar (192) − page padding (48), so 1600 gives
-  // ~1360 (at or above the lg breakpoint of 1200) and 1280 gives ~1040 (below
-  // it). Both are asserted below rather than assumed.
-  const WIDE = { width: 1600, height: 1000 };
-  const NARROW = { width: 1280, height: 1000 };
-
-  const item = (page: Page, id: string) =>
-    page.locator(`[data-widget-id="${id}"]`);
-
-  async function openEditor(page: Page, id: string) {
-    await page.goto(`/${id}/edit`);
-    await expect(item(page, "left")).toBeVisible({ timeout: 15_000 });
-    await expect(item(page, "right")).toBeVisible();
-  }
-
-  /** Width the grid measured for its column maths — what picks the breakpoint. */
-  const gridWidth = (page: Page) =>
-    item(page, "left").evaluate((el) => el.parentElement?.clientWidth ?? -1);
-
-  /** Both widgets on one row, side by side — the authored arrangement. */
-  async function expectSideBySide(page: Page, when: string) {
-    await expect(async () => {
-      const left = await item(page, "left").boundingBox();
-      const right = await item(page, "right").boundingBox();
-      const where = `${when}: left=${JSON.stringify(left)} right=${JSON.stringify(right)}`;
-      expect(left && right, where).toBeTruthy();
-      // Same row: a stacked pair differs by a full widget height (h:4 = 320px).
-      expect(
-        Math.abs(left!.y - right!.y),
-        `not on one row — ${where}`,
-      ).toBeLessThan(8);
-      // And genuinely in different columns, not overlapping.
-      expect(right!.x, `not side by side — ${where}`).toBeGreaterThan(
-        left!.x + left!.width / 2,
-      );
-    }).toPass({ timeout: 10_000 });
-  }
-
   test("a drag saved below the lg breakpoint keeps the authored columns", async ({
     authPage,
     page,
@@ -142,37 +222,11 @@ test.describe("Grid layout survives a save on a narrow window (#1375)", () => {
       `Grid parity ${Date.now()}`,
     );
     try {
-      // Two markdown widgets (no connection needed) filling one 12-column row.
-      const seed = await page.request.put(`/api/dashboards/${id}`, {
-        data: {
-          layoutJson: {
-            version: 2,
-            pages: [
-              {
-                id: "p1",
-                title: "Main",
-                widgets: ["left", "right"].map((side) => ({
-                  id: side,
-                  chartType: "markdown",
-                  connectionId: "",
-                  query: "",
-                  settings: {
-                    title: side,
-                    chartOptions: { content: `## ${side}` },
-                  },
-                })),
-                gridLayout: [
-                  { i: "left", x: 0, y: 0, w: 6, h: 4 },
-                  { i: "right", x: 6, y: 0, w: 6, h: 4 },
-                ],
-              },
-            ],
-          },
-        },
-      });
-      expect(seed.ok(), `seeding the layout failed: ${seed.status()}`).toBe(
-        true,
-      );
+      // Two widgets filling one 12-column row.
+      await seedMarkdownPair(page, id, [
+        { i: "left", x: 0, y: 0, w: 6, h: 4 },
+        { i: "right", x: 6, y: 0, w: 6, h: 4 },
+      ]);
 
       // ── Before: at a wide window the fixture really is two-up. Without this
       // the whole test would pass vacuously on a single-column dashboard.
