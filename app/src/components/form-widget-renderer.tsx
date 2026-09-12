@@ -62,7 +62,7 @@ interface FieldInputProps {
   tenantId?: string;
   // The current local values map, used by cascading-select for parent lookup
   localValues: Record<string, unknown>;
-  /** Ref callback for text fields — allows parent to flush debounce on submit */
+  /** Ref callback for text fields — lets the parent flush the debounce on blur and submit */
   textInputRef?: (handle: DebouncedTextInputHandle | null) => void;
 }
 
@@ -346,6 +346,12 @@ export function FormWidgetRenderer({
   );
 
   const [localValues, setLocalValues] = useState<Record<string, unknown>>({});
+  // localValues as of the latest change. A text draft flushed on blur, Enter or
+  // submit reaches handleFieldChange before `localValues` re-renders (#1771).
+  const localValuesRef = useRef(localValues);
+  useEffect(() => {
+    localValuesRef.current = localValues;
+  }, [localValues]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -440,6 +446,7 @@ export function FormWidgetRenderer({
 
   const handleFieldChange = useCallback((name: string, value: unknown) => {
     touchedFields.current.add(name);
+    localValuesRef.current = { ...localValuesRef.current, [name]: value };
     setLocalValues((prev) => ({ ...prev, [name]: value }));
     setSuccessMessage(null);
     setErrorMessage(null);
@@ -453,25 +460,32 @@ export function FormWidgetRenderer({
     setServerFieldErrors(withoutName);
   }, []);
 
-  const handleFieldBlur = useCallback(
-    (field: FormFieldDef) => {
-      const error = validateFieldValue(field, localValues[field.parameterName]);
-      setFieldErrors((prev) => {
-        if (error) {
-          if (prev[field.parameterName] === error) return prev;
-          return { ...prev, [field.parameterName]: error };
-        }
-        if (!prev[field.parameterName]) return prev;
-        const next = { ...prev };
-        delete next[field.parameterName];
-        return next;
-      });
-    },
-    [localValues],
-  );
-
-  // Refs for text inputs — used to flush pending debounce on submit
+  // Refs for text inputs — used to flush pending debounce on blur and submit
   const textInputRefs = useRef(new Map<string, DebouncedTextInputHandle>());
+
+  const flushTextDrafts = useCallback(() => {
+    for (const handle of textInputRefs.current.values()) {
+      handle.flush();
+    }
+  }, []);
+
+  const handleFieldBlur = useCallback((field: FormFieldDef) => {
+    textInputRefs.current.get(field.parameterName)?.flush();
+    const error = validateFieldValue(
+      field,
+      localValuesRef.current[field.parameterName],
+    );
+    setFieldErrors((prev) => {
+      if (error) {
+        if (prev[field.parameterName] === error) return prev;
+        return { ...prev, [field.parameterName]: error };
+      }
+      if (!prev[field.parameterName]) return prev;
+      const next = { ...prev };
+      delete next[field.parameterName];
+      return next;
+    });
+  }, []);
 
   const writeQuery = useWriteQueryExecution();
 
@@ -486,10 +500,9 @@ export function FormWidgetRenderer({
     // Guard against double-submit while a mutation is in flight
     if (writeQuery.isPending) return;
 
-    // Flush any pending debounced text inputs so localValues is current
-    for (const handle of textInputRefs.current.values()) {
-      handle.flush();
-    }
+    // Flush any pending debounced text inputs, then read the values they wrote
+    flushTextDrafts();
+    const values = localValuesRef.current;
 
     setSuccessMessage(null);
     setErrorMessage(null);
@@ -498,7 +511,7 @@ export function FormWidgetRenderer({
     // Validate required + validationType for all fields
     const errors: Record<string, string> = {};
     for (const field of fields) {
-      const error = validateFieldValue(field, localValues[field.parameterName]);
+      const error = validateFieldValue(field, values[field.parameterName]);
       if (error) {
         errors[field.parameterName] = error;
       }
@@ -510,7 +523,7 @@ export function FormWidgetRenderer({
     }
 
     setFieldErrors({});
-    const params = buildFormParams(fields, localValues);
+    const params = buildFormParams(fields, values);
 
     writeQuery.mutate(
       { connectionId, query, params },
@@ -541,7 +554,7 @@ export function FormWidgetRenderer({
             field &&
             validateFieldValue(
               { ...field, required: true },
-              localValues[field.parameterName],
+              values[field.parameterName],
             ) === REQUIRED_MESSAGE;
           if (field && blank) {
             setServerFieldErrors({ [field.parameterName]: REQUIRED_MESSAGE });
@@ -553,7 +566,7 @@ export function FormWidgetRenderer({
     );
   }, [
     fields,
-    localValues,
+    flushTextDrafts,
     connectionId,
     query,
     chartOptions,
@@ -580,6 +593,12 @@ export function FormWidgetRenderer({
           e.preventDefault();
           if (readOnly) return;
           handleSubmit();
+        }}
+        // Enter submits implicitly only if Submit is enabled, and a database
+        // field error keeps it disabled until the field is edited: count a
+        // draft typed inside the debounce as that edit first (#1771).
+        onKeyDown={(e) => {
+          if (e.key === "Enter") flushTextDrafts();
         }}
         className="space-y-4 p-4"
       >
@@ -684,12 +703,18 @@ export function FormWidgetRenderer({
 
         <Button
           type="submit"
+          // Not on client field errors: handleSubmit flushes the drafts and
+          // validates again, and a draft typed inside the debounce has not
+          // cleared its error yet (#1771).
           disabled={
             readOnly ||
             writeQuery.isPending ||
-            Object.keys(fieldErrors).length > 0 ||
             Object.keys(serverFieldErrors).length > 0
           }
+          // Pressing Submit must not blur the field being typed: its flushed
+          // draft would clear the error line and move Submit before the
+          // mouseup, losing the click. handleSubmit flushes anyway (#1771).
+          onMouseDown={(e) => e.preventDefault()}
           title={
             readOnly
               ? "You don't have permission to submit this form"

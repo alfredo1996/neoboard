@@ -210,14 +210,6 @@ test.describe("Form widget", () => {
       await expect(nameInput).toHaveValue("E2E Test Person");
     }).toPass({ timeout: 10_000 });
 
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
-
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
-
     // Submit the form
     await page.getByRole("button", { name: "Submit" }).click();
 
@@ -270,7 +262,7 @@ test.describe("Form widget", () => {
     });
   });
 
-  test("required field blocks submit and shows error when empty", async ({
+  test("required field blocks submit when empty, and Enter right after filling it submits", async ({
     page,
   }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
@@ -324,23 +316,16 @@ test.describe("Form widget", () => {
       await expect(page.getByText("This field is required")).toBeVisible();
     }).toPass({ timeout: 10_000 });
 
-    // Fill the required field — error should clear
+    // Fill the required field and press Enter at once, inside the 200 ms
+    // debounce (#1771): the error still showing must not block the submit,
+    // and the submit must read the typed value, not the blank one.
     const nameInput = page.getByRole("textbox", { name: "name" });
     await nameInput.fill("Alice");
-
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
-
-    await expect(page.getByText("This field is required")).not.toBeVisible({
-      timeout: 3_000,
-    });
-
-    // Submit successfully
-    await page.getByRole("button", { name: "Submit" }).click();
+    await nameInput.press("Enter");
     await expect(page.getByText("Form submitted successfully")).toBeVisible({
       timeout: 15_000,
     });
+    await expect(page.getByText("This field is required")).toHaveCount(0);
   });
 
   test("form widget refreshes another widget on submit when configured", async ({
@@ -443,10 +428,6 @@ test.describe("Form widget", () => {
       await page.waitForTimeout(1_000);
       await expect(nameInput).toHaveValue("RefreshTestNode");
     }).toPass({ timeout: 10_000 });
-
-    // Wait for the 200ms debounce in DebouncedTextInput to propagate the value
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
 
     // Listen for the write query API response (tighten matcher to this form's POST)
     const writeResponsePromise = page.waitForResponse(
@@ -784,11 +765,12 @@ test.describe("Write permission enforcement", () => {
 });
 
 /**
- * #1410 and #1409 on a real render: jsdom can check how labels are wired, but
- * only a browser computes the accessible names that wiring produces, and only
+ * #1410, #1409 and #1771 on a real render: jsdom can check how labels are
+ * wired, but only a browser computes the accessible names that wiring
+ * produces and moves the layout between a mousedown and its mouseup, and only
  * a real database reports the NOT NULL column.
  */
-test.describe("Form field labels and database errors (#1409, #1410)", () => {
+test.describe("Form field labels, database errors and text drafts (#1409, #1410, #1771)", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
   /** Put `widget` on a fresh dashboard and open it in view mode. */
@@ -994,5 +976,97 @@ test.describe("Form field labels and database errors (#1409, #1410)", () => {
     await expect(form.getByText('The field "name" is required.')).toHaveCount(
       0,
     );
+  });
+
+  /** A form with one required text field, `Name`, feeding a Neo4j CREATE. */
+  const draftForm = (
+    id: string,
+    extraFields: Record<string, unknown>[] = [],
+  ) => ({
+    id,
+    chartType: "form",
+    connectionId: "conn-neo4j-001",
+    query: "CREATE (n:FormDraftE2E {name: $param_name}) RETURN n.name AS name",
+    settings: {
+      title: "Drafts",
+      formFields: [
+        {
+          id: "f-name",
+          label: "Name",
+          parameterName: "name",
+          parameterType: "text",
+          required: true,
+        },
+        ...extraFields,
+      ],
+    },
+  });
+
+  test("a filled required field shows no error when it loses focus right after typing", async ({
+    page,
+  }) => {
+    const form = await openForm(
+      page,
+      draftForm("w-draft-blur", [
+        {
+          id: "f-note",
+          label: "Note",
+          parameterName: "note",
+          parameterType: "text",
+        },
+      ]),
+    );
+    // Record whether the error renders at all, however briefly (#1771).
+    await form.evaluate((el) => {
+      const w = window as unknown as { sawRequired?: boolean };
+      w.sawRequired = false;
+      new MutationObserver(() => {
+        if (el.textContent?.includes("This field is required")) {
+          w.sawRequired = true;
+        }
+      }).observe(el, { childList: true, subtree: true, characterData: true });
+    });
+
+    await form.getByRole("textbox", { name: "Name", exact: true }).fill("Ada");
+    // Leave the field inside the 200 ms debounce by clicking the next label. A
+    // label forwards focus on click, so the click only lands if nothing moved
+    // under the pointer between mousedown and mouseup.
+    await form.locator("label", { hasText: /^Note$/ }).click();
+    await expect(
+      form.getByRole("textbox", { name: "Note", exact: true }),
+    ).toBeFocused();
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { sawRequired?: boolean }).sawRequired,
+      ),
+    ).toBe(false);
+  });
+
+  test("a click on Submit right after typing submits the typed value, even while the required error shows", async ({
+    page,
+  }) => {
+    const form = await openForm(page, draftForm("w-draft-click"));
+    const submit = form.getByRole("button", { name: "Submit" });
+    await submit.click();
+    await expect(form.getByText("This field is required")).toBeVisible();
+    const box = await submit.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    // A human click about 80 ms after the last keystroke, inside the 200 ms
+    // debounce, holding the button long enough for the page to render between
+    // mousedown and mouseup. Clearing the error line in that gap moves Submit
+    // about 22 px up, off the pointer, and the click is lost (#1771).
+    await form.getByRole("textbox", { name: "Name", exact: true }).fill("Ada");
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(80);
+    await page.mouse.down();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(80);
+    await page.mouse.up();
+
+    await expect(form.getByText("Form submitted successfully")).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
