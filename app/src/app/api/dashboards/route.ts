@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, count, countDistinct, eq, or, sql } from "drizzle-orm";
+import { and, count, countDistinct, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
@@ -12,6 +12,9 @@ function countWidgets(layout: DashboardLayoutV2 | null | undefined): number {
   if (!layout?.pages) return 0;
   return layout.pages.reduce((sum, page) => sum + page.widgets.length, 0);
 }
+
+/** Most recently updated first; `id` breaks ties so the order is deterministic (#1789). */
+const NEWEST_FIRST = [desc(dashboards.updatedAt), desc(dashboards.id)];
 
 const createDashboardSchema = z.object({
   name: z.string().min(1),
@@ -46,7 +49,7 @@ export async function GET(request: Request) {
         .from(dashboards)
         .leftJoin(users, eq(dashboards.updatedBy, users.id))
         .where(eq(dashboards.tenantId, tenantId))
-        .orderBy(dashboards.updatedAt)
+        .orderBy(...NEWEST_FIRST)
         .limit(limit)
         .offset(offset);
 
@@ -64,6 +67,8 @@ export async function GET(request: Request) {
 
     // Creator & Reader: single query with LEFT JOIN + OR for owned/shared/public.
     // DB-level deduplication via DISTINCT ON, pagination via LIMIT/OFFSET.
+    // Postgres requires DISTINCT ON to match the leading ORDER BY columns;
+    // (updatedAt, id) is as distinct as id alone because id is unique.
     const accessFilter =
       role === "reader"
         ? or(
@@ -90,7 +95,7 @@ export async function GET(request: Request) {
       .where(and(eq(dashboards.tenantId, tenantId), accessFilter));
 
     const rows = await db
-      .selectDistinctOn([dashboards.id], {
+      .selectDistinctOn([dashboards.updatedAt, dashboards.id], {
         id: dashboards.id,
         name: dashboards.name,
         description: dashboards.description,
@@ -113,7 +118,7 @@ export async function GET(request: Request) {
       )
       .leftJoin(users, eq(dashboards.updatedBy, users.id))
       .where(and(eq(dashboards.tenantId, tenantId), accessFilter))
-      .orderBy(dashboards.id, dashboards.updatedAt)
+      .orderBy(...NEWEST_FIRST)
       .limit(limit)
       .offset(offset);
 

@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  filterDashboardsByName,
+  isDuplicateDashboardName,
+} from "@/lib/dashboard/dashboard-list-helpers";
 
 // Mock React Query -- we're testing the fetch logic, not the React wiring
 vi.mock("@tanstack/react-query", () => ({
@@ -39,7 +43,66 @@ describe("use-dashboards", () => {
 
   // ── useDashboards ───────────────────────────────────────────────────
   describe("useDashboards queryFn", () => {
-    it("fetches from /api/dashboards with default limit and offset", async () => {
+    /** A fake GET /api/dashboards that pages `all` like the route does. */
+    function serveDashboards(all: { id: string; name: string }[]) {
+      return vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async (input) => {
+          const url = new URL(String(input), "http://localhost");
+          const limit = Number(url.searchParams.get("limit"));
+          const offset = Number(url.searchParams.get("offset"));
+          return mockResponse({
+            data: all.slice(offset, offset + limit),
+            error: null,
+            meta: { total: all.length, limit, offset },
+          });
+        });
+    }
+
+    it("loads every page, so search and the duplicate-name check see a dashboard past the first (#1789)", async () => {
+      const all = Array.from({ length: 2501 }, (_, i) => ({
+        id: `d${i}`,
+        name: `Dashboard ${i}`,
+      }));
+      serveDashboards(all);
+      const config = useDashboards() as unknown as {
+        queryFn: () => Promise<{ id: string; name: string }[]>;
+      };
+
+      const result = await config.queryFn();
+
+      expect(result).toEqual(all);
+      // The page runs its search and duplicate-name warning over this list.
+      const last = all[all.length - 1];
+      expect(filterDashboardsByName(result, last.name)).toEqual([last]);
+      expect(isDuplicateDashboardName(last.name, result)).toBe(true);
+    });
+
+    it("lists a dashboard once when an update shifts it across a page boundary mid-load", async () => {
+      const all = Array.from({ length: 1500 }, (_, i) => ({
+        id: `d${i}`,
+        name: `Dashboard ${i}`,
+      }));
+      const fetchSpy = serveDashboards(all);
+      const servePage = fetchSpy.getMockImplementation()!;
+      let served = 0;
+      // Once the first page is out, the last dashboard is updated and moves to
+      // the front, so every later offset starts one row earlier.
+      fetchSpy.mockImplementation(async (input) => {
+        const res = await servePage(input);
+        if (++served === 1) all.unshift(all.pop()!);
+        return res;
+      });
+      const config = useDashboards() as unknown as {
+        queryFn: () => Promise<{ id: string }[]>;
+      };
+
+      const ids = (await config.queryFn()).map((d) => d.id);
+
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it("treats a raw (non-envelope) array as the whole list", async () => {
       const dashboards = [{ id: "d1", name: "Sales" }];
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         mockResponse(dashboards),
@@ -47,11 +110,8 @@ describe("use-dashboards", () => {
       const config = useDashboards() as unknown as {
         queryFn: () => Promise<unknown>;
       };
-      const result = await config.queryFn();
-      expect(result).toEqual(dashboards);
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/dashboards?limit=100&offset=0",
-      );
+      expect(await config.queryFn()).toEqual(dashboards);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
     it("returns envelope data when response uses envelope format", async () => {
@@ -64,17 +124,6 @@ describe("use-dashboards", () => {
       };
       const result = await config.queryFn();
       expect(result).toEqual(dashboards);
-    });
-
-    it("passes custom limit and offset", async () => {
-      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse([]));
-      const config = useDashboards(25, 50) as unknown as {
-        queryFn: () => Promise<unknown>;
-      };
-      await config.queryFn();
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/dashboards?limit=25&offset=50",
-      );
     });
 
     it("throws on error response", async () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { unwrapResponse } from "@/lib/api/api-client";
+import { unwrapFullResponse, unwrapResponse } from "@/lib/api/api-client";
 import { SaveError } from "@/lib/dashboard/save-error";
 import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 
@@ -62,14 +62,38 @@ export interface DashboardShareItem {
   userRole: "admin" | "creator" | "reader";
 }
 
-export function useDashboards(limit = 100, offset = 0) {
+/** The route's MAX_LIMIT (api-response.ts, server-only, so not importable here). */
+const LIST_PAGE_SIZE = 1000;
+
+/**
+ * Every dashboard the user can see, across as many pages as `meta.total` says
+ * (#1789). The list page searches and checks duplicate names over this, so a
+ * first page alone hid everything past it.
+ *
+ * ponytail: loads the whole list; fine for a few thousand. Past that, move
+ * search and the duplicate-name check to the server and paginate the grid.
+ */
+export function useDashboards() {
   return useQuery<DashboardListItem[]>({
-    queryKey: ["dashboards", limit, offset],
+    queryKey: ["dashboards", "list"],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/dashboards?limit=${limit}&offset=${offset}`,
-      );
-      return unwrapResponse<DashboardListItem[]>(res);
+      const page = async (offset: number) =>
+        unwrapFullResponse<DashboardListItem[]>(
+          await fetch(
+            `/api/dashboards?limit=${LIST_PAGE_SIZE}&offset=${offset}`,
+          ),
+        );
+      const first = await page(0);
+      const total = Number(first.meta?.total ?? first.data.length);
+      const offsets: number[] = [];
+      for (let o = LIST_PAGE_SIZE; o < total; o += LIST_PAGE_SIZE) {
+        offsets.push(o);
+      }
+      const rest = await Promise.all(offsets.map(page));
+      // An update between page requests shifts later offsets by a row, so the
+      // same dashboard can arrive twice; keep one per id.
+      const rows = [first, ...rest].flatMap((p) => p.data);
+      return [...new Map(rows.map((d) => [d.id, d])).values()];
     },
   });
 }

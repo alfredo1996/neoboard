@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { sql, type SQLChunk } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import {
   makeSelectChain,
   makeInsertChain,
@@ -353,6 +355,91 @@ describe("GET /api/dashboards", () => {
     expect(body.data[0].id).toBe("d1");
     expect(body.data[0].role).toBe("viewer");
   });
+});
+
+/** Render recorded ORDER BY / DISTINCT ON arguments as the SQL Postgres sees. */
+function renderSql(parts: unknown[]): string {
+  return new PgDialect().sqlToQuery(sql.join(parts as SQLChunk[], sql`, `))
+    .sql;
+}
+
+describe("GET /api/dashboards — order and pagination (#1789)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let GET: (req: Request) => Promise<any>;
+  const NEWEST_FIRST = '"dashboard"."updatedAt" desc, "dashboard"."id" desc';
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    GET = (await import("../route")).GET;
+  });
+
+  it("admin: most recently updated first, id tiebreak, requested slice, tenant total", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "admin-1",
+      role: "admin",
+      canWrite: true,
+      tenantId: "tenant-x",
+    });
+    const countChain = makeSelectChain([{ count: 250 }]);
+    const rowsChain = makeSelectChain([]);
+    mockDb.select
+      .mockReturnValueOnce(countChain)
+      .mockReturnValueOnce(rowsChain);
+
+    const res = await GET(
+      makeRequest({}, "http://localhost/api/dashboards?limit=100&offset=200"),
+    );
+    const body = await res.json();
+
+    // Ascending, the first page was the 100 LEAST recently updated.
+    expect(renderSql(rowsChain.calls.orderBy[0])).toBe(NEWEST_FIRST);
+    expect(rowsChain.calls.limit).toEqual([[100]]);
+    expect(rowsChain.calls.offset).toEqual([[200]]);
+    expect(body.meta).toEqual({ total: 250, limit: 100, offset: 200 });
+    for (const chain of [countChain, rowsChain]) {
+      expect(chain.calls.where).toHaveLength(1);
+      expect(sqlColumns(chain.calls.where[0][0])).toEqual(["tenant_id"]);
+      expect(sqlValues(chain.calls.where[0][0])).toEqual(["tenant-x"]);
+    }
+  });
+
+  it.each(["creator", "reader"])(
+    "%s: most recently updated first, id tiebreak, requested slice, tenant total",
+    async (role) => {
+      mockRequireSession.mockResolvedValue({
+        userId: "user-1",
+        role,
+        canWrite: role === "creator",
+        tenantId: "tenant-x",
+      });
+      const countChain = makeSelectChain([{ count: 250 }]);
+      const rowsChain = makeSelectChain([]);
+      mockDb.select.mockReturnValueOnce(countChain);
+      mockDb.selectDistinctOn.mockReturnValueOnce(rowsChain);
+
+      const res = await GET(
+        makeRequest({}, "http://localhost/api/dashboards?limit=100&offset=200"),
+      );
+      const body = await res.json();
+
+      // Ordered by random UUID, the first page was an arbitrary 100.
+      expect(renderSql(rowsChain.calls.orderBy[0])).toBe(NEWEST_FIRST);
+      // Postgres requires DISTINCT ON to match the leftmost ORDER BY columns;
+      // a mock can't raise that error, so pin the columns here.
+      expect(renderSql(mockDb.selectDistinctOn.mock.calls[0][0])).toBe(
+        '"dashboard"."updatedAt", "dashboard"."id"',
+      );
+      expect(rowsChain.calls.limit).toEqual([[100]]);
+      expect(rowsChain.calls.offset).toEqual([[200]]);
+      expect(body.meta).toEqual({ total: 250, limit: 100, offset: 200 });
+      for (const chain of [countChain, rowsChain]) {
+        expect(chain.calls.where).toHaveLength(1);
+        expect(sqlColumns(chain.calls.where[0][0])).toContain("tenant_id");
+        expect(sqlValues(chain.calls.where[0][0])).toContain("tenant-x");
+      }
+    },
+  );
 });
 
 describe("POST /api/dashboards", () => {

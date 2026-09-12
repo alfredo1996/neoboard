@@ -18,10 +18,21 @@ export interface ChainCalls {
   set: unknown[][];
   values: unknown[][];
   from: unknown[][];
+  orderBy: unknown[][];
+  limit: unknown[][];
+  offset: unknown[][];
 }
 
 function newCalls(): ChainCalls {
-  return { where: [], set: [], values: [], from: [] };
+  return {
+    where: [],
+    set: [],
+    values: [],
+    from: [],
+    orderBy: [],
+    limit: [],
+    offset: [],
+  };
 }
 
 /**
@@ -76,9 +87,9 @@ export function makeSelectChain(rows: unknown[]) {
     where: (...a: unknown[]) => (calls.where.push(a), c),
     innerJoin: () => c,
     leftJoin: () => c,
-    limit: () => c,
-    orderBy: () => c,
-    offset: () => c,
+    limit: (...a: unknown[]) => (calls.limit.push(a), c),
+    orderBy: (...a: unknown[]) => (calls.orderBy.push(a), c),
+    offset: (...a: unknown[]) => (calls.offset.push(a), c),
   });
   return c;
 }
