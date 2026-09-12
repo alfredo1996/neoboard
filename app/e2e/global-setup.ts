@@ -282,6 +282,10 @@ export default async function globalSetup() {
     NEXTAUTH_SECRET: TEST_NEXTAUTH_SECRET,
     NEXTAUTH_URL: `http://localhost:${serverPort}`,
     REGISTRATION_ENABLED: "true",
+    // The empty TENANT_ID pre-1.5 prod compose files passed (#1728). It must
+    // resolve to "default", the tenant the seeded users hold, so every login
+    // in the suite fails if any resolver keeps the "" again.
+    TENANT_ID: "",
     // Relax the auth rate limiters for the suite (#1323). Both read
     // `NODE_ENV === "test" || CI === "true"` (app/src/lib/crypto/rate-limiter.ts,
     // app/src/lib/api/with-rate-limit.ts) and `next start` needs

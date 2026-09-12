@@ -1,8 +1,48 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   extractHostname,
+  verifyConnectionHosts,
   verifyConnectionHostsImpl,
 } from "../verify-connection-hosts";
+
+// ---------------------------------------------------------------------------
+// verifyConnectionHosts — the tenant it scopes its diagnostic query to
+// ---------------------------------------------------------------------------
+
+describe("verifyConnectionHosts tenant (#1728)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.doUnmock("@/lib/db");
+    vi.doUnmock("@/lib/db/schema");
+    vi.doUnmock("@/lib/crypto/crypto");
+    vi.doUnmock("drizzle-orm");
+  });
+
+  it.each([
+    [undefined, "default"],
+    ["", "default"],
+    ["   ", "default"],
+    ["acme", "acme"],
+  ])("TENANT_ID=%j scopes the query to tenant %j", async (value, tenant) => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("TENANT_ID", value);
+    const where = vi.fn(async () => []);
+    vi.doMock("@/lib/db", () => ({
+      db: { select: () => ({ from: () => ({ where }) }) },
+    }));
+    vi.doMock("@/lib/db/schema", () => ({
+      connections: { name: "name", type: "type", configEncrypted: "c", tenantId: "tenant_id" },
+    }));
+    vi.doMock("@/lib/crypto/crypto", () => ({ decryptJson: vi.fn() }));
+    vi.doMock("drizzle-orm", () => ({
+      eq: (column: string, v: string) => ({ column, value: v }),
+    }));
+
+    await verifyConnectionHosts();
+
+    expect(where).toHaveBeenCalledWith({ column: "tenant_id", value: tenant });
+  });
+});
 
 // ---------------------------------------------------------------------------
 // extractHostname

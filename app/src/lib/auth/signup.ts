@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { signupRateLimiter } from "@/lib/crypto/rate-limiter";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
+import { resolveTenantId } from "@/lib/auth/tenant-id";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -80,7 +81,7 @@ export async function signup(formData: FormData): Promise<SignupResult> {
   const passwordHash = await bcrypt.hash(password, 12);
 
   return db.transaction(async (tx) => {
-    const tenantId = process.env.TENANT_ID ?? "default";
+    const tenantId = resolveTenantId();
     const existing = await tx
       .select({ id: users.id })
       .from(users)

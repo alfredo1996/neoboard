@@ -152,4 +152,21 @@ describe("bootstrapAdmin", () => {
       expect.objectContaining({ tenantId: "tenant-xyz" }),
     );
   });
+
+  it.each([
+    [undefined, "default"],
+    ["", "default"],
+    ["   ", "default"],
+    ["acme", "acme"],
+  ])("TENANT_ID=%j inserts the admin into tenant %j (#1728)", async (value, tenant) => {
+    mockSelectLimit.mockResolvedValue([]);
+    if (value === undefined) delete process.env.TENANT_ID;
+    else process.env.TENANT_ID = value;
+
+    await bootstrapAdmin({ email: "a@b.c", password: "secret12" });
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: tenant }),
+    );
+  });
 });

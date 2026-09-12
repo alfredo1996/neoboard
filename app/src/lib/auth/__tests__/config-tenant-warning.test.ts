@@ -76,21 +76,21 @@ describe("TENANT_ID default warning (#1338)", () => {
     }
   });
 
-  it("warns once when TENANT_ID is the empty string the prod compose file passes", async () => {
-    // docker-compose.prod*.yml pass `TENANT_ID: ${TENANT_ID:-}`. `??` keeps ""
-    // here, matching signup/bootstrap/session, so every user row and every
-    // login query agree on "". The pinned message ("defaulting to 'default'")
-    // is KNOWN-WRONG for this case; tracked in #1728.
-    process.env.TENANT_ID = "";
+  it.each(["", "   "])(
+    "treats TENANT_ID=%j (what pre-1.5 prod compose files passed) as unset: warns once and uses 'default' (#1728)",
+    async (value) => {
+      process.env.TENANT_ID = value;
 
-    await loadAndRunFlows(3);
+      await loadAndRunFlows(3);
 
-    expect(tenantWarnings()).toHaveLength(1);
-    expect(getCachedSsoProviders).toHaveBeenCalledTimes(3);
-    for (const [tenantId] of getCachedSsoProviders.mock.calls) {
-      expect(tenantId).toBe("");
-    }
-  });
+      expect(tenantWarnings()).toHaveLength(1);
+      expect(String(tenantWarnings()[0][0])).toContain("defaulting to 'default'");
+      expect(getCachedSsoProviders).toHaveBeenCalledTimes(3);
+      for (const [tenantId] of getCachedSsoProviders.mock.calls) {
+        expect(tenantId).toBe("default");
+      }
+    },
+  );
 
   it("never warns and uses the env value when TENANT_ID is set", async () => {
     process.env.TENANT_ID = "acme";

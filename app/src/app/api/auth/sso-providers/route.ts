@@ -6,6 +6,7 @@ import { apiSuccess } from "@/lib/api/api-response";
 import { handleRouteError } from "@/lib/api/api-utils";
 import { hasFeature } from "@/lib/features/registry";
 import { withPublicAuthRateLimit } from "@/lib/api/with-rate-limit";
+import { resolveTenantId } from "@/lib/auth/tenant-id";
 
 /**
  * Public endpoint — returns only id + name of enabled SSO providers.
@@ -24,7 +25,7 @@ export const GET = withPublicAuthRateLimit(async () => {
     if (!hasFeature("sso")) {
       return apiSuccess([], 200, { enforceSso: false });
     }
-    const tenantId = process.env.TENANT_ID ?? "default";
+    const tenantId = resolveTenantId();
 
     const rows = await db
       .select({

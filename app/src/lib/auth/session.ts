@@ -2,6 +2,7 @@ import { auth } from "./config";
 import { resolveApiKeyAuth } from "./api-key";
 import type { UserRole } from "@/lib/db/schema";
 import { UnauthorizedError, ForbiddenError } from "./errors";
+import { resolveTenantId } from "./tenant-id";
 
 /**
  * Require the current user to be an admin.
@@ -62,7 +63,7 @@ export async function requireSession(): Promise<{
   const role = session.user.role ?? "creator";
   // tenantId is stamped into the JWT at sign-in time from TENANT_ID env var.
   // Fall back to env var as a safety net (e.g. tokens issued before this field existed).
-  const tenantId: string = session.user.tenantId ?? process.env.TENANT_ID ?? "default";
+  const tenantId: string = session.user.tenantId ?? resolveTenantId();
   return {
     userId: session.user.id,
     role,

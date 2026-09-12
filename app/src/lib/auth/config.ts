@@ -11,6 +11,7 @@ import { getCachedSsoProviders } from "@/lib/auth/sso/provider-cache";
 import { resolveRoleFromClaims } from "@/lib/auth/sso/claim-mapping";
 import type { LoadedSsoProvider } from "@/lib/auth/sso/provider-loader";
 import { authLogger, logger } from "@/lib/logger";
+import { isTenantIdSet, resolveTenantId } from "@/lib/auth/tenant-id";
 
 /** Reasons an authorize() call can fail. */
 type SignInFailureReason =
@@ -44,10 +45,10 @@ const loginSchema = z.object({
 
 // Module scope, not the per-flow factory below: TENANT_ID cannot change while
 // the process runs, so warn once at load instead of on every login (#1338).
-const tenantId = process.env.TENANT_ID ?? "default";
-if (!process.env.TENANT_ID) {
+const tenantId = resolveTenantId();
+if (!isTenantIdSet()) {
   logger.warn(
-    "TENANT_ID not set — defaulting to 'default'. Set TENANT_ID explicitly for multi-tenant deployments.",
+    "TENANT_ID not set (or blank) — defaulting to 'default'. Set TENANT_ID explicitly for multi-tenant deployments.",
   );
 }
 
@@ -248,9 +249,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
               (user as { forcePasswordChange?: boolean }).forcePasswordChange ??
               false;
             token.tenantId =
-              (user as { tenantId?: string }).tenantId ??
-              process.env.TENANT_ID ??
-              "default";
+              (user as { tenantId?: string }).tenantId ?? resolveTenantId();
           }
           // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions.
           // Wrapped in try/catch so a transient DB hiccup (e.g. dev-server restart) doesn't
@@ -307,8 +306,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
             session.user.canWrite = (token.canWrite as boolean) ?? true;
             session.user.forcePasswordChange =
               (token.forcePasswordChange as boolean) ?? false;
-            session.user.tenantId =
-              token.tenantId ?? process.env.TENANT_ID ?? "default";
+            session.user.tenantId = token.tenantId ?? resolveTenantId();
           }
           return session;
         },
