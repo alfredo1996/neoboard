@@ -85,6 +85,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - The dashboards list shows every dashboard, most recently updated first, instead of one page of 100 that for admins held the least recently updated, so search and the duplicate-name warning see them all (#1789)
 - `neoboard logs app` no longer prints nothing and exits 0 against a compose file with no app service; it lists the services it has and exits 1, and `neoboard start --full` points at `docker logs neoboard-app` instead (#1797)
 - The release workflow signs and scans the lowercased image name it pushes, so a tag under an owner with an uppercase letter no longer fails at signing (#1780)
+- A form field filled in within the 200 ms typing debounce no longer flashes "This field is required" when you leave it, swallows the click that moved focus away, or submits the previous value or trips "required" on Submit; blur, Enter and Submit all use what you typed (#1771)
 
 ### Changed
 
