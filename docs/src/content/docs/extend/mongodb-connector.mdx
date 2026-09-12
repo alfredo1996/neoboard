@@ -5,7 +5,7 @@ sidebar:
   order: 7
 ---
 
-This guide walks through building a complete MongoDB connector plugin for NeoBoard. By the end, you will have a working plugin that lets users connect to MongoDB, run queries, and visualize results.
+This guide walks through building a complete MongoDB connector plugin for NeoBoard. By the end, you will have an example plugin that lets users connect to MongoDB and run queries. [Creating a Connector Plugin](/extend/new-connector-plugin) has the full contract a connector must meet.
 
 ## Prerequisites
 
@@ -26,9 +26,20 @@ mkdir -p connection/src/mongodb
 The connection module handles query execution. Create `connection/src/mongodb/MongoConnectionModule.ts`:
 
 ```ts
-import { ConnectionModule } from "../generalized/ConnectionModule";
-import type { AuthConfig, QueryParams, QueryCallback } from "../generalized/interfaces";
-import { MongoClient } from "mongodb";
+import {
+  ConnectionModule,
+  ConnectorError,
+  ConnectorErrorType,
+  DEFAULT_CONNECTION_CONFIG,
+  QueryStatus,
+  collectUpToLimit,
+  determineQueryStatus,
+  type AuthConfig,
+  type ConnectionConfig,
+  type QueryCallback,
+  type QueryParams,
+} from "@neoboard/connector-sdk";
+import { MongoClient, MongoServerError } from "mongodb";
 
 export class MongoConnectionModule extends ConnectionModule {
   authModule = null as any; // Satisfies abstract property; MongoDB uses client directly
@@ -42,25 +53,41 @@ export class MongoConnectionModule extends ConnectionModule {
   async runQuery<T>(
     queryParams: QueryParams,
     callbacks: QueryCallback<T>,
-    config: Record<string, unknown>,
+    config: ConnectionConfig,
   ): Promise<void> {
     try {
       await this.client.connect();
-      const db = this.client.db(config.database as string);
+      const db = this.client.db(config.database);
 
       // Parse the query as a JSON command: { collection: "users", filter: {} }
       const command = JSON.parse(queryParams.query);
       const collection = db.collection(command.collection);
-      const results = await collection.find(command.filter ?? {}).limit(1000).toArray();
+
+      // A falsy timeout means the default, not "no bound"
+      const timeout = config.timeout || DEFAULT_CONNECTION_CONFIG.timeout;
+      // maxTimeMS is enforced server-side
+      const cursor = collection.find(command.filter ?? {}, { maxTimeMS: timeout });
+      // MAX_ROWS+1: never a fixed row cap; keep config.rowLimit rows and detect one more
+      const { rows: docs, truncated } = await collectUpToLimit(cursor, config.rowLimit);
 
       // Convert MongoDB documents to plain objects
-      const rows = results.map((doc) => {
-        const { _id, ...rest } = doc;
-        return { _id: _id.toString(), ...rest };
-      });
+      const rows = docs.map(({ _id, ...rest }) => ({ _id: String(_id), ...rest }));
 
+      callbacks.setStatus?.(
+        truncated
+          ? QueryStatus.COMPLETE_TRUNCATED
+          : determineQueryStatus(rows.length, config.rowLimit),
+      );
       callbacks.onSuccess?.(rows as T);
     } catch (error) {
+      if (error instanceof MongoServerError && error.code === 50) {
+        // MaxTimeMSExpired
+        callbacks.setStatus?.(QueryStatus.TIMED_OUT);
+        callbacks.onFail?.(
+          new ConnectorError(error.message, ConnectorErrorType.TIMEOUT, error),
+        );
+        return;
+      }
       callbacks.onFail?.(error);
     }
   }
@@ -86,8 +113,7 @@ export class MongoConnectionModule extends ConnectionModule {
 Create `connection/src/mongodb/plugin.ts`:
 
 ```ts
-import type { ConnectorPlugin } from "../generalized/connector-plugin";
-import type { AuthConfig } from "../generalized/interfaces";
+import type { ConnectorPlugin, AuthConfig } from "@neoboard/connector-sdk";
 import { MongoConnectionModule } from "./MongoConnectionModule";
 
 export const mongoPlugin: ConnectorPlugin = {
@@ -95,7 +121,9 @@ export const mongoPlugin: ConnectorPlugin = {
   label: "MongoDB",
   category: "database",
   queryLanguage: "json",
-  supportsWrite: true,
+  // find() does not enforce config.accessMode "READ". Keep this false, or
+  // enforce READ with a read-only database user or role.
+  supportsWrite: false,
   supportsGraphData: false,
   allowedProtocols: ["mongodb:", "mongodb+srv:"],
   uriPlaceholder: "mongodb://localhost:27017",
@@ -147,14 +175,7 @@ import { mongoPlugin } from "./mongodb/plugin";
 registry.register(mongoPlugin);
 ```
 
-Or, for external plugins, register at startup:
-
-```ts
-import { registerConnector } from "@neoboard/connection";
-import { mongoPlugin } from "neoboard-plugin-mongodb";
-
-registerConnector(mongoPlugin);
-```
+Or, for a plugin shipped as its own npm package: install it into the NeoBoard checkout (`npm install neoboard-plugin-mongodb`), add `{ "package": "neoboard-plugin-mongodb", "export": "mongoPlugin" }` to the `connectors` array in `neoboard-connectors.json` (omit `export` if the plugin is the package's default export; add `"overrides": true` only to replace a connector with the same `type`, since a duplicate type otherwise throws at startup), then run `npm run dev` or `npm run build`. Both run `scripts/generate-connector-imports.mjs`, which compiles the package into the registry. Connectors are not discovered at runtime. See [Creating a Connector Plugin](/extend/new-connector-plugin#7-load-it-into-neoboard).
 
 ## 5. Install the MongoDB Driver
 
@@ -196,12 +217,9 @@ describe("MongoDB connector", () => {
 
 ## 7. Use It
 
-After registration, MongoDB appears in the connection type picker. Users can:
+Once your connector is registered, the connection dialog still offers only Neo4j and PostgreSQL, so create the connection through `POST /api/connections` with `{ "name": "...", "type": "mongodb", "config": { "uri": "mongodb://host:27017", "database": "mydb", "username": "...", "password": "..." } }`. The API requires a non-empty `username` and `password` even if your MongoDB has no auth, so pass placeholder values your module ignores.
 
-1. Create a new connection with type "MongoDB"
-2. Enter their MongoDB URI and database name
-3. Write queries as JSON: `{ "collection": "users", "filter": { "age": { "$gt": 25 } } }`
-4. Visualize results in any chart type
+After that, testing the connection, listing databases and running queries all use your module. Queries are JSON, for example `{ "collection": "users", "filter": { "age": { "$gt": 25 } } }`. For now the widget editor offers only the table chart for a non-built-in connector type, the query editor is plain text, and widget templates cannot target it.
 
 ## Publishing as an npm Package
 
@@ -210,12 +228,6 @@ To distribute your plugin:
 1. Create a separate package: `neoboard-plugin-mongodb`
 2. Export the plugin definition
 3. Users install with `npm install neoboard-plugin-mongodb`
-4. Register in their NeoBoard instance's startup code
+4. List it in their `neoboard-connectors.json` (with `"export": "mongoPlugin"` for a named export) and rebuild with `npm run build`
 
-```ts
-// In the user's app startup
-import { registerConnector } from "@neoboard/connection";
-import { mongoPlugin } from "neoboard-plugin-mongodb";
-
-registerConnector(mongoPlugin);
-```
+[Creating a Connector Plugin](/extend/new-connector-plugin#7-load-it-into-neoboard) also explains that a Docker image built with `npm ci` can include the connector only once the package is published to a registry.

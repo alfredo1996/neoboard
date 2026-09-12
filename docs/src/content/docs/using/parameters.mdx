@@ -72,7 +72,7 @@ FROM customers
 ORDER BY country;
 ```
 
-The query must return a column named `value`. Each row becomes a dropdown option.
+Each row becomes a dropdown option. The option's value comes from a column named `value`, or else the first column. The text the user sees comes from a column named `label`, or else the second column, or else the value itself. A single column is enough. To set both, return the value first and the label second, for example `RETURN c.id AS value, c.name AS label`. The editor's Test Seed Query preview reads columns by position, so this order makes the preview match the dashboard.
 
 ## Where Parameter Values Come From
 

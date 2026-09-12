@@ -49,7 +49,7 @@ NeoBoard handles database credentials and user authentication. Key security meas
 
 ### Multi-Tenancy
 
-- `tenant_id` column on all database tables
+- `tenant_id` column on every application table. The Auth.js adapter tables are the exception: `account` and `session` belong to a user, and `user` carries `tenant_id`; `verificationToken` is not linked to any user (no email sign-in provider is configured, so it stays empty)
 - Every query filters by tenant explicitly, per query, in the API route, using the
   `tenantId` from the validated session — never from the request body
 - Enforcement is not automatic: there is no ORM or middleware layer that adds the

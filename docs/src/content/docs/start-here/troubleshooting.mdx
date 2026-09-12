@@ -10,15 +10,15 @@ Most first-run problems fall into one of five buckets. If you can match your sym
 When something breaks, **always run these two commands first** — they answer most of the "what's actually happening?" questions:
 
 ```bash
-neoboard status      # shows mode, containers, DB health, migration state
-neoboard logs -n 100       # last 100 log lines from every service
+neoboard status      # shows mode, containers, DB health, bundled migration count
+neoboard logs -n 100       # last 100 log lines from PostgreSQL and Neo4j
 ```
 
 ---
 
 ## `npm install` fails
 
-NeoBoard is an npm workspace with four packages (`app`, `component`, `connection`, `cli`). Dependency installation can fail in two ways.
+NeoBoard is an npm workspace with five packages (`app`, `component`, `connector-sdk`, `connection`, `cli`). Dependency installation can fail in two ways.
 
 ### Symptom: `ERESOLVE` peer-dependency conflict
 
@@ -66,7 +66,7 @@ Edit `neoboard.config.json` and re-run `neoboard setup`:
 }
 ```
 
-The CLI rewrites `.env.local` and `docker-compose.yml` to match.
+Neither `.env.local` nor `docker-compose.yml` is rewritten. In Docker mode, the compose files read these ports from the CLI each time you run `neoboard setup` or `neoboard start`, so you don't need to edit any file. In local mode, `neoboard dev` and migrations use the new ports, but an existing `app/.env.local` is left as it is: change the port in `DATABASE_URL` and `NEXTAUTH_URL` by hand. Don't use `neoboard env --regenerate` for this: it also replaces `ENCRYPTION_KEY`, which makes stored connector credentials unrecoverable. A local install that has no `app/.env.local` yet will generate one with the configured ports.
 
 ### Docker on Apple Silicon (M1/M2/M3)
 
@@ -148,12 +148,12 @@ Neo4j in particular takes 10–20 seconds to boot. Wait, then retry:
 
 ```bash
 docker compose ps          # is the container "running"?
-neoboard status            # waits for "PostgreSQL healthy" + "Neo4j healthy"
+neoboard status            # one-shot check; re-run until PostgreSQL and Neo4j both show "healthy"
 ```
 
 ### Container is running but `pg_isready` reports false
 
-Health is checked from inside the host, not the container. If your `DATABASE_URL` points at a non-default host (Docker network, remote DB), update `.env.local`:
+In Docker mode (the default) the CLI runs `pg_isready` inside the `neoboard-postgres` container. In local mode it probes `localhost` on the configured Postgres port from your machine, and falls back to a plain TCP check if `pg_isready` isn't installed. In local mode, if your `DATABASE_URL` points at a non-default host (a Docker network or a remote database), update `.env.local`:
 
 ```dotenv
 DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard
@@ -161,11 +161,9 @@ DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard
 
 ### Auth failed (`password authentication failed for user "neoboard"`)
 
-The credentials in `.env.local` don't match `neoboard.config.json`. Re-sync with:
+The `DATABASE_URL` in `app/.env.local` doesn't match the credentials your PostgreSQL accepts. Run `neoboard config list` and set that one line to `postgresql://<postgres.user>:<postgres.password>@localhost:<ports.postgres>/<postgres.database>`, URL-encoding any special characters in the password. PostgreSQL only sets its password when the data volume is first created. If you changed `postgres.password` after that, change it back, or change the database user's password to match.
 
-```bash
-neoboard env --regenerate
-```
+Do not run `neoboard env --regenerate`. It rewrites the whole file with a new `ENCRYPTION_KEY`, which makes every stored connection credential permanently undecryptable. It also replaces `NEXTAUTH_SECRET` and `API_KEY_HMAC_SECRET`.
 
 ---
 
@@ -200,7 +198,9 @@ Once you ship: never run `db reset`. Revert the manual schema change, or write a
 
 NeoBoard encrypts stored database credentials using `ENCRYPTION_KEY`. **If you lose this key, every saved connection's credentials become unrecoverable** — there is no master backdoor.
 
-### Symptom: app starts but every connection test fails with "decryption failed"
+### Symptom: app starts but connections fail to decrypt
+
+Every widget errors with "Failed to decrypt stored data — ENCRYPTION_KEY does not match the key it was encrypted with…", and **Test connection** reports "Stored credentials can't be decrypted (encryption key changed?)". `neoboard doctor` flags this as a failing "Credential decryption" check.
 
 You changed `ENCRYPTION_KEY` without using the rotation flow. Either:
 
@@ -209,7 +209,9 @@ You changed `ENCRYPTION_KEY` without using the rotation flow. Either:
 
 ### Production recovery runbook: I lost `ENCRYPTION_KEY`
 
-If the original key is gone and you have no backup, the stored credentials are mathematically unrecoverable — but the app, dashboards, users, and connection *metadata* (name, type, host) all survive. Recovery means clearing only the encrypted fields and asking each connection owner to re-enter their password.
+If the original key is gone and you have no backup, the stored credentials are mathematically unrecoverable. The encrypted column, `connection."configEncrypted"`, holds the whole connection config: URI/host, username, password, database and pool settings. After losing the key, only each connection's id, name, type, visibility and owner survive. Recovery means clearing the encrypted blobs and asking each connection owner to re-enter the full config.
+
+Do not delete and recreate connections: widgets point at connections by id inside each dashboard's layout, so new rows would orphan every widget.
 
 1. **Set a new key.** Generate and store it in your secrets manager:
 
@@ -223,24 +225,26 @@ If the original key is gone and you have no backup, the stored credentials are m
    docker compose stop neoboard
    ```
 
-3. **Back up the connections table** before clearing — you want the names and URIs preserved in case something goes wrong:
+3. **Back up the connection table** before clearing. The dump holds encrypted blobs you can no longer read, so also record each connection's name and type:
 
    ```bash
    docker compose exec postgres pg_dump -U neoboard -d neoboard \
-     -t connections > connections.backup.sql
+     -t connection > connection.backup.sql
    ```
 
-4. **Null out the encrypted fields.** Connection records remain, but credentials are gone:
+4. **Clear the encrypted blobs.** The column is NOT NULL, so set it to an empty string rather than NULL:
 
    ```sql
-   UPDATE connections
-   SET credentials_encrypted = NULL,
-       updated_at = NOW();
+   UPDATE connection
+   SET "configEncrypted" = '',
+       "updatedAt" = NOW();
    ```
 
-5. **Restart with the new key** and notify connection owners to re-enter credentials via Settings → Connections → Edit. Each connection will show as "needs credentials" in the test panel.
+5. **Restart with the new key.** Each connection owner opens Settings → Connections → Edit and re-enters the full config: URI, username, password and database. Only a connection's owner can re-enter its config; ownership cannot be transferred. If an owner can't do it, an admin creates a replacement connection of the same type and repoints the old connection's widgets to it (`POST /api/connections/{id}/reassign` with `targetConnectionId`; the Connections page offers the same step when you delete a connection that widgets still use). Until then those connections fail their test and their widgets error. Do not call the key-rotation endpoint until every connection has been re-entered: it fails and rolls back on an empty blob.
 
-This procedure preserves every dashboard, widget, user, role, and audit log — only the encrypted blob is purged.
+SSO client secrets live in `sso_provider.client_secret_encrypted` (also NOT NULL); an admin enters a new client secret on each existing provider in Settings > Authentication, which re-encrypts it with the current key.
+
+Dashboards, widgets, users, roles and audit logs are untouched.
 
 ### Symptom: no `ENCRYPTION_KEY` set in production
 
@@ -258,9 +262,9 @@ For rotation procedure (intentional key change without data loss), see the [Cred
 
 If your symptom doesn't match anything above:
 
-1. **`neoboard status`** — what's the CLI's view of mode, containers, DB health, migrations?
+1. **`neoboard status`** — what's the CLI's view of mode, containers and DB health? (Its migration count comes from the journal, so check `/api/health` as an admin for the applied count.)
 2. **`neoboard logs -n 200`** — what did the failing service print? Grep for `error`.
-3. **`neoboard logs postgres -n 100`** — narrow to one service (positional: `postgres`, `neo4j`, or `app`).
+3. **`neoboard logs postgres -n 100`** — narrow to one database (`postgres`/`pg` or `neo4j`). `neoboard logs` does not cover the app: for the full-stack container started by `neoboard start --full`, run `docker logs --tail 100 neoboard-app`; under `neoboard dev` the app's output is in the terminal running it.
 4. **`docker compose ps`** — does the container's `State` match the CLI's view?
 5. **`docker compose exec postgres pg_isready`** — does postgres answer from inside its own container?
 

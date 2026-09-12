@@ -9,27 +9,27 @@ NeoBoard supports multi-tenancy for SaaS deployments and team isolation.
 
 ## How It Works
 
-- Every table in the metadata database has a `tenant_id` column
-- Every database query includes a tenant filter at the ORM level
+- Every application table in the metadata database has a `tenant_id` column. The Auth.js `account` and `session` tables do not: each row points to a user through `userId`, and that user row carries the tenant. `verificationToken` has neither a tenant nor a user column; it is keyed by `identifier` and `token`.
+- Tenant filtering is not enforced automatically: there is no ORM middleware and no Postgres row-level security. Instead, each query against a tenant-owned table adds its own `tenant_id` filter, using the `tenantId` from the caller's session and never from the request.
+- A test in the unit suite (`tenant-scope.test.ts`) fails CI when a new unscoped query appears. A short allowlist covers the documented exceptions, such as instance-wide key rotation, the first-run setup check, and API-key login, which is where the tenant is first found.
 - JWT tokens include a `tenantId` claim, validated before any data access
 
 ## Isolation Guarantees
 
 - Users in tenant A **cannot** see or modify data belonging to tenant B
 - Connections, dashboards, widgets, and API keys are all tenant-scoped
-- Admin users have full access within their tenant only
+- Admin rights stop at the tenant boundary. Admins manage users, can open and edit any dashboard, can view, query or delete any connection in their tenant, and can repoint widgets from any of those connections to another one. Editing a connection's settings or sharing, and running write queries through it, stay with the connection's owner. One exception reaches other tenants: [key rotation](/security/credential-encryption#how-to-rotate-zero-data-loss) (`POST /api/admin/rotate-key`, which only works while `ENCRYPTION_KEY_OLD` is set) re-encrypts every tenant's stored credentials. It returns counts only and reveals no other tenant's data.
 
 ## Roles
 
 | Role | Permissions |
 |------|------------|
-| **Admin** | Full access to all resources in the tenant |
-| **Creator** | Create/edit own dashboards, view connections |
-| **Reader** | View-only access to shared dashboards |
+| **Admin** | Manage users; open and edit every dashboard; view, query and delete every connection in the tenant, and repoint widgets from it to another connection (editing a connection's settings and running write queries through it stay with its owner) |
+| **Creator** | Create/edit own dashboards (and those shared with them as editor); create and manage own connections; use tenant-shared connections |
+| **Reader** | View dashboards shared with them or marked public within the tenant; run read-only queries against tenant-shared connections; no write access |
 
 ## Configuration
 
 Multi-tenancy is controlled by environment variables — no code branches:
 
-- `TENANT_ID`: Fallback tenant for single-tenant deployments (default: `default`)
-- Tenant assignment happens at user creation time
+- `TENANT_ID`: the one tenant this NeoBoard process serves (default: `default`). It is read once at startup. Users who sign up or are created by an admin belong to this tenant, and tenants cannot be assigned per user. Users auto-provisioned by SSO are the exception: they are created in tenant `default` whatever `TENANT_ID` says ([#1791](https://github.com/alfredo1996/neoboard/issues/1791)). With a non-default `TENANT_ID`, those users see none of the instance's dashboards or connections, and their claim mapping never re-syncs. To serve several tenants, run a separate instance with its own `TENANT_ID` and its own metadata database. Several instances sharing one metadata database is not supported yet: first-admin setup, API key lookup and SSO auto-provisioning are not yet scoped to `TENANT_ID`.

@@ -7,9 +7,9 @@ sidebar:
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-External plugins let you add chart types and database connectors to NeoBoard **without modifying the core codebase**. They can be published as npm packages and installed by any NeoBoard instance.
+External plugins let you add chart types and database connectors to NeoBoard **without modifying the core code**. You can package one as an npm package, but it is compiled into a NeoBoard build from source, not installed into a running instance. Install the package in a NeoBoard checkout, list it in `neoboard-connectors.json` (connectors) or `neoboard-plugins.json` (charts), and run `npm run dev` or `npm run build` from the repository root. That regenerates the static import list. A running instance or a prebuilt image cannot load a plugin.
 
-This is different from the [extending guides](/extend/new-chart-plugin) which cover adding built-in types that require a PR to the NeoBoard repository.
+The [chart plugin guide](/extend/new-chart-plugin) covers adding a built-in chart type, which needs a PR to the NeoBoard repository. The [connector guide](/extend/new-connector-plugin) builds a connector as an external package.
 
 <CardGrid>
   <LinkCard title="MongoDB Connector Plugin" description="Full end-to-end example: build, test, and publish a MongoDB connector" href="/extend/mongodb-connector" />

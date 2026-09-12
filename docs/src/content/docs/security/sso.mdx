@@ -15,8 +15,8 @@ NeoBoard supports OIDC-based single sign-on (SSO). Users can sign in with their 
 ## How It Works
 
 1. SSO is configured via **environment variables** (recommended) or the **Admin UI**
-2. The login page shows "Sign in with [Provider]" buttons above the password form
-3. Clicking a button redirects the user to the identity provider (IdP)
+2. Configured providers are registered with Auth.js, but the login page does not yet show SSO buttons; it currently renders only the email and password form
+3. An SSO sign-in has to be started with a `POST` to `/api/auth/signin/<providerId>` that carries the CSRF token from `/api/auth/csrf` (a `GET` to that route returns "Unsupported action"). NeoBoard then redirects the user to the identity provider (IdP)
 4. After authentication, the IdP redirects back to NeoBoard with an authorization code
 5. NeoBoard exchanges the code for tokens, reads the user's profile and group claims, and creates or links the user account
 
@@ -43,7 +43,7 @@ OIDC_CLIENT_ID=neoboard
 OIDC_CLIENT_SECRET=your-client-secret
 ```
 
-That's it — an SSO button will appear on the login page.
+That's it — the provider is registered with Auth.js under the id `sso-env-oidc`. The login page does not yet render an SSO button for it.
 
 ### All Environment Variables
 
@@ -52,7 +52,7 @@ That's it — an SSO button will appear on the login page.
 | `OIDC_ISSUER` | Yes | — | OIDC issuer URL (e.g., `https://myorg.okta.com`) |
 | `OIDC_CLIENT_ID` | Yes | — | OIDC client identifier |
 | `OIDC_CLIENT_SECRET` | Yes | — | OIDC client secret |
-| `OIDC_DISPLAY_NAME` | No | `SSO` | Button label on the login page |
+| `OIDC_DISPLAY_NAME` | No | `SSO` | Provider display name (not yet shown on the login page) |
 | `OIDC_SCOPES` | No | `openid profile email` | OIDC scopes to request |
 | `OIDC_CLAIM_KEY` | No | — | IdP claim key for role mapping (e.g., `groups`) |
 | `OIDC_ADMIN_VALUE` | No | — | Claim value(s) that map to Admin role (comma-separated) |
@@ -60,14 +60,14 @@ That's it — an SSO button will appear on the login page.
 | `OIDC_READER_VALUE` | No | — | Claim value(s) that map to Reader role (comma-separated) |
 | `OIDC_AUTO_PROVISION` | No | `true` | Auto-create users on first SSO login |
 | `OIDC_DEFAULT_ROLE` | No | `creator` | Role when no claim matches |
-| `OIDC_ENFORCE_SSO` | No | `false` | Hide password form for non-admin users |
+| `OIDC_ENFORCE_SSO` | No | `false` | Saved and reported, but not enforced yet. Password login stays available |
 
 ### Docker Compose Example
 
 ```yaml
 services:
   neoboard:
-    image: neoboard:latest
+    image: ghcr.io/alfredo1996/neoboard:X.Y.Z # pin a release tag
     environment:
       DATABASE_URL: postgresql://neoboard:neoboard@db:5432/neoboard
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
@@ -91,7 +91,7 @@ services:
 For multiple SSO providers, use the Admin UI in Settings &gt; Authentication. The env-based provider and UI-based providers work together.
 </Aside>
 
-For organizations that need multiple SSO providers (e.g., Okta + Azure AD), use the Admin UI. The env-based provider and UI-based providers work together — the env provider appears first on the login page.
+For organizations that need multiple SSO providers (e.g., Okta + Azure AD), use the Admin UI. The env-based provider and UI-based providers work together.
 
 ### Configuring a Provider
 
@@ -103,7 +103,7 @@ For organizations that need multiple SSO providers (e.g., Okta + Azure AD), use 
 
    | Field | Description | Example |
    |-------|-------------|---------|
-   | Display Name | Shown on the login button | `Company SSO` |
+   | Display Name | Provider display name (not yet shown on the login page) | `Company SSO` |
    | Issuer URL | Your IdP's OIDC issuer endpoint | `https://login.example.com/realms/myorg` |
    | Client ID | The OIDC client identifier | `neoboard-prod` |
    | Client Secret | The OIDC client secret (stored encrypted) | `abc123...` |
@@ -122,13 +122,13 @@ For organizations that need multiple SSO providers (e.g., Okta + Azure AD), use 
 
    - **Auto-provision new users** — When enabled, users signing in via SSO for the first time are automatically created in NeoBoard. When disabled, only pre-existing users can use SSO.
    - **Default role** — The role assigned when no claim mapping matches (default: Creator).
-   - **Enforce SSO** — When enabled, the password login form is hidden for non-admin users. Admins can still use password login via `?password=true` in the URL.
+   - **Enforce SSO** — Saved with the provider, but not enforced yet: the login page still shows the password form, and any user who has a password can still sign in with it, admin or not. Users created automatically by SSO have no password, so they can only sign in through SSO. Users created with a password keep it, and NeoBoard has no way to remove it. Disabling a user blocks SSO sign-in too.
 
 5. **Click "Add Provider"** to save
 
 </Steps>
 
-The SSO button will appear on the login page immediately.
+The provider is registered immediately and listed in Settings > Authentication. The login page does not yet render a button for it.
 
 ## IdP Configuration Examples
 
@@ -221,12 +221,12 @@ Reader value:    neoboard-viewers
 </Steps>
 
 <Aside type="caution">
-Google's OIDC tokens don't include a `groups` claim by default. All Google SSO users will get the **default role** unless you use Google Workspace directory groups with a custom claim mapper.
+Google's OIDC tokens don't include a `groups` claim by default. All Google SSO users will get the **default role** (from their second sign-in; see [Role Mapping](#role-mapping)) unless you use Google Workspace directory groups with a custom claim mapper.
 </Aside>
 
 ## Role Mapping
 
-Role mapping is evaluated on **every login**, not just the first time. If a user's group membership changes in the IdP, their NeoBoard role updates automatically on their next sign-in.
+Role mapping is applied each time an existing user signs in, so group changes in the IdP take effect on their next sign-in. The exception is a user's very first SSO sign-in: it creates the account with the built-in defaults (Creator, with write access), not the mapped or default role. The mapped role normally takes effect from the second sign-in, provided `TENANT_ID` is `default`. With any other `TENANT_ID`, auto-provisioned users are created in tenant `default`, cut off from the instance's data, and the mapping never re-syncs ([#1791](https://github.com/alfredo1996/neoboard/issues/1791)).
 
 **Priority order:** Admin > Creator > Reader. If a user is in multiple mapped groups, the highest-priority role wins.
 
@@ -272,7 +272,7 @@ When you delete an SSO provider:
 | Issue | Solution |
 |-------|----------|
 | "Invalid parameter: redirect_uri" | The redirect URI in your IdP doesn't match. Set it to `https://your-domain/api/auth/callback/sso-{provider-id}` where `{provider-id}` is the provider's ID in NeoBoard (visible in Settings > Authentication URL). |
-| SSO button not showing | Check that the provider is **Enabled** in Settings > Authentication. The public endpoint only returns enabled providers. |
+| SSO button not showing | The login page does not render SSO buttons yet (see [How It Works](#how-it-works)). The public `/api/auth/sso-providers` endpoint returns only providers that are **Enabled** in Settings > Authentication. |
 | User gets wrong role | Verify the claim key and values match exactly what your IdP sends. Check the IdP's token debugger to inspect the actual claims. |
-| "Auto-provision is disabled" error | The user doesn't exist in NeoBoard and auto-provisioning is turned off. Create the user manually first, or enable auto-provisioning. |
-| Login loops back to /login | Ensure `NEXTAUTH_URL` is set correctly in your environment and matches the URL users access NeoBoard from. |
+| "Access Denied: You do not have permission to sign in." (URL shows `?error=AccessDenied`) | The user doesn't exist in NeoBoard and auto-provisioning is turned off for this provider. Create the user manually first, or enable auto-provisioning. |
+| Login loops back to /login | Ensure `NEXTAUTH_URL` is set correctly in your environment and matches the URL users access NeoBoard from. On HTTPS this loop is a known bug: Auth.js names the session cookie `__Secure-authjs.session-token`, and the request proxy does not read that name yet, so every browser session is sent back to `/login` ([#1792](https://github.com/alfredo1996/neoboard/issues/1792)). API keys are not affected. |

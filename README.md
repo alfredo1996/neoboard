@@ -79,7 +79,7 @@ Seven showcase dashboards get seeded (run `neoboard demo list` for the live list
 
 The showcases live as portable JSON files under `scripts/demo/*.json` validated against `neoboardExportSchema` — you can import them on any NeoBoard instance.
 
-Two connections are created: **Neo4j Movies** (the bundled movie graph) and the demo e-commerce data (customers, products, categories, orders, order_items, regions), isolated in the `neoboard_demo_public` Postgres schema so `neoboard demo reset` can drop it without touching your own tables.
+Four connections are created: **Neo4j Movies** (the bundled movie graph), **PostgreSQL Movies** (its relational copy), and **PostgreSQL Ecommerce (demo, read)** and **PostgreSQL Ecommerce (demo, write)**. The last two share the same credentials and differ only in name, and both reach the demo e-commerce data (customers, products, categories, orders, order_items, regions). That data is isolated in the `neoboard_demo_public` Postgres schema, so `neoboard demo reset` can drop it without touching your own tables.
 
 Demo login: `admin@neoboard.local` / `admin123`
 

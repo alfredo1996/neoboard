@@ -40,12 +40,12 @@ Form fields are configured in the widget editor's **Fields** tab (not in Chart O
 
 - **Parameter name** -- maps to `$param_xxx` in the query
 - **Label** -- display text shown to the user
-- **Type** -- text, number, email, date, select, textarea, checkbox
+- **Type** -- text, select, multi-select, cascading select, date, date range, relative date or number range (a text field can also be checked as a number, email or date)
 - **Required** -- whether the field must be filled before submission
-- **Default value** -- pre-filled value on form load
+- **Initial value** -- taken from a matching dashboard parameter when one is set; otherwise the field starts empty (a number range starts at its full min–max)
 
 ## Tips
 
-- The connector must have `can_write` permission enabled by an admin for the form to execute. Additionally, each user who needs to submit forms must have **write permission** enabled on the Users page (toggle in the Write column). Both conditions are enforced server-side.
+- A form submits only when the submitting user has **write permission** and owns the form's connection. Admins always have write permission and readers never do; for creators it is the Write toggle on the Users page. Both checks are enforced server-side. There is no connection-level write flag, so users who don't own a shared connection, admins included, cannot submit forms on it.
 - Use descriptive parameter names like `$param_email` rather than `$param_1` to keep your query readable.
 - Enable Reset on Success for data entry workflows where users submit multiple records in a row.

@@ -40,7 +40,7 @@ curl -s http://localhost:3000/api/health | jq
 | Status | HTTP Code | Meaning |
 |--------|-----------|---------|
 | `ok` | 200 | All systems operational |
-| `degraded` | 200 | Functional but with warnings (e.g., slow DB) |
+| `degraded` | 200 | Running, with a configuration warning. Today the only warning is an incomplete OIDC group: some but not all of `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` are set, so SSO will not work. Database latency never changes the status. To catch a slow database, alert on `db.latencyMs` directly. |
 | `error` | 503 | Missing required configuration or DB unreachable |
 
 The public payload above never exposes secret **values** — `config` only reports each variable as `set`/`unset`.
@@ -57,16 +57,14 @@ An anonymous or non-admin caller always gets the public shape, so health probes 
 
 ### Using with Docker
 
-Docker Compose health check (already configured in `docker-compose.prod.yml`):
+The NeoBoard image ships its own health check, so the production compose files (`docker-compose.prod.yml`, `docker-compose.prod-full.yml`) need none. From the Dockerfile:
 
-```yaml
-healthcheck:
-  test: ["CMD", "wget", "-q", "-O-", "http://localhost:3000/api/health"]
-  interval: 30s
-  timeout: 10s
-  retries: 3
-  start_period: 30s
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 ```
+
+To override it, add a `healthcheck:` block to the `neoboard` service.
 
 ### Using with Kubernetes
 
@@ -140,11 +138,11 @@ For external uptime monitoring, point your preferred tool at the health endpoint
 
 ## Log monitoring
 
-NeoBoard outputs JSON-structured logs (when configured with structured logging). Key log fields:
+NeoBoard writes its application logs to stdout as JSON by default, so no setup is needed (`LOG_FORMAT` defaults to `json`; `LOG_FORMAT=pretty` is for local development only). Key log fields:
 
 | Field | Description | Where it appears |
 |-------|-------------|------------------|
-| `level` | Log severity: `info`, `warn`, `error` | all logs |
+| `level` | Log severity as a Pino number: `30` info, `40` warn, `50` error | all logs |
 | `msg` / `event` | Human-readable message / structured event name | all logs |
 | `requestId` | Correlation ID for tracing a request end-to-end | **every** `api_error` log, plus the query routes' `request_start`/`request_end` and query audit logs |
 | `durationMs` | Request/query duration in milliseconds | query request logs (`request_end`) and query audit logs |
@@ -157,18 +155,23 @@ NeoBoard outputs JSON-structured logs (when configured with structured logging).
 ### Filtering logs
 
 ```bash
-# View errors only
-docker logs neoboard 2>&1 | jq 'select(.level == "error")'
+# The prod compose files require their secrets, so pass the env file on every call
+C="docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml"
+
+# View errors only (Pino levels: 50 = error, 40 = warn, 30 = info)
+$C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.level >= 50)'
 
 # Trace one request across all its logs by correlation id
-docker logs neoboard 2>&1 | jq 'select(.requestId == "REQUEST-ID")'
+$C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.requestId == "REQUEST-ID")'
 
 # View slow query requests (> 1s) — query routes / audit logs carry durationMs
-docker logs neoboard 2>&1 | jq 'select(.durationMs > 1000)'
+$C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.durationMs > 1000)'
 
 # View a specific user's activity (audit logs)
-docker logs neoboard 2>&1 | jq 'select(.userId == "user-uuid")'
+$C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.userId == "user-uuid")'
 ```
+
+`fromjson?` skips the non-JSON startup and stderr lines. For `docker-compose.prod.yml`, change the `-f` path and supply its required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `API_KEY_HMAC_SECRET`) the same way, with `--env-file` or from the shell environment; without them compose refuses to run. For the CLI stack, the container is `neoboard-app` (`docker logs neoboard-app`).
 
 ### Log aggregation
 
@@ -188,6 +191,6 @@ scrape_configs:
       - host: unix:///var/run/docker.sock
     relabel_configs:
       - source_labels: ['__meta_docker_container_name']
-        regex: '/neoboard'
+        regex: '/(.+-neoboard-1|neoboard-app)'
         action: keep
 ```

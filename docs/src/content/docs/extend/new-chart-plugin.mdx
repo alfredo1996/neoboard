@@ -146,7 +146,7 @@ interface ChartOptionDef {
 - Set `capabilities.isECharts: true`
 
 **Non-ECharts charts** (graph, map, table, form):
-- Import components directly (no dynamic import needed if not using browser APIs)
+- Load browser-only or heavy renderers with `dynamic(() => import(...), { ssr: false })`. Graph (NVL/WebGL) and map (Leaflet) do this, so their libraries load only when such a widget renders. Lightweight app renderers such as table (`TableRenderer`) and form (`FormWidgetRenderer`) are imported directly.
 - Use `onChartClick` directly (no wrapping needed)
 - Set `capabilities.isECharts: false`
 
@@ -235,7 +235,7 @@ enrichClickEvent?: (
 ) => Record<string, unknown>;
 ```
 
-**When it's called.** Right before a click action fires — the registry hands the raw ECharts event and the original data row to the plugin, lets the plugin attach chart-specific fields, then dispatches the enriched event to click-action handlers (set-parameter, navigate page) and to rule-based styling resolution.
+**When it's called.** Not yet. `defineChartPlugin` stores `enrichClickEvent` on the plugin, but nothing in the click path calls it. Click actions resolve against whatever payload your component passes to `onChartClick` (ECharts plugins build it with `useEChartsClick` in `app/src/plugins/utils.ts`). Styling rules are resolved at render time from the data, not from click events. To add chart-specific fields to a click today, add them in your component before calling `onChartClick`.
 
 **Why it exists.** Some chart types collapse the source row before rendering (e.g. pie aggregates by category), so the click handler would otherwise lose access to the underlying field. Enriching the event re-attaches those fields under stable names that click-action templates and styling rules can reference.
 

@@ -37,10 +37,8 @@ Graph visualization is not available for PostgreSQL connectors. Use a Neo4j conn
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | Layout | select | force | Node positioning algorithm: Force (physics simulation), Circular (ring), or Hierarchical (tree) |
-| Node Size | select | medium | Visual size of each node: Small, Medium, or Large |
 | Show Labels | boolean | true | Show the node label (first string property) on each node |
 | Show Relationship Labels | boolean | true | Show the relationship type name on each edge |
-| Enable Physics | boolean | true | Enable physics simulation so nodes repel and edges act as springs |
 
 ## Virtual (synthetic) nodes
 
@@ -62,4 +60,3 @@ none of the shipped connectors do.
 
 - Add a `LIMIT` to your query to keep the graph readable -- more than 200 nodes can get cluttered.
 - Use the Hierarchical layout for tree-like data (org charts, category hierarchies).
-- Disable physics after the layout stabilizes if you want to manually position nodes by dragging them.

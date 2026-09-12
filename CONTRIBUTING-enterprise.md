@@ -25,7 +25,7 @@ try {
 }
 ```
 
-When the sibling package isn't installed (or `NEOBOARD_EDITION !== "enterprise"`), the import fails silently and the app boots as community. When it _is_ present, the loader wires the extension hooks in `app/src/lib/extensions/bootstrap.ts` and the query middleware bootstrap in `app/src/lib/query/middleware/bootstrap.ts`.
+The edition is decided only by the `NEOBOARD_EDITION` environment variable (`app/src/lib/features/registry.ts`). When it is `enterprise`, the app reports the enterprise edition and turns on every enterprise feature flag, whether or not `@neoboard/enterprise` is installed. `app/src/lib/extensions/bootstrap.ts` has a loader, `bootstrapExtensions()`, that dynamically imports the package only in the enterprise edition, calls its `register()` to wire in the extension hooks, and returns quietly if the package is missing. On this branch nothing calls that loader at startup (`app/src/instrumentation.ts` doesn't call it), so the package's hooks are not loaded yet. The core query middleware in `app/src/lib/query/middleware/bootstrap.ts` (scheduler, audit) is separate from the enterprise wiring and registers at startup in both editions.
 
 ## Local setup (one command)
 
@@ -79,11 +79,7 @@ OIDC_CLIENT_SECRET=<from your IdP>
 
 Then restart `npm run dev` and visit `/settings/authentication`.
 
-A pre-canned Keycloak compose file lives at `docker/docker-compose.keycloak.yml`:
-
-```bash
-docker compose -f docker/docker-compose.keycloak.yml up -d
-```
+The repository does not ship a Keycloak compose file. Point `OIDC_ISSUER` at an identity provider you run yourself, for example a local Keycloak container with a `neoboard` realm and a `neoboard` client (see the Keycloak section of `docs/src/content/docs/security/sso.mdx` for the client settings).
 
 ## Version pin
 

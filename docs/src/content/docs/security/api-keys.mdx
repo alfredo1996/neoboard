@@ -51,12 +51,15 @@ data = response.json()
 
 ## Available Endpoints
 
-All data endpoints support API key authentication (38 of 45 total endpoints). The only exceptions are:
+Every authenticated endpoint accepts an API key in place of a session. The only endpoints that don't take one are listed below.
 
 | Endpoint | Reason |
 |----------|--------|
-| `/api/auth/*` | Session-only (NextAuth handlers) |
+| `/api/auth/[...nextauth]` | Session-only (NextAuth sign-in handlers) |
 | `/api/auth/bootstrap-status` | Public (no auth required) |
+| `/api/auth/sso-providers` | Public (no auth required) |
+| `/api/features` | Edition and enabled features; the route does no auth check of its own |
+| `/api/health` | Public probe; admin detail (version, migrations, credential and scheduler status) only for an admin session or API key |
 | `/api/docs` | Public (documentation page) |
 | `/api/openapi`, `/api/openapi.json` | Public (API specification) |
 
@@ -84,8 +87,10 @@ For the full API specification, visit `/api/docs` or `/api/openapi.json` on your
 | Operation | Method | Endpoint |
 |-----------|--------|----------|
 | List your API keys | `GET` | `/api/keys` |
-| Create a new key | `POST` | `/api/keys` |
-| Revoke a key | `DELETE` | `/api/keys/:id` |
+| Create a new key (requires write permission) | `POST` | `/api/keys` |
+| Revoke a key (requires write permission) | `DELETE` | `/api/keys/:id` |
+
+Creating and revoking keys require write permission. Admins always have it and readers never do, so a reader, or a creator with write permission turned off, gets `403 Forbidden`, including when trying to revoke a key they created earlier. Ask an admin to restore write permission or to revoke the key for you.
 
 ### Expiration
 
@@ -93,13 +98,19 @@ Keys can have an optional expiration date. Expired keys return `401 Unauthorized
 
 ## Error Responses
 
-Unauthenticated requests return:
+Failed authentication returns HTTP status `401`, in one of two bodies. A request with no `Authorization: Bearer nb_…` header and no session (including a token that lacks the `nb_` prefix) is rejected before it reaches the route, with:
 
 ```json
 { "error": "Unauthorized" }
 ```
 
-With HTTP status `401`. Ensure your key is:
+A request whose `nb_` key is unknown, expired or revoked reaches the endpoint and gets the standard error envelope:
+
+```json
+{ "data": null, "error": { "code": "UNAUTHORIZED", "message": "Unauthorized" }, "meta": null }
+```
+
+Ensure your key is:
 - Correctly prefixed with `nb_`
 - Not expired
 - Not revoked
@@ -108,6 +119,8 @@ With HTTP status `401`. Ensure your key is:
 ## Security Notes
 
 - API keys are hashed with HMAC-SHA256 before storage. NeoBoard never stores the plain-text key.
-- Keys inherit the permissions of the user who created them (role, tenantId, canWrite).
+- Keys use the current role and write permission of the user who created them, read fresh on every request. They also carry that user's tenant.
+- Disabling a user does **not** revoke their API keys. Keys are checked only for their hash and expiry, so a disabled user's keys keep working. Only browser sessions are cut off.
+- Admins can't revoke another user's keys one at a time. To end a user's API access immediately, delete the user, which removes all their keys.
 - Revoked keys are immediately invalid.
 - Use short expiration dates for temporary access.

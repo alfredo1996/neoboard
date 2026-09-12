@@ -51,12 +51,14 @@ pg_dump -Fc -h localhost -U neoboard -d neoboard -f neoboard_$(date +%Y%m%d_%H%M
 pg_dump -h localhost -U neoboard -d neoboard > neoboard_$(date +%Y%m%d_%H%M%S).sql
 ```
 
-If NeoBoard runs in Docker:
+If NeoBoard runs with the production stack (`docker-compose.prod-full.yml`), address the database through compose; the containers are named `<project>-postgres-1`, not `neoboard-postgres`:
 
 ```bash
-# Backup from Docker container
-docker exec neoboard-postgres pg_dump -U neoboard -d neoboard -Fc > neoboard_backup.dump
+C="docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml"
+$C exec -T postgres pg_dump -U neoboard -d neoboard -Fc > neoboard_backup.dump
 ```
+
+Replace `neoboard` after `-U` and `-d` if you changed `POSTGRES_USER` or `POSTGRES_DB`. `docker-compose.prod.yml` bundles no PostgreSQL, so bring-your-own-database installs use the host `pg_dump` recipe above against `DATABASE_URL`. CLI installs (`neoboard start`) name the containers `neoboard-postgres` and `neoboard-app`, and should use `neoboard db dump` / `neoboard db restore`.
 
 ### Automated daily backups with cron
 
@@ -144,27 +146,29 @@ pg_restore -d neoboard neoboard_backup.dump
 docker compose -f docker/docker-compose.prod.yml up -d
 ```
 
-If using Docker for PostgreSQL:
+If using the production stack's PostgreSQL (`docker-compose.prod-full.yml`):
 
 ```bash
+C="docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml"
+
 # Stop NeoBoard (keep PostgreSQL running)
-docker stop neoboard
+$C stop neoboard
 
 # Restore into the running PostgreSQL container.
 # --clean --if-exists drops each object before recreating it. Without it the
-# restore hits "already exists" and duplicate-key errors, because `docker stop
-# neoboard` stops the APP container — PostgreSQL keeps every row it had.
-docker exec -i neoboard-postgres pg_restore -U neoboard -d neoboard \
+# restore hits "already exists" and duplicate-key errors, because stopping the
+# neoboard service stops the APP container — PostgreSQL keeps every row it had.
+$C exec -T postgres pg_restore -U neoboard -d neoboard \
   --clean --if-exists < neoboard_backup.dump
 
 # For plain-SQL dumps, drop and recreate the database instead — psql has no
 # equivalent flag, and a plain dump does not carry the DROP statements.
-docker exec -i neoboard-postgres dropdb -U neoboard --if-exists neoboard
-docker exec -i neoboard-postgres createdb -U neoboard neoboard
-cat neoboard_backup.sql | docker exec -i neoboard-postgres psql -U neoboard -d neoboard
+$C exec -T postgres dropdb -U neoboard --if-exists neoboard
+$C exec -T postgres createdb -U neoboard neoboard
+$C exec -T postgres psql -U neoboard -d neoboard < neoboard_backup.sql
 
 # Restart NeoBoard
-docker start neoboard
+$C start neoboard
 ```
 
 :::caution[`--clean` is destructive by design]
@@ -230,27 +234,32 @@ To migrate NeoBoard from one server to another:
 
 2. **Copy the backup and env vars to the new server**
 
-3. **Set up the new server, without letting it migrate:**
+3. **Set up the new server, starting only the database:**
    ```bash
-   # Use the SAME ENCRYPTION_KEY as the source
-   cp .env.source app/.env.local
+   # Must hold the source's ENCRYPTION_KEY, NEXTAUTH_SECRET, API_KEY_HMAC_SECRET
+   # and POSTGRES_PASSWORD. Never put these in docker/.env, which the CLI owns.
+   cp .env.source docker/.env.production.local
 
-   # MIGRATE_ON_START defaults to 1 in the production image (Dockerfile), so
-   # booting normally here creates the schema on the empty database — and the
-   # restore in step 4 then collides with it. Start with migrations off.
-   MIGRATE_ON_START=0 docker compose -f docker/docker-compose.prod-full.yml up -d
+   # The image boots with MIGRATE_ON_START=1 and the compose file does not pass
+   # an override, so starting the app now would create the schema on the empty
+   # database and the restore in step 4 would collide with it. Start only
+   # PostgreSQL.
+   docker compose --env-file docker/.env.production.local \
+     -f docker/docker-compose.prod-full.yml up -d postgres
    ```
 
-4. **Restore the database:**
+4. **Restore the database.** This compose file publishes no PostgreSQL port, so restore through the container:
    ```bash
-   pg_restore -h new-host -U neoboard -d neoboard --clean --if-exists migration.dump
+   docker compose --env-file docker/.env.production.local \
+     -f docker/docker-compose.prod-full.yml exec -T postgres \
+     pg_restore -U neoboard -d neoboard --clean --if-exists < migration.dump
    ```
 
-   Then restart without the override, so the app applies any migrations the
-   dump predates:
+   Then start the app, which applies any migrations the dump predates:
 
    ```bash
-   docker compose -f docker/docker-compose.prod-full.yml up -d --force-recreate
+   docker compose --env-file docker/.env.production.local \
+     -f docker/docker-compose.prod-full.yml up -d
    ```
 
 5. **Verify:** Log in and check dashboards, connections, and users

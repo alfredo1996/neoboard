@@ -17,9 +17,11 @@ Thank you for your interest in contributing to NeoBoard! This guide will help yo
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
-scripts/setup-local-demo.sh   # Installs deps, starts Docker, runs migrations, seeds demo data
-npm run dev                    # Start dev server at http://localhost:3000
+scripts/setup-local-demo.sh   # Starts PostgreSQL, Neo4j and the app in Docker, runs migrations, seeds demo data
+# Then open http://localhost:3000 (the app runs in the container, so no `npm run dev` is needed)
 ```
+
+For a hot-reload dev server, stop the demo stack first (`node cli/dist/index.js stop`) and follow the local setup in [DEVELOPMENT.md](../DEVELOPMENT.md). Its `app/.env.local` has its own `ENCRYPTION_KEY`, so connections the demo seeded under `docker/.env` will not decrypt there.
 
 ### Demo Credentials
 
@@ -78,8 +80,8 @@ Before editing any file, check which package it belongs to.
 ## Code Style
 
 - **TypeScript strict** — no `any` without a comment explaining why
-- **ESLint + Prettier** — run automatically on commit via husky/lint-staged
-- **No default exports** — use named exports
+- **Formatting on commit** — husky/lint-staged runs Prettier on staged `.ts`/`.tsx` files in `app/`, `component/` and `connection/` and on `.js`/`.jsx`/`.json`/`.css`/`.md` files, plus `eslint --fix` on `app/` only (`cli/`, `connector-sdk/` and `.mjs` files are not touched); run `npm run lint` before pushing to lint every package
+- **Prefer named exports** — use a default export only where a framework or contract requires one (Next.js route files, Storybook stories, tool config files, a connector package's plugin object)
 - **Tests live in `__tests__/`** next to the file under test
 
 ## Testing

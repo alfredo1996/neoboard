@@ -1493,3 +1493,62 @@ describe("Tour NeoBoard with demo data (#1682)", () => {
     ).toEqual([]);
   });
 });
+
+describe("security claims the code does not back (#1790)", () => {
+  // One sentence per row that the docs used to say and the code does not do.
+  // Each pattern is the false claim itself, worded narrowly so the corrected
+  // sentence ("no envelope", "not the connecting IP") still passes. A few rows
+  // use a negative lookahead: "the line that states X must also say Y".
+  const CLAIMS = [
+    ["security/sso.mdx", /password (login )?form is hidden|Hide password form|\?password=true/i, "Enforce SSO is stored, never enforced (auth/config.ts Credentials authorize)"],
+    ["security/sso.mdx", /evaluated on \**every login/i, "a first SSO sign-in gets column defaults (auth/config.ts signIn, schema.ts)"],
+    ["security/roles.mdx", /New SSO users who don't match any claim mapping get/i, "first SSO account is creator (schema.ts users.role default)"],
+    ["security/roles.mdx", /Manage connections \| Yes \| View only|cannot add, modify, or delete connections/, "only readers are denied (auth/permissions.ts)"],
+    ["security/roles.mdx", /Run read queries \| Yes \| Yes \| No|run custom queries, or access connections/, "POST /api/query has no role check"],
+    ["security/managing-users.mdx", /\| View connections \||cannot add or modify connections/, "creators add and manage their own connections"],
+    ["security/managing-users.mdx", /cannot edit anything or run custom queries|can only view published dashboards/, "readers query tenant-shared connections"],
+    ["security/multi-tenancy.mdx", /includes a tenant filter at the ORM level/i, "per-query filters plus a test-time ratchet (lib/db/index.ts is plain Drizzle)"],
+    ["security/multi-tenancy.mdx", /own dashboards, view connections|View-only access to shared dashboards/, "creators manage own connections; readers see public dashboards and query shared connections"],
+    ["security/query-safety.mdx", /only allowed through \**Form widgets/i, "/api/query/write checks canWrite and ownership, not the widget"],
+    ["security/password-login.mdx", /rate-limited by IP address|per minute per IP\b/i, "keyed on the client-supplied X-Forwarded-For"],
+    ["security/api-keys.mdx", /Keys inherit the permissions of the user who created them/i, "a disabled user's keys keep working (auth/api-key.ts)"],
+    ["extend/architecture.mdx", /AES-256-GCM envelope encryption/i, "ENCRYPTION_KEY is the AES key directly (crypto.ts)"],
+    ["extend/architecture.mdx", /All queries filter by the authenticated user's tenant/, "adapter tables have no tenant_id; allowlisted instance-wide queries"],
+    ["extend/architecture.mdx", /\*\*Public routes\*\*(?![^\n]*`\/api\/health`)(?![^\n]*`\/change-password`)/, "proxy.ts publicExact includes /api/health and /change-password"],
+    ["extend/architecture.mdx", /limited to 20 per minute per IP/i, "in-memory per process, keyed on X-Forwarded-For"],
+    ["extend/architecture.mdx", /merges parameters into the query/i, "values go into params; query text is unchanged (use-widget-query.ts)"],
+    ["extend/new-parameter-type.mdx", /for query substitution|app\/src\/lib\/format-parameter-value\.ts/, "lib/parameter/format-parameter-value.ts formats display text only"],
+    ["extend/mongodb-connector.mdx", /\.limit\(1000\)/, "row limits are config.rowLimit with MAX_ROWS+1, never a fixed limit"],
+    ["using/connectors.mdx", /envelope encryption with HKDF/i, "no HKDF, no envelope (crypto.ts)"],
+    ["using/connectors.mdx", /Reject Unauthorized[^\n]*\|\s*true\s*\|\s*$/im, "unset by default; follows the URI's sslmode"],
+    ["charts/form.mdx", /connector must have `can_write`/i, "no connection-level write flag (schema.ts connection)"],
+    ["using/dashboards.mdx", /\| Reader \| Shared only \|/, "readers also see public dashboards (api/dashboards/route.ts)"],
+    ["charts/iframe.mdx", /Must be an https:\/\/ URL/i, "http:// also embeds (iframe-widget.tsx)"],
+    ["deploy/configuration.mdx", /^\| `FORCE_HTTPS` \|(?![^\n]*private)/m, "private-IP and localhost hosts are never redirected (proxy.ts)"],
+    ["security/sso.mdx", /"Sign in with \[Provider\]" buttons|SSO button will appear/i, "login/page.tsx renders no SSO buttons"],
+    ["security/password-login.mdx", /If `ADMIN_BOOTSTRAP_TOKEN` is set|SSO buttons appear above the password form/, "first-admin signup requires the token (signup.ts); no SSO buttons"],
+    ["security/password-login.mdx", /A user's role is changed|silently rejects further attempts/, "only a demotion invalidates sessions (users/[id]/route.ts); signup shows its limit error"],
+    ["security/query-safety.mdx", /wall display degrade first|new P3 \(auto-refresh\) work/, "the UI sends no x-query-priority, so auto-refresh is P2 (api/query/route.ts)"],
+    ["security/multi-tenancy.mdx", /Every table in the metadata database has a `tenant_id`|full access within their tenant only|Fallback tenant for single-tenant/, "adapter tables have no tenant_id; key rotation crosses tenants; TENANT_ID is the process's tenant"],
+    ["security/managing-users.mdx", /restricted to read-only queries, regardless of their role/, "the write toggle applies to Creators only (session.ts)"],
+    ["security/roles.mdx", /\| Access settings \| Yes \| No \| No \||\| Admin \| Can write \| Can write \(always\) \|/, "creators and readers open Settings; writes need ownership"],
+    ["security/credential-encryption.mdx", /credentials_encrypted|The key's own role is what the endpoint checks/, "the column is connection.configEncrypted; the owner's current role is checked (api-key.ts)"],
+    ["start-here/troubleshooting.mdx", /credentials_encrypted/, "the column is connection.configEncrypted (schema.ts)"],
+    ["security/api-keys.mdx", /38 of 45/, "proxy.ts publicExact/publicPrefixes list the exceptions"],
+    ["security/multi-tenancy.mdx", /signs in to the instance belongs to this tenant|query, reassign/, "SSO auto-provisioned users get the column default tenant; reassign repoints widgets, not ownership"],
+    ["security/roles.mdx", /From their next sign-in, they get the role(?![^\n]*TENANT_ID)/, "signIn looks users up by TENANT_ID; SSO users land in tenant default"],
+    ["security/sso.mdx", /mapped role normally takes effect from the second sign-in(?![^\n]*TENANT_ID)/, "signIn looks users up by TENANT_ID; SSO users land in tenant default"],
+    ["start-here/troubleshooting.mdx", /reassign orphaned/i, "no endpoint transfers connection ownership; connections cascade with their owner"],
+    ["deploy/monitoring.mdx", /docker compose -f docker\/docker-compose\.prod/, "prod compose files have :? required variables, so --env-file is needed"],
+    ["security/sso.mdx", /^\| Login loops back to \/login \|(?![^\n]*__Secure)/m, "proxy.ts getToken reads only the non-secure cookie name"],
+    ["deploy/production.mdx", /### 5\. Put it behind TLS(?![\s\S]*__Secure)/, "proxy.ts getToken reads only the non-secure cookie name"],
+  ];
+
+  it.each(CLAIMS)("%s no longer claims %s", (page, claim) => {
+    const text =
+      DOCS.find(({ path }) => path === `docs/src/content/docs/${page}`)
+        ?.text ?? "";
+    expect(text, `${page} is missing`).not.toBe("");
+    expect(text).not.toMatch(claim);
+  });
+});

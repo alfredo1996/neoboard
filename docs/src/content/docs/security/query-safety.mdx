@@ -21,7 +21,7 @@ Non-form widgets execute queries in read-only mode:
 - **PostgreSQL**: `BEGIN READ ONLY` transactions
 - **Neo4j**: Read access mode sessions
 
-Write operations are only allowed through **Form widgets** with the `can_write` permission, enforced server-side.
+Write queries go through `POST /api/query/write`. The server allows them only for users with the `can_write` permission (admins always have it, readers never do) and only on connections the user owns. In the UI, Form widgets are the only widgets that submit writes. The server does not check which widget sent the request, so the same user can also send a write query directly to the API, for example with an API key.
 
 ## Timeouts
 
@@ -43,19 +43,13 @@ Results are consumed with a `MAX_ROWS + 1` pattern:
 
 Each connection gets its own **query scheduler** — a priority queue with per-user fairness and backpressure. It sits above the drivers' own connection pools.
 
-**Priority tiers** — P1 always beats P2, which always beats P3:
-
-| Tier | Traffic |
-|------|---------|
-| 1 | Interactive — a user ran a query or opened a widget |
-| 2 | Dashboard load |
-| 3 | Background auto-refresh |
+**Priority tiers** — the scheduler has three tiers, and P1 always beats P2, which always beats P3 (1 interactive, 2 load, 3 refresh). Write queries (`/api/query/write`) always run at P1. A read query on `/api/query` takes its tier from the optional `x-query-priority` header (`1`, `2` or `3`) and defaults to P2. The NeoBoard UI does not send that header today, so every read runs at P2: running a query, loading a dashboard and auto-refresh alike.
 
 **Fairness** — within a tier, users take turns via round-robin dequeue, so one user running heavy queries cannot starve everyone else on the same connection.
 
 **Backpressure** — when the queue is full, new work is rejected fast (HTTP 503) rather than piling up. Waiting too long in the queue returns a timeout instead of hanging.
 
-**Priority shedding** — once the queue fill ratio crosses `QUERY_SHED_THRESHOLD`, new P3 (auto-refresh) work is rejected to protect interactive latency. Dashboards left open on a wall display degrade first; people actively clicking keep working.
+**Priority shedding** — once the queue fill ratio crosses `QUERY_SHED_THRESHOLD`, new P3 work is rejected to protect higher tiers. Only requests that set `x-query-priority: 3` are P3, so the built-in UI's auto-refresh is not shed; it is queued with all other reads.
 
 Tune with the `QUERY_*` variables — see [Configuration → Query scheduler](/deploy/configuration#query-scheduler).
 

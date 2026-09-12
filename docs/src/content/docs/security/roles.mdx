@@ -14,35 +14,37 @@ Every NeoBoard user is assigned one of three roles. Roles determine what a user 
 | View dashboards | Yes | Yes | Yes |
 | Create/edit dashboards | Yes | Yes (own) | No |
 | Delete dashboards | Yes | Yes (own) | No |
-| Manage connections | Yes | View only | No |
+| Manage connections | Yes (create, edit and share their own; view and delete any in the tenant) | Own only (create, edit, test, delete) | No |
 | Manage users | Yes | No | No |
-| Access settings | Yes | No | No |
-| Run read queries | Yes | Yes | No |
-| Run write queries | Yes (if enabled) | Yes (if enabled) | No |
+| Access settings | Yes (Authentication tab needs the SSO enterprise feature) | Profile, API keys (create/revoke needs write permission) | Profile, view API keys |
+| Run read queries | Yes | Yes | Limited (see Reader) |
+| Run write queries | Yes (own connections) | Yes (own connections, if enabled) | No |
 
 ## Admin
 
-Full access to everything: dashboards, connections, user management, and settings. Admins are the only role that can create other users and configure SSO providers.
+Full access to dashboards, user management, and settings. Admins are the only role that can create other users and configure SSO providers. Admins can see and delete every connection in the tenant, but can edit, or share tenant-wide, only connections they own.
 
 ## Creator
 
-Can build and edit their own dashboards and widgets. Creators can run queries against existing connections but cannot add, modify, or delete connections. They cannot access user management or settings.
+Can build and edit their own dashboards and widgets. Creators can add connections and edit, test, or delete the ones they own. They can also run queries against connections an admin has shared with the tenant, but cannot change or delete those. They cannot access user management or SSO configuration. In Settings they can edit their profile and manage their own API keys; creating or revoking a key needs the write permission.
 
 ## Reader
 
-View-only access. Readers can view dashboards shared with them but cannot edit anything, run custom queries, or access connections.
+Readers cannot edit dashboards, write data, or add, change or delete connections. They can see and run read-only queries against connections an admin has shared with the tenant, and against any connection they still own. On a dashboard shared with them as Editor, they can run any read-only query against that dashboard's connections. On a Viewer share or a public dashboard, they can only run the queries the dashboard already contains.
+
+Readers can open Settings to edit their profile and see their API keys, but cannot create or revoke keys.
 
 ## Write Permission
 
-The **write permission** toggle is an additional control, independent of the role. It determines whether a user can execute write queries (`CREATE`, `INSERT`, `UPDATE`, `DELETE`).
+The **write permission** toggle is an additional control, independent of the role. When it is off, a Creator cannot run write queries (such as form widget submissions). They also cannot create, edit, duplicate, import or delete dashboards, manage widget templates, reassign connections, or create or revoke API keys. They can still view dashboards and run read queries.
 
 | Role | Write Permission On | Write Permission Off |
 |------|-------------------|---------------------|
-| Admin | Can write | Can write (always) |
-| Creator | Can write | Read-only queries |
+| Admin | Can write (own connections) | Can write (own connections, always) |
+| Creator | Can write (own connections) | View and read queries only |
 | Reader | No effect | No effect |
 
-Admins always have write access regardless of the toggle. This is useful when you want a Creator to build dashboards but not modify the underlying data.
+Admins always have write permission regardless of the toggle. For every role, a write query (a Form submission) only runs on a connection the user created. Shared connections, and connections owned by other users, stay read-only even for admins. Turning the toggle off does not let a Creator build dashboards while blocking data changes; no setting does that today.
 
 ## Role Assignment
 
@@ -53,11 +55,11 @@ Admins assign a role when creating a user in **Users** management.
 When SSO is configured, roles can be automatically assigned based on IdP group claims. See [SSO Role Mapping](/security/sso#role-mapping).
 
 ### Default role
-New SSO users who don't match any claim mapping get the configured **default role** (defaults to Creator).
+On their first SSO sign-in, new users are created as Creator with write permission on, regardless of claim mappings or the configured default role, and they keep that role for the whole session. From their next sign-in, they get the role their claims map to, or the configured **default role** if no claim matches (Creator unless changed). That only holds while `TENANT_ID` is `default`: with any other value, SSO users are created in tenant `default`, and their role never re-syncs ([#1791](https://github.com/alfredo1996/neoboard/issues/1791)).
 
 ## Related
 
 - [Managing Users](/security/managing-users) — create and manage user accounts
 - [Password Login](/security/password-login) — email/password setup
 - [SSO](/security/sso) — automatic role assignment from IdP claims
-- [API keys](/security/api-keys) — a key carries the role of the user who created it
+- [API keys](/security/api-keys) — a key uses the current role of the user who created it

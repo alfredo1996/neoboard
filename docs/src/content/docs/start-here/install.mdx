@@ -23,7 +23,7 @@ Optional next steps:
 
 ```bash
 neoboard demo     # seed the showcase dashboards — see the Tour
-neoboard doctor   # health-check all services
+neoboard status   # health of the app, PostgreSQL and Neo4j
 neoboard --help   # full command list
 ```
 
@@ -44,15 +44,18 @@ npm install
 docker compose -f docker/docker-compose.yml up -d
 
 # Configure environment + generate secrets.
-# `neoboard env` WRITES app/.env.local — no copy needed, and copying first only
-# leaves example placeholders for the generator to reconcile.
-neoboard env
+# The CLI defaults to Docker mode, where `neoboard env` does nothing. Switch to
+# local mode first: this writes .neoboard.local, runs npm install, and writes
+# app/.env.local if it does not already exist. No copy needed.
+neoboard init --mode local
 
-# Writes DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET, NEXTAUTH_URL,
-# API_KEY_HMAC_SECRET and ADMIN_BOOTSTRAP_TOKEN into app/.env.local.
-# ADMIN_BOOTSTRAP_TOKEN is the one you need minutes later to create the first
-# admin — the command prints it, so keep the output. (Docker mode writes the
-# same set to docker/.env instead.)
+# app/.env.local gets DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET, NEXTAUTH_URL,
+# API_KEY_HMAC_SECRET and ADMIN_BOOTSTRAP_TOKEN. ADMIN_BOOTSTRAP_TOKEN is the one
+# you need minutes later to create the first admin. The command prints it, so
+# keep the output. (If you ever run the full Docker stack instead, with
+# `neoboard setup`, `neoboard start --full` or `neoboard demo`, the CLI writes
+# ENCRYPTION_KEY, NEXTAUTH_SECRET, API_KEY_HMAC_SECRET and ADMIN_BOOTSTRAP_TOKEN
+# to docker/.env. `neoboard env` never writes that file.)
 
 # Run migrations and start the dev server
 npm run db:migrate
@@ -76,8 +79,8 @@ No internet access on the target hosts? [Air-gapped install](/deploy/air-gapped)
 ## First-Time Setup
 
 1. Go to `http://localhost:3000/signup`
-2. Create the first admin account
-3. The first user automatically gets the **admin** role
+2. Fill in the form and enter the bootstrap token in the **Bootstrap Token** field. That is the `ADMIN_BOOTSTRAP_TOKEN` value: `install.sh` / `neoboard setup` print it in the ready banner and store it in `docker/.env`; `neoboard init --mode local` prints it and writes it to `app/.env.local`.
+3. The first account created with a valid token gets the **admin** role. Without a matching token, or if `ADMIN_BOOTSTRAP_TOKEN` is not set on the server, the first signup is refused. (For dev or demo only, you can instead set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` before first boot, and the admin is created automatically.)
 
 ## Verify Installation
 

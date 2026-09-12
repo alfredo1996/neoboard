@@ -145,8 +145,8 @@ node cli/dist/index.js stop
 # Stop containers and delete all data
 node cli/dist/index.js stop --volumes
 
-# Restart
-node cli/dist/index.js start
+# Restart (app + databases)
+node cli/dist/index.js start --full
 ```
 
 To start completely fresh -- the fix when the demo migration fails against an old volume:
