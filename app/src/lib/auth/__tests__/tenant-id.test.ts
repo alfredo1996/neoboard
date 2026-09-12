@@ -31,11 +31,20 @@ describe("resolveTenantId (#1728)", () => {
 
 const REPO = join(__dirname, "..", "..", "..", "..", "..");
 const HELPER = join("app", "src", "lib", "auth", "tenant-id.ts");
-const ROOTS = ["app/src", "app/e2e", "cli/src", "cli/scripts", "scripts"];
-const SKIP_DIRS = new Set(["node_modules", "__tests__", ".next", "dist", "coverage"]);
+// All of app/ (src, e2e, scripts and root files such as next.config.ts).
+const ROOTS = ["app", "cli/src", "cli/scripts", "scripts"];
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "__tests__",
+  ".next",
+  "dist",
+  "coverage",
+  "test-results",
+  "playwright-report",
+]);
 const SOURCE = /\.(?:[cm]?js|tsx?)$/;
 const DIRECT_READ =
-  /process\.env(?:\.TENANT_ID\b|\[\s*["'`]TENANT_ID["'`]\s*\])|\{[^}]*\bTENANT_ID\b[^}]*\}\s*=\s*process\.env/;
+  /process\.env(?:\??\.TENANT_ID\b|(?:\?\.)?\[\s*["'`]TENANT_ID["'`]\s*\])|\{[^}]*\bTENANT_ID\b[^}]*\}\s*=\s*process\.env/;
 
 function sources(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -53,9 +62,11 @@ describe("TENANT_ID read guard (#1728)", () => {
         'const t = process.env.TENANT_ID ?? "default";',
         "const t = process.env['TENANT_ID'];",
         "const { TENANT_ID } = process.env;",
+        'const t = process.env?.TENANT_ID ?? "default";',
+        'const t = process.env?.["TENANT_ID"];',
         'resolveTenantId(); env({ TENANT_ID: "" });',
       ].map((src) => DIRECT_READ.test(src)),
-    ).toEqual([true, true, true, false]);
+    ).toEqual([true, true, true, true, true, false]);
   });
 
   it("finds no read of process.env.TENANT_ID outside resolveTenantId", () => {
