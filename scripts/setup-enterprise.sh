@@ -142,9 +142,9 @@ Next steps:
        OIDC_CLIENT_ID=neoboard
        OIDC_CLIENT_SECRET=<from your IdP>
 
-  2. (Optional) Start a local Keycloak for SSO testing:
-
-       docker compose -f docker/docker-compose.keycloak.yml up -d
+  2. (Optional) For SSO testing, point OIDC_ISSUER at an identity provider
+     you run yourself, e.g. a local Keycloak with a "neoboard" realm and
+     client. The repository ships no Keycloak compose file.
 
   3. Restart the dev server:
 

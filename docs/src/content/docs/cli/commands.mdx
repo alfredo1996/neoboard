@@ -45,13 +45,18 @@ neoboard init --mode local
 
 ## start
 
-Start NeoBoard services and run database migrations. In Docker mode, launches containers via `docker compose`. In local mode, connects to your running PostgreSQL and Neo4j instances.
+Start NeoBoard services and run database migrations. In Docker mode, starts the PostgreSQL and Neo4j containers via `docker compose`; add `--full` to also start the app container (`setup` and `demo` do this for you). In local mode, connects to your running PostgreSQL and Neo4j instances.
 
 ```bash
-neoboard start
+neoboard start [--full] [--expose-host]
 ```
 
-No options. The mode is read from `.neoboard.local` (set during `init` or `setup`).
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--full` | `false` | Docker mode: also start the app container, and wait for it to be healthy. Without it, only the databases start. |
+| `--expose-host` | `false` | Docker mode with `--full` only: let the app container reach databases running on this machine (maps `host.docker.internal`; connect with `host.docker.internal` instead of `localhost`). Rejected without `--full` or in local mode. |
+
+The mode is read from `.neoboard.local` (set during `init` or `setup`).
 
 ```bash
 neoboard start
@@ -93,7 +98,7 @@ neoboard dev
 
 ## status
 
-Show the health of PostgreSQL, Neo4j, and the NeoBoard app. Displays mode, version, container count, and migration status.
+Show the health of PostgreSQL, Neo4j, and the NeoBoard app. Displays mode, version, container count, and the migrations bundled with this install. The `Migrations:` line counts the entries in the local migration journal (`app/drizzle/migrations/meta/_journal.json`). It does not query the database, so it can say "N applied" against an empty or out-of-date schema. When there is no checkout, as with a standalone `npx` install, it prints `no journal found`. To see what the database has actually applied, open `/api/health` while signed in as an admin and read `data.migrations` (`applied`, `expected`, `upToDate`).
 
 ```bash
 neoboard status
@@ -111,12 +116,12 @@ neoboard status
 # Neo4j        healthy (localhost:7687)
 # App          healthy (http://localhost:3000)
 #
-# Migrations:  12 applied (latest: 0012_add_sharing)
+# Migrations:  12 applied (latest: 0012_add_sharing)   (journal count, not database state)
 ```
 
 ## doctor
 
-Check that all prerequisites are met: Docker daemon, Docker Compose v2, Node.js version, port availability, `node_modules`, and `.env.local`. Exits with code 1 if any check fails in Docker mode. In local mode, Docker checks are downgraded to warnings.
+Check that all prerequisites are met: Docker daemon, Docker Compose v2, Node.js version, port availability, `node_modules`, `.env.local`, and whether `ENCRYPTION_KEY` decrypts the stored credentials. Exits with code 1 if any check fails, in either mode. Checks that can fail: Docker daemon, Docker Compose v2 (Docker mode only; in local mode they are downgraded to warnings), Node.js below 20, and an `ENCRYPTION_KEY` that cannot decrypt a stored credential. Busy ports, a missing `node_modules` and a missing `.env.local` are warnings only. The decryption check is skipped when there are no stored credentials yet, or when the key or database is unavailable.
 
 ```bash
 neoboard doctor
@@ -128,7 +133,7 @@ neoboard doctor
 
 ## demo
 
-Set up a full demo environment with sample data. Runs `setup`, then seeds Neo4j with graph data and PostgreSQL with a demo user and sample dashboards.
+Set up a full demo environment with sample data. Runs `setup`, then seeds Neo4j with the movie graph (skipped if the graph already has nodes) and PostgreSQL with demo `creator` and `reader` users (plus an `admin` user if the database has no users yet), four demo connections, the `neoboard_demo_public` e-commerce schema and the showcase dashboards.
 
 ```bash
 neoboard demo [--mode <docker|local>]
@@ -141,9 +146,12 @@ neoboard demo [--mode <docker|local>]
 ```bash
 neoboard demo
 # ...setup output...
+# Demo environment ready!
+#
 # Login credentials:
-#   Email:    admin@neoboard.local
-#   Password: admin123
+#   admin:    admin@neoboard.local / admin123
+#   creator:  creator@neoboard.local / creator123
+#   reader:   reader@neoboard.local / reader123 (read-only)
 ```
 
 ## env
@@ -157,7 +165,7 @@ neoboard env [--regenerate] [--validate]
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--regenerate` | `false` | Overwrite existing `.env.local` with fresh secrets. |
-| `--validate` | `false` | Check that all required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`) are set. |
+| `--validate` | `false` | Check that `app/.env.local` sets all required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `API_KEY_HMAC_SECRET`) to non-empty values. Their format is not checked. Local mode only. |
 
 ```bash
 # Generate .env.local (skips if it already exists)
@@ -297,7 +305,7 @@ neoboard plugin remove neo4j
 
 ## logs
 
-Tail Docker container logs. Available services: `postgres` (or `pg`), `neo4j`, `app`.
+Tail the database container logs. Available services: `postgres` (or `pg`) and `neo4j`. This command reads the databases-only compose file, so it does not show the app container started by `setup --full`, `demo` or `start --full`. For that container, use `docker logs -f neoboard-app`.
 
 ```bash
 neoboard logs [service] [-f] [-n <lines>]
@@ -305,12 +313,12 @@ neoboard logs [service] [-f] [-n <lines>]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `[service]` | all | Service to show logs for: `postgres`, `pg`, `neo4j`, or `app`. Omit for all. |
+| `[service]` | all | `postgres`, `pg` or `neo4j`. Omit for both databases. |
 | `-f, --follow` | `false` | Follow log output in real time. |
 | `-n, --lines <n>` | `50` | Number of lines to show. |
 
 ```bash
-# Last 50 lines from all containers
+# Last 50 lines from PostgreSQL and Neo4j
 neoboard logs
 
 # Follow PostgreSQL logs
@@ -322,7 +330,7 @@ neoboard logs neo4j -n 100
 
 ## db migrate
 
-Run Drizzle database migrations. Can also show migration status or preview what would be applied.
+Run Drizzle database migrations. `--status` and `--dry-run` only read the migration journal shipped with NeoBoard; they do not contact the database.
 
 ```bash
 neoboard db migrate [--status] [--to <version>] [--dry-run]
@@ -330,18 +338,18 @@ neoboard db migrate [--status] [--to <version>] [--dry-run]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--status` | `false` | Show applied migrations and their dates. |
+| `--status` | `false` | List the migrations shipped in the journal and when each was generated (does not read the database, so it cannot tell which are applied). |
 | `--to <version>` | latest | Target migration version (not yet fully supported). |
-| `--dry-run` | `false` | Preview migrations without applying them. |
+| `--dry-run` | `false` | List every migration in the journal without applying anything (does not check which are pending). |
 
 ```bash
 # Apply all pending migrations
 neoboard db migrate
 
-# Check what's been applied
+# List the migrations shipped with this version
 neoboard db migrate --status
 
-# Preview without applying
+# List migrations without applying any
 neoboard db migrate --dry-run
 ```
 

@@ -37,7 +37,7 @@ chore: update dependencies
 
 ## CI Requirements
 
-All PRs must pass:
+CI runs these checks on every PR:
 
 1. **Lint & Type Check** — ESLint + `tsc --noEmit`
 2. **Unit Tests** — Vitest (app, component) + Jest (connection)
@@ -48,4 +48,4 @@ All PRs must pass:
 
 - **CodeRabbit** automatically reviews PRs — address or dismiss all suggestions
 - **SonarQube** quality gate must pass
-- At least one human approval required before merge
+- Nothing in GitHub enforces these checks: there is no branch protection and there are no rulesets. A maintainer merges your PR once CI is green and the review feedback has been addressed. The maintainer's merge is the only sign-off.

@@ -15,22 +15,23 @@ Every user is assigned one of three roles.
 
 | Role | Dashboards | Connections | Users | Write Queries |
 |------|-----------|-------------|-------|---------------|
-| **Admin** | View, create, edit, delete | Manage all connections | Create and manage users | Yes (if enabled) |
-| **Creator** | View, create, edit, delete own | View connections | No access | Yes (if enabled) |
-| **Reader** | View only | No access | No access | No |
+| **Admin** | View, create, edit, delete | View, query and delete all tenant connections; edit own | Create and manage users | Yes, always (own connections only) |
+| **Creator** | View, create, edit, delete own | Add; edit or delete own; use shared | No access | Yes, if enabled (own connections only) |
+| **Reader** | View dashboards shared with them and public dashboards | Use shared connections (cannot add or modify) | No access | No |
 
-- **Admin** has full access to everything: dashboards, connections, user management, and settings.
-- **Creator** can build and edit dashboards and widgets. Creators can run queries against connections but cannot add or modify connections.
-- **Reader** can only view published dashboards. Readers cannot edit anything or run custom queries.
+- **Admin** has full access to dashboards, user management and settings, and can view, query and delete every connection in the tenant. Only a connection's owner can edit it.
+- **Creator** can build and edit dashboards and widgets, add connections, and edit or delete the connections they own. Creators can also run queries against connections an admin has shared; only admins can share a connection or manage other users' connections.
+- **Reader** can view dashboards shared with them and public dashboards, but cannot edit or create anything or manage connections. Readers can still run read-only queries: any query against a connection shared with the tenant, and on other connections only the queries in dashboards they can view. Keep sensitive databases on private connections if readers should not query them freely.
 
 ## Write Permission
 
-The **write permission** toggle is an additional control, separate from the role. It determines whether a user can execute write queries (e.g., `CREATE`, `INSERT`, `UPDATE`, `DELETE`).
+The **write permission** toggle is an additional control, separate from the role. It controls write queries (e.g., `CREATE`, `INSERT`, `UPDATE`, `DELETE`) and most of the changes a Creator can make.
 
-- When **enabled**, the user can run queries that modify data.
-- When **disabled**, the user is restricted to read-only queries, regardless of their role.
+- The toggle applies only to **Creators**. **Admins** always have write permission and **Readers** never do; their switch is fixed and cannot be changed.
+- When **enabled**, a Creator can run write queries through Form widgets on connections they own, and can create and change dashboards, widget templates and API keys.
+- When **disabled**, a Creator can still view dashboards and run read-only widget queries, but cannot run write queries, create, edit, import, duplicate or delete dashboards, save widget templates, or create or revoke API keys. It does not stop them from adding or editing connections or managing sharing on dashboards they already own.
 
-This is useful when you want a Creator to build dashboards but not modify the underlying data.
+Write queries only run against connections the user owns, whatever their role.
 
 ## Creating a User
 
@@ -48,7 +49,7 @@ The new user can now log in with their email and password.
 
 ## API Keys
 
-For programmatic access to NeoBoard, you can generate API keys.
+For programmatic access to NeoBoard, you can generate API keys. Creating a key needs write permission.
 
 ![Settings page](/screenshots/settings.png)
 

@@ -39,7 +39,7 @@ Dashboards can have multiple pages. Each page has independent widgets and layout
 
 - **Drag** widgets to reposition them
 - **Resize** by dragging widget edges
-- Minimum size: 2 columns by 2 rows
+- Widgets added from the editor start at 4 columns by 3 rows; there is no minimum size, so you can resize one down to a single grid cell
 - Layout is saved per page
 
 ## Permissions
@@ -47,12 +47,12 @@ Dashboards can have multiple pages. Each page has independent widgets and layout
 | Role | View | Edit | Delete | Share |
 |------|------|------|--------|-------|
 | Admin | All | All | All | All |
-| Creator | Own + shared | Own + shared (editor) | Own only | Own only |
-| Reader | Shared only | No | No | No |
+| Creator | Own, shared and public | Own + shared (editor), when write permission is on | Own only, when write permission is on | Own only |
+| Reader | Shared and public | No | No | No |
 
 ## Export and Import
 
-Dashboards can be exported as JSON and imported into other NeoBoard instances.
+Dashboards can be exported as JSON and imported into other NeoBoard instances. Admins can export any dashboard. Other users can export a dashboard only if they own every connection its widgets use. If a widget uses a shared connection or another user's connection, the export fails, even for users who can view the dashboard.
 
 **What the export includes:**
 - All widgets, queries, chart options, and layout
@@ -63,23 +63,30 @@ Dashboards can be exported as JSON and imported into other NeoBoard instances.
 
 ```json
 {
-  "name": "Sales Overview",
-  "pages": [
-    {
-      "name": "Page 1",
-      "widgets": [
-        {
-          "type": "bar",
-          "title": "Revenue by Month",
-          "connectionKey": "sales-db",
-          "query": "SELECT month, revenue FROM sales",
-          "layout": { "x": 0, "y": 0, "w": 6, "h": 4 }
-        }
-      ]
-    }
-  ],
+  "formatVersion": 1,
+  "exportedAt": "2026-09-01T00:00:00.000Z",
+  "dashboard": { "name": "Sales Overview", "description": null },
   "connections": {
-    "sales-db": { "name": "Sales DB", "type": "postgresql" }
+    "conn_0": { "name": "Sales DB", "type": "postgresql" }
+  },
+  "layout": {
+    "version": 2,
+    "pages": [
+      {
+        "id": "p1",
+        "title": "Page 1",
+        "widgets": [
+          {
+            "id": "w1",
+            "chartType": "bar",
+            "connectionId": "conn_0",
+            "query": "SELECT month, revenue FROM sales",
+            "settings": { "title": "Revenue by Month" }
+          }
+        ],
+        "gridLayout": [{ "i": "w1", "x": 0, "y": 0, "w": 6, "h": 4 }]
+      }
+    ]
   }
 }
 ```

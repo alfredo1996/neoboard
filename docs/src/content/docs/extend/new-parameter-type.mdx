@@ -13,7 +13,7 @@ A parameter type requires:
 1. Add to the `ParameterType` union
 2. Handle in the parameter store
 3. Create the widget component
-4. Add formatting logic
+4. Display the value
 5. Wire into the renderer
 
 ## Step 1: Define the Type
@@ -63,14 +63,11 @@ export function YourTypeWidget({
 
 **Boundary rule**: The component must be pure UI — no API calls, no stores.
 
-## Step 4: Add Formatting
+## Step 4: Display the Value
 
-In `app/src/lib/format-parameter-value.ts`, add formatting for query substitution:
+`formatParameterValue` in `app/src/lib/parameter/format-parameter-value.ts` turns a parameter value into the text shown in the dashboard parameter bar. It chooses a format from the value's shape, not from the parameter type: strings (including relative-date presets), numbers, booleans, `[min, max]` number pairs, other arrays, and `{ from, to }` objects are already handled. Add a branch only if your type stores a value shape that isn't on that list. Add a matching case in `__tests__/format-parameter-value.test.ts`.
 
-```typescript
-case "your-type":
-  return formatYourType(value);
-```
+This function has nothing to do with queries. Parameter values never enter query text. Neo4j binds `$param_xxx` natively. For PostgreSQL, `rewriteParamsForPostgres` swaps the placeholders for positional `$1, $2, …` and sends the values separately. Any shaping your type needs before it reaches a query belongs in the store's coercion (Step 2), never in string formatting.
 
 ## Step 5: Wire into Renderer
 

@@ -23,10 +23,11 @@ NeoBoard supports two database types: **Neo4j** (graph) and **PostgreSQL** (rela
 | **Username** | `neo4j` | Your Neo4j username |
 | **Password** | `password` | Your Neo4j password |
 | **Database** | `neo4j` | Optional. Defaults to the default database |
-| **Timeout** | `30` | Query timeout in seconds |
+
+Timeouts are optional and live under **Advanced Settings**, in milliseconds (1000–300000). Neo4j has Connection, Query and Acquisition timeouts. Queries time out after 30000 ms (30 s) unless you set Query Timeout. For TLS, use a `neo4j+s://` or `bolt+s://` URI.
 
 5. Click **Test Connection** to verify NeoBoard can reach your database.
-6. If the test passes, click **Create**.
+6. Click **Create**. The test is optional: NeoBoard saves the connection either way, tests it right after saving, and shows an **Error** badge if it cannot connect.
 
 ## Adding a PostgreSQL Connection
 
@@ -38,11 +39,16 @@ NeoBoard supports two database types: **Neo4j** (graph) and **PostgreSQL** (rela
 | Field | Example | Notes |
 |-------|---------|-------|
 | **Name** | Analytics DB | A label to identify this connection |
-| **URI** | `postgresql://user:pass@localhost:5432/mydb` | Full connection string |
-| **SSL** | Enabled/Disabled | Enable for production databases |
-| **Timeout** | `30` | Query timeout in seconds |
+| **URI** | `postgresql://localhost:5432/mydb` | Host, port and optional database. Do not include a username or password; the URI is rejected if it contains a password |
+| **Username** | `postgres` | Your PostgreSQL user (required) |
+| **Password** | `password` | Your PostgreSQL password (required) |
+| **Database** | `mydb` | Optional. Used only when the URI has no database path; defaults to `postgres` |
 
-5. Click **Test Connection** to verify, then click **Create**.
+Timeouts are optional and live under **Advanced Settings**, in milliseconds (1000–300000). PostgreSQL has Connection, Idle and Statement timeouts. Queries time out after 30000 ms (30 s) unless you set Statement Timeout.
+
+For TLS, add `?sslmode=require` to the URI to encrypt, or `?sslmode=verify-full` to encrypt and verify the certificate. Turning on **Reject Unauthorized SSL** under Advanced Settings also forces TLS with certificate verification, and it overrides the URI's `sslmode`.
+
+5. Optionally click **Test Connection** to verify, then click **Create**. NeoBoard saves the connection either way and shows an **Error** badge if it cannot connect.
 
 ## Troubleshooting
 
@@ -58,7 +64,7 @@ If NeoBoard and your database both run in Docker, use the **container name** ins
 
 ```
 bolt://neoboard-neo4j:7687
-postgresql://user:pass@neoboard-postgres:5432/mydb
+postgresql://neoboard-postgres:5432/mydb
 ```
 
 Containers on the same Docker network communicate by service name, not `localhost`.

@@ -43,7 +43,7 @@ NeoBoard is a monorepo with three packages plus a CLI. Each package has strict b
 | Charts | ECharts (modular imports) |
 | Graph | Neo4j NVL |
 | Maps | Leaflet |
-| State | Zustand (6 stores), TanStack Query |
+| State | Zustand (7 stores), TanStack Query |
 | Auth | Auth.js v5 (JWT sessions) |
 | ORM | Drizzle (PostgreSQL) |
 | Testing | Vitest, Playwright, Testcontainers |
@@ -54,7 +54,7 @@ NeoBoard is a monorepo with three packages plus a CLI. Each package has strict b
 When a widget renders its data, here is the full path:
 
 1. **Widget component** reads parameters from the Parameter Store (Zustand)
-2. **`useWidgetQuery` hook** merges parameters into the query and calls TanStack Query
+2. **`useWidgetQuery` hook** copies the Parameter Store values that the query references as `$param_xxx` into the request's `params` and calls TanStack Query. The query text is sent unchanged and parameter values are never inserted into it. The driver binds them (for PostgreSQL, the server only renames the `$param_xxx` placeholders to positional `$1, $2, …`)
 3. **TanStack Query** checks its cache. On miss, sends `POST /api/query`
 4. **API route** validates auth via `requireSession()`, decrypts connection credentials
 5. **Query Executor** gets or creates a cached connection module
@@ -76,8 +76,9 @@ NeoBoard uses **Zustand** for client-only state and **TanStack Query** for serve
 | Connection Store | Active connection ID, widget-to-connection mapping | Ephemeral |
 | Schema Store | Cached database schemas by connection ID | Ephemeral |
 | Graph Widget Store | Graph exploration state (nodes, edges, layout) | Ephemeral |
+| Connection Status Store | Live connection-test results (status and error) keyed by connection ID, kept across client-side navigation | Ephemeral (tab lifetime, deliberately not persisted) |
 
-**TanStack Query** manages all API data: dashboards list, connections, users, API keys, widget templates. Mutations use optimistic updates with automatic cache invalidation.
+**TanStack Query** manages all API data: dashboards list, connections, users, API keys, widget templates. There are no optimistic updates: a mutation that changes data invalidates the affected queries after the server confirms success, and the list refetches then.
 
 ## Plugin System
 
@@ -97,8 +98,8 @@ See the [Chart Plugin Guide](/extend/new-chart-plugin) to add your own.
 
 All routes are protected by `proxy.ts` (Next.js middleware):
 
-1. **Public routes** pass through: `/login`, `/signup`, `/api/auth/*`, `/api/docs`, `/api/openapi*`
-2. **API key requests** (`Authorization: Bearer nb_*`) pass through to server-side validation
+1. **Public routes** pass through without a session: `/login`, `/signup`, `/change-password`, `/api/auth/*`, `/api/docs`, `/api/openapi*` and `/api/health`. `/api/health` is the unauthenticated health probe. Anonymous callers get which known env vars are set or unset, config validation errors, and database status, never values. Admins also get version, migration and scheduler details.
+2. **API key requests** to `/api/*` (`Authorization: Bearer nb_*`) pass through to server-side validation. Page routes still need a session.
 3. **Unauthenticated page requests** redirect to `/login`
 4. **Unauthenticated API requests** return `401 JSON`
 5. **Authenticated requests** continue to the route handler
@@ -107,15 +108,15 @@ Inside route handlers, `requireSession()` extracts the user's `userId`, `role`, 
 
 ## Multi-Tenancy
 
-Every data table includes a `tenant_id` column. All queries filter by the authenticated user's tenant. See [Multi-Tenancy](/security/multi-tenancy) for details.
+The application tables carry a `tenant_id` column. The Auth.js adapter tables (`account`, `session` and `verificationToken`) do not. Each route writes its own tenant filter into its queries, using the tenant from the session. Nothing adds that filter automatically at the ORM or middleware level. A test-time check fails the build when a query on a tenant table has no tenant filter, unless the query is on its list of reviewed exceptions. The list covers instance-wide operations such as key rotation and the first-admin check, the API-key lookup that establishes the tenant, and queries narrowed by the caller's own user id or by a row that is already tenant-scoped. See [Multi-Tenancy](/security/multi-tenancy) for details.
 
 ## Security
 
-- **Credentials**: AES-256-GCM envelope encryption. Lost `ENCRYPTION_KEY` = unrecoverable.
+- **Credentials**: AES-256-GCM, with the 64-character hex `ENCRYPTION_KEY` used directly as the key (no key derivation, no envelope); each value is stored as `iv:authTag:ciphertext`. Covers connection credentials and SSO client secrets. `ENCRYPTION_KEY_OLD` plus the admin rotate-key endpoint handles [rotation](/security/credential-encryption). Lost `ENCRYPTION_KEY` = unrecoverable.
 - **Queries**: Always parameterized. User input never interpolated into query strings.
 - **Read-only**: PostgreSQL uses `BEGIN TRANSACTION READ ONLY`. Neo4j uses `session.executeRead()`.
 - **Timeouts**: Enforced at driver level (statement timeout for PostgreSQL, transaction timeout for Neo4j).
-- **Rate limiting**: Login attempts limited to 20 per minute per IP.
+- **Rate limiting**: password sign-in allows 20 attempts per minute and signup 10, counted per client address; the public `bootstrap-status` and `sso-providers` endpoints allow 60. Counters live in memory in each server process, so they reset on restart and are not shared across replicas. The client address is the first `X-Forwarded-For` value, and requests without that header share one bucket. A client can send its own `X-Forwarded-For` to change its key, so put NeoBoard behind a reverse proxy that overwrites the header.
 
 ## Further reading
 

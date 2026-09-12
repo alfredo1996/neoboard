@@ -211,7 +211,7 @@ A small set of NeoDash query helpers (e.g. `$neodash_dashboardTitle`) are not cu
 ### Features that differ
 
 - **Graph visualization** — NeoDash uses `neovis.js`; NeoBoard uses Neo4j NVL (newer, more performant)
-- **Authentication** — NeoDash relies on Neo4j auth; NeoBoard has its own user management + SSO
+- **Authentication** — NeoDash relies on Neo4j auth; NeoBoard has its own user management, plus OIDC [single sign-on](/security/sso) in the enterprise edition
 - **Deployment** — NeoDash is a standalone React app; NeoBoard is a full Next.js application with its own PostgreSQL metadata database
 
 ## Bulk migration
@@ -227,7 +227,7 @@ for file in neodash-exports/*.json; do
     -d "{
       \"payload\": $(cat "$file"),
       \"connectionMapping\": {
-        \"\": \"your-neoboard-connection-id\"
+        \"neodash-default\": \"your-neoboard-connection-id\"
       }
     }"
   echo " <- imported $file"

@@ -13,8 +13,8 @@ Connectors are the bridge between NeoBoard and your databases. Each connector st
 
 | Database | Protocol | Query Language |
 |----------|----------|---------------|
-| Neo4j | `bolt://`, `neo4j://` | Cypher |
-| PostgreSQL | `postgresql://` | SQL |
+| Neo4j | `bolt://`, `bolt+s://`, `bolt+ssc://`, `neo4j://`, `neo4j+s://`, `neo4j+ssc://` | Cypher |
+| PostgreSQL | `postgresql://`, `postgres://` | SQL |
 
 ## Setting Up a Connection
 
@@ -30,33 +30,36 @@ Connectors are the bridge between NeoBoard and your databases. Each connector st
 | Username | Database user | `neo4j` |
 | Password | Database password | `password` |
 
-4. Click **Test Connection** to verify connectivity
-5. Click **Save**
+4. Optionally, click **Test Connection** to verify connectivity
+5. Click **Create**
 
 ## Connection Lifecycle
 
 1. **Create** — you provide URI, username, and password
 2. **Encrypt** — credentials are encrypted with AES-256-GCM before storage
-3. **Test** — NeoBoard verifies connectivity before saving
+3. **Test** — NeoBoard checks connectivity automatically right after you click **Create**, and you can check first with **Test Connection** in the dialog. Saving doesn't wait for the check: an unreachable connection is still saved and shows an **Error** badge. You can re-run the check later from the connection card.
 4. **Pool** — a connection pool is created on first query
 5. **Cache** — the pool is reused for subsequent queries to the same database
 
 ## Credential Security
 
-- Credentials are encrypted at rest using AES-256-GCM (envelope encryption with HKDF-SHA256)
+- Credentials are encrypted at rest with AES-256-GCM, using `ENCRYPTION_KEY` (32 bytes, hex) directly as the key; each value gets a random IV and is stored as `iv:authTag:ciphertext`
 - Plaintext credentials are never logged or stored
 - If `ENCRYPTION_KEY` is lost, all stored credentials become unrecoverable
 
 ## Advanced Settings
 
-| Setting | Description | Default |
-|---------|-------------|---------|
-| Connection Timeout | Time to establish a connection | 30s |
-| Query Timeout | Maximum query execution time | 30s |
-| Max Pool Size | Maximum concurrent connections | 10 |
-| Idle Timeout | Time before idle connections close | 10s |
-| Statement Timeout | PostgreSQL statement timeout | (query timeout) |
-| SSL Reject Unauthorized | Verify SSL certificates | true |
+All values are in milliseconds. A field left blank uses the default shown.
+
+| Setting | Applies to | Description | Default |
+|---------|------------|-------------|---------|
+| Connection Timeout (ms) | Neo4j / PostgreSQL | Time to establish a connection | 30000 / 10000 |
+| Query Timeout (ms) | Neo4j (PostgreSQL uses it when Statement Timeout is unset) | Maximum query execution time | 30000 |
+| Statement Timeout (ms) | PostgreSQL | Statement timeout for queries, introspection and health checks | Query Timeout, else 30000 |
+| Max Pool Size | Neo4j / PostgreSQL | Maximum concurrent connections (1-100) | 100 / 10 |
+| Acquisition Timeout (ms) | Neo4j | Time to wait for a free pooled connection | Connection Timeout + 5000 (35000) |
+| Idle Timeout (ms) | PostgreSQL | Time before idle connections close | 10000 |
+| Reject Unauthorized SSL | PostgreSQL | Verify the server's TLS certificate. On: encrypt and verify. Off, once the toggle has been changed: encrypt without verifying, whatever the URI says | Unset (the toggle starts off and is not saved until you change it): follows the URI's `sslmode`. `disable` means no TLS, `allow`/`prefer`/`require` encrypt without verifying, `verify-ca`/`verify-full` verify. With no `sslmode`, no TLS unless the server's `PGSSLMODE` environment variable says otherwise |
 
 ## Schema Introspection
 

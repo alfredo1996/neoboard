@@ -36,8 +36,7 @@ LIMIT 100
 |--------|------|---------|-------------|
 | Enable Sorting | boolean | true | Allow clicking column headers to sort rows |
 | Row Selection | boolean | false | Allow selecting individual rows by clicking |
-| Global Search | boolean | true | Show a search box that filters across all columns |
-| Column Filters | boolean | true | Show per-column filter inputs below each header |
+| Column Filters | boolean | false | Show per-column filter inputs below each header |
 | Column Resizing | boolean | false | Allow drag-to-resize column borders |
 | Enable Pagination | boolean | true | Show Previous/Next controls for paging |
 | Page Size | number | 10 | Number of rows shown per page |
@@ -48,6 +47,6 @@ LIMIT 100
 
 ## Tips
 
-- Combine Global Search with Column Filters for power users who need to drill into specific column values.
+- Turn on Column Filters for power users who need to drill into specific column values.
 - Enable Row Grouping with an aggregation function to create summary views without changing your query.
 - Set Page Size to match your widget height -- 10-15 rows is typical for a half-height widget.

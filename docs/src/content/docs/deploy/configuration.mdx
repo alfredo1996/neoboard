@@ -20,12 +20,18 @@ API_KEY_HMAC_SECRET="your-64-char-hex-key-here"
 NEXTAUTH_URL="http://localhost:3000"
 ```
 
-Generate every secret at once — including `ADMIN_BOOTSTRAP_TOKEN`, which you need
-minutes later to create the first admin account:
+`neoboard init --mode local` (or `neoboard setup --mode local`) generates every secret into
+`app/.env.local`, including `ADMIN_BOOTSTRAP_TOKEN`, which you need minutes later to create
+the first admin account. It prints the token, so keep the output:
 
 ```bash
-neoboard env
+neoboard init --mode local
 ```
+
+Once local mode is set, `neoboard env --regenerate` mints a fresh set, but be careful: a new
+`ENCRYPTION_KEY` makes stored credentials undecryptable. In Docker mode, the default when
+`.neoboard.local` is absent, `neoboard env` does nothing. Instead, the CLI writes the secrets
+to `docker/.env` on the first `neoboard setup`, `neoboard start --full` or `neoboard demo`.
 
 Or by hand:
 
@@ -57,7 +63,7 @@ Startup validation fails fast if any of these is missing or malformed — you ge
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEXTAUTH_URL` | Public URL of the instance. Required behind a reverse proxy so callback URLs are built correctly | `http://localhost:3000` |
+| `NEXTAUTH_URL` | Public URL of the instance. Set it to your public URL when running behind a reverse proxy so callback URLs are built correctly | Unset in the app: auth URLs are derived from the request host, and page metadata falls back to `http://localhost:3000`. The Compose files and the `neoboard` CLI set `http://localhost:<app port>` (3000 by default), which overrides the request host until you change it |
 | `TENANT_ID` | Tenant for single-tenant deployments | `default` |
 | `SESSION_MAX_AGE` | Session lifetime in seconds | `28800` (8 hours) |
 | `REGISTRATION_ENABLED` | Allow open signup. Closed by default — only the first-user bootstrap works when unset | `false` |
@@ -68,7 +74,7 @@ Startup validation fails fast if any of these is missing or malformed — you ge
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `FORCE_HTTPS` | Redirect plain HTTP to HTTPS. **On by default in production** — set to `false` only if your proxy cannot forward `X-Forwarded-Proto` | `true` |
+| `FORCE_HTTPS` | Redirect plain HTTP to HTTPS (a 301 whenever `X-Forwarded-Proto` is not `https`). **On by default in production** — set to `false` only if your proxy cannot forward `X-Forwarded-Proto`. Requests addressed to `localhost`, `127.0.0.1`, `0.0.0.0` or a private IPv4 address (`10.x`, `172.16–31.x`, `192.168.x`) are never redirected, so an instance reached directly by a private IP serves plain HTTP | `true` |
 | `ENCRYPTION_KEY_OLD` | Previous encryption key, needed only during [key rotation](#how-to-rotate-zero-data-loss) | unset |
 
 ### Database and migrations
@@ -89,7 +95,7 @@ Each connection gets its own priority queue with per-user fairness and backpress
 | `QUERY_MAX_PER_USER` | Max parallel queries per user, per connection | `5` |
 | `QUERY_MAX_QUEUE_DEPTH` | Queued queries before new work is rejected with HTTP 503 | `200` |
 | `QUERY_QUEUE_TIMEOUT_MS` | Max wait in the queue before giving up | `15000` |
-| `QUERY_SHED_THRESHOLD` | Queue fill ratio (0–1) above which background auto-refresh is shed to protect interactive queries | `0.8` |
+| `QUERY_SHED_THRESHOLD` | Queue fill ratio (0–1) above which new P3 work (requests sent with `x-query-priority: 3`) is shed to protect higher tiers. The UI sends no priority header, so its reads are never shed | `0.8` |
 
 Invalid values fall back to the default rather than failing the boot.
 
@@ -167,14 +173,14 @@ neoboard config set ports.app 3100
 :::note
 `ports.*` remaps the **host** side in both modes — the compose files read these values, so a busy 5432 or 7474 is fixed with `neoboard config set` rather than by editing YAML. Container-side ports stay fixed, since service-to-service URLs inside the compose network depend on them.
 
-Restart the stack for a change to take effect: `neoboard stop && neoboard start`.
+Restart for a change to take effect. In Docker mode run `neoboard stop && neoboard start --full` (add `--expose-host` if you use it). A plain `neoboard start` brings back only the databases. In local mode, stop the running `neoboard dev` with Ctrl+C and run `neoboard dev` again. It restarts the database containers on the new ports.
 :::
 
 ## Validating your configuration
 
 ```bash
-neoboard env --validate    # check the .env file for missing/malformed values
-curl -s localhost:3000/api/health | jq .data.config
+neoboard env --validate    # local mode only: check that app/.env.local sets each required variable (presence only; does nothing in Docker mode)
+curl -s localhost:3000/api/health | jq '.data | {errors, config}'
 ```
 
-`/api/health` reports each variable as `set` or `unset` — never its value — so it is safe to expose to an uptime probe. See [Monitoring](/deploy/monitoring).
+`--validate` checks presence only. The format rules (64-character hex `ENCRYPTION_KEY`, secrets of at least 32 characters) run when the app boots, and any failures show up in `/api/health` under `data.errors`. `data.config` reports each variable as `set` or `unset`, never its value, so it is safe to expose to an uptime probe. See [Monitoring](/deploy/monitoring).

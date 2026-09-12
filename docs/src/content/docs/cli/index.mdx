@@ -15,7 +15,7 @@ The NeoBoard CLI handles project setup, database management, and service lifecyc
 | Mode | Command | What it does |
 |------|---------|-------------|
 | **Docker** (default) | `neoboard setup` | Runs everything in containers -- app, PostgreSQL, Neo4j |
-| **Local + Docker DBs** | `neoboard setup --mode local` | App runs locally with Node.js, databases in Docker |
+| **Local** | `neoboard setup --mode local` | App runs locally with Node.js. Setup installs dependencies, writes `app/.env.local`, and runs migrations, but it does not start any databases: PostgreSQL and Neo4j must already be running (for example `docker compose up -d`). Then run `neoboard dev` to start the dev server. It restarts the databases in Docker if they have stopped. |
 | **Fully local** | `neoboard init --mode local` | Install deps and generate config -- bring your own PostgreSQL and Neo4j |
 
 ## Prerequisites
@@ -39,7 +39,7 @@ The NeoBoard CLI handles project setup, database management, and service lifecyc
 | `neoboard doctor` | Check prerequisites: Docker, Node.js, ports, env file. |
 | `neoboard demo` | Full setup + seed demo data and sample dashboards. |
 | `neoboard env` | Generate or validate `app/.env.local`. |
-| `neoboard logs` | Tail Docker container logs. |
+| `neoboard logs` | Tail the PostgreSQL and Neo4j container logs. |
 
 ### Config Commands
 

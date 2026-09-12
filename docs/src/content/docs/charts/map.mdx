@@ -47,12 +47,13 @@ FROM locations
 | Attribution | text | *(empty)* | Plain-text credit shown in the map corner for a custom tile server |
 | Invert Tiles in Dark Mode | boolean | true | Flip a light basemap to dark in dark mode. Untick for a tileset that is already dark |
 | Default Zoom | number | 3 | Initial zoom level (1 = world, 18 = street level) |
-| Min Zoom | number | 0 | Minimum zoom level the user can zoom out to. 0 fits the whole world in a small card |
+| Min Zoom | number | 2 | Minimum zoom level the user can zoom out to. Set 0 so a world-spanning map fits in a small card |
 | Max Zoom | number | 18 | Maximum zoom level the user can zoom in to |
 | Auto-fit Bounds | boolean | true | Automatically pan and zoom to fit all markers on load |
 | Marker Size (px) | number | 6 | Radius of each marker circle in pixels |
 | Cluster Markers | boolean | false | Group nearby markers into cluster badges at lower zoom levels |
-| Show Popup on Click | boolean | true | Show a popup with row data when clicking a marker |
+
+Hovering a marker shows its row's columns in a tooltip; clicking a marker runs the widget's click action, if one is configured.
 
 ## Basemap tiles
 
