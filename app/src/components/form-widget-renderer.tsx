@@ -328,6 +328,21 @@ function FieldInput({
 
 // ─── Main renderer ────────────────────────────────────────────────────────────
 
+/**
+ * The seed queries behind a widget's option lists (use-seed-query.ts), read
+ * where use-widget-save.ts stores them: a parameter selector's under
+ * chartOptions, a form's on each of its fields.
+ */
+function seedQueriesOf(settings: Record<string, unknown> | undefined) {
+  const chartOptions = settings?.chartOptions as
+    | { seedQuery?: unknown }
+    | undefined;
+  const formFields = (settings?.formFields as FormFieldDef[] | undefined) ?? [];
+  return [chartOptions?.seedQuery, ...formFields.map((f) => f.seedQuery)].filter(
+    (q): q is string => typeof q === "string",
+  );
+}
+
 export function FormWidgetRenderer({
   connectionId,
   query,
@@ -576,9 +591,7 @@ export function FormWidgetRenderer({
                 w.query,
               ],
             });
-            // A parameter selector's options are its seed query (use-seed-query.ts).
-            const seedQuery = w.settings?.seedQuery;
-            if (typeof seedQuery === "string") {
+            for (const seedQuery of seedQueriesOf(w.settings)) {
               void queryClient.invalidateQueries({
                 queryKey: ["param-seed", w.connectionId, seedQuery],
               });

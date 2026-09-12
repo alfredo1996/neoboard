@@ -70,6 +70,8 @@ import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { useSeedQuery } from "@/hooks/use-seed-query";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useParameterStore } from "@/stores/parameter-store";
+import { parameterSelectSettingsSchema } from "@/plugins/parameter-select/settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 const target: DashboardWidget = {
   id: "w-target",
@@ -101,19 +103,51 @@ const paramTarget: DashboardWidget = {
   connectionId: "conn-1",
   query: "MATCH (n:T) WHERE n.r = $param_region RETURN n",
 };
-// A dropdown listing what the form creates: its options are a seed query.
+// Targets in the shape use-widget-save.ts stores them. A dropdown listing what
+// the form creates: its options are the seed query under chartOptions.
 const selectTarget: DashboardWidget = {
   id: "w-select-target",
   chartType: "parameter-select",
   connectionId: "conn-1",
   query: "",
   settings: {
-    parameterName: "who",
-    parameterType: "select",
-    seedQuery: "MATCH (n:T) RETURN n.name",
+    chartOptions: {
+      parameterName: "who",
+      parameterType: "select",
+      seedQuery: "MATCH (n:T) RETURN n.name",
+    },
+  },
+};
+// Another form whose select field lists what this form creates.
+const formTarget: DashboardWidget = {
+  id: "w-form-target",
+  chartType: "form",
+  connectionId: "conn-3",
+  query: "CREATE (:Visit {person: $param_person})",
+  settings: {
+    chartOptions: {},
+    formFields: [
+      {
+        id: "f-person",
+        label: "person",
+        parameterName: "person",
+        parameterType: "select",
+        seedQuery: "MATCH (p:Person) RETURN p.name",
+        required: false,
+      } as FormFieldDef,
+    ],
   },
 };
 const queryWidgets = [target, onOtherPage, bystander, paramTarget];
+
+/** The seed query each option-backed target's own renderer runs. */
+const selectSeed = safeParseSettings(
+  parameterSelectSettingsSchema,
+  selectTarget.settings?.chartOptions,
+  "parameter-select",
+).seedQuery as string;
+const formFieldSeed = (formTarget.settings?.formFields as FormFieldDef[])[0]
+  .seedQuery as string;
 const form: DashboardWidget = {
   id: "w-form",
   chartType: "form",
@@ -134,14 +168,11 @@ function WidgetProbe({ widget }: Readonly<{ widget: DashboardWidget }>) {
   return null;
 }
 
-function SeedProbe({ widget }: Readonly<{ widget: DashboardWidget }>) {
-  useSeedQuery(
-    widget.connectionId,
-    widget.settings?.seedQuery as string,
-    false,
-    { param_search: "" },
-    "t1",
-  );
+function SeedProbe({
+  connectionId,
+  seedQuery,
+}: Readonly<{ connectionId: string; seedQuery: string }>) {
+  useSeedQuery(connectionId, seedQuery, false, { param_search: "" }, "t1");
   return null;
 }
 
@@ -160,7 +191,14 @@ function renderDashboard(refreshWidgetIds: string[]) {
       {queryWidgets.map((w) => (
         <WidgetProbe key={w.id} widget={w} />
       ))}
-      <SeedProbe widget={selectTarget} />
+      <SeedProbe
+        connectionId={selectTarget.connectionId}
+        seedQuery={selectSeed}
+      />
+      <SeedProbe
+        connectionId={formTarget.connectionId}
+        seedQuery={formFieldSeed}
+      />
       <FormWidgetRenderer
         connectionId={form.connectionId}
         query={form.query}
@@ -179,7 +217,8 @@ function renderDashboard(refreshWidgetIds: string[]) {
  */
 function invalidatedWidgets(): string[] {
   const byQuery = new Map(queryWidgets.map((w) => [w.query, w.id]));
-  byQuery.set(selectTarget.settings?.seedQuery as string, selectTarget.id);
+  byQuery.set(selectSeed, selectTarget.id);
+  byQuery.set(formFieldSeed, formTarget.id);
   return queryClient
     .getQueryCache()
     .getAll()
@@ -210,7 +249,7 @@ beforeEach(() => {
       {
         id: "p2",
         title: "Two",
-        widgets: [onOtherPage, selectTarget],
+        widgets: [onOtherPage, selectTarget, formTarget],
         gridLayout: [],
       },
     ],
@@ -234,6 +273,7 @@ describe("FormWidgetRenderer — refresh widgets after submit (#1799)", () => {
       "w-other-page",
       "w-param-target",
       "w-select-target",
+      "w-form-target",
       "w-deleted",
     ]);
     expect(invalidatedWidgets()).toEqual([]);
@@ -254,6 +294,7 @@ describe("FormWidgetRenderer — refresh widgets after submit (#1799)", () => {
         ),
     ).toBe(true);
     expect(invalidatedWidgets()).toEqual([
+      "w-form-target",
       "w-other-page",
       "w-param-target",
       "w-select-target",
@@ -284,13 +325,8 @@ describe("FormWidgetRenderer — refresh widgets after submit (#1799)", () => {
         ).length;
       function Mounted() {
         useWidgetQuery({ connectionId: "conn-1", query: paramTarget.query });
-        useSeedQuery(
-          "conn-1",
-          selectTarget.settings?.seedQuery as string,
-          true,
-          undefined,
-          "t1",
-        );
+        useSeedQuery("conn-1", selectSeed, true, undefined, "t1");
+        useSeedQuery("conn-3", formFieldSeed, true, undefined, "t1");
         return null;
       }
       render(
@@ -310,7 +346,11 @@ describe("FormWidgetRenderer — refresh widgets after submit (#1799)", () => {
                 } as FormFieldDef,
               ],
               chartOptions: {
-                refreshWidgetIds: ["w-param-target", "w-select-target"],
+                refreshWidgetIds: [
+                  "w-param-target",
+                  "w-select-target",
+                  "w-form-target",
+                ],
               },
             }}
           />
@@ -318,7 +358,8 @@ describe("FormWidgetRenderer — refresh widgets after submit (#1799)", () => {
       );
       await vi.waitFor(() => {
         expect(queriesRun(paramTarget.query)).toBe(1);
-        expect(queriesRun(selectTarget.settings?.seedQuery as string)).toBe(1);
+        expect(queriesRun(selectSeed)).toBe(1);
+        expect(queriesRun(formFieldSeed)).toBe(1);
         expect(queryClient.isFetching()).toBe(0);
       });
 
@@ -326,7 +367,8 @@ describe("FormWidgetRenderer — refresh widgets after submit (#1799)", () => {
 
       await vi.waitFor(() => {
         expect(queriesRun(paramTarget.query)).toBe(2);
-        expect(queriesRun(selectTarget.settings?.seedQuery as string)).toBe(2);
+        expect(queriesRun(selectSeed)).toBe(2);
+        expect(queriesRun(formFieldSeed)).toBe(2);
       });
     } finally {
       vi.unstubAllGlobals();
@@ -337,7 +379,12 @@ describe("FormWidgetRenderer — refresh widgets after submit (#1799)", () => {
     mockMutate.mockImplementation((_p: unknown, opts: MutateOptions) =>
       opts.onError(new Error("boom")),
     );
-    renderDashboard(["w-target", "w-param-target", "w-select-target"]);
+    renderDashboard([
+      "w-target",
+      "w-param-target",
+      "w-select-target",
+      "w-form-target",
+    ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
