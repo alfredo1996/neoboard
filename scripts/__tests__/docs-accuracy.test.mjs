@@ -1552,3 +1552,26 @@ describe("security claims the code does not back (#1790)", () => {
     expect(text).not.toMatch(claim);
   });
 });
+
+describe("no deploy page says the prod compose files drop MIGRATE_ON_START (#1796)", () => {
+  // docker-compose.prod.yml and prod-full.yml forward it (prod-compose-env.test.mjs).
+  // [\s#]+ between words, so neither a re-flowed line nor a `#` comment
+  // continuation in a code block can bring the old claim back unnoticed.
+  const DEPLOY = DOCS.filter(({ path }) =>
+    path.startsWith("docs/src/content/docs/deploy/"),
+  );
+
+  it("reads the deploy pages", () => {
+    expect(DEPLOY.map(({ path }) => path)).toContain(
+      "docs/src/content/docs/deploy/deployment-checklist.mdx",
+    );
+  });
+
+  it.each([
+    /do[\s#]+not[\s#]+forward[\s#]+`?MIGRATE_ON_START/i,
+    /does[\s#]+not[\s#]+pass[\s#]+an[\s#]+override/i,
+    /add[\s#]+`MIGRATE_ON_START:\s*\$\{MIGRATE_ON_START:-1\}`/i,
+  ])("no page claims %s", (claim) => {
+    for (const { path, text } of DEPLOY) expect(text, path).not.toMatch(claim);
+  });
+});

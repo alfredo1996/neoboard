@@ -240,10 +240,9 @@ To migrate NeoBoard from one server to another:
    # and POSTGRES_PASSWORD. Never put these in docker/.env, which the CLI owns.
    cp .env.source docker/.env.production.local
 
-   # The image boots with MIGRATE_ON_START=1 and the compose file does not pass
-   # an override, so starting the app now would create the schema on the empty
-   # database and the restore in step 4 would collide with it. Start only
-   # PostgreSQL.
+   # The app migrates at boot by default (MIGRATE_ON_START=1), so starting it
+   # now would create the schema on the empty database and the restore in
+   # step 4 would collide with it. Start only PostgreSQL.
    docker compose --env-file docker/.env.production.local \
      -f docker/docker-compose.prod-full.yml up -d postgres
    ```

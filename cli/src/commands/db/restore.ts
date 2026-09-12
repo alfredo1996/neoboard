@@ -223,12 +223,11 @@ export async function runDbRestore(
       );
     }
 
-    // The production image bakes MIGRATE_ON_START=1 (Dockerfile) and no
-    // compose file passes an override, so reading the env file would report
-    // "off" for an instance that is definitely on. Whether the app ANSWERS is
-    // the honest check: a live app has already created the schema, will
-    // migrate again on restart, and holds connections that block DROP
-    // DATABASE.
+    // The production image bakes MIGRATE_ON_START=1 (Dockerfile) and the prod
+    // compose files forward it with that same default, so an env file that
+    // never mentions it still means "on". Whether the app ANSWERS is the
+    // honest check: a live app has already created the schema, will migrate
+    // again on restart, and holds connections that block DROP DATABASE.
     if (!opts.force && isAppReady()) {
       throw new Error(
         "NeoBoard is running and boots with MIGRATE_ON_START enabled — it " +

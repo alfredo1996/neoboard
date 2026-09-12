@@ -95,13 +95,9 @@ If a deployment fails — the commands are for Docker Compose; under systemd, st
 2. **Restore the previous image.** Start it with `MIGRATE_ON_START=0`: the
    image defaults to `1`, and migrations are **forward-only**, so an older
    binary booting against a newer schema will try to migrate and can fail in a
-   worse state than it started.
-
-   The shipped compose files (`docker-compose.prod.yml`, `docker-compose.prod-full.yml`)
-   do not forward `MIGRATE_ON_START`, so prefixing `docker compose` with it has no
-   effect and the container keeps the image's `1`. Add
-   `MIGRATE_ON_START: ${MIGRATE_ON_START:-1}` under the `neoboard` service's
-   `environment:` in the compose file you use first.
+   worse state than it started. The shipped compose files forward
+   `MIGRATE_ON_START` to the app container, so prefixing `docker compose` with it
+   is enough.
 
    ```bash
    NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:previous-version \
@@ -138,10 +134,9 @@ Always create a database backup **before** upgrading NeoBoard, especially if the
 container applies pending migrations as it starts; set it to `0` to boot without
 migrating. A build you run yourself has no such default — set it to `1` explicitly, as [Run from a build](/deploy/run-from-a-build) does, or the schema is never created.
 
-The shipped compose files do not forward `MIGRATE_ON_START`, so prefixing
-`docker compose` with it has no effect and the container keeps the image's `1`.
-Add `MIGRATE_ON_START: ${MIGRATE_ON_START:-1}` to the `neoboard` service's
-`environment:` first; then this boots without migrating:
+The shipped compose files (`docker-compose.prod.yml`, `docker-compose.prod-full.yml`)
+forward `MIGRATE_ON_START` to the app container with the image's default of `1`,
+so this boots without migrating:
 
 ```bash
 MIGRATE_ON_START=0 docker compose -f docker/docker-compose.prod.yml up -d
