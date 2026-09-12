@@ -309,7 +309,8 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
 
   /**
    * owner/repo, from the image the prod compose files pull. release.yml
-   * publishes ghcr.io/${{ github.repository }}, so it is the GitHub repo too.
+   * publishes ghcr.io/<github.repository, lowercased> (#1780), so it is the
+   * GitHub repo too.
    */
   const ownerRepo = () => {
     const m = /ghcr\.io\/([\w-]+)\/([\w-]+):latest/.exec(readDoc(PROD_COMPOSE));
@@ -319,9 +320,13 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
 
   it("names only the image release.yml publishes", () => {
     const { owner, repo } = ownerRepo();
-    expect(readDoc(".github/workflows/release.yml")).toContain(
-      "images: ghcr.io/${{ github.repository }}",
+    const release = readDoc(".github/workflows/release.yml");
+    expect(release).toContain(
+      `echo "name=ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"`,
     );
+    expect(release).toContain("images: ${{ steps.image.outputs.name }}");
+    // ghcr only ever holds the lowercase name; a mixed-case ref fails to pull.
+    expect(`${owner}/${repo}`).toBe(`${owner}/${repo}`.toLowerCase());
     // Badges URL-encode the slash (ghcr.io%2Fowner%2Frepo).
     const text = readme().replace(/%2F/gi, "/");
     const at = [...text.matchAll(/ghcr\.io/g)].map((m) => m.index);

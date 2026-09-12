@@ -117,11 +117,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # OCI references must be lowercase. metadata-action lowercases what it
+      # pushes, but cosign and Trivy take the ref verbatim, so an owner with
+      # an uppercase letter would push fine and then fail to sign (#1780).
+      # Computed once; every step below reads this, never github.repository.
+      - name: Compute the image name
+        id: image
+        run: |
+          echo "name=ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ steps.image.outputs.name }}
           # latest=false here; the conditional type=raw below owns it, fed by
           # the release job's Classify step.
           flavor: |
@@ -177,7 +186,7 @@ jobs:
       #     --certificate-identity-regexp '/\.github/workflows/release\.yml@'
       - name: Sign the image
         env:
-          IMAGE: ghcr.io/${{ github.repository }}
+          IMAGE: ${{ steps.image.outputs.name }}
           DIGEST: ${{ steps.build.outputs.digest }}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
@@ -212,7 +221,7 @@ jobs:
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         with:
-          image-ref: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
           format: sarif
           output: trivy-results.sarif
           severity: HIGH,CRITICAL
