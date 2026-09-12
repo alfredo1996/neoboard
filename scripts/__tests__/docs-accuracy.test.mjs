@@ -1543,6 +1543,8 @@ describe("security claims the code does not back (#1790)", () => {
     ["security/sso.mdx", /does not read that name yet/, "proxy.ts reads the session cookie under the name Auth.js uses (#1792)"],
     ["deploy/production.mdx", /sign-in over HTTPS is broken|only reads `authjs\.session-token`/i, "proxy.ts reads the session cookie under the name Auth.js uses (#1792)"],
     ["security/credential-encryption.mdx", /only accepted on a plain-HTTP instance|does not read that name yet/, "proxy.ts reads the session cookie under the name Auth.js uses (#1792)"],
+    ["deploy/production.mdx", /`X-Forwarded-Proto: https`, or `NEXTAUTH_URL`/, "a set NEXTAUTH_URL/AUTH_URL alone decides the cookie name; X-Forwarded-Proto counts only when neither is set (createActionURL, proxy.ts)"],
+    ["security/credential-encryption.mdx", /__Secure-authjs\.session-token=<value>"` on HTTPS/, "the __Secure- name follows NEXTAUTH_URL's scheme when it is set, not the request's (createActionURL, proxy.ts)"],
   ];
 
   it.each(CLAIMS)("%s no longer claims %s", (page, claim) => {

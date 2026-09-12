@@ -73,6 +73,6 @@ docker compose --env-file docker/.env.production.local -f docker/docker-compose.
 
 The HTTPS redirect is **on by default** in production. Terminate TLS at your reverse proxy ([nginx, Caddy and Traefik examples](/deploy/reverse-proxy)) and make sure it forwards `X-Forwarded-Proto`; set `FORCE_HTTPS=false` only if it cannot.
 
-When the proxy sends `X-Forwarded-Proto: https`, or `NEXTAUTH_URL` is an `https://` URL, Auth.js names the session cookie `__Secure-authjs.session-token`, and the request proxy reads the session under that same name.
+Auth.js takes the protocol from `NEXTAUTH_URL` (or `AUTH_URL`) when either is set, and only otherwise from the request and its `X-Forwarded-Proto` header. When that protocol is https, it names the session cookie `__Secure-authjs.session-token`, and NeoBoard's request proxy reads the session under the same name. The Compose files always set `NEXTAUTH_URL`, so there its scheme decides.
 
 Then work through the [Deployment Checklist](/deploy/deployment-checklist) — resource limits, log rotation, backups, and monitoring — before going live.

@@ -48,6 +48,23 @@ const cases: Case[] = [
     env: { AUTH_URL: "http://neoboard.internal:3000" },
     cookie: PLAIN,
   },
+  {
+    name: "AUTH_URL wins over NEXTAUTH_URL",
+    url: "http://neoboard.internal:3000/connections",
+    env: {
+      AUTH_URL: "http://neoboard.internal:3000",
+      NEXTAUTH_URL: "https://neoboard.example.com",
+    },
+    cookie: PLAIN,
+  },
+  {
+    // The Compose default behind a TLS proxy: NEXTAUTH_URL=http://localhost:3000.
+    name: "http NEXTAUTH_URL wins over X-Forwarded-Proto",
+    url: "http://neoboard.internal:3000/connections",
+    headers: { "x-forwarded-proto": "https" },
+    env: { NEXTAUTH_URL: "http://neoboard.internal:3000" },
+    cookie: PLAIN,
+  },
 ];
 
 function stubEnv(env: Record<string, string> = {}) {
