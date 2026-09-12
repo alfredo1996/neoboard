@@ -22,6 +22,7 @@ import {
   type RelativeDatePreset,
 } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
+import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
 import {
@@ -558,8 +559,23 @@ export function FormWidgetRenderer({
           if (chartOptions.resetOnSuccess !== false) {
             setLocalValues({});
           }
-          for (const id of refreshWidgetIds) {
-            queryClient.invalidateQueries({ queryKey: ["widget-query", id] });
+          // Widget queries are keyed by what they run, never by widget id
+          // (#1799): resolve each id to its widget and invalidate the prefix
+          // the card's refresh button uses (dashboard-container.tsx).
+          const targets = new Set(refreshWidgetIds);
+          const widgets = useDashboardStore
+            .getState()
+            .layout.pages.flatMap((p) => p.widgets)
+            .filter((w) => targets.has(w.id));
+          for (const w of widgets) {
+            void queryClient.invalidateQueries({
+              queryKey: [
+                "widget-query",
+                w.connectionId,
+                w.database ?? null,
+                w.query,
+              ],
+            });
           }
         },
         onError: (err) => {

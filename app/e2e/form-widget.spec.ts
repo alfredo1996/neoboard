@@ -349,22 +349,24 @@ test.describe("Form widget", () => {
   }) => {
     // This test creates TWO widgets with query execution, so it needs extra time
     test.setTimeout(60_000);
-    // Add a table widget first — as a Data Table, explicitly. Left on the
-    // default Bar Chart, any FormRefreshNode an earlier run's submit left in the
-    // shared Neo4j comes back as one-column rows, and the preview shows
-    // "Incompatible data format" instead of a table or "No data" (#1767).
+    // The target counts nodes carrying this run's own name, so it reads 0
+    // until this submit and exactly 1 after it — nodes other runs leave in
+    // the shared Neo4j can't make the refresh assertion pass (#1787).
+    const nodeName = `Refresh ${Date.now()}-${test.info().workerIndex}`;
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const tableDialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await tableDialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option", { name: "Data Table" }).click();
+    await page.getByRole("option", { name: "Single Value" }).click();
     await tableDialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
       tableDialog,
       page,
-      "MATCH (n:FormRefreshNode) RETURN n.name AS name LIMIT 10",
+      "MATCH (n:FormRefreshNode) WHERE n.name = '" +
+        nodeName +
+        "' RETURN count(n) AS total",
     );
     // Set title for easy identification
     await tableDialog.getByLabel("Widget Title").fill("Refresh Target");
@@ -373,14 +375,9 @@ test.describe("Form widget", () => {
       tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
     ).toBeEnabled({ timeout: 10_000 });
     await tableDialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
-    // The Data Table preview is a table if earlier runs left FormRefreshNode
-    // rows, or the host's "No data" status (#1584) if there are none; either
-    // way the widget mounted.
     await expect(
-      tableDialog
-        .locator("[data-testid='base-chart'], [role='status'], table")
-        .first(),
-    ).toBeVisible({ timeout: 15_000 });
+      tableDialog.locator("[data-testid='single-value-chart'] .tabular-nums"),
+    ).toHaveText("0", { timeout: 15_000 });
 
     await tableDialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(tableDialog).not.toBeVisible();
@@ -433,16 +430,23 @@ test.describe("Form widget", () => {
       timeout: 15_000,
     });
 
+    // The target has loaded its pre-submit count.
+    const targetValue = page
+      .getByTestId("widget-card")
+      .filter({ hasText: "Refresh Target" })
+      .locator("[data-testid='single-value-chart'] .tabular-nums");
+    await expect(targetValue).toHaveText("0", { timeout: 15_000 });
+
     // Wait for background requests to complete (dev mode StrictMode double-fetch)
     await page.waitForLoadState("networkidle");
     // Retry fill until the value survives StrictMode's double-render cycle.
     // The 1s pause inside lets any pending remount fire before we verify.
     const nameInput = page.getByRole("textbox", { name: "name" });
     await expect(async () => {
-      await nameInput.fill("RefreshTestNode");
+      await nameInput.fill(nodeName);
       // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1_000);
-      await expect(nameInput).toHaveValue("RefreshTestNode");
+      await expect(nameInput).toHaveValue(nodeName);
     }).toPass({ timeout: 10_000 });
 
     // Listen for the write query API response (tighten matcher to this form's POST)
@@ -462,6 +466,9 @@ test.describe("Form widget", () => {
     await expect(page.getByText("Form submitted successfully")).toBeVisible({
       timeout: 15_000,
     });
+
+    // And the target refetched without a reload: it now counts this submit.
+    await expect(targetValue).toHaveText("1", { timeout: 15_000 });
   });
 
   test("form field should be pre-populated from a parameter-select widget", async ({
