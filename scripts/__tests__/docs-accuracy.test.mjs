@@ -59,13 +59,89 @@ const DOCS = docsFiles();
  * in a link pattern matches nothing after the org transfer (#1213), and a
  * check over no links passes (#1781).
  */
-function ownerRepo() {
+function ownerRepo(root = ROOT) {
   const compose = "docker/docker-compose.prod-full.yml";
   const m = /ghcr\.io\/([\w-]+)\/([\w-]+):latest/.exec(
-    readFileSync(join(ROOT, compose), "utf8"),
+    readFileSync(join(root, compose), "utf8"),
   );
   if (!m) throw new Error(`${compose} no longer names a ghcr image`);
   return { owner: m[1], repo: m[2] };
+}
+
+/** `git grep -noE` over tracked files as { path, line, match }; [] when nothing matches. */
+function gitGrep(pattern, pathspecs, { root = ROOT, ignoreCase = false } = {}) {
+  let out = "";
+  try {
+    out = execFileSync(
+      "git",
+      ["grep", ignoreCase ? "-noiE" : "-noE", pattern, "--", ...pathspecs],
+      { cwd: root, encoding: "utf8" },
+    );
+  } catch (e) {
+    if (e.status !== 1) throw e; // 1 = no matches, anything else is real
+  }
+  return out
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [path, line, ...rest] = l.split(":");
+      return { path, line, match: rest.join(":") };
+    });
+}
+
+const SITE_LINK_PATHS = ["app/src", "cli", "README.md", "PLUGINS.md"];
+
+/**
+ * The links under root that name this repo: its Pages site (from the app, the
+ * CLI and the READMEs) and files on a GitHub ref (from the docs), with what is
+ * wrong with them. Takes a root so the owner rename can be rehearsed in a copy.
+ *
+ * Any owner matches, in any case (GitHub and Pages hosts ignore it): a link a
+ * partial rename left on the old owner is dead once Pages moves, and a pattern
+ * spelled with the new owner would never see it (#1781).
+ */
+function repoLinks(root = ROOT) {
+  const { owner, repo } = ownerRepo(root);
+  const opts = { root, ignoreCase: true };
+  const pages = gitGrep(
+    `[A-Za-z0-9-]+\\.github\\.io/${repo}/[A-Za-z0-9_./-]*`,
+    SITE_LINK_PATHS,
+    opts,
+  );
+  const blobs = gitGrep(
+    `github\\.com/[A-Za-z0-9-]+/${repo}/(blob|tree)/(release/)?[^/[:space:])]+`,
+    ["docs/src/content/docs"],
+    opts,
+  );
+  const ownerOf = ({ match }) =>
+    /^(?:github\.com\/)?([\w-]+)/i.exec(match)[1].toLowerCase();
+  const foreign = (links) =>
+    links
+      .filter((l) => ownerOf(l) !== owner.toLowerCase())
+      .map(
+        ({ path, line, match }) => `${match} (${path}:${line}) is not ${owner}`,
+      );
+  const mine = (links) =>
+    links.filter((l) => ownerOf(l) === owner.toLowerCase());
+  return {
+    pages: mine(pages).map(({ path, line, match }) => ({
+      path,
+      line,
+      slug: match.slice(match.indexOf("/") + 1 + repo.length),
+    })),
+    // A pattern that matches nothing is stale, not a clean tree (#1781).
+    siteProblems: [
+      ...(pages.length ? [] : [`no link to *.github.io/${repo}`]),
+      ...foreign(pages),
+    ],
+    branchProblems: [
+      ...(blobs.length ? [] : [`no github.com/*/${repo} blob/tree link`]),
+      ...foreign(blobs),
+      ...mine(blobs)
+        .filter(({ match }) => /\/(blob|tree)\/release\//i.test(match))
+        .map(({ path, line, match }) => `${match} (${path}:${line})`),
+    ],
+  };
 }
 
 /** Every `backticked` span in the docs, with the file it came from. */
@@ -492,25 +568,6 @@ describe("the seven-group information architecture (#1681)", () => {
     "/developer/contributing/testing",
     "/developer/contributing/pr-workflow",
   ];
-  /** `git grep -noE` over tracked files as { path, line, match }; [] when nothing matches. */
-  const gitGrep = (pattern, pathspecs) => {
-    let out = "";
-    try {
-      out = execFileSync("git", ["grep", "-noE", pattern, "--", ...pathspecs], {
-        cwd: ROOT,
-        encoding: "utf8",
-      });
-    } catch (e) {
-      if (e.status !== 1) throw e; // 1 = no matches, anything else is real
-    }
-    return out
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => {
-        const [path, line, ...rest] = l.split(":");
-        return { path, line, match: rest.join(":") };
-      });
-  };
 
   it("has exactly the seven groups, in reading order, one directory each", () => {
     const sidebar = config.slice(config.indexOf("sidebar:"));
@@ -609,24 +666,26 @@ describe("the seven-group information architecture (#1681)", () => {
     // that never existed (the page was /concepts/widgets) and one the redirect
     // map did not know either — so the app shipped a 404 in its own help link.
     const covered = new Set([...slugs, ...redirects.map(([from]) => from)]);
-    const { owner, repo } = ownerRepo();
-    const hosts = ["neoboard.app/docs", `${owner}.github.io/${repo}`];
-    const links = gitGrep(
-      `(${hosts.join("|").replaceAll(".", "\\.")})/[A-Za-z0-9_./-]*`,
-      ["app/src", "cli", "README.md", "PLUGINS.md"],
+    const site = gitGrep(
+      "neoboard\\.app/docs/[A-Za-z0-9_./-]*",
+      SITE_LINK_PATHS,
     );
-    // A host that matches nothing is a stale pattern, not a clean tree (#1781).
-    expect(
-      hosts.filter((h) => !links.some(({ match }) => match.startsWith(h))),
-    ).toEqual([]);
-    const dead = links
-      .map(({ path, line, match }) => ({
+    expect(site.length).toBeGreaterThan(0);
+    const { pages, siteProblems } = repoLinks();
+    expect(siteProblems).toEqual([]);
+    const dead = [
+      ...site.map(({ path, line, match }) => ({
         path,
         line,
-        slug: match
-          .slice(hosts.find((h) => match.startsWith(h)).length)
-          // The site root is index.mdx, whose pageSlug is "" (#1217).
-          .replace(/\/+$/, ""),
+        slug: match.slice("neoboard.app/docs".length),
+      })),
+      ...pages,
+    ]
+      // The site root is index.mdx, whose pageSlug is "" (#1217).
+      .map(({ path, line, slug }) => ({
+        path,
+        line,
+        slug: slug.replace(/\/+$/, ""),
       }))
       .filter(({ slug }) => !covered.has(slug))
       .map(({ path, line, slug }) => `${slug} (${path}:${line})`);
@@ -669,20 +728,81 @@ describe("the seven-group information architecture (#1681)", () => {
   it("links to GitHub on a branch that still moves", () => {
     // developer/index.mdx pointed ARCHITECTURE.md at release/1.1, a branch
     // that stopped receiving commits three releases ago.
+    expect(repoLinks().branchProblems).toEqual([]);
+  });
+
+  // The two checks above, rehearsed on a copy where the org transfer (#1213)
+  // renamed the owner: in the compose image, in the links, or in some of them.
+  const NEXT_OWNER = "graphwave-consulting";
+  const rehearse = ({
+    compose = (t) => t.replaceAll(ownerRepo().owner, NEXT_OWNER),
+    links = (t) => t.replaceAll(ownerRepo().owner, NEXT_OWNER),
+    plugins = "",
+    page = "",
+  } = {}) => {
+    const dir = mkdtempSync(join(tmpdir(), "neoboard-1781-"));
+    try {
+      for (const [file, edit, extra] of [
+        ["docker/docker-compose.prod-full.yml", compose, ""],
+        ["PLUGINS.md", links, plugins],
+        ["docs/src/content/docs/extend/architecture.mdx", links, page],
+      ]) {
+        mkdirSync(dirname(join(dir, file)), { recursive: true });
+        writeFileSync(
+          join(dir, file),
+          edit(readFileSync(join(ROOT, file), "utf8")) + extra,
+        );
+      }
+      execFileSync("git", ["init", "-q"], { cwd: dir, stdio: "ignore" });
+      execFileSync("git", ["add", "-A"], { cwd: dir, stdio: "ignore" });
+      const { siteProblems, branchProblems } = repoLinks(dir);
+      return [...siteProblems, ...branchProblems];
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it("follows the owner the compose image names, and fails when its links match nothing (#1781)", () => {
+    const { repo } = ownerRepo();
+    const keep = (t) => t;
+    expect(rehearse({ compose: keep, links: keep })).toEqual([]);
+    expect(rehearse()).toEqual([]);
+    // Links renamed, compose not: the checks must not pass over no links.
+    expect(rehearse({ compose: keep })).not.toEqual([]);
+    // Every link moved off the pattern: a stale pattern, not a clean tree.
+    expect(
+      rehearse({
+        links: (t) =>
+          t
+            .replaceAll(ownerRepo().owner, NEXT_OWNER)
+            .replaceAll(`/${repo}/`, `/${repo}-next/`),
+      }),
+    ).toEqual([expect.stringMatching(/^no /), expect.stringMatching(/^no /)]);
+  });
+
+  it("reports a link the rename left on the old owner (#1781)", () => {
+    // Pages URLs do not redirect after a transfer: the old host is a 404.
     const { owner, repo } = ownerRepo();
-    const refs = DOCS.flatMap(({ path, text }) =>
-      [
-        ...text.matchAll(
-          new RegExp(
-            `github\\.com/${owner}/${repo}/(?:blob|tree)/((?:release/)?[^/\\s)]+)`,
-            "g",
-          ),
-        ),
-      ].map((m) => `${m[1]} (${path})`),
-    );
-    // No links at all means the pattern went stale, not that none are frozen (#1781).
-    expect(refs.length).toBeGreaterThan(0);
-    expect(refs.filter((r) => r.startsWith("release/"))).toEqual([]);
+    expect(
+      rehearse({
+        plugins: `\n[old](https://${owner}.github.io/${repo}/extend/)\n`,
+        page: `\n[old](https://github.com/${owner}/${repo}/blob/dev/ARCHITECTURE.md)\n`,
+      }),
+    ).toEqual([
+      expect.stringContaining(`${owner}.github.io/${repo}/extend/`),
+      expect.stringContaining(`github.com/${owner}/${repo}/blob/dev`),
+    ]);
+  });
+
+  it("matches the owner in any case, as GitHub and Pages do (#1781)", () => {
+    // Compose must spell the owner in lowercase; a link need not, nor its host.
+    const { repo } = ownerRepo();
+    expect(
+      rehearse({
+        plugins: `\n[x](https://GraphWave-Consulting.GitHub.io/${repo}/no-such-page/)\n`,
+        page: `\n[x](https://GitHub.com/GraphWave-Consulting/${repo}/blob/release/1.1/ARCHITECTURE.md)\n`,
+      }),
+    ).toEqual([expect.stringContaining("blob/release/1.1")]);
   });
 });
 
