@@ -1542,6 +1542,8 @@ describe("security claims the code does not back (#1790)", () => {
     ["deploy/monitoring.mdx", /docker compose -f docker\/docker-compose\.prod/, "prod compose files have :? required variables, so --env-file is needed"],
     ["security/sso.mdx", /^\| Login loops back to \/login \|(?![^\n]*__Secure)/m, "proxy.ts getToken reads only the non-secure cookie name"],
     ["deploy/production.mdx", /### 5\. Put it behind TLS(?![\s\S]*__Secure)/, "proxy.ts getToken reads only the non-secure cookie name"],
+    ["deploy/deployment-checklist.mdx", /do not forward `MIGRATE_ON_START`/, "the prod compose files forward MIGRATE_ON_START (#1796)"],
+    ["deploy/backup-restore.mdx", /compose file does not pass\s+#?\s*an override/, "the prod compose files forward MIGRATE_ON_START (#1796)"],
   ];
 
   it.each(CLAIMS)("%s no longer claims %s", (page, claim) => {

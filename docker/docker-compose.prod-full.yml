@@ -142,6 +142,10 @@ services:
       OIDC_ENFORCE_SSO: ${OIDC_ENFORCE_SSO:-}
       # ── Key rotation (see app/.env.example for the runbook) ──
       ENCRYPTION_KEY_OLD: ${ENCRYPTION_KEY_OLD:-}
+      # ── Migrations ──
+      # Applied at boot, as the image does. MIGRATE_ON_START=0 boots without
+      # migrating: only to roll back to an older image or restore a dump first.
+      MIGRATE_ON_START: ${MIGRATE_ON_START:-1}
     depends_on:
       postgres:
         condition: service_healthy
