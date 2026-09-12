@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { unwrapResponse } from "@/lib/api/api-client";
+import { unwrapFullResponse, unwrapResponse } from "@/lib/api/api-client";
 import { SaveError } from "@/lib/dashboard/save-error";
 import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
 
@@ -62,14 +62,44 @@ export interface DashboardShareItem {
   userRole: "admin" | "creator" | "reader";
 }
 
-export function useDashboards(limit = 100, offset = 0) {
+/** Asked for per page; the server may grant less (its MAX_LIMIT), and the hook steps by what it granted. */
+const LIST_PAGE_SIZE = 1000;
+
+async function loadAllDashboards() {
+  const page = async (offset: number) =>
+    unwrapFullResponse<DashboardListItem[]>(
+      await fetch(`/api/dashboards?limit=${LIST_PAGE_SIZE}&offset=${offset}`),
+    );
+  const first = await page(0);
+  const total = Number(first.meta?.total ?? first.data.length);
+  const step = Number(first.meta?.limit) || first.data.length;
+  const offsets: number[] = [];
+  for (let o = step; step > 0 && o < total; o += step) offsets.push(o);
+  const rest = await Promise.all(offsets.map(page));
+  // An update between page requests shifts later offsets by a row: one row
+  // arrives twice (kept once per id) and another is skipped (caught below).
+  const rows = [first, ...rest].flatMap((p) => p.data);
+  return { rows: [...new Map(rows.map((d) => [d.id, d])).values()], total };
+}
+
+/**
+ * Every dashboard the user can see, across as many pages as `meta.total` says
+ * (#1789). The list page searches and checks duplicate names over this, so a
+ * first page alone hid everything past it.
+ *
+ * ponytail: loads the whole list; fine for a few thousand. Past that, move
+ * search and the duplicate-name check to the server and paginate the grid.
+ */
+export function useDashboards() {
   return useQuery<DashboardListItem[]>({
-    queryKey: ["dashboards", limit, offset],
+    queryKey: ["dashboards", "list"],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/dashboards?limit=${limit}&offset=${offset}`,
-      );
-      return unwrapResponse<DashboardListItem[]>(res);
+      const load = await loadAllDashboards();
+      // Fewer unique rows than the total means a mid-load update skipped one;
+      // load once more. ponytail: one retry, the next refetch covers a second race.
+      return load.rows.length < load.total
+        ? (await loadAllDashboards()).rows
+        : load.rows;
     },
   });
 }

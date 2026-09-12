@@ -37,6 +37,47 @@ test.describe("Dashboard CRUD", () => {
     }
   });
 
+  test("lists and finds dashboards past the first 100 (#1789)", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    // Names only this run knows, deleted by id however the test ends.
+    const run = `List Cap ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const nameOf = (i: number) => `${run} #${String(i).padStart(3, "0")}`;
+    const oldest = nameOf(0);
+    const newest = nameOf(100);
+    const ids: string[] = [];
+
+    try {
+      // One at a time, so #000 is the least and #100 the most recently updated.
+      for (let i = 0; i <= 100; i++) {
+        const res = await page.request.post("/api/dashboards", {
+          data: { name: nameOf(i) },
+        });
+        expect(res.status()).toBe(201);
+        ids.push((await res.json()).data.id as string);
+      }
+
+      await page.goto("/");
+      await expect(page.getByText(newest, { exact: true })).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(page.getByText(oldest, { exact: true })).toBeVisible();
+
+      const search = page.getByRole("searchbox", { name: "Search dashboards" });
+      for (const name of [oldest, newest]) {
+        await search.fill(name);
+        await expect(page.getByText(name, { exact: true })).toBeVisible();
+        // The search narrowed the 101 down to this one.
+        await expect(page.getByText(run)).toHaveCount(1);
+      }
+    } finally {
+      await Promise.all(
+        ids.map((id) => page.request.delete(`/api/dashboards/${id}`)),
+      );
+    }
+  });
+
   test("should open dashboard in view mode", async ({ page }) => {
     await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
