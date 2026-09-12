@@ -576,6 +576,13 @@ export function FormWidgetRenderer({
                 w.query,
               ],
             });
+            // A parameter selector's options are its seed query (use-seed-query.ts).
+            const seedQuery = w.settings?.seedQuery;
+            if (typeof seedQuery === "string") {
+              void queryClient.invalidateQueries({
+                queryKey: ["param-seed", w.connectionId, seedQuery],
+              });
+            }
           }
         },
         onError: (err) => {
