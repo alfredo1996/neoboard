@@ -102,11 +102,10 @@ test.describe("Dashboard viewer — uncovered states", () => {
     page,
   }) => {
     // Create a fresh dashboard
+    const name = `Self-Save Test ${Date.now()}`;
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog");
-    await dialog
-      .locator("#dashboard-name")
-      .fill(`Self-Save Test ${Date.now()}`);
+    await dialog.locator("#dashboard-name").fill(name);
     const [created] = await Promise.all([
       page.waitForResponse(
         (r) =>
@@ -119,14 +118,34 @@ test.describe("Dashboard viewer — uncovered states", () => {
     ]);
     // The id from the create response, deleted however the test ends (#1784).
     const dashboardId = (await created.json()).data.id as string;
+    const versionKey = `__nb_dash_ver_${dashboardId}`;
 
     try {
       await page.waitForURL(/\/edit/, { timeout: 15_000 });
 
-      // Save — bumps version 1 → 2 server-side. With #904's fix, the hook's
+      // Create lands in edit mode, which stores no version baseline. Visit
+      // view mode first so it does; without one, a missing #904 fix shows the
+      // banner only when view mode happens to render the cached pre-save
+      // version before the refetch (#1787).
+      await page.goto(`/${dashboardId}`);
+      const editButton = page.getByRole("button", {
+        name: "Edit",
+        exact: true,
+      });
+      await expect(editButton).toBeVisible({ timeout: 15_000 });
+      await page.waitForFunction(
+        (k) => sessionStorage.getItem(k) !== null,
+        versionKey,
+      );
+      await editButton.click();
+      await expect(
+        page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+
+      // Save — bumps the version server-side. With #904's fix, the hook's
       // onSuccess writes the new version to sessionStorage so the subsequent
       // view-mode load sees a fresh baseline and doesn't fire the banner.
-      await Promise.all([
+      const [saved] = await Promise.all([
         page.waitForResponse(
           (r) =>
             /\/api\/dashboards\/[\w-]+$/.test(r.url()) &&
@@ -136,6 +155,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
         ),
         page.getByRole("button", { name: "Save" }).click(),
       ]);
+      const savedVersion = String((await saved.json()).data.version);
 
       // Leave edit → view mode (the route where the version-bump effect runs)
       await page.getByRole("button", { name: /Back/ }).click();
@@ -148,9 +168,12 @@ test.describe("Dashboard viewer — uncovered states", () => {
         page.getByRole("button", { name: "Edit", exact: true }),
       ).toBeVisible({ timeout: 10_000 });
 
-      // Wait briefly for the version-bump effect to settle. Banner would
-      // appear in the same paint if the bug were present.
-      await page.waitForTimeout(500);
+      // View mode's baseline is now the saved version: written by #904's fix
+      // on save, or by the version-bump effect as it raises the banner.
+      await page.waitForFunction(
+        ([k, v]) => sessionStorage.getItem(k) === v,
+        [versionKey, savedVersion],
+      );
 
       // Critical assertion: NO "Dashboard updated by" banner
       await expect(page.getByText(/Dashboard updated by/i)).toHaveCount(0);
