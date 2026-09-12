@@ -73,8 +73,6 @@ docker compose --env-file docker/.env.production.local -f docker/docker-compose.
 
 The HTTPS redirect is **on by default** in production. Terminate TLS at your reverse proxy ([nginx, Caddy and Traefik examples](/deploy/reverse-proxy)) and make sure it forwards `X-Forwarded-Proto`; set `FORCE_HTTPS=false` only if it cannot.
 
-:::caution[Browser sign-in over HTTPS is broken until #1792 is fixed]
-On HTTPS, Auth.js names the session cookie `__Secure-authjs.session-token`, and the request proxy only reads `authjs.session-token` ([#1792](https://github.com/alfredo1996/neoboard/issues/1792)). Until that is fixed, a user who signs in over HTTPS is sent back to `/login` on every page, and API calls authenticated by the browser session return `401`. API keys are not affected.
-:::
+When the proxy sends `X-Forwarded-Proto: https`, or `NEXTAUTH_URL` is an `https://` URL, Auth.js names the session cookie `__Secure-authjs.session-token`, and the request proxy reads the session under that same name.
 
 Then work through the [Deployment Checklist](/deploy/deployment-checklist) — resource limits, log rotation, backups, and monitoring — before going live.
