@@ -219,6 +219,36 @@ describe("runStart", () => {
     logSpy.mockRestore();
   });
 
+  it("on app healthcheck timeout, points at the app container's logs, not `neoboard logs` (#1797)", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockWaitForHealth
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("Timeout waiting for app"));
+
+    await runStart({ full: true });
+
+    // `neoboard logs` reads the databases-only compose file: it cannot show
+    // the app container, which is the one that just failed.
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("See logs:  docker logs --tail 100 neoboard-app");
+    expect(logged).not.toContain("neoboard logs -f");
+
+    logSpy.mockRestore();
+  });
+
+  it("full-stack banner tells the user where the app container's logs are (#1797)", async () => {
+    await runStart({ full: true });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines).toContain("App logs:   docker logs -f neoboard-app");
+  });
+
+  it("DB-only banner has no app-logs line: there is no app container (#1797)", async () => {
+    await runStart({ full: false });
+    const lines = mockBanner.mock.calls[0][0];
+    expect(lines.some((l) => l.includes("neoboard-app"))).toBe(false);
+  });
+
   it("returns true when everything starts", async () => {
     await expect(runStart({ full: true })).resolves.toBe(true);
   });
