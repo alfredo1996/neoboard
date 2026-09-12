@@ -252,7 +252,7 @@ plugin
 
 program
   .command("logs [service]")
-  .description("Tail Docker container logs (services: postgres, neo4j, app)")
+  .description("Tail database container logs (services: postgres, pg, neo4j)")
   .option("-f, --follow", "Follow log output", false)
   .option("-n, --lines <n>", "Number of lines to show", "50")
   .action(async (service, opts) => {

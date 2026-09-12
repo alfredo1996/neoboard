@@ -112,6 +112,9 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
       failName: "NeoBoard app",
       // App poll only runs in docker mode, so localHint is unused
       localHint: "",
+      // `neoboard logs` reads the databases-only compose file and cannot
+      // show this container (#1797).
+      logsHint: "docker logs --tail 100 neoboard-app",
       mode,
     });
     if (!appOk) return false;
@@ -170,6 +173,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     "",
     `Stop:       neoboard stop`,
     `Logs:       neoboard logs -f`,
+    ...(appRunning ? ["App logs:   docker logs -f neoboard-app"] : []),
   ]);
   if (appRunning) {
     success(`Open ${url} in your browser`);
@@ -190,6 +194,7 @@ async function checkHealthOrFail(opts: {
   label: string;
   failName: string;
   localHint: string;
+  logsHint?: string;
   mode: "docker" | "local";
 }): Promise<boolean> {
   try {
@@ -201,7 +206,7 @@ async function checkHealthOrFail(opts: {
       process.exitCode = 1;
       return false;
     }
-    failWithHints(`${opts.failName} failed to start`);
+    failWithHints(`${opts.failName} failed to start`, opts.logsHint);
     return false;
   }
 }
@@ -211,10 +216,13 @@ async function checkHealthOrFail(opts: {
  * process for a non-zero exit. Centralizes the "what to do next" message
  * for any docker-mode healthcheck timeout.
  */
-function failWithHints(reason: string): void {
+function failWithHints(
+  reason: string,
+  logsHint = "neoboard logs -f",
+): void {
   error(reason);
   console.log("");
-  console.log("  See logs:  neoboard logs -f");
+  console.log(`  See logs:  ${logsHint}`);
   console.log("  Diagnose:  neoboard doctor");
   process.exitCode = 1;
 }

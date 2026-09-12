@@ -109,6 +109,13 @@ describe("CLI program", () => {
     expect(opts).toContain("--force");
   });
 
+  it("logs --help names only the services runLogs accepts (#1797)", () => {
+    const logsCmd = program.commands.find((c) => c.name() === "logs");
+    expect(logsCmd!.description()).toMatch(
+      /\(services: postgres, pg, neo4j\)$/,
+    );
+  });
+
   it("stop has --volumes option", () => {
     const stopCmd = program.commands.find((c) => c.name() === "stop");
     const opts = stopCmd!.options.map((o) => o.long);
