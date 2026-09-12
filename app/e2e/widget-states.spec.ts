@@ -7,27 +7,23 @@ import {
 } from "./fixtures";
 
 test.describe("Widget editor", () => {
+  // Each test's own dashboard, deleted by id afterwards (#1784).
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+    dashboardCleanup = undefined;
+  });
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    // Create a fresh dashboard to avoid test pollution from other specs.
-    // Await POST before asserting URL to avoid the create-then-wait race.
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
-    await dialog.locator("#dashboard-name").fill("Widget States Test");
-    await Promise.all([
-      page.waitForResponse(
-        (r) =>
-          r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST" &&
-          r.status() === 201,
-        { timeout: 10_000 },
-      ),
-      dialog.getByRole("button", { name: "Create" }).click(),
-    ]);
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+    const name = `Widget States ${Date.now()}`;
+    const { id, cleanup } = await createTestDashboard(page.request, name);
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
     await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+      page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test.describe("uncovered states", () => {

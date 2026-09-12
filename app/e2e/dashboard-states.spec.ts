@@ -1,4 +1,11 @@
-import { test, expect, ALICE, saveDashboard, typeInEditor } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  saveDashboard,
+  typeInEditor,
+} from "./fixtures";
 
 test.describe("Dashboard viewer — uncovered states", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -40,31 +47,26 @@ test.describe("Dashboard viewer — uncovered states", () => {
   test("should show empty state when dashboard has no widgets", async ({
     page,
   }) => {
-    // Create a new empty dashboard. Awaits the POST before asserting URL
-    // to avoid the create-then-wait race.
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.locator("#dashboard-name").fill("Empty State Test");
-    await Promise.all([
-      page.waitForResponse(
-        (r) =>
-          r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST" &&
-          r.status() === 201,
-        { timeout: 10_000 },
-      ),
-      dialog.getByRole("button", { name: "Create" }).click(),
-    ]);
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
-    // Save the empty dashboard, and wait for it to land before leaving (#1767)
-    await saveDashboard(page);
-    // Go to view mode
-    await page.getByRole("button", { name: /Back/ }).click();
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    // Should show empty state
-    await expect(page.getByText("No widgets yet")).toBeVisible({
-      timeout: 10_000,
-    });
+    // Its own empty dashboard, deleted by id however the test ends (#1784).
+    const name = `Empty State ${Date.now()}`;
+    const { id, cleanup } = await createTestDashboard(page.request, name);
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(
+        page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+      // Save the empty dashboard, and wait for it to land before leaving (#1767)
+      await saveDashboard(page);
+      // Go to view mode
+      await page.getByRole("button", { name: /Back/ }).click();
+      await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+      // Should show empty state
+      await expect(page.getByText("No widgets yet")).toBeVisible({
+        timeout: 10_000,
+      });
+    } finally {
+      await cleanup();
+    }
   });
 
   test("should navigate to dashboard and display content", async ({ page }) => {
@@ -100,7 +102,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
     await dialog
       .locator("#dashboard-name")
       .fill(`Self-Save Test ${Date.now()}`);
-    await Promise.all([
+    const [created] = await Promise.all([
       page.waitForResponse(
         (r) =>
           r.url().endsWith("/api/dashboards") &&
@@ -110,64 +112,61 @@ test.describe("Dashboard viewer — uncovered states", () => {
       ),
       dialog.getByRole("button", { name: "Create" }).click(),
     ]);
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+    // The id from the create response, deleted however the test ends (#1784).
+    const dashboardId = (await created.json()).data.id as string;
 
-    // Capture the dashboard id for later assertions / cleanup.
-    const editUrl = page.url();
-    const dashboardId = editUrl.split("/").slice(-2, -1)[0];
+    try {
+      await page.waitForURL(/\/edit/, { timeout: 15_000 });
 
-    // Save — bumps version 1 → 2 server-side. With #904's fix, the hook's
-    // onSuccess writes the new version to sessionStorage so the subsequent
-    // view-mode load sees a fresh baseline and doesn't fire the banner.
-    await Promise.all([
-      page.waitForResponse(
-        (r) =>
-          /\/api\/dashboards\/[\w-]+$/.test(r.url()) &&
-          r.request().method() === "PUT" &&
-          r.status() === 200,
-        { timeout: 10_000 },
-      ),
-      page.getByRole("button", { name: "Save" }).click(),
-    ]);
+      // Save — bumps version 1 → 2 server-side. With #904's fix, the hook's
+      // onSuccess writes the new version to sessionStorage so the subsequent
+      // view-mode load sees a fresh baseline and doesn't fire the banner.
+      await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            /\/api\/dashboards\/[\w-]+$/.test(r.url()) &&
+            r.request().method() === "PUT" &&
+            r.status() === 200,
+          { timeout: 10_000 },
+        ),
+        page.getByRole("button", { name: "Save" }).click(),
+      ]);
 
-    // Leave edit → view mode (the route where the version-bump effect runs)
-    await page.getByRole("button", { name: /Back/ }).click();
-    // Back goes to /<id>, not /dashboards
-    await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+      // Leave edit → view mode (the route where the version-bump effect runs)
+      await page.getByRole("button", { name: /Back/ }).click();
+      // Back goes to /<id>, not /dashboards
+      await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
-    // Wait briefly for the version-bump effect to settle. Banner would
-    // appear in the same paint if the bug were present.
-    await page.waitForTimeout(500);
+      // Wait briefly for the version-bump effect to settle. Banner would
+      // appear in the same paint if the bug were present.
+      await page.waitForTimeout(500);
 
-    // Critical assertion: NO "Dashboard updated by" banner
-    await expect(page.getByText(/Dashboard updated by/i)).toHaveCount(0);
-
-    // Clean up to avoid polluting other tests
-    if (dashboardId) {
+      // Critical assertion: NO "Dashboard updated by" banner
+      await expect(page.getByText(/Dashboard updated by/i)).toHaveCount(0);
+    } finally {
       await page.request.delete(`/api/dashboards/${dashboardId}`);
     }
   });
 });
 
 test.describe("Dashboard editor — uncovered states", () => {
+  // Each test's own dashboard, deleted by id afterwards (#1784).
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+    dashboardCleanup = undefined;
+  });
+
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    // Create a fresh dashboard for editing tests. Awaits the POST before
-    // asserting URL to avoid the create-then-wait race.
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.locator("#dashboard-name").fill("Editor Test Dashboard");
-    await Promise.all([
-      page.waitForResponse(
-        (r) =>
-          r.url().endsWith("/api/dashboards") &&
-          r.request().method() === "POST" &&
-          r.status() === 201,
-        { timeout: 10_000 },
-      ),
-      dialog.getByRole("button", { name: "Create" }).click(),
-    ]);
-    await page.waitForURL(/\/edit/, { timeout: 15_000 });
+    const name = `Editor Test ${Date.now()}`;
+    const { id, cleanup } = await createTestDashboard(page.request, name);
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
+    await expect(
+      page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("should show empty state in editor with Add Widget CTA", async ({
