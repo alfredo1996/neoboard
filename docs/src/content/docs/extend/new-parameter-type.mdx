@@ -22,14 +22,14 @@ Add your type to the parameter type union:
 
 ```typescript
 export type ParameterType =
-  | "select"
   | "text"
-  | "number"
+  | "select"
+  | "multi-select"
   | "date"
-  | "dateRange"
-  | "boolean"
-  | "multiselect"
-  | "slider"
+  | "date-range"
+  | "date-relative"
+  | "number-range"
+  | "cascading-select"
   | "your-type"; // Add here
 ```
 

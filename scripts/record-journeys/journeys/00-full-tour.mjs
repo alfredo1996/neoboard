@@ -114,7 +114,7 @@ export async function run(page) {
   await wait(page, LONG);
 
   // ── 4. CHART GALLERY TOUR ─────────────────────────────────────────
-  await narrate(page, "4/11  Chart Gallery — NeoBoard registers 18 chart types");
+  await narrate(page, "4/11  Chart Gallery — NeoBoard offers 16 chart types");
   await openDashboard(page, "Chart Gallery");
 
   const chartTabs = [

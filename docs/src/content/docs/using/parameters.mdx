@@ -45,13 +45,12 @@ The parameter name must match exactly. If your parameter widget is named `start_
 | Type | Input control | Value produced | Use case |
 |------|--------------|----------------|----------|
 | Select | Dropdown | Single string | Filter by category (e.g., country, status) |
-| Text | Free-text input | String | Search by name or keyword |
-| Number | Numeric input | Number | Filter by threshold or ID |
-| Date | Date picker | ISO date string | Filter by specific date |
-| Date Range | Start/end pickers | `{start, end}` | Filter a time window |
-| Boolean | Toggle switch | `true` / `false` | Enable/disable a filter |
-| Multiselect | Multi-value dropdown | Array of strings | Filter by multiple categories |
-| Slider | Range slider | Number | Adjust a numeric threshold visually |
+| Multi-select | Dropdown with **Allow multiple selections** ticked | Array of strings | Filter by several categories |
+| Freetext | Free-text input | String | Search by name or keyword |
+| Date | **Date Picker**, mode Single Date | ISO date string | Filter by a specific date |
+| Date Range | **Date Picker**, mode Date Range | Start and end, as `$param_<name>_from` and `$param_<name>_to` | Filter a time window |
+| Relative Date | **Date Picker**, mode Relative Date: presets such as Today or Last 7 days | Start and end, as `$param_<name>_from` and `$param_<name>_to` | Filter a rolling window |
+| Number Range | Dual-handle slider with a min, max and step | Low and high, as `$param_<name>_min` and `$param_<name>_max` | Filter between two numbers |
 
 ## Seed Queries
 

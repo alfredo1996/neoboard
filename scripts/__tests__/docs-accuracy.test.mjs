@@ -380,29 +380,162 @@ describe("the site's own navigation and links resolve (#1574)", () => {
   });
 });
 
-describe("the site's chart counts match the registry (#1687)", () => {
-  it("states the registered count wherever it states one", () => {
-    // Unregistering two charts left community.mdx and cli/commands.mdx saying
-    // 20 because nothing pinned the number. Every "N chart types",
-    // "N built-in chart types" or "Charts (N built-in" must equal the
-    // CHART_TYPES array the app registers from.
-    const registered = [
-      ...readFileSync(
-        join(ROOT, "app/src/plugins/chart-types.ts"),
-        "utf8",
-      ).matchAll(/^\s+"([\w-]+)",$/gm),
-    ].length;
-    expect(registered).toBeGreaterThan(0); // the regex still matches
-
-    const CLAIM =
-      /\b(\d+) (?:built-in )?chart types\b|Charts \((\d+) built-in/g;
-    const claims = DOCS.flatMap(({ path, text }) =>
-      [...text.matchAll(CLAIM)].map((m) => ({ path, n: Number(m[1] ?? m[2]) })),
+describe("the site's chart counts match the registry (#1687, #1782)", () => {
+  // Unregistering two charts left community.mdx and cli/commands.mdx saying
+  // 20 because nothing pinned the number. Then the pin itself was wrong: it
+  // held every claim to the REGISTERED count, but radar and choropleth stay
+  // registered only so old dashboards render; the picker hides them (#1158).
+  // A reader's "N chart types" is what the picker offers. Only the CLI's
+  // `plugin list` output ("Charts (N built-in") counts registrations.
+  const quoted = (file) =>
+    [
+      ...readFileSync(join(ROOT, file), "utf8").matchAll(/^\s+"([\w-]+)",?$/gm),
+    ].map((m) => m[1]);
+  const registered = quoted("app/src/plugins/chart-types.ts");
+  const disabled = quoted("app/src/plugins/disabled-chart-types.ts");
+  const selectable = registered.filter((t) => !disabled.includes(t));
+  const COUNT = /\b(\d+) (?:built-in )?chart types\b/g;
+  const claims = (re) =>
+    DOCS.flatMap(({ path, text }) =>
+      [...text.matchAll(re)].map((m) => ({ path, n: Number(m[1]) })),
     );
-    expect(claims.length).toBeGreaterThan(0);
+  const page = (p) =>
+    DOCS.find(({ path }) => path === `docs/src/content/docs/${p}`)?.text ?? "";
+  const section = (text, heading) =>
+    text.split(`\n## ${heading}\n`)[1]?.split("\n## ")[0] ?? "";
+
+  it("reads the registry", () => {
+    expect(registered.length).toBeGreaterThan(0); // the regex still matches
+    expect(disabled.filter((t) => !registered.includes(t))).toEqual([]);
+  });
+
+  it("states the count the widget picker offers wherever it states one", () => {
+    const found = claims(COUNT);
+    expect(found.length).toBeGreaterThan(0);
     expect(
-      claims.filter((c) => c.n !== registered).map((c) => `${c.path}: ${c.n}`),
+      found
+        .filter((c) => c.n !== selectable.length)
+        .map((c) => `${c.path}: ${c.n}`),
     ).toEqual([]);
+  });
+
+  it("shows the registered count in the CLI's plugin list output", () => {
+    const found = claims(/Charts \((\d+) built-in/g);
+    expect(found.length).toBeGreaterThan(0);
+    expect(
+      found
+        .filter((c) => c.n !== registered.length)
+        .map((c) => `${c.path}: ${c.n}`),
+    ).toEqual([]);
+  });
+
+  it("names no hidden type in a sentence that states a count", () => {
+    // what-is-neoboard listed radar and choropleth right after the count.
+    const offending = DOCS.flatMap(({ path, text }) =>
+      text
+        .split("\n")
+        .filter((line) => new RegExp(COUNT.source).test(line))
+        .filter((line) =>
+          disabled.some((t) => new RegExp(`\\b${t}\\b`, "i").test(line)),
+        )
+        .map(() => path),
+    );
+    expect(offending).toEqual([]);
+  });
+
+  it("what-is-neoboard lists exactly the picker's types after its count", () => {
+    const m = /\*\*(\d+) chart types\*\* -- (.+)$/m.exec(
+      page("start-here/what-is-neoboard.mdx"),
+    );
+    expect(m).not.toBeNull(); // the list still has this shape
+    const DISPLAY_TO_TYPE = { "graph-visualization": "graph", "json-viewer": "json" };
+    const listed = m[2]
+      .split(/,\s*(?:and\s+)?/)
+      .map((name) => name.trim().toLowerCase().replace(/\s+/g, "-"))
+      .map((s) => DISPLAY_TO_TYPE[s] ?? s);
+    expect(listed.length).toBe(Number(m[1]));
+    expect([...listed].sort()).toEqual([...selectable].sort());
+  });
+
+  it("the chart index offers exactly the picker's types, and recommends no hidden one", () => {
+    const index = page("charts/index.mdx");
+    const SLUG_TO_TYPE = { "param-select": "parameter-select" };
+    const listed = [
+      ...section(index, "Available Chart Types").matchAll(
+        /^\| \[[^\]]+\]\(\/charts\/([\w-]+)\)/gm,
+      ),
+    ].map((m) => SLUG_TO_TYPE[m[1]] ?? m[1]);
+    expect([...listed].sort()).toEqual([...selectable].sort());
+    const choosing = section(index, "Choosing a Chart Type");
+    expect(choosing).not.toBe(""); // the heading still exists
+    expect(disabled.filter((t) => choosing.includes(`(/charts/${t})`))).toEqual(
+      [],
+    );
+  });
+});
+
+describe("the documented parameter types are the ones the editor offers (#1782)", () => {
+  // Number, Boolean and Slider were documented on two pages and never
+  // existed; Relative Date and Number Range existed and were not documented.
+  // The editor's resolveInternalParamType is the authority: it maps every
+  // choice a user can make to the type that gets stored.
+  const src = (f) => readFileSync(join(ROOT, f), "utf8");
+  const body =
+    src("app/src/components/widget-editor/parameter-config-section.tsx")
+      .split("export function resolveInternalParamType")[1]
+      ?.split("\n}")[0] ?? "";
+  // Only the strings it returns: after `return`, `?` or `:`.
+  const offered = [
+    ...new Set(
+      [...body.matchAll(/(?:return|\?|:)\s*"([\w-]+)"/g)].map((m) => m[1]),
+    ),
+  ];
+  const doc = (p) =>
+    DOCS.find(({ path }) => path === `docs/src/content/docs/${p}`)?.text ?? "";
+
+  it("reads the editor", () => {
+    expect(offered).toContain("select"); // the regex still matches
+    expect(offered).toContain("date-relative");
+  });
+
+  it.each([
+    "using/parameters.mdx",
+    "charts/param-select.mdx",
+    "using/widgets.mdx",
+  ])(
+    "%s lists exactly those types",
+    (p) => {
+      // widgets.mdx titles its section "Parameter Widgets" and its column
+      // "Parameter type", so match either heading and skip the header rows.
+      const table =
+        doc(p).split(/\n## Parameter (?:Types|Widgets)\n/)[1]?.split("\n## ")[0] ??
+        "";
+      const DISPLAY_TO_TYPE = {
+        freetext: "text",
+        "relative-date": "date-relative",
+      };
+      const types = [...table.matchAll(/^\| ([^|]+?)\s+\|/gm)]
+        .slice(1) // the header; `|----|` has no space, so it never matches
+        .map((m) => m[1])
+        .map((cell) => cell.toLowerCase().replace(/\s+/g, "-"))
+        .map((s) => DISPLAY_TO_TYPE[s] ?? s);
+      expect([...types].sort()).toEqual([...offered].sort());
+    },
+  );
+
+  it("the contributor guide shows the ParameterType union the store declares", () => {
+    const union = (text) => [
+      ...(/type ParameterType =([^;]+);/.exec(text)?.[1] ?? "").matchAll(
+        /"([\w-]+)"/g,
+      ),
+    ].map((m) => m[1]);
+    const store = union(src("app/src/stores/parameter-store.ts"));
+    expect(store.length).toBeGreaterThan(0);
+    expect(
+      union(doc("extend/new-parameter-type.mdx")).filter(
+        (t) => t !== "your-type",
+      ),
+    ).toEqual(store);
   });
 });
 
