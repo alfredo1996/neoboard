@@ -34,6 +34,26 @@ function withRequestId<T extends NextResponse>(res: T, requestId: string): T {
   return res;
 }
 
+/**
+ * Whether Auth.js stored the session under `__Secure-authjs.session-token`
+ * rather than `authjs.session-token` (#1792). getToken defaults to the plain
+ * name, so without this every HTTPS session looks signed out.
+ *
+ * Mirrors Auth.js: it picks the secure name when the URL it sees is https
+ * (@auth/core lib/init.js). That URL takes its origin from AUTH_URL /
+ * NEXTAUTH_URL when set (next-auth reqWithEnvURL, core createActionURL),
+ * otherwise from the request, which Next.js marks https when the socket is
+ * TLS or X-Forwarded-Proto includes "https".
+ */
+function usesSecureSessionCookie(req: NextRequest): boolean {
+  const envUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL;
+  if (envUrl) return new URL(envUrl).protocol === "https:";
+  return (
+    req.nextUrl.protocol === "https:" ||
+    (req.headers.get("x-forwarded-proto")?.includes("https") ?? false)
+  );
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const requestId = ensureRequestId(req);
@@ -86,7 +106,11 @@ export async function proxy(req: NextRequest) {
     );
   }
 
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: usesSecureSessionCookie(req),
+  });
 
   if (!token) {
     // For API routes, return 401 JSON instead of redirect
