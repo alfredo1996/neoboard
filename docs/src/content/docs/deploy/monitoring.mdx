@@ -155,20 +155,23 @@ NeoBoard writes its application logs to stdout as JSON by default, so no setup i
 ### Filtering logs
 
 ```bash
+# The prod compose files require their secrets, so pass the env file on every call
+C="docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml"
+
 # View errors only (Pino levels: 50 = error, 40 = warn, 30 = info)
-docker compose -f docker/docker-compose.prod-full.yml logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.level >= 50)'
+$C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.level >= 50)'
 
 # Trace one request across all its logs by correlation id
-docker compose -f docker/docker-compose.prod-full.yml logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.requestId == "REQUEST-ID")'
+$C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.requestId == "REQUEST-ID")'
 
 # View slow query requests (> 1s) — query routes / audit logs carry durationMs
-docker compose -f docker/docker-compose.prod-full.yml logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.durationMs > 1000)'
+$C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.durationMs > 1000)'
 
 # View a specific user's activity (audit logs)
-docker compose -f docker/docker-compose.prod-full.yml logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.userId == "user-uuid")'
+$C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.userId == "user-uuid")'
 ```
 
-`fromjson?` skips the non-JSON startup and stderr lines. Use `-f docker/docker-compose.prod.yml` for that file. For the CLI stack, the container is `neoboard-app` (`docker logs neoboard-app`).
+`fromjson?` skips the non-JSON startup and stderr lines. For `docker-compose.prod.yml`, change the `-f` path and supply its required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `API_KEY_HMAC_SECRET`) the same way, with `--env-file` or from the shell environment; without them compose refuses to run. For the CLI stack, the container is `neoboard-app` (`docker logs neoboard-app`).
 
 ### Log aggregation
 

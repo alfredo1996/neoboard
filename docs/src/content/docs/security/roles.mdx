@@ -55,7 +55,7 @@ Admins assign a role when creating a user in **Users** management.
 When SSO is configured, roles can be automatically assigned based on IdP group claims. See [SSO Role Mapping](/security/sso#role-mapping).
 
 ### Default role
-On their first SSO sign-in, new users are created as Creator with write permission on, regardless of claim mappings or the configured default role, and they keep that role for the whole session. From their next sign-in, they get the role their claims map to, or the configured **default role** if no claim matches (Creator unless changed).
+On their first SSO sign-in, new users are created as Creator with write permission on, regardless of claim mappings or the configured default role, and they keep that role for the whole session. From their next sign-in, they get the role their claims map to, or the configured **default role** if no claim matches (Creator unless changed). That only holds while `TENANT_ID` is `default`: with any other value, SSO users are created in tenant `default`, and their role never re-syncs ([#1791](https://github.com/alfredo1996/neoboard/issues/1791)).
 
 ## Related
 

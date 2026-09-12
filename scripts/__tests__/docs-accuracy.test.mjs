@@ -1525,6 +1525,23 @@ describe("security claims the code does not back (#1790)", () => {
     ["using/dashboards.mdx", /\| Reader \| Shared only \|/, "readers also see public dashboards (api/dashboards/route.ts)"],
     ["charts/iframe.mdx", /Must be an https:\/\/ URL/i, "http:// also embeds (iframe-widget.tsx)"],
     ["deploy/configuration.mdx", /^\| `FORCE_HTTPS` \|(?![^\n]*private)/m, "private-IP and localhost hosts are never redirected (proxy.ts)"],
+    ["security/sso.mdx", /"Sign in with \[Provider\]" buttons|SSO button will appear/i, "login/page.tsx renders no SSO buttons"],
+    ["security/password-login.mdx", /If `ADMIN_BOOTSTRAP_TOKEN` is set|SSO buttons appear above the password form/, "first-admin signup requires the token (signup.ts); no SSO buttons"],
+    ["security/password-login.mdx", /A user's role is changed|silently rejects further attempts/, "only a demotion invalidates sessions (users/[id]/route.ts); signup shows its limit error"],
+    ["security/query-safety.mdx", /wall display degrade first|new P3 \(auto-refresh\) work/, "the UI sends no x-query-priority, so auto-refresh is P2 (api/query/route.ts)"],
+    ["security/multi-tenancy.mdx", /Every table in the metadata database has a `tenant_id`|full access within their tenant only|Fallback tenant for single-tenant/, "adapter tables have no tenant_id; key rotation crosses tenants; TENANT_ID is the process's tenant"],
+    ["security/managing-users.mdx", /restricted to read-only queries, regardless of their role/, "the write toggle applies to Creators only (session.ts)"],
+    ["security/roles.mdx", /\| Access settings \| Yes \| No \| No \||\| Admin \| Can write \| Can write \(always\) \|/, "creators and readers open Settings; writes need ownership"],
+    ["security/credential-encryption.mdx", /credentials_encrypted|The key's own role is what the endpoint checks/, "the column is connection.configEncrypted; the owner's current role is checked (api-key.ts)"],
+    ["start-here/troubleshooting.mdx", /credentials_encrypted/, "the column is connection.configEncrypted (schema.ts)"],
+    ["security/api-keys.mdx", /38 of 45/, "proxy.ts publicExact/publicPrefixes list the exceptions"],
+    ["security/multi-tenancy.mdx", /signs in to the instance belongs to this tenant|query, reassign/, "SSO auto-provisioned users get the column default tenant; reassign repoints widgets, not ownership"],
+    ["security/roles.mdx", /From their next sign-in, they get the role(?![^\n]*TENANT_ID)/, "signIn looks users up by TENANT_ID; SSO users land in tenant default"],
+    ["security/sso.mdx", /mapped role normally takes effect from the second sign-in(?![^\n]*TENANT_ID)/, "signIn looks users up by TENANT_ID; SSO users land in tenant default"],
+    ["start-here/troubleshooting.mdx", /reassign orphaned/i, "no endpoint transfers connection ownership; connections cascade with their owner"],
+    ["deploy/monitoring.mdx", /docker compose -f docker\/docker-compose\.prod/, "prod compose files have :? required variables, so --env-file is needed"],
+    ["security/sso.mdx", /^\| Login loops back to \/login \|(?![^\n]*__Secure)/m, "proxy.ts getToken reads only the non-secure cookie name"],
+    ["deploy/production.mdx", /### 5\. Put it behind TLS(?![\s\S]*__Secure)/, "proxy.ts getToken reads only the non-secure cookie name"],
   ];
 
   it.each(CLAIMS)("%s no longer claims %s", (page, claim) => {
