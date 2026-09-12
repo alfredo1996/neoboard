@@ -232,7 +232,14 @@ describe("release workflow: image name (#1780)", () => {
   // image it pushes; cosign and Trivy take the ref verbatim. Under an owner
   // like GraphWave-Consulting the push succeeds, then signing fails and the
   // release goes red. So the name is lowercased once and every step reads it.
-  const IMAGE = "${{ steps.image.outputs.name }}";
+  // Built from the step's real `id:`, so a renamed id fails the reader checks
+  // here instead of emptying `images:`, IMAGE and image-ref in a live release.
+  const imageId = DOCKER.match(/- name: Compute the image name\n\s+id: (\S+)\n/)?.[1];
+  const IMAGE = `\${{ steps.${imageId}.outputs.name }}`;
+
+  it("gives the image-name step an id the readers can reference", () => {
+    expect(imageId, "Compute the image name step has no id:").toBeTruthy();
+  });
 
   it("lowercases the owner and repo into one image name", () => {
     const script = stepScript(jobBlock("docker"), "Compute the image name");
