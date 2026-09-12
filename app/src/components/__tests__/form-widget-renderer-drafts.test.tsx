@@ -4,7 +4,7 @@
  *
  * The other renderer suites mock DebouncedTextInput with a pass-through input,
  * so onChange there is instant. This suite keeps the real debounce under fake
- * timers and never advances them past it.
+ * timers, and only the press tests advance them past it.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
@@ -140,7 +140,7 @@ function failOnColumn(column: string) {
 
 beforeEach(() => {
   mockMutate.mockReset();
-  // Never advanced past 200 ms: every assertion runs inside the debounce.
+  // Advanced past 200 ms only by the press tests, to fire the debounce mid-press.
   vi.useFakeTimers();
 });
 
@@ -175,12 +175,50 @@ describe("FormWidgetRenderer — text draft inside the debounce window (#1771)",
     expect(screen.queryByText(REQUIRED)).toBeNull();
   });
 
-  it("keeps focus in the field while Submit is pressed", () => {
-    // Taking focus on mousedown would blur the field, and its flushed draft
-    // would clear the error line and move Submit before the mouseup landed.
-    // jsdom has no layout; form-widget.spec.ts clicks a real button.
+  // A message that clears between a press and its release moves Submit, or the
+  // next label, out from under the pointer and the click is lost. jsdom has no
+  // layout, so these pin what is rendered; form-widget.spec.ts clicks for real.
+  it("keeps the required error line while Submit is held across the debounce", () => {
     renderForm([textField("name")]);
-    expect(fireEvent.mouseDown(submitButton())).toBe(false);
+    fireEvent.click(submitButton());
+    fireEvent.change(input("name"), { target: { value: "Ada" } });
+
+    fireEvent.pointerDown(submitButton());
+    act(() => vi.advanceTimersByTime(250));
+    expect(screen.getByText(REQUIRED)).toBeInTheDocument();
+
+    fireEvent.pointerUp(window);
+    expect(screen.queryByText(REQUIRED)).toBeNull();
+    fireEvent.click(submitButton());
+    expect(submittedParams()).toEqual({ param_name: "Ada" });
+  });
+
+  it("keeps the required error line while a label is pressed and the field blurs", () => {
+    renderForm([textField("name"), textField("note", false)]);
+    fireEvent.click(submitButton());
+    fireEvent.change(input("name"), { target: { value: "Ada" } });
+
+    fireEvent.pointerDown(screen.getByText("note"));
+    fireEvent.blur(input("name"));
+    expect(screen.getByText(REQUIRED)).toBeInTheDocument();
+
+    fireEvent(window, new Event("pointercancel"));
+    expect(screen.queryByText(REQUIRED)).toBeNull();
+  });
+
+  it("keeps the success message while Submit is held across the debounce", () => {
+    renderForm([textField("name")]);
+    fireEvent.change(input("name"), { target: { value: "First" } });
+    fireEvent.click(submitButton());
+    act(() => mockMutate.mock.calls[0][1].onSuccess());
+    fireEvent.change(input("name"), { target: { value: "Second" } });
+
+    fireEvent.pointerDown(submitButton());
+    act(() => vi.advanceTimersByTime(250));
+    expect(screen.getByText("Form submitted successfully")).toBeInTheDocument();
+
+    fireEvent.pointerUp(window);
+    expect(screen.queryByText("Form submitted successfully")).toBeNull();
   });
 
   it("submits the typed draft when Enter is pressed while the required error shows", async () => {
@@ -226,14 +264,15 @@ describe("FormWidgetRenderer — text draft inside the debounce window (#1771)",
   });
 
   it("lets Enter submit a draft typed into the field the database rejected", async () => {
-    // The database error disables Submit until the field is edited (#1409);
-    // Enter must count the draft as that edit before implicit submission.
+    // A disabled Submit blocks implicit submission, and a click on it blurs the
+    // field, whose flushed draft enables and moves Submit before the mouseup.
+    // handleSubmit flushes and clears the database error itself (#1409).
     const user = userEvent.setup({ delay: null });
     failOnColumn("name");
     renderForm([textField("name", false)]);
     fireEvent.click(submitButton());
     expect(screen.getByText(REQUIRED)).toBeInTheDocument();
-    expect(submitButton().disabled).toBe(true);
+    expect(submitButton().disabled).toBe(false);
 
     await user.type(input("name"), "Ada{Enter}");
 

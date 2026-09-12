@@ -6,7 +6,7 @@ import {
   saveDashboard,
   typeInEditor,
 } from "./fixtures";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 /**
  * Click Back to leave edit mode and wait for the URL to drop the /edit
@@ -219,6 +219,22 @@ test.describe("Form widget", () => {
     });
 
     // After success, resetOnSuccess (default true) clears the input
+    await expect(nameInput).toHaveValue("", { timeout: 5_000 });
+
+    // Type again and click Submit at once, inside the 200 ms debounce (#1771):
+    // the submit sends the retyped draft, not the reset value, and resets again.
+    const secondWrite = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/query/write") && r.request().method() === "POST",
+      { timeout: 15_000 },
+    );
+    await nameInput.fill("E2E Second Person");
+    await page.getByRole("button", { name: "Submit" }).click();
+    const second = await secondWrite;
+    expect(second.ok()).toBeTruthy();
+    expect(second.request().postDataJSON().params).toEqual({
+      param_name: "E2E Second Person",
+    });
     await expect(nameInput).toHaveValue("", { timeout: 5_000 });
   });
 
@@ -1042,28 +1058,136 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     ).toBe(false);
   });
 
-  test("a click on Submit right after typing submits the typed value, even while the required error shows", async ({
+  /**
+   * Point at `target`, run `type`, press at once and hold past the 200 ms
+   * debounce before releasing, so the draft always commits mid-press. Whatever
+   * that commit clears above `target` (an error line is about 22 px, more than
+   * half of Submit's height) moves `target` off the pointer before the mouseup,
+   * and the click is lost (#1771).
+   */
+  async function clickHeldAcrossDebounce(
+    page: Page,
+    target: Locator,
+    type: () => Promise<void>,
+  ) {
+    const box = await target.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await type();
+    await page.mouse.down();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(400);
+    await page.mouse.up();
+  }
+
+  test("a click on Submit held across the debounce right after typing submits, even while the required error shows", async ({
     page,
   }) => {
     const form = await openForm(page, draftForm("w-draft-click"));
     const submit = form.getByRole("button", { name: "Submit" });
     await submit.click();
     await expect(form.getByText("This field is required")).toBeVisible();
-    const box = await submit.boundingBox();
-    expect(box).not.toBeNull();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
 
-    // A human click about 80 ms after the last keystroke, inside the 200 ms
-    // debounce, holding the button long enough for the page to render between
-    // mousedown and mouseup. Clearing the error line in that gap moves Submit
-    // about 22 px up, off the pointer, and the click is lost (#1771).
-    await form.getByRole("textbox", { name: "Name", exact: true }).fill("Ada");
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(80);
-    await page.mouse.down();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(80);
-    await page.mouse.up();
+    await clickHeldAcrossDebounce(page, submit, () =>
+      form.getByRole("textbox", { name: "Name", exact: true }).fill("Ada"),
+    );
+
+    await expect(form.getByText("Form submitted successfully")).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("a click on the next label held across the debounce right after typing focuses that field, even while the required error shows", async ({
+    page,
+  }) => {
+    const form = await openForm(
+      page,
+      draftForm("w-draft-label", [
+        {
+          id: "f-note",
+          label: "Note",
+          parameterName: "note",
+          parameterType: "text",
+        },
+      ]),
+    );
+    await form.getByRole("button", { name: "Submit" }).click();
+    await expect(form.getByText("This field is required")).toBeVisible();
+
+    // The press blurs Name, whose flushed draft clears the error above Note.
+    await clickHeldAcrossDebounce(
+      page,
+      form.locator("label", { hasText: /^Note$/ }),
+      () => form.getByRole("textbox", { name: "Name", exact: true }).fill("Ada"),
+    );
+
+    await expect(
+      form.getByRole("textbox", { name: "Note", exact: true }),
+    ).toBeFocused();
+  });
+
+  test("a click on Submit held across the debounce right after retyping submits again after a success", async ({
+    page,
+  }) => {
+    const form = await openForm(page, draftForm("w-draft-again"));
+    const name = form.getByRole("textbox", { name: "Name", exact: true });
+    const submit = form.getByRole("button", { name: "Submit" });
+    await name.fill("First");
+    await submit.click();
+    await expect(form.getByText("Form submitted successfully")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(name).toHaveValue("");
+
+    // The draft's commit clears the success message above Submit mid-press.
+    const secondWrite = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/query/write") && r.request().method() === "POST",
+      { timeout: 15_000 },
+    );
+    await clickHeldAcrossDebounce(page, submit, () => name.fill("Second"));
+
+    const second = await secondWrite;
+    expect(second.ok()).toBeTruthy();
+    expect(second.request().postDataJSON().params).toEqual({
+      param_name: "Second",
+    });
+    await expect(name).toHaveValue("");
+  });
+
+  test("a click on Submit held across the debounce right after fixing a database field error submits", async ({
+    page,
+  }) => {
+    // people.name is NOT NULL but optional in the form (#1409).
+    const form = await openForm(page, {
+      id: "w-people-retry",
+      chartType: "form",
+      connectionId: "conn-pg-001",
+      query:
+        "INSERT INTO people (name) VALUES ($param_person_name) RETURNING id",
+      settings: {
+        title: "People",
+        formFields: [
+          {
+            id: "f-person",
+            label: "Name",
+            parameterName: "person_name",
+            parameterType: "text",
+          },
+        ],
+      },
+    });
+    const submit = form.getByRole("button", { name: "Submit" });
+    await submit.click();
+    await expect(form.getByText("This field is required")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await clickHeldAcrossDebounce(page, submit, () =>
+      form
+        .getByRole("textbox", { name: "Name", exact: true })
+        .fill(`Held Click ${Date.now()}`),
+    );
 
     await expect(form.getByText("Form submitted successfully")).toBeVisible({
       timeout: 15_000,

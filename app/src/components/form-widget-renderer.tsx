@@ -361,6 +361,30 @@ export function FormWidgetRenderer({
   const [serverFieldErrors, setServerFieldErrors] = useState<
     Record<string, string>
   >({});
+  // The errors and messages as they stood when a press on the form began,
+  // shown until its release. A draft committing mid-press (its debounce, or
+  // the blur the press causes) clears them, which moves Submit or the next
+  // label off the pointer before the mouseup, and the click is lost (#1771).
+  const liveMessages = {
+    fieldErrors,
+    serverFieldErrors,
+    successMessage,
+    errorMessage,
+  };
+  const [pressedMessages, setPressedMessages] = useState<
+    typeof liveMessages | null
+  >(null);
+  const messages = pressedMessages ?? liveMessages;
+  const holdMessagesForPress = () => {
+    setPressedMessages(liveMessages);
+    const press = new AbortController();
+    const release = () => {
+      press.abort();
+      setPressedMessages(null);
+    };
+    window.addEventListener("pointerup", release, { signal: press.signal });
+    window.addEventListener("pointercancel", release, { signal: press.signal });
+  };
   // Label ids come from useId + the field's index, never from author strings:
   // two forms may share a parameter name, and an id list cannot hold spaces.
   const idPrefix = useId();
@@ -594,12 +618,7 @@ export function FormWidgetRenderer({
           if (readOnly) return;
           handleSubmit();
         }}
-        // Enter submits implicitly only if Submit is enabled, and a database
-        // field error keeps it disabled until the field is edited: count a
-        // draft typed inside the debounce as that edit first (#1771).
-        onKeyDown={(e) => {
-          if (e.key === "Enter") flushTextDrafts();
-        }}
+        onPointerDown={holdMessagesForPress}
         className="space-y-4 p-4"
       >
         {readOnly && (
@@ -682,11 +701,11 @@ export function FormWidgetRenderer({
                       : undefined
                   }
                 />
-                {(fieldErrors[field.parameterName] ??
-                  serverFieldErrors[field.parameterName]) && (
+                {(messages.fieldErrors[field.parameterName] ??
+                  messages.serverFieldErrors[field.parameterName]) && (
                   <p className="text-xs text-destructive">
-                    {fieldErrors[field.parameterName] ??
-                      serverFieldErrors[field.parameterName]}
+                    {messages.fieldErrors[field.parameterName] ??
+                      messages.serverFieldErrors[field.parameterName]}
                   </p>
                 )}
               </div>
@@ -694,27 +713,20 @@ export function FormWidgetRenderer({
           })}
         </div>
 
-        {successMessage && (
-          <p className="text-sm text-green-600">{successMessage}</p>
+        {messages.successMessage && (
+          <p className="text-sm text-green-600">{messages.successMessage}</p>
         )}
-        {errorMessage && (
-          <p className="text-sm text-destructive">{errorMessage}</p>
+        {messages.errorMessage && (
+          <p className="text-sm text-destructive">{messages.errorMessage}</p>
         )}
 
         <Button
           type="submit"
-          // Not on client field errors: handleSubmit flushes the drafts and
-          // validates again, and a draft typed inside the debounce has not
-          // cleared its error yet (#1771).
-          disabled={
-            readOnly ||
-            writeQuery.isPending ||
-            Object.keys(serverFieldErrors).length > 0
-          }
-          // Pressing Submit must not blur the field being typed: its flushed
-          // draft would clear the error line and move Submit before the
-          // mouseup, losing the click. handleSubmit flushes anyway (#1771).
-          onMouseDown={(e) => e.preventDefault()}
+          // Not on field errors: handleSubmit flushes the drafts, clears the
+          // database's errors and validates again, while a draft typed inside
+          // the debounce has not cleared its error yet. A disabled Submit would
+          // block Enter and the click (#1771).
+          disabled={readOnly || writeQuery.isPending}
           title={
             readOnly
               ? "You don't have permission to submit this form"
