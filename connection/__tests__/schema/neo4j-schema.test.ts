@@ -56,8 +56,8 @@ const relTypeRecord = (rt: string) => ({
 /** Helper: create a nodeTypeProperties record */
 const nodePropRecord = (
   nodeType: string,
-  propertyName: string,
-  propertyTypes: string[],
+  propertyName: string | null,
+  propertyTypes: string[] | null,
 ) => ({
   keys: ["nodeType", "propertyName", "propertyTypes"],
   get: (k: string) => ({ nodeType, propertyName, propertyTypes })[k],
@@ -66,8 +66,8 @@ const nodePropRecord = (
 /** Helper: create a relTypeProperties record */
 const relPropRecord = (
   relType: string,
-  propertyName: string,
-  propertyTypes: string[],
+  propertyName: string | null,
+  propertyTypes: string[] | null,
 ) => ({
   keys: ["relType", "propertyName", "propertyTypes"],
   get: (k: string) => ({ relType, propertyName, propertyTypes })[k],
@@ -155,6 +155,80 @@ describe("Neo4jSchemaManager", () => {
     expect(schema.nodeProperties?.[":Movie"]).toBeUndefined();
     expect(schema.relProperties?.ACTED_IN).toBeDefined();
     expect(schema.relProperties?.[":ACTED_IN"]).toBeUndefined();
+  });
+
+  // Neo4j 4+/5 names the type with each label backticked: ":`Movie`". The
+  // schema browser (#1693) keys by bare label, so the quoting must go.
+  it("strips Neo4j's backtick quoting from nodeType and relType", async () => {
+    mockFourCalls(
+      [],
+      [],
+      [nodePropRecord(":`Movie`", "title", ["String"])],
+      [relPropRecord(":`ACTED_IN`", "roles", ["StringArray"])],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties).toEqual({
+      Movie: [{ name: "title", type: "String" }],
+    });
+    expect(schema.relProperties).toEqual({
+      ACTED_IN: [{ name: "roles", type: "StringArray" }],
+    });
+  });
+
+  it("credits a multi-label node type's properties to every label, once each", async () => {
+    mockFourCalls(
+      [],
+      [],
+      [
+        nodePropRecord(":`Person`", "name", ["String"]),
+        nodePropRecord(":`Person`:`Actor`", "name", ["String"]),
+        nodePropRecord(":`Person`:`Actor`", "oscars", ["Long"]),
+      ],
+      [],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties).toEqual({
+      Person: [
+        { name: "name", type: "String" },
+        { name: "oscars", type: "Long" },
+      ],
+      Actor: [
+        { name: "name", type: "String" },
+        { name: "oscars", type: "Long" },
+      ],
+    });
+  });
+
+  // A label or type with no properties is still reported — as one row whose
+  // propertyName and propertyTypes are NULL. It is not a property.
+  it("skips the NULL row Neo4j emits for a property-less label or type", async () => {
+    mockFourCalls(
+      [],
+      [],
+      [
+        nodePropRecord(":`Empty`", null, null),
+        nodePropRecord(":`Movie`", "title", ["String"]),
+      ],
+      [
+        relPropRecord(":`DIRECTED`", null, null),
+        relPropRecord(":`ACTED_IN`", "roles", ["StringArray"]),
+      ],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties?.Empty ?? []).toEqual([]);
+    expect(schema.nodeProperties?.Movie).toEqual([
+      { name: "title", type: "String" },
+    ]);
+    expect(schema.relProperties?.DIRECTED ?? []).toEqual([]);
+    expect(schema.relProperties?.ACTED_IN).toEqual([
+      { name: "roles", type: "StringArray" },
+    ]);
   });
 
   it("returns empty collections for empty databases", async () => {

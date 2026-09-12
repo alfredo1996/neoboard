@@ -40,6 +40,22 @@ export interface QueryEditorProps {
   runAndSaveHint?: boolean;
   /** Schema for autocompletion. Passed from the app layer. */
   schema?: DatabaseSchema;
+  /**
+   * Imperative access for callers that need to drop text at the cursor (#1693).
+   * A plain prop rather than `ref`: the app mounts this editor through
+   * `next/dynamic`, whose wrapper keeps `ref` for its own retry() handle and
+   * forwards only ordinary props to the loaded component.
+   */
+  handleRef?: React.Ref<QueryEditorHandle>;
+}
+
+export interface QueryEditorHandle {
+  /**
+   * Replace the current selection with `text`, leave the cursor after it and
+   * focus the editor. Returns false while the editor is still loading, so the
+   * caller can fall back to editing the value itself.
+   */
+  insertAtCursor: (text: string) => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +156,7 @@ function QueryEditor({
   className,
   runAndSaveHint = false,
   schema,
+  handleRef,
 }: QueryEditorProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const currentValue = value ?? internalValue;
@@ -435,6 +452,20 @@ function QueryEditor({
       suppressUpdate.current = false;
     }
   }, [value, isControlled]);
+
+  React.useImperativeHandle(handleRef, () => ({
+    insertAtCursor: (text: string) => {
+      const view = viewRef.current;
+      if (!view) return false;
+      const { from, to } = view.state.selection.main;
+      view.dispatch({
+        changes: { from, to, insert: text },
+        selection: { anchor: from + text.length },
+      });
+      view.focus();
+      return true;
+    },
+  }));
 
   // -------------------------------------------------------------------------
   // UI handlers

@@ -2,30 +2,59 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
+import type { DatabaseSchema } from "@/lib/connector/schema-types";
+
+// The editor's imperative handle (#1693) — what the schema browser calls.
+const mockInsertAtCursor = vi.fn<(text: string) => boolean>(() => true);
 
 // Mock next/dynamic to render the QueryEditor stub synchronously
 vi.mock("next/dynamic", () => ({
   default: () => {
-    const Stub = (props: Record<string, unknown>) => (
-      <div
-        data-testid="query-editor"
-        data-language={props.language}
-        data-read-only={String(props.readOnly ?? false)}
-        data-has-on-run={String(typeof props.onRun === "function")}
-        data-class-name={String(props.className ?? "")}
-      />
-    );
+    const Stub = (props: Record<string, unknown>) => {
+      React.useImperativeHandle(
+        props.handleRef as React.Ref<{
+          insertAtCursor: (t: string) => boolean;
+        }>,
+        () => ({ insertAtCursor: mockInsertAtCursor }),
+      );
+      return (
+        <div
+          data-testid="query-editor"
+          data-language={props.language}
+          data-read-only={String(props.readOnly ?? false)}
+          data-has-on-run={String(typeof props.onRun === "function")}
+          data-class-name={String(props.className ?? "")}
+        />
+      );
+    };
     Stub.displayName = "QueryEditorStub";
-    return Stub;
+    // The real next/dynamic is `forwardRef(LoadableComponent)`: it keeps `ref`
+    // for its own retry() handle and hands only plain props to the loaded
+    // component. Mirror that, so an editor handle passed as `ref` fails here.
+    const Loadable = React.forwardRef<unknown, Record<string, unknown>>(
+      (props, _ref) => <Stub {...props} />,
+    );
+    Loadable.displayName = "LoadableStub";
+    return Loadable;
   },
 }));
 
-// Mock schema hooks so they don't make real requests
+// Mock schema hooks so they don't make real requests. Both read mutable
+// module state so a test can stage a schema, a fetch in flight, or an error.
+let mockSchema: DatabaseSchema | undefined;
+const mockSchemaQuery = {
+  isFetching: false,
+  isError: false,
+  error: null as Error | null,
+  refreshSchema: vi.fn(),
+};
 vi.mock("@/hooks/use-schema", () => ({
-  useConnectionSchema: () => ({ isFetching: false, refreshSchema: vi.fn() }),
+  useConnectionSchema: () => mockSchemaQuery,
 }));
 vi.mock("@/stores/schema-store", () => ({
-  useSchemaStore: () => null,
+  useSchemaStore: (
+    selector: (s: { getSchema: () => DatabaseSchema | undefined }) => unknown,
+  ) => selector({ getSchema: () => mockSchema }),
 }));
 
 // Mock @neoboard/components with lightweight stubs
@@ -80,6 +109,36 @@ vi.mock("@neoboard/components", () => ({
       {children}
     </button>
   ),
+  // One button per label/table is enough to prove the wiring; the tree itself
+  // is covered in component/.
+  SchemaBrowser: ({
+    schema,
+    loading,
+    error,
+    onInsert,
+  }: {
+    schema?: DatabaseSchema;
+    loading?: boolean;
+    error?: string;
+    onInsert: (id: string) => void;
+  }) => (
+    <div
+      data-testid="schema-browser"
+      data-loading={String(loading ?? false)}
+      data-error={error ?? ""}
+    >
+      {[
+        ...(schema?.labels ?? []),
+        ...(schema?.tables ?? []).map((t) => t.name),
+      ].map((name) => (
+        <button key={name} type="button" onClick={() => onInsert(name)}>
+          {name}
+        </button>
+      ))}
+    </div>
+  ),
+  // Tagged rather than real so a test can see that the language reached it.
+  quoteIdentifier: (name: string, language: string) => `${language}:${name}`,
 }));
 
 // Import the component and exported constants after mocks are set up
@@ -88,6 +147,11 @@ const { QueryEditorPanel, QUERY_HINTS } = await import("../query-editor-panel");
 describe("QueryEditorPanel", () => {
   beforeEach(() => {
     useWidgetEditorStore.getState().resetForAdd();
+    mockSchema = undefined;
+    mockSchemaQuery.isFetching = false;
+    mockSchemaQuery.isError = false;
+    mockSchemaQuery.error = null;
+    mockInsertAtCursor.mockReset().mockReturnValue(true);
   });
 
   it("does NOT show warning on fresh modal open (no query, no connection)", () => {
@@ -309,10 +373,10 @@ describe("QueryEditorPanel", () => {
         onToggleMaximized={vi.fn()}
       />,
     );
-    expect(screen.getByTestId("query-editor")).toHaveAttribute(
-      "data-class-name",
-      "min-h-[220px]",
-    );
+    const collapsed =
+      screen.getByTestId("query-editor").getAttribute("data-class-name") ?? "";
+    expect(collapsed).toContain("min-h-[220px]");
+    expect(collapsed).not.toContain("h-[70vh]");
     unmount();
 
     render(
@@ -326,6 +390,112 @@ describe("QueryEditorPanel", () => {
       screen.getByTestId("query-editor").getAttribute("data-class-name") ?? "";
     expect(className).toContain("h-[70vh]");
     expect(className).toContain("min-h-[220px]");
+  });
+});
+
+describe("QueryEditorPanel schema browser (#1693)", () => {
+  const neo4jSchema: DatabaseSchema = {
+    type: "neo4j",
+    labels: ["Movie", "Person"],
+    nodeProperties: { Movie: [{ name: "title", type: "String" }] },
+  };
+
+  beforeEach(() => {
+    useWidgetEditorStore.getState().resetForAdd();
+    mockSchema = undefined;
+    mockSchemaQuery.isFetching = false;
+    mockSchemaQuery.isError = false;
+    mockSchemaQuery.error = null;
+    mockInsertAtCursor.mockReset().mockReturnValue(true);
+  });
+
+  it("hides the Schema toggle when no connection is selected", () => {
+    render(<QueryEditorPanel editorLanguage="neo4j" />);
+    expect(
+      screen.queryByRole("button", { name: /^schema$/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("schema-browser")).not.toBeInTheDocument();
+  });
+
+  it("opens and closes the browser from the toggle", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    render(<QueryEditorPanel editorLanguage="neo4j" />);
+
+    const toggle = screen.getByRole("button", { name: /^schema$/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("schema-browser")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("schema-browser")).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(screen.queryByTestId("schema-browser")).not.toBeInTheDocument();
+  });
+
+  it("feeds the browser the store schema and the fetch state", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    mockSchema = neo4jSchema;
+    mockSchemaQuery.isFetching = true;
+    mockSchemaQuery.isError = true;
+    mockSchemaQuery.error = new Error("Connection refused");
+    render(<QueryEditorPanel editorLanguage="neo4j" />);
+    await user.click(screen.getByRole("button", { name: /^schema$/i }));
+
+    const browser = screen.getByTestId("schema-browser");
+    expect(browser).toHaveAttribute("data-loading", "true");
+    expect(browser).toHaveAttribute("data-error", "Connection refused");
+    expect(screen.getByRole("button", { name: "Movie" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Person" })).toBeInTheDocument();
+  });
+
+  it("falls back to a generic error message when the error has none", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    mockSchemaQuery.isError = true;
+    mockSchemaQuery.error = new Error("");
+    render(<QueryEditorPanel editorLanguage="neo4j" />);
+    await user.click(screen.getByRole("button", { name: /^schema$/i }));
+    expect(screen.getByTestId("schema-browser")).toHaveAttribute(
+      "data-error",
+      "Failed to load schema",
+    );
+  });
+
+  it("inserts the identifier, quoted for the editor language, at the cursor", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    useWidgetEditorStore.getState().setQuery("MATCH (n:) RETURN n");
+    mockSchema = neo4jSchema;
+    render(<QueryEditorPanel editorLanguage="neo4j" />);
+    await user.click(screen.getByRole("button", { name: /^schema$/i }));
+
+    await user.click(screen.getByRole("button", { name: "Movie" }));
+
+    expect(mockInsertAtCursor).toHaveBeenCalledWith("neo4j:Movie");
+    // The editor's own change listener updates the store — not the panel.
+    expect(useWidgetEditorStore.getState().query).toBe("MATCH (n:) RETURN n");
+  });
+
+  it("appends to the query when the editor is not mounted yet", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    useWidgetEditorStore.getState().setConnectionId("conn-1");
+    useWidgetEditorStore.getState().setQuery("SELECT * FROM ");
+    mockSchema = {
+      type: "postgresql",
+      tables: [{ name: "movies", columns: [] }],
+    };
+    mockInsertAtCursor.mockReturnValue(false);
+    render(<QueryEditorPanel editorLanguage="postgresql" />);
+    await user.click(screen.getByRole("button", { name: /^schema$/i }));
+
+    await user.click(screen.getByRole("button", { name: "movies" }));
+
+    expect(useWidgetEditorStore.getState().query).toBe(
+      "SELECT * FROM postgresql:movies",
+    );
   });
 });
 

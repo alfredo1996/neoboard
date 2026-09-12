@@ -216,10 +216,12 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     renderModal();
     expect(gridColumns()).toBe("minmax(0, 1fr) minmax(0, 1fr)");
     expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
-    expect(screen.getByTestId("query-editor")).toHaveAttribute(
-      "data-class-name",
-      "min-h-[220px]",
-    );
+    // Collapsed: a minimum height only, never the definite 70vh one. The
+    // schema browser (#1693) adds flex sizing to the same class list.
+    const collapsed =
+      screen.getByTestId("query-editor").getAttribute("data-class-name") ?? "";
+    expect(collapsed).toContain("min-h-[220px]");
+    expect(collapsed).not.toContain("h-[70vh]");
   });
 
   it("unmounts the preview and collapses to one column when maximized", async () => {
@@ -246,10 +248,12 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
 
     expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
     expect(gridColumns()).toBe("minmax(0, 1fr) minmax(0, 1fr)");
-    expect(screen.getByTestId("query-editor")).toHaveAttribute(
-      "data-class-name",
-      "min-h-[220px]",
-    );
+    // Collapsed: a minimum height only, never the definite 70vh one. The
+    // schema browser (#1693) adds flex sizing to the same class list.
+    const collapsed =
+      screen.getByTestId("query-editor").getAttribute("data-class-name") ?? "";
+    expect(collapsed).toContain("min-h-[220px]");
+    expect(collapsed).not.toContain("h-[70vh]");
   });
 
   it("un-maximizes when switching to a chart type that has no query editor", async () => {
