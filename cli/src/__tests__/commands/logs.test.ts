@@ -96,19 +96,29 @@ describe("runLogs", () => {
     expect(msg).toContain('Unknown service "redis"');
     expect(msg).toContain("postgres");
     expect(msg).toContain("neo4j");
-    expect(msg).toContain("app");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("rejects `app`: the databases-only compose file it reads has no app service (#1797)", async () => {
+    // `docker compose -f docker/docker-compose.yml logs app` printed nothing
+    // and exited 0, so `neoboard logs app` looked like an app with no logs.
+    await runLogs({ service: "app" });
+
+    expect(mockSpawn).not.toHaveBeenCalled();
+    const msg = mockLogError.mock.calls[0][0] as string;
+    expect(msg).toBe('Unknown service "app". Available: postgres, pg, neo4j');
     expect(process.exitCode).toBe(1);
   });
 
   it("combines --tail, -f and a service in a single invocation", async () => {
-    await runLogs({ lines: "100", follow: true, service: "app" });
+    await runLogs({ lines: "100", follow: true, service: "postgres" });
 
     const [, args] = mockSpawn.mock.calls[0];
     const a = args as string[];
     expect(a).toContain("--tail");
     expect(a).toContain("100");
     expect(a).toContain("-f");
-    expect(a[a.length - 1]).toBe("app");
+    expect(a[a.length - 1]).toBe("postgres");
   });
 
   it("resolves after the spawned child emits `close`", async () => {

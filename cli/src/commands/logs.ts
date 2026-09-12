@@ -3,11 +3,12 @@ import { composeFile } from "../lib/docker.js";
 import { paths } from "../lib/config.js";
 import { error as logError } from "../lib/output.js";
 
+// Services in the databases-only composeFile() this command reads. The app
+// container lives in docker-compose.full.yml, so it has no entry (#1797).
 const SERVICE_MAP: Record<string, string> = {
   postgres: "postgres",
   pg: "postgres",
   neo4j: "neo4j",
-  app: "app",
 };
 
 export async function runLogs(opts: {
