@@ -84,7 +84,7 @@ function stepScript(block, name) {
  * Runs a step script the way Actions does (`bash -e`), with the release body
  * redirected into a temp dir. Returns the step's outputs and that body.
  */
-function runStep(script, { cwd, ref }) {
+function runStep(script, { cwd, ref, env = {} }) {
   const dir = mkdtempSync(join(tmpdir(), "release-step-"));
   const read = (f) => {
     try {
@@ -97,7 +97,7 @@ function runStep(script, { cwd, ref }) {
     execFileSync(
       "bash",
       ["-e", "-c", script.replaceAll("/tmp/release-body.md", join(dir, "body.md"))],
-      { cwd, env: { ...process.env, GITHUB_REF: ref, GITHUB_OUTPUT: join(dir, "output") }, stdio: "pipe" },
+      { cwd, env: { ...process.env, ...env, GITHUB_REF: ref, GITHUB_OUTPUT: join(dir, "output") }, stdio: "pipe" },
     );
     const outputs = Object.fromEntries(
       read("output").split("\n").filter(Boolean).map((l) => l.split("=")),
@@ -224,6 +224,48 @@ describe("release workflow: signing", () => {
     const buildId = DOCKER.match(/- name: Build and push\n\s+id: (\S+)\n/)?.[1];
     expect(buildId, "build-push step has no id:").toBeTruthy();
     expect(DOCKER).toContain(`steps.${buildId}.outputs.digest`);
+  });
+});
+
+describe("release workflow: image name (#1780)", () => {
+  // OCI references must be lowercase. docker/metadata-action lowercases the
+  // image it pushes; cosign and Trivy take the ref verbatim. Under an owner
+  // like GraphWave-Consulting the push succeeds, then signing fails and the
+  // release goes red. So the name is lowercased once and every step reads it.
+  // Built from the step's real `id:`, so a renamed id fails the reader checks
+  // here instead of emptying `images:`, IMAGE and image-ref in a live release.
+  const imageId = DOCKER.match(/- name: Compute the image name\n\s+id: (\S+)\n/)?.[1];
+  const IMAGE = `\${{ steps.${imageId}.outputs.name }}`;
+
+  it("gives the image-name step an id the readers can reference", () => {
+    expect(imageId, "Compute the image name step has no id:").toBeTruthy();
+  });
+
+  it("lowercases the owner and repo into one image name", () => {
+    const script = stepScript(jobBlock("docker"), "Compute the image name");
+    const { outputs } = runStep(script, {
+      cwd: ROOT,
+      ref: "refs/tags/v1.5.0",
+      env: { GITHUB_REPOSITORY: "GraphWave-Consulting/NeoBoard" },
+    });
+    expect(outputs.name).toBe("ghcr.io/graphwave-consulting/neoboard");
+  });
+
+  it("never hands github.repository to a step as-is", () => {
+    expect(DOCKER).not.toContain("github.repository");
+  });
+
+  it("pushes, signs and scans that one name", () => {
+    expect(DOCKER).toContain(`images: ${IMAGE}\n`);
+    expect(DOCKER).toContain(`IMAGE: ${IMAGE}\n`);
+    expect(DOCKER).toContain(`image-ref: ${IMAGE}@\${{ steps.build.outputs.digest }}\n`);
+  });
+
+  it("computes the name before the first step that reads it", () => {
+    expect(DOCKER.indexOf("- name: Compute the image name")).toBeGreaterThan(-1);
+    expect(DOCKER.indexOf("- name: Compute the image name")).toBeLessThan(
+      DOCKER.indexOf(IMAGE),
+    );
   });
 });
 
