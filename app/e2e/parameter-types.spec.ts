@@ -507,10 +507,6 @@ test.describe("Parameter widget types", () => {
     );
 
     try {
-      // A fake clock lets the test hold the 300ms search debounce. Once it
-      // fires, the seed query refetches and the popover remounts with an empty
-      // input and every option, which would let the unfixed filter pass.
-      await page.clock.install();
       await page.goto(`/${id}`);
 
       const trigger = page.getByRole("combobox").first();
@@ -520,14 +516,21 @@ test.describe("Parameter widget types", () => {
         timeout: 10_000,
       });
 
-      const now = await page.evaluate(() => Date.now());
-      await page.clock.pauseAt(now + 1_000);
-      await page.getByPlaceholder("Search\u2026").fill("Keanu");
+      // Assert past the debounced refetch, so the filter being checked is the
+      // one over the term the user typed, not a remounted empty box (#1744).
+      const searched = page.waitForResponse(
+        (res) =>
+          res.url().endsWith("/api/query") &&
+          res.request().postDataJSON()?.params?.param_search === "Keanu",
+      );
+      const search = page.getByPlaceholder("Search\u2026");
+      await search.fill("Keanu");
+      await searched;
+      await expect(search).toHaveValue("Keanu");
       const option = page.getByRole("option", { name: "Keanu Reeves" });
       await expect(option).toBeVisible();
       await expect(page.getByRole("option")).toHaveCount(1);
       await option.click();
-      await page.clock.resume();
 
       // The id reached the dependent query: header row + Keanu's row.
       await expect(trigger).toHaveText(/Keanu Reeves/);
@@ -868,6 +871,9 @@ test.describe("Parameter widget types", () => {
         // The server narrows the list: cmdk renders this seed's rows as given.
         await search.fill(term);
         await expect(options).toHaveText([match], { timeout: 10_000 });
+        // Only the refetch narrows this list, so the term must have survived
+        // it — before #1742 the input came back empty over these rows (#1744).
+        await expect(search).toHaveValue(term);
 
         await close();
         await expect(search).toHaveCount(0);

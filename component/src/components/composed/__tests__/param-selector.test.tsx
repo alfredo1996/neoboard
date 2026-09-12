@@ -397,3 +397,57 @@ describe("ParamMultiSelector — filters on the visible label (#1411)", () => {
     expect(screen.queryByText("No options found.")).not.toBeInTheDocument();
   });
 });
+
+// #1744: a debounced search refetch replaces `options` under an open popover.
+// The bug lived in useSeedQuery (#1747 keeps `loading` false across that
+// refetch); these pin the component half, so they pass on today's code and
+// cannot be shown red first. Closing the popover on an options change turns
+// both red.
+const refetchedOptions = [
+  { value: "4:p:1", label: "Keanu Reeves" },
+  { value: "4:p:9", label: "Keanu Jr" },
+];
+
+describe("searchable selectors keep the typed term when options are replaced (#1744)", () => {
+  it("ParamSelector stays open with the term and lists the new options", async () => {
+    const user = userEvent.setup();
+    const props = {
+      parameterName: "actor",
+      value: "",
+      onChange: vi.fn(),
+      loading: false,
+      searchable: true,
+    };
+    const { rerender } = render(<ParamSelector {...props} options={idOptions} />);
+    await user.click(screen.getByRole("combobox"));
+    await user.type(screen.getByPlaceholderText("Search…"), "Keanu");
+
+    rerender(<ParamSelector {...props} options={refetchedOptions} />);
+
+    expect(screen.getByPlaceholderText("Search…")).toHaveValue("Keanu");
+    expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
+    expect(screen.getByText("Keanu Jr")).toBeInTheDocument();
+  });
+
+  it("ParamMultiSelector stays open with the term and lists the new options", async () => {
+    const user = userEvent.setup();
+    const props = {
+      parameterName: "actors",
+      values: [],
+      onChange: vi.fn(),
+      loading: false,
+      searchable: true,
+    };
+    const { rerender } = render(
+      <ParamMultiSelector {...props} options={idOptions} />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    await user.type(screen.getByPlaceholderText("Search…"), "Keanu");
+
+    rerender(<ParamMultiSelector {...props} options={refetchedOptions} />);
+
+    expect(screen.getByPlaceholderText("Search…")).toHaveValue("Keanu");
+    expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
+    expect(screen.getByText("Keanu Jr")).toBeInTheDocument();
+  });
+});
