@@ -363,6 +363,37 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(chain.calls.set[0][0]).toMatchObject({ updatedBy: "user-1" });
   });
 
+  it("updates tags alone — trimmed, deduped, tenant-scoped (#1692)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const chain = makeUpdateChain([
+      { ...OWNER_DASHBOARD, tags: ["sales", "kpi"] },
+    ]);
+    mockDb.update.mockReturnValue(chain);
+
+    const res = await PUT(
+      makeRequest({ tags: [" sales ", "kpi", "sales"] }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(200);
+    expect(chain.calls.set[0][0]).toMatchObject({ tags: ["sales", "kpi"] });
+    expectScopedById(chain.calls.where[0]);
+  });
+
+  it("returns 400 when tags exceed the limits (#1692)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const tooMany = Array.from({ length: 11 }, (_, i) => `t${i}`);
+    expect(
+      (await PUT(makeRequest({ tags: tooMany }), makeParams("d1"))).status,
+    ).toBe(400);
+    expect(
+      (await PUT(makeRequest({ tags: ["x".repeat(31)] }), makeParams("d1")))
+        .status,
+    ).toBe(400);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when request body is invalid", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));

@@ -17,6 +17,7 @@ import {
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
 import { sql } from "drizzle-orm";
+import { dashboardTagsSchema } from "@/lib/dashboard/dashboard-tags";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -61,6 +62,7 @@ const updateDashboardSchema = z
       })
       .optional(),
     isPublic: z.boolean().optional(),
+    tags: dashboardTagsSchema.optional(),
     /** Optimistic lock — must match the server's current version. */
     expectedVersion: z.number().int().positive().optional(),
   })
@@ -74,7 +76,8 @@ const updateDashboardSchema = z
       d.name !== undefined ||
       d.description !== undefined ||
       d.layoutJson !== undefined ||
-      d.isPublic !== undefined,
+      d.isPublic !== undefined ||
+      d.tags !== undefined,
     { message: "At least one field to update is required" },
   );
 

@@ -54,6 +54,7 @@ const DASHBOARD_ROW = {
   id: "dash-1",
   name: "My Dashboard",
   description: "A test dashboard",
+  tags: ["sales", "kpi"],
   tenantId: "tenant-1",
   userId: "user-1",
   isPublic: false,
@@ -155,6 +156,8 @@ describe("GET /api/dashboards/[id]/export", () => {
     expect(body.formatVersion).toBe(1);
     expect(body.dashboard.name).toBe("My Dashboard");
     expect(body.dashboard.description).toBe("A test dashboard");
+    // Tags travel with the dashboard so an import restores them (#1692).
+    expect(body.dashboard.tags).toEqual(["sales", "kpi"]);
     expect(body.connections).toHaveProperty("conn_0");
     expect(body.connections.conn_0).toEqual({
       name: "Neo4j Prod",

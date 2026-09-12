@@ -154,6 +154,8 @@ export const dashboards = pgTable(
     tenantId: text("tenant_id").notNull().default("default"),
     name: text("name").notNull(),
     description: text("description"),
+    /** Free-form labels for grouping the list (#1692). Never null: `[]` is "no tags". */
+    tags: text("tags").array().notNull().default([]),
     layoutJson: jsonb("layoutJson")
       .$type<DashboardLayoutV2>()
       .default({

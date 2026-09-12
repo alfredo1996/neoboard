@@ -98,6 +98,10 @@ describe("GET /api/dashboards", () => {
     expect(body.data[0].role).toBe("owner");
     expect(body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
     expect(body.error).toBeNull();
+    // The list page reads `d.tags.length` for every card, so the column must
+    // be part of the selected shape (#1692) — the mock returns whatever rows
+    // it is handed, so only the select argument can prove it.
+    expect(mockDb.selectDistinctOn.mock.calls[0][1]).toHaveProperty("tags");
 
     // Both the count and the page query scope by the session tenant and, for
     // a creator, by the caller as owner (#1607). The share-side tenant filter
@@ -194,6 +198,8 @@ describe("GET /api/dashboards", () => {
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
     expect(body.data).toHaveLength(2);
+    // Same guard as the creator branch: the page query must select `tags`.
+    expect(mockDb.select.mock.calls[1][0]).toHaveProperty("tags");
     // "Every dashboard" means every dashboard in the session tenant — both
     // admin queries must carry the tenant filter (#1607).
     for (const chain of [countChain, rowsChain]) {
@@ -446,6 +452,46 @@ describe("POST /api/dashboards", () => {
     const res = await POST(makeRequest({ name: "Test" }));
     expect(res.status).toBe(201);
     expect(chain.calls.values[0][0]).toMatchObject({ updatedBy: "user-1" });
+  });
+
+  it("persists tags — trimmed and deduped (#1692)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const chain = makeInsertChain([
+      { id: "d1", name: "Tagged", tags: ["sales", "kpi"] },
+    ]);
+    mockDb.insert.mockReturnValue(chain);
+
+    const res = await POST(
+      makeRequest({ name: "Tagged", tags: [" sales ", "kpi", "sales"] }),
+    );
+    expect(res.status).toBe(201);
+    expect(chain.calls.values[0][0]).toMatchObject({ tags: ["sales", "kpi"] });
+  });
+
+  it("returns 400 when tags exceed the limits (#1692)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const tooMany = Array.from({ length: 11 }, (_, i) => `t${i}`);
+    expect(
+      (await POST(makeRequest({ name: "Tagged", tags: tooMany }))).status,
+    ).toBe(400);
+    expect(
+      (await POST(makeRequest({ name: "Tagged", tags: ["x".repeat(31)] })))
+        .status,
+    ).toBe(400);
+    expect(
+      (await POST(makeRequest({ name: "Tagged", tags: "sales" }))).status,
+    ).toBe(400);
+    expect(mockDb.insert).not.toHaveBeenCalled();
   });
 });
 

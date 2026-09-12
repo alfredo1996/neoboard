@@ -1,0 +1,1 @@
+ALTER TABLE "dashboard" ADD COLUMN "tags" text[] DEFAULT '{}' NOT NULL;

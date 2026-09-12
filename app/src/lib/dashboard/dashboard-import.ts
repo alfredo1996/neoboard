@@ -1,5 +1,8 @@
 import { z } from "zod";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
+// Relative, not "@/": scripts/__tests__/seed-showcase-schema.test.ts loads this
+// module under the root vitest config, which has no "@/" alias.
+import { dashboardTagsSchema } from "./dashboard-tags";
 
 // ---------------------------------------------------------------------------
 // Widget settings sub-schemas (strict validation for known settings fields)
@@ -126,6 +129,8 @@ export const neoboardExportSchema = z.object({
   dashboard: z.object({
     name: z.string().min(1),
     description: z.string().nullable().optional(),
+    // Optional: exports written before #1692 have no tags.
+    tags: dashboardTagsSchema.optional(),
   }),
   connections: z.record(
     z.string(),

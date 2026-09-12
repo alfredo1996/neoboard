@@ -48,6 +48,7 @@ const DASHBOARD = {
   tenantId: "default",
   name: "My Dashboard",
   description: "A test dashboard",
+  tags: ["sales", "kpi"],
   layoutJson: LAYOUT,
   isPublic: false,
   createdAt: new Date(),
@@ -57,6 +58,12 @@ const DASHBOARD = {
 };
 
 describe("buildExportPayload", () => {
+  it("carries the dashboard's tags (#1692)", () => {
+    expect(
+      buildExportPayload(DASHBOARD, CONNECTION_ROWS).dashboard.tags,
+    ).toEqual(["sales", "kpi"]);
+  });
+
   it("sets formatVersion to 1", () => {
     const result = buildExportPayload(DASHBOARD, CONNECTION_ROWS);
     expect(result.formatVersion).toBe(1);
