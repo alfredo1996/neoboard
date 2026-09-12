@@ -57,13 +57,18 @@ test.describe("Dashboard viewer — uncovered states", () => {
       ).toBeVisible({ timeout: 10_000 });
       // Save the empty dashboard, and wait for it to land before leaving (#1767)
       await saveDashboard(page);
-      // Go to view mode
+      // Go to view mode. /\/[\w-]+$/ also matched /<id>/edit, and "No widgets
+      // yet" shows in edit mode too, so assert view-only chrome (#1787).
       await page.getByRole("button", { name: /Back/ }).click();
-      await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-      // Should show empty state
-      await expect(page.getByText("No widgets yet")).toBeVisible({
+      await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
         timeout: 10_000,
       });
+      await expect(
+        page.getByRole("button", { name: "Edit", exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+      // Should show the view-mode empty state
+      await expect(page.getByText("No widgets yet")).toBeVisible();
+      await expect(page.getByText("This page has no widgets.")).toBeVisible();
     } finally {
       await cleanup();
     }
@@ -134,8 +139,14 @@ test.describe("Dashboard viewer — uncovered states", () => {
 
       // Leave edit → view mode (the route where the version-bump effect runs)
       await page.getByRole("button", { name: /Back/ }).click();
-      // Back goes to /<id>, not /dashboards
-      await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
+      // Back goes to /<id>, not /dashboards. /\/[\w-]+$/ also matched
+      // /<id>/edit, so wait for view mode and its chrome (#1787).
+      await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
+        timeout: 10_000,
+      });
+      await expect(
+        page.getByRole("button", { name: "Edit", exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
 
       // Wait briefly for the version-bump effect to settle. Banner would
       // appear in the same paint if the bug were present.
