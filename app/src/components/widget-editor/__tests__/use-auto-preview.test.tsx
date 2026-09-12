@@ -187,6 +187,27 @@ describe("useAutoPreview", () => {
       expect(opts.previewQuery.mutate).not.toHaveBeenCalled();
     });
 
+    it("still runs the preview when the query is edited after opening with cached data (#1809)", () => {
+      const opts = createDefaults({
+        mode: "edit",
+        initialPreviewData: { data: [], resultId: "r1" },
+      });
+      const { rerender } = renderHook((props) => useAutoPreview(props), {
+        initialProps: opts,
+      });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(opts.previewQuery.mutate).not.toHaveBeenCalled();
+
+      rerender({ ...opts, query: "MATCH (m) RETURN m" });
+      act(() => {
+        vi.advanceTimersByTime(800);
+      });
+
+      expect(opts.previewQuery.mutate).toHaveBeenCalledTimes(1);
+    });
+
     it("skips auto-preview when dialog is closed", () => {
       const opts = createDefaults({ open: false });
       renderHook(() => useAutoPreview(opts));

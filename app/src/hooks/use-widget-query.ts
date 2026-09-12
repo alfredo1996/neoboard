@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import {
   unwrapFullResponse,
   QueueFullError,
@@ -152,6 +152,43 @@ export function shouldRetryWidgetQuery(
   );
 }
 
+type WidgetQueryIdentity = Partial<
+  Pick<WidgetQueryInput, "connectionId" | "database" | "query">
+>;
+
+/**
+ * The key prefix every cached result of one widget query shares, whatever its
+ * params or staleTime. The one place the key's shape is written: a copy of it
+ * went stale when `database` joined the key and matched nothing (#1809).
+ * Prefix matches cover every params variant, which is right for invalidation.
+ */
+export function widgetQueryKeyPrefix(w: WidgetQueryIdentity | null) {
+  return ["widget-query", w?.connectionId, w?.database ?? null, w?.query];
+}
+
+/**
+ * The result a mounted card is showing for this widget query, for reads such
+ * as Export CSV and the editor preview. An older params variant stays cached
+ * after a parameter changes, so the first prefix match can be the previous
+ * parameter's rows: take the newest result held by an enabled observer, or
+ * nothing when no card shows one.
+ */
+export function getShownWidgetQueryData(
+  queryClient: QueryClient,
+  w: WidgetQueryIdentity,
+): QueryResult | undefined {
+  let shown: { data: QueryResult; at: number } | undefined;
+  for (const q of queryClient
+    .getQueryCache()
+    .findAll({ queryKey: widgetQueryKeyPrefix(w), type: "active" })) {
+    const { data, dataUpdatedAt } = q.state;
+    if (data !== undefined && (!shown || dataUpdatedAt > shown.at)) {
+      shown = { data: data as QueryResult, at: dataUpdatedAt };
+    }
+  }
+  return shown?.data;
+}
+
 /**
  * Cached query hook for widget data. Uses React Query's cache with a stable
  * key based on connectionId + query text, so the same query is never executed
@@ -221,10 +258,7 @@ export function useWidgetQuery(
 
   const queryResult = useQuery<QueryResult, Error>({
     queryKey: [
-      "widget-query",
-      mergedInput?.connectionId,
-      mergedInput?.database ?? null,
-      mergedInput?.query,
+      ...widgetQueryKeyPrefix(mergedInput),
       mergedInput?.params,
       options?.staleTime ?? 0,
     ],

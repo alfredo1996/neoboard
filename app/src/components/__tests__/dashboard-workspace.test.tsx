@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { useWidgetQuery } from "@/hooks/use-widget-query";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { useDashboardStore } from "@/stores/dashboard-store";
@@ -150,16 +152,41 @@ vi.mock("@/hooks/use-widget-templates", () => ({
   useWidgetTemplates: (...args: unknown[]) => mockUseWidgetTemplates(...args),
 }));
 
-vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({
-    getQueriesData: () => [],
-    invalidateQueries: vi.fn(),
-  }),
+// A real QueryClient, shared with the probes below, so the workspace reads and
+// writes the same cache a mounted card's `useWidgetQuery` fills (#1809).
+const testQueryClient = vi.hoisted(() => ({
+  current: undefined as import("@tanstack/react-query").QueryClient | undefined,
 }));
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+  testQueryClient.current = new actual.QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return { ...actual, useQueryClient: () => testQueryClient.current! };
+});
 
 vi.mock("@/components/widget-editor-modal", () => ({
-  WidgetEditorModal: ({ open }: { open?: boolean }) =>
-    open ? <div data-testid="widget-editor-modal" /> : null,
+  WidgetEditorModal: ({
+    open,
+    initialPreviewData,
+    widget,
+    onSave,
+  }: {
+    open?: boolean;
+    initialPreviewData?: { data: unknown };
+    widget?: unknown;
+    onSave?: (w: unknown) => void;
+  }) =>
+    open ? (
+      <div
+        data-testid="widget-editor-modal"
+        data-preview={
+          initialPreviewData ? JSON.stringify(initialPreviewData.data) : "none"
+        }
+      >
+        <button data-testid="editor-save" onClick={() => onSave?.(widget)} />
+      </div>
+    ) : null,
 }));
 
 vi.mock("@/components/dashboard-assign-panel", () => ({
@@ -400,6 +427,7 @@ beforeEach(() => {
   localStorage.clear();
   useDashboardStore.getState().reset();
   useParameterStore.getState().clearAll();
+  testQueryClient.current!.clear();
   vi.clearAllMocks();
   mockUseDashboard.mockImplementation(() => ({
     data: dashboard,
@@ -1029,6 +1057,112 @@ describe("DashboardWorkspace", () => {
     render(<DashboardWorkspace id="d1" editMode={true} />);
     fireEvent.click(screen.getByTestId("act-edit"));
     expect(screen.getByTestId("widget-editor-modal")).toBeInTheDocument();
+  });
+
+  // ── #1809: the editor reads the card's cached result by its real key ──
+  describe("widget query cache", () => {
+    /** Rows echo `params.v`, so each params variant is recognisable. */
+    function stubQueryApi() {
+      const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
+        const { params } = JSON.parse(init.body) as { params?: { v?: string } };
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            data: { data: [{ v: params?.v }] },
+            error: null,
+            meta: { resultId: `r-${params?.v}` },
+          }),
+        };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    /** The real hook for the fixture's widget `w1` (c1 / SELECT 1). */
+    function CardProbe({ v }: { v: string }) {
+      const params = React.useMemo(() => ({ v }), [v]);
+      const { data } = useWidgetQuery({
+        connectionId: "c1",
+        query: "SELECT 1",
+        params,
+      });
+      return (
+        <div data-testid="probe">
+          {data ? JSON.stringify(data.data) : "loading"}
+        </div>
+      );
+    }
+
+    const workspace = (probe: string | null) => (
+      <QueryClientProvider client={testQueryClient.current!}>
+        <DashboardWorkspace id="d1" editMode={true} />
+        {probe && <CardProbe v={probe} />}
+      </QueryClientProvider>
+    );
+
+    async function showVariant(
+      rerender: (ui: React.ReactElement) => void,
+      v: string,
+    ) {
+      rerender(workspace(v));
+      await waitFor(() =>
+        expect(screen.getByTestId("probe").textContent).toBe(
+          JSON.stringify([{ v }]),
+        ),
+      );
+    }
+
+    beforeEach(() => {
+      pathname = "/d1/edit";
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("Edit Widget previews the variant the card shows, not an older one", async () => {
+      stubQueryApi();
+      const { rerender } = render(workspace("old"));
+      await showVariant(rerender, "old");
+      await showVariant(rerender, "new");
+
+      fireEvent.click(screen.getByTestId("act-edit"));
+
+      expect(
+        screen.getByTestId("widget-editor-modal").getAttribute("data-preview"),
+      ).toBe(JSON.stringify([{ v: "new" }]));
+    });
+
+    it("Edit Widget passes no preview when no card shows the widget, so the editor runs it", async () => {
+      stubQueryApi();
+      const { rerender } = render(workspace("old"));
+      await showVariant(rerender, "old");
+      rerender(workspace(null));
+
+      fireEvent.click(screen.getByTestId("act-edit"));
+
+      expect(
+        screen.getByTestId("widget-editor-modal").getAttribute("data-preview"),
+      ).toBe("none");
+    });
+
+    it("saving the editor does not invalidate the card's query", async () => {
+      // Keys are content-addressed: a saved change to what runs gets a new
+      // key and fetches by itself; an unchanged query has nothing new.
+      const fetchMock = stubQueryApi();
+      const { rerender } = render(workspace("old"));
+      await showVariant(rerender, "old");
+      const invalidate = vi.spyOn(testQueryClient.current!, "invalidateQueries");
+
+      fireEvent.click(screen.getByTestId("act-edit"));
+      fireEvent.click(screen.getByTestId("editor-save"));
+
+      expect(invalidate).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      invalidate.mockRestore();
+    });
   });
 
   it("navigates to another page from a click action", () => {

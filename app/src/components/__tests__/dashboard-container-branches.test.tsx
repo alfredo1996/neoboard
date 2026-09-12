@@ -5,8 +5,14 @@
  * on the onDoubleClick handler.
  */
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type {
   DashboardPage,
@@ -251,6 +257,7 @@ vi.mock("@/lib/query/resolve-cache-options", () => ({
 
 /* ---------- import under test ---------- */
 const { DashboardContainer } = await import("../dashboard-container");
+const { useWidgetQuery } = await import("@/hooks/use-widget-query");
 const {
   buildCsvString: mockBuildCsv,
   triggerDownload: mockTriggerDownload,
@@ -533,6 +540,137 @@ describe("DashboardContainer — CSV export", () => {
       "csv",
       "My Dashboard",
     );
+  });
+});
+
+/**
+ * #1809 — Export CSV reads what a real card cached. The card itself is mocked
+ * in this file, so a probe mounts the real `useWidgetQuery` for the same
+ * widget, the way CardContainer does, against a stubbed `/api/query`.
+ */
+describe("DashboardContainer — CSV export reads the card's cached result", () => {
+  /** Rows echo the bound parameter, so each params variant is recognisable. */
+  function stubQueryApi() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: { body: string }) => {
+        const { params } = JSON.parse(init.body) as {
+          params?: { param_region?: string };
+        };
+        const region = params?.param_region ?? "all";
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            data: { data: [{ region }] },
+            error: null,
+            meta: { resultId: `r-${region}` },
+          }),
+        };
+      }),
+    );
+  }
+
+  function CardProbe({ widget }: { widget: DashboardWidget }) {
+    const { data } = useWidgetQuery({
+      connectionId: widget.connectionId,
+      query: widget.query,
+      database: widget.database,
+    });
+    return (
+      <div data-testid="probe">
+        {data ? JSON.stringify(data.data) : "loading"}
+      </div>
+    );
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("exports the rows a mounted card fetched", async () => {
+    stubQueryApi();
+    const widget = makeWidget();
+    renderWithProviders(
+      <>
+        <DashboardContainer page={makePage([widget])} />
+        <CardProbe widget={widget} />
+      </>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("probe").textContent).toBe('[{"region":"all"}]'),
+    );
+
+    fireEvent.click(screen.getByTestId("action-csv"));
+
+    expect(mockBuildExportData).toHaveBeenCalledWith(
+      [{ region: "all" }],
+      [],
+      { foo: "bar" },
+    );
+  });
+
+  it("exports the current parameter's rows, not an older cached variant", async () => {
+    stubQueryApi();
+    const widget = makeWidget({
+      query: "MATCH (n) WHERE n.region = $param_region RETURN n",
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const ui = () => (
+      <QueryClientProvider client={queryClient}>
+        <DashboardContainer page={makePage([widget])} />
+        <CardProbe widget={widget} />
+      </QueryClientProvider>
+    );
+
+    parametersState.parameters = { region: { field: "region", value: "EU" } };
+    const { rerender } = render(ui());
+    await waitFor(() =>
+      expect(screen.getByTestId("probe").textContent).toBe('[{"region":"EU"}]'),
+    );
+
+    // The parameter changes: EU stays cached (first in the cache), US is shown.
+    parametersState.parameters = { region: { field: "region", value: "US" } };
+    rerender(ui());
+    await waitFor(() =>
+      expect(screen.getByTestId("probe").textContent).toBe('[{"region":"US"}]'),
+    );
+
+    fireEvent.click(screen.getByTestId("action-csv"));
+
+    expect(mockBuildExportData).toHaveBeenCalledTimes(1);
+    expect(mockBuildExportData.mock.calls[0][0]).toEqual([{ region: "US" }]);
+  });
+
+  it("exports nothing while the current variant has no result yet", async () => {
+    stubQueryApi();
+    const widget = makeWidget({
+      query: "MATCH (n) WHERE n.region = $param_region RETURN n",
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const ui = (probe: boolean) => (
+      <QueryClientProvider client={queryClient}>
+        <DashboardContainer page={makePage([widget])} />
+        {probe && <CardProbe widget={widget} />}
+      </QueryClientProvider>
+    );
+
+    parametersState.parameters = { region: { field: "region", value: "EU" } };
+    const { rerender } = render(ui(true));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe").textContent).toBe('[{"region":"EU"}]'),
+    );
+    // No card shows this widget any more; its old result is only cache.
+    rerender(ui(false));
+
+    fireEvent.click(screen.getByTestId("action-csv"));
+
+    expect(mockBuildExportData.mock.calls[0][0]).toBeUndefined();
   });
 });
 
