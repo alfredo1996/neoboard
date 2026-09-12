@@ -22,6 +22,7 @@
     "test:app": "npm -w app run test",
     "test:components": "npm -w component run test",
     "test:visual": "npm -w component run test:storybook",
+    "bench:charts": "npm -w component run bench:charts",
     "test:cli": "npm -w cli run test",
     "test:e2e": "npm -w app run test:e2e",
     "storybook": "npm -w component run storybook",
