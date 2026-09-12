@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { authLogger } from "@/lib/logger";
+import { resolveTenantId } from "@/lib/auth/tenant-id";
 
 /**
  * Creates the first admin user if the users table is empty.
@@ -38,7 +39,7 @@ export async function bootstrapAdmin({
 
       const passwordHash = await bcrypt.hash(password, 12);
 
-      const tenantId = process.env.TENANT_ID ?? "default";
+      const tenantId = resolveTenantId();
       await tx.insert(users).values({
         name: "Admin",
         email,

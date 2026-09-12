@@ -86,6 +86,20 @@ describe("GET /api/auth/sso-providers", () => {
     expect(sqlValues(expr)).toEqual(expect.arrayContaining(["tenant-x", true]));
   });
 
+  it.each([
+    [undefined, "default"],
+    ["", "default"],
+    ["   ", "default"],
+    ["acme", "acme"],
+  ])("TENANT_ID=%j lists the providers of tenant %j (#1728)", async (value, tenant) => {
+    vi.stubEnv("TENANT_ID", value);
+    const chain = makeSelectChain([]);
+    mockDb.select.mockReturnValue(chain);
+    await GET(authReq());
+    const [expr] = chain.calls.where[0];
+    expect(sqlValues(expr)).toEqual(expect.arrayContaining([tenant, true]));
+  });
+
   it("does not require authentication", async () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
     // If this handler required auth, it would throw — it should not

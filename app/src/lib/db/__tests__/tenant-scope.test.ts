@@ -105,8 +105,11 @@ const TENANT_TABLES = tenantTablesIn(
 // value is credited only when it resolves, binding by binding and in its own
 // scope, to one of the sources below.
 
-/** Calls whose result is the caller's own session. */
-const SESSION_SOURCES = new Set(["requireSession", "requireAdmin"]);
+/**
+ * Calls whose result is the caller's own session, or the operator's configured
+ * tenant (`resolveTenantId()`, the only reader of TENANT_ID — #1728).
+ */
+const SESSION_SOURCES = new Set(["requireSession", "requireAdmin", "resolveTenantId"]);
 /** Database clients: a row they return carries the tenant it was stored with. */
 const DB_CLIENTS = new Set(["db", "tx"]);
 /** Next.js route handlers, whose parameters are the request itself. */
@@ -1434,7 +1437,7 @@ describe("scanSource", () => {
         ],
         ["a library helper's parameter", `export async function usage(tenantId: string) { ${raw} ${builder} }`],
         ["a row fetched from the database", "const [row] = await db.select().from(users); await db.insert(dashboards).values({ tenantId: row.tenantId });"],
-        ["operator config", "const tenantId = process.env.TENANT_ID ?? \"default\"; await db.insert(dashboards).values({ tenantId });"],
+        ["operator config", "const tenantId = resolveTenantId(); await db.insert(dashboards).values({ tenantId });"],
       ]) {
         expect(scan(src).every(Boolean), label).toBe(true);
       }

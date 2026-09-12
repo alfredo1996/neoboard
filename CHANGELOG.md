@@ -40,6 +40,23 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - The markdown widget keeps `snake_case` words and code spans intact instead of italicising them (#1407)
 - The iframe **Sandbox Policy** field warns when it discards a token instead of dropping it silently (#1413)
 - The unset-`TENANT_ID` warning is logged once per process instead of on every login (#1338)
+- A default Docker install no longer puts its users in an empty tenant. The prod compose files passed `TENANT_ID: ""` and every reader kept the `""`, while the startup warning claimed `default`. An unset, empty or whitespace-only `TENANT_ID` now means `default`, it is read in one place, and the compose files default it to `default` (#1728)
+
+  **Upgrade note for pre-release installs** started from `docker-compose.prod.yml` or `docker-compose.prod-full.yml` without `TENANT_ID`: their rows hold tenant `''`, so after upgrading nobody can sign in until the rows move. Back up the metadata database, then run this once. It is a single statement because the composite foreign keys (#1646) reject the tables moved one at a time, and it changes nothing if it fails, for example when one email exists in both tenants. Existing sessions end, so everyone signs in again. For a demo or throwaway install, `neoboard stop --volumes` then re-running `neoboard demo` is the alternative.
+
+  ```sql
+  BEGIN;
+  WITH
+    u  AS (UPDATE "user"          SET tenant_id = 'default' WHERE tenant_id = ''),
+    c  AS (UPDATE connection      SET tenant_id = 'default' WHERE tenant_id = ''),
+    d  AS (UPDATE dashboard       SET tenant_id = 'default' WHERE tenant_id = ''),
+    ds AS (UPDATE dashboard_share SET tenant_id = 'default' WHERE tenant_id = ''),
+    wt AS (UPDATE widget_template SET tenant_id = 'default' WHERE tenant_id = ''),
+    ak AS (UPDATE api_key         SET tenant_id = 'default' WHERE tenant_id = ''),
+    sp AS (UPDATE sso_provider    SET tenant_id = 'default' WHERE tenant_id = '')
+  UPDATE audit_log SET tenant_id = 'default' WHERE tenant_id = '';
+  COMMIT;
+  ```
 - A connector consumer's `onSuccess` callback that throws is no longer reported as a database failure (#1642)
 - A connection whose host is unreachable no longer storms retries or hangs dependent widgets on "Waiting for parameters…": the API answers `502 CONNECTOR_UNAVAILABLE` (no auto-retry) instead of `408`, every widget on that connection says "Connector unavailable" with the classifier's hint — including the ones gated on a parameter whose seed query is on a dead connection, their own or another — parameter widgets show the failure with a Retry instead of an empty list, refused PostgreSQL credentials answer `502` too (they were a bare `500`), scheduler backpressure (`408`/`503`) neither clears the flag nor auto-retries on a flagged connection, widget queries no longer re-fire on window focus, and the Neo4j driver's connection-acquisition timeout is bounded (#1678)
 - A password embedded in a connection URI is now rejected when you save the connection, and a URI that fails to parse no longer quotes the URI back to you; a bare username stays accepted (#1303)

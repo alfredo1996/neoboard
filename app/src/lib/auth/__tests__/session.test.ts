@@ -269,4 +269,20 @@ describe("requireSession", () => {
     expect(session.tenantId).toBe("default");
     if (savedTenantId !== undefined) process.env.TENANT_ID = savedTenantId;
   });
+
+  it.each([
+    [undefined, "default"],
+    ["", "default"],
+    ["   ", "default"],
+    ["acme", "acme"],
+  ])("TENANT_ID=%j falls back to tenant %j when the session has none (#1728)", async (value, tenant) => {
+    vi.stubEnv("TENANT_ID", value);
+    try {
+      mockAuth.mockResolvedValue({ user: { id: "user-6", role: "creator" } });
+      const session = await requireSession();
+      expect(session.tenantId).toBe(tenant);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

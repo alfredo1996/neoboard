@@ -108,13 +108,15 @@ export async function verifyConnectionHostsImpl(
 export async function verifyConnectionHosts(): Promise<void> {
   if (process.env.NODE_ENV !== "development") return;
   try {
-    const [{ db }, schema, crypto, { eq }] = await Promise.all([
-      import("@/lib/db"),
-      import("@/lib/db/schema"),
-      import("@/lib/crypto/crypto"),
-      import("drizzle-orm"),
-    ]);
-    const tenantId = process.env.TENANT_ID ?? "default";
+    const [{ db }, schema, crypto, { eq }, { resolveTenantId }] =
+      await Promise.all([
+        import("@/lib/db"),
+        import("@/lib/db/schema"),
+        import("@/lib/crypto/crypto"),
+        import("drizzle-orm"),
+        import("@/lib/auth/tenant-id"),
+      ]);
+    const tenantId = resolveTenantId();
     await verifyConnectionHostsImpl({
       fetchConnections: async () => {
         // Every DB query must include tenant scoping, even diagnostics.

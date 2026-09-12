@@ -111,6 +111,26 @@ describe("signup", () => {
   afterEach(() => {
     delete process.env.ADMIN_BOOTSTRAP_TOKEN;
     delete process.env.REGISTRATION_ENABLED;
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    [undefined, "default"],
+    ["", "default"],
+    ["   ", "default"],
+    ["acme", "acme"],
+  ])("TENANT_ID=%j creates the user in tenant %j (#1728)", async (value, tenant) => {
+    process.env.REGISTRATION_ENABLED = "true";
+    vi.stubEnv("TENANT_ID", value);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
+    const { txInsert } = setupTx([[]]); // tx: email not taken
+    const res = await signup(
+      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
+    );
+    expect(res.success).toBe(true);
+    expect(txInsert.mock.results[0].value.values).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: tenant }),
+    );
   });
 
   it("returns error when name is missing", async () => {

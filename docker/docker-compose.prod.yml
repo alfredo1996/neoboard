@@ -45,7 +45,7 @@ services:
       API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:?API_KEY_HMAC_SECRET is required — generate with `openssl rand -hex 32`}
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
       SESSION_MAX_AGE: ${SESSION_MAX_AGE:-}
-      TENANT_ID: ${TENANT_ID:-}
+      TENANT_ID: ${TENANT_ID:-default}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
       # ── Security ──
