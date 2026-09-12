@@ -52,6 +52,22 @@ function docsFiles(dir = DOCS_ROOT) {
 
 const DOCS = docsFiles();
 
+/**
+ * owner/repo, from the image the prod compose pulls — the source
+ * app/src/lib/__tests__/docs-accuracy.test.ts reads too. release.yml publishes
+ * ghcr.io/${{ github.repository }}, so it is the GitHub repo. A literal owner
+ * in a link pattern matches nothing after the org transfer (#1213), and a
+ * check over no links passes (#1781).
+ */
+function ownerRepo() {
+  const compose = "docker/docker-compose.prod-full.yml";
+  const m = /ghcr\.io\/([\w-]+)\/([\w-]+):latest/.exec(
+    readFileSync(join(ROOT, compose), "utf8"),
+  );
+  if (!m) throw new Error(`${compose} no longer names a ghcr image`);
+  return { owner: m[1], repo: m[2] };
+}
+
 /** Every `backticked` span in the docs, with the file it came from. */
 function backtickedTokens() {
   const found = [];
@@ -593,18 +609,22 @@ describe("the seven-group information architecture (#1681)", () => {
     // that never existed (the page was /concepts/widgets) and one the redirect
     // map did not know either — so the app shipped a 404 in its own help link.
     const covered = new Set([...slugs, ...redirects.map(([from]) => from)]);
-    const dead = gitGrep(
-      "(neoboard\\.app/docs|alfredo1996\\.github\\.io/neoboard)/[A-Za-z0-9_./-]*",
+    const { owner, repo } = ownerRepo();
+    const hosts = ["neoboard.app/docs", `${owner}.github.io/${repo}`];
+    const links = gitGrep(
+      `(${hosts.join("|").replaceAll(".", "\\.")})/[A-Za-z0-9_./-]*`,
       ["app/src", "cli", "README.md", "PLUGINS.md"],
-    )
+    );
+    // A host that matches nothing is a stale pattern, not a clean tree (#1781).
+    expect(
+      hosts.filter((h) => !links.some(({ match }) => match.startsWith(h))),
+    ).toEqual([]);
+    const dead = links
       .map(({ path, line, match }) => ({
         path,
         line,
         slug: match
-          .replace(
-            /^(neoboard\.app\/docs|alfredo1996\.github\.io\/neoboard)/,
-            "",
-          )
+          .slice(hosts.find((h) => match.startsWith(h)).length)
           // The site root is index.mdx, whose pageSlug is "" (#1217).
           .replace(/\/+$/, ""),
       }))
@@ -649,13 +669,20 @@ describe("the seven-group information architecture (#1681)", () => {
   it("links to GitHub on a branch that still moves", () => {
     // developer/index.mdx pointed ARCHITECTURE.md at release/1.1, a branch
     // that stopped receiving commits three releases ago.
-    const stale = [];
-    for (const { path, text } of DOCS)
-      for (const m of text.matchAll(
-        /github\.com\/alfredo1996\/neoboard\/(?:blob|tree)\/(release\/[^/\s)]+)/g,
-      ))
-        stale.push(`${m[1]} (${path})`);
-    expect(stale).toEqual([]);
+    const { owner, repo } = ownerRepo();
+    const refs = DOCS.flatMap(({ path, text }) =>
+      [
+        ...text.matchAll(
+          new RegExp(
+            `github\\.com/${owner}/${repo}/(?:blob|tree)/((?:release/)?[^/\\s)]+)`,
+            "g",
+          ),
+        ),
+      ].map((m) => `${m[1]} (${path})`),
+    );
+    // No links at all means the pattern went stale, not that none are frozen (#1781).
+    expect(refs.length).toBeGreaterThan(0);
+    expect(refs.filter((r) => r.startsWith("release/"))).toEqual([]);
   });
 });
 
