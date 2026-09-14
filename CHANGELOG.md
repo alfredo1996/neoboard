@@ -134,6 +134,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - Duplicating, saving or importing a dashboard, and reassigning a connection, now require access to every connection involved, so a viewer share stays bound to the dashboard's queries. Editors can still save on the connections already on the dashboard (#1816)
 - A viewer share or public dashboard runs a query only on the connection and database a widget on that dashboard saves it with, so view-level users can no longer choose another database on the same connection. Connection owners, tenant-shared connections, admins and edit-level access still choose the database (#1822)
 - View-level queries must match their saved text exactly (#1827)
+- Form submits require access to the dashboard they name, and unknown or inaccessible dashboards and widgets get the same refusal (#1832)
 
 ## [1.4.0] — 2026-07-29 — Audit, observability & correctness
 
