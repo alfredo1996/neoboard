@@ -16,10 +16,11 @@ function hashWithoutSearch([
   query,
   params,
   tenantId,
+  database,
 ]: QueryKey): string {
   const rest = { ...(params as Record<string, unknown> | undefined) };
   delete rest.param_search;
-  return hashKey([scope, connectionId, query, rest, tenantId]);
+  return hashKey([scope, connectionId, query, rest, tenantId, database]);
 }
 
 /**
@@ -30,6 +31,10 @@ function hashWithoutSearch([
  * Defense-in-depth: `tenantId` is passed in the request body and the server
  * asserts it matches the session tenant — complementing the existing
  * ownership check on the connection itself.
+ *
+ * `database` is the owning widget's saved per-card database: the options come
+ * from where the widget runs, and a view-level request is matched on it
+ * (#1824). Missing or "" sends none, for the connection's default.
  */
 export function useSeedQuery(
   connectionId: string | undefined,
@@ -37,6 +42,7 @@ export function useSeedQuery(
   enabled: boolean,
   extraParams?: Record<string, unknown>,
   tenantId?: string,
+  database?: string,
 ): {
   options: ParamSelectorOption[];
   loading: boolean;
@@ -44,7 +50,14 @@ export function useSeedQuery(
   /** Re-run the seed query — the only recovery path after it fails (#1678). */
   refetch: () => void;
 } {
-  const queryKey = ["param-seed", connectionId, query, extraParams, tenantId];
+  const queryKey = [
+    "param-seed",
+    connectionId,
+    query,
+    extraParams,
+    tenantId,
+    database,
+  ];
   const { data, isLoading, error, refetch } = useQuery<SeedQueryData>({
     queryKey,
     queryFn: async ({ signal }) => {
@@ -57,6 +70,7 @@ export function useSeedQuery(
           query,
           params: extraParams ?? {},
           ...(tenantId ? { tenantId } : {}),
+          ...(database ? { database } : {}),
         }),
       });
       // connectionId is non-empty whenever the query is enabled (see below).

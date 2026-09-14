@@ -121,6 +121,49 @@ const baseSeedExecution = {
   mutate: vi.fn(),
 };
 
+// #1824: the dashboard card asks for the options on the selector's saved
+// database (card-container.test.tsx), so the editor's check runs there too.
+describe("ParameterConfigSection — Test Seed Query runs on the selector's database (#1824)", () => {
+  function testSeedWith(database: string) {
+    mockStoreState = {
+      paramUIType: "select",
+      setParamUIType: vi.fn(),
+      paramWidgetName: "db",
+      setParamWidgetName: vi.fn(),
+      multiSelect: false,
+      setMultiSelect: vi.fn(),
+      dateSub: "single",
+      setDateSub: vi.fn(),
+      chartOptions: { seedQuery: "SELECT 1" },
+      setChartOptions: vi.fn(),
+      connectionId: "conn-1",
+      database,
+    };
+    const mutate = vi.fn();
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={{ ...baseSeedExecution, mutate }}
+        seedPreviewOptions={null}
+      />,
+    );
+    fireEvent.click(screen.getByText("Test Seed Query"));
+    expect(mutate).toHaveBeenCalledTimes(1);
+    return mutate.mock.calls[0][0] as Record<string, unknown>;
+  }
+
+  it("sends the database the selector saves", () => {
+    expect(testSeedWith("neoboard")).toEqual({
+      connectionId: "conn-1",
+      query: "SELECT 1",
+      database: "neoboard",
+    });
+  });
+
+  it("sends no database when the selector saves none", () => {
+    expect(testSeedWith("")).not.toHaveProperty("database");
+  });
+});
+
 describe("ParameterConfigSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();

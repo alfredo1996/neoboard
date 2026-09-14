@@ -128,7 +128,7 @@ describe("useSeedQuery", () => {
   });
 
   describe("query configuration", () => {
-    it("passes correct queryKey including all params", async () => {
+    it("passes correct queryKey including all params and the saved database (#1824)", async () => {
       const { useQuery } = await import("@tanstack/react-query");
       vi.mocked(useQuery).mockReturnValue({
         data: null,
@@ -142,6 +142,7 @@ describe("useSeedQuery", () => {
         true,
         { x: 1 },
         "tenant-abc",
+        "neoboard",
       );
 
       expect(useQuery).toHaveBeenCalledWith(
@@ -152,6 +153,7 @@ describe("useSeedQuery", () => {
             "MATCH (n) RETURN n",
             { x: 1 },
             "tenant-abc",
+            "neoboard",
           ],
           enabled: true,
           staleTime: 30_000,
@@ -226,6 +228,52 @@ describe("useSeedQuery", () => {
           tenantId: "tenant-1",
         }),
       });
+    });
+
+    it("POSTs the widget's saved database, and none when it saves none (#1824)", async () => {
+      const { useQuery } = await import("@tanstack/react-query");
+      const queryFns: ((ctx: { signal: AbortSignal }) => Promise<unknown>)[] =
+        [];
+      vi.mocked(useQuery).mockImplementation(((
+        config: Record<string, unknown>,
+      ) => {
+        queryFns.push(config.queryFn as (typeof queryFns)[number]);
+        return { data: null, isLoading: false };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async () =>
+          mockResponse({ data: { data: [] }, error: null, meta: null }),
+        );
+
+      const { useSeedQuery } = await import("../use-seed-query");
+      useSeedQuery(
+        "conn-1",
+        "RETURN 1",
+        true,
+        undefined,
+        undefined,
+        "neoboard",
+      );
+      useSeedQuery("conn-1", "RETURN 1", true, undefined, undefined, "");
+      useSeedQuery("conn-1", "RETURN 1", true);
+      for (const queryFn of queryFns) {
+        await queryFn({ signal: new AbortController().signal });
+      }
+
+      const bodies = fetchSpy.mock.calls.map(
+        ([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
+      expect(bodies).toHaveLength(3);
+      expect(bodies[0]).toEqual({
+        connectionId: "conn-1",
+        query: "RETURN 1",
+        params: {},
+        database: "neoboard",
+      });
+      expect(bodies[1]).not.toHaveProperty("database");
+      expect(bodies[2]).not.toHaveProperty("database");
     });
 
     /**

@@ -328,8 +328,8 @@ export interface DashboardWidget {
    *  instead of the connection's default. Only effective when the connection
    *  has allowPerCardDb=true. */
   database?: string;
-  /** When true, this widget is allowed to execute write queries.
-   *  Server enforces: write only if BOTH user.canWrite AND widget.allowWrites. */
+  /** When true, this widget is allowed to execute write queries. The server
+   *  requires user.canWrite, and for a stored widget other than a form, this. */
   allowWrites?: boolean;
   /** ID of the Widget Library template this widget was created from. */
   templateId?: string;

@@ -9,6 +9,7 @@ import React, {
   useRef,
 } from "react";
 import { useSession } from "next-auth/react";
+import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ParamSelector,
@@ -44,6 +45,10 @@ import {
 
 export interface FormWidgetRendererProps {
   connectionId: string;
+  /** The form's saved per-card database, where its field options come from. */
+  database?: string;
+  /** The id the dashboard stores the form under; a submit names it (#1824). */
+  widgetId?: string;
   query: string;
   settings?: Record<string, unknown>;
 }
@@ -61,6 +66,7 @@ interface FieldInputProps {
   value: unknown;
   onChange: (name: string, value: unknown) => void;
   connectionId: string;
+  database?: string;
   tenantId?: string;
   // The current local values map, used by cascading-select for parent lookup
   localValues: Record<string, unknown>;
@@ -74,6 +80,7 @@ function FieldInput({
   value,
   onChange,
   connectionId,
+  database,
   tenantId,
   localValues,
   textInputRef,
@@ -141,6 +148,7 @@ function FieldInput({
     needsSeed && cascadingEnabled,
     seedExtraParams,
     tenantId,
+    database,
   );
 
   const options = hasStaticOptions ? staticOptionsList : seedOptions;
@@ -331,6 +339,8 @@ function FieldInput({
 
 export function FormWidgetRenderer({
   connectionId,
+  database,
+  widgetId,
   query,
   settings = {},
 }: FormWidgetRendererProps) {
@@ -401,6 +411,21 @@ export function FormWidgetRenderer({
 
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
+  // Dashboards render under /[id] and /[id]/edit; null outside the app router.
+  const dashboardId = useParams<{ id?: string }>()?.id;
+  // The write runs where the saved dashboard stores this form (#1824). Edit
+  // mode shows the working copy: until it is saved, a form missing from the
+  // saved layout, or saved on another connection or database, waits for Save.
+  const needsSave = useDashboardStore((s) => {
+    if (!widgetId || !s.hasUnsavedChanges()) return false;
+    const saved = s.savedLayout?.pages
+      .flatMap((p) => p.widgets)
+      .find((w) => w.id === widgetId);
+    return (
+      saved?.connectionId !== connectionId ||
+      (saved.database || undefined) !== (database || undefined)
+    );
+  });
 
   // Proactively gate the form when the viewer has no write permission
   // (issue #496). Readers always land here because session.user.canWrite
@@ -552,7 +577,9 @@ export function FormWidgetRenderer({
     const params = buildFormParams(fields, values);
 
     writeQuery.mutate(
-      { connectionId, query, params },
+      // The stored form's ids, never a database: the route writes where the
+      // stored form is saved (#1824).
+      { connectionId, query, params, widgetId, dashboardId },
       {
         onSuccess: () => {
           const msg = chartOptions.successMessage as string | undefined;
@@ -615,6 +642,8 @@ export function FormWidgetRenderer({
     flushTextDrafts,
     connectionId,
     query,
+    widgetId,
+    dashboardId,
     chartOptions,
     writeQuery,
     refreshWidgetIds,
@@ -637,7 +666,7 @@ export function FormWidgetRenderer({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (readOnly) return;
+          if (readOnly || needsSave) return;
           handleSubmit();
         }}
         onPointerDown={holdMessagesForPress}
@@ -706,6 +735,7 @@ export function FormWidgetRenderer({
                   value={localValues[field.parameterName]}
                   onChange={handleFieldChange}
                   connectionId={connectionId}
+                  database={database}
                   tenantId={tenantId}
                   localValues={localValues}
                   textInputRef={
@@ -738,6 +768,11 @@ export function FormWidgetRenderer({
         {messages.successMessage && (
           <p className="text-sm text-green-600">{messages.successMessage}</p>
         )}
+        {needsSave && !readOnly && (
+          <output className="block text-sm text-muted-foreground">
+            Save the dashboard to submit this form.
+          </output>
+        )}
         {messages.errorMessage && (
           <p className="text-sm text-destructive">{messages.errorMessage}</p>
         )}
@@ -748,7 +783,7 @@ export function FormWidgetRenderer({
           // database's errors and validates again, while a draft typed inside
           // the debounce has not cleared its error yet. A disabled Submit would
           // block Enter and the click (#1771).
-          disabled={readOnly || writeQuery.isPending}
+          disabled={readOnly || needsSave || writeQuery.isPending}
           title={
             readOnly
               ? "You don't have permission to submit this form"

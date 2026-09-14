@@ -16,6 +16,10 @@ import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
 
 /** Props last handed to the stubbed GraphChart. */
 let chartProps: Record<string, unknown> = {};
+/** Options last handed to the stubbed useGraphExploration. */
+let explorationOptions: {
+  fetchNeighbors?: (node: { id: string }) => Promise<unknown>;
+} = {};
 
 const graphNodes = [
   { id: "A", label: "Alice", properties: { name: "Alice" } },
@@ -44,7 +48,10 @@ vi.mock("@neoboard/components", () => ({
   // Must be referentially stable across renders: the wrapper persists
   // `exploration.nodes` / `.edges` to the store in an effect keyed on their
   // identity, so a fresh object each render would loop forever.
-  useGraphExploration: () => explorationStub,
+  useGraphExploration: (options: typeof explorationOptions) => {
+    explorationOptions = options;
+    return explorationStub;
+  },
   PropertyPanel: ({
     sections,
   }: {
@@ -61,6 +68,15 @@ vi.mock("@neoboard/components", () => ({
   Badge: ({ children }: { children: React.ReactNode }) => (
     <span>{children}</span>
   ),
+}));
+
+// Node expansion reads its response through these; only the request it sends
+// is under test here.
+vi.mock("@/lib/api/api-client", () => ({
+  unwrapFullResponse: async () => ({ data: { data: [] } }),
+}));
+vi.mock("@/lib/plugin/chart-helpers", () => ({
+  getChartConfig: () => ({ transform: () => ({ nodes: [], edges: [] }) }),
 }));
 
 function renderWrapper() {
@@ -156,5 +172,84 @@ describe("GraphExplorationWrapper — no duplicate node counts (#1521)", () => {
     renderWrapper();
     expect(screen.getByTestId("graph-status-bar")).toBeInTheDocument();
     expect(screen.getByTestId("graph-edge-count")).toHaveTextContent("0 edges");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #1824 — expanding a node looks it up where the graph was queried: on the
+// database the widget saves. An element id from one database finds nothing,
+// or the wrong node, in another.
+// ---------------------------------------------------------------------------
+
+describe("GraphExplorationWrapper — node expansion runs on the widget's saved database (#1824)", () => {
+  const fetchMock = vi.fn(async () => ({}) as Response);
+
+  beforeEach(() => {
+    explorationOptions = {};
+    fetchMock.mockClear();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  /** The body of the request expanding node A, for a widget saved on `database`. */
+  async function expansionBody(database?: string) {
+    render(
+      <GraphExplorationWrapper
+        widgetId="w1"
+        nodes={graphNodes}
+        edges={[]}
+        connectionId="c1"
+        database={database}
+        settings={{}}
+        resultId="r1"
+      />,
+    );
+    await explorationOptions.fetchNeighbors!({ id: "A" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toBe("/api/query");
+    return JSON.parse(String(init.body)) as Record<string, unknown>;
+  }
+
+  it("sends the database the widget saves", async () => {
+    expect(await expansionBody("neoboard")).toEqual({
+      connectionId: "c1",
+      query:
+        "MATCH (n)-[r]-(neighbor) WHERE elementId(n) = $nodeId RETURN n, r, neighbor",
+      params: { nodeId: "A" },
+      database: "neoboard",
+    });
+  });
+
+  it("sends no database when the widget saves none", async () => {
+    expect(await expansionBody()).not.toHaveProperty("database");
+  });
+
+  it("sends the database it was given last", async () => {
+    const props = {
+      widgetId: "w1",
+      nodes: graphNodes,
+      edges: [],
+      connectionId: "c1",
+      settings: {},
+      resultId: "r1",
+    };
+    const { rerender } = render(
+      <GraphExplorationWrapper {...props} database="neoboard" />,
+    );
+    rerender(<GraphExplorationWrapper {...props} database="movies" />);
+    await explorationOptions.fetchNeighbors!({ id: "A" });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(String(init.body)).database).toBe("movies");
   });
 });

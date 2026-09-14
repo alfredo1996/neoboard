@@ -460,6 +460,7 @@ export function CardContainer({
             settings={chartOptions}
             meta={{
               connectionId: widget.connectionId,
+              database: widget.database,
               widgetId: effectiveWidgetId,
             }}
           />
@@ -479,7 +480,10 @@ export function CardContainer({
             settings={widget.settings as Record<string, unknown>}
             meta={{
               connectionId: widget.connectionId,
-              widgetId: effectiveWidgetId,
+              database: widget.database,
+              // The id the dashboard stores the form under, in the fullscreen
+              // copy too: a submit names it to the write route (#1824).
+              widgetId: widget.id,
               query: widget.query,
             }}
           />
@@ -800,6 +804,7 @@ export function CardContainer({
           }
           meta={{
             connectionId: widget.connectionId,
+            database: widget.database,
             widgetId: effectiveWidgetId,
             resultId: widgetQuery.data.resultId,
             autoFit,

@@ -7,6 +7,10 @@ interface WriteQueryInput {
   connectionId: string;
   query: string;
   params?: Record<string, unknown>;
+  /** The stored widget and its dashboard: the route writes on the database
+   *  that stored widget saves (#1824). */
+  widgetId?: string;
+  dashboardId?: string;
 }
 
 interface WriteQueryResult {

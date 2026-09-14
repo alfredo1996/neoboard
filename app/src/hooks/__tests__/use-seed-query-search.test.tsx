@@ -35,12 +35,25 @@ describe("useSeedQuery — a new search term keeps the options on screen (#1742)
     vi.restoreAllMocks();
   });
 
-  function renderSeedQuery(extraParams: Record<string, unknown>) {
-    return renderHook(
-      (props: { extraParams: Record<string, unknown> }) =>
-        useSeedQuery("conn-1", "RETURN 1", true, props.extraParams, "tenant-1"),
+  function renderSeedQuery(
+    extraParams: Record<string, unknown>,
+    database?: string,
+  ) {
+    return renderHook<
+      ReturnType<typeof useSeedQuery>,
+      { extraParams: Record<string, unknown>; database?: string }
+    >(
+      (props) =>
+        useSeedQuery(
+          "conn-1",
+          "RETURN 1",
+          true,
+          props.extraParams,
+          "tenant-1",
+          props.database,
+        ),
       {
-        initialProps: { extraParams },
+        initialProps: { extraParams, database },
         wrapper: ({ children }) =>
           React.createElement(
             QueryClientProvider,
@@ -72,6 +85,18 @@ describe("useSeedQuery — a new search term keeps the options on screen (#1742)
     await waitFor(() => expect(result.current.options).toEqual([KEANU]));
 
     rerender({ extraParams: { param_country: "FR", param_search: "Kea" } });
+
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
+    expect(result.current.loading).toBe(true);
+    expect(result.current.options).toEqual([]);
+  });
+
+  it("drops the previous options when the widget's database changes, even under the same term (#1824)", async () => {
+    const extraParams = { param_search: "Kea" };
+    const { result, rerender } = renderSeedQuery(extraParams, "movies");
+    await waitFor(() => expect(result.current.options).toEqual([KEANU]));
+
+    rerender({ extraParams, database: "neoboard" });
 
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
     expect(result.current.loading).toBe(true);

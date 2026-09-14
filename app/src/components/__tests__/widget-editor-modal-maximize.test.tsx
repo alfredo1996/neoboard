@@ -156,7 +156,9 @@ vi.mock("../widget-editor/transform-editor", () => ({
   TransformEditor: () => <div />,
 }));
 vi.mock("../widget-editor/database-selector", () => ({
-  DatabaseSelector: () => <div />,
+  DatabaseSelector: ({ database }: { database?: string }) => (
+    <div data-testid="database-selector" data-database={database} />
+  ),
 }));
 vi.mock("../widget-editor/template-browser", () => ({
   TemplateBrowser: () => <div />,
@@ -283,5 +285,59 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     const footer = screen.getByTestId("modal-footer");
     const body = document.querySelector('[style*="grid-template-columns"]');
     expect(body!.contains(footer)).toBe(false);
+  });
+});
+
+// #1824: a selector lists its options from its saved database, so the editor
+// shows that database, where it can be seen and set back to Default.
+describe("WidgetEditorModal — a parameter selector's database (#1824)", () => {
+  function renderSelector(parameterType: string) {
+    render(
+      <WidgetEditorModal
+        open
+        onOpenChange={vi.fn()}
+        mode="edit"
+        widget={{
+          id: "w-select",
+          chartType: "parameter-select",
+          connectionId: "c1",
+          database: "sales",
+          query: "",
+          settings: {
+            chartOptions: {
+              parameterName: "db",
+              parameterType,
+              seedQuery: "SELECT 1",
+            },
+          },
+        }}
+        connections={[
+          {
+            id: "c1",
+            name: "PostgreSQL",
+            type: "postgresql",
+            allowPerCardDb: true,
+            visibility: "private",
+            isOwner: true,
+            createdAt: "",
+            updatedAt: "",
+          },
+        ]}
+        onSave={vi.fn()}
+      />,
+    );
+  }
+
+  it("shows the database an option list is saved on", () => {
+    renderSelector("select");
+    expect(screen.getByTestId("database-selector")).toHaveAttribute(
+      "data-database",
+      "sales",
+    );
+  });
+
+  it("shows no database for a selector without an option list", () => {
+    renderSelector("text");
+    expect(screen.queryByTestId("database-selector")).not.toBeInTheDocument();
   });
 });

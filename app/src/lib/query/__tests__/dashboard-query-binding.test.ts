@@ -13,8 +13,8 @@ import {
  *
  * #1822: a query is bound to where the dashboard runs it too: its widget's
  * connection, and the database that widget saves. A widget with no saved
- * database runs on the connection's default, and so does every seed query,
- * which use-seed-query.ts sends without a database.
+ * database runs on the connection's default. A widget's seed queries run on
+ * its saved database too, which use-seed-query.ts sends (#1824).
  */
 
 // Saved verbatim from the editor, so often multi-line.
@@ -43,8 +43,8 @@ const layout = {
           id: "w2",
           chartType: "parameter-select",
           connectionId: "c1",
-          // A table switched to a selector keeps the editor's database, but
-          // use-seed-query.ts still sends none (#1822).
+          // A table switched to a selector keeps the editor's database, and
+          // its seed query runs there (#1824).
           database: "sales",
           // Where use-widget-save.ts stores them (#1814).
           settings: {
@@ -111,11 +111,8 @@ describe("collectLayoutQueries", () => {
     ).toBe(true);
   });
 
-  it("collects parameter-select seed queries on the widget's connection, with no database even when the widget saves one (#1822)", () => {
+  it("collects parameter-select seed queries on the widget's connection and saved database (#1824)", () => {
     const queries = collectLayoutQueries(layout);
-    expect(
-      queries.has(layoutQueryKey({ connectionId: "c1", query: REGIONS })),
-    ).toBe(true);
     expect(
       queries.has(
         layoutQueryKey({
@@ -124,14 +121,14 @@ describe("collectLayoutQueries", () => {
           database: "sales",
         }),
       ),
+    ).toBe(true);
+    expect(
+      queries.has(layoutQueryKey({ connectionId: "c1", query: REGIONS })),
     ).toBe(false);
   });
 
-  it("collects form field seed queries on the connection default, even when the form saves a database (#1822)", () => {
+  it("collects form field seed queries on the form's saved database (#1824)", () => {
     const queries = collectLayoutQueries(layout);
-    expect(
-      queries.has(layoutQueryKey({ connectionId: "c1", query: REGION_NAMES })),
-    ).toBe(true);
     expect(
       queries.has(
         layoutQueryKey({
@@ -140,6 +137,9 @@ describe("collectLayoutQueries", () => {
           database: "sales",
         }),
       ),
+    ).toBe(true);
+    expect(
+      queries.has(layoutQueryKey({ connectionId: "c1", query: REGION_NAMES })),
     ).toBe(false);
   });
 
@@ -147,9 +147,9 @@ describe("collectLayoutQueries", () => {
     expect([...collectLayoutQueries(layout)].sort()).toEqual(
       [
         { connectionId: "c1", query: ORDERS, database: "sales" },
-        { connectionId: "c1", query: REGIONS },
+        { connectionId: "c1", query: REGIONS, database: "sales" },
         { connectionId: "c1", query: NOTES, database: "sales" },
-        { connectionId: "c1", query: REGION_NAMES },
+        { connectionId: "c1", query: REGION_NAMES, database: "sales" },
         { connectionId: "c2", query: MOVIES },
       ]
         .map(layoutQueryKey)
@@ -259,9 +259,13 @@ describe("layoutsAllowQuery", () => {
     ).toBe(false);
   });
 
-  it("allows selector and form seed queries at their saved paths, as their exact saved text (#1814)", () => {
-    expect(allowed({ connectionId: "c1", query: REGIONS })).toBe(true);
-    expect(allowed({ connectionId: "c1", query: REGION_NAMES })).toBe(true);
+  it("allows selector and form seed queries at their saved paths, as their exact saved text, on their widget's database (#1814, #1824)", () => {
+    expect(
+      allowed({ connectionId: "c1", query: REGIONS, database: "sales" }),
+    ).toBe(true);
+    expect(
+      allowed({ connectionId: "c1", query: REGION_NAMES, database: "sales" }),
+    ).toBe(true);
   });
 
   it("rejects a seed query whose text differs from the saved one only in whitespace", () => {
@@ -269,10 +273,15 @@ describe("layoutsAllowQuery", () => {
       allowed({
         connectionId: "c1",
         query: "SELECT DISTINCT region  FROM customers",
+        database: "sales",
       }),
     ).toBe(false);
     expect(
-      allowed({ connectionId: "c1", query: "SELECT name FROM regions" }),
+      allowed({
+        connectionId: "c1",
+        query: "SELECT name FROM regions",
+        database: "sales",
+      }),
     ).toBe(false);
   });
 
@@ -315,15 +324,42 @@ describe("layoutsAllowQuery", () => {
       ).toBe(false);
     });
 
-    it("rejects any database on a seed query, which runs on the connection default", () => {
+    it("rejects a seed query on a database its widget does not save, or without the one it saves (#1824)", () => {
       expect(
         allowed({ connectionId: "c1", query: REGIONS, database: "archive" }),
       ).toBe(false);
+      expect(allowed({ connectionId: "c1", query: REGIONS })).toBe(false);
+      expect(allowed({ connectionId: "c1", query: REGION_NAMES })).toBe(false);
+    });
+
+    it("rejects any database on the seed query of a widget saved without one (#1824)", () => {
+      const savedWithout = {
+        pages: [
+          {
+            widgets: [
+              {
+                connectionId: "c1",
+                query: "",
+                settings: {
+                  chartOptions: { parameterType: "select", seedQuery: REGIONS },
+                },
+              },
+            ],
+          },
+        ],
+      };
       expect(
-        allowed({ connectionId: "c1", query: REGIONS, database: "sales" }),
-      ).toBe(false);
+        layoutsAllowQuery([savedWithout], {
+          connectionId: "c1",
+          query: REGIONS,
+        }),
+      ).toBe(true);
       expect(
-        allowed({ connectionId: "c1", query: REGION_NAMES, database: "sales" }),
+        layoutsAllowQuery([savedWithout], {
+          connectionId: "c1",
+          query: REGIONS,
+          database: "sales",
+        }),
       ).toBe(false);
     });
 

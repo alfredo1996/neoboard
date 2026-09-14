@@ -139,7 +139,11 @@ export interface SeedQueryExecutionState {
   isPending: boolean;
   isError: boolean;
   error: Error | null;
-  mutate: (args: { connectionId: string; query: string }) => void;
+  mutate: (args: {
+    connectionId: string;
+    query: string;
+    database?: string;
+  }) => void;
 }
 
 export interface ParameterConfigSectionProps {
@@ -166,6 +170,7 @@ export function ParameterConfigSection({
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const onChartOptionsChange = useWidgetEditorStore((s) => s.setChartOptions);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
+  const database = useWidgetEditorStore((s) => s.database);
   return (
     <div className="space-y-4" data-testid="param-config-section">
       {/* Parameter Type dropdown */}
@@ -361,7 +366,12 @@ export function ParameterConfigSection({
             onClick={() => {
               const sq = (chartOptions.seedQuery as string) ?? "";
               if (connectionId && sq.trim()) {
-                seedQueryExecution.mutate({ connectionId, query: sq });
+                // Where the dashboard card asks for the options (#1824).
+                seedQueryExecution.mutate({
+                  connectionId,
+                  query: sq,
+                  ...(database ? { database } : {}),
+                });
               }
             }}
           >

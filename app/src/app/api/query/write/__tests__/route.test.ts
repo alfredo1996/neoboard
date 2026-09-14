@@ -728,6 +728,142 @@ describe("POST /api/query/write", () => {
     expect(body.error.message).toMatch(/does not belong/i);
   });
 
+  // A form submit names its stored widget, and the database comes from there,
+  // never from the request (#1824). The editor offers no write-mode flag for a
+  // form, so a saved form carries no allowWrites.
+  describe("form submit on the form's saved database (#1824)", () => {
+    const formSubmit = {
+      connectionId: "c1",
+      query: "CREATE (n:Test)",
+      widgetId: "w-form",
+      dashboardId: "d1",
+    };
+
+    /** The dashboard row holding one form, saved on the neoboard database. */
+    function storedForm(widget: Record<string, unknown> = {}) {
+      return drizzleSelectChain([
+        {
+          id: "d1",
+          tenantId: "tenant-a",
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Page 1",
+                widgets: [
+                  {
+                    id: "w-form",
+                    chartType: "form",
+                    connectionId: "c1",
+                    query: "CREATE (n:Test)",
+                    database: "neoboard",
+                    ...widget,
+                  },
+                ],
+                gridLayout: [],
+              },
+            ],
+          },
+        },
+      ]);
+    }
+    const perCardConnection = () =>
+      drizzleSelectChain([{ ...fakeConnection, allowPerCardDb: true }]);
+
+    beforeEach(() => {
+      mockRequireSession.mockResolvedValue(writerSession);
+      mockDecryptJson.mockReturnValue({
+        uri: "bolt://localhost",
+        username: "neo4j",
+        password: "pass",
+        database: "movies",
+      });
+      mockExecuteQuery.mockResolvedValue({ data: [] });
+    });
+
+    it("writes on the database the stored form saves", async () => {
+      mockDb.select
+        .mockReturnValueOnce(perCardConnection())
+        .mockReturnValueOnce(storedForm());
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery).toHaveBeenCalledWith(
+        "neo4j",
+        expect.objectContaining({ database: "neoboard" }),
+        expect.any(Object),
+        { accessMode: "WRITE" },
+      );
+    });
+
+    it("never writes on a database the request names", async () => {
+      mockDb.select
+        .mockReturnValueOnce(perCardConnection())
+        .mockReturnValueOnce(storedForm())
+        .mockReturnValueOnce(perCardConnection());
+
+      await POST(makeRequest({ ...formSubmit, database: "archive" }));
+      await POST(
+        makeRequest({
+          connectionId: "c1",
+          query: "CREATE (n:Test)",
+          database: "archive",
+        }),
+      );
+
+      expect(mockExecuteQuery).toHaveBeenCalledTimes(2);
+      expect(mockExecuteQuery.mock.calls[0][1].database).toBe("neoboard");
+      expect(mockExecuteQuery.mock.calls[1][1].database).toBe("movies");
+    });
+
+    it("refuses a stored form on another connection", async () => {
+      mockDb.select
+        .mockReturnValueOnce(perCardConnection())
+        .mockReturnValueOnce(storedForm({ connectionId: "c-other" }));
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(403);
+      expect((await res.json()).error.message).toMatch(/does not belong/i);
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+
+    it("refuses a submit on a connection the caller does not own, before reading the dashboard", async () => {
+      mockDb.select.mockReturnValueOnce(drizzleSelectChain([]));
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(404);
+      expect(mockDb.select).toHaveBeenCalledTimes(1);
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+
+    it("refuses a submit from a user without write permission, before any lookup", async () => {
+      mockRequireSession.mockResolvedValue(readerSession);
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(403);
+      expect(mockDb.select).not.toHaveBeenCalled();
+    });
+
+    it("still requires write mode on a stored widget that is not a form", async () => {
+      mockDb.select
+        .mockReturnValueOnce(perCardConnection())
+        .mockReturnValueOnce(storedForm({ chartType: "table" }));
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(403);
+      expect((await res.json()).error.message).toMatch(
+        /write mode.*not enabled/i,
+      );
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+  });
+
   it("does not apply MAX_ROWS truncation on write results", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockConnectionAndDashboard();

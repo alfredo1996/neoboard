@@ -23,8 +23,12 @@ vi.mock("next-auth/react", () => ({
 
 // The seed query is the network edge — stub it so the render is deterministic.
 // It never fires while the cascade is pending anyway (`enabled` is false).
+const seedQueryArgs = vi.hoisted(() => [] as unknown[][]);
 vi.mock("@/hooks/use-seed-query", () => ({
-  useSeedQuery: () => ({ options: [], loading: false }),
+  useSeedQuery: (...args: unknown[]) => {
+    seedQueryArgs.push(args);
+    return { options: [], loading: false };
+  },
 }));
 
 // Stand-ins that surface the props we care about as data attributes.
@@ -70,6 +74,28 @@ vi.mock("@neoboard/components", () => ({
 
 beforeEach(() => {
   useParameterStore.getState().clearAll();
+  seedQueryArgs.length = 0;
+});
+
+// #1824 — a selector's options come from the database its widget saves.
+describe("ParameterWidgetRenderer — the saved database", () => {
+  it("reaches the seed query", () => {
+    render(
+      <ParameterWidgetRenderer
+        parameterName="db"
+        parameterType="select"
+        connectionId="c1"
+        seedQuery="SELECT current_database()"
+        database="neoboard"
+      />,
+    );
+
+    expect(seedQueryArgs.length).toBeGreaterThan(0);
+    for (const args of seedQueryArgs) {
+      expect(args[0]).toBe("c1");
+      expect(args[5]).toBe("neoboard");
+    }
+  });
 });
 
 describe("ParameterWidgetRenderer — cascading wiring", () => {

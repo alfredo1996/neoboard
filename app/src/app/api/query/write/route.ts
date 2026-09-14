@@ -27,7 +27,7 @@ const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
   query: z.string().min(1),
   params: z.record(z.string(), z.unknown()).optional(),
-  /** Widget ID — required so the server can verify allowWrites on the widget. */
+  /** Widget ID — the stored widget is checked, and its saved database used. */
   widgetId: z.string().min(1).optional(),
   /** Dashboard ID — required alongside widgetId for lookup. */
   dashboardId: z.string().min(1).optional(),
@@ -71,9 +71,10 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     }
 
     // Per-widget write enforcement: when widgetId + dashboardId are provided,
-    // verify the widget's allowWrites flag from the dashboard layout.
-    // Form widgets (legacy path) omit these fields — user-level canWrite
-    // is still enforced above.
+    // check the stored widget may write, and take its database from the stored
+    // layout, never from the request (#1824). Form widgets send both. Without
+    // them the write runs on the connection's default database. User-level
+    // canWrite and connection ownership are enforced above either way.
     let widgetDatabaseOverride: string | undefined;
     if (widgetId && dashboardId) {
       const [dashboard] = await db
@@ -100,7 +101,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
         return notFound("Widget not found in dashboard");
       }
 
-      if (!widget.allowWrites) {
+      // A form exists to write, and the editor offers no write-mode flag for
+      // one, so a saved form never carries allowWrites (#1824).
+      if (widget.chartType !== "form" && !widget.allowWrites) {
         return forbidden("Write mode is not enabled for this widget");
       }
 

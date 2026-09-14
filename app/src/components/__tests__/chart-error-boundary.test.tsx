@@ -37,14 +37,32 @@ vi.mock("next/dynamic", () => ({
 vi.mock("@/lib/shared/normalize-value", () => ({
   normalizeValue: (v: unknown) => v,
 }));
+/** The props each real plugin last handed the renderer that sends its requests. */
+const rendererProps = vi.hoisted(
+  () => ({}) as Record<"selector" | "graph" | "form", Record<string, unknown>>,
+);
 vi.mock("@/components/parameter-widget-renderer", () => ({
-  ParameterWidgetRenderer: () => <div data-testid="param-renderer" />,
+  ParameterWidgetRenderer: (p: Record<string, unknown>) => {
+    rendererProps.selector = p;
+    return <div data-testid="param-renderer" />;
+  },
 }));
 vi.mock("@/components/graph-exploration-wrapper", () => ({
-  GraphExplorationWrapper: () => <div data-testid="graph-wrapper" />,
+  GraphExplorationWrapper: (p: Record<string, unknown>) => {
+    rendererProps.graph = p;
+    return <div data-testid="graph-wrapper" />;
+  },
 }));
 vi.mock("@/components/form-widget-renderer", () => ({
-  FormWidgetRenderer: () => <div data-testid="form-renderer" />,
+  FormWidgetRenderer: (p: Record<string, unknown>) => {
+    rendererProps.form = p;
+    return <div data-testid="form-renderer" />;
+  },
+}));
+// The setup file's IntersectionObserver never reports, so the graph plugin's
+// lazy mount would never happen.
+vi.mock("@/components/lazy-visible", () => ({
+  LazyVisible: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 // Suppress console.error from the error boundary during tests
@@ -75,7 +93,7 @@ function registerStubPlugin(
 }
 
 /**
- * The 12-prop bridge from ChartRenderer to every plugin (#1629).
+ * The 13-prop bridge from ChartRenderer to every plugin (#1629).
  *
  * Every rule-based colour, every dashboard parameter substitution and every
  * click action reaches a chart through this one JSX block. It executes on
@@ -118,6 +136,7 @@ describe("ChartRenderer plugin props", () => {
           widgetId: "w-1",
           resultId: "res-1",
           query: "SELECT 1",
+          database: "neoboard",
           autoFit: true,
         }}
       />,
@@ -135,6 +154,7 @@ describe("ChartRenderer plugin props", () => {
       widgetId: "w-1",
       resultId: "res-1",
       query: "SELECT 1",
+      database: "neoboard",
       autoFit: true,
     };
 
@@ -147,6 +167,73 @@ describe("ChartRenderer plugin props", () => {
         value,
       );
     }
+  });
+});
+
+/**
+ * #1824 — a selector's options, a form's submit and field options, and a
+ * graph's node expansion run on the database their widget saves. These are the
+ * real plugins, so a plugin that drops the database fails here.
+ */
+describe("ChartRenderer — the saved database reaches each request builder (#1824)", () => {
+  it("hands the database to the selector, form and graph renderers, and the form its stored id", () => {
+    render(
+      <ChartRenderer
+        type="parameter-select"
+        data={null}
+        settings={{
+          parameterName: "db",
+          parameterType: "select",
+          seedQuery: "SELECT 1",
+        }}
+        meta={{
+          connectionId: "c1",
+          widgetId: "w-select",
+          database: "neoboard",
+        }}
+      />,
+    );
+    render(
+      <ChartRenderer
+        type="form"
+        data={null}
+        settings={{ formFields: [] }}
+        meta={{
+          connectionId: "c1",
+          widgetId: "w-form",
+          query: "CREATE (n)",
+          database: "neoboard",
+        }}
+      />,
+    );
+    render(
+      <ChartRenderer
+        type="graph"
+        data={{ nodes: [], edges: [] }}
+        settings={{}}
+        meta={{
+          connectionId: "c1",
+          widgetId: "w-graph",
+          resultId: "r1",
+          database: "neoboard",
+        }}
+      />,
+    );
+
+    expect(rendererProps.selector).toMatchObject({
+      connectionId: "c1",
+      seedQuery: "SELECT 1",
+      database: "neoboard",
+    });
+    expect(rendererProps.form).toMatchObject({
+      connectionId: "c1",
+      widgetId: "w-form",
+      database: "neoboard",
+    });
+    expect(rendererProps.graph).toMatchObject({
+      connectionId: "c1",
+      database: "neoboard",
+    });
   });
 });
 

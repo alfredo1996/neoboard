@@ -789,8 +789,9 @@ export function WidgetEditorModal({
                         />
                       )}
 
-                      {/* Per-card database selector */}
-                      {!isParamSelect &&
+                      {/* Per-card database selector. A selector's option list
+                          loads from it too (#1824). */}
+                      {(!isParamSelect || paramUIType === "select") &&
                         !isContentOnly &&
                         selectedConnection?.allowPerCardDb &&
                         connectionId && (

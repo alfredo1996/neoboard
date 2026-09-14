@@ -17,6 +17,8 @@ export interface PluginProps {
   colorScales?: unknown[];
   onChartClick?: (point: Record<string, unknown>) => void;
   connectionId?: string;
+  /** The widget's saved per-card database; missing is the connection default. */
+  database?: string;
   widgetId?: string;
   resultId?: string;
   query?: string;
