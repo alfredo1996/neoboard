@@ -769,9 +769,9 @@ export function FormWidgetRenderer({
           <p className="text-sm text-green-600">{messages.successMessage}</p>
         )}
         {needsSave && !readOnly && (
-          <p role="status" className="text-sm text-muted-foreground">
+          <output className="block text-sm text-muted-foreground">
             Save the dashboard to submit this form.
-          </p>
+          </output>
         )}
         {messages.errorMessage && (
           <p className="text-sm text-destructive">{messages.errorMessage}</p>
