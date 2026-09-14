@@ -24,6 +24,19 @@ describe("seedQueriesOf", () => {
     ).toEqual(["A", "B"]);
   });
 
+  it("reads only seedQuery from chartOptions, no other option strings", () => {
+    expect(
+      seedQueriesOf({
+        chartOptions: {
+          seedQuery: "A",
+          parameterName: "B",
+          parameterType: "select",
+          clickAction: "C",
+        },
+      }),
+    ).toEqual(["A"]);
+  });
+
   it("does not read a top-level settings.seedQuery, which is never saved", () => {
     expect(seedQueriesOf({ seedQuery: "A" })).toEqual([]);
   });

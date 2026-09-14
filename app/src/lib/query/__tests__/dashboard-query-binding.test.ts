@@ -50,7 +50,8 @@ const layout = {
                 id: "f1",
                 parameterName: "region",
                 parameterType: "select",
-                seedQuery: "SELECT name FROM regions",
+                // Saved verbatim from the editor textarea, so often multi-line.
+                seedQuery: "SELECT name\n  FROM regions",
               },
             ],
           },
@@ -103,6 +104,18 @@ describe("collectLayoutQueries", () => {
     expect(queries.has("SELECT name FROM regions")).toBe(true);
   });
 
+  it("collects exactly the widget and seed queries, and no other option strings", () => {
+    expect([...collectLayoutQueries(layout)].sort()).toEqual(
+      [
+        "SELECT category, SUM(total) FROM orders GROUP BY category",
+        "SELECT DISTINCT region FROM customers",
+        "INSERT INTO notes (region) VALUES ($param_region)",
+        "SELECT name FROM regions",
+        "MATCH (n:Movie) WHERE n.year > $param_year RETURN n LIMIT 50",
+      ].sort(),
+    );
+  });
+
   it("ignores a top-level settings.seedQuery, which is never saved", () => {
     const queries = collectLayoutQueries({
       pages: [{ widgets: [{ settings: { seedQuery: "SELECT 1" } }] }],
@@ -142,6 +155,7 @@ describe("layoutsAllowQuery", () => {
     expect(
       layoutsAllowQuery([layout], "SELECT DISTINCT region  FROM customers"),
     ).toBe(true);
+    // The stored form seed is multi-line; the submitted one is not.
     expect(layoutsAllowQuery([layout], "SELECT name FROM regions")).toBe(true);
   });
 
