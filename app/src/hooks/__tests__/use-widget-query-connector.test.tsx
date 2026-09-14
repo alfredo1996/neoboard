@@ -145,3 +145,19 @@ describe("useWidgetQuery on a dead connector (#1678)", () => {
     );
   });
 });
+
+describe("useWidgetQuery request body", () => {
+  it("sends the widget's query text unchanged, surrounding whitespace and CRLF included", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(OK_200);
+    const query = "  RETURN 1\r\n";
+
+    const { result } = renderHook(
+      () => useWidgetQuery({ connectionId: "ok", query }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const [, init] = fetchSpy.mock.calls[0];
+    expect(JSON.parse(String(init?.body)).query).toBe(query);
+  });
+});

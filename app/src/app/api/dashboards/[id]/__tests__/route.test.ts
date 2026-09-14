@@ -773,6 +773,28 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(mockDb.update).not.toHaveBeenCalled();
   });
 
+  // The binding matches a query's exact saved text, so a save that changes only
+  // a saved query's whitespace adds a query here too.
+  it("refuses a bound owner changing only a saved query's whitespace", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const stored = {
+      ...OWNER_DASHBOARD,
+      layoutJson: layoutOn("c-alice", "MATCH (n)\nRETURN n"),
+    };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-alice" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([stored]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-alice", "MATCH (n) RETURN n") }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
   it("answers a stale save with 409 before checking its connections (#1816)", async () => {
     // user-2, an editor share, opened version 3, where a widget used the
     // owner's private c-alice. The owner has since removed it (version 4).

@@ -6,8 +6,8 @@
  * contains, each where the dashboard runs it: on its widget's connection, with
  * the database that widget saves (#1822). Widget clients send their stored
  * query templates and databases verbatim (parameter values travel separately
- * through native driver binding), so binding is a normalized exact-match
- * against the saved layout, not a fuzzy/wildcard comparison.
+ * through native driver binding), so binding is an exact match against the
+ * saved layout, not a fuzzy/wildcard comparison.
  *
  * Edit-level users (dashboard owner, editor shares, connection owners,
  * admins) are NOT bound — authoring widgets requires running novel queries.
@@ -38,13 +38,12 @@ export interface LayoutQuery {
   database?: string;
 }
 
-/** Collapse internal whitespace and trim. Case-sensitive by design. */
-export function normalizeQuery(query: string): string {
-  return query.trim().replace(/\s+/g, " ");
-}
-
 /**
- * What binding compares: connection, normalized query and database (#1822).
+ * What binding compares: connection, query and database (#1822).
+ *
+ * The query compares exactly as saved, whitespace and line breaks included:
+ * clients send the saved text verbatim, and the route runs the text a request
+ * sends.
  *
  * A missing and an empty database are one key: the query route applies no
  * override for either. Names otherwise compare exactly, since clients send the
@@ -59,11 +58,7 @@ export function layoutQueryKey({
   query,
   database,
 }: LayoutQuery): string {
-  return JSON.stringify([
-    connectionId,
-    normalizeQuery(query),
-    database || null,
-  ]);
+  return JSON.stringify([connectionId, query, database || null]);
 }
 
 /**
