@@ -690,6 +690,89 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(connectionCheck.calls.where).toHaveLength(1);
   });
 
+  /** w1 on the owner's unusable c-alice, w2 on c-own, which the owner can use. */
+  function twoConnections(
+    aliceQuery: string,
+    own: { query?: string; database?: string } = {},
+  ) {
+    return {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Page 1",
+          widgets: [
+            {
+              id: "w1",
+              chartType: "table",
+              connectionId: "c-alice",
+              query: aliceQuery,
+            },
+            {
+              id: "w2",
+              chartType: "table",
+              connectionId: "c-own",
+              query: own.query ?? "MATCH (b) RETURN b",
+              database: own.database,
+            },
+          ],
+          gridLayout: [
+            { i: "w1", x: 0, y: 0, w: 4, h: 3 },
+            { i: "w2", x: 4, y: 0, w: 4, h: 3 },
+          ],
+        },
+      ],
+    };
+  }
+
+  it("refuses a bound owner copying a saved query onto a connection they cannot use (#1822)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const stored = {
+      ...OWNER_DASHBOARD,
+      layoutJson: twoConnections("MATCH (a) RETURN a"),
+    };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-alice" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([stored]));
+
+    // w2's query, already saved on c-own, becomes w1's query on c-alice.
+    const res = await PUT(
+      makeRequest({ layoutJson: twoConnections("MATCH (b) RETURN b") }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  // Moving a query to another database adds a query even on a connection the
+  // owner can use, so it is refused while c-alice stays on the dashboard, as
+  // any new query is (#1816).
+  it("refuses a bound owner moving a query to another database on a usable connection (#1822)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const stored = {
+      ...OWNER_DASHBOARD,
+      layoutJson: twoConnections("MATCH (a) RETURN a"),
+    };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-alice" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([stored]));
+
+    const res = await PUT(
+      makeRequest({
+        layoutJson: twoConnections("MATCH (a) RETURN a", {
+          database: "archive",
+        }),
+      }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
   it("answers a stale save with 409 before checking its connections (#1816)", async () => {
     // user-2, an editor share, opened version 3, where a widget used the
     // owner's private c-alice. The owner has since removed it (version 4).

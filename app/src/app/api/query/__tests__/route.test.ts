@@ -737,6 +737,16 @@ describe("POST /api/query", () => {
       expectRanOn("neoboard");
     });
 
+    it("reads an empty database as none, and runs on the connection's default", async () => {
+      const res = await viewerQuery(
+        [{ connectionId: "c1", query: QUERY }],
+        { database: "" },
+        true,
+      );
+      expect(res.status).toBe(200);
+      expectRanOn("neoboard");
+    });
+
     it("refuses the saved query on another database", async () => {
       expect(
         await outcome(

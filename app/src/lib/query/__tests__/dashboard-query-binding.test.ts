@@ -37,6 +37,9 @@ const layout = {
           id: "w2",
           chartType: "parameter-select",
           connectionId: "c1",
+          // A table switched to a selector keeps the editor's database, but
+          // use-seed-query.ts still sends none (#1822).
+          database: "sales",
           // Where use-widget-save.ts stores them (#1814).
           settings: {
             chartOptions: {
@@ -119,11 +122,20 @@ describe("collectLayoutQueries", () => {
     ).toBe(true);
   });
 
-  it("collects parameter-select seed queries on the widget's connection", () => {
+  it("collects parameter-select seed queries on the widget's connection, with no database even when the widget saves one (#1822)", () => {
     const queries = collectLayoutQueries(layout);
     expect(
       queries.has(layoutQueryKey({ connectionId: "c1", query: REGIONS })),
     ).toBe(true);
+    expect(
+      queries.has(
+        layoutQueryKey({
+          connectionId: "c1",
+          query: REGIONS,
+          database: "sales",
+        }),
+      ),
+    ).toBe(false);
   });
 
   it("collects form field seed queries on the connection default, even when the form saves a database (#1822)", () => {
@@ -259,6 +271,9 @@ describe("layoutsAllowQuery", () => {
     it("rejects any database on a seed query, which runs on the connection default", () => {
       expect(
         allowed({ connectionId: "c1", query: REGIONS, database: "archive" }),
+      ).toBe(false);
+      expect(
+        allowed({ connectionId: "c1", query: REGIONS, database: "sales" }),
       ).toBe(false);
       expect(
         allowed({ connectionId: "c1", query: REGION_NAMES, database: "sales" }),

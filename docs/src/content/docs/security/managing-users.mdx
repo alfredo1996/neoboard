@@ -21,7 +21,7 @@ Every user is assigned one of three roles.
 
 - **Admin** has full access to dashboards, user management and settings, and can view, query and delete every connection in the tenant. Only a connection's owner can edit it.
 - **Creator** can build and edit dashboards and widgets, add connections, and edit or delete the connections they own. Creators can also run queries against connections an admin has shared; only admins can share a connection or manage other users' connections.
-- **Reader** can view dashboards shared with them and public dashboards, but cannot edit or create anything or manage connections. Readers can still run read-only queries: any query against a connection shared with the tenant, and on other connections only the queries in dashboards they can view. Keep sensitive databases on private connections if readers should not query them freely.
+- **Reader** can view dashboards shared with them and public dashboards, but cannot edit or create anything or manage connections. Readers can still run read-only queries: any query against a connection shared with the tenant, and on other connections only the queries in dashboards they can view, each on the connection and database its widget uses. Keep sensitive databases on private connections if readers should not query them freely.
 
 ## Write Permission
 

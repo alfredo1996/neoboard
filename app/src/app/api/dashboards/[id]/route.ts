@@ -150,7 +150,7 @@ const CONFLICT_MESSAGE =
  * queries, and that binding reads this layout, so the save may not add a query
  * while such a connection stays on it (#1816). A query is what the binding
  * matches: its connection, text and database, so moving a saved query to
- * another database adds one (#1822).
+ * another database or connection adds one (#1822).
  */
 async function layoutRefusal(
   next: unknown,
