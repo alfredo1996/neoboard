@@ -17,12 +17,16 @@ import type { Page, Response } from "@playwright/test";
  * Every row is created under a unique name and deleted by id.
  */
 
-/** A hand-written widget query, with a comment on its own line. */
+/**
+ * A hand-written widget query, with a comment on its own line and a trailing
+ * newline that every load and refresh must send back unchanged.
+ */
 const SAVED = [
   "-- Years on this dashboard",
   "SELECT n AS year",
   "FROM generate_series(2001, 2003) AS n",
   "ORDER BY n",
+  "",
 ].join("\n");
 
 /** The same statement with one line break moved. */
@@ -31,6 +35,7 @@ const LINE_BREAK_MOVED = [
   "SELECT n AS year FROM",
   "generate_series(2001, 2003) AS n",
   "ORDER BY n",
+  "",
 ].join("\n");
 
 /** Option lists saved with CRLF line breaks, a comment and trailing whitespace. */

@@ -825,7 +825,7 @@ describe("POST /api/query", () => {
 
     const viewer = { role: "reader", canWrite: false };
     /** A viewer share's selects; the connection fetch only when it runs. */
-    const viewerShare = (runs: boolean) => [
+    const viewerShare = (runs: boolean, saved = layoutJson) => [
       drizzleSelectChain([]),
       drizzleJoinChain([
         {
@@ -833,7 +833,7 @@ describe("POST /api/query", () => {
           shareRole: "viewer",
           connectionOwnerId: "alice",
           ownerRole: "creator",
-          layoutJson,
+          layoutJson: saved,
         },
       ]),
       ...(runs ? [drizzleSelectChain([alicesConnection])] : []),
@@ -852,6 +852,16 @@ describe("POST /api/query", () => {
       const res = await run(viewer, viewerShare(true), SAVED);
       expect(res.status).toBe(200);
       expectRan(SAVED);
+    });
+
+    it("runs a saved text ending in a CRLF when sent exactly as saved", async () => {
+      const savedCrlf = `${SAVED.replaceAll("\n", "\r\n")}\r\n`;
+      const saved = {
+        pages: [{ widgets: [{ connectionId: "c1", query: savedCrlf }] }],
+      };
+      const res = await run(viewer, viewerShare(true, saved), savedCrlf);
+      expect(res.status).toBe(200);
+      expectRan(savedCrlf);
     });
 
     it.each([

@@ -198,11 +198,49 @@ describe("layoutsAllowQuery", () => {
     ["a trailing newline", `${ORDERS}\n`],
     ["surrounding spaces", ` ${ORDERS} `],
     ["tabs for indentation", ORDERS.replaceAll("  ", "\t")],
+    ["its letter case changed", ORDERS.toLowerCase()],
   ])("rejects a widget query sent with %s", (_change, query) => {
     expect(allowed({ connectionId: "c1", query, database: "sales" })).toBe(
       false,
     );
   });
+
+  // Saving keeps surrounding whitespace and CRLF, and clients send it back.
+  it.each([
+    ["a trailing newline", `${ORDERS}\n`],
+    ["CRLF line breaks", ORDERS.replaceAll("\n", "\r\n")],
+    ["leading spaces", `  ${REGIONS}`],
+  ])(
+    "allows a widget query and a seed query saved with %s, sent exactly as saved",
+    (_shape, saved) => {
+      const saves = {
+        pages: [
+          {
+            widgets: [
+              { connectionId: "c1", query: saved, database: "sales" },
+              {
+                connectionId: "c1",
+                query: "",
+                settings: {
+                  chartOptions: { parameterType: "select", seedQuery: saved },
+                },
+              },
+            ],
+          },
+        ],
+      };
+      expect(
+        layoutsAllowQuery([saves], {
+          connectionId: "c1",
+          query: saved,
+          database: "sales",
+        }),
+      ).toBe(true);
+      expect(
+        layoutsAllowQuery([saves], { connectionId: "c1", query: saved }),
+      ).toBe(true);
+    },
+  );
 
   it("allows a parameterized template verbatim (values travel separately)", () => {
     expect(allowed({ connectionId: "c2", query: MOVIES })).toBe(true);
