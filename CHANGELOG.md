@@ -130,6 +130,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - Self-service password changes and profile updates are audited, with no password material recorded (#1276)
 - Next.js 16.3.4 clears the high-severity `sharp` advisory (#1723)
 - The build-time tenant-scope ratchet checks where a tenant value comes from rather than whether the word `tenantId` appears, judges raw SQL per table and sees namespace-imported tables. It is still a safety net, not runtime enforcement (#1626)
+- Duplicating, saving or importing a dashboard, and reassigning a connection, now require access to every connection involved, so a viewer share stays bound to the dashboard's queries. Editors can still save on the connections already on the dashboard (#1816)
 
 ## [1.4.0] — 2026-07-29 — Audit, observability & correctness
 
