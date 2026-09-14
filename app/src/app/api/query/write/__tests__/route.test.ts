@@ -35,7 +35,22 @@ class ForbiddenError extends Error {
   }
 }
 
+/** Records each dashboard access check; the real helper still decides. */
+const accessChecks = vi.fn();
+
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
+vi.mock("@/lib/dashboard/access", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/dashboard/access")>();
+  return {
+    ...real,
+    resolveDashboardAccess: (
+      opts: Parameters<typeof real.resolveDashboardAccess>[0],
+    ) => {
+      accessChecks(opts);
+      return real.resolveDashboardAccess(opts);
+    },
+  };
+});
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto/crypto", () => ({
   decryptJson: mockDecryptJson,
@@ -803,6 +818,13 @@ describe("POST /api/query/write", () => {
         "a dashboard the caller cannot open",
         [storedForm({}, { userId: "user-other" }), shares()],
       ],
+      [
+        "a widget without write mode on a dashboard the caller cannot open",
+        [
+          storedForm({ chartType: "table" }, { userId: "user-other" }),
+          shares(),
+        ],
+      ],
       ["a widget the dashboard does not hold", [storedForm({ id: "w-other" })]],
       [
         "a widget on another connection",
@@ -822,6 +844,25 @@ describe("POST /api/query/write", () => {
         expect(mockExecuteQuery).not.toHaveBeenCalled();
       },
     );
+
+    it("checks dashboard access as the session's user, role and tenant", async () => {
+      const session = { ...writerSession, tenantId: "tenant-b" };
+      mockRequireSession.mockResolvedValue(session);
+      queueSelects(perCardConnection(), storedForm());
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(200);
+      expect(accessChecks).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dashboardId: "d1",
+          tenantId: "tenant-b",
+          userId: session.userId,
+          userRole: session.role,
+          required: "viewer",
+        }),
+      );
+    });
 
     it("never writes on a database the request names", async () => {
       mockDb.select
