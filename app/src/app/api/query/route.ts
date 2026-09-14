@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { connections, dashboards, dashboardShares } from "@/lib/db/schema";
+import {
+  connections,
+  dashboards,
+  dashboardShares,
+  users,
+} from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto/crypto";
 import {
@@ -51,7 +56,12 @@ export async function POST(request: Request) {
 
 async function handleReadQuery(request: Request): Promise<Response> {
   try {
-    const { userId, tenantId: sessionTenantId, role } = await requireSession();
+    const {
+      userId,
+      tenantId: sessionTenantId,
+      role,
+      canWrite,
+    } = await requireSession();
     const requestId = request.headers.get("x-request-id") ?? undefined;
     const priority = readPriorityHeader(
       request.headers.get("x-query-priority"),
@@ -112,12 +122,15 @@ async function handleReadQuery(request: Request): Promise<Response> {
     //    dashboard actually contains (#972) — otherwise sharing a dashboard
     //    would share arbitrary read access to its entire connection.
     //    Edit-level access (dashboard owner, editor share) is unbound:
-    //    authoring widgets requires running novel queries.
+    //    authoring widgets requires running novel queries. It holds only while
+    //    the caller may write and the dashboard's owner can use the connection
+    //    (#1816).
     if (!connection) {
       const access = await dashboardAccessToConnection(
         userId,
         connectionId,
         sessionTenantId,
+        canWrite,
       );
       if (access.level !== "none") {
         if (
@@ -218,21 +231,31 @@ type DashboardConnectionAccess =
 
 /**
  * What claim does this user have on the connection via dashboards that
- * reference it? "edit" (dashboard owner or editor share) grants unbound
- * query access; "view" (public dashboard or viewer share) grants access
- * bound to the referencing dashboards' own queries (#972). Admins never
- * reach this fallback — they match the tenant-wide path above.
+ * reference it? "edit" grants unbound query access; "view" grants access bound
+ * to the referencing dashboards' own queries (#972). Admins never reach this
+ * fallback — they match the tenant-wide path above.
+ *
+ * "edit" comes from a dashboard the caller owns or holds an editor share on,
+ * and only while the caller may write and the dashboard's owner can use the
+ * connection directly today: owns it, or is an admin (a shared connection took
+ * the fast path above). Anything else is "view". So a connection made private
+ * again, an owner who lost the admin role, or an admin's write onto someone
+ * else's dashboard grants no new queries (#1816). The save route keeps a bound
+ * writer from adding queries to such a layout, since the binding reads it.
  */
 async function dashboardAccessToConnection(
   userId: string,
   connectionId: string,
   tenantId: string,
+  canWrite: boolean,
 ): Promise<DashboardConnectionAccess> {
   const rows = await db
     .select({
       layoutJson: dashboards.layoutJson,
       ownerId: dashboards.userId,
       shareRole: dashboardShares.role,
+      connectionOwnerId: connections.userId,
+      ownerRole: users.role,
     })
     .from(dashboards)
     .leftJoin(
@@ -242,6 +265,14 @@ async function dashboardAccessToConnection(
         eq(dashboardShares.userId, userId),
         eq(dashboardShares.tenantId, tenantId),
       ),
+    )
+    .leftJoin(
+      connections,
+      and(eq(connections.id, connectionId), eq(connections.tenantId, tenantId)),
+    )
+    .leftJoin(
+      users,
+      and(eq(users.id, dashboards.userId), eq(users.tenantId, tenantId)),
     )
     .where(
       and(
@@ -259,8 +290,11 @@ async function dashboardAccessToConnection(
       ),
     );
   if (rows.length === 0) return { level: "none" };
-  if (rows.some((r) => r.ownerId === userId || r.shareRole === "editor")) {
-    return { level: "edit" };
-  }
+  const authors = rows.some(
+    (r) =>
+      (r.ownerId === userId || r.shareRole === "editor") &&
+      (r.connectionOwnerId === r.ownerId || r.ownerRole === "admin"),
+  );
+  if (canWrite && authors) return { level: "edit" };
   return { level: "view", layouts: rows.map((r) => r.layoutJson) };
 }

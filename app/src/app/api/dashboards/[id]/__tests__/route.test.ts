@@ -420,7 +420,12 @@ describe("PUT /api/dashboards/[id]", () => {
 
   it("updates layout with v2 pages schema", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    // c1 is new to this dashboard, so the save first asks whether the caller
+    // may use it. An empty answer: nothing is out of reach (#1816).
+    const connectionCheck = makeSelectChain([]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]))
+      .mockReturnValueOnce(connectionCheck);
     const layout = {
       version: 2,
       pages: [
@@ -446,6 +451,225 @@ describe("PUT /api/dashboards/[id]", () => {
       makeParams("d1"),
     );
     expect(res.status).toBe(200);
+    expect(connectionCheck.calls.where).toHaveLength(1);
+  });
+
+  // A dashboard's owner and editors may run any read query on the connections
+  // it names (#972), so a save must not add a connection the caller cannot use
+  // directly: their own, one shared with the tenant, or any for an admin. A
+  // connection already on this dashboard stays, so editors keep working on it
+  // (#1816).
+  function layoutOn(connectionId: string, query = "MATCH (n) RETURN n") {
+    return {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Page 1",
+          widgets: [{ id: "w1", chartType: "table", connectionId, query }],
+          gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+        },
+      ],
+    };
+  }
+
+  it("returns 403 when the layout adds a connection the caller cannot use (#1816)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const connectionCheck = makeSelectChain([{ id: "c-private" }]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]))
+      .mockReturnValueOnce(connectionCheck);
+    mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-private") }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/connection/i);
+    expect(mockDb.update).not.toHaveBeenCalled();
+    expect(connectionCheck.calls.where).toHaveLength(1);
+    const [expr] = connectionCheck.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["tenant_id", "id", "userId", "visibility"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["tenant-1", "c-private", "user-1", "shared"]),
+    );
+  });
+
+  it("lets an editor share save new queries on a connection the dashboard's owner can use (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const stored = { ...OWNER_DASHBOARD, layoutJson: layoutOn("c-owner") };
+    const editorShare = {
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      role: "editor",
+    };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([editorShare]))
+      // user-2 cannot use c-owner directly...
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-owner" }]))
+      // ...but the dashboard's owner, a creator, can.
+      .mockReturnValueOnce(makeSelectChain([{ role: "creator" }]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const next = layoutOn("c-owner", "MATCH (m:Movie) RETURN m.title");
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([{ ...stored, layoutJson: next }]),
+    );
+
+    const res = await PUT(makeRequest({ layoutJson: next }), makeParams("d1"));
+
+    expect(res.status).toBe(200);
+    expect(mockDb.select).toHaveBeenCalledTimes(5);
+  });
+
+  it("lets an admin add any connection without a lookup (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]));
+    mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-anyone") }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
+  });
+
+  const EDITOR_SHARE = {
+    dashboardId: "d1",
+    userId: "user-2",
+    tenantId: "tenant-1",
+    role: "editor",
+  };
+
+  it("refuses an editor share adding a connection the dashboard does not name (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const stored = { ...OWNER_DASHBOARD, layoutJson: layoutOn("c-owner") };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([EDITOR_SHARE]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-zed" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([stored]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-zed") }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses an added connection when the save sends expectedVersion too (#1816)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-private" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-private"), expectedVersion: 3 }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  // Once a dashboard's owner cannot use a connection on it, the query route
+  // binds its owner and editors to the saved queries. That binding reads the
+  // saved layout, so no save may add a query while the connection stays on it.
+  const NEW_QUERY = "MATCH (p:Person) RETURN p.name";
+
+  it("refuses a new query from an owner whose dashboard names a connection they cannot use (#1816)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const stored = { ...OWNER_DASHBOARD, layoutJson: layoutOn("c-alice") };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-alice" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([stored]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-alice", NEW_QUERY) }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.message).toMatch(/connection/i);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a new query from an editor share once the dashboard's owner cannot use the connection (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const stored = { ...OWNER_DASHBOARD, layoutJson: layoutOn("c-alice") };
+    const ownerLookup = makeSelectChain([{ role: "creator" }]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([EDITOR_SHARE]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-alice" }]))
+      .mockReturnValueOnce(ownerLookup)
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-alice" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([stored]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-alice", NEW_QUERY) }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+    // The owner's role is read in the session tenant.
+    expectScopedById(ownerLookup.calls.where[0], "tenant-1", "user-1");
+  });
+
+  it("lets that owner rearrange the dashboard without a lookup (#1816)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const stored = { ...OWNER_DASHBOARD, layoutJson: layoutOn("c-alice") };
+    mockDb.select.mockReturnValueOnce(makeSelectChain([stored]));
+    const moved = layoutOn("c-alice");
+    moved.pages[0].gridLayout = [{ i: "w1", x: 4, y: 2, w: 6, h: 4 }];
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([{ ...stored, layoutJson: moved }]),
+    );
+
+    const res = await PUT(makeRequest({ layoutJson: moved }), makeParams("d1"));
+
+    expect(res.status).toBe(200);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers a stale save with 409 before checking its connections (#1816)", async () => {
+    // user-2, an editor share, opened version 3, where a widget used the
+    // owner's private c-alice. The owner has since removed it (version 4).
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const stored = {
+      ...OWNER_DASHBOARD,
+      version: 4,
+      layoutJson: layoutOn("c-owner"),
+    };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([EDITOR_SHARE]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-alice" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-alice"), expectedVersion: 3 }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.message).toMatch(
+      /modified by someone else/i,
+    );
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 });
 
@@ -562,11 +786,13 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
   // TODO: Add E2E conflict detection test (two browser contexts editing
   // the same dashboard, second save gets 409). Deferred from this PR.
 
-  it("returns 409 when expectedVersion does not match (version conflict)", async () => {
+  it("returns 409 when another save lands between the read and the update", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    // canAccess check passes — OWNER_DASHBOARD has version: 3
-    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
-    // update returns empty — version mismatch (client sent 2, server has 3)
+    // Read at version 2, the version the client sent, but another save lands
+    // before the update: the lock in the update's WHERE is what catches it.
+    mockDb.select.mockReturnValue(
+      makeSelectChain([{ ...OWNER_DASHBOARD, version: 2 }]),
+    );
     const chain = makeUpdateChain([]);
     mockDb.update.mockReturnValue(chain);
 
@@ -576,7 +802,7 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
           version: 2,
           pages: [{ id: "p1", title: "P", widgets: [], gridLayout: [] }],
         },
-        expectedVersion: 2, // stale — server has version 3
+        expectedVersion: 2,
       }),
       makeParams("d1"),
     );

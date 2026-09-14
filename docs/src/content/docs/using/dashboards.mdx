@@ -50,6 +50,8 @@ Dashboards can have multiple pages. Each page has independent widgets and layout
 | Creator | Own, shared and public | Own + shared (editor), when write permission is on | Own only, when write permission is on | Own only |
 | Reader | Shared and public | No | No | No |
 
+A widget can only use a connection you can query yourself: one you own, one an admin shared with the workspace, or, for an admin, any connection. The same applies when you duplicate or import a dashboard, so a dashboard shared with you that uses someone else's private connection cannot be duplicated. A connection already on a dashboard stays on it. Its owner and editors can write new queries on it while they have write permission and the dashboard's owner can use that connection. Otherwise, for example after an admin makes the connection private again or the owner is no longer an admin, its widgets keep running their saved queries, but only someone who can use the connection themselves can add new ones.
+
 ## Export and Import
 
 Dashboards can be exported as JSON and imported into other NeoBoard instances. Admins can export any dashboard. Other users can export a dashboard only if they own every connection its widgets use. If a widget uses a shared connection or another user's connection, the export fails, even for users who can view the dashboard.

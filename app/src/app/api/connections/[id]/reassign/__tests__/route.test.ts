@@ -266,6 +266,8 @@ describe("POST /api/connections/[id]/reassign", () => {
     const [targetExpr] = targetChain.calls.where[0];
     expect(sqlColumns(targetExpr)).toContain("tenant_id");
     expect(sqlValues(targetExpr)).toContain("t1");
+    // An admin may point widgets at any connection in the tenant (#1816).
+    expect(sqlColumns(targetExpr)).not.toContain("visibility");
   });
 
   it("returns zero counts when nothing uses the source connection", async () => {
@@ -299,5 +301,33 @@ describe("POST /api/connections/[id]/reassign", () => {
       makeParams("c1"),
     );
     expect(res.status).toBe(500);
+  });
+
+  // Re-pointing names the target on every dashboard the caller edits, and a
+  // dashboard's owner and editors may run any read query on the connections
+  // it names (#972). So the target must be one the caller can use directly,
+  // their own or a shared one, as the per-dashboard route requires (#1816).
+  it("returns 404 for a target the caller cannot use, looked up as owner-or-shared (#1816)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const targetChain = makeSelectChain([]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ id: "c1", type: "neo4j" }]))
+      .mockReturnValueOnce(targetChain);
+
+    const res = await POST(
+      makeRequest({ targetConnectionId: "c-private" }),
+      makeParams("c1"),
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockReassignConnectionWidgets).not.toHaveBeenCalled();
+    expect(targetChain.calls.where).toHaveLength(1);
+    const [expr] = targetChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id", "userId", "visibility"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["c-private", "t1", "user-1", "shared"]),
+    );
   });
 });

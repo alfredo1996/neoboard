@@ -17,6 +17,12 @@ import {
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
 import { sql } from "drizzle-orm";
+import {
+  layoutConnectionIds,
+  unusableByOwner,
+  unusableConnectionIds,
+} from "@/lib/db/connection-access";
+import { collectLayoutQueries } from "@/lib/query/dashboard-query-binding";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -131,6 +137,46 @@ export async function GET(
   }
 }
 
+const CONFLICT_MESSAGE =
+  "This dashboard was modified by someone else. Reload to see their changes.";
+
+/**
+ * Why a save's layout is refused, or null.
+ *
+ * A dashboard's owner and editors may run any read query on a connection it
+ * names while its owner can use that connection (#972), so a save may not add a
+ * connection the caller cannot use. One already on the dashboard stays. When
+ * the owner cannot use it either, /api/query binds everyone to the saved
+ * queries, and that binding reads this layout, so the save may not add a query
+ * while such a connection stays on it (#1816).
+ */
+async function layoutRefusal(
+  next: unknown,
+  stored: { layoutJson: unknown; userId: string },
+  session: Parameters<typeof unusableConnectionIds>[1],
+): Promise<string | null> {
+  const storedIds = layoutConnectionIds(stored.layoutJson);
+  const storedQueries = collectLayoutQueries(stored.layoutJson);
+  const addsQuery = [...collectLayoutQueries(next)].some(
+    (query) => !storedQueries.has(query),
+  );
+  // A save that adds neither a connection nor a query widens no one's access.
+  const ids = [...layoutConnectionIds(next)].filter(
+    (id) => addsQuery || !storedIds.has(id),
+  );
+  const unusable = await unusableConnectionIds(ids, session);
+  if (unusable.some((id) => !storedIds.has(id))) {
+    return "Widgets can only use connections you have access to";
+  }
+  const bound =
+    unusable.length === 0 || stored.userId === session.userId
+      ? unusable
+      : await unusableByOwner(unusable, stored.userId, session.tenantId);
+  return bound.length > 0
+    ? "This dashboard uses a connection you don't have access to, so its queries can't be changed"
+    : null;
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -171,6 +217,24 @@ export async function PUT(
 
     const { expectedVersion, ...updateData } = result.data;
 
+    // A save from a stale copy is a conflict first, whatever else it carries
+    // (#1816). The version in the update's WHERE below stays the atomic lock.
+    if (
+      expectedVersion !== undefined &&
+      expectedVersion !== access.dashboard.version
+    ) {
+      return apiError("CONFLICT", CONFLICT_MESSAGE);
+    }
+
+    if (updateData.layoutJson) {
+      const refusal = await layoutRefusal(
+        updateData.layoutJson,
+        access.dashboard,
+        { userId, tenantId, role: userRole },
+      );
+      if (refusal) return forbidden(refusal);
+    }
+
     // Build WHERE clause — always scope by id + tenant; add version
     // check when the client sends expectedVersion (optimistic lock).
     const conditions = [
@@ -198,10 +262,7 @@ export async function PUT(
     if (!updated) {
       // Row exists (canAccess passed) but version didn't match →
       // another user saved since the client last fetched.
-      return apiError(
-        "CONFLICT",
-        "This dashboard was modified by someone else. Reload to see their changes.",
-      );
+      return apiError("CONFLICT", CONFLICT_MESSAGE);
     }
 
     auditRequest(request, {
