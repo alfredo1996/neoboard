@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({ db: { select: mockSelect } }));
 
 import {
   layoutConnectionIds,
+  unusableByOwner,
   unusableConnectionIds,
   usableConnection,
 } from "../connection-access";
@@ -122,6 +123,39 @@ describe("unusableConnectionIds", () => {
 
   it("asks nothing when there is no connection to check", async () => {
     expect(await unusableConnectionIds([], CREATOR)).toEqual([]);
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+});
+
+describe("unusableByOwner", () => {
+  beforeEach(() => {
+    mockSelect.mockReset();
+  });
+
+  it("reads the dashboard owner's current role in the tenant, then applies the rule for them (#1816)", async () => {
+    const owner = makeSelectChain([{ role: "creator" }]);
+    const lookup = makeSelectChain([{ id: "c-alice" }]);
+    mockSelect.mockReturnValueOnce(owner).mockReturnValueOnce(lookup);
+
+    expect(await unusableByOwner(["c-alice"], "bob", "t1")).toEqual([
+      "c-alice",
+    ]);
+
+    const [who] = owner.calls.where[0] as [SQL];
+    expect(sqlColumns(who)).toEqual(["id", "tenant_id"]);
+    expect(sqlValues(who)).toEqual(["bob", "t1"]);
+    const [expr] = lookup.calls.where[0] as [SQL];
+    expect(sqlValues(expr)).toEqual(["t1", "c-alice", "bob", "shared"]);
+  });
+
+  it("finds nothing an admin owner cannot use", async () => {
+    mockSelect.mockReturnValueOnce(makeSelectChain([{ role: "admin" }]));
+    expect(await unusableByOwner(["c-any"], "alice", "t1")).toEqual([]);
+    expect(mockSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks nothing when there is no connection to check", async () => {
+    expect(await unusableByOwner([], "bob", "t1")).toEqual([]);
     expect(mockSelect).not.toHaveBeenCalled();
   });
 });

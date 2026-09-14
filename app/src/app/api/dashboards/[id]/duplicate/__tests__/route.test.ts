@@ -303,4 +303,59 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
     expect(res.status).toBe(201);
     expect(mockDb.insert).toHaveBeenCalledTimes(1);
   });
+
+  it("refuses an editor share on a source using a connection they cannot use (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "u2",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([SHARED_SOURCE]))
+      .mockReturnValueOnce(
+        makeShareSelectChain([{ id: "share-1", role: "editor" }]),
+      )
+      .mockReturnValueOnce(recordingSelectChain([{ id: "c-private" }]));
+    mockDb.insert.mockReturnValueOnce(makeInsertChain([{ id: "d2" }]));
+
+    const res = await POST({} as Request, makeParams("d1"));
+
+    expect(res.status).toBe(403);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("refuses the owner of a source using a connection they cannot use (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "u1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([SHARED_SOURCE]))
+      .mockReturnValueOnce(recordingSelectChain([{ id: "c-private" }]));
+    mockDb.insert.mockReturnValueOnce(makeInsertChain([{ id: "d2" }]));
+
+    const res = await POST({} as Request, makeParams("d1"));
+
+    expect(res.status).toBe(403);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin copy a source on another user's private connection without a lookup (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "admin-1",
+      role: "admin",
+      canWrite: true,
+      tenantId: "default",
+    });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([SHARED_SOURCE]));
+    mockDb.insert.mockReturnValueOnce(makeInsertChain([{ id: "d2" }]));
+
+    const res = await POST({} as Request, makeParams("d1"));
+
+    expect(res.status).toBe(201);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
+  });
 });

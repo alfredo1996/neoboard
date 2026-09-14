@@ -1,6 +1,6 @@
 import { and, eq, inArray, not, or, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { connections } from "@/lib/db/schema";
+import { connections, users } from "@/lib/db/schema";
 import type { DashboardLayout, UserRole } from "@/lib/db/schema";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 
@@ -58,4 +58,27 @@ export async function unusableConnectionIds(
       ),
     );
   return rows.map((row) => row.id);
+}
+
+/**
+ * The ids, among `ids`, of connections a dashboard's owner cannot use directly,
+ * judged by the owner's role as it is now, not when the dashboard was saved.
+ * The dashboard's owner and editors author on a connection only while the owner
+ * can use it (#972, #1816).
+ */
+export async function unusableByOwner(
+  ids: Iterable<string>,
+  ownerId: string,
+  tenantId: string,
+): Promise<string[]> {
+  const wanted = [...new Set(ids)];
+  if (wanted.length === 0) return [];
+  const [owner] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(and(eq(users.id, ownerId), eq(users.tenantId, tenantId)))
+    .limit(1);
+  // ponytail: a missing owner row counts as a non-admin, the safe side.
+  const role = owner?.role ?? "creator";
+  return unusableConnectionIds(wanted, { userId: ownerId, tenantId, role });
 }

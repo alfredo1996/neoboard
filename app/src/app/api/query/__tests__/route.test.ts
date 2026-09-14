@@ -342,7 +342,13 @@ describe("POST /api/query", () => {
       .mockReturnValueOnce(drizzleSelectChain([]))
       .mockReturnValueOnce(
         drizzleJoinChain([
-          { ownerId: "other-user", shareRole: "editor", layoutJson: null },
+          {
+            ownerId: "other-user",
+            shareRole: "editor",
+            connectionOwnerId: "other-user",
+            ownerRole: "creator",
+            layoutJson: null,
+          },
         ]),
       )
       .mockReturnValueOnce(drizzleSelectChain([conn]));
@@ -516,36 +522,119 @@ describe("POST /api/query", () => {
     expect(res.status).toBe(200);
   });
 
-  it("DASHBOARD owner referencing an unowned connection runs novel queries (edit level, #972)", async () => {
-    mockRequireSession.mockResolvedValue({
-      ...defaultSession,
-      role: "creator",
-    });
-    const conn = {
+  // Edit level (#972) lets a dashboard's owner and editors run any read query
+  // on a connection it names. It holds only while the dashboard's owner can use
+  // that connection and the caller may write. Otherwise they are bound to the
+  // dashboard's own queries, like a viewer (#1816).
+  describe("edit level through a dashboard (#1816)", () => {
+    const SAVED = "SELECT category FROM orders";
+    const NOVEL = "SELECT something_new FROM t";
+    const alicesConnection = {
       id: "c1",
       type: "postgresql",
       configEncrypted: "enc",
-      userId: "other-user",
+      userId: "alice",
     };
-    mockDb.select
-      .mockReturnValueOnce(drizzleSelectChain([]))
-      .mockReturnValueOnce(
-        drizzleJoinChain([
-          { ownerId: "user-1", shareRole: null, layoutJson: { pages: [] } },
-        ]),
-      )
-      .mockReturnValueOnce(drizzleSelectChain([conn]));
-    mockDecryptJson.mockReturnValue({
-      uri: "postgres://localhost",
-      username: "u",
-      password: "p",
-    });
-    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
 
-    const res = await POST(
-      makeRequest({ connectionId: "c1", query: "SELECT something_new FROM t" }),
+    /** POST through the dashboard fallback; `runs` queues the connection fetch. */
+    function queryVia(
+      row: Record<string, unknown>,
+      query: string,
+      runs: boolean,
+    ) {
+      mockDb.select
+        .mockReturnValueOnce(drizzleSelectChain([]))
+        .mockReturnValueOnce(
+          drizzleJoinChain([
+            {
+              layoutJson: {
+                pages: [{ widgets: [{ connectionId: "c1", query: SAVED }] }],
+              },
+              ...row,
+            },
+          ]),
+        );
+      if (runs) {
+        mockDb.select.mockReturnValueOnce(
+          drizzleSelectChain([alicesConnection]),
+        );
+      }
+      mockDecryptJson.mockReturnValue({
+        uri: "postgres://localhost",
+        username: "u",
+        password: "p",
+      });
+      mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+      return POST(makeRequest({ connectionId: "c1", query }));
+    }
+
+    async function expectBound(row: Record<string, unknown>) {
+      const novel = await queryVia(row, NOVEL, false);
+      expect(novel.status).toBe(403);
+      expect((await novel.json()).error.message).toMatch(
+        /not part of any dashboard/i,
+      );
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+      expect((await queryVia(row, SAVED, true)).status).toBe(200);
+    }
+
+    it("owner of a dashboard naming a connection its owner cannot use: novel query 403, its own query 200", async () => {
+      mockRequireSession.mockResolvedValue(defaultSession);
+      await expectBound({
+        ownerId: "user-1",
+        shareRole: null,
+        connectionOwnerId: "alice",
+        ownerRole: "creator",
+      });
+      // No connection fetch for the refused query: 2 selects, then 3.
+      expect(mockDb.select).toHaveBeenCalledTimes(5);
+    });
+
+    it("binds an editor share once the dashboard's owner cannot use the connection", async () => {
+      mockRequireSession.mockResolvedValue(defaultSession);
+      await expectBound({
+        ownerId: "bob",
+        shareRole: "editor",
+        connectionOwnerId: "alice",
+        ownerRole: "creator",
+      });
+      // No connection fetch for the refused query: 2 selects, then 3.
+      expect(mockDb.select).toHaveBeenCalledTimes(5);
+    });
+
+    it.each([
+      { role: "reader", canWrite: false },
+      { role: "creator", canWrite: false },
+    ])(
+      "binds a $role with write permission off who holds an editor share",
+      async (session) => {
+        mockRequireSession.mockResolvedValue({ ...defaultSession, ...session });
+        await expectBound({
+          ownerId: "alice",
+          shareRole: "editor",
+          connectionOwnerId: "alice",
+          ownerRole: "admin",
+        });
+        // No connection fetch for the refused query: 2 selects, then 3.
+        expect(mockDb.select).toHaveBeenCalledTimes(5);
+      },
     );
-    expect(res.status).toBe(200);
+
+    it("keeps edit level for an editor share on an admin's dashboard", async () => {
+      mockRequireSession.mockResolvedValue(defaultSession);
+      const res = await queryVia(
+        {
+          ownerId: "alice",
+          shareRole: "editor",
+          connectionOwnerId: "carol",
+          ownerRole: "admin",
+        },
+        NOVEL,
+        true,
+      );
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("owner still works without any fallback (regression)", async () => {

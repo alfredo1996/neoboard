@@ -1088,7 +1088,17 @@ export default function DashboardListPage() {
                                     {canDuplicate && (
                                       <DropdownMenuItem
                                         onClick={() =>
-                                          duplicateDashboard.mutate(d.id)
+                                          duplicateDashboard.mutate(d.id, {
+                                            // A refusal must not look like a
+                                            // click that did nothing (#1816).
+                                            onError: (err) =>
+                                              toast({
+                                                title:
+                                                  "Failed to duplicate dashboard",
+                                                description: err.message,
+                                                variant: "destructive",
+                                              }),
+                                          })
                                         }
                                         disabled={duplicateDashboard.isPending}
                                       >
