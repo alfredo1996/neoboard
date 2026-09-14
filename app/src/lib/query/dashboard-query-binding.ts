@@ -44,11 +44,8 @@ export function collectLayoutQueries(layout: unknown): Set<string> {
   for (const page of pages) {
     if (!Array.isArray(page?.widgets)) continue;
     for (const widget of page.widgets) {
-      if (typeof widget?.query === "string" && widget.query.trim()) {
-        queries.add(normalizeQuery(widget.query));
-      }
-      for (const seed of seedQueriesOf(widget?.settings)) {
-        if (seed.trim()) queries.add(normalizeQuery(seed));
+      for (const q of [widget?.query, ...seedQueriesOf(widget?.settings)]) {
+        if (typeof q === "string" && q.trim()) queries.add(normalizeQuery(q));
       }
     }
   }
