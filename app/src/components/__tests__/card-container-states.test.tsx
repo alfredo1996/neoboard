@@ -84,7 +84,7 @@ vi.mock("@/stores/parameter-store", () => ({
 }));
 
 vi.mock("@/lib/query/resolve-cache-options", () => ({
-  resolveCacheOptions: () => ({ staleTime: 0, gcTime: undefined }),
+  resolveWidgetCacheOptions: () => ({ staleTime: 0, gcTime: undefined }),
 }));
 
 vi.mock("@/lib/widget/card-utils", () => ({

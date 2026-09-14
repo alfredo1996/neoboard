@@ -1,13 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import {
   unwrapFullResponse,
   QueueFullError,
   ClientQueueTimeoutError,
 } from "@/lib/api/api-client";
-import { useParameterStore } from "@/stores/parameter-store";
+import {
+  useParameterStore,
+  type ParameterEntry,
+} from "@/stores/parameter-store";
+import { resolveWidgetCacheOptions } from "@/lib/query/resolve-cache-options";
+import type { DashboardWidget } from "@/lib/db/schema";
 import {
   trackConnectorOutcome,
   useConnectionStatusStore,
@@ -152,6 +157,95 @@ export function shouldRetryWidgetQuery(
   );
 }
 
+type WidgetQueryIdentity = Partial<
+  Pick<WidgetQueryInput, "connectionId" | "database" | "query">
+>;
+
+/**
+ * The key prefix every cached result of one widget query shares, whatever its
+ * params or staleTime. Prefix matches cover every params variant, which is
+ * right for invalidation; reads of one card's result use `widgetQueryKey`.
+ */
+export function widgetQueryKeyPrefix(w: WidgetQueryIdentity | null) {
+  return ["widget-query", w?.connectionId, w?.database ?? null, w?.query];
+}
+
+/**
+ * The full key of one widget query. `useWidgetQuery` builds its key here, so
+ * readers that build theirs here match it exactly: copies went stale when
+ * `database` joined the key and matched nothing (#1809).
+ */
+export function widgetQueryKey(input: WidgetQueryInput | null, staleTime = 0) {
+  return [...widgetQueryKeyPrefix(input), input?.params, staleTime];
+}
+
+/**
+ * Parameter store entries as the values queries bind. Date-relative presets
+ * resolve to their range as of now, so "Last 7 days" always ends today.
+ */
+export function resolveParameterValues(
+  parameters: Record<string, Pick<ParameterEntry, "value" | "type">>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [name, entry] of Object.entries(parameters)) {
+    result[name] = entry.value;
+  }
+  for (const [name, entry] of Object.entries(parameters)) {
+    if (entry.type === "date-relative" && entry.value) {
+      const { from, to } = resolveRelativePreset(
+        entry.value as RelativeDatePreset,
+      );
+      result[`${name}_from`] = from;
+      result[`${name}_to`] = to;
+    }
+  }
+  return result;
+}
+
+/** A widget's static params plus the `$param_` values its query references. */
+export function mergeWidgetParams(
+  query: string | undefined,
+  params: Record<string, unknown> | undefined,
+  allParameters: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (!query) return params;
+  const referenced = extractReferencedParams(query, allParameters);
+  if (Object.keys(referenced).length === 0) return params;
+  return { ...params, ...referenced };
+}
+
+/**
+ * The result the widget's card shows right now, for reads such as Export CSV
+ * and the editor preview: its exact key for the current parameters and its
+ * cache settings. Older params variants, and other widgets running the same
+ * query with other static params or cache TTL, share only the key prefix.
+ */
+export function getShownWidgetQueryData(
+  queryClient: QueryClient,
+  widget: Pick<
+    DashboardWidget,
+    "connectionId" | "database" | "query" | "params" | "settings"
+  >,
+  parameters: Record<string, Pick<ParameterEntry, "value" | "type">>,
+): QueryResult | undefined {
+  const { connectionId, database, query, params, settings } = widget;
+  return queryClient.getQueryData<QueryResult>(
+    widgetQueryKey(
+      {
+        connectionId,
+        database,
+        query,
+        params: mergeWidgetParams(
+          query,
+          params,
+          resolveParameterValues(parameters),
+        ),
+      },
+      resolveWidgetCacheOptions(settings).staleTime,
+    ),
+  );
+}
+
 /**
  * Cached query hook for widget data. Uses React Query's cache with a stable
  * key based on connectionId + query text, so the same query is never executed
@@ -183,36 +277,20 @@ export function useWidgetQuery(
   // Get parameters from store - using selector that returns stable value
   const parameters = useParameterStore((s) => s.parameters);
 
-  const allParameters = useMemo(() => {
-    const result: Record<string, unknown> = {};
-    // First pass: populate all raw store values
-    for (const [name, entry] of Object.entries(parameters)) {
-      result[name] = entry.value;
-    }
-    // Second pass: for date-relative entries, override _from/_to with values
-    // resolved at call time (not at selection time) so "Last 7 days" always
-    // refers to today's date, not the date when the preset was clicked.
-    for (const [name, entry] of Object.entries(parameters)) {
-      if (entry.type === "date-relative" && entry.value) {
-        const { from, to } = resolveRelativePreset(
-          entry.value as RelativeDatePreset,
-        );
-        result[`${name}_from`] = from;
-        result[`${name}_to`] = to;
-      }
-    }
-    return result;
-  }, [parameters]);
+  // Date-relative entries resolve when the parameters change, not when the
+  // preset was clicked.
+  const allParameters = useMemo(
+    () => resolveParameterValues(parameters),
+    [parameters],
+  );
 
   const inputQuery = input?.query;
   const inputParams = input?.params;
 
-  const mergedParams = useMemo(() => {
-    if (!inputQuery) return inputParams;
-    const referenced = extractReferencedParams(inputQuery, allParameters);
-    if (Object.keys(referenced).length === 0) return inputParams;
-    return { ...inputParams, ...referenced };
-  }, [inputQuery, inputParams, allParameters]);
+  const mergedParams = useMemo(
+    () => mergeWidgetParams(inputQuery, inputParams, allParameters),
+    [inputQuery, inputParams, allParameters],
+  );
 
   const mergedInput = useMemo(() => {
     if (!input) return null;
@@ -220,14 +298,7 @@ export function useWidgetQuery(
   }, [input, mergedParams]);
 
   const queryResult = useQuery<QueryResult, Error>({
-    queryKey: [
-      "widget-query",
-      mergedInput?.connectionId,
-      mergedInput?.database ?? null,
-      mergedInput?.query,
-      mergedInput?.params,
-      options?.staleTime ?? 0,
-    ],
+    queryKey: widgetQueryKey(mergedInput, options?.staleTime),
     queryFn: async () => {
       const fetchStart = performance.now();
       const res = await fetch("/api/query", {

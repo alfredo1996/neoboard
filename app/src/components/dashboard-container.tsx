@@ -15,6 +15,10 @@ import {
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { buildExportData } from "@/lib/widget/card-utils";
 import {
+  getShownWidgetQueryData,
+  widgetQueryKeyPrefix,
+} from "@/hooks/use-widget-query";
+import {
   getWidgetDisplayTitle,
   isWidgetTemplateOutdated,
 } from "@/lib/widget/widget-utils";
@@ -179,10 +183,7 @@ export function DashboardContainer({
   }
 
   function exportWidgetCsv(widget: DashboardWidget) {
-    const entries = queryClient.getQueriesData<{ data: unknown }>({
-      queryKey: ["widget-query", widget.connectionId, widget.query],
-    });
-    const cached = entries.length > 0 ? entries[0][1] : undefined;
+    const cached = getShownWidgetQueryData(queryClient, widget, parameters);
     const transforms = (widget.settings?.transforms ??
       []) as import("@/lib/query/data-transforms").Transform[];
     const exportData = buildExportData(
@@ -350,27 +351,11 @@ export function DashboardContainer({
                   onRefresh={
                     showRefresh
                       ? () => {
-                          // Invalidate the TanStack Query entry for this widget so
-                          // it refetches. We must mirror the prefix shape used by
-                          // useWidgetQuery exactly:
-                          //   ["widget-query", connectionId, database, query, params, staleTime]
-                          // Earlier we omitted `database`, which made position 2
-                          // mismatch (null vs query string), so invalidation never
-                          // matched and the refresh button silently no-op'd.
-                          //
-                          // We intentionally stop the prefix at `query` — the hook
-                          // merges $param_xxx values into `params` at call time, so
-                          // `widget.params` here is not deep-equal to the hook's
-                          // mergedParams when parameters are referenced. Stopping
-                          // at `query` guarantees prefix match for both the
-                          // parameterless and parameterised cases.
+                          // Refetch every params variant of this widget's query:
+                          // the hook merges $param_xxx values into `params` at
+                          // call time, so only the prefix is known here.
                           void queryClient.invalidateQueries({
-                            queryKey: [
-                              "widget-query",
-                              widget.connectionId,
-                              widget.database ?? null,
-                              widget.query,
-                            ],
+                            queryKey: widgetQueryKeyPrefix(widget),
                           });
                         }
                       : undefined

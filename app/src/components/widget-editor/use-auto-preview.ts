@@ -25,6 +25,9 @@ interface UseAutoPreviewOptions {
   selectedConnection: ConnectionListItem | undefined;
   /** Pre-existing preview data — skip auto-preview when provided */
   initialPreviewData?: { data: unknown; resultId: string };
+  /** The query `initialPreviewData` is the result of. The editor loads it into
+   *  the store after opening; that load is not an edit to preview. */
+  initialPreviewQuery?: string;
   /** Mutation object from useQueryExecution */
   previewQuery: {
     mutate: (
@@ -53,6 +56,7 @@ export function useAutoPreview({
   allParamValues,
   selectedConnection,
   initialPreviewData,
+  initialPreviewQuery,
   previewQuery,
   buildWidgetForSave,
   onSave,
@@ -141,11 +145,28 @@ export function useAutoPreview({
     if (prevQueryRef.current === query) return;
     prevQueryRef.current = query;
     if (!connectionId || !query.trim()) return;
+    // Opening another widget: the first open render still has the last
+    // widget's query, then the store loads this one's. Its result is already
+    // shown, so skip that change until something else has run (#1809).
+    if (
+      initialPreviewData &&
+      query === initialPreviewQuery &&
+      lastRunRef.current === null
+    ) {
+      return;
+    }
     const timer = setTimeout(() => {
       runPreview(true);
     }, 800);
     return () => clearTimeout(timer);
-  }, [open, query, connectionId, runPreview]);
+  }, [
+    open,
+    query,
+    connectionId,
+    runPreview,
+    initialPreviewData,
+    initialPreviewQuery,
+  ]);
 
   // CMD+Shift+Enter: run query, then save on success.
   const handleRunAndSave = useCallback(() => {

@@ -13,6 +13,8 @@ import { useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, LayoutDashboard, Pencil, Plus } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
+import { getShownWidgetQueryData } from "@/hooks/use-widget-query";
+import { PREVIEW_ROW_LIMIT } from "@/lib/query/wrap-with-preview-limit";
 import { useConnections } from "@/hooks/use-connections";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
@@ -494,14 +496,20 @@ export function DashboardWorkspace({
 
   const openEditWidget = useCallback(
     (widget: DashboardWidget) => {
-      // Grab cached query data so the editor preview shows instantly.
-      // Use getQueriesData with a partial key — params vary with store values.
-      const cachedEntries = queryClient.getQueriesData<{
-        data: unknown;
-        resultId: string;
-      }>({ queryKey: ["widget-query", widget.connectionId, widget.query] });
-      const cached = cachedEntries.length > 0 ? cachedEntries[0][1] : undefined;
-      setCachedPreviewData(cached ?? undefined);
+      // Show the card's current result instantly. With none, the editor's
+      // auto-preview runs the query instead. The card's result is uncapped,
+      // and the editor skips its capped run when handed one, so cut it to the
+      // preview's row limit (#1043).
+      const shown = getShownWidgetQueryData(
+        queryClient,
+        widget,
+        useParameterStore.getState().parameters,
+      );
+      setCachedPreviewData(
+        shown && Array.isArray(shown.data)
+          ? { ...shown, data: shown.data.slice(0, PREVIEW_ROW_LIMIT) }
+          : shown,
+      );
       setEditorMode("edit");
       setEditingWidget(widget);
       setEditorOpen(true);
@@ -570,11 +578,12 @@ export function DashboardWorkspace({
       } else {
         updateWidget(widget.id, widget);
       }
-      queryClient.invalidateQueries({
-        queryKey: ["widget-query", widget.connectionId, widget.query],
-      });
+      // No invalidation: widget query keys are content-addressed, so a saved
+      // change to what runs (connection, database, query, params, cache TTL)
+      // gets a new key and the card fetches it; an unchanged query has nothing
+      // new to fetch (#1809).
     },
-    [editorMode, layout, safeIndex, addWidget, updateWidget, queryClient],
+    [editorMode, layout, safeIndex, addWidget, updateWidget],
   );
 
   // ── Navigation ──────────────────────────────────────────────────────
