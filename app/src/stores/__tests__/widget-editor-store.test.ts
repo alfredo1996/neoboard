@@ -47,6 +47,21 @@ describe("widget-editor-store", () => {
       getState().setChartType("json"); // doesn't support styling
       expect(getState().stylingEnabled).toBe(false);
     });
+
+    // #1824: the selector then lists options from that database, so the
+    // editor shows it (widget-editor-modal) and tests the seed on it.
+    it("keeps the database of a table that becomes a parameter selector", () => {
+      getState().loadFromWidget({
+        id: "w1",
+        chartType: "table",
+        connectionId: "c1",
+        database: "sales",
+        query: "SELECT 1",
+        settings: {},
+      });
+      getState().setChartType("parameter-select");
+      expect(getState().database).toBe("sales");
+    });
   });
 
   describe("setChartOptions", () => {

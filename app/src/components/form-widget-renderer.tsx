@@ -413,6 +413,19 @@ export function FormWidgetRenderer({
   const tenantId = session?.user?.tenantId;
   // Dashboards render under /[id] and /[id]/edit; null outside the app router.
   const dashboardId = useParams<{ id?: string }>()?.id;
+  // The write runs where the saved dashboard stores this form (#1824). Edit
+  // mode shows the working copy: until it is saved, a form missing from the
+  // saved layout, or saved on another connection or database, waits for Save.
+  const needsSave = useDashboardStore((s) => {
+    if (!widgetId || !s.hasUnsavedChanges()) return false;
+    const saved = s.savedLayout?.pages
+      .flatMap((p) => p.widgets)
+      .find((w) => w.id === widgetId);
+    return (
+      saved?.connectionId !== connectionId ||
+      (saved.database || undefined) !== (database || undefined)
+    );
+  });
 
   // Proactively gate the form when the viewer has no write permission
   // (issue #496). Readers always land here because session.user.canWrite
@@ -653,7 +666,7 @@ export function FormWidgetRenderer({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (readOnly) return;
+          if (readOnly || needsSave) return;
           handleSubmit();
         }}
         onPointerDown={holdMessagesForPress}
@@ -755,6 +768,11 @@ export function FormWidgetRenderer({
         {messages.successMessage && (
           <p className="text-sm text-green-600">{messages.successMessage}</p>
         )}
+        {needsSave && !readOnly && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Save the dashboard to submit this form.
+          </p>
+        )}
         {messages.errorMessage && (
           <p className="text-sm text-destructive">{messages.errorMessage}</p>
         )}
@@ -765,7 +783,7 @@ export function FormWidgetRenderer({
           // database's errors and validates again, while a draft typed inside
           // the debounce has not cleared its error yet. A disabled Submit would
           // block Enter and the click (#1771).
-          disabled={readOnly || writeQuery.isPending}
+          disabled={readOnly || needsSave || writeQuery.isPending}
           title={
             readOnly
               ? "You don't have permission to submit this form"

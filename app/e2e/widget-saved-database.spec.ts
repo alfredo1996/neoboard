@@ -5,6 +5,8 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  saveDashboard,
+  typeInEditor,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -364,6 +366,79 @@ test.describe("Widgets run on their saved database (#1824)", () => {
         );
       if (userId) await alice.request.delete(`/api/users/${userId}`);
       await aliceCtx.close();
+    }
+  });
+
+  // Edit mode shows the unsaved working copy, and the write runs where the saved
+  // dashboard stores the form, so a new form waits for Save.
+  test("a form added in edit mode waits for Save before it can submit", async ({
+    page,
+    authPage,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const suffix = uniqueSuffix();
+    const connectionName = `saved-db-edit-${suffix}`;
+    let connectionId: string | undefined;
+    let dashboardId: string | undefined;
+    const writes: string[] = [];
+    page.on("request", (r) => {
+      if (r.url().includes("/api/query/write")) writes.push(r.url());
+    });
+
+    try {
+      connectionId = await createConnection(
+        page.request,
+        connectionName,
+        "movies",
+      );
+      ({ id: dashboardId } = await createTestDashboard(
+        page.request,
+        `saved-db-edit-${suffix}`,
+      ));
+      await page.goto(`/${dashboardId}/edit`);
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible();
+
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+      await dialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "Form" }).click();
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option", { name: connectionName }).click();
+      await typeInEditor(
+        dialog,
+        page,
+        "INSERT INTO e2e_never_written (tag) VALUES ($param_tag)",
+      );
+      await dialog.getByRole("button", { name: "Add Field" }).click();
+      await dialog.getByPlaceholder("e.g. Movie Title").fill("Tag");
+      await dialog.getByPlaceholder("e.g. title").fill("tag");
+      await dialog.getByRole("button", { name: "Add Widget" }).click();
+      await expect(dialog).not.toBeVisible();
+
+      const form = page
+        .locator("form")
+        .filter({ has: page.getByRole("button", { name: "Submit" }) });
+      const submit = form.getByRole("button", { name: "Submit" });
+      const note = form.getByText("Save the dashboard to submit this form.");
+      await expect(note).toBeVisible({ timeout: 15_000 });
+      await expect(submit).toBeDisabled();
+      await form.getByRole("textbox", { name: "tag" }).fill(`row-${suffix}`);
+      await form.getByRole("textbox", { name: "tag" }).press("Enter");
+      await expect(note).toBeVisible();
+      expect(writes).toEqual([]);
+
+      await saveDashboard(page);
+      await expect(note).toBeHidden();
+      await expect(submit).toBeEnabled();
+    } finally {
+      if (dashboardId)
+        await page.request.delete(`/api/dashboards/${dashboardId}`);
+      if (connectionId)
+        await page.request.delete(
+          `/api/connections/${connectionId}?force=true`,
+        );
     }
   });
 });

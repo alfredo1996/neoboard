@@ -6,10 +6,12 @@
  * parameterType) fall-through. Also covers submit flow success/error,
  * empty-fields fast path, and submit-button states.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import React from "react";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
+import type { DashboardWidget } from "@/lib/db/schema";
+import { useDashboardStore } from "@/stores/dashboard-store";
 
 /* ---------- mocks (declared before imports) ---------- */
 
@@ -171,13 +173,16 @@ vi.mock("@/stores/parameter-store", () => ({
 
 const mockMutate = vi.fn();
 let mutateIsPending = false;
+// One object across renders, as the real mutation result is while idle, so a
+// callback that forgets a dependency keeps its stale value here too.
+const writeQueryResult = {
+  mutate: mockMutate,
+  get isPending() {
+    return mutateIsPending;
+  },
+};
 vi.mock("@/hooks/use-write-query-execution", () => ({
-  useWriteQueryExecution: () => ({
-    mutate: mockMutate,
-    get isPending() {
-      return mutateIsPending;
-    },
-  }),
+  useWriteQueryExecution: () => writeQueryResult,
 }));
 
 // The arguments each FieldInput hands the seed query, in call order.
@@ -198,11 +203,11 @@ vi.mock("@tanstack/react-query", async () => {
   );
   return {
     ...actual,
-    useQueryClient: () => ({
-      invalidateQueries: vi.fn(),
-    }),
+    useQueryClient: () => stableQueryClient,
   };
 });
+
+const stableQueryClient = { invalidateQueries: vi.fn() };
 
 /* ---------- import under test ---------- */
 import { FormWidgetRenderer } from "../form-widget-renderer";
@@ -593,6 +598,122 @@ describe("FormWidgetRenderer — runs where the form is saved (#1824)", () => {
       dashboardId: "dash-1",
     });
     expect(payload).not.toHaveProperty("database");
+  });
+
+  it("submits the id it was given last", () => {
+    const settings = {
+      formFields: [
+        makeField({ id: "f1", parameterName: "v", parameterType: "text" }),
+      ],
+    };
+    const form = (widgetId: string) => (
+      <FormWidgetRenderer
+        connectionId="conn-1"
+        query="CREATE (n) RETURN n"
+        settings={settings}
+        widgetId={widgetId}
+      />
+    );
+    const { rerender } = render(form("w-form"));
+    fireEvent.change(screen.getByTestId("input-v"), {
+      target: { value: "hello" },
+    });
+    rerender(form("w-other"));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(mockMutate).toHaveBeenCalledTimes(1);
+    expect(mockMutate.mock.calls[0][0].widgetId).toBe("w-other");
+  });
+});
+
+// #1824: the write runs where the saved dashboard stores the form. In edit
+// mode the card shows the working copy, so a form the dashboard has not saved,
+// or saved on another connection or database, waits for Save.
+describe("FormWidgetRenderer — a submit waits for the form to be saved (#1824)", () => {
+  const SAVE_NOTE = "Save the dashboard to submit this form.";
+  const savedForm: DashboardWidget = {
+    id: "w-form",
+    chartType: "form",
+    connectionId: "conn-1",
+    database: "neoboard",
+    query: "CREATE (n) RETURN n",
+    settings: {},
+  };
+
+  function loadDashboard(widget: DashboardWidget = savedForm) {
+    useDashboardStore.getState().setLayout({
+      version: 2,
+      pages: [{ id: "p1", title: "Page 1", widgets: [widget], gridLayout: [] }],
+    });
+  }
+
+  /** Render the form with a typed value and send its submit event. */
+  function submit(saved: { database?: string; widgetId?: string }) {
+    renderForm(
+      [makeField({ id: "f1", parameterName: "v", parameterType: "text" })],
+      {},
+      saved,
+    );
+    fireEvent.change(screen.getByTestId("input-v"), {
+      target: { value: "hello" },
+    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Submit" }).closest("form")!,
+    );
+  }
+
+  /** Submit is disabled, the note says why, and nothing was sent. */
+  function waitingForSave() {
+    return (
+      screen.getByRole("button", { name: "Submit" }).hasAttribute("disabled") &&
+      screen.queryByText(SAVE_NOTE) !== null &&
+      mockMutate.mock.calls.length === 0
+    );
+  }
+
+  afterEach(() => {
+    useDashboardStore.getState().reset();
+  });
+
+  it("waits for a form the dashboard has not saved yet", () => {
+    loadDashboard();
+    useDashboardStore
+      .getState()
+      .addWidget(
+        { ...savedForm, id: "w-new" },
+        { i: "w-new", x: 0, y: 0, w: 4, h: 4 },
+      );
+    submit({ database: "neoboard", widgetId: "w-new" });
+    expect(waitingForSave()).toBe(true);
+  });
+
+  it("waits while the form's database differs from its saved copy", () => {
+    loadDashboard();
+    useDashboardStore.getState().updateWidget("w-form", { database: "movies" });
+    submit({ database: "movies", widgetId: "w-form" });
+    expect(waitingForSave()).toBe(true);
+  });
+
+  it("waits while the form's connection differs from its saved copy", () => {
+    loadDashboard({ ...savedForm, connectionId: "conn-2" });
+    useDashboardStore
+      .getState()
+      .updateWidget("w-form", { connectionId: "conn-1" });
+    submit({ database: "neoboard", widgetId: "w-form" });
+    expect(waitingForSave()).toBe(true);
+  });
+
+  it("submits a saved form while other edits to the dashboard are unsaved", () => {
+    loadDashboard();
+    useDashboardStore
+      .getState()
+      .addWidget(
+        { ...savedForm, id: "w-other" },
+        { i: "w-other", x: 0, y: 0, w: 4, h: 4 },
+      );
+    submit({ database: "neoboard", widgetId: "w-form" });
+    expect(screen.queryByText(SAVE_NOTE)).not.toBeInTheDocument();
+    expect(mockMutate).toHaveBeenCalledTimes(1);
   });
 });
 

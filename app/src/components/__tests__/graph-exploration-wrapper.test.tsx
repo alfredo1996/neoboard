@@ -231,4 +231,25 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
   it("sends no database when the widget saves none", async () => {
     expect(await expansionBody()).not.toHaveProperty("database");
   });
+
+  it("sends the database it was given last", async () => {
+    const props = {
+      widgetId: "w1",
+      nodes: graphNodes,
+      edges: [],
+      connectionId: "c1",
+      settings: {},
+      resultId: "r1",
+    };
+    const { rerender } = render(
+      <GraphExplorationWrapper {...props} database="neoboard" />,
+    );
+    rerender(<GraphExplorationWrapper {...props} database="movies" />);
+    await explorationOptions.fetchNeighbors!({ id: "A" });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(String(init.body)).database).toBe("movies");
+  });
 });
