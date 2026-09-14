@@ -518,7 +518,7 @@ describe("POST /api/query", () => {
     const res = await POST(
       makeRequest({
         connectionId: "c1",
-        query: "SELECT DISTINCT  region\n FROM t",
+        query: "SELECT DISTINCT region FROM t",
       }),
     );
     expect(res.status).toBe(200);
@@ -784,6 +784,117 @@ describe("POST /api/query", () => {
           ),
         ),
       ).toEqual(REFUSED);
+    });
+  });
+
+  // A view-level caller runs a saved query only as its exact saved text.
+  // Clients send the saved string verbatim, so a text that differs from it in
+  // any way, whitespace and line breaks included, is not a query the dashboard
+  // contains. Callers who are not bound run the text they send, as before.
+  describe("view level runs a saved query only as its exact saved text", () => {
+    const SAVED =
+      "SELECT title, released\n  FROM movies -- newest first\n  ORDER BY released DESC";
+    const MOVED =
+      "SELECT title,\n  released FROM movies -- newest first\n  ORDER BY released DESC";
+    const alicesConnection = {
+      id: "c1",
+      type: "postgresql",
+      configEncrypted: "enc",
+      userId: "alice",
+    };
+    const layoutJson = {
+      pages: [{ widgets: [{ connectionId: "c1", query: SAVED }] }],
+    };
+
+    /** POST `query` once `lookups` are queued to answer the route's selects. */
+    function run(
+      session: Partial<typeof defaultSession>,
+      lookups: unknown[],
+      query: string,
+    ) {
+      mockRequireSession.mockResolvedValue({ ...defaultSession, ...session });
+      for (const chain of lookups) mockDb.select.mockReturnValueOnce(chain);
+      mockDecryptJson.mockReturnValue({
+        uri: "postgres://localhost",
+        username: "u",
+        password: "p",
+      });
+      mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+      return POST(makeRequest({ connectionId: "c1", query }));
+    }
+
+    const viewer = { role: "reader", canWrite: false };
+    /** A viewer share's selects; the connection fetch only when it runs. */
+    const viewerShare = (runs: boolean) => [
+      drizzleSelectChain([]),
+      drizzleJoinChain([
+        {
+          ownerId: "alice",
+          shareRole: "viewer",
+          connectionOwnerId: "alice",
+          ownerRole: "creator",
+          layoutJson,
+        },
+      ]),
+      ...(runs ? [drizzleSelectChain([alicesConnection])] : []),
+    ];
+
+    function expectRan(query: string) {
+      expect(mockExecuteQuery).toHaveBeenCalledWith(
+        "postgresql",
+        expect.anything(),
+        { query, params: {} },
+        { accessMode: "READ" },
+      );
+    }
+
+    it("runs the exact saved text", async () => {
+      const res = await run(viewer, viewerShare(true), SAVED);
+      expect(res.status).toBe(200);
+      expectRan(SAVED);
+    });
+
+    it.each([
+      ["a line break moved", MOVED],
+      ["CRLF line breaks", SAVED.replaceAll("\n", "\r\n")],
+      ["a trailing newline", `${SAVED}\n`],
+      ["its indentation changed", SAVED.replaceAll("\n  ", "\n    ")],
+    ])("refuses the saved text with %s", async (_change, query) => {
+      const res = await run(viewer, viewerShare(false), query);
+      expect(res.status).toBe(403);
+      expect((await res.json()).error.message).toMatch(
+        /not part of any dashboard/i,
+      );
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      {
+        caller: "the connection's owner",
+        lookups: () => [
+          drizzleSelectChain([{ ...alicesConnection, userId: "user-1" }]),
+        ],
+      },
+      {
+        caller: "an editor share",
+        lookups: () => [
+          drizzleSelectChain([]),
+          drizzleJoinChain([
+            {
+              ownerId: "alice",
+              shareRole: "editor",
+              connectionOwnerId: "alice",
+              ownerRole: "creator",
+              layoutJson,
+            },
+          ]),
+          drizzleSelectChain([alicesConnection]),
+        ],
+      },
+    ])("$caller still runs the text it sends", async ({ lookups }) => {
+      const res = await run({}, lookups(), MOVED);
+      expect(res.status).toBe(200);
+      expectRan(MOVED);
     });
   });
 
