@@ -84,6 +84,7 @@ const fakeConnection = {
 const fakeDashboard = {
   id: "d1",
   tenantId: "tenant-a",
+  userId: "user-1",
   layoutJson: {
     version: 2,
     pages: [
@@ -123,6 +124,8 @@ describe("POST /api/query/write", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    // clearAllMocks keeps queued return values; no test inherits another's.
+    mockDb.select.mockReset();
 
     const mod = await import("../route");
     POST = mod.POST;
@@ -395,6 +398,7 @@ describe("POST /api/query/write", () => {
           {
             id: "d1",
             tenantId: "tenant-a",
+            userId: "user-1",
             layoutJson: {
               version: 2,
               pages: [
@@ -460,6 +464,7 @@ describe("POST /api/query/write", () => {
           {
             id: "d1",
             tenantId: "tenant-a",
+            userId: "user-1",
             layoutJson: {
               version: 2,
               pages: [
@@ -528,6 +533,7 @@ describe("POST /api/query/write", () => {
           {
             id: "d1",
             tenantId: "tenant-a",
+            userId: "user-1",
             layoutJson: {
               version: 2,
               pages: [
@@ -586,6 +592,7 @@ describe("POST /api/query/write", () => {
           {
             id: "d1",
             tenantId: "tenant-a",
+            userId: "user-1",
             layoutJson: {
               version: 2,
               pages: [
@@ -649,6 +656,7 @@ describe("POST /api/query/write", () => {
           {
             id: "d1",
             tenantId: "tenant-a",
+            userId: "user-1",
             layoutJson: {
               version: 2,
               pages: [
@@ -683,51 +691,6 @@ describe("POST /api/query/write", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 403 when widget connectionId does not match request connectionId", async () => {
-    mockRequireSession.mockResolvedValue(writerSession);
-    mockDb.select
-      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
-      .mockReturnValueOnce(
-        drizzleSelectChain([
-          {
-            id: "d1",
-            tenantId: "tenant-a",
-            layoutJson: {
-              version: 2,
-              pages: [
-                {
-                  id: "p1",
-                  title: "Page 1",
-                  widgets: [
-                    {
-                      id: "w1",
-                      chartType: "table",
-                      connectionId: "c-other", // different connection
-                      query: "CREATE (n:Test)",
-                      allowWrites: true,
-                    },
-                  ],
-                  gridLayout: [],
-                },
-              ],
-            },
-          },
-        ]),
-      );
-
-    const res = await POST(
-      makeRequest({
-        connectionId: "c1",
-        query: "CREATE (n:Test)",
-        widgetId: "w1",
-        dashboardId: "d1",
-      }),
-    );
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.error.message).toMatch(/does not belong/i);
-  });
-
   // A form submit names its stored widget, and the database comes from there,
   // never from the request (#1824). The editor offers no write-mode flag for a
   // form, so a saved form carries no allowWrites.
@@ -739,12 +702,20 @@ describe("POST /api/query/write", () => {
       dashboardId: "d1",
     };
 
-    /** The dashboard row holding one form, saved on the neoboard database. */
-    function storedForm(widget: Record<string, unknown> = {}) {
+    /**
+     * The dashboard row holding one form, saved on the neoboard database. The
+     * caller owns the dashboard unless `dashboard` says otherwise.
+     */
+    function storedForm(
+      widget: Record<string, unknown> = {},
+      dashboard: Record<string, unknown> = {},
+    ) {
       return drizzleSelectChain([
         {
           id: "d1",
           tenantId: "tenant-a",
+          userId: "user-1",
+          ...dashboard,
           layoutJson: {
             version: 2,
             pages: [
@@ -770,6 +741,12 @@ describe("POST /api/query/write", () => {
     }
     const perCardConnection = () =>
       drizzleSelectChain([{ ...fakeConnection, allowPerCardDb: true }]);
+    /** The caller's shares on a dashboard someone else owns. */
+    const shares = (...roles: string[]) =>
+      drizzleSelectChain(roles.map((role) => ({ role })));
+    const queueSelects = (...chains: unknown[]) => {
+      for (const chain of chains) mockDb.select.mockReturnValueOnce(chain);
+    };
 
     beforeEach(() => {
       mockRequireSession.mockResolvedValue(writerSession);
@@ -782,21 +759,69 @@ describe("POST /api/query/write", () => {
       mockExecuteQuery.mockResolvedValue({ data: [] });
     });
 
-    it("writes on the database the stored form saves", async () => {
-      mockDb.select
-        .mockReturnValueOnce(perCardConnection())
-        .mockReturnValueOnce(storedForm());
+    // The submit's dashboard must be one the caller can open, at the viewer
+    // level every dashboard route uses: owner, share, public, or admin.
+    it.each([
+      ["owner", writerSession, [storedForm()]],
+      [
+        "viewer share",
+        writerSession,
+        [storedForm({}, { userId: "user-other" }), shares("viewer")],
+      ],
+      [
+        "public dashboard",
+        writerSession,
+        [storedForm({}, { userId: "user-other", isPublic: true }), shares()],
+      ],
+      [
+        "admin",
+        { ...writerSession, role: "admin" },
+        [storedForm({}, { userId: "user-other" })],
+      ],
+    ])(
+      "writes a stored form on a dashboard the caller can open (%s), on its saved database",
+      async (_, session, dashboardSelects) => {
+        mockRequireSession.mockResolvedValue(session);
+        queueSelects(perCardConnection(), ...dashboardSelects);
 
-      const res = await POST(makeRequest(formSubmit));
+        const res = await POST(makeRequest(formSubmit));
 
-      expect(res.status).toBe(200);
-      expect(mockExecuteQuery).toHaveBeenCalledWith(
-        "neo4j",
-        expect.objectContaining({ database: "neoboard" }),
-        expect.any(Object),
-        { accessMode: "WRITE" },
-      );
-    });
+        expect(res.status).toBe(200);
+        expect(mockExecuteQuery).toHaveBeenCalledWith(
+          "neo4j",
+          expect.objectContaining({ database: "neoboard" }),
+          expect.any(Object),
+          { accessMode: "WRITE" },
+        );
+      },
+    );
+
+    // A form that is not on a dashboard the caller can open, on this
+    // connection, gets one refusal whatever the reason.
+    it.each([
+      [
+        "a dashboard the caller cannot open",
+        [storedForm({}, { userId: "user-other" }), shares()],
+      ],
+      ["a widget the dashboard does not hold", [storedForm({ id: "w-other" })]],
+      [
+        "a widget on another connection",
+        [storedForm({ connectionId: "c-other" })],
+      ],
+    ])(
+      "refuses %s exactly as a dashboard that does not exist, and runs nothing",
+      async (_, dashboardSelects) => {
+        queueSelects(perCardConnection(), drizzleSelectChain([]));
+        const missing = await POST(makeRequest(formSubmit));
+        queueSelects(perCardConnection(), ...dashboardSelects);
+        const refused = await POST(makeRequest(formSubmit));
+
+        expect(missing.status).toBe(404);
+        expect(refused.status).toBe(missing.status);
+        expect(await refused.json()).toEqual(await missing.json());
+        expect(mockExecuteQuery).not.toHaveBeenCalled();
+      },
+    );
 
     it("never writes on a database the request names", async () => {
       mockDb.select
@@ -816,18 +841,6 @@ describe("POST /api/query/write", () => {
       expect(mockExecuteQuery).toHaveBeenCalledTimes(2);
       expect(mockExecuteQuery.mock.calls[0][1].database).toBe("neoboard");
       expect(mockExecuteQuery.mock.calls[1][1].database).toBe("movies");
-    });
-
-    it("refuses a stored form on another connection", async () => {
-      mockDb.select
-        .mockReturnValueOnce(perCardConnection())
-        .mockReturnValueOnce(storedForm({ connectionId: "c-other" }));
-
-      const res = await POST(makeRequest(formSubmit));
-
-      expect(res.status).toBe(403);
-      expect((await res.json()).error.message).toMatch(/does not belong/i);
-      expect(mockExecuteQuery).not.toHaveBeenCalled();
     });
 
     it("refuses a submit on a connection the caller does not own, before reading the dashboard", async () => {

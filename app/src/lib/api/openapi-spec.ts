@@ -479,7 +479,8 @@ const SPEC = {
         summary: "Execute write query",
         description:
           "Executes a write query against a connected database. Requires `canWrite` permission on the session. " +
-          "A form sends `widgetId` and `dashboardId`: the stored widget must be on this connection, and the write runs on its saved database. " +
+          "A form sends `widgetId` and `dashboardId`: the dashboard must be one the caller can open, the stored widget must be on this connection, and the write runs on its saved database. " +
+          "Any other dashboard or widget answers 404, the same as a dashboard that does not exist. " +
           "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
           "foreign-key, check, exclusion, length, format or date/time violation, or a Neo4j constraint violation, answers 400 (a NOT NULL violation names its column in " +
           "`error.details.column`), a unique violation 409, and a read-only connection 403.",
@@ -492,6 +493,7 @@ const SPEC = {
           400: R.badRequest,
           401: R.unauthorized,
           403: R.forbidden,
+          404: R.notFound,
           409: jsonResponse(
             "A record with these values already exists",
             "#/components/schemas/Error",
