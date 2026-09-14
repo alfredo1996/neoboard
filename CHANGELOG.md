@@ -89,6 +89,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - `neoboard logs app` no longer prints nothing and exits 0 against a compose file with no app service; it lists the services it has and exits 1, and `neoboard start --full` points at `docker logs neoboard-app` instead (#1797)
 - The release workflow signs and scans the lowercased image name it pushes, so a tag under an owner with an uppercase letter no longer fails at signing (#1780)
 - A form field filled in within the 200 ms typing debounce no longer flashes "This field is required" when you leave it, swallows the click that moved focus away, or submits the previous value or trips "required" on Submit; blur, Enter and Submit all use what you typed (#1771)
+- Graph node expansion, form submits, form field options and parameter selector options run on the database the widget saves instead of the connection's default (#1824)
 
 ### Changed
 
@@ -132,6 +133,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - The build-time tenant-scope ratchet checks where a tenant value comes from rather than whether the word `tenantId` appears, judges raw SQL per table and sees namespace-imported tables. It is still a safety net, not runtime enforcement (#1626)
 - Duplicating, saving or importing a dashboard, and reassigning a connection, now require access to every connection involved, so a viewer share stays bound to the dashboard's queries. Editors can still save on the connections already on the dashboard (#1816)
 - A viewer share or public dashboard runs a query only on the connection and database a widget on that dashboard saves it with, so view-level users can no longer choose another database on the same connection. Connection owners, tenant-shared connections, admins and edit-level access still choose the database (#1822)
+- View-level queries must match their saved text exactly (#1827)
 
 ## [1.4.0] — 2026-07-29 — Audit, observability & correctness
 
