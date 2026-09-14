@@ -3,10 +3,11 @@
  *
  * A viewer of a shared/public dashboard gets query access to that
  * dashboard's connection — but only for the queries the dashboard actually
- * contains. Widget clients send their stored query templates verbatim
- * (parameter values travel separately through native driver binding), so
- * binding is a normalized exact-match against the saved layout, not a
- * fuzzy/wildcard comparison.
+ * contains, each where the dashboard runs it: on its widget's connection, with
+ * the database that widget saves (#1822). Widget clients send their stored
+ * query templates and databases verbatim (parameter values travel separately
+ * through native driver binding), so binding is a normalized exact-match
+ * against the saved layout, not a fuzzy/wildcard comparison.
  *
  * Edit-level users (dashboard owner, editor shares, connection owners,
  * admins) are NOT bound — authoring widgets requires running novel queries.
@@ -15,7 +16,9 @@
 import { seedQueriesOf } from "@/lib/widget/seed-queries";
 
 interface LayoutWidget {
+  connectionId: string;
   query?: unknown;
+  database?: string;
   settings?: Record<string, unknown>;
 }
 
@@ -27,15 +30,47 @@ interface Layout {
   pages?: LayoutPage[];
 }
 
+/** A query as a dashboard runs it, or as a request asks to run it. */
+export interface LayoutQuery {
+  connectionId: string;
+  query: string;
+  /** The per-card database. Missing or "" is the connection's default. */
+  database?: string;
+}
+
 /** Collapse internal whitespace and trim. Case-sensitive by design. */
 export function normalizeQuery(query: string): string {
   return query.trim().replace(/\s+/g, " ");
 }
 
 /**
- * Every query string a dashboard can legitimately execute: widget queries
- * plus the seed queries of parameter selectors and form fields, across all
- * pages. Normalized.
+ * What binding compares: connection, normalized query and database (#1822).
+ *
+ * A missing and an empty database are one key: the query route applies no
+ * override for either. Names otherwise compare exactly, since clients send the
+ * saved name verbatim. A connector may resolve two spellings to one database
+ * (Neo4j ignores case) but never two equal names to different ones, so an
+ * exact match can refuse a request, never widen one. Naming the connection's
+ * default explicitly is an override like any other: without a configured name
+ * the driver picks the default, and the route cannot know which.
+ */
+export function layoutQueryKey({
+  connectionId,
+  query,
+  database,
+}: LayoutQuery): string {
+  return JSON.stringify([
+    connectionId,
+    normalizeQuery(query),
+    database || null,
+  ]);
+}
+
+/**
+ * Every query a dashboard can legitimately execute, as `layoutQueryKey`s:
+ * widget queries on their widget's database, plus the seed queries of
+ * parameter selectors and form fields, across all pages. A seed query runs on
+ * the connection's default, since use-seed-query.ts sends no database.
  */
 export function collectLayoutQueries(layout: unknown): Set<string> {
   const queries = new Set<string>();
@@ -44,16 +79,37 @@ export function collectLayoutQueries(layout: unknown): Set<string> {
   for (const page of pages) {
     if (!Array.isArray(page?.widgets)) continue;
     for (const widget of page.widgets) {
-      for (const q of [widget?.query, ...seedQueriesOf(widget?.settings)]) {
-        if (typeof q === "string" && q.trim()) queries.add(normalizeQuery(q));
+      const runs: [unknown, string | undefined][] = [
+        [widget?.query, widget?.database],
+        ...seedQueriesOf(widget?.settings).map((seed): [string, undefined] => [
+          seed,
+          undefined,
+        ]),
+      ];
+      for (const [query, database] of runs) {
+        if (typeof query === "string" && query.trim()) {
+          queries.add(
+            layoutQueryKey({
+              connectionId: widget.connectionId,
+              query,
+              database,
+            }),
+          );
+        }
       }
     }
   }
   return queries;
 }
 
-/** True when the submitted query appears in at least one of the layouts. */
-export function layoutsAllowQuery(layouts: unknown[], query: string): boolean {
-  const normalized = normalizeQuery(query);
-  return layouts.some((layout) => collectLayoutQueries(layout).has(normalized));
+/**
+ * True when one of the layouts runs the requested query on the requested
+ * connection and database.
+ */
+export function layoutsAllowQuery(
+  layouts: unknown[],
+  request: LayoutQuery,
+): boolean {
+  const key = layoutQueryKey(request);
+  return layouts.some((layout) => collectLayoutQueries(layout).has(key));
 }
