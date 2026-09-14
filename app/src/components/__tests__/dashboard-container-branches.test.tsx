@@ -251,7 +251,10 @@ vi.mock("@/lib/parameter/format-parameter-value", () => ({
 }));
 
 const mockShouldShowRefresh = vi.fn();
-vi.mock("@/lib/query/resolve-cache-options", () => ({
+vi.mock("@/lib/query/resolve-cache-options", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/lib/query/resolve-cache-options")
+  >()),
   shouldShowRefreshButton: (opts: unknown) => mockShouldShowRefresh(opts),
 }));
 
@@ -555,9 +558,9 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
       "fetch",
       vi.fn(async (_url: string, init: { body: string }) => {
         const { params } = JSON.parse(init.body) as {
-          params?: { param_region?: string };
+          params?: { param_region?: string; region?: string };
         };
-        const region = params?.param_region ?? "all";
+        const region = params?.param_region ?? params?.region ?? "all";
         return {
           ok: true,
           status: 200,
@@ -572,21 +575,26 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
     );
   }
 
+  /** Mounts the hook as CardContainer does: static params and cache TTL. */
   function CardProbe({
     widget,
-    params,
+    staleTime = 5 * 60_000,
     testId = "probe",
   }: {
     widget: DashboardWidget;
-    params?: Record<string, unknown>;
+    /** The card's staleTime for the widget's settings (default: 5 minutes). */
+    staleTime?: number;
     testId?: string;
   }) {
-    const { data } = useWidgetQuery({
-      connectionId: widget.connectionId,
-      query: widget.query,
-      database: widget.database,
-      params,
-    });
+    const { data } = useWidgetQuery(
+      {
+        connectionId: widget.connectionId,
+        query: widget.query,
+        database: widget.database,
+        params: widget.params,
+      },
+      { staleTime },
+    );
     return (
       <div data-testid={testId}>
         {data ? JSON.stringify(data.data) : "loading"}
@@ -654,53 +662,99 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
     expect(mockBuildExportData.mock.calls[0][0]).toEqual([{ region: "US" }]);
   });
 
-  it("exports the newest result when two mounted cards share the query", async () => {
-    // Two active observers share the key prefix: here different static params,
-    // and a different cache TTL does the same. The newer fetch is the second.
-    stubQueryApi();
-    const widget = makeWidget();
+  it("exports each widget's own rows when two widgets share a query but not the cache TTL", async () => {
+    // Same connection and query, so the same key prefix. The other widget
+    // fetched later, so "newest under the prefix" would pick its rows.
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const n = ++calls;
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            data: { data: [{ n }] },
+            error: null,
+            meta: { resultId: `r-${n}` },
+          }),
+        };
+      }),
+    );
+    const cached = makeWidget({ id: "w-ttl" });
+    const uncached = makeWidget({
+      id: "w-nocache",
+      settings: { title: "No cache", enableCache: false },
+    });
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
     const ui = (second: boolean) => (
       <QueryClientProvider client={queryClient}>
-        <DashboardContainer page={makePage([widget])} />
-        <CardProbe
-          widget={widget}
-          params={{ param_region: "older" }}
-          testId="probe-a"
-        />
+        <DashboardContainer page={makePage([cached, uncached])} />
+        <CardProbe widget={cached} testId="probe-ttl" />
         {second && (
-          <CardProbe
-            widget={widget}
-            params={{ param_region: "newer" }}
-            testId="probe-b"
-          />
+          <CardProbe widget={uncached} staleTime={0} testId="probe-nocache" />
         )}
       </QueryClientProvider>
     );
 
     const { rerender } = render(ui(false));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-a").textContent).toBe(
-        '[{"region":"older"}]',
+      expect(screen.getByTestId("probe-ttl").textContent).toBe('[{"n":1}]'),
+    );
+    await new Promise((r) => setTimeout(r, 5));
+    rerender(ui(true));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-nocache").textContent).toBe(
+        '[{"n":2}]',
       ),
     );
-    // A distinct dataUpdatedAt for the second fetch.
+
+    const [exportTtl, exportNocache] = screen.getAllByTestId("action-csv");
+    fireEvent.click(exportTtl);
+    fireEvent.click(exportNocache);
+
+    expect(mockBuildExportData.mock.calls[0][0]).toEqual([{ n: 1 }]);
+    expect(mockBuildExportData.mock.calls[1][0]).toEqual([{ n: 2 }]);
+  });
+
+  it("exports each widget's own rows when two widgets differ only in static params", async () => {
+    stubQueryApi();
+    const a = makeWidget({ id: "w-a", params: { region: "A" } });
+    const b = makeWidget({ id: "w-b", params: { region: "B" } });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const ui = (second: boolean) => (
+      <QueryClientProvider client={queryClient}>
+        <DashboardContainer page={makePage([a, b])} />
+        <CardProbe widget={a} testId="probe-a" />
+        {second && <CardProbe widget={b} testId="probe-b" />}
+      </QueryClientProvider>
+    );
+
+    const { rerender } = render(ui(false));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-a").textContent).toBe(
+        '[{"region":"A"}]',
+      ),
+    );
     await new Promise((r) => setTimeout(r, 5));
     rerender(ui(true));
     await waitFor(() =>
       expect(screen.getByTestId("probe-b").textContent).toBe(
-        '[{"region":"newer"}]',
+        '[{"region":"B"}]',
       ),
     );
 
-    fireEvent.click(screen.getByTestId("action-csv"));
+    fireEvent.click(screen.getAllByTestId("action-csv")[0]);
 
-    expect(mockBuildExportData.mock.calls[0][0]).toEqual([{ region: "newer" }]);
+    expect(mockBuildExportData.mock.calls[0][0]).toEqual([{ region: "A" }]);
   });
 
-  it("exports nothing when no card shows the widget any more", async () => {
+  it("exports nothing while the current variant has no cached result", async () => {
     stubQueryApi();
     const widget = makeWidget({
       query: "MATCH (n) WHERE n.region = $param_region RETURN n",
@@ -720,7 +774,8 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
     await waitFor(() =>
       expect(screen.getByTestId("probe").textContent).toBe('[{"region":"EU"}]'),
     );
-    // No card shows this widget any more; its old result is only cache.
+    // The parameter moves on while nothing fetches it: only EU is cached.
+    parametersState.parameters = { region: { field: "region", value: "US" } };
     rerender(ui(false));
 
     fireEvent.click(screen.getByTestId("action-csv"));

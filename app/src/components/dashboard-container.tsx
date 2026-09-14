@@ -183,7 +183,7 @@ export function DashboardContainer({
   }
 
   function exportWidgetCsv(widget: DashboardWidget) {
-    const cached = getShownWidgetQueryData(queryClient, widget);
+    const cached = getShownWidgetQueryData(queryClient, widget, parameters);
     const transforms = (widget.settings?.transforms ??
       []) as import("@/lib/query/data-transforms").Transform[];
     const exportData = buildExportData(

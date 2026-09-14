@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import userEvent from "@testing-library/user-event";
@@ -1061,20 +1067,24 @@ describe("DashboardWorkspace", () => {
 
   // ── #1809: the editor reads the card's cached result by its real key ──
   describe("widget query cache", () => {
-    /** Rows echo `params.v`, so each params variant is recognisable. */
+    const QUERY = "SELECT $param_v";
+    const CARD_STALE_TIME = 5 * 60_000; // w1 has no cache settings: the default
+
+    /** Rows echo `param_v`, so each params variant is recognisable. */
     function stubQueryApi(rows = 1) {
       const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
-        const { params } = JSON.parse(init.body) as { params?: { v?: string } };
+        const { params } = JSON.parse(init.body) as {
+          params?: { param_v?: string };
+        };
+        const v = params?.param_v;
         return {
           ok: true,
           status: 200,
           headers: { get: () => null },
           json: async () => ({
-            data: {
-              data: Array.from({ length: rows }, () => ({ v: params?.v })),
-            },
+            data: { data: Array.from({ length: rows }, () => ({ v })) },
             error: null,
-            meta: { resultId: `r-${params?.v}` },
+            meta: { resultId: `r-${v}` },
           }),
         };
       });
@@ -1082,14 +1092,18 @@ describe("DashboardWorkspace", () => {
       return fetchMock;
     }
 
-    /** The real hook for the fixture's widget `w1` (c1 / SELECT 1). */
-    function CardProbe({ v, testId = "probe" }: { v: string; testId?: string }) {
-      const params = React.useMemo(() => ({ v }), [v]);
-      const { data } = useWidgetQuery({
-        connectionId: "c1",
-        query: "SELECT 1",
-        params,
-      });
+    /** The real hook for widget `w1`, mounted as CardContainer mounts it. */
+    function CardProbe({
+      staleTime = CARD_STALE_TIME,
+      testId = "probe",
+    }: {
+      staleTime?: number;
+      testId?: string;
+    }) {
+      const { data } = useWidgetQuery(
+        { connectionId: "c1", query: QUERY },
+        { staleTime },
+      );
       return (
         <div data-testid={testId}>
           {data ? JSON.stringify(data.data) : "loading"}
@@ -1097,28 +1111,35 @@ describe("DashboardWorkspace", () => {
       );
     }
 
-    const workspace = (probe: string | null, second?: string) => (
+    const workspace = (probe: boolean, other?: boolean) => (
       <QueryClientProvider client={testQueryClient.current!}>
         <DashboardWorkspace id="d1" editMode={true} />
-        {probe && <CardProbe v={probe} />}
-        {second && <CardProbe v={second} testId="probe-2" />}
+        {probe && <CardProbe />}
+        {other && <CardProbe staleTime={0} testId="probe-other" />}
       </QueryClientProvider>
     );
 
-    async function showVariant(
-      rerender: (ui: React.ReactElement) => void,
-      v: string,
-    ) {
-      rerender(workspace(v));
+    function setV(v: string) {
+      act(() => {
+        useParameterStore.getState().setParameter("v", v, "test", "v");
+      });
+    }
+
+    async function probeShows(v: string, testId = "probe") {
       await waitFor(() =>
-        expect(screen.getByTestId("probe").textContent).toBe(
+        expect(screen.getByTestId(testId).textContent).toBe(
           JSON.stringify([{ v }]),
         ),
       );
     }
 
+    const preview = () =>
+      screen.getByTestId("widget-editor-modal").getAttribute("data-preview");
+
     beforeEach(() => {
       pathname = "/d1/edit";
+      dashboard = makeDashboard();
+      dashboard.layoutJson.pages[0].widgets[0].query = QUERY;
     });
 
     afterEach(() => {
@@ -1127,75 +1148,88 @@ describe("DashboardWorkspace", () => {
 
     it("Edit Widget previews the variant the card shows, not an older one", async () => {
       stubQueryApi();
-      const { rerender } = render(workspace("old"));
-      await showVariant(rerender, "old");
-      await showVariant(rerender, "new");
+      render(workspace(true));
+      setV("old");
+      await probeShows("old");
+      setV("new");
+      await probeShows("new");
 
       fireEvent.click(screen.getByTestId("act-edit"));
 
-      expect(
-        screen.getByTestId("widget-editor-modal").getAttribute("data-preview"),
-      ).toBe(JSON.stringify([{ v: "new" }]));
+      expect(preview()).toBe(JSON.stringify([{ v: "new" }]));
     });
 
-    it("Edit Widget previews the newest result when two mounted cards share the query", async () => {
-      // Two active observers share the key prefix (different static params,
-      // or a different cache TTL). The newer fetch is the second one.
-      stubQueryApi();
-      const { rerender } = render(workspace("older"));
-      await showVariant(rerender, "older");
-      // A distinct dataUpdatedAt for the second fetch.
-      await new Promise((r) => setTimeout(r, 5));
-      rerender(workspace("older", "newer"));
+    it("Edit Widget previews its own card's rows when a widget with another cache TTL ran the query later", async () => {
+      let calls = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          const n = ++calls;
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: () => null },
+            json: async () => ({
+              data: { data: [{ n }] },
+              error: null,
+              meta: { resultId: `r-${n}` },
+            }),
+          };
+        }),
+      );
+      const { rerender } = render(workspace(true));
+      setV("x");
       await waitFor(() =>
-        expect(screen.getByTestId("probe-2").textContent).toBe(
-          JSON.stringify([{ v: "newer" }]),
+        expect(screen.getByTestId("probe").textContent).toBe('[{"n":1}]'),
+      );
+      await new Promise((r) => setTimeout(r, 5));
+      rerender(workspace(true, true));
+      await waitFor(() =>
+        expect(screen.getByTestId("probe-other").textContent).toBe(
+          '[{"n":2}]',
         ),
       );
 
       fireEvent.click(screen.getByTestId("act-edit"));
 
-      expect(
-        screen.getByTestId("widget-editor-modal").getAttribute("data-preview"),
-      ).toBe(JSON.stringify([{ v: "newer" }]));
+      expect(preview()).toBe(JSON.stringify([{ n: 1 }]));
     });
 
     it("Edit Widget caps the card's cached rows at the 25-row preview limit (#1043)", async () => {
       // The editor labels its preview "up to 25 rows" and skips its capped
       // run when handed cached data, so the card's full result must be cut.
       stubQueryApi(30);
-      render(workspace("big"));
+      render(workspace(true));
+      setV("big");
       await waitFor(() =>
         expect(screen.getByTestId("probe").textContent).not.toBe("loading"),
       );
 
       fireEvent.click(screen.getByTestId("act-edit"));
 
-      const preview = JSON.parse(
-        screen.getByTestId("widget-editor-modal").getAttribute("data-preview")!,
-      ) as unknown[];
-      expect(preview).toHaveLength(25);
+      expect(JSON.parse(preview()!) as unknown[]).toHaveLength(25);
     });
 
-    it("Edit Widget passes no preview when no card shows the widget, so the editor runs it", async () => {
+    it("Edit Widget passes no preview while the current variant has no cached result, so the editor runs it", async () => {
       stubQueryApi();
-      const { rerender } = render(workspace("old"));
-      await showVariant(rerender, "old");
-      rerender(workspace(null));
+      const { rerender } = render(workspace(true));
+      setV("old");
+      await probeShows("old");
+      rerender(workspace(false));
+      setV("new");
 
       fireEvent.click(screen.getByTestId("act-edit"));
 
-      expect(
-        screen.getByTestId("widget-editor-modal").getAttribute("data-preview"),
-      ).toBe("none");
+      expect(preview()).toBe("none");
     });
 
     it("saving the editor does not invalidate the card's query", async () => {
       // Keys are content-addressed: a saved change to what runs gets a new
       // key and fetches by itself; an unchanged query has nothing new.
       const fetchMock = stubQueryApi();
-      const { rerender } = render(workspace("old"));
-      await showVariant(rerender, "old");
+      render(workspace(true));
+      setV("old");
+      await probeShows("old");
       const invalidate = vi.spyOn(testQueryClient.current!, "invalidateQueries");
 
       fireEvent.click(screen.getByTestId("act-edit"));

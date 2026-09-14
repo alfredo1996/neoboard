@@ -63,7 +63,7 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
 }));
 
 vi.mock("@/lib/query/resolve-cache-options", () => ({
-  resolveCacheOptions: () => ({ staleTime: 0, gcTime: 0 }),
+  resolveWidgetCacheOptions: () => ({ staleTime: 0, gcTime: 0 }),
 }));
 
 vi.mock("@/lib/widget/scroll-to-widget", () => ({

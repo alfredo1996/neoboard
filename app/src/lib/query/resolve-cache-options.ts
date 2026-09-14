@@ -24,6 +24,22 @@ export function resolveCacheOptions(
 }
 
 /**
+ * A widget's cache options from its settings, with the card's defaults (cache
+ * on, 5 minutes). The staleTime is part of the widget query key, so every
+ * reader of a card's cached result must derive it here, as the card does.
+ */
+export function resolveWidgetCacheOptions(
+  settings: Record<string, unknown> | undefined,
+) {
+  const ws = settings ?? {};
+  return resolveCacheOptions(
+    (ws.chartOptions ?? {}) as Record<string, unknown>,
+    ws.enableCache !== false,
+    (ws.cacheTtlMinutes as number | undefined) ?? 5,
+  );
+}
+
+/**
  * Determines whether a widget should show the refresh button in its card header.
  * True when the user explicitly enabled it, when cache-forever mode is active,
  * or when manual-run mode is enabled (needs refresh to re-trigger the query).

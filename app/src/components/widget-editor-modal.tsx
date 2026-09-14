@@ -491,6 +491,7 @@ export function WidgetEditorModal({
     allParamValues,
     selectedConnection: selectedConnection ?? undefined,
     initialPreviewData,
+    initialPreviewQuery: widget?.query,
     previewQuery,
     buildWidgetForSave,
     onSave,

@@ -500,7 +500,11 @@ export function DashboardWorkspace({
       // auto-preview runs the query instead. The card's result is uncapped,
       // and the editor skips its capped run when handed one, so cut it to the
       // preview's row limit (#1043).
-      const shown = getShownWidgetQueryData(queryClient, widget);
+      const shown = getShownWidgetQueryData(
+        queryClient,
+        widget,
+        useParameterStore.getState().parameters,
+      );
       setCachedPreviewData(
         shown && Array.isArray(shown.data)
           ? { ...shown, data: shown.data.slice(0, PREVIEW_ROW_LIMIT) }

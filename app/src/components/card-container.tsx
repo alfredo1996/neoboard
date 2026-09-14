@@ -2,7 +2,7 @@
 
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { useClickAction } from "@/hooks/use-click-action";
-import { resolveCacheOptions } from "@/lib/query/resolve-cache-options";
+import { resolveWidgetCacheOptions } from "@/lib/query/resolve-cache-options";
 import {
   getChartConfig,
   supportsColumnMapping as chartSupportsColumnMapping,
@@ -218,10 +218,6 @@ export function CardContainer({
   );
   const ws = widget.settings ?? {};
 
-  // Cache settings from widget config. Default: cache enabled, 5-min TTL.
-  const enableCache = ws.enableCache !== false;
-  const cacheTtlMinutes = (ws.cacheTtlMinutes as number | undefined) ?? 5;
-
   // Parameter-select, form, markdown, and iframe widgets are self-contained (no auto-query).
   const isParameterWidget = widget.chartType === "parameter-select";
   const isFormWidget = widget.chartType === "form";
@@ -244,8 +240,8 @@ export function CardContainer({
   );
 
   const { staleTime, gcTime } = useMemo(
-    () => resolveCacheOptions(chartOptions, enableCache, cacheTtlMinutes),
-    [chartOptions, enableCache, cacheTtlMinutes],
+    () => resolveWidgetCacheOptions(widget.settings),
+    [widget.settings],
   );
 
   // ── Manual Run mode ──────────────────────────────────────────────────────
