@@ -131,6 +131,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - Next.js 16.3.4 clears the high-severity `sharp` advisory (#1723)
 - The build-time tenant-scope ratchet checks where a tenant value comes from rather than whether the word `tenantId` appears, judges raw SQL per table and sees namespace-imported tables. It is still a safety net, not runtime enforcement (#1626)
 - Duplicating, saving or importing a dashboard, and reassigning a connection, now require access to every connection involved, so a viewer share stays bound to the dashboard's queries. Editors can still save on the connections already on the dashboard (#1816)
+- A viewer share or public dashboard runs a query only on the connection and database a widget on that dashboard saves it with, so view-level users can no longer choose another database on the same connection. Connection owners, tenant-shared connections, admins and edit-level access still choose the database (#1822)
 
 ## [1.4.0] — 2026-07-29 — Audit, observability & correctness
 
