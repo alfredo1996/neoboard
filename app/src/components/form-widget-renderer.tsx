@@ -31,6 +31,7 @@ import {
 } from "@/components/parameters/use-seed-query-options";
 import { buildFormParams } from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
+import { seedQueriesOf } from "@/lib/widget/seed-queries";
 import {
   findFieldForColumn,
   REQUIRED_MESSAGE,
@@ -327,21 +328,6 @@ function FieldInput({
 }
 
 // ─── Main renderer ────────────────────────────────────────────────────────────
-
-/**
- * The seed queries behind a widget's option lists (use-seed-query.ts), read
- * where use-widget-save.ts stores them: a parameter selector's under
- * chartOptions, a form's on each of its fields.
- */
-function seedQueriesOf(settings: Record<string, unknown> | undefined) {
-  const chartOptions = settings?.chartOptions as
-    | { seedQuery?: unknown }
-    | undefined;
-  const formFields = (settings?.formFields as FormFieldDef[] | undefined) ?? [];
-  return [chartOptions?.seedQuery, ...formFields.map((f) => f.seedQuery)].filter(
-    (q): q is string => typeof q === "string",
-  );
-}
 
 export function FormWidgetRenderer({
   connectionId,

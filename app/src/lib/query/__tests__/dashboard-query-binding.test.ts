@@ -30,8 +30,30 @@ const layout = {
           id: "w2",
           chartType: "parameter-select",
           connectionId: "c1",
+          // Where use-widget-save.ts stores them (#1814).
           settings: {
-            seedQuery: "SELECT DISTINCT region FROM customers",
+            chartOptions: {
+              parameterType: "select",
+              seedQuery: "SELECT DISTINCT region FROM customers",
+            },
+          },
+        },
+        {
+          id: "w4",
+          chartType: "form",
+          connectionId: "c1",
+          query: "INSERT INTO notes (region) VALUES ($param_region)",
+          settings: {
+            chartOptions: {},
+            formFields: [
+              {
+                id: "f1",
+                parameterName: "region",
+                parameterType: "select",
+                // Saved verbatim from the editor textarea, so often multi-line.
+                seedQuery: "SELECT name\n  FROM regions",
+              },
+            ],
           },
         },
       ],
@@ -77,6 +99,30 @@ describe("collectLayoutQueries", () => {
     expect(queries.has("SELECT DISTINCT region FROM customers")).toBe(true);
   });
 
+  it("collects form field seed queries", () => {
+    const queries = collectLayoutQueries(layout);
+    expect(queries.has("SELECT name FROM regions")).toBe(true);
+  });
+
+  it("collects exactly the widget and seed queries, and no other option strings", () => {
+    expect([...collectLayoutQueries(layout)].sort()).toEqual(
+      [
+        "SELECT category, SUM(total) FROM orders GROUP BY category",
+        "SELECT DISTINCT region FROM customers",
+        "INSERT INTO notes (region) VALUES ($param_region)",
+        "SELECT name FROM regions",
+        "MATCH (n:Movie) WHERE n.year > $param_year RETURN n LIMIT 50",
+      ].sort(),
+    );
+  });
+
+  it("ignores a top-level settings.seedQuery, which is never saved", () => {
+    const queries = collectLayoutQueries({
+      pages: [{ widgets: [{ settings: { seedQuery: "SELECT 1" } }] }],
+    });
+    expect(queries.size).toBe(0);
+  });
+
   it("tolerates malformed layouts", () => {
     expect(collectLayoutQueries(null).size).toBe(0);
     expect(collectLayoutQueries({}).size).toBe(0);
@@ -103,6 +149,14 @@ describe("layoutsAllowQuery", () => {
 
   it("rejects a query not present in any layout", () => {
     expect(layoutsAllowQuery([layout], "SELECT * FROM users")).toBe(false);
+  });
+
+  it("allows selector and form seed queries at their saved paths (#1814)", () => {
+    expect(
+      layoutsAllowQuery([layout], "SELECT DISTINCT region  FROM customers"),
+    ).toBe(true);
+    // The stored form seed is multi-line; the submitted one is not.
+    expect(layoutsAllowQuery([layout], "SELECT name FROM regions")).toBe(true);
   });
 
   it("rejects a near-miss with extra clauses appended", () => {
