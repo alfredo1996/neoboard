@@ -17,6 +17,10 @@ import {
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
 import { sql } from "drizzle-orm";
+import {
+  layoutConnectionIds,
+  unusableConnectionIds,
+} from "@/lib/db/connection-access";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -170,6 +174,25 @@ export async function PUT(
     if (!result.success) return result.response;
 
     const { expectedVersion, ...updateData } = result.data;
+
+    // A dashboard's owner and editors may run any read query on the
+    // connections it names (#972), so a save may not add one the caller cannot
+    // use directly. Connections already on this dashboard stay, which is what
+    // lets an editor share keep working on the owner's (#1816).
+    if (updateData.layoutJson) {
+      const stored = layoutConnectionIds(access.dashboard.layoutJson);
+      const added = [...layoutConnectionIds(updateData.layoutJson)].filter(
+        (connectionId) => !stored.has(connectionId),
+      );
+      const unusable = await unusableConnectionIds(added, {
+        userId,
+        tenantId,
+        role: userRole,
+      });
+      if (unusable.length > 0) {
+        return forbidden("Widgets can only use connections you have access to");
+      }
+    }
 
     // Build WHERE clause — always scope by id + tenant; add version
     // check when the client sends expectedVersion (optimistic lock).

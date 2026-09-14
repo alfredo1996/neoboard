@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -13,6 +13,7 @@ import {
 import { apiSuccess } from "@/lib/api/api-response";
 import { reassignConnectionWidgets } from "@/lib/db/connection-reassign";
 import { resolveDashboardAccess } from "@/lib/dashboard/access";
+import { usableConnection } from "@/lib/db/connection-access";
 import { auditRequest } from "@/lib/audit/audit";
 
 const reassignSchema = z.object({
@@ -95,19 +96,11 @@ export async function POST(
       .select({ id: connections.id, type: connections.type })
       .from(connections)
       .where(
-        isAdmin
-          ? and(
-              eq(connections.id, targetConnectionId),
-              eq(connections.tenantId, tenantId),
-            )
-          : and(
-              eq(connections.id, targetConnectionId),
-              eq(connections.tenantId, tenantId),
-              or(
-                eq(connections.userId, userId),
-                eq(connections.visibility, "shared"),
-              ),
-            ),
+        and(
+          eq(connections.id, targetConnectionId),
+          eq(connections.tenantId, tenantId),
+          usableConnection(userId, role),
+        ),
       )
       .limit(1);
     if (!target) return notFound("Target connection not found");

@@ -17,6 +17,10 @@ import { apiSuccess } from "@/lib/api/api-response";
 import { formatImportError } from "@/lib/dashboard/format-import-error";
 import { auditRequest } from "@/lib/audit/audit";
 import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
+import {
+  layoutConnectionIds,
+  unusableConnectionIds,
+} from "@/lib/db/connection-access";
 
 const importRequestSchema = z.object({
   payload: z.unknown(),
@@ -37,7 +41,7 @@ function pluralWidgets(count: number): string {
 
 export async function POST(request: Request) {
   try {
-    const { userId, tenantId, canWrite } = await requireSession();
+    const { userId, tenantId, role, canWrite } = await requireSession();
 
     if (!canWrite) {
       return forbidden();
@@ -130,6 +134,20 @@ export async function POST(request: Request) {
           exportData.layout as DashboardLayoutV2,
           effectiveMapping,
         );
+
+    // The imported dashboard is the caller's own, and an owner may run any
+    // read query on the connections a dashboard names (#972). A widget id the
+    // mapping did not rewrite arrives as sent, so the finished layout is
+    // checked like a save (#1816).
+    const unusable = await unusableConnectionIds(
+      layoutConnectionIds(mappedLayout),
+      { userId, tenantId, role },
+    );
+    if (unusable.length > 0) {
+      return forbidden(
+        "The dashboard uses a connection you don't have access to",
+      );
+    }
 
     // Count widgets that need a connection and don't have one.
     //

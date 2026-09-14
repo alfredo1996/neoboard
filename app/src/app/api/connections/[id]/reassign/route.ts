@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { reassignConnectionWidgets } from "@/lib/db/connection-reassign";
+import { usableConnection } from "@/lib/db/connection-access";
 import { auditRequest } from "@/lib/audit/audit";
 
 const reassignSchema = z.object({
@@ -27,7 +28,8 @@ const reassignSchema = z.object({
  * Guards:
  *   - Source connection must exist and be owned by the caller (or the
  *     caller must be an admin in the same tenant).
- *   - Target connection must exist in the same tenant.
+ *   - Target connection must be one the caller can use: in the same tenant
+ *     and their own, shared with the tenant, or any for an admin (#1816).
  *   - Target must be the same `type` as source — Cypher queries won't
  *     work on a PostgreSQL connection and vice versa.
  *
@@ -72,10 +74,9 @@ export async function POST(
       .limit(1);
     if (!source) return notFound("Connection not found");
 
-    // Target must exist in the same tenant; owner doesn't have to match
-    // (admin can point at anyone's connection, and non-admins can point
-    // at a connection shared to them via a dashboard — we only enforce
-    // tenant isolation here). The type check below is the real safety.
+    // Target must be one the caller can use directly. Re-pointing names it on
+    // every dashboard the caller edits, and a dashboard's owner and editors
+    // may run any read query on the connections it names (#972, #1816).
     const [target] = await db
       .select({ id: connections.id, type: connections.type })
       .from(connections)
@@ -83,6 +84,7 @@ export async function POST(
         and(
           eq(connections.id, targetConnectionId),
           eq(connections.tenantId, tenantId),
+          usableConnection(userId, role),
         ),
       )
       .limit(1);

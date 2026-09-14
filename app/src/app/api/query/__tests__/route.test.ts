@@ -1,5 +1,10 @@
 // Coverage: verified at 100% for /api/query routes
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  makeSelectChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -565,6 +570,39 @@ describe("POST /api/query", () => {
     expect(res.status).toBe(200);
     // Only 1 db.select call — fast path, no fallback needed
     expect(mockDb.select).toHaveBeenCalledTimes(1);
+  });
+
+  it("a tenant-shared connection runs novel queries on the fast path (#901)", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    const conn = {
+      id: "c1",
+      type: "postgresql",
+      configEncrypted: "enc",
+      userId: "other-user",
+      visibility: "shared",
+    };
+    const lookup = makeSelectChain([conn]);
+    mockDb.select.mockReturnValueOnce(lookup);
+    mockDecryptJson.mockReturnValue({
+      uri: "postgres://localhost",
+      username: "u",
+      password: "p",
+    });
+    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT something_new FROM t" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
+    const [expr] = lookup.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id", "userId", "visibility"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["c1", "tenant-a", "user-1", "shared"]),
+    );
   });
 
   // --- Tenant isolation tests ---

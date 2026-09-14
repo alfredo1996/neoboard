@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
+  resetDbMock,
   sqlColumns,
   sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
@@ -157,6 +158,8 @@ describe("POST /api/dashboards/import", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    // Drain return values a refused request left queued (#1630).
+    resetDbMock(mockDb);
     const mod = await import("../route");
     POST = mod.POST;
   });
@@ -217,6 +220,9 @@ describe("POST /api/dashboards/import", () => {
     // Connection ownership check returns 1 allowed connection
     const connectionsChain = makeSelectChain([{ id: "real-conn-id" }]);
     mockDb.select.mockReturnValueOnce(connectionsChain);
+    // Nothing in the mapped layout is out of the caller's reach (#1816)
+    const usableChain = makeSelectChain([]);
+    mockDb.select.mockReturnValueOnce(usableChain);
     // No existing dashboard with same name
     const nameChain = makeSelectChain([]);
     mockDb.select.mockReturnValueOnce(nameChain);
@@ -255,6 +261,13 @@ describe("POST /api/dashboards/import", () => {
     expect(sqlValues(connExpr)).toEqual(
       expect.arrayContaining(["real-conn-id", "user-1", "tenant-1"]),
     );
+    const [usableExpr] = usableChain.calls.where[0];
+    expect(sqlColumns(usableExpr)).toEqual(
+      expect.arrayContaining(["tenant_id", "id", "userId", "visibility"]),
+    );
+    expect(sqlValues(usableExpr)).toEqual(
+      expect.arrayContaining(["tenant-1", "real-conn-id", "user-1", "shared"]),
+    );
     const [nameExpr] = nameChain.calls.where[0];
     expect(sqlColumns(nameExpr)).toEqual(
       expect.arrayContaining(["name", "tenant_id"]),
@@ -273,6 +286,8 @@ describe("POST /api/dashboards/import", () => {
     mockDb.select.mockReturnValueOnce(
       makeSelectChain([{ id: "real-conn-id" }]),
     );
+    // Nothing in the mapped layout is out of the caller's reach (#1816)
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     mockDb.insert.mockReturnValue(
       makeInsertChain([{ id: "new-dash", name: "Imported Dashboard" }]),
@@ -312,6 +327,8 @@ describe("POST /api/dashboards/import", () => {
     mockDb.select.mockReturnValueOnce(
       makeSelectChain([{ id: "neo4j-conn-id" }]),
     );
+    // Nothing in the mapped layout is out of the caller's reach (#1816)
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const created = {
       id: "nd-dash",
@@ -426,6 +443,8 @@ describe("POST /api/dashboards/import", () => {
     mockDb.select.mockReturnValueOnce(
       makeSelectChain([{ id: "real-conn-id" }]),
     );
+    // Nothing in the mapped layout is out of the caller's reach (#1816)
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     mockDb.insert.mockReturnValue(makeInsertChain([{ id: "md-dash" }]));
 
@@ -499,6 +518,8 @@ describe("POST /api/dashboards/import", () => {
     mockDb.select.mockReturnValueOnce(
       makeSelectChain([{ id: "real-conn-id" }]),
     );
+    // Nothing in the mapped layout is out of the caller's reach (#1816)
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     // Existing dashboard found
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "existing" }]));
     const created = {
@@ -520,5 +541,47 @@ describe("POST /api/dashboards/import", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.name).toContain("(imported)");
+  });
+
+  // An imported dashboard belongs to the caller, and a dashboard's owner may
+  // run any read query on the connections it names (#972). A widget id the
+  // mapping does not rewrite reaches the layout as sent, so the finished
+  // layout is checked like a save (#1816).
+  it("returns 403 when a widget names a connection the caller cannot use (#1816)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const connectionCheck = makeSelectChain([{ id: "c-private" }]);
+    mockDb.select.mockReturnValueOnce(connectionCheck);
+    mockDb.insert.mockReturnValue(
+      makeInsertChain([{ id: "new-dash", name: "Imported Dashboard" }]),
+    );
+    const page = VALID_PAYLOAD.layout.pages[0];
+    const payload = {
+      ...VALID_PAYLOAD,
+      connections: {},
+      layout: {
+        ...VALID_PAYLOAD.layout,
+        pages: [
+          {
+            ...page,
+            widgets: [{ ...page.widgets[0], connectionId: "c-private" }],
+          },
+        ],
+      },
+    };
+
+    const res = await POST(makeRequest({ payload, connectionMapping: {} }));
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/connection/i);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(mockAuditRequest).not.toHaveBeenCalled();
+    const [expr] = connectionCheck.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["tenant_id", "id", "userId", "visibility"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["tenant-1", "c-private", "user-1", "shared"]),
+    );
   });
 });

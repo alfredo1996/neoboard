@@ -222,6 +222,11 @@ type DashboardConnectionAccess =
  * query access; "view" (public dashboard or viewer share) grants access
  * bound to the referencing dashboards' own queries (#972). Admins never
  * reach this fallback — they match the tenant-wide path above.
+ *
+ * "edit" holds only because a connection enters a layout through a writer who
+ * can use it directly: save, duplicate, import and both reassigns check
+ * (lib/db/connection-access.ts, #1816). Once on a dashboard it stays usable
+ * there for the dashboard's owner and editors.
  */
 async function dashboardAccessToConnection(
   userId: string,

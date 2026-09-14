@@ -420,7 +420,12 @@ describe("PUT /api/dashboards/[id]", () => {
 
   it("updates layout with v2 pages schema", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    // c1 is new to this dashboard, so the save first asks whether the caller
+    // may use it. An empty answer: nothing is out of reach (#1816).
+    const connectionCheck = makeSelectChain([]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]))
+      .mockReturnValueOnce(connectionCheck);
     const layout = {
       version: 2,
       pages: [
@@ -446,6 +451,91 @@ describe("PUT /api/dashboards/[id]", () => {
       makeParams("d1"),
     );
     expect(res.status).toBe(200);
+    expect(connectionCheck.calls.where).toHaveLength(1);
+  });
+
+  // A dashboard's owner and editors may run any read query on the connections
+  // it names (#972), so a save must not add a connection the caller cannot use
+  // directly: their own, one shared with the tenant, or any for an admin. A
+  // connection already on this dashboard stays, so editors keep working on it
+  // (#1816).
+  function layoutOn(connectionId: string, query = "MATCH (n) RETURN n") {
+    return {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Page 1",
+          widgets: [{ id: "w1", chartType: "table", connectionId, query }],
+          gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
+        },
+      ],
+    };
+  }
+
+  it("returns 403 when the layout adds a connection the caller cannot use (#1816)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const connectionCheck = makeSelectChain([{ id: "c-private" }]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]))
+      .mockReturnValueOnce(connectionCheck);
+    mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-private") }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/connection/i);
+    expect(mockDb.update).not.toHaveBeenCalled();
+    expect(connectionCheck.calls.where).toHaveLength(1);
+    const [expr] = connectionCheck.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["tenant_id", "id", "userId", "visibility"]),
+    );
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["tenant-1", "c-private", "user-1", "shared"]),
+    );
+  });
+
+  it("lets an editor share save new queries on a connection already on the dashboard (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const stored = { ...OWNER_DASHBOARD, layoutJson: layoutOn("c-owner") };
+    const editorShare = {
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      role: "editor",
+    };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([editorShare]));
+    const next = layoutOn("c-owner", "MATCH (m:Movie) RETURN m.title");
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([{ ...stored, layoutJson: next }]),
+    );
+
+    const res = await PUT(makeRequest({ layoutJson: next }), makeParams("d1"));
+
+    expect(res.status).toBe(200);
+    // No connection lookup: the save adds nothing the dashboard did not name.
+    expect(mockDb.select).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets an admin add any connection without a lookup (#1816)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([OWNER_DASHBOARD]));
+    mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+
+    const res = await PUT(
+      makeRequest({ layoutJson: layoutOn("c-anyone") }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
   });
 });
 
