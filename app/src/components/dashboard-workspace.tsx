@@ -14,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, LayoutDashboard, Pencil, Plus } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { getShownWidgetQueryData } from "@/hooks/use-widget-query";
+import { PREVIEW_ROW_LIMIT } from "@/lib/query/wrap-with-preview-limit";
 import { useConnections } from "@/hooks/use-connections";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
@@ -496,8 +497,15 @@ export function DashboardWorkspace({
   const openEditWidget = useCallback(
     (widget: DashboardWidget) => {
       // Show the card's current result instantly. With none, the editor's
-      // auto-preview runs the query instead.
-      setCachedPreviewData(getShownWidgetQueryData(queryClient, widget));
+      // auto-preview runs the query instead. The card's result is uncapped,
+      // and the editor skips its capped run when handed one, so cut it to the
+      // preview's row limit (#1043).
+      const shown = getShownWidgetQueryData(queryClient, widget);
+      setCachedPreviewData(
+        shown && Array.isArray(shown.data)
+          ? { ...shown, data: shown.data.slice(0, PREVIEW_ROW_LIMIT) }
+          : shown,
+      );
       setEditorMode("edit");
       setEditingWidget(widget);
       setEditorOpen(true);

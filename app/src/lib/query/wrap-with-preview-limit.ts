@@ -1,5 +1,8 @@
 import type { ConnectorType } from "@/lib/connector/connector-types";
 
+/** Rows the widget editor's preview shows (#1043). */
+export const PREVIEW_ROW_LIMIT = 25;
+
 /**
  * Wraps a query with a row limit for preview-only execution.
  * PostgreSQL uses a subquery wrapper; Cypher appends LIMIT.
@@ -8,7 +11,7 @@ import type { ConnectorType } from "@/lib/connector/connector-types";
 export function wrapWithPreviewLimit(
   query: string,
   connectorType: ConnectorType,
-  limit = 25,
+  limit = PREVIEW_ROW_LIMIT,
 ): string {
   const trimmed = query.trim().replace(/;$/, "");
   if (!trimmed) return trimmed;

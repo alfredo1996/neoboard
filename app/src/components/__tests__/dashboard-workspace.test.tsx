@@ -1062,7 +1062,7 @@ describe("DashboardWorkspace", () => {
   // ── #1809: the editor reads the card's cached result by its real key ──
   describe("widget query cache", () => {
     /** Rows echo `params.v`, so each params variant is recognisable. */
-    function stubQueryApi() {
+    function stubQueryApi(rows = 1) {
       const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
         const { params } = JSON.parse(init.body) as { params?: { v?: string } };
         return {
@@ -1070,7 +1070,9 @@ describe("DashboardWorkspace", () => {
           status: 200,
           headers: { get: () => null },
           json: async () => ({
-            data: { data: [{ v: params?.v }] },
+            data: {
+              data: Array.from({ length: rows }, () => ({ v: params?.v })),
+            },
             error: null,
             meta: { resultId: `r-${params?.v}` },
           }),
@@ -1081,7 +1083,7 @@ describe("DashboardWorkspace", () => {
     }
 
     /** The real hook for the fixture's widget `w1` (c1 / SELECT 1). */
-    function CardProbe({ v }: { v: string }) {
+    function CardProbe({ v, testId = "probe" }: { v: string; testId?: string }) {
       const params = React.useMemo(() => ({ v }), [v]);
       const { data } = useWidgetQuery({
         connectionId: "c1",
@@ -1089,16 +1091,17 @@ describe("DashboardWorkspace", () => {
         params,
       });
       return (
-        <div data-testid="probe">
+        <div data-testid={testId}>
           {data ? JSON.stringify(data.data) : "loading"}
         </div>
       );
     }
 
-    const workspace = (probe: string | null) => (
+    const workspace = (probe: string | null, second?: string) => (
       <QueryClientProvider client={testQueryClient.current!}>
         <DashboardWorkspace id="d1" editMode={true} />
         {probe && <CardProbe v={probe} />}
+        {second && <CardProbe v={second} testId="probe-2" />}
       </QueryClientProvider>
     );
 
@@ -1133,6 +1136,45 @@ describe("DashboardWorkspace", () => {
       expect(
         screen.getByTestId("widget-editor-modal").getAttribute("data-preview"),
       ).toBe(JSON.stringify([{ v: "new" }]));
+    });
+
+    it("Edit Widget previews the newest result when two mounted cards share the query", async () => {
+      // Two active observers share the key prefix (different static params,
+      // or a different cache TTL). The newer fetch is the second one.
+      stubQueryApi();
+      const { rerender } = render(workspace("older"));
+      await showVariant(rerender, "older");
+      // A distinct dataUpdatedAt for the second fetch.
+      await new Promise((r) => setTimeout(r, 5));
+      rerender(workspace("older", "newer"));
+      await waitFor(() =>
+        expect(screen.getByTestId("probe-2").textContent).toBe(
+          JSON.stringify([{ v: "newer" }]),
+        ),
+      );
+
+      fireEvent.click(screen.getByTestId("act-edit"));
+
+      expect(
+        screen.getByTestId("widget-editor-modal").getAttribute("data-preview"),
+      ).toBe(JSON.stringify([{ v: "newer" }]));
+    });
+
+    it("Edit Widget caps the card's cached rows at the 25-row preview limit (#1043)", async () => {
+      // The editor labels its preview "up to 25 rows" and skips its capped
+      // run when handed cached data, so the card's full result must be cut.
+      stubQueryApi(30);
+      render(workspace("big"));
+      await waitFor(() =>
+        expect(screen.getByTestId("probe").textContent).not.toBe("loading"),
+      );
+
+      fireEvent.click(screen.getByTestId("act-edit"));
+
+      const preview = JSON.parse(
+        screen.getByTestId("widget-editor-modal").getAttribute("data-preview")!,
+      ) as unknown[];
+      expect(preview).toHaveLength(25);
     });
 
     it("Edit Widget passes no preview when no card shows the widget, so the editor runs it", async () => {

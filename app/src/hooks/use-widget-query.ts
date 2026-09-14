@@ -158,8 +158,8 @@ type WidgetQueryIdentity = Partial<
 
 /**
  * The key prefix every cached result of one widget query shares, whatever its
- * params or staleTime. The one place the key's shape is written: a copy of it
- * went stale when `database` joined the key and matched nothing (#1809).
+ * params or staleTime. Build keys from this, not a copy: copies went stale
+ * when `database` joined the key and matched nothing (#1809).
  * Prefix matches cover every params variant, which is right for invalidation.
  */
 export function widgetQueryKeyPrefix(w: WidgetQueryIdentity | null) {

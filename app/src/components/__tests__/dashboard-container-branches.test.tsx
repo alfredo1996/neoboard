@@ -572,14 +572,23 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
     );
   }
 
-  function CardProbe({ widget }: { widget: DashboardWidget }) {
+  function CardProbe({
+    widget,
+    params,
+    testId = "probe",
+  }: {
+    widget: DashboardWidget;
+    params?: Record<string, unknown>;
+    testId?: string;
+  }) {
     const { data } = useWidgetQuery({
       connectionId: widget.connectionId,
       query: widget.query,
       database: widget.database,
+      params,
     });
     return (
-      <div data-testid="probe">
+      <div data-testid={testId}>
         {data ? JSON.stringify(data.data) : "loading"}
       </div>
     );
@@ -645,7 +654,53 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
     expect(mockBuildExportData.mock.calls[0][0]).toEqual([{ region: "US" }]);
   });
 
-  it("exports nothing while the current variant has no result yet", async () => {
+  it("exports the newest result when two mounted cards share the query", async () => {
+    // Two active observers share the key prefix: here different static params,
+    // and a different cache TTL does the same. The newer fetch is the second.
+    stubQueryApi();
+    const widget = makeWidget();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const ui = (second: boolean) => (
+      <QueryClientProvider client={queryClient}>
+        <DashboardContainer page={makePage([widget])} />
+        <CardProbe
+          widget={widget}
+          params={{ param_region: "older" }}
+          testId="probe-a"
+        />
+        {second && (
+          <CardProbe
+            widget={widget}
+            params={{ param_region: "newer" }}
+            testId="probe-b"
+          />
+        )}
+      </QueryClientProvider>
+    );
+
+    const { rerender } = render(ui(false));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-a").textContent).toBe(
+        '[{"region":"older"}]',
+      ),
+    );
+    // A distinct dataUpdatedAt for the second fetch.
+    await new Promise((r) => setTimeout(r, 5));
+    rerender(ui(true));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-b").textContent).toBe(
+        '[{"region":"newer"}]',
+      ),
+    );
+
+    fireEvent.click(screen.getByTestId("action-csv"));
+
+    expect(mockBuildExportData.mock.calls[0][0]).toEqual([{ region: "newer" }]);
+  });
+
+  it("exports nothing when no card shows the widget any more", async () => {
     stubQueryApi();
     const widget = makeWidget({
       query: "MATCH (n) WHERE n.region = $param_region RETURN n",
