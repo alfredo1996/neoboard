@@ -12,6 +12,8 @@
  * admins) are NOT bound — authoring widgets requires running novel queries.
  */
 
+import { seedQueriesOf } from "@/lib/widget/seed-queries";
+
 interface LayoutWidget {
   query?: unknown;
   settings?: Record<string, unknown>;
@@ -32,7 +34,8 @@ export function normalizeQuery(query: string): string {
 
 /**
  * Every query string a dashboard can legitimately execute: widget queries
- * plus parameter-select seed queries, across all pages. Normalized.
+ * plus the seed queries of parameter selectors and form fields, across all
+ * pages. Normalized.
  */
 export function collectLayoutQueries(layout: unknown): Set<string> {
   const queries = new Set<string>();
@@ -44,9 +47,8 @@ export function collectLayoutQueries(layout: unknown): Set<string> {
       if (typeof widget?.query === "string" && widget.query.trim()) {
         queries.add(normalizeQuery(widget.query));
       }
-      const seed = widget?.settings?.seedQuery;
-      if (typeof seed === "string" && seed.trim()) {
-        queries.add(normalizeQuery(seed));
+      for (const seed of seedQueriesOf(widget?.settings)) {
+        if (seed.trim()) queries.add(normalizeQuery(seed));
       }
     }
   }

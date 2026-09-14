@@ -481,7 +481,11 @@ describe("POST /api/query", () => {
                   widgets: [
                     {
                       connectionId: "c1",
-                      settings: { seedQuery: "SELECT DISTINCT region FROM t" },
+                      settings: {
+                        chartOptions: {
+                          seedQuery: "SELECT DISTINCT region FROM t",
+                        },
+                      },
                     },
                   ],
                 },

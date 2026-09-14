@@ -30,8 +30,29 @@ const layout = {
           id: "w2",
           chartType: "parameter-select",
           connectionId: "c1",
+          // Where use-widget-save.ts stores them (#1814).
           settings: {
-            seedQuery: "SELECT DISTINCT region FROM customers",
+            chartOptions: {
+              parameterType: "select",
+              seedQuery: "SELECT DISTINCT region FROM customers",
+            },
+          },
+        },
+        {
+          id: "w4",
+          chartType: "form",
+          connectionId: "c1",
+          query: "INSERT INTO notes (region) VALUES ($param_region)",
+          settings: {
+            chartOptions: {},
+            formFields: [
+              {
+                id: "f1",
+                parameterName: "region",
+                parameterType: "select",
+                seedQuery: "SELECT name FROM regions",
+              },
+            ],
           },
         },
       ],
@@ -77,6 +98,18 @@ describe("collectLayoutQueries", () => {
     expect(queries.has("SELECT DISTINCT region FROM customers")).toBe(true);
   });
 
+  it("collects form field seed queries", () => {
+    const queries = collectLayoutQueries(layout);
+    expect(queries.has("SELECT name FROM regions")).toBe(true);
+  });
+
+  it("ignores a top-level settings.seedQuery, which is never saved", () => {
+    const queries = collectLayoutQueries({
+      pages: [{ widgets: [{ settings: { seedQuery: "SELECT 1" } }] }],
+    });
+    expect(queries.size).toBe(0);
+  });
+
   it("tolerates malformed layouts", () => {
     expect(collectLayoutQueries(null).size).toBe(0);
     expect(collectLayoutQueries({}).size).toBe(0);
@@ -103,6 +136,13 @@ describe("layoutsAllowQuery", () => {
 
   it("rejects a query not present in any layout", () => {
     expect(layoutsAllowQuery([layout], "SELECT * FROM users")).toBe(false);
+  });
+
+  it("allows selector and form seed queries at their saved paths (#1814)", () => {
+    expect(
+      layoutsAllowQuery([layout], "SELECT DISTINCT region  FROM customers"),
+    ).toBe(true);
+    expect(layoutsAllowQuery([layout], "SELECT name FROM regions")).toBe(true);
   });
 
   it("rejects a near-miss with extra clauses appended", () => {
