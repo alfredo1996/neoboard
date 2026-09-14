@@ -297,7 +297,7 @@ describe("POST /api/query", () => {
 
   // --- Access fallback tests ---
 
-  it("admin can execute query on unowned connection", async () => {
+  it("admin can execute query on unowned connection, through one tenant-scoped lookup", async () => {
     mockRequireSession.mockResolvedValue({ ...defaultSession, role: "admin" });
     const conn = {
       id: "c1",
@@ -305,11 +305,10 @@ describe("POST /api/query", () => {
       configEncrypted: "enc",
       userId: "other-user",
     };
-    // 1st call: ownership check -> not found
-    // 2nd call: admin fallback -> found
-    mockDb.select
-      .mockReturnValueOnce(drizzleSelectChain([]))
-      .mockReturnValueOnce(drizzleSelectChain([conn]));
+    // usableConnection() puts no ownership predicate on an admin, so the
+    // direct lookup finds any connection in the tenant at once (#1822).
+    const lookup = makeSelectChain([conn]);
+    mockDb.select.mockReturnValueOnce(lookup);
     mockDecryptJson.mockReturnValue({
       uri: "postgres://localhost",
       username: "u",
@@ -321,7 +320,10 @@ describe("POST /api/query", () => {
       makeRequest({ connectionId: "c1", query: "SELECT 1" }),
     );
     expect(res.status).toBe(200);
-    expect(mockDb.select).toHaveBeenCalledTimes(2);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
+    const [expr] = lookup.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(["id", "tenant_id"]);
+    expect(sqlValues(expr)).toEqual(["c1", "tenant-a"]);
   });
 
   it("non-admin with an EDITOR share can run arbitrary queries (edit level, #972)", async () => {
@@ -634,6 +636,226 @@ describe("POST /api/query", () => {
       );
       expect(res.status).toBe(200);
       expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // A view-level caller runs a saved query only where the dashboard runs it:
+  // on its widget's connection, with the database that widget saves, or with
+  // none when it saves none (#1822). The route applies the request's database
+  // to the connection's credentials whenever allowPerCardDb is on.
+  describe("view level runs a saved query on its saved database only (#1822)", () => {
+    const QUERY = "SELECT title FROM movies";
+    const alicesConnection = {
+      id: "c1",
+      type: "postgresql",
+      configEncrypted: "enc",
+      userId: "alice",
+      allowPerCardDb: true,
+    };
+
+    /** A viewer's POST on a dashboard of `widgets`; `runs` queues the connection fetch. */
+    function viewerQuery(
+      widgets: Record<string, unknown>[],
+      body: { database?: string },
+      runs: boolean,
+    ) {
+      mockRequireSession.mockResolvedValue({
+        ...defaultSession,
+        role: "reader",
+        canWrite: false,
+      });
+      mockDb.select
+        .mockReturnValueOnce(drizzleSelectChain([]))
+        .mockReturnValueOnce(
+          drizzleJoinChain([
+            {
+              ownerId: "alice",
+              shareRole: "viewer",
+              connectionOwnerId: "alice",
+              ownerRole: "creator",
+              layoutJson: { pages: [{ widgets }] },
+            },
+          ]),
+        );
+      if (runs) {
+        mockDb.select.mockReturnValueOnce(
+          drizzleSelectChain([alicesConnection]),
+        );
+      }
+      mockDecryptJson.mockReturnValue({
+        uri: "postgres://localhost",
+        username: "u",
+        password: "p",
+        database: "neoboard",
+      });
+      mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+      return POST(makeRequest({ connectionId: "c1", query: QUERY, ...body }));
+    }
+
+    function expectRanOn(database: string) {
+      expect(mockExecuteQuery).toHaveBeenCalledWith(
+        "postgresql",
+        expect.objectContaining({ database }),
+        expect.anything(),
+        { accessMode: "READ" },
+      );
+    }
+
+    /** What a request came to: its status, its error message, whether it ran. */
+    async function outcome(pending: ReturnType<typeof viewerQuery>) {
+      const res = await pending;
+      return {
+        status: res.status,
+        message: (await res.json()).error?.message,
+        ran: mockExecuteQuery.mock.calls.length > 0,
+      };
+    }
+
+    const REFUSED = {
+      status: 403,
+      message: expect.stringMatching(/not part of any dashboard/i),
+      ran: false,
+    };
+
+    it("runs the saved query on its saved database", async () => {
+      const res = await viewerQuery(
+        [{ connectionId: "c1", query: QUERY, database: "movies" }],
+        { database: "movies" },
+        true,
+      );
+      expect(res.status).toBe(200);
+      expectRanOn("movies");
+    });
+
+    it("runs a query saved without a database on the connection's default", async () => {
+      const res = await viewerQuery(
+        [{ connectionId: "c1", query: QUERY }],
+        {},
+        true,
+      );
+      expect(res.status).toBe(200);
+      expectRanOn("neoboard");
+    });
+
+    it("refuses the saved query on another database", async () => {
+      expect(
+        await outcome(
+          viewerQuery(
+            [{ connectionId: "c1", query: QUERY, database: "movies" }],
+            { database: "neoboard" },
+            false,
+          ),
+        ),
+      ).toEqual(REFUSED);
+    });
+
+    it("refuses a database for a query its widget saves without one", async () => {
+      expect(
+        await outcome(
+          viewerQuery(
+            [{ connectionId: "c1", query: QUERY }],
+            { database: "movies" },
+            false,
+          ),
+        ),
+      ).toEqual(REFUSED);
+    });
+
+    it("refuses a query the dashboard saves only on another connection", async () => {
+      expect(
+        await outcome(
+          viewerQuery(
+            [
+              { connectionId: "c2", query: QUERY },
+              { connectionId: "c1", query: "SELECT 1" },
+            ],
+            {},
+            false,
+          ),
+        ),
+      ).toEqual(REFUSED);
+    });
+  });
+
+  // Only view level is bound. The connection's owner, a user of a
+  // tenant-shared connection, an admin and an editor share still pick the
+  // database a query runs on (#1822).
+  describe("callers who are not bound still choose the database (#1822)", () => {
+    const connection = {
+      id: "c1",
+      type: "postgresql",
+      configEncrypted: "enc",
+      userId: "other-user",
+      allowPerCardDb: true,
+    };
+
+    it.each([
+      {
+        caller: "the connection's owner",
+        session: {},
+        lookups: () => [
+          drizzleSelectChain([{ ...connection, userId: "user-1" }]),
+        ],
+      },
+      {
+        caller: "a user of a tenant-shared connection",
+        session: { role: "reader", canWrite: false },
+        lookups: () => [
+          drizzleSelectChain([{ ...connection, visibility: "shared" }]),
+        ],
+      },
+      {
+        caller: "an admin",
+        session: { role: "admin" },
+        lookups: () => [drizzleSelectChain([connection])],
+      },
+      {
+        caller: "an editor share",
+        session: {},
+        lookups: () => [
+          drizzleSelectChain([]),
+          drizzleJoinChain([
+            {
+              ownerId: "other-user",
+              shareRole: "editor",
+              connectionOwnerId: "other-user",
+              ownerRole: "creator",
+              layoutJson: {
+                pages: [
+                  { widgets: [{ connectionId: "c1", query: "SELECT 1" }] },
+                ],
+              },
+            },
+          ]),
+          drizzleSelectChain([connection]),
+        ],
+      },
+    ])("$caller", async ({ session, lookups }) => {
+      mockRequireSession.mockResolvedValue({ ...defaultSession, ...session });
+      for (const chain of lookups()) mockDb.select.mockReturnValueOnce(chain);
+      mockDecryptJson.mockReturnValue({
+        uri: "postgres://localhost",
+        username: "u",
+        password: "p",
+        database: "neoboard",
+      });
+      mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+
+      const res = await POST(
+        makeRequest({
+          connectionId: "c1",
+          query: "SELECT something_new FROM t",
+          database: "archive",
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery).toHaveBeenCalledWith(
+        "postgresql",
+        expect.objectContaining({ database: "archive" }),
+        expect.anything(),
+        { accessMode: "READ" },
+      );
     });
   });
 

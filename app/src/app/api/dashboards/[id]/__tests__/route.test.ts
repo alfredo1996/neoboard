@@ -459,14 +459,20 @@ describe("PUT /api/dashboards/[id]", () => {
   // directly: their own, one shared with the tenant, or any for an admin. A
   // connection already on this dashboard stays, so editors keep working on it
   // (#1816).
-  function layoutOn(connectionId: string, query = "MATCH (n) RETURN n") {
+  function layoutOn(
+    connectionId: string,
+    query = "MATCH (n) RETURN n",
+    database?: string,
+  ) {
     return {
       version: 2,
       pages: [
         {
           id: "p1",
           title: "Page 1",
-          widgets: [{ id: "w1", chartType: "table", connectionId, query }],
+          widgets: [
+            { id: "w1", chartType: "table", connectionId, query, database },
+          ],
           gridLayout: [{ i: "w1", x: 0, y: 0, w: 4, h: 3 }],
         },
       ],
@@ -643,6 +649,45 @@ describe("PUT /api/dashboards/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(mockDb.select).toHaveBeenCalledTimes(1);
+  });
+
+  // The binding matches a query with its connection and database (#1822), so
+  // a save that moves a saved query to another database adds a query here.
+  it("refuses a bound owner moving a saved query to another database (#1822)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const stored = { ...OWNER_DASHBOARD, layoutJson: layoutOn("c-alice") };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(makeSelectChain([{ id: "c-alice" }]));
+    mockDb.update.mockReturnValue(makeUpdateChain([stored]));
+
+    const res = await PUT(
+      makeRequest({
+        layoutJson: layoutOn("c-alice", "MATCH (n) RETURN n", "archive"),
+      }),
+      makeParams("d1"),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("lets an owner who can use the connection move a query to another database (#1822)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const stored = { ...OWNER_DASHBOARD, layoutJson: layoutOn("c-own") };
+    const connectionCheck = makeSelectChain([]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([stored]))
+      .mockReturnValueOnce(connectionCheck);
+    const next = layoutOn("c-own", "MATCH (n) RETURN n", "archive");
+    mockDb.update.mockReturnValue(
+      makeUpdateChain([{ ...stored, layoutJson: next }]),
+    );
+
+    const res = await PUT(makeRequest({ layoutJson: next }), makeParams("d1"));
+
+    expect(res.status).toBe(200);
+    expect(connectionCheck.calls.where).toHaveLength(1);
   });
 
   it("answers a stale save with 409 before checking its connections (#1816)", async () => {

@@ -25,6 +25,7 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { layoutsAllowQuery } from "@/lib/query/dashboard-query-binding";
+import { usableConnection } from "@/lib/db/connection-access";
 import { logRoute } from "@/lib/api/log-route";
 import type { QueryPriority } from "@/lib/query/scheduler";
 
@@ -84,9 +85,9 @@ async function handleReadQuery(request: Request): Promise<Response> {
       return forbidden("Tenant mismatch");
     }
 
-    // 1. Fast path: direct ownership or tenant-shared connection (#901).
-    //    Shared connections are first-class queryable for every tenant
-    //    user — that's the 'admin provisions, all use' model.
+    // 1. Direct access: the caller owns the connection, it is shared with the
+    //    tenant (#901, the 'admin provisions, all use' model), or the caller
+    //    is an admin. The rule every dashboard write checks (#1816).
     let [connection] = await db
       .select()
       .from(connections)
@@ -94,33 +95,17 @@ async function handleReadQuery(request: Request): Promise<Response> {
         and(
           eq(connections.id, connectionId),
           eq(connections.tenantId, sessionTenantId),
-          or(
-            eq(connections.userId, userId),
-            eq(connections.visibility, "shared"),
-          ),
+          usableConnection(userId, role),
         ),
       )
       .limit(1);
 
-    // 2. Admin fallback: admin can use any connection in the same tenant.
-    if (!connection && role === "admin") {
-      [connection] = await db
-        .select()
-        .from(connections)
-        .where(
-          and(
-            eq(connections.id, connectionId),
-            eq(connections.tenantId, sessionTenantId),
-          ),
-        )
-        .limit(1);
-    }
-
-    // 3. Dashboard-access fallback: user owns or has a share for a dashboard
+    // 2. Dashboard-access fallback: user owns or has a share for a dashboard
     //    that references this connectionId in its layout. View-level access
     //    (public dashboards, viewer shares) is BOUND to the queries the
-    //    dashboard actually contains (#972) — otherwise sharing a dashboard
-    //    would share arbitrary read access to its entire connection.
+    //    dashboard actually contains (#972), each on its widget's connection
+    //    and saved database (#1822) — otherwise sharing a dashboard would
+    //    share arbitrary read access to its entire connection.
     //    Edit-level access (dashboard owner, editor share) is unbound:
     //    authoring widgets requires running novel queries. It holds only while
     //    the caller may write and the dashboard's owner can use the connection
@@ -135,7 +120,11 @@ async function handleReadQuery(request: Request): Promise<Response> {
       if (access.level !== "none") {
         if (
           access.level === "view" &&
-          !layoutsAllowQuery(access.layouts, query)
+          !layoutsAllowQuery(access.layouts, {
+            connectionId,
+            query,
+            database: databaseOverride,
+          })
         ) {
           return forbidden(
             "Query is not part of any dashboard shared with you",
@@ -162,7 +151,8 @@ async function handleReadQuery(request: Request): Promise<Response> {
       connection.configEncrypted,
     );
 
-    // Apply per-card database override if the connection allows it
+    // Apply per-card database override if the connection allows it. A
+    // view-level request gets here only with the database its widget saves.
     const effectiveCredentials =
       databaseOverride && connection.allowPerCardDb
         ? { ...credentials, database: databaseOverride }
