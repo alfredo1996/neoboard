@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { connections, dashboards } from "@/lib/db/schema";
+import { connections } from "@/lib/db/schema";
 import type { DashboardLayoutV2, DashboardWidget } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { resolveDashboardAccess } from "@/lib/dashboard/access";
 import { decryptJson } from "@/lib/crypto/crypto";
 import {
   executeQuery,
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
 
 async function handleWriteQuery(request: Request): Promise<Response> {
   try {
-    const { userId, canWrite, tenantId } = await requireSession();
+    const { userId, canWrite, tenantId, role } = await requireSession();
 
     if (!canWrite) {
       return forbidden("Write permission required");
@@ -71,45 +72,43 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     }
 
     // Per-widget write enforcement: when widgetId + dashboardId are provided,
-    // check the stored widget may write, and take its database from the stored
-    // layout, never from the request (#1824). Form widgets send both. Without
-    // them the write runs on the connection's default database. User-level
-    // canWrite and connection ownership are enforced above either way.
+    // the widget must be on this connection, on a dashboard the caller can
+    // open, and may write; its database comes from the stored layout, never
+    // from the request (#1824). Form widgets send both. Without them the write
+    // runs on the connection's default database. User-level canWrite and
+    // connection ownership are enforced above either way.
     let widgetDatabaseOverride: string | undefined;
     if (widgetId && dashboardId) {
-      const [dashboard] = await db
-        .select()
-        .from(dashboards)
-        .where(
-          and(
-            eq(dashboards.id, dashboardId),
-            eq(dashboards.tenantId, tenantId),
-          ),
-        )
-        .limit(1);
-
-      if (!dashboard) {
-        return notFound("Dashboard not found");
-      }
-
-      const layout = dashboard.layoutJson as DashboardLayoutV2 | null;
+      // Viewer level, public dashboards included: a form is submitted from the
+      // dashboard as it is shown, which GET /api/dashboards/[id] allows.
+      const access = await resolveDashboardAccess({
+        dashboardId,
+        userId,
+        tenantId,
+        userRole: role,
+        required: "viewer",
+      });
+      const layout = access?.dashboard.layoutJson as
+        | DashboardLayoutV2
+        | null
+        | undefined;
       const widget = layout?.pages
         ?.flatMap((p) => p.widgets)
-        .find((w: DashboardWidget) => w.id === widgetId);
+        .find(
+          (w: DashboardWidget) =>
+            w.id === widgetId && w.connectionId === connectionId,
+        );
 
+      // One refusal for a missing or unopenable dashboard and for a missing
+      // widget or one on another connection.
       if (!widget) {
-        return notFound("Widget not found in dashboard");
+        return notFound("Widget not found");
       }
 
       // A form exists to write, and the editor offers no write-mode flag for
       // one, so a saved form never carries allowWrites (#1824).
       if (widget.chartType !== "form" && !widget.allowWrites) {
         return forbidden("Write mode is not enabled for this widget");
-      }
-
-      // Validate widget is bound to this connection
-      if (widget.connectionId !== connectionId) {
-        return forbidden("Widget does not belong to this connection");
       }
 
       // Only apply per-card DB override when the connection allows it
