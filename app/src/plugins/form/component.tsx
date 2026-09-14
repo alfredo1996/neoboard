@@ -15,12 +15,16 @@ import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 function FormPluginComponent({
   settings: raw,
   connectionId,
+  database,
+  widgetId,
   query,
 }: PluginProps) {
   const settings = safeParseSettings(formSettingsSchema, raw, "form");
   return (
     <FormWidgetRenderer
       connectionId={connectionId ?? ""}
+      database={database}
+      widgetId={widgetId}
       query={query ?? ""}
       settings={settings}
     />

@@ -87,6 +87,8 @@ export function useSeedQueryOptions(
   seedQuery?: string,
   parentParameterName?: string,
   searchable = true,
+  /** The selector widget's saved per-card database (#1824). */
+  database?: string,
 ): SeedQueryResult {
   const parentRawValue = useParameterStore((s) =>
     parentParameterName ? s.parameters[parentParameterName]?.value : undefined,
@@ -165,6 +167,7 @@ export function useSeedQueryOptions(
     needsSeed && parentReady,
     seedExtraParams,
     tenantId,
+    database,
   );
 
   return {

@@ -18,11 +18,14 @@ vi.mock("@/components/chart-renderer", () => ({
   },
 }));
 
+/** What the stubbed widget query resolved to; null is "no data". */
+let widgetQueryData: unknown = null;
+
 vi.mock("@/hooks/use-widget-query", () => ({
   useWidgetQuery: () => ({
     isPending: false,
     isError: false,
-    data: null,
+    data: widgetQueryData,
     fetchStatus: "idle",
     missingParams: [],
   }),
@@ -42,7 +45,9 @@ vi.mock("@/stores/parameter-store", () => ({
 
 vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (type: string) => {
-    if (type === "bar" || type === "markdown") {
+    if (
+      ["bar", "markdown", "parameter-select", "form", "graph"].includes(type)
+    ) {
       return {
         type,
         label: type,
@@ -148,6 +153,7 @@ function renderWithProviders(ui: React.ReactElement) {
 describe("CardContainer", () => {
   beforeEach(() => {
     capturedChartProps = {};
+    widgetQueryData = null;
     vi.clearAllMocks();
   });
 
@@ -250,6 +256,47 @@ describe("CardContainer", () => {
       );
 
       expect(screen.getByTestId("chart-renderer")).toBeInTheDocument();
+    });
+  });
+
+  // #1824 — a selector's options, a form's submit and field options, and a
+  // graph's node expansion all run on the database the widget saves.
+  describe("the widget's saved database", () => {
+    function metaFor(
+      overrides: Partial<DashboardWidget>,
+      widgetIdSuffix?: string,
+    ) {
+      renderWithProviders(
+        <CardContainer
+          widget={createWidget({ database: "neoboard", ...overrides })}
+          widgetIdSuffix={widgetIdSuffix}
+        />,
+      );
+      return capturedChartProps.meta as {
+        database?: string;
+        widgetId?: string;
+      };
+    }
+
+    it("reaches a parameter selector", () => {
+      expect(metaFor({ chartType: "parameter-select" }).database).toBe(
+        "neoboard",
+      );
+    });
+
+    it("reaches a form, with the id its dashboard stores it under, even fullscreen", () => {
+      const meta = metaFor(
+        { chartType: "form", query: "CREATE (n)" },
+        "fullscreen",
+      );
+      expect(meta.database).toBe("neoboard");
+      expect(meta.widgetId).toBe("widget-123");
+    });
+
+    it("reaches a graph", () => {
+      widgetQueryData = { data: { nodes: [], edges: [] }, resultId: "r1" };
+      const meta = metaFor({ chartType: "graph", query: "MATCH (n) RETURN n" });
+      expect(meta.database).toBe("neoboard");
     });
   });
 

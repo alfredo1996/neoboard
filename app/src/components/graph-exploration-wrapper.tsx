@@ -24,6 +24,9 @@ interface GraphExplorationWrapperProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   connectionId: string;
+  /** The widget's saved per-card database: neighbours are looked up where the
+   *  graph was queried (#1824). */
+  database?: string;
   settings: Record<string, unknown>;
   onChartClick?: (point: Record<string, unknown>) => void;
   /** Server-generated hash of the query that produced this data.
@@ -179,6 +182,7 @@ export function GraphExplorationWrapper({
   nodes: initialNodes,
   edges: initialEdges,
   connectionId,
+  database,
   settings,
   onChartClick,
   resultId,
@@ -213,6 +217,7 @@ export function GraphExplorationWrapper({
           connectionId,
           query,
           params: { nodeId: node.id },
+          ...(database ? { database } : {}),
         }),
       });
 
@@ -232,7 +237,7 @@ export function GraphExplorationWrapper({
         edges: transformed.edges ?? [],
       };
     },
-    [connectionId],
+    [connectionId, database],
   );
 
   const exploration = useGraphExploration({

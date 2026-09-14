@@ -18,6 +18,11 @@ vi.mock("next-auth/react", () => ({
   useSession: (...args: unknown[]) => mockUseSession(...args),
 }));
 
+// The dashboard route the form is on (#1824).
+vi.mock("next/navigation", () => ({
+  useParams: () => ({ id: "dash-1" }),
+}));
+
 // Capture props passed to each component-library widget so assertions
 // can inspect what the renderer handed them.
 const paramSelectorProps: Array<Record<string, unknown>> = [];
@@ -215,12 +220,14 @@ function makeField(overrides: Partial<FormFieldDef>): FormFieldDef {
 function renderForm(
   fields: FormFieldDef[],
   settings: Record<string, unknown> = {},
+  saved: { database?: string; widgetId?: string } = {},
 ) {
   return render(
     <FormWidgetRenderer
       connectionId="conn-1"
       query="CREATE (n) RETURN n"
       settings={{ formFields: fields, ...settings }}
+      {...saved}
     />,
   );
 }
@@ -541,6 +548,51 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     expect(screen.getByText("Field")).toBeDefined();
     expect(screen.queryByTestId("input-weird")).toBeNull();
     expect(screen.queryByTestId("param-selector-weird")).toBeNull();
+  });
+});
+
+describe("FormWidgetRenderer — runs where the form is saved (#1824)", () => {
+  it("asks for a field's options on the form's saved database", () => {
+    renderForm(
+      [
+        makeField({
+          id: "f1",
+          parameterName: "region",
+          parameterType: "select",
+          seedQuery: "SELECT current_database()",
+        }),
+      ],
+      {},
+      { database: "neoboard", widgetId: "w-form" },
+    );
+    expect(seedQueryCalls.length).toBeGreaterThan(0);
+    for (const args of seedQueryCalls) {
+      expect(args[1]).toBe("SELECT current_database()");
+      expect(args[5]).toBe("neoboard");
+    }
+  });
+
+  it("submits the ids of the stored form and its dashboard, and never a database", () => {
+    renderForm(
+      [makeField({ id: "f1", parameterName: "v", parameterType: "text" })],
+      {},
+      { database: "neoboard", widgetId: "w-form" },
+    );
+    fireEvent.change(screen.getByTestId("input-v"), {
+      target: { value: "hello" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(mockMutate).toHaveBeenCalledTimes(1);
+    const [payload] = mockMutate.mock.calls[0];
+    expect(payload).toEqual({
+      connectionId: "conn-1",
+      query: "CREATE (n) RETURN n",
+      params: { param_v: "hello" },
+      widgetId: "w-form",
+      dashboardId: "dash-1",
+    });
+    expect(payload).not.toHaveProperty("database");
   });
 });
 

@@ -19,6 +19,7 @@ type SeedSpyArgs = [
   enabled: boolean,
   extraParams: Record<string, unknown> | undefined,
   tenantId: string | undefined,
+  database: string | undefined,
 ];
 type SeedSpyReturn = {
   options: { value: string; label: string }[];
@@ -87,6 +88,27 @@ describe("useSeedQueryOptions — threads the seed query error through (#1678)",
       useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
     );
     expect(result.current.error).toBeNull();
+  });
+});
+
+describe("useSeedQueryOptions — runs the seed where its widget is saved (#1824)", () => {
+  beforeEach(() => {
+    seedQuerySpy.mockClear();
+    useParameterStore.getState().clearAll();
+  });
+
+  it("hands the widget's saved database to the seed query", () => {
+    renderHook(() =>
+      useSeedQueryOptions(
+        "select",
+        "conn-1",
+        "SELECT 1",
+        undefined,
+        false,
+        "neoboard",
+      ),
+    );
+    expect(lastCallArgs()[5]).toBe("neoboard");
   });
 });
 

@@ -23,6 +23,8 @@ export interface ChartInteractionProps {
 /** Widget metadata props grouped together. */
 export interface ChartMetaProps {
   connectionId?: string;
+  /** The widget's saved per-card database, for requests a plugin makes (#1824). */
+  database?: string;
   widgetId?: string;
   resultId?: string;
   query?: string;
@@ -63,7 +65,8 @@ function ChartRendererInner({
 }: ChartRendererProps) {
   const { rules: stylingRules, paramValues, colorScales } = styling ?? {};
   const { onChartClick, clickableColumns } = interaction ?? {};
-  const { connectionId, widgetId, resultId, query, autoFit } = meta ?? {};
+  const { connectionId, database, widgetId, resultId, query, autoFit } =
+    meta ?? {};
   const colorThresholds =
     typeof settings.colorThresholds === "string"
       ? settings.colorThresholds
@@ -87,6 +90,7 @@ function ChartRendererInner({
         colorScales={colorScales}
         onChartClick={onChartClick}
         connectionId={connectionId}
+        database={database}
         widgetId={widgetId}
         resultId={resultId}
         query={query}

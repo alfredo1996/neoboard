@@ -21,7 +21,7 @@ Non-form widgets execute queries in read-only mode:
 - **PostgreSQL**: `BEGIN READ ONLY` transactions
 - **Neo4j**: Read access mode sessions
 
-Write queries go through `POST /api/query/write`. The server allows them only for users with the `can_write` permission (admins always have it, readers never do) and only on connections the user owns. In the UI, Form widgets are the only widgets that submit writes. The server does not check which widget sent the request, so the same user can also send a write query directly to the API, for example with an API key.
+Write queries go through `POST /api/query/write`. The server allows them only for users with the `can_write` permission (admins always have it, readers never do) and only on connections the user owns. In the UI, Form widgets are the only widgets that submit writes. A form's submit names the form, and the server runs it on the database saved with that form on the stored dashboard (when its connection allows a per-card database), never on a database the request names. The server does not require a widget, so the same user can also send a write query directly to the API, for example with an API key. That query runs on the connection's default database.
 
 ## Timeouts
 

@@ -31,6 +31,7 @@ function GraphPluginComponent({
   paramValues,
   onChartClick,
   connectionId,
+  database,
   widgetId,
   resultId,
   autoFit,
@@ -46,6 +47,7 @@ function GraphPluginComponent({
       nodes={graphData.nodes ?? []}
       edges={graphData.edges ?? []}
       connectionId={connectionId}
+      database={database}
       settings={raw}
       onChartClick={onChartClick}
       resultId={resultId}

@@ -62,10 +62,10 @@ export function layoutQueryKey({
 }
 
 /**
- * Every query a dashboard can legitimately execute, as `layoutQueryKey`s:
- * widget queries on their widget's database, plus the seed queries of
- * parameter selectors and form fields, across all pages. A seed query runs on
- * the connection's default, since use-seed-query.ts sends no database.
+ * Every query a dashboard can legitimately execute, as `layoutQueryKey`s: the
+ * widget queries plus the seed queries of parameter selectors and form fields,
+ * across all pages, each on its widget's saved database. A card sends that
+ * database with every request it makes (#1824).
  */
 export function collectLayoutQueries(layout: unknown): Set<string> {
   const queries = new Set<string>();
@@ -74,20 +74,13 @@ export function collectLayoutQueries(layout: unknown): Set<string> {
   for (const page of pages) {
     if (!Array.isArray(page?.widgets)) continue;
     for (const widget of page.widgets) {
-      const runs: [unknown, string | undefined][] = [
-        [widget?.query, widget?.database],
-        ...seedQueriesOf(widget?.settings).map((seed): [string, undefined] => [
-          seed,
-          undefined,
-        ]),
-      ];
-      for (const [query, database] of runs) {
+      for (const query of [widget?.query, ...seedQueriesOf(widget?.settings)]) {
         if (typeof query === "string" && query.trim()) {
           queries.add(
             layoutQueryKey({
               connectionId: widget.connectionId,
               query,
-              database,
+              database: widget.database,
             }),
           );
         }

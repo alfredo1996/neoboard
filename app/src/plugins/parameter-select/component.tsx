@@ -20,6 +20,7 @@ function ParameterSelectPluginComponent({
   settings: raw,
   connectionId,
   widgetId,
+  database,
 }: PluginProps) {
   const settings = safeParseSettings(
     parameterSelectSettingsSchema,
@@ -42,6 +43,7 @@ function ParameterSelectPluginComponent({
         parameterType={settings.parameterType as ParameterType}
         connectionId={connectionId}
         seedQuery={settings.seedQuery}
+        database={database}
         parentParameterName={settings.parentParameterName}
         rangeMin={settings.rangeMin}
         rangeMax={settings.rangeMax}

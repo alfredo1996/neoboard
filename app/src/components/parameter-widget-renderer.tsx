@@ -25,6 +25,8 @@ export interface ParameterWidgetConfig {
   connectionId?: string;
   /** SQL/Cypher query that returns label+value rows for select types */
   seedQuery?: string;
+  /** The widget's saved per-card database, where its seed query runs (#1824). */
+  database?: string;
   /**
    * Parent parameter whose value seeds this query. Setting it makes a
    * select cascading — there is no separate cascading widget type (#1360).
@@ -57,6 +59,7 @@ export function ParameterWidgetRenderer({
   parameterType,
   connectionId,
   seedQuery,
+  database,
   parentParameterName,
   rangeMin = 0,
   rangeMax = 100,
@@ -73,6 +76,7 @@ export function ParameterWidgetRenderer({
     seedQuery,
     parentParameterName,
     searchable,
+    database,
   );
   useCascadingClear(parameterName, parentParameterName, seed.parentValue);
 
