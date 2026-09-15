@@ -1315,3 +1315,116 @@ describe("PUT /api/dashboards/[id] — optimistic locking", () => {
     expect(mockDb.update).not.toHaveBeenCalled();
   });
 });
+
+describe("PUT /api/dashboards/[id] — who can make a dashboard public", () => {
+  let PUT: (
+    req: Request,
+    ctx: { params: Promise<{ id: string }> },
+  ) => Promise<Response>;
+
+  const REFUSAL =
+    "Only the dashboard's owner or an admin can change who can open it";
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    resetDbMock(mockDb);
+    const mod = await import("../route");
+    PUT = mod.PUT;
+  });
+
+  /** user-2 holds a share of `role` on user-1's dashboard; an update would succeed. */
+  function asShare(role: "editor" | "viewer", dashboard = OWNER_DASHBOARD) {
+    mockDb.update.mockReturnValue(makeUpdateChain([dashboard]));
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const share = {
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      role,
+    };
+    mockDb.select.mockImplementation(() =>
+      makeSelectChain(
+        mockDb.select.mock.calls.length % 2 === 1 ? [dashboard] : [share],
+      ),
+    );
+  }
+
+  it.each([
+    ["on", false, true],
+    ["off", true, false],
+  ])(
+    "refuses an editor share turning Public %s, and updates nothing",
+    async (_label, stored, requested) => {
+      asShare("editor", { ...OWNER_DASHBOARD, isPublic: stored });
+      const res = await PUT(
+        makeRequest({ isPublic: requested }),
+        makeParams("d1"),
+      );
+      expect(res.status).toBe(403);
+      expect((await res.json()).error.message).toBe(REFUSAL);
+      expect(mockDb.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses an editor share that changes isPublic alongside a rename", async () => {
+    asShare("editor");
+    const res = await PUT(
+      makeRequest({ name: "Renamed", isPublic: true }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("lets an editor share save without touching isPublic", async () => {
+    asShare("editor");
+    const chain = makeUpdateChain([{ ...OWNER_DASHBOARD, name: "Renamed" }]);
+    mockDb.update.mockReturnValue(chain);
+    const res = await PUT(makeRequest({ name: "Renamed" }), makeParams("d1"));
+    expect(res.status).toBe(200);
+    expect(chain.calls.set[0][0]).not.toHaveProperty("isPublic");
+  });
+
+  it.each([null, false])(
+    "lets an editor share re-send isPublic false when it is stored as %s",
+    async (stored) => {
+      asShare("editor", { ...OWNER_DASHBOARD, isPublic: stored as never });
+      const res = await PUT(makeRequest({ isPublic: false }), makeParams("d1"));
+      expect(res.status).toBe(200);
+    },
+  );
+
+  it("lets the owner make the dashboard public", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const chain = makeUpdateChain([{ ...OWNER_DASHBOARD, isPublic: true }]);
+    mockDb.update.mockReturnValue(chain);
+    const res = await PUT(makeRequest({ isPublic: true }), makeParams("d1"));
+    expect(res.status).toBe(200);
+    expect(chain.calls.set[0][0]).toMatchObject({ isPublic: true });
+  });
+
+  it("lets an admin who does not own the dashboard make it private", async () => {
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      userId: "admin-1",
+      role: "admin",
+    });
+    mockDb.select.mockReturnValue(
+      makeSelectChain([{ ...OWNER_DASHBOARD, isPublic: true }]),
+    );
+    const chain = makeUpdateChain([OWNER_DASHBOARD]);
+    mockDb.update.mockReturnValue(chain);
+    const res = await PUT(makeRequest({ isPublic: false }), makeParams("d1"));
+    expect(res.status).toBe(200);
+    expect(chain.calls.set[0][0]).toMatchObject({ isPublic: false });
+  });
+
+  it("refuses a viewer share as before", async () => {
+    asShare("viewer");
+    const res = await PUT(makeRequest({ isPublic: true }), makeParams("d1"));
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+});

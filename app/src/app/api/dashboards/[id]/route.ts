@@ -266,6 +266,19 @@ export async function PUT(
       return apiError("CONFLICT", CONFLICT_MESSAGE);
     }
 
+    // Who can open a dashboard is decided like its shares: owner or admin only,
+    // the same rule as the share route. Re-sending the stored value is a no-op.
+    if (
+      updateData.isPublic !== undefined &&
+      updateData.isPublic !== (access.dashboard.isPublic ?? false) &&
+      access.role !== "owner" &&
+      access.role !== "admin"
+    ) {
+      return forbidden(
+        "Only the dashboard's owner or an admin can change who can open it",
+      );
+    }
+
     if (updateData.layoutJson) {
       const refusal = await layoutRefusal(
         updateData.layoutJson,
