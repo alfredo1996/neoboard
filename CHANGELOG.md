@@ -136,6 +136,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - A viewer share or public dashboard runs a query only on the connection and database a widget on that dashboard saves it with, so view-level users can no longer choose another database on the same connection. Connection owners, tenant-shared connections, admins and edit-level access still choose the database (#1822)
 - View-level queries must match their saved text exactly (#1827)
 - Form submits require access to the dashboard they name, and unknown or inaccessible dashboards and widgets get the same refusal (#1832)
+- Everyone who can open a dashboard can submit its forms, which run only their saved query on their saved connection and database, and only people with access to a connection can add or change forms on it (#1831)
 
 ## [1.4.0] — 2026-07-29 — Audit, observability & correctness
 
