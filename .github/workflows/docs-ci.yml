@@ -68,15 +68,16 @@ jobs:
             exit 1
           fi
 
+      # github.repository_owner keeps a login's capitals; the Pages host, and
+      # so every sitemap URL, is lowercase. docs-pages.yml runs the same line.
+      - name: Set the Pages site URL
+        run: echo "DOCS_SITE=https://$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]').github.io" >> "$GITHUB_ENV"
+
       # Pages serves the site under /<repo>/ (docs-pages.yml). A root-absolute
       # link that works in the build above 404s there, and the source-level
       # link checks in docs-accuracy read slugs, not deployed URLs (#1318).
-      # Build again the way Pages does and read the result.
-      #
-      # No DOCS_SITE yet, so no sitemap check: with a site set, the pinned
-      # @astrojs/sitemap 3.2.1 (docs/package.json overrides) crashes Astro 7's
-      # build. Setting DOCS_SITE here waits on the owner approving that bump
-      # (#1318); the checker already asserts the sitemap once it is set.
+      # Build again the way Pages does, site included, and read the result:
+      # the links under the base and the sitemap under site + base.
       - name: Build under the Pages base and check its links
         env:
           DOCS_BASE: /neoboard

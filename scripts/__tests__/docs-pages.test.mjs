@@ -304,6 +304,30 @@ function jobBlock(yaml, name) {
   return lines.slice(start, end).join("\n");
 }
 
+/**
+ * The shell line of a job's "Set the Pages site URL" step, which both
+ * workflows share so CI builds the site exactly as Pages does.
+ */
+const siteStepRun = (job) =>
+  /^ {6}- name: Set the Pages site URL\n {8}run: (.+)$/m.exec(job)?.[1];
+
+/** What that step appends to $GITHUB_ENV when the repository owner is `owner`. */
+function runSiteStep(run, owner) {
+  const dir = mkdtempSync(join(tmpdir(), "docs-site-step-"));
+  const githubEnv = join(dir, "env");
+  try {
+    writeFileSync(githubEnv, "");
+    const r = spawnSync("bash", ["-c", run], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, GITHUB_REPOSITORY_OWNER: owner, GITHUB_ENV: githubEnv },
+    });
+    expect(r.status, r.stderr).toBe(0);
+    return readFileSync(githubEnv, "utf8");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 const code = (text) =>
   text
     .split("\n")
@@ -348,15 +372,25 @@ describe("docs-pages.yml deploys the site to GitHub Pages (#1318)", () => {
       );
   });
 
-  it("builds with the project base, checks the result, then uploads it", () => {
+  it("sets DOCS_SITE to the owner's Pages host, lowercased (#1213)", () => {
+    // github.repository_owner keeps a login's capitals (an org like
+    // GraphWave-Consulting); the Pages host, and so the sitemap, is lowercase.
+    const run = siteStepRun(jobBlock(yml, "build"));
+    expect(run, 'no "Set the Pages site URL" step').toBeTruthy();
+    expect(runSiteStep(run, "GraphWave-Consulting")).toBe(
+      "DOCS_SITE=https://graphwave-consulting.github.io\n",
+    );
+    expect(runSiteStep(run, "lowercase-owner")).toBe(
+      "DOCS_SITE=https://lowercase-owner.github.io\n",
+    );
+  });
+
+  it("builds with the site and the project base, checks the result, then uploads it", () => {
     const build = jobBlock(yml, "build");
-    // No DOCS_SITE yet: with a site set, the pinned @astrojs/sitemap 3.2.1
-    // crashes Astro 7's build. DOCS_SITE comes back with the owner-approved
-    // sitemap bump (#1318), and this assertion goes with it.
-    expect(build).not.toContain("DOCS_SITE");
     expect(build).toContain("DOCS_BASE: /${{ github.event.repository.name }}");
     const order = [
       "npm ci --prefix docs",
+      "- name: Set the Pages site URL",
       "npm run build --prefix docs",
       "node scripts/check-docs-dist.mjs docs/dist",
       "actions/upload-pages-artifact@",
@@ -382,10 +416,20 @@ describe("docs-ci.yml checks the built site under the Pages base (#1318)", () =>
   );
   const build = jobBlock(yml, "docs-build");
 
-  it("builds once under the /neoboard base, without a site, and runs the checker on it", () => {
-    // Without a site until the sitemap bump; see the docs-pages.yml test.
-    expect(build).not.toContain("DOCS_SITE");
-    expect(build.indexOf("DOCS_BASE: /neoboard")).toBeGreaterThan(-1);
+  it("builds once under the /neoboard base with the Pages site step, and runs the checker on it", () => {
+    // Same step as docs-pages.yml, so every PR checks the sitemap and the
+    // base-path links the deploy will ship (#1213).
+    const pages = jobBlock(
+      code(readFileSync(join(ROOT, ".github/workflows/docs-pages.yml"), "utf8")),
+      "build",
+    );
+    const run = siteStepRun(build);
+    expect(run, 'no "Set the Pages site URL" step').toBeTruthy();
+    expect(run).toBe(siteStepRun(pages));
+    // After the plain build (base /, as a local build), before the Pages one.
+    const step = build.indexOf("- name: Set the Pages site URL");
+    expect(step).toBeGreaterThan(build.indexOf("npm run build --prefix docs"));
+    expect(build.indexOf("DOCS_BASE: /neoboard")).toBeGreaterThan(step);
     expect(
       build.lastIndexOf("node scripts/check-docs-dist.mjs docs/dist"),
     ).toBeGreaterThan(build.indexOf("DOCS_BASE: /neoboard"));

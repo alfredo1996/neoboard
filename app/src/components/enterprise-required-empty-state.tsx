@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react";
 import { EmptyState, Button } from "@neoboard/components";
 import type { FeatureId } from "@/hooks/use-features";
+import { DOCS_LINKS } from "@/lib/docs-links";
 
 interface EnterpriseRequiredEmptyStateProps {
   readonly feature: FeatureId;
@@ -79,7 +80,7 @@ export function EnterpriseRequiredEmptyState({
   feature,
   title,
   description,
-  upgradeUrl = "https://neoboard.app/enterprise",
+  upgradeUrl = DOCS_LINKS.enterprise,
 }: EnterpriseRequiredEmptyStateProps) {
   const defaults = FEATURE_LABELS[feature];
   return (

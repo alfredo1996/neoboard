@@ -1,5 +1,6 @@
 "use client";
 
+import { DOCS_LINKS } from "@/lib/docs-links";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -451,7 +452,7 @@ export default function WidgetLibraryPage() {
                 }
                 secondaryAction={
                   <a
-                    href="https://neoboard.app/docs/getting-started/quick-start/"
+                    href={DOCS_LINKS.firstDashboard}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary underline-offset-4 hover:underline"

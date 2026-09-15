@@ -1,6 +1,6 @@
 # @neoboard/connector-sdk
 
-Stable contract for building [NeoBoard](https://neoboard.app) connectors.
+Stable contract for building [NeoBoard](https://alfredo1996.github.io/neoboard/) connectors.
 
 A connector teaches NeoBoard how to talk to a database or service: how to
 connect, run queries safely, and describe its schema. This package is the

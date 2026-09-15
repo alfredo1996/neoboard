@@ -1,5 +1,6 @@
 "use client";
 
+import { DOCS_LINKS } from "@/lib/docs-links";
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Database, Plus, ChevronDown } from "lucide-react";
@@ -1287,7 +1288,7 @@ export default function ConnectionsPage() {
               }
               secondaryAction={
                 <a
-                  href="https://neoboard.app/docs/getting-started/quick-start/"
+                  href={DOCS_LINKS.firstDashboard}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary underline-offset-4 hover:underline"

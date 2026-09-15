@@ -35,9 +35,8 @@ jobs:
     name: Build docs for Pages
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # DOCS_SITE (https://${{ github.repository_owner }}.github.io) is left out
-    # until the owner approves bumping the @astrojs/sitemap override: 3.2.1
-    # crashes Astro 7's build whenever a site is set (#1318).
+    # DOCS_SITE comes from the "Set the Pages site URL" step. With a site set,
+    # Astro emits the sitemap, and the checker holds it to site + base.
     env:
       DOCS_BASE: /${{ github.event.repository.name }}
 
@@ -57,6 +56,11 @@ jobs:
 
       - name: Install docs dependencies
         run: npm ci --prefix docs
+
+      # github.repository_owner keeps a login's capitals; the Pages host, and
+      # so every sitemap URL, is lowercase. docs-ci.yml runs the same line.
+      - name: Set the Pages site URL
+        run: echo "DOCS_SITE=https://$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]').github.io" >> "$GITHUB_ENV"
 
       - name: Build docs site
         run: npm run build --prefix docs
