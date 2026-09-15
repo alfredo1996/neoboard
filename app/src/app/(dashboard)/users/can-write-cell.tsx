@@ -27,8 +27,7 @@ export function CanWriteCell({
   onToggle,
 }: CanWriteCellProps) {
   // Admins always write; readers never write; others use DB value
-  const effectiveCanWrite =
-    role === "admin" ? true : role === "reader" ? false : canWrite;
+  const effectiveCanWrite = role === "admin" || (role !== "reader" && canWrite);
   if (!isAdmin) {
     return (
       <Badge variant={effectiveCanWrite ? "default" : "secondary"}>

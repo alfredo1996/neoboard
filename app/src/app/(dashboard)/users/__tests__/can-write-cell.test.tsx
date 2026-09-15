@@ -26,6 +26,29 @@ vi.mock("@neoboard/components", () => ({
 import { CanWriteCell } from "../can-write-cell";
 
 describe("CanWriteCell", () => {
+  it.each([
+    ["an admin, whatever is stored", "admin", false, "Yes"],
+    ["a reader, whatever is stored", "reader", true, "No"],
+    ["a creator allowed to write", "creator", true, "Yes"],
+    ["a creator not allowed to write", "creator", false, "No"],
+  ] as const)(
+    "shows a non-admin whether %s can write",
+    (_, role, canWrite, shown) => {
+      render(
+        <CanWriteCell
+          id="u2"
+          role={role}
+          canWrite={canWrite}
+          isSelf={false}
+          isAdmin={false}
+          onToggle={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText(shown)).toBeInTheDocument();
+    },
+  );
+
   it("tells an admin that a reader's write permission is about their own write queries, not forms (#1831)", () => {
     render(
       <CanWriteCell
