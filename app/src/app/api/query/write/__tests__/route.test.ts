@@ -1055,6 +1055,18 @@ describe("POST /api/query/write", () => {
       expect(mockExecuteQuery.mock.calls[1][1].database).toBe("movies");
     });
 
+    it("runs a form on its connection's default database when the connection allows no per-card database", async () => {
+      queueSelects(
+        storedForm(),
+        makeSelectChain([{ ...fakeConnection, allowPerCardDb: false }]),
+      );
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery.mock.calls[0][1].database).toBe("movies");
+    });
+
     describe("any other write keeps write permission and connection ownership", () => {
       const tableWithWriteMode = () =>
         storedForm({ chartType: "table", allowWrites: true });

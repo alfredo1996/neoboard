@@ -18,7 +18,8 @@ Every NeoBoard user is assigned one of three roles. Roles determine what a user 
 | Manage users | Yes | No | No |
 | Access settings | Yes (Authentication tab needs the SSO enterprise feature) | Profile, API keys (create/revoke needs write permission) | Profile, view API keys |
 | Run read queries | Yes | Yes | Limited (see Reader) |
-| Run write queries | Yes (own connections; forms on any dashboard) | Yes (own connections, if enabled; forms on dashboards they can open) | Forms on dashboards they can open |
+| Run write queries | Yes (own connections; submit forms on any dashboard) | Yes (own connections, if enabled; submit forms on dashboards they can open) | Submit forms on dashboards they can open |
+| Add or change forms | Yes (any connection) | Yes (connections they own or that are shared with the tenant, if enabled) | No |
 
 ## Admin
 
@@ -44,7 +45,7 @@ The **write permission** toggle is an additional control, independent of the rol
 | Creator | Can write (own connections) | View, read queries and form submits only |
 | Reader | No effect | No effect |
 
-Admins always have write permission regardless of the toggle. For every role, a write query of the user's own only runs on a connection they created; shared connections and connections owned by other users take none, even from admins. Forms are the exception: anyone who can open a dashboard can submit its forms, whatever their role or write permission, and each submit runs only the query saved with the form, on the connection and database it is saved with. Turning the toggle off does not let a Creator build dashboards while blocking data changes; no setting does that today.
+Admins always have write permission regardless of the toggle. Outside forms, a write query only runs on a connection the user created; shared connections and connections owned by other users take none, even from admins. Forms work differently: anyone who can open a dashboard can submit its forms, whatever their role or write permission, and each submit runs only the query saved with the form, on the connection and database it is saved with. Adding a form, or changing a form's query, connection or database, needs access to that connection: its owner, anyone in the tenant once it is shared, or an admin. A form can therefore write through a tenant-shared connection its author does not own, and an admin's form through any connection. Turning the toggle off does not let a Creator build dashboards while blocking data changes; no setting does that today.
 
 ## Role Assignment
 

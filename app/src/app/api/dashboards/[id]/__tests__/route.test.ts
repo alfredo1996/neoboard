@@ -795,6 +795,232 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(mockDb.update).not.toHaveBeenCalled();
   });
 
+  // A saved form writes through its connection for everyone who can open the
+  // dashboard (#1831). So a save that adds a form, turns a widget into one, or
+  // changes a form's query, connection or database needs the saver's own access
+  // to that connection, even one the dashboard already names. A form left as
+  // stored stays, whoever saves.
+  describe("forms (#1831)", () => {
+    const FORM_REFUSAL =
+      "You can only add or change forms on connections you have access to";
+
+    /** w-form, on the owner's private c-alice and database neoboard. */
+    const form = (widget: Record<string, unknown> = {}) => ({
+      id: "w-form",
+      chartType: "form",
+      connectionId: "c-alice",
+      query: "CREATE (t:Tag {tag: $param_tag})",
+      database: "neoboard",
+      settings: { title: "Tags" },
+      ...widget,
+    });
+    const table = {
+      id: "w-table",
+      chartType: "table",
+      connectionId: "c-alice",
+      query: "MATCH (t:Tag) RETURN t",
+    };
+    const layoutOf = (...widgets: Record<string, unknown>[]) => ({
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Page 1",
+          widgets,
+          gridLayout: widgets.map((widget, i) => ({
+            i: String(widget.id),
+            x: i * 4,
+            y: 0,
+            w: 4,
+            h: 3,
+          })),
+        },
+      ],
+    });
+
+    /**
+     * user-2, an editor share, saves over `stored`. The selects are queued as
+     * the #1816 check reads them on a save it lets through: the dashboard, the
+     * share, user-2's access (none to c-alice), the owner's role and the
+     * owner's access (all of it). Returns the lookup of user-2's access.
+     */
+    function editorSavesOver(stored: unknown) {
+      mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+      const saverAccess = makeSelectChain([{ id: "c-alice" }]);
+      mockDb.select
+        .mockReturnValueOnce(
+          makeSelectChain([{ ...OWNER_DASHBOARD, layoutJson: stored }]),
+        )
+        .mockReturnValueOnce(makeSelectChain([EDITOR_SHARE]))
+        .mockReturnValueOnce(saverAccess)
+        .mockReturnValueOnce(makeSelectChain([{ role: "creator" }]))
+        .mockReturnValueOnce(makeSelectChain([]));
+      mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+      return saverAccess;
+    }
+
+    it.each([
+      ["adds a form", layoutOf(table), layoutOf(table, form())],
+      [
+        "copies a form under a new id",
+        layoutOf(form()),
+        layoutOf(form(), form({ id: "w-copy" })),
+      ],
+      [
+        "turns a table into a form",
+        layoutOf(form({ chartType: "table" })),
+        layoutOf(form()),
+      ],
+      [
+        "changes a form's query",
+        layoutOf(form()),
+        layoutOf(form({ query: "MATCH (t:Tag) DETACH DELETE t" })),
+      ],
+      [
+        "changes a form's database",
+        layoutOf(form()),
+        layoutOf(form({ database: "archive" })),
+      ],
+      [
+        "moves a form onto it from another connection",
+        layoutOf(table, form({ connectionId: "c-bob" })),
+        layoutOf(table, form()),
+      ],
+    ])(
+      "refuses an editor share without access to the owner's private connection who %s",
+      async (_, stored, next) => {
+        const saverAccess = editorSavesOver(stored);
+
+        const res = await PUT(
+          makeRequest({ layoutJson: next }),
+          makeParams("d1"),
+        );
+
+        expect(res.status).toBe(403);
+        expect((await res.json()).error.message).toBe(FORM_REFUSAL);
+        expect(mockDb.update).not.toHaveBeenCalled();
+        const [expr] = saverAccess.calls.where[0];
+        expect(sqlValues(expr)).toEqual(
+          expect.arrayContaining(["tenant-1", "c-alice", "user-2", "shared"]),
+        );
+      },
+    );
+
+    it("lets that editor move a form to another page, resize and rename it, with no lookup", async () => {
+      editorSavesOver(layoutOf(table, form()));
+      const next = {
+        version: 2,
+        pages: [
+          {
+            id: "p1",
+            title: "Page 1",
+            widgets: [table],
+            gridLayout: [{ i: "w-table", x: 0, y: 0, w: 4, h: 3 }],
+          },
+          {
+            id: "p2",
+            title: "Page 2",
+            widgets: [form({ settings: { title: "Renamed" } })],
+            gridLayout: [{ i: "w-form", x: 2, y: 1, w: 8, h: 5 }],
+          },
+        ],
+      };
+
+      const res = await PUT(
+        makeRequest({ layoutJson: next }),
+        makeParams("d1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockDb.select).toHaveBeenCalledTimes(2);
+    });
+
+    it("lets that editor change another widget's query while the owner can use the connection", async () => {
+      editorSavesOver(layoutOf(table, form()));
+      const next = layoutOf(
+        { ...table, query: "MATCH (t:Tag) RETURN t.tag" },
+        form(),
+      );
+
+      const res = await PUT(
+        makeRequest({ layoutJson: next }),
+        makeParams("d1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockDb.select).toHaveBeenCalledTimes(5);
+    });
+
+    it("lets an editor share add a form on a connection shared with the tenant", async () => {
+      mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+      const saverAccess = makeSelectChain([]);
+      mockDb.select
+        .mockReturnValueOnce(
+          makeSelectChain([{ ...OWNER_DASHBOARD, layoutJson: layoutOf() }]),
+        )
+        .mockReturnValueOnce(makeSelectChain([EDITOR_SHARE]))
+        .mockReturnValueOnce(saverAccess);
+      mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+
+      const res = await PUT(
+        makeRequest({
+          layoutJson: layoutOf(form({ connectionId: "c-shared" })),
+        }),
+        makeParams("d1"),
+      );
+
+      expect(res.status).toBe(200);
+      const [expr] = saverAccess.calls.where[0];
+      expect(sqlValues(expr)).toEqual(
+        expect.arrayContaining(["tenant-1", "c-shared", "user-2", "shared"]),
+      );
+    });
+
+    it("lets an admin add a form on another user's private connection, with no lookup", async () => {
+      mockRequireSession.mockResolvedValue({
+        ...SESSION,
+        userId: "admin-1",
+        role: "admin",
+      });
+      mockDb.select.mockReturnValueOnce(
+        makeSelectChain([{ ...OWNER_DASHBOARD, layoutJson: layoutOf(table) }]),
+      );
+      mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+
+      const res = await PUT(
+        makeRequest({ layoutJson: layoutOf(table, form()) }),
+        makeParams("d1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockDb.select).toHaveBeenCalledTimes(1);
+    });
+
+    it("lets the owner add a form on a connection they can use", async () => {
+      mockRequireSession.mockResolvedValue(SESSION);
+      const ownerAccess = makeSelectChain([]);
+      mockDb.select
+        .mockReturnValueOnce(
+          makeSelectChain([
+            { ...OWNER_DASHBOARD, layoutJson: layoutOf(table) },
+          ]),
+        )
+        .mockReturnValueOnce(ownerAccess);
+      mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+
+      const res = await PUT(
+        makeRequest({ layoutJson: layoutOf(table, form()) }),
+        makeParams("d1"),
+      );
+
+      expect(res.status).toBe(200);
+      const [expr] = ownerAccess.calls.where[0];
+      expect(sqlValues(expr)).toEqual(
+        expect.arrayContaining(["tenant-1", "c-alice", "user-1", "shared"]),
+      );
+    });
+  });
+
   it("answers a stale save with 409 before checking its connections (#1816)", async () => {
     // user-2, an editor share, opened version 3, where a widget used the
     // owner's private c-alice. The owner has since removed it (version 4).

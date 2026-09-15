@@ -12,10 +12,13 @@ import { AuthPage } from "./pages/auth";
 /**
  * Everyone who can open a dashboard can submit its forms, and a submit runs
  * only what the form saves: its query, with the values of its own fields, on
- * its saved connection and database (#1831). Alice's form is on her private
- * connection, which defaults to movies, and is saved on neoboard, the only
- * database holding its table. Neither submitter owns a connection or has write
- * permission. Every row is created under a unique name and deleted by id.
+ * its saved connection and database. Adding a form, or changing a form's query,
+ * connection or database, needs access to that connection (#1831). Alice's form
+ * is on her private connection, which defaults to movies, and is saved on
+ * neoboard, the only database holding its table. Neither submitter owns a
+ * connection or has write permission; the editor share has write permission
+ * but no access to Alice's connection. Every row is created under a unique name
+ * and deleted by id.
  */
 
 /** A private PostgreSQL connection of the caller's, defaulting to `database`. */
@@ -43,10 +46,10 @@ async function createConnection(
   return (await res.json()).data.id as string;
 }
 
-test.describe("Anyone who can open a dashboard can submit its forms (#1831)", () => {
+test.describe("Anyone who can open a dashboard can submit its forms, and only people with access to its connection can write one (#1831)", () => {
   test.describe.configure({ timeout: 180_000 });
 
-  test("a reader with a view share and a tenant user on a public dashboard submit Alice's form into neoboard; a tampered or refused submit writes nothing", async ({
+  test("a reader with a view share and a tenant user on a public dashboard submit Alice's form into neoboard; a tampered or refused submit writes nothing; an editor share without access to her connection cannot add or change a form on it", async ({
     page,
     authPage,
     browser,
@@ -81,16 +84,16 @@ test.describe("Anyone who can open a dashboard can submit its forms (#1831)", ()
       expect(res.status()).toBe(200);
       return (await res.json()).data.data;
     };
-    /** A user Alice creates without write permission, signed in on a page of their own. */
-    const signIn = async (role: "reader" | "creator") => {
-      const email = `form-access-${role}-${suffix}@example.com`;
+    /** A user Alice creates, without write permission unless asked, signed in on a page of their own. */
+    const signIn = async (role: "reader" | "creator", canWrite = false) => {
+      const email = `form-access-${role}${canWrite ? "-writer" : ""}-${suffix}@example.com`;
       const res = await page.request.post("/api/users", {
         data: {
           name: `Form access ${role} ${suffix}`,
           email,
           password,
           role,
-          canWrite: false,
+          canWrite,
         },
       });
       expect(res.status()).toBe(201);
@@ -236,6 +239,68 @@ test.describe("Anyone who can open a dashboard can submit its forms (#1831)", ()
         expect(unknown.status()).toBe(404);
         expect(tampered.status()).toBe(unknown.status());
         expect(await tampered.json()).toEqual(await unknown.json());
+        expect(await rows(readerTag)).toEqual([{ tag: readerTag }]);
+      });
+
+      await test.step("an editor share without access to Alice's connection cannot add a form on it or change her form's query, and can still move her form", async () => {
+        const editor = await signIn("creator", true);
+        const share = await page.request.post(
+          `/api/dashboards/${dashboardId}/share`,
+          { data: { email: editor.email, role: "editor" } },
+        );
+        expect(share.ok()).toBeTruthy();
+        /** The layout stored on the dashboard, as Alice reads it. */
+        const storedLayout = async () =>
+          (
+            await (
+              await page.request.get(`/api/dashboards/${dashboardId}`)
+            ).json()
+          ).data.layoutJson;
+        const stored = await storedLayout();
+        const [storedPage] = stored.pages;
+        const [form] = storedPage.widgets;
+        const deleteQuery = `DELETE FROM ${table} WHERE tag = $param_tag`;
+        /** The editor saves Alice's page with these widgets and grid. */
+        const save = (widgets: unknown[], gridLayout: unknown[]) =>
+          editor.page.request.put(`/api/dashboards/${dashboardId}`, {
+            data: {
+              layoutJson: {
+                ...stored,
+                pages: [{ ...storedPage, widgets, gridLayout }],
+              },
+            },
+          });
+        const refusal =
+          "You can only add or change forms on connections you have access to";
+
+        const added = await save(
+          [form, { ...form, id: "w-added", query: deleteQuery }],
+          [...storedPage.gridLayout, { i: "w-added", x: 0, y: 6, w: 12, h: 6 }],
+        );
+        expect(added.status()).toBe(403);
+        expect((await added.json()).error.message).toBe(refusal);
+
+        const changed = await save(
+          [{ ...form, query: deleteQuery }],
+          storedPage.gridLayout,
+        );
+        expect(changed.status()).toBe(403);
+        expect((await changed.json()).error.message).toBe(refusal);
+        expect(await storedLayout()).toEqual(stored);
+
+        const moved = await save(
+          [form],
+          [{ i: "w-form", x: 0, y: 2, w: 8, h: 6 }],
+        );
+        expect(moved.status()).toBe(200);
+        expect((await storedLayout()).pages[0].widgets).toEqual([form]);
+      });
+
+      await test.step("Alice's form still submits for the reader, and nothing it wrote is gone", async () => {
+        const tag = `reader-again-${suffix}`;
+        const res = await submit(reader.page, dashboardId, tag);
+        expect(res.status()).toBe(200);
+        expect(await rows(tag)).toEqual([{ tag }]);
         expect(await rows(readerTag)).toEqual([{ tag: readerTag }]);
       });
 

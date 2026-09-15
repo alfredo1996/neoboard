@@ -1560,6 +1560,12 @@ describe("security claims the code does not back (#1790)", () => {
     ["security/managing-users.mdx", /^Write queries only run against connections the user owns/m, "form submits need dashboard access, not connection ownership (#1831)"],
     ["security/query-safety.mdx", /and only on connections the user owns\. In the UI/, "a form runs for anyone who can open its dashboard (#1831)"],
     ["charts/form.mdx", /and owns the form's connection|cannot submit forms on it/, "form submits need neither write permission nor connection ownership (#1831)"],
+    ["security/multi-tenancy.mdx", /no write access|running write queries through it,? stays? with/, "readers submit forms; adding or changing a form needs access to its connection, not ownership (#1831)"],
+    ["security/query-safety.mdx", /that has forms as Editor only|on connections the dashboard's owner can use/, "adding or changing a form needs the saver's own access to its connection (dashboards/[id]/route.ts, #1831)"],
+    ["security/roles.mdx", /For every role, a write query of the user's own only runs/, "a form writes through any connection its author can use (#1831)"],
+    ["security/managing-users.mdx", /A user's own write queries only run against connections they own/, "a form writes through any connection its author can use (#1831)"],
+    ["charts/form.mdx", /Anyone who can edit the dashboard can change what the form writes/, "changing a form needs access to its connection (#1831)"],
+    ["using/dashboards.mdx", /whoever can edit the dashboard decides what its forms write/i, "changing a form needs access to its connection (#1831)"],
     ["deploy/production.mdx", /`X-Forwarded-Proto: https`, or `NEXTAUTH_URL`/, "a set NEXTAUTH_URL/AUTH_URL alone decides the cookie name; X-Forwarded-Proto counts only when neither is set (createActionURL, proxy.ts)"],
     ["security/credential-encryption.mdx", /__Secure-authjs\.session-token=<value>"` on HTTPS/, "the __Secure- name follows NEXTAUTH_URL's scheme when it is set, not the request's (createActionURL, proxy.ts)"],
   ];
@@ -1570,6 +1576,27 @@ describe("security claims the code does not back (#1790)", () => {
         ?.text ?? "";
     expect(text, `${page} is missing`).not.toBe("");
     expect(text).not.toMatch(claim);
+  });
+});
+
+describe("the pages that say who can write state both form rules (#1831)", () => {
+  // Anyone who can open a dashboard submits its forms (api/query/write/route.ts).
+  // Adding a form, or changing a form's query, connection or database, needs
+  // the saver's own access to that connection (api/dashboards/[id]/route.ts).
+  it.each([
+    "security/multi-tenancy.mdx",
+    "security/query-safety.mdx",
+    "security/roles.mdx",
+    "security/managing-users.mdx",
+    "charts/form.mdx",
+    "using/dashboards.mdx",
+  ])("%s says who can submit a form and who can add or change one", (page) => {
+    const text =
+      DOCS.find(({ path }) => path === `docs/src/content/docs/${page}`)
+        ?.text ?? "";
+    expect(text, `${page} is missing`).not.toBe("");
+    expect(text).toMatch(/anyone who can (open|view) (a|the|that) dashboard can submit/i);
+    expect(text).toMatch(/Adding a form, or changing (a|its) form's query, connection or database, needs access to that connection/);
   });
 });
 

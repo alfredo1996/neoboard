@@ -283,6 +283,10 @@ const SPEC = {
       put: {
         tags: ["Dashboards"],
         summary: "Update dashboard",
+        description:
+          "A save answers 403 when its layout adds a connection the caller cannot use, or adds or changes a query while the dashboard names a connection neither the caller nor its owner can use. " +
+          "Adding a form, or changing a form's query, connection or database, needs the caller's own access to that connection even when the dashboard already uses it: " +
+          "the connection's owner, anyone in the tenant once it is shared, or an admin. A form left as saved stays.",
         requestBody: jsonBody("#/components/schemas/UpdateDashboardRequest"),
         responses: {
           200: jsonResponse(

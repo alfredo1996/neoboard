@@ -30,12 +30,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Badge,
-  Switch,
   Checkbox,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -55,64 +50,7 @@ import {
 import { useToast } from "@neoboard/components";
 import type { DataGridColumn } from "@neoboard/components";
 import { RoleCell } from "./role-cell";
-
-type CanWriteCellProps = Readonly<{
-  id: string;
-  role: UserRole;
-  canWrite: boolean;
-  isSelf: boolean;
-  isAdmin: boolean;
-  onToggle: (id: string, checked: boolean) => void;
-}>;
-
-function CanWriteCell({
-  id,
-  role,
-  canWrite,
-  isSelf,
-  isAdmin,
-  onToggle,
-}: CanWriteCellProps) {
-  // Admins always write; readers never write; others use DB value
-  const effectiveCanWrite =
-    role === "admin" ? true : role === "reader" ? false : canWrite;
-  if (!isAdmin) {
-    return (
-      <Badge variant={effectiveCanWrite ? "default" : "secondary"}>
-        {effectiveCanWrite ? "Yes" : "No"}
-      </Badge>
-    );
-  }
-
-  // Disable toggle for self, admins (always on), and readers (always off)
-  const disabled = isSelf || role !== "creator";
-  const toggle = (
-    <Switch
-      checked={effectiveCanWrite}
-      disabled={disabled}
-      onCheckedChange={(checked) => onToggle(id, checked)}
-    />
-  );
-
-  if (disabled) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex cursor-not-allowed opacity-60">
-            {toggle}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>
-          {isSelf
-            ? "You cannot change your own write permission"
-            : "Readers cannot execute write queries"}
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return toggle;
-}
+import { CanWriteCell } from "./can-write-cell";
 
 export default function UsersPage() {
   const { data: session } = useSession();
@@ -187,7 +125,7 @@ export default function UsersPage() {
           onSuccess: () =>
             toast({
               title: "Write permission updated",
-              description: `${displayName} can ${checked ? "now" : "no longer"} execute write queries.`,
+              description: `${displayName} can ${checked ? "now" : "no longer"} run their own write queries. Submitting forms doesn't need this permission.`,
             }),
           onError: (err) =>
             toast({
