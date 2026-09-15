@@ -380,8 +380,8 @@ describe("docs-pages.yml deploys the site to GitHub Pages (#1318)", () => {
     expect(runSiteStep(run, "GraphWave-Consulting")).toBe(
       "DOCS_SITE=https://graphwave-consulting.github.io\n",
     );
-    expect(runSiteStep(run, "alfredo1996")).toBe(
-      "DOCS_SITE=https://alfredo1996.github.io\n",
+    expect(runSiteStep(run, "lowercase-owner")).toBe(
+      "DOCS_SITE=https://lowercase-owner.github.io\n",
     );
   });
 
