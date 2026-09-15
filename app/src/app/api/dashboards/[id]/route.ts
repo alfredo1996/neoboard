@@ -217,6 +217,35 @@ async function layoutRefusal(
     : null;
 }
 
+/**
+ * Why a save's `isPublic` is refused, or null. Who can open a dashboard is
+ * decided like its shares: owner or admin only, the same rule as the share
+ * route. Anyone else may re-send the stored value (a stored null counts as
+ * false), but it is dropped from `update` rather than written: an update
+ * without a layout pins no version, so a copy read before the owner's toggle
+ * would otherwise overwrite it.
+ */
+function publicRefusal(
+  update: { isPublic?: boolean },
+  access: {
+    role: DashboardAccessRole;
+    dashboard: Pick<typeof dashboards.$inferSelect, "isPublic">;
+  },
+): string | null {
+  if (
+    update.isPublic === undefined ||
+    access.role === "owner" ||
+    access.role === "admin"
+  ) {
+    return null;
+  }
+  if (update.isPublic !== (access.dashboard.isPublic ?? false)) {
+    return "Only the dashboard's owner or an admin can change who can open it";
+  }
+  delete update.isPublic;
+  return null;
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -265,6 +294,9 @@ export async function PUT(
     ) {
       return apiError("CONFLICT", CONFLICT_MESSAGE);
     }
+
+    const publicRefused = publicRefusal(updateData, access);
+    if (publicRefused) return forbidden(publicRefused);
 
     if (updateData.layoutJson) {
       const refusal = await layoutRefusal(

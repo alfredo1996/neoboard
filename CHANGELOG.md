@@ -137,6 +137,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - View-level queries must match their saved text exactly (#1827)
 - Form submits require access to the dashboard they name, and unknown or inaccessible dashboards and widgets get the same refusal (#1832)
 - Everyone who can open a dashboard can submit its forms, which run only their saved query on their saved connection and database, and only people with access to a connection can add or change forms on it (#1831)
+- Only a dashboard's owner or an admin can make it public or private
 
 ## [1.4.0] — 2026-07-29 — Audit, observability & correctness
 
