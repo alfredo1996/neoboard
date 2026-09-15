@@ -10,10 +10,10 @@ describe("FormWritePermissionNote (#1051)", () => {
     ).toBeInTheDocument();
   });
 
-  it("explains that viewers without write access will see an error", () => {
+  it("says anyone who can open the dashboard can submit the saved form (#1831)", () => {
     render(<FormWritePermissionNote />);
     expect(
-      screen.getByText(/without write access will see a submission error/i),
+      screen.getByText(/anyone who can open it can submit this form/i),
     ).toBeInTheDocument();
   });
 

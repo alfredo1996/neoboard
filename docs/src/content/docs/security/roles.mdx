@@ -18,7 +18,7 @@ Every NeoBoard user is assigned one of three roles. Roles determine what a user 
 | Manage users | Yes | No | No |
 | Access settings | Yes (Authentication tab needs the SSO enterprise feature) | Profile, API keys (create/revoke needs write permission) | Profile, view API keys |
 | Run read queries | Yes | Yes | Limited (see Reader) |
-| Run write queries | Yes (own connections) | Yes (own connections, if enabled) | No |
+| Run write queries | Yes (own connections; forms on any dashboard) | Yes (own connections, if enabled; forms on dashboards they can open) | Forms on dashboards they can open |
 
 ## Admin
 
@@ -30,21 +30,21 @@ Can build and edit their own dashboards and widgets. Creators can add connection
 
 ## Reader
 
-Readers cannot edit dashboards, write data, or add, change or delete connections. They can see and run read-only queries against connections an admin has shared with the tenant, and against any connection they still own. On a dashboard shared with them as Editor, they can run any read-only query against that dashboard's connections. On a Viewer share or a public dashboard, they can only run the queries the dashboard already contains, each on the connection and database its widget uses.
+Readers cannot edit dashboards, run write queries of their own, or add, change or delete connections. Like every user, they can submit the forms on dashboards they can open. They can see and run read-only queries against connections an admin has shared with the tenant, and against any connection they still own. On a dashboard shared with them as Editor, they can run any read-only query against that dashboard's connections. On a Viewer share or a public dashboard, they can only run the queries the dashboard already contains, each on the connection and database its widget uses.
 
 Readers can open Settings to edit their profile and see their API keys, but cannot create or revoke keys.
 
 ## Write Permission
 
-The **write permission** toggle is an additional control, independent of the role. When it is off, a Creator cannot run write queries (such as form widget submissions). They also cannot create, edit, duplicate, import or delete dashboards, manage widget templates, reassign connections, or create or revoke API keys. They can still view dashboards and run read queries.
+The **write permission** toggle is an additional control, independent of the role. When it is off, a Creator cannot run write queries of their own. They also cannot create, edit, duplicate, import or delete dashboards, manage widget templates, reassign connections, or create or revoke API keys. They can still view dashboards, run read queries, and submit forms on dashboards they can open, since a form does not need write permission.
 
 | Role | Write Permission On | Write Permission Off |
 |------|-------------------|---------------------|
 | Admin | Can write (own connections) | Can write (own connections, always) |
-| Creator | Can write (own connections) | View and read queries only |
+| Creator | Can write (own connections) | View, read queries and form submits only |
 | Reader | No effect | No effect |
 
-Admins always have write permission regardless of the toggle. For every role, a write query (a Form submission) only runs on a connection the user created. Shared connections, and connections owned by other users, stay read-only even for admins. Turning the toggle off does not let a Creator build dashboards while blocking data changes; no setting does that today.
+Admins always have write permission regardless of the toggle. For every role, a write query of the user's own only runs on a connection they created; shared connections and connections owned by other users take none, even from admins. Forms are the exception: anyone who can open a dashboard can submit its forms, whatever their role or write permission, and each submit runs only the query saved with the form, on the connection and database it is saved with. Turning the toggle off does not let a Creator build dashboards while blocking data changes; no setting does that today.
 
 ## Role Assignment
 

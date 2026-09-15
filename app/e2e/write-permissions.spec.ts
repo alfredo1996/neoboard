@@ -3,14 +3,11 @@ import { AuthPage } from "./pages/auth";
 import type { Browser, Page } from "@playwright/test";
 
 /**
- * Covers issue #478 — Form widget write-permission enforcement.
+ * Covers issue #478 — write-permission enforcement on /api/query/write, for
+ * writes that name no widget. A saved form's submit does not need write
+ * permission (#1831); form-submit-dashboard-access.spec.ts covers it.
  *
- * These tests complement form-widget.spec.ts rather than duplicate it.
- * form-widget.spec.ts already covers:
- *   - happy-path submit (Alice admin → success message)
- *   - creator with canWrite=false, UI click → "Write permission required"
- *
- * What's NEW here:
+ * What's covered here:
  *   1. Reader role denied at API (no reader test exists anywhere)
  *   2. canWrite=false creator denied at API (direct POST, complements the UI-only existing test)
  *   3. canWrite toggle propagates to active sessions without re-login

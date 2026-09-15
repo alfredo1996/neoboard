@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildFormParams } from "@/lib/widget/form-field-def";
+import { buildFormParams, formParamNames } from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 
 describe("buildFormParams", () => {
@@ -198,5 +198,68 @@ describe("buildFormParams", () => {
     ];
     const result = buildFormParams(fields, { period: { from: "2024-01-01" } });
     expect(result).toEqual({ param_period_from: "2024-01-01" });
+  });
+});
+
+// The write route binds a saved form's submit to these names and ignores any
+// other parameter (#1831), so they must be exactly the ones the form sends.
+describe("formParamNames", () => {
+  const fields: FormFieldDef[] = [
+    {
+      id: "1",
+      label: "Tag",
+      parameterName: "tag",
+      parameterType: "text",
+      required: true,
+    },
+    {
+      id: "2",
+      label: "When",
+      parameterName: "when",
+      parameterType: "date-range",
+    },
+    {
+      id: "3",
+      label: "Size",
+      parameterName: "size",
+      parameterType: "number-range",
+      required: true,
+    },
+    {
+      id: "4",
+      label: "Tags",
+      parameterName: "tags",
+      parameterType: "multi-select",
+    },
+  ];
+
+  it("names every parameter the fields can send, required or not", () => {
+    expect([...formParamNames(fields)].sort()).toEqual([
+      "param_size_max",
+      "param_size_min",
+      "param_tag",
+      "param_tags",
+      "param_when_from",
+      "param_when_to",
+    ]);
+  });
+
+  it("names every parameter buildFormParams sends for filled fields", () => {
+    const sent = Object.keys(
+      buildFormParams(fields, {
+        tag: "t",
+        when: { from: "2026-01-01", to: "2026-01-31" },
+        size: [1, 9],
+        tags: ["a"],
+      }),
+    );
+    expect(sent).toHaveLength(6);
+    expect(sent.filter((name) => !formParamNames(fields).has(name))).toEqual(
+      [],
+    );
+  });
+
+  it("names nothing for no fields", () => {
+    expect(formParamNames([]).size).toBe(0);
   });
 });

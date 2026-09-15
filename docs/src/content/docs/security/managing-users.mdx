@@ -15,9 +15,9 @@ Every user is assigned one of three roles.
 
 | Role | Dashboards | Connections | Users | Write Queries |
 |------|-----------|-------------|-------|---------------|
-| **Admin** | View, create, edit, delete | View, query and delete all tenant connections; edit own | Create and manage users | Yes, always (own connections only) |
-| **Creator** | View, create, edit, delete own | Add; edit or delete own; use shared | No access | Yes, if enabled (own connections only) |
-| **Reader** | View dashboards shared with them and public dashboards | Use shared connections (cannot add or modify) | No access | No |
+| **Admin** | View, create, edit, delete | View, query and delete all tenant connections; edit own | Create and manage users | Yes, always, on own connections; forms on any dashboard |
+| **Creator** | View, create, edit, delete own | Add; edit or delete own; use shared | No access | Yes, if enabled, on own connections; forms on dashboards they can open |
+| **Reader** | View dashboards shared with them and public dashboards | Use shared connections (cannot add or modify) | No access | Forms on dashboards they can open |
 
 - **Admin** has full access to dashboards, user management and settings, and can view, query and delete every connection in the tenant. Only a connection's owner can edit it.
 - **Creator** can build and edit dashboards and widgets, add connections, and edit or delete the connections they own. Creators can also run queries against connections an admin has shared; only admins can share a connection or manage other users' connections.
@@ -28,10 +28,10 @@ Every user is assigned one of three roles.
 The **write permission** toggle is an additional control, separate from the role. It controls write queries (e.g., `CREATE`, `INSERT`, `UPDATE`, `DELETE`) and most of the changes a Creator can make.
 
 - The toggle applies only to **Creators**. **Admins** always have write permission and **Readers** never do; their switch is fixed and cannot be changed.
-- When **enabled**, a Creator can run write queries through Form widgets on connections they own, and can create and change dashboards, widget templates and API keys.
-- When **disabled**, a Creator can still view dashboards and run read-only widget queries, but cannot run write queries, create, edit, import, duplicate or delete dashboards, save widget templates, or create or revoke API keys. It does not stop them from adding or editing connections or managing sharing on dashboards they already own.
+- When **enabled**, a Creator can run write queries on connections they own, and can create and change dashboards, widget templates and API keys.
+- When **disabled**, a Creator can still view dashboards, run read-only widget queries and submit forms on dashboards they can open, but cannot run write queries of their own, create, edit, import, duplicate or delete dashboards, save widget templates, or create or revoke API keys. It does not stop them from adding or editing connections or managing sharing on dashboards they already own.
 
-Write queries only run against connections the user owns, whatever their role.
+A user's own write queries only run against connections they own, whatever their role. Forms are the exception: anyone who can open a dashboard can submit its forms, and each submit runs only the query saved with the form, on its saved connection and database.
 
 ## Creating a User
 
