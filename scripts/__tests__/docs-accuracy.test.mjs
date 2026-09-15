@@ -1566,6 +1566,8 @@ describe("security claims the code does not back (#1790)", () => {
     ["security/managing-users.mdx", /A user's own write queries only run against connections they own/, "a form writes through any connection its author can use (#1831)"],
     ["charts/form.mdx", /Anyone who can edit the dashboard can change what the form writes/, "changing a form needs access to its connection (#1831)"],
     ["using/dashboards.mdx", /whoever can edit the dashboard decides what its forms write/i, "changing a form needs access to its connection (#1831)"],
+    ["security/query-safety.mdx", /or change what one writes/, "only a form's query, connection and database are locked; its fields stay editable (dashboards/[id]/route.ts, #1831)"],
+    ["charts/form.mdx", /any signed-in user when the dashboard is public/, "public access is within the tenant (resolveDashboardAccess, #1831)"],
     ["deploy/production.mdx", /`X-Forwarded-Proto: https`, or `NEXTAUTH_URL`/, "a set NEXTAUTH_URL/AUTH_URL alone decides the cookie name; X-Forwarded-Proto counts only when neither is set (createActionURL, proxy.ts)"],
     ["security/credential-encryption.mdx", /__Secure-authjs\.session-token=<value>"` on HTTPS/, "the __Secure- name follows NEXTAUTH_URL's scheme when it is set, not the request's (createActionURL, proxy.ts)"],
   ];
@@ -1598,6 +1600,15 @@ describe("the pages that say who can write state both form rules (#1831)", () =>
     expect(text).toMatch(/anyone who can (open|view) (a|the|that) dashboard can submit/i);
     expect(text).toMatch(/Adding a form, or changing (a|its) form's query, connection or database, needs access to that connection/);
   });
+});
+
+it("query-safety.mdx says a stored non-form widget's saved database needs a per-card database (query/write/route.ts, #1831)", () => {
+  const text =
+    DOCS.find(({ path }) => path === "docs/src/content/docs/security/query-safety.mdx")
+      ?.text ?? "";
+  expect(text).toMatch(
+    /other than a form also needs that widget's write mode on, and runs on the widget's saved database when its connection allows a per-card database/,
+  );
 });
 
 describe("no deploy page says the prod compose files drop MIGRATE_ON_START (#1796)", () => {

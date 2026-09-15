@@ -859,7 +859,28 @@ describe("PUT /api/dashboards/[id]", () => {
       return saverAccess;
     }
 
-    it.each([
+    /**
+     * The owner, user-1, saves over `stored` without access to c-alice: the
+     * dashboard, then user-1's access (none to c-alice).
+     */
+    function ownerSavesOver(stored: unknown) {
+      mockRequireSession.mockResolvedValue(SESSION);
+      const saverAccess = makeSelectChain([{ id: "c-alice" }]);
+      mockDb.select
+        .mockReturnValueOnce(
+          makeSelectChain([{ ...OWNER_DASHBOARD, layoutJson: stored }]),
+        )
+        .mockReturnValueOnce(saverAccess);
+      mockDb.update.mockReturnValue(makeUpdateChain([OWNER_DASHBOARD]));
+      return saverAccess;
+    }
+
+    const SAVERS = [
+      ["an editor share", "user-2", editorSavesOver],
+      ["the dashboard's owner", "user-1", ownerSavesOver],
+    ] as const;
+
+    const REFUSALS: [string, unknown, unknown][] = [
       ["adds a form", layoutOf(table), layoutOf(table, form())],
       [
         "copies a form under a new id",
@@ -886,10 +907,24 @@ describe("PUT /api/dashboards/[id]", () => {
         layoutOf(table, form({ connectionId: "c-bob" })),
         layoutOf(table, form()),
       ],
-    ])(
-      "refuses an editor share without access to the owner's private connection who %s",
-      async (_, stored, next) => {
-        const saverAccess = editorSavesOver(stored);
+      [
+        "hides a changed copy under the form's id before the original",
+        layoutOf(form()),
+        layoutOf(form({ query: "MATCH (t:Tag) DETACH DELETE t" }), form()),
+      ],
+    ];
+
+    it.each(
+      SAVERS.flatMap(([saver, userId, savesOver]) =>
+        REFUSALS.map(
+          ([what, stored, next]) =>
+            [saver, what, userId, savesOver, stored, next] as const,
+        ),
+      ),
+    )(
+      "refuses %s without access to the form's connection who %s",
+      async (_saver, _what, userId, savesOver, stored, next) => {
+        const saverAccess = savesOver(stored);
 
         const res = await PUT(
           makeRequest({ layoutJson: next }),
@@ -901,10 +936,30 @@ describe("PUT /api/dashboards/[id]", () => {
         expect(mockDb.update).not.toHaveBeenCalled();
         const [expr] = saverAccess.calls.where[0];
         expect(sqlValues(expr)).toEqual(
-          expect.arrayContaining(["tenant-1", "c-alice", "user-2", "shared"]),
+          expect.arrayContaining(["tenant-1", "c-alice", userId, "shared"]),
         );
       },
     );
+
+    it("pins a layout save without expectedVersion to the version its checks read", async () => {
+      editorSavesOver(layoutOf(table, form()));
+      const chain = makeUpdateChain([OWNER_DASHBOARD]);
+      mockDb.update.mockReturnValue(chain);
+
+      const res = await PUT(
+        makeRequest({ layoutJson: layoutOf(form(), table) }),
+        makeParams("d1"),
+      );
+
+      expect(res.status).toBe(200);
+      // A save that lands between the read and the update makes this a 409,
+      // so a layout the checks never saw cannot be written over it.
+      const [expr] = chain.calls.where[0];
+      expect(sqlColumns(expr)).toEqual(["id", "tenant_id", "version"]);
+      expect(sqlValues(expr)).toEqual(
+        expect.arrayContaining(["d1", "tenant-1", 3]),
+      );
+    });
 
     it("lets that editor move a form to another page, resize and rename it, with no lookup", async () => {
       editorSavesOver(layoutOf(table, form()));

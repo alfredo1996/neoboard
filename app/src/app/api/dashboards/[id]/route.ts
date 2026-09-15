@@ -276,13 +276,17 @@ export async function PUT(
     }
 
     // Build WHERE clause — always scope by id + tenant; add version
-    // check when the client sends expectedVersion (optimistic lock).
+    // check when the client sends expectedVersion (optimistic lock). A layout
+    // is always pinned to the version its checks read, so a save that lands
+    // in between makes this a 409 instead of being overwritten (#1831).
     const conditions = [
       eq(dashboards.id, id),
       eq(dashboards.tenantId, tenantId),
     ];
-    if (expectedVersion !== undefined) {
-      conditions.push(eq(dashboards.version, expectedVersion));
+    if (expectedVersion !== undefined || updateData.layoutJson) {
+      conditions.push(
+        eq(dashboards.version, expectedVersion ?? access.dashboard.version),
+      );
     }
 
     // The schema's .refine() guarantees at least one real data field, so every

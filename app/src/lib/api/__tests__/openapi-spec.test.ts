@@ -93,3 +93,15 @@ describe("openapi-spec.ts pagination declarations (#908)", () => {
     },
   );
 });
+
+describe("POST /api/query/write description (#1831)", () => {
+  it("says a stored widget's saved database applies only when its connection allows a per-card database", () => {
+    const paths = SPEC.paths as Record<
+      string,
+      { post?: { description?: string } }
+    >;
+    expect(paths["/api/query/write"].post?.description).toMatch(
+      /not a form also needs write mode on, and runs on its saved database when its connection allows a per-card database/,
+    );
+  });
+});
