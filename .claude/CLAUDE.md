@@ -122,7 +122,9 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 - Row limits: cursor/stream consumption with MAX_ROWS+1 pattern. Never add LIMIT to user queries.
 - Timeouts: enforced at the driver/transaction level — PostgreSQL via `SET LOCAL statement_timeout` inside the transaction; Neo4j via the managed-transaction `timeout`. Default 30s.
 - Concurrency: a bespoke per-connector priority **scheduler** (`app/src/lib/query/scheduler.ts`, one per connectionId via `scheduler-registry.ts`) — **not** the `p-queue` npm package. Priority tiers (1=interactive > 2=load > 3=refresh, with P3 shed under load), per-user round-robin fairness, `maxConcurrent`/`maxPerUser` caps, backpressure (queue-full → 503) and queue timeouts; tuned via `QUERY_*` env vars. The drivers' own connection pools (node-pg `Pool`, Neo4j driver pool) sit underneath.
-- `can_write` permission: ALWAYS enforced server-side in the API route, not just UI.
+- `can_write` permission: ALWAYS enforced server-side in the API route, not just UI, for a user's own write queries.
+  Exception (#1831): a form widget submit is not gated by `can_write`. Anyone who can open the dashboard (owner, shares, admins, and on a public dashboard any user in the tenant) can submit it; the server runs only the form's saved query with the form's field parameters on its saved connection and database, never query text from the request.
+  Adding or changing a form's query, connection or database requires access to that connection (`usableConnection`).
 
 ## Credentials — DO NOT VIOLATE
 
