@@ -89,7 +89,13 @@ function gitGrep(pattern, pathspecs, { root = ROOT, ignoreCase = false } = {}) {
     });
 }
 
-const SITE_LINK_PATHS = ["app/src", "cli", "README.md", "PLUGINS.md"];
+const SITE_LINK_PATHS = [
+  "app/src",
+  "cli",
+  "connector-sdk/README.md",
+  "README.md",
+  "PLUGINS.md",
+];
 
 /**
  * The links under root that name this repo: its Pages site (from the app, the
@@ -799,21 +805,9 @@ describe("the seven-group information architecture (#1681)", () => {
     // that never existed (the page was /concepts/widgets) and one the redirect
     // map did not know either — so the app shipped a 404 in its own help link.
     const covered = new Set([...slugs, ...redirects.map(([from]) => from)]);
-    const site = gitGrep(
-      "neoboard\\.app/docs/[A-Za-z0-9_./-]*",
-      SITE_LINK_PATHS,
-    );
-    expect(site.length).toBeGreaterThan(0);
     const { pages, siteProblems } = repoLinks();
     expect(siteProblems).toEqual([]);
-    const dead = [
-      ...site.map(({ path, line, match }) => ({
-        path,
-        line,
-        slug: match.slice("neoboard.app/docs".length),
-      })),
-      ...pages,
-    ]
+    const dead = pages
       // The site root is index.mdx, whose pageSlug is "" (#1217).
       .map(({ path, line, slug }) => ({
         path,
@@ -823,6 +817,25 @@ describe("the seven-group information architecture (#1681)", () => {
       .filter(({ slug }) => !covered.has(slug))
       .map(({ path, line, slug }) => `${slug} (${path}:${line})`);
     expect(dead).toEqual([]);
+  });
+
+  it("sends docs links to the Pages site, never to neoboard.app (#1213)", () => {
+    // The docs publish only as the GitHub Pages project site, with no custom
+    // domain. The app's "Read the docs", "Widget guide" and "Learn about
+    // Enterprise" links and the SDK README's home link all pointed at
+    // neoboard.app, which serves none of it. Test fixtures may still spell it.
+    const stale = gitGrep("neoboard\\.app[A-Za-z0-9_./-]*", [
+      ".",
+      ":(exclude)*/__tests__/*",
+    ], { ignoreCase: true }).map(
+      ({ path, line, match }) => `${match} (${path}:${line})`,
+    );
+    expect(stale).toEqual([]);
+    // ...and the links that replaced them are on the Pages host the landing
+    // check above resolves, owner derived from the compose image.
+    const from = new Set(repoLinks().pages.map(({ path }) => path));
+    expect([...from].some((p) => p.startsWith("app/src/"))).toBe(true);
+    expect(from.has("connector-sdk/README.md")).toBe(true);
   });
 
   it("anchors every #fragment link to a heading on the target page", () => {

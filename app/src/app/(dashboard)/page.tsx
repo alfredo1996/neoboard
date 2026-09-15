@@ -1,5 +1,6 @@
 "use client";
 
+import { DOCS_LINKS } from "@/lib/docs-links";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -582,7 +583,7 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
           </Button>
           <Button variant="outline" size="lg" asChild>
             <a
-              href="https://neoboard.app/docs/getting-started/quick-start/"
+              href={DOCS_LINKS.firstDashboard}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -661,7 +662,7 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
           </CardHeader>
           <CardFooter>
             <a
-              href="https://neoboard.app/docs/guides/widgets/"
+              href={DOCS_LINKS.widgets}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center text-sm font-medium text-primary hover:underline"
@@ -984,7 +985,7 @@ export default function DashboardListPage() {
                 description="Ask an admin or editor to share one with you."
                 secondaryAction={
                   <a
-                    href="https://neoboard.app/docs/getting-started/quick-start/"
+                    href={DOCS_LINKS.firstDashboard}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary underline-offset-4 hover:underline"

@@ -3,8 +3,9 @@ import starlight from "@astrojs/starlight";
 import rehypeBaseLinks from "./rehype-base-links.mjs";
 
 // Published as a GitHub Pages project site (#1318): docs-pages.yml sets
-// DOCS_SITE=https://<owner>.github.io and DOCS_BASE=/<repo>. Locally both are
-// unset, so the site serves from / and emits no sitemap.
+// DOCS_SITE=https://<owner, lowercased>.github.io and DOCS_BASE=/<repo>, and
+// docs-ci.yml builds the same way. Locally both are unset, so the site serves
+// from / and emits no sitemap.
 const site = process.env.DOCS_SITE || undefined;
 const base = process.env.DOCS_BASE || "/";
 const withBase = (redirects) =>
