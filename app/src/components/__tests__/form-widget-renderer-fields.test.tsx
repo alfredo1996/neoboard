@@ -628,7 +628,9 @@ describe("FormWidgetRenderer — runs where the form is saved (#1824)", () => {
 
 // #1824: the write runs where the saved dashboard stores the form. In edit
 // mode the card shows the working copy, so a form the dashboard has not saved,
-// or saved on another connection or database, waits for Save.
+// or saved on another connection or database, waits for Save. So does a form
+// saved with another query: the route runs only the saved query, and refuses a
+// submit that sends other text (#1831).
 describe("FormWidgetRenderer — a submit waits for the form to be saved (#1824)", () => {
   const SAVE_NOTE = "Save the dashboard to submit this form.";
   const savedForm: DashboardWidget = {
@@ -699,6 +701,15 @@ describe("FormWidgetRenderer — a submit waits for the form to be saved (#1824)
     useDashboardStore
       .getState()
       .updateWidget("w-form", { connectionId: "conn-1" });
+    submit({ database: "neoboard", widgetId: "w-form" });
+    expect(waitingForSave()).toBe(true);
+  });
+
+  it("waits while the form's query differs from its saved copy (#1831)", () => {
+    loadDashboard({ ...savedForm, query: "CREATE (old) RETURN old" });
+    useDashboardStore
+      .getState()
+      .updateWidget("w-form", { query: "CREATE (n) RETURN n" });
     submit({ database: "neoboard", widgetId: "w-form" });
     expect(waitingForSave()).toBe(true);
   });

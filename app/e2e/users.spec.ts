@@ -214,6 +214,14 @@ test.describe("can_write toggle", () => {
     // Toggle off
     await row.getByRole("switch").click();
     await expect(row.getByRole("switch")).not.toBeChecked({ timeout: 5_000 });
+    // The toast names what the permission gates: a form submit does not need
+    // it (#1831). Exact, so the aria-live announcement does not match too.
+    await expect(
+      page.getByText(
+        "Test Creator can no longer run their own write queries. Submitting forms doesn't need this permission.",
+        { exact: true },
+      ),
+    ).toBeVisible({ timeout: 5_000 });
   });
 
   test("admin can toggle can_write back on after disabling", async ({

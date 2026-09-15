@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 
 /* ---------- mocks (must be declared before imports) ---------- */
@@ -7,6 +7,11 @@ import React from "react";
 const mockUseSession = vi.fn();
 vi.mock("next-auth/react", () => ({
   useSession: (...args: unknown[]) => mockUseSession(...args),
+}));
+
+// The dashboard route the form is on.
+vi.mock("next/navigation", () => ({
+  useParams: () => ({ id: "dash-1" }),
 }));
 
 // Stub component library — only the pieces FormWidgetRenderer imports.
@@ -37,13 +42,16 @@ vi.mock("@/components/debounced-text-input", () => ({
   DebouncedTextInput: ({
     parameterName,
     value,
+    onChange,
   }: {
     parameterName: string;
     value: string;
+    onChange: (v: string) => void;
   }) => (
     <input
       aria-label={parameterName}
-      defaultValue={value}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
       data-testid={`input-${parameterName}`}
     />
   ),
@@ -53,9 +61,10 @@ vi.mock("@/stores/parameter-store", () => ({
   useParameterValues: () => ({}),
 }));
 
+const mockMutate = vi.fn();
 vi.mock("@/hooks/use-write-query-execution", () => ({
   useWriteQueryExecution: () => ({
-    mutate: vi.fn(),
+    mutate: mockMutate,
     isPending: false,
   }),
 }));
@@ -81,6 +90,7 @@ import { FormWidgetRenderer } from "../form-widget-renderer";
 
 const baseProps = {
   connectionId: "conn-1",
+  widgetId: "w-form",
   query: "CREATE (n:X {v: $param_v}) RETURN n.v",
   settings: {
     formFields: [
@@ -95,68 +105,63 @@ const baseProps = {
   },
 };
 
-describe("FormWidgetRenderer — readOnly gating (#496)", () => {
+// Everyone who can open a dashboard can submit its forms, whatever their role
+// or write permission, and the server runs each form as its dashboard saves it
+// (#1831). So the form offers Submit to everyone who can see it.
+describe("FormWidgetRenderer — anyone who can see a form can submit it (#1831)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders a submittable form for an admin with canWrite=true", () => {
+  it.each([
+    ["a reader", { role: "reader", canWrite: false }],
+    [
+      "a reader whose stored write flag is still on",
+      { role: "reader", canWrite: true },
+    ],
+    [
+      "a creator with write permission off",
+      { role: "creator", canWrite: false },
+    ],
+    [
+      "a viewer share user with write permission on",
+      { role: "creator", canWrite: true },
+    ],
+    ["an admin", { role: "admin", canWrite: true }],
+  ])("lets %s submit, naming the stored form and its dashboard", (_, user) => {
     mockUseSession.mockReturnValue({
-      data: {
-        user: { role: "admin", canWrite: true, tenantId: "t1" },
-      },
+      data: { user: { ...user, tenantId: "t1" } },
     });
 
     render(<FormWidgetRenderer {...baseProps} />);
 
     expect(screen.queryByTestId("form-readonly-banner")).toBeNull();
-    expect(screen.getByRole("button", { name: "Submit" })).not.toBeDisabled();
-  });
-
-  it("renders read-only banner and disables Submit for a creator with canWrite=false", () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { role: "creator", canWrite: false, tenantId: "t1" },
-      },
+    expect(screen.queryByText(/permission to submit/i)).toBeNull();
+    const submit = screen.getByRole("button", { name: "Submit" });
+    expect(submit).toBeEnabled();
+    expect(submit).not.toHaveAttribute("title");
+    fireEvent.change(screen.getByTestId("input-v"), {
+      target: { value: "hello" },
     });
+    fireEvent.click(submit);
 
-    render(<FormWidgetRenderer {...baseProps} />);
-
-    expect(screen.getByTestId("form-readonly-banner")).toBeDefined();
-    expect(
-      screen.getByText(/don.?t have permission to submit this form/i),
-    ).toBeDefined();
-    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
-  });
-
-  it("renders read-only for a reader even when DB canWrite column is true", () => {
-    // Readers get canWrite=true from the DB column but are locked out by
-    // role in requireSession(). The client must mirror that derivation.
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { role: "reader", canWrite: true, tenantId: "t1" },
-      },
+    expect(mockMutate).toHaveBeenCalledTimes(1);
+    expect(mockMutate.mock.calls[0][0]).toEqual({
+      connectionId: "conn-1",
+      query: baseProps.query,
+      params: { param_v: "hello" },
+      widgetId: "w-form",
+      dashboardId: "dash-1",
     });
-
-    render(<FormWidgetRenderer {...baseProps} />);
-
-    expect(screen.getByTestId("form-readonly-banner")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
-  it("defaults to read-only while the session is still loading", () => {
-    // Undefined session.data means next-auth hasn't resolved yet.
-    // We deliberately default to readOnly=true to avoid flashing an
-    // enabled form to a reader during the hydration window.
+  it("offers Submit while the session is still loading", () => {
     mockUseSession.mockReturnValue({ data: undefined });
 
     render(<FormWidgetRenderer {...baseProps} />);
 
-    // The banner only renders once sessionLoaded is true; during the
-    // loading window the Submit button is still enabled because we
-    // don't yet know the role. Assert the safe behavior: form is there
-    // but no crash, and no false-positive banner.
     expect(screen.queryByTestId("form-readonly-banner")).toBeNull();
+    expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled();
   });
 
   it("renders empty-state when no fields are configured (no session check)", () => {

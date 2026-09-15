@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
+import {
+  makeSelectChain,
+  sqlColumns,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
+import { getTableName, type Table } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before importing the route so Vitest hoists them.
@@ -37,6 +43,8 @@ class ForbiddenError extends Error {
 
 /** Records each dashboard access check; the real helper still decides. */
 const accessChecks = vi.fn();
+/** Records each query context the route runs; the real pipeline still runs it. */
+const pipelineRuns = vi.fn();
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/dashboard/access", async (importOriginal) => {
@@ -48,6 +56,16 @@ vi.mock("@/lib/dashboard/access", async (importOriginal) => {
     ) => {
       accessChecks(opts);
       return real.resolveDashboardAccess(opts);
+    },
+  };
+});
+vi.mock("@/lib/query/pipeline", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/query/pipeline")>();
+  return {
+    ...real,
+    runPipeline: (...args: Parameters<typeof real.runPipeline>) => {
+      pipelineRuns(args[0]);
+      return real.runPipeline(...args);
     },
   };
 });
@@ -65,16 +83,6 @@ vi.mock("@/lib/query/query-executor", () => ({
 // Minimal Next.js server shim
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
-
-/** Chainable drizzle query builder stub that resolves to `rows`. */
-function drizzleSelectChain(rows: unknown[]) {
-  const chain = {
-    from: () => chain,
-    where: () => chain,
-    limit: () => Promise.resolve(rows),
-  };
-  return chain;
-}
 
 const writerSession = {
   userId: "user-1",
@@ -121,11 +129,14 @@ const fakeDashboard = {
   },
 };
 
-/** Sets up mocks for both connection + dashboard lookups. */
-function mockConnectionAndDashboard() {
+/**
+ * Sets up the dashboard lookup, then the connection lookup: the route reads the
+ * dashboard first, to learn whether the write is a saved form's (#1831).
+ */
+function mockDashboardAndConnection() {
   mockDb.select
-    .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
-    .mockReturnValueOnce(drizzleSelectChain([fakeDashboard]));
+    .mockReturnValueOnce(makeSelectChain([fakeDashboard]))
+    .mockReturnValueOnce(makeSelectChain([fakeConnection]));
 }
 
 // ---------------------------------------------------------------------------
@@ -181,13 +192,11 @@ describe("POST /api/query/write", () => {
 
   it("returns 404 when connection not found", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockDb.select.mockReturnValue(drizzleSelectChain([]));
+    mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await POST(
       makeRequest({
         connectionId: "c1",
         query: "CREATE (n:Test)",
-        widgetId: "w1",
-        dashboardId: "d1",
       }),
     );
     expect(res.status).toBe(404);
@@ -197,7 +206,7 @@ describe("POST /api/query/write", () => {
 
   it("returns 200 on success and calls executeQuery with accessMode WRITE", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockConnectionAndDashboard();
+    mockDashboardAndConnection();
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -233,7 +242,7 @@ describe("POST /api/query/write", () => {
 
   it("passes params correctly to executeQuery", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockConnectionAndDashboard();
+    mockDashboardAndConnection();
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -265,7 +274,7 @@ describe("POST /api/query/write", () => {
 
   it("returns 500 with sanitized message when executeQuery throws (no driver leak)", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockConnectionAndDashboard();
+    mockDashboardAndConnection();
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -293,7 +302,7 @@ describe("POST /api/query/write", () => {
 
   it("surfaces a specific reason for a NOT NULL violation without leaking row data (#1162)", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockConnectionAndDashboard();
+    mockDashboardAndConnection();
     mockDecryptJson.mockReturnValue({
       uri: "postgresql://localhost",
       username: "neoboard",
@@ -347,7 +356,7 @@ describe("POST /api/query/write", () => {
     "responds to a recognised driver error %s with %i, not 500 (#1409)",
     async (code, status, message) => {
       mockRequireSession.mockResolvedValue(writerSession);
-      mockConnectionAndDashboard();
+      mockDashboardAndConnection();
       mockDecryptJson.mockReturnValue({ uri: "postgresql://localhost" });
       const pgError = Object.assign(new Error("INSERT INTO t ... secret"), {
         code,
@@ -374,13 +383,11 @@ describe("POST /api/query/write", () => {
 
   it("returns 404 when connection belongs to another user", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockDb.select.mockReturnValue(drizzleSelectChain([]));
+    mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await POST(
       makeRequest({
         connectionId: "c1",
         query: "CREATE (n:Test)",
-        widgetId: "w1",
-        dashboardId: "d1",
       }),
     );
     expect(res.status).toBe(404);
@@ -391,13 +398,11 @@ describe("POST /api/query/write", () => {
       ...writerSession,
       tenantId: "tenant-other",
     });
-    mockDb.select.mockReturnValue(drizzleSelectChain([]));
+    mockDb.select.mockReturnValue(makeSelectChain([]));
     const res = await POST(
       makeRequest({
         connectionId: "c1",
         query: "CREATE (n:Test)",
-        widgetId: "w1",
-        dashboardId: "d1",
       }),
     );
     expect(res.status).toBe(404);
@@ -405,11 +410,10 @@ describe("POST /api/query/write", () => {
 
   it("returns 403 when widget allowWrites is false", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    // First select: connection found. Second select: dashboard found.
+    // First select: dashboard found. Second select: connection found.
     mockDb.select
-      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
       .mockReturnValueOnce(
-        drizzleSelectChain([
+        makeSelectChain([
           {
             id: "d1",
             tenantId: "tenant-a",
@@ -435,7 +439,8 @@ describe("POST /api/query/write", () => {
             },
           },
         ]),
-      );
+      )
+      .mockReturnValueOnce(makeSelectChain([fakeConnection]));
 
     const res = await POST(
       makeRequest({
@@ -452,7 +457,7 @@ describe("POST /api/query/write", () => {
 
   it("succeeds without widgetId (legacy form-widget path)", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockDb.select.mockReturnValue(drizzleSelectChain([fakeConnection]));
+    mockDb.select.mockReturnValue(makeSelectChain([fakeConnection]));
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -473,9 +478,8 @@ describe("POST /api/query/write", () => {
   it("returns 200 when widget has allowWrites=true", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select
-      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
       .mockReturnValueOnce(
-        drizzleSelectChain([
+        makeSelectChain([
           {
             id: "d1",
             tenantId: "tenant-a",
@@ -501,7 +505,8 @@ describe("POST /api/query/write", () => {
             },
           },
         ]),
-      );
+      )
+      .mockReturnValueOnce(makeSelectChain([fakeConnection]));
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",
@@ -522,9 +527,7 @@ describe("POST /api/query/write", () => {
 
   it("returns 404 when dashboard not found", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockDb.select
-      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
-      .mockReturnValueOnce(drizzleSelectChain([])); // dashboard not found
+    mockDb.select.mockReturnValueOnce(makeSelectChain([])); // dashboard not found
 
     const res = await POST(
       makeRequest({
@@ -541,10 +544,7 @@ describe("POST /api/query/write", () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select
       .mockReturnValueOnce(
-        drizzleSelectChain([{ ...fakeConnection, allowPerCardDb: true }]),
-      )
-      .mockReturnValueOnce(
-        drizzleSelectChain([
+        makeSelectChain([
           {
             id: "d1",
             tenantId: "tenant-a",
@@ -571,6 +571,9 @@ describe("POST /api/query/write", () => {
             },
           },
         ]),
+      )
+      .mockReturnValueOnce(
+        makeSelectChain([{ ...fakeConnection, allowPerCardDb: true }]),
       );
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
@@ -600,10 +603,7 @@ describe("POST /api/query/write", () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select
       .mockReturnValueOnce(
-        drizzleSelectChain([{ ...fakeConnection, allowPerCardDb: false }]),
-      )
-      .mockReturnValueOnce(
-        drizzleSelectChain([
+        makeSelectChain([
           {
             id: "d1",
             tenantId: "tenant-a",
@@ -630,6 +630,9 @@ describe("POST /api/query/write", () => {
             },
           },
         ]),
+      )
+      .mockReturnValueOnce(
+        makeSelectChain([{ ...fakeConnection, allowPerCardDb: false }]),
       );
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
@@ -665,9 +668,8 @@ describe("POST /api/query/write", () => {
   it("returns 403 when widget allowWrites is missing (legacy widget)", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDb.select
-      .mockReturnValueOnce(drizzleSelectChain([fakeConnection]))
       .mockReturnValueOnce(
-        drizzleSelectChain([
+        makeSelectChain([
           {
             id: "d1",
             tenantId: "tenant-a",
@@ -693,7 +695,8 @@ describe("POST /api/query/write", () => {
             },
           },
         ]),
-      );
+      )
+      .mockReturnValueOnce(makeSelectChain([fakeConnection]));
 
     const res = await POST(
       makeRequest({
@@ -706,26 +709,38 @@ describe("POST /api/query/write", () => {
     expect(res.status).toBe(403);
   });
 
-  // A form submit names its stored widget, and the database comes from there,
-  // never from the request (#1824). The editor offers no write-mode flag for a
-  // form, so a saved form carries no allowWrites.
-  describe("form submit on the form's saved database (#1824)", () => {
+  // A form submit names its stored widget and dashboard (#1824). Everyone who
+  // can open that dashboard may submit it, and the route runs only what the
+  // form saves: its query, its own fields' parameters, its connection and its
+  // database (#1831). Every other write keeps write permission and connection
+  // ownership.
+  describe("form submits (#1824, #1831)", () => {
+    const FORM_QUERY = "CREATE (n:Test {tag: $param_tag})";
     const formSubmit = {
       connectionId: "c1",
-      query: "CREATE (n:Test)",
+      query: FORM_QUERY,
+      params: { param_tag: "t" },
       widgetId: "w-form",
       dashboardId: "d1",
     };
+    /** A writer who owns neither the connection nor the dashboard. */
+    const otherWriter = {
+      userId: "user-3",
+      tenantId: "tenant-a",
+      role: "creator",
+      canWrite: true,
+    };
 
     /**
-     * The dashboard row holding one form, saved on the neoboard database. The
-     * caller owns the dashboard unless `dashboard` says otherwise.
+     * The dashboard row holding one form with a text field `tag`, saved on the
+     * neoboard database. The connection's owner owns the dashboard unless
+     * `dashboard` says otherwise.
      */
     function storedForm(
       widget: Record<string, unknown> = {},
       dashboard: Record<string, unknown> = {},
     ) {
-      return drizzleSelectChain([
+      return makeSelectChain([
         {
           id: "d1",
           tenantId: "tenant-a",
@@ -742,8 +757,19 @@ describe("POST /api/query/write", () => {
                     id: "w-form",
                     chartType: "form",
                     connectionId: "c1",
-                    query: "CREATE (n:Test)",
+                    query: FORM_QUERY,
                     database: "neoboard",
+                    settings: {
+                      formFields: [
+                        {
+                          id: "f-tag",
+                          label: "Tag",
+                          parameterName: "tag",
+                          parameterType: "text",
+                          required: true,
+                        },
+                      ],
+                    },
                     ...widget,
                   },
                 ],
@@ -755,13 +781,31 @@ describe("POST /api/query/write", () => {
       ]);
     }
     const perCardConnection = () =>
-      drizzleSelectChain([{ ...fakeConnection, allowPerCardDb: true }]);
+      makeSelectChain([{ ...fakeConnection, allowPerCardDb: true }]);
     /** The caller's shares on a dashboard someone else owns. */
     const shares = (...roles: string[]) =>
-      drizzleSelectChain(roles.map((role) => ({ role })));
+      makeSelectChain(roles.map((role) => ({ role })));
     const queueSelects = (...chains: unknown[]) => {
       for (const chain of chains) mockDb.select.mockReturnValueOnce(chain);
     };
+    /** Each select the route made: the table it read and the filter it used. */
+    const lookups = () =>
+      mockDb.select.mock.results.map(({ value }) => {
+        const { calls } = value as ReturnType<typeof makeSelectChain>;
+        return {
+          table: getTableName(calls.from[0][0] as Table),
+          filter: calls.where[0]?.[0],
+        };
+      });
+    /** A lookup's filter as [column, value] pairs, sorted by column. */
+    const pairs = (filter: unknown) => {
+      const values = sqlValues(filter);
+      return sqlColumns(filter)
+        .map((column, i) => [column, values[i]])
+        .sort();
+    };
+    const connectionFilter = () =>
+      lookups().find(({ table }) => table === "connection")?.filter;
 
     beforeEach(() => {
       mockRequireSession.mockResolvedValue(writerSession);
@@ -774,81 +818,208 @@ describe("POST /api/query/write", () => {
       mockExecuteQuery.mockResolvedValue({ data: [] });
     });
 
-    // The submit's dashboard must be one the caller can open, at the viewer
-    // level every dashboard route uses: owner, share, public, or admin.
+    // Viewer level, as every dashboard route opens a dashboard: owner, share,
+    // public, or admin. Neither write permission nor who owns the connection
+    // enters into it.
     it.each([
-      ["owner", writerSession, [storedForm()]],
+      ["the dashboard's owner", writerSession, [storedForm()]],
+      ["an editor share", otherWriter, [storedForm(), shares("editor")]],
+      ["a viewer share", otherWriter, [storedForm(), shares("viewer")]],
+      ["an admin", { ...otherWriter, role: "admin" }, [storedForm()]],
       [
-        "viewer share",
-        writerSession,
-        [storedForm({}, { userId: "user-other" }), shares("viewer")],
+        "a reader, whose write permission is off, through a viewer share",
+        readerSession,
+        [storedForm(), shares("viewer")],
       ],
       [
-        "public dashboard",
-        writerSession,
-        [storedForm({}, { userId: "user-other", isPublic: true }), shares()],
-      ],
-      [
-        "admin",
-        { ...writerSession, role: "admin" },
-        [storedForm({}, { userId: "user-other" })],
+        "a creator with write permission off, on a public dashboard",
+        { ...otherWriter, canWrite: false },
+        [storedForm({}, { isPublic: true }), shares()],
       ],
     ])(
-      "writes a stored form on a dashboard the caller can open (%s), on its saved database",
+      "runs the saved form for %s, on its saved connection and database",
       async (_, session, dashboardSelects) => {
         mockRequireSession.mockResolvedValue(session);
-        queueSelects(perCardConnection(), ...dashboardSelects);
+        queueSelects(...dashboardSelects, perCardConnection());
 
         const res = await POST(makeRequest(formSubmit));
 
         expect(res.status).toBe(200);
+        expect(mockExecuteQuery).toHaveBeenCalledTimes(1);
         expect(mockExecuteQuery).toHaveBeenCalledWith(
           "neo4j",
           expect.objectContaining({ database: "neoboard" }),
-          expect.any(Object),
+          { query: FORM_QUERY, params: { param_tag: "t" } },
           { accessMode: "WRITE" },
+        );
+        // The form's own connection, in the caller's tenant, whoever owns it.
+        expect(pairs(connectionFilter())).toEqual([
+          ["id", "c1"],
+          ["tenant_id", session.tenantId],
+        ]);
+        // The query audit trail (query/middleware/audit.ts) logs the submitter.
+        expect(pipelineRuns).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: session.userId,
+            tenantId: session.tenantId,
+            accessMode: "write",
+            query: FORM_QUERY,
+          }),
         );
       },
     );
 
-    // A form that is not on a dashboard the caller can open, on this
-    // connection, gets one refusal whatever the reason.
+    it("binds only the parameters of the form's own fields, and ignores any other", async () => {
+      mockRequireSession.mockResolvedValue(otherWriter);
+      const formFields = [
+        {
+          id: "f-tag",
+          label: "Tag",
+          parameterName: "tag",
+          parameterType: "text",
+        },
+        {
+          id: "f-when",
+          label: "When",
+          parameterName: "when",
+          parameterType: "date-range",
+        },
+        {
+          id: "f-size",
+          label: "Size",
+          parameterName: "size",
+          parameterType: "number-range",
+        },
+      ];
+      queueSelects(
+        storedForm({ settings: { formFields } }),
+        shares("viewer"),
+        perCardConnection(),
+      );
+      const fieldParams = {
+        param_tag: "t",
+        param_when_from: "2026-01-01",
+        param_when_to: "2026-01-31",
+        param_size_min: 1,
+        param_size_max: 9,
+      };
+
+      const res = await POST(
+        makeRequest({
+          ...formSubmit,
+          params: {
+            ...fieldParams,
+            param_owner: "mallory",
+            param_when: "2026-01-01",
+            param_size: 5,
+            tag: "raw",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery.mock.calls[0][2]).toEqual({
+        query: FORM_QUERY,
+        params: fieldParams,
+      });
+    });
+
+    it("binds nothing for a saved form without fields", async () => {
+      queueSelects(storedForm({ settings: {} }), perCardConnection());
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery.mock.calls[0][2]).toEqual({
+        query: FORM_QUERY,
+        params: {},
+      });
+    });
+
+    // A request that does not name a form this dashboard saves, on this
+    // connection, for a caller who can open the dashboard, gets one refusal
+    // whatever the reason, and nothing past the dashboard is read or run.
     it.each([
       [
         "a dashboard the caller cannot open",
-        [storedForm({}, { userId: "user-other" }), shares()],
+        otherWriter,
+        [storedForm(), shares()],
       ],
       [
         "a widget without write mode on a dashboard the caller cannot open",
-        [
-          storedForm({ chartType: "table" }, { userId: "user-other" }),
-          shares(),
-        ],
+        otherWriter,
+        [storedForm({ chartType: "table" }), shares()],
       ],
-      ["a widget the dashboard does not hold", [storedForm({ id: "w-other" })]],
+      [
+        "a form the dashboard has not saved",
+        writerSession,
+        [storedForm({ id: "w-saved-earlier" })],
+      ],
+      [
+        "a widget on another dashboard",
+        otherWriter,
+        [storedForm({ id: "w-this-dashboard" }), shares("viewer")],
+      ],
       [
         "a widget on another connection",
+        writerSession,
         [storedForm({ connectionId: "c-other" })],
       ],
     ])(
       "refuses %s exactly as a dashboard that does not exist, and runs nothing",
-      async (_, dashboardSelects) => {
-        queueSelects(perCardConnection(), drizzleSelectChain([]));
+      async (_, session, dashboardSelects) => {
+        mockRequireSession.mockResolvedValue(session);
+        queueSelects(makeSelectChain([]));
         const missing = await POST(makeRequest(formSubmit));
-        queueSelects(perCardConnection(), ...dashboardSelects);
+        queueSelects(...dashboardSelects);
         const refused = await POST(makeRequest(formSubmit));
 
         expect(missing.status).toBe(404);
         expect(refused.status).toBe(missing.status);
         expect(await refused.json()).toEqual(await missing.json());
         expect(mockExecuteQuery).not.toHaveBeenCalled();
+        expect(lookups().map(({ table }) => table)).not.toContain("connection");
       },
     );
+
+    it.each([
+      ["the connection's owner", writerSession, [storedForm()]],
+      ["a viewer share", otherWriter, [storedForm(), shares("viewer")]],
+    ])(
+      "never runs query text that a submit from %s sends in place of the form's saved query",
+      async (_, session, dashboardSelects) => {
+        mockRequireSession.mockResolvedValue(session);
+        queueSelects(makeSelectChain([]));
+        const missing = await POST(makeRequest(formSubmit));
+        queueSelects(...dashboardSelects, perCardConnection());
+        const tampered = await POST(
+          makeRequest({ ...formSubmit, query: "MATCH (n) DETACH DELETE n" }),
+        );
+
+        expect(tampered.status).toBe(404);
+        expect(await tampered.json()).toEqual(await missing.json());
+        expect(mockExecuteQuery).not.toHaveBeenCalled();
+      },
+    );
+
+    it("looks for the dashboard in the caller's own tenant", async () => {
+      mockRequireSession.mockResolvedValue({
+        ...writerSession,
+        tenantId: "tenant-b",
+      });
+      queueSelects(makeSelectChain([]));
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(404);
+      expect(sqlValues(lookups()[0].filter)).toEqual(["d1", "tenant-b"]);
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
 
     it("checks dashboard access as the session's user, role and tenant", async () => {
       const session = { ...writerSession, tenantId: "tenant-b" };
       mockRequireSession.mockResolvedValue(session);
-      queueSelects(perCardConnection(), storedForm());
+      queueSelects(storedForm(), perCardConnection());
 
       const res = await POST(makeRequest(formSubmit));
 
@@ -866,8 +1037,8 @@ describe("POST /api/query/write", () => {
 
     it("never writes on a database the request names", async () => {
       mockDb.select
-        .mockReturnValueOnce(perCardConnection())
         .mockReturnValueOnce(storedForm())
+        .mockReturnValueOnce(perCardConnection())
         .mockReturnValueOnce(perCardConnection());
 
       await POST(makeRequest({ ...formSubmit, database: "archive" }));
@@ -884,43 +1055,122 @@ describe("POST /api/query/write", () => {
       expect(mockExecuteQuery.mock.calls[1][1].database).toBe("movies");
     });
 
-    it("refuses a submit on a connection the caller does not own, before reading the dashboard", async () => {
-      mockDb.select.mockReturnValueOnce(drizzleSelectChain([]));
-
-      const res = await POST(makeRequest(formSubmit));
-
-      expect(res.status).toBe(404);
-      expect(mockDb.select).toHaveBeenCalledTimes(1);
-      expect(mockExecuteQuery).not.toHaveBeenCalled();
-    });
-
-    it("refuses a submit from a user without write permission, before any lookup", async () => {
-      mockRequireSession.mockResolvedValue(readerSession);
-
-      const res = await POST(makeRequest(formSubmit));
-
-      expect(res.status).toBe(403);
-      expect(mockDb.select).not.toHaveBeenCalled();
-    });
-
-    it("still requires write mode on a stored widget that is not a form", async () => {
-      mockDb.select
-        .mockReturnValueOnce(perCardConnection())
-        .mockReturnValueOnce(storedForm({ chartType: "table" }));
-
-      const res = await POST(makeRequest(formSubmit));
-
-      expect(res.status).toBe(403);
-      expect((await res.json()).error.message).toMatch(
-        /write mode.*not enabled/i,
+    it("runs a form on its connection's default database when the connection allows no per-card database", async () => {
+      queueSelects(
+        storedForm(),
+        makeSelectChain([{ ...fakeConnection, allowPerCardDb: false }]),
       );
-      expect(mockExecuteQuery).not.toHaveBeenCalled();
+
+      const res = await POST(makeRequest(formSubmit));
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery.mock.calls[0][1].database).toBe("movies");
+    });
+
+    describe("any other write keeps write permission and connection ownership", () => {
+      const tableWithWriteMode = () =>
+        storedForm({ chartType: "table", allowWrites: true });
+
+      it("refuses a user without write permission before any lookup, when no widget is named", async () => {
+        mockRequireSession.mockResolvedValue(readerSession);
+
+        const res = await POST(
+          makeRequest({ connectionId: "c1", query: FORM_QUERY }),
+        );
+
+        expect(res.status).toBe(403);
+        expect(mockDb.select).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ["a reader", readerSession],
+        [
+          "a creator with write permission off",
+          { ...otherWriter, canWrite: false },
+        ],
+      ])(
+        "refuses %s a widget with write mode on, on a dashboard they can open",
+        async (_, session) => {
+          mockRequireSession.mockResolvedValue(session);
+          queueSelects(
+            tableWithWriteMode(),
+            shares("viewer"),
+            perCardConnection(),
+          );
+
+          const res = await POST(makeRequest(formSubmit));
+
+          expect(res.status).toBe(403);
+          expect((await res.json()).error.message).toMatch(
+            /write permission required/i,
+          );
+          expect(mockExecuteQuery).not.toHaveBeenCalled();
+        },
+      );
+
+      it("refuses a widget with write mode on to a writer who does not own its connection", async () => {
+        mockRequireSession.mockResolvedValue(otherWriter);
+        // The owner filter finds no connection of theirs.
+        queueSelects(
+          tableWithWriteMode(),
+          shares("viewer"),
+          makeSelectChain([]),
+        );
+
+        const res = await POST(makeRequest(formSubmit));
+
+        expect(res.status).toBe(404);
+        expect((await res.json()).error.message).toMatch(
+          /connection not found/i,
+        );
+        expect(pairs(connectionFilter())).toEqual([
+          ["id", "c1"],
+          ["tenant_id", "tenant-a"],
+          ["userId", "user-3"],
+        ]);
+        expect(mockExecuteQuery).not.toHaveBeenCalled();
+      });
+
+      it("runs a write that names no widget as sent, on the caller's own connection", async () => {
+        queueSelects(perCardConnection());
+
+        const res = await POST(
+          makeRequest({
+            connectionId: "c1",
+            query: "CREATE (n:Free {v: $anything})",
+            params: { anything: 1 },
+          }),
+        );
+
+        expect(res.status).toBe(200);
+        expect(pairs(connectionFilter())).toEqual([
+          ["id", "c1"],
+          ["tenant_id", "tenant-a"],
+          ["userId", "user-1"],
+        ]);
+        expect(mockExecuteQuery.mock.calls[0][2]).toEqual({
+          query: "CREATE (n:Free {v: $anything})",
+          params: { anything: 1 },
+        });
+      });
+
+      it("still requires write mode on a stored widget that is not a form", async () => {
+        queueSelects(storedForm({ chartType: "table" }), perCardConnection());
+
+        const res = await POST(makeRequest(formSubmit));
+
+        expect(res.status).toBe(403);
+        expect((await res.json()).error.message).toMatch(
+          /write mode.*not enabled/i,
+        );
+        expect(mockExecuteQuery).not.toHaveBeenCalled();
+      });
     });
   });
 
   it("does not apply MAX_ROWS truncation on write results", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
-    mockConnectionAndDashboard();
+    mockDashboardAndConnection();
     mockDecryptJson.mockReturnValue({
       uri: "bolt://localhost",
       username: "neo4j",

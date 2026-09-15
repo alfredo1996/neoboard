@@ -283,6 +283,10 @@ const SPEC = {
       put: {
         tags: ["Dashboards"],
         summary: "Update dashboard",
+        description:
+          "A save answers 403 when its layout adds a connection the caller cannot use, or adds or changes a query while the dashboard names a connection neither the caller nor its owner can use. " +
+          "Adding a form, or changing a form's query, connection or database, needs the caller's own access to that connection even when the dashboard already uses it: " +
+          "the connection's owner, anyone in the tenant once it is shared, or an admin. A form left as saved stays.",
         requestBody: jsonBody("#/components/schemas/UpdateDashboardRequest"),
         responses: {
           200: jsonResponse(
@@ -478,9 +482,11 @@ const SPEC = {
         tags: ["Query"],
         summary: "Execute write query",
         description:
-          "Executes a write query against a connected database. Requires `canWrite` permission on the session. " +
-          "A form sends `widgetId` and `dashboardId`: the dashboard must be one the caller can open, the stored widget must be on this connection, and the write runs on its saved database. " +
-          "Any other dashboard or widget answers 404, the same as a dashboard that does not exist. " +
+          "Executes a write query against a connected database. " +
+          "A form submit sends `widgetId` and `dashboardId`: anyone who can open that dashboard may submit a form it saves, whatever their `canWrite` and whoever owns the connection. " +
+          "The server runs the form's saved query, which `query` must equal exactly, on the form's saved connection and database, and binds only the parameters of the form's own fields, ignoring any other. " +
+          "A dashboard the caller cannot open, a widget it does not hold or holds on another connection, and a form saved with other query text answer 404, the same as a dashboard that does not exist. " +
+          "Any other write requires `canWrite` and a connection the caller owns; a stored widget that is not a form also needs write mode on, and runs on its saved database when its connection allows a per-card database. " +
           "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
           "foreign-key, check, exclusion, length, format or date/time violation, or a Neo4j constraint violation, answers 400 (a NOT NULL violation names its column in " +
           "`error.details.column`), a unique violation 409, and a read-only connection 403.",

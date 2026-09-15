@@ -46,6 +46,7 @@ Form fields are configured in the widget editor's **Fields** tab (not in Chart O
 
 ## Tips
 
-- A form submits only when the submitting user has **write permission** and owns the form's connection. Admins always have write permission and readers never do; for creators it is the Write toggle on the Users page. Both checks are enforced server-side. There is no connection-level write flag, so users who don't own a shared connection, admins included, cannot submit forms on it.
+- Anyone who can open the dashboard can submit the form: its owner, users it is shared with, admins, and any signed-in user in the tenant when the dashboard is public. Their role and **write permission** don't matter, and neither does who owns the form's connection. Each submit runs only the query saved with the form, with the values of its fields, on the connection and database it is saved with. The server enforces this and refuses a submit that sends other query text, so in the editor a form you added or changed waits for Save before it can submit.
+- Adding a form, or changing a form's query, connection or database, needs access to that connection: you own it, it is shared with the tenant, or you are an admin. Without that access, saving the change is refused, even when the connection is already on the dashboard. A form left as saved keeps working, and you can still move and resize it.
 - Use descriptive parameter names like `$param_email` rather than `$param_1` to keep your query readable.
 - Enable Reset on Success for data entry workflows where users submit multiple records in a row.

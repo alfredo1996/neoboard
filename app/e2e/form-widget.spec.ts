@@ -43,11 +43,9 @@ test.describe("Form widget", () => {
   test("Form widget shows the config-time write-permission note (#1051)", async ({
     page,
   }) => {
-    // Forms are the only write-capable widget. Submits go through
-    // /api/query/write, which 403s for any submitter lacking write
-    // permission or connection ownership. There is no connection-level
-    // read-only flag to detect, so the note is shown unconditionally to
-    // warn the author at config time (#1051).
+    // Forms are the only write-capable widget. Anyone who can open the
+    // dashboard can submit one, and the submit runs its saved query (#1831),
+    // so the note tells the author so at config time (#1051).
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(1).click();
@@ -566,13 +564,14 @@ test.describe("Form widget", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Write permission enforcement
+// Write permission does not gate a form (#1831)
 // ---------------------------------------------------------------------------
 // These tests create a creator user, disable their can_write via the Users
-// page (as admin), then log in as that user and verify the form widget
-// surfaces "Write permission required" and captures a screenshot.
+// page (as admin), then log in as that user, and as a reader, and check the
+// form on a public dashboard offers them Submit. Nothing is submitted, so the
+// seeded graph is left alone; form-submit-dashboard-access.spec.ts submits.
 
-test.describe("Write permission enforcement", () => {
+test.describe("Write permission does not gate a form (#1831)", () => {
   let creatorEmail: string;
   let creatorUserId: string;
   let dashboardId: string;
@@ -687,51 +686,33 @@ test.describe("Write permission enforcement", () => {
     await context.close();
   });
 
-  test("form widget renders read-only state when can_write is false (no clickable Submit)", async ({
+  test("a creator with can_write false can submit the form: Submit is enabled and no read-only banner shows", async ({
     authPage,
     page,
   }) => {
-    // After #496, users without canWrite see the form in a proactive
-    // read-only state: banner at the top, fields visible but dimmed,
-    // Submit button disabled. They never get the chance to click Submit
-    // and hit the 403 — the UI gates them up front.
-    //
-    // The server-side 403 from /api/query/write is still verified by
-    // write-permissions.spec.ts; this test pins the UI contract.
+    // Anyone who can open a dashboard can submit its forms, whatever their
+    // write permission; the server runs only the form's saved query (#1831).
     await authPage.login(creatorEmail, "password123");
+    // The form used to lock once the session said the user could not write,
+    // so wait for the session before judging it.
+    const session = page.waitForResponse((r) =>
+      r.url().includes("/api/auth/session"),
+    );
     await page.goto(`/${dashboardId}`);
+    await session;
 
-    // Form widget should still render the fields so the user can see
-    // what the form would collect — just disabled.
     await expect(page.getByText(/^Value/)).toBeVisible({ timeout: 15_000 });
-
-    // Read-only banner is visible at the top of the form.
-    await expect(page.getByTestId("form-readonly-banner")).toBeVisible({
-      timeout: 5_000,
-    });
-    await expect(
-      page.getByText(/don.?t have permission to submit this form/i),
-    ).toBeVisible();
-
-    // Submit button exists but is disabled.
-    const submitBtn = page.getByRole("button", { name: "Submit" });
-    await expect(submitBtn).toBeVisible();
-    await expect(submitBtn).toBeDisabled();
-
-    // The old pre-#496 error text ("Write permission required") should
-    // NOT be visible in the read-only state — the user never clicked.
-    await expect(page.getByText("Write permission required")).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled();
+    await expect(page.getByTestId("form-readonly-banner")).toHaveCount(0);
   });
 
-  test("reader role also sees the form widget read-only with no clickable Submit", async ({
+  test("a reader can submit the form too: Submit is enabled and no read-only banner shows", async ({
     authPage,
     page,
     browser,
   }) => {
-    // Readers have canWrite hard-coded to false in lib/auth/session.ts,
-    // so this case was never directly exercised before #496. It's the
-    // exact blast radius the issue worried about: the form widget
-    // shouldn't appear submittable to users who can never submit.
+    // Readers have canWrite hard-coded to false in lib/auth/session.ts, and
+    // a form does not ask for it (#1831).
 
     // Use an isolated context so we don't step on the shared describe-level
     // session that the other tests in this block assume.
@@ -761,22 +742,21 @@ test.describe("Write permission enforcement", () => {
 
     try {
       await readerAuth.login(readerEmail, "password123");
+      const session = readerPage.waitForResponse((r) =>
+        r.url().includes("/api/auth/session"),
+      );
       await readerPage.goto(`/${dashboardId}`);
+      await session;
 
-      // Field label renders.
       await expect(readerPage.getByText(/^Value/)).toBeVisible({
         timeout: 15_000,
       });
-
-      // Read-only banner.
-      await expect(readerPage.getByTestId("form-readonly-banner")).toBeVisible({
-        timeout: 5_000,
-      });
-
-      // Disabled submit.
       await expect(
         readerPage.getByRole("button", { name: "Submit" }),
-      ).toBeDisabled();
+      ).toBeEnabled();
+      await expect(readerPage.getByTestId("form-readonly-banner")).toHaveCount(
+        0,
+      );
     } finally {
       await adminPage.request
         .delete(`/api/users/${readerId}`)

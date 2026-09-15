@@ -413,9 +413,10 @@ export function FormWidgetRenderer({
   const tenantId = session?.user?.tenantId;
   // Dashboards render under /[id] and /[id]/edit; null outside the app router.
   const dashboardId = useParams<{ id?: string }>()?.id;
-  // The write runs where the saved dashboard stores this form (#1824). Edit
-  // mode shows the working copy: until it is saved, a form missing from the
-  // saved layout, or saved on another connection or database, waits for Save.
+  // The write runs where the saved dashboard stores this form (#1824), and runs
+  // the query saved there (#1831). Edit mode shows the working copy: until it
+  // is saved, a form missing from the saved layout, or saved on another
+  // connection, database or query, waits for Save.
   const needsSave = useDashboardStore((s) => {
     if (!widgetId || !s.hasUnsavedChanges()) return false;
     const saved = s.savedLayout?.pages
@@ -423,38 +424,10 @@ export function FormWidgetRenderer({
       .find((w) => w.id === widgetId);
     return (
       saved?.connectionId !== connectionId ||
-      (saved.database || undefined) !== (database || undefined)
+      (saved.database || undefined) !== (database || undefined) ||
+      saved.query !== query
     );
   });
-
-  // Proactively gate the form when the viewer has no write permission
-  // (issue #496). Readers always land here because session.user.canWrite
-  // is hard-coded to false for role=reader in lib/auth/session.ts:65.
-  // Creators with a live canWrite toggle fall here too — NextAuth's jwt
-  // callback refetches the flag on every token refresh, so the UI
-  // updates without requiring a page reload.
-  //
-  // The server also enforces canWrite at /api/query/write (read from the
-  // JWT session claim), so this check is defence-in-depth — it never
-  // downgrades the security model, it just stops leading the user into
-  // filling in a form they can't submit.
-  //
-  // `session === undefined` means we haven't loaded yet; default to
-  // !canWrite so we don't flash an enabled form to a reader while the
-  // session is still resolving.
-  // `session === undefined` means the hook hasn't resolved yet. We default
-  // to read-only in that window to avoid flashing an enabled form to a
-  // reader while the session loads.
-  //
-  // Readers are gated by role, not by the DB `canWrite` column — the DB
-  // value for a reader is often still `true` (it's only enforced at the
-  // server via requireSession()), so we must mirror that derivation here:
-  // `reader` is always read-only regardless of the column.
-  const sessionLoaded = session !== undefined;
-  const role = session?.user?.role;
-  const canWrite =
-    sessionLoaded && role !== "reader" && session?.user?.canWrite !== false;
-  const readOnly = sessionLoaded && !canWrite;
 
   // Seed form fields from external parameters (click-actions, selectors, etc.)
   // Fields the user has manually changed are NOT overwritten by external params.
@@ -666,40 +639,13 @@ export function FormWidgetRenderer({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (readOnly || needsSave) return;
+          if (needsSave) return;
           handleSubmit();
         }}
         onPointerDown={holdMessagesForPress}
         className="space-y-4 p-4"
       >
-        {readOnly && (
-          <div
-            role="status"
-            data-testid="form-readonly-banner"
-            className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
-          >
-            <span aria-hidden="true">⚠</span>
-            <span>
-              You don&rsquo;t have permission to submit this form. Contact an
-              administrator if you need write access.
-            </span>
-          </div>
-        )}
-
-        {/*
-         * When the viewer is read-only, the `inert` attribute blocks ALL
-         * interactions — mouse, keyboard, and assistive technology. This
-         * is the proper HTML standard way to disable a subtree, replacing
-         * the old pointer-events-none approach which only blocked mouse
-         * but allowed keyboard Tab navigation into fields.
-         */}
-        <div
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          {...(readOnly ? ({ inert: "" } as any) : {})}
-          className={
-            readOnly ? "select-none space-y-4 opacity-60" : "space-y-4"
-          }
-        >
+        <div className="space-y-4">
           {fields.map((field, index) => {
             const controlId = `${idPrefix}-field-${index}`;
             const labelId = `${controlId}-label`;
@@ -768,7 +714,7 @@ export function FormWidgetRenderer({
         {messages.successMessage && (
           <p className="text-sm text-green-600">{messages.successMessage}</p>
         )}
-        {needsSave && !readOnly && (
+        {needsSave && (
           <output className="block text-sm text-muted-foreground">
             Save the dashboard to submit this form.
           </output>
@@ -783,12 +729,7 @@ export function FormWidgetRenderer({
           // database's errors and validates again, while a draft typed inside
           // the debounce has not cleared its error yet. A disabled Submit would
           // block Enter and the click (#1771).
-          disabled={readOnly || needsSave || writeQuery.isPending}
-          title={
-            readOnly
-              ? "You don't have permission to submit this form"
-              : undefined
-          }
+          disabled={needsSave || writeQuery.isPending}
           className="w-full"
         >
           {writeQuery.isPending

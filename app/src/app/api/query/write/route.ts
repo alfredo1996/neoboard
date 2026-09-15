@@ -13,6 +13,7 @@ import {
 import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
 import { runPipeline } from "@/lib/query/pipeline";
 import type { QueryContext } from "@/lib/query/pipeline-types";
+import { formParamNames, type FormFieldDef } from "@/lib/widget/form-field-def";
 import {
   validateBody,
   forbidden,
@@ -38,13 +39,23 @@ export async function POST(request: Request) {
   return logRoute(request, "query-write", () => handleWriteQuery(request));
 }
 
+/** The submitted values of a saved form's own fields; any other is dropped. */
+function formParams(
+  form: DashboardWidget,
+  params: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const fields = form.settings?.formFields;
+  const names = formParamNames(
+    Array.isArray(fields) ? (fields as FormFieldDef[]) : [],
+  );
+  return Object.fromEntries(
+    Object.entries(params).filter(([name]) => names.has(name)),
+  );
+}
+
 async function handleWriteQuery(request: Request): Promise<Response> {
   try {
     const { userId, canWrite, tenantId, role } = await requireSession();
-
-    if (!canWrite) {
-      return forbidden("Write permission required");
-    }
 
     const requestId = request.headers.get("x-request-id") ?? undefined;
     const body = await request.json();
@@ -54,33 +65,13 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     const { connectionId, query, params, widgetId, dashboardId } =
       validation.data;
 
-    // Only connection owners can execute write queries (tenant-scoped)
-    const [connection] = await db
-      .select()
-      .from(connections)
-      .where(
-        and(
-          eq(connections.id, connectionId),
-          eq(connections.userId, userId),
-          eq(connections.tenantId, tenantId),
-        ),
-      )
-      .limit(1);
-
-    if (!connection) {
-      return notFound("Connection not found");
-    }
-
-    // Per-widget write enforcement: when widgetId + dashboardId are provided,
-    // the widget must be on this connection, on a dashboard the caller can
-    // open, and may write; its database comes from the stored layout, never
-    // from the request (#1824). Form widgets send both. Without them the write
-    // runs on the connection's default database. User-level canWrite and
-    // connection ownership are enforced above either way.
-    let widgetDatabaseOverride: string | undefined;
+    // A write that names a widget must name one on a dashboard the caller can
+    // open, on this connection (#1832). Viewer level, public dashboards
+    // included: a form is submitted from the dashboard as it is shown, which
+    // GET /api/dashboards/[id] allows. The widget's database comes from the
+    // stored layout, never from the request (#1824).
+    let widget: DashboardWidget | undefined;
     if (widgetId && dashboardId) {
-      // Viewer level, public dashboards included: a form is submitted from the
-      // dashboard as it is shown, which GET /api/dashboards/[id] allows.
       const access = await resolveDashboardAccess({
         dashboardId,
         userId,
@@ -92,39 +83,62 @@ async function handleWriteQuery(request: Request): Promise<Response> {
         | DashboardLayoutV2
         | null
         | undefined;
-      const widget = layout?.pages
+      widget = layout?.pages
         ?.flatMap((p) => p.widgets)
         .find(
           (w: DashboardWidget) =>
             w.id === widgetId && w.connectionId === connectionId,
         );
 
-      // One refusal for a missing or unopenable dashboard and for a missing
-      // widget or one on another connection.
-      if (!widget) {
+      // One refusal for a missing or unopenable dashboard, a missing widget or
+      // one on another connection, and a form saved with other query text than
+      // the request sends: an unsaved form, a stale page, or tampering.
+      if (!widget || (widget.chartType === "form" && widget.query !== query)) {
         return notFound("Widget not found");
       }
+    }
 
-      // A form exists to write, and the editor offers no write-mode flag for
-      // one, so a saved form never carries allowWrites (#1824).
-      if (widget.chartType !== "form" && !widget.allowWrites) {
-        return forbidden("Write mode is not enabled for this widget");
-      }
+    // A saved form runs for everyone who can open its dashboard, whatever their
+    // write permission, and runs only what it saves (#1831). Any other write
+    // needs write permission and the caller's own connection.
+    const form = widget?.chartType === "form" ? widget : undefined;
+    if (!form && !canWrite) {
+      return forbidden("Write permission required");
+    }
 
-      // Only apply per-card DB override when the connection allows it
-      if (widget.database && connection.allowPerCardDb) {
-        widgetDatabaseOverride = widget.database;
-      }
+    // Tenant-scoped. A form's connection is the one it is saved on (matched
+    // above), whoever owns it; any other write runs only on the caller's own.
+    const [connection] = await db
+      .select()
+      .from(connections)
+      .where(
+        and(
+          eq(connections.id, connectionId),
+          eq(connections.tenantId, tenantId),
+          form ? undefined : eq(connections.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!connection) {
+      return notFound("Connection not found");
+    }
+
+    // The editor offers write mode on charts only, so a saved form never
+    // carries allowWrites (#1824); any other stored widget needs it.
+    if (widget && !form && !widget.allowWrites) {
+      return forbidden("Write mode is not enabled for this widget");
     }
 
     const credentials = decryptJson<ConnectionCredentials>(
       connection.configEncrypted,
     );
 
-    // Use per-card database override if set and allowed
-    const effectiveCredentials = widgetDatabaseOverride
-      ? { ...credentials, database: widgetDatabaseOverride }
-      : credentials;
+    // The widget's saved database, when its connection allows a per-card one.
+    const effectiveCredentials =
+      widget?.database && connection.allowPerCardDb
+        ? { ...credentials, database: widget.database }
+        : credentials;
 
     // Write queries always run at P1 — they represent explicit user
     // intent (form submit, manual write) and must not be shed under
@@ -133,8 +147,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     if (requestId) metadata.requestId = requestId;
 
     const ctx: QueryContext = {
-      query,
-      params: params ?? {},
+      // A form runs its saved query, binding only its own fields' values.
+      query: form ? form.query : query,
+      params: form ? formParams(form, params) : (params ?? {}),
       connectionId,
       connectionType: connection.type as DbType,
       userId,

@@ -18,15 +18,15 @@ NeoBoard supports multi-tenancy for SaaS deployments and team isolation.
 
 - Users in tenant A **cannot** see or modify data belonging to tenant B
 - Connections, dashboards, widgets, and API keys are all tenant-scoped
-- Admin rights stop at the tenant boundary. Admins manage users, can open and edit any dashboard, can view, query or delete any connection in their tenant, and can repoint widgets from any of those connections to another one. Editing a connection's settings or sharing, and running write queries through it, stay with the connection's owner. One exception reaches other tenants: [key rotation](/security/credential-encryption#how-to-rotate-zero-data-loss) (`POST /api/admin/rotate-key`, which only works while `ENCRYPTION_KEY_OLD` is set) re-encrypts every tenant's stored credentials. It returns counts only and reveals no other tenant's data.
+- Admin rights stop at the tenant boundary. Admins manage users, can open and edit any dashboard, can view, query or delete any connection in their tenant, and can repoint widgets from any of those connections to another one. Editing a connection's settings or sharing stays with the connection's owner, and so do write queries through it outside forms. Anyone who can open a dashboard can submit its forms. Adding a form, or changing a form's query, connection or database, needs access to that connection: its owner, anyone in the tenant once it is shared, or an admin. One exception reaches other tenants: [key rotation](/security/credential-encryption#how-to-rotate-zero-data-loss) (`POST /api/admin/rotate-key`, which only works while `ENCRYPTION_KEY_OLD` is set) re-encrypts every tenant's stored credentials. It returns counts only and reveals no other tenant's data.
 
 ## Roles
 
 | Role | Permissions |
 |------|------------|
-| **Admin** | Manage users; open and edit every dashboard; view, query and delete every connection in the tenant, and repoint widgets from it to another connection (editing a connection's settings and running write queries through it stay with its owner) |
-| **Creator** | Create/edit own dashboards (and those shared with them as editor); create and manage own connections; use tenant-shared connections |
-| **Reader** | View dashboards shared with them or marked public within the tenant; run read-only queries against tenant-shared connections; no write access |
+| **Admin** | Manage users; open and edit every dashboard; view, query and delete every connection in the tenant, and repoint widgets from it to another connection; add or change forms on any connection (editing a connection's settings, and write queries through it outside forms, stay with its owner) |
+| **Creator** | Create/edit own dashboards (and those shared with them as editor); create and manage own connections; use tenant-shared connections; add or change forms only on connections they own or that are shared with the tenant |
+| **Reader** | View dashboards shared with them or marked public within the tenant; run read-only queries against tenant-shared connections; submit the forms on dashboards they can open, but run no write queries of their own |
 
 ## Configuration
 

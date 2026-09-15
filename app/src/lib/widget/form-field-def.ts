@@ -72,3 +72,14 @@ export function buildFormParams(
   }
   return params;
 }
+
+/**
+ * Every parameter a submit of these fields can send, named as buildFormParams
+ * names them. The write route binds a saved form's submit to these (#1831).
+ */
+export function formParamNames(fields: FormFieldDef[]): Set<string> {
+  // ponytail: a blank optional field sends each of its parameters as null, so
+  // buildFormParams over no values names them all: one naming rule, not two.
+  const optional = fields.map((field) => ({ ...field, required: false }));
+  return new Set(Object.keys(buildFormParams(optional, {})));
+}

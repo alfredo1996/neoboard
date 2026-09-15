@@ -3,7 +3,11 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import type { UserRole } from "@/lib/db/schema";
+import type {
+  DashboardLayout,
+  DashboardWidget,
+  UserRole,
+} from "@/lib/db/schema";
 import {
   resolveDashboardAccess,
   type DashboardAccessRole,
@@ -22,7 +26,11 @@ import {
   unusableByOwner,
   unusableConnectionIds,
 } from "@/lib/db/connection-access";
-import { collectLayoutQueries } from "@/lib/query/dashboard-query-binding";
+import {
+  collectLayoutQueries,
+  layoutQueryKey,
+} from "@/lib/query/dashboard-query-binding";
+import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 
 const gridLayoutItemSchema = z.object({
   i: z.string(),
@@ -140,6 +148,29 @@ export async function GET(
 const CONFLICT_MESSAGE =
   "This dashboard was modified by someone else. Reload to see their changes.";
 
+const FORM_REFUSAL =
+  "You can only add or change forms on connections you have access to";
+
+/**
+ * The connections of the forms in `next` that the stored layout does not hold
+ * as they are: a new form, a widget turned into one, or a form whose query,
+ * connection or database changed. Forms match by id, so a copy is new (#1831).
+ */
+function changedFormConnectionIds(next: unknown, stored: unknown): Set<string> {
+  const forms = (layout: unknown) =>
+    migrateLayout(layout as DashboardLayout | null)
+      .pages.flatMap((page) => page.widgets ?? [])
+      .filter((widget) => widget.chartType === "form");
+  const key = (form: DashboardWidget) =>
+    JSON.stringify([form.id, layoutQueryKey(form)]);
+  const kept = new Set(forms(stored).map(key));
+  return new Set(
+    forms(next)
+      .filter((form) => form.connectionId && !kept.has(key(form)))
+      .map((form) => form.connectionId),
+  );
+}
+
 /**
  * Why a save's layout is refused, or null.
  *
@@ -151,6 +182,11 @@ const CONFLICT_MESSAGE =
  * while such a connection stays on it (#1816). A query is what the binding
  * matches: its connection, text and database, so moving a saved query to
  * another database or connection adds one (#1822).
+ *
+ * A form writes through its connection for everyone who can open the dashboard
+ * (#1831), so adding a form, or changing a form's query, connection or
+ * database, needs the caller's own access to that connection, even one already
+ * on the dashboard. A form left as stored stays, whoever saves.
  */
 async function layoutRefusal(
   next: unknown,
@@ -166,7 +202,9 @@ async function layoutRefusal(
   const ids = [...layoutConnectionIds(next)].filter(
     (id) => addsQuery || !storedIds.has(id),
   );
-  const unusable = await unusableConnectionIds(ids, session);
+  const formIds = changedFormConnectionIds(next, stored.layoutJson);
+  const unusable = await unusableConnectionIds([...ids, ...formIds], session);
+  if (unusable.some((id) => formIds.has(id))) return FORM_REFUSAL;
   if (unusable.some((id) => !storedIds.has(id))) {
     return "Widgets can only use connections you have access to";
   }
@@ -238,13 +276,17 @@ export async function PUT(
     }
 
     // Build WHERE clause — always scope by id + tenant; add version
-    // check when the client sends expectedVersion (optimistic lock).
+    // check when the client sends expectedVersion (optimistic lock). A layout
+    // is always pinned to the version its checks read, so a save that lands
+    // in between makes this a 409 instead of being overwritten (#1831).
     const conditions = [
       eq(dashboards.id, id),
       eq(dashboards.tenantId, tenantId),
     ];
-    if (expectedVersion !== undefined) {
-      conditions.push(eq(dashboards.version, expectedVersion));
+    if (expectedVersion !== undefined || updateData.layoutJson) {
+      conditions.push(
+        eq(dashboards.version, expectedVersion ?? access.dashboard.version),
+      );
     }
 
     // The schema's .refine() guarantees at least one real data field, so every

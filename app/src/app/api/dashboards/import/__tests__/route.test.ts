@@ -584,4 +584,35 @@ describe("POST /api/dashboards/import", () => {
       expect.arrayContaining(["tenant-1", "c-private", "user-1", "shared"]),
     );
   });
+  it("returns 403 when a form names a connection the caller cannot use (#1831)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const connectionCheck = makeSelectChain([{ id: "c-private" }]);
+    mockDb.select.mockReturnValueOnce(connectionCheck);
+    mockDb.insert.mockReturnValue(
+      makeInsertChain([{ id: "new-dash", name: "Imported Dashboard" }]),
+    );
+    const page = VALID_PAYLOAD.layout.pages[0];
+    const form = {
+      ...page.widgets[0],
+      chartType: "form",
+      connectionId: "c-private",
+      query: "INSERT INTO tags (tag) VALUES ($param_tag)",
+    };
+    const payload = {
+      ...VALID_PAYLOAD,
+      connections: {},
+      layout: {
+        ...VALID_PAYLOAD.layout,
+        pages: [{ ...page, widgets: [form] }],
+      },
+    };
+
+    const res = await POST(makeRequest({ payload, connectionMapping: {} }));
+
+    expect(res.status).toBe(403);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(sqlValues(connectionCheck.calls.where[0][0])).toEqual(
+      expect.arrayContaining(["tenant-1", "c-private", "user-1", "shared"]),
+    );
+  });
 });

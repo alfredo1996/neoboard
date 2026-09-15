@@ -358,4 +358,50 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
     expect(res.status).toBe(201);
     expect(mockDb.select).toHaveBeenCalledTimes(1);
   });
+  // A copy is the caller's own, so its forms write through connections the
+  // caller must be able to use, like every other widget (#1816, #1831).
+  it("refuses a viewer share copying a form on a connection they cannot use (#1831)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "u2",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const [page] = SHARED_SOURCE.layoutJson.pages;
+    const source = {
+      ...SHARED_SOURCE,
+      layoutJson: {
+        ...SHARED_SOURCE.layoutJson,
+        pages: [
+          {
+            ...page,
+            widgets: [
+              {
+                id: "w-form",
+                chartType: "form",
+                connectionId: "c-private",
+                query: "INSERT INTO tags (tag) VALUES ($param_tag)",
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const connectionCheck = recordingSelectChain([{ id: "c-private" }]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([source]))
+      .mockReturnValueOnce(
+        makeShareSelectChain([{ id: "share-1", role: "viewer" }]),
+      )
+      .mockReturnValueOnce(connectionCheck);
+    mockDb.insert.mockReturnValueOnce(makeInsertChain([{ id: "d2" }]));
+
+    const res = await POST({} as Request, makeParams("d1"));
+
+    expect(res.status).toBe(403);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(sqlValues(connectionCheck.calls.where[0][0])).toEqual(
+      expect.arrayContaining(["default", "c-private", "u2", "shared"]),
+    );
+  });
 });
