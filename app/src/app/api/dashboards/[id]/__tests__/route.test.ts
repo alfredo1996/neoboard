@@ -1386,12 +1386,24 @@ describe("PUT /api/dashboards/[id] — who can make a dashboard public", () => {
     expect(chain.calls.set[0][0]).not.toHaveProperty("isPublic");
   });
 
-  it.each([null, false])(
-    "lets an editor share re-send isPublic false when it is stored as %s",
-    async (stored) => {
+  // The unchanged value is never written: an editor's copy read before the
+  // owner's toggle would otherwise overwrite it, as the update pins no version.
+  it.each([
+    [null, false],
+    [false, false],
+    [true, true],
+  ])(
+    "lets an editor share re-send the stored isPublic (%s as %s) without writing it",
+    async (stored, requested) => {
       asShare("editor", { ...OWNER_DASHBOARD, isPublic: stored as never });
-      const res = await PUT(makeRequest({ isPublic: false }), makeParams("d1"));
+      const chain = makeUpdateChain([OWNER_DASHBOARD]);
+      mockDb.update.mockReturnValue(chain);
+      const res = await PUT(
+        makeRequest({ isPublic: requested }),
+        makeParams("d1"),
+      );
       expect(res.status).toBe(200);
+      expect(chain.calls.set[0][0]).not.toHaveProperty("isPublic");
     },
   );
 

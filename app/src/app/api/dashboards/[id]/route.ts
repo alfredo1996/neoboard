@@ -267,16 +267,20 @@ export async function PUT(
     }
 
     // Who can open a dashboard is decided like its shares: owner or admin only,
-    // the same rule as the share route. Re-sending the stored value is a no-op.
+    // the same rule as the share route. Anyone else may re-send the stored
+    // value, but it is never written: this update pins no version, so a copy
+    // read before the owner's toggle would otherwise overwrite it.
     if (
       updateData.isPublic !== undefined &&
-      updateData.isPublic !== (access.dashboard.isPublic ?? false) &&
       access.role !== "owner" &&
       access.role !== "admin"
     ) {
-      return forbidden(
-        "Only the dashboard's owner or an admin can change who can open it",
-      );
+      if (updateData.isPublic !== (access.dashboard.isPublic ?? false)) {
+        return forbidden(
+          "Only the dashboard's owner or an admin can change who can open it",
+        );
+      }
+      delete updateData.isPublic;
     }
 
     if (updateData.layoutJson) {
