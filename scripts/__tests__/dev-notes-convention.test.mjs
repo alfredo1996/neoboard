@@ -38,7 +38,6 @@ const SCRATCH_AGENTS = [
 /** The planning definitions: they read from and save plans to the vault. */
 const DURABLE = [
   ".claude/agents/project-architect.md",
-  ".claude/skills/plan/SKILL.md",
   ".claude/skills/code/SKILL.md",
   ".claude/skills/next/SKILL.md",
   ".claude/skills/release-plan/SKILL.md",

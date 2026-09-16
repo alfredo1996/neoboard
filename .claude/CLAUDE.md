@@ -139,10 +139,6 @@ PreToolUse hooks block cross-package imports, query interpolation, credential lo
 
 When compacting, keep: the issue and PR numbers in play, the branch and its base, every file changed, which test commands ran and their results, and any decision the user made.
 
-## Design Review
-
-Before touching any UI code, read `.claude/skills/design-review/SKILL.md` — tokens, spacing, typography, color, chart patterns.
-
 ## Dev Notes
 
 Durable notes — plans, drills, decisions, reviews — live in the Obsidian vault at `~/Desktop/neoboard-vault`, filed under its branch (`roadmap/`, `security/`, `product/`, …) and linked from the branch hub. The vault is its own git repo: commit there with a conventional message. `claude_code_docs/` (gitignored) is agent scratch only — the browser agents dump mid-run findings there and nothing in it is expected to survive. `scripts/__tests__/dev-notes-convention.test.mjs` fails if any other `.claude/` definition points at it.

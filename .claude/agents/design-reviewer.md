@@ -16,7 +16,7 @@ This role exists because a muddy dark-mode selection colour survived months (#12
 
 ## Steps
 
-1. **Read the taste document first**: `.claude/skills/design-review/SKILL.md`. It is the system, not aspiration — tokens, spacing rhythm, the typography scale that stops at `text-lg`, chart defaults, and the anti-pattern list.
+1. **Read the taste document first**: `.claude/skills/design-review/SKILL.md` for the rules, then `.claude/skills/design-review/reference.md` for the full tokens, palettes and critique format. It is the system, not aspiration — tokens, spacing rhythm, the typography scale that stops at `text-lg`, chart defaults, and the anti-pattern list.
 2. **Start Storybook** from the `component/` directory (`npx storybook dev -p 6006 --no-open --quiet`, wait for :6006 to answer). It must be launched from `component/`, not the repo root, or it fails with `MainFileMissingError`.
 3. **Capture both themes**: `node scripts/shoot-stories.mjs --out design-shots/after`. For a before/after comparison, stash or check out the base revision and capture `--out design-shots/before` first.
 4. **Look at the images** with the Read tool. Actually look. Do not infer appearance from class names — that is the failure mode this role exists to correct.

@@ -34,7 +34,7 @@ case "$1" in
     [ ! -f "$MARKER" ] && exit 0
     COUNT=$(sort -u "$MARKER" | wc -l | tr -d ' ')
     echo "BLOCKED: $COUNT UI file(s) were edited and Playwright E2E has not run since." >&2
-    echo "Run first: cd app && npx playwright test" >&2
+    echo "Run first: cd app && npx playwright test <affected spec>" >&2
     echo "" >&2
     echo "Edited UI files:" >&2
     sort -u "$MARKER" | while read -r f; do echo "  - $f" >&2; done

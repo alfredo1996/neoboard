@@ -1,5 +1,6 @@
 ---
 name: fix-pr-reviews
+disable-model-invocation: true
 description: Extract, fix, and resolve all SonarCloud + CodeRabbit bot review issues for a PR.
 model: sonnet
 allowed-tools: Read, Write, Edit, Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *), Grep(*), Glob(*)

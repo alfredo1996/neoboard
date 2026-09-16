@@ -23,15 +23,12 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *)
 2. `npm run lint`
 3. `npm run build`
 4. Run tests for affected packages (`cd app && npm test`, `cd component && npm test`)
-5. Run E2E if UI changed: `cd app && npx playwright test`
+5. Run E2E if UI changed: `cd app && npx playwright test <affected spec>` (CI's shards run the full suite)
 6. If updating existing PR: `gh pr view <number> --comments` — address CodeRabbit/SonarCloud feedback
 
-## Labels (required: type + package)
+## Labels (required: type + package + area)
 
-- Type: bug, enhancement, security, documentation, breaking-change, performance
-- Package: pkg:app, pkg:component, pkg:connection
-- Area: area:auth, area:connectors, area:widgets, area:charts, area:query-exec, area:dashboard, area:api
-- Special: enterprise, breaking-change
+Use the label list in the `github-workflow` skill, exactly as named there.
 
 ## PR body template
 

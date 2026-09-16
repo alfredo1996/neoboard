@@ -105,6 +105,7 @@ describe("a prose-only change to .claude runs its guards (#1847)", () => {
 
   it("runs the guards those files are held to", () => {
     expect(agentCi).toMatch(/claude-rules\.test\.mjs/);
+    expect(agentCi).toMatch(/claude-definitions\.test\.mjs/);
     expect(agentCi).toMatch(/dev-notes-convention\.test\.mjs/);
     expect(agentCi).toMatch(/docs-accuracy\.test\.ts/);
   });
