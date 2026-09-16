@@ -63,7 +63,7 @@ npm run lint
 npm run build
 cd app && npm test
 cd component && npm test
-cd app && npx playwright test
+cd app && npx playwright test <affected spec>
 ```
 
 Fix any failures. Do not skip.

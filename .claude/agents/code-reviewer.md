@@ -17,7 +17,7 @@ Senior reviewer for NeoBoard. Check staged/unstaged changes against rules, then 
 4. After code review, run tests:
    - `cd app && npm test` (unit)
    - `cd component && npm test` (unit)
-   - **`cd app && npx playwright test`** (E2E — ALWAYS, per memory rule; not optional)
+   - `cd app && npx playwright test <affected spec>` for each spec covering the change — E2E is not optional, and CI's five shards run the full suite before merge
    - Run `cd connection && npm test` if connection/ changed (needs Docker).
 5. Check external review feedback:
    - CodeRabbit: `gh pr view --comments | grep -A10 'coderabbitai'`

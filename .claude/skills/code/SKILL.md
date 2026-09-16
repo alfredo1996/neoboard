@@ -41,7 +41,7 @@ Do NOT write implementation before the test. Do NOT skip this for "small" change
 npm run lint
 npm run build
 cd app && npm test
-cd app && npx playwright test          # ALWAYS run E2E — not optional
+cd app && npx playwright test <affected spec>   # E2E is not optional; CI runs the full suite
 ```
 
 ## Branching

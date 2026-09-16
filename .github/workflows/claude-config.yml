@@ -56,7 +56,7 @@ jobs:
       # CLAUDE.md's length, the rule files' globs (a typo'd glob is a rule that
       # never loads), and the vault convention for durable notes.
       - name: Check the instruction files
-        run: npx vitest run scripts/__tests__/claude-rules.test.mjs scripts/__tests__/dev-notes-convention.test.mjs
+        run: npx vitest run scripts/__tests__/claude-rules.test.mjs scripts/__tests__/claude-definitions.test.mjs scripts/__tests__/dev-notes-convention.test.mjs
 
       # The repo-facing half of docs-accuracy: the paths CLAUDE.md cites, the
       # migration escape hatch, and the tenancy mandate it must keep stating.

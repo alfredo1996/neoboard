@@ -1,5 +1,6 @@
 ---
 name: release-plan
+disable-model-invocation: true
 description: Read a product spec or feature doc, break it into milestones and GitHub issues with proper labels, dependencies, and ordering. Use when turning a product spec into an actionable backlog.
 model: opus
 context: fork

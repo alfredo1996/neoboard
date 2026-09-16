@@ -1,5 +1,6 @@
 ---
 name: harden
+disable-model-invocation: true
 description: Strengthen NeoBoard UI against edge cases, error states, text overflow, large datasets, connector failures, and real-world usage scenarios.
 model: sonnet
 user-invokable: true

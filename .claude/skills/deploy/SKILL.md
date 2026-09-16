@@ -1,5 +1,6 @@
 ---
 name: deploy
+disable-model-invocation: true
 description: Production-deployment audit — fresh stand-up, secrets, backup/restore, migrations, observability. Capture gaps as GitHub issues; do NOT fix in place.
 model: sonnet
 user-invokable: true

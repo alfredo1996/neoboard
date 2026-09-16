@@ -39,10 +39,10 @@ echo "$CHANGED" | grep -q '^connection/' && RUN_CONNECTION=true
 cd app && npm test
 ```
 
-**App integration tests** (if app/ changed):
+**App E2E** (if app/ changed — the specs covering the change; CI runs all of them):
 
 ```bash
-cd app && npx playwright test
+cd app && npx playwright test <affected spec>
 ```
 
 **Component tests** (if component/ changed):

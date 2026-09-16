@@ -1,402 +1,65 @@
 ---
 name: design-review
-description: Design Review — NeoBoard Design Taste Document
-model: haiku
+description: NeoBoard's design system as built — spacing rhythm, colour tokens, typography scale, radii, chart rules and the anti-patterns to flag. Use when writing or reviewing UI code; the full palettes, grids and critique format live in reference.md.
 user-invocable: false
+paths:
+  - "**/*.tsx"
+  - "**/*.css"
 ---
 
-# Design Review — NeoBoard Design Taste Document
+# Design review — the core rules
 
-Extracted from the actual codebase. Not aspirational — this IS the system.
+Extracted from the codebase, not aspirational. This is the short version: `reference.md` in this directory has the full token tables, chart palettes, dialog and grid sizes, and a general critique format for ad-hoc reviews. `design-reviewer` reports in its own format.
 
-## When to Use
+## Spacing
 
-Before touching ANY UI code (pages, components, layouts, modals), read this document. After any visual change, compare against these patterns. Flag deviations in PR descriptions.
+- Page root padding is `p-6`, always. Cards use `p-6`; `p-4` only for the compact `WidgetCard` and `ConnectionCard`.
+- Sections `space-y-4` / `gap-4`; form fields `space-y-2`; inline groups `gap-2`.
+- Never `p-3`, `p-5` or `p-8` and up; never `gap-1` for button groups; one `space-y` value per form.
 
----
+## Colour
 
-## 1. Visual Hierarchy
+- Semantic tokens only (`--background`, `--foreground`, `--muted-foreground`, `--ring`…). Never raw hex or hsl in a component.
+- The interaction accent is azure (`--ring`, #1553). Citrine (`--brand`) is the wordmark and the lead chart series only.
+- Opacity modifiers `/80`, `/60`, `/50` are fine for overlays and hover states.
+- Secondary text is `text-muted-foreground`.
 
-### Elevation Stack (low to high)
+## Typography
 
-1. **Page background**: `bg-background` (white / `hsl(0 0% 100%)`)
-2. **Cards**: `bg-card` + `shadow` + `rounded-lg border` — cards float above page
-3. **Overlays**: `bg-background/80 backdrop-blur-sm` + `shadow-md` — semi-transparent blur
-4. **Dialogs**: `bg-background` + `shadow-lg` on overlay `bg-black/80` — highest z-level
-5. **Tooltips**: `bg-primary text-primary-foreground` — inverted colors, no explicit shadow
+- The scale stops at `text-lg`: `text-xs` for labels, `text-sm` for body (dominant), `text-lg` for titles. No `text-2xl` or larger.
+- `font-medium` for interactive elements, `font-semibold` for headings, `font-bold` only for metric values.
+- Descriptions are `text-sm text-muted-foreground`.
 
-### Z-Index Layers
+## Radius, borders, shadows
 
-- Sidebar: normal flow (no z-index)
-- Dropdowns/Popovers: z-50 (Radix default)
-- Dialog overlay: z-50 `fixed inset-0`
-- Toasts: z-[100] (Sonner default)
+- `rounded-md` (8px) for buttons and inputs, `rounded-lg` (12px) for cards and dialogs, `rounded-full` for pills. This is a decision, not a default — don't sharpen them.
+- `border border-border` by default; `border-2 border-primary` for a selected item; never `border-4`.
+- The authoritative radius values are pinned in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`.
 
-### Active/Selected States
+## Charts
 
-- Sidebar active: `border-l-2 border-[hsl(var(--ring))] bg-accent-soft text-foreground` — the rail is the signal, the fill is neutral in dark (#1244)
-- Tab active: `border-b-2 border-primary text-foreground` (bottom border emphasis)
-- Connection card active: `border-primary` ring
-- Selection in lists: `bg-accent/50`
+- Colours come from `resolveChartColors()`, never inline; the only themes are `neoboard-light` and `neoboard-dark`.
+- No title inside the chart — the widget card header is the title. The legend sits at the bottom.
+- Never set `splitLine.lineStyle` in a chart module, and never hide category labels at a breakpoint; truncate them instead (#1247).
 
----
+## Components
 
-## 2. Spacing & Density
+- Empty states use `EmptyState`; loading uses `LoadingButton` or `LoadingOverlay`.
+- Buttons: `default` for the primary action, `outline` to cancel, `destructive` to delete, `ghost` in toolbars.
 
-### The Rules
+## Red flags to call out
 
-- **Page root padding**: `p-6` — ALWAYS. Every `(dashboard)` page uses this.
-- **Section gaps**: `space-y-4` between major sections, `gap-4` in grids.
-- **Form field gaps**: `space-y-2` between label+input groups.
-- **Card padding**: `p-6` is the standard (CardHeader, CardContent, CardFooter).
-- **Inline element gaps**: `gap-2` between buttons, badges, icons.
+- Nested cards, everything in cards, identical card grids, everything centred.
+- Grey text on coloured fills, pure `#000` or `#fff`, neon accents on dark, gradient text on metrics.
+- Monospace as "technical" styling; a big icon above every heading.
+- Bounce easing, animating width, height or padding, glassmorphism as decoration.
+- Headers that restate the page, every button primary, "Error occurred".
 
-### Known Deviations (Intentional)
+## Checklist before a UI PR
 
-- `WidgetCard`: Uses `p-4 pb-2` header / `p-4 pt-2` content — INTENTIONALLY denser because widgets are packed in a grid. This is the "compact card" pattern.
-- `ConnectionCard`: Uses `p-4` — also compact, for list density.
-
-### Anti-Pattern: DO NOT
-
-- Use `p-3` or `p-5` — they break the 4/6 rhythm.
-- Use `gap-1` for button groups — too tight. Use `gap-2`.
-- Mix `space-y-2` and `space-y-3` in the same form — pick one per form.
-- Add `p-8` or larger — nothing in the codebase uses this, it'll look out of place.
-
----
-
-## 3. Color Usage
-
-### Semantic Color Map (CSS Variables, HSL)
-
-| Token                | Light                       | Usage                                                                                   |
-| -------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
-| `--background`       | `220 14% 98%` (off-white)   | Page backgrounds                                                                        |
-| `--foreground`       | `220 13% 9%` (graphite)     | Body text                                                                               |
-| `--card`             | `0 0% 100%` (white)         | Card surfaces                                                                           |
-| `--muted`            | `220 14% 94%` (light gray)  | Disabled bgs, secondary surfaces                                                        |
-| `--muted-foreground` | `220 9% 42%` (medium gray)  | Captions, metadata, descriptions                                                        |
-| `--primary`          | `220 13% 9%` (graphite)     | Buttons, active states                                                                  |
-| `--secondary`        | `220 14% 94%` (light gray)  | Secondary buttons                                                                       |
-| `--destructive`      | `0 72% 45%` (red)           | Delete buttons, error states                                                            |
-| `--border`           | `220 13% 91%` (light gray)  | All borders                                                                             |
-| `--input`            | `220 13% 84%` (light gray)  | Input borders                                                                           |
-| `--ring`             | `212 90% 42%` (azure)       | Focus rings, active rail, tab underline, selection accent (#1553)                       |
-| `--accent`           | `212 100% 94%` (azure tint) | Hover/selected fill; the menu highlight is carried by the inset `--ring` stroke (#1559) |
-| `--brand`            | `38 95% 55%` (citrine)      | Wordmark mark                                                                           |
-
-### Chart Colors (10-color "Graphite & Citrine" default palette — colorblind-safe)
-
-```css
-/* Light mode (values are `H S% L%` for hsl(var(--chart-N))) */
---chart-1: 38 95% 55%; /* Citrine (brand-led lead series) */
---chart-2: 185 70% 48%; /* Teal */
---chart-3: 265 55% 48%; /* Purple */
---chart-4: 350 70% 48%; /* Rose */
---chart-5: 95 45% 66%; /* Green */
---chart-6: 330 65% 38%; /* Wine */
---chart-7: 240 55% 66%; /* Indigo */
---chart-8: 15 75% 58%; /* Orange */
---chart-9: 172 65% 38%; /* Deep teal */
---chart-10: 150 55% 66%; /* Mint */
-```
-
-Dark mode uses the same hues with higher lightness for contrast on dark backgrounds.
-Ordering maximises sequential contrast: the first 5 span Citrine → Teal → Purple → Rose → Green so typical 2–5-series charts are always distinguishable. The lead series is the citrine brand hue. Similar hues (e.g. the two teals, the two greens) are placed far apart.
-
-### Color Rules
-
-- NEVER use raw hex/hsl values in components. Always use CSS variable tokens.
-- Opacity modifiers allowed: `/80`, `/60`, `/50` for overlays and hover states.
-- Role badges: admin = `destructive` (red), creator = `default` (graphite), reader = `secondary` (gray).
-- Connection status: connected = implicit (no color), error = `destructive`, connecting = neutral.
-- `text-muted-foreground` is the workhorse for secondary text (50 occurrences in component lib).
-
----
-
-## 4. Chart Styling
-
-### ECharts Integration Pattern
-
-- Colors resolved at runtime from CSS variables via `resolveChartColors()` in `base-chart.tsx`.
-- Fallback array exists for SSR: `CHART_COLORS_FALLBACK` (citrine light palette).
-- Two registered ECharts themes: `neoboard-light` and `neoboard-dark` (registered once at module load via `registerNeoboardThemes()`). Themes set axis, label, legend, and split-line colors for each mode.
-- Dark mode detection via `MutationObserver` on `<html class="dark">` — charts reinitialize on theme toggle.
-- Loading mask adapts to dark mode: `rgba(10, 15, 30, 0.6)` dark / `rgba(255, 255, 255, 0.6)` light.
-
-### Chart Defaults
-
-```typescript
-// Bar/Line chart grid (standard)
-grid: { left: 16, right: 16, top: 16, bottom: 24, containLabel: true }
-
-// Compact mode (container < 300px)
-grid: { left: 8, right: 8, top: 8, bottom: 8 }
-// Compact drops the axis NAME and the value-axis numbers. Category labels
-// stay — truncated to 10 chars under 400px — because a chart with no
-// category names identifies nothing (#1247).
-
-// Gridlines: one weight and colour for every cartesian chart, from the
-// registered theme (GRID_LINE_COLOR in charts/theme.ts). Charts set only
-// `splitLine: { show }` — never `splitLine.lineStyle`.
-
-// Legend position
-legend: { bottom: 0 }  // ALWAYS bottom-aligned
-
-// Tooltip
-tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
-```
-
-### Chart Anti-Patterns
-
-- NEVER import `import * as echarts from 'echarts'` — use modular imports from `echarts/core`.
-- NEVER set chart colors inline — always use `resolveChartColors()`.
-- NEVER add title inside the chart — widget card header IS the title.
-- NEVER register additional ECharts themes — use `neoboard-light` / `neoboard-dark` only.
-- NEVER set `splitLine.lineStyle` in a chart module — gridline weight belongs to the theme (#1247).
-- NEVER let a responsive breakpoint hide category labels — degrade to truncation, not to nothing (#1247).
-- Dark mode chart colors are DIFFERENT from light mode — this is by design (higher lightness for contrast).
-
-### Graph Chart (NVL)
-
-- Force-directed default layout.
-- Supports: circular, hierarchical layouts via dropdown.
-- Context menu: right-click for expand/collapse neighbors.
-- Status bar shows node/edge counts.
-- Loading via NVL's built-in loading state.
-
----
-
-## 5. Typography Scale
-
-### The Actual Scale Used
-
-| Class       | Size | Weight          | Where Used                                                               |
-| ----------- | ---- | --------------- | ------------------------------------------------------------------------ |
-| `text-xs`   | 12px | `font-medium`   | Labels, badges, captions, metadata timestamps                            |
-| `text-sm`   | 14px | `font-medium`   | **DOMINANT** — body text, form labels, descriptions, buttons, menu items |
-| `text-base` | 16px | normal          | Input text (rendered content)                                            |
-| `text-lg`   | 18px | `font-semibold` | Page titles, dialog headers, card titles                                 |
-
-### Weight Rules
-
-- `font-medium` (500): Default for interactive elements (buttons, links, nav items) — 38 occurrences.
-- `font-semibold` (600): Section headings, card titles, emphasis — 13 occurrences.
-- `font-bold` (700): Rare. Only metric values and strong emphasis — 4 occurrences.
-- Default (400): Body text, descriptions, form help text.
-
-### Typography Anti-Patterns
-
-- DO NOT use `text-2xl` or `text-3xl` — nothing in the codebase uses them. The scale stops at `text-lg`.
-- DO NOT use `font-bold` for headings — use `font-semibold`. Bold is reserved for metric emphasis.
-- Card titles: `font-semibold leading-none tracking-tight` (from CardTitle). Match this exactly.
-- Descriptions always: `text-sm text-muted-foreground` (from CardDescription).
-
----
-
-## 6. Border & Radius Patterns
-
-### Border Radius Hierarchy
-
-| Class          | Computed                 | Where Used                                          |
-| -------------- | ------------------------ | --------------------------------------------------- |
-| `rounded-lg`   | 12px (`--radius-lg`)     | Card base, dialogs (`sm:rounded-lg`), popovers      |
-| `rounded-md`   | 8px (`--radius-md`)      | **DOMINANT** — buttons, inputs, selects, menu items |
-| `rounded-sm`   | 6px (`--radius-sm`)      | Compact elements, close buttons, tiny controls      |
-| `rounded-full` | 9999px (`--radius-pill`) | Avatars, status dots, toggle switches, badges       |
-
-`--radius` is a backward-compatible alias of `--radius-md` (8px). The authoritative
-values live in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`, which
-pins them as a ratchet — check there before quoting a number here.
-
-These radii are the _result of a decision_, not scaffold defaults: buttons are
-`rounded-md` (8px) and cards `rounded-lg` (12px) so the main floating surface reads
-softer than the controls inside it. Do not "correct" them toward sharper corners
-without superseding that decision knowingly.
-
-### Border Rules
-
-- Standard border: `border border-border` (1px, light gray) for most elements.
-- Active emphasis: `border-2 border-primary` (2px, black) for selected items (connection type picker).
-- Tab active: `border-b-2 border-primary` (bottom-only 2px).
-- Separators: `border-t` for horizontal dividers between sections.
-- NEVER use `border-4` — only 1 occurrence exists and it's anomalous.
-
-### Shadow Scale
-
-| Class       | Where Used                                                           |
-| ----------- | -------------------------------------------------------------------- |
-| `shadow-sm` | Buttons (outline, secondary, destructive), inputs — subtle elevation |
-| `shadow`    | Card base, default button — standard card elevation                  |
-| `shadow-md` | Floating menus, graph overlay — mid-elevation                        |
-| `shadow-lg` | Popovers, dropdowns — high elevation overlays                        |
-
----
-
-## 7. Component Patterns
-
-### Dialog Sizing Progression
-
-```text
-sm   → max-w-[425px]  — Simple confirmations
-md   → max-w-lg       — Standard forms (DEFAULT)
-lg   → max-w-[700px]  — Multi-section forms
-xl   → max-w-[900px]  — Complex editors
-full → max-w-[calc(100vw-2rem)] — Fullscreen views
-```
-
-Widget editor uses: `sm:max-w-md` (step 1) → `sm:max-w-6xl` (step 2).
-
-### Button Usage Patterns
-
-- Primary actions (Save, Create): `variant="default"` (black bg)
-- Cancel/Close: `variant="outline"`
-- Destructive (Delete): `variant="destructive"` (red bg)
-- Toolbar actions: `variant="ghost" size="icon"` or `variant="ghost" size="sm"`
-- Inline/subtle: `variant="ghost"` with icon
-- In widget cards: `variant="ghost" size="icon" className="h-8 w-8"` (custom smaller)
-
-### Empty State Pattern
-
-Always use the `EmptyState` component from component lib:
-
-- Icon (optional): Lucide icon, muted color
-- Title: `text-lg font-semibold`
-- Description: `text-sm text-muted-foreground`
-- Action button (optional): Primary variant
-
-### Loading Patterns
-
-- Page load: `useSession({ required: true })` shows loading spinner in layout
-- Button loading: `LoadingButton` with `loading` prop, shows spinner + text
-- Data fetching: skeleton placeholders (not yet widely implemented)
-- Chart loading: ECharts internal loading indicator
-- Overlay: `LoadingOverlay` component for full-container blocking loads
-
----
-
-## 8. Responsive Grid
-
-### Dashboard Card Grid
-
-```text
-grid gap-4 sm:grid-cols-2 lg:grid-cols-3
-```
-
-- Mobile (< 640px): 1 column
-- Tablet (640-1023px): 2 columns
-- Desktop (1024px+): 3 columns
-
-### Dashboard Widget Grid (react-grid-layout)
-
-```text
-lg: 1200px → 12 columns
-md: 996px  → 10 columns
-sm: 768px  → 6 columns
-xs: 480px  → 4 columns
-```
-
-Resize handle: southeast corner only.
-
-### Form Grids
-
-```text
-grid gap-4 sm:grid-cols-2  // Connection form: stacked on mobile, 2-col on tablet+
-grid grid-cols-2 gap-4     // Type picker: always 2-col
-```
-
----
-
-## 9. Consistency Checklist
-
-Before submitting any UI PR, verify:
-
-- [ ] Page root uses `p-6`
-- [ ] Cards use standard `p-6` padding (or `p-4` only for compact widget/connection cards)
-- [ ] Text hierarchy: `text-lg` for titles, `text-sm` for body, `text-xs` for metadata
-- [ ] Descriptions use `text-sm text-muted-foreground`
-- [ ] Interactive elements have `text-sm font-medium`
-- [ ] Buttons use correct variant (default=primary, outline=cancel, destructive=delete, ghost=toolbar)
-- [ ] Form fields use `space-y-2` internal spacing
-- [ ] Section gaps use `space-y-4`
-- [ ] Colors reference CSS variable tokens, never raw values
-- [ ] Charts use `resolveChartColors()`, never inline colors
-- [ ] Border radius matches component type (lg=cards, md=buttons/inputs, full=circles)
-- [ ] Empty states use the `EmptyState` component
-- [ ] Loading states use `LoadingButton` or `LoadingOverlay`
-
----
-
-## 10. Anti-Patterns — Red Flags
-
-These are the fingerprints of careless or AI-generated UI work. Flag immediately in reviews.
-
-### Layout Anti-Patterns
-
-- **Nested cards**: Cards inside cards create visual noise — flatten the hierarchy
-- **Everything in cards**: Not every element needs a container — use whitespace and grouping instead
-- **Identical card grids**: Same-sized cards with icon + heading + text, repeated endlessly — vary the layout
-- **Everything centered**: Left-aligned text with asymmetric layouts feels more intentional
-- **Same spacing everywhere**: No rhythm — use tight groupings near related elements, generous separations between sections
-- **Modal overuse**: Modals when inline expansion, drawer, or page navigation would work better
-
-### Color Anti-Patterns
-
-- **Gray text on colored backgrounds**: Looks washed out — use a tinted shade of the background color or transparency instead
-- **Pure black/white**: `#000` or `#fff` never appear in nature — always use the semantic tokens (`--foreground`, `--background`)
-- **Hard-coded hex/hsl**: Bypasses theming and dark mode — use CSS variable tokens
-- **Gradient text on metrics**: Decorative, not meaningful — plain colored text is clearer
-- **Neon accents on dark backgrounds**: The "AI color palette" — cyan, purple-to-blue gradients
-
-### Typography Anti-Patterns
-
-- **Overused fonts**: Inter, Roboto, Arial as conscious choices (NeoBoard uses system font stack via shadcn — don't override it)
-- **Monospace as "technical" vibes**: Lazy shorthand — use it only for actual code/query content
-- **Big icons above headings**: Rounded-corner icons above every section title — rarely adds value, looks templated
-
-### Motion Anti-Patterns
-
-- **Bounce/elastic easing**: Feels dated — use smooth deceleration (ease-out)
-- **Animating layout properties**: width, height, padding, margin cause layout thrashing — use transform and opacity only
-- **Glassmorphism everywhere**: Blur effects and glass cards used decoratively rather than purposefully
-
-### Copy Anti-Patterns
-
-- **Redundant headers**: Title that restates the page name, description that repeats the heading
-- **Every button is primary**: Use ghost, outline, secondary — hierarchy matters
-- **Generic error messages**: "Error occurred" — say what happened and how to fix it
-
----
-
-## 11. Design Critique Format
-
-When reviewing UI changes, structure feedback as:
-
-### Overall Impression
-
-One-sentence gut reaction — what works, what doesn't.
-
-### What's Working
-
-2-3 things done well and why they work. Be specific.
-
-### Priority Issues (top 3-5)
-
-For each:
-
-- **What**: Name the problem
-- **Why it matters**: Impact on users
-- **Fix**: Concrete recommendation
-- **Reference**: Which section of this document it violates
-
-### Minor Observations
-
-Quick notes on smaller issues.
-
-### Questions to Consider
-
-Provocative questions that might unlock better solutions:
-
-- "Does this need to feel this complex?"
-- "What would a more confident version look like?"
-- "Is the primary action obvious within 2 seconds?"
+- [ ] Page root `p-6`; cards `p-6`, or `p-4` for the compact cards
+- [ ] `text-lg` titles, `text-sm` body, `text-xs` metadata
+- [ ] Tokens, never raw colours; charts through `resolveChartColors()`
+- [ ] Radius matches the component: lg cards, md controls, full pills
+- [ ] `EmptyState`, `LoadingButton` and `LoadingOverlay` where they apply
+- [ ] Checked in both light and dark
