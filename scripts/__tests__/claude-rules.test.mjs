@@ -61,7 +61,10 @@ const ruleFiles = () =>
 
 describe("CLAUDE.md stays small enough to be followed (#1847)", () => {
   it("is at most 200 lines", () => {
-    const lines = read(".claude/CLAUDE.md").split("\n").length;
+    // Don't count the trailing newline as a line: a file at exactly the
+    // documented limit would fail, and the ratchet would block its own CI job.
+    const text = read(".claude/CLAUDE.md");
+    const lines = text.split(/\r?\n/).length - Number(text.endsWith("\n"));
     expect(lines).toBeLessThanOrEqual(200);
   });
 

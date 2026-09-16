@@ -25,6 +25,11 @@ on:
       - ".github/workflows/claude-config.yml"
   workflow_dispatch:
 
+# Runs npm ci and Vitest against pull-request code: it only ever reads the
+# repository, so do not inherit whatever the org default allows.
+permissions:
+  contents: read
+
 concurrency:
   group: agent-config-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
