@@ -6,10 +6,10 @@ import { join } from "node:path";
 /**
  * #1853 — the workflow that closes referenced issues runs on
  * `pull_request_target`, so it holds this repository's token even for PRs from
- * forks. That is safe only while it never runs code or interpolates text from
- * the PR. These tests pin that boundary: a later edit that inlines the body
- * into a shell step, checks out the PR head, installs dependencies or widens
- * the token must fail here, not in production.
+ * forks. That is safe only while it runs no code from the repository or the PR:
+ * after a merge, the base branch contains the PR's own changes, so checking
+ * out and executing anything from it would run code the PR may have rewritten
+ * (found by review on #1858). These tests pin that boundary.
  */
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -34,15 +34,30 @@ describe("close-issues-on-merge workflow (#1853)", () => {
     );
   });
 
-  it("grants exactly issues: write and contents: read", () => {
+  it("grants exactly issues: write", () => {
     const block = /^permissions:\n((?:[ \t]+\S.*\n)+)/m.exec(wf());
     expect(block, "no top-level permissions block").not.toBeNull();
-    const perms = block[1]
-      .trim()
+    expect(
+      block[1]
+        .trim()
+        .split("\n")
+        .map((l) => l.trim()),
+    ).toEqual(["issues: write"]);
+  });
+
+  it("checks nothing out and runs no repository script", () => {
+    // After the merge, the base branch holds the PR's changes: any checked-out
+    // file could be one the PR rewrote.
+    // Comments are skipped: the header names the tests that guard this file.
+    const code = wf()
       .split("\n")
-      .map((l) => l.trim())
-      .sort();
-    expect(perms).toEqual(["contents: read", "issues: write"]);
+      .filter((l) => !/^\s*#/.test(l))
+      .join("\n");
+    expect(code).not.toMatch(/actions\/checkout/);
+    expect(code).not.toMatch(/\bnode\s+(?!-\s)\S/);
+    expect(code).not.toMatch(/scripts\//);
+    // The inline parser is the only code that runs.
+    expect(code).toMatch(/node - <<'JS'/);
   });
 
   it("passes the PR body only through an env var, never into a command", () => {

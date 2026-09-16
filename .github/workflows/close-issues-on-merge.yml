@@ -4,13 +4,17 @@
 # release/* merge left its issues open and they were closed by hand.
 #
 # pull_request_target runs with this repository's token, so PRs from forks are
-# handled too. That is safe here only because the job never runs PR code:
-#   - it checks out the BASE branch, which already contains the merged,
-#     reviewed code, and installs nothing;
-#   - the PR body reaches the parser through an env var, never inlined into a
-#     shell command;
-#   - the only values the shell loops over are integers the parser printed.
-# scripts/__tests__/close-issues-workflow.test.mjs pins all of this.
+# handled too. That is safe only because the job runs no code from the
+# repository or the PR:
+#   - nothing is checked out. After the merge the base branch contains the PR's
+#     own changes, so a checked-out script could be one the PR rewrote (#1858);
+#   - the parser is the inline block below, fed the PR body through an env var;
+#   - the shell loops only over the integers that parser prints;
+#   - nothing is installed.
+# This file itself is loaded from the base branch, so a PR that edits it changes
+# what runs on its own merge: review changes here as privileged code.
+# scripts/__tests__/close-issues-workflow.test.mjs pins these rules, and
+# scripts/__tests__/closing-refs.test.mjs runs the inline parser.
 name: Close referenced issues
 
 on:
@@ -18,7 +22,6 @@ on:
     types: [closed]
 
 permissions:
-  contents: read
   issues: write
 
 jobs:
@@ -29,12 +32,6 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Checkout the base branch
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-          persist-credentials: false
-
       - name: Close each referenced issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,7 +40,22 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          for n in $(node scripts/ci/closing-refs.mjs); do
+          # GitHub's closing keywords: close/closes/closed, fix/fixes/fixed,
+          # resolve/resolves/resolved; any case; optional colon; `#N` or this
+          # repo's `owner/repo#N`; one reference per keyword, as on GitHub.
+          NUMBERS=$(node - <<'JS'
+          const PATTERN =
+            /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)(?::\s*|\s+)(?:([\w.-]+\/[\w.-]+))?#(\d+)\b/gi;
+          const repo = (process.env.REPO ?? "").toLowerCase();
+          const numbers = new Set();
+          for (const [, ref, n] of (process.env.BODY ?? "").matchAll(PATTERN)) {
+            if (ref && ref.toLowerCase() !== repo) continue;
+            numbers.add(Number(n));
+          }
+          console.log([...numbers].sort((a, b) => a - b).join(" "));
+          JS
+          )
+          for n in $NUMBERS; do
             if ! info=$(gh issue view "$n" --repo "$REPO" --json state,url --jq '.state + " " + .url' 2>/dev/null); then
               echo "#$n: not found, skipping"
               continue
