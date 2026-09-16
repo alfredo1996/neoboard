@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { activeBase } from "../lib/active-base.mjs";
 
 /**
@@ -10,7 +11,8 @@ import { activeBase } from "../lib/active-base.mjs";
  * on origin, the same rule the pr and next skills use.
  */
 
-const ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
+// fileURLToPath, not URL.pathname: pathname keeps %20 for a space in the path.
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 /** `git ls-remote --heads` output for the given branch names. */
 const lsRemote = (...branches) =>

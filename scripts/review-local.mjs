@@ -14,6 +14,8 @@ let refs = "";
 try {
   refs = execFileSync("git", ["ls-remote", "--heads", "origin", "release/*"], {
     encoding: "utf8",
+    // A stalled connection must not hang the review; a timeout throws and falls back.
+    timeout: 30_000,
   });
 } catch {
   console.warn(
