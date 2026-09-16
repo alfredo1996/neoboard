@@ -359,6 +359,42 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
     ).toEqual([]);
   });
 
+  it("leads with the hybrid claim, not the NeoDash comparison (#1856)", () => {
+    // The hero's tagline was "The modern alternative to NeoDash", and the first
+    // reason to care was "NeoDash alternative". Neo4j has since shipped its own
+    // successor — Dashboards in the Aura console, and in self-hosted Enterprise
+    // Studio — so that framing compares NeoBoard to a tool its vendor already
+    // replaced. Hybrid is the claim nothing else makes: no BI tool surveyed
+    // reads a graph database natively, and no graph tool reads a relational one.
+    const text = readme();
+
+    // The italic line under the title carries the pitch.
+    const tagline = /<em>([^<]+)<\/em>/.exec(text)?.[1] ?? "";
+    expect(tagline, "the hero has no <em> tagline").not.toBe("");
+    expect(tagline, "the hero tagline still leads on NeoDash").not.toMatch(
+      /NeoDash/i,
+    );
+
+    // The first reason under "Why NeoBoard?" is the one people read.
+    const why = text.slice(text.indexOf("## Why NeoBoard?"));
+    const firstBullet = why.split("\n").find((l) => l.startsWith("- ")) ?? "";
+    expect(firstBullet, "no bullets under Why NeoBoard?").not.toBe("");
+    expect(firstBullet, "the first reason does not name Neo4j").toMatch(
+      /Neo4j/,
+    );
+    expect(firstBullet, "the first reason does not name PostgreSQL").toMatch(
+      /PostgreSQL/,
+    );
+
+    // NeoDash stays — the migration path is real and the importer ships — but
+    // as a supporting line, and described as unmaintained rather than
+    // "deprecated": the Labs build is Apache-2.0 and abandoned, while the
+    // supported NeoDash is sold inside a Neo4j Enterprise agreement.
+    expect(text, "the README still calls NeoDash deprecated").not.toMatch(
+      /deprecated NeoDash/i,
+    );
+  });
+
   it("links the docs as in-repo pages while the Pages site is off", () => {
     // docs-pages.yml deploys only when the DOCS_DEPLOY variable is on, which
     // waits for the org transfer (#1214), so every github.io link 404s. The
