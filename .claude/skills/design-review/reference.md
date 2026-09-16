@@ -363,6 +363,8 @@ These are the fingerprints of careless or AI-generated UI work. Flag immediately
 
 ## 11. Design Critique Format
 
+For ad-hoc design feedback. The `design-reviewer` agent reports in its own output format, which takes precedence.
+
 When reviewing UI changes, structure feedback as:
 
 ### Overall Impression

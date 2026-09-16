@@ -9,7 +9,7 @@ paths:
 
 # Design review — the core rules
 
-Extracted from the codebase, not aspirational. This is the short version: `reference.md` in this directory has the full token tables, chart palettes, dialog and grid sizes, and the critique format `design-reviewer` uses.
+Extracted from the codebase, not aspirational. This is the short version: `reference.md` in this directory has the full token tables, chart palettes, dialog and grid sizes, and a general critique format for ad-hoc reviews. `design-reviewer` reports in its own format.
 
 ## Spacing
 
