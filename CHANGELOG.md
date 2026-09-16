@@ -106,6 +106,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - `AlertDialog` now uses the same exact-centre entrance animation as `Dialog`, so the two sibling modals no longer animate differently (#1373)
 - `CLAUDE.md` moved to `.claude/CLAUDE.md`, alongside the hooks, skills and agents it belongs with and out of the repo root. Claude Code reads both paths, so nothing changed about how it loads
 - `npm run review:local` targets the active release branch instead of the previous one
+- The README leads with the claim nothing else makes — Neo4j and PostgreSQL on one dashboard, self-hosted, with no commercial database licence — instead of comparing NeoBoard to NeoDash. Neo4j now ships its own successor (Dashboards in the Aura console and in self-hosted Enterprise Studio), NeoDash's open-source build is unmaintained and its supported build is sold inside a Neo4j Enterprise agreement, so the migration path stays as a supporting line and is described as it actually is. A guard pins the hero and the first reason to the hybrid claim (#1856)
 - Vitest caps worker forks at 50% of available parallelism in `app` and `component`, so the suites stop running out of memory on many-core machines — the `app` suite went from 889s with 96 failures to 37s fully green (#1240)
 
 ### Added

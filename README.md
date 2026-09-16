@@ -1,9 +1,9 @@
 <p align="center">
   <h1 align="center">NeoBoard</h1>
   <p align="center">
-    Open-source dashboards for Neo4j + PostgreSQL
+    Neo4j and PostgreSQL dashboards, together on one canvas
     <br />
-    <em>The modern alternative to NeoDash</em>
+    <em>Self-hosted, and no commercial database licence required</em>
     <br />
     <a href="docs/src/content/docs/"><strong>Documentation</strong></a>
   </p>
@@ -25,14 +25,15 @@
 
 ![NeoBoard Dashboard](screenshots/03-dashboard-edit.png)
 
-**NeoBoard** is a free, self-hosted dashboarding platform for teams working with Neo4j graph databases and PostgreSQL. Build interactive dashboards with 16 chart types, write queries directly, and share insights — all from a modern web interface.
+**NeoBoard** puts Neo4j and PostgreSQL side by side in the same dashboard — a graph query and a SQL query feeding cards on one page. It is free, self-hosted, and needs no commercial database licence. Build interactive dashboards with 16 chart types, write queries directly, and share insights, all from a modern web interface.
 
 ## Why NeoBoard?
 
-- **NeoDash alternative** — built for teams migrating from Neo4j's deprecated NeoDash
-- **Hybrid databases** — connect Neo4j and PostgreSQL in the same dashboard
-- **Modern stack** — Next.js 16, React 19, TypeScript, ECharts, Zustand, TanStack Query
+- **One dashboard, both databases** — query Neo4j and PostgreSQL side by side, with parameters shared across widgets. No other dashboard tool does this
+- **Self-hosted, no licence gate** — runs on community Neo4j and plain PostgreSQL; nothing here needs an enterprise agreement
+- **A way off NeoDash** — import your existing NeoDash JSON; the original is no longer maintained, and the supported build ships inside a Neo4j Enterprise agreement
 - **Extensible charts** — 16 chart types with rule-based styling, click actions, and color palettes
+- **Modern stack** — Next.js 16, React 19, TypeScript, ECharts, Zustand, TanStack Query
 
 ## Quick Start
 
@@ -111,17 +112,17 @@ Browse the [screenshots](#screenshots) below for a feel of the UI without instal
 
 ## Features
 
-| Category          | Details                                                                                                                                                      |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Charts**        | 16 types: Bar, Line, Pie, Table, Single Value, Gauge, Sankey, Sunburst, Gantt, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select                     |
-| **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                                                                                     |
-| **Parameters**    | Select, Multi-Select, Date, Date Range, Relative Date, Freetext, Number Range — with cross-widget binding                                                    |
-| **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                                                                                        |
-| **Transforms**    | Client-side filter, sort, groupBy, calculatedColumn, rename, limit pipeline                                                                                  |
-| **Styling**       | Rule-based conditional styling, color scales, colorblind mode                                                                                                |
-| **Interactivity** | Click actions (set parameter, navigate page), fullscreen widgets                                                                                             |
-| **Export**        | CSV export, JSON dashboard import/export                                                                                                                     |
-| **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries                                                                             |
+| Category          | Details                                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Charts**        | 16 types: Bar, Line, Pie, Table, Single Value, Gauge, Sankey, Sunburst, Gantt, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select |
+| **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                                                                  |
+| **Parameters**    | Select, Multi-Select, Date, Date Range, Relative Date, Freetext, Number Range — with cross-widget binding                                 |
+| **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                                                                     |
+| **Transforms**    | Client-side filter, sort, groupBy, calculatedColumn, rename, limit pipeline                                                               |
+| **Styling**       | Rule-based conditional styling, color scales, colorblind mode                                                                             |
+| **Interactivity** | Click actions (set parameter, navigate page), fullscreen widgets                                                                          |
+| **Export**        | CSV export, JSON dashboard import/export                                                                                                  |
+| **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries                                                          |
 
 ## Ecosystem & Community
 
@@ -190,7 +191,7 @@ Feature and fix branches target `dev` by default, or the active `release/X.Y` br
 
 ## Migrating from NeoDash
 
-NeoBoard provides a dedicated migration path for teams moving from Neo4j's deprecated NeoDash. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/start-here/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
+NeoBoard provides a dedicated migration path for teams moving off NeoDash. The open-source build is no longer maintained — its own README says so — and the supported version is sold inside a Neo4j Enterprise agreement. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/start-here/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
 
 ## API Documentation
 
