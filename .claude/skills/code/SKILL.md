@@ -1,7 +1,6 @@
 ---
 name: code
 description: Implement features, fix bugs, refactor. For ALL coding tasks. Reads issue if given a number.
-model: sonnet
 allowed-tools: Read, Write, Edit, MultiEdit, Bash(npm *), Bash(npx *), Bash(git *), Bash(gh *), Bash(cat *), Bash(ls *), Bash(find *), Bash(grep *), Bash(head *), Bash(tail *), Bash(mkdir *)
 ---
 
@@ -39,7 +38,7 @@ Do NOT write implementation before the test. Do NOT skip this for "small" change
 ## After coding
 
 ```bash
-cd app && npx next lint --fix
+npm run lint
 npm run build
 cd app && npm test
 cd app && npx playwright test          # ALWAYS run E2E — not optional
@@ -48,7 +47,6 @@ cd app && npx playwright test          # ALWAYS run E2E — not optional
 ## Branching
 
 - Default base: `dev`
-- **Exception**: when a `release/X.Y` branch is active (see [memory](../../../.claude/projects/-Users-alfredorubin-Desktop-public/memory/project_release_1_1_active.md) or check `git branch -r | grep 'origin/release/'`), branch from and PR into the active release branch instead of `dev`.
-- Verify base with: `git ls-remote --heads origin 'release/*' | head -1`
+- **Exception**: when a `release/X.Y` branch is active (`git ls-remote --heads origin 'release/*'` lists it), branch from and PR into the active release branch instead of `dev`.
 
 $ARGUMENTS = task description or issue number.

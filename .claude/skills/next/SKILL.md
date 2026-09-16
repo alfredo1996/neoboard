@@ -31,7 +31,7 @@ If $ARGUMENTS is a number, use that issue instead of picking.
 gh issue edit <number> --add-assignee @me
 
 # Detect the active base branch: release/X.Y if one exists, else dev
-BASE=$(git ls-remote --heads origin 'release/*' 2>/dev/null | awk -F/ '{print $NF}' | sort -V | tail -1)
+BASE=$(git ls-remote --heads origin 'release/*' 2>/dev/null | sed 's|.*refs/heads/||' | sort -V | tail -1)
 BASE="${BASE:-dev}"
 git fetch origin "$BASE" && git checkout "$BASE" && git pull origin "$BASE"
 git checkout -b <type>/<short-description>
@@ -59,7 +59,6 @@ If building UI, check existing components first (`find component/src -name '*.ts
 ## Step 6 — Test and lint
 
 ```bash
-cd app && npx next lint --fix
 npm run lint
 npm run build
 cd app && npm test
@@ -80,7 +79,7 @@ Reference the issue: `Closes #<number>`
 git push -u origin HEAD
 gh pr create \
   --title '<conventional commit title>' \
-  --base dev \
+  --base "$BASE" \
   --body '## Summary\n...\n\n## Changes\n...\n\n## Testing\n- [x] Unit tests\n- [x] Lint passes\n- [x] Build passes\n\nCloses #<number>' \
   --label '<labels from the issue>'
 ```

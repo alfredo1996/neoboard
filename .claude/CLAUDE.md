@@ -21,11 +21,11 @@ All commands run from the repo root unless noted.
 ```bash
 npm run verify                       # Local CI mirror: typecheck + lint + all unit suites
 npm run sonar:local                  # Scan the current branch against SonarCloud (real gate)
-npm run review:local                 # CodeRabbit review of committed changes vs release/1.4
+npm run review:local                 # CodeRabbit review of committed changes vs the active release branch
 npm run dev                          # Dev server (Turbopack, proxies to app/)
 npm run build                        # Production build (webpack) + type-check
 npm run lint                         # ESLint every package (root flat config)
-npm -w app exec next lint -- --fix   # Auto-fix lint errors in app/
+npm run lint -- --fix                # Auto-fix lint errors in every package
 npm -w app run test                  # App Vitest unit tests (API routes, hooks, stores)
 npm -w component run test            # Component Vitest unit tests
 npm -w connection run test           # Connection integration tests (needs Docker)
@@ -79,7 +79,7 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 **Code quality:**
 
 - TypeScript strict. No `any` without a comment explaining why.
-- Run `cd app && npx next lint --fix` after every change to `app/`.
+- Prettier and `eslint --fix` run after every TypeScript edit (PostToolUse hook), which reports back anything ESLint could not fix. Fix those before moving on.
 - Run `npm run lint` from the repo root to lint every package. This genuinely
   covers all of them as of #1547 — `component/`, `connection/` and
   `connector-sdk/` were globally ignored before that and had never been linted,
@@ -162,34 +162,33 @@ Test version-skip paths. Boot migrations are controlled by `MIGRATE_ON_START` (`
 
 ## Automated Guardrails (Hooks)
 
-The `.claude/settings.json` hooks enforce critical rules automatically:
+The `.claude/settings.json` hooks enforce critical rules automatically. Their behaviour is pinned by `scripts/__tests__/claude-hooks.node-test.mjs`.
 
 **PreToolUse (Edit/Write):**
 - Package boundary enforcement — blocks cross-package imports
-- Query interpolation guard — blocks `${...}` near SQL/Cypher keywords
+- Query interpolation guard — blocks `${...}` inside a template literal that holds an upper-case SQL/Cypher keyword, and string concatenation into one
 - Credential logging guard — blocks `console.log` of sensitive variables
-- Migration file guard — blocks edits to existing migration files (forward-only)
 - ECharts import guard — blocks `import * from 'echarts'`
 - SSR guard — blocks chart components without `ssr: false`
 - Main branch guard — blocks edits on `main`
 
 **PreToolUse (Bash):**
 - Dependency install guard — blocks `npm install/uninstall` without approval
-- E2E enforcement — blocks `git commit` if UI files edited but Playwright not run
+- E2E enforcement — blocks `git commit`, anywhere in a command, while UI files edited since the last Playwright run are waiting on it
 
 **PostToolUse:**
-- Auto-format + lint on every TypeScript file edit
-- E2E marker tracking (marks UI files as needing E2E, clears after playwright runs)
-- Coverage threshold warning after test runs
+- Prettier + `eslint --fix` on every TypeScript file edit; errors ESLint cannot fix are reported back
+- E2E marker tracking (marks UI files as needing E2E, clears after a real `playwright test` run, not `--list`)
 
-**Session/Lifecycle:**
-- SessionStart: branch status, PR info, Docker health check
-- Stop: completion checklist (tests run? lint run? screenshots taken?)
-- PreCompact: re-injects critical rules after context compaction
+**SessionStart:** distance from the upstream branch, and the branch's open PR
+
+## Compact instructions
+
+When compacting, keep: the issue and PR numbers in play, the branch and its base, every file changed, which test commands ran and their results, and any decision the user made.
 
 ## Design Review
 
-Before touching any UI code, read `.claude/skills/design-review/skill.md` — tokens, spacing, typography, color, chart patterns.
+Before touching any UI code, read `.claude/skills/design-review/SKILL.md` — tokens, spacing, typography, color, chart patterns.
 
 ## Dev Notes
 
