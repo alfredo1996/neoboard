@@ -30,50 +30,6 @@ const FEATURE_LABELS: Record<
     description:
       "Configure OIDC providers to let your team sign in with their existing identity provider (Okta, Azure AD, Google Workspace, Keycloak, etc.).",
   },
-  "custom-roles": {
-    title: "Custom Roles",
-    description:
-      "Define roles beyond admin/creator/reader with fine-grained permissions.",
-  },
-  "user-groups": {
-    title: "User Groups",
-    description: "Organise users into groups and assign permissions by group.",
-  },
-  "connector-labels": {
-    title: "Connector Labels",
-    description: "Tag and filter database connections with custom labels.",
-  },
-  "connector-alias": {
-    title: "Connector Alias",
-    description:
-      "Define environment-specific aliases for the same logical connector.",
-  },
-  "environment-selector": {
-    title: "Environment Selector",
-    description:
-      "Switch dashboards between staging / production data sources without rebuilding.",
-  },
-  "bulk-import": {
-    title: "Bulk Import",
-    description: "Import dashboards, users, and connections from CSV or JSON.",
-  },
-  "dashboard-sharing-links": {
-    title: "Dashboard Sharing Links",
-    description: "Generate signed, expiring share links for external viewers.",
-  },
-  impersonation: {
-    title: "User Impersonation",
-    description: "Sign in as another user for support and troubleshooting.",
-  },
-  "session-management": {
-    title: "Session Management",
-    description: "View and revoke active sessions across your tenant.",
-  },
-  "ast-completion": {
-    title: "AST-Based Query Completion",
-    description:
-      "Smarter Cypher/SQL completion powered by schema-aware AST parsing.",
-  },
 };
 
 export function EnterpriseRequiredEmptyState({

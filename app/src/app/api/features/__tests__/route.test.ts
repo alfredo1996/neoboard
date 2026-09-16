@@ -27,14 +27,13 @@ describe("GET /api/features", () => {
     expect(json.data.features).toEqual([]);
   });
 
-  it("returns enterprise edition with all features when env var is set", async () => {
+  it("returns enterprise edition with the features that exist when env var is set", async () => {
     process.env.NEOBOARD_EDITION = "enterprise";
     const { GET } = await import("../route");
     const res = await GET();
     const json = await res.json();
     expect(json.data.edition).toBe("enterprise");
-    expect(json.data.features).toContain("sso");
-    expect(json.data.features).toContain("custom-roles");
-    expect(json.data.features.length).toBeGreaterThanOrEqual(11);
+    // SSO is the only enterprise feature with code behind it (#1845).
+    expect(json.data.features).toEqual(["sso"]);
   });
 });

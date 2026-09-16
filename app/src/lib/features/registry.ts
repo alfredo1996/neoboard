@@ -7,34 +7,14 @@
  * There is no cryptographic license key — enforcement is honour-based.
  */
 
-export type FeatureId =
-  | "sso"
-  | "custom-roles"
-  | "user-groups"
-  | "connector-labels"
-  | "connector-alias"
-  | "environment-selector"
-  | "bulk-import"
-  | "dashboard-sharing-links"
-  | "impersonation"
-  | "session-management"
-  | "ast-completion";
+// Only the features that exist. Ten more ids were listed here with no code
+// behind them, so enterprise mode advertised features nobody had built
+// (#1845). Add an id back the release it ships in.
+export type FeatureId = "sso";
 
 export type Edition = "community" | "enterprise";
 
-const ENTERPRISE_FEATURES: readonly FeatureId[] = [
-  "sso",
-  "custom-roles",
-  "user-groups",
-  "connector-labels",
-  "connector-alias",
-  "environment-selector",
-  "bulk-import",
-  "dashboard-sharing-links",
-  "impersonation",
-  "session-management",
-  "ast-completion",
-] as const;
+const ENTERPRISE_FEATURES: readonly FeatureId[] = ["sso"] as const;
 
 export function getEdition(): Edition {
   const raw = process.env.NEOBOARD_EDITION?.toLowerCase();

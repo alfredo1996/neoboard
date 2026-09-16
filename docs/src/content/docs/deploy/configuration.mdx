@@ -141,14 +141,6 @@ redaction applies to query text either way.
 
 See [Monitoring](/deploy/monitoring#log-monitoring) for log fields and aggregation.
 
-### Enterprise
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NEOBOARD_EDITION` | Turns on enterprise feature flags. The enterprise edition is in development: see [Enterprise edition](/start-here/enterprise). | community |
-
-SSO adds its own `OIDC_*` variables — see [Single Sign-On](/security/sso).
-
 ## Project config file
 
 `neoboard.config.json` in the repo root configures the **CLI's local and Docker workflow** — ports, dev database credentials, and seed script paths. It does *not* configure the running app; that's env vars only.

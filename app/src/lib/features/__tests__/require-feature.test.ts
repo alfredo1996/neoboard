@@ -27,17 +27,16 @@ describe("requireFeature guard", () => {
     process.env.NEOBOARD_EDITION = "enterprise";
     const { requireFeature } = await import("../require-feature");
     expect(() => requireFeature("sso")).not.toThrow();
-    expect(() => requireFeature("custom-roles")).not.toThrow();
   });
 
   it("error message includes the feature id", async () => {
     delete process.env.NEOBOARD_EDITION;
     const { requireFeature } = await import("../require-feature");
     try {
-      requireFeature("custom-roles");
+      requireFeature("sso");
       expect.fail("should have thrown");
     } catch (err) {
-      expect((err as Error).message).toContain("custom-roles");
+      expect((err as Error).message).toContain("sso");
     }
   });
 

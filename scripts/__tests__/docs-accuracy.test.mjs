@@ -1513,8 +1513,6 @@ describe("security claims the code does not back (#1790)", () => {
   // sentence ("no envelope", "not the connecting IP") still passes. A few rows
   // use a negative lookahead: "the line that states X must also say Y".
   const CLAIMS = [
-    ["security/sso.mdx", /password (login )?form is hidden|Hide password form|\?password=true/i, "Enforce SSO is stored, never enforced (auth/config.ts Credentials authorize)"],
-    ["security/sso.mdx", /evaluated on \**every login/i, "a first SSO sign-in gets column defaults (auth/config.ts signIn, schema.ts)"],
     ["security/roles.mdx", /New SSO users who don't match any claim mapping get/i, "first SSO account is creator (schema.ts users.role default)"],
     ["security/roles.mdx", /Manage connections \| Yes \| View only|cannot add, modify, or delete connections/, "only readers are denied (auth/permissions.ts)"],
     ["security/roles.mdx", /Run read queries \| Yes \| Yes \| No|run custom queries, or access connections/, "POST /api/query has no role check"],
@@ -1538,7 +1536,6 @@ describe("security claims the code does not back (#1790)", () => {
     ["using/dashboards.mdx", /\| Reader \| Shared only \|/, "readers also see public dashboards (api/dashboards/route.ts)"],
     ["charts/iframe.mdx", /Must be an https:\/\/ URL/i, "http:// also embeds (iframe-widget.tsx)"],
     ["deploy/configuration.mdx", /^\| `FORCE_HTTPS` \|(?![^\n]*private)/m, "private-IP and localhost hosts are never redirected (proxy.ts)"],
-    ["security/sso.mdx", /"Sign in with \[Provider\]" buttons|SSO button will appear/i, "login/page.tsx renders no SSO buttons"],
     ["security/password-login.mdx", /If `ADMIN_BOOTSTRAP_TOKEN` is set|SSO buttons appear above the password form/, "first-admin signup requires the token (signup.ts); no SSO buttons"],
     ["security/password-login.mdx", /A user's role is changed|silently rejects further attempts/, "only a demotion invalidates sessions (users/[id]/route.ts); signup shows its limit error"],
     ["security/query-safety.mdx", /wall display degrade first|new P3 \(auto-refresh\) work/, "the UI sends no x-query-priority, so auto-refresh is P2 (api/query/route.ts)"],
@@ -1550,10 +1547,8 @@ describe("security claims the code does not back (#1790)", () => {
     ["security/api-keys.mdx", /38 of 45/, "proxy.ts publicExact/publicPrefixes list the exceptions"],
     ["security/multi-tenancy.mdx", /signs in to the instance belongs to this tenant|query, reassign/, "SSO auto-provisioned users get the column default tenant; reassign repoints widgets, not ownership"],
     ["security/roles.mdx", /From their next sign-in, they get the role(?![^\n]*TENANT_ID)/, "signIn looks users up by TENANT_ID; SSO users land in tenant default"],
-    ["security/sso.mdx", /mapped role normally takes effect from the second sign-in(?![^\n]*TENANT_ID)/, "signIn looks users up by TENANT_ID; SSO users land in tenant default"],
     ["start-here/troubleshooting.mdx", /reassign orphaned/i, "no endpoint transfers connection ownership; connections cascade with their owner"],
     ["deploy/monitoring.mdx", /docker compose -f docker\/docker-compose\.prod/, "prod compose files have :? required variables, so --env-file is needed"],
-    ["security/sso.mdx", /does not read that name yet/, "proxy.ts reads the session cookie under the name Auth.js uses (#1792)"],
     ["deploy/production.mdx", /sign-in over HTTPS is broken|only reads `authjs\.session-token`/i, "proxy.ts reads the session cookie under the name Auth.js uses (#1792)"],
     ["security/credential-encryption.mdx", /only accepted on a plain-HTTP instance|does not read that name yet/, "proxy.ts reads the session cookie under the name Auth.js uses (#1792)"],
     ["security/roles.mdx", /a write query \(a Form submission\) only runs|stay read-only even for admins/, "anyone who can open a dashboard submits its forms (api/query/write/route.ts, #1831)"],
@@ -1631,5 +1626,36 @@ describe("no deploy page says the prod compose files drop MIGRATE_ON_START (#179
     /add[\s#]+`MIGRATE_ON_START:\s*\$\{MIGRATE_ON_START:-1\}`/i,
   ])("no page claims %s", (claim) => {
     for (const { path, text } of DEPLOY) expect(text, path).not.toMatch(claim);
+  });
+});
+
+describe("1.5 ships without the enterprise edition (#1845)", () => {
+  // The edition switch and the OIDC variables sat in both example env files
+  // and both prod compose files, and the site carried a full SSO setup guide
+  // — so a 1.5 install advertised an edition the release does not ship, and
+  // the one feature behind the switch is unfinished. The code stays and is
+  // dormant; the enterprise edition resumes in 1.7.
+  const SURFACES = [
+    ".env.example",
+    "app/.env.example",
+    "docker/docker-compose.prod.yml",
+    "docker/docker-compose.prod-full.yml",
+  ];
+
+  it.each(SURFACES)("%s offers no edition switch and no OIDC variable", (path) => {
+    const text = readFileSync(join(ROOT, path), "utf8");
+    expect(text).not.toMatch(/NEOBOARD_EDITION/);
+    expect(text).not.toMatch(/OIDC_/);
+  });
+
+  it("publishes no SSO setup page", () => {
+    expect(existsSync(join(DOCS_ROOT, "security/sso.mdx"))).toBe(false);
+  });
+
+  it("links to that page from nowhere", () => {
+    const linking = DOCS.filter(({ text }) => /\/security\/sso/.test(text)).map(
+      ({ path }) => path,
+    );
+    expect(linking).toEqual([]);
   });
 });

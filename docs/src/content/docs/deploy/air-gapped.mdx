@@ -81,10 +81,6 @@ Two settings work offline. Point **Tile Layer** at your own tile server — any 
 
 `/api/docs` renders the OpenAPI spec with Swagger UI, and the page loads Swagger UI's script and stylesheet from `unpkg.com`. Offline, the page is blank. The spec itself is served by the app: fetch `/api/openapi.json` and open it in any OpenAPI viewer you run inside the network. Nothing else depends on the docs page — the API, and [API keys](/security/api-keys) for it, work as usual.
 
-### Enterprise SSO
-
-Not a public-internet dependency, but a network one: with [OIDC single sign-on](/security/sso) configured, the NeoBoard server has to reach the identity provider at `OIDC_ISSUER` for discovery and token exchange, and so does every user's browser. An identity provider inside the air gap is fine; one outside it is not.
-
 ## The CLI is not an air-gapped path
 
 `neoboard setup` and `neoboard start` drive a **source checkout**: they need the cloned repository, run `npm install` against the npm registry, and build the image with `docker compose … --build` rather than pulling it. None of that works without internet access. Use the production compose files or the Kubernetes manifest with the mirrored image instead; the [Deployment Checklist](/deploy/deployment-checklist) applies unchanged.

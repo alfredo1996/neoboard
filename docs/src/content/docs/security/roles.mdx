@@ -16,18 +16,18 @@ Every NeoBoard user is assigned one of three roles. Roles determine what a user 
 | Delete dashboards | Yes | Yes (own) | No |
 | Manage connections | Yes (create, edit and share their own; view and delete any in the tenant) | Own only (create, edit, test, delete) | No |
 | Manage users | Yes | No | No |
-| Access settings | Yes (Authentication tab needs the SSO enterprise feature) | Profile, API keys (create/revoke needs write permission) | Profile, view API keys |
+| Access settings | Yes | Profile, API keys (create/revoke needs write permission) | Profile, view API keys |
 | Run read queries | Yes | Yes | Limited (see Reader) |
 | Run write queries | Yes (own connections; submit forms on any dashboard) | Yes (own connections, if enabled; submit forms on dashboards they can open) | Submit forms on dashboards they can open |
 | Add or change forms | Yes (any connection) | Yes (connections they own or that are shared with the tenant, if enabled) | No |
 
 ## Admin
 
-Full access to dashboards, user management, and settings. Admins are the only role that can create other users and configure SSO providers. Admins can see and delete every connection in the tenant, but can edit, or share tenant-wide, only connections they own.
+Full access to dashboards, user management, and settings. Admins are the only role that can create other users. Admins can see and delete every connection in the tenant, but can edit, or share tenant-wide, only connections they own.
 
 ## Creator
 
-Can build and edit their own dashboards and widgets. Creators can add connections and edit, test, or delete the ones they own. They can also run queries against connections an admin has shared with the tenant, but cannot change or delete those. They cannot access user management or SSO configuration. In Settings they can edit their profile and manage their own API keys; creating or revoking a key needs the write permission.
+Can build and edit their own dashboards and widgets. Creators can add connections and edit, test, or delete the ones they own. They can also run queries against connections an admin has shared with the tenant, but cannot change or delete those. They cannot access user management. In Settings they can edit their profile and manage their own API keys; creating or revoking a key needs the write permission.
 
 ## Reader
 
@@ -52,15 +52,8 @@ Admins always have write permission regardless of the toggle. Outside forms, a w
 ### At user creation
 Admins assign a role when creating a user in **Users** management.
 
-### Via SSO claim mapping
-When SSO is configured, roles can be automatically assigned based on IdP group claims. See [SSO Role Mapping](/security/sso#role-mapping).
-
-### Default role
-On their first SSO sign-in, new users are created as Creator with write permission on, regardless of claim mappings or the configured default role, and they keep that role for the whole session. From their next sign-in, they get the role their claims map to, or the configured **default role** if no claim matches (Creator unless changed). That only holds while `TENANT_ID` is `default`: with any other value, SSO users are created in tenant `default`, and their role never re-syncs ([#1791](https://github.com/alfredo1996/neoboard/issues/1791)).
-
 ## Related
 
 - [Managing Users](/security/managing-users) — create and manage user accounts
 - [Password Login](/security/password-login) — email/password setup
-- [SSO](/security/sso) — automatic role assignment from IdP claims
 - [API keys](/security/api-keys) — a key uses the current role of the user who created it
