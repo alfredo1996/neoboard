@@ -149,8 +149,11 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 
 ## Enterprise Features
 
-Gated by env vars, not code branches. Must fall back gracefully when not licensed.
-Includes: SSO, Custom Roles, Connector Labels, Bulk Import, Connector CRUD API, Dashboard Sharing Links, Query Result Caching, Environment Selector, Connector Alias.
+Gated by the `NEOBOARD_EDITION` env var, not code branches. Must fall back gracefully in the community edition.
+
+`app/src/lib/features/registry.ts` lists only features that exist, which today is **SSO alone**. Custom roles, user groups, connector labels and aliases, the environment selector, bulk import, dashboard sharing links, impersonation, session management and AST completion were ids in that list with no code behind them; they came out in #1845. Add an id back in the release its feature ships in.
+
+**1.5 ships without the enterprise edition** (#1845): the switch and the `OIDC_*` variables are out of both example env files and both production compose files, and the docs no longer document SSO. The SSO code stays and is dormant — it runs only for an operator who sets the variable by hand, and it is unfinished (no sign-in button, Enforce SSO never enforced, a first sign-in that ignores claim role mapping). Enterprise resumes in v1.7.
 
 ## Migrations
 
