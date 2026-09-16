@@ -20,7 +20,7 @@ Before touching ANY UI code (pages, components, layouts, modals), read this docu
 ### Elevation Stack (low to high)
 
 1. **Page background**: `bg-background` (white / `hsl(0 0% 100%)`)
-2. **Cards**: `bg-card` + `shadow` + `rounded-xl border` — cards float above page
+2. **Cards**: `bg-card` + `shadow` + `rounded-lg border` — cards float above page
 3. **Overlays**: `bg-background/80 backdrop-blur-sm` + `shadow-md` — semi-transparent blur
 4. **Dialogs**: `bg-background` + `shadow-lg` on overlay `bg-black/80` — highest z-level
 5. **Tooltips**: `bg-primary text-primary-foreground` — inverted colors, no explicit shadow
@@ -321,7 +321,7 @@ Before submitting any UI PR, verify:
 - [ ] Section gaps use `space-y-4`
 - [ ] Colors reference CSS variable tokens, never raw values
 - [ ] Charts use `resolveChartColors()`, never inline colors
-- [ ] Border radius matches component type (xl=cards, md=buttons/inputs, full=circles)
+- [ ] Border radius matches component type (lg=cards, md=buttons/inputs, full=circles)
 - [ ] Empty states use the `EmptyState` component
 - [ ] Loading states use `LoadingButton` or `LoadingOverlay`
 

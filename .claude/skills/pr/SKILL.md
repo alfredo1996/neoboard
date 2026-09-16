@@ -9,7 +9,7 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *)
 ## State
 
 - Branch: !`git branch --show-current`
-- Active release branch (the PR base when present, otherwise `dev`): !`git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1`
+- PR base: !`BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); printf '%s\n' "${BASE:-dev}"`
 
 ## Conventions
 

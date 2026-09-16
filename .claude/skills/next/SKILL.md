@@ -77,6 +77,9 @@ Reference the issue: `Closes #<number>`
 
 ```bash
 git push -u origin HEAD
+# Recompute the base: step 2 may have run in a different shell.
+BASE=$(git ls-remote --heads origin 'release/*' 2>/dev/null | sed 's|.*refs/heads/||' | sort -V | tail -1)
+BASE="${BASE:-dev}"
 gh pr create \
   --title '<conventional commit title>' \
   --base "$BASE" \

@@ -28,9 +28,9 @@ case "$1" in
     INPUT=$(cat)
     CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
     # `git commit` as any subcommand: at the start, after && ; | ( {, behind
-    # env assignments, or as `git -C <dir> commit`. `^\s*git commit` alone let
-    # `cd app && git commit` through (#1843).
-    echo "$CMD" | grep -qE '(^|[;&|({][[:space:]]*)([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+commit([[:space:]]|$)' || exit 0
+    # env assignments, and behind any git options (-C <dir>, -c k=v, --no-pager).
+    # `^\s*git commit` alone let `cd app && git commit` through (#1843).
+    echo "$CMD" | grep -qE '(^|[;&|({][[:space:]]*)([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+commit([[:space:]]|$)' || exit 0
     [ ! -f "$MARKER" ] && exit 0
     COUNT=$(sort -u "$MARKER" | wc -l | tr -d ' ')
     echo "BLOCKED: $COUNT UI file(s) were edited and Playwright E2E has not run since." >&2

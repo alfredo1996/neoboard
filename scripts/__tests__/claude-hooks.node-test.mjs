@@ -144,6 +144,19 @@ describe("query safety hook", () => {
     );
   });
 
+  test("blocks a lowercase query, which both engines accept", () => {
+    // Postgres and Neo4j do not care about keyword case. Matching upper case
+    // only would let untrusted input through in lowercase.
+    assert.equal(
+      runHook(
+        "check-query-safety.sh",
+        route,
+        "const q = `select * from users where id = ${userId}`;",
+      ),
+      BLOCK,
+    );
+  });
+
   test("blocks string concatenation into a query", () => {
     assert.equal(
       runHook(
@@ -259,6 +272,8 @@ describe("E2E commit gate (#1843)", () => {
       "npm test; git commit -am wip",
       "GIT_EDITOR=true git commit",
       "git -C app commit -m x",
+      'git -c user.name=bot commit -m "x"',
+      "git --no-pager commit -m x",
     ]) {
       assert.equal(gate("check-commit", command, dir), BLOCK, command);
     }
