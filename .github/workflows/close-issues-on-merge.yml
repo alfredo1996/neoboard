@@ -11,8 +11,10 @@
 #   - the parser is the inline block below, fed the PR body through an env var;
 #   - the shell loops only over the integers that parser prints;
 #   - nothing is installed.
-# This file itself is loaded from the base branch, so a PR that edits it changes
-# what runs on its own merge: review changes here as privileged code.
+# GitHub loads a pull_request_target workflow from the DEFAULT branch (dev), and
+# runs it only if the file exists there. So this does nothing until it reaches
+# dev, and a PR into release/* cannot change what runs on its own merge. PRs into
+# dev never reach the job (see `if`).
 # scripts/__tests__/close-issues-workflow.test.mjs pins these rules, and
 # scripts/__tests__/closing-refs.test.mjs runs the inline parser.
 name: Close referenced issues
