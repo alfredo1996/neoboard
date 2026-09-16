@@ -1,7 +1,12 @@
 #!/bin/bash
 # Hook A: Query Interpolation Guard
-# Blocks string interpolation in SQL/Cypher query strings
+# Blocks string interpolation and concatenation in SQL/Cypher query strings.
 # Rule: "ALWAYS use parameterized queries. NEVER interpolate user input into query strings."
+#
+# Matching is case-insensitive — both engines accept lowercase keywords — but
+# it requires the SHAPE of a statement (select … from, insert into, match (…)
+# rather than a lone keyword. A single any-case keyword blocked ordinary lines
+# such as an error message interpolating an id next to `return` (#1843).
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
@@ -20,23 +25,35 @@ echo "$FILE_PATH" | grep -qE '\.(ts|tsx)$' || exit 0
 NEW_CONTENT=$(echo "$INPUT" | jq -r '.tool_input.new_string // .tool_input.content // empty')
 [ -z "$NEW_CONTENT" ] && exit 0
 
-# Detect template literals with interpolation that look like queries
-# Check for SQL/Cypher keywords near ${...} interpolation
-QUERY_KEYWORDS='(SELECT|INSERT|UPDATE|DELETE|MERGE|MATCH|CREATE|DROP|ALTER|CALL|RETURN|WITH|UNWIND)'
-if echo "$NEW_CONTENT" | grep -qiE "${QUERY_KEYWORDS}" && echo "$NEW_CONTENT" | grep -qF '${'; then
-  # Confirm it's interpolation inside a template literal (backtick string), not just a standalone ${
-  # Look for lines that have both a query keyword and ${...} pattern
-  if echo "$NEW_CONTENT" | grep -iE "${QUERY_KEYWORDS}" | grep -qF '${'; then
-    echo "BLOCKED: Detected string interpolation (\${...}) near a query keyword." >&2
-    echo "Rule: ALWAYS use parameterized queries. NEVER interpolate user input into query strings." >&2
-    echo "Use query parameters (\$1, \$2 for PostgreSQL or \$paramName for Neo4j) instead." >&2
-    exit 2
-  fi
+# Statement shapes, not single keywords. Kept in one place for both checks below.
+SHAPES='\bselect\b[\s\S]*?\bfrom\b|\binsert\s+into\b|\bupdate\b[\s\S]*?\bset\b|\bdelete\s+from\b|\bmerge\s+into\b|\b(?:create|drop|alter)\s+(?:table|index|view|database|schema|constraint)\b|\bmatch\s*\(|\bmerge\s*\(|\bcreate\s*\(|\bdetach\s+delete\b|\bunwind\b|\bcall\s+\w+\.'
+
+# A template literal, single- or multi-line, holding both ${ and a query shape.
+# Escapes are consumed so a Cypher identifier in backticks — MATCH (n:\`User\`)
+# — stays one literal instead of splitting into fragments that match nothing.
+printf '%s' "$NEW_CONTENT" | SHAPES="$SHAPES" perl -0777 -ne '
+  my $shapes = qr/$ENV{SHAPES}/i;
+  while (/`((?:[^`\\]|\\.)*)`/g) {
+    my $s = $1;
+    exit 2 if index($s, "\${") >= 0 && $s =~ $shapes;
+  }'
+if [ $? -eq 2 ]; then
+  echo "BLOCKED: Detected string interpolation (\${...}) in what appears to be a query." >&2
+  echo "Rule: ALWAYS use parameterized queries. NEVER interpolate user input into query strings." >&2
+  echo "Use query parameters (\$1, \$2 for PostgreSQL or \$paramName for Neo4j) instead." >&2
+  exit 2
 fi
 
-# Detect string concatenation with query keywords
-# Pattern: a quoted string containing a query keyword, followed by + (concat operator)
-if echo "$NEW_CONTENT" | grep -iE "${QUERY_KEYWORDS}" | grep -qE '["\"][[:space:]]*\+[[:space:]]'; then
+# A quoted string holding a query shape, followed by the + concat operator.
+# Each delimiter is matched on its own, so SQL containing the other quote —
+# WHERE tenant = \x27public\x27 inside a double-quoted string — still counts.
+printf '%s' "$NEW_CONTENT" | SHAPES="$SHAPES" perl -0777 -ne '
+  my $shapes = qr/$ENV{SHAPES}/i;
+  while (/"((?:[^"\\]|\\.)*)"\s*\+|\x27((?:[^\x27\\]|\\.)*)\x27\s*\+/g) {
+    my $s = defined($1) ? $1 : $2;
+    exit 2 if $s =~ $shapes;
+  }'
+if [ $? -eq 2 ]; then
   echo "BLOCKED: Detected string concatenation in what appears to be a query." >&2
   echo "Rule: ALWAYS use parameterized queries. NEVER interpolate user input." >&2
   exit 2

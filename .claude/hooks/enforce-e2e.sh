@@ -27,11 +27,13 @@ case "$1" in
   check-commit)
     INPUT=$(cat)
     CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
-    # Only trigger on git commit commands
-    echo "$CMD" | grep -qE '^\s*git commit' || exit 0
+    # `git commit` as any subcommand: at the start, after && ; | ( {, behind
+    # env assignments, and behind any git options (-C <dir>, -c k=v, --no-pager).
+    # `^\s*git commit` alone let `cd app && git commit` through (#1843).
+    echo "$CMD" | grep -qE '(^|[;&|({][[:space:]]*)([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+commit([[:space:]]|$)' || exit 0
     [ ! -f "$MARKER" ] && exit 0
     COUNT=$(sort -u "$MARKER" | wc -l | tr -d ' ')
-    echo "BLOCKED: $COUNT UI file(s) were edited but Playwright E2E tests have not been run this session." >&2
+    echo "BLOCKED: $COUNT UI file(s) were edited and Playwright E2E has not run since." >&2
     echo "Run first: cd app && npx playwright test" >&2
     echo "" >&2
     echo "Edited UI files:" >&2
@@ -44,6 +46,8 @@ case "$1" in
     CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
     # Clear marker when playwright tests are run
     echo "$CMD" | grep -qE 'playwright test' || exit 0
+    # Listing the specs is not running them.
+    echo "$CMD" | grep -qE -- '--list' && exit 0
     [ -f "$MARKER" ] && rm -f "$MARKER"
     ;;
 

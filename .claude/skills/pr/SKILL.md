@@ -9,8 +9,7 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *)
 ## State
 
 - Branch: !`git branch --show-current`
-- Commits: !`git log origin/dev..HEAD --oneline 2>/dev/null || echo 'No upstream'`
-- Changed: !`git diff origin/dev --name-only 2>/dev/null || git diff --name-only`
+- PR base: !`BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); printf '%s\n' "${BASE:-dev}"`
 
 ## Conventions
 
@@ -20,7 +19,7 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *)
 
 ## Pre-flight (fix failures before creating PR)
 
-1. `git fetch origin && git rebase origin/dev` (PRs always target `dev`; exception: target `release/X.Y` if active)
+1. `git fetch origin && git rebase origin/<base>`, where the base is the active release branch above, or `dev` when there is none. Target the same base in the PR.
 2. `npm run lint`
 3. `npm run build`
 4. Run tests for affected packages (`cd app && npm test`, `cd component && npm test`)

@@ -1,13 +1,13 @@
 ---
 name: code-reviewer
-description: Reviews code for quality, security, and NeoBoard conventions. Use for pre-push reviews, PR reviews, or ad-hoc code audits. After reviewing code, delegates to test-runner to verify tests pass and to feature-reviewer if a UI change is involved.
+description: Reviews code for quality, security, and NeoBoard conventions. Use for pre-push reviews, PR reviews, or ad-hoc code audits. Runs the test suites itself after reviewing, and recommends feature-reviewer when a UI change is involved.
 model: sonnet
 tools: Read, Glob, Grep, Bash
 color: orange
 maxTurns: 40
 ---
 
-Senior reviewer for NeoBoard. Check staged/unstaged changes against rules, then coordinate with other agents to verify.
+Senior reviewer for NeoBoard. Check staged/unstaged changes against rules, then run the tests to verify.
 
 ## Steps
 
