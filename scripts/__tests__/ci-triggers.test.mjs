@@ -35,7 +35,9 @@ function pathFilters(yaml) {
       const line = lines[j];
       if (!line.trim() || /^\s*#/.test(line)) continue;
       if (line.search(/\S/) <= indent) break;
-      const m = line.match(/^\s*-\s*'?([^'#\s]+)'?/);
+      // Either quote style: Prettier writes YAML strings with double quotes,
+      // so a formatted workflow parsed as '".claude/CLAUDE.md"' otherwise.
+      const m = line.match(/^\s*-\s*["']?([^"'#\s]+)["']?/);
       if (m) entries.push(m[1]);
     }
     blocks.push(entries);
@@ -77,6 +79,34 @@ describe("CI path filters (#1627)", () => {
         "docker/**",
       );
     }
+  });
+});
+
+describe("a prose-only change to .claude runs its guards (#1847)", () => {
+  // ci.yml triggers on .claude/hooks/** and settings.json — the executable
+  // half — so an edit to CLAUDE.md, a rule or a skill started nothing, while
+  // docs-accuracy.test.ts and dev-notes-convention exist precisely to hold
+  // those files to the source. Same fix as #1697 took for docs/**.
+  const agentCi = readFileSync(
+    join(ROOT, ".github/workflows/claude-config.yml"),
+    "utf8",
+  );
+
+  it("triggers on the instruction files", () => {
+    const filters = pathFilters(agentCi);
+    expect(filters.length).toBeGreaterThanOrEqual(2);
+    for (const f of filters) {
+      expect(f).toContain(".claude/CLAUDE.md");
+      expect(f).toContain(".claude/rules/**");
+      expect(f).toContain(".claude/skills/**");
+      expect(f).toContain(".claude/agents/**");
+    }
+  });
+
+  it("runs the guards those files are held to", () => {
+    expect(agentCi).toMatch(/claude-rules\.test\.mjs/);
+    expect(agentCi).toMatch(/dev-notes-convention\.test\.mjs/);
+    expect(agentCi).toMatch(/docs-accuracy\.test\.ts/);
   });
 });
 

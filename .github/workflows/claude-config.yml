@@ -1,0 +1,64 @@
+# Agent instruction files (#1847) — CLAUDE.md, the path-scoped rules, the
+# skills and the agent definitions are held to the source by tests, but none of
+# them ran on a change confined to prose: ci.yml triggers on `.claude/hooks/**`
+# and `.claude/settings.json` only, deliberately, so a docs edit does not start
+# the E2E shards. Same shape as the Docs workflow (#1697): a small, separate
+# run that executes the guards the files are actually held to.
+name: Agent config
+
+on:
+  push:
+    branches: [main, dev, "release/*"]
+    paths:
+      - ".claude/CLAUDE.md"
+      - ".claude/rules/**"
+      - ".claude/skills/**"
+      - ".claude/agents/**"
+      - ".github/workflows/claude-config.yml"
+  pull_request:
+    branches: [main, dev, "release/*"]
+    paths:
+      - ".claude/CLAUDE.md"
+      - ".claude/rules/**"
+      - ".claude/skills/**"
+      - ".claude/agents/**"
+      - ".github/workflows/claude-config.yml"
+  workflow_dispatch:
+
+# Runs npm ci and Vitest against pull-request code: it only ever reads the
+# repository, so do not inherit whatever the org default allows.
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-config-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agent-config:
+    name: Agent instructions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # CLAUDE.md's length, the rule files' globs (a typo'd glob is a rule that
+      # never loads), and the vault convention for durable notes.
+      - name: Check the instruction files
+        run: npx vitest run scripts/__tests__/claude-rules.test.mjs scripts/__tests__/dev-notes-convention.test.mjs
+
+      # The repo-facing half of docs-accuracy: the paths CLAUDE.md cites, the
+      # migration escape hatch, and the tenancy mandate it must keep stating.
+      - name: Check CLAUDE.md against the source
+        run: npm -w app exec vitest run -- src/lib/__tests__/docs-accuracy.test.ts
