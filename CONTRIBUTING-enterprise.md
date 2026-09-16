@@ -79,7 +79,7 @@ OIDC_CLIENT_SECRET=<from your IdP>
 
 Then restart `npm run dev` and visit `/settings/authentication`.
 
-The repository does not ship a Keycloak compose file. Point `OIDC_ISSUER` at an identity provider you run yourself, for example a local Keycloak container with a `neoboard` realm and a `neoboard` client (see the Keycloak section of `docs/src/content/docs/security/sso.mdx` for the client settings).
+The repository does not ship a Keycloak compose file. Point `OIDC_ISSUER` at an identity provider you run yourself, for example a local Keycloak container with a `neoboard` realm and a `neoboard` client.
 
 ## Version pin
 

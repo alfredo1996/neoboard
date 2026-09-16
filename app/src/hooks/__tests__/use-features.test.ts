@@ -96,13 +96,11 @@ describe("useFeature", () => {
     expect(useFeature("sso")).toBe(false);
   });
 
-  it("returns false on community edition for every gated feature", async () => {
+  it("returns false on community edition for the gated feature", async () => {
     const reactQuery = await import("@tanstack/react-query");
     vi.mocked(reactQuery.useQuery).mockReturnValue({
       data: { edition: "community", features: [] },
     } as ReturnType<typeof reactQuery.useQuery>);
     expect(useFeature("sso")).toBe(false);
-    expect(useFeature("custom-roles")).toBe(false);
-    expect(useFeature("bulk-import")).toBe(false);
   });
 });

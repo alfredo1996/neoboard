@@ -69,7 +69,7 @@ export default defineConfig({
     "/administration/deployment-checklist": "/deploy/deployment-checklist",
     "/authentication": "/security/password-login",
     "/authentication/password-login": "/security/password-login",
-    "/authentication/sso": "/security/sso",
+    "/authentication/sso": "/start-here/enterprise",
     "/authentication/roles": "/security/roles",
     "/cli/docker-setup": "/start-here/tour",
     "/cli/local-setup": "/extend/setup",

@@ -74,10 +74,10 @@ describe("FeatureGate", () => {
   it("passes the feature id to useFeature", () => {
     mockUseFeature.mockReturnValue(true);
     render(
-      <FeatureGate feature="custom-roles">
+      <FeatureGate feature="sso">
         <div>x</div>
       </FeatureGate>,
     );
-    expect(mockUseFeature).toHaveBeenCalledWith("custom-roles");
+    expect(mockUseFeature).toHaveBeenCalledWith("sso");
   });
 });

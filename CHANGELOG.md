@@ -60,6 +60,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
   UPDATE audit_log SET tenant_id = 'default' WHERE tenant_id = '';
   COMMIT;
   ```
+
 - A connector consumer's `onSuccess` callback that throws is no longer reported as a database failure (#1642)
 - A connection whose host is unreachable no longer storms retries or hangs dependent widgets on "Waiting for parameters…": the API answers `502 CONNECTOR_UNAVAILABLE` (no auto-retry) instead of `408`, every widget on that connection says "Connector unavailable" with the classifier's hint — including the ones gated on a parameter whose seed query is on a dead connection, their own or another — parameter widgets show the failure with a Retry instead of an empty list, refused PostgreSQL credentials answer `502` too (they were a bare `500`), scheduler backpressure (`408`/`503`) neither clears the flag nor auto-retries on a flagged connection, widget queries no longer re-fire on window focus, and the Neo4j driver's connection-acquisition timeout is bounded (#1678)
 - A password embedded in a connection URI is now rejected when you save the connection, and a URI that fails to parse no longer quotes the URI back to you; a bare username stays accepted (#1303)
@@ -124,6 +125,7 @@ The first tagged and published release. Chart authoring, editing, rule-based sty
 - **Breaking (component API):** the deprecated `DEEP_OCEAN_*` palette exports, the palette-id alias layer and the bar chart's boolean `stacked` prop (use `stackMode`). NeoDash bar reports now import stacked unless set to grouped, matching NeoDash's default (#1684)
 - The legend-position option (legends always sit at the bottom) and six editor options that never had an effect: graph node size and physics, JSON font size, copy button and theme, and map popups (#1593, #1472)
 - Radar tiles in the demo dashboards, since radar is not offered in the chart picker (#1722)
+- The enterprise edition is not part of this release: the `NEOBOARD_EDITION` switch and the `OIDC_*` variables are gone from both example env files and both production compose files, the single sign-on setup page is gone from the documentation, and the feature list keeps only the one feature that has code behind it. The single sign-on code itself stays and is dormant — it runs only for an operator who sets the variable by hand. The enterprise edition resumes in 1.7 (#1845)
 
 ### Security
 

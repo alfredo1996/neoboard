@@ -5,18 +5,8 @@ import { unwrapResponse } from "@/lib/api/api-client";
 
 export type Edition = "community" | "enterprise";
 
-export type FeatureId =
-  | "sso"
-  | "custom-roles"
-  | "user-groups"
-  | "connector-labels"
-  | "connector-alias"
-  | "environment-selector"
-  | "bulk-import"
-  | "dashboard-sharing-links"
-  | "impersonation"
-  | "session-management"
-  | "ast-completion";
+/** Mirrors `lib/features/registry.ts` — client copy, same ids (#1845). */
+export type FeatureId = "sso";
 
 export interface FeaturesResponse {
   edition: Edition;

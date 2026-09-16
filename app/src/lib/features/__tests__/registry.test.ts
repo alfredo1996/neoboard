@@ -31,20 +31,10 @@ describe("feature registry", () => {
       expect(isEnterpriseEdition()).toBe(false);
     });
 
-    it("hasFeature returns false for all enterprise features", async () => {
+    it("hasFeature returns false for every enterprise feature", async () => {
       delete process.env.NEOBOARD_EDITION;
       const { hasFeature } = await import("../registry");
       expect(hasFeature("sso")).toBe(false);
-      expect(hasFeature("custom-roles")).toBe(false);
-      expect(hasFeature("user-groups")).toBe(false);
-      expect(hasFeature("connector-labels")).toBe(false);
-      expect(hasFeature("connector-alias")).toBe(false);
-      expect(hasFeature("environment-selector")).toBe(false);
-      expect(hasFeature("bulk-import")).toBe(false);
-      expect(hasFeature("dashboard-sharing-links")).toBe(false);
-      expect(hasFeature("impersonation")).toBe(false);
-      expect(hasFeature("session-management")).toBe(false);
-      expect(hasFeature("ast-completion")).toBe(false);
     });
 
     it("getEnabledFeatures returns empty array", async () => {
@@ -68,24 +58,18 @@ describe("feature registry", () => {
       expect(getEdition()).toBe("enterprise");
     });
 
-    it("hasFeature returns true for all enterprise features", async () => {
+    it("hasFeature returns true for every enterprise feature", async () => {
       process.env.NEOBOARD_EDITION = "enterprise";
       const { hasFeature } = await import("../registry");
       expect(hasFeature("sso")).toBe(true);
-      expect(hasFeature("custom-roles")).toBe(true);
-      expect(hasFeature("user-groups")).toBe(true);
-      expect(hasFeature("connector-labels")).toBe(true);
-      expect(hasFeature("bulk-import")).toBe(true);
     });
 
-    it("getEnabledFeatures returns the full enterprise feature list", async () => {
+    it("getEnabledFeatures returns every feature that has code", async () => {
       process.env.NEOBOARD_EDITION = "enterprise";
       const { getEnabledFeatures } = await import("../registry");
-      const features = getEnabledFeatures();
-      expect(features).toContain("sso");
-      expect(features).toContain("custom-roles");
-      expect(features).toContain("user-groups");
-      expect(features.length).toBeGreaterThanOrEqual(11);
+      // Only SSO has code behind it. The other ten ids were names in a list,
+      // so enterprise mode advertised features that do not exist (#1845).
+      expect(getEnabledFeatures()).toEqual(["sso"]);
     });
   });
 });
