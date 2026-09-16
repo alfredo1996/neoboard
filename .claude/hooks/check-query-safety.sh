@@ -29,9 +29,11 @@ NEW_CONTENT=$(echo "$INPUT" | jq -r '.tool_input.new_string // .tool_input.conte
 SHAPES='\bselect\b[\s\S]*?\bfrom\b|\binsert\s+into\b|\bupdate\b[\s\S]*?\bset\b|\bdelete\s+from\b|\bmerge\s+into\b|\b(?:create|drop|alter)\s+(?:table|index|view|database|schema|constraint)\b|\bmatch\s*\(|\bmerge\s*\(|\bcreate\s*\(|\bdetach\s+delete\b|\bunwind\b|\bcall\s+\w+\.'
 
 # A template literal, single- or multi-line, holding both ${ and a query shape.
+# Escapes are consumed so a Cypher identifier in backticks — MATCH (n:\`User\`)
+# — stays one literal instead of splitting into fragments that match nothing.
 printf '%s' "$NEW_CONTENT" | SHAPES="$SHAPES" perl -0777 -ne '
   my $shapes = qr/$ENV{SHAPES}/i;
-  while (/`([^`]*)`/g) {
+  while (/`((?:[^`\\]|\\.)*)`/g) {
     my $s = $1;
     exit 2 if index($s, "\${") >= 0 && $s =~ $shapes;
   }'
@@ -43,10 +45,13 @@ if [ $? -eq 2 ]; then
 fi
 
 # A quoted string holding a query shape, followed by the + concat operator.
+# Each delimiter is matched on its own, so SQL containing the other quote —
+# WHERE tenant = \x27public\x27 inside a double-quoted string — still counts.
 printf '%s' "$NEW_CONTENT" | SHAPES="$SHAPES" perl -0777 -ne '
   my $shapes = qr/$ENV{SHAPES}/i;
-  while (/(["\x27])([^"\x27]*)\1\s*\+/g) {
-    exit 2 if $2 =~ $shapes;
+  while (/"((?:[^"\\]|\\.)*)"\s*\+|\x27((?:[^\x27\\]|\\.)*)\x27\s*\+/g) {
+    my $s = defined($1) ? $1 : $2;
+    exit 2 if $s =~ $shapes;
   }'
 if [ $? -eq 2 ]; then
   echo "BLOCKED: Detected string concatenation in what appears to be a query." >&2

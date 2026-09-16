@@ -168,6 +168,32 @@ describe("query safety hook", () => {
     );
   });
 
+  test("blocks a Cypher literal that quotes an identifier with backticks", () => {
+    // An escaped backtick ends the literal for a naive [^`]* match, splitting
+    // the query into fragments that no longer look like one.
+    assert.equal(
+      runHook(
+        "check-query-safety.sh",
+        `${ROOT}/connection/src/neo4j/x.ts`,
+        "const q = `MATCH (n:\\`User\\`) WHERE n.id = ${id} RETURN n`;",
+      ),
+      BLOCK,
+    );
+  });
+
+  test("blocks concatenation when the SQL contains an apostrophe", () => {
+    // A character class excluding both quote styles stops at the inner
+    // apostrophe, so the string never matches as a query.
+    assert.equal(
+      runHook(
+        "check-query-safety.sh",
+        route,
+        "const q = \"SELECT * FROM users WHERE tenant = 'public' AND id = \" + id;",
+      ),
+      BLOCK,
+    );
+  });
+
   test("allows a parameterised query", () => {
     assert.equal(
       runHook(
