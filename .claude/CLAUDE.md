@@ -51,29 +51,6 @@ Rules:
 - Every new behavior, bug fix, and edge case gets a test.
 - Tests live in `__tests__/` next to the file under test, same package.
 
-## Testing Boundaries (app/ package)
-
-| Layer                | Tool                    | Examples                                                                         |
-| -------------------- | ----------------------- | -------------------------------------------------------------------------------- |
-| Pure functions/utils | Vitest (no DOM)         | chart-plugin-registry, normalize-value, date-utils, query-hash, wrap-with-preview-limit |
-| API routes           | Vitest (mocked DB/auth) | Validation, permissions, error handling                                          |
-| Zustand stores       | Vitest (no mocks)       | State transitions, cascading logic                                               |
-| Store orchestration  | Vitest (no DOM)         | parameter-widget-renderer interactions, type coercion                            |
-| Auth helpers         | Vitest (mocked auth)    | Session extraction, signup validation                                            |
-| UI components (app/) | Vitest (jsdom)          | Render tests, branch coverage, error states — `.test.tsx` files                  |
-| Full user flows      | Playwright E2E          | Real rendering, real data, real interactions                                     |
-
-**Coverage target: 80% per package** (unit + E2E combined). Track with `npm run test:coverage` in each package.
-
-**Vitest in `app/` uses two project environments:**
-
-- **`unit`** (node): `.test.ts` files — pure logic, API routes, stores, hooks. No DOM.
-- **`component`** (jsdom): `.test.tsx` files — render tests with `@testing-library/react`. Mock `@neoboard/components` and Next.js modules (`next/navigation`, `next/dynamic`). Use for branch coverage of UI components that E2E can't reach (error states, edge cases, loading states).
-
-Playwright E2E with **server-side coverage collection** (`collectServer: true` in nextcov config) complements jsdom tests for full user flows. It works because the server is spawned as `node --inspect=<port>` (not `npx`, whose wrapper would bind the inspector port first) with `NODE_V8_COVERAGE` set, and because coverage is finalized **before** the teardown kills the server. The teardown fails the run if `collectServer` is on and no API route file reaches the report — the original defect was silent (#1606). UI component tests in `component/` package remain isolated (no business logic).
-
-**Vendored code** (e.g., `component/src/lib/cypher-lang/`) is excluded from SonarCloud coverage requirements but should have basic smoke tests to catch regressions from local modifications.
-
 ## Working Rules
 
 **Code quality:**
@@ -88,6 +65,7 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
   `eslint.config.js`.
 - Run `npm run build` before committing to catch type errors.
 - Use `npm`, not `pnpm` or `yarn`.
+- Topic rules live in `.claude/rules/` and load when you open a matching file: testing boundaries for tests, chart rules for charts.
 
 **Requirements drill (mandatory before new work):**
 
@@ -140,13 +118,6 @@ Playwright E2E with **server-side coverage collection** (`collectServer: true` i
 - JWT tokens include `tenantId` claim. Validate before ANY DB or API access.
 - SaaS vs on-prem: env vars only, never code branches.
 
-## Charts & Widgets
-
-- Chart components MUST use `next/dynamic` with `ssr: false`. No exceptions.
-- ECharts: import from `echarts/core` + specific modules. NEVER `import * as echarts from 'echarts'`.
-- Heavy deps (NVL, Leaflet) loaded only when a widget of that type is on the current dashboard.
-- Check existing components in `component/src/` and Storybook before creating new ones.
-
 ## Enterprise Features
 
 Gated by the `NEOBOARD_EDITION` env var, not code branches. Must fall back gracefully in the community edition.
@@ -162,25 +133,7 @@ Test version-skip paths. Boot migrations are controlled by `MIGRATE_ON_START` (`
 
 ## Automated Guardrails (Hooks)
 
-The `.claude/settings.json` hooks enforce critical rules automatically. Their behaviour is pinned by `scripts/__tests__/claude-hooks.node-test.mjs`.
-
-**PreToolUse (Edit/Write):**
-- Package boundary enforcement — blocks cross-package imports
-- Query interpolation guard — blocks `${...}` inside a template literal that holds an upper-case SQL/Cypher keyword, and string concatenation into one
-- Credential logging guard — blocks `console.log` of sensitive variables
-- ECharts import guard — blocks `import * from 'echarts'`
-- SSR guard — blocks chart components without `ssr: false`
-- Main branch guard — blocks edits on `main`
-
-**PreToolUse (Bash):**
-- Dependency install guard — blocks `npm install/uninstall` without approval
-- E2E enforcement — blocks `git commit`, anywhere in a command, while UI files edited since the last Playwright run are waiting on it
-
-**PostToolUse:**
-- Prettier + `eslint --fix` on every TypeScript file edit; errors ESLint cannot fix are reported back
-- E2E marker tracking (marks UI files as needing E2E, clears after a real `playwright test` run, not `--list`)
-
-**SessionStart:** distance from the upstream branch, and the branch's open PR
+PreToolUse hooks block cross-package imports, query interpolation, credential logging, barrel ECharts imports, chart components without `ssr: false`, edits on `main`, unapproved dependency installs, and `git commit` while UI files are waiting on Playwright. PostToolUse hooks run Prettier and `eslint --fix` on every TypeScript edit and report what they cannot fix. What each hook actually does is pinned by `scripts/__tests__/claude-hooks.node-test.mjs`.
 
 ## Compact instructions
 
@@ -193,29 +146,3 @@ Before touching any UI code, read `.claude/skills/design-review/SKILL.md` — to
 ## Dev Notes
 
 Durable notes — plans, drills, decisions, reviews — live in the Obsidian vault at `~/Desktop/neoboard-vault`, filed under its branch (`roadmap/`, `security/`, `product/`, …) and linked from the branch hub. The vault is its own git repo: commit there with a conventional message. `claude_code_docs/` (gitignored) is agent scratch only — the browser agents dump mid-run findings there and nothing in it is expected to survive. `scripts/__tests__/dev-notes-convention.test.mjs` fails if any other `.claude/` definition points at it.
-
-## Agent Pipeline (develop → review → assess)
-
-Agents work together in a pipeline. Each stage gates the next:
-
-1. **`project-architect`** — Plans features (impact analysis, risk, task breakdown)
-2. **`/code` skill** — Implements the plan
-3. **`test-runner`** + **`lint-fix`** — Verify code compiles, lints, tests pass
-4. **`code-reviewer`** — Reviews code for security, architecture, quality. Runs unit + E2E tests.
-5. **`feature-reviewer`** — Opens the browser (Playwright CLI), tests the feature UX + functionality
-6. **`design-reviewer`** — Judges whether the change *looks* right: captures Storybook in light **and** dark, compares against the taste doc, reports token-level causes
-7. **`ux-crawler`** — Full app regression: simulates admin/creator/reader across all user stories
-
-### Quick reference
-
-| Agent | Purpose | Model | Trigger |
-|-------|---------|-------|---------|
-| `project-architect` | Feature planning | opus | Complex features |
-| `test-runner` | Run affected tests | haiku | After code changes |
-| `lint-fix` | Lint + auto-fix | haiku | After code changes |
-| `code-reviewer` | Code review + tests | sonnet | Pre-push, PR review |
-| `feature-reviewer` | Browser-based feature testing (does it **work**) | sonnet | After implementing UI |
-| `design-reviewer` | Does it **look right** — both themes, token-level | sonnet | After token/chart/appearance changes |
-| `ux-crawler` | Full app UX audit | sonnet | Before releases, major changes |
-
-The browser agents (`feature-reviewer`, `ux-crawler`, `user-sim-admin`, `user-sim-creator`) drive the running app via `npx @playwright/cli` — ensure Docker is up before invoking them. Their CLI usage, token-discipline rules, and NeoBoard browser gotchas live in each agent's own definition, not here.
