@@ -10,8 +10,8 @@ on:
       - 'connector-sdk/**'
       - 'cli/**'
       # The E2E fixture substrate: global-setup.ts mounts
-      # docker/postgres/init-test.sql into the Postgres testcontainer that all
-      # 54 specs run against, so it can break every one of them (#1627).
+      # docker/postgres/init.sql into the Postgres testcontainer that all 54
+      # specs run against, so it can break every one of them (#1627).
       - 'docker/**'
       # The executable half of .claude — the hooks CLAUDE.md presents as
       # enforcement of the boundary, query-safety and credential rules. They
@@ -39,8 +39,8 @@ on:
       - 'connector-sdk/**'
       - 'cli/**'
       # The E2E fixture substrate: global-setup.ts mounts
-      # docker/postgres/init-test.sql into the Postgres testcontainer that all
-      # 54 specs run against, so it can break every one of them (#1627).
+      # docker/postgres/init.sql into the Postgres testcontainer that all 54
+      # specs run against, so it can break every one of them (#1627).
       - 'docker/**'
       # The executable half of .claude — the hooks CLAUDE.md presents as
       # enforcement of the boundary, query-safety and credential rules. They

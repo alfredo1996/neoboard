@@ -3,10 +3,12 @@
 # This file bundles the application AND its databases into a single compose
 # stack. Use it for quick demos, evaluation, or the CLI (`neoboard start --full`).
 #
-# How the three compose files relate:
-#   docker-compose.yml      — Dev databases only (Postgres + Neo4j). Pair with `npm run dev`.
-#   docker-compose.prod.yml — App container only. Expects an external database via env vars.
-#   docker-compose.full.yml — (this file) App + databases. One command, nothing else needed.
+# How the compose files in this directory relate:
+#   docker-compose.yml           — Dev databases only (Postgres + Neo4j). Pair with `npm run dev`.
+#   docker-compose.prod.yml      — App container only. Expects an external database via env vars.
+#   docker-compose.prod-full.yml — Published image + databases, for a production install.
+#   docker-compose.full.yml      — (this file) App built from source + databases. One command.
+#   docker-compose.expose-host.yml — Overlay: publishes the database ports to the host.
 #
 # Usage:
 #   docker compose -f docker/docker-compose.full.yml up --build

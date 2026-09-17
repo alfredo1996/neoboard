@@ -11,10 +11,10 @@
  * Prerequisites: coverage must already exist — run `npm run verify` first,
  * otherwise Sonar reports 0% and the gate result is meaningless.
  *
- * NOTE: this is deliberately NOT the local SonarQube CE server in
- * docker/docker-compose.yml (--profile sonar). A local CE server has its own
- * gate config and its own new-code baseline, so it cannot predict the verdict
- * that actually blocks a PR.
+ * NOTE: this deliberately scans SonarCloud rather than a self-hosted server.
+ * A local CE server has its own gate config and its own new-code baseline, so
+ * it cannot predict the verdict that actually blocks a PR — which is why the
+ * compose profile that ran one came out in #1872.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";

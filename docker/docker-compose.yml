@@ -1,6 +1,6 @@
-# Dev containers for Neo4j + PostgreSQL.
-# After starting, run: bash install.sh
-# This runs migrations, seeds demo users/connections/dashboards, and starts the dev server.
+# Dev databases only — PostgreSQL + Neo4j. `neoboard start` brings these up;
+# pair them with `npm run dev`, which runs the app from source on the host.
+# For demo users, connections and dashboards, run `neoboard demo`.
 services:
   postgres:
     image: postgres:16-alpine
@@ -27,8 +27,9 @@ services:
       NEO4J_AUTH: neo4j/neoboard123
       # Advertise Docker hostname so the neo4j:// routing driver works from other containers
       NEO4J_server_default__advertised__address: neoboard-neo4j
-      # Log all queries to query.log for stress-test verification.
-      # View with: docker exec neoboard-neo4j tail -f /logs/query.log
+      # Log every query to query.log, so a slow or unexpected dashboard
+      # query can be read back. View with:
+      #   docker exec neoboard-neo4j tail -f /logs/query.log
       NEO4J_dbms_logs_query_enabled: "INFO"
       NEO4J_dbms_logs_query_threshold: "0ms"
     ports:
@@ -44,53 +45,6 @@ services:
       retries: 10
       start_period: 30s
 
-  # ---------------------------------------------------------------------------
-  # SonarQube — local code quality & coverage analysis
-  # Start with: docker compose --profile sonar up
-  # UI available at: http://localhost:9000 (admin / admin on first run)
-  # ---------------------------------------------------------------------------
-  sonarqube:
-    image: sonarqube:community
-    container_name: neoboard-sonarqube
-    profiles: ["sonar"]
-    depends_on:
-      sonarqube-db:
-        condition: service_healthy
-    environment:
-      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
-      SONAR_JDBC_USERNAME: sonar
-      SONAR_JDBC_PASSWORD: sonar
-    ports:
-      - "9000:9000"
-    volumes:
-      - sonarqube_data:/opt/sonarqube/data
-      - sonarqube_logs:/opt/sonarqube/logs
-      - sonarqube_extensions:/opt/sonarqube/extensions
-    ulimits:
-      nofile:
-        soft: 65536
-        hard: 65536
-
-  sonarqube-db:
-    image: postgres:15-alpine
-    container_name: neoboard-sonarqube-db
-    profiles: ["sonar"]
-    environment:
-      POSTGRES_USER: sonar
-      POSTGRES_PASSWORD: sonar
-      POSTGRES_DB: sonar
-    volumes:
-      - sonarqube_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sonar"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
 volumes:
   neoboard_pgdata:
   neoboard_neo4jdata:
-  sonarqube_data:
-  sonarqube_logs:
-  sonarqube_extensions:
-  sonarqube_pgdata:
