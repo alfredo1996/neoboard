@@ -33,6 +33,8 @@ NeoBoard is a dashboard builder you run yourself: write Cypher and SQL in the br
 
 ## Quick Start
 
+Needs Docker and Node.js 20+ ([install requirements](docs/src/content/docs/start-here/install.mdx)).
+
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
 cd neoboard
