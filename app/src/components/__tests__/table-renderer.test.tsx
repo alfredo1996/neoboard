@@ -114,4 +114,19 @@ describe("TableRenderer footer with pagination off (#1861)", () => {
     expect(screen.getByTestId("view-options")).toBeInTheDocument();
     expect(screen.queryByTestId("pager")).not.toBeInTheDocument();
   });
+
+  it("still renders the pager when pagination is on", () => {
+    // jsdom measures every element as 0px tall, which keeps a paged table
+    // waiting for a height; give the wrapper a real one.
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ height: 400 } as DOMRect);
+    try {
+      render(<TableRenderer data={[{ a: 1 }]} settings={{}} />);
+      expect(screen.getByTestId("view-options")).toBeInTheDocument();
+      expect(screen.getByTestId("pager")).toBeInTheDocument();
+    } finally {
+      rect.mockRestore();
+    }
+  });
 });
