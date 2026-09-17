@@ -22,7 +22,11 @@ import {
   generateAll as generateEcommerceData,
   insertAll as insertEcommerceData,
 } from "./demo/ecommerce-data.mjs";
-import { SHOWCASES, parseOnlyFlag } from "./demo/showcases.mjs";
+import {
+  SHOWCASES,
+  parseOnlyFlag,
+  buildConnectionMap,
+} from "./demo/showcases.mjs";
 import { importShowcase } from "./demo/import-dashboard.mjs";
 import { resolveSeedHosts } from "./lib/seed-hosts.mjs";
 
@@ -326,11 +330,12 @@ async function main() {
     await seedEcommerceData(sql);
 
     // 4. Showcase JSON import
-    const connectionMap = {
-      conn_neo4j: neo4jConnId,
-      conn_postgres_read: ecommerceReadConnId,
-      conn_postgres_write: ecommerceWriteConnId,
-    };
+    const connectionMap = buildConnectionMap({
+      neo4j: neo4jConnId,
+      postgresMovies: pgConnId,
+      ecommerceRead: ecommerceReadConnId,
+      ecommerceWrite: ecommerceWriteConnId,
+    });
     const targets = onlyKeys
       ? SHOWCASES.filter((s) => onlyKeys.includes(s.key))
       : SHOWCASES;
