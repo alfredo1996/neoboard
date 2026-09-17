@@ -336,6 +336,11 @@ async function docsShot(page: Page, name: string) {
 }
 
 const README_SHOTS = path.resolve(__dirname, "../../screenshots");
+/** Read by app/src/lib/__tests__/docs-accuracy.test.ts: keep one name per line. */
+const README_HERO = {
+  light: "hero-light.png",
+  dark: "hero-dark.png",
+} as const;
 
 /**
  * The README hero, screenshots/hero-light.png and hero-dark.png (#1861): the
@@ -379,7 +384,7 @@ async function readmeShots(page: Page, browser: Browser) {
     const box = await films.boundingBox();
     expect(box).not.toBeNull();
     await hero.screenshot({
-      path: path.join(README_SHOTS, `hero-${colorScheme}.png`),
+      path: path.join(README_SHOTS, README_HERO[colorScheme]),
       clip: {
         x: 0,
         y: 0,

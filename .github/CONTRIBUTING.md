@@ -39,16 +39,16 @@ fix/issue-<N>-<slug>     # Bug fixes
 chore/issue-<N>-<slug>   # Maintenance, docs, tests
 ```
 
-Always branch from `dev`.
+Branch from `dev` and target it, unless a `release/X.Y` branch is active: then branch from and target that release branch instead. `release/X.Y` stabilises a release and merges into `dev`; `main` holds stable releases.
 
 ### Pull Request Process
 
-1. Branch from `dev`
+1. Branch from `dev` (or the active `release/X.Y`)
 2. Make your changes following the code style below
 3. Write tests (TDD: test before implementation)
 4. Run `npm run build` to verify no type errors
 5. Run `npm run lint` to check linting
-6. Open a PR targeting `dev` with conventional commit title
+6. Open a PR targeting the branch you branched from, with a conventional commit title
 7. Link the issue via `Closes #N` in the PR body
 8. Wait for CI (type-check, unit tests, E2E, CodeRabbit, SonarCloud)
 

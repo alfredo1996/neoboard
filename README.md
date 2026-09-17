@@ -1,39 +1,35 @@
-<p align="center">
-  <h1 align="center">NeoBoard</h1>
-  <p align="center">
-    Neo4j and PostgreSQL dashboards, together on one canvas
-    <br />
-    <em>Self-hosted, and no commercial database licence required</em>
-    <br />
-    <a href="docs/src/content/docs/"><strong>Documentation</strong></a>
-  </p>
-  <p align="center">
-    <a href="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml/badge.svg?branch=dev" /></a>
-    <a href="https://sonarcloud.io/dashboard?id=alfredo1996_neoboard"><img alt="Quality Gate" src="https://sonarcloud.io/api/project_badges/measure?project=alfredo1996_neoboard&metric=alert_status" /></a>
-    <a href="https://sonarcloud.io/component_measures?id=alfredo1996_neoboard&metric=coverage"><img alt="Coverage" src="https://sonarcloud.io/api/project_badges/measure?project=alfredo1996_neoboard&metric=coverage" /></a>
-    <a href="LICENSE"><img alt="License: Elastic-2.0" src="https://img.shields.io/badge/License-Elastic--2.0-blue" /></a>
-  </p>
-  <p align="center">
-    <img alt="Node >= 20" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" />
-    <a href="https://github.com/alfredo1996/neoboard/pkgs/container/neoboard"><img alt="Docker" src="https://img.shields.io/badge/docker-ghcr.io%2Falfredo1996%2Fneoboard-2496ED?logo=docker&logoColor=white" /></a>
-    <a href="https://github.com/alfredo1996/neoboard/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/alfredo1996/neoboard?style=social" /></a>
-    <a href="https://github.com/alfredo1996/neoboard/issues?q=label%3A%22good+first+issue%22"><img alt="Good First Issues" src="https://img.shields.io/github/issues/alfredo1996/neoboard/good%20first%20issue?color=7057ff&label=good%20first%20issues" /></a>
-  </p>
-</p>
+<div align="center">
 
----
+# NeoBoard
 
-![NeoBoard Dashboard](screenshots/03-dashboard-edit.png)
+Neo4j and PostgreSQL dashboards, together on one canvas
 
-**NeoBoard** puts Neo4j and PostgreSQL side by side in the same dashboard — a graph query and a SQL query feeding cards on one page. It is free, self-hosted, and needs no commercial database licence. Build interactive dashboards with 16 chart types, write queries directly, and share insights, all from a modern web interface.
+<em>Self-hosted, and no commercial database licence required</em>
+
+[Documentation](docs/src/content/docs/) · [Quick start](#quick-start) · [Migrate from NeoDash](docs/src/content/docs/start-here/migration-from-neodash.mdx) · [Plugins](PLUGINS.md)
+
+[![CI](https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/alfredo1996/neoboard/actions/workflows/ci.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=alfredo1996_neoboard&metric=alert_status)](https://sonarcloud.io/dashboard?id=alfredo1996_neoboard)
+[![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-blue)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Falfredo1996%2Fneoboard-2496ED?logo=docker&logoColor=white)](https://github.com/alfredo1996/neoboard/pkgs/container/neoboard)
+
+</div>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/hero-dark.png">
+  <img src="screenshots/hero-light.png" alt="NeoBoard's Movie Highlights dashboard: one Actor filter set to Tom Hanks drives a co-star graph queried with Cypher on Neo4j and a table of his films queried with SQL on PostgreSQL, side by side.">
+</picture>
+
+NeoBoard is a dashboard builder you run yourself: write Cypher and SQL in the browser and turn the results into charts, graphs, maps and tables. It works with community Neo4j and plain PostgreSQL, so nothing needs an enterprise agreement.
 
 ## Why NeoBoard?
 
-- **One dashboard, both databases** — query Neo4j and PostgreSQL side by side, with parameters shared across widgets. No other dashboard tool does this
-- **Self-hosted, no licence gate** — runs on community Neo4j and plain PostgreSQL; nothing here needs an enterprise agreement
-- **A way off NeoDash** — import your existing NeoDash JSON; the original is no longer maintained, and the supported build ships inside a Neo4j Enterprise agreement
-- **Extensible charts** — 16 chart types with rule-based styling, click actions, and color palettes
-- **Modern stack** — Next.js 16, React 19, TypeScript, ECharts, Zustand, TanStack Query
+- **Neo4j and PostgreSQL on one canvas** — a Cypher widget and a SQL widget read the same parameters, so one filter drives both. [Connectors](docs/src/content/docs/using/connectors.mdx)
+- **16 chart types** — bar, line and table through graph, map, Sankey and Gantt. [Charts](docs/src/content/docs/charts/index.mdx)
+- **Interactive** — selectors and click actions set parameters, and rule-based styling colours values. [Parameters](docs/src/content/docs/using/parameters.mdx)
+- **Share and automate** — share dashboards with people or your whole workspace, auto-refresh them, and call the REST API with API keys. [API keys](docs/src/content/docs/security/api-keys.mdx)
+- **Safe by default** — widgets other than forms run read-only, with row limits and timeouts, and connection credentials are encrypted with AES-256-GCM. [Query safety](docs/src/content/docs/security/query-safety.mdx)
+- **A way off NeoDash** — import your NeoDash JSON; charts, parameters and layout are mapped for you. [Migration guide](docs/src/content/docs/start-here/migration-from-neodash.mdx)
 
 ## Quick Start
 
@@ -44,159 +40,18 @@ bash install.sh   # installs deps, starts Docker, runs migrations
 # → http://localhost:3000
 ```
 
-`install.sh` bootstraps the bundled `neoboard` CLI, brings up Postgres + Neo4j in Docker, runs migrations, and prints the next-step commands. After it finishes:
+Create the first admin at <http://localhost:3000/signup> with the bootstrap token from the ready banner. `neoboard demo` loads seven sample dashboards, and creates the demo admin `admin@neoboard.local` / `admin123` only when no user exists yet; the [tour](docs/src/content/docs/start-here/tour.mdx) walks through them.
 
-- Create your first admin at <http://localhost:3000/signup> using the bootstrap token printed in the ready banner (also in `docker/.env` as `ADMIN_BOOTSTRAP_TOKEN`)
-- Run `neoboard demo` to seed the showcase dashboards (optional, see below)
-- Run `neoboard status` to check service health if anything looks off (`neoboard doctor` is a pre-flight check of the machine — Docker, Node, free ports); `neoboard --help` for the full command list
+The CLI is not on npm yet, so install from a clone. If setup fails, see [Troubleshooting](docs/src/content/docs/start-here/troubleshooting.mdx).
 
-> **Note:** an `npx @neoboard/cli` standalone install path is on the roadmap but the package is not on npm yet — clone the repo for now.
+## Deploy
 
-If something breaks during install (port conflict, DB refuses, migration fails, lost encryption key, OAuth redirect mismatch), see [Troubleshooting Setup](docs/src/content/docs/start-here/troubleshooting.mdx).
-
-### Demo showcases
-
-Want pre-loaded dashboards that demo every chart type, every click-action, every transform, and rule-based styling? Use the `neoboard demo` CLI:
-
-```bash
-neoboard demo                                 # full setup + seed everything
-neoboard demo seed                            # reseed showcases only
-neoboard demo seed --only=chart-gallery       # reseed a subset
-neoboard demo list                            # print available showcases
-neoboard demo reset --force                   # purge showcase dashboards + demo schema
-```
-
-Seven showcase dashboards get seeded (run `neoboard demo list` for the live list):
-
-| Showcase           | What it demonstrates                                                                          |
-| ------------------ | --------------------------------------------------------------------------------------------- |
-| Movie Highlights   | Real-world showcase on the Neo4j movie graph — KPIs, top actors, filming map, co-star network |
-| Chart Gallery      | One page per chart type — 17 pages covering every registered widget                           |
-| Click Actions      | Drilldown, page navigation, and combined set-parameter-and-navigate                           |
-| Transformations    | Before/after for `filter`, `sort`, `groupBy`, `calculatedColumn`, `renameColumns`, `limit`    |
-| Rule-Based Styling | Numeric, text, between-operator, and parameter-reference rules across chart types             |
-| Chart Playground   | Interactive sandbox — every chart with knobs to fiddle                                        |
-| Chart Reference    | Exhaustive customization reference — one page per chart type, all options demonstrated        |
-
-The showcases live as portable JSON files under `scripts/demo/*.json` validated against `neoboardExportSchema` — you can import them on any NeoBoard instance.
-
-Four connections are created: **Neo4j Movies** (the bundled movie graph), **PostgreSQL Movies** (its relational copy), and **PostgreSQL Ecommerce (demo, read)** and **PostgreSQL Ecommerce (demo, write)**. The last two share the same credentials and differ only in name, and both reach the demo e-commerce data (customers, products, categories, orders, order_items, regions). That data is isolated in the `neoboard_demo_public` Postgres schema, so `neoboard demo reset` can drop it without touching your own tables.
-
-Demo login: `admin@neoboard.local` / `admin123`
-
-### Docker (Production)
-
-All Compose files live in [`docker/`](docker/) — there is intentionally no root-level `docker-compose.yml`, so pass `-f`. From the root of the clone:
-
-```bash
-# Generate the secrets ONCE, into a gitignored file. noclobber refuses to
-# overwrite it: a new ENCRYPTION_KEY makes stored credentials unrecoverable.
-(set -o noclobber; umask 077; cat > docker/.env.production.local <<EOF
-POSTGRES_PASSWORD=$(openssl rand -hex 16)
-ENCRYPTION_KEY=$(openssl rand -hex 32)
-NEXTAUTH_SECRET=$(openssl rand -base64 32)
-API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
-ADMIN_BOOTSTRAP_TOKEN=$(openssl rand -hex 32)
-EOF
-)
-docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml up -d --build
-```
-
-Back up `docker/.env.production.local` with the database — losing `ENCRYPTION_KEY` means every stored connection credential is gone. Once the app is healthy, create the first admin at <http://localhost:3000/signup> with the token from `grep ADMIN_BOOTSTRAP_TOKEN docker/.env.production.local`.
-
-`--build` builds the image from your checkout. Released images are published as `ghcr.io/alfredo1996/neoboard`; once a release is out, drop `--build` and pin one with `NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:X.Y.Z`.
-
-`docker-compose.prod-full.yml` bundles PostgreSQL (add `--profile neo4j` for a bundled Neo4j data source); `docker-compose.prod.yml` is the bring-your-own-database variant. The stack refuses to boot with missing secrets. See the [Production Deployment guide](docs/src/content/docs/deploy/production.mdx) for health verification and TLS, and [`app/.env.example`](app/.env.example) for every variable.
-
-Browse the [screenshots](#screenshots) below for a feel of the UI without installing.
-
-## Features
-
-| Category          | Details                                                                                                                                   |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Charts**        | 16 types: Bar, Line, Pie, Table, Single Value, Gauge, Sankey, Sunburst, Gantt, Graph, Map, JSON, Form, Markdown, iFrame, Parameter Select |
-| **Connectors**    | Neo4j (Bolt), PostgreSQL                                                                                                                  |
-| **Parameters**    | Select, Multi-Select, Date, Date Range, Relative Date, Freetext, Number Range — with cross-widget binding                                 |
-| **Forms**         | Write queries (CREATE/INSERT) with form fields editor                                                                                     |
-| **Transforms**    | Client-side filter, sort, groupBy, calculatedColumn, rename, limit pipeline                                                               |
-| **Styling**       | Rule-based conditional styling, color scales, colorblind mode                                                                             |
-| **Interactivity** | Click actions (set parameter, navigate page), fullscreen widgets                                                                          |
-| **Export**        | CSV export, JSON dashboard import/export                                                                                                  |
-| **Security**      | AES-256-GCM credential encryption, multi-tenant isolation, parameterized queries                                                          |
-
-## Ecosystem & Community
-
-NeoBoard has a plugin system for custom chart types and database connectors. See the full [Plugin Ecosystem](PLUGINS.md) directory.
-
-- **16 built-in charts** — Bar, Line, Pie, Table, Graph, Map, Gauge, Sankey, and more
-- **2 built-in connectors** — Neo4j and PostgreSQL
-- **Extensible** — Build and publish your own plugins via npm
-- **Community directory** — Share and discover third-party extensions
-
-## Screenshots
-
-<p align="center">
-  <img src="screenshots/01-login.png" alt="NeoBoard login page" width="700" />
-</p>
-<p align="center"><em>Login page</em></p>
-
-<p align="center">
-  <img src="screenshots/03-dashboard-edit.png" alt="Dashboard view with widgets" width="700" />
-</p>
-<p align="center"><em>Dashboard in edit mode</em></p>
-
-<p align="center">
-  <img src="screenshots/04-widget-editor-data-tab.png" alt="Widget editor with query and chart options" width="700" />
-</p>
-<p align="center"><em>Widget editor - data tab</em></p>
-
-<p align="center">
-  <img src="screenshots/02-dashboards-home.png" alt="Dashboards home page listing all dashboards" width="700" />
-</p>
-<p align="center"><em>Dashboards home</em></p>
-
-## Architecture
-
-```
-neoboard/
-├── app/           # Next.js 16 application (API routes, pages, stores)
-├── component/     # React UI library (charts, widgets, design system)
-├── connection/    # Database connector library (Neo4j, PostgreSQL)
-├── docker/        # Docker Compose for dev containers
-├── docs/          # Documentation site
-└── scripts/       # Setup and seed scripts
-```
-
-Three packages with **strict boundaries**: `app/` orchestrates, `component/` renders, `connection/` queries. No cross-imports between `component/` and `connection/`.
-
-## Documentation
-
-The full documentation — install, deployment, every chart type, security and the plugin SDK — lives in [`docs/src/content/docs/`](docs/src/content/docs/) until the docs site is published.
+For production, run the Docker Compose stack, built from your checkout or pulled as `ghcr.io/alfredo1996/neoboard`: see [Production Deployment](docs/src/content/docs/deploy/production.mdx). Back up `ENCRYPTION_KEY` — if you lose it, every stored connection credential is unrecoverable.
 
 ## Contributing
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for local setup, project structure, and development workflow. For PR etiquette, branch naming, and code style, see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
-
-Looking for a first contribution? Check issues labeled [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
-
-### Branch Strategy
-
-| Branch        | Purpose                                       |
-| ------------- | --------------------------------------------- |
-| `main`        | Stable releases                               |
-| `dev`         | Integration branch for ongoing work           |
-| `release/X.Y` | Release stabilization before merging to `dev` |
-
-Feature and fix branches target `dev` by default, or the active `release/X.Y` branch when one exists.
-
-## Migrating from NeoDash
-
-NeoBoard provides a dedicated migration path for teams moving off NeoDash. The open-source build is no longer maintained — its own README says so — and the supported version is sold inside a Neo4j Enterprise agreement. Import your NeoDash JSON export from the dashboards page (**Import → select file**) — chart types, parameters, markdown, and layout are mapped automatically, with a connection-mapping step for your data sources. See the [NeoDash Migration Guide](docs/src/content/docs/start-here/migration-from-neodash.mdx) for step-by-step instructions and the supported widget mappings.
-
-## API Documentation
-
-Running the app exposes interactive API docs at `/api/docs`. The docs cover all REST endpoints for connections, dashboards, sharing, query execution, and admin operations.
+[DEVELOPMENT.md](DEVELOPMENT.md) covers local setup and [CONTRIBUTING.md](.github/CONTRIBUTING.md) covers branches and pull requests. New here? Pick a [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
 
 ## License
 
-[Elastic License 2.0](LICENSE) with AI training restriction. Free to use, modify, and self-host. See [LICENSE](LICENSE) for full terms.
+[Elastic License 2.0](LICENSE) with an AI training restriction. You may use, modify and self-host NeoBoard, but you may not offer it to others as a hosted or managed service, or use it to train AI models without written permission.

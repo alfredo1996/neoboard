@@ -1115,7 +1115,8 @@ describe("production deployment: secrets survive a second paste (#1217)", () => 
   // `export ENCRYPTION_KEY=$(openssl rand ...)` makes a new key on every
   // paste: stored credentials become unrecoverable and the initialised
   // Postgres volume keeps the old POSTGRES_PASSWORD. README.md was fixed in
-  // #1217; this holds the site page it links to the same snippet.
+  // #1217 and guarded in app/src/lib/__tests__/docs-accuracy.test.ts; the
+  // snippet left the README in #1861, and its guard moved here with it.
   const PAGE = "docs/src/content/docs/deploy/production.mdx";
   const COMPOSE = "docker/docker-compose.prod-full.yml";
   const page = () => DOCS.find(({ path }) => path === PAGE)?.text ?? "";
@@ -1134,6 +1135,18 @@ describe("production deployment: secrets survive a second paste (#1217)", () => 
     const required = [
       ...readFileSync(join(ROOT, COMPOSE), "utf8").matchAll(/\$\{(\w+):\?/g),
     ].map((m) => m[1]);
+    // Self-registration is closed and signup refuses the first admin without
+    // ADMIN_BOOTSTRAP_TOKEN, so a stack with only the required keys is one
+    // nobody can log into. Each is generated, and exactly once.
+    for (const key of [...new Set(required), "ADMIN_BOOTSTRAP_TOKEN"])
+      expect(
+        block.match(new RegExp(`^${key}=\\$\\(openssl rand `, "gm")),
+        key,
+      ).toHaveLength(1);
+    // The file holds ENCRYPTION_KEY: it must never be committed.
+    expect(() =>
+      execFileSync("git", ["check-ignore", "-q", envFile], { cwd: ROOT }),
+    ).not.toThrow();
     const dir = mkdtempSync(join(tmpdir(), "neoboard-1217-"));
     try {
       mkdirSync(join(dir, "docker"));
@@ -1141,6 +1154,7 @@ describe("production deployment: secrets survive a second paste (#1217)", () => 
         spawnSync("bash", ["-c", block], { cwd: dir, encoding: "utf8" });
       expect(paste().status).toBe(0);
       const file = join(dir, envFile);
+      // umask 077: nobody else may read the keys.
       expect(statSync(file).mode & 0o777).toBe(0o600);
       const first = readFileSync(file, "utf8");
       for (const key of [...required, "ADMIN_BOOTSTRAP_TOKEN"])
@@ -1159,6 +1173,8 @@ describe("production deployment: secrets survive a second paste (#1217)", () => 
         (c) => !c.includes(`--env-file ${envFile} -f ${COMPOSE}`),
       ),
     ).toEqual([]);
+    // ghcr's `latest` is a stale pre-release, not this checkout: build it.
+    expect(commands.filter((c) => / up -d --build$/.test(c))).not.toEqual([]);
   });
 
   it("the compose file's usage comment passes the same env file", () => {
