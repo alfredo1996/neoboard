@@ -430,17 +430,6 @@ jobs:
       - name: Build Docker image
         run: docker build -t neoboard:ci-test .
 
-      - name: Verify image runs
-        run: |
-          docker run --rm -d --name neoboard-test -p 3000:3000 \
-            -e DATABASE_URL=postgresql://fake:fake@localhost:5432/fake \
-            -e ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 \
-            -e NEXTAUTH_SECRET=ci-test-secret-not-real \
-            neoboard:ci-test || true
-          sleep 3
-          docker logs neoboard-test 2>&1 | head -20 || true
-          docker stop neoboard-test 2>/dev/null || true
-
   # ── Job 3: SonarCloud scan (no test execution) ─────────────────────────────
   # Downloads coverage artifacts from unit-tests + e2e and runs the scan.
   sonar:

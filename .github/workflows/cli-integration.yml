@@ -88,15 +88,10 @@ jobs:
           ENVEOF
           sed -i 's/^          //' docker/.env
 
-      - name: Build Docker image
-        run: docker build -t neoboard:integration-test .
-
       - name: Start full stack
         run: |
-          # Use the built image instead of rebuilding
-          FORCE_HTTPS=false docker compose -f docker/docker-compose.full.yml up -d
-        env:
-          COMPOSE_DOCKER_CLI_BUILD: 0
+          FORCE_HTTPS=false docker compose \
+            -f docker/docker-compose.full.yml up -d --build
 
       - name: Wait for services to be healthy
         run: |
@@ -107,11 +102,6 @@ jobs:
           echo "Waiting for NeoBoard app..."
           timeout 90 bash -c 'until curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/auth/csrf | grep -q 200; do sleep 3; done'
           echo "All services ready"
-
-      - name: Run migrations
-        run: |
-          DATABASE_URL=postgresql://neoboard:neoboard@localhost:5432/neoboard \
-            npx -w app drizzle-kit migrate
 
       - name: Seed demo data
         run: |
