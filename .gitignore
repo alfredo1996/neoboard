@@ -73,10 +73,11 @@ app/coverage-e2e/
 connection/coverage-quality/
 *.lcov
 
-# Screenshot review (temporary per-PR artifacts)
-.screenshots/before/
-.screenshots/after/
-.screenshots/diff/
+# Screenshot review (temporary per-PR artifacts). A leading path segment
+# anchors the pattern at the root, so these need the ** (#1871).
+**/.screenshots/before/
+**/.screenshots/after/
+**/.screenshots/diff/
 .playwright-mcp
 .playwright-cli/
 

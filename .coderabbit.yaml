@@ -35,11 +35,7 @@ reviews:
     # was not.
     - "!package-lock.json"
     - "!docs/package-lock.json"
-    - "!docs/content/**/*.mdx"
-    - "!docs/next-env.d.ts"
-    - "!app/.screenshots/**"
     - "!app/drizzle/migrations/**"
-    - "!app/tsconfig.tsbuildinfo"
     - "!docker/**"
   path_instructions:
     - path: "app/src/**"
