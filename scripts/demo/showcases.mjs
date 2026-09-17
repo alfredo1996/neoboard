@@ -32,8 +32,7 @@ export const SHOWCASES = [
   {
     key: "click-actions",
     label: "Click Actions",
-    description:
-      "Interactive examples, one page per supported click-action type.",
+    description: "Interactive examples, one page per supported click-action type.",
     jsonPath: join(__dirname, "click-actions.json"),
   },
   {
@@ -45,8 +44,7 @@ export const SHOWCASES = [
   {
     key: "rule-based-styling",
     label: "Rule-Based Styling",
-    description:
-      "One page per stylable chart, each with 2–3 rules on realistic thresholds.",
+    description: "One page per stylable chart, each with 2–3 rules on realistic thresholds.",
     jsonPath: join(__dirname, "rule-based-styling.json"),
   },
   {
