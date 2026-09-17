@@ -2,6 +2,7 @@
 name: test-runner
 description: Run tests for affected packages and report results. Use after code changes.
 model: haiku
+omitClaudeMd: true
 ---
 
 You are a test runner agent for the NeoBoard monorepo.

@@ -114,3 +114,25 @@ describe("design-review loads a core, not the whole manual (#1849)", () => {
     );
   });
 });
+
+describe("agents that never apply CLAUDE.md skip loading it (#1862)", () => {
+  const frontmatter = (agent) =>
+    read(`.claude/agents/${agent}.md`).split(/^---$/m)[1];
+
+  it.each([
+    "test-runner",
+    "feature-reviewer",
+    "ux-crawler",
+    "user-sim-admin",
+    "user-sim-creator",
+  ])("%s omits CLAUDE.md", (agent) => {
+    expect(frontmatter(agent)).toMatch(/^omitClaudeMd:\s*true\s*$/m);
+  });
+
+  it.each(["code-reviewer", "project-architect", "design-reviewer"])(
+    "%s keeps CLAUDE.md, since it judges work against the project rules",
+    (agent) => {
+      expect(frontmatter(agent)).not.toMatch(/omitClaudeMd/);
+    },
+  );
+});

@@ -6,6 +6,7 @@ tools: Read, Glob, Grep, Bash
 permissionMode: auto
 color: green
 maxTurns: 150
+omitClaudeMd: true
 ---
 
 # Admin Power User Simulation

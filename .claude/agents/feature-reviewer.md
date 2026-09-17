@@ -6,6 +6,7 @@ tools: Read, Glob, Grep, Bash
 permissionMode: auto
 color: blue
 maxTurns: 80
+omitClaudeMd: true
 ---
 
 # Feature Reviewer Agent
