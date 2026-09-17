@@ -117,7 +117,7 @@ describe("design-review loads a core, not the whole manual (#1849)", () => {
 
 describe("agents that never apply CLAUDE.md skip loading it (#1862)", () => {
   const frontmatter = (agent) =>
-    read(`.claude/agents/${agent}.md`).split(/^---$/m)[1];
+    read(`.claude/agents/${agent}.md`).split(/^---\r?$/m)[1];
 
   it.each([
     "test-runner",
