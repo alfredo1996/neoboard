@@ -653,60 +653,6 @@ describe("the seven-group information architecture (#1681)", () => {
   const SPLASH = "docs/src/content/docs/index.mdx";
   const CONTENT = DOCS.filter(({ path }) => path !== SPLASH);
   const slugs = new Set(DOCS.map(({ path }) => pageSlug(path)));
-  const redirects = [...config.matchAll(/"(\/[^"]+)":\s*"(\/[^"]+)"/g)].map(
-    (m) => [m[1], m[2].replace(/\/$/, "")],
-  );
-  // Every slug the base branch served that no longer exists (`comm -23` of
-  // the two content trees). A hand-picked dozen guarded a 46-entry map, so
-  // the other 34 could lose their redirect without a test noticing.
-  const RETIRED = [
-    "/getting-started",
-    "/getting-started/installation",
-    "/getting-started/quick-start",
-    "/getting-started/configuration",
-    "/getting-started/migration-from-neodash",
-    "/getting-started/troubleshooting",
-    "/guides",
-    "/guides/first-dashboard",
-    "/guides/connecting-databases",
-    "/guides/keyboard-shortcuts",
-    "/guides/query-history",
-    "/guides/managing-users",
-    "/guides/api-keys",
-    "/concepts",
-    "/concepts/dashboards",
-    "/concepts/widgets",
-    "/concepts/parameters",
-    "/concepts/connectors",
-    "/concepts/architecture",
-    "/concepts/multi-tenancy",
-    "/concepts/query-safety",
-    "/administration",
-    "/administration/reverse-proxy",
-    "/administration/backup-restore",
-    "/administration/monitoring",
-    "/administration/deployment-checklist",
-    "/authentication",
-    "/authentication/password-login",
-    "/authentication/sso",
-    "/authentication/roles",
-    "/cli/docker-setup",
-    "/cli/local-setup",
-    "/developer",
-    "/developer/extending/new-chart-plugin",
-    "/developer/extending/new-chart-type",
-    "/developer/extending/new-connector-plugin",
-    "/developer/extending/new-connector",
-    "/developer/extending/new-parameter-type",
-    "/developer/extending/new-widget-type",
-    "/developer/plugins",
-    "/developer/plugins/mongodb-connector",
-    "/developer/plugins/community",
-    "/developer/contributing/setup",
-    "/developer/contributing/code-style",
-    "/developer/contributing/testing",
-    "/developer/contributing/pr-workflow",
-  ];
 
   it("has exactly the seven groups, in reading order, one directory each", () => {
     const sidebar = config.slice(config.indexOf("sidebar:"));
@@ -767,25 +713,38 @@ describe("the seven-group information architecture (#1681)", () => {
     expect(orphans).toEqual([]);
   });
 
-  it("no longer serves the merged tutorials, folded guides and index pages", () => {
-    expect(RETIRED.filter((s) => slugs.has(s))).toEqual([]);
+  it("carries no redirect map for the slugs #1681 retired (#1871)", () => {
+    // The 46 redirects kept slugs alive that were never public: Pages has
+    // never been enabled, and the host changes at the org transfer (#1213)
+    // anyway. Every in-repo link was repointed at a real slug, which the
+    // next test holds.
+    expect(config).not.toMatch(/\bredirects:/);
   });
 
-  it("redirects every retired slug, and only to pages that exist", () => {
-    // A redirect whose source is still a page never fires; one whose target
-    // is not a page is a 404 with extra steps.
-    expect(redirects.length).toBeGreaterThan(0);
-    const bad = redirects
-      .filter(([from, to]) => slugs.has(from) || !slugs.has(to))
-      .map(([from, to]) => `${from} -> ${to}`);
-    expect(bad).toEqual([]);
-    const covered = new Set(redirects.map(([from]) => from));
-    expect(RETIRED.filter((s) => !covered.has(s))).toEqual([]);
+  it("keeps every docs markdown file inside the content collection (#1871)", () => {
+    // docs/APP_IMPLEMENTATION_GUIDE.md was 2,174 lines outside
+    // src/content/docs, so the site never published it and nothing linked it
+    // — an unpublishable copy of the architecture that drifted for months.
+    const tracked = execFileSync(
+      "git",
+      [
+        "ls-files",
+        "--",
+        "docs/*.md",
+        "docs/*.mdx",
+        "docs/**/*.md",
+        "docs/**/*.mdx",
+      ],
+      { cwd: ROOT, encoding: "utf8" },
+    )
+      .split("\n")
+      .filter(Boolean)
+      .filter((p) => !p.startsWith("docs/src/content/docs/"));
+    expect(tracked).toEqual([]);
   });
 
   it("references docs source files from the rest of the repo by paths that exist", () => {
-    // Astro redirects cover the site's old slugs, not the repository's file
-    // paths. cli/README.md (in the npm tarball), the CLI's plugin-validator
+    // cli/README.md (in the npm tarball), the CLI's plugin-validator
     // hint, docs/NEODASH_MIGRATION_GUIDE.md and the deploy skill all named
     // docs/src/content/docs/<old path>.mdx by file, and every one 404'd after
     // the move. A `content/docs/...` string anywhere outside the site must be
@@ -800,11 +759,12 @@ describe("the seven-group information architecture (#1681)", () => {
     expect(stale).toEqual([]);
   });
 
-  it("lands every docs-site link from the app, the CLI and the READMEs on a page or a redirect", () => {
+  it("lands every docs-site link from the app, the CLI and the READMEs on a page", () => {
     // The dashboard page's "Widget guide" pointed at /guides/widgets/ — a slug
-    // that never existed (the page was /concepts/widgets) and one the redirect
-    // map did not know either — so the app shipped a 404 in its own help link.
-    const covered = new Set([...slugs, ...redirects.map(([from]) => from)]);
+    // that never existed (the page was /concepts/widgets) — so the app shipped
+    // a 404 in its own help link. With the redirect map gone (#1871), a link
+    // has to name a real page.
+    const covered = new Set(slugs);
     const { pages, siteProblems } = repoLinks();
     expect(siteProblems).toEqual([]);
     const dead = pages
@@ -1401,18 +1361,14 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
   });
 
   it("lists no community connector that does not exist", () => {
-    // PLUGINS.md and the Community page both offered
-    // `neoboard plugin add neoboard-connector-mongodb` as an "Example". No
-    // such package or repo exists; the command fails at npm install. The
-    // MongoDB connector is planned (#1702) and is listed as such.
-    const phantom = [
-      readFileSync(join(ROOT, "PLUGINS.md"), "utf8"),
-      DOCS.find(({ path }) => path.endsWith("/extend/community.mdx"))?.text ??
-        "",
-    ].flatMap(
-      (text) =>
-        text.match(/plugin add neoboard-connector-mongodb|Example\s*\|/g) ?? [],
-    );
+    // PLUGINS.md offered `neoboard plugin add neoboard-connector-mongodb` as
+    // an "Example". No such package or repo exists; the command fails at npm
+    // install. The MongoDB connector is planned (#1702) and is listed as
+    // such. The Community page repeated all of this and is gone (#1871).
+    const phantom =
+      readFileSync(join(ROOT, "PLUGINS.md"), "utf8").match(
+        /plugin add neoboard-connector-mongodb|Example\s*\|/g,
+      ) ?? [];
     expect(phantom).toEqual([]);
   });
 });
@@ -1482,6 +1438,23 @@ describe("Tour NeoBoard with demo data (#1682)", () => {
         1280, 1024,
       ]);
     }
+  });
+
+  it("keeps no screenshot outside tour/, so none is hand-taken (#1864, #1871)", () => {
+    // Six hand-taken PNGs sat beside tour/ still showing "Widget Lab", red
+    // Error badges and the Next.js dev badge. Only the walkthrough's images
+    // are regenerable, so only the walkthrough's images are committed.
+    const stray = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (relative(SHOTS_DIR, full).startsWith(".."))
+          stray.push(relative(ROOT, full));
+      }
+    };
+    walk(join(ROOT, "docs/public/screenshots"));
+    expect(stray).toEqual([]);
   });
 
   it("regenerates the images only when asked, in the light theme", () => {
@@ -1673,5 +1646,137 @@ describe("1.5 ships without the enterprise edition (#1845)", () => {
       ({ path }) => path,
     );
     expect(linking).toEqual([]);
+  });
+});
+
+describe("the repo's own markdown and config comments (#1871)", () => {
+  // A clutter audit of release/1.5 found config comments and READMEs
+  // describing software we changed underneath them: an envelope encryption
+  // scheme that never existed, a p-queue we never installed, a Neo4j-only
+  // connection package, and citrine interaction colours that #1553 replaced
+  // with azure. Prose has no compiler, so these are negative pins.
+  const read = (p) => readFileSync(join(ROOT, p), "utf8");
+
+  it(".coderabbit.yaml describes the encryption and scheduler that exist", () => {
+    const yaml = read(".coderabbit.yaml");
+    expect(yaml).not.toMatch(/envelope/i);
+    expect(yaml).not.toMatch(/p-queue/i);
+    expect(yaml).toContain("app/src/lib/query/scheduler.ts");
+    expect(yaml).toContain("iv:authTag:ciphertext");
+  });
+
+  it(".coderabbit.yaml filters only paths that exist", () => {
+    const filters = [
+      ...read(".coderabbit.yaml").matchAll(/^\s+- "!([^"]+)"$/gm),
+    ].map((m) => m[1]);
+    expect(filters.length).toBeGreaterThan(0); // the filter regex still matches
+    const missing = filters
+      .map((f) => f.replace(/\/?\*\*.*$/, "").replace(/\/$/, ""))
+      .filter((base) => base && !existsSync(join(ROOT, base)));
+    expect(missing).toEqual([]);
+  });
+
+  it("the Dockerfile's env pointer names only variables app/.env.example has", () => {
+    // It advertised "OIDC SSO … CORS … edition". #1845 took the edition
+    // switch and the OIDC vars out of the example file, and there has never
+    // been any CORS handling in app/src.
+    const comment = read("Dockerfile")
+      .split("The full catalogue of optional vars")[1]
+      ?.split("\n\n")[0];
+    expect(comment).toBeTruthy(); // the pointer comment is still there
+    for (const stale of [/OIDC/i, /CORS/i, /\bedition\b/i])
+      expect(comment).not.toMatch(stale);
+  });
+
+  it("CONTRIBUTING-enterprise.md claims only the feature ids the registry has", () => {
+    const enterprise = read("CONTRIBUTING-enterprise.md");
+    const registry = read("app/src/lib/features/registry.ts");
+    expect(registry).toContain('FeatureId = "sso"');
+    // The ten ids #1845 removed, by the names the guide used for them.
+    for (const removed of [
+      /custom roles/i,
+      /user groups/i,
+      /connector labels/i,
+      /connector alias/i,
+      /environment selector/i,
+      /bulk import/i,
+      /dashboard sharing links/i,
+      /impersonation/i,
+      /session management/i,
+      /query result caching/i,
+    ])
+      expect(enterprise).not.toMatch(removed);
+  });
+
+  it("calls interaction azure, not citrine (#1553)", () => {
+    for (const path of ["component/design-tokens.css", "component/README.md"]) {
+      const text = read(path);
+      expect(text, path).not.toMatch(/Interaction = citrine/i);
+      expect(text, path).not.toMatch(/citrine amber accent/i);
+    }
+  });
+
+  it("connection/README.md documents the package that exists", () => {
+    const readme = read("connection/README.md");
+    expect(readme).toMatch(/PostgreSQL/);
+    expect(readme).not.toMatch(/CypherQuery/);
+  });
+
+  it("PLUGINS.md does not claim plugins install via the CLI", () => {
+    // Plugins are npm packages compiled into a build from
+    // neoboard-plugins.json / neoboard-connectors.json; no CLI installs them.
+    expect(read("PLUGINS.md")).not.toMatch(/via the CLI/i);
+  });
+
+  it("DEVELOPMENT.md gives commands and paths that work", () => {
+    const dev = read("DEVELOPMENT.md");
+    expect(dev).not.toMatch(/neoboard env init/);
+    expect(dev).not.toMatch(/(?<!-w app )\bnpm run db:studio\b/);
+    expect(dev).toContain("component/stories/");
+    expect(dev).not.toContain("component/src/stories/");
+    expect(dev).toContain("app/src/lib/db/schema.ts");
+    expect(dev).not.toMatch(/db\/schema\//);
+  });
+
+  it("DEVELOPMENT.md and the PR template name the release-branch rule", () => {
+    for (const path of ["DEVELOPMENT.md", ".github/PULL_REQUEST_TEMPLATE.md"])
+      expect(read(path), path).toMatch(/release\/X\.Y/);
+    expect(read(".github/PULL_REQUEST_TEMPLATE.md")).not.toMatch(
+      /PR targets `dev` branch/,
+    );
+  });
+
+  it("resolves every relative link in the repo's own markdown", () => {
+    // `.github/CONTRIBUTING.md` pointed at `[Elastic License 2.0](LICENSE)`,
+    // which resolves to `.github/LICENSE` and 404s, and the deploy skill
+    // linked four untracked local memory files.
+    const files = execFileSync(
+      "git",
+      [
+        "ls-files",
+        "--",
+        ":(glob)*.md",
+        ".github/*.md",
+        "connection/README.md",
+        "component/README.md",
+        ".claude/skills/*/SKILL.md",
+      ],
+      { cwd: ROOT, encoding: "utf8" },
+    )
+      .split("\n")
+      .filter(Boolean);
+    expect(files.length).toBeGreaterThan(0); // the pathspecs still match
+
+    const broken = [];
+    for (const file of files) {
+      const text = readFileSync(join(ROOT, file), "utf8");
+      for (const m of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+        const target = m[1].replace(/[?#].*$/, "");
+        if (!target || /^(https?:|mailto:|data:|\/)/.test(target)) continue;
+        if (!existsSync(join(ROOT, dirname(file), target)))
+          broken.push(`${target} (${file})`);
+      }
+    }
+    expect(broken).toEqual([]);
   });
 });

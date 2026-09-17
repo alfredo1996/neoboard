@@ -11,7 +11,12 @@ import { spawnSync } from "node:child_process";
 
 const ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 
-const UNTRACKED = ["docs/.astro", "design-shots", "screenshots/v1.1-redesign"];
+const UNTRACKED = [
+  "docs/.astro",
+  "design-shots",
+  "screenshots/v1.1-redesign",
+  "app/.screenshots",
+];
 
 describe("generated artefacts are not tracked (#1689)", () => {
   for (const path of UNTRACKED) {
@@ -34,6 +39,7 @@ const IGNORED = [
   "docs/.astro/settings.json",
   "design-shots/after/x.png",
   "screenshots/v1.1-redesign/x.png",
+  "app/.screenshots/before/x.png",
 ];
 const KEPT = ["screenshots/hero-light.png", "screenshots/hero-dark.png"];
 
