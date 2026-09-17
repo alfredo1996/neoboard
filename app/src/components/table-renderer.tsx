@@ -337,9 +337,12 @@ export function TableRenderer({
           pagination={(table) => (
             <div className="flex items-center gap-2">
               <DataGridViewOptions table={table} />
-              <div className="flex-1">
-                <DataGridPagination table={table} />
-              </div>
+              {/* Off, DataGrid pages by MAX_SAFE_INTEGER: no pager to show. */}
+              {enablePagination && (
+                <div className="flex-1">
+                  <DataGridPagination table={table} />
+                </div>
+              )}
             </div>
           )}
         />
