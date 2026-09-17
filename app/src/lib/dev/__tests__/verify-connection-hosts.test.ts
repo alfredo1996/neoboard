@@ -5,17 +5,40 @@ import {
   verifyConnectionHostsImpl,
 } from "../verify-connection-hosts";
 
+// Hoisted module mocks, not a per-test doMock (#1859). verifyConnectionHosts
+// loads its dependencies with five concurrent dynamic imports. A mock registered
+// inside the test is resolved asynchronously, and under CI load drizzle-orm
+// sometimes loaded before its mock: the real `eq` ran, the query still scoped to
+// "default", but the assertion received a drizzle SQL object. vi.mock is hoisted
+// above every import, so there is no window to race. Nothing else in this file
+// touches these modules.
+const where = vi.hoisted(() => vi.fn(async (_condition: unknown) => []));
+vi.mock("@/lib/db", () => ({
+  db: { select: () => ({ from: () => ({ where }) }) },
+}));
+vi.mock("@/lib/db/schema", () => ({
+  connections: {
+    name: "name",
+    type: "type",
+    configEncrypted: "c",
+    tenantId: "tenant_id",
+  },
+}));
+vi.mock("@/lib/crypto/crypto", () => ({ decryptJson: vi.fn() }));
+vi.mock("drizzle-orm", () => ({
+  eq: (column: string, v: string) => ({ column, value: v }),
+}));
+
 // ---------------------------------------------------------------------------
 // verifyConnectionHosts — the tenant it scopes its diagnostic query to
 // ---------------------------------------------------------------------------
 
 describe("verifyConnectionHosts tenant (#1728)", () => {
+  beforeEach(() => {
+    where.mockClear();
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
-    vi.doUnmock("@/lib/db");
-    vi.doUnmock("@/lib/db/schema");
-    vi.doUnmock("@/lib/crypto/crypto");
-    vi.doUnmock("drizzle-orm");
   });
 
   it.each([
@@ -26,20 +49,10 @@ describe("verifyConnectionHosts tenant (#1728)", () => {
   ])("TENANT_ID=%j scopes the query to tenant %j", async (value, tenant) => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("TENANT_ID", value);
-    const where = vi.fn(async () => []);
-    vi.doMock("@/lib/db", () => ({
-      db: { select: () => ({ from: () => ({ where }) }) },
-    }));
-    vi.doMock("@/lib/db/schema", () => ({
-      connections: { name: "name", type: "type", configEncrypted: "c", tenantId: "tenant_id" },
-    }));
-    vi.doMock("@/lib/crypto/crypto", () => ({ decryptJson: vi.fn() }));
-    vi.doMock("drizzle-orm", () => ({
-      eq: (column: string, v: string) => ({ column, value: v }),
-    }));
 
     await verifyConnectionHosts();
 
+    expect(where).toHaveBeenCalledTimes(1);
     expect(where).toHaveBeenCalledWith({ column: "tenant_id", value: tenant });
   });
 });
