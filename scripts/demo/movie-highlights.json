@@ -116,7 +116,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "# 🎬 Movie Highlights\n\n**Cypher on Neo4j** and **SQL on PostgreSQL** on one page, filtered by one **Actor** selector. Pick an actor, or click a bar in *Top actors*."
+                "content": "**Cypher on Neo4j** and **SQL on PostgreSQL** on one page, filtered by one **Actor** selector."
               }
             }
           },
@@ -126,7 +126,7 @@
             "connectionId": "conn_neo4j",
             "query": "",
             "settings": {
-              "title": "Actor",
+              "title": "Pick an actor",
               "chartOptions": {
                 "parameterType": "select",
                 "parameterName": "actor",
