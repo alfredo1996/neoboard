@@ -300,6 +300,30 @@ describe("documentation accuracy", () => {
       const types = rows.map((r) => DISPLAY_TO_TYPE[slug(r)] ?? slug(r));
       expect([...types].sort()).toEqual([...registeredPlugins()].sort());
       expect(Number(heading![1])).toBe(types.length);
+
+      // 18 is the registered count, but a reader cannot add the two the
+      // picker hides (#1158), so exactly those rows must say so — and the
+      // picker's own count is stated next to the table.
+      const hidden = table
+        .split("\n")
+        .filter((line) => /hidden from the widget picker/i.test(line))
+        .map((line) => slug(/^\| ([^|]+?)\s+\|/.exec(line)?.[1] ?? line));
+      expect([...hidden].sort()).toEqual([...DISABLED_CHART_TYPES].sort());
+      const offered = /widget picker offers (\d+)/.exec(table);
+      expect(
+        offered,
+        "PLUGINS.md no longer states the picker count",
+      ).not.toBeNull();
+      expect(Number(offered![1])).toBe(selectable().length);
+    });
+
+    it("PLUGINS.md targets the major version the repo is on", () => {
+      // It said "v2.0+" long after versioning reset to 1.x.
+      const major = JSON.parse(readDoc("package.json")).version.split(".")[0];
+      const stated = /All plugins target NeoBoard (\S+)/.exec(
+        readDoc("PLUGINS.md"),
+      );
+      expect(stated?.[1]).toBe(`${major}.x.`);
     });
   });
 
