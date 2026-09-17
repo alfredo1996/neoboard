@@ -20,7 +20,7 @@ export const SHOWCASES = [
     key: "movie-highlights",
     label: "Movie Highlights",
     description:
-      "Real-world showcase on the Neo4j movie graph — KPIs, top actors, filming map, release trend, top reviews, and a live co-star network.",
+      "The movie graph on Neo4j and PostgreSQL side by side, filtered by one actor — co-star network, filmography, KPIs, top actors, filming map, release trend, and top reviews.",
     jsonPath: join(__dirname, "movie-highlights.json"),
   },
   {
@@ -86,4 +86,21 @@ export function parseOnlyFlag(raw) {
     );
   }
   return keys;
+}
+
+/**
+ * Portable connection key (a showcase JSON's `connections`) → the id of the
+ * connection `scripts/seed-demo.mjs` created for it. The import throws on an
+ * unmapped key, so a showcase may only use keys listed here.
+ *
+ * @param {{ neo4j: string, postgresMovies: string, ecommerceRead: string, ecommerceWrite: string }} ids
+ * @returns {Record<string, string>}
+ */
+export function buildConnectionMap(ids) {
+  return {
+    conn_neo4j: ids.neo4j,
+    conn_postgres_movies: ids.postgresMovies,
+    conn_postgres_read: ids.ecommerceRead,
+    conn_postgres_write: ids.ecommerceWrite,
+  };
 }

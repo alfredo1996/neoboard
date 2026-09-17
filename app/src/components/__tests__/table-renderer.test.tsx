@@ -30,27 +30,32 @@ vi.mock("@neoboard/components", () => ({
   DataGrid: ({
     columns,
     data,
+    pagination,
   }: {
     columns: Col[];
     data: Record<string, unknown>[];
+    pagination?: (table: unknown) => React.ReactNode;
   }) => (
-    <table>
-      <tbody>
-        {data.map((row, i) => (
-          <tr key={i}>
-            {columns.map((c) => (
-              <td key={c.id} data-col={c.id}>
-                {c.cell({ getValue: () => c.accessorFn(row) })}
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      {pagination?.({})}
+      <table>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i}>
+              {columns.map((c) => (
+                <td key={c.id} data-col={c.id}>
+                  {c.cell({ getValue: () => c.accessorFn(row) })}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   ),
   DataGridColumnHeader: ({ title }: { title: string }) => <span>{title}</span>,
-  DataGridViewOptions: () => null,
-  DataGridPagination: () => null,
+  DataGridViewOptions: () => <div data-testid="view-options" />,
+  DataGridPagination: () => <div data-testid="pager" />,
   parseColorThresholds: () => [],
   resolveThresholdColor: () => undefined,
   interpolateColor: () => "#000000",
@@ -98,5 +103,30 @@ describe("TableRenderer cell formatting (#1636)", () => {
     const shown = cells("placed_at")[0];
     expect(shown).toContain("2026-09-01");
     expect(shown.startsWith('"')).toBe(false);
+  });
+});
+
+describe("TableRenderer footer with pagination off (#1861)", () => {
+  // With pagination off DataGrid pages by Number.MAX_SAFE_INTEGER, so a pager
+  // read "Rows per page 9007199254740991, Page 1 of 1".
+  it("keeps the column options but renders no pager", () => {
+    render(<TableRenderer data={[{ a: 1 }]} settings={noPaging} />);
+    expect(screen.getByTestId("view-options")).toBeInTheDocument();
+    expect(screen.queryByTestId("pager")).not.toBeInTheDocument();
+  });
+
+  it("still renders the pager when pagination is on", () => {
+    // jsdom measures every element as 0px tall, which keeps a paged table
+    // waiting for a height; give the wrapper a real one.
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ height: 400 } as DOMRect);
+    try {
+      render(<TableRenderer data={[{ a: 1 }]} settings={{}} />);
+      expect(screen.getByTestId("view-options")).toBeInTheDocument();
+      expect(screen.getByTestId("pager")).toBeInTheDocument();
+    } finally {
+      rect.mockRestore();
+    }
   });
 });

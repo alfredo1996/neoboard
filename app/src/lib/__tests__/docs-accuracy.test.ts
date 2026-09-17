@@ -1,16 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { execFileSync, spawnSync } from "node:child_process";
-import {
-  readFileSync,
-  existsSync,
-  readdirSync,
-  mkdtempSync,
-  mkdirSync,
-  statSync,
-  rmSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { resolve, dirname, join } from "node:path";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
 
@@ -268,17 +258,26 @@ describe("documentation accuracy", () => {
       expect(claims).toEqual(claims.map(() => selectable().length));
     });
 
-    it("README.md's Charts row lists exactly the types the picker offers", () => {
-      const row = /^\| \*\*Charts\*\*\s+\| (\d+) types: ([^|]+)\|/m.exec(
-        readDoc("README.md"),
-      );
-      expect(row, "README.md no longer lists chart types").not.toBeNull();
-      // Display names slug to the type ids ("Single Value" -> single-value).
-      const types = row![2]
-        .split(",")
-        .map((n) => n.trim().toLowerCase().replace(/\s+/g, "-"));
+    it("the charts overview lists exactly the types the picker offers", () => {
+      // The README's features table used to carry this list; it went in #1861,
+      // and the docs page it points readers to is now the one list.
+      const doc = readDoc("docs/src/content/docs/charts/index.mdx");
+      const table = doc
+        .slice(doc.indexOf("## Available Chart Types"))
+        .split(/\n## /)[0];
+      // Each row links its page, and the page slug is the type id, with one
+      // exception.
+      const SLUG_TO_TYPE: Record<string, string> = {
+        "param-select": "parameter-select",
+      };
+      const types = [
+        ...table.matchAll(/^\| \[[^\]]+\]\(\/charts\/([\w-]+)\)/gm),
+      ].map((m) => SLUG_TO_TYPE[m[1]] ?? m[1]);
+      expect(
+        types.length,
+        "the charts overview lost its table",
+      ).toBeGreaterThan(0);
       expect([...types].sort()).toEqual([...selectable()].sort());
-      expect(Number(row![1])).toBe(types.length);
     });
 
     it("PLUGINS.md lists exactly the plugins the registry loads", () => {
@@ -446,66 +445,6 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
     expect(existsSync(resolve(REPO_ROOT, "install.sh"))).toBe(true);
   });
 
-  it("generates every secret the production compose requires, once, into a file git ignores", () => {
-    const required = [
-      ...new Set(
-        [...readDoc(PROD_COMPOSE).matchAll(/\$\{(\w+):\?/g)].map((m) => m[1]),
-      ),
-    ];
-    expect(required.length).toBeGreaterThan(0);
-    const block = fence(PROD_COMPOSE);
-    // Self-registration is closed and signup refuses the first admin without
-    // ADMIN_BOOTSTRAP_TOKEN, so a stack with only the required keys is one
-    // nobody can log into.
-    for (const key of [...required, "ADMIN_BOOTSTRAP_TOKEN"])
-      expect(
-        block.match(new RegExp(`^${key}=\\$\\(openssl rand `, "gm")),
-        key,
-      ).toHaveLength(1);
-    // Pasting the block again must not rotate ENCRYPTION_KEY (stored
-    // credentials become unrecoverable) or POSTGRES_PASSWORD (the initialised
-    // volume keeps the old one).
-    expect(block).toContain("set -o noclobber");
-    const envFile = /cat > (\S+) <</.exec(block)?.[1] ?? "";
-    expect(envFile).not.toBe("");
-    expect(block).toContain(`--env-file ${envFile} -f ${PROD_COMPOSE}`);
-    expect(() =>
-      execFileSync("git", ["check-ignore", "-q", envFile], { cwd: REPO_ROOT }),
-    ).not.toThrow();
-    // ghcr's `latest` is a stale pre-release, not this checkout: build it.
-    expect(block).toMatch(/ up -d --build$/m);
-  });
-
-  it("runs its secrets block as promised: a 0600 file, and a second paste refused", () => {
-    const block =
-      /\(set -o noclobber[\s\S]*?\nEOF\n\)/.exec(fence(PROD_COMPOSE))?.[0] ??
-      "";
-    expect(block).not.toBe("");
-    const envFile = /cat > (\S+) <</.exec(block)![1];
-    const dir = mkdtempSync(join(tmpdir(), "neoboard-1217-"));
-    try {
-      mkdirSync(join(dir, "docker"));
-      const paste = () =>
-        spawnSync("bash", ["-c", block], { cwd: dir, encoding: "utf8" });
-      expect(paste().status).toBe(0);
-      const file = join(dir, envFile);
-      // umask 077: the file holds ENCRYPTION_KEY, nobody else may read it.
-      expect(statSync(file).mode & 0o777).toBe(0o600);
-      const first = readFileSync(file, "utf8");
-      for (const key of [
-        "ENCRYPTION_KEY",
-        "POSTGRES_PASSWORD",
-        "ADMIN_BOOTSTRAP_TOKEN",
-      ])
-        expect(first, key).toMatch(new RegExp(`^${key}=\\S+$`, "m"));
-      // noclobber inside the subshell: a second paste must not rotate the keys.
-      expect(paste().status).not.toBe(0);
-      expect(readFileSync(file, "utf8")).toBe(first);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
   it("says the CLI is not on npm yet, and runs nothing from npm", () => {
     expect(readme()).toContain("not on npm yet");
     expect(
@@ -515,6 +454,33 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
         ),
       ),
     ).toEqual([]);
+  });
+
+  it("shows the hero the walkthrough writes, light and dark (#1861)", () => {
+    // app/e2e/showcase.walkthrough.ts rewrites the pair; a rename there would
+    // leave the README pointing at a stale or deleted image.
+    const walkthrough = readDoc("app/e2e/showcase.walkthrough.ts");
+    // readmeShots must name its files through README_HERO, or the map below
+    // proves nothing about what the run writes.
+    expect(walkthrough).toContain("README_HERO[colorScheme]");
+    const written = Object.fromEntries(
+      [...walkthrough.matchAll(/^\s+(light|dark): "([\w-]+\.png)",$/gm)].map(
+        (m) => [m[1], `screenshots/${m[2]}`],
+      ),
+    );
+    const picture = /<picture>[\s\S]*?<\/picture>/.exec(readme())?.[0] ?? "";
+    const shown = {
+      dark: /<source media="\(prefers-color-scheme: dark\)" srcset="([^"]+)"/.exec(
+        picture,
+      )?.[1],
+      light: /<img src="([^"]+)"/.exec(picture)?.[1],
+    };
+    // toEqual skips undefined keys: without this, a README with no <picture>
+    // and a walkthrough with no parseable map would compare {} to {} and pass.
+    expect(Object.keys(written).sort()).toEqual(["dark", "light"]);
+    expect(shown).toEqual(written);
+    for (const file of Object.values(written))
+      expect(existsSync(resolve(REPO_ROOT, file)), file).toBe(true);
   });
 
   it("points badges and relative links at things that exist", () => {

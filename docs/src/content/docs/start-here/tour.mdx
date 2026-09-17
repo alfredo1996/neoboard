@@ -66,7 +66,7 @@ The dashboard list opens on the seven showcases:
 
 | Dashboard | What it shows | Data |
 |-----------|---------------|------|
-| **Movie Highlights** | One page of live Cypher over the movie graph: KPIs, top actors, where the movies were filmed, releases per year, top reviews and a co-star network. | Neo4j |
+| **Movie Highlights** | Cypher on Neo4j and SQL on PostgreSQL on one page, filtered by one actor: a co-star network, the actor's films, KPIs, top actors, where the movies were filmed, releases per year and top reviews. | Neo4j, PostgreSQL |
 | **Chart Gallery** | One page per chart type, from bar to choropleth map. | Neo4j, PostgreSQL |
 | **Click Actions** | Clicking a chart to set a parameter, jump to another page, or both. | PostgreSQL |
 | **Transformations** | Before and after, side by side, for each transform: filter, sort, groupBy, calculatedColumn, renameColumns and limit. | PostgreSQL |
@@ -76,9 +76,9 @@ The dashboard list opens on the seven showcases:
 
 Start with **Movie Highlights**:
 
-![Movie Highlights: KPI tiles, top actors, filming locations, releases per year and top reviews](/screenshots/tour/movie-highlights.png)
+![Movie Highlights: the Actor selector over a Neo4j co-star network and a PostgreSQL table of the same actor's films](/screenshots/tour/movie-highlights.png)
 
-Further down, the **Actor** selector drives the co-star network under it. Pick another actor, or click a bar in *Top actors by film count*: the bar's click action sets the same `actor` parameter. The other showcases spread over several pages; switch between them with the page tabs above the widgets.
+The **Actor** selector drives both the co-star network, a Cypher query on Neo4j, and the films table beside it, a SQL query on PostgreSQL; each title names its database. Pick another actor, or click a bar in *Top actors by film count* further down: the bar's click action sets the same `actor` parameter. The other showcases spread over several pages; switch between them with the page tabs above the widgets.
 
 ## 4. Edit a widget
 

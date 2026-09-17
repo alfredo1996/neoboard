@@ -35,7 +35,7 @@ const IGNORED = [
   "design-shots/after/x.png",
   "screenshots/v1.1-redesign/x.png",
 ];
-const KEPT = ["screenshots/01-login.png"];
+const KEPT = ["screenshots/hero-light.png", "screenshots/hero-dark.png"];
 
 function isIgnored(path) {
   const res = spawnSync("git", ["check-ignore", "--no-index", "-q", "--", path], {

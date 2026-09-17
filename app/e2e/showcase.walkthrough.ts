@@ -1,7 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { test, expect, ALICE, TEST_NEO4J_BOLT_URL } from "./fixtures";
-import type { Page, APIRequestContext } from "@playwright/test";
+import {
+  test,
+  expect,
+  ALICE,
+  TEST_NEO4J_BOLT_URL,
+  TEST_PG_PORT,
+} from "./fixtures";
+import type { Browser, Page, APIRequestContext } from "@playwright/test";
 
 /**
  * A single continuous walkthrough of the chart fixes, recorded to video.
@@ -329,6 +335,67 @@ async function docsShot(page: Page, name: string) {
   await page.screenshot({ path: path.join(TOUR_SHOTS, name + ".png") });
 }
 
+const README_SHOTS = path.resolve(__dirname, "../../screenshots");
+/** Read by app/src/lib/__tests__/docs-accuracy.test.ts: keep one name per line. */
+const README_HERO = {
+  light: "hero-light.png",
+  dark: "hero-dark.png",
+} as const;
+
+/**
+ * The README hero, screenshots/hero-light.png and hero-dark.png (#1861): the
+ * dashboard `page` is on, from the top to the bottom of the films table, so the
+ * Actor filter, the Neo4j graph and the PostgreSQL table are all in frame.
+ *
+ * Not docsShot: the tour pins its images to 1280x1024 in light. A fresh context
+ * per theme, because colorScheme and deviceScaleFactor are fixed when a context
+ * opens; 2x keeps the image sharp in GitHub's ~850px README column.
+ */
+async function readmeShots(page: Page, browser: Browser) {
+  const storageState = await page.context().storageState();
+  for (const colorScheme of ["light", "dark"] as const) {
+    const context = await browser.newContext({
+      // Tall enough that the films table ends inside it: a clip cannot
+      // reach below the viewport. The clip stops inside the gap under the table.
+      viewport: { width: 1280, height: 1400 },
+      deviceScaleFactor: 2,
+      colorScheme,
+      reducedMotion: "reduce",
+      storageState,
+    });
+    const hero = await context.newPage();
+    await hero.goto(page.url());
+    const cards = hero.locator("[data-testid='widget-card']");
+    await expect(cards.first()).toBeVisible({ timeout: 30_000 });
+    const films = hero.locator("[data-widget-id='mh-table-films']");
+    await expect(films.getByText("Cast Away")).toBeVisible();
+    await hero.waitForLoadState("networkidle");
+    // NVL's force layout and the chart animations settle.
+    await hero.waitForTimeout(BEAT * 2);
+    // A broken hero fails the run, checked once the queries settle: no card
+    // loading, waiting, empty or failed.
+    await expect(cards.locator("[data-loading]")).toHaveCount(0);
+    await expect(cards.getByRole("alert")).toHaveCount(0);
+    await expect(
+      cards.getByText(
+        /Waiting for parameters|No data|Incompatible data format|No connection configured|No query configured|Unknown chart type/,
+      ),
+    ).toHaveCount(0);
+    const box = await films.boundingBox();
+    expect(box).not.toBeNull();
+    await hero.screenshot({
+      path: path.join(README_SHOTS, README_HERO[colorScheme]),
+      clip: {
+        x: 0,
+        y: 0,
+        width: 1280,
+        height: Math.ceil(box!.y + box!.height + 6),
+      },
+    });
+    await context.close();
+  }
+}
+
 test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
   // Off unless asked, so a plain showcase run leaves the committed images alone.
   test.skip(
@@ -342,7 +409,7 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     contextOptions: { reducedMotion: "reduce" },
   });
 
-  test("tour screenshots", async ({ authPage, page }) => {
+  test("tour screenshots", async ({ authPage, page, browser }) => {
     test.slow();
     const api = page.request;
     // Dynamic: a static import runs showcases.mjs through Playwright's CJS
@@ -350,7 +417,7 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     const { SHOWCASES } = await import("../../scripts/demo/showcases.mjs");
 
     // ── Make the E2E stack look like `neoboard demo` left it ───────────────
-    // Its admin and creator, its Neo4j connection, its showcases — and no
+    // Its admin and creator, its movie connections, its showcases — and no
     // other dashboards.
     await authPage.login(ALICE.email, ALICE.password);
     for (const [persona, role] of [
@@ -384,6 +451,25 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     expect(conn.ok()).toBe(true);
     const neo4jId: string = (await conn.json()).data.id;
 
+    // The E2E Postgres has the same relational `movies` copy as the demo's.
+    const pgConn = await api.post("/api/connections", {
+      data: {
+        name: "PostgreSQL Movies",
+        type: "postgresql",
+        config: {
+          uri: `postgresql://localhost:${TEST_PG_PORT}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+        },
+      },
+    });
+    expect(pgConn.ok()).toBe(true);
+    const moviesMapping = {
+      conn_neo4j: neo4jId,
+      conn_postgres_movies: (await pgConn.json()).data.id as string,
+    };
+
     // An admin sees the whole tenant: the E2E seed dashboards, and the chart
     // walkthrough's when it ran first. None of them is in the demo.
     const existing = await api.get("/api/dashboards");
@@ -394,15 +480,15 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     let highlightsId = "";
     for (const showcase of SHOWCASES) {
       const payload = JSON.parse(fs.readFileSync(showcase.jsonPath, "utf8"));
-      // Only the movie graph exists here, not the demo's e-commerce schema, so
-      // PostgreSQL widgets import unconnected: those showcases appear in the
+      // Only the movie data exists here, not the demo's e-commerce schema, so
+      // e-commerce widgets import unconnected: those showcases appear in the
       // list and in no screenshot.
       const res = await api.post("/api/dashboards/import", {
         data: {
           payload,
-          connectionMapping: { conn_neo4j: neo4jId },
+          connectionMapping: moviesMapping,
           skippedConnections: Object.keys(payload.connections).filter(
-            (key) => key !== "conn_neo4j",
+            (key) => !(key in moviesMapping),
           ),
         },
       });
@@ -424,12 +510,13 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     await docsShot(page, "dashboard-list");
 
     await page.goto("/" + highlightsId);
-    await expect(page.locator("[data-testid='widget-card']").first()).toBeVisible(
-      { timeout: 30_000 },
-    );
+    await expect(
+      page.locator("[data-testid='widget-card']").first(),
+    ).toBeVisible({ timeout: 30_000 });
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(BEAT);
     await docsShot(page, "movie-highlights");
+    await readmeShots(page, browser);
 
     await page.goto("/" + highlightsId + "/edit");
     // Clicking before the edit page finishes loading its dashboard opens the
@@ -457,7 +544,9 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     await adder.locator("#widget-title").fill("Release year");
     await adder
       .locator("#seed-query")
-      .fill("MATCH (m:Movie) RETURN DISTINCT m.released AS value ORDER BY value");
+      .fill(
+        "MATCH (m:Movie) RETURN DISTINCT m.released AS value ORDER BY value",
+      );
     await adder.locator("#param-widget-name").fill("year");
     await docsShot(page, "add-parameter");
     await adder.getByRole("tab", { name: "Style" }).click();
@@ -467,7 +556,7 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     await expect(adder).not.toBeVisible();
 
     await page.getByRole("button", { name: "Sharing" }).click();
-    // Not getByText: Movie Highlights' own markdown mentions "133 people".
+    // Not getByText: the dashboard behind the dialog can say "people" too.
     await expect(page.getByRole("heading", { name: "People" })).toBeVisible();
     await page.locator("#assign-email").fill(DEMO_CREATOR.email);
     await page.locator("#assign-role").click();

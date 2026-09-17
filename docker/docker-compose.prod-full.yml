@@ -9,7 +9,7 @@
 # See ../app/.env.example for documentation on every variable.
 #
 # Usage (from the repo root): generate the secrets ONCE into docker/.env.production.local
-# with the snippet in README.md or docs/src/content/docs/deploy/production.mdx
+# with the snippet in docs/src/content/docs/deploy/production.mdx
 # (never docker/.env, which the CLI owns), then:
 #   docker compose --env-file docker/.env.production.local -f docker/docker-compose.prod-full.yml up -d --build
 #
