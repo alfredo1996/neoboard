@@ -722,7 +722,7 @@ describe("the seven-group information architecture (#1681)", () => {
   });
 
   it("keeps every docs markdown file inside the content collection (#1871)", () => {
-    // docs/APP_IMPLEMENTATION_GUIDE.md was 2,174 lines outside
+    // A 2,174-line implementation guide sat in docs/ but outside
     // src/content/docs, so the site never published it and nothing linked it
     // — an unpublishable copy of the architecture that drifted for months.
     const tracked = execFileSync(
