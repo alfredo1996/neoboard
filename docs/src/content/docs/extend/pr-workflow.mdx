@@ -7,7 +7,7 @@ sidebar:
 
 ## Branch Naming
 
-Branch from `dev`, not `main`:
+Branch from `dev`, not `main`. While a `release/X.Y` branch is active, branch from that release branch instead:
 
 ```
 feat/issue-<N>-<slug>    # New features
@@ -30,7 +30,7 @@ chore: update dependencies
 
 ## Pull Requests
 
-- PRs target `dev` (integration) before merging to `main`
+- PRs target the branch you branched from: `dev`, or the active `release/X.Y`, which merges into `dev`. `main` holds stable releases
 - Link the issue: `Closes #N` in the PR body
 - Add labels: type (`feat`, `fix`) + package (`pkg:app`) + area (`area:api`)
 - Set the correct milestone
