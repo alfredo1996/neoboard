@@ -12,6 +12,8 @@ module.exports = {
   // in-process — its package `exports` only define the ESM `import` condition,
   // which Jest's CJS resolver can't load from dist. (Subpath first.)
   moduleNameMapper: {
+    "^@neoboard/connector-sdk/sql$":
+      "<rootDir>/../connector-sdk/src/sql/index.ts",
     "^@neoboard/connector-sdk/connector-types$":
       "<rootDir>/../connector-sdk/src/connector-types.ts",
     "^@neoboard/connector-sdk$": "<rootDir>/../connector-sdk/src/index.ts",

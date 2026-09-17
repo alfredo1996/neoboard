@@ -2,6 +2,7 @@ import {
   createConnectionModule,
   DEFAULT_CONNECTION_CONFIG,
   ConnectionTypes,
+  getConnector,
 } from "@/lib/connector/connection-adapter";
 import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
 import { QueryStatus } from "@neoboard/connection";
@@ -41,8 +42,8 @@ export interface ConnectionCredentials {
 
 // Registry-supplied connectors are first-class (#1121): a connector type is
 // any registered string, not just the built-in union. createConnectionModule
-// resolves it via the registry; built-in-specific branches (pg param rewrite,
-// statement timeout) key off the literal type and safely no-op for others.
+// resolves it via the registry; the one built-in-specific branch left (pg param
+// rewrite) keys off the literal type and safely no-ops for others.
 export type DbType = string;
 
 /**
@@ -180,14 +181,19 @@ function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
   return `${type}|${credentials.uri}|${credentials.username}|${passwordFingerprint(credentials.password)}|${credentials.database ?? ""}|${advancedKey}`;
 }
 
+/**
+ * A connector that declares `supportsStatementTimeout` (PostgreSQL) lets its
+ * statementTimeout win over the generic queryTimeout; the rest honour only
+ * queryTimeout (#973). A plugin capability rather than a type check, so a
+ * registry-supplied connector gets the same wiring (#1698).
+ */
 function effectiveQueryTimeout(
   type: DbType,
   credentials: ConnectionCredentials,
 ): number | undefined {
-  if (type === "postgresql") {
-    return credentials.statementTimeout ?? credentials.queryTimeout;
-  }
-  return credentials.queryTimeout;
+  return getConnector(type)?.supportsStatementTimeout
+    ? (credentials.statementTimeout ?? credentials.queryTimeout)
+    : credentials.queryTimeout;
 }
 
 function buildAdvancedOptions(credentials: ConnectionCredentials) {
@@ -285,6 +291,7 @@ export async function executeQuery(
   };
 
   const effectiveRowLimit = credentials.maxRows ?? DEFAULT_MAX_ROWS;
+  const timeout = effectiveQueryTimeout(type, credentials);
 
   const config = {
     ...DEFAULT_CONNECTION_CONFIG,
@@ -292,12 +299,9 @@ export async function executeQuery(
     database: credentials.database,
     rowLimit: effectiveRowLimit,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
-    // pg-specific statementTimeout wins over the generic queryTimeout for
-    // PostgreSQL; Neo4j only honors queryTimeout (#973). When neither is
-    // set, DEFAULT_CONNECTION_CONFIG.timeout (30s) applies via the spread.
-    ...(effectiveQueryTimeout(type, credentials)
-      ? { timeout: effectiveQueryTimeout(type, credentials) }
-      : {}),
+    // When no timeout is configured, DEFAULT_CONNECTION_CONFIG.timeout (30s)
+    // applies via the spread above.
+    ...(timeout ? { timeout } : {}),
     ...(credentials.connectionTimeout
       ? { connectionTimeout: credentials.connectionTimeout }
       : {}),

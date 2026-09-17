@@ -140,6 +140,20 @@ describe("PostgresSchemaManager", () => {
     expect(tableA?.columns.map((c) => c.name)).toEqual(["x", "z"]);
   });
 
+  // #1698: the schema name reaches the server as a bound value, the way every
+  // SQL connector sharing the information_schema walker sends it.
+  it("binds the schema name as a query parameter instead of writing it into the SQL", async () => {
+    mockClient.query.mockResolvedValue({ rows: [] });
+
+    await new PostgresSchemaManager().fetchSchema(authConfig);
+
+    expect(mockClient.query).toHaveBeenCalledWith(
+      expect.stringContaining("TABLE_SCHEMA = $1"),
+      ["public"],
+    );
+    expect(mockClient.query.mock.calls[0][0]).not.toContain("'public'");
+  });
+
   it("releases the client and ends the pool after fetching", async () => {
     mockClient.query.mockResolvedValue({ rows: [] });
 

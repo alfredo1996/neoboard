@@ -19,6 +19,7 @@ export const postgresPlugin: ConnectorPlugin = {
   queryLanguage: CONNECTOR_QUERY_LANGUAGES.postgresql,
   supportsGraphData: false,
   supportsWrite: true,
+  supportsStatementTimeout: true,
   allowedProtocols: ["postgresql:", "postgres:"],
   uriPlaceholder: "postgresql://localhost:5432/mydb",
   databasePlaceholder: "postgres",

@@ -33,6 +33,10 @@
     "./connector-types": {
       "types": "./dist/connector-types.d.ts",
       "import": "./dist/connector-types.js"
+    },
+    "./sql": {
+      "types": "./dist/sql/index.d.ts",
+      "import": "./dist/sql/index.js"
     }
   },
   "files": [

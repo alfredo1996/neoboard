@@ -54,6 +54,7 @@ interface ConnectorPlugin {
   // Optional
   supportsGraphData?: boolean;    // can produce nodes/edges? (default: false)
   supportsWrite?: boolean;        // supports INSERT/CREATE? (default: false)
+  supportsStatementTimeout?: boolean; // statementTimeout wins over queryTimeout (default: false)
   queryLanguage?: string;         // "cypher", "sql", or custom
   allowedProtocols?: string[];    // URI validation: ["mysql:", "mysql+ssl:"]
   uriPlaceholder?: string;        // shown in connection form

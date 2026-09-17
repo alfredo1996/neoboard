@@ -22,6 +22,13 @@ connector works everywhere in NeoBoard without forking the app.
 - **Error types** — `ConnectorError` / `ConnectorErrorType` for classified,
   user-actionable failures.
 - **Connector registry** — `createConnectorRegistry()` / `registerConnector()`.
+- **SQL helpers** (`@neoboard/connector-sdk/sql`) — the pieces SQL connectors
+  share above their driver: `walkInformationSchema` (schema-aware,
+  parameterised `information_schema` introspection), `checkReadOnlyStatement`
+  (a single SELECT/WITH allow-list for databases without read-only
+  transactions), `iterateRows` (a `Readable` or `EventEmitter` row source as
+  the `AsyncIterable` `collectUpToLimit` reads) and `bindNamedParams`
+  (`$param_name` to `$1`, `?` or `@p1`). Node-only, hence a subpath.
 
 ## Quick start
 

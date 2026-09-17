@@ -28,8 +28,21 @@ const defaultModule = () => ({
 
 const mockCreateConnectionModule = vi.fn(defaultModule);
 
+/**
+ * Mirrors the real registry: PostgreSQL declares `supportsStatementTimeout`,
+ * Neo4j is registered without it, anything else is unregistered. Reinstalled
+ * in beforeEach for the same reason as `defaultModule` (#1630).
+ */
+const defaultGetConnector = (type: string) => {
+  if (type === "postgresql") return { supportsStatementTimeout: true };
+  if (type === "neo4j") return {};
+  return undefined;
+};
+const mockGetConnector = vi.fn(defaultGetConnector);
+
 vi.mock("@/lib/connector/connection-adapter", () => ({
   createConnectionModule: mockCreateConnectionModule,
+  getConnector: mockGetConnector,
   DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
   ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
 }));
@@ -67,8 +80,10 @@ describe("query-executor", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+    mockGetConnector.mockImplementation(defaultGetConnector);
     vi.doMock("../connection-adapter", () => ({
       createConnectionModule: mockCreateConnectionModule,
+      getConnector: mockGetConnector,
       DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
       ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
     }));
@@ -319,6 +334,37 @@ describe("query-executor", () => {
       "neo4j",
       { ...neo4jCreds, statementTimeout: 12_345, queryTimeout: 23_456 },
       { query: "RETURN 1" },
+    );
+    expect(get().timeout).toBe(23_456);
+  });
+
+  // #1698: whether statementTimeout applies is a connector capability, not a
+  // type check — a registry connector that declares it gets the same wiring.
+  it("a registry connector declaring supportsStatementTimeout gets statementTimeout", async () => {
+    mockGetConnector.mockImplementation((type: string) =>
+      type === "mssql" ? { supportsStatementTimeout: true } : undefined,
+    );
+    const get = captureConfig();
+    await executeQuery(
+      "mssql",
+      {
+        ...pgCreds,
+        uri: "mssql://localhost:1433/testdb",
+        statementTimeout: 12_345,
+        queryTimeout: 99_999,
+      },
+      { query: "SELECT 1" },
+    );
+    expect(mockGetConnector).toHaveBeenCalledWith("mssql");
+    expect(get().timeout).toBe(12_345);
+  });
+
+  it("an unregistered connector type falls back to queryTimeout", async () => {
+    const get = captureConfig();
+    await executeQuery(
+      "not-registered",
+      { ...pgCreds, statementTimeout: 12_345, queryTimeout: 23_456 },
+      { query: "SELECT 1" },
     );
     expect(get().timeout).toBe(23_456);
   });

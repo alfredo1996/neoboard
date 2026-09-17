@@ -143,6 +143,15 @@ describe("built-in connector plugins", () => {
     expect(postgresPlugin.queryLanguage).toBe("sql");
   });
 
+  // #1698: the app reads this capability instead of checking
+  // `type === "postgresql"` when picking the per-query timeout.
+  it("postgresql declares that its statementTimeout wins over queryTimeout; neo4j does not", () => {
+    const { neo4jPlugin } = require("../src/neo4j/plugin");
+    const { postgresPlugin } = require("../src/postgresql/plugin");
+    expect(postgresPlugin.supportsStatementTimeout).toBe(true);
+    expect(neo4jPlugin.supportsStatementTimeout).toBeUndefined();
+  });
+
   it("neo4j plugin has formFields with required uri/username/password", () => {
     const { neo4jPlugin } = require("../src/neo4j/plugin");
     expect(neo4jPlugin.formFields).toBeDefined();

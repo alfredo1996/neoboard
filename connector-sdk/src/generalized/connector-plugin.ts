@@ -51,6 +51,14 @@ export interface ConnectorPlugin {
   supportsWrite?: boolean;
 
   /**
+   * Does this connector honour the connection's `statementTimeout` setting?
+   * When true, it wins over the generic `queryTimeout` as the per-query
+   * timeout handed to `runQuery` (#973). Read by the app instead of checking
+   * the connector type (#1698).
+   */
+  supportsStatementTimeout?: boolean;
+
+  /**
    * Query language identifier for the CodeMirror editor.
    * Built-in: "cypher", "sql". Determines syntax highlighting.
    */
