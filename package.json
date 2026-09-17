@@ -41,7 +41,7 @@
     "typecheck": "npm -w component exec tsc -- --noEmit && npm -w app exec tsc -- --noEmit",
     "sonar:local": "node scripts/sonar-local.mjs",
     "review:local": "node scripts/review-local.mjs",
-    "test:scripts": "vitest run scripts/__tests__ --exclude '**/.claude/**' && node --test 'scripts/__tests__/*.node-test.mjs'"
+    "test:scripts": "vitest run scripts/__tests__ --exclude '**/.claude/**' && node --test 'scripts/__tests__/*.node-test.mjs' 'scripts/demo/__tests__/*.node-test.mjs'"
   },
   "lint-staged": {
     "app/**/*.{ts,tsx}": [
