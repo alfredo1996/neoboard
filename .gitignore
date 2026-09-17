@@ -82,10 +82,10 @@ connection/coverage-quality/
 
 # Claude Code (all local-only)
 claude_code_docs/
-CLAUDE.md
+# Anchored: the bare pattern matched at any depth, so .claude/CLAUDE.md — which
+# IS tracked — was only in the tree because git ignores nothing already tracked.
+/CLAUDE.md
 .mcp.json
-scripts/claude-setup.sh
-.github/workflows/claude.yml
 
 # Astro content-collection cache — rewritten by every docs build (#1689)
 docs/.astro/
