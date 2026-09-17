@@ -32,4 +32,4 @@ Closes #
 - [ ] `npm run lint` passes
 - [ ] Tests pass (`cd app && npm test`)
 - [ ] Conventional commit title (e.g. `feat(app): add feature`)
-- [ ] PR targets `dev` branch
+- [ ] PR targets `dev`, or the active `release/X.Y` branch

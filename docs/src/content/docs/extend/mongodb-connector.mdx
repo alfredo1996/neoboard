@@ -175,7 +175,7 @@ import { mongoPlugin } from "./mongodb/plugin";
 registry.register(mongoPlugin);
 ```
 
-Or, for a plugin shipped as its own npm package: install it into the NeoBoard checkout (`npm install neoboard-plugin-mongodb`), add `{ "package": "neoboard-plugin-mongodb", "export": "mongoPlugin" }` to the `connectors` array in `neoboard-connectors.json` (omit `export` if the plugin is the package's default export; add `"overrides": true` only to replace a connector with the same `type`, since a duplicate type otherwise throws at startup), then run `npm run dev` or `npm run build`. Both run `scripts/generate-connector-imports.mjs`, which compiles the package into the registry. Connectors are not discovered at runtime. See [Creating a Connector Plugin](/extend/new-connector-plugin#7-load-it-into-neoboard).
+Or, for a plugin shipped as its own npm package: install it into the NeoBoard checkout (`npm install neoboard-connector-mongodb`), add `{ "package": "neoboard-connector-mongodb", "export": "mongoPlugin" }` to the `connectors` array in `neoboard-connectors.json` (omit `export` if the plugin is the package's default export; add `"overrides": true` only to replace a connector with the same `type`, since a duplicate type otherwise throws at startup), then run `npm run dev` or `npm run build`. Both run `scripts/generate-connector-imports.mjs`, which compiles the package into the registry. Connectors are not discovered at runtime. See [Creating a Connector Plugin](/extend/new-connector-plugin#7-load-it-into-neoboard).
 
 ## 5. Install the MongoDB Driver
 
@@ -225,9 +225,9 @@ After that, testing the connection, listing databases and running queries all us
 
 To distribute your plugin:
 
-1. Create a separate package: `neoboard-plugin-mongodb`
+1. Create a separate package: `neoboard-connector-mongodb`
 2. Export the plugin definition
-3. Users install with `npm install neoboard-plugin-mongodb`
+3. Users install with `npm install neoboard-connector-mongodb`
 4. List it in their `neoboard-connectors.json` (with `"export": "mongoPlugin"` for a named export) and rebuild with `npm run build`
 
 [Creating a Connector Plugin](/extend/new-connector-plugin#7-load-it-into-neoboard) also explains that a Docker image built with `npm ci` can include the connector only once the package is published to a registry.

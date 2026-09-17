@@ -44,9 +44,12 @@ reviews:
         - Multi-tenancy: every DB query must include tenant_id filter
         - Parameterized queries only — never interpolate user input into query strings
         - can_write permission must be enforced server-side in API routes, not just UI
-        - No credentials logged or stored in DB (AES-256-GCM envelope scheme in use)
+        - No credentials logged or stored in DB (AES-256-GCM with ENCRYPTION_KEY used
+          directly; iv:authTag:ciphertext)
         - Chart components must use next/dynamic with ssr: false
         - ECharts must import from echarts/core + specific modules, never import *
+        - Concurrency: bespoke per-connector priority scheduler in
+          app/src/lib/query/scheduler.ts
     - path: "component/src/**"
       instructions: |
         This is a pure React UI library. Enforce strict package boundaries:
@@ -67,7 +70,6 @@ reviews:
         - Neo4j: session access modes must be set
         - Row limits: MAX_ROWS+1 pattern, never add LIMIT to user queries
         - Timeouts enforced at driver level (default 30s)
-        - Concurrency: per-connector p-queue
     - path: "app/src/app/api/**"
       instructions: |
         API routes require extra scrutiny:

@@ -1,6 +1,6 @@
 # NeoBoard Plugin Ecosystem
 
-NeoBoard's plugin system lets you extend the platform with custom chart types and database connectors. Plugins are npm packages that integrate seamlessly via the CLI.
+NeoBoard's plugin system lets you extend the platform with custom chart types and database connectors. Plugins are npm packages compiled into a NeoBoard build from source: install the package in a checkout, list it in `neoboard-plugins.json` (charts) or `neoboard-connectors.json` (connectors), and build.
 
 ## Built-in Charts (18)
 

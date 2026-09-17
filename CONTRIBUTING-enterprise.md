@@ -3,7 +3,7 @@
 NeoBoard ships as two pieces:
 
 - This **public** repo (`alfredo1996/neoboard`) — the OSS core.
-- A **private** sibling (`alfredo1996/neoboard-enterprise`) — commercial features (SSO, custom roles, connector labels, environment selector, bulk import, dashboard sharing links, query result caching, connector alias).
+- A **private** sibling (`alfredo1996/neoboard-enterprise`) — commercial features. SSO today; further features resume in v1.7, and the other ids were removed in #1845.
 
 You only need this guide if you're building or dogfooding enterprise features locally. OSS contributors can ignore the rest of this file — `npm run dev` works without any enterprise checkout.
 
@@ -25,7 +25,7 @@ try {
 }
 ```
 
-The edition is decided only by the `NEOBOARD_EDITION` environment variable (`app/src/lib/features/registry.ts`). When it is `enterprise`, the app reports the enterprise edition and turns on every enterprise feature flag, whether or not `@neoboard/enterprise` is installed. `app/src/lib/extensions/bootstrap.ts` has a loader, `bootstrapExtensions()`, that dynamically imports the package only in the enterprise edition, calls its `register()` to wire in the extension hooks, and returns quietly if the package is missing. On this branch nothing calls that loader at startup (`app/src/instrumentation.ts` doesn't call it), so the package's hooks are not loaded yet. The core query middleware in `app/src/lib/query/middleware/bootstrap.ts` (scheduler, audit) is separate from the enterprise wiring and registers at startup in both editions.
+The edition is decided only by the `NEOBOARD_EDITION` environment variable (`app/src/lib/features/registry.ts`). When it is `enterprise`, the app reports the enterprise edition and turns on the enterprise feature flags (today only `sso`), whether or not `@neoboard/enterprise` is installed. `app/src/lib/extensions/bootstrap.ts` has a loader, `bootstrapExtensions()`, that dynamically imports the package only in the enterprise edition, calls its `register()` to wire in the extension hooks, and returns quietly if the package is missing. On this branch nothing calls that loader at startup (`app/src/instrumentation.ts` doesn't call it), so the package's hooks are not loaded yet. The core query middleware in `app/src/lib/query/middleware/bootstrap.ts` (scheduler, audit) is separate from the enterprise wiring and registers at startup in both editions.
 
 ## Local setup (one command)
 
