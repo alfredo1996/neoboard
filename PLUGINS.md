@@ -4,26 +4,28 @@ NeoBoard's plugin system lets you extend the platform with custom chart types an
 
 ## Built-in Charts (18)
 
-| Chart Type       | Description                                      | Data Sources      |
-| ---------------- | ------------------------------------------------ | ----------------- |
-| Bar              | Vertical/horizontal bars for category comparison | Neo4j, PostgreSQL |
-| Line             | Trend lines and time series                      | Neo4j, PostgreSQL |
-| Pie              | Proportional slices (pie/doughnut)               | Neo4j, PostgreSQL |
-| Table            | Sortable, filterable data grid                   | Neo4j, PostgreSQL |
-| Single Value     | KPI card with optional trend                     | Neo4j, PostgreSQL |
-| Gauge            | Semicircular dial for thresholds                 | Neo4j, PostgreSQL |
-| Graph            | Interactive node-relationship visualization      | Neo4j             |
-| Map              | Geographic markers on Leaflet                    | Neo4j, PostgreSQL |
-| Sankey           | Weighted flow diagrams                           | Neo4j, PostgreSQL |
-| Sunburst         | Multi-level hierarchical drill-down              | Neo4j, PostgreSQL |
-| Radar            | Multi-dimensional comparison                     | Neo4j, PostgreSQL |
-| Gantt            | Timeline bars for scheduling                     | Neo4j, PostgreSQL |
-| Choropleth       | Geographic heatmap by region                     | Neo4j, PostgreSQL |
-| JSON Viewer      | Collapsible JSON tree                            | Neo4j, PostgreSQL |
-| Form             | Input fields executing write queries             | Neo4j, PostgreSQL |
-| Markdown         | Static rich text (no query)                      | N/A               |
-| iFrame           | Embedded external pages                          | N/A               |
-| Parameter Select | Dropdowns/pickers feeding parameters             | Neo4j, PostgreSQL |
+These are the 18 chart plugins NeoBoard registers. The widget picker offers 16 of them: Radar and Choropleth stay registered so dashboards that already use them keep rendering, but the picker does not list them, so they cannot be added to new widgets.
+
+| Chart Type       | Description                                                  | Data Sources      |
+| ---------------- | ------------------------------------------------------------ | ----------------- |
+| Bar              | Vertical/horizontal bars for category comparison             | Neo4j, PostgreSQL |
+| Line             | Trend lines and time series                                  | Neo4j, PostgreSQL |
+| Pie              | Proportional slices (pie/doughnut)                           | Neo4j, PostgreSQL |
+| Table            | Sortable, filterable data grid                               | Neo4j, PostgreSQL |
+| Single Value     | KPI card with optional trend                                 | Neo4j, PostgreSQL |
+| Gauge            | Semicircular dial for thresholds                             | Neo4j, PostgreSQL |
+| Graph            | Interactive node-relationship visualization                  | Neo4j             |
+| Map              | Geographic markers on Leaflet                                | Neo4j, PostgreSQL |
+| Sankey           | Weighted flow diagrams                                       | Neo4j, PostgreSQL |
+| Sunburst         | Multi-level hierarchical drill-down                          | Neo4j, PostgreSQL |
+| Radar            | Multi-dimensional comparison — hidden from the widget picker | Neo4j, PostgreSQL |
+| Gantt            | Timeline bars for scheduling                                 | Neo4j, PostgreSQL |
+| Choropleth       | Geographic heatmap by region — hidden from the widget picker | Neo4j, PostgreSQL |
+| JSON Viewer      | Collapsible JSON tree                                        | Neo4j, PostgreSQL |
+| Form             | Input fields executing write queries                         | Neo4j, PostgreSQL |
+| Markdown         | Static rich text (no query)                                  | N/A               |
+| iFrame           | Embedded external pages                                      | N/A               |
+| Parameter Select | Dropdowns/pickers feeding parameters                         | Neo4j, PostgreSQL |
 
 ## Built-in Connectors
 
@@ -69,4 +71,4 @@ NeoBoard's plugin system lets you extend the platform with custom chart types an
 
 ## Plugin Compatibility
 
-All plugins target NeoBoard v2.0+. Check individual plugin READMEs for specific version requirements.
+All plugins target NeoBoard 1.x. Check individual plugin READMEs for specific version requirements.
