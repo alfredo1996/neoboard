@@ -6,6 +6,7 @@ tools: Read, Glob, Grep, Bash
 permissionMode: auto
 color: cyan
 maxTurns: 150
+omitClaudeMd: true
 ---
 
 # First-Time Creator Simulation

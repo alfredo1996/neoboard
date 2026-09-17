@@ -6,6 +6,7 @@ tools: Read, Glob, Grep, Bash
 permissionMode: auto
 color: purple
 maxTurns: 200
+omitClaudeMd: true
 ---
 
 # UX Crawler Agent
