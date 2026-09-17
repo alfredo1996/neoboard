@@ -435,12 +435,14 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
   it("shows the hero the walkthrough writes, light and dark (#1861)", () => {
     // app/e2e/showcase.walkthrough.ts rewrites the pair; a rename there would
     // leave the README pointing at a stale or deleted image.
+    const walkthrough = readDoc("app/e2e/showcase.walkthrough.ts");
+    // readmeShots must name its files through README_HERO, or the map below
+    // proves nothing about what the run writes.
+    expect(walkthrough).toContain("README_HERO[colorScheme]");
     const written = Object.fromEntries(
-      [
-        ...readDoc("app/e2e/showcase.walkthrough.ts").matchAll(
-          /^\s+(light|dark): "([\w-]+\.png)",$/gm,
-        ),
-      ].map((m) => [m[1], `screenshots/${m[2]}`]),
+      [...walkthrough.matchAll(/^\s+(light|dark): "([\w-]+\.png)",$/gm)].map(
+        (m) => [m[1], `screenshots/${m[2]}`],
+      ),
     );
     const picture = /<picture>[\s\S]*?<\/picture>/.exec(readme())?.[0] ?? "";
     const shown = {
@@ -449,6 +451,9 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
       )?.[1],
       light: /<img src="([^"]+)"/.exec(picture)?.[1],
     };
+    // toEqual skips undefined keys: without this, a README with no <picture>
+    // and a walkthrough with no parseable map would compare {} to {} and pass.
+    expect(Object.keys(written).sort()).toEqual(["dark", "light"]);
     expect(shown).toEqual(written);
     for (const file of Object.values(written))
       expect(existsSync(resolve(REPO_ROOT, file)), file).toBe(true);
