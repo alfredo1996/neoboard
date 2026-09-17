@@ -31,6 +31,13 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src", "stories", ".storybook", "vitest.setup.ts"],
+  "include": [
+    "src",
+    "stories",
+    ".storybook",
+    "e2e",
+    "vitest.setup.ts",
+    "playwright.config.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
