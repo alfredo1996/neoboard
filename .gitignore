@@ -94,8 +94,9 @@ docs/.astro/
 # source (#1689)
 design-shots/
 
-# Before/after captures from the v1.1 redesign (#832–#834). The six README
-# screenshots at screenshots/*.png stay tracked (#1689).
+# Before/after captures from the v1.1 redesign (#832–#834). The README hero,
+# screenshots/hero-light.png and hero-dark.png, stays tracked: the docs showcase
+# walkthrough rewrites it (#1861).
 screenshots/v1.1-redesign/
 
 # CLI build output

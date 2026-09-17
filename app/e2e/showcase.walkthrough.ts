@@ -7,7 +7,7 @@ import {
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
 } from "./fixtures";
-import type { Page, APIRequestContext } from "@playwright/test";
+import type { Browser, Page, APIRequestContext } from "@playwright/test";
 
 /**
  * A single continuous walkthrough of the chart fixes, recorded to video.
@@ -335,6 +335,62 @@ async function docsShot(page: Page, name: string) {
   await page.screenshot({ path: path.join(TOUR_SHOTS, name + ".png") });
 }
 
+const README_SHOTS = path.resolve(__dirname, "../../screenshots");
+
+/**
+ * The README hero, screenshots/hero-light.png and hero-dark.png (#1861): the
+ * dashboard `page` is on, from the top to the bottom of the films table, so the
+ * Actor filter, the Neo4j graph and the PostgreSQL table are all in frame.
+ *
+ * Not docsShot: the tour pins its images to 1280x1024 in light. A fresh context
+ * per theme, because colorScheme and deviceScaleFactor are fixed when a context
+ * opens; 2x keeps the image sharp in GitHub's ~850px README column.
+ */
+async function readmeShots(page: Page, browser: Browser) {
+  const storageState = await page.context().storageState();
+  for (const colorScheme of ["light", "dark"] as const) {
+    const context = await browser.newContext({
+      // Tall enough that the films table ends inside it: a clip cannot
+      // reach below the viewport. The clip stops inside the gap under the table.
+      viewport: { width: 1280, height: 1400 },
+      deviceScaleFactor: 2,
+      colorScheme,
+      reducedMotion: "reduce",
+      storageState,
+    });
+    const hero = await context.newPage();
+    await hero.goto(page.url());
+    const cards = hero.locator("[data-testid='widget-card']");
+    await expect(cards.first()).toBeVisible({ timeout: 30_000 });
+    const films = hero.locator("[data-widget-id='mh-table-films']");
+    await expect(films.getByText("Cast Away")).toBeVisible();
+    await hero.waitForLoadState("networkidle");
+    // NVL's force layout and the chart animations settle.
+    await hero.waitForTimeout(BEAT * 2);
+    // A broken hero fails the run, checked once the queries settle: no card
+    // loading, waiting, empty or failed.
+    await expect(cards.locator("[data-loading]")).toHaveCount(0);
+    await expect(cards.getByRole("alert")).toHaveCount(0);
+    await expect(
+      cards.getByText(
+        /Waiting for parameters|No data|Incompatible data format|No connection configured|No query configured|Unknown chart type/,
+      ),
+    ).toHaveCount(0);
+    const box = await films.boundingBox();
+    expect(box).not.toBeNull();
+    await hero.screenshot({
+      path: path.join(README_SHOTS, `hero-${colorScheme}.png`),
+      clip: {
+        x: 0,
+        y: 0,
+        width: 1280,
+        height: Math.ceil(box!.y + box!.height + 6),
+      },
+    });
+    await context.close();
+  }
+}
+
 test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
   // Off unless asked, so a plain showcase run leaves the committed images alone.
   test.skip(
@@ -348,7 +404,7 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     contextOptions: { reducedMotion: "reduce" },
   });
 
-  test("tour screenshots", async ({ authPage, page }) => {
+  test("tour screenshots", async ({ authPage, page, browser }) => {
     test.slow();
     const api = page.request;
     // Dynamic: a static import runs showcases.mjs through Playwright's CJS
@@ -455,6 +511,7 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(BEAT);
     await docsShot(page, "movie-highlights");
+    await readmeShots(page, browser);
 
     await page.goto("/" + highlightsId + "/edit");
     // Clicking before the edit page finishes loading its dashboard opens the

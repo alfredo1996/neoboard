@@ -40,69 +40,69 @@
             "i": "mh-graph-network",
             "x": 0,
             "y": 2,
-            "w": 6,
-            "h": 8
+            "w": 5,
+            "h": 7
           },
           {
             "i": "mh-table-films",
-            "x": 6,
+            "x": 5,
             "y": 2,
-            "w": 6,
-            "h": 8
+            "w": 7,
+            "h": 7
           },
           {
             "i": "mh-kpi-movies",
             "x": 0,
-            "y": 10,
+            "y": 9,
             "w": 3,
             "h": 2
           },
           {
             "i": "mh-kpi-actors",
             "x": 3,
-            "y": 10,
+            "y": 9,
             "w": 3,
             "h": 2
           },
           {
             "i": "mh-kpi-directors",
             "x": 6,
-            "y": 10,
+            "y": 9,
             "w": 3,
             "h": 2
           },
           {
             "i": "mh-kpi-reviews",
             "x": 9,
-            "y": 10,
+            "y": 9,
             "w": 3,
             "h": 2
           },
           {
             "i": "mh-bar-actors",
             "x": 0,
-            "y": 12,
+            "y": 11,
             "w": 6,
             "h": 5
           },
           {
             "i": "mh-line-years",
             "x": 6,
-            "y": 12,
+            "y": 11,
             "w": 6,
             "h": 5
           },
           {
             "i": "mh-map-cities",
             "x": 0,
-            "y": 17,
+            "y": 16,
             "w": 6,
             "h": 5
           },
           {
             "i": "mh-table-reviews",
             "x": 6,
-            "y": 17,
+            "y": 16,
             "w": 6,
             "h": 5
           }
@@ -159,8 +159,7 @@
               "title": "Films with $param_actor · PostgreSQL",
               "chartOptions": {
                 "enableSorting": true,
-                "enablePagination": true,
-                "pageSize": 12,
+                "enablePagination": false,
                 "enableColumnResizing": true
               }
             }

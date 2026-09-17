@@ -35,13 +35,17 @@ const IGNORED = [
   "design-shots/after/x.png",
   "screenshots/v1.1-redesign/x.png",
 ];
-const KEPT = ["screenshots/01-login.png"];
+const KEPT = ["screenshots/hero-light.png", "screenshots/hero-dark.png"];
 
 function isIgnored(path) {
-  const res = spawnSync("git", ["check-ignore", "--no-index", "-q", "--", path], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
+  const res = spawnSync(
+    "git",
+    ["check-ignore", "--no-index", "-q", "--", path],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+    },
+  );
   expect(res.status, res.stderr).not.toBe(128);
   return res.status === 0;
 }
