@@ -44,6 +44,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useAccordionCrud } from "./use-accordion-crud";
 import { FieldSelectorInput } from "./field-selector-input";
 import { ValueOrParamInput } from "./value-or-param-input";
+import { randomId } from "@/lib/random-id";
 
 // Operator groups derived from the shared registry (single source of truth)
 const OPERATOR_GROUPS = getOperatorGroups();
@@ -328,7 +329,7 @@ export function StylingRulesEditor({ onBack }: StylingRulesEditorProps) {
 
   function addRule() {
     addItem(() => ({
-      id: crypto.randomUUID(),
+      id: randomId(),
       operator: "<=",
       value: 0,
       color: "#3b82f6",

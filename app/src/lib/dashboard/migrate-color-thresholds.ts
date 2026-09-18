@@ -1,4 +1,5 @@
 import type { StylingConfig, StylingRule } from "@/lib/db/schema";
+import { randomId } from "@/lib/random-id";
 
 interface LegacyThreshold {
   value: number;
@@ -32,7 +33,7 @@ export function migrateColorThresholds(raw: string): StylingConfig | undefined {
         typeof t.color === "string",
     )
     .map((t) => ({
-      id: crypto.randomUUID(),
+      id: randomId(),
       operator: "<=" as const,
       value: t.value,
       color: t.color,

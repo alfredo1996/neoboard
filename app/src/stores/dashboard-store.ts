@@ -5,6 +5,7 @@ import type {
   DashboardWidget,
   GridLayoutItem,
 } from "@/lib/db/schema";
+import { randomId } from "@/lib/random-id";
 
 interface DashboardState {
   layout: DashboardLayoutV2;
@@ -38,7 +39,7 @@ interface DashboardState {
 }
 
 const defaultPage = (): DashboardPage => ({
-  id: crypto.randomUUID(),
+  id: randomId(),
   title: "Page 1",
   widgets: [],
   gridLayout: [],
@@ -136,7 +137,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set((state) => {
       const n = state.layout.pages.length + 1;
       const newPage: DashboardPage = {
-        id: crypto.randomUUID(),
+        id: randomId(),
         title: `Page ${n}`,
         widgets: [],
         gridLayout: [],
@@ -266,7 +267,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const sourceGrid = page.gridLayout.find((g) => g.i === widgetId);
       if (!source || !sourceGrid) return state;
 
-      const newId = crypto.randomUUID();
+      const newId = randomId();
       const clonedWidget: DashboardWidget = {
         ...structuredClone(source),
         id: newId,

@@ -43,6 +43,7 @@ import type {
 import type { ParameterType } from "@/stores/parameter-store";
 import { useAccordionCrud } from "./use-accordion-crud";
 import { FormWritePermissionNote } from "./form-write-permission-note";
+import { randomId } from "@/lib/random-id";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- props kept empty; FormFieldsEditor reads from widget-editor store
 interface FormFieldsEditorProps {}
@@ -365,7 +366,7 @@ export function FormFieldsEditor(_props: FormFieldsEditorProps) {
 
   function addField() {
     addItem(() => ({
-      id: crypto.randomUUID(),
+      id: randomId(),
       label: "",
       parameterName: "",
       parameterType: "text",

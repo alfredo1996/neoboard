@@ -5,6 +5,7 @@ import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import type { DashboardWidget, DashboardLayoutV2 } from "@/lib/db/schema";
 import { resolveInternalParamType } from "./parameter-config-section";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
+import { randomId } from "@/lib/random-id";
 
 /**
  * Builds a DashboardWidget object from the current widget editor store state.
@@ -79,7 +80,7 @@ export function useBuildWidgetForSave(
     const skipSettings = isParamSelect || isForm || isContentOnly;
 
     return {
-      id: existingWidget?.id ?? crypto.randomUUID(),
+      id: existingWidget?.id ?? randomId(),
       chartType,
       connectionId:
         // The option-backed parameter type (select, cascading or not) needs a
