@@ -18,14 +18,12 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:lint": "node scripts/lint-migrations.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
-    "test:e2e:coverage": "E2E_COVERAGE=1 npx playwright test",
-    "test:e2e:mock": "npx playwright test --config playwright.mock.config.ts"
+    "test:e2e:coverage": "E2E_COVERAGE=1 npx playwright test"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

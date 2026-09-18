@@ -114,6 +114,43 @@ describe("every test file is collected by some runner (#1633)", () => {
     },
   );
 
+  it("scripts", () => {
+    // The sixth test root, and the one with no vitest config to parse:
+    // `test:scripts` is a vitest directory filter plus one or more
+    // `node --test` globs, so a suite outside both runs nowhere. Three demo
+    // suites — 49 passing tests covering what `neoboard demo` executes — sat
+    // in scripts/demo/__tests__ collected by neither (#1872).
+    const { scripts } = JSON.parse(
+      readFileSync(join(ROOT, "package.json"), "utf8"),
+    );
+    const testScripts = scripts["test:scripts"];
+
+    // `vitest run scripts/__tests__` is a path filter over vitest's default
+    // include, which does not match the `.node-test.mjs` suffix.
+    const patterns = [...testScripts.matchAll(/vitest run (\S+)/g)].map(
+      ([, dir]) => globToRe(`${dir}/**/*.{test,spec}.{ts,tsx,mjs}`),
+    );
+    // Every quoted glob handed to `node --test`.
+    for (const [, globs] of testScripts.matchAll(
+      /node --test ((?:'[^']+'\s*)+)/g,
+    )) {
+      for (const [, glob] of globs.matchAll(/'([^']+)'/g)) {
+        patterns.push(globToRe(glob));
+      }
+    }
+    expect(patterns.length).toBeGreaterThan(1);
+
+    const onDisk = walk("scripts", /[.](?:node-)?test[.](?:mjs|ts)$/);
+    expect(onDisk.length).toBeGreaterThan(10);
+
+    const orphans = onDisk.filter((f) => !patterns.some((re) => re.test(f)));
+    expect(
+      orphans,
+      "these look like tests and neither half of `test:scripts` collects " +
+        "them, so they never run and nothing says so",
+    ).toEqual([]);
+  });
+
   it("connection's lint glob follows what its jest actually collects", () => {
     // connection/jest.config.js deliberately collects any .ts under
     // __tests__, so 25 of its suites are not named with a .test.ts suffix.

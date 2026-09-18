@@ -16,7 +16,6 @@ vi.mock("../../lib/config.js", () => ({
   assertCheckout: vi.fn(),
   paths: {
     envFile: "/project/app/.env.local",
-    envExample: "/project/.env.example",
   },
   readProjectConfig: vi.fn(() => ({
     ports: { app: 3000, postgres: 5432 },

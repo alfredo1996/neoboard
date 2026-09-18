@@ -232,9 +232,10 @@ describe("documentation accuracy", () => {
   });
 
   describe("stated chart counts match the registry (#1687, #1782)", () => {
-    // Unregistering two charts was swept with grep, which missed README.md,
-    // PLUGINS.md and two journey narrations. Pinning every stated count here
-    // makes the next unregistration fail a test instead.
+    // Unregistering two charts was swept with grep, which missed README.md
+    // and PLUGINS.md. Pinning every stated count here makes the next
+    // unregistration fail a test instead. Two journey narrations were pinned
+    // here too until the recorder they belonged to went in #1872.
     //
     // A reader counts what the widget picker offers, not what is registered:
     // radar and choropleth stay registered so old dashboards render, but the
@@ -244,11 +245,7 @@ describe("documentation accuracy", () => {
     const selectable = () =>
       registeredPlugins().filter((t) => !DISABLED_CHART_TYPES.has(t));
 
-    it.each([
-      "README.md",
-      "scripts/record-journeys/journeys/00-full-tour.mjs",
-      "scripts/record-journeys/journeys/03-chart-gallery-tour.mjs",
-    ])("%s", (docName) => {
+    it.each(["README.md"])("%s", (docName) => {
       const claims = [...readDoc(docName).matchAll(CLAIM)].map((m) =>
         Number(m[1]),
       );

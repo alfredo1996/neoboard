@@ -10,7 +10,7 @@ import { join } from "node:path";
  * `connector-sdk/` holds `src/conformance/query-safety.ts`, the harness every
  * connector runs to prove it honours the Query Safety rules. It was the one
  * cross-connector safety contract in the repo and it could be edited with zero
- * CI execution. `docker/postgres/init-test.sql` is mounted into the Postgres
+ * CI execution. `docker/postgres/init.sql` is mounted into the Postgres
  * testcontainer by `app/e2e/global-setup.ts` — the fixture substrate for all
  * 54 E2E specs.
  *
@@ -72,7 +72,7 @@ describe("CI path filters (#1627)", () => {
   });
 
   it("triggers CI for the E2E fixture substrate", () => {
-    // global-setup.ts mounts docker/postgres/init-test.sql into the container
+    // global-setup.ts mounts docker/postgres/init.sql into the container
     // every E2E spec runs against.
     for (const filters of blocks) {
       expect(filters, "docker/ is not in a paths: filter").toContain(

@@ -156,9 +156,6 @@ export const paths = {
   get envFile() {
     return join(root(), "app", ".env.local");
   },
-  get envExample() {
-    return join(root(), ".env.example");
-  },
   get projectConfig() {
     return join(root(), "neoboard.config.json");
   },

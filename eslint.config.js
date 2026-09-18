@@ -18,13 +18,12 @@ export default defineConfig([
     "**/storybook-static",
     "**/coverage",
     "**/*.d.ts",
-    "stress",
     ".claude",
     // Playwright specs. Deliberate, and recorded rather than implied: they run
     // under their own tsconfig and use globals this config does not model.
     // Revisit with its own config block rather than by deleting this line.
     "**/e2e",
-    // Astro docs site — its own toolchain and its own lint setup.
+    // Astro docs site — its own toolchain, checked by `astro check`.
     "docs",
     // Vendored upstream source, modified locally. Excluded from SonarCloud
     // coverage for the same reason; linting it would report on code we did not

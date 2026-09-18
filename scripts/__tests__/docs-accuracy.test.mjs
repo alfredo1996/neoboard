@@ -196,7 +196,6 @@ describe("docs accuracy guards (#1316)", () => {
           "component/src",
           "scripts",
           "docker",
-          ".env.example",
         ],
         { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
       ).split("\n"),
@@ -1625,7 +1624,6 @@ describe("1.5 ships without the enterprise edition (#1845)", () => {
   // the one feature behind the switch is unfinished. The code stays and is
   // dormant; the enterprise edition resumes in 1.7.
   const SURFACES = [
-    ".env.example",
     "app/.env.example",
     "docker/docker-compose.prod.yml",
     "docker/docker-compose.prod-full.yml",

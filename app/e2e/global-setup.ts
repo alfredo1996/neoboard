@@ -110,7 +110,7 @@ async function updateConnectionConfigs(
 
 export default async function globalSetup() {
   const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
-  const pgInitSql = path.join(dockerRoot, "postgres", "init-test.sql");
+  const pgInitSql = path.join(dockerRoot, "postgres", "init.sql");
   const neo4jInitCypher = path.join(dockerRoot, "neo4j", "init.cypher");
 
   console.log("\n⏳ Starting test containers...\n");
@@ -127,7 +127,7 @@ export default async function globalSetup() {
       .withCopyFilesToContainer([
         {
           source: pgInitSql,
-          target: "/docker-entrypoint-initdb.d/init-test.sql",
+          target: "/docker-entrypoint-initdb.d/init.sql",
         },
       ])
       .withWaitStrategy(
