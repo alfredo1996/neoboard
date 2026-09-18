@@ -58,8 +58,6 @@ import {
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import type { ConnectorType } from "@/lib/connector/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
-import { wrapWithPreviewLimit } from "@/lib/query/wrap-with-preview-limit";
-export { wrapWithPreviewLimit };
 
 import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
 import { useBuildWidgetForSave } from "./widget-editor/use-widget-save";
@@ -489,7 +487,6 @@ export function WidgetEditorModal({
     query,
     chartType,
     allParamValues,
-    selectedConnection: selectedConnection ?? undefined,
     initialPreviewData,
     initialPreviewQuery: widget?.query,
     previewQuery,

@@ -275,6 +275,75 @@ describe("query-executor", () => {
   });
 
   // -----------------------------------------------------------------------
+  // executeQuery — per-request rowLimit (#1896)
+  // -----------------------------------------------------------------------
+
+  it.each([
+    { maxRows: undefined, requested: 25, effective: 25 },
+    { maxRows: 1000, requested: 25, effective: 25 },
+    { maxRows: undefined, requested: 5001, effective: 5000 },
+    { maxRows: 1000, requested: 100_000, effective: 1000 },
+    { maxRows: 1000, requested: 1000, effective: 1000 },
+  ])(
+    "a requested rowLimit of $requested on maxRows $maxRows runs at $effective: it lowers the cap, never raises it",
+    async ({ maxRows, requested, effective }) => {
+      let capturedConfig: Record<string, unknown> = {};
+      mockRunQuery.mockImplementation(
+        (
+          _p: unknown,
+          cbs: { onSuccess: (v: unknown) => void },
+          config: Record<string, unknown>,
+        ) => {
+          capturedConfig = config;
+          cbs.onSuccess([{ n: 1 }]);
+        },
+      );
+
+      const result = await executeQuery(
+        "postgresql",
+        { ...pgCreds, maxRows },
+        { query: "SELECT 1" },
+        { rowLimit: requested },
+      );
+
+      expect(capturedConfig.rowLimit).toBe(effective);
+      expect(result.rowLimit).toBe(effective);
+    },
+  );
+
+  it("sends the query text to the connector untouched whatever the rowLimit", async () => {
+    let capturedParams: unknown;
+    mockRunQuery.mockImplementation(
+      (p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+        capturedParams = p;
+        cbs.onSuccess([]);
+      },
+    );
+    const query = "MATCH (n) RETURN n ORDER BY n.name;";
+
+    await executeQuery("neo4j", neo4jCreds, { query }, { rowLimit: 25 });
+
+    expect(capturedParams).toEqual({ query });
+  });
+
+  it("a rowLimit is per query: it reuses the connection's pooled module", async () => {
+    mockRunQuery.mockImplementation(
+      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) =>
+        cbs.onSuccess([]),
+    );
+
+    await executeQuery("postgresql", pgCreds, { query: "SELECT 1" });
+    await executeQuery(
+      "postgresql",
+      pgCreds,
+      { query: "SELECT 1" },
+      { rowLimit: 25 },
+    );
+
+    expect(mockCreateConnectionModule).toHaveBeenCalledTimes(1);
+  });
+
+  // -----------------------------------------------------------------------
   // executeQuery — query timeout wiring (#973)
   // -----------------------------------------------------------------------
 

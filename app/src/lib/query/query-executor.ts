@@ -267,12 +267,17 @@ export function toConnectorAccessMode(
  *     connection's `maxRows` override or `DEFAULT_MAX_ROWS`). The API
  *     route echoes this back in `meta` so the UI banner can render the
  *     correct number.
+ *
+ * `options.rowLimit` lowers that cap for one query (the editor preview asks
+ * for 25, #1896). It is clamped HERE, where every caller passes through: a
+ * request can ask for fewer rows than the connection allows, never more. The
+ * query text is never touched — the connector stops pulling rows at the cap.
  */
 export async function executeQuery(
   type: DbType,
   credentials: ConnectionCredentials,
   queryParams: { query: string; params?: Record<string, unknown> },
-  options?: { accessMode?: ConnectorAccessMode },
+  options?: { accessMode?: ConnectorAccessMode; rowLimit?: number },
 ): Promise<{
   data: unknown;
   fields?: unknown;
@@ -287,7 +292,8 @@ export async function executeQuery(
     ) => void;
   };
 
-  const effectiveRowLimit = credentials.maxRows ?? DEFAULT_MAX_ROWS;
+  const maxRows = credentials.maxRows ?? DEFAULT_MAX_ROWS;
+  const effectiveRowLimit = Math.min(options?.rowLimit ?? maxRows, maxRows);
 
   const config = {
     ...DEFAULT_CONNECTION_CONFIG,

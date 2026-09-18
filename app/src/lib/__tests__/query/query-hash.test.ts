@@ -50,6 +50,15 @@ describe("computeResultId", () => {
     expect(a).not.toBe(b);
   });
 
+  it("different row limit → different hash: a 25-row preview is not the full result (#1896)", () => {
+    const full = computeResultId("conn-1", "SELECT * FROM t", undefined, 5000);
+    const preview = computeResultId("conn-1", "SELECT * FROM t", undefined, 25);
+    expect(preview).not.toBe(full);
+    expect(computeResultId("conn-1", "SELECT * FROM t", undefined, 25)).toBe(
+      preview,
+    );
+  });
+
   it("no params vs undefined → same hash", () => {
     const a = computeResultId("conn-1", "SELECT 1");
     const b = computeResultId("conn-1", "SELECT 1", undefined);

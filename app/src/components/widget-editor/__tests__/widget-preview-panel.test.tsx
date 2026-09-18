@@ -198,6 +198,33 @@ describe("WidgetPreviewPanel", () => {
     expect(screen.getByTestId("card-container")).toBeInTheDocument();
   });
 
+  it("renders a truncated result as a normal preview: the 25-row cap is the point, not a warning (#1896)", () => {
+    // What the query hook hands back when the driver stopped at the cap.
+    const truncatedResult = {
+      data: Array.from({ length: 25 }, (_, n) => ({ n })),
+      resultId: "r1",
+      truncated: true,
+      rowLimit: 25,
+    };
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          previewQuery: {
+            isPending: false,
+            isError: false,
+            error: null,
+            data: truncatedResult,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId("card-container")).toBeInTheDocument();
+    expect(screen.getByText("Preview shows up to 25 rows")).toBeInTheDocument();
+    expect(screen.queryByText(/truncated|Showing first/i)).toBeNull();
+    expect(screen.queryByText("Query failed")).toBeNull();
+  });
+
   it("shows error state when preview query fails and no data", () => {
     render(
       <WidgetPreviewPanel

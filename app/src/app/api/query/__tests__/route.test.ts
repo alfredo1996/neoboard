@@ -1185,6 +1185,73 @@ describe("POST /api/query", () => {
     expect(body.meta.rowLimit).toBe(20000);
   });
 
+  describe("per-request rowLimit (#1896)", () => {
+    function ownedConnection() {
+      mockRequireSession.mockResolvedValue(defaultSession);
+      mockDb.select.mockReturnValue(
+        drizzleSelectChain([
+          {
+            id: "c1",
+            type: "postgresql",
+            configEncrypted: "enc",
+            userId: "user-1",
+          },
+        ]),
+      );
+      mockDecryptJson.mockReturnValue({
+        uri: "postgres://localhost",
+        username: "u",
+        password: "p",
+      });
+    }
+
+    it.each([0, -1, 1.5, "25", null])(
+      "rejects rowLimit %j with 400 and runs nothing",
+      async (rowLimit) => {
+        ownedConnection();
+
+        const res = await POST(
+          makeRequest({ connectionId: "c1", query: "SELECT 1", rowLimit }),
+        );
+
+        expect(res.status).toBe(400);
+        expect(mockExecuteQuery).not.toHaveBeenCalled();
+      },
+    );
+
+    it("hands the requested rowLimit to the executor with the query text untouched", async () => {
+      ownedConnection();
+      mockExecuteQuery.mockResolvedValue({ data: [], rowLimit: 25 });
+      const query = "SELECT * FROM movies ORDER BY title;";
+
+      const res = await POST(
+        makeRequest({ connectionId: "c1", query, rowLimit: 25 }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery).toHaveBeenCalledWith(
+        "postgresql",
+        expect.anything(),
+        { query, params: {} },
+        { accessMode: "READ", rowLimit: 25 },
+      );
+    });
+
+    it("gives a capped result another resultId than the uncapped one", async () => {
+      ownedConnection();
+      const body = { connectionId: "c1", query: "SELECT * FROM movies" };
+
+      mockExecuteQuery.mockResolvedValue({ data: [], rowLimit: 5000 });
+      const full = await (await POST(makeRequest(body))).json();
+      mockExecuteQuery.mockResolvedValue({ data: [], rowLimit: 25 });
+      const capped = await (
+        await POST(makeRequest({ ...body, rowLimit: 25 }))
+      ).json();
+
+      expect(capped.meta.resultId).not.toBe(full.meta.resultId);
+    });
+  });
+
   it("forwards truncated correctly for non-array (graph) results", async () => {
     mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(

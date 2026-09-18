@@ -936,6 +936,12 @@ const SPEC = {
             additionalProperties: true,
             description: "Named query parameters",
           },
+          rowLimit: {
+            type: "integer",
+            minimum: 1,
+            description:
+              "`/api/query` only. Return at most this many rows for this run. It can only lower the connection's row cap: a larger value runs at the cap. The query text is never changed; the driver stops reading rows at the limit, and `truncated` is true when there were more.",
+          },
         },
       },
       QueryResponse: {
@@ -949,7 +955,8 @@ const SPEC = {
           },
           resultId: {
             type: "string",
-            description: "Deterministic hash of connection + query + params",
+            description:
+              "Deterministic hash of connection + query + params + effective row limit",
           },
           serverDurationMs: { type: "integer" },
           truncated: {

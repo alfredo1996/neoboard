@@ -9,6 +9,8 @@ interface QueryInput {
   params?: Record<string, unknown>;
   /** Per-card database override. */
   database?: string;
+  /** Lowers the row cap for this run. The server never lets it raise one. */
+  rowLimit?: number;
 }
 
 interface QueryResult {

@@ -49,6 +49,12 @@ const querySchema = z.object({
   tenantId: z.string().optional(),
   /** Per-card database override — used when the connection allows per-card DB selection. */
   database: z.string().optional(),
+  /**
+   * Fewer rows than the connection allows, for this run only (#1896; the
+   * editor preview asks for 25). `executeQuery` clamps it to the connection's
+   * `maxRows`, so it can lower the cap and never raise it.
+   */
+  rowLimit: z.number().int().positive().optional(),
 });
 
 export async function POST(request: Request) {
@@ -77,6 +83,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
       params,
       tenantId: bodyTenantId,
       database: databaseOverride,
+      rowLimit: requestedRowLimit,
     } = validation.data;
 
     // Defense-in-depth: if the caller explicitly passes a tenantId,
@@ -180,16 +187,13 @@ async function handleReadQuery(request: Request): Promise<Response> {
         pipelineCtx.connectionType,
         effectiveCredentials,
         { query: pipelineCtx.query, params: pipelineCtx.params },
-        { accessMode: toConnectorAccessMode(pipelineCtx.accessMode) },
+        {
+          accessMode: toConnectorAccessMode(pipelineCtx.accessMode),
+          rowLimit: requestedRowLimit,
+        },
       );
     });
     const serverDurationMs = Math.round(performance.now() - queryStart);
-
-    // Deterministic query hash: same connection + normalized query + params
-    // → same resultId. Clients can use this to preserve state (e.g. graph
-    // exploration) across re-executions of the same query, and as a future
-    // cache key. Normalization handled inside computeResultId.
-    const resultId = computeResultId(connectionId, query, params);
 
     // Truncation is enforced at the driver level (see
     // lib/query/query-executor.ts — it spreads `rowLimit` onto the connector
@@ -199,6 +203,14 @@ async function handleReadQuery(request: Request): Promise<Response> {
     // the data, so the route just forwards those fields to the client for
     // the widget banner.
     const { data, fields, truncated, rowLimit } = result;
+
+    // Deterministic query hash: same connection + normalized query + params
+    // + effective row limit → same resultId. Clients can use this to preserve
+    // state (e.g. graph exploration) across re-executions of the same query,
+    // and as a future cache key. The row limit is in it because the editor
+    // preview runs the card's exact query text at 25 rows (#1896).
+    // Normalization handled inside computeResultId.
+    const resultId = computeResultId(connectionId, query, params, rowLimit);
 
     return apiSuccess({ data, fields }, 200, {
       resultId,
