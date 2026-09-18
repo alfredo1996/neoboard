@@ -161,3 +161,30 @@ describe("useWidgetQuery request body", () => {
     expect(JSON.parse(String(init?.body)).query).toBe(query);
   });
 });
+
+/**
+ * #1888 — the fetch ignored TanStack's signal, so leaving a dashboard left
+ * its queries in flight. Six of them hung on a dead connector own the
+ * browser's whole per-origin connection pool: the next page's payload queued
+ * behind them, and a sidebar click took 52 s to navigate.
+ */
+describe("useWidgetQuery cancellation (#1888)", () => {
+  it("aborts the in-flight request when the widget unmounts", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => new Promise<Response>(() => {}));
+
+    const { unmount } = renderHook(
+      () => useWidgetQuery({ connectionId: "slow", query: "SELECT 1" }),
+      { wrapper },
+    );
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce());
+
+    const signal = fetchSpy.mock.calls[0][1]?.signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal?.aborted).toBe(false);
+
+    unmount();
+    await waitFor(() => expect(signal?.aborted).toBe(true));
+  });
+});

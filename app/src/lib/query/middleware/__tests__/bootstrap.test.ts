@@ -11,13 +11,22 @@ describe("bootstrapQueryMiddleware", () => {
     _resetQueryMiddlewareBootstrap();
   });
 
-  it("registers both core:scheduler and core:audit", () => {
+  it("registers the dead-connector memo, the scheduler and audit", () => {
     bootstrapQueryMiddleware();
     const all = extensions.queryMiddleware.getAll();
-    expect(all).toHaveLength(2);
+    expect(all).toHaveLength(3);
     const ids = all.map((m) => m.id);
+    expect(ids).toContain("core:dead-connector");
     expect(ids).toContain("core:scheduler");
     expect(ids).toContain("core:audit");
+  });
+
+  it("runs core:dead-connector outside the scheduler, so a known-dead connector takes no slot (#1888)", () => {
+    bootstrapQueryMiddleware();
+    const all = extensions.queryMiddleware.getAll();
+    const memo = all.find((m) => m.id === "core:dead-connector");
+    const scheduler = all.find((m) => m.id === "core:scheduler");
+    expect(memo?.priority).toBeLessThan(scheduler?.priority ?? 0);
   });
 
   it("assigns core:scheduler priority 30 (runs before audit)", () => {
@@ -39,7 +48,7 @@ describe("bootstrapQueryMiddleware", () => {
   it("is idempotent — calling twice registers each middleware once", () => {
     bootstrapQueryMiddleware();
     bootstrapQueryMiddleware();
-    expect(extensions.queryMiddleware.size()).toBe(2);
+    expect(extensions.queryMiddleware.size()).toBe(3);
   });
 
   it("test reset helper lets the bootstrap run again", () => {
@@ -47,6 +56,6 @@ describe("bootstrapQueryMiddleware", () => {
     extensions.queryMiddleware.clear();
     _resetQueryMiddlewareBootstrap();
     bootstrapQueryMiddleware();
-    expect(extensions.queryMiddleware.size()).toBe(2);
+    expect(extensions.queryMiddleware.size()).toBe(3);
   });
 });

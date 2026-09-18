@@ -303,6 +303,50 @@ describe("CardContainer — connector unavailable (#1678)", () => {
     expect(refetch).toHaveBeenCalled();
   });
 
+  // #1888 — a widget still in flight on a connection a sibling has already
+  // found dead kept its skeleton, so one dashboard said "unavailable" and
+  // "loading" about the same connector at once.
+  it("names the connector instead of a skeleton while its own query is still in flight on a flagged connection (#1888)", () => {
+    useConnectionStatusStore
+      .getState()
+      .setStatus("conn-1", "error", hintForConnectionErrorCode("network"));
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "fetching",
+      isError: false,
+      data: undefined,
+      missingParams: [],
+    });
+
+    const { container } = render(
+      <CardContainer widget={makeWidget({ connectionId: "conn-1" })} />,
+    );
+
+    expect(screen.getByText("Connector unavailable")).toBeDefined();
+    expect(container.querySelector('[data-loading="true"]')).toBeNull();
+  });
+
+  // #1888 — the boxed alert overflowed a KPI-sized card and the hint was cut
+  // mid-sentence. It is clamped now, so the whole text has to stay reachable.
+  it("keeps the whole hint reachable when the card is too small to show it (#1888)", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: true,
+      error: new ConnectorUnavailableError("nope", "network"),
+      data: undefined,
+      missingParams: [],
+      refetch: vi.fn(),
+    });
+
+    render(<CardContainer widget={makeWidget()} />);
+
+    const hint = hintForConnectionErrorCode("network");
+    const alert = screen.getByRole("alert");
+    expect(alert.getAttribute("title")).toBe(hint);
+    expect(alert.textContent).toContain("Connector unavailable");
+  });
+
   it("shows the hint and a working Retry on ConnectorUnavailableError; hides the driver text from viewers", () => {
     const refetch = vi.fn();
     mockUseWidgetQuery.mockReturnValue({

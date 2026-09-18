@@ -12,13 +12,14 @@ import {
   connectionTestErrorResult,
 } from "@/lib/connector/connection-test-result";
 import { isContainerised } from "@/lib/connector/is-containerised";
+import { forgetDeadConnector } from "@/lib/query/middleware/dead-connector";
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId } = await requireSession();
+    const { userId, tenantId } = await requireSession();
     const { id } = await params;
 
     const [connection] = await db
@@ -57,6 +58,9 @@ export async function POST(
       );
       // A false result (no throw) gets an actionable fallback; a thrown error
       // is classified for a targeted hint. Both via the shared helper (#1043).
+      // A pass also lets queries dial again at once, not after the memo's
+      // TTL (#1888).
+      if (success) forgetDeadConnector(tenantId, id);
       return apiSuccess(
         success ? { success: true } : connectionCheckFalseResult(),
       );

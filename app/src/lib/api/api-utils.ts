@@ -3,10 +3,7 @@ import { apiError } from "./api-response";
 import { EnterpriseRequiredError } from "@/lib/features/require-feature";
 import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
 import { isTransientQueryError } from "@/lib/query/transient-error-classifier";
-import {
-  classifyConnectionError,
-  type ConnectionErrorCode,
-} from "@/lib/connector/connection-error-classifier";
+import { connectorUnavailableReason } from "@/lib/connector/connection-error-classifier";
 import { apiLogger } from "@/lib/logger";
 import { redactString } from "@/lib/log-redact";
 import { headers } from "next/headers";
@@ -108,29 +105,6 @@ export function validateBody<T>(
 // ---------------------------------------------------------------------------
 // Generic catch handler
 // ---------------------------------------------------------------------------
-
-/**
- * Why a connector nobody can reach failed — unroutable host, refused port,
- * bad credentials — or `undefined` when this error is not that.
- *
- * Only a `ConnectorError` qualifies: `wrapError` in the SDK gives every raw
- * driver error that name. Matched by name, not instanceof: app/ does not
- * depend on the SDK, and connection/ resolves its own copy of it anyway.
- *
- * The scope matters as much as the match. `handleRouteError` catches for
- * every route, including ones that only touch NeoBoard's own database — if
- * *that* refuses a connection, telling the user to check their connector's
- * host would be a misdiagnosis.
- */
-function connectorUnavailableReason(
-  error: unknown,
-): Extract<ConnectionErrorCode, "network" | "auth_failed"> | undefined {
-  if (!(error instanceof Error) || error.name !== "ConnectorError") {
-    return undefined;
-  }
-  const reason = classifyConnectionError(error.message);
-  return reason === "network" || reason === "auth_failed" ? reason : undefined;
-}
 
 export async function handleRouteError(
   error: unknown,

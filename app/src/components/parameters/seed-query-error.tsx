@@ -1,5 +1,6 @@
 "use client";
 
+import { Unplug } from "lucide-react";
 import { Button } from "@neoboard/components";
 import { ConnectorUnavailableError } from "@/lib/api/api-client";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
@@ -25,16 +26,27 @@ export function SeedQueryError({
   onRetry: () => void;
 }>) {
   const unavailable = error instanceof ConnectorUnavailableError;
+  const message = unavailable
+    ? hintForConnectionErrorCode(error.reason)
+    : error.message;
+  // Same quiet look as a chart card on a dead connector (#1888): red body
+  // text filled the selector card and pushed Retry out of it. The message is
+  // clamped, so `title` keeps the whole of it reachable.
   return (
-    <div className="space-y-2">
-      <p role="alert" className="text-xs text-destructive">
-        <span className="font-medium">
+    <div className="space-y-1.5">
+      <div role="alert" title={message} className="space-y-1">
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          <Unplug className="h-4 w-4 shrink-0 text-destructive" aria-hidden />
           {unavailable ? "Connector unavailable" : "Couldn't load options"}
-        </span>
-        {" — "}
-        {unavailable ? hintForConnectionErrorCode(error.reason) : error.message}
-      </p>
-      <Button variant="outline" size="sm" onClick={onRetry}>
+        </p>
+        <p className="line-clamp-1 text-xs text-muted-foreground">{message}</p>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 px-2.5 text-xs"
+        onClick={onRetry}
+      >
         Retry
       </Button>
     </div>

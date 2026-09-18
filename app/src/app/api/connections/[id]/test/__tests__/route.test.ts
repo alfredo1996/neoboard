@@ -16,6 +16,7 @@ const mockRequireSession = vi.fn<
 >();
 const mockDecryptJson = vi.fn();
 const mockTestConnection = vi.fn();
+const mockForgetDeadConnector = vi.fn();
 
 function makeSelectChain(rows: unknown[]) {
   return {
@@ -45,6 +46,9 @@ vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("@/lib/crypto/crypto", () => ({ decryptJson: mockDecryptJson }));
 vi.mock("@/lib/query/query-executor", () => ({
   testConnection: mockTestConnection,
+}));
+vi.mock("@/lib/query/middleware/dead-connector", () => ({
+  forgetDeadConnector: mockForgetDeadConnector,
 }));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
@@ -111,6 +115,26 @@ describe("POST /api/connections/[id]/test", () => {
     const body = await res.json();
     expect(body.data.success).toBe(true);
     expect(body.error).toBeNull();
+  });
+
+  it("clears the dead-connector memo when the test passes, and only then (#1888)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const conn = {
+      id: "c1",
+      userId: "user-1",
+      type: "neo4j",
+      configEncrypted: "enc",
+    };
+    mockDb.select.mockReturnValue(makeSelectChain([conn]));
+    mockDecryptJson.mockReturnValue({ uri: "bolt://x", username: "u" });
+
+    mockTestConnection.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+    await POST({} as Request, makeParams("c1"));
+    expect(mockForgetDeadConnector).not.toHaveBeenCalled();
+
+    mockTestConnection.mockResolvedValueOnce(true);
+    await POST({} as Request, makeParams("c1"));
+    expect(mockForgetDeadConnector).toHaveBeenCalledExactlyOnceWith("t1", "c1");
   });
 
   it("returns success:false with error message when testConnection throws", async () => {
