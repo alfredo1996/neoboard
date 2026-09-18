@@ -985,6 +985,31 @@ describe("production options: Run from a build (#1679)", () => {
     expect(fromExample).toEqual(expect.arrayContaining(fromRegistry));
   });
 
+  it("hands new developers a DATABASE_URL the dev containers accept (#1883)", () => {
+    // The example shipped postgres:postgres while docker-compose.yml creates
+    // the dev database as neoboard/neoboard/neoboard, so a reader who
+    // followed DEVELOPMENT.md and copied the file got an authentication
+    // failure on their first run. Derive the expectation from the compose
+    // file rather than hard-coding it, so either side moving fails here.
+    const compose = readFileSync(
+      join(ROOT, "docker/docker-compose.yml"),
+      "utf8",
+    );
+    const value = (key) =>
+      compose.match(new RegExp(`^\\s*${key}:\\s*(\\S+)`, "m"))?.[1];
+    const [user, password, db] = [
+      "POSTGRES_USER",
+      "POSTGRES_PASSWORD",
+      "POSTGRES_DB",
+    ].map(value);
+    expect([user, password, db].every(Boolean)).toBe(true); // compose still names them
+
+    const example = readFileSync(join(ROOT, "app/.env.example"), "utf8");
+    const url = example.match(/^DATABASE_URL="([^"]+)"/m)?.[1];
+    expect(url, "app/.env.example no longer sets DATABASE_URL").toBeTruthy();
+    expect(url).toBe(`postgresql://${user}:${password}@localhost:5432/${db}`);
+  });
+
   it("generates the secrets once, before the first run, and never again", () => {
     // The systemd step said "move the configuration into a root-only file"
     // and then ran `openssl rand` again for every secret — a reader who
