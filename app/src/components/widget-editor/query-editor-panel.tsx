@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import {
@@ -7,6 +8,7 @@ import {
   Info,
   RefreshCw,
   Clock,
+  Database,
   Maximize2,
   Minimize2,
 } from "lucide-react";
@@ -25,6 +27,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  SchemaBrowser,
+  quoteIdentifier,
+  type QueryEditorHandle,
 } from "@neoboard/components";
 import { FileCode } from "lucide-react";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
@@ -149,8 +154,18 @@ export function QueryEditorPanel({
   const queryHistory = useWidgetEditorStore((s) => s.queryHistory);
   // Prefetch schema for autocompletion. The hook caches for 10 min
   // and also writes to the Zustand store for synchronous reads.
-  const { isFetching, refreshSchema } = useConnectionSchema(connectionId);
+  const { isFetching, isError, error, refreshSchema } =
+    useConnectionSchema(connectionId);
   const schema = useSchemaStore((s) => s.getSchema(connectionId));
+
+  // #1693 — schema browser beside the editor; closed until asked for.
+  const [schemaOpen, setSchemaOpen] = useState(false);
+  const editorRef = useRef<QueryEditorHandle>(null);
+  const insertIdentifier = (name: string) => {
+    const text = quoteIdentifier(name, editorLanguage);
+    // The editor loads asynchronously; until it has mounted, append instead.
+    if (!editorRef.current?.insertAtCursor(text)) onQueryChange(query + text);
+  };
 
   return (
     <div className="space-y-1.5">
@@ -202,6 +217,17 @@ export function QueryEditorPanel({
                 Refresh schema for autocompletion
               </TooltipContent>
             </Tooltip>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-5 gap-1 px-1.5 text-xs text-muted-foreground"
+              onClick={() => setSchemaOpen((o) => !o)}
+              aria-expanded={schemaOpen}
+            >
+              <Database className="h-3 w-3" />
+              Schema
+            </Button>
             {!query && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -312,28 +338,48 @@ export function QueryEditorPanel({
           </AlertDescription>
         </Alert>
       )}
-      <QueryEditor
-        value={query}
-        onChange={onQueryChange}
-        onRun={onRun}
-        running={running}
-        language={editorLanguage}
-        schema={schema}
-        placeholder={
-          editorLanguage === "sql"
-            ? "SELECT * FROM users LIMIT 10"
-            : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
-        }
-        // Collapsed, the editor has NO definite height: `.cm-editor { height:
-        // 100% }` resolves against an indefinite flex parent, so it computes to
-        // `auto` and the column grows with the document (measured 220px empty →
-        // 2391px at 120 lines). What scrolls then is the whole settings column,
-        // toolbar and chart selectors and all. Maximized we give it a definite
-        // height so it scrolls itself with the Run toolbar pinned. 70vh is the
-        // practical ceiling — the modal body is capped at calc(90vh - 180px),
-        // so anything larger just spills back into the column (#1374).
-        className={maximized ? "h-[70vh] min-h-[220px]" : "min-h-[220px]"}
-      />
+      <div className="flex items-stretch gap-2">
+        {schemaOpen && connectionId && (
+          <SchemaBrowser
+            // Stretches to the editor's height for short documents and is
+            // capped at the maximized editor's height for long ones.
+            className="w-52 shrink-0 max-h-[70vh]"
+            schema={schema}
+            loading={isFetching}
+            error={
+              isError ? error?.message || "Failed to load schema" : undefined
+            }
+            onInsert={insertIdentifier}
+          />
+        )}
+        <QueryEditor
+          handleRef={editorRef}
+          value={query}
+          onChange={onQueryChange}
+          onRun={onRun}
+          running={running}
+          language={editorLanguage}
+          schema={schema}
+          placeholder={
+            editorLanguage === "sql"
+              ? "SELECT * FROM users LIMIT 10"
+              : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
+          }
+          // Collapsed, the editor has NO definite height: `.cm-editor { height:
+          // 100% }` resolves against an indefinite flex parent, so it computes to
+          // `auto` and the column grows with the document (measured 220px empty →
+          // 2391px at 120 lines). What scrolls then is the whole settings column,
+          // toolbar and chart selectors and all. Maximized we give it a definite
+          // height so it scrolls itself with the Run toolbar pinned. 70vh is the
+          // practical ceiling — the modal body is capped at calc(90vh - 180px),
+          // so anything larger just spills back into the column (#1374).
+          className={
+            maximized
+              ? "min-w-0 flex-1 h-[70vh] min-h-[220px]"
+              : "min-w-0 flex-1 min-h-[220px]"
+          }
+        />
+      </div>
     </div>
   );
 }

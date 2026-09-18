@@ -73,13 +73,16 @@ beforeAll(async () => {
     .withPassword("schema-live-test-pw")
     .start();
   connection = new Neo4jConnectionModule(getAuth());
-  // Complex model: three labels (one node dual-labeled), two relationship
-  // types, distinct property sets per label and per relationship.
+  // Complex model: four labels (one node dual-labeled, one property-less),
+  // three relationship types (one property-less), distinct property sets per
+  // label and per relationship.
   await runWrite(`
     CREATE (c:CoverageTestCompany {ctName: 'Acme', ctFounded: 1999})
     CREATE (p:CoverageTestPerson:CoverageTestEmployee {ctName: 'Ada', ctAge: 36, ctBadge: 7})
+    CREATE (t:CoverageTestTag)
     CREATE (p)-[:CT_WORKS_AT {ctSince: 2020, ctRole: 'engineer'}]->(c)
     CREATE (p)-[:CT_MANAGES {ctTeamSize: 4}]->(c)
+    CREATE (c)-[:CT_TAGGED]->(t)
   `);
 });
 
@@ -110,42 +113,45 @@ describe("Neo4j schema introspection — complex live model (#742 item 7)", () =
     expect(schema.relationshipTypes).toContain("CT_WORKS_AT");
     expect(schema.relationshipTypes).toContain("CT_MANAGES");
 
-    // Contract quirk worth pinning: rel-property keys come from
-    // db.schema.relTypeProperties() and keep Neo4j's backtick quoting —
-    // "`CT_WORKS_AT`", not "CT_WORKS_AT".
-    const propsFor = (needle: string) => {
-      const key = Object.keys(schema.relProperties).find((k) =>
-        k.includes(needle),
-      );
-      return (schema.relProperties[key ?? ""] ?? []).map((p) => p.name);
-    };
+    // db.schema.relTypeProperties() reports ":`CT_WORKS_AT`"; the manager
+    // strips the quoting so the key is the bare type (#1693).
+    const propsFor = (type: string) =>
+      (schema.relProperties[type] ?? []).map((p) => p.name);
     expect(propsFor("CT_WORKS_AT")).toEqual(
       expect.arrayContaining(["ctSince", "ctRole"]),
     );
     expect(propsFor("CT_MANAGES")).toEqual(
       expect.arrayContaining(["ctTeamSize"]),
     );
+    // A property-less type is reported as one row with a NULL propertyName;
+    // that is not a property (#1714).
+    expect(schema.relationshipTypes).toContain("CT_TAGGED");
+    expect(propsFor("CT_TAGGED")).toEqual([]);
   });
 
-  it("maps node properties to their labels (backticked, multi-label combined keys)", async () => {
+  it("maps node properties to each bare label, splitting multi-label node types", async () => {
     const schema = (await new Neo4jSchemaManager().fetchSchema(getAuth())) as {
       nodeProperties: Record<string, Array<{ name: string; type: string }>>;
     };
-    // Contract quirk worth pinning: node-property keys come from
-    // db.schema.nodeTypeProperties() — backtick-quoted, and a dual-labeled
-    // node yields ONE combined key ("`CoverageTestPerson`:`CoverageTestEmployee`").
-    const propsFor = (needle: string) => {
-      const key = Object.keys(schema.nodeProperties).find((k) =>
-        k.includes(needle),
-      );
-      return (schema.nodeProperties[key ?? ""] ?? []).map((p) => p.name);
-    };
+    // db.schema.nodeTypeProperties() reports the dual-labeled node as ONE
+    // backticked combination (":`CoverageTestPerson`:`CoverageTestEmployee`");
+    // the manager credits its properties to both labels, unquoted (#1693).
+    const propsFor = (label: string) =>
+      (schema.nodeProperties[label] ?? []).map((p) => p.name);
     expect(propsFor("CoverageTestCompany")).toEqual(
       expect.arrayContaining(["ctName", "ctFounded"]),
     );
     expect(propsFor("CoverageTestPerson")).toEqual(
       expect.arrayContaining(["ctName", "ctAge", "ctBadge"]),
     );
+    expect(propsFor("CoverageTestEmployee")).toEqual(
+      expect.arrayContaining(["ctName", "ctAge", "ctBadge"]),
+    );
+    expect(
+      Object.keys(schema.nodeProperties).filter((k) => k.includes("`")),
+    ).toEqual([]);
+    // Property-less label: one NULL row from the procedure, zero properties.
+    expect(propsFor("CoverageTestTag")).toEqual([]);
   });
 });
 

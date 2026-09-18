@@ -186,7 +186,20 @@ export { MarkdownWidget, type MarkdownWidgetProps } from "./markdown-widget";
 export { IframeWidget, type IframeWidgetProps } from "./iframe-widget";
 
 // Query
-export { QueryEditor, type QueryEditorProps } from "./query-editor";
+export {
+  QueryEditor,
+  type QueryEditorProps,
+  type QueryEditorHandle,
+} from "./query-editor";
+export { SchemaBrowser, type SchemaBrowserProps } from "./schema-browser";
+export {
+  toSchemaTree,
+  filterSchemaTree,
+  quoteIdentifier,
+  type SchemaTreeSection,
+  type SchemaTreeNode,
+  type SchemaTreeLeaf,
+} from "@/lib/schema-tree";
 export { CodePreview, type CodePreviewProps } from "./code-preview";
 
 // Column Mapping
