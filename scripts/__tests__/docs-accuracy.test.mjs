@@ -414,6 +414,27 @@ describe("the site's own navigation and links resolve (#1574)", () => {
       ),
     ]);
 
+  it("declares the processor its markdown plugins need (#1881)", () => {
+    // Astro 7 made Sätteri the default markdown processor and stopped
+    // installing @astrojs/markdown-remark. astro.config.mjs still configures
+    // markdown.rehypePlugins (rehype-base-links, which rewrites links for the
+    // Pages base path), and astro refuses that config unless the package is a
+    // declared dependency — so `npm ci && astro build` failed with a green
+    // local build, because a stale node_modules still had it transitively.
+    const config = readFileSync(join(ROOT, "docs/astro.config.mjs"), "utf8");
+    const usesUnified =
+      /markdown:\s*\{[\s\S]*?(remarkPlugins|rehypePlugins|remarkRehype)/.test(
+        config,
+      );
+    if (!usesUnified) return; // config moved to the new processor: nothing to declare
+    const pkg = JSON.parse(
+      readFileSync(join(ROOT, "docs/package.json"), "utf8"),
+    );
+    expect({ ...pkg.dependencies, ...pkg.devDependencies }).toHaveProperty(
+      "@astrojs/markdown-remark",
+    );
+  });
+
   it("puts every content directory in the sidebar", () => {
     // authentication/ held four pages including the 1,584-word SSO setup
     // guide, and no sidebar group pointed at it — so the enterprise auth
