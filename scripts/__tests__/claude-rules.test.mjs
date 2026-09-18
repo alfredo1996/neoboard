@@ -88,6 +88,7 @@ describe("CLAUDE.md stays small enough to be followed (#1847)", () => {
     for (const heading of [
       "## Query Safety",
       "## Credentials",
+      "## Connector Agnosticism",
       "## Multi-Tenancy",
     ]) {
       expect(doc, `${heading} must stay in CLAUDE.md`).toContain(heading);

@@ -103,6 +103,165 @@ describe("package boundary hook", () => {
   });
 });
 
+describe("connector-agnosticism hook (#1894)", () => {
+  // app/ and component/ may know THAT connectors exist, never WHICH. The
+  // vitest ratchet (app/src/lib/__tests__/connector-agnostic.test.ts) is the
+  // gate; this is the same rule at edit time. Later PRs in #1893 have to be
+  // able to touch a line that already names a connector while migrating it,
+  // so the hook blocks an edit only when it ADDS names.
+  const edit = (file_path, old_string, new_string, env) =>
+    run(
+      "check-boundaries.sh",
+      [],
+      { tool_input: { file_path, old_string, new_string } },
+      env,
+    ).status;
+
+  test("blocks a connector name introduced under app/src", () => {
+    assert.equal(
+      runHook(
+        "check-boundaries.sh",
+        `${ROOT}/app/src/lib/new-thing.ts`,
+        'if (connection.type === "neo4j") return graphOnly();',
+      ),
+      BLOCK,
+    );
+  });
+
+  test("blocks a connector label introduced under component/src", () => {
+    assert.equal(
+      edit(
+        `${ROOT}/component/src/components/composed/x.tsx`,
+        "<p>Connect a database</p>",
+        "<p>Connect a PostgreSQL database</p>",
+      ),
+      BLOCK,
+    );
+  });
+
+  test("blocks a URI scheme, which is how `Postgres…` identifiers are caught", () => {
+    assert.equal(
+      edit(
+        `${ROOT}/app/src/lib/x.ts`,
+        "const m = manager;",
+        "const m = manager as PostgresSchemaManager;",
+      ),
+      BLOCK,
+    );
+  });
+
+  test("allows the same name under connection/src, where connectors live", () => {
+    assert.equal(
+      runHook(
+        "check-boundaries.sh",
+        `${ROOT}/connection/src/neo4j/x.ts`,
+        'export const type = "neo4j";',
+      ),
+      0,
+    );
+  });
+
+  test("allows it under app/src/lib/db — the app's own metadata PostgreSQL", () => {
+    assert.equal(
+      runHook(
+        "check-boundaries.sh",
+        `${ROOT}/app/src/lib/db/new-helper.ts`,
+        "// PostgreSQL advisory lock, taken before migrating",
+      ),
+      0,
+    );
+  });
+
+  test("allows it in a test, a story and the vendored grammar", () => {
+    for (const file of [
+      "app/src/lib/__tests__/x.test.ts",
+      "component/src/charts/x.stories.tsx",
+      "component/src/lib/cypher-lang/x.ts",
+    ]) {
+      assert.equal(
+        runHook("check-boundaries.sh", `${ROOT}/${file}`, 'const t = "neo4j";'),
+        0,
+        file,
+      );
+    }
+  });
+
+  test("allows an edit that does not increase the count", () => {
+    // Migrating a line that already offends: one name before, one after.
+    assert.equal(
+      edit(
+        `${ROOT}/app/src/lib/x.ts`,
+        'if (type === "neo4j") {',
+        'if (connector.type === "neo4j" && connector.supportsGraphData) {',
+      ),
+      0,
+    );
+    // …and one that adds a second name to that line does not get a pass.
+    assert.equal(
+      edit(
+        `${ROOT}/app/src/lib/x.ts`,
+        'if (type === "neo4j") {',
+        'if (type === "neo4j" || type === "postgresql") {',
+      ),
+      BLOCK,
+    );
+  });
+
+  test("a Write is measured against the file on disk", () => {
+    const root = mkdtempSync(join(tmpdir(), "agnostic-hook-"));
+    const file = join(root, "app/src/legacy.ts");
+    mkdirSync(join(root, "app/src"), { recursive: true });
+    writeFileSync(file, 'export const kinds = ["neo4j", "postgresql"];\n');
+    assert.equal(
+      runHook("check-boundaries.sh", file, 'export const kinds = ["neo4j"];\n'),
+      0,
+      "rewriting a file with fewer names is progress",
+    );
+    assert.equal(
+      runHook(
+        "check-boundaries.sh",
+        file,
+        'export const kinds = ["neo4j", "postgresql", "bolt"];\n',
+      ),
+      BLOCK,
+    );
+  });
+
+  test("allows library package names and query-language names", () => {
+    assert.equal(
+      runHook(
+        "check-boundaries.sh",
+        `${ROOT}/component/src/charts/x.tsx`,
+        [
+          'import { InteractiveNvlWrapper } from "@neo4j-nvl/react";',
+          'import { cypher } from "@neo4j-cypher/react-codemirror";',
+          'const { sql, PostgreSQL } = await import("@codemirror/lang-sql");',
+          "const ext = sql({ dialect: PostgreSQL });",
+          'const languages = ["cypher", "sql"];',
+        ].join("\n"),
+      ),
+      0,
+    );
+  });
+
+  test("derives the names from connection/src/*/plugin.ts, not from a list", () => {
+    // A project whose only connector is a made-up one: ITS name is blocked
+    // and neo4j — not registered there — is not. No name lives in the hook.
+    const root = mkdtempSync(join(tmpdir(), "agnostic-hook-"));
+    mkdirSync(join(root, "connection/src/acme"), { recursive: true });
+    writeFileSync(
+      join(root, "connection/src/acme/plugin.ts"),
+      'export const acmePlugin = {\n  type: "acmegraph",\n  label: "Acme Graph DB",\n  allowedProtocols: ["acme:", "acme+s:"],\n};\n',
+    );
+    const env = { CLAUDE_PROJECT_DIR: root };
+    const file = `${root}/app/src/x.ts`;
+    assert.equal(edit(file, "", 'const t = "acmegraph";', env), BLOCK);
+    assert.equal(edit(file, "", "<p>Acme Graph DB</p>", env), BLOCK);
+    assert.equal(edit(file, "", 'const s = "acme+s://host";', env), BLOCK);
+    assert.equal(edit(file, "", 'const t = "neo4j";', env), 0);
+  });
+});
+
 describe("query safety hook", () => {
   // Scoped to connection/src and API routes. app/src/lib is deliberately out:
   // lib/db writes Drizzle `sql` templates whose ${} interpolation IS the

@@ -2,6 +2,7 @@
 # Enforce package boundary rules from .claude/CLAUDE.md
 # - component/ must NOT import from app/ or connection/
 # - connection/ must NOT import React, app/, or component/
+# - app/ and component/ must NOT gain a connector's name (#1894)
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
 [ -z "$FILE_PATH" ] && exit 0
@@ -25,5 +26,44 @@ if [[ "$FILE_PATH" == *"/connection/src/"* ]]; then
     exit 2
   fi
 fi
+
+# Connector agnosticism (#1894): app/ and component/ may know THAT connectors
+# exist, never WHICH. The names come from the connectors themselves — every
+# `type:` / `label:` and URI scheme in connection/src/*/plugin.ts — so a new
+# connector is covered with no edit here. Only an edit that ADDS names is
+# blocked: migrating a line that already has one must stay possible.
+# The gate is app/src/lib/__tests__/connector-agnostic.test.ts; keep the
+# allowlist below in step with it.
+case "$FILE_PATH" in
+  */__tests__/* | *.test.ts | *.test.tsx | *.stories.tsx) ;;
+  */app/src/lib/db/*) ;;                # the app's OWN metadata PostgreSQL
+  */component/src/lib/cypher-lang/*) ;; # vendored grammar
+  */app/src/* | */component/src/*)
+    ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+    NAMES=$(
+      {
+        grep -hoE '^[[:space:]]{2}(type|label):[[:space:]]*"[^"]+"' "$ROOT"/connection/src/*/plugin.ts |
+          sed -E 's/^[^"]*"//; s/"$//'
+        grep -hoE '"[a-z][a-z0-9.-]*[+:]' "$ROOT"/connection/src/*/plugin.ts | tr -d '"+:'
+      } 2>/dev/null | sed -E 's/[][(){}.*+?^$|\\]/\\&/g' | sort -u | paste -sd '|' -
+    )
+    [ -z "$NAMES" ] && exit 0
+    # Library names that merely contain a connector's name are not connectors.
+    count() {
+      sed -E 's#@neo4j-(nvl|cypher)/[A-Za-z0-9_-]+##g; /@codemirror\/lang-sql/d; s/dialect:[[:space:]]*PostgreSQL//g' |
+        grep -oiE "$NAMES" | wc -l
+    }
+    if echo "$INPUT" | jq -e '.tool_input | has("new_string")' >/dev/null; then
+      BEFORE=$(echo "$INPUT" | jq -r '.tool_input.old_string // empty' | count)
+    else
+      BEFORE=$(cat "$FILE_PATH" 2>/dev/null | count)
+    fi
+    AFTER=$(echo "$NEW_CONTENT" | count)
+    if [ "$AFTER" -gt "$BEFORE" ]; then
+      echo "BLOCKED: this edit names a connector ($(echo "$NEW_CONTENT" | grep -oiE "$NAMES" | sort -fu | paste -sd ',' -)) in app/ or component/. They may know THAT connectors exist, never WHICH — would this line change when connector N+1 is added? Read the fact from the registry / descriptor instead. See 'Connector Agnosticism' in .claude/CLAUDE.md." >&2
+      exit 2
+    fi
+    ;;
+esac
 
 exit 0
