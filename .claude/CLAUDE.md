@@ -111,6 +111,14 @@ Rules:
 - Encryption uses AES-256-GCM with the `ENCRYPTION_KEY` (a 64-character hex string = 32 bytes) as the key directly — no HKDF derivation, no envelope/data-key wrapping. Ciphertext format is `iv:authTag:ciphertext` (base64). Key rotation is supported via `ENCRYPTION_KEY_OLD` (decrypt-with-old, re-encrypt-with-new).
 - Lost ENCRYPTION_KEY = all credentials unrecoverable. Always warn users about this.
 
+## Connector Agnosticism — DO NOT VIOLATE
+
+- NeoBoard is one dashboard where many systems collaborate; Neo4j and PostgreSQL are the first two connectors, not the product. `app/` and `component/` may know THAT connectors exist — NEVER which.
+- The review test: **would this line change when connector N+1 is added?** If yes, it is a bug — a type comparison, a label, a URI scheme, a driver option key, a two-key map, product copy.
+- Connector facts (type, label, protocols, fields, capabilities, query language) come from the connector itself: the registry in `connection/` (`getAllConnectors()`, `getConnector(type)`), read on the server and handed to the browser as data. `component/` receives them as props.
+- Allowed: query-language names (`cypher`, `sql` — a language is not a connector), data-shape checks (is this value a node, a path, a row?), the app's own metadata database under `app/src/lib/db/`, and library package names (`@neo4j-nvl/*`, `@neo4j-cypher/*`).
+- Enforced by two ratchets in `app/src/lib/__tests__/connector-agnostic.test.ts` (#1894): a name guard over `app/src` and `component/src`, and an export-surface guard over the `connection` and `connector-sdk` entry points. Both derive the forbidden names from the registry, so a new connector is covered from birth. Today's offenders sit in `connector-agnostic.baseline.json`, which may only shrink: NEVER add or raise an entry — fix the line; delete or lower the entry when you clean a file.
+
 ## Multi-Tenancy
 
 - `tenant_id` column on ALL tables. Every DB query MUST include an explicit tenant filter — `eq(table.tenantId, session.tenantId)` — written **per query, in the route**. There is no ORM-level or middleware-level enforcement today (`app/src/lib/db/index.ts` is a plain Drizzle client), so a forgotten filter is a cross-tenant leak that the ORM will not catch. A test-time ratchet (`app/src/lib/db/__tests__/tenant-scope.test.ts`, #1226) fails the build on any unscoped query against a tenant table — it is a safety net, not runtime enforcement, so the per-query filter is still mandatory.
@@ -133,7 +141,7 @@ Test version-skip paths. Boot migrations are controlled by `MIGRATE_ON_START` (`
 
 ## Automated Guardrails (Hooks)
 
-PreToolUse hooks block cross-package imports, query interpolation, credential logging, barrel ECharts imports, chart components without `ssr: false`, edits on `main`, unapproved dependency installs, and `git commit` while UI files are waiting on Playwright. PostToolUse hooks run Prettier and `eslint --fix` on every TypeScript edit and report what they cannot fix. What each hook actually does is pinned by `scripts/__tests__/claude-hooks.node-test.mjs`.
+PreToolUse hooks block cross-package imports, an edit that adds a connector name under `app/src` or `component/src`, query interpolation, credential logging, barrel ECharts imports, chart components without `ssr: false`, edits on `main`, unapproved dependency installs, and `git commit` while UI files are waiting on Playwright. PostToolUse hooks run Prettier and `eslint --fix` on every TypeScript edit and report what they cannot fix. What each hook actually does is pinned by `scripts/__tests__/claude-hooks.node-test.mjs`.
 
 ## Compact instructions
 
