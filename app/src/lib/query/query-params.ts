@@ -1,20 +1,4 @@
 /**
- * Ensure the database is encoded in the URI for drivers that extract it from the path.
- */
-export function ensureDatabaseInUri(uri: string, database?: string): string {
-  if (!database) return uri;
-  try {
-    const url = new URL(uri);
-    // If the URI already has a non-empty path (database), don't override
-    if (url.pathname && url.pathname !== "/") return uri;
-    url.pathname = `/${database}`;
-    return url.toString();
-  } catch {
-    return uri;
-  }
-}
-
-/**
  * Rewrites `$param_xxx` named placeholders to PostgreSQL positional `$1, $2, ...`
  * parameters and builds the matching ordered values array.
  *

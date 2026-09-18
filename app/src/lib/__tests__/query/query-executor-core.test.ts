@@ -31,7 +31,6 @@ const mockCreateConnectionModule = vi.fn(defaultModule);
 vi.mock("@/lib/connector/connection-adapter", () => ({
   createConnectionModule: mockCreateConnectionModule,
   DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
-  ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
 }));
 
 // Mirror the QueryStatus enum from @neoboard/connection (integer values are
@@ -70,7 +69,6 @@ describe("query-executor", () => {
     vi.doMock("../connection-adapter", () => ({
       createConnectionModule: mockCreateConnectionModule,
       DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
-      ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
     }));
     const mod = await import("@/lib/query/query-executor");
     executeQuery = mod.executeQuery;
@@ -109,10 +107,10 @@ describe("query-executor", () => {
     const result = await executeQuery("neo4j", neo4jCreds, {
       query: "RETURN 1 AS n",
     });
+    // ONE config bag (#1897): the decrypted config, as stored.
     expect(mockCreateConnectionModule).toHaveBeenCalledWith(
       "neo4j", // string type for registry
-      expect.objectContaining({ uri: neo4jCreds.uri, username: "neo4j" }),
-      expect.any(Object),
+      neo4jCreds,
     );
     // New shape: data + rowLimit (effective cap) + truncated flag.
     // Without a setStatus(COMPLETE_TRUNCATED) call, truncated is false
@@ -135,11 +133,7 @@ describe("query-executor", () => {
     // module through the registry (createConnectionModule), no per-type branch.
     await executeQuery("mysql", pgCreds, { query: "SELECT 1" });
 
-    expect(mockCreateConnectionModule).toHaveBeenCalledWith(
-      "mysql",
-      expect.objectContaining({ uri: pgCreds.uri }),
-      expect.any(Object),
-    );
+    expect(mockCreateConnectionModule).toHaveBeenCalledWith("mysql", pgCreds);
   });
 
   it("rejects when runQuery calls onFail", async () => {
@@ -414,8 +408,7 @@ describe("query-executor", () => {
     await executeQuery("postgresql", pgCreds, { query: "SELECT 1" });
     expect(mockCreateConnectionModule).toHaveBeenCalledWith(
       "postgresql", // string type for registry
-      expect.anything(),
-      expect.anything(),
+      pgCreds,
     );
   });
 
@@ -534,18 +527,146 @@ describe("query-executor", () => {
   });
 
   // -----------------------------------------------------------------------
-  // executeQuery — advanced options
+  // The config bag passes through (#1897)
+  //
+  // The app used to translate the stored config into an auth object plus a
+  // bag of connector-prefixed options (neo4jMaxPoolSize, pgMaxPoolSize, …), so
+  // it had to know every option of every connector. Now it hands the decrypted
+  // config over as it is and the connector reads its own keys.
   // -----------------------------------------------------------------------
 
-  it("passes advanced options to createConnectionModule", async () => {
-    mockRunQuery.mockImplementation(
-      (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
-        cbs.onSuccess([]);
-      },
-    );
+  describe("config pass-through", () => {
+    const ok = () =>
+      mockRunQuery.mockImplementation(
+        (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+          cbs.onSuccess([]);
+        },
+      );
 
-    const creds = {
-      ...neo4jCreds,
+    it("hands the connector every stored key, unrenamed and unprefixed", async () => {
+      ok();
+      const creds = {
+        ...pgCreds,
+        connectionTimeout: 5000,
+        queryTimeout: 10000,
+        maxPoolSize: 20,
+        idleTimeout: 15000,
+        statementTimeout: 60000,
+        sslRejectUnauthorized: false,
+        maxRows: 250,
+      };
+
+      await executeQuery("postgresql", creds, { query: "SELECT 1" });
+
+      expect(mockCreateConnectionModule).toHaveBeenCalledTimes(1);
+      expect(mockCreateConnectionModule.mock.calls[0]).toEqual([
+        "postgresql",
+        creds,
+      ]);
+    });
+
+    it("passes keys it has never heard of — a new connector option needs no app change", async () => {
+      ok();
+      const creds = { ...neo4jCreds, region: "eu-west-1", tls: { pin: "abc" } };
+
+      await executeQuery("fixture-db", creds, { query: "anything" });
+
+      expect(mockCreateConnectionModule.mock.calls[0]).toEqual([
+        "fixture-db",
+        creds,
+      ]);
+    });
+
+    it("adds nothing: no authType, no prefixed options, no patched URI", async () => {
+      ok();
+      await executeQuery(
+        "postgresql",
+        { ...pgCreds, uri: "postgresql://localhost:5432", database: "sales" },
+        { query: "SELECT 1" },
+      );
+
+      const [, config] = mockCreateConnectionModule.mock
+        .calls[0] as unknown as [string, Record<string, unknown>];
+      // The connector applies `database` itself now; the URI is as typed.
+      expect(config.uri).toBe("postgresql://localhost:5432");
+      expect(config.database).toBe("sales");
+      expect(Object.keys(config).sort()).toEqual(
+        ["database", "password", "uri", "username"].sort(),
+      );
+    });
+
+    it("does not mutate the caller's credentials", async () => {
+      ok();
+      const creds = { ...pgCreds };
+      await executeQuery("postgresql", creds, { query: "SELECT 1" });
+      expect(creds).toEqual(pgCreds);
+    });
+
+    it("rewrites only the bag's uri for a containerised deployment", async () => {
+      // Deployment logic, not connector logic, so it stays in the app (#1346):
+      // the driver sees the rewritten host, the stored config keeps what the
+      // user typed, and every other key passes through untouched.
+      vi.resetModules();
+      vi.doMock("@/lib/connector/container-host", () => ({
+        resolveContainerHost: async (uri: string) =>
+          uri.replace("localhost", "host.docker.internal"),
+      }));
+      try {
+        const mod = await import("@/lib/query/query-executor");
+        ok();
+        const creds = { ...pgCreds, maxPoolSize: 7 };
+
+        await mod.executeQuery("postgresql", creds, { query: "SELECT 1" });
+
+        expect(mockCreateConnectionModule.mock.calls[0]).toEqual([
+          "postgresql",
+          { ...creds, uri: "postgresql://host.docker.internal:5432/testdb" },
+        ]);
+        expect(creds.uri).toBe(pgCreds.uri);
+      } finally {
+        vi.doUnmock("@/lib/connector/container-host");
+      }
+    });
+
+    it("leaves a bag with no uri alone — not every connector has one", async () => {
+      ok();
+      const creds = { apiToken: "tok" } as unknown as typeof neo4jCreds;
+      await executeQuery("fixture-api", creds, { query: "anything" });
+      expect(mockCreateConnectionModule.mock.calls[0]).toEqual([
+        "fixture-api",
+        { apiToken: "tok" },
+      ]);
+    });
+
+    it("sends no connectionType in the per-query config", async () => {
+      const get = captureConfig();
+      await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+      expect(get()).not.toHaveProperty("connectionType");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Cache key — a digest of the WHOLE bag (#1897)
+  //
+  // The key used to enumerate eight known fields, so a connector option the
+  // app had not heard of was not part of it: two connections differing only in
+  // that option shared one driver, silently.
+  // -----------------------------------------------------------------------
+
+  describe("cache key", () => {
+    const ok = () =>
+      mockRunQuery.mockImplementation(
+        (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+          cbs.onSuccess([]);
+        },
+      );
+
+    const full = {
+      uri: "postgresql://db.internal:5432/app",
+      // Not "postgres": the key starts with the type, "postgresql|…".
+      username: "svc_reader",
+      password: "password",
+      database: "sales",
       connectionTimeout: 5000,
       queryTimeout: 10000,
       maxPoolSize: 20,
@@ -553,26 +674,184 @@ describe("query-executor", () => {
       idleTimeout: 15000,
       statementTimeout: 60000,
       sslRejectUnauthorized: false,
+      maxRows: 250,
+      // Not in ConnectionCredentials: an option only some connector knows.
+      region: "eu-west-1",
     };
 
-    await executeQuery("neo4j", creds, { query: "RETURN 1" });
-    expect(mockCreateConnectionModule).toHaveBeenCalledWith(
-      "neo4j", // string type for registry
-      expect.anything(),
-      // Query timeouts flow through config.timeout, not advanced options (#973)
-      expect.objectContaining({
-        neo4jConnectionTimeout: 5000,
-        neo4jMaxPoolSize: 20,
-        neo4jAcquisitionTimeout: 8000,
-        pgConnectionTimeoutMillis: 5000,
-        pgIdleTimeoutMillis: 15000,
-        pgMaxPoolSize: 20,
-        pgSslRejectUnauthorized: false,
-        // Introspection and health checks are bounded by the connection's
-        // statement timeout, not a fixed 30s (#1302).
-        pgIntrospectionTimeoutMillis: 60000,
-      }),
+    const changed: Record<keyof typeof full, unknown> = {
+      uri: "postgresql://db.internal:5433/app",
+      username: "other",
+      password: "other-password",
+      database: "other",
+      connectionTimeout: 5001,
+      queryTimeout: 10001,
+      maxPoolSize: 21,
+      connectionAcquisitionTimeout: 8001,
+      idleTimeout: 15001,
+      statementTimeout: 60001,
+      sslRejectUnauthorized: true,
+      maxRows: 251,
+      region: "us-east-1",
+    };
+
+    it.each(Object.keys(full) as (keyof typeof full)[])(
+      "changes when %s changes",
+      async (key) => {
+        ok();
+        await executeQuery("postgresql", full, { query: "SELECT 1" });
+        await executeQuery(
+          "postgresql",
+          { ...full, [key]: changed[key] },
+          { query: "SELECT 1" },
+        );
+        expect(_getCacheSize()).toBe(2);
+        expect(mockCreateConnectionModule).toHaveBeenCalledTimes(2);
+      },
     );
+
+    it("changes when a key is added or removed", async () => {
+      ok();
+      const { region: _region, ...without } = full;
+      await executeQuery("postgresql", full, { query: "SELECT 1" });
+      await executeQuery("postgresql", without, { query: "SELECT 1" });
+      expect(_getCacheSize()).toBe(2);
+    });
+
+    it("changes with the connector type", async () => {
+      ok();
+      await executeQuery("postgresql", full, { query: "SELECT 1" });
+      await executeQuery("fixture-db", full, { query: "SELECT 1" });
+      expect(_getCacheSize()).toBe(2);
+    });
+
+    it("is stable under key reordering, at any depth", async () => {
+      ok();
+      const nested = { ...full, tls: { pin: "abc", mode: "strict" } };
+      const reordered = {
+        tls: { mode: "strict", pin: "abc" },
+        ...Object.fromEntries(Object.entries(full).reverse()),
+      } as typeof nested;
+
+      await executeQuery("postgresql", nested, { query: "SELECT 1" });
+      await executeQuery("postgresql", reordered, { query: "SELECT 1" });
+
+      expect(_getCacheSize()).toBe(1);
+      expect(mockCreateConnectionModule).toHaveBeenCalledTimes(1);
+    });
+
+    it("treats an undefined value as an absent key", async () => {
+      // JSON drops undefined, so a config read back from storage never has
+      // one; a caller that spells it out must still hit the same driver.
+      ok();
+      await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+      await executeQuery(
+        "neo4j",
+        { ...neo4jCreds, database: undefined, maxRows: undefined },
+        { query: "RETURN 1" },
+      );
+      expect(_getCacheSize()).toBe(1);
+    });
+
+    it("does not confuse a value with its string form", async () => {
+      ok();
+      await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+      await executeQuery(
+        "neo4j",
+        { ...neo4jCreds, maxPoolSize: 5 },
+        { query: "RETURN 1" },
+      );
+      await executeQuery(
+        "neo4j",
+        { ...neo4jCreds, maxPoolSize: "5" as unknown as number },
+        { query: "RETURN 1" },
+      );
+      expect(_getCacheSize()).toBe(3);
+    });
+
+    it("is an opaque digest: no config value can be read out of it", async () => {
+      ok();
+      await executeQuery("postgresql", full, { query: "SELECT 1" });
+
+      const [key] = _getCacheKeysForTesting();
+      expect(key).toMatch(/^postgresql\|[0-9a-f]{64}$/);
+      const strings = Object.values(full).filter(
+        (value): value is string => typeof value === "string",
+      );
+      for (const value of strings) expect(key).not.toContain(value);
+    });
+
+    it("closeConnection finds the module by the same key", async () => {
+      ok();
+      await executeQuery("postgresql", full, { query: "SELECT 1" });
+      closeConnection("postgresql", { ...full });
+      expect(_getCacheSize()).toBe(0);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Nothing logs the config bag
+  // -----------------------------------------------------------------------
+
+  describe("the config bag is never logged", () => {
+    const SECRET = "s3ntinel-p4ssw0rd";
+    const HOST = "sentinel-host.internal";
+    const creds = {
+      uri: `bolt://${HOST}:7687`,
+      username: "sentinel-user",
+      password: SECRET,
+      apiToken: "sentinel-token",
+    };
+    const methods = ["log", "info", "warn", "error", "debug", "trace"] as const;
+
+    it("on success, failure, test, list and close — no console call sees it", async () => {
+      const spies = methods.map((m) =>
+        vi.spyOn(console, m).mockImplementation(() => {}),
+      );
+      try {
+        mockRunQuery.mockImplementationOnce(
+          (_p: unknown, cbs: { onSuccess: (v: unknown) => void }) =>
+            cbs.onSuccess([]),
+        );
+        await executeQuery("neo4j", creds, { query: "RETURN 1" });
+
+        mockRunQuery.mockImplementationOnce(
+          (_p: unknown, cbs: { onFail: (e: unknown) => void }) =>
+            cbs.onFail(new Error("boom")),
+        );
+        await expect(
+          executeQuery("neo4j", creds, { query: "RETURN 1" }),
+        ).rejects.toThrow("boom");
+
+        mockCheckConnection.mockRejectedValueOnce(new Error("down"));
+        await expect(testConnection("neo4j", creds)).rejects.toThrow("down");
+
+        mockCreateConnectionModule.mockImplementationOnce(() => {
+          throw new Error("driver refused the config");
+        });
+        await expect(
+          executeQuery(
+            "neo4j",
+            { ...creds, username: "second" },
+            {
+              query: "RETURN 1",
+            },
+          ),
+        ).rejects.toThrow("driver refused the config");
+
+        closeConnection("neo4j", creds);
+        await closeAllConnections();
+        _evictStaleEntries();
+
+        const logged = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+        for (const value of Object.values(creds)) {
+          expect(logged).not.toContain(value);
+        }
+        expect(logged).not.toContain(HOST);
+      } finally {
+        spies.forEach((spy) => spy.mockRestore());
+      }
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -616,7 +895,11 @@ describe("query-executor", () => {
     const result = await testConnection("neo4j", neo4jCreds);
     expect(result).toBe(true);
     expect(mockCheckConnection).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionType: 1, connectionTimeout: 30000 }),
+      expect.objectContaining({ connectionTimeout: 30000 }),
+    );
+    // The numeric connection-type enum is gone (#1897) — no module read it.
+    expect(mockCheckConnection.mock.calls[0][0]).not.toHaveProperty(
+      "connectionType",
     );
   });
 
@@ -834,7 +1117,6 @@ describe("query-executor", () => {
       vi.doMock("../connection-adapter", () => ({
         createConnectionModule: mockCreateConnectionModule,
         DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
-        ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
       }));
       const mod = await import("@/lib/query/query-executor");
       listDatabases = mod.listDatabases;
@@ -854,8 +1136,7 @@ describe("query-executor", () => {
       await listDatabases("postgresql", pgCreds);
       expect(mockCreateConnectionModule).toHaveBeenCalledWith(
         "postgresql",
-        expect.objectContaining({ username: "postgres" }),
-        expect.anything(),
+        pgCreds,
       );
     });
   });
@@ -873,7 +1154,6 @@ describe("query-executor", () => {
       vi.doMock("../connection-adapter", () => ({
         createConnectionModule: mockCreateConnectionModule,
         DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
-        ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
       }));
       const mod = await import("@/lib/query/query-executor");
       listSchemas = mod.listSchemas;
