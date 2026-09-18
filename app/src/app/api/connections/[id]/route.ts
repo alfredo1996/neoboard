@@ -6,6 +6,7 @@ import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { encryptJson, decryptJson } from "@/lib/crypto/crypto";
 import { prefetchSchema } from "@/lib/connector/schema-prefetch";
 import { closeConnection } from "@/lib/query/query-executor";
+import { forgetDeadConnector } from "@/lib/query/middleware/dead-connector";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { updateConnectionSchema } from "@/lib/shared/schemas";
 import type { ConnectorType } from "@/lib/connector/connector-types";
@@ -186,6 +187,11 @@ export async function PATCH(
       return notFound();
     }
 
+    // Whatever was known about the old host or credentials no longer holds:
+    // dial again at once rather than replaying that failure for the memo's
+    // whole TTL (#1888).
+    forgetDeadConnector(tenantId, id);
+
     // Evict the old cached driver so stale credentials aren't reused
     if (oldCredentials) {
       closeConnection(connection.type as ConnectorType, oldCredentials);
@@ -284,6 +290,8 @@ export async function DELETE(
     if (deleted.length === 0) {
       return notFound();
     }
+
+    forgetDeadConnector(tenantId, id);
 
     // Evict the cached driver so the connection pool is closed
     if (toDelete?.configEncrypted) {

@@ -299,11 +299,15 @@ export function useWidgetQuery(
 
   const queryResult = useQuery<QueryResult, Error>({
     queryKey: widgetQueryKey(mergedInput, options?.staleTime),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const fetchStart = performance.now();
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Leaving a dashboard must free its requests: six hung on a dead
+        // connector own the browser's per-origin pool, and the next page's
+        // payload queued behind them for 52 s (#1888).
+        signal,
         body: JSON.stringify(mergedInput),
       });
       // mergedInput is non-null whenever the query is enabled (see below).

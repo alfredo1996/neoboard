@@ -144,6 +144,25 @@ describe("Neo4jAuthenticationModule with advanced options", () => {
     );
   });
 
+  /**
+   * #1888 — queries run through executeRead/executeWrite, which retry
+   * ServiceUnavailable for the driver's 30 s default. Against a dead host the
+   * connect failure is instant and the whole 30 s is backoff, so a widget sat
+   * on its skeleton for 30 s where the connection test failed in 100 ms.
+   */
+  it("disables managed-transaction retry so a dead host fails at once (#1888)", () => {
+    const {
+      Neo4jAuthenticationModule,
+    } = require("../src/neo4j/Neo4jAuthenticationModule");
+    new Neo4jAuthenticationModule(neo4jAuth);
+
+    expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
+      neo4jAuth.uri,
+      expect.anything(),
+      expect.objectContaining({ maxTransactionRetryTime: 0 }),
+    );
+  });
+
   it("follows a custom connect timeout when no acquisition timeout is given (#1678)", () => {
     const {
       Neo4jAuthenticationModule,

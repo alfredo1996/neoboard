@@ -1,5 +1,6 @@
 import { extensions } from "@/lib/extensions";
 import { auditMiddleware } from "./audit";
+import { deadConnectorMiddleware } from "./dead-connector";
 import { schedulerMiddleware } from "./scheduler";
 
 /**
@@ -11,14 +12,16 @@ import { schedulerMiddleware } from "./scheduler";
  *
  * Call order:
  *   1. This function runs first → registers core middleware
- *      (scheduler, audit, ...)
+ *      (dead-connector memo, scheduler, audit, ...)
  *   2. bootstrapExtensions() runs next → enterprise middleware stacks
  *      around core (cache, impersonation, rate limit)
  *
  * Priority layout (lower = runs earlier = outer wrapper):
  *   -  1-9 : reserved for cache (enterprise)
  *   - 10-19: reserved for impersonation / SET ROLE (enterprise)
- *   - 20-29: reserved for rate limiting (enterprise, token bucket)
+ *   - 20-28: reserved for rate limiting (enterprise, token bucket)
+ *   -    29: dead-connector memo — outside the scheduler, so a connector
+ *            known to be unreachable takes no queue slot (#1888)
  *   -    30: scheduler (this core middleware) — queue-based concurrency
  *   - 31-49: reserved for future core middleware
  *   -    50: audit (logs every executed query)
@@ -31,6 +34,12 @@ let bootstrapped = false;
 export function bootstrapQueryMiddleware(): void {
   if (bootstrapped) return;
   bootstrapped = true;
+
+  extensions.queryMiddleware.register({
+    id: "core:dead-connector",
+    priority: 29,
+    middleware: deadConnectorMiddleware,
+  });
 
   extensions.queryMiddleware.register({
     id: "core:scheduler",

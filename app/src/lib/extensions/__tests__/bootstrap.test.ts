@@ -5,6 +5,10 @@ describe("bootstrapExtensions", () => {
 
   beforeEach(() => {
     vi.resetModules();
+    // The registry lives on globalThis (#1888), so a fresh module copy is no
+    // longer a fresh registry.
+    delete (globalThis as { __neoboardExtensions?: unknown })
+      .__neoboardExtensions;
   });
 
   afterEach(() => {

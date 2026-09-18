@@ -77,6 +77,10 @@ const mockCloseConnection = vi.fn();
 vi.mock("@/lib/query/query-executor", () => ({
   closeConnection: mockCloseConnection,
 }));
+const mockForgetDeadConnector = vi.fn();
+vi.mock("@/lib/query/middleware/dead-connector", () => ({
+  forgetDeadConnector: mockForgetDeadConnector,
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
@@ -480,6 +484,9 @@ describe("PATCH /api/connections/[id]", () => {
       username: "neo4j",
       password: "newpass",
     });
+    // A repointed connection must be dialled again at once: the memo would
+    // otherwise replay the old host's failure for its whole TTL (#1888).
+    expect(mockForgetDeadConnector).toHaveBeenCalledExactlyOnceWith("t1", "c1");
     expect(mockCloseConnection).toHaveBeenCalledWith("neo4j", {
       uri: "bolt://localhost:7687",
       username: "neo4j",
@@ -746,6 +753,8 @@ describe("DELETE /api/connections/[id]", () => {
     const body = await res.json();
     expect(body.data.deleted).toBe(true);
     expect(body.error).toBeNull();
+    // Nothing left to remember (#1888).
+    expect(mockForgetDeadConnector).toHaveBeenCalledExactlyOnceWith("t1", "c1");
 
     // Both the pre-delete read and the delete itself are scoped to
     // id + owner + session tenant (#1607).

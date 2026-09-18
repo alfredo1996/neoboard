@@ -166,3 +166,29 @@ const HINTS: Record<ConnectionErrorCode, string> = {
 export function hintForConnectionErrorCode(code: ConnectionErrorCode): string {
   return HINTS[code];
 }
+
+/**
+ * Why a connector nobody can reach failed — unroutable host, refused port,
+ * bad credentials — or `undefined` when this error is not that.
+ *
+ * Only a `ConnectorError` qualifies: `wrapError` in the SDK gives every raw
+ * driver error that name. Matched by name, not instanceof: app/ does not
+ * depend on the SDK, and connection/ resolves its own copy of it anyway.
+ *
+ * The scope matters as much as the match. `handleRouteError` catches for
+ * every route, including ones that only touch NeoBoard's own database — if
+ * *that* refuses a connection, telling the user to check their connector's
+ * host would be a misdiagnosis.
+ *
+ * Shared with the dead-connector middleware, so the memo and the 502 can
+ * never disagree on what counts as unreachable (#1888).
+ */
+export function connectorUnavailableReason(
+  error: unknown,
+): Extract<ConnectionErrorCode, "network" | "auth_failed"> | undefined {
+  if (!(error instanceof Error) || error.name !== "ConnectorError") {
+    return undefined;
+  }
+  const reason = classifyConnectionError(error.message);
+  return reason === "network" || reason === "auth_failed" ? reason : undefined;
+}

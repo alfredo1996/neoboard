@@ -83,6 +83,14 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
       connectionAcquisitionTimeout:
         this._advancedOptions?.neo4jAcquisitionTimeout ??
         connectionTimeout + 5000,
+      // Queries run through executeRead/executeWrite, which retry
+      // ServiceUnavailable for the driver's 30 s default. Against a dead host
+      // the connect failure is instant and all 30 s is backoff: a widget sat
+      // on its skeleton for 30 s where the connection test, a plain
+      // session.run, failed in 100 ms (#1888). The cost is that a transient
+      // cluster error surfaces instead of being retried here; the widget
+      // recovers on its next refresh.
+      maxTransactionRetryTime: 0,
     });
   }
 

@@ -20,20 +20,36 @@ import type {
 } from "./types";
 import type { QueryMiddlewareExtension } from "@/lib/query/pipeline-types";
 
-export const extensions = {
-  /** NextAuth providers contributed by enterprise (SSO). */
-  authProviders: createExtensionPoint<AuthProviderExtension>(),
-  /** Chain-of-responsibility permission checkers (custom roles, groups). */
-  permissionCheckers: createExtensionPoint<PermissionExtension>(),
-  /** Resource list filters (e.g. group-scoped dashboards). */
-  resourceFilters: createExtensionPoint<ResourceFilterExtension>(),
-  /** Custom role definitions beyond admin/creator/reader. */
-  roleProviders: createExtensionPoint<RoleProviderExtension>(),
-  /** Query execution middleware (cache, audit, impersonation, rate limiting). */
-  queryMiddleware: createExtensionPoint<QueryMiddlewareExtension>(),
-} as const;
+const createExtensions = () =>
+  ({
+    /** NextAuth providers contributed by enterprise (SSO). */
+    authProviders: createExtensionPoint<AuthProviderExtension>(),
+    /** Chain-of-responsibility permission checkers (custom roles, groups). */
+    permissionCheckers: createExtensionPoint<PermissionExtension>(),
+    /** Resource list filters (e.g. group-scoped dashboards). */
+    resourceFilters: createExtensionPoint<ResourceFilterExtension>(),
+    /** Custom role definitions beyond admin/creator/reader. */
+    roleProviders: createExtensionPoint<RoleProviderExtension>(),
+    /** Query execution middleware (cache, audit, impersonation, rate limiting). */
+    queryMiddleware: createExtensionPoint<QueryMiddlewareExtension>(),
+  }) as const;
 
-export type Extensions = typeof extensions;
+export type Extensions = ReturnType<typeof createExtensions>;
+
+/**
+ * One registry per process, held on `globalThis` — not per copy of this
+ * module. Next.js compiles instrumentation.ts and each route handler into
+ * separate bundles, and each inlines its own copy: the middleware registered
+ * at boot landed in instrumentation's, the query routes read their own empty
+ * one, and in a production build the scheduler and the audit log never ran
+ * (#1888).
+ */
+const globalRegistry = globalThis as typeof globalThis & {
+  __neoboardExtensions?: Extensions;
+};
+
+export const extensions = (globalRegistry.__neoboardExtensions ??=
+  createExtensions());
 
 export { createExtensionPoint, type ExtensionPoint } from "./registry";
 
