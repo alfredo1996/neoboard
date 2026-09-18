@@ -237,7 +237,7 @@ describe("PostgresAuthenticationModule error paths (#1303)", () => {
       expect(client.release).toHaveBeenCalledWith(undefined);
     });
 
-    it("uses pgIntrospectionTimeoutMillis when the connection sets one", async () => {
+    it("uses the connection's statementTimeout when it sets one", async () => {
       const client = {
         query: jest.fn().mockResolvedValue({ rows: [] }),
         release: jest.fn(),
@@ -245,8 +245,9 @@ describe("PostgresAuthenticationModule error paths (#1303)", () => {
         removeListener: jest.fn(),
       };
       mockConnect.mockResolvedValue(client);
-      const auth = new PostgresAuthenticationModule(CONFIG, {
-        pgIntrospectionTimeoutMillis: 45_000,
+      const auth = new PostgresAuthenticationModule({
+        ...CONFIG,
+        statementTimeout: 45_000,
       });
 
       await expect(auth.verifyAuthentication()).resolves.toBe(true);

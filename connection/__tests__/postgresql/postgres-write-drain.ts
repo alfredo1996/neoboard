@@ -3,7 +3,6 @@ import {
   DEFAULT_CONNECTION_CONFIG,
   QueryStatus,
   AuthType,
-  ConnectionTypes,
 } from "@neoboard/connector-sdk";
 import {
   PostgreSqlContainer,
@@ -84,7 +83,6 @@ describe("PostgreSQL write path — row limit must not truncate side effects", (
           },
           {
             ...DEFAULT_CONNECTION_CONFIG,
-            connectionType: ConnectionTypes.POSTGRESQL,
             rowLimit: ROW_LIMIT,
             accessMode: "WRITE",
           },

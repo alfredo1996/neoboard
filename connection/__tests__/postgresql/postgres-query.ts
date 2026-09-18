@@ -3,7 +3,6 @@ import {
   DEFAULT_CONNECTION_CONFIG,
   QueryStatus,
   AuthType,
-  ConnectionTypes,
 } from "@neoboard/connector-sdk";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
@@ -86,7 +85,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       parseToNeodashRecord: true,
     };
 
@@ -114,7 +112,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       parseToNeodashRecord: true,
     };
 
@@ -140,7 +137,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
     };
 
     await connectionModule.runQuery(
@@ -159,7 +155,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
     };
 
     await connectionModule.runQuery(
@@ -179,7 +174,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
     };
 
     await connectionModule.runQuery(
@@ -200,7 +194,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       rowLimit: 1,
       parseToNeodashRecord: true,
     };
@@ -220,7 +213,6 @@ describe("PostgreSQL Query Execution", () => {
   test("should check connection health", async () => {
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
     };
 
     const isHealthy = await connectionModule.checkConnection(config);
@@ -233,7 +225,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       parseToNeodashRecord: true,
     };
 
@@ -257,7 +248,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       parseToNeodashRecord: true,
     };
 
@@ -280,7 +270,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       parseToNeodashRecord: true,
     };
 
@@ -306,7 +295,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       accessMode: "READ",
       parseToNeodashRecord: true,
     };
@@ -330,7 +318,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       accessMode: "WRITE",
       parseToNeodashRecord: true,
     };
@@ -356,7 +343,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       timeout: 1, // 1ms timeout to force timeout
     };
 
@@ -378,7 +364,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       parseToNeodashRecord: true,
     };
 
@@ -406,7 +391,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       accessMode: "WRITE",
     };
 
@@ -434,7 +418,6 @@ describe("PostgreSQL Query Execution", () => {
       },
       {
         ...DEFAULT_CONNECTION_CONFIG,
-        connectionType: ConnectionTypes.POSTGRESQL,
         parseToNeodashRecord: true,
       },
     );
@@ -448,7 +431,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       accessMode: "READ",
       rowLimit: 5,
       parseToNeodashRecord: true,
@@ -478,7 +460,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      connectionType: ConnectionTypes.POSTGRESQL,
       rowLimit: 1,
       parseToNeodashRecord: true,
     };

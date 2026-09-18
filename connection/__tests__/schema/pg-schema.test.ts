@@ -188,11 +188,12 @@ describe("PostgresSchemaManager", () => {
     );
   });
 
-  it("uses pgIntrospectionTimeoutMillis from the advanced options", async () => {
+  it("uses the config bag's statementTimeout", async () => {
     mockClient.query.mockResolvedValue({ rows: [] });
 
-    await new PostgresSchemaManager().fetchSchema(authConfig, {
-      pgIntrospectionTimeoutMillis: 45_000,
+    await new PostgresSchemaManager().fetchSchema({
+      ...authConfig,
+      statementTimeout: 45_000,
     });
 
     expect(mockClient.query).toHaveBeenCalledWith(

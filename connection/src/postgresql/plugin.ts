@@ -1,34 +1,18 @@
 /**
- * PostgreSQL connector plugin.
- *
- * Registers PostgreSQL as a connector type. Uses the existing
- * PostgresConnectionModule for all connection/query operations.
+ * PostgreSQL connector plugin — the descriptor plus the factories that need
+ * the driver. Everything PostgreSQL IS lives in `descriptor.ts`.
  */
 
 import type { ConnectorPlugin } from "@neoboard/connector-sdk";
-import type { AuthConfig } from "@neoboard/connector-sdk";
+import { postgresDescriptor } from "./descriptor";
 import { PostgresConnectionModule } from "./PostgresConnectionModule";
 import { PostgresSchemaManager } from "../schema/pg-schema";
-import { postgresFormFields } from "../form-fields";
-import { CONNECTOR_QUERY_LANGUAGES } from "../query-languages";
 
 export const postgresPlugin: ConnectorPlugin = {
-  type: "postgresql",
-  label: "PostgreSQL",
-  category: "database",
-  queryLanguage: CONNECTOR_QUERY_LANGUAGES.postgresql,
-  supportsGraphData: false,
-  supportsWrite: true,
-  allowedProtocols: ["postgresql:", "postgres:"],
-  uriPlaceholder: "postgresql://localhost:5432/mydb",
-  databasePlaceholder: "postgres",
-  formFields: postgresFormFields,
+  ...postgresDescriptor,
 
-  createModule(
-    authConfig: AuthConfig,
-    advancedOptions?: Record<string, unknown>,
-  ) {
-    return new PostgresConnectionModule(authConfig, advancedOptions);
+  createModule(config) {
+    return new PostgresConnectionModule(config);
   },
 
   createSchemaManager() {

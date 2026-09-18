@@ -1,9 +1,10 @@
-import { AuthType } from "@neoboard/connector-sdk";
-import type {
-  AdvancedConnectionOptions,
-  Neo4jAdvancedOptions,
-  PostgresAdvancedOptions,
-} from "@neoboard/connector-sdk";
+import type { ConnectorConfig } from "@neoboard/connector-sdk";
+
+// Since #1897 a connector is built from ONE config bag — the connection's
+// stored config, keyed by the descriptor's field keys. These tests pin what
+// each built-in does with that bag: which keys it reads, the defaults it
+// applies when a key is absent, and what reaches the driver. No database:
+// neo4j.driver() and pg.Pool are mocked and their arguments captured.
 
 // ---------------------------------------------------------------------------
 // Mocks — capture constructor args for neo4j.driver() and pg.Pool
@@ -45,198 +46,165 @@ jest.mock("pg", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Shared fixtures
+// Shared fixtures — the bag as the app stores it: no authType, no prefixes.
 // ---------------------------------------------------------------------------
 
-const neo4jAuth = {
+const neo4jConfig: ConnectorConfig = {
+  uri: "bolt://localhost:7687",
   username: "neo4j",
   password: "test",
-  authType: AuthType.NATIVE,
-  uri: "bolt://localhost:7687",
 };
 
-const pgAuth = {
+const pgConfig: ConnectorConfig = {
+  uri: "postgresql://localhost:5432/testdb",
   username: "postgres",
   password: "test",
-  authType: AuthType.NATIVE,
-  uri: "postgresql://localhost:5432/testdb",
 };
 
+function neo4jDriverArgs(config: ConnectorConfig) {
+  const {
+    Neo4jAuthenticationModule,
+  } = require("../src/neo4j/Neo4jAuthenticationModule");
+  mockNeo4jDriverFn.mockClear();
+  new Neo4jAuthenticationModule(config);
+  const [uri, auth, options] = mockNeo4jDriverFn.mock.calls[0];
+  return { uri, auth, options };
+}
+
+function pgPoolArgs(config: ConnectorConfig) {
+  const {
+    PostgresAuthenticationModule,
+  } = require("../src/postgresql/PostgresAuthenticationModule");
+  // poolConstructorCalls accumulates, so reset and read the call just made.
+  poolConstructorCalls.length = 0;
+  new PostgresAuthenticationModule(config);
+  return poolConstructorCalls[poolConstructorCalls.length - 1];
+}
+
 // ---------------------------------------------------------------------------
-// Tests
+// Neo4j
 // ---------------------------------------------------------------------------
 
-describe("AdvancedConnectionOptions split types", () => {
-  it("Neo4jAdvancedOptions allows partial fields", () => {
-    const opts: Neo4jAdvancedOptions = {};
-    expect(opts).toEqual({});
+describe("Neo4j driver options from the config bag", () => {
+  it("builds basic auth from the bag's username and password", () => {
+    const { uri, auth } = neo4jDriverArgs(neo4jConfig);
+    expect(uri).toBe("bolt://localhost:7687");
+    expect(auth).toEqual({ principal: "neo4j", credentials: "test" });
   });
 
-  it("Neo4jAdvancedOptions accepts all Neo4j-specific fields", () => {
-    const opts: Neo4jAdvancedOptions = {
-      neo4jConnectionTimeout: 5000,
-      neo4jQueryTimeout: 3000,
-      neo4jMaxPoolSize: 50,
-      neo4jAcquisitionTimeout: 10000,
-    };
-    expect(opts.neo4jConnectionTimeout).toBe(5000);
+  it("applies today's defaults when the bag carries no options", () => {
+    expect(neo4jDriverArgs(neo4jConfig).options).toEqual({
+      connectionTimeout: 30000,
+      maxConnectionPoolSize: undefined, // the driver's own default (100)
+      // #1678 — left unset, the driver waits its own 60 s default to acquire a
+      // connection, doubling every attempt against a dead host. Pinned just
+      // ABOVE the connect timeout, not equal to it: the pool arms its
+      // acquisition timer before the socket arms its connect timer, so an
+      // equal value fires first and the failure reads as a (retryable) pool
+      // timeout instead of the connect failure the API maps to
+      // CONNECTOR_UNAVAILABLE.
+      connectionAcquisitionTimeout: 35000,
+      // #1888 — executeRead/executeWrite retry ServiceUnavailable for the
+      // driver's 30 s default; against a dead host all 30 s is backoff.
+      maxTransactionRetryTime: 0,
+    });
   });
 
-  it("PostgresAdvancedOptions accepts all PostgreSQL-specific fields", () => {
-    const opts: PostgresAdvancedOptions = {
-      pgConnectionTimeoutMillis: 8000,
-      pgIdleTimeoutMillis: 15000,
-      pgMaxPoolSize: 20,
-      pgStatementTimeout: 60000,
-      pgSslRejectUnauthorized: false,
-    };
-    expect(opts.pgMaxPoolSize).toBe(20);
-  });
-
-  it("AdvancedConnectionOptions union accepts either type", () => {
-    const neo4j: AdvancedConnectionOptions = { neo4jConnectionTimeout: 5000 };
-    const pg: AdvancedConnectionOptions = { pgMaxPoolSize: 20 };
-    expect(neo4j).toBeDefined();
-    expect(pg).toBeDefined();
-  });
-});
-
-describe("Neo4jAuthenticationModule with advanced options", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it("passes default connectionTimeout when no advanced options provided", () => {
-    const {
-      Neo4jAuthenticationModule,
-    } = require("../src/neo4j/Neo4jAuthenticationModule");
-    new Neo4jAuthenticationModule(neo4jAuth);
-
-    expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
-      neo4jAuth.uri,
-      expect.anything(),
-      expect.objectContaining({ connectionTimeout: 30000 }),
+  it("follows a custom connect timeout when no acquisition timeout is given (#1678)", () => {
+    expect(
+      neo4jDriverArgs({ ...neo4jConfig, connectionTimeout: 5000 }).options,
+    ).toEqual(
+      expect.objectContaining({
+        connectionTimeout: 5000,
+        connectionAcquisitionTimeout: 10000,
+      }),
     );
   });
 
-  /**
-   * #1678 — left unset, the driver waits its own 60 s default to acquire a
-   * connection, doubling every attempt against a dead host. It is pinned
-   * just above the connect timeout rather than equal to it: the pool arms
-   * its acquisition timer before the socket arms its connect timer, so an
-   * equal value fires first and the failure reads as a (retryable) pool
-   * timeout instead of the connect failure the API maps to
-   * CONNECTOR_UNAVAILABLE.
-   */
-  it("bounds connectionAcquisitionTimeout just above the default connect timeout (#1678)", () => {
-    const {
-      Neo4jAuthenticationModule,
-    } = require("../src/neo4j/Neo4jAuthenticationModule");
-    new Neo4jAuthenticationModule(neo4jAuth);
+  it("reads connectionTimeout, maxPoolSize and connectionAcquisitionTimeout — unprefixed", () => {
+    expect(
+      neo4jDriverArgs({
+        ...neo4jConfig,
+        connectionTimeout: 5000,
+        maxPoolSize: 50,
+        connectionAcquisitionTimeout: 12000,
+      }).options,
+    ).toEqual(
+      expect.objectContaining({
+        connectionTimeout: 5000,
+        maxConnectionPoolSize: 50,
+        connectionAcquisitionTimeout: 12000,
+      }),
+    );
+  });
 
-    expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
-      neo4jAuth.uri,
-      expect.anything(),
+  it("no longer reads the old prefixed keys", () => {
+    expect(
+      neo4jDriverArgs({
+        ...neo4jConfig,
+        neo4jConnectionTimeout: 5000,
+        neo4jMaxPoolSize: 50,
+        neo4jAcquisitionTimeout: 12000,
+      }).options,
+    ).toEqual(
       expect.objectContaining({
         connectionTimeout: 30000,
+        maxConnectionPoolSize: undefined,
         connectionAcquisitionTimeout: 35000,
       }),
     );
   });
 
-  /**
-   * #1888 — queries run through executeRead/executeWrite, which retry
-   * ServiceUnavailable for the driver's 30 s default. Against a dead host the
-   * connect failure is instant and the whole 30 s is backoff, so a widget sat
-   * on its skeleton for 30 s where the connection test failed in 100 ms.
-   */
-  it("disables managed-transaction retry so a dead host fails at once (#1888)", () => {
-    const {
-      Neo4jAuthenticationModule,
-    } = require("../src/neo4j/Neo4jAuthenticationModule");
-    new Neo4jAuthenticationModule(neo4jAuth);
-
-    expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
-      neo4jAuth.uri,
-      expect.anything(),
-      expect.objectContaining({ maxTransactionRetryTime: 0 }),
-    );
+  it("ignores keys that are not its own — maxRows is the app's policy, queryTimeout is per query", () => {
+    const base = neo4jDriverArgs(neo4jConfig).options;
+    expect(
+      neo4jDriverArgs({
+        ...neo4jConfig,
+        maxRows: 100,
+        queryTimeout: 2000,
+        idleTimeout: 1,
+        somethingElse: true,
+      }).options,
+    ).toEqual(base);
   });
 
-  it("follows a custom connect timeout when no acquisition timeout is given (#1678)", () => {
-    const {
-      Neo4jAuthenticationModule,
-    } = require("../src/neo4j/Neo4jAuthenticationModule");
-    new Neo4jAuthenticationModule(neo4jAuth, { neo4jConnectionTimeout: 5000 });
-
-    expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
-      neo4jAuth.uri,
-      expect.anything(),
-      expect.objectContaining({
-        connectionTimeout: 5000,
-        connectionAcquisitionTimeout: 10000,
-      }),
-    );
-  });
-
-  it("passes custom connectionTimeout from advanced options", () => {
-    const {
-      Neo4jAuthenticationModule,
-    } = require("../src/neo4j/Neo4jAuthenticationModule");
-    const advancedOptions: Neo4jAdvancedOptions = {
-      neo4jConnectionTimeout: 5000,
-      neo4jMaxPoolSize: 50,
-      neo4jAcquisitionTimeout: 10000,
-    };
-    new Neo4jAuthenticationModule(neo4jAuth, advancedOptions);
-
-    expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
-      neo4jAuth.uri,
-      expect.anything(),
-      expect.objectContaining({
-        connectionTimeout: 5000,
-        maxConnectionPoolSize: 50,
-        connectionAcquisitionTimeout: 10000,
-      }),
-    );
+  it("falls back to the default when an option is not a number", () => {
+    // The bag is validated before it gets here, but a driver option is the
+    // wrong place to find out it was not.
+    expect(
+      neo4jDriverArgs({ ...neo4jConfig, connectionTimeout: "5000" }).options,
+    ).toEqual(expect.objectContaining({ connectionTimeout: 30000 }));
   });
 });
 
-describe("PostgresAuthenticationModule with advanced options", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    poolConstructorCalls.length = 0;
+// ---------------------------------------------------------------------------
+// PostgreSQL
+// ---------------------------------------------------------------------------
+
+describe("PostgreSQL pool options from the config bag", () => {
+  it("builds host, port, user and password from the bag", () => {
+    expect(pgPoolArgs(pgConfig)).toEqual({
+      user: "postgres",
+      password: "test",
+      host: "localhost",
+      port: 5432,
+      database: "testdb",
+      // today's defaults
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000,
+      max: 10,
+    });
   });
 
-  it("uses default pool config when no advanced options provided", () => {
-    const {
-      PostgresAuthenticationModule,
-    } = require("../src/postgresql/PostgresAuthenticationModule");
-    new PostgresAuthenticationModule(pgAuth);
-
-    expect(poolConstructorCalls).toHaveLength(1);
-    expect(poolConstructorCalls[0]).toEqual(
-      expect.objectContaining({
-        connectionTimeoutMillis: 10000,
-        idleTimeoutMillis: 10000,
-        max: 10,
+  it("reads connectionTimeout, idleTimeout and maxPoolSize — unprefixed", () => {
+    expect(
+      pgPoolArgs({
+        ...pgConfig,
+        connectionTimeout: 5000,
+        idleTimeout: 20000,
+        maxPoolSize: 25,
       }),
-    );
-  });
-
-  it("passes custom pool config from advanced options", () => {
-    const {
-      PostgresAuthenticationModule,
-    } = require("../src/postgresql/PostgresAuthenticationModule");
-    const advancedOptions: PostgresAdvancedOptions = {
-      pgConnectionTimeoutMillis: 5000,
-      pgIdleTimeoutMillis: 20000,
-      pgMaxPoolSize: 25,
-    };
-    new PostgresAuthenticationModule(pgAuth, advancedOptions);
-
-    expect(poolConstructorCalls).toHaveLength(1);
-    expect(poolConstructorCalls[0]).toEqual(
+    ).toEqual(
       expect.objectContaining({
         connectionTimeoutMillis: 5000,
         idleTimeoutMillis: 20000,
@@ -245,77 +213,287 @@ describe("PostgresAuthenticationModule with advanced options", () => {
     );
   });
 
-  it("passes ssl config when pgSslRejectUnauthorized is set", () => {
-    const {
-      PostgresAuthenticationModule,
-    } = require("../src/postgresql/PostgresAuthenticationModule");
-    const advancedOptions: PostgresAdvancedOptions = {
-      pgSslRejectUnauthorized: false,
-    };
-    new PostgresAuthenticationModule(pgAuth, advancedOptions);
-
-    expect(poolConstructorCalls).toHaveLength(1);
-    expect(poolConstructorCalls[0]).toEqual(
-      expect.objectContaining({
-        ssl: { rejectUnauthorized: false },
+  it("no longer reads the old prefixed keys", () => {
+    expect(
+      pgPoolArgs({
+        ...pgConfig,
+        pgConnectionTimeoutMillis: 5000,
+        pgIdleTimeoutMillis: 20000,
+        pgMaxPoolSize: 25,
+        pgSslRejectUnauthorized: true,
       }),
-    );
+    ).toEqual(pgPoolArgs(pgConfig));
   });
 
-  it("does not include ssl when pgSslRejectUnauthorized is undefined", () => {
-    const {
-      PostgresAuthenticationModule,
-    } = require("../src/postgresql/PostgresAuthenticationModule");
-    new PostgresAuthenticationModule(pgAuth);
+  it("ignores keys that are not its own", () => {
+    expect(
+      pgPoolArgs({
+        ...pgConfig,
+        maxRows: 100,
+        queryTimeout: 2000,
+        statementTimeout: 60000, // per query + introspection, not a pool option
+        connectionAcquisitionTimeout: 1,
+      }),
+    ).toEqual(pgPoolArgs(pgConfig));
+  });
 
-    expect(poolConstructorCalls).toHaveLength(1);
-    expect(poolConstructorCalls[0].ssl).toBeUndefined();
+  it("falls back to the default when an option is not a number", () => {
+    expect(pgPoolArgs({ ...pgConfig, maxPoolSize: "25" }).max).toBe(10);
+  });
+
+  // -------------------------------------------------------------------------
+  // database — the connector applies it itself (#1897). The app used to patch
+  // it onto the URI (ensureDatabaseInUri); the precedence is the same.
+  // -------------------------------------------------------------------------
+
+  describe("database", () => {
+    const bare = "postgresql://localhost:5432";
+
+    it("uses the bag's database when the URI has no path", () => {
+      expect(pgPoolArgs({ ...pgConfig, uri: bare, database: "sales" })).toEqual(
+        expect.objectContaining({ database: "sales" }),
+      );
+    });
+
+    it("treats a bare trailing slash as no path", () => {
+      expect(
+        pgPoolArgs({ ...pgConfig, uri: bare + "/", database: "sales" })
+          .database,
+      ).toBe("sales");
+    });
+
+    it("lets a database already on the URI path win", () => {
+      expect(pgPoolArgs({ ...pgConfig, database: "sales" }).database).toBe(
+        "testdb",
+      );
+    });
+
+    it.each([undefined, ""])(
+      "falls back to 'postgres' when the URI has no path and database is %p",
+      (database) => {
+        expect(pgPoolArgs({ ...pgConfig, uri: bare, database }).database).toBe(
+          "postgres",
+        );
+      },
+    );
+
+    it("keeps the query string out of the database name", () => {
+      expect(
+        pgPoolArgs({
+          ...pgConfig,
+          uri: bare + "?sslmode=require",
+          database: "sales",
+        }).database,
+      ).toBe("sales");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // TLS — sslRejectUnauthorized, else the URI's sslmode (#1299)
+  //
+  // Every managed Postgres hands you a URI with ?sslmode=require. Dropping it
+  // means NeoBoard silently connects to a customer's production database in
+  // PLAINTEXT, with nothing in the UI or logs to say so.
+  // -------------------------------------------------------------------------
+
+  describe("ssl", () => {
+    const withUri = (uri: string, extra: ConnectorConfig = {}) =>
+      pgPoolArgs({ ...pgConfig, uri, ...extra });
+
+    it("passes sslRejectUnauthorized: false through", () => {
+      expect(
+        pgPoolArgs({ ...pgConfig, sslRejectUnauthorized: false }).ssl,
+      ).toEqual({ rejectUnauthorized: false });
+    });
+
+    it("passes sslRejectUnauthorized: true through", () => {
+      expect(
+        pgPoolArgs({ ...pgConfig, sslRejectUnauthorized: true }).ssl,
+      ).toEqual({ rejectUnauthorized: true });
+    });
+
+    it("omits ssl when neither the bag nor the URI asks for it", () => {
+      expect(pgPoolArgs(pgConfig)).not.toHaveProperty("ssl");
+    });
+
+    it("honours sslmode=require from the URI", () => {
+      // libpq semantics: require = encrypt, do not verify the certificate.
+      expect(
+        withUri("postgresql://localhost:5432/testdb?sslmode=require").ssl,
+      ).toEqual({ rejectUnauthorized: false });
+    });
+
+    it.each(["verify-full", "verify-ca"])(
+      "honours sslmode=%s from the URI",
+      (mode) => {
+        expect(
+          withUri(`postgresql://localhost:5432/testdb?sslmode=${mode}`).ssl,
+        ).toEqual({ rejectUnauthorized: true });
+      },
+    );
+
+    it("treats sslmode=disable as explicitly no TLS", () => {
+      expect(
+        withUri("postgresql://localhost:5432/testdb?sslmode=disable").ssl,
+      ).toBe(false);
+    });
+
+    it("lets the explicit option override the URI", () => {
+      // sslRejectUnauthorized is set deliberately by an operator in the
+      // connection form; a query param inherited from a copy-pasted URI must
+      // not silently win over it.
+      expect(
+        withUri("postgresql://localhost:5432/testdb?sslmode=verify-full", {
+          sslRejectUnauthorized: false,
+        }).ssl,
+      ).toEqual({ rejectUnauthorized: false });
+    });
+
+    it("does not mistake a database named like a param for sslmode", () => {
+      expect(
+        withUri("postgresql://localhost:5432/sslmode=require"),
+      ).not.toHaveProperty("ssl");
+    });
   });
 });
 
-describe("createConnectionModule with advanced options", () => {
+// ---------------------------------------------------------------------------
+// Protocols come from the descriptor — one list, not a copy per auth module
+// ---------------------------------------------------------------------------
+
+describe("URI protocols are read from the descriptor", () => {
+  const withProtocols = (
+    descriptorPath: string,
+    exportName: string,
+    protocols: string[],
+  ) => {
+    const real = jest.requireActual(descriptorPath)[exportName];
+    jest.doMock(descriptorPath, () => ({
+      [exportName]: {
+        ...real,
+        fields: real.fields.map((f: { type: string }) =>
+          f.type === "uri" ? { ...f, protocols } : f,
+        ),
+      },
+    }));
+  };
+
+  afterEach(() => {
+    jest.dontMock("../src/neo4j/descriptor");
+    jest.dontMock("../src/postgresql/descriptor");
+    jest.resetModules();
+  });
+
+  it("neo4j: accepts what the descriptor lists and nothing else", () => {
+    jest.resetModules();
+    withProtocols("../src/neo4j/descriptor", "neo4jDescriptor", ["fixture:"]);
+    const {
+      Neo4jAuthenticationModule,
+    } = require("../src/neo4j/Neo4jAuthenticationModule");
+
+    expect(
+      () =>
+        new Neo4jAuthenticationModule({ ...neo4jConfig, uri: "fixture://h" }),
+    ).not.toThrow();
+    expect(() => new Neo4jAuthenticationModule(neo4jConfig)).toThrow(
+      /Invalid URI protocol "bolt:". Expected one of: fixture:/,
+    );
+  });
+
+  it("postgresql: accepts what the descriptor lists and nothing else", () => {
+    jest.resetModules();
+    withProtocols("../src/postgresql/descriptor", "postgresDescriptor", [
+      "fixture:",
+    ]);
+    const {
+      PostgresAuthenticationModule,
+    } = require("../src/postgresql/PostgresAuthenticationModule");
+
+    expect(
+      () =>
+        new PostgresAuthenticationModule({
+          ...pgConfig,
+          uri: "fixture://h/db",
+        }),
+    ).not.toThrow();
+    expect(() => new PostgresAuthenticationModule(pgConfig)).toThrow(
+      /Invalid URI protocol "postgresql:". Expected one of: fixture:/,
+    );
+  });
+
+  it.each([
+    [
+      "neo4j",
+      "../src/neo4j/Neo4jAuthenticationModule",
+      "Neo4jAuthenticationModule",
+      ["neo4j:", "neo4j+s:", "neo4j+ssc:", "bolt:", "bolt+s:", "bolt+ssc:"],
+    ],
+    [
+      "postgresql",
+      "../src/postgresql/PostgresAuthenticationModule",
+      "PostgresAuthenticationModule",
+      ["postgresql:", "postgres:"],
+    ],
+  ])(
+    "%s: still accepts exactly today's schemes",
+    (_type, modulePath, exportName, schemes) => {
+      const Module = require(modulePath)[exportName];
+      for (const scheme of schemes) {
+        expect(
+          () => new Module({ ...pgConfig, uri: `${scheme}//localhost/db` }),
+        ).not.toThrow();
+      }
+      expect(
+        () => new Module({ ...pgConfig, uri: "mysql://localhost/db" }),
+      ).toThrow(/Invalid URI protocol/);
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// createConnectionModule(type, config) — one bag through the registry
+// ---------------------------------------------------------------------------
+
+describe("createConnectionModule(type, config)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     poolConstructorCalls.length = 0;
   });
 
-  it("forwards advanced options to Neo4j module", () => {
+  it("hands the bag to the Neo4j module", () => {
     const { createConnectionModule } = require("../src/connector-registry");
-    const advancedOptions: Neo4jAdvancedOptions = {
-      neo4jConnectionTimeout: 15000,
-    };
-    const module = createConnectionModule("neo4j", neo4jAuth, advancedOptions);
+    const module = createConnectionModule("neo4j", {
+      ...neo4jConfig,
+      connectionTimeout: 15000,
+    });
     expect(module).toBeDefined();
-
     expect(mockNeo4jDriverFn).toHaveBeenCalledWith(
-      neo4jAuth.uri,
+      neo4jConfig.uri,
       expect.anything(),
       expect.objectContaining({ connectionTimeout: 15000 }),
     );
   });
 
-  it("forwards advanced options to PostgreSQL module", () => {
+  it("hands the bag to the PostgreSQL module", () => {
     const { createConnectionModule } = require("../src/connector-registry");
-    const advancedOptions: PostgresAdvancedOptions = {
-      pgMaxPoolSize: 30,
-    };
-    const module = createConnectionModule(
-      "postgresql",
-      pgAuth,
-      advancedOptions,
-    );
+    const module = createConnectionModule("postgresql", {
+      ...pgConfig,
+      maxPoolSize: 30,
+    });
     expect(module).toBeDefined();
-
     expect(poolConstructorCalls).toHaveLength(1);
     expect(poolConstructorCalls[0]).toEqual(
       expect.objectContaining({ max: 30 }),
     );
   });
 
-  it("works without advanced options (backward compatible)", () => {
+  it("takes exactly two arguments — there is no separate options bag", () => {
     const { createConnectionModule } = require("../src/connector-registry");
-    const module = createConnectionModule("neo4j", neo4jAuth);
-    expect(module).toBeDefined();
+    expect(createConnectionModule).toHaveLength(2);
+    const { neo4jPlugin } = require("../src/neo4j/plugin");
+    const { postgresPlugin } = require("../src/postgresql/plugin");
+    expect(neo4jPlugin.createModule).toHaveLength(1);
+    expect(postgresPlugin.createModule).toHaveLength(1);
   });
 });
 
@@ -324,74 +502,5 @@ describe("DEFAULT_CONNECTION_CONFIG (#973)", () => {
     const { DEFAULT_CONNECTION_CONFIG } =
       await import("@neoboard/connector-sdk");
     expect(DEFAULT_CONNECTION_CONFIG.timeout).toBe(30_000);
-  });
-
-  // -------------------------------------------------------------------------
-  // sslmode in the connection URI (#1299)
-  //
-  // Every managed Postgres hands you a URI with ?sslmode=require. Dropping it
-  // means NeoBoard silently connects to a customer's production database in
-  // PLAINTEXT, with nothing in the UI or logs to say so.
-  // -------------------------------------------------------------------------
-
-  function moduleWithUri(uri: string, advanced?: PostgresAdvancedOptions) {
-    const {
-      PostgresAuthenticationModule,
-    } = require("../src/postgresql/PostgresAuthenticationModule");
-    // poolConstructorCalls accumulates across tests in this describe block, so
-    // reset and read the call this helper just made rather than index [0].
-    poolConstructorCalls.length = 0;
-    new PostgresAuthenticationModule({ ...pgAuth, uri }, advanced);
-    return poolConstructorCalls[poolConstructorCalls.length - 1];
-  }
-
-  it("honours sslmode=require from the URI (#1299)", () => {
-    // libpq semantics: require = encrypt, do not verify the certificate.
-    const cfg = moduleWithUri(
-      "postgresql://localhost:5432/testdb?sslmode=require",
-    );
-    expect(cfg.ssl).toEqual({ rejectUnauthorized: false });
-  });
-
-  it("honours sslmode=verify-full from the URI (#1299)", () => {
-    const cfg = moduleWithUri(
-      "postgresql://localhost:5432/testdb?sslmode=verify-full",
-    );
-    expect(cfg.ssl).toEqual({ rejectUnauthorized: true });
-  });
-
-  it("honours sslmode=verify-ca from the URI (#1299)", () => {
-    const cfg = moduleWithUri(
-      "postgresql://localhost:5432/testdb?sslmode=verify-ca",
-    );
-    expect(cfg.ssl).toEqual({ rejectUnauthorized: true });
-  });
-
-  it("treats sslmode=disable as explicitly no TLS (#1299)", () => {
-    const cfg = moduleWithUri(
-      "postgresql://localhost:5432/testdb?sslmode=disable",
-    );
-    expect(cfg.ssl).toBe(false);
-  });
-
-  it("lets the explicit advanced option override the URI (#1299)", () => {
-    // pgSslRejectUnauthorized is set deliberately by an operator in the
-    // connection form; a query param inherited from a copy-pasted URI must
-    // not silently win over it.
-    const cfg = moduleWithUri(
-      "postgresql://localhost:5432/testdb?sslmode=verify-full",
-      { pgSslRejectUnauthorized: false },
-    );
-    expect(cfg.ssl).toEqual({ rejectUnauthorized: false });
-  });
-
-  it("still omits ssl when neither the URI nor options ask for it (#1299)", () => {
-    const cfg = moduleWithUri("postgresql://localhost:5432/testdb");
-    expect(cfg.ssl).toBeUndefined();
-  });
-
-  it("does not mistake a database named like a param for sslmode (#1299)", () => {
-    const cfg = moduleWithUri("postgresql://localhost:5432/sslmode=require");
-    expect(cfg.ssl).toBeUndefined();
   });
 });

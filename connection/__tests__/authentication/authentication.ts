@@ -3,16 +3,16 @@ import { AuthType } from "@neoboard/connector-sdk";
 import { getNeo4jAuth } from "../utils/setup";
 
 describe("Neo4jAuthenticationModule creation to check consistency", () => {
+  // The config bag carries no authType — it is not a descriptor field, and
+  // the app never stores one — so an absent authType means NATIVE (#1897).
   test("creating an authenticationModule with nothing as config", () => {
     // Expect a raised exception
-    expect(() => new Neo4jAuthenticationModule({})).toThrow(
-      "Authentication type is required",
-    );
+    expect(() => new Neo4jAuthenticationModule({})).toThrow("URI is required");
   });
-  test("creating an authenticationModule with an empty authType", () => {
+  test("creating an authenticationModule with no authType", () => {
     // Expect a raised exception
     expect(() => new Neo4jAuthenticationModule({ uri: "test" })).toThrow(
-      "Authentication type is required",
+      "Invalid URI format",
     );
   });
   test("creating an authenticationModule with an AuthType.Empty authType", () => {
@@ -65,8 +65,9 @@ describe("Neo4jAuthenticationModule with native auth", () => {
     // 'localhosta' can resolve to localhost on some systems (macOS mDNS),
     // causing the driver to connect to a local Neo4j instance instead of failing.
     config.uri = "bolt://192.0.2.1:7687";
-    const authModule = new Neo4jAuthenticationModule(config, {
-      neo4jConnectionTimeout: 2000,
+    const authModule = new Neo4jAuthenticationModule({
+      ...config,
+      connectionTimeout: 2000,
     });
     await expect(authModule.verifyAuthentication()).rejects.toThrow();
   });

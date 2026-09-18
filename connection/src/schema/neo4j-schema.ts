@@ -1,7 +1,7 @@
 import neo4j from "neo4j-driver";
 import { Neo4jConnectionModule } from "../neo4j/Neo4jConnectionModule";
 import { DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
-import type { AuthConfig } from "@neoboard/connector-sdk";
+import type { ConnectorConfig } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
 import type { DatabaseSchema, PropertyDef } from "@neoboard/connector-sdk";
 
@@ -15,8 +15,8 @@ import type { DatabaseSchema, PropertyDef } from "@neoboard/connector-sdk";
  *  - db.schema.relTypeProperties()
  */
 export class Neo4jSchemaManager implements SchemaManager {
-  async fetchSchema(authConfig: AuthConfig): Promise<DatabaseSchema> {
-    const module = new Neo4jConnectionModule(authConfig);
+  async fetchSchema(config: ConnectorConfig): Promise<DatabaseSchema> {
+    const module = new Neo4jConnectionModule(config);
     // neo4j-driver and neo4j-driver-core each export their own structurally
     // identical Driver type; the module returns the -core identity while the
     // local helper is typed against neo4j-driver's. Same runtime object —

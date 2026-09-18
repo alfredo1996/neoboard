@@ -135,9 +135,11 @@ describe("PostgresConnectionModule.checkConnection", () => {
   // the stall the bound exists for: the TCP session stays up and nothing
   // answers, so a server-side statement_timeout would never fire.
   test("checkConnection and listSchemas give up on a stalled backend within a sub-second budget (#1302)", async () => {
-    const mod = new PostgresConnectionModule(validConfig(), {
-      pgMaxPoolSize: 1,
-      pgIntrospectionTimeoutMillis: 300,
+    const mod = new PostgresConnectionModule({
+      ...validConfig(),
+      maxPoolSize: 1,
+      // Introspection and health checks are bounded by statementTimeout.
+      statementTimeout: 300,
     });
     const stalled: number[] = [];
     const stallPooledBackend = async () => {

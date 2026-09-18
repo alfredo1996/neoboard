@@ -360,22 +360,20 @@ describe("PostgresConnectionModule — introspection and health checks are bound
 });
 
 // #1302: the 30s bound is a default, not a ceiling. A big catalog can need more,
-// so the connection's advanced options override it for every checkout.
+// so the connection's statementTimeout overrides it for every checkout.
 describe("PostgresConnectionModule — introspection timeout is overridable (#1302)", () => {
   it.each([
     ["listDatabases", (m: PostgresConnectionModule) => m.listDatabases()],
     ["listSchemas", (m: PostgresConnectionModule) => m.listSchemas()],
     ["checkConnection", (m: PostgresConnectionModule) => m.checkConnection()],
-  ])("%s uses pgIntrospectionTimeoutMillis", async (_name, call) => {
-    const mod = new PostgresConnectionModule(
-      {
-        username: "u",
-        password: "p",
-        authType: AuthType.NATIVE,
-        uri: "postgresql://localhost:5432/db",
-      },
-      { pgIntrospectionTimeoutMillis: 45_000 },
-    );
+  ])("%s uses the connection's statementTimeout", async (_name, call) => {
+    const mod = new PostgresConnectionModule({
+      username: "u",
+      password: "p",
+      authType: AuthType.NATIVE,
+      uri: "postgresql://localhost:5432/db",
+      statementTimeout: 45_000,
+    });
     const client = {
       query: jest.fn().mockResolvedValue({ rows: [] }),
       release: jest.fn(),
