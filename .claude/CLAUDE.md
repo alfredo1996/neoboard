@@ -128,7 +128,7 @@ Gated by the `NEOBOARD_EDITION` env var, not code branches. Must fall back grace
 
 ## Migrations
 
-Forward-only. Write them to be idempotent — nothing checks that mechanically. The migration-lint script that claimed to went in #1872: it was run by no workflow, no hook and no test, and exited 1 on drizzle-kit's own output. An advisory lock prevents concurrent runs.
+Forward-only. Write them to be idempotent — nothing checks that mechanically. #1872 deleted the migration-lint script that claimed to: no workflow, hook or test ever ran it, and it exited 1 on drizzle-kit's own output. An advisory lock prevents concurrent runs.
 Test version-skip paths. Boot migrations are controlled by `MIGRATE_ON_START` (`1`/`true` to run; set `0` to skip for emergency debugging) — there is no `--skip-migrations` CLI flag.
 
 ## Automated Guardrails (Hooks)

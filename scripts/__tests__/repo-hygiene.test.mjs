@@ -123,7 +123,10 @@ describe("Sonar and ESLint ignores point at real paths (#1872)", () => {
       try {
         git(["check-ignore", "-q", "--no-index", candidate]);
         return true;
-      } catch {
+      } catch (err) {
+        // 1 is "not ignored"; anything else (128: bad pathspec or repo state)
+        // is a real failure and must not read as a clean result.
+        if (err.status !== 1) throw err;
         return false;
       }
     });
