@@ -46,6 +46,18 @@ function normalizeProps(
  */
 const SYNTHETIC_ID_PATTERN = /^-[1-9]\d*$/;
 
+/**
+ * The first candidate that is a string or a number, as a string. An object is
+ * skipped rather than stringified: `String({low, high})` is "[object Object]",
+ * which would give every such node the same id and collapse them into one.
+ */
+function firstScalarId(...candidates: unknown[]): string | undefined {
+  for (const c of candidates) {
+    if (typeof c === "string" || typeof c === "number") return String(c);
+  }
+  return undefined;
+}
+
 function isNode(v: Record<string, unknown>): boolean {
   return "labels" in v && "properties" in v;
 }
@@ -75,7 +87,7 @@ export function transformToGraphData(data: unknown): unknown {
   const edgesMap = new Map<string, Record<string, unknown>>();
 
   function addNode(v: Record<string, unknown>) {
-    const id = String(v.elementId ?? v.identity ?? randomId());
+    const id = firstScalarId(v.elementId, v.identity) ?? randomId();
     if (!nodesMap.has(id)) {
       const labels = (v.labels as string[]) ?? [];
       const rawProps = (v.properties as Record<string, unknown>) ?? {};
@@ -92,11 +104,9 @@ export function transformToGraphData(data: unknown): unknown {
   }
 
   function addEdge(v: Record<string, unknown>) {
-    const edgeId = String(
-      v.elementId ??
-        v.identity ??
-        `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`,
-    );
+    const edgeId =
+      firstScalarId(v.elementId, v.identity) ??
+      `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`;
     if (!edgesMap.has(edgeId)) {
       const rawProps = (v.properties ?? {}) as Record<string, unknown>;
       edgesMap.set(edgeId, {
