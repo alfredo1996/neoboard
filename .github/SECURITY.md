@@ -7,9 +7,8 @@
 | 1.x     | :white_check_mark: |
 | < 1.0   | :x:                |
 
-Releases numbered 2.x belong to the pre-public development cycle; versioning
-reset at 1.0.0 before the first public release (see CHANGELOG.md). Nothing in
-the 2.x line is supported.
+Versions before 1.0.0 were pre-public development builds and are not
+supported.
 
 ## Reporting a Vulnerability
 

@@ -68,8 +68,9 @@ npm run build        # Vite ESM/UMD bundles
 
 ## Styling
 
-- Tokens in `design-tokens.css` — Graphite surfaces + the Citrine amber
-  accent (`--ring` / `--accent`), light and dark.
+- Tokens in `design-tokens.css` — Graphite surfaces with azure interaction
+  (`--ring` / `--accent`, #1553) and the citrine brand mark (`--brand`), light
+  and dark.
 - `class-variance-authority` for variants; `tailwind-merge` via `cn()`.
-- Charts consume the Citrine palettes from `src/charts/theme.ts` — never
+- Charts consume the citrine palettes from `src/charts/theme.ts` — never
   hardcode chart colors.

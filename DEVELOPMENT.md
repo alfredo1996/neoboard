@@ -31,10 +31,10 @@ This starts PostgreSQL 16 (port 5432) and Neo4j (port 7687) containers.
 Generate `app/.env.local` with all required secrets in one step (the `neoboard` CLI is linked automatically by `npm install`):
 
 ```bash
-neoboard env init
+neoboard env
 ```
 
-This writes `DATABASE_URL`, a generated `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `API_KEY_HMAC_SECRET`, and an `ADMIN_BOOTSTRAP_TOKEN` for first signup.
+This writes `DATABASE_URL`, a generated `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `API_KEY_HMAC_SECRET`, and an `ADMIN_BOOTSTRAP_TOKEN` for first signup. `neoboard init --mode local` does the same as part of a full local setup.
 
 Prefer manual control? Copy the template and generate each value yourself:
 
@@ -99,7 +99,7 @@ Coverage target is **80% per package**. Check with `npm run test:coverage` in ea
 
 ## Development Workflow
 
-1. **Branch from `dev`** using the naming convention:
+1. **Branch from `dev`, or the active `release/X.Y` branch** using the naming convention:
    - `feat/issue-<N>-<slug>` for features
    - `fix/issue-<N>-<slug>` for bug fixes
    - `docs/`, `chore/`, `refactor/` for other work
@@ -119,7 +119,7 @@ Coverage target is **80% per package**. Check with `npm run test:coverage` in ea
    npm run build
    ```
 
-4. **Open a PR targeting `dev`**. Link the issue with `Closes #N` in the PR body. Add labels for type, package, and area.
+4. **Open a PR targeting `dev`, or the active `release/X.Y` branch**. Link the issue with `Closes #N` in the PR body. Add labels for type, package, and area.
 
 ## Adding a New Chart Type
 
@@ -127,7 +127,7 @@ NeoBoard uses a plugin-based chart registry. To add a chart type:
 
 1. Create the chart component in `component/src/charts/`
 2. Register it in `app/src/lib/plugin/chart-plugin-registry.ts`
-3. Add a Storybook story in `component/src/stories/`
+3. Add a Storybook story in `component/stories/`
 
 See existing chart implementations (bar, line, pie) for the pattern.
 
@@ -136,10 +136,10 @@ See existing chart implementations (bar, line, pie) for the pattern.
 NeoBoard uses [Drizzle ORM](https://orm.drizzle.team/) with forward-only migrations.
 
 ```bash
-# After modifying the schema in app/src/lib/db/schema/
+# After modifying the schema in app/src/lib/db/schema.ts
 npm run db:generate    # generates a migration file
 npm run db:migrate     # applies pending migrations
-npm run db:studio      # opens Drizzle Studio (DB GUI)
+npm -w app run db:studio   # opens Drizzle Studio (DB GUI)
 ```
 
 Migrations are **idempotent** and use an advisory lock to prevent concurrent runs. Never edit or delete an existing migration file.
@@ -154,7 +154,7 @@ Migrations are **idempotent** and use an advisory lock to prevent concurrent run
 | `npm run storybook`                                 | Component library viewer (port 6006)   |
 | `npm run db:migrate`                                | Apply database migrations              |
 | `npm run db:generate`                               | Generate migration from schema changes |
-| `npm run db:studio`                                 | Open Drizzle Studio                    |
+| `npm -w app run db:studio`                          | Open Drizzle Studio                    |
 | `npm run test:e2e`                                  | Run Playwright E2E tests               |
 | `docker compose -f docker/docker-compose.yml up -d` | Start dev databases                    |
 | `docker compose -f docker/docker-compose.yml down`  | Stop dev databases                     |

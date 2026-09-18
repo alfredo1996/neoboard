@@ -50,7 +50,8 @@
  *   • Shadows are stored as pre-resolved CSS strings (with embedded hsl()),
  *     because a box-shadow value isn't a single composable color. This is the
  *     one intentional exception — do not "normalize" it.
- * Never store a color as hex/rgba. Interaction = citrine amber (Epic A #1125).
+ * Never store a color as hex/rgba. Interaction = azure (#1553); brand and
+ * charts = citrine.
  */
 :root {
   --background: 220 14% 98%;

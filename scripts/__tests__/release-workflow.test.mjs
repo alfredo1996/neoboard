@@ -436,4 +436,20 @@ describe("release versions", () => {
   it("has a non-empty CHANGELOG section for the release version", () => {
     expect(changelogSection(version)).not.toBe("");
   });
+
+  it("documents nothing older than 1.0.0 (#1871)", () => {
+    // The pre-public cycle ([2.0.0] and [0.9.1]..[0.1.0]) described a product
+    // that was never released under these numbers. Versioning resets at
+    // 1.0.0, so that is the oldest heading.
+    const headings = [
+      ...read("CHANGELOG.md").matchAll(/^## \[(\d+)\.(\d+)\.(\d+)\]/gm),
+    ].map((m) => m.slice(1, 4).map(Number));
+    expect(headings.length).toBeGreaterThan(0); // the heading regex still matches
+    expect(
+      headings
+        // A floor, not an equality: 2.0.0 must be able to add its own section.
+        .filter(([maj]) => maj < 1)
+        .map((v) => `[${v.join(".")}]`),
+    ).toEqual([]);
+  });
 });

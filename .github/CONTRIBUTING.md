@@ -63,7 +63,7 @@ docs(scope): documentation changes
 refactor(scope): code refactoring
 ```
 
-Scopes: `app`, `component`, `connection`, `docker`, `ci`
+Scopes: the package (`app`, `component`, `connection`, `connector-sdk`, `cli`) or the area touched (e.g. `docker`, `ci`, `docs`)
 
 ## Architecture
 
@@ -113,4 +113,4 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [Elastic License 2.0](LICENSE) with the AI training restriction addendum.
+By contributing, you agree that your contributions will be licensed under the [Elastic License 2.0](../LICENSE) with the AI training restriction addendum.

@@ -8,13 +8,6 @@ import rehypeBaseLinks from "./rehype-base-links.mjs";
 // from / and emits no sitemap.
 const site = process.env.DOCS_SITE || undefined;
 const base = process.env.DOCS_BASE || "/";
-const withBase = (redirects) =>
-  Object.fromEntries(
-    Object.entries(redirects).map(([from, to]) => [
-      from,
-      base.replace(/\/+$/, "") + to,
-    ]),
-  );
 
 /**
  * Two Starlight breaking changes are handled here, both introduced between
@@ -34,60 +27,6 @@ export default defineConfig({
   base,
   // Content links are root-absolute; Astro does not prefix `base` onto them.
   markdown: { rehypePlugins: [[rehypeBaseLinks, { base }]] },
-  // Slugs retired by the #1681 restructure. Each old path still resolves so
-  // links from the README, the app and search engines keep working. Astro puts
-  // `base` on the source path but not on the target, hence the map (#1318).
-  redirects: withBase({
-    "/getting-started": "/start-here/what-is-neoboard",
-    "/getting-started/installation": "/start-here/install",
-    "/getting-started/quick-start": "/start-here/first-dashboard",
-    "/getting-started/configuration": "/deploy/configuration",
-    "/getting-started/migration-from-neodash":
-      "/start-here/migration-from-neodash",
-    "/getting-started/troubleshooting": "/start-here/troubleshooting",
-    "/guides": "/using/dashboards",
-    "/guides/first-dashboard": "/start-here/first-dashboard",
-    "/guides/connecting-databases": "/using/connecting-databases",
-    "/guides/keyboard-shortcuts": "/using/keyboard-shortcuts",
-    "/guides/query-history": "/using/query-history",
-    "/guides/managing-users": "/security/managing-users",
-    "/guides/api-keys": "/security/api-keys",
-    // Never a page: the app's "Widget guide" help link has always pointed here.
-    "/guides/widgets": "/using/widgets",
-    "/concepts": "/using/dashboards",
-    "/concepts/dashboards": "/using/dashboards",
-    "/concepts/widgets": "/using/widgets",
-    "/concepts/parameters": "/using/parameters",
-    "/concepts/connectors": "/using/connectors",
-    "/concepts/architecture": "/extend/architecture",
-    "/concepts/multi-tenancy": "/security/multi-tenancy",
-    "/concepts/query-safety": "/security/query-safety",
-    "/administration": "/deploy/production",
-    "/administration/reverse-proxy": "/deploy/reverse-proxy",
-    "/administration/backup-restore": "/deploy/backup-restore",
-    "/administration/monitoring": "/deploy/monitoring",
-    "/administration/deployment-checklist": "/deploy/deployment-checklist",
-    "/authentication": "/security/password-login",
-    "/authentication/password-login": "/security/password-login",
-    "/authentication/sso": "/start-here/enterprise",
-    "/authentication/roles": "/security/roles",
-    "/cli/docker-setup": "/start-here/tour",
-    "/cli/local-setup": "/extend/setup",
-    "/developer": "/extend/architecture",
-    "/developer/extending/new-chart-plugin": "/extend/new-chart-plugin",
-    "/developer/extending/new-chart-type": "/extend/new-chart-plugin",
-    "/developer/extending/new-connector-plugin": "/extend/new-connector-plugin",
-    "/developer/extending/new-connector": "/extend/new-connector-plugin",
-    "/developer/extending/new-parameter-type": "/extend/new-parameter-type",
-    "/developer/extending/new-widget-type": "/extend/new-widget-type",
-    "/developer/plugins": "/extend/external-plugins",
-    "/developer/plugins/mongodb-connector": "/extend/mongodb-connector",
-    "/developer/plugins/community": "/extend/community",
-    "/developer/contributing/setup": "/extend/setup",
-    "/developer/contributing/code-style": "/extend/code-style",
-    "/developer/contributing/testing": "/extend/testing",
-    "/developer/contributing/pr-workflow": "/extend/pr-workflow",
-  }),
   integrations: [
     starlight({
       title: "NeoBoard",

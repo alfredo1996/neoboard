@@ -11,7 +11,7 @@ allowed-tools: Read, Write, Bash(docker *), Bash(docker-compose *), Bash(npm *),
 
 **Goal**: someone clones the repo, follows the docs, deploys to production, and doesn't lose data or get pwned.
 
-**Operating principle**: this skill is a **read-and-record** audit. Don't fix in place. File every gap as a GitHub issue on `alfredo1996/neoboard` with concrete repro steps and proposed fix. Fixes happen in their own PRs per the [one-PR-per-issue rule](../../../.claude/projects/-Users-alfredorubin-Desktop-public/memory/feedback_pr_per_issue.md).
+**Operating principle**: this skill is a **read-and-record** audit. Don't fix in place. File every gap as a GitHub issue on `alfredo1996/neoboard` with concrete repro steps and proposed fix. Fixes happen in their own PRs: one PR per issue.
 
 If $ARGUMENTS contains an umbrella issue number (e.g. `/deploy 895`), link every filed issue to that umbrella in the body and as a comment.
 
@@ -81,7 +81,7 @@ docker compose -f docker-compose.prod.yml logs --tail 50 app  # or whatever the 
 
 - Stack fails to start with a fresh `.env`
 - App starts but immediately errors (DB connection, missing migrations, etc.)
-- "ready" signal is silent (per [feedback_cli_ready_signal](../../../.claude/projects/-Users-alfredorubin-Desktop-public/memory/feedback_cli_ready_signal.md))
+- "ready" signal is silent — the CLI must print the URL and the credentials, not go quiet after "Starting..."
 - Healthcheck endpoint doesn't return 200 within reasonable time
 - Log noise (warnings, missing-env spam)
 
@@ -161,8 +161,8 @@ Read-only first:
 
 ```bash
 # Check forward-only enforcement
-cat app/src/lib/db/migrate.ts | head -60
-ls app/src/lib/db/migrations/
+cat app/src/lib/db/migrate-on-boot.ts | head -60
+ls app/drizzle/migrations/
 ```
 
 ⚠️ **DESTRUCTIVE — requires approval gate**. Running migrations against a DB modifies schema. Use the audit-scratch DB, not anything you care about.
@@ -246,7 +246,7 @@ Output a numbered list:
 ...
 ```
 
-File each as a GH issue using the [issue skill](../issue/skill.md):
+File each as a GH issue using the [issue skill](../issue/SKILL.md):
 
 - Labels: type + `pkg:app` + `area:devex` or `area:release` + (often) `documentation`
 - Title prefix `[P0]` for ship blockers (stack won't start, data loss possible), `[P1]` for serious correctness gaps, `[P2]` for QoL / completeness

@@ -95,8 +95,8 @@ ENV MIGRATIONS_DIR=/app/app/drizzle/migrations
 #                           and env-config marks it required, so the app exits
 #                           at boot without it.
 #   NEXTAUTH_URL          — Public URL of the app (e.g. https://neoboard.example.com)
-# The full catalogue of optional vars (auth/bootstrap, OIDC SSO, logging,
-# query scheduler tuning, CORS/HTTPS, edition) lives in app/.env.example —
+# The full catalogue of optional vars (auth/bootstrap, HTTPS redirect, logging,
+# query scheduler tuning, key rotation) lives in app/.env.example —
 # the single documented list (#931). Don't duplicate it here.
 
 # start-period 30s: Next.js cold start with boot migrations easily exceeds
