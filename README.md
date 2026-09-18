@@ -52,7 +52,7 @@ For production, run the Docker Compose stack, built from your checkout or pulled
 
 ## Contributing
 
-[DEVELOPMENT.md](DEVELOPMENT.md) covers local setup and [CONTRIBUTING.md](.github/CONTRIBUTING.md) covers branches and pull requests. New here? Pick a [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
+[DEVELOPMENT.md](DEVELOPMENT.md) covers local setup and [CONTRIBUTING.md](CONTRIBUTING.md) covers branches and pull requests. New here? Pick a [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
 
 ## License
 
