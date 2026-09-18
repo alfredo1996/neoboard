@@ -447,7 +447,8 @@ describe("release versions", () => {
     expect(headings.length).toBeGreaterThan(0); // the heading regex still matches
     expect(
       headings
-        .filter(([maj]) => maj !== 1)
+        // A floor, not an equality: 2.0.0 must be able to add its own section.
+        .filter(([maj]) => maj < 1)
         .map((v) => `[${v.join(".")}]`),
     ).toEqual([]);
   });

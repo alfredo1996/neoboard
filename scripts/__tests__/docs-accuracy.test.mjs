@@ -1767,13 +1767,33 @@ describe("the repo's own markdown and config comments (#1871)", () => {
       .filter(Boolean);
     expect(files.length).toBeGreaterThan(0); // the pathspecs still match
 
+    // Resolve against the tracked list, not the filesystem: APFS is
+    // case-insensitive, so existsSync() accepts `../issue/skill.md` for
+    // `SKILL.md` — the very link this test exists to catch.
+    const tracked = new Set(
+      execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" })
+        .split("\n")
+        .filter(Boolean),
+    );
+    const trackedDirs = new Set(
+      [...tracked].flatMap((p) => {
+        const parts = p.split("/");
+        return parts
+          .slice(0, -1)
+          .map((_, i) => parts.slice(0, i + 1).join("/"));
+      }),
+    );
+
     const broken = [];
     for (const file of files) {
       const text = readFileSync(join(ROOT, file), "utf8");
       for (const m of text.matchAll(/\]\(([^)\s]+)\)/g)) {
         const target = m[1].replace(/[?#].*$/, "");
         if (!target || /^(https?:|mailto:|data:|\/)/.test(target)) continue;
-        if (!existsSync(join(ROOT, dirname(file), target)))
+        const resolved = posix
+          .normalize(posix.join(dirname(file) === "." ? "" : dirname(file), target))
+          .replace(/\/$/, "");
+        if (!tracked.has(resolved) && !trackedDirs.has(resolved))
           broken.push(`${target} (${file})`);
       }
     }
