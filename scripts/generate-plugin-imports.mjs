@@ -193,11 +193,19 @@ export function runGenerator(opts = {}) {
   const outputPath = opts.outputPath ?? OUTPUT_PATH;
 
   if (!existsSync(manifestPath)) {
-    return {
-      ok: false,
-      errors: [`Manifest not found at ${manifestPath}`],
-      wrote: false,
-    };
+    // No manifest = no external plugins. Generate empty file silently, the
+    // same as generate-connector-imports.mjs: both run as predev/prebuild,
+    // so hard-failing here broke `npm run dev` and `npm run build` for a
+    // deletion that is harmless on the connector side (#1885).
+    const source = renderSource([]);
+    const existing = existsSync(outputPath)
+      ? readFileSync(outputPath, "utf8")
+      : null;
+    if (existing === source) {
+      return { ok: true, errors: [], wrote: false };
+    }
+    writeFileSync(outputPath, source, "utf8");
+    return { ok: true, errors: [], wrote: true };
   }
 
   let raw;
