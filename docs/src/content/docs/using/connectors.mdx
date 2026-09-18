@@ -47,17 +47,21 @@ Connectors are the bridge between NeoBoard and your databases. Each connector st
 
 ## Advanced Settings
 
-All values are in milliseconds. A field left blank uses the default shown.
+Each connector declares its own advanced settings — the key each is stored under, its unit and its valid range — so the table below is per connector. Timeouts are in milliseconds and accept 1000–300000; Max Pool Size accepts 1–100. A field left blank is not stored, and the default shown applies.
 
-| Setting | Applies to | Description | Default |
-|---------|------------|-------------|---------|
-| Connection Timeout (ms) | Neo4j / PostgreSQL | Time to establish a connection | 30000 / 10000 |
-| Query Timeout (ms) | Neo4j (PostgreSQL uses it when Statement Timeout is unset) | Maximum query execution time | 30000 |
-| Statement Timeout (ms) | PostgreSQL | Statement timeout for queries, introspection and health checks | Query Timeout, else 30000 |
-| Max Pool Size | Neo4j / PostgreSQL | Maximum concurrent connections (1-100) | 100 / 10 |
-| Acquisition Timeout (ms) | Neo4j | Time to wait for a free pooled connection | Connection Timeout + 5000 (35000) |
-| Idle Timeout (ms) | PostgreSQL | Time before idle connections close | 10000 |
-| Reject Unauthorized SSL | PostgreSQL | Verify the server's TLS certificate. On: encrypt and verify. Off, once the toggle has been changed: encrypt without verifying, whatever the URI says | Unset (the toggle starts off and is not saved until you change it): follows the URI's `sslmode`. `disable` means no TLS, `allow`/`prefer`/`require` encrypt without verifying, `verify-ca`/`verify-full` verify. With no `sslmode`, no TLS unless the server's `PGSSLMODE` environment variable says otherwise |
+| Setting | `config` key | Applies to | Description | Default |
+|---------|--------------|------------|-------------|---------|
+| Connection Timeout (ms) | `connectionTimeout` | Neo4j / PostgreSQL | Time to establish a connection | 30000 / 10000 |
+| Query Timeout (ms) | `queryTimeout` | Neo4j (PostgreSQL uses it when Statement Timeout is unset) | Maximum query execution time | 30000 |
+| Statement Timeout (ms) | `statementTimeout` | PostgreSQL | Statement timeout for queries, introspection and health checks | Query Timeout, else 30000 |
+| Max Pool Size | `maxPoolSize` | Neo4j / PostgreSQL | Maximum concurrent connections (1-100) | 100 / 10 |
+| Acquisition Timeout (ms) | `connectionAcquisitionTimeout` | Neo4j | Time to wait for a free pooled connection | Connection Timeout + 5000 (35000) |
+| Idle Timeout (ms) | `idleTimeout` | PostgreSQL | Time before idle connections close | 10000 |
+| Reject Unauthorized SSL | `sslRejectUnauthorized` | PostgreSQL | Verify the server's TLS certificate. On: encrypt and verify. Off, once the toggle has been changed: encrypt without verifying, whatever the URI says | Unset (the toggle starts off and is not saved until you change it): follows the URI's `sslmode`. `disable` means no TLS, `allow`/`prefer`/`require` encrypt without verifying, `verify-ca`/`verify-full` verify. With no `sslmode`, no TLS unless the server's `PGSSLMODE` environment variable says otherwise |
+
+**Max Rows per Query** (`maxRows`, 100–100000, default 5000) sits in the same panel but is NeoBoard's own row cap, not a connector setting: it applies to every connector type alike.
+
+For PostgreSQL, the **Database** field applies when the URI names no database; a database on the URI path (`postgresql://host:5432/sales`) wins.
 
 ## Schema Introspection
 

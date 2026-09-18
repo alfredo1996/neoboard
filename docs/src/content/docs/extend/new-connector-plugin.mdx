@@ -7,7 +7,7 @@ sidebar:
 
 A connector teaches NeoBoard how to talk to a database: how to connect, how to run a query safely, and (optionally) how to describe the schema. The built-in Neo4j and PostgreSQL connectors are written against the same contract you will use — `@neoboard/connector-sdk` — so they are the reference implementations, not special cases.
 
-This page builds a complete connector for an imaginary database, "MyDB", as an **external package**. Every TypeScript block below names its file on the first line, and the blocks together form one package that compiles against the SDK with the `package.json` and `tsconfig.json` from step 6 — a test in the NeoBoard repo checks that in CI, so what you read here is what the types accept.
+This page builds a complete connector for an imaginary database, "MyDB", as an **external package**. Every TypeScript block below names its file on the first line, and the blocks together form one package that compiles against the SDK with the `package.json` and `tsconfig.json` from step 7 — a test in the NeoBoard repo checks that in CI, so what you read here is what the types accept.
 
 ## What you build
 
@@ -17,6 +17,7 @@ neoboard-connector-mydb/
 ├── tsconfig.json
 ├── src/
 │   ├── index.ts        default export: the ConnectorPlugin object
+│   ├── descriptor.ts   ConnectorDescriptor — what the connector is, as pure data
 │   ├── auth.ts         AuthenticationModule — URI validation, driver lifecycle
 │   ├── connection.ts   ConnectionModule — runQuery, checkConnection, listDatabases
 │   ├── schema.ts       SchemaManager (optional) — tables and columns for autocomplete
@@ -67,36 +68,121 @@ export declare function connect(
 ): Driver;
 ```
 
-## 2. The authentication module
+## 2. The descriptor
 
-`AuthenticationModule` owns the credentials and the driver instance. The two protected helpers it inherits do the validation for you: `_checkConfigurationConsistency` rejects a missing URI or auth type, and `_validateUri` rejects a malformed URI, a missing host, a bad port, or a scheme outside your list — without ever echoing the URI back, since it may carry credentials.
+Everything your connector **is** — its name, its query language, and every value it needs in order to connect — is one plain object, the `ConnectorDescriptor`. It is pure data: no functions, no driver import, JSON-serializable. You declare *what* you need; NeoBoard decides how the form that collects it looks, so a field carries no layout, class names or components.
+
+```ts
+// src/descriptor.ts
+import type { ConnectorDescriptor } from "@neoboard/connector-sdk";
+
+export const descriptor: ConnectorDescriptor = {
+  type: "mydb",
+  label: "MyDB",
+  category: "database",
+  queryLanguage: "sql",
+  supportsWrite: true,
+  supportsGraphData: false,
+  fields: [
+    {
+      key: "uri",
+      label: "URI",
+      type: "uri",
+      group: "connection",
+      required: true,
+      placeholder: "mydb://localhost:5555",
+      protocols: ["mydb:", "mydb+tls:"],
+    },
+    {
+      key: "username",
+      label: "Username",
+      type: "text",
+      group: "connection",
+      required: true,
+    },
+    {
+      key: "password",
+      label: "Password",
+      type: "password",
+      group: "connection",
+      required: true,
+    },
+    {
+      key: "database",
+      label: "Database",
+      type: "text",
+      group: "connection",
+      placeholder: "app",
+      description: "Optional — leave empty for the server default.",
+    },
+    {
+      key: "maxPoolSize",
+      label: "Max Pool Size",
+      type: "number",
+      group: "advanced",
+      placeholder: "10",
+      min: 1,
+      max: 100,
+    },
+  ],
+};
+```
+
+Each field's `key` is the key its value is **stored** under on the connection, and the key you read it back from in step 3 — so renaming one later is a data migration. The field types:
+
+| `type`     | Value                     | Extra properties                                                                                                   |
+| ---------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `text`     | string                    |                                                                                                                    |
+| `password` | string — a secret         | A descriptor may have several; every one is a secret.                                                              |
+| `uri`      | string                    | `protocols` (required): the accepted schemes, colon included. Host, port range and "no password in the URI" are checked too. |
+| `number`   | integer                   | `min`, `max` (inclusive), `unit` (for example `"ms"` — keep it out of the label).                                   |
+| `select`   | one of `options[].value`  | `options` (required): `{ label, value }[]`.                                                                        |
+| `boolean`  | `true` / `false`          |                                                                                                                    |
+
+Every field also takes `group` (`"connection"` for what it takes to connect, `"advanced"` for tuning that has a sensible default), and optionally `required`, `placeholder` and `description`. A `placeholder` is only ever shown — apply your defaults in code.
+
+The registry **throws** at startup on a malformed descriptor: a field without `key`, `label` or `type`, an unknown `type` or `group`, a duplicate `key`, a `select` without `options`, a `uri` without `protocols`, an invalid `category`, or an `iconSvg` over 16 KB.
+
+The SDK's `validateConfig(descriptor, config)` checks a config against these declarations — required fields, integer ranges, select membership, the URI rules — and returns `{ config, errors }`: the declared values with unknown keys stripped, and one message per failing field. `toDescriptor(plugin)` is the reverse of step 6: it returns the plain-data half of a plugin, which is what may be sent to a browser.
+
+## 3. The authentication module
+
+Your connector is built from **one config bag**: an object holding the values of your descriptor's fields, keyed by `field.key`. There is no separate auth object and no separate options bag — you read `uri`, `password`, `maxPoolSize` and whatever else you declared from the same place.
+
+`AuthenticationModule` owns the credentials and the driver instance. The protected helper it inherits, `_validateUri`, rejects a malformed URI, a missing host, a bad port, or a scheme outside your list — without ever echoing the URI back, since it may carry credentials. The scheme list comes from the descriptor, so it exists once.
 
 ```ts
 // src/auth.ts
-import { AuthenticationModule, type AuthConfig } from "@neoboard/connector-sdk";
+import {
+  AuthenticationModule,
+  type ConnectorConfig,
+} from "@neoboard/connector-sdk";
+import { descriptor } from "./descriptor.js";
 import { connect, type Driver } from "./driver.js";
 
-/** URI schemes this connector accepts. Declared on the plugin too — enforced here. */
-export const ALLOWED_PROTOCOLS = ["mydb:", "mydb+tls:"];
+const PROTOCOLS =
+  descriptor.fields.find((field) => field.type === "uri")?.protocols ?? [];
+
+const text = (value: unknown): string =>
+  typeof value === "string" ? value : "";
 
 export class MyDbAuthenticationModule extends AuthenticationModule {
   private driver: Driver | null = null;
-  private authConfig: AuthConfig;
+  private readonly uri: string;
+  private readonly username: string;
+  private readonly password: string;
 
-  constructor(authConfig: AuthConfig) {
+  constructor(config: ConnectorConfig) {
     super();
-    this._checkConfigurationConsistency(authConfig);
-    this._validateUri(authConfig.uri, ALLOWED_PROTOCOLS);
-    this.authConfig = authConfig;
+    this.uri = text(config.uri);
+    this.username = text(config.username);
+    this.password = text(config.password);
+    this._validateUri(this.uri, PROTOCOLS);
   }
 
   /** Creates the driver lazily; the same instance serves every query. */
   createDriver(): Driver {
-    this.driver ??= connect(
-      this.authConfig.uri,
-      this.authConfig.username,
-      this.authConfig.password,
-    );
+    this.driver ??= connect(this.uri, this.username, this.password);
     return this.driver;
   }
 
@@ -105,10 +191,9 @@ export class MyDbAuthenticationModule extends AuthenticationModule {
     return true;
   }
 
-  async updateAuthConfig(authConfig: AuthConfig): Promise<void> {
-    this._checkConfigurationConsistency(authConfig);
+  /** Part of the base class; NeoBoard never calls it — a changed config builds a new module. */
+  async updateAuthConfig(): Promise<void> {
     await this.close();
-    this.authConfig = authConfig;
   }
 
   async close(): Promise<void> {
@@ -118,9 +203,11 @@ export class MyDbAuthenticationModule extends AuthenticationModule {
 }
 ```
 
+Read the bag defensively (`typeof value === "string"`): a driver option is the wrong place to discover a wrong type, and the connections API does not validate a config against your descriptor yet (see step 8). Keys you did not declare may be present — NeoBoard keeps its own settings, such as the row cap, on the same stored config — so read your keys and ignore the rest.
+
 Never log the config or an error that quotes it. The built-ins log only an error's code or name — a driver message can carry the connection string.
 
-## 3. The connection module
+## 4. The connection module
 
 `ConnectionModule` is where the [query-safety](/security/query-safety) invariants live. `runQuery` reports through callbacks rather than a return value, and the contract around those callbacks is precise — the comments in the code say what each line is for.
 
@@ -134,8 +221,8 @@ import {
   collectUpToLimit,
   drainRetainingUpTo,
   determineQueryStatus,
-  type AuthConfig,
   type ConnectionConfig,
+  type ConnectorConfig,
   type QueryCallback,
   type QueryParams,
 } from "@neoboard/connector-sdk";
@@ -146,12 +233,9 @@ type Row = Record<string, unknown>;
 export class MyDbConnectionModule extends ConnectionModule {
   authModule: MyDbAuthenticationModule;
 
-  constructor(
-    authConfig: AuthConfig,
-    _advancedOptions?: Record<string, unknown>,
-  ) {
+  constructor(config: ConnectorConfig) {
     super();
-    this.authModule = new MyDbAuthenticationModule(authConfig);
+    this.authModule = new MyDbAuthenticationModule(config);
   }
 
   async runQuery<T>(
@@ -243,29 +327,29 @@ What the pieces of `config` and `callbacks` mean:
 | `config.accessMode`                | `"READ"` for every widget except Form widgets, which send `"WRITE"`. Enforce it at the database; anything that is not exactly `"WRITE"` is read-only.                                                                                                                                                       |
 | `config.rowLimit`                  | Keep at most this many rows. Detect truncation by pulling one more (`collectUpToLimit` does this) and report `COMPLETE_TRUNCATED`, which the UI turns into a "showing first N rows" banner.                                                                                                                  |
 | `config.timeout`                   | Milliseconds. Enforce at the driver or server (statement timeout, transaction timeout, `maxTimeMS` — whatever your database has) and report `TIMED_OUT`.                                                                                                                                                    |
-| `config.database`                  | The database chosen on the connection, or `undefined` for the server default. NeoBoard also puts it on the URI path when the URI has none.                                                                                                                                                                  |
-| `config.connectionType`            | `ConnectionTypes.UNKNOWN` for every registry-supplied connector. Do not branch on it.                                                                                                                                                                                                                       |
+| `config.database`                  | The database for this query, or `undefined` for the server default. It is the `database` of your config bag unless a widget overrides it. Applying it is your job — NeoBoard no longer rewrites the URI.                                                                                                    |
 | `callbacks.onSuccess(rows)`        | An array of plain row objects — it is serialised to JSON as-is and handed to the chart transforms. Exactly one of `onSuccess` / `onFail` fires per call.                                                                                                                                                     |
 | `callbacks.onFail(error)`          | A `ConnectorError` whose `type` says what went wrong. `wrapError` in the SDK only knows the two built-in drivers, so construct the error yourself.                                                                                                                                                           |
 | `callbacks.setStatus(status)`      | `RUNNING` is set for you by `handleEmptyQuery`; you set `COMPLETE`, `COMPLETE_TRUNCATED`, `NO_DATA` (`determineQueryStatus` picks), `TIMED_OUT` or `ERROR`.                                                                                                                                                 |
 | `callbacks.setFields`, `setSchema` | Optional. `setFields` gets the column names of a row; `setSchema` gets per-column type information, if you have it.                                                                                                                                                                                         |
 
-## 4. The schema manager (optional)
+## 5. The schema manager (optional)
 
 If your database can describe its tables, implement `SchemaManager` and the query editor gets autocomplete and a schema panel for connections of your type. Omit it otherwise — the registry resolves a missing manager to `undefined` and the editor works without it. `type` is a free string, so use your connector's `type`.
 
 ```ts
 // src/schema.ts
 import type {
-  AuthConfig,
+  ConnectorConfig,
   DatabaseSchema,
   SchemaManager,
 } from "@neoboard/connector-sdk";
 import { MyDbConnectionModule } from "./connection.js";
 
 export class MyDbSchemaManager implements SchemaManager {
-  async fetchSchema(authConfig: AuthConfig): Promise<DatabaseSchema> {
-    const module = new MyDbConnectionModule(authConfig);
+  /** Takes the same config bag as `createModule`. */
+  async fetchSchema(config: ConnectorConfig): Promise<DatabaseSchema> {
+    const module = new MyDbConnectionModule(config);
     try {
       const tables = await module.authModule.createDriver().listTables();
       return { type: "mydb", tables };
@@ -276,46 +360,21 @@ export class MyDbSchemaManager implements SchemaManager {
 }
 ```
 
-## 5. The plugin object
+## 6. The plugin object
 
-The package's default export is the `ConnectorPlugin`. `createModule` is the only place a driver gets instantiated, and it is the only method NeoBoard calls with credentials.
+The package's default export is the `ConnectorPlugin`: the descriptor plus the factories that need the driver. `createModule` is the only place a driver gets instantiated, and it is the only method NeoBoard calls with credentials.
 
 ```ts
 // src/index.ts
 import type { ConnectorPlugin } from "@neoboard/connector-sdk";
-import { ALLOWED_PROTOCOLS } from "./auth.js";
 import { MyDbConnectionModule } from "./connection.js";
+import { descriptor } from "./descriptor.js";
 import { MyDbSchemaManager } from "./schema.js";
 
 const plugin: ConnectorPlugin = {
-  type: "mydb",
-  label: "MyDB",
-  category: "database",
-  queryLanguage: "sql",
-  supportsWrite: true,
-  supportsGraphData: false,
-  allowedProtocols: ALLOWED_PROTOCOLS,
-  uriPlaceholder: "mydb://localhost:5555/app",
-  databasePlaceholder: "app",
-  formFields: [
-    {
-      key: "uri",
-      label: "URI",
-      type: "text",
-      required: true,
-      placeholder: "mydb://localhost:5555",
-    },
-    { key: "username", label: "Username", type: "text", required: true },
-    { key: "password", label: "Password", type: "password", required: true },
-    {
-      key: "database",
-      label: "Database",
-      type: "text",
-      description: "Optional — leave empty for the server default.",
-    },
-  ],
-  createModule(authConfig, advancedOptions) {
-    return new MyDbConnectionModule(authConfig, advancedOptions);
+  ...descriptor,
+  createModule(config) {
+    return new MyDbConnectionModule(config);
   },
   createSchemaManager() {
     return new MyDbSchemaManager();
@@ -325,20 +384,22 @@ const plugin: ConnectorPlugin = {
 export default plugin;
 ```
 
+Keeping the descriptor in its own file, with type-only imports, is what lets it be bundled for a browser: importing `index.ts` pulls in your driver, importing `descriptor.ts` pulls in nothing.
+
 What NeoBoard does with each field today — read this before relying on one:
 
 | Field                                                | Required | Used by                                                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `type`                                               | yes      | Stored on each connection; the API accepts any registered type; it selects your module for queries, connection tests, database listing and schema fetches. Chart types and widget templates do not accept it yet — see step 7.                                                                                                                     |
+| `type`                                               | yes      | Stored on each connection; the API accepts any registered type; it selects your module for queries, connection tests, database listing and schema fetches. Chart types and widget templates do not accept it yet — see step 8.                                                                                                                     |
 | `label`, `category`                                  | yes      | Validated by the registry and by `neoboard plugin add` (`category` must be `database`, `graph`, `api` or `file`).                                                                                                                                                                          |
-| `createModule(authConfig, advancedOptions)`          | yes      | Called once per connection and credential set. The instance is cached, reused for every query, and `close()`d after 30 minutes idle or when the credentials change. `advancedOptions` carries the connection's pool and timeout settings; ignore what does not apply.                       |
+| `createModule(config)`                               | yes      | Called once per distinct config — the cache key is a hash of the whole bag, so changing any value builds a new module. The instance is reused for every query and `close()`d after 30 minutes idle or when the connection changes.                                                          |
 | `createSchemaManager()`                              | no       | The connection's schema endpoint and the editor's autocomplete prefetch.                                                                                                                                                                                                                   |
 | `queryLanguage`                                      | no       | Declarative for now: the query editor reads its language from the built-in map, so a registry-supplied connector gets a plain-text editor.                                                                                                                                                 |
-| `formFields`, `uriPlaceholder`, `databasePlaceholder` | no       | Validated by the registry (missing key/label/type, duplicate keys, a `select` with no options). The connection dialog renders the built-in connectors only, so a connection of your type is created through the API — see below.                                                           |
-| `allowedProtocols`                                   | no       | Not enforced by the app. Enforce it in your authentication module with `_validateUri`, as above and as the built-ins do.                                                                                                                                                                   |
+| `fields`                                             | yes      | Validated by the registry, which throws on a malformed one (step 2). Their keys are the keys of the config bag. The connection dialog renders the built-in connectors only, so a connection of your type is created through the API — see below. Use `[]` for a connector with no config. |
+| `iconSvg`                                            | no       | Inline SVG markup, at most 16 KB. Declarative for now; nothing renders it yet.                                                                                                                                                                                                             |
 | `supportsWrite`, `supportsGraphData`                 | no       | Declarative; nothing reads them yet.                                                                                                                                                                                                                                                       |
 
-## 6. Package it
+## 7. Package it
 
 ```json title="package.json"
 {
@@ -385,7 +446,7 @@ The package is an ES module (`"type": "module"`) compiled with `NodeNext` resolu
 
 The SDK is versioned with NeoBoard and lives at `connector-sdk/` in the repository. It is not on the npm registry yet, so until it is, install it from a checkout: `npm install --save-dev ../neoboard/connector-sdk` from your package's directory adds a `file:` dev dependency and builds it on install. Keep it out of `dependencies` — NeoBoard supplies the peer, and a `file:` path there would ship inside your package.
 
-## 7. Load it into NeoBoard
+## 8. Load it into NeoBoard
 
 External connectors are compiled into the server, not discovered at runtime. The manifest at the repository root lists them, and a generator turns the manifest into a static import list that the registry reads at startup. From the root of a NeoBoard checkout:
 
@@ -432,9 +493,11 @@ curl -X POST http://localhost:3000/api/connections \
   }'
 ```
 
+The connections API does not validate `config` against your descriptor yet: it applies one fixed schema to every type. `uri`, `username` and `password` are required, `database` and the built-in connectors' options (`connectionTimeout`, `queryTimeout`, `maxPoolSize`, `connectionAcquisitionTimeout`, `idleTimeout`, `statementTimeout`, `sslRejectUnauthorized`) are accepted, and **any other key is dropped before the config is stored**. Until that changes, name your fields from that list.
+
 The key needs a creator or admin role ([API keys](/security/api-keys)). "Test connection" then calls your `checkConnection`, the database picker calls `listDatabases`, and the editor fetches your schema. Charting it is limited today, because two places still know only the built-in types. The widget editor treats no chart type as compatible with your type (`getCompatibleChartTypes` returns nothing for a type outside `CONNECTOR_TYPES`): choosing the connection resets the widget to a table, and the chart picker offers only the widget's current type. And the widget-templates API rejects a template whose `connectorType` is not a built-in one, so such a widget cannot be saved as a template.
 
-## 8. Prove query safety
+## 9. Prove query safety
 
 The SDK ships a conformance harness: four cases that check what the database actually does, not what the code says. Run them in your own test runner against a real instance of your database — a mock cannot satisfy them.
 
@@ -442,7 +505,6 @@ The SDK ships a conformance harness: four cases that check what the database act
 // __tests__/conformance.test.ts
 import { afterAll, beforeAll, describe, test } from "vitest";
 import {
-  AuthType,
   DEFAULT_CONNECTION_CONFIG,
   buildConformanceCases,
   type ConformanceSetup,
@@ -459,7 +521,6 @@ describe("MyDB query-safety conformance", () => {
       uri: process.env.MYDB_URI ?? "mydb://localhost:5555/app",
       username: "app",
       password: process.env.MYDB_PASSWORD ?? "",
-      authType: AuthType.NATIVE,
     });
   });
 

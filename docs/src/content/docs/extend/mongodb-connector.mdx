@@ -34,8 +34,8 @@ import {
   QueryStatus,
   collectUpToLimit,
   determineQueryStatus,
-  type AuthConfig,
   type ConnectionConfig,
+  type ConnectorConfig,
   type QueryCallback,
   type QueryParams,
 } from "@neoboard/connector-sdk";
@@ -44,10 +44,14 @@ import { MongoClient, MongoServerError } from "mongodb";
 export class MongoConnectionModule extends ConnectionModule {
   authModule = null as any; // Satisfies abstract property; MongoDB uses client directly
   private client: MongoClient;
+  private database: string;
 
-  constructor(authConfig: AuthConfig) {
+  // ONE config bag: the values of the descriptor's fields, keyed by field.key.
+  // Keys this connector did not declare may be present too; it ignores them.
+  constructor(config: ConnectorConfig) {
     super();
-    this.client = new MongoClient(authConfig.uri);
+    this.database = String(config.database);
+    this.client = new MongoClient(String(config.uri));
   }
 
   async runQuery<T>(
@@ -57,7 +61,8 @@ export class MongoConnectionModule extends ConnectionModule {
   ): Promise<void> {
     try {
       await this.client.connect();
-      const db = this.client.db(config.database);
+      // A widget may override the connection's database for one query.
+      const db = this.client.db(config.database ?? this.database);
 
       // Parse the query as a JSON command: { collection: "users", filter: {} }
       const command = JSON.parse(queryParams.query);
@@ -92,10 +97,10 @@ export class MongoConnectionModule extends ConnectionModule {
     }
   }
 
-  async checkConnection(config: Record<string, unknown>): Promise<boolean> {
+  async checkConnection(config?: ConnectionConfig): Promise<boolean> {
     try {
       await this.client.connect();
-      await this.client.db(config.database as string).command({ ping: 1 });
+      await this.client.db(config?.database ?? this.database).command({ ping: 1 });
       return true;
     } catch {
       return false;
@@ -108,15 +113,14 @@ export class MongoConnectionModule extends ConnectionModule {
 }
 ```
 
-## 3. Create the Plugin Definition
+## 3. Create the Descriptor and the Plugin
 
-Create `connection/src/mongodb/plugin.ts`:
+What the connector **is** goes in a descriptor: pure data, with no import of the `mongodb` driver, so it stays safe to bundle for a browser. Create `connection/src/mongodb/descriptor.ts`:
 
 ```ts
-import type { ConnectorPlugin, AuthConfig } from "@neoboard/connector-sdk";
-import { MongoConnectionModule } from "./MongoConnectionModule";
+import type { ConnectorDescriptor } from "@neoboard/connector-sdk";
 
-export const mongoPlugin: ConnectorPlugin = {
+export const mongoDescriptor: ConnectorDescriptor = {
   type: "mongodb",
   label: "MongoDB",
   category: "database",
@@ -125,42 +129,43 @@ export const mongoPlugin: ConnectorPlugin = {
   // enforce READ with a read-only database user or role.
   supportsWrite: false,
   supportsGraphData: false,
-  allowedProtocols: ["mongodb:", "mongodb+srv:"],
-  uriPlaceholder: "mongodb://localhost:27017",
-  databasePlaceholder: "mydb",
-
-  createModule(authConfig: AuthConfig) {
-    return new MongoConnectionModule(authConfig);
-  },
-
-  formFields: [
+  fields: [
     {
       key: "uri",
       label: "Connection URI",
-      type: "text",
+      type: "uri",
+      group: "connection",
       required: true,
       placeholder: "mongodb://localhost:27017",
+      protocols: ["mongodb:", "mongodb+srv:"],
     },
     {
       key: "database",
       label: "Database",
       type: "text",
+      group: "connection",
       required: true,
       placeholder: "mydb",
     },
-    {
-      key: "username",
-      label: "Username",
-      type: "text",
-      required: false,
-    },
-    {
-      key: "password",
-      label: "Password",
-      type: "password",
-      required: false,
-    },
   ],
+};
+```
+
+No username, no password: a connector declares what *it* needs, and nothing is mandatory for every connector.
+
+The plugin is that descriptor plus the factory that needs the driver. Create `connection/src/mongodb/plugin.ts`:
+
+```ts
+import type { ConnectorPlugin } from "@neoboard/connector-sdk";
+import { mongoDescriptor } from "./descriptor";
+import { MongoConnectionModule } from "./MongoConnectionModule";
+
+export const mongoPlugin: ConnectorPlugin = {
+  ...mongoDescriptor,
+
+  createModule(config) {
+    return new MongoConnectionModule(config);
+  },
 };
 ```
 
@@ -175,7 +180,7 @@ import { mongoPlugin } from "./mongodb/plugin";
 registry.register(mongoPlugin);
 ```
 
-Or, for a plugin shipped as its own npm package: install it into the NeoBoard checkout (`npm install neoboard-connector-mongodb`), add `{ "package": "neoboard-connector-mongodb", "export": "mongoPlugin" }` to the `connectors` array in `neoboard-connectors.json` (omit `export` if the plugin is the package's default export; add `"overrides": true` only to replace a connector with the same `type`, since a duplicate type otherwise throws at startup), then run `npm run dev` or `npm run build`. Both run `scripts/generate-connector-imports.mjs`, which compiles the package into the registry. Connectors are not discovered at runtime. See [Creating a Connector Plugin](/extend/new-connector-plugin#7-load-it-into-neoboard).
+Or, for a plugin shipped as its own npm package: install it into the NeoBoard checkout (`npm install neoboard-connector-mongodb`), add `{ "package": "neoboard-connector-mongodb", "export": "mongoPlugin" }` to the `connectors` array in `neoboard-connectors.json` (omit `export` if the plugin is the package's default export; add `"overrides": true` only to replace a connector with the same `type`, since a duplicate type otherwise throws at startup), then run `npm run dev` or `npm run build`. Both run `scripts/generate-connector-imports.mjs`, which compiles the package into the registry. Connectors are not discovered at runtime. See [Creating a Connector Plugin](/extend/new-connector-plugin#8-load-it-into-neoboard).
 
 ## 5. Install the MongoDB Driver
 
@@ -204,9 +209,7 @@ describe("MongoDB connector", () => {
   it("executes a find query", async () => {
     const module = mongoPlugin.createModule({
       uri: container.getConnectionString(),
-      username: "",
-      password: "",
-      authType: 1,
+      database: "test",
     });
 
     // Insert test data, then query
@@ -217,7 +220,7 @@ describe("MongoDB connector", () => {
 
 ## 7. Use It
 
-Once your connector is registered, the connection dialog still offers only Neo4j and PostgreSQL, so create the connection through `POST /api/connections` with `{ "name": "...", "type": "mongodb", "config": { "uri": "mongodb://host:27017", "database": "mydb", "username": "...", "password": "..." } }`. The API requires a non-empty `username` and `password` even if your MongoDB has no auth, so pass placeholder values your module ignores.
+Once your connector is registered, the connection dialog still offers only Neo4j and PostgreSQL, so create the connection through `POST /api/connections` with `{ "name": "...", "type": "mongodb", "config": { "uri": "mongodb://host:27017", "database": "mydb", "username": "...", "password": "..." } }`. The API still requires a non-empty `username` and `password` for every connector type, whatever its descriptor declares, so pass placeholder values your module ignores.
 
 After that, testing the connection, listing databases and running queries all use your module. Queries are JSON, for example `{ "collection": "users", "filter": { "age": { "$gt": 25 } } }`. For now the widget editor offers only the table chart for a non-built-in connector type, the query editor is plain text, and widget templates cannot target it.
 
@@ -230,4 +233,4 @@ To distribute your plugin:
 3. Users install with `npm install neoboard-connector-mongodb`
 4. List it in their `neoboard-connectors.json` (with `"export": "mongoPlugin"` for a named export) and rebuild with `npm run build`
 
-[Creating a Connector Plugin](/extend/new-connector-plugin#7-load-it-into-neoboard) also explains that a Docker image built with `npm ci` can include the connector only once the package is published to a registry.
+[Creating a Connector Plugin](/extend/new-connector-plugin#8-load-it-into-neoboard) also explains that a Docker image built with `npm ci` can include the connector only once the package is published to a registry.
