@@ -1668,7 +1668,7 @@ describe("1.5 ships without the enterprise edition (#1845)", () => {
   // and both prod compose files, and the site carried a full SSO setup guide
   // — so a 1.5 install advertised an edition the release does not ship, and
   // the one feature behind the switch is unfinished. The code stays and is
-  // dormant; the enterprise edition resumes in 1.7.
+  // dormant; the enterprise edition resumes in 1.8.
   const SURFACES = [
     "app/.env.example",
     "docker/docker-compose.prod.yml",

@@ -3,7 +3,7 @@
 NeoBoard ships as two pieces:
 
 - This **public** repo (`alfredo1996/neoboard`) — the OSS core.
-- A **private** sibling (`alfredo1996/neoboard-enterprise`) — commercial features. SSO today; further features resume in v1.7, and the other ids were removed in #1845.
+- A **private** sibling (`alfredo1996/neoboard-enterprise`) — commercial features. SSO today; further features resume in v1.8, and the other ids were removed in #1845.
 
 You only need this guide if you're building or dogfooding enterprise features locally. OSS contributors can ignore the rest of this file — `npm run dev` works without any enterprise checkout.
 

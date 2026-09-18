@@ -415,7 +415,7 @@ describe("release versions", () => {
   it("keeps cli/package.json off the release version, so publish-cli skips", () => {
     // v1.5 plan decision: the CLI stays at its own version so the publish-cli
     // job (tag == cli version) skips on v1.5.0; NPM_TOKEN is not configured.
-    // Delete this case in v1.7, when @neoboard/cli is published for the first time.
+    // Delete this case in v1.8, when @neoboard/cli is published for the first time.
     expect(JSON.parse(read("cli/package.json")).version).not.toBe(version);
   });
 
