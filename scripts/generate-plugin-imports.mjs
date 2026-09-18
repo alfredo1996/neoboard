@@ -9,7 +9,7 @@
  * webpack graph stays static — no runtime dynamic imports.
  *
  * Exit code 1 on:
- *   - manifest missing / unparseable
+ *   - manifest unparseable
  *   - entries fail shape validation
  *   - duplicate package+export pairs
  *

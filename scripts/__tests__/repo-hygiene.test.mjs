@@ -286,6 +286,19 @@ describe("the root listing is what a visitor should see (#1885)", () => {
     expect(scripts.typecheck).toMatch(/tsc\s+-b/);
   });
 
+  // This page is where a user lands on a version error, so a minimum it states
+  // that `doctor` does not enforce tells a working install to reinstall.
+  it("the Node-version troubleshooting section states the minimum doctor enforces", () => {
+    const floor = /major >= (\d+)/.exec(read("cli/src/commands/doctor.ts"))?.[1];
+    expect(floor).toMatch(/^\d+$/);
+
+    const page = read("docs/src/content/docs/start-here/troubleshooting.mdx");
+    const section = page
+      .split("### Symptom: `Node version not supported`")[1]
+      .split("\n---")[0];
+    expect(section).toContain(`Node ${floor} or newer`);
+  });
+
   // `.nvmrc` said 20 while eleven of twelve workflows hardcoded 22 and none
   // read the file, so the two could drift silently.
   it(".nvmrc is the Node version the workflows run", () => {
