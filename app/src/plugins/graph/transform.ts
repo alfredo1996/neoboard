@@ -47,13 +47,27 @@ function normalizeProps(
 const SYNTHETIC_ID_PATTERN = /^-[1-9]\d*$/;
 
 /**
- * The first candidate that is a string or a number, as a string. An object is
- * skipped rather than stringified: `String({low, high})` is "[object Object]",
- * which would give every such node the same id and collapse them into one.
+ * A graph id from the first candidate that can be one, or `undefined`.
+ *
+ * Strings and numbers are what the bundled Neo4j connector sends: it converts
+ * every Integer before the transform sees it. An SDK connector that returns
+ * raw driver records sends `{low, high}` instead, and `String()` of that is
+ * "[object Object]" — every node got the same id and collapsed into one, and
+ * every edge pointed at it (#1892). That shape is decoded to the integer it
+ * encodes, exactly, so the same node keeps the same id wherever it appears.
+ * Any other object is skipped rather than stringified.
  */
-function firstScalarId(...candidates: unknown[]): string | undefined {
+function graphId(...candidates: unknown[]): string | undefined {
   for (const c of candidates) {
     if (typeof c === "string" || typeof c === "number") return String(c);
+    if (typeof c === "bigint") return c.toString();
+    if (c && typeof c === "object") {
+      const { low, high } = c as { low?: unknown; high?: unknown };
+      if (typeof low === "number" && typeof high === "number") {
+        // Two's-complement halves of a 64-bit integer; `low` is unsigned.
+        return ((BigInt(high) << 32n) | BigInt(low >>> 0)).toString();
+      }
+    }
   }
   return undefined;
 }
@@ -87,7 +101,7 @@ export function transformToGraphData(data: unknown): unknown {
   const edgesMap = new Map<string, Record<string, unknown>>();
 
   function addNode(v: Record<string, unknown>) {
-    const id = firstScalarId(v.elementId, v.identity) ?? randomId();
+    const id = graphId(v.elementId, v.identity) ?? randomId();
     if (!nodesMap.has(id)) {
       const labels = (v.labels as string[]) ?? [];
       const rawProps = (v.properties as Record<string, unknown>) ?? {};
@@ -104,15 +118,16 @@ export function transformToGraphData(data: unknown): unknown {
   }
 
   function addEdge(v: Record<string, unknown>) {
+    const source = graphId(v.startNodeElementId, v.start) ?? "";
+    const target = graphId(v.endNodeElementId, v.end) ?? "";
     const edgeId =
-      firstScalarId(v.elementId, v.identity) ??
-      `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`;
+      graphId(v.elementId, v.identity) ?? `${source}-${v.type}-${target}`;
     if (!edgesMap.has(edgeId)) {
       const rawProps = (v.properties ?? {}) as Record<string, unknown>;
       edgesMap.set(edgeId, {
         id: edgeId,
-        source: String(v.startNodeElementId ?? v.start),
-        target: String(v.endNodeElementId ?? v.end),
+        source,
+        target,
         label: String(v.type),
         properties: normalizeProps(rawProps),
       });

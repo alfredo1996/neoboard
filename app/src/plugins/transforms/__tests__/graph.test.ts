@@ -108,32 +108,6 @@ describe("transformToGraphData", () => {
     expect(result.nodes).toHaveLength(0);
     expect(result.edges).toHaveLength(0);
   });
-
-  it("never uses an object as an id, which would stringify to [object Object]", () => {
-    // An identity that reaches the transform unparsed ({low, high}) used to
-    // give every such node the same id, collapsing them into one.
-    const result = transformToGraphData([
-      { v: { identity: { low: 1, high: 0 }, labels: ["A"], properties: {} } },
-      { v: { identity: { low: 2, high: 0 }, labels: ["B"], properties: {} } },
-    ]) as { nodes: { id: string }[] };
-    expect(result.nodes).toHaveLength(2);
-    expect(result.nodes.map((n) => n.id)).not.toContain("[object Object]");
-  });
-
-  it("falls back to the start-type-end id for an edge whose id is an object", () => {
-    const result = transformToGraphData([
-      {
-        r: {
-          identity: { low: 9, high: 0 },
-          type: "KNOWS",
-          start: 1,
-          end: 2,
-          properties: {},
-        },
-      },
-    ]) as { edges: { id: string }[] };
-    expect(result.edges[0].id).toBe("1-KNOWS-2");
-  });
 });
 
 /**
@@ -398,5 +372,121 @@ describe("transformToGraphData — converted Neo4j path (#1305)", () => {
     expect(nodes).toHaveLength(2);
     expect(edges).toHaveLength(1);
     expect(validateGraphData({ nodes, edges })).toBeNull();
+  });
+});
+
+/**
+ * #1892 — the bundled Neo4j connector converts every Integer before the
+ * transform sees it, but an SDK connector that returns raw driver records
+ * sends `{low, high}`. `String()` of that is "[object Object]": every node
+ * got the same id and collapsed into one, and every edge pointed at it.
+ */
+describe("transformToGraphData — unconverted Neo4j Integers (#1892)", () => {
+  type Graph = {
+    nodes: { id: string }[];
+    edges: { id: string; source: string; target: string }[];
+  };
+  const int = (low: number, high = 0) => ({ low, high });
+  const node = (id: number, label: string) => ({
+    identity: int(id),
+    labels: [label],
+    properties: {},
+  });
+
+  it("keeps nodes with distinct {low, high} identities apart", () => {
+    const { nodes } = transformToGraphData([
+      { v: node(1, "A") },
+      { v: node(2, "B") },
+    ]) as Graph;
+
+    expect(nodes.map((n) => n.id)).toEqual(["1", "2"]);
+  });
+
+  it("gives the same node the same id every time it appears", () => {
+    const { nodes } = transformToGraphData([
+      { v: node(7, "A") },
+      { v: node(7, "A") },
+    ]) as Graph;
+
+    expect(nodes.map((n) => n.id)).toEqual(["7"]);
+  });
+
+  it("points an edge at the nodes it connects", () => {
+    const { nodes, edges } = transformToGraphData([
+      {
+        a: node(1, "A"),
+        r: {
+          identity: int(9),
+          type: "KNOWS",
+          start: int(1),
+          end: int(2),
+          properties: {},
+        },
+        b: node(2, "B"),
+      },
+    ]) as Graph;
+
+    expect(edges).toEqual([
+      expect.objectContaining({ id: "9", source: "1", target: "2" }),
+    ]);
+    const ids = nodes.map((n) => n.id);
+    expect(ids).toContain(edges[0].source);
+    expect(ids).toContain(edges[0].target);
+  });
+
+  it("decodes an identity above 32 bits exactly", () => {
+    // 2^32 + 5: low = 5, high = 1.
+    const { nodes } = transformToGraphData([
+      { v: { identity: int(5, 1), labels: ["A"], properties: {} } },
+    ]) as Graph;
+
+    expect(nodes[0].id).toBe("4294967301");
+  });
+
+  it("never produces [object Object] for a shape it does not recognise", () => {
+    const { nodes, edges } = transformToGraphData([
+      {
+        v: { identity: { weird: true }, labels: ["A"], properties: {} },
+        r: {
+          identity: { weird: true },
+          type: "KNOWS",
+          start: 1,
+          end: 2,
+          properties: {},
+        },
+      },
+    ]) as Graph;
+
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].id).not.toContain("[object");
+    expect(edges[0].id).toBe("1-KNOWS-2");
+  });
+
+  it("leaves converted ids exactly as they were", () => {
+    const { nodes, edges } = transformToGraphData([
+      {
+        a: { elementId: "4:abc:1", identity: 1, labels: ["A"], properties: {} },
+        r: {
+          elementId: "5:abc:9",
+          identity: 9,
+          type: "KNOWS",
+          start: 1,
+          end: 2,
+          startNodeElementId: "4:abc:1",
+          endNodeElementId: "4:abc:2",
+          properties: {},
+        },
+        b: { identity: 2, labels: ["B"], properties: {} },
+      },
+    ]) as Graph;
+
+    expect(nodes.map((n) => n.id)).toEqual(["4:abc:1", "2"]);
+    expect(edges[0]).toEqual(
+      expect.objectContaining({
+        id: "5:abc:9",
+        source: "4:abc:1",
+        target: "4:abc:2",
+      }),
+    );
   });
 });
