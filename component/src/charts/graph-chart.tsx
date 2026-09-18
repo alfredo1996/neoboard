@@ -631,8 +631,8 @@ function GraphChartInner({
         <div className="text-center text-muted-foreground p-6">
           <p className="text-sm font-medium">No graph data</p>
           <p className="text-xs mt-1">
-            Query must return nodes and relationships. Use Neo4j with a Cypher
-            MATCH query.
+            Query must return nodes and relationships. Return the graph elements
+            themselves, not only their properties.
           </p>
         </div>
       </div>

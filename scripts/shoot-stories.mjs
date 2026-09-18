@@ -38,7 +38,11 @@ const SHOTS = [
   { id: "charts-barchart--default", name: "barchart", h: 420 },
   { id: "charts-linechart--area", name: "linechart-area", h: 420 },
   { id: "charts-piechart--donut", name: "pie-donut", h: 420 },
-  { id: "composed-connectionform--neo-4-j", name: "connection-form", h: 620 },
+  {
+    id: "composed-dynamicconnectionfields--default",
+    name: "connection-fields",
+    h: 620,
+  },
   { id: "composed-emptystate--with-action", name: "empty-state", h: 420 },
 ];
 

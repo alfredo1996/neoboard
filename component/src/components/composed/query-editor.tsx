@@ -32,7 +32,10 @@ export interface QueryEditorProps {
   running?: boolean;
   history?: string[];
   placeholder?: string;
-  /** "cypher" | "sql" selects the language extension */
+  /**
+   * Query language ("cypher" | "sql") — selects the language extension. Never
+   * a connector type. Omitted or unknown = a plain-text editor, no label.
+   */
   language?: "cypher" | "sql" | string;
   readOnly?: boolean;
   className?: string;
@@ -135,7 +138,7 @@ function QueryEditor({
   running = false,
   history,
   placeholder = "Enter your query...",
-  language = "cypher",
+  language = "",
   readOnly = false,
   className,
   runAndSaveHint = false,
@@ -474,9 +477,7 @@ function QueryEditor({
 
   const languageLabelMap: Record<string, string> = {
     sql: "SQL",
-    postgresql: "SQL",
     cypher: "Cypher",
-    neo4j: "Cypher",
   };
   const languageLabel = languageLabelMap[language] ?? language;
 
@@ -487,9 +488,14 @@ function QueryEditor({
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            {languageLabel}
-          </span>
+          {languageLabel && (
+            <span
+              data-testid="query-editor-language"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              {languageLabel}
+            </span>
+          )}
           {history && history.length > 0 && (
             <Select onValueChange={handleHistorySelect}>
               <SelectTrigger className="h-7 w-auto gap-1 border-none bg-transparent text-xs text-muted-foreground hover:text-foreground">

@@ -121,13 +121,6 @@ export {
   type ConnectionStatusProps,
   type ConnectionState,
 } from "./connection-status";
-export {
-  ConnectionForm,
-  neo4jConnectionFields,
-  postgresConnectionFields,
-  type ConnectionFormProps,
-  type ConnectionFieldConfig,
-} from "./connection-form";
 export { ConnectionCard, type ConnectionCardProps } from "./connection-card";
 export {
   DynamicConnectionFields,

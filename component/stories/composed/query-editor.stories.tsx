@@ -15,6 +15,9 @@ const meta = {
     },
   },
   tags: ["autodocs"],
+  // The component default is a plain-text editor; these stories show Cypher
+  // queries, so they say so. SQLMode and PlainText override it.
+  args: { language: "cypher" },
 } satisfies Meta<typeof QueryEditor>;
 
 export default meta;
@@ -59,6 +62,15 @@ export const SQLMode: Story = {
   },
 };
 
+/** No language — what a connector that declares no `queryLanguage` gets. */
+export const PlainText: Story = {
+  args: {
+    language: "",
+    placeholder: "Write your query...",
+    defaultValue: "any text, no highlighting and no language label",
+  },
+};
+
 export const Interactive: Story = {
   render: () => {
     const [query, setQuery] = React.useState("");
@@ -78,6 +90,7 @@ export const Interactive: Story = {
         onRun={handleRun}
         running={running}
         history={history}
+        language="cypher"
       />
     );
   },

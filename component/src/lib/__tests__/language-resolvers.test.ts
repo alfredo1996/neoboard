@@ -4,11 +4,12 @@
  * Verifies that:
  * - resolveLanguageExt("sql") calls sql() from @codemirror/lang-sql
  * - resolveLanguageExt("cypher") calls cypher() from @neo4j-cypher/react-codemirror
- * - resolveLanguageExt("postgresql") delegates to the sql resolver
- * - resolveLanguageExt("unknown") falls back to sql resolver
+ * - resolveLanguageExt("unknown") falls back to plain text (no extensions)
+ * - the registry is keyed by query LANGUAGE only — no connector-type aliases
  * - SQL resolver passes schema through toSqlSchema() when schema has tables
- * - Cypher resolver passes schema through toCypherDbSchema() when schema.type === "neo4j"
- * - Cypher resolver passes undefined schema when schema.type !== "neo4j"
+ * - Cypher resolver passes schema through toCypherDbSchema() when the schema
+ *   has a graph SHAPE (labels / relationshipTypes), whatever its `type` says
+ * - Cypher resolver passes undefined schema for a schema without graph shape
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { DatabaseSchema } from "../schema-transforms";
@@ -65,18 +66,6 @@ describe("resolveLanguageExt", () => {
     expect(mockCypher).toHaveBeenCalled();
   });
 
-  it("delegates postgresql to the sql resolver", async () => {
-    await resolveLanguageExt("postgresql");
-    expect(mockSql).toHaveBeenCalled();
-    expect(mockCypher).not.toHaveBeenCalled();
-  });
-
-  it("delegates neo4j connector type to the cypher resolver", async () => {
-    await resolveLanguageExt("neo4j");
-    expect(mockCypher).toHaveBeenCalled();
-    expect(mockSql).not.toHaveBeenCalled();
-  });
-
   it("falls back to plain text (no extensions) for unknown languages", async () => {
     const exts = await resolveLanguageExt("unknown-lang");
     expect(exts).toEqual([]);
@@ -118,7 +107,7 @@ describe("resolveLanguageExt", () => {
 
   it("passes schema through toSqlSchema when schema has tables", async () => {
     const schema: DatabaseSchema = {
-      type: "postgresql",
+      type: "any-tabular-connector",
       tables: [
         {
           name: "users",
@@ -137,7 +126,7 @@ describe("resolveLanguageExt", () => {
   });
 
   it("calls sql with dialect only when schema has no tables", async () => {
-    const schema: DatabaseSchema = { type: "postgresql" };
+    const schema: DatabaseSchema = { type: "any-tabular-connector" };
 
     await resolveLanguageExt("sql", schema);
 
@@ -148,9 +137,9 @@ describe("resolveLanguageExt", () => {
     expect(arg).not.toHaveProperty("schema");
   });
 
-  it("passes schema through toCypherDbSchema when schema.type === neo4j", async () => {
+  it("passes schema through toCypherDbSchema when the schema has a graph shape", async () => {
     const schema: DatabaseSchema = {
-      type: "neo4j",
+      type: "any-graph-connector",
       labels: ["Person"],
       relationshipTypes: ["KNOWS"],
       nodeProperties: {
@@ -171,9 +160,21 @@ describe("resolveLanguageExt", () => {
     expect(cypherSchema).toHaveProperty("propertyKeys");
   });
 
-  it("passes undefined schema to cypher when schema.type !== neo4j", async () => {
+  it("keys the cypher schema on shape: relationshipTypes alone is enough", async () => {
+    await resolveLanguageExt("cypher", {
+      type: "any-graph-connector",
+      relationshipTypes: ["KNOWS"],
+    });
+
+    const arg = (mockCypher.mock.calls[0] as unknown[])[0] as {
+      schema?: { relationshipTypes?: string[] };
+    };
+    expect(arg.schema?.relationshipTypes).toEqual(["KNOWS"]);
+  });
+
+  it("passes undefined schema to cypher when the schema has no graph shape", async () => {
     const schema: DatabaseSchema = {
-      type: "postgresql",
+      type: "any-tabular-connector",
       tables: [
         {
           name: "users",
@@ -192,15 +193,12 @@ describe("resolveLanguageExt", () => {
 });
 
 describe("languageResolvers registry", () => {
-  it("contains cypher, sql, and postgresql entries", () => {
-    expect(languageResolvers).toHaveProperty("cypher");
-    expect(languageResolvers).toHaveProperty("sql");
-    expect(languageResolvers).toHaveProperty("postgresql");
+  it("is keyed by query language only — no connector-type aliases (#1895)", () => {
+    expect(Object.keys(languageResolvers).sort()).toEqual(["cypher", "sql"]);
   });
 
   it("each entry is a function", () => {
     expect(typeof languageResolvers.cypher).toBe("function");
     expect(typeof languageResolvers.sql).toBe("function");
-    expect(typeof languageResolvers.postgresql).toBe("function");
   });
 });

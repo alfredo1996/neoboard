@@ -62,9 +62,12 @@ describe("GraphChart", () => {
     expect(screen.queryByTestId("nvl-wrapper")).not.toBeInTheDocument();
   });
 
-  it("empty state message mentions Cypher/Neo4j to guide the user", () => {
-    render(<GraphChart nodes={[]} edges={[]} />);
-    expect(screen.getByText(/cypher/i)).toBeInTheDocument();
+  it("empty state tells the user what to return, without naming a connector (#1895)", () => {
+    // The exact copy is the assertion: it names a data shape, not a connector.
+    const { container } = render(<GraphChart nodes={[]} edges={[]} />);
+    expect(container).toHaveTextContent(
+      "Query must return nodes and relationships. Return the graph elements themselves, not only their properties.",
+    );
   });
 
   // --- NVL rendering ---

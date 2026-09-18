@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DatabaseSchema } from "@/lib/connector/schema-types";
+import type { DatabaseSchema } from "@neoboard/connection";
 
 interface SchemaState {
   schemas: Record<string, DatabaseSchema>; // connectionId → schema
