@@ -4,6 +4,7 @@ import type {
   DashboardWidget,
 } from "@/lib/db/schema";
 import type { NeoboardExport } from "@/lib/dashboard/dashboard-export";
+import { randomId } from "@/lib/random-id";
 
 const CHART_TYPE_MAP: Record<string, string> = {
   table: "table",
@@ -338,7 +339,7 @@ export function convertNeoDashWithNotes(
         );
         continue;
       }
-      const widgetId = crypto.randomUUID();
+      const widgetId = randomId();
       const chartType = CHART_TYPE_MAP[originalType] ?? "json";
 
       // Track downgrades
@@ -421,7 +422,7 @@ export function convertNeoDashWithNotes(
     }
 
     return {
-      id: crypto.randomUUID(),
+      id: randomId(),
       title: page.title,
       widgets,
       gridLayout,
@@ -531,7 +532,7 @@ function buildFiltersPage(
 
   if (widgets.length === 0) return null;
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     title: "Filters",
     widgets,
     gridLayout,
@@ -549,7 +550,7 @@ function addFilterWidget(
   parameterType: ParameterSelectType,
   defaultValue: unknown,
 ): void {
-  const id = crypto.randomUUID();
+  const id = randomId();
   const index = widgets.length;
   const x = (index % 4) * 3;
   const y = Math.floor(index / 4) * 2;

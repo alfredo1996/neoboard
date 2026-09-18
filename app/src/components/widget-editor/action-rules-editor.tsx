@@ -23,6 +23,7 @@ import {
 } from "@neoboard/components";
 import { useAccordionCrud } from "./use-accordion-crud";
 import { FieldSelectorInput } from "./field-selector-input";
+import { randomId } from "@/lib/random-id";
 
 interface ActionRulesEditorProps {
   onBack: () => void;
@@ -53,7 +54,7 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
 
   function addRule() {
     addItem(() => ({
-      id: crypto.randomUUID(),
+      id: randomId(),
       type: "set-parameter",
       triggerColumn: isTable ? (availableFields[0] ?? "") : undefined,
       parameterMapping: {

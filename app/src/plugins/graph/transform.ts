@@ -3,6 +3,7 @@
  */
 
 import { toRecords, normalizeValue } from "../transforms/shared-utils";
+import { randomId } from "@/lib/random-id";
 
 /**
  * Normalize all properties in a record, converting non-primitives to display strings.
@@ -74,7 +75,7 @@ export function transformToGraphData(data: unknown): unknown {
   const edgesMap = new Map<string, Record<string, unknown>>();
 
   function addNode(v: Record<string, unknown>) {
-    const id = String(v.elementId ?? v.identity ?? crypto.randomUUID());
+    const id = String(v.elementId ?? v.identity ?? randomId());
     if (!nodesMap.has(id)) {
       const labels = (v.labels as string[]) ?? [];
       const rawProps = (v.properties as Record<string, unknown>) ?? {};
