@@ -56,4 +56,4 @@ For production, run the Docker Compose stack, built from your checkout or pulled
 
 ## License
 
-[Elastic License 2.0](LICENSE) with an AI training restriction. You may use, modify and self-host NeoBoard, but you may not offer it to others as a hosted or managed service, or use it to train AI models without written permission.
+[Elastic License 2.0](LICENSE) with an AI training restriction. You may use, modify and self-host NeoBoard, but you may not offer it to others as a hosted or managed service, or use it to train AI models without written permission. Third-party notices are in [NOTICE.md](NOTICE.md).
