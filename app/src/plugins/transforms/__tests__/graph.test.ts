@@ -108,6 +108,32 @@ describe("transformToGraphData", () => {
     expect(result.nodes).toHaveLength(0);
     expect(result.edges).toHaveLength(0);
   });
+
+  it("never uses an object as an id, which would stringify to [object Object]", () => {
+    // An identity that reaches the transform unparsed ({low, high}) used to
+    // give every such node the same id, collapsing them into one.
+    const result = transformToGraphData([
+      { v: { identity: { low: 1, high: 0 }, labels: ["A"], properties: {} } },
+      { v: { identity: { low: 2, high: 0 }, labels: ["B"], properties: {} } },
+    ]) as { nodes: { id: string }[] };
+    expect(result.nodes).toHaveLength(2);
+    expect(result.nodes.map((n) => n.id)).not.toContain("[object Object]");
+  });
+
+  it("falls back to the start-type-end id for an edge whose id is an object", () => {
+    const result = transformToGraphData([
+      {
+        r: {
+          identity: { low: 9, high: 0 },
+          type: "KNOWS",
+          start: 1,
+          end: 2,
+          properties: {},
+        },
+      },
+    ]) as { edges: { id: string }[] };
+    expect(result.edges[0].id).toBe("1-KNOWS-2");
+  });
 });
 
 /**
