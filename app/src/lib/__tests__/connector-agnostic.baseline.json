@@ -29,7 +29,7 @@
     "app/src/lib/plugin/chart-plugin-registry.ts": 2,
     "app/src/lib/query/dashboard-query-binding.ts": 1,
     "app/src/lib/query/preview-error.ts": 2,
-    "app/src/lib/query/query-executor.ts": 24,
+    "app/src/lib/query/query-executor.ts": 11,
     "app/src/lib/query/query-params.ts": 5,
     "app/src/lib/query/query-templates.ts": 4,
     "app/src/lib/query/scheduler-registry.ts": 1,
@@ -66,16 +66,12 @@
   },
   "exports": {
     "connection/src/index.ts": [
-      "Neo4jAdvancedOptions",
       "Neo4jSchemaManager",
-      "PostgresAdvancedOptions",
       "PostgresSchemaManager",
       "neo4jFormFields",
       "postgresFormFields"
     ],
     "connector-sdk/src/index.ts": [
-      "Neo4jAdvancedOptions",
-      "PostgresAdvancedOptions",
       "detectNeo4jErrorType",
       "detectPostgresErrorType"
     ]

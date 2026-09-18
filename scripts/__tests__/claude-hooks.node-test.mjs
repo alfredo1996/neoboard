@@ -244,14 +244,32 @@ describe("connector-agnosticism hook (#1894)", () => {
     );
   });
 
-  test("derives the names from connection/src/*/plugin.ts, not from a list", () => {
+  test("derives the names from connection/src/*/descriptor.ts, not from a list", () => {
     // A project whose only connector is a made-up one: ITS name is blocked
     // and neo4j — not registered there — is not. No name lives in the hook.
     const root = mkdtempSync(join(tmpdir(), "agnostic-hook-"));
     mkdirSync(join(root, "connection/src/acme"), { recursive: true });
     writeFileSync(
-      join(root, "connection/src/acme/plugin.ts"),
-      'export const acmePlugin = {\n  type: "acmegraph",\n  label: "Acme Graph DB",\n  allowedProtocols: ["acme:", "acme+s:"],\n};\n',
+      join(root, "connection/src/acme/descriptor.ts"),
+      [
+        "export const acmeDescriptor = {",
+        '  type: "acmegraph",',
+        '  label: "Acme Graph DB",',
+        '  category: "database",',
+        "  fields: [",
+        "    {",
+        '      key: "uri",',
+        '      label: "Address",',
+        '      type: "uri",',
+        '      group: "connection",',
+        '      placeholder: "sample://localhost:1234",',
+        '      protocols: ["acme:", "acme+s:"],',
+        "    },",
+        '    { key: "region", label: "Region", type: "select", group: "advanced" },',
+        "  ],",
+        "};",
+        "",
+      ].join("\n"),
     );
     const env = { CLAUDE_PROJECT_DIR: root };
     const file = `${root}/app/src/x.ts`;
@@ -259,6 +277,49 @@ describe("connector-agnosticism hook (#1894)", () => {
     assert.equal(edit(file, "", "<p>Acme Graph DB</p>", env), BLOCK);
     assert.equal(edit(file, "", 'const s = "acme+s://host";', env), BLOCK);
     assert.equal(edit(file, "", 'const t = "neo4j";', env), 0);
+    // Only the connector's OWN type and label, and only its `protocols`: a
+    // field's type and label are generic words the app has to be able to say,
+    // and a placeholder is not a scheme list.
+    for (const generic of ["uri", "Address", "select", "Region", "sample"]) {
+      assert.equal(edit(file, "", `const w = "${generic}";`, env), 0, generic);
+    }
+  });
+
+  test("derives a name for every built-in connector in the real tree", () => {
+    // #1897 moved `type`, `label` and the URI schemes from plugin.ts into
+    // descriptor.ts. A hook still reading the old file derives NOTHING and
+    // exits 0 on every edit — silently. So walk the real connectors and hold
+    // the hook to each of them, with no connector's name written here.
+    const src = join(ROOT, "connection/src");
+    const connectors = readdirSync(src)
+      .filter((dir) => existsSync(join(src, dir, "plugin.ts")))
+      .map((dir) => {
+        const file = join(src, dir, "descriptor.ts");
+        assert.ok(
+          existsSync(file),
+          `connection/src/${dir} has a plugin.ts but no descriptor.ts — the hook cannot see that connector`,
+        );
+        const text = readFileSync(file, "utf8");
+        const top = (key) =>
+          new RegExp(`^ {2}${key}:\\s*"([^"]+)"`, "m").exec(text)?.[1];
+        const protocols = [
+          ...text.matchAll(/protocols:\s*\[([^\]]*)\]/g),
+        ].flatMap((m) => [...m[1].matchAll(/"([^"]+)"/g)].map((p) => p[1]));
+        return { dir, type: top("type"), label: top("label"), protocols };
+      });
+    assert.ok(connectors.length >= 2, "expected at least the two built-ins");
+    assert.ok(connectors.some((c) => c.protocols.length > 0));
+
+    const file = `${ROOT}/app/src/lib/new-thing.ts`;
+    for (const { dir, type, label, protocols } of connectors) {
+      assert.ok(type && label, `${dir}: no top-level type/label found`);
+      assert.equal(edit(file, "", `const t = "${type}";`), BLOCK, type);
+      assert.equal(edit(file, "", `<p>${label}</p>`), BLOCK, label);
+      for (const protocol of protocols) {
+        const uri = `const u = "${protocol}//host";`;
+        assert.equal(edit(file, "", uri), BLOCK, protocol);
+      }
+    }
   });
 });
 
