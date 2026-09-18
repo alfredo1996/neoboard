@@ -31,11 +31,11 @@ npm install
 
 ### Symptom: `Node version not supported`
 
-NeoBoard requires Node 20 or newer (`engines.node` in `package.json`). Check your version and use `.nvmrc`:
+NeoBoard needs Node 20 or newer (`engines.node` in each workspace's `package.json`). CI and `.nvmrc` pin Node 22. Check your version:
 
 ```bash
-node -v               # must print v20.x or v22.x
-nvm use               # picks up .nvmrc
+node -v               # v20.x or newer
+nvm use               # picks up .nvmrc (Node 22)
 npm install
 ```
 

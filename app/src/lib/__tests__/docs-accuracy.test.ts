@@ -146,7 +146,7 @@ describe("documentation accuracy", () => {
     expect(doc).not.toMatch(/leak that nothing catches/i);
   });
 
-  describe.each(["ARCHITECTURE.md", ".github/SECURITY.md"])(
+  describe.each(["ARCHITECTURE.md", "SECURITY.md"])(
     "%s describes multi-tenancy as it is enforced",
     (docName) => {
       it("states the per-query mandate and names the ratchet", () => {

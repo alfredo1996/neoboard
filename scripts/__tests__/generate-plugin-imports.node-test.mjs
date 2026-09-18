@@ -242,14 +242,21 @@ describe("runGenerator", () => {
     });
   });
 
-  it("fails with a clear error when manifest is missing", () => {
+  // The connector generator treats a missing manifest as "none configured"
+  // and succeeds; this one hard-failed, and both run as predev/prebuild — so
+  // deleting one manifest was harmless and deleting the other broke the build
+  // (#1885).
+  it("treats a missing manifest as no external plugins", () => {
     withTempDir(({ dir }) => {
+      const output = join(dir, "out.ts");
       const result = runGenerator({
         manifestPath: join(dir, "missing.json"),
-        outputPath: join(dir, "out.ts"),
+        outputPath: output,
       });
-      assert.equal(result.ok, false);
-      assert.match(result.errors[0], /Manifest not found/);
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.errors, []);
+      assert.equal(result.wrote, true);
+      assert.match(readFileSync(output, "utf8"), /EXTERNAL_PLUGINS[^=]*= \[/);
     });
   });
 

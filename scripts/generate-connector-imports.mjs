@@ -7,7 +7,7 @@
  * targets the connection package instead of the app package.
  *
  * Exit code 1 on:
- *   - manifest missing / unparseable
+ *   - manifest unparseable
  *   - entries fail shape validation
  *   - duplicate package+export pairs
  *

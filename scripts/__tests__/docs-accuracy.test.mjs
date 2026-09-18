@@ -1686,8 +1686,8 @@ describe("the repo's own markdown and config comments (#1871)", () => {
       expect(comment).not.toMatch(stale);
   });
 
-  it("CONTRIBUTING-enterprise.md claims only the feature ids the registry has", () => {
-    const enterprise = read("CONTRIBUTING-enterprise.md");
+  it(".github/CONTRIBUTING-enterprise.md claims only the feature ids the registry has", () => {
+    const enterprise = read(".github/CONTRIBUTING-enterprise.md");
     const registry = read("app/src/lib/features/registry.ts");
     expect(registry).toContain('FeatureId = "sso"');
     // The ten ids #1845 removed, by the names the guide used for them.
@@ -1745,7 +1745,7 @@ describe("the repo's own markdown and config comments (#1871)", () => {
   });
 
   it("resolves every relative link in the repo's own markdown", () => {
-    // `.github/CONTRIBUTING.md` pointed at `[Elastic License 2.0](LICENSE)`,
+    // `CONTRIBUTING.md`, then in `.github/`, pointed at `[Elastic License 2.0](LICENSE)`,
     // which resolves to `.github/LICENSE` and 404s, and the deploy skill
     // linked four untracked local memory files.
     const files = execFileSync(

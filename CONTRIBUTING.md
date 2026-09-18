@@ -4,7 +4,7 @@ Thank you for your interest in contributing to NeoBoard! This guide will help yo
 
 ## Getting Started
 
-> For detailed local development setup, see [DEVELOPMENT.md](../DEVELOPMENT.md).
+> For detailed local development setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ### Prerequisites
 
@@ -21,7 +21,7 @@ scripts/setup-local-demo.sh   # Starts PostgreSQL, Neo4j and the app in Docker, 
 # Then open http://localhost:3000 (the app runs in the container, so no `npm run dev` is needed)
 ```
 
-For a hot-reload dev server, stop the demo stack first (`node cli/dist/index.js stop`) and follow the local setup in [DEVELOPMENT.md](../DEVELOPMENT.md). Its `app/.env.local` has its own `ENCRYPTION_KEY`, so connections the demo seeded under `docker/.env` will not decrypt there.
+For a hot-reload dev server, stop the demo stack first (`node cli/dist/index.js stop`) and follow the local setup in [DEVELOPMENT.md](DEVELOPMENT.md). Its `app/.env.local` has its own `ENCRYPTION_KEY`, so connections the demo seeded under `docker/.env` will not decrypt there.
 
 ### Demo Credentials
 
@@ -113,4 +113,4 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [Elastic License 2.0](../LICENSE) with the AI training restriction addendum.
+By contributing, you agree that your contributions will be licensed under the [Elastic License 2.0](LICENSE) with the AI training restriction addendum.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -246,5 +246,81 @@ describe("no CI step is fully masked by `|| true` (#1872)", () => {
       "every command in these steps ends in `|| true`, so they pass " +
         "whatever happens and check nothing",
     ).toEqual([]);
+  });
+});
+
+describe("the root listing is what a visitor should see (#1885)", () => {
+  const read = (p) => readFileSync(join(ROOT, p), "utf8");
+
+  // GitHub renders these from `.github/` too, but the root listing was the
+  // only place a visitor could tell the project takes contributions and
+  // security seriously — and it showed none of them.
+  it.each(["CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md"])(
+    "%s is at the root, not in .github/",
+    (file) => {
+      expect(existsSync(join(ROOT, file))).toBe(true);
+      expect(existsSync(join(ROOT, ".github", file))).toBe(false);
+    },
+  );
+
+  // The inverse: the enterprise guide describes a private repo and a tier
+  // v1.5 does not ship (#1845), and only setup-enterprise.sh links it.
+  it("CONTRIBUTING-enterprise.md is in .github/, not at the root", () => {
+    expect(existsSync(join(ROOT, "CONTRIBUTING-enterprise.md"))).toBe(false);
+    expect(existsSync(join(ROOT, ".github/CONTRIBUTING-enterprise.md"))).toBe(
+      true,
+    );
+  });
+
+  // NOTICE.md records the unknown provenance of the world.geo.json the
+  // choropleth ships (#1402/#1543); an unlinked legal file is worse than none.
+  it("the README links NOTICE.md", () => {
+    expect(read("README.md")).toContain("(NOTICE.md)");
+  });
+
+  // The root solution config referenced two projects that set no `composite`,
+  // so `tsc -b` could not have run it — and `typecheck` never tried.
+  it("has no root tsconfig.json unless typecheck runs it", () => {
+    if (!existsSync(join(ROOT, "tsconfig.json"))) return;
+    const { scripts } = JSON.parse(read("package.json"));
+    expect(scripts.typecheck).toMatch(/tsc\s+-b/);
+  });
+
+  // This page is where a user lands on a version error, so a minimum it states
+  // that `doctor` does not enforce tells a working install to reinstall.
+  it("the Node-version troubleshooting section states the minimum doctor enforces", () => {
+    const floor = /major >= (\d+)/.exec(read("cli/src/commands/doctor.ts"))?.[1];
+    expect(floor).toMatch(/^\d+$/);
+
+    const page = read("docs/src/content/docs/start-here/troubleshooting.mdx");
+    const section = page
+      .split("### Symptom: `Node version not supported`")[1]
+      .split("\n---")[0];
+    expect(section).toContain(`Node ${floor} or newer`);
+  });
+
+  // `.nvmrc` said 20 while eleven of twelve workflows hardcoded 22 and none
+  // read the file, so the two could drift silently.
+  it(".nvmrc is the Node version the workflows run", () => {
+    const major = read(".nvmrc").trim().split(".")[0];
+    expect(major).toMatch(/^\d+$/);
+
+    const dir = join(ROOT, ".github/workflows");
+    const workflows = readdirSync(dir).filter((f) => /\.ya?ml$/.test(f));
+    expect(workflows.length).toBeGreaterThan(5);
+
+    const drift = [];
+    let fromFile = 0;
+    for (const file of workflows) {
+      const yaml = readFileSync(join(dir, file), "utf8");
+      for (const m of yaml.matchAll(/^\s*node-version:\s*["']?([^"'\s]+)/gm))
+        if (m[1].split(".")[0] !== major) drift.push(`${file}: ${m[1]}`);
+      for (const m of yaml.matchAll(/^\s*node-version-file:\s*["']?([^"'\s]+)/gm)) {
+        if (m[1] !== ".nvmrc") drift.push(`${file}: ${m[1]}`);
+        else fromFile += 1;
+      }
+    }
+    expect(drift).toEqual([]);
+    expect(fromFile).toBeGreaterThan(0);
   });
 });

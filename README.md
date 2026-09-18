@@ -52,8 +52,8 @@ For production, run the Docker Compose stack, built from your checkout or pulled
 
 ## Contributing
 
-[DEVELOPMENT.md](DEVELOPMENT.md) covers local setup and [CONTRIBUTING.md](.github/CONTRIBUTING.md) covers branches and pull requests. New here? Pick a [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
+[DEVELOPMENT.md](DEVELOPMENT.md) covers local setup and [CONTRIBUTING.md](CONTRIBUTING.md) covers branches and pull requests. New here? Pick a [`good first issue`](https://github.com/alfredo1996/neoboard/labels/good%20first%20issue).
 
 ## License
 
-[Elastic License 2.0](LICENSE) with an AI training restriction. You may use, modify and self-host NeoBoard, but you may not offer it to others as a hosted or managed service, or use it to train AI models without written permission.
+[Elastic License 2.0](LICENSE) with an AI training restriction. You may use, modify and self-host NeoBoard, but you may not offer it to others as a hosted or managed service, or use it to train AI models without written permission. Third-party notices are in [NOTICE.md](NOTICE.md).

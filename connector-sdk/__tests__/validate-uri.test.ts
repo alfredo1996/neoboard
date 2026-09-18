@@ -13,8 +13,8 @@ class TestAuth extends AuthenticationModule {
 
   // The three abstract members exist only to satisfy the contract; nothing here
   // touches a driver. ts-jest runs with `diagnostics: false`, so omitting them
-  // ran fine — but the root tsconfig has no `include`, so any compiler pointed
-  // at this directory would reject the class.
+  // ran fine — but no tsconfig includes this directory, so any compiler pointed
+  // at it would reject the class.
   createDriver(): unknown {
     throw new Error("not used in these tests");
   }
