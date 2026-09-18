@@ -2,10 +2,7 @@
  * Shared normalized schema types for all connector types.
  */
 
-import type {
-  AdvancedConnectionOptions,
-  AuthConfig,
-} from "../generalized/interfaces";
+import type { ConnectorConfig } from "../generalized/descriptor";
 
 export interface PropertyDef {
   name: string;
@@ -49,8 +46,6 @@ export interface DatabaseSchema {
  * registry resolves it by connector type (#1119) — no hardcoded dispatch.
  */
 export interface SchemaManager {
-  fetchSchema(
-    authConfig: AuthConfig,
-    advancedOptions?: AdvancedConnectionOptions,
-  ): Promise<DatabaseSchema>;
+  /** Takes the same single config bag as `ConnectorPlugin.createModule`. */
+  fetchSchema(config: ConnectorConfig): Promise<DatabaseSchema>;
 }
