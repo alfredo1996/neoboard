@@ -11,7 +11,7 @@
 #   ./scripts/setup-enterprise.sh --dry-run  # print steps without running
 #   ./scripts/setup-enterprise.sh --help     # this banner
 #
-# See CONTRIBUTING-enterprise.md for architecture rationale and env vars.
+# See .github/CONTRIBUTING-enterprise.md for architecture rationale and env vars.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -153,6 +153,6 @@ Next steps:
   4. Visit http://localhost:3000/settings/authentication to confirm at least
      one SSO provider is listed.
 
-See CONTRIBUTING-enterprise.md for the full architecture rationale and
+See .github/CONTRIBUTING-enterprise.md for the full architecture rationale and
 troubleshooting tips.
 EOF
