@@ -60,16 +60,23 @@ describe("PostgreSQL Parameter Ordering", () => {
     }
   });
 
-  test("out-of-order numeric keys produce correct binding", async () => {
+  // The app sends NAMED parameters (#1898); the connector renames them to
+  // node-pg's $1, $2, … and orders the values by where each name first appears
+  // in the TEXT — never by the order of the map's keys.
+  test("a map in a different order than the text binds by name", async () => {
     let status: QueryStatus | null = null;
     let error: unknown = null;
 
-    // Keys are deliberately out of order: "2", "0", "1"
-    // After numeric sort: "0" → 'Alice', "1" → 'alice@test.com', "2" → 45
+    // Keys are deliberately out of text order: age, name, email.
     await connectionModule.runQuery(
       {
-        query: "INSERT INTO param_test (name, email, age) VALUES ($1, $2, $3)",
-        params: { "2": 45, "0": "Alice", "1": "alice@test.com" },
+        query:
+          "INSERT INTO param_test (name, email, age) VALUES ($param_name, $param_email, $param_age)",
+        params: {
+          param_age: 45,
+          param_name: "Alice",
+          param_email: "alice@test.com",
+        },
       },
       {
         onFail: (e) => {
@@ -89,8 +96,9 @@ describe("PostgreSQL Parameter Ordering", () => {
     let result: any = null;
     await connectionModule.runQuery(
       {
-        query: "SELECT name, email, age FROM param_test WHERE name = $1",
-        params: { "0": "Alice" },
+        query:
+          "SELECT name, email, age FROM param_test WHERE name = $param_name OR name = $param_name",
+        params: { param_name: "Alice" },
       },
       {
         onSuccess: (r) => {
@@ -106,7 +114,7 @@ describe("PostgreSQL Parameter Ordering", () => {
     expect(result[0].age).toBe(45);
   });
 
-  test("10+ params sorted numerically, not lexicographically", async () => {
+  test("10+ params bind in text order, not lexicographic order", async () => {
     let status: QueryStatus | null = null;
     let error: unknown = null;
 
@@ -124,18 +132,18 @@ describe("PostgreSQL Parameter Ordering", () => {
       client.release();
     }
 
-    // Build params with keys "0" through "11"
-    // Lexicographic sort would give: "0","1","10","11","2","3",...
-    // Numeric sort gives: "0","1","2","3",...,"10","11"
+    // param_c0 … param_c11, inserted into the map in REVERSE. A lexicographic
+    // sort of the names would give c0, c1, c10, c11, c2, …; map order would
+    // give c11 … c0. Only the text order puts val_10 in col10.
+    const names = Array.from({ length: 12 }, (_, i) => `param_c${i}`);
     const params: Record<string, unknown> = {};
-    for (let i = 0; i < 12; i++) {
-      params[String(i)] = `val_${i}`;
+    for (let i = 11; i >= 0; i--) {
+      params[names[i]] = `val_${i}`;
     }
 
     await connectionModule.runQuery(
       {
-        query:
-          "INSERT INTO many_params VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+        query: `INSERT INTO many_params VALUES (${names.map((n) => `$${n}`).join(",")})`,
         params,
       },
       {
@@ -153,6 +161,7 @@ describe("PostgreSQL Parameter Ordering", () => {
     expect(status).toBe(QueryStatus.COMPLETE);
 
     // Verify correct ordering — col10 should have "val_10", not "val_2" (which lexicographic would produce)
+    // or "val_1" (which map order would).
     let result: any = null;
     await connectionModule.runQuery(
       { query: "SELECT * FROM many_params" },
@@ -171,5 +180,31 @@ describe("PostgreSQL Parameter Ordering", () => {
     expect(result[0].col9).toBe("val_9");
     expect(result[0].col10).toBe("val_10");
     expect(result[0].col11).toBe("val_11");
+  });
+
+  // #1516 end to end: an unbound parameter is an error naming it, never a
+  // silent NULL — `LIMIT NULL` is no limit at all.
+  test("a missing parameter fails, naming the parameter", async () => {
+    let error: unknown = null;
+    let result: unknown = null;
+
+    await connectionModule.runQuery(
+      {
+        query: "SELECT name FROM param_test LIMIT $param_limit",
+        params: {},
+      },
+      {
+        onSuccess: (r) => {
+          result = r;
+        },
+        onFail: (e) => {
+          error = e;
+        },
+      },
+      { ...pgConfig, accessMode: "READ" },
+    );
+
+    expect(result).toBeNull();
+    expect((error as Error).message).toBe("Expected parameter(s): param_limit");
   });
 });

@@ -29,8 +29,6 @@
     "app/src/lib/plugin/chart-plugin-registry.ts": 2,
     "app/src/lib/query/dashboard-query-binding.ts": 1,
     "app/src/lib/query/preview-error.ts": 2,
-    "app/src/lib/query/query-executor.ts": 11,
-    "app/src/lib/query/query-params.ts": 5,
     "app/src/lib/query/query-templates.ts": 4,
     "app/src/lib/query/scheduler-registry.ts": 1,
     "app/src/lib/query/transient-error-classifier.ts": 2,
@@ -61,8 +59,7 @@
     "component/src/charts/graph-chart.tsx": 7,
     "component/src/charts/nvl-color.ts": 1,
     "component/src/charts/types.ts": 1,
-    "component/src/components/composed/connection-card.tsx": 2,
-    "component/src/lib/param-substitute.ts": 2
+    "component/src/components/composed/connection-card.tsx": 2
   },
   "exports": {
     "connection/src/index.ts": [

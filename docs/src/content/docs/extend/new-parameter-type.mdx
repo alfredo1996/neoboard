@@ -67,7 +67,7 @@ export function YourTypeWidget({
 
 `formatParameterValue` in `app/src/lib/parameter/format-parameter-value.ts` turns a parameter value into the text shown in the dashboard parameter bar. It chooses a format from the value's shape, not from the parameter type: strings (including relative-date presets), numbers, booleans, `[min, max]` number pairs, other arrays, and `{ from, to }` objects are already handled. Add a branch only if your type stores a value shape that isn't on that list. Add a matching case in `__tests__/format-parameter-value.test.ts`.
 
-This function has nothing to do with queries. Parameter values never enter query text. Neo4j binds `$param_xxx` natively. For PostgreSQL, `rewriteParamsForPostgres` swaps the placeholders for positional `$1, $2, …` and sends the values separately. Any shaping your type needs before it reaches a query belongs in the store's coercion (Step 2), never in string formatting.
+This function has nothing to do with queries. Parameter values never enter query text. The app sends every connector the same named map, and each connector binds it through its driver: Neo4j takes `$param_xxx` natively, and the PostgreSQL connector swaps the placeholders for positional `$1, $2, …` and sends the values separately. Any shaping your type needs before it reaches a query belongs in the store's coercion (Step 2), never in string formatting.
 
 ## Step 5: Wire into Renderer
 

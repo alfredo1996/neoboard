@@ -46,6 +46,7 @@ export {
 } from "./generalized/stream-rows";
 export type { CollectedRows } from "./generalized/stream-rows";
 export { errorHasMessage, determineQueryStatus } from "./generalized/utils";
+export { resolveQueryTimeout } from "./generalized/resolve-query-timeout";
 
 /// Schema types + the schema-manager contract (#1119)
 export type {

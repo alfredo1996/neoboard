@@ -4,11 +4,11 @@ import {
   ConnectorConfig,
   ConnectorError,
   ConnectorErrorType,
-  DEFAULT_CONNECTION_CONFIG,
   determineQueryStatus,
   QueryCallback,
   QueryParams,
   QueryStatus,
+  resolveQueryTimeout,
   wrapError,
 } from "@neoboard/connector-sdk";
 import {
@@ -20,6 +20,7 @@ import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
 import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
+import { toPositionalParams } from "./positional-params";
 
 /**
  * PostgreSQL Connection Module
@@ -28,6 +29,11 @@ import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
 export class PostgresConnectionModule extends ConnectionModule {
   authModule: PostgresAuthenticationModule;
   private readonly parser: PostgresRecordParser;
+  /**
+   * The bag's `statementTimeout` — the one timeout field this connector
+   * declares, and so the only one it reads (#1898).
+   */
+  private readonly statementTimeout: unknown;
 
   /**
    * Creates a new PostgreSQL connection module.
@@ -37,6 +43,7 @@ export class PostgresConnectionModule extends ConnectionModule {
     super();
     this.authModule = new PostgresAuthenticationModule(config);
     this.parser = new PostgresRecordParser();
+    this.statementTimeout = config.statementTimeout;
   }
 
   /**
@@ -136,6 +143,14 @@ export class PostgresConnectionModule extends ConnectionModule {
     let releaseErrorGuard: (() => void) | undefined;
 
     try {
+      // The app sends named parameters to every connector; node-pg binds
+      // positional ones. Renamed before a client is checked out, so a missing
+      // parameter fails without costing a connection (#1898). Unconditional,
+      // empty map included: gating it on a non-empty map made the same missing
+      // parameter a driver syntax error with no params and a silent NULL with
+      // any other key present (#1516).
+      const { text, values } = toPositionalParams(query, params);
+
       client = await pool.connect();
       releaseErrorGuard = attachClientErrorGuard(client);
 
@@ -147,28 +162,17 @@ export class PostgresConnectionModule extends ConnectionModule {
       const isReadOnly = config.accessMode !== "WRITE";
       await this._beginTransaction(client, isReadOnly);
 
-      // Set statement timeout — always. A falsy config.timeout falls back to
-      // the documented default; it used to skip SET LOCAL and run unbounded
-      // (#1302). SET does not support parameterized queries ($1) in
+      // Set statement timeout — always. An explicit per-query config.timeout
+      // wins, then this connection's own statementTimeout, then the documented
+      // default: a falsy value never skips SET LOCAL and runs unbounded
+      // (#1302, #1898). SET does not support parameterized queries ($1) in
       // PostgreSQL, so we use SET LOCAL with a validated integer. SET LOCAL
       // scopes the change to the current transaction — it auto-reverts on
       // COMMIT/ROLLBACK.
       const timeoutMs = Math.floor(
-        config.timeout || DEFAULT_CONNECTION_CONFIG.timeout,
+        resolveQueryTimeout(config.timeout, this.statementTimeout),
       );
       await client.query(`SET LOCAL statement_timeout = '${timeoutMs}'`);
-
-      // Handle parameter substitution
-      // PostgreSQL (pg library) uses $1, $2, etc. for positional parameters.
-      // Params arrive as { "0": val0, "1": val1, ... } from rewriteParamsForPostgres.
-      // Sort keys numerically to guarantee correct $1, $2, ... ordering.
-      const paramKeys = Object.keys(params);
-      const paramValues =
-        paramKeys.length > 0
-          ? paramKeys
-              .sort((a, b) => Number(a) - Number(b))
-              .map((k) => params[k])
-          : [];
 
       // Both paths stream through a server-side cursor so a huge result set
       // never buffers in memory; each pulls at most rowLimit + 1 rows for the
@@ -186,8 +190,8 @@ export class PostgresConnectionModule extends ConnectionModule {
       if (isReadOnly) {
         const batch = await readBoundedCursor(
           client,
-          query,
-          paramValues,
+          text,
+          values,
           config.rowLimit + 1,
         );
         fetchedRows = batch.rows;
@@ -200,8 +204,8 @@ export class PostgresConnectionModule extends ConnectionModule {
         // silently partially-applied for a write (#1298, #1326).
         const batch = await drainBoundedCursor(
           client,
-          query,
-          paramValues,
+          text,
+          values,
           config.rowLimit + 1,
         );
         fetchedRows = batch.rows;

@@ -66,7 +66,7 @@ const setup = {
   baseConfig: {} as ConnectionConfig,
   queries: {
     write: { query: "CREATE (n)" },
-    manyRows: (n: number) => ({ query: `RETURN range(1, ${n})` }),
+    manyRows: "UNWIND range(1, $param_rows) AS x RETURN x",
     slow: { query: "CALL apoc.util.sleep(5000)" },
   },
 };
@@ -95,6 +95,30 @@ describe("query-safety conformance harness", () => {
       "bounds a slow query when timeout is unset",
       "does not report a throwing onSuccess as a query failure",
     ]);
+  });
+
+  // #1898: parameters reach every connector by NAME, exactly as the app sends
+  // them. A connector author supplies query text and never learns whether
+  // another connector rewrites names into positional placeholders.
+  describe("named parameters (#1898)", () => {
+    it.each([
+      ["rowLimit", 15],
+      ["throwing onSuccess", 1],
+    ])("the %s case binds manyRows by name", async (needle, count) => {
+      const seen: QueryParams[] = [];
+      const recording = {
+        runQuery: async (query: QueryParams) => {
+          seen.push(query);
+        },
+      } as unknown as ConnectionModule;
+      // The recorder satisfies neither case; only what it was handed matters.
+      await caseNamed(recording, needle)
+        .run()
+        .catch(() => {});
+      expect(seen).toEqual([
+        { query: setup.queries.manyRows, params: { param_rows: count } },
+      ]);
+    });
   });
 
   describe("onSuccess isolation (#1642)", () => {

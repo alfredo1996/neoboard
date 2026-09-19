@@ -60,7 +60,9 @@ export const DEFAULT_AUTHENTICATION_CONFIG: AuthConfig = {
  * Includes standard values for timeout, access mode, and result limits.
  * Suitable for most non-critical read/write use cases.
  */
-export const DEFAULT_CONNECTION_CONFIG: ConnectionConfig = {
+export const DEFAULT_CONNECTION_CONFIG: ConnectionConfig & {
+  timeout: number;
+} = {
   /**
    * Timeout (ms) for establishing the initial connection.
    */
@@ -110,9 +112,13 @@ export interface ConnectionConfig {
   accessMode: AccessMode;
 
   /**
-   * Timeout in milliseconds for query execution.
+   * An explicit per-query timeout override, in milliseconds. NeoBoard leaves
+   * it unset for an ordinary query: the connector then resolves its own
+   * default from the timeout field it declares, and falls back to
+   * `DEFAULT_CONNECTION_CONFIG.timeout`. Use `resolveQueryTimeout` — unset,
+   * zero or junk must never mean "unbounded".
    */
-  timeout: number;
+  timeout?: number;
 
   /**
    * Timeout in milliseconds for establishing a connection.

@@ -5,9 +5,9 @@
  * ## Trust model
  *
  * This helper is intended for **display contexts only** (markdown content, widget
- * titles). It does NOT escape values. Do not use the output to construct SQL or
- * Cypher — query execution goes through `rewriteParamsForPostgres` and Neo4j's
- * native `$param` binding, both of which are safe. For URL contexts use
+ * titles). It does NOT escape values. Do not use the output to construct a
+ * query — query execution sends parameters by name beside the text, and each
+ * connector binds them through its driver. For URL contexts use
  * {@link substituteParamsInUrl} so values are percent-encoded.
  *
  * Arrays and objects are stringified via `String()` (matches the existing

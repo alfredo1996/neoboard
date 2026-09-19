@@ -30,10 +30,10 @@ import {
   ConnectionModule,
   ConnectorError,
   ConnectorErrorType,
-  DEFAULT_CONNECTION_CONFIG,
   QueryStatus,
   collectUpToLimit,
   determineQueryStatus,
+  resolveQueryTimeout,
   type ConnectionConfig,
   type ConnectorConfig,
   type QueryCallback,
@@ -68,8 +68,10 @@ export class MongoConnectionModule extends ConnectionModule {
       const command = JSON.parse(queryParams.query);
       const collection = db.collection(command.collection);
 
-      // A falsy timeout means the default, not "no bound"
-      const timeout = config.timeout || DEFAULT_CONNECTION_CONFIG.timeout;
+      // config.timeout is a per-query override and usually unset. This
+      // connector declares no timeout field of its own, so unset means the
+      // 30 s default — never "no bound".
+      const timeout = resolveQueryTimeout(config.timeout);
       // maxTimeMS is enforced server-side
       const cursor = collection.find(command.filter ?? {}, { maxTimeMS: timeout });
       // MAX_ROWS+1: never a fixed row cap; keep config.rowLimit rows and detect one more

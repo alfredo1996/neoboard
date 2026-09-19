@@ -10,6 +10,7 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
+  resolveQueryTimeout,
   wrapError,
 } from "@neoboard/connector-sdk";
 import neo4j, { ManagedTransaction } from "neo4j-driver";
@@ -39,6 +40,11 @@ export class Neo4jConnectionModule extends ConnectionModule {
   private readonly parser: Neo4jRecordParser;
   /** The bag's `database` — used when a call does not name one itself. */
   private readonly database: string | undefined;
+  /**
+   * The bag's `queryTimeout` — the one timeout field this connector declares,
+   * and so the only one it reads (#1898).
+   */
+  private readonly queryTimeout: unknown;
 
   /**
    * Creates a new Neo4jConnectionModule instance.
@@ -49,6 +55,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
     this.authModule = new Neo4jAuthenticationModule(config);
     this.parser = new Neo4jRecordParser();
     this.database = optionalString(config.database);
+    this.queryTimeout = config.queryTimeout;
   }
 
   getDriver(): Driver {
@@ -144,10 +151,12 @@ export class Neo4jConnectionModule extends ConnectionModule {
           return collectUpToLimit(res, config.rowLimit);
         },
         {
-          // Sets dbms.transaction.timeout for this transaction. A falsy value
-          // would mean the server default (unlimited on Neo4j 5) or no timeout
-          // at all, so fall back to the documented default like PostgreSQL (#1302).
-          timeout: config.timeout || DEFAULT_CONNECTION_CONFIG.timeout,
+          // Sets dbms.transaction.timeout for this transaction: an explicit
+          // per-query config.timeout, else this connection's own queryTimeout,
+          // else the documented default. A falsy value would mean the server
+          // default (unlimited on Neo4j 5) or no timeout at all, so it never
+          // reaches the driver (#1302, #1898).
+          timeout: resolveQueryTimeout(config.timeout, this.queryTimeout),
           // Note: this covers the entire transaction lifecycle, not just query execution.
           // Very long-running queries within the timeout window will still complete.
         },

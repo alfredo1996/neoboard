@@ -54,7 +54,7 @@ NeoBoard is a monorepo with three packages plus a CLI. Each package has strict b
 When a widget renders its data, here is the full path:
 
 1. **Widget component** reads parameters from the Parameter Store (Zustand)
-2. **`useWidgetQuery` hook** copies the Parameter Store values that the query references as `$param_xxx` into the request's `params` and calls TanStack Query. The query text is sent unchanged and parameter values are never inserted into it. The driver binds them (for PostgreSQL, the server only renames the `$param_xxx` placeholders to positional `$1, $2, …`)
+2. **`useWidgetQuery` hook** copies the Parameter Store values that the query references as `$param_xxx` into the request's `params` and calls TanStack Query. The query text is sent unchanged and parameter values are never inserted into it. The connector binds them through its driver (the PostgreSQL connector only renames the `$param_xxx` placeholders to positional `$1, $2, …` on the way)
 3. **TanStack Query** checks its cache. On miss, sends `POST /api/query`
 4. **API route** validates auth via `requireSession()`, decrypts connection credentials
 5. **Query Executor** gets or creates a cached connection module
