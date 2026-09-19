@@ -30,8 +30,15 @@ connector works everywhere in NeoBoard without forking the app.
 - **Query-safety helpers** — the invariants every connector must uphold:
   read-only access modes, the `MAX_ROWS + 1` row-limit pattern, statement
   timeouts, and cancellation.
-- **Result records & schema types** — `NeodashRecord`, `DatabaseSchema`,
-  `TableDef`, `ColumnDef`, `PropertyDef`.
+- **The row value contract** — `RowValue` / `Row`: what a result row may
+  hold, so nothing downstream asks which connector produced a value. Tagged
+  graph values (`GraphNode`, `GraphRelationship`, `GraphPath`, with the
+  `isGraphNode` / `isGraphRelationship` / `isGraphPath` guards), and the
+  `toIsoDuration` and `integerToRowValue` helpers.
+- **Result-shape conformance** — `buildShapeConformanceCases`: proves a
+  record parser emits the contract's forms, with no database.
+- **Schema types** — `DatabaseSchema`, `TableDef`, `ColumnDef`,
+  `PropertyDef`.
 - **Error types** — `ConnectorError` / `ConnectorErrorType` for classified,
   user-actionable failures.
 - **Connector registry** — `createConnectorRegistry()`. `register()` throws on

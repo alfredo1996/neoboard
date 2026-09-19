@@ -35,9 +35,27 @@ export {
   wrapError,
 } from "./generalized/ConnectorError";
 
-/// Result records
-export { NeodashRecord } from "./generalized/NeodashRecord";
+/// Record parser base class
 export { NeodashRecordParser } from "./generalized/NeodashRecordParser";
+
+/// Row value contract (#1904): what a result row may hold
+export {
+  isGraphNode,
+  isGraphRelationship,
+  isGraphPath,
+  integerToRowValue,
+  toIsoDuration,
+} from "./generalized/row-value";
+export type {
+  Row,
+  RowValue,
+  GraphValue,
+  GraphNode,
+  GraphRelationship,
+  GraphPath,
+  GraphPathSegment,
+  DurationParts,
+} from "./generalized/row-value";
 
 /// Query-safety helpers
 export {
@@ -99,3 +117,12 @@ export type {
   ConformanceQueries,
   ConformanceCase,
 } from "./conformance/query-safety";
+
+/// Result-shape conformance harness (#1904) — pure, no database
+export { buildShapeConformanceCases } from "./conformance/result-shapes";
+export type {
+  ShapeFixture,
+  ShapeFixtures,
+  ShapeConformanceOptions,
+  ShapeConformanceCase,
+} from "./conformance/result-shapes";

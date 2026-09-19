@@ -78,8 +78,6 @@ describe("PostgreSQL write path — row limit must not truncate side effects", (
               resolve({ rows: rows as unknown[], statuses }),
             onFail: reject,
             setStatus: (s: QueryStatus) => statuses.push(s),
-            setFields: () => {},
-            setSchema: () => {},
           },
           {
             ...DEFAULT_CONNECTION_CONFIG,

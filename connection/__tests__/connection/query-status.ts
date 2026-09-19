@@ -4,9 +4,11 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
-  NeodashRecord,
 } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
+
+/** A parsed row: a plain object, column name → row value (#1904). */
+type NeodashRecord = Record<string, unknown>;
 
 describe("Query to Neo4j", () => {
   test("run MATCH (n) RETURN n LIMIT 1 and receive COMPLETE status", async () => {

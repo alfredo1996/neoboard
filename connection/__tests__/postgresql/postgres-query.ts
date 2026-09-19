@@ -85,7 +85,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      parseToNeodashRecord: true,
     };
 
     await connectionModule.runQuery(
@@ -101,7 +100,7 @@ describe("PostgreSQL Query Execution", () => {
     expect(error).toBeNull();
     expect(status).toBe(QueryStatus.COMPLETE);
     expect(result).toBeDefined();
-    // onSuccess receives a flat NeodashRecord[] array directly
+    // onSuccess receives a flat array of plain rows directly
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe("Alice");
   });
@@ -112,7 +111,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      parseToNeodashRecord: true,
     };
 
     await connectionModule.runQuery(
@@ -195,7 +193,6 @@ describe("PostgreSQL Query Execution", () => {
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
       rowLimit: 1,
-      parseToNeodashRecord: true,
     };
 
     await connectionModule.runQuery(
@@ -225,7 +222,6 @@ describe("PostgreSQL Query Execution", () => {
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      parseToNeodashRecord: true,
     };
 
     await connectionModule.runQuery(
@@ -237,56 +233,10 @@ describe("PostgreSQL Query Execution", () => {
       config,
     );
 
-    // onSuccess receives a flat NeodashRecord[] — no summary wrapper
+    // onSuccess receives a flat array of plain rows — no summary wrapper
     expect(result).toBeDefined();
     expect(Array.isArray(result)).toBe(true);
     expect(status).toBe(QueryStatus.COMPLETE);
-  });
-
-  test("should call setSchema callback with schema information", async () => {
-    let schema: any = null;
-
-    const config = {
-      ...DEFAULT_CONNECTION_CONFIG,
-      parseToNeodashRecord: true,
-    };
-
-    await connectionModule.runQuery(
-      { query: "SELECT * FROM users" },
-      {
-        onSuccess: () => {},
-        setSchema: (s) => (schema = s),
-      },
-      config,
-    );
-
-    expect(schema).toBeDefined();
-    expect(Array.isArray(schema)).toBe(true);
-    expect(schema.length).toBeGreaterThan(0);
-  });
-
-  test("should call setFields callback with field information", async () => {
-    let fields: any = null;
-
-    const config = {
-      ...DEFAULT_CONNECTION_CONFIG,
-      parseToNeodashRecord: true,
-    };
-
-    await connectionModule.runQuery(
-      { query: "SELECT * FROM users" },
-      {
-        onSuccess: () => {},
-        setFields: (f) => (fields = f),
-      },
-      config,
-    );
-
-    expect(fields).toBeDefined();
-    expect(Array.isArray(fields)).toBe(true);
-    expect(fields).toContain("id");
-    expect(fields).toContain("name");
-    expect(fields).toContain("email");
   });
 
   test("should execute read-only query with READ access mode", async () => {
@@ -296,7 +246,6 @@ describe("PostgreSQL Query Execution", () => {
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
       accessMode: "READ",
-      parseToNeodashRecord: true,
     };
 
     await connectionModule.runQuery(
@@ -308,7 +257,7 @@ describe("PostgreSQL Query Execution", () => {
       config,
     );
 
-    // onSuccess receives a flat NeodashRecord[] — no summary wrapper
+    // onSuccess receives a flat array of plain rows — no summary wrapper
     expect(status).toBe(QueryStatus.COMPLETE);
     expect(result).toHaveLength(2);
   });
@@ -319,7 +268,6 @@ describe("PostgreSQL Query Execution", () => {
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
       accessMode: "WRITE",
-      parseToNeodashRecord: true,
     };
 
     await connectionModule.runQuery(
@@ -364,12 +312,11 @@ describe("PostgreSQL Query Execution", () => {
     expect(error).toBeDefined();
   });
 
-  test("should return NeodashRecord instances when parseToNeodashRecord is true", async () => {
+  test("should return plain row objects whose keys are the columns (#1904)", async () => {
     let result: any = null;
 
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
-      parseToNeodashRecord: true,
     };
 
     await connectionModule.runQuery(
@@ -383,11 +330,16 @@ describe("PostgreSQL Query Execution", () => {
       config,
     );
 
-    // onSuccess receives a flat NeodashRecord[] — property access works via Proxy
+    // onSuccess receives a flat array of plain rows. They used to be Proxies
+    // with no ownKeys trap, so Object.keys(row) answered ["record"].
     expect(result).toBeDefined();
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Alice");
     expect(result[0].email).toBe("alice@example.com");
+    expect(Object.keys(result[0])).toEqual(
+      expect.arrayContaining(["name", "email"]),
+    );
+    expect(Object.getPrototypeOf(result[0])).toBe(Object.prototype);
   });
 
   test("should rollback transaction on error", async () => {
@@ -432,7 +384,6 @@ describe("PostgreSQL Query Execution", () => {
       },
       {
         ...DEFAULT_CONNECTION_CONFIG,
-        parseToNeodashRecord: true,
       },
     );
 
@@ -447,7 +398,6 @@ describe("PostgreSQL Query Execution", () => {
       ...DEFAULT_CONNECTION_CONFIG,
       accessMode: "READ",
       rowLimit: 5,
-      parseToNeodashRecord: true,
     };
 
     // generate_series(1, 1_000_000) would materialise a million rows under the
@@ -475,7 +425,6 @@ describe("PostgreSQL Query Execution", () => {
     const config = {
       ...DEFAULT_CONNECTION_CONFIG,
       rowLimit: 1,
-      parseToNeodashRecord: true,
     };
 
     // Insert more data to test truncation

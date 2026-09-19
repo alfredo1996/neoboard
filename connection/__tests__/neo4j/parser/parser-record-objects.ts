@@ -4,7 +4,8 @@ import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
 import { toNumber } from "neo4j-driver-core";
 
-import { NeodashRecord } from "@neoboard/connector-sdk";
+/** A parsed row: a plain object, column name → row value (#1904). */
+type NeodashRecord = Record<string, unknown>;
 
 // #1642: assertions live AFTER the awaited runQuery, never inside onSuccess.
 // onSuccess is invoked inside the connector's try block, so an expect() that
@@ -44,6 +45,7 @@ describe("Neo4jRecordParser - Objects Parsing", () => {
     const movieNode = result![0]["m"];
 
     // parseGraphObject now returns a plain object with { identity, elementId, labels, properties }
+    expect(movieNode.$type).toBe("node");
     expect(movieNode).toHaveProperty("labels");
     expect(movieNode).toHaveProperty("properties");
     const movieNodeProperties = movieNode["properties"];
@@ -92,6 +94,7 @@ describe("Neo4jRecordParser - Objects Parsing", () => {
     expect(relationship).toHaveProperty("properties");
 
     expect(relationship).toMatchObject({
+      $type: "relationship",
       identity: expect.anything(),
       start: expect.anything(),
       end: expect.anything(),
@@ -139,8 +142,9 @@ describe("Neo4jRecordParser - Objects Parsing", () => {
     const path = result![0]["p"];
 
     expect(path).toMatchObject({
-      start: expect.anything(),
-      end: expect.anything(),
+      $type: "path",
+      start: { $type: "node" },
+      end: { $type: "node" },
       segments: expect.any(Array),
       length: expect.any(Number),
     });

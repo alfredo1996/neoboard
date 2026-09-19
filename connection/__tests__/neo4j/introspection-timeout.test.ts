@@ -103,7 +103,7 @@ describe("Neo4jConnectionModule runQuery timeout resolution (#1302, #1898)", () 
     await mod.runQuery(
       { query: "RETURN 1", params: {} },
       { onSuccess: jest.fn(), onFail: jest.fn() } as any,
-      { ...DEFAULT_CONNECTION_CONFIG, timeout, parseToNeodashRecord: false },
+      { ...DEFAULT_CONNECTION_CONFIG, timeout },
     );
 
     expect(executeRead).toHaveBeenCalledWith(expect.any(Function), {

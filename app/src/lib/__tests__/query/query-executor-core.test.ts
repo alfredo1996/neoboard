@@ -474,6 +474,36 @@ describe("query-executor", () => {
     expect(capturedConfig.connectionTimeout).toBe(30000);
   });
 
+  it("hands the connector exactly three callbacks — no setFields, no setSchema (#1904)", async () => {
+    // Both were empty stubs here, and the only consumers the connectors had.
+    // To feed them a connector parsed records[0] a second time and walked
+    // every retained row — up to 100 000 — for a result this threw away.
+    let callbacks: Record<string, unknown> = {};
+    let capturedConfig: Record<string, unknown> = {};
+    mockRunQuery.mockImplementation(
+      (
+        _p: unknown,
+        cbs: { onSuccess: (v: unknown) => void },
+        config: Record<string, unknown>,
+      ) => {
+        callbacks = cbs;
+        capturedConfig = config;
+        cbs.onSuccess([]);
+      },
+    );
+
+    await executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+
+    expect(Object.keys(callbacks).sort()).toEqual([
+      "onFail",
+      "onSuccess",
+      "setStatus",
+    ]);
+    // The flags that only steered the deleted record layer are gone too.
+    expect(capturedConfig).not.toHaveProperty("parseToNeodashRecord");
+    expect(capturedConfig).not.toHaveProperty("useNodePropsAsFields");
+  });
+
   // -----------------------------------------------------------------------
   // executeQuery — named parameters, for every connector (#1898)
   //

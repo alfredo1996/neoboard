@@ -16,7 +16,7 @@ describe("Neo4jRecordParser - Graph Integer Conversion", () => {
     );
 
     // parseGraphObject is called internally by __neo4jToNative via isGraphObject
-    // We test the full _parse path by wrapping the node in a NeodashRecord-like object
+    // We test the full _parse path by wrapping the node in a driver-Record-like object
     const fakeRecord = {
       keys: ["n"],
       get: (key: string) => (key === "n" ? node : undefined),
@@ -217,20 +217,24 @@ describe("Neo4jRecordParser - Path conversion (#1305)", () => {
 });
 
 /**
- * Guard against a second #1305. `isGraphObject` lists Node, Relationship,
- * Path, PathSegment and Point — but the driver also has UnboundRelationship,
- * which is NOT listed. Rather than assume that is a leak or assume it is fine,
- * this pins the actual behaviour: it falls through to the plain-object branch,
- * whose recursive convert handles it correctly.
+ * Guard against a second #1305. The driver has a graph class the parser used
+ * not to list — UnboundRelationship, a relationship returned without its
+ * endpoints. It fell through to the plain-object branch, which converted its
+ * Integers correctly but emitted an untyped bag: nothing said it was a
+ * relationship, and this test pinned exactly that.
  *
- * If a future driver version changes UnboundRelationship's shape so the
- * fallback stops converting it, this fails rather than shipping {low, high} to
- * a widget again.
+ * #1904 changed the pin on purpose. Every graph value now carries a `$type`
+ * tag, so the parser lists UnboundRelationship and tags it like any other
+ * relationship. Its four endpoint keys are ABSENT rather than null — a
+ * consumer that still sniffs keys reads `"start" in value` as "has endpoints".
+ *
+ * If a future driver version changes the class so the conversion stops
+ * working, this fails rather than shipping {low, high} to a widget again.
  */
 describe("Neo4jRecordParser - no other graph shape leaks Integers", () => {
   const parser = new Neo4jRecordParser();
 
-  it("converts an UnboundRelationship even though isGraphObject omits it", () => {
+  it("emits an UnboundRelationship as a tagged relationship with no endpoint keys", () => {
     const { UnboundRelationship } = neo4j.types;
     const unbound = new UnboundRelationship(
       int(7),
@@ -245,8 +249,92 @@ describe("Neo4jRecordParser - no other graph shape leaks Integers", () => {
     } as any;
     const parsed = parser._parse(record)["r"] as Record<string, any>;
 
-    expect(parsed.properties.since).toBe(1999);
-    expect(parsed.identity).toBe(7);
+    expect(parsed).toEqual({
+      $type: "relationship",
+      identity: 7,
+      elementId: "rel:7",
+      type: "KNOWS",
+      properties: { since: 1999 },
+    });
+    for (const key of [
+      "start",
+      "end",
+      "startNodeElementId",
+      "endNodeElementId",
+    ]) {
+      expect(key in parsed).toBe(false);
+    }
     expect(JSON.stringify(parsed)).not.toContain('"low"');
+  });
+});
+
+/**
+ * #1904 — every graph value says what it is. Consumers check `$type` and
+ * nothing else; the key names are unchanged, so a consumer that still reads
+ * them keeps working.
+ */
+describe("Neo4jRecordParser - $type tags (#1904)", () => {
+  const parser = new Neo4jRecordParser();
+  const { Path, PathSegment } = neo4j.types;
+
+  const parse = (value: unknown) =>
+    parser._parse({
+      keys: ["v"],
+      get: (key: string) => (key === "v" ? value : undefined),
+    } as any)["v"] as Record<string, any>;
+
+  const alice = new Node(int(1), ["Person"], {}, "node:1");
+  const bob = new Node(int(2), ["Person"], {}, "node:2");
+  const knows = new Relationship(
+    int(10),
+    int(1),
+    int(2),
+    "KNOWS",
+    {},
+    "rel:10",
+    "node:1",
+    "node:2",
+  );
+
+  it("tags a node and keeps its keys", () => {
+    expect(parse(alice)).toEqual({
+      $type: "node",
+      identity: 1,
+      elementId: "node:1",
+      labels: ["Person"],
+      properties: {},
+    });
+  });
+
+  it("tags a relationship and keeps its keys", () => {
+    expect(parse(knows)).toEqual({
+      $type: "relationship",
+      identity: 10,
+      elementId: "rel:10",
+      start: 1,
+      startNodeElementId: "node:1",
+      end: 2,
+      endNodeElementId: "node:2",
+      type: "KNOWS",
+      properties: {},
+    });
+  });
+
+  it("tags a path and everything inside it; a segment needs no tag", () => {
+    const parsed = parse(
+      new Path(alice, bob, [new PathSegment(alice, knows, bob)]),
+    );
+    expect(parsed.$type).toBe("path");
+    expect(parsed.start.$type).toBe("node");
+    expect(parsed.end.$type).toBe("node");
+    expect(parsed.segments[0].$type).toBeUndefined();
+    expect(parsed.segments[0].start.$type).toBe("node");
+    expect(parsed.segments[0].relationship.$type).toBe("relationship");
+    expect(parsed.segments[0].end.$type).toBe("node");
+  });
+
+  it("leaves a point untagged: it is a plain map, not a graph value", () => {
+    const point = parse(new neo4j.types.Point(int(4326), 9.19, 45.46));
+    expect(point).toEqual({ srid: 4326, x: 9.19, y: 45.46 });
   });
 });

@@ -25,7 +25,7 @@ const MUST_BE_LINTED = [
   "app/src/lib/shared/normalize-value.ts",
   "component/src/charts/bar-chart.tsx",
   "connection/src/neo4j/Neo4jRecordParser.ts",
-  "connector-sdk/src/generalized/NeodashRecord.ts",
+  "connector-sdk/src/generalized/row-value.ts",
   "cli/src/index.ts",
 ];
 

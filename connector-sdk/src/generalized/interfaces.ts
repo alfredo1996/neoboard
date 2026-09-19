@@ -89,17 +89,6 @@ export const DEFAULT_CONNECTION_CONFIG: ConnectionConfig & {
    * Maximum number of records to return before truncating.
    */
   rowLimit: 5000,
-
-  /**
-   * Flag indicating whether to parse results to NeodashRecord format.
-   */
-  parseToNeodashRecord: true,
-
-  /**
-   * If true, the system will use node/relationship/path properties as fields instead of top-level keys.
-   * Default is false.
-   */
-  useNodePropsAsFields: false,
 };
 
 /**
@@ -134,17 +123,6 @@ export interface ConnectionConfig {
    * The maximum number of records to return from a query before truncation is applied.
    */
   rowLimit: number;
-
-  /**
-   * If true, the connection module will invoke its parsing module to parse the result to a NeodashRecord.
-   */
-  parseToNeodashRecord: boolean;
-
-  /**
-   * If true, the system will use node/relationship/path properties as fields instead of top-level keys.
-   * Default is false.
-   */
-  useNodePropsAsFields: boolean;
 }
 
 /**
@@ -205,8 +183,6 @@ export interface QueryCallback<T> {
   onSuccess?: (result: T) => void;
   onFail?: (error: unknown) => void;
   setStatus?: (status: QueryStatus) => void;
-  setFields?: (fields: string[] | string[][]) => void;
-  setSchema?: (schema: string[][]) => void;
 }
 
 /**

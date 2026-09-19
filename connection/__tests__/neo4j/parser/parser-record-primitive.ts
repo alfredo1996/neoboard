@@ -2,7 +2,8 @@ import { getNeo4jAuth } from "../../utils/setup";
 import { Neo4jConnectionModule } from "../../../src/neo4j/Neo4jConnectionModule";
 import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
-import { NeodashRecord } from "@neoboard/connector-sdk";
+/** A parsed row: a plain object, column name → row value (#1904). */
+type NeodashRecord = Record<string, unknown>;
 
 describe("Neo4jRecordParser - Primitive Parsing", () => {
   test("should correctly parse a Neo4j Integer value", async () => {

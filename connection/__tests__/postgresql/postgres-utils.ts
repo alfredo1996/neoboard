@@ -1,9 +1,7 @@
 import {
   errorHasMessage,
-  extractTableSchemaFromFields,
   isAuthenticationError,
 } from "../../src/postgresql/utils";
-import type { FieldDef } from "pg";
 
 describe("PostgreSQL Utils", () => {
   describe("errorHasMessage", () => {
@@ -29,47 +27,6 @@ describe("PostgreSQL Utils", () => {
     test("should return false for error with non-string message", () => {
       const error = { message: 123 };
       expect(errorHasMessage(error)).toBe(false);
-    });
-  });
-
-  describe("extractTableSchemaFromFields", () => {
-    test("should extract schema from field metadata", () => {
-      const fields = [
-        { name: "id", dataTypeID: 23 },
-        { name: "name", dataTypeID: 25 },
-        { name: "email", dataTypeID: 25 },
-      ] as unknown as FieldDef[];
-
-      const schema = extractTableSchemaFromFields(fields);
-
-      expect(Array.isArray(schema)).toBe(true);
-      expect(schema.length).toBeGreaterThan(0);
-      expect(schema[0].length).toBeGreaterThan(1);
-      expect(schema[0]).toContain("id");
-      expect(schema[0]).toContain("name");
-      expect(schema[0]).toContain("email");
-    });
-
-    test("should return empty array for empty fields", () => {
-      const schema = extractTableSchemaFromFields([]);
-      expect(schema).toEqual([]);
-    });
-
-    test("should handle multiple fields", () => {
-      const fields = [
-        { name: "field1", dataTypeID: 23 },
-        { name: "field2", dataTypeID: 25 },
-        { name: "field3", dataTypeID: 16 },
-        { name: "field4", dataTypeID: 700 },
-      ] as unknown as FieldDef[];
-
-      const schema = extractTableSchemaFromFields(fields);
-
-      expect(schema.length).toBeGreaterThan(0);
-      expect(schema[0]).toContain("field1");
-      expect(schema[0]).toContain("field2");
-      expect(schema[0]).toContain("field3");
-      expect(schema[0]).toContain("field4");
     });
   });
 

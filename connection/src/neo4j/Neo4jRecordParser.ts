@@ -1,8 +1,13 @@
-import { NeodashRecordParser } from "@neoboard/connector-sdk";
+import {
+  integerToRowValue,
+  NeodashRecordParser,
+  toIsoDuration,
+} from "@neoboard/connector-sdk";
 import {
   isInt,
   Record as Neo4jRecord,
   Relationship,
+  UnboundRelationship,
   Path,
   Node,
   DateTime,
@@ -14,7 +19,6 @@ import {
   PathSegment,
   Point,
 } from "neo4j-driver";
-import { NeodashRecord } from "@neoboard/connector-sdk";
 
 /**
  * Neo4jRecordParser
@@ -122,6 +126,15 @@ function zonedDateTimeToIso(value: DateTime): string {
   }
 }
 
+/**
+ * A Duration field for toIsoDuration: a plain number whenever a double holds
+ * it exactly, a BigInt only beyond that — so nothing is ever rounded, and an
+ * ordinary duration never pays for a BigInt conversion.
+ */
+function exactField(field: Duration["months"]): number | bigint {
+  return field.inSafeRange() ? field.toNumber() : field.toBigInt();
+}
+
 export class Neo4jRecordParser extends NeodashRecordParser {
   constructor() {
     // Constructor can be extended in the future if needed
@@ -134,18 +147,11 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @returns A parsed JavaScript object representing the record.
    */
   _parse(
-    _record:
-      | Record<string, unknown>
-      | NeodashRecord
-      | Neo4jRecord<Record<string, unknown>>,
-  ): NeodashRecord {
-    // Parsing the record twice should return the same record
-    if (_record instanceof NeodashRecord) {
-      return _record;
-    }
+    _record: Record<string, unknown> | Neo4jRecord<Record<string, unknown>>,
+  ): Record<string, unknown> {
     // Everything that reaches this point comes from the driver and has the
-    // Neo4j Record shape (keys + get) — the plain-object arm of the union
-    // exists only for already-parsed pass-through inputs, which share it.
+    // Neo4j Record shape (keys + get); the plain-object arm of the union is
+    // what the base class's signature calls the same thing.
     const record = _record as Neo4jRecord<Record<string, unknown>>;
     const parsed: Record<string, unknown> = {};
 
@@ -153,7 +159,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       const value = record.get(key);
       parsed[key as string] = this.__neo4jToNative(value);
     }
-    return new NeodashRecord(parsed);
+    return parsed;
   }
 
   /**
@@ -162,9 +168,10 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @return {unknown} - Value converted to JavaScript native type
    */
   private __neo4jToNative(value: unknown): unknown {
-    // Main dispatcher function
+    // Main dispatcher function. A missing value is null, never undefined:
+    // JSON drops an undefined key, so the column would vanish from the row.
     if (value === null || value === undefined) {
-      return value;
+      return null;
     }
 
     // Process based on type
@@ -188,7 +195,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * Determines if the provided value is a primitive type relevant to Neo4j parsing.
    * This includes:
    * - Neo4j Integer (`isInt`)
-   * - JavaScript primitive types: `boolean`, `string`, `number`
+   * - JavaScript primitive types: `boolean`, `string`, `number`, `bigint`
    *
    * @param {any} value - The value to check.
    * @returns {boolean} True if the value is a Neo4j Integer or a JS primitive type used in Neo4j responses.
@@ -198,7 +205,8 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       isInt(value) ||
       typeof value === "boolean" ||
       typeof value === "string" ||
-      typeof value === "number"
+      typeof value === "number" ||
+      typeof value === "bigint"
     );
   }
 
@@ -226,6 +234,10 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       // inSafeRange() can decide per value.
       return value.inSafeRange() ? value.toNumber() : value.toString();
     }
+
+    // A driver configured with `useBigInt` hands over a BigInt. Same rule as
+    // an Integer, so JSON.stringify can never throw on one (#1904).
+    if (typeof value === "bigint") return integerToRowValue(value);
 
     if (
       typeof value === "boolean" ||
@@ -265,7 +277,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * Converts Neo4j temporal types into JavaScript-native representations.
    * - Neo4jDate: "YYYY-MM-DD" string
    * - Time: "HH:mm:ss.nnnnnnnnn+HH:MM" string
-   * - Duration: plain JS object with numeric fields
+   * - Duration: ISO-8601 duration string (`P1Y2M3DT4H5M6.5S`)
    * - everything else: the driver's own lossless ISO-8601 toString()
    *
    * Strings, not Dates. A JS Date is an absolute instant, which a LocalDateTime
@@ -311,15 +323,23 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     // depending on where the server ran. All three failed silently, showing a
     // plausible-looking wrong value (#1306).
     //
-    // Duration is the one exception below: it has no useful ISO round-trip for
-    // charts, and consumers already read the object form.
+    // Duration is the one exception below. The driver's toString() keeps
+    // months and seconds uncarried (`P14M3DT3723.500000000S`); every connector
+    // emits the SDK's one ISO-8601 form instead, so a duration reads the same
+    // whichever database it came from (#1904).
+    //
+    // A field is a plain number whenever a double holds it exactly — which is
+    // every duration anyone stores — and a BigInt only beyond that, so a 64-bit
+    // seconds count is still never rounded. Integer#toBigInt() on all four
+    // fields cost 231 ms per 100 000 values, the whole of the parse regression
+    // this change first had; measured, not guessed.
     if (value instanceof Duration) {
-      return {
-        months: value.months.toNumber(),
-        days: value.days.toNumber(),
-        seconds: value.seconds.toNumber(),
-        nanoseconds: value.nanoseconds.toNumber(),
-      };
+      return toIsoDuration({
+        months: exactField(value.months),
+        days: exactField(value.days),
+        seconds: exactField(value.seconds),
+        nanoseconds: exactField(value.nanoseconds),
+      });
     }
 
     // A DateTime carrying a named zone is the one shape the driver's toString()
@@ -342,6 +362,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     return (
       value instanceof Node ||
       value instanceof Relationship ||
+      value instanceof UnboundRelationship ||
       value instanceof Path ||
       value instanceof PathSegment ||
       value instanceof Point
@@ -359,6 +380,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
   parseGraphObject(value: unknown) {
     if (value instanceof Node) {
       return {
+        $type: "node",
         identity: this.__neo4jToNative(value.identity),
         elementId: value.elementId,
         labels: value.labels,
@@ -368,12 +390,29 @@ export class Neo4jRecordParser extends NeodashRecordParser {
 
     if (value instanceof Relationship) {
       return {
+        $type: "relationship",
         identity: this.__neo4jToNative(value.identity),
         elementId: value.elementId,
         start: this.__neo4jToNative(value.start),
         startNodeElementId: value.startNodeElementId,
         end: this.__neo4jToNative(value.end),
         endNodeElementId: value.endNodeElementId,
+        type: value.type,
+        properties: this.neo4jConvertPlainObject(value.properties as object),
+      };
+    }
+
+    // A relationship the server returned without its endpoints. It used to
+    // fall through to the plain-object branch and come out as an untyped bag;
+    // it is a relationship, so it is tagged as one. The four endpoint keys are
+    // ABSENT rather than null: a consumer that still sniffs keys reads
+    // `"start" in value` as "has endpoints" and would draw an edge to the node
+    // "undefined" (#1904).
+    if (value instanceof UnboundRelationship) {
+      return {
+        $type: "relationship",
+        identity: this.__neo4jToNative(value.identity),
+        elementId: value.elementId,
         type: value.type,
         properties: this.neo4jConvertPlainObject(value.properties as object),
       };
@@ -386,11 +425,12 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     // trust. Recursing through __neo4jToNative reuses the Node and
     // Relationship arms above rather than duplicating their conversion.
     //
-    // The key names are load-bearing: transformToGraphData, validateGraphData,
-    // extractNodeAndRelPropertiesFromRecords and NeodashRecord.getFields all
-    // key off start/end/segments/relationship.
+    // The key names are load-bearing: they are the SDK's GraphPath contract,
+    // and the app's graph transform still keys off start/end/segments/
+    // relationship until #1925 switches it to the `$type` tag.
     if (value instanceof Path) {
       return {
+        $type: "path",
         start: this.__neo4jToNative(value.start),
         end: this.__neo4jToNative(value.end),
         segments: value.segments.map((segment) =>

@@ -6,13 +6,45 @@ import {
   QueryStatus,
 } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
-import {
-  ConnectorError,
-  ConnectorErrorType,
-  NeodashRecord,
-} from "@neoboard/connector-sdk";
+import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
+import { Neo4jRecordParser } from "../../src/neo4j/Neo4jRecordParser";
+
+/** A parsed row: a plain object, column name → row value (#1904). */
+type NeodashRecord = Record<string, unknown>;
 
 describe("Query to Neo4j", () => {
+  test("parses a result's rows in exactly one pass (#1904)", async () => {
+    // A query used to cost three passes: a walk of every retained record to
+    // build a schema for `setSchema`, the parse, and a second parse of
+    // records[0] for `setFields` — both callbacks consumed by an empty stub.
+    // The suites that covered them asserted INSIDE the callbacks, so they
+    // stayed green after the callbacks were gone; this pins the replacement
+    // with something that can fail.
+    const bulkParse = jest.spyOn(Neo4jRecordParser.prototype, "bulkParse");
+    try {
+      const connection = new Neo4jConnectionModule(getNeo4jAuth());
+      let res: NeodashRecord[] | undefined;
+      await connection.runQuery(
+        { query: "MATCH (p:Person) RETURN p LIMIT 10", params: {} },
+        {
+          onSuccess: (r: NeodashRecord[]) => {
+            res = r;
+          },
+        },
+        NEO4J_TEST_CONNECTION_CONFIG,
+      );
+
+      expect(bulkParse).toHaveBeenCalledTimes(1);
+      // …and that one call saw every row, not a records[0] sample.
+      expect(bulkParse.mock.calls[0][0]).toHaveLength(10);
+      expect(res).toHaveLength(10);
+      expect(Object.keys(res![0])).toEqual(["p"]);
+      expect((res![0].p as { $type: string }).$type).toBe("node");
+    } finally {
+      bulkParse.mockRestore();
+    }
+  });
+
   test("run MATCH (n) RETURN n LIMIT 1 and get Data", async () => {
     const config = getNeo4jAuth();
     const connection = new Neo4jConnectionModule(config);

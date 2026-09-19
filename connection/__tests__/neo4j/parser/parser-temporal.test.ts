@@ -281,3 +281,32 @@ describe("parseTemporal precision and zone-independence (#1306)", () => {
     }
   });
 });
+
+describe("Duration → ISO-8601 without paying for BigInt (#1904)", () => {
+  const parser = new Neo4jRecordParser();
+  const duration = (seconds: string | number) =>
+    new neo4j.types.Duration(int(1), int(2), int(seconds), int(0));
+
+  it("converts an ordinary duration with no BigInt conversion at all", () => {
+    // Integer#toBigInt() is what made a duration column cost 272 ms per
+    // 100 000 values against 41 ms before — the whole of the parse regression
+    // the first version of this change had. Every field of a real duration
+    // fits a double exactly, so the exact path is only for the ones that do
+    // not. Asserted on the call, not the clock: a timing threshold tight
+    // enough to catch it would flake on a loaded runner.
+    const toBigInt = jest.spyOn(neo4j.types.Integer.prototype, "toBigInt");
+    try {
+      expect(parser._parse(fakeRecord("d", duration(3)))["d"]).toBe("P1M2DT3S");
+      expect(toBigInt).not.toHaveBeenCalled();
+    } finally {
+      toBigInt.mockRestore();
+    }
+  });
+
+  it("still converts a beyond-safe-range field exactly", () => {
+    // toNumber() would round 2^53 + 1 seconds; this one takes the exact path.
+    expect(
+      parser._parse(fakeRecord("d", duration("9007199254740993")))["d"],
+    ).toBe("P1M2DT2501999792983H36M33S");
+  });
+});

@@ -208,6 +208,61 @@ Never log the config or an error that quotes it. The built-ins log only an error
 
 `ConnectionModule` is where the [query-safety](/security/query-safety) invariants live. `runQuery` reports through callbacks rather than a return value, and the contract around those callbacks is precise — the comments in the code say what each line is for.
 
+### What a row may hold
+
+NeoBoard is one dashboard over many systems, so nothing downstream asks which connector produced a value: charts and tables key on the value's **form** alone. Your connector turns whatever its driver returns into the forms below before calling `onSuccess`. A row crosses JSON on its way to the browser, so every value must survive `JSON.parse(JSON.stringify(value))` unchanged — no `Date`, no `BigInt` (on which `JSON.stringify` throws), no `undefined`, no driver class instance.
+
+| Kind                | Canonical form                                                                                   | Example                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| missing             | `null`, never `undefined` — JSON drops an undefined key and the column vanishes from the row     | `null`                                    |
+| boolean, string     | as is                                                                                            | `true`, `"Ada"`                           |
+| integer             | `number` inside ±(2^53 − 1), otherwise a decimal **string** — never rounded (`integerToRowValue`) | `42`, `"9007199254740993"`                |
+| decimal             | `number` when a double holds it exactly, otherwise a decimal string                              | `12.5`, `"0.12345678901234567890"`        |
+| float               | finite `number`                                                                                  | `1.5`                                     |
+| date                | `YYYY-MM-DD`                                                                                     | `"2024-06-01"`                            |
+| date-time           | ISO-8601 with `Z` or `±HH:MM`. A named zone is dropped and its offset kept                       | `"2024-06-01T14:30:05.123+02:00"`         |
+| local date-time     | ISO-8601 with **no** offset. A value that has no zone must not gain one                          | `"2024-06-01T14:30:05"`                   |
+| time, local time    | `HH:mm:ss[.f…]`, with `Z` / `±HH:MM` only when the value has an offset                           | `"14:30:05+02:00"`, `"14:30:05"`          |
+| duration / interval | ISO-8601 duration from `toIsoDuration`; every non-zero component carries its own sign            | `"P1Y2M3DT4H5M6.5S"`, `"P1M-2DT3S"`       |
+| graph value         | `GraphNode`, `GraphRelationship` or `GraphPath`, tagged with `$type`                             | `{ "$type": "node", "labels": […], … }`   |
+| list, map           | an array or a plain object of row values                                                         | `[1, "a"]`, `{ "x": 1 }`                  |
+
+Column names are the database's own: never rewrite them. Graph values keep fixed key names — a node is `{ $type: "node", identity, elementId, labels, properties }`, a relationship adds `type` and its four endpoint keys (`start`, `end`, `startNodeElementId`, `endNodeElementId`), which are **absent** rather than `null` when the database returned it without its endpoints; a path is `{ $type: "path", start, end, segments, length }`. The types and the `isGraphNode` / `isGraphRelationship` / `isGraphPath` guards are exported by the SDK. Declare `supportsGraphData: true` only if you emit them.
+
+```ts
+// src/rows.ts
+import { integerToRowValue, type Row, type RowValue } from "@neoboard/connector-sdk";
+
+/** One value, as the driver returned it, into the form the table above names. */
+export function toRowValue(value: unknown): RowValue {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "bigint") return integerToRowValue(value);
+  // NaN and ±Infinity are not JSON: they would arrive as null anyway, so say
+  // so here rather than let the serialiser decide.
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  // An instant. If your database also has a date-time WITHOUT a zone, emit
+  // that one from its own components instead: toISOString() would present a
+  // wall clock as an instant and move it by the server's offset.
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  if (Array.isArray(value)) return value.map(toRowValue);
+  // Add a branch here for each class your driver returns — its 64-bit
+  // integer, decimal, interval (toIsoDuration), node — BEFORE this one, which
+  // would otherwise copy the instance's fields as if it were a map.
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, toRowValue(item)]),
+    );
+  }
+  return value as RowValue;
+}
+
+export function toRow(raw: Record<string, unknown>): Row {
+  return toRowValue(raw) as Row;
+}
+```
+
 ```ts
 // src/connection.ts
 import {
@@ -223,10 +278,10 @@ import {
   type ConnectorConfig,
   type QueryCallback,
   type QueryParams,
+  type Row,
 } from "@neoboard/connector-sdk";
 import { MyDbAuthenticationModule } from "./auth.js";
-
-type Row = Record<string, unknown>;
+import { toRow } from "./rows.js";
 
 export class MyDbConnectionModule extends ConnectionModule {
   authModule: MyDbAuthenticationModule;
@@ -264,10 +319,12 @@ export class MyDbConnectionModule extends ConnectionModule {
       const collected = readOnly
         ? await collectUpToLimit(stream, config.rowLimit)
         : await drainRetainingUpTo(stream, config.rowLimit);
-      rows = collected.rows;
+      // The ONE pass over the rows: turn what the driver returned into row
+      // values (rows.ts, above). Up to 100 000 rows may be kept — do not add
+      // a second pass.
+      rows = collected.rows.map(toRow);
       const rowCount = collected.truncated ? config.rowLimit + 1 : rows.length;
       callbacks.setStatus?.(determineQueryStatus(rowCount, config.rowLimit));
-      callbacks.setFields?.(rows.length > 0 ? Object.keys(rows[0]) : []);
     } catch (error) {
       // A connector failure is reported, never thrown: onFail fires, the
       // promise resolves, and the UI shows a classified error.
@@ -331,10 +388,9 @@ What the pieces of `config` and `callbacks` mean:
 | `config.rowLimit`                  | Keep at most this many rows. Detect truncation by pulling one more (`collectUpToLimit` does this) and report `COMPLETE_TRUNCATED`, which the UI turns into a "showing first N rows" banner.                                                                                                                  |
 | `config.timeout`                   | An explicit per-query override in milliseconds — **usually unset**. The default is yours to resolve: `resolveQueryTimeout(config.timeout, yourConfiguredTimeout)` returns the override, else the timeout field you declared, else 30 s, and never lets zero or junk mean "unbounded". Enforce the result at the driver or server (statement timeout, transaction timeout, `maxTimeMS` — whatever your database has) and report `TIMED_OUT`. |
 | `config.database`                  | The database for this query, or `undefined` for the server default. It is the `database` of your config bag unless a widget overrides it. Applying it is your job — NeoBoard no longer rewrites the URI.                                                                                                    |
-| `callbacks.onSuccess(rows)`        | An array of plain row objects — it is serialised to JSON as-is and handed to the chart transforms. Exactly one of `onSuccess` / `onFail` fires per call.                                                                                                                                                     |
+| `callbacks.onSuccess(rows)`        | An array of plain row objects whose values follow [What a row may hold](#what-a-row-may-hold) — it is serialised to JSON as-is and handed to the chart transforms, which never ask which connector a value came from. Exactly one of `onSuccess` / `onFail` fires per call.                                   |
 | `callbacks.onFail(error)`          | A `ConnectorError` whose `type` says what went wrong. `wrapError` in the SDK only knows the two built-in drivers, so construct the error yourself.                                                                                                                                                           |
 | `callbacks.setStatus(status)`      | `RUNNING` is set for you by `handleEmptyQuery`; you set `COMPLETE`, `COMPLETE_TRUNCATED`, `NO_DATA` (`determineQueryStatus` picks), `TIMED_OUT` or `ERROR`.                                                                                                                                                 |
-| `callbacks.setFields`, `setSchema` | Optional. `setFields` gets the column names of a row; `setSchema` gets per-column type information, if you have it.                                                                                                                                                                                         |
 
 ## 5. The schema manager (optional)
 
@@ -561,6 +617,79 @@ The cases, and what each one fails on:
 | does not report a throwing onSuccess as a query failure    | a throwing `onSuccess` reaches `onFail` or sets `ERROR`, or `runQuery` rejects with anything but the caller's own error                    |
 
 The built-in connectors run the same cases against Neo4j and PostgreSQL containers in `connection/__tests__/conformance/` — copy their queries if your database speaks Cypher or SQL.
+
+## 10. Prove result shapes
+
+Query safety is how a query runs; this is what its rows hold. `buildShapeConformanceCases` checks your row conversion against [What a row may hold](#what-a-row-may-hold), and unlike step 9 it needs **no database**: you hand it a function that converts one raw value, plus raw values you build yourself — exactly what your driver would return — each with the row value it must become.
+
+```ts
+// __tests__/shapes.test.ts
+import { describe, expect, test } from "vitest";
+import {
+  buildShapeConformanceCases,
+  type ShapeFixtures,
+} from "@neoboard/connector-sdk";
+import { toRowValue } from "../src/rows.js";
+
+const fixtures: ShapeFixtures = {
+  safeInteger: { raw: 42, expected: 42 },
+  // 2^53 + 1: a double rounds it to …992, so it must come out as a string.
+  unsafeInteger: { raw: 9007199254740993n, expected: "9007199254740993" },
+  float: { raw: 1.5, expected: 1.5 },
+  boolean: { raw: true, expected: true },
+  // Every way your driver says "no value".
+  nullish: [
+    { raw: null, expected: null },
+    { raw: undefined, expected: null },
+  ],
+  // Driver values at depth: the conversion has to recurse.
+  nested: {
+    raw: [{ ids: [1, 7n], seen: new Date("2024-06-01T12:30:05.123Z") }],
+    expected: [{ ids: [1, 7], seen: "2024-06-01T12:30:05.123Z" }],
+  },
+  dateTime: {
+    raw: new Date("2024-06-01T12:30:05.123Z"),
+    expected: "2024-06-01T12:30:05.123Z",
+  },
+};
+
+describe("MyDB result-shape conformance", () => {
+  const cases = buildShapeConformanceCases(toRowValue, fixtures, {
+    // The descriptor's own value. When true, the four graph fixtures
+    // (node, relationship, relationshipWithoutEndpoints, path) are mandatory.
+    supportsGraphData: false,
+  });
+
+  // Pin the list: a fixture that goes missing would otherwise pass in silence.
+  test("covers every kind this database has", () => {
+    expect(cases.map((c) => c.name)).toEqual([
+      "safeInteger",
+      "unsafeInteger",
+      "float",
+      "boolean",
+      "nullish",
+      "nested",
+      "dateTime",
+    ]);
+  });
+
+  for (const c of cases) {
+    test(c.name, c.run);
+  }
+});
+```
+
+The first six kinds are mandatory. Add a fixture for every other type your database has — `decimal`, `date`, `dateTime`, `localDateTime`, `time`, `localTime`, `duration` — and leave out the ones it lacks: a kind with no fixture generates no case. A fixture may be a list, so give `duration` a negative and a mixed-sign example. When parsing depends on the column type, make the raw value carry it (`{ value, oid }`) and unpack it in the function you pass.
+
+Each fixture is checked three ways, and a case throws on the first violation:
+
+| Check          | Fails when                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| JSON safety    | anywhere in the value, at any depth, there is a `Date`, a `BigInt`, a function, `undefined`, a non-finite number, a `{low, high}` driver integer or a class instance — or the value does not survive `JSON.parse(JSON.stringify(value))` |
+| Canonical form | the value is not the form of its kind: a graph value without its `$type` tag, a date-time that is not ISO-8601, a rounded number where a decimal string is required                          |
+| Expected value | the form is right and the value is wrong — the right shape holding the previous day                                                                                                         |
+
+The built-in connectors run the same cases over their record parsers in `connection/__tests__/conformance/neo4j-shapes.test.ts` and `pg-shapes.test.ts`, with values built from their drivers' own classes.
 
 ## Contributing a built-in instead
 

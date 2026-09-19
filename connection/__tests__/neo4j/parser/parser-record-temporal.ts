@@ -1,7 +1,8 @@
 import { getNeo4jAuth } from "../../utils/setup";
 import { Neo4jConnectionModule } from "../../../src/neo4j/Neo4jConnectionModule";
 import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
-import { NeodashRecord } from "@neoboard/connector-sdk";
+/** A parsed row: a plain object, column name → row value (#1904). */
+type NeodashRecord = Record<string, unknown>;
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
 
 describe("Neo4jRecordParser - Temporal Parsing", () => {
@@ -147,12 +148,9 @@ describe("Neo4jRecordParser - Temporal Parsing", () => {
     const period = parsed![0]["period"];
     expect(period).toBeDefined();
 
-    expect(period).toMatchObject({
-      months: 5,
-      days: 10,
-      seconds: expect.any(Number),
-      nanoseconds: expect.any(Number),
-    });
+    // One ISO-8601 form from every connector (#1904) — it used to be a
+    // {months, days, seconds, nanoseconds} object only this database emitted.
+    expect(period).toBe("P5M10DT1M0.0000005S");
   });
 
   test("should correctly parse a Neo4j LocalTime value", async () => {
