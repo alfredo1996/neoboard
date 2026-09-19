@@ -2,17 +2,22 @@
  * Connector-shaped fixtures (#1636).
  *
  * What a real result set looks like, as the connectors actually emit it — the
- * shapes no chart or transform fixture reflected before this file existed:
+ * shapes no chart or transform fixture reflected before this file existed.
+ * Since #1904 those shapes are the SDK's row value contract, the same from
+ * every connector:
  *
- * - A Neo4j node arrives as a plain `{ identity, elementId, labels, properties }`
- *   object (Neo4jRecordParser), never a driver `Node` instance.
- * - A Neo4j `date` and a PostgreSQL DATE both arrive as a `'YYYY-MM-DD'` string
- *   (#1651, #1654). Assuming a Date at UTC midnight is how #1616 shipped.
- * - A PostgreSQL TIMESTAMP still arrives as a JS `Date` (node-pg).
- * - A number stored as a string arrives as a string (`"48210.50"`): Neo4j string
- *   properties, third-party connectors. The built-in pg parser promotes NUMERIC
- *   (#1307), but the transform layer may not assume every number is a number —
- *   #1622 shipped from string coordinates.
+ * - A graph node arrives as a plain, tagged
+ *   `{ $type: "node", identity, elementId, labels, properties }` object, never
+ *   a driver instance. The keys are what they always were; the tag is new.
+ * - A date arrives as a `'YYYY-MM-DD'` string (#1651, #1654). Assuming a Date
+ *   at UTC midnight is how #1616 shipped.
+ * - A date-time arrives as an ISO-8601 string, never a JS `Date`: a row crosses
+ *   JSON before it reaches any of this code, so a `Date` was never reachable.
+ * - A duration or interval arrives as an ISO-8601 duration (`P1M2DT3S`).
+ * - A number stored as a string arrives as a string (`"48210.50"`): a text
+ *   column, or a decimal a double cannot hold (#1307). The transform layer may
+ *   not assume every number is a number — #1622 shipped from string
+ *   coordinates.
  * - A missing cell is `null`, and a "blank" cell can be whitespace.
  *
  * Tests that want realistic input draw from here instead of hand-writing tidy
@@ -25,14 +30,16 @@
  */
 
 export interface Neo4jNode {
+  $type: "node";
   identity: number;
   elementId: string;
   labels: string[];
   properties: Record<string, unknown>;
 }
 
-/** A Customer node exactly as the Neo4j parser hands it to the app. */
+/** A Customer node exactly as a graph connector's parser hands it to the app. */
 export const neo4jNode: Neo4jNode = {
+  $type: "node",
   identity: 42,
   elementId: "4:9e2c1f0a-6d3b-4c8e-b1a7-2f5d8c9e0b11:42",
   labels: ["Customer"],
@@ -40,17 +47,21 @@ export const neo4jNode: Neo4jNode = {
 };
 
 export const neo4jNode2: Neo4jNode = {
+  $type: "node",
   identity: 43,
   elementId: "4:9e2c1f0a-6d3b-4c8e-b1a7-2f5d8c9e0b11:43",
   labels: ["Customer"],
   properties: { name: "Grace Hopper", tier: "silver", since: "2025-03-02" },
 };
 
-/** Neo4j `date` / PostgreSQL DATE — a calendar day, not an instant. */
+/** A date — a calendar day, not an instant. */
 export const dateOnly = "2026-09-01";
 
-/** PostgreSQL TIMESTAMP as node-pg delivers it. */
-export const timestamp = new Date("2026-09-01T10:15:00.000Z");
+/** A date-time with an offset: an ISO-8601 string, never a JS `Date`. */
+export const timestamp = "2026-09-01T10:15:00.000Z";
+
+/** A duration or interval: one ISO-8601 form from every connector (#1904). */
+export const duration = "P1M2DT3S";
 
 /** A total stored as text, or a NUMERIC from a connector that does not promote. */
 export const numericString = "48210.50";
@@ -76,12 +87,13 @@ export interface OrderRow {
   shipped_on: string | null;
   customer: Neo4jNode | null;
   note: string | null;
-  placed_at: Date;
+  /** an ISO-8601 date-time string */
+  placed_at: string;
 }
 
 /**
  * Four orders the way a `LEFT JOIN` returns them: a null total, a null ship
- * date, a null customer, a whitespace total, a node-valued cell, a Date cell.
+ * date, a null customer, a whitespace total, a node-valued cell, a date-time cell.
  * Row order is stable; tests index into it.
  */
 export function sparseOrders(): OrderRow[] {

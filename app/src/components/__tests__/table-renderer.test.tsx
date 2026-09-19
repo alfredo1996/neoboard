@@ -95,10 +95,10 @@ describe("TableRenderer cell formatting (#1636)", () => {
     expect(cells("total")[0]).toBe(numericString);
   });
 
-  it("renders a Date cell as readable text without JSON quotes", () => {
-    // A pg TIMESTAMP is still a Date when it reaches the renderer. Sending
-    // it through the object branch would print the ISO string *with* its
-    // JSON quotation marks.
+  it("renders a date-time cell as readable text without JSON quotes", () => {
+    // A date-time reaches the renderer as an ISO-8601 string (#1904). Sending
+    // it through the object branch would print it *with* its JSON quotation
+    // marks.
     render(<TableRenderer data={sparseOrders()} settings={noPaging} />);
     const shown = cells("placed_at")[0];
     expect(shown).toContain("2026-09-01");

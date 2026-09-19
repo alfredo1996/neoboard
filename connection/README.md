@@ -16,9 +16,13 @@ one exposes to the query editor.
   (`maxPoolSize`, `connectionTimeout`, `database`, …) from that one config bag.
   Around them: authentication, query
   execution in a read-only or write transaction, and record parsing into plain
-  JavaScript values (`NeodashRecord`). Neo4j temporal, spatial and `Integer`
-  values are mapped; nodes, relationships and paths are returned as the driver
-  gives them, so consumers keep `.labels` and `.properties`.
+  rows of the SDK's row value contract (`RowValue`): ISO-8601 strings for
+  every temporal and duration, a decimal string for a number a double cannot
+  hold, and nodes, relationships and paths rebuilt as plain objects tagged
+  with `$type` — never a live driver object, a `Date` or a `BigInt`. The key
+  names are unchanged, so consumers keep `.labels` and `.properties`. Both
+  parsers run the SDK's pure shape conformance in
+  `__tests__/conformance/*-shapes.test.ts`.
 - `connector-registry.ts` — `createConnectionModule(type, config)` plus the registry
   (`registerConnector`, `getConnector`, `getSchemaManager`). External connector
   plugins register here; `external-connectors.generated.ts` is the generated

@@ -419,8 +419,8 @@ describe("connector-shaped fixtures (#1636)", () => {
   describe("table transform", () => {
     // The table shows what the database returned. Nothing is coerced here: a
     // node stays an object for the renderer to stringify, a null stays null so
-    // it can be shown as null, a Date stays a Date, a numeric string stays a
-    // string.
+    // it can be shown as null, an ISO date-time string stays that string, a
+    // numeric string stays a string.
     const rows = transformToTableData(sparseOrders()) as Array<
       Record<string, unknown>
     >;
@@ -434,7 +434,9 @@ describe("connector-shaped fixtures (#1636)", () => {
       expect(rows[1].total).toBeNull();
     });
 
-    it("passes a Date cell through as a Date", () => {
+    it("passes a date-time cell through as the ISO string it arrived as", () => {
+      // Connectors emit ISO strings, never a Date (#1904) — and a row crosses
+      // JSON before it gets here, so a Date was never reachable anyway.
       expect(rows[0].placed_at).toBe(timestamp);
     });
 

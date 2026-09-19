@@ -33,13 +33,47 @@ import {
   QueryStatus,
   collectUpToLimit,
   determineQueryStatus,
+  integerToRowValue,
   resolveQueryTimeout,
   type ConnectionConfig,
   type ConnectorConfig,
   type QueryCallback,
   type QueryParams,
+  type RowValue,
 } from "@neoboard/connector-sdk";
-import { MongoClient, MongoServerError } from "mongodb";
+import {
+  Decimal128,
+  Long,
+  MongoClient,
+  MongoServerError,
+  ObjectId,
+} from "mongodb";
+
+/**
+ * One BSON value into the form NeoBoard's row value contract names — see
+ * "What a row may hold" in Creating a Connector Plugin. A document crosses
+ * JSON on its way to the browser, and nothing downstream knows it came from
+ * MongoDB, so no driver class may survive: not at the top level, not nested.
+ */
+function toRowValue(value: unknown): RowValue {
+  if (value === null || value === undefined) return null;
+  if (value instanceof ObjectId) return value.toHexString();
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  // A 64-bit integer: a number when a double holds it exactly, else a string.
+  if (value instanceof Long) return integerToRowValue(value.toBigInt());
+  // Lossless decimal string, never a rounded double.
+  if (value instanceof Decimal128) return value.toString();
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (Array.isArray(value)) return value.map(toRowValue);
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, toRowValue(item)]),
+    );
+  }
+  return value as RowValue;
+}
 
 export class MongoConnectionModule extends ConnectionModule {
   authModule = null as any; // Satisfies abstract property; MongoDB uses client directly
@@ -77,8 +111,10 @@ export class MongoConnectionModule extends ConnectionModule {
       // MAX_ROWS+1: never a fixed row cap; keep config.rowLimit rows and detect one more
       const { rows: docs, truncated } = await collectUpToLimit(cursor, config.rowLimit);
 
-      // Convert MongoDB documents to plain objects
-      const rows = docs.map(({ _id, ...rest }) => ({ _id: String(_id), ...rest }));
+      // The one pass over the documents: every value into its canonical form.
+      // Stringifying `_id` alone left Dates, Longs, Decimal128s and nested
+      // ObjectIds in the row as live driver objects.
+      const rows = docs.map((doc) => toRowValue(doc));
 
       callbacks.setStatus?.(
         truncated

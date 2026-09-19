@@ -6,15 +6,19 @@
  * this in @neoboard/connector-sdk would add a runtime dependency this package
  * does not have and #1595 ratchets against. Keep the two files in step.
  *
- * What a real result set looks like, as the connectors actually emit it:
- * - A Neo4j node is a plain `{ identity, elementId, labels, properties }`.
- * - A Neo4j `date` / PostgreSQL DATE is a `'YYYY-MM-DD'` string (#1651, #1654).
- * - A PostgreSQL TIMESTAMP is a JS `Date`.
+ * What a real result set looks like, as the connectors actually emit it —
+ * since #1904 the same forms from every connector:
+ * - A graph node is a plain, tagged
+ *   `{ $type: "node", identity, elementId, labels, properties }`.
+ * - A date is a `'YYYY-MM-DD'` string (#1651, #1654).
+ * - A date-time is an ISO-8601 string, never a JS `Date`.
+ * - A duration or interval is an ISO-8601 duration (`P1M2DT3S`).
  * - A number stored as text arrives as text (`"48210.50"`); coordinates too (#1622).
  * - A missing cell is `null`; a "blank" cell can be whitespace.
  */
 
 export interface Neo4jNode {
+  $type: "node";
   identity: number;
   elementId: string;
   labels: string[];
@@ -22,6 +26,7 @@ export interface Neo4jNode {
 }
 
 export const neo4jNode: Neo4jNode = {
+  $type: "node",
   identity: 42,
   elementId: "4:9e2c1f0a-6d3b-4c8e-b1a7-2f5d8c9e0b11:42",
   labels: ["Customer"],
@@ -29,6 +34,7 @@ export const neo4jNode: Neo4jNode = {
 };
 
 export const neo4jNode2: Neo4jNode = {
+  $type: "node",
   identity: 43,
   elementId: "4:9e2c1f0a-6d3b-4c8e-b1a7-2f5d8c9e0b11:43",
   labels: ["Customer"],
@@ -36,7 +42,8 @@ export const neo4jNode2: Neo4jNode = {
 };
 
 export const dateOnly = "2026-09-01";
-export const timestamp = new Date("2026-09-01T10:15:00.000Z");
+export const timestamp = "2026-09-01T10:15:00.000Z";
+export const duration = "P1M2DT3S";
 export const numericString = "48210.50";
 export const stringCoordinates = { lat: "45.4642", lng: "9.1900" };
 export const mixedColumn: ReadonlyArray<unknown> = [12, "n/a", null, "7", "  "];
@@ -54,7 +61,7 @@ export interface OrderRow {
   shipped_on: string | null;
   customer: Neo4jNode | null;
   note: string | null;
-  placed_at: Date;
+  placed_at: string;
 }
 
 export function sparseOrders(): OrderRow[] {
