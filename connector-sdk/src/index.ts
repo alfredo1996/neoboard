@@ -26,14 +26,30 @@ export type {
 export { ConnectionModule } from "./generalized/ConnectionModule";
 export { AuthenticationModule } from "./generalized/AuthenticationModule";
 
-/// Errors
+/// Errors + their classification (#1903)
 export {
   ConnectorError,
   ConnectorErrorType,
-  detectNeo4jErrorType,
-  detectPostgresErrorType,
+  defaultClassifyError,
   wrapError,
 } from "./generalized/ConnectorError";
+export type {
+  ClassifyError,
+  ConnectorConstraintKind,
+  ConnectorErrorClassification,
+} from "./generalized/ConnectorError";
+export {
+  createErrorClassifier,
+  mergeSignals,
+  MALFORMED_URI_SIGNALS,
+  UNREACHABLE_HOST_SIGNALS,
+  PERMANENT_FAILURE_SIGNALS,
+  TRANSIENT_FAILURE_SIGNALS,
+} from "./generalized/classify-error";
+export type {
+  ErrorSignals,
+  ErrorClassifierTables,
+} from "./generalized/classify-error";
 
 /// Record parser base class
 export { NeodashRecordParser } from "./generalized/NeodashRecordParser";

@@ -1,125 +1,153 @@
 /**
- * Standardized error types across all database connectors.
- * Consumers catch ConnectorError instead of database-specific exceptions.
+ * Standardized error types across all connectors.
+ * Consumers catch ConnectorError instead of driver-specific exceptions.
  */
 export enum ConnectorErrorType {
   TIMEOUT = "TIMEOUT",
   AUTHENTICATION = "AUTHENTICATION",
+  /** The connection failed or dropped — but this is not proof the host is gone. */
   CONNECTION = "CONNECTION",
   READ_ONLY_VIOLATION = "READ_ONLY_VIOLATION",
   QUERY = "QUERY",
   UNKNOWN = "UNKNOWN",
+  /** The connection URI cannot be used as written. */
+  BAD_URI = "BAD_URI",
+  /** Nothing answered: unroutable host, refused port, failed DNS. */
+  NETWORK = "NETWORK",
+  /** The submitted values break a rule of the target schema. */
+  CONSTRAINT = "CONSTRAINT",
 }
+
+/** Which rule of the schema a write broke. `other` is a rule the connector cannot name. */
+export type ConnectorConstraintKind =
+  | "not_null"
+  | "unique"
+  | "foreign_key"
+  | "check"
+  | "exclusion"
+  | "invalid_format"
+  | "out_of_range"
+  | "too_long"
+  | "invalid_datetime"
+  | "other";
+
+/**
+ * What one error IS, in terms every connector shares (#1903). NeoBoard turns
+ * this into a status code, a retry decision and the words the user reads, so
+ * it never has to recognise a driver's message or code itself.
+ *
+ * Plain data, and it travels to logs and API responses: a category, flags, and
+ * at most the NAMES of a column and a constraint — which describe a schema the
+ * user is already writing to. Never a value, a statement, a URI or the
+ * driver's message.
+ */
+export interface ConnectorErrorClassification {
+  type: ConnectorErrorType;
+  /** Worth retrying as is: a timeout, a dropped socket, a busy pool. */
+  transient: boolean;
+  /** Set with `CONSTRAINT`, so a form can say which rule was broken, and where. */
+  constraint?: {
+    kind: ConnectorConstraintKind;
+    column?: string;
+    name?: string;
+  };
+  /** A write that read-only execution stopped — what a query preview shows as "this query writes". */
+  blockedWrite?: boolean;
+}
+
+/** A connector's `classifyError` hook. Pure: it reads the error, nothing else. */
+export type ClassifyError = (err: unknown) => ConnectorErrorClassification;
 
 export class ConnectorError extends Error {
   public readonly type: ConnectorErrorType;
+  public readonly classification: ConnectorErrorClassification;
   public readonly originalError?: unknown;
 
+  /**
+   * @param classified A full classification, or a bare type — which is
+   * transient only when it is `TIMEOUT`.
+   */
   constructor(
     message: string,
-    type: ConnectorErrorType = ConnectorErrorType.UNKNOWN,
+    classified:
+      | ConnectorErrorType
+      | ConnectorErrorClassification = ConnectorErrorType.UNKNOWN,
     originalError?: unknown,
   ) {
     super(message);
     this.name = "ConnectorError";
-    this.type = type;
+    this.classification =
+      typeof classified === "string"
+        ? {
+            type: classified,
+            transient: classified === ConnectorErrorType.TIMEOUT,
+          }
+        : classified;
+    this.type = this.classification.type;
     this.originalError = originalError;
   }
+
+  /**
+   * The classification and nothing else. `originalError` and the message are
+   * the driver's own words, which can quote the statement, row values or the
+   * URI — so a serialised error never carries them.
+   */
+  toJSON(): {
+    name: string;
+    type: ConnectorErrorType;
+    classification: ConnectorErrorClassification;
+  } {
+    return {
+      name: this.name,
+      type: this.type,
+      classification: this.classification,
+    };
+  }
 }
 
 /**
- * Detect the error type from a Neo4j error.
+ * By name, not `instanceof`: a connector package can resolve its own copy of
+ * this module, and its errors are ConnectorErrors all the same.
  */
-export function detectNeo4jErrorType(err: unknown): ConnectorErrorType {
-  if (!err || typeof err !== "object") return ConnectorErrorType.UNKNOWN;
-  const e = err as { code?: string; message?: string };
-  const msg = e.message ?? "";
-  const code = e.code ?? "";
-
-  if (code === "ServiceUnavailable" || msg.includes("Failed to connect")) {
-    return ConnectorErrorType.CONNECTION;
-  }
-  if (
-    code === "Neo.ClientError.Security.Unauthorized" ||
-    msg.includes("authentication")
-  ) {
-    return ConnectorErrorType.AUTHENTICATION;
-  }
-  if (
-    msg.startsWith("The transaction has been terminated") ||
-    msg.includes("transaction timeout") ||
-    msg.includes("has been terminated. Retry")
-  ) {
-    return ConnectorErrorType.TIMEOUT;
-  }
-  return ConnectorErrorType.QUERY;
+function isConnectorError(err: unknown): err is ConnectorError {
+  return (
+    err instanceof Error &&
+    err.name === "ConnectorError" &&
+    typeof (err as Partial<ConnectorError>).classification === "object"
+  );
 }
 
 /**
- * Detect the error type from a PostgreSQL error.
+ * The classifier of a connector that supplies none. It reads no message and no
+ * code: it honours what a ConnectorError already says, and anything else is
+ * UNKNOWN and not worth a retry.
  */
-export function detectPostgresErrorType(err: unknown): ConnectorErrorType {
-  if (!err || typeof err !== "object") return ConnectorErrorType.UNKNOWN;
-  const e = err as { code?: string; message?: string };
-  const code = e.code ?? "";
-  const msg = (e.message ?? "").toLowerCase();
+export function defaultClassifyError(
+  err: unknown,
+): ConnectorErrorClassification {
+  return isConnectorError(err)
+    ? err.classification
+    : { type: ConnectorErrorType.UNKNOWN, transient: false };
+}
 
-  // Timeout errors
-  if (
-    code === "57014" ||
-    code === "57P01" ||
-    msg.includes("timeout") ||
-    msg.includes("canceling statement")
-  ) {
-    return ConnectorErrorType.TIMEOUT;
-  }
-  // Authentication errors
-  if (["28P01", "28000", "28001"].includes(code)) {
-    return ConnectorErrorType.AUTHENTICATION;
-  }
-  // 3D000 = invalid_catalog_name (missing database) — connection issue, not auth
-  if (code === "3D000") {
-    return ConnectorErrorType.CONNECTION;
-  }
-  // Connection errors
-  if (
-    code === "08001" ||
-    code === "08003" ||
-    code === "08006" ||
-    msg.includes("connect")
-  ) {
-    return ConnectorErrorType.CONNECTION;
-  }
-  // Read-only violation
-  if (code === "25006" || msg.includes("read-only")) {
-    return ConnectorErrorType.READ_ONLY_VIOLATION;
-  }
-  return ConnectorErrorType.QUERY;
+function messageOf(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  const message = (err as { message?: unknown } | null)?.message;
+  return typeof message === "string" ? message : String(err);
 }
 
 /**
- * Wrap a raw database error into a ConnectorError with detected type.
+ * Wrap a raw driver error into a ConnectorError, classified by the connector's
+ * own `classify`.
+ *
+ * An error that already is a ConnectorError comes back untouched: it was typed
+ * where it was raised, and that verdict is final. Re-reading its message is how
+ * a missing `$param_timeout` used to become a TIMEOUT (#1898).
  */
 export function wrapError(
   err: unknown,
-  dbType: "neo4j" | "postgresql",
+  classify: ClassifyError = defaultClassifyError,
 ): ConnectorError {
-  const type =
-    dbType === "neo4j"
-      ? detectNeo4jErrorType(err)
-      : detectPostgresErrorType(err);
-  let message: string;
-  if (err instanceof Error) {
-    message = err.message;
-  } else if (
-    typeof err === "object" &&
-    err !== null &&
-    "message" in err &&
-    typeof (err as { message?: unknown }).message === "string"
-  ) {
-    message = (err as { message: string }).message;
-  } else {
-    message = String(err);
-  }
-  return new ConnectorError(message, type, err);
+  if (isConnectorError(err)) return err;
+  return new ConnectorError(messageOf(err), classify(err), err);
 }
