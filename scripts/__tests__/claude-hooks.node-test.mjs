@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -555,6 +556,116 @@ describe("E2E commit gate (#1843)", () => {
       dir,
     );
     assert.ok(!existsSync(marker), "a real run left the marker behind");
+  });
+});
+
+describe("E2E commit gate is per checkout (#1926)", () => {
+  // One marker under $CLAUDE_PROJECT_DIR was shared by every worktree: an agent
+  // editing UI files in its worktree blocked commits everywhere — even in an
+  // unrelated repository — and any agent's Playwright run cleared everyone's
+  // obligation. The marker now lives in the checkout the edit belongs to.
+
+  const git = (cwd, ...args) =>
+    execFileSync(
+      "git",
+      ["-c", "user.email=t@t", "-c", "user.name=t", ...args],
+      { cwd, stdio: "pipe", encoding: "utf8" },
+    );
+
+  /** A main checkout with one linked worktree, plus an unrelated repository. */
+  function checkouts() {
+    // realpath: on macOS tmpdir() is a symlink and git reports the real path.
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "e2e-scope-")));
+    const main = join(base, "main");
+    const linked = join(base, "linked");
+    const other = join(base, "other");
+    for (const dir of [main, other]) {
+      mkdirSync(dir);
+      git(dir, "init", "-q");
+      git(dir, "commit", "-q", "--allow-empty", "-m", "init");
+    }
+    git(main, "worktree", "add", "-q", linked);
+    return { main, linked, other };
+  }
+
+  const markerOf = (dir) => join(dir, ".claude/.e2e-needed");
+
+  /** Every hook in every session runs with the MAIN checkout as project dir. */
+  const hook = (mode, payload, main) =>
+    run("enforce-e2e.sh", [mode], payload, { CLAUDE_PROJECT_DIR: main });
+
+  const editUi = (dir, main) =>
+    hook(
+      "mark",
+      { tool_input: { file_path: `${dir}/app/src/components/x.tsx` } },
+      main,
+    );
+
+  const commit = (command, cwd, main) =>
+    hook("check-commit", { cwd, tool_input: { command } }, main).status;
+
+  test("an edit marks only the checkout it belongs to", () => {
+    const { main, linked } = checkouts();
+    // The directory does not exist yet: a brand-new file in a new folder.
+    editUi(linked, main);
+    assert.ok(existsSync(markerOf(linked)), "the worktree was not marked");
+    assert.ok(!existsSync(markerOf(main)), "the main checkout was marked");
+  });
+
+  test("a marked worktree blocks its own commits and nobody else's", () => {
+    const { main, linked, other } = checkouts();
+    editUi(linked, main);
+
+    assert.equal(commit("git commit -m x", linked, main), BLOCK);
+    assert.equal(commit("cd app && git commit -m x", linked, main), BLOCK);
+    // Reaching into the marked worktree from somewhere else is still blocked.
+    assert.equal(commit(`git -C ${linked} commit -m x`, main, main), BLOCK);
+    assert.equal(commit(`cd ${linked} && git commit -m x`, main, main), BLOCK);
+    assert.equal(
+      commit(`cd "${linked}" && git commit -m x`, other, main),
+      BLOCK,
+    );
+
+    assert.equal(commit("git commit -m x", main, main), 0, "main checkout");
+    assert.equal(commit("git commit -m x", other, main), 0, "other repo");
+    assert.equal(
+      commit(`cd ${other} && git commit -m x`, linked, main),
+      0,
+      "cd into another repo from the marked worktree",
+    );
+  });
+
+  test("a target the hook cannot resolve fails closed while anything is marked", () => {
+    const { main, linked, other } = checkouts();
+    const command = 'cd "$WT" && git commit -m x';
+    assert.equal(commit(command, other, main), 0, "nothing is marked");
+    editUi(linked, main);
+    assert.equal(commit(command, other, main), BLOCK);
+    assert.equal(commit("git -C $WT commit -m x", other, main), BLOCK);
+  });
+
+  test("a Playwright run clears only the checkout it ran in", () => {
+    const { main, linked } = checkouts();
+    editUi(linked, main);
+    editUi(main, main);
+    const playwright = (cwd) =>
+      hook(
+        "clear-on-test",
+        {
+          cwd,
+          tool_input: {
+            command: "cd app && npx playwright test e2e/x.spec.ts",
+          },
+        },
+        main,
+      );
+
+    playwright(main);
+    assert.ok(!existsSync(markerOf(main)), "its own marker survived");
+    assert.ok(existsSync(markerOf(linked)), "it cleared another checkout");
+
+    playwright(linked);
+    assert.ok(!existsSync(markerOf(linked)));
   });
 });
 
