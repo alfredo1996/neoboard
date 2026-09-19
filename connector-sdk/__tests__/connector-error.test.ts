@@ -99,21 +99,63 @@ describe("defaultClassifyError", () => {
 
   it.each([
     [
-      "an Error whose message is full of keywords",
-      new Error("timeout ECONNREFUSED authentication failed"),
-    ],
-    [
       "an error with a driver code",
       Object.assign(new Error("x"), { code: "57014" }),
     ],
+    ["a driver's own words", new Error('relation "users" does not exist')],
     ["a string", "timeout"],
     ["null", null],
     ["undefined", undefined],
-  ])("reads no message: %s is UNKNOWN and not transient", (_label, err) => {
-    expect(defaultClassifyError(err)).toEqual({
-      type: ConnectorErrorType.UNKNOWN,
-      transient: false,
-    });
+  ])(
+    "reads no driver's words: %s is UNKNOWN and not transient",
+    (_label, err) => {
+      expect(defaultClassifyError(err)).toEqual({
+        type: ConnectorErrorType.UNKNOWN,
+        transient: false,
+      });
+    },
+  );
+
+  // Before #1903 the app applied these same platform signals to every error, so
+  // a connector with no `classifyError` hook must not lose them: an unreachable
+  // host is still 502 and a dropped socket is still worth a retry.
+  it.each([
+    [
+      "a refused port",
+      "connect ECONNREFUSED 127.0.0.1:5432",
+      ConnectorErrorType.NETWORK,
+      false,
+    ],
+    [
+      "a name that does not resolve",
+      "getaddrinfo ENOTFOUND db.example.com",
+      ConnectorErrorType.NETWORK,
+      false,
+    ],
+    [
+      "a connect timeout, which is both",
+      "connect ETIMEDOUT 10.0.0.1:7687",
+      ConnectorErrorType.NETWORK,
+      true,
+    ],
+    ["a dropped socket", "read ECONNRESET", ConnectorErrorType.UNKNOWN, true],
+    ["a hung socket", "socket hang up", ConnectorErrorType.UNKNOWN, true],
+  ])(
+    "reads the platform's own signals: %s",
+    (_label, message, type, transient) => {
+      expect(defaultClassifyError(new Error(message))).toEqual({
+        type,
+        transient,
+      });
+    },
+  );
+
+  it("does not retry a runtime crash that merely says timeout", () => {
+    expect(
+      defaultClassifyError(
+        new Error("Cannot read properties of undefined (reading 'timeout')"),
+      ),
+    ).toEqual({ type: ConnectorErrorType.UNKNOWN, transient: false });
   });
 });
 
@@ -124,6 +166,9 @@ describe("wrapError", () => {
     expect(wrapped).toBeInstanceOf(ConnectorError);
     expect(wrapped.message).toBe(raw.message);
     expect(wrapped.type).toBe(ConnectorErrorType.UNKNOWN);
+    // No driver owns the word, but a statement timeout is worth one retry —
+    // which is what the app did for every connector before #1903.
+    expect(wrapped.classification.transient).toBe(true);
     expect(wrapped.originalError).toBe(raw);
   });
 

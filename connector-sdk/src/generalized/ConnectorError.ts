@@ -2,6 +2,14 @@
  * Standardized error types across all connectors.
  * Consumers catch ConnectorError instead of driver-specific exceptions.
  */
+import {
+  errorFacts,
+  matches,
+  PERMANENT_FAILURE_SIGNALS,
+  TRANSIENT_FAILURE_SIGNALS,
+  UNREACHABLE_HOST_SIGNALS,
+} from "./error-signals";
+
 export enum ConnectorErrorType {
   TIMEOUT = "TIMEOUT",
   AUTHENTICATION = "AUTHENTICATION",
@@ -118,16 +126,42 @@ function isConnectorError(err: unknown): err is ConnectorError {
 }
 
 /**
- * The classifier of a connector that supplies none. It reads no message and no
- * code: it honours what a ConnectorError already says, and anything else is
- * UNKNOWN and not worth a retry.
+ * Rules that belong to no driver: a socket that refused, a name that did not
+ * resolve, a connection that dropped. They are worded by Node, not by any
+ * database, so they are the one thing a connector can be classified by without
+ * knowing which connector it is.
+ */
+const PLATFORM_TYPES = [
+  { signals: UNREACHABLE_HOST_SIGNALS, type: ConnectorErrorType.NETWORK },
+] as const;
+
+/**
+ * The classifier of a connector that supplies none.
+ *
+ * It honours what a ConnectorError already says. Otherwise it reads only the
+ * platform's own signals — never a driver's codes or words, which it has no
+ * business knowing. That is enough for a connector with no `classifyError`
+ * hook to still get 502 on an unreachable host and a retry on a dropped
+ * socket, the way both built-ins do; anything a driver alone can explain stays
+ * UNKNOWN and is not retried.
+ *
+ * Before #1903 the app applied these same signals to every error itself, so a
+ * hookless connector must not lose them (#1903).
  */
 export function defaultClassifyError(
   err: unknown,
 ): ConnectorErrorClassification {
-  return isConnectorError(err)
-    ? err.classification
-    : { type: ConnectorErrorType.UNKNOWN, transient: false };
+  if (isConnectorError(err)) return err.classification;
+  const facts = errorFacts(err);
+  if (!facts) return { type: ConnectorErrorType.UNKNOWN, transient: false };
+  return {
+    type:
+      PLATFORM_TYPES.find((rule) => matches(facts, rule.signals))?.type ??
+      ConnectorErrorType.UNKNOWN,
+    transient:
+      !matches(facts, PERMANENT_FAILURE_SIGNALS) &&
+      matches(facts, TRANSIENT_FAILURE_SIGNALS),
+  };
 }
 
 function messageOf(err: unknown): string {

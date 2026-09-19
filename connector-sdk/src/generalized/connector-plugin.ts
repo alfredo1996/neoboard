@@ -61,8 +61,11 @@ export type ConnectorPlugin = ConnectorDescriptor & {
    * NeoBoard recognises no driver's codes or messages — this hook is the only
    * place they are read. Pass it to `wrapError` so every error the module
    * raises carries its verdict; NeoBoard calls it for an error that escaped
-   * unwrapped. Optional — without it `defaultClassifyError` applies:
-   * everything is UNKNOWN, never retried, never shown with a hint.
+   * unwrapped. Optional — without it `defaultClassifyError` applies, which
+   * reads only the platform's own signals (a refused socket, a name that does
+   * not resolve, a dropped connection), so an unreachable host is still 502
+   * and a dropped socket still worth a retry; anything only your driver can
+   * explain stays UNKNOWN and is never retried.
    * `createErrorClassifier` builds one from tables of codes and phrases.
    */
   classifyError?: ClassifyError;

@@ -250,14 +250,30 @@ describe("toConnectorError", () => {
     );
   });
 
+  // Without a hook the SDK default applies. It reads the platform's own signals
+  // — never a driver's — so a refused socket is still NETWORK and permanent,
+  // even though the message also carries the word the transient table matches.
   it.each([
     ["a connector without the hook", () => registerConnector(makePlugin())],
     ["a type nobody registered", () => undefined],
-  ])("falls back to the message-agnostic default for %s", (_label, arrange) => {
+  ])("falls back to the SDK default for %s", (_label, arrange) => {
     arrange();
     expect(
       toConnectorError("test-db", new Error("connect ECONNREFUSED timeout"))
         .classification,
+    ).toEqual({ type: ConnectorErrorType.NETWORK, transient: false });
+  });
+
+  it.each([
+    ["a connector without the hook", () => registerConnector(makePlugin())],
+    ["a type nobody registered", () => undefined],
+  ])("leaves a driver's own words to the driver for %s", (_label, arrange) => {
+    arrange();
+    expect(
+      toConnectorError(
+        "test-db",
+        Object.assign(new Error("deadlock detected"), { code: "40P01" }),
+      ).classification,
     ).toEqual({ type: ConnectorErrorType.UNKNOWN, transient: false });
   });
 

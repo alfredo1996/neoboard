@@ -43,7 +43,9 @@ connector works everywhere in NeoBoard without forking the app.
   what one of your errors IS (`{ type, transient, constraint?, blockedWrite? }`);
   NeoBoard reads no driver's codes or messages itself. `createErrorClassifier`
   builds the hook from tables, `wrapError(err, classify)` attaches its verdict
-  to a `ConnectorError`, and `defaultClassifyError` is what applies without one.
+  to a `ConnectorError`, and `defaultClassifyError` is what applies without
+  one — platform signals only (refused socket, unresolved name, dropped
+  connection), never a driver's own codes or words.
 - **Connector registry** — `createConnectorRegistry()`. `register()` throws on
   a malformed descriptor (a field missing key/label/type, duplicate keys, a
   `select` without options, a `uri` without protocols, an invalid category, an
