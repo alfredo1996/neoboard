@@ -13,9 +13,9 @@ import { PasswordInput } from "./password-input";
 import { cn } from "@/lib/utils";
 
 /**
- * One field in a connector's connection form. Mirrors the
- * `ConnectorFormField` contract from @neoboard/connector-sdk, with `name`
- * as the value key (the SDK calls it `key`). Callers map `key` → `name`.
+ * One field in a connector's connection form. Mirrors a connector
+ * descriptor's field (`ConnectorField` in @neoboard/connector-sdk), with
+ * `name` as the value key (the SDK calls it `key`). Callers map `key` → `name`.
  */
 export interface DynamicConnectionField {
   name: string;
