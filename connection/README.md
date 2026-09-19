@@ -9,7 +9,8 @@ one exposes to the query editor.
 
 - `neo4j/`, `postgresql/` — the built-in connectors. Each is a
   `descriptor.ts` — pure data, no driver import: type, label, query language
-  and every config field with its key, range and accepted URI protocols — and a
+  and every config field with its key, range and accepted URI protocols, written
+  with the SDK's field builders and owned entirely by that connector — and a
   `plugin.ts` that adds the factories (`createModule(config)`,
   `createSchemaManager()`). The modules read their own unprefixed keys
   (`maxPoolSize`, `connectionTimeout`, `database`, …) from that one config bag.

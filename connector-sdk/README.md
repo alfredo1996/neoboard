@@ -13,6 +13,10 @@ connector works everywhere in NeoBoard without forking the app.
   pure JSON-serializable data: type, label, category, query language, and the
   `fields` it needs in its config (text, password, number, select, boolean,
   uri — with ranges, options and accepted URI protocols).
+- **Field builders** — `uriField`, `usernameField`, `passwordField`,
+  `databaseField`, `timeoutField`, `poolSizeField`: optional one-line
+  shorthands for the fields most connectors share. Each returns the plain
+  literal; a descriptor can mix them with hand-written fields.
 - **`ConnectorPlugin`** — a descriptor plus `createModule(config)` and an
   optional `createSchemaManager()`. `createModule` takes **one config bag**
   keyed by the fields' keys; the connector builds its own driver auth from it.
@@ -38,7 +42,13 @@ connector works everywhere in NeoBoard without forking the app.
 ## Quick start
 
 ```ts
-import type { ConnectorPlugin } from "@neoboard/connector-sdk";
+import {
+  passwordField,
+  poolSizeField,
+  uriField,
+  usernameField,
+  type ConnectorPlugin,
+} from "@neoboard/connector-sdk";
 
 const mysqlPlugin: ConnectorPlugin = {
   type: "mysql",
@@ -47,38 +57,14 @@ const mysqlPlugin: ConnectorPlugin = {
   queryLanguage: "sql",
   supportsWrite: true,
   fields: [
-    {
-      key: "uri",
-      label: "URI",
-      type: "uri",
-      group: "connection",
-      required: true,
-      protocols: ["mysql:"],
-    },
-    {
-      key: "username",
-      label: "Username",
-      type: "text",
-      group: "connection",
-      required: true,
-    },
-    {
-      key: "password",
-      label: "Password",
-      type: "password",
-      group: "connection",
-      required: true,
-    },
-    {
-      key: "maxPoolSize",
-      label: "Max Pool Size",
-      type: "number",
-      group: "advanced",
-      min: 1,
-      max: 100,
-    },
+    uriField({ protocols: ["mysql:"] }),
+    usernameField(),
+    passwordField(),
+    poolSizeField("10"),
+    // …or any field as a plain literal:
+    { key: "charset", label: "Charset", type: "text", group: "advanced" },
   ],
-  // ONE config bag: { uri, username, password, maxPoolSize }
+  // ONE config bag: { uri, username, password, maxPoolSize, charset }
   createModule(config) {
     return new MysqlConnectionModule(config);
   },

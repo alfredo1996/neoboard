@@ -70,6 +70,16 @@ export {
 } from "./generalized/descriptor";
 export { validateUri } from "./generalized/validate-uri";
 
+/// Optional builders for the fields most connectors share
+export {
+  uriField,
+  usernameField,
+  passwordField,
+  databaseField,
+  timeoutField,
+  poolSizeField,
+} from "./generalized/fields";
+
 /// Connector plugin contract + registry factory
 export type {
   ConnectorPlugin,

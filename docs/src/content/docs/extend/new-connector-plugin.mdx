@@ -74,7 +74,14 @@ Everything your connector **is** — its name, its query language, and every val
 
 ```ts
 // src/descriptor.ts
-import type { ConnectorDescriptor } from "@neoboard/connector-sdk";
+import {
+  databaseField,
+  passwordField,
+  poolSizeField,
+  uriField,
+  usernameField,
+  type ConnectorDescriptor,
+} from "@neoboard/connector-sdk";
 
 export const descriptor: ConnectorDescriptor = {
   type: "mydb",
@@ -84,48 +91,35 @@ export const descriptor: ConnectorDescriptor = {
   supportsWrite: true,
   supportsGraphData: false,
   fields: [
-    {
-      key: "uri",
-      label: "URI",
-      type: "uri",
-      group: "connection",
-      required: true,
+    uriField({
       placeholder: "mydb://localhost:5555",
       protocols: ["mydb:", "mydb+tls:"],
-    },
-    {
-      key: "username",
-      label: "Username",
-      type: "text",
-      group: "connection",
-      required: true,
-    },
-    {
-      key: "password",
-      label: "Password",
-      type: "password",
-      group: "connection",
-      required: true,
-    },
-    {
-      key: "database",
-      label: "Database",
-      type: "text",
-      group: "connection",
+    }),
+    usernameField(),
+    passwordField(),
+    databaseField({
       placeholder: "app",
       description: "Optional — leave empty for the server default.",
-    },
-    {
-      key: "maxPoolSize",
-      label: "Max Pool Size",
-      type: "number",
-      group: "advanced",
-      placeholder: "10",
-      min: 1,
-      max: 100,
-    },
+    }),
+    poolSizeField("10"),
+    // Anything the builders do not cover is a plain literal.
+    { key: "tls", label: "Require TLS", type: "boolean", group: "advanced" },
   ],
 };
+```
+
+A field is a plain object. `uriField`, `usernameField`, `passwordField`, `databaseField`, `poolSizeField` and `timeoutField(key, label, placeholder?)` are optional shorthands for the fields most connectors share: each returns the literal under NeoBoard's conventional key (`uri`, `username`, `password`, `database`, `maxPoolSize`; a millisecond timeout of 1000–300000 under your own key), and you can adjust one by spreading it — `{ ...databaseField(), required: true }`. The `uriField(...)` call above is exactly:
+
+```json
+{
+  "key": "uri",
+  "label": "URI",
+  "type": "uri",
+  "group": "connection",
+  "required": true,
+  "placeholder": "mydb://localhost:5555",
+  "protocols": ["mydb:", "mydb+tls:"]
+}
 ```
 
 Each field's `key` is the key its value is **stored** under on the connection, and the key you read it back from in step 3 — so renaming one later is a data migration. The field types:

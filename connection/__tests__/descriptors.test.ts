@@ -37,15 +37,28 @@ describe.each([
   ["neo4j", "../src/neo4j/descriptor.ts", neo4jDescriptor],
   ["postgresql", "../src/postgresql/descriptor.ts", postgresDescriptor],
 ])("%s descriptor", (_type, file, descriptor) => {
-  it("imports no driver — nothing at runtime at all", () => {
-    // The descriptor is what the browser may bundle. A value import here
-    // would drag neo4j-driver / pg (and node:net) into the client.
+  it("imports no driver — only the SDK, which depends on nothing", () => {
+    // The descriptor is what the browser may bundle. Importing a driver here —
+    // or a sibling that does — would drag neo4j-driver / pg (and node:net)
+    // into the client. The SDK is the one allowed import: its field builders
+    // are pure, and the package has no dependency of its own to drag along.
     const source = readFileSync(join(__dirname, file), "utf8");
-    const imports = source.match(/^import .*$/gm) ?? [];
-    expect(imports.length).toBeGreaterThan(0);
-    expect(imports.filter((line) => !line.startsWith("import type "))).toEqual(
-      [],
+    const specifiers = [...source.matchAll(/^import [^;]*?from "([^"]+)";/gms)]
+      .map((m) => m[1])
+      .sort();
+    expect([...new Set(specifiers)]).toEqual(["@neoboard/connector-sdk"]);
+    const sdk = JSON.parse(
+      readFileSync(join(__dirname, "../../connector-sdk/package.json"), "utf8"),
     );
+    expect(Object.keys(sdk.dependencies ?? {})).toEqual([]);
+  });
+
+  it("owns its descriptor: nothing is shared with another connector", () => {
+    // The builders come from the SDK, never from a sibling connector or a
+    // shared file in this package — adding connector N+1 must not mean
+    // editing, or importing from, connector N.
+    const source = readFileSync(join(__dirname, file), "utf8");
+    expect(source).not.toMatch(/from "\.\.?\//);
   });
 
   it("is plain JSON", () => {
