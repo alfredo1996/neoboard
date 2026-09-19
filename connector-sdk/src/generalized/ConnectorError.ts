@@ -113,7 +113,7 @@ function isConnectorError(err: unknown): err is ConnectorError {
   return (
     err instanceof Error &&
     err.name === "ConnectorError" &&
-    typeof (err as Partial<ConnectorError>).classification === "object"
+    !!(err as Partial<ConnectorError>).classification
   );
 }
 

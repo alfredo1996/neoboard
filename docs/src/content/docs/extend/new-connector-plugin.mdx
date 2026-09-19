@@ -267,13 +267,18 @@ export function toRow(raw: Record<string, unknown>): Row {
 // src/connection.ts
 import {
   ConnectionModule,
-  ConnectorError,
   ConnectorErrorType,
   QueryStatus,
+  PERMANENT_FAILURE_SIGNALS,
+  TRANSIENT_FAILURE_SIGNALS,
+  UNREACHABLE_HOST_SIGNALS,
   collectUpToLimit,
+  createErrorClassifier,
   drainRetainingUpTo,
   determineQueryStatus,
+  mergeSignals,
   resolveQueryTimeout,
+  wrapError,
   type ConnectionConfig,
   type ConnectorConfig,
   type QueryCallback,
@@ -328,7 +333,7 @@ export class MyDbConnectionModule extends ConnectionModule {
     } catch (error) {
       // A connector failure is reported, never thrown: onFail fires, the
       // promise resolves, and the UI shows a classified error.
-      const wrapped = classify(error);
+      const wrapped = wrapError(error, classifyMyDbError);
       callbacks.setStatus?.(
         wrapped.type === ConnectorErrorType.TIMEOUT
           ? QueryStatus.TIMED_OUT
@@ -347,9 +352,9 @@ export class MyDbConnectionModule extends ConnectionModule {
       await this.authModule.verifyAuthentication();
       return true;
     } catch (error) {
-      // Throw rather than return false: NeoBoard classifies the message into
-      // a hint (credentials, network, URI) for the "Test connection" button.
-      throw classify(error);
+      // Throw rather than return false: the classification picks the hint
+      // (credentials, network, URI) the "Test connection" button shows.
+      throw wrapError(error, classifyMyDbError);
     }
   }
 
@@ -367,16 +372,32 @@ export class MyDbConnectionModule extends ConnectionModule {
   }
 }
 
-/** Map the driver's errors onto the SDK's types so the UI can act on them. */
-function classify(error: unknown): ConnectorError {
-  const message = error instanceof Error ? error.message : String(error);
-  // Replace these with your driver's error codes.
-  let type = ConnectorErrorType.QUERY;
-  if (/timeout/i.test(message)) type = ConnectorErrorType.TIMEOUT;
-  else if (/read.only/i.test(message))
-    type = ConnectorErrorType.READ_ONLY_VIOLATION;
-  return new ConnectorError(message, type, error);
-}
+/**
+ * What one of this driver's errors IS. NeoBoard recognises no driver's codes
+ * or messages: this is the only place yours are read. Codes are authoritative
+ * and matched exactly; `phrases` are lowercase substrings of the message, for
+ * errors that carry no code. Replace these with your driver's own.
+ */
+export const classifyMyDbError = createErrorClassifier({
+  // Walked in order — the first rule that matches names the type.
+  types: [
+    { codes: ["MYDB_LOGIN_REJECTED"], type: ConnectorErrorType.AUTHENTICATION },
+    { ...UNREACHABLE_HOST_SIGNALS, type: ConnectorErrorType.NETWORK },
+    { codes: ["MYDB_DEADLINE"], type: ConnectorErrorType.TIMEOUT },
+  ],
+  // Never worth a retry. It beats `transient` when both match.
+  permanent: mergeSignals(PERMANENT_FAILURE_SIGNALS, {
+    codePrefixes: ["MYDB_SYNTAX_"],
+  }),
+  // Answered 408 + Retry-After: the dashboard retries before showing the error.
+  transient: mergeSignals(TRANSIENT_FAILURE_SIGNALS, {
+    codes: ["MYDB_DEADLINE"],
+  }),
+  // A Form widget turns these into "A record with these values already exists".
+  constraints: new Map([["MYDB_DUPLICATE_KEY", "unique" as const]]),
+  // The query preview turns these into "this query writes".
+  blockedWrite: { codes: ["MYDB_READ_ONLY"] },
+});
 ```
 
 What the pieces of `config` and `callbacks` mean:
@@ -389,7 +410,7 @@ What the pieces of `config` and `callbacks` mean:
 | `config.timeout`                   | An explicit per-query override in milliseconds — **usually unset**. The default is yours to resolve: `resolveQueryTimeout(config.timeout, yourConfiguredTimeout)` returns the override, else the timeout field you declared, else 30 s, and never lets zero or junk mean "unbounded". Enforce the result at the driver or server (statement timeout, transaction timeout, `maxTimeMS` — whatever your database has) and report `TIMED_OUT`. |
 | `config.database`                  | The database for this query, or `undefined` for the server default. It is the `database` of your config bag unless a widget overrides it. Applying it is your job — NeoBoard no longer rewrites the URI.                                                                                                    |
 | `callbacks.onSuccess(rows)`        | An array of plain row objects whose values follow [What a row may hold](#what-a-row-may-hold) — it is serialised to JSON as-is and handed to the chart transforms, which never ask which connector a value came from. Exactly one of `onSuccess` / `onFail` fires per call.                                   |
-| `callbacks.onFail(error)`          | A `ConnectorError` whose `type` says what went wrong. `wrapError` in the SDK only knows the two built-in drivers, so construct the error yourself.                                                                                                                                                           |
+| `callbacks.onFail(error)`          | A `ConnectorError`. `wrapError(error, classifyMyDbError)` builds one from whatever the driver threw; an error that already is a `ConnectorError` passes through untouched, so type an error where you raise it and no message match can re-type it later. |
 | `callbacks.setStatus(status)`      | `RUNNING` is set for you by `handleEmptyQuery`; you set `COMPLETE`, `COMPLETE_TRUNCATED`, `NO_DATA` (`determineQueryStatus` picks), `TIMED_OUT` or `ERROR`.                                                                                                                                                 |
 
 ## 5. The schema manager (optional)
@@ -426,7 +447,7 @@ The package's default export is the `ConnectorPlugin`: the descriptor plus the f
 ```ts
 // src/index.ts
 import type { ConnectorPlugin } from "@neoboard/connector-sdk";
-import { MyDbConnectionModule } from "./connection.js";
+import { MyDbConnectionModule, classifyMyDbError } from "./connection.js";
 import { descriptor } from "./descriptor.js";
 import { MyDbSchemaManager } from "./schema.js";
 
@@ -438,6 +459,7 @@ const plugin: ConnectorPlugin = {
   createSchemaManager() {
     return new MyDbSchemaManager();
   },
+  classifyError: classifyMyDbError,
 };
 
 export default plugin;
@@ -453,6 +475,7 @@ What NeoBoard does with each field today — read this before relying on one:
 | `label`, `category`                                  | yes      | Validated by the registry and by `neoboard plugin add` (`category` must be `database`, `graph`, `api` or `file`). The "Add Connection" picker and the widget library's connector filter show `label`; `category` picks the picker's sub-label and the fallback icon.                       |
 | `createModule(config)`                               | yes      | Called once per distinct config — the cache key is a hash of the whole bag, so changing any value builds a new module. The instance is reused for every query and `close()`d after 30 minutes idle or when the connection changes.                                                          |
 | `createSchemaManager()`                              | no       | The connection's schema endpoint and the editor's autocomplete prefetch.                                                                                                                                                                                                                   |
+| `classifyError(err)`                                 | no       | Says what one of your errors IS: `{ type, transient, constraint?, blockedWrite? }`. NeoBoard reads no driver's codes or messages itself, so this decides everything the user sees on failure — `NETWORK` and `AUTHENTICATION` answer 502 with a hint and stop the dashboard from dialling a dead host again for 30 s; `transient: true` answers 408 and is retried; `constraint` becomes a Form widget's message; `blockedWrite` becomes the preview's "this query writes"; `BAD_URI` picks the Test button's URI hint. Without the hook every error is `UNKNOWN`: a plain 500 with your message, never retried. `createErrorClassifier` builds one from tables (step 4); any function with that signature will do. It must never put a value, a statement or a URI in what it returns. |
 | `queryLanguage`                                      | no       | The query editor's language for a connection of your type, and the highlighting of its saved templates. `cypher` and `sql` are the grammars that ship; any other value, or none, gives a plain-text editor.                                                                                |
 | `fields`                                             | yes      | Validated by the registry, which throws on a malformed one (step 2). Their keys are the keys of the config bag. The "Add Connection" dialog lists your connector and renders its `connection` group; the advanced options, the edit dialog and validation are still the built-in connectors' own, so create a connection of your type through the API — see below. Use `[]` for a connector with no config.|
 | `iconSvg`                                            | no       | Inline SVG markup, at most 16 KB, shown in the type picker and on connection cards. Make it a standalone document (`xmlns="http://www.w3.org/2000/svg"`, its own colours): it is rendered as an image, never as markup, so scripts, event handlers and external references in it do nothing. Without one you get a generic icon for your `category`.|

@@ -39,8 +39,11 @@ connector works everywhere in NeoBoard without forking the app.
   record parser emits the contract's forms, with no database.
 - **Schema types** — `DatabaseSchema`, `TableDef`, `ColumnDef`,
   `PropertyDef`.
-- **Error types** — `ConnectorError` / `ConnectorErrorType` for classified,
-  user-actionable failures.
+- **Error classification** — the optional `classifyError(err)` plugin hook says
+  what one of your errors IS (`{ type, transient, constraint?, blockedWrite? }`);
+  NeoBoard reads no driver's codes or messages itself. `createErrorClassifier`
+  builds the hook from tables, `wrapError(err, classify)` attaches its verdict
+  to a `ConnectorError`, and `defaultClassifyError` is what applies without one.
 - **Connector registry** — `createConnectorRegistry()`. `register()` throws on
   a malformed descriptor (a field missing key/label/type, duplicate keys, a
   `select` without options, a `uri` without protocols, an invalid category, an
