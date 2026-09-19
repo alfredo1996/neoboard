@@ -35,7 +35,7 @@ Connectors are the bridge between NeoBoard and your databases. Each connector st
 
 1. **Create** — you provide URI, username, and password
 2. **Encrypt** — credentials are encrypted with AES-256-GCM before storage
-3. **Test** — NeoBoard checks connectivity automatically right after you click **Create**, and you can check first with **Test Connection** in the dialog. Saving doesn't wait for the check: an unreachable connection is still saved and shows an **Error** badge. You can re-run the check later from the connection card.
+3. **Test** — NeoBoard checks connectivity automatically right after you click **Create**, and you can check first with **Test Connection** in the dialog. Saving doesn't wait for the check: an unreachable connection is still saved and shows an **Error** badge. You can re-run the check later from the connection card. Opening the **Connections** page tests nothing: a connection shows **Not checked** until you run **Test Connection** from its card or **Test all**, which checks the connections you can test three at a time.
 4. **Pool** — a connection pool is created on first query
 5. **Cache** — the pool is reused for subsequent queries to the same database
 

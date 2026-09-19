@@ -40,20 +40,10 @@ describe("connection-status-store (#1544)", () => {
     expect(store().getStatus("a")).toBe("connected");
   });
 
-  it("keeps a known status visible while re-probing in the background", () => {
-    store().setStatus("a", "connected");
-    store().beginBackgroundProbe("a");
-    expect(store().getStatus("a")).toBe("connected");
-  });
-
-  it("shows connecting for a background probe of an unchecked connection", () => {
-    store().beginBackgroundProbe("fresh");
-    expect(store().getStatus("fresh")).toBe("connecting");
-  });
-
-  // The three user-initiated call sites (manual Test, post-create, post-edit)
-  // must still show progress — the user just asked for it there.
-  it("shows connecting when a probe is explicitly user-initiated", () => {
+  // #1426: every probe is user-initiated now (a row's Test, "Test all",
+  // post-create, post-edit), so progress is always the feedback that was asked
+  // for. The background probe the on-mount sweep used went with the sweep.
+  it("shows connecting while a probe runs, even over a known status", () => {
     store().setStatus("a", "connected");
     store().setStatus("a", "connecting");
     expect(store().getStatus("a")).toBe("connecting");

@@ -5,6 +5,39 @@ import {
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
 } from "./fixtures";
+import type { Locator, Page } from "@playwright/test";
+
+/** The two connections the seed gives Alice; global-setup points them at the test databases. */
+const SEEDED = ["Movies Graph (Neo4j)", "Movies DB (PostgreSQL)"];
+
+/** The one card element for a connection (bare div filters match every ancestor). */
+function cardFor(page: Page, name: string): Locator {
+  return page
+    .locator("div[class*='border']")
+    .filter({ hasText: name })
+    .filter({ has: page.getByRole("button", { name: "Connection actions" }) });
+}
+
+/** A card's status badge — not the toast region, which is also role=status. */
+function badgeOf(card: Locator): Locator {
+  return card.locator('[role="status"][aria-label^="Connection status"]');
+}
+
+/** Every POST to a connection's test route from here on. */
+function recordProbes(page: Page): string[] {
+  const probes: string[] = [];
+  page.on("request", (req) => {
+    if (/\/api\/connections\/[^/]+\/test$/.test(req.url())) {
+      probes.push(req.url());
+    }
+  });
+  return probes;
+}
+
+async function testFromMenu(page: Page, card: Locator) {
+  await card.getByRole("button", { name: "Connection actions" }).click();
+  await page.getByRole("menuitem", { name: /Test Connection/ }).click();
+}
 
 test.describe("Connections", () => {
   test.beforeEach(async ({ authPage, sidebarPage }) => {
@@ -12,45 +45,86 @@ test.describe("Connections", () => {
     await sidebarPage.navigateTo("Connections");
   });
 
-  test("should auto-check connection status on load", async ({ page }) => {
-    // Seeded connections should start auto-testing (show "connecting" then resolve)
-    await expect(page.getByText(/connected|error/i).first()).toBeVisible({
-      timeout: 15000,
+  /**
+   * #1426 — the page used to test every connection on mount: one live
+   * database connection per row, all at once, because someone opened a
+   * settings page. It now opens none. A connection is "Not checked" until the
+   * user asks.
+   */
+  test("opens no connection on arrival: every row is Not checked and the page is ready", async ({
+    page,
+  }) => {
+    const probes = recordProbes(page);
+    await page.reload();
+
+    for (const name of SEEDED) {
+      await expect(badgeOf(cardFor(page, name))).toHaveText("Not checked", {
+        timeout: 15_000,
+      });
+    }
+    // Interactive at once — nothing to wait for.
+    await expect(page.getByRole("button", { name: "Test all" })).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "Add Connection" }),
+    ).toBeEnabled();
+    // The rows have rendered, so a mount-time sweep would have fired by now.
+    expect(probes).toEqual([]);
+  });
+
+  test("Test all brings every seeded connection to a final state", async ({
+    page,
+  }) => {
+    const probes = recordProbes(page);
+    await page.getByRole("button", { name: "Test all" }).click();
+
+    for (const name of SEEDED) {
+      await expect(badgeOf(cardFor(page, name))).toHaveText("Connected", {
+        timeout: 60_000,
+      });
+    }
+    // The run is over: the progress label is gone and the button is back.
+    await expect(page.getByRole("button", { name: "Test all" })).toBeEnabled({
+      timeout: 60_000,
     });
+    expect(probes.length).toBeGreaterThanOrEqual(SEEDED.length);
   });
 
   /**
-   * #1544 — status used to live in the page's useState, so a client-side
-   * navigation wiped it and the badge replayed unknown -> Connecting... ->
-   * Connected on every visit.
+   * #1544 — status lives in a store that outlives the mount, so a result the
+   * user asked for is still there when they come back. Since #1426 nothing
+   * re-probes behind it either.
    *
    * Asserting the badge's final text after navigating back would not catch a
    * regression: Playwright auto-waits, so it would happily observe the settled
-   * state and miss the flicker entirely. This records every change with a
+   * state and miss a flicker entirely. This records every change with a
    * MutationObserver installed BEFORE the navigation, then asserts on the
    * whole sequence.
    */
-  test("does not replay the status sequence when returning to the page", async ({
+  test("keeps a tested connection's status when returning to the page, without re-probing", async ({
     page,
     sidebarPage,
   }) => {
-    const badge = page
-      .getByRole("status")
-      .filter({ hasText: /connected|error/i })
-      .first();
-    await expect(badge).toBeVisible({ timeout: 15000 });
+    const name = SEEDED[0];
+    const badge = badgeOf(cardFor(page, name));
+    await testFromMenu(page, cardFor(page, name));
+    await expect(badge).toHaveText("Connected", { timeout: 30_000 });
 
-    await page.evaluate(() => {
-      const w = window as unknown as { __statusLog: string[][] };
+    await page.evaluate((cardName) => {
+      const w = window as unknown as { __statusLog: string[] };
       w.__statusLog = [];
       const snap = () => {
-        const now = [
+        const mine = [
           ...document.querySelectorAll(
             '[role="status"][aria-label^="Connection status"]',
           ),
-        ].map((e) => (e.textContent ?? "").trim());
-        const last = w.__statusLog[w.__statusLog.length - 1];
-        if (!last || JSON.stringify(last) !== JSON.stringify(now)) {
+        ].find((e) =>
+          // From the parent: the badge is itself a bordered div.
+          e.parentElement
+            ?.closest("div[class*='border']")
+            ?.textContent?.includes(cardName),
+        );
+        const now = (mine?.textContent ?? "").trim();
+        if (now && w.__statusLog[w.__statusLog.length - 1] !== now) {
           w.__statusLog.push(now);
         }
       };
@@ -60,31 +134,22 @@ test.describe("Connections", () => {
         characterData: true,
       });
       snap();
-    });
+    }, name);
 
     // Client-side navigation, which is what remounts the segment.
+    const probes = recordProbes(page);
     await sidebarPage.navigateTo("Dashboards");
     await sidebarPage.navigateTo("Connections");
-    await expect(badge).toBeVisible({ timeout: 15000 });
+    await expect(badge).toHaveText("Connected", { timeout: 15_000 });
 
     const log = await page.evaluate(
-      () => (window as unknown as { __statusLog: string[][] }).__statusLog,
+      () => (window as unknown as { __statusLog: string[] }).__statusLog,
     );
-    const seen = log.flat().filter(Boolean);
-    // Without this the test passes vacuously: an observer that never fired
-    // leaves `seen` empty and both .some() checks below return false.
-    expect(
-      seen.filter((t) => /connected|error/i.test(t)).length,
-      `observer recorded nothing: ${JSON.stringify(log)}`,
-    ).toBeGreaterThan(0);
-    expect(
-      seen.some((t) => /connecting/i.test(t)),
-      `badge regressed to Connecting...: ${JSON.stringify(log)}`,
-    ).toBe(false);
-    expect(
-      seen.some((t) => /not checked/i.test(t)),
-      `badge regressed to Not checked: ${JSON.stringify(log)}`,
-    ).toBe(false);
+    // Non-vacuous: the observer saw the badge, and saw only the verdict.
+    expect(log, `status sequence: ${JSON.stringify(log)}`).toEqual([
+      "Connected",
+    ]);
+    expect(probes).toEqual([]);
   });
 
   test("should create a new Neo4j connection", async ({ page }) => {
@@ -123,17 +188,15 @@ test.describe("Connections", () => {
   });
 
   test("should manually test a connection", async ({ page }) => {
-    // Open the first connection card's dropdown menu
-    const firstActions = page
-      .getByRole("button", { name: "Connection actions" })
-      .first();
-    await expect(firstActions).toBeVisible({ timeout: 10000 });
-    await firstActions.click();
-    await page.getByRole("menuitem", { name: /Test Connection/ }).click();
-    // Should show connected or error
-    await expect(page.getByText(/connected|error/i).first()).toBeVisible({
-      timeout: 15000,
-    });
+    const probes = recordProbes(page);
+    const card = cardFor(page, SEEDED[1]);
+    await expect(badgeOf(card)).toHaveText("Not checked", { timeout: 10_000 });
+
+    await testFromMenu(page, card);
+    await expect(badgeOf(card)).toHaveText("Connected", { timeout: 30_000 });
+    // That one connection, and nothing else (#1426).
+    expect(probes).toHaveLength(1);
+    await expect(badgeOf(cardFor(page, SEEDED[0]))).toHaveText("Not checked");
   });
 
   test("should test inline connection before creating — success", async ({
@@ -241,24 +304,41 @@ test.describe("Connections", () => {
   test("clicking an error card shows error details inline", async ({
     page,
   }) => {
-    // Use the first seeded connection which should be in error state
-    // (seeded with localhost URIs that don't work from the test server)
-    const firstCard = page.locator("[class*='cursor-pointer']").first();
-    await expect(firstCard.getByText("Error").first()).toBeVisible({
-      timeout: 30_000,
+    // Its own connection, pointing at a port nothing listens on. Nothing is in
+    // an error state on arrival any more (#1426), so the test asks for one.
+    const name = `Error Card ${Date.now()}`;
+    const created = await page.request.post("/api/connections", {
+      data: {
+        name,
+        type: "neo4j",
+        config: { uri: "bolt://localhost:1", username: "u", password: "p" },
+      },
     });
+    expect(created.status(), await created.text()).toBe(201);
+    const id = (await created.json()).data.id as string;
 
-    // Click the card — should expand an inline alert with the error message
-    await firstCard.click();
-    // The alert is rendered as a sibling inside the same wrapper div
-    const wrapper = firstCard.locator("..");
-    await expect(wrapper.locator('[role="alert"]')).toBeVisible({
-      timeout: 5_000,
-    });
+    try {
+      await page.reload();
+      const card = cardFor(page, name);
+      await testFromMenu(page, card);
+      await expect(badgeOf(card)).toHaveText("Error", { timeout: 30_000 });
 
-    // Click again to collapse
-    await firstCard.click();
-    await expect(wrapper.locator('[role="alert"]')).not.toBeVisible();
+      // Click the card — should expand an inline alert with the error message.
+      // An error card's name and host are its button (#1283).
+      const toggle = card.getByRole("button", { name: new RegExp(name) });
+      await toggle.click();
+      // The alert is rendered as a sibling inside the same wrapper div
+      const wrapper = card.locator("..");
+      await expect(wrapper.locator('[role="alert"]')).toBeVisible({
+        timeout: 5_000,
+      });
+
+      // Click again to collapse
+      await toggle.click();
+      await expect(wrapper.locator('[role="alert"]')).toBeHidden();
+    } finally {
+      await page.request.delete(`/api/connections/${id}?force=true`);
+    }
   });
 
   test("should pre-fill edit dialog with existing connection values", async ({

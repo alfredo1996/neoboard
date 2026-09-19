@@ -1,9 +1,9 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { Database, Plus, ChevronDown } from "lucide-react";
+import { Database, Plus, ChevronDown, RefreshCw } from "lucide-react";
 import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
 import {
   useConnections,
@@ -43,6 +43,8 @@ import {
 import type { ConnectionState } from "@neoboard/components";
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
 import { connectionsToProbe } from "@/lib/connector/connections-to-probe";
+import { runWindowed } from "@/lib/connector/run-windowed";
+import { ClientQueueTimeoutError, QueueFullError } from "@/lib/api/api-client";
 import { connectionFieldsFor } from "@/lib/connector/connection-form-fields";
 import {
   type ConnectorType,
@@ -57,6 +59,9 @@ import {
 } from "@/lib/shared/parse-utils";
 
 type DialogStep = "pick-type" | "fill-form";
+
+/** How many probes "Test all" keeps in flight (#1426). */
+const TEST_ALL_WINDOW = 3;
 
 const DEFAULT_FORM = {
   name: "",
@@ -98,14 +103,16 @@ export default function ConnectionsPage() {
   const [dialogStep, setDialogStep] = useState<DialogStep>("pick-type");
   const [form, setForm] = useState(DEFAULT_FORM);
   // #1544: connection status lives in a module-level store, not useState, so
-  // it survives the remount a client-side navigation causes. Without that the
-  // page replayed unknown -> Connecting... -> Connected on every visit.
+  // it survives the remount a client-side navigation causes: a result the
+  // user asked for is still there when they come back.
   const statuses = useConnectionStatusStore((s) => s.statuses);
   const statusErrors = useConnectionStatusStore((s) => s.errors);
   const setStatus = useConnectionStatusStore((s) => s.setStatus);
-  const beginBackgroundProbe = useConnectionStatusStore(
-    (s) => s.beginBackgroundProbe,
-  );
+  // #1426: progress of a running "Test all"; null when none is running.
+  const [testAll, setTestAll] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   // Pre-fetch the usage breakdown whenever a delete is pending so the
   // confirm dialog can render the list of affected dashboards + widget
@@ -119,7 +126,6 @@ export default function ConnectionsPage() {
   const [reassignError, setReassignError] = useState<string | null>(null);
   const reassignConnection = useReassignConnection();
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const autoTestedRef = useRef(false);
   const editTargetIdRef = useRef<string | null>(null);
   // Stale-response guard for the Duplicate prefill fetch (#1042)
   const duplicateSourceIdRef = useRef<string | null>(null);
@@ -134,19 +140,6 @@ export default function ConnectionsPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [showEditAdvanced, setShowEditAdvanced] = useState(true);
-
-  // Auto-test all connections on first load
-  useEffect(() => {
-    if (!connections?.length || autoTestedRef.current) return;
-    autoTestedRef.current = true;
-    // #1545: never probe a connection the user does not own — the test route
-    // filters on ownership and 404s, which painted a red Error badge over a
-    // healthy shared connection. Those keep the neutral "Not checked" badge.
-    for (const c of connectionsToProbe(connections, isAdmin)) {
-      handleTest(c.id, true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connections]);
 
   const [createError, setCreateError] = useState<string | null>(null);
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
@@ -307,26 +300,77 @@ export default function ConnectionsPage() {
   }
 
   /**
-   * @param background - true for the on-mount sweep, which must not disturb a
-   * status we already know (#1544). The three user-initiated call sites leave
-   * it false: there "Connecting..." is the feedback the user just asked for.
+   * Probe one connection — only ever because the user asked (#1426): a row's
+   * Test, "Test all", or a connection they just created or edited.
+   *
+   * Resolves "busy" when the scheduler turned the probe away (503 queue full,
+   * 408 queue timeout). That probe never reached the database, so it is no
+   * verdict: the row goes back to what it showed before — "Not checked" if
+   * nothing — and never to "Error".
    */
-  async function handleTest(id: string, background = false) {
-    if (background) {
-      beginBackgroundProbe(id);
-    } else {
-      setStatus(id, "connecting");
-    }
+  async function probe(id: string, batch = false): Promise<"done" | "busy"> {
+    // Read from the store, not this render's snapshot: "Test all" outlives it.
+    const known = useConnectionStatusStore.getState();
+    const before = known.getStatus(id);
+    const beforeError = known.getError(id);
+    setStatus(id, "connecting");
     try {
-      const result = await testConnection.mutateAsync(id);
+      const result = await testConnection.mutateAsync(
+        batch ? { id, batch } : { id },
+      );
       setStatus(
         id,
         result.success ? "connected" : "error",
         result.success ? undefined : (result.error ?? undefined),
       );
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof QueueFullError ||
+        error instanceof ClientQueueTimeoutError
+      ) {
+        // "connecting" is another probe's progress, not something known.
+        if (before === "connecting") setStatus(id, "unknown");
+        else setStatus(id, before, beforeError);
+        return "busy";
+      }
       setStatus(id, "error", "Connection test failed");
     }
+    return "done";
+  }
+
+  function toastBusy(count: number) {
+    toast({
+      title: "Server busy",
+      description:
+        count === 1
+          ? "The test did not run. Try again in a moment."
+          : `${count} connections were not tested. Try again in a moment.`,
+    });
+  }
+
+  async function handleTest(id: string) {
+    if ((await probe(id)) === "busy") toastBusy(1);
+  }
+
+  // #1545: only what the user may probe — the test route 404s for the rest,
+  // which would paint a red Error over a healthy shared connection.
+  const probeable = connectionsToProbe(connections ?? [], isAdmin);
+
+  /** Three at a time, each row updating as its own result lands (#1426). */
+  async function handleTestAll() {
+    const total = probeable.length;
+    let busy = 0;
+    setTestAll({ done: 0, total });
+    await runWindowed(
+      probeable,
+      TEST_ALL_WINDOW,
+      async (c) => {
+        if ((await probe(c.id, true)) === "busy") busy++;
+      },
+      (_c, done) => setTestAll({ done, total }),
+    );
+    setTestAll(null);
+    if (busy > 0) toastBusy(busy);
   }
 
   async function handleDuplicate(conn: {
@@ -476,10 +520,24 @@ export default function ConnectionsPage() {
         title="Connections"
         description="Manage your database connections"
         actions={
-          <Button onClick={() => openCreateDialog()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Connection
-          </Button>
+          <div className="flex items-center gap-2">
+            {probeable.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleTestAll}
+                disabled={testAll !== null}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {testAll
+                  ? `Tested ${testAll.done} of ${testAll.total}…`
+                  : "Test all"}
+              </Button>
+            )}
+            <Button onClick={() => openCreateDialog()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Connection
+            </Button>
+          </div>
         }
       />
 

@@ -15,7 +15,16 @@ import { readSchedulerConfig } from "./scheduler-config";
  * a custom options object to `getScheduler()`.
  */
 
-const schedulers = new Map<string, QueryScheduler>();
+// On globalThis for the reason the extensions registry is (#1888): a
+// production build gives instrumentation.ts and each route handler their own
+// copy of this module. The scheduler middleware runs from instrumentation's
+// copy; the connection-test route (#1426) and /api/health read their own. One
+// Map per copy meant one connection had several schedulers, each with a full
+// budget.
+const globalRegistry = globalThis as typeof globalThis & {
+  __neoboardSchedulers?: Map<string, QueryScheduler>;
+};
+const schedulers = (globalRegistry.__neoboardSchedulers ??= new Map());
 let defaultOptions: SchedulerOptions = readSchedulerConfig();
 
 /**

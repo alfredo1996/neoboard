@@ -158,4 +158,20 @@ describe("ConnectionStatus — unknown (#1544)", () => {
     // Not the attention-seeking pulse the connecting state uses.
     expect(dot.className).not.toContain("animate-pulse");
   });
+
+  // #1426: this is now what every connection shows on arrival, so its words
+  // are load-bearing. jsdom cannot compute an accessible name, so assert what
+  // is in the DOM: the live region itself carries the label, visibly and as
+  // its aria-label, and no tooltip wraps it.
+  it("says Not checked, to sighted users and to assistive tech alike", () => {
+    const { container } = render(<ConnectionStatus status="unknown" />);
+    const badge = screen.getByRole("status");
+    expect(badge).toHaveTextContent(/^Not checked$/);
+    expect(badge).toHaveAttribute(
+      "aria-label",
+      "Connection status: Not checked",
+    );
+    expect(container.firstElementChild).toBe(badge);
+    expect(container).toContainElement(badge);
+  });
 });

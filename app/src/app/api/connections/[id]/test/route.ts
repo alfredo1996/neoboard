@@ -13,14 +13,23 @@ import {
 } from "@/lib/connector/connection-test-result";
 import { isContainerised } from "@/lib/connector/is-containerised";
 import { forgetDeadConnector } from "@/lib/query/middleware/dead-connector";
+import { withSchedulerSlot } from "@/lib/query/middleware/scheduler";
+import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, tenantId } = await requireSession();
     const { id } = await params;
+    // A probe opens a real connection, so it takes a slot from the same
+    // per-connection scheduler as a query (#1426). One Test is interactive
+    // (P1); "Test all" marks its probes P2, the tier of a dashboard load — one
+    // action fanning out — so they queue behind anyone working on that
+    // connection. Never P3: that tier is shed under load, and a shed probe
+    // tells the user who asked for it nothing.
+    const priority = request.headers.get("x-query-priority") === "2" ? 2 : 1;
 
     const [connection] = await db
       .select()
@@ -52,9 +61,9 @@ export async function POST(
     }
 
     try {
-      const success = await testConnection(
-        connection.type as DbType,
-        credentials,
+      const success = await withSchedulerSlot(
+        { connectionId: id, userId, priority },
+        () => testConnection(connection.type as DbType, credentials),
       );
       // A false result (no throw) gets an actionable fallback; a thrown error
       // is classified for a targeted hint. Both via the shared helper (#1043).
@@ -65,6 +74,15 @@ export async function POST(
         success ? { success: true } : connectionCheckFalseResult(),
       );
     } catch (testError) {
+      // Backpressure is not a verdict on the connection: the probe never
+      // reached it. Let handleRouteError answer 503 / 408 as it does for a
+      // query, so the page can say "busy, try again" instead of "failed".
+      if (
+        testError instanceof QueueRejectedError ||
+        testError instanceof QueueTimeoutError
+      ) {
+        throw testError;
+      }
       return apiSuccess(
         connectionTestErrorResult(testError, {
           uri: credentials.uri,

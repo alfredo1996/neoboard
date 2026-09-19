@@ -33,28 +33,50 @@ function resolvePriority(raw: unknown): QueryPriority {
   return 2;
 }
 
-export const schedulerMiddleware: QueryMiddlewareFn = async (
-  ctx,
-  next,
-): Promise<QueryResult> => {
-  const scheduler = getScheduler(ctx.connectionId);
-  const priority = resolvePriority(ctx.metadata.priority);
+/**
+ * Run `work` inside a slot of the connection's scheduler: wait for one, run,
+ * release it whatever happens. `work` is told how long it waited.
+ *
+ * The middleware below is this plus a query context. It is exported for the
+ * work on a connector that is not a query and so has no pipeline to go
+ * through — the connection probe (#1426) — so that it draws on the same
+ * per-connection budget as the queries do.
+ */
+export async function withSchedulerSlot<T>(
+  who: { connectionId: string; userId: string; priority: QueryPriority },
+  work: (waitMs: number) => Promise<T>,
+): Promise<T> {
+  const scheduler = getScheduler(who.connectionId);
   const ticket = {
     // Global Web Crypto available in Node 20+ and edge runtimes.
     // Avoids a `node:crypto` import that webpack refuses to bundle.
     id: crypto.randomUUID(),
-    userId: ctx.userId,
-    connectorId: ctx.connectionId,
-    priority,
+    userId: who.userId,
+    connectorId: who.connectionId,
+    priority: who.priority,
     enqueuedAt: Date.now(),
   };
 
   await scheduler.enqueue(ticket);
-  ctx.metadata.schedulerWaitMs = Date.now() - ticket.enqueuedAt;
-
   try {
-    return await next();
+    return await work(Date.now() - ticket.enqueuedAt);
   } finally {
     scheduler.release(ticket.id);
   }
-};
+}
+
+export const schedulerMiddleware: QueryMiddlewareFn = (
+  ctx,
+  next,
+): Promise<QueryResult> =>
+  withSchedulerSlot(
+    {
+      connectionId: ctx.connectionId,
+      userId: ctx.userId,
+      priority: resolvePriority(ctx.metadata.priority),
+    },
+    (waitMs) => {
+      ctx.metadata.schedulerWaitMs = waitMs;
+      return next();
+    },
+  );

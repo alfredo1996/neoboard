@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { schedulerMiddleware } from "../scheduler";
+import { schedulerMiddleware, withSchedulerSlot } from "../scheduler";
 import {
   resetSchedulerRegistry,
   setDefaultSchedulerOptions,
@@ -197,5 +197,61 @@ describe("schedulerMiddleware", () => {
     const next = vi.fn(async () => ({ data: null }));
     await schedulerMiddleware(ctx, next);
     expect(next).toHaveBeenCalledOnce();
+  });
+});
+
+// #1426: work that is not a query — a connection probe — takes a slot from
+// the same per-connection scheduler the middleware uses.
+describe("withSchedulerSlot", () => {
+  beforeEach(() => {
+    resetSchedulerRegistry();
+    setDefaultSchedulerOptions({ ...baseOptions, maxConcurrent: 1 });
+  });
+
+  const who = {
+    connectionId: "conn-1",
+    userId: "user-1",
+    priority: 1,
+  } as const;
+
+  it("returns what the work returns, and frees the slot", async () => {
+    await expect(withSchedulerSlot(who, async () => "ok")).resolves.toBe("ok");
+    expect(getScheduler("conn-1").getStats().activeQueries).toBe(0);
+  });
+
+  it("frees the slot when the work throws", async () => {
+    await expect(
+      withSchedulerSlot(who, async () => {
+        throw new Error("probe failed");
+      }),
+    ).rejects.toThrow("probe failed");
+    expect(getScheduler("conn-1").getStats().activeQueries).toBe(0);
+  });
+
+  it("shares the connection's budget with queries: a probe waits for a running query", async () => {
+    let finishQuery!: () => void;
+    const query = schedulerMiddleware(
+      makeContext({ userId: "someone-else" }),
+      () =>
+        new Promise<QueryResult>((resolve) => {
+          finishQuery = () => resolve({ data: null });
+        }),
+    );
+    await new Promise<void>((r) => setImmediate(r));
+
+    const probe = vi.fn(async () => true);
+    const probing = withSchedulerSlot(who, probe);
+    await new Promise<void>((r) => setImmediate(r));
+    expect(probe).not.toHaveBeenCalled();
+    expect(getScheduler("conn-1").getStats().queueDepth).toBe(1);
+
+    finishQuery();
+    await query;
+    await expect(probing).resolves.toBe(true);
+  });
+
+  it("reports how long the work waited for its slot", async () => {
+    const waited = await withSchedulerSlot(who, async (waitMs) => waitMs);
+    expect(waited).toBeGreaterThanOrEqual(0);
   });
 });
