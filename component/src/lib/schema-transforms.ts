@@ -1,15 +1,17 @@
 /**
  * Schema transform utilities for the query editor completion system.
  *
- * These are pure functions that convert `DatabaseSchema` (from the connection
- * package) into the formats expected by the CM6 completion libraries.
+ * These are pure functions that convert `DatabaseSchema` (from the connector
+ * SDK) into the formats expected by the CM6 completion libraries.
  *
- * The types are redefined here (mirroring connection/src/schema/types.ts) to
- * respect the package boundary: component/ must not import from connection/.
+ * The types are redefined here (mirroring connector-sdk/src/schema/types.ts)
+ * to respect the package boundary: component/ must not import from the SDK or
+ * from connection/. Drift between the two is caught by the structural test in
+ * app/src/lib/connector/__tests__/database-schema-compat.test.ts (#1895).
  */
 
 // ---------------------------------------------------------------------------
-// Mirrored types (kept in sync with connection/src/schema/types.ts)
+// Mirrored types (kept in sync with connector-sdk/src/schema/types.ts)
 // ---------------------------------------------------------------------------
 
 export interface PropertyDef {
@@ -29,16 +31,20 @@ export interface TableDef {
 }
 
 export interface DatabaseSchema {
-  type: "neo4j" | "postgresql";
-  /** Neo4j: node labels */
+  /**
+   * Connector type that produced this schema — an open string, as in the SDK
+   * (#1119). Nothing in component/ may branch on it: key on the SHAPE below.
+   */
+  type: string;
+  /** Graph shape: node labels */
   labels?: string[];
-  /** Neo4j: relationship types */
+  /** Graph shape: relationship types */
   relationshipTypes?: string[];
-  /** Neo4j: per-label property definitions */
+  /** Graph shape: per-label property definitions */
   nodeProperties?: Record<string, PropertyDef[]>;
-  /** Neo4j: per-relationship-type property definitions */
+  /** Graph shape: per-relationship-type property definitions */
   relProperties?: Record<string, PropertyDef[]>;
-  /** PostgreSQL: tables with columns */
+  /** Tabular shape: tables with columns */
   tables?: TableDef[];
 }
 
@@ -60,7 +66,7 @@ export interface CypherDbSchema {
 // ---------------------------------------------------------------------------
 
 /**
- * Converts a PostgreSQL `DatabaseSchema` into the `SQLNamespace` format
+ * Converts a tabular `DatabaseSchema` into the `SQLNamespace` format
  * expected by `@codemirror/lang-sql`'s `sql({ schema })` option.
  *
  * Result: `{ tableName: ['col1', 'col2', ...], ... }`
@@ -77,14 +83,14 @@ export function toSqlSchema(schema: DatabaseSchema): Record<string, string[]> {
 }
 
 /**
- * Converts a Neo4j `DatabaseSchema` into the `CypherDbSchema` format
+ * Converts a graph-shaped `DatabaseSchema` into the `CypherDbSchema` format
  * compatible with `@neo4j-cypher/react-codemirror`'s `cypher()` function.
  *
  * Property keys are flattened from all node + relationship property maps and
  * deduplicated (the library uses a flat list, not per-label maps).
  */
 export function toCypherDbSchema(schema: DatabaseSchema): CypherDbSchema {
-  // Filter null/undefined entries — the neo4j editor-support package
+  // Filter null/undefined entries — the Cypher editor-support package
   // calls ecsapeCypher() on each value and it crashes on null.
   const labels = (schema.labels ?? []).filter(Boolean) as string[];
   const relationshipTypes = (schema.relationshipTypes ?? []).filter(

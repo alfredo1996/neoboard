@@ -125,7 +125,7 @@ function getTemplates(lang: string) {
 export interface QueryEditorPanelProps {
   /** When omitted, the Ctrl/Cmd+Enter run shortcut is disabled (e.g. form widgets). */
   onRun?: () => void;
-  /** Connector type or language name — mapped to editor extension by the language resolver registry. */
+  /** Query language ("cypher", "sql", or "" for plain text) — never a connector type; see `editorLanguageForConnector`. */
   editorLanguage: string;
   /** When true, shows a running/loading indicator on the query editor. */
   running?: boolean;

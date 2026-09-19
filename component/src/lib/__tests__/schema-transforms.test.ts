@@ -7,9 +7,9 @@ import type { DatabaseSchema, CypherDbSchema } from "../schema-transforms";
 // ---------------------------------------------------------------------------
 
 describe("toSqlSchema", () => {
-  it("converts postgres schema to CM6 sql() format", () => {
+  it("converts a tabular schema to CM6 sql() format", () => {
     const schema: DatabaseSchema = {
-      type: "postgresql",
+      type: "any-tabular-connector",
       tables: [
         {
           name: "users",
@@ -35,18 +35,21 @@ describe("toSqlSchema", () => {
   });
 
   it("returns empty object for schema with no tables", () => {
-    const schema: DatabaseSchema = { type: "postgresql", tables: [] };
+    const schema: DatabaseSchema = {
+      type: "any-tabular-connector",
+      tables: [],
+    };
     expect(toSqlSchema(schema)).toEqual({});
   });
 
   it("returns empty object for schema with undefined tables", () => {
-    const schema: DatabaseSchema = { type: "postgresql" };
+    const schema: DatabaseSchema = { type: "any-tabular-connector" };
     expect(toSqlSchema(schema)).toEqual({});
   });
 
   it("handles table with no columns", () => {
     const schema: DatabaseSchema = {
-      type: "postgresql",
+      type: "any-tabular-connector",
       tables: [{ name: "empty_table", columns: [] }],
     };
     expect(toSqlSchema(schema)).toEqual({ empty_table: [] });
@@ -61,7 +64,7 @@ describe("toSqlSchema", () => {
         nullable: false,
       })),
     }));
-    const schema: DatabaseSchema = { type: "postgresql", tables };
+    const schema: DatabaseSchema = { type: "any-tabular-connector", tables };
 
     const result = toSqlSchema(schema);
 
@@ -75,9 +78,9 @@ describe("toSqlSchema", () => {
 // ---------------------------------------------------------------------------
 
 describe("toCypherDbSchema", () => {
-  it("converts neo4j schema to CypherDbSchema format", () => {
+  it("converts a graph schema to CypherDbSchema format", () => {
     const schema: DatabaseSchema = {
-      type: "neo4j",
+      type: "any-graph-connector",
       labels: ["Person", "Movie"],
       relationshipTypes: ["ACTED_IN", "DIRECTED"],
       nodeProperties: {
@@ -105,7 +108,7 @@ describe("toCypherDbSchema", () => {
 
   it("deduplicates property keys that appear across multiple labels", () => {
     const schema: DatabaseSchema = {
-      type: "neo4j",
+      type: "any-graph-connector",
       labels: ["Person", "Company"],
       relationshipTypes: [],
       nodeProperties: {
@@ -130,7 +133,7 @@ describe("toCypherDbSchema", () => {
 
   it("handles empty schema gracefully", () => {
     const schema: DatabaseSchema = {
-      type: "neo4j",
+      type: "any-graph-connector",
       labels: [],
       relationshipTypes: [],
       nodeProperties: {},
@@ -144,7 +147,7 @@ describe("toCypherDbSchema", () => {
   });
 
   it("handles undefined optional fields", () => {
-    const schema: DatabaseSchema = { type: "neo4j" };
+    const schema: DatabaseSchema = { type: "any-graph-connector" };
 
     const result = toCypherDbSchema(schema);
     expect(result.labels).toEqual([]);
@@ -154,7 +157,7 @@ describe("toCypherDbSchema", () => {
 
   it("returns a value conforming to CypherDbSchema type", () => {
     const schema: DatabaseSchema = {
-      type: "neo4j",
+      type: "any-graph-connector",
       labels: ["Person"],
       relationshipTypes: ["KNOWS"],
       nodeProperties: {
@@ -170,7 +173,7 @@ describe("toCypherDbSchema", () => {
 
   it("filters out empty-string property keys", () => {
     const schema: DatabaseSchema = {
-      type: "neo4j",
+      type: "any-graph-connector",
       labels: ["Node"],
       nodeProperties: {
         Node: [

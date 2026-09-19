@@ -151,22 +151,29 @@ describe("QueryEditor", () => {
     expect(screen.getByTestId("codemirror-container")).toBeInTheDocument();
   });
 
-  it("renders language label — Cypher by default", async () => {
+  it("renders no language label by default — a plain editor (#1895)", async () => {
     render(<QueryEditor />);
     await flushAsync();
-    expect(screen.getByText("Cypher")).toBeInTheDocument();
+    expect(screen.getByTestId("codemirror-container")).toBeInTheDocument();
+    expect(screen.queryByTestId("query-editor-language")).toBeNull();
+    expect(screen.queryByText("Cypher")).toBeNull();
+    expect(screen.queryByText("SQL")).toBeNull();
   });
 
   it("renders language label — sql → SQL", async () => {
     render(<QueryEditor language="sql" />);
     await flushAsync();
-    expect(screen.getByText("SQL")).toBeInTheDocument();
+    expect(screen.getByTestId("query-editor-language")).toHaveTextContent(
+      "SQL",
+    );
   });
 
-  it("renders language label — postgresql → SQL", async () => {
-    render(<QueryEditor language="postgresql" />);
+  it("shows an unmapped language verbatim — the label map holds languages only (#1895)", async () => {
+    render(<QueryEditor language="some-connector-type" />);
     await flushAsync();
-    expect(screen.getByText("SQL")).toBeInTheDocument();
+    expect(screen.getByTestId("query-editor-language")).toHaveTextContent(
+      "some-connector-type",
+    );
   });
 
   it("renders language label — cypher → Cypher", async () => {
@@ -267,13 +274,13 @@ describe("QueryEditor", () => {
 // ---------------------------------------------------------------------------
 
 describe("QueryEditor — unified editor init", () => {
-  it("calls resolveLanguageExt with cypher language by default", async () => {
+  it("calls resolveLanguageExt with no language (plain text) by default", async () => {
     render(<QueryEditor />);
     await flushAsync();
 
     expect(mockResolveLanguageExt).toHaveBeenCalled();
     const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
-    expect(firstCall[0]).toBe("cypher");
+    expect(firstCall[0]).toBe("");
   });
 
   it("calls resolveLanguageExt with sql language", async () => {
@@ -287,7 +294,7 @@ describe("QueryEditor — unified editor init", () => {
 
   it("passes schema to resolveLanguageExt when schema prop provided", async () => {
     const schema = {
-      type: "postgresql" as const,
+      type: "any-tabular-connector",
       tables: [
         {
           name: "users",
@@ -326,22 +333,18 @@ describe("QueryEditor — language switching", () => {
     expect(cypherCall).toBeDefined();
   });
 
-  it("reconfigures when switching within SQL dialects", async () => {
+  it("reconfigures to plain text when the language is cleared", async () => {
     const { rerender } = render(<QueryEditor language="sql" />);
     await flushAsync();
     mockResolveLanguageExt.mockClear();
     mockDispatch.mockClear();
 
-    rerender(<QueryEditor language="postgresql" />);
+    rerender(<QueryEditor language="" />);
     await flushAsync();
 
-    // Both sql and postgresql → compartment reconfigure
-    expect(screen.getByText("SQL")).toBeInTheDocument();
-    // Verify resolveLanguageExt called with new dialect
-    expect(mockResolveLanguageExt).toHaveBeenCalled();
+    expect(screen.queryByTestId("query-editor-language")).toBeNull();
     const calls = mockResolveLanguageExt.mock.calls as unknown[][];
-    const postgresqlCall = calls.find((c) => c[0] === "postgresql");
-    expect(postgresqlCall).toBeDefined();
+    expect(calls.find((c) => c[0] === "")).toBeDefined();
   });
 });
 

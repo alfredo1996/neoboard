@@ -21,7 +21,6 @@
     "app/src/lib/api/openapi-spec.ts": 20,
     "app/src/lib/connector/connection-error-classifier.ts": 11,
     "app/src/lib/connector/registered-types.ts": 2,
-    "app/src/lib/connector/schema-types.ts": 1,
     "app/src/lib/connector/validate-connection-uri.ts": 15,
     "app/src/lib/dashboard/import-follow-up.ts": 1,
     "app/src/lib/dashboard/neodash-converter.ts": 1,
@@ -59,16 +58,11 @@
     "app/src/plugins/table/component.tsx": 2,
     "app/src/plugins/transforms/shared-utils.ts": 2,
     "component/src/charts/base-chart.tsx": 1,
-    "component/src/charts/graph-chart.tsx": 8,
+    "component/src/charts/graph-chart.tsx": 7,
     "component/src/charts/nvl-color.ts": 1,
     "component/src/charts/types.ts": 1,
     "component/src/components/composed/connection-card.tsx": 2,
-    "component/src/components/composed/connection-form.tsx": 12,
-    "component/src/components/composed/index.ts": 2,
-    "component/src/components/composed/query-editor.tsx": 2,
-    "component/src/lib/language-resolvers.ts": 8,
-    "component/src/lib/param-substitute.ts": 2,
-    "component/src/lib/schema-transforms.ts": 10
+    "component/src/lib/param-substitute.ts": 2
   },
   "exports": {
     "connection/src/index.ts": [

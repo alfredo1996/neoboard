@@ -42,7 +42,7 @@ export interface DynamicConnectionFieldsProps {
  * Renders a connection form's fields from a connector's `formFields`
  * definition (#1118). Controlled — the parent owns the values and gets
  * `(name, value)` change callbacks. The credential block of the connections
- * page and the library `ConnectionForm` both render through this.
+ * page renders through this.
  */
 type ChangeHandler = (name: string, value: string | boolean) => void;
 
