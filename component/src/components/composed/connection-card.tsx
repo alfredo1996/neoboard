@@ -26,9 +26,9 @@ export interface ConnectionCardProps {
   name: string;
   host: string;
   /**
-   * Optional connector-type icon (e.g. a Neo4j or PostgreSQL logo). Falls back
-   * to a generic database glyph so every type is visually distinct (#1043).
-   * Passed in by the app to keep this library free of app-specific assets.
+   * Optional connector icon — the app draws it from the connector's descriptor
+   * (#1899). Falls back to a generic database glyph (#1043). Passed in by the
+   * app to keep this library free of connector-specific assets.
    */
   icon?: ReactNode;
   database?: string;

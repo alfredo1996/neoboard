@@ -25,10 +25,12 @@ one exposes to the query editor.
   import list for the ones a build includes.
 - `schema/` — `Neo4jSchemaManager` and `PostgresSchemaManager`, which introspect
   labels and properties, or tables and columns.
-- `form-fields.ts`, `query-languages.ts`, `connector-types.ts` — the
-  client-safe metadata the app's connection form and editor read without
-  pulling in a driver. The first two are projections of the descriptors, not a
-  second copy of them.
+- `<name>/descriptor.ts` — everything a connector is, as plain data: label,
+  category, icon, query language and fields. The app serves these to the browser
+  from `GET /api/connectors`, so no client code imports this package for a
+  connector fact.
+- `connector-types.ts` — the closed `ConnectorType` union, on its way out
+  (#1900).
 
 The shared contracts — `AuthConfig`, `ConnectionConfig`, `QueryStatus`,
 `ConnectorError`, `SchemaManager`, `DatabaseSchema` — come from

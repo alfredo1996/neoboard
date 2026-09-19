@@ -175,7 +175,7 @@ app/src/
 ├── app/                    # Next.js App Router
 │   ├── (auth)/             # Public: login, signup, change-password
 │   ├── (dashboard)/        # Protected: dashboard pages
-│   └── api/                # 38 API routes
+│   └── api/                # 39 API routes
 ├── components/             # App-level React components
 ├── hooks/                  # TanStack Query hooks (20+)
 ├── stores/                 # Zustand stores (7)

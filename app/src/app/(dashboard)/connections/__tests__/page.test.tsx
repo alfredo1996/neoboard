@@ -27,6 +27,41 @@ interface Row {
 
 let mockRole = "creator";
 let mockConnections: Row[] = [];
+
+// What GET /api/connectors serves (#1899). Fixture connectors only: the page
+// must work for a connector nothing in app/ has heard of.
+const ICON = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>';
+const INSTALLED = [
+  { type: "any", label: "Any", category: "database", fields: [] },
+  {
+    type: "acme-sheets",
+    label: "Acme Sheets",
+    category: "file",
+    iconSvg: ICON,
+    fields: [
+      {
+        key: "uri",
+        label: "Workbook",
+        type: "uri",
+        group: "connection",
+        placeholder: "acme://host/book",
+        protocols: ["acme:"],
+      },
+      {
+        key: "pageSize",
+        label: "Page Size",
+        type: "number",
+        group: "advanced",
+      },
+    ],
+  },
+];
+let mockConnectors: {
+  data: typeof INSTALLED | undefined;
+  isLoading: boolean;
+  isError: boolean;
+};
+const mockRefetch = vi.fn();
 const mockTest = vi.fn();
 const mockToast = vi.fn();
 
@@ -52,10 +87,14 @@ vi.mock("@/hooks/use-connections", () => {
   };
 });
 
-vi.mock("@/components/db-logos", () => ({
-  Neo4jLogo: () => null,
-  PostgreSQLLogo: () => null,
-}));
+vi.mock("@/hooks/use-connectors", () => {
+  const useConnectors = () => ({ ...mockConnectors, refetch: mockRefetch });
+  return {
+    useConnectors,
+    useConnector: (type?: string | null) =>
+      mockConnectors.data?.find((c) => c.type === type),
+  };
+});
 
 vi.mock("@neoboard/components", () => {
   const Box = ({ children }: { children?: React.ReactNode }) => (
@@ -73,13 +112,28 @@ vi.mock("@neoboard/components", () => {
   return {
     Button,
     LoadingButton: Button,
-    Input: () => null,
+    Input: ({ id, placeholder }: { id?: string; placeholder?: string }) => (
+      <input id={id} placeholder={placeholder} />
+    ),
     Label: Box,
     Switch: () => null,
+    Skeleton: () => <div data-testid="skeleton" />,
     PasswordInput: () => null,
-    DynamicConnectionFields: () => null,
+    DynamicConnectionFields: ({ fields }: { fields: { label: string }[] }) => (
+      <ul data-testid="connection-fields">
+        {fields.map((f) => (
+          <li key={f.label}>{f.label}</li>
+        ))}
+      </ul>
+    ),
     ConfirmDialog: () => null,
-    Dialog: () => null,
+    Dialog: ({
+      open,
+      children,
+    }: {
+      open: boolean;
+      children: React.ReactNode;
+    }) => (open ? <div role="dialog">{children}</div> : null),
     DialogContent: Box,
     DialogHeader: Box,
     DialogTitle: Box,
@@ -103,17 +157,32 @@ vi.mock("@neoboard/components", () => {
     ),
     ConnectionCard: ({
       name,
+      host,
+      icon,
       status,
       onTest,
+      onEdit,
+      onDuplicate,
+      onDelete,
     }: {
       name: string;
+      host: string;
+      icon: React.ReactNode;
       status: string;
       onTest?: () => void;
+      onEdit?: () => void;
+      onDuplicate?: () => void;
+      onDelete?: () => void;
     }) => (
       <div data-testid={`card-${name}`}>
+        <span data-testid="icon">{icon}</span>
         <span>{name}</span>
+        <span data-testid="host">{host}</span>
         <span data-testid="status">{status}</span>
         {onTest && <button onClick={onTest}>Test {name}</button>}
+        {onEdit && <button onClick={onEdit}>Edit {name}</button>}
+        {onDuplicate && <button onClick={onDuplicate}>Duplicate {name}</button>}
+        {onDelete && <button onClick={onDelete}>Delete {name}</button>}
       </div>
     ),
     useToast: () => ({ toast: mockToast }),
@@ -160,6 +229,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mockRole = "creator";
   mockConnections = [];
+  mockConnectors = { data: INSTALLED, isLoading: false, isError: false };
   useConnectionStatusStore.getState().reset();
 });
 
@@ -358,6 +428,121 @@ describe("ConnectionsPage — Test all (#1426)", () => {
         title: "Server busy",
         description: expect.stringContaining("2 connections"),
       }),
+    );
+  });
+});
+
+describe("ConnectionsPage — connector facts come from the descriptors (#1899)", () => {
+  const card = (name: string) => within(screen.getByTestId(`card-${name}`));
+
+  it("draws each card's icon from its connector's descriptor", () => {
+    mockConnections = [
+      ...rows(1, { name: "sheets", type: "acme-sheets" }),
+      { ...rows(1)[0], id: "c2", name: "plain" },
+    ];
+    render(<ConnectionsPage />);
+    expect(
+      card("sheets").getByTestId("icon").querySelector("img"),
+    ).toHaveAttribute(
+      "src",
+      "data:image/svg+xml;utf8," + encodeURIComponent(ICON),
+    );
+    // No iconSvg: the generic glyph of its category.
+    const plain = card("plain").getByTestId("icon");
+    expect(plain.querySelector("img")).toBeNull();
+    expect(plain.querySelector("svg.lucide")).not.toBeNull();
+  });
+
+  it("a connection whose connector is not installed says so, and can only be deleted", () => {
+    mockConnections = rows(1, { name: "orphan", type: "uninstalled" });
+    render(<ConnectionsPage />);
+
+    expect(card("orphan").getByTestId("host")).toHaveTextContent(
+      "uninstalled — connector not installed",
+    );
+    expect(
+      card("orphan").getByTestId("icon").querySelector("svg.lucide"),
+    ).not.toBeNull();
+    expect(card("orphan").queryByRole("button", { name: /^Test/ })).toBeNull();
+    expect(card("orphan").queryByRole("button", { name: /^Edit/ })).toBeNull();
+    expect(
+      card("orphan").queryByRole("button", { name: /^Duplicate/ }),
+    ).toBeNull();
+    expect(
+      card("orphan").getByRole("button", { name: "Delete orphan" }),
+    ).toBeEnabled();
+  });
+
+  it("leaves a not-installed connection out of Test all", async () => {
+    mockConnections = [
+      ...rows(1),
+      { ...rows(1)[0], id: "gone", name: "orphan", type: "uninstalled" },
+    ];
+    mockTest.mockResolvedValue({ success: true });
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test all" }));
+    await flush();
+
+    expect(mockTest.mock.calls.map(([input]) => input.id)).toEqual(["c1"]);
+  });
+
+  it("passes no verdict before the descriptors arrive, or when they cannot be loaded", () => {
+    mockConnections = rows(1, { type: "uninstalled" });
+    mockConnectors = { data: undefined, isLoading: false, isError: true };
+    render(<ConnectionsPage />);
+
+    expect(card("conn-1").getByTestId("host")).toHaveTextContent(
+      /^uninstalled$/,
+    );
+    expect(
+      card("conn-1").getByRole("button", { name: "Test conn-1" }),
+    ).toBeEnabled();
+  });
+
+  it("builds the type picker, the dialog title and the form from the picked connector", () => {
+    render(<ConnectionsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Connection" }));
+
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText("Choose Connection Type")).toBeInTheDocument();
+    fireEvent.click(dialog.getByTestId("pick-acme-sheets"));
+
+    expect(dialog.getByText("New Acme Sheets Connection")).toBeInTheDocument();
+    // Only the descriptor's `connection` group; the advanced one is #1901's.
+    expect(dialog.getByTestId("connection-fields")).toHaveTextContent(
+      /^Workbook$/,
+    );
+  });
+
+  it("shows an error with a retry when the connectors cannot be loaded — no fallback type", () => {
+    mockConnectors = { data: undefined, isLoading: false, isError: true };
+    render(<ConnectionsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Connection" }));
+
+    const dialog = within(screen.getByRole("dialog"));
+    expect(
+      dialog.getByText(/could not load the available connectors/i),
+    ).toBeInTheDocument();
+    expect(dialog.queryByTestId(/^pick-/)).toBeNull();
+
+    fireEvent.click(dialog.getByRole("button", { name: "Retry" }));
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes the edit dialog's URI placeholder from the descriptor", async () => {
+    mockConnections = rows(1, { name: "sheets", type: "acme-sheets" });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      json: async () => ({ data: { config: {} } }),
+    } as Response);
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit sheets" }));
+    await flush();
+
+    expect(screen.getByPlaceholderText("acme://host/book")).toHaveAttribute(
+      "id",
+      "edit-uri",
     );
   });
 });
