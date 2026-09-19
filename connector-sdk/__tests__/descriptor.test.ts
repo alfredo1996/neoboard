@@ -262,6 +262,48 @@ describe("validateConfig", () => {
     });
   });
 
+  it("treats a field type it does not know as text", () => {
+    // The registry rejects an unknown type, but validateConfig is pure and can
+    // be handed any descriptor: it must not throw on one.
+    const odd = {
+      ...descriptor,
+      fields: [
+        {
+          key: "colour",
+          label: "Colour",
+          type: "color" as "text",
+          group: "advanced" as const,
+        },
+      ],
+    };
+    expect(validateConfig(odd, { colour: "red" })).toEqual({
+      config: { colour: "red" },
+      errors: {},
+    });
+    expect(validateConfig(odd, { colour: 7 }).errors.colour).toMatch(
+      /must be text/,
+    );
+  });
+
+  it("does not throw on a select without options or a uri without protocols", () => {
+    // Both are malformed — the registry refuses them — but validateConfig is
+    // pure and may be handed a descriptor that never went through it.
+    const loose: ConnectorDescriptor = {
+      ...descriptor,
+      fields: [
+        { key: "region", label: "Region", type: "select", group: "advanced" },
+        { key: "uri", label: "URI", type: "uri", group: "connection" },
+      ],
+    };
+    const { config, errors } = validateConfig(loose, {
+      region: "eu",
+      uri: "anything://host:1234",
+    });
+    // No options: nothing is a member. No protocols: any scheme passes.
+    expect(errors).toEqual({ region: "Region must be one of: " });
+    expect(config).toEqual({ uri: "anything://host:1234" });
+  });
+
   it("reports every failing field at once", () => {
     const { errors } = validateConfig(descriptor, {
       uri: "redis://host",

@@ -1,9 +1,12 @@
 import neo4j from "neo4j-driver";
 import { Neo4jConnectionModule } from "../neo4j/Neo4jConnectionModule";
-import { DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
-import type { ConnectorConfig } from "@neoboard/connector-sdk";
+import {
+  DEFAULT_CONNECTION_CONFIG,
+  type ConnectorConfig,
+  type DatabaseSchema,
+  type PropertyDef,
+} from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
-import type { DatabaseSchema, PropertyDef } from "@neoboard/connector-sdk";
 
 /**
  * Fetches schema information from a Neo4j database.

@@ -1,5 +1,9 @@
-import { AuthenticationModule } from "@neoboard/connector-sdk";
-import { AuthConfig, AuthType, ConnectorConfig } from "@neoboard/connector-sdk";
+import {
+  AuthenticationModule,
+  AuthType,
+  type AuthConfig,
+  type ConnectorConfig,
+} from "@neoboard/connector-sdk";
 import neo4j from "neo4j-driver";
 import { Driver } from "neo4j-driver-core";
 import { optionalNumber, toAuthConfig, uriProtocols } from "../config-bag";

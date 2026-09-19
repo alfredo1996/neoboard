@@ -1,5 +1,8 @@
-import { AuthenticationModule } from "@neoboard/connector-sdk";
-import { AuthConfig, ConnectorConfig } from "@neoboard/connector-sdk";
+import {
+  AuthenticationModule,
+  type AuthConfig,
+  type ConnectorConfig,
+} from "@neoboard/connector-sdk";
 import { Pool, QueryResultRow } from "pg";
 import { isAuthenticationError, runBoundedQuery } from "./utils";
 import {

@@ -29,6 +29,7 @@ import {
   MAX_ICON_SVG_BYTES,
   type ConnectorConfig,
   type ConnectorDescriptor,
+  type ConnectorField,
 } from "./descriptor";
 import type { SchemaManager } from "../schema/types";
 
@@ -66,9 +67,90 @@ export interface ConnectorRegistry {
   getTypes(): string[];
 }
 
-const CATEGORIES = ["database", "graph", "api", "file"];
-const FIELD_TYPES = ["text", "password", "number", "select", "boolean", "uri"];
-const FIELD_GROUPS = ["connection", "advanced"];
+const CATEGORIES = new Set(["database", "graph", "api", "file"]);
+const FIELD_TYPES = new Set([
+  "text",
+  "password",
+  "number",
+  "select",
+  "boolean",
+  "uri",
+]);
+const FIELD_GROUPS = new Set(["connection", "advanced"]);
+
+/** One way a descriptor can be malformed, and what to tell its author. */
+interface Rule<T> {
+  broken: (subject: T, seenKeys: ReadonlySet<string>) => boolean;
+  problem: (subject: T) => string;
+}
+
+const DESCRIPTOR_RULES: Rule<ConnectorPlugin>[] = [
+  {
+    broken: (plugin) => !CATEGORIES.has(plugin.category),
+    problem: (plugin) =>
+      `invalid category "${plugin.category}". Expected: ${[...CATEGORIES].join(", ")}`,
+  },
+  {
+    broken: (plugin) =>
+      plugin.iconSvg !== undefined &&
+      new TextEncoder().encode(plugin.iconSvg).length > MAX_ICON_SVG_BYTES,
+    problem: () => `iconSvg is larger than ${MAX_ICON_SVG_BYTES} bytes`,
+  },
+  {
+    broken: (plugin) => !Array.isArray(plugin.fields),
+    problem: () =>
+      "fields must be an array (use [] for a connector with no config)",
+  },
+];
+
+/** Checked in this order, per field; the first that matches names the problem. */
+const FIELD_RULES: Rule<ConnectorField>[] = [
+  {
+    broken: (field) => !field.key || !field.label || !field.type,
+    problem: () => "a field is missing key, label or type",
+  },
+  {
+    broken: (field) => !FIELD_TYPES.has(field.type),
+    problem: (field) => `field "${field.key}" has unknown type "${field.type}"`,
+  },
+  {
+    broken: (field) => !FIELD_GROUPS.has(field.group),
+    problem: (field) =>
+      `field "${field.key}" has invalid group "${field.group}"`,
+  },
+  {
+    broken: (field, seenKeys) => seenKeys.has(field.key),
+    problem: (field) => `duplicate field key "${field.key}"`,
+  },
+  {
+    broken: (field) => field.type === "select" && !field.options?.length,
+    problem: (field) => `select field "${field.key}" has no options`,
+  },
+  {
+    broken: (field) => field.type === "uri" && !field.protocols?.length,
+    problem: (field) => `uri field "${field.key}" declares no protocols`,
+  },
+];
+
+const NO_KEYS: ReadonlySet<string> = new Set();
+
+function firstProblem<T>(
+  rules: Rule<T>[],
+  subject: T,
+  seenKeys: ReadonlySet<string> = NO_KEYS,
+): string | undefined {
+  return rules.find((rule) => rule.broken(subject, seenKeys))?.problem(subject);
+}
+
+function firstFieldProblem(fields: ConnectorField[]): string | undefined {
+  const seenKeys = new Set<string>();
+  for (const field of fields) {
+    const problem = firstProblem(FIELD_RULES, field, seenKeys);
+    if (problem) return problem;
+    seenKeys.add(field.key);
+  }
+  return undefined;
+}
 
 /**
  * Throws on a malformed descriptor. These were warnings until #1897, which
@@ -77,45 +159,9 @@ const FIELD_GROUPS = ["connection", "advanced"];
  * where its author is looking.
  */
 function assertValidDescriptor(plugin: ConnectorPlugin): void {
-  const fail = (problem: string): never => {
-    throw new Error(`Connector "${plugin.type}": ${problem}`);
-  };
-
-  if (!CATEGORIES.includes(plugin.category)) {
-    fail(
-      `invalid category "${plugin.category}". Expected: ${CATEGORIES.join(", ")}`,
-    );
-  }
-  if (
-    plugin.iconSvg !== undefined &&
-    new TextEncoder().encode(plugin.iconSvg).length > MAX_ICON_SVG_BYTES
-  ) {
-    fail(`iconSvg is larger than ${MAX_ICON_SVG_BYTES} bytes`);
-  }
-  if (!Array.isArray(plugin.fields)) {
-    fail("fields must be an array (use [] for a connector with no config)");
-  }
-
-  const keys = new Set<string>();
-  for (const field of plugin.fields) {
-    if (!field.key || !field.label || !field.type) {
-      fail("a field is missing key, label or type");
-    }
-    if (!FIELD_TYPES.includes(field.type)) {
-      fail(`field "${field.key}" has unknown type "${field.type}"`);
-    }
-    if (!FIELD_GROUPS.includes(field.group)) {
-      fail(`field "${field.key}" has invalid group "${field.group}"`);
-    }
-    if (keys.has(field.key)) fail(`duplicate field key "${field.key}"`);
-    keys.add(field.key);
-    if (field.type === "select" && !field.options?.length) {
-      fail(`select field "${field.key}" has no options`);
-    }
-    if (field.type === "uri" && !field.protocols?.length) {
-      fail(`uri field "${field.key}" declares no protocols`);
-    }
-  }
+  const problem =
+    firstProblem(DESCRIPTOR_RULES, plugin) ?? firstFieldProblem(plugin.fields);
+  if (problem) throw new Error(`Connector "${plugin.type}": ${problem}`);
 }
 
 /**

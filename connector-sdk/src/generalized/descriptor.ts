@@ -130,51 +130,71 @@ export interface ConfigValidation {
   errors: Record<string, string>;
 }
 
-function fieldError(field: ConnectorField, value: unknown): string | null {
-  const { label } = field;
-  switch (field.type) {
-    case "number": {
-      if (typeof value !== "number" || !Number.isFinite(value)) {
-        return `${label} must be a number`;
-      }
-      if (!Number.isInteger(value)) return `${label} must be a whole number`;
-      if (field.min !== undefined && value < field.min) {
-        return `${label} must be at least ${field.min}`;
-      }
-      if (field.max !== undefined && value > field.max) {
-        return `${label} must be at most ${field.max}`;
-      }
-      return null;
-    }
-    case "boolean":
-      return typeof value === "boolean"
-        ? null
-        : `${label} must be true or false`;
-    case "select": {
-      const allowed = (field.options ?? []).map((option) => option.value);
-      return allowed.includes(value as string)
-        ? null
-        : `${label} must be one of: ${allowed.join(", ")}`;
-    }
-    case "uri": {
-      if (typeof value !== "string") return `${label} must be text`;
-      try {
-        validateUri(value, field.protocols ?? []);
-      } catch (error) {
-        return (error as Error).message;
-      }
-      // Connectors take credentials from their own fields, so a password here
-      // does nothing except sit in a text input, a cache key and any error
-      // that quotes the URI. A bare username is a documented form and not a
-      // secret, so it stays accepted (#1303).
-      return new URL(value).password
-        ? "Do not put a password in the URI — use the password field."
-        : null;
-    }
-    default:
-      return typeof value === "string" ? null : `${label} must be text`;
+/** Why `value` is not acceptable for `field`, or `undefined` when it is. */
+type FieldValidator = (
+  field: ConnectorField,
+  value: unknown,
+) => string | undefined;
+
+const textError: FieldValidator = ({ label }, value) =>
+  typeof value === "string" ? undefined : `${label} must be text`;
+
+const numberError: FieldValidator = ({ label, min, max }, value) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return `${label} must be a number`;
   }
-}
+  if (!Number.isInteger(value)) return `${label} must be a whole number`;
+  if (min !== undefined && value < min) {
+    return `${label} must be at least ${min}`;
+  }
+  if (max !== undefined && value > max) {
+    return `${label} must be at most ${max}`;
+  }
+  return undefined;
+};
+
+const booleanError: FieldValidator = ({ label }, value) =>
+  typeof value === "boolean" ? undefined : `${label} must be true or false`;
+
+const selectError: FieldValidator = ({ label, options = [] }, value) => {
+  const allowed = options.map((option) => option.value);
+  return allowed.includes(value as string)
+    ? undefined
+    : `${label} must be one of: ${allowed.join(", ")}`;
+};
+
+const uriError: FieldValidator = (field, value) => {
+  if (typeof value !== "string") return textError(field, value);
+  try {
+    validateUri(value, field.protocols ?? []);
+  } catch (error) {
+    return (error as Error).message;
+  }
+  // Connectors take credentials from their own fields, so a password here
+  // does nothing except sit in a text input, a cache key and any error that
+  // quotes the URI. A bare username is a documented form and not a secret, so
+  // it stays accepted (#1303).
+  return new URL(value).password
+    ? "Do not put a password in the URI — use the password field."
+    : undefined;
+};
+
+/** One validator per field type; a type missing here is validated as text. */
+const VALIDATORS: Record<ConnectorField["type"], FieldValidator> = {
+  text: textError,
+  password: textError,
+  number: numberError,
+  boolean: booleanError,
+  select: selectError,
+  uri: uriError,
+};
+
+const requiredError = (field: ConnectorField): string | undefined =>
+  field.required ? `${field.label} is required` : undefined;
+
+/** Absent, for a config value: not there, or left blank. `0` and `false` are answers. */
+const isEmpty = (value: unknown): boolean =>
+  value === undefined || value === null || value === "";
 
 /**
  * Validate a config bag against a descriptor. Pure: same input, same output,
@@ -191,13 +211,11 @@ export function validateConfig(
   const out: ConfigValidation = { config: {}, errors: {} };
   for (const field of descriptor.fields) {
     const value = config[field.key];
-    if (value === undefined || value === null || value === "") {
-      if (field.required) out.errors[field.key] = `${field.label} is required`;
-      continue;
-    }
-    const error = fieldError(field, value);
+    const error = isEmpty(value)
+      ? requiredError(field)
+      : (VALIDATORS[field.type] ?? textError)(field, value);
     if (error) out.errors[field.key] = error;
-    else out.config[field.key] = value;
+    else if (!isEmpty(value)) out.config[field.key] = value;
   }
   return out;
 }
