@@ -79,6 +79,7 @@ import { LabMetadataForm } from "./widget-editor/lab-metadata-form";
 import { ModalFooter } from "./widget-editor/modal-footer";
 import { WidgetPreviewPanel } from "./widget-editor/widget-preview-panel";
 import { editorLanguageForConnector } from "@/lib/connector/editor-language";
+import { useConnectors } from "@/hooks/use-connectors";
 
 export interface WidgetEditorModalProps {
   open: boolean;
@@ -360,7 +361,11 @@ export function WidgetEditorModal({
   }
   // Drive the editor language from the connector's declared queryLanguage
   // (#1120) rather than its type; unknown / no connector → plain text.
-  const editorLanguage = editorLanguageForConnector(selectedConnection?.type);
+  const { data: connectors } = useConnectors();
+  const editorLanguage = editorLanguageForConnector(
+    connectors,
+    selectedConnection?.type,
+  );
 
   // Chart types offered in the picker — excludes disabled types (#1158) and
   // keeps the widget's current (possibly legacy) type visible for editing.

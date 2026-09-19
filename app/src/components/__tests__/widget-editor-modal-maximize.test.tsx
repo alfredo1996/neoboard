@@ -126,6 +126,9 @@ vi.mock("@/hooks/use-widget-templates", () => ({
   useCreateWidgetTemplate: () => ({ mutateAsync: vi.fn() }),
   useUpdateWidgetTemplate: () => ({ mutateAsync: vi.fn() }),
 }));
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnectors: () => ({ data: [] }),
+}));
 vi.mock("../widget-editor/use-auto-preview", () => ({
   useAutoPreview: () => ({ handlePreview: vi.fn(), saveStatus: "idle" }),
 }));

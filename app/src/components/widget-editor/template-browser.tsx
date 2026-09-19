@@ -5,7 +5,8 @@ import { FlaskConical } from "lucide-react";
 import type { WidgetTemplate } from "@/lib/db/schema";
 import type { ConnectorType } from "@/lib/connector/connector-types";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
-import { CONNECTOR_QUERY_LANGUAGES } from "@neoboard/connection/query-languages";
+import { editorLanguageForConnector } from "@/lib/connector/editor-language";
+import { useConnectors } from "@/hooks/use-connectors";
 import {
   Badge,
   Button,
@@ -33,6 +34,7 @@ export function TemplateBrowser({
   onBack,
 }: TemplateBrowserProps) {
   const [search, setSearch] = useState("");
+  const { data: connectors } = useConnectors();
 
   return (
     <>
@@ -90,9 +92,10 @@ export function TemplateBrowser({
                   >
                     <CodePreview
                       value={t.query}
-                      language={
-                        CONNECTOR_QUERY_LANGUAGES[t.connectorType] ?? ""
-                      }
+                      language={editorLanguageForConnector(
+                        connectors,
+                        t.connectorType,
+                      )}
                       maxLines={2}
                     />
                     <span className="font-medium text-xs truncate w-full">

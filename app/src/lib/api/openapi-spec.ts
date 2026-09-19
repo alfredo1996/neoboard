@@ -232,6 +232,37 @@ const SPEC = {
         },
       },
     },
+    "/api/connectors": {
+      get: {
+        tags: ["Connections"],
+        summary: "List installed connectors",
+        description:
+          "Every connector this server can connect with, as plain data: label, category, icon, query language and the fields its connection form needs. Reads no database and is the same for every tenant.",
+        responses: {
+          200: {
+            description: "Connector descriptors",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    data: {
+                      type: "array",
+                      items: {
+                        $ref: "#/components/schemas/ConnectorDescriptor",
+                      },
+                    },
+                    error: { $ref: "#/components/schemas/EnvelopeError" },
+                    meta: { type: "object", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          401: R.unauthorized,
+        },
+      },
+    },
 
     // ── Dashboards ────────────────────────────────────────────────────
     "/api/dashboards": {
@@ -812,6 +843,72 @@ const SPEC = {
         type: "object",
         nullable: true,
         properties: { message: { type: "string" } },
+      },
+      ConnectorField: {
+        type: "object",
+        description: "One value a connector reads from a connection's config.",
+        required: ["key", "label", "type", "group"],
+        properties: {
+          key: { type: "string", description: "Key in the stored config." },
+          label: { type: "string" },
+          type: {
+            type: "string",
+            enum: ["text", "password", "number", "select", "boolean", "uri"],
+          },
+          group: { type: "string", enum: ["connection", "advanced"] },
+          required: { type: "boolean" },
+          placeholder: { type: "string" },
+          description: { type: "string" },
+          options: {
+            type: "array",
+            description: "`select` only.",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                value: { type: "string" },
+              },
+            },
+          },
+          min: { type: "integer", description: "`number` only." },
+          max: { type: "integer", description: "`number` only." },
+          unit: { type: "string", description: "`number` only, e.g. `ms`." },
+          protocols: {
+            type: "array",
+            description: "`uri` only — accepted schemes, with the colon.",
+            items: { type: "string" },
+          },
+        },
+      },
+      ConnectorDescriptor: {
+        type: "object",
+        required: ["type", "label", "category", "fields"],
+        properties: {
+          type: {
+            type: "string",
+            description: "The value a connection's `type` holds.",
+          },
+          label: { type: "string" },
+          category: {
+            type: "string",
+            enum: ["database", "graph", "api", "file"],
+          },
+          iconSvg: {
+            type: "string",
+            description:
+              "SVG markup, at most 16 KB. Render it as an image, never as DOM.",
+          },
+          queryLanguage: {
+            type: "string",
+            description: "Editor language key. Absent means plain text.",
+          },
+          supportsGraphData: { type: "boolean" },
+          supportsWrite: { type: "boolean" },
+          fields: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ConnectorField" },
+          },
+        },
       },
       ConnectionSummary: {
         type: "object",

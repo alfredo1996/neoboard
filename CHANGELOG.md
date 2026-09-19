@@ -21,6 +21,8 @@ Makes a connector the only place that knows what that connector is. A connector 
 - `toDescriptor(plugin)`: the plain-data half of a plugin — declared keys only, no functions, JSON-serializable — which is what may be sent to a browser (#1897)
 - Field builders in `@neoboard/connector-sdk` — `uriField`, `usernameField`, `passwordField`, `databaseField`, `timeoutField` and `poolSizeField` — optional one-line shorthands for the fields most connectors share. Each returns the plain field literal under NeoBoard's conventional key, so a descriptor reads as a short list of calls with its own protocols and placeholders, and can still write any field by hand (#1897)
 - `validateUri(uri, protocols)` as a standalone export; `AuthenticationModule._validateUri` delegates to it, so there is one set of URI rules (#1897)
+- `GET /api/connectors`: every installed connector as a descriptor — label, category, icon, query language and fields — for a signed-in user. It reads the in-process registry and no database, is the same for every tenant, and is in the OpenAPI spec. This is how the browser learns which connectors exist; the client hooks are `useConnectors()` and `useConnector(type)` (#1899)
+- The built-in connectors carry their own `iconSvg`. The app renders a connector's icon only as an image (`<img src="data:image/svg+xml,…">`), never as markup, so an icon from a third-party connector cannot run script; a connector without one gets a generic glyph chosen by its `category` (#1899)
 
 ### Changed
 
@@ -30,11 +32,15 @@ Makes a connector the only place that knows what that connector is. A connector 
 - The PostgreSQL connector applies the connection's `database` itself. The app used to rewrite the URI before the connector saw it; the precedence is the same — a database already on the URI path wins (#1897)
 - The connection-module cache is keyed on a SHA-256 of the **whole** config instead of eight enumerated fields, so two connections that differ only in an option the app has never heard of no longer share a driver. The key holds a digest and nothing readable (#1897)
 - `createConnectionModule(type, config)` in `@neoboard/connection` takes the one bag, where it took `(type, authConfig, advancedOptions)` (#1897)
+- The "Add Connection" type picker, the connection cards' icons, the create dialog's title and credential fields, the edit dialog's URI placeholder, the widget library's connector filter and the query highlighting of saved templates are all built from the descriptors the server hands over, so a connector registered in `connection/` shows up in each with no change to the app. The picker's heading is now "Choose Connection Type" and its sub-label is the connector's category (#1899)
+- A connection whose connector is no longer installed — an external connector that was removed — says "connector not installed" on its card and can only be deleted; it is left out of "Test all". If the connector list cannot be loaded, the "Add Connection" dialog shows an error with a retry instead of guessing a type (#1899)
 
 ### Removed
 
 - From `@neoboard/connector-sdk`: `allowedProtocols`, `uriPlaceholder`, `databasePlaceholder` and `formFields` on `ConnectorPlugin`, and the `ConnectorFormField` type — all four collapse into `fields`. `Neo4jAdvancedOptions`, `PostgresAdvancedOptions` and `AdvancedConnectionOptions`, which put two connectors' option names in the contract every connector builds on. The `ConnectionTypes` enum and `ConnectionConfig.connectionType`, which no connector read (#1897)
 - From the app: `buildAdvancedOptions`, `ensureDatabaseInUri` and `toConnectionTypeEnum`, the three places it translated a stored config into something connector-specific (#1897)
+- From `@neoboard/connection`: the `./form-fields` and `./query-languages` subpaths and their exports `CONNECTOR_FORM_FIELDS`, `neo4jFormFields`, `postgresFormFields`, `ConnectorFormField` and `CONNECTOR_QUERY_LANGUAGES` — static two-key maps the browser read because it had no other channel. `./connector-types` stays until the `ConnectorType` union is opened (#1899)
+- From the app: `db-logos.tsx` (the two brand marks moved into their connectors' descriptors) and `connectionFieldsFor` (#1899)
 
 ## [1.5.0] — First public release
 
