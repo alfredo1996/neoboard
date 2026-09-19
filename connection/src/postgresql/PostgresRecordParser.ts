@@ -1,4 +1,8 @@
-import { NeodashRecordParser } from "@neoboard/connector-sdk";
+import {
+  integerToRowValue,
+  NeodashRecordParser,
+  toIsoDuration,
+} from "@neoboard/connector-sdk";
 import { NeodashRecord } from "@neoboard/connector-sdk";
 
 /**
@@ -12,6 +16,22 @@ const OID_NUMERIC = 1700;
 /** DATE and DATE[] — a calendar day, with no time and no zone. */
 const OID_DATE = 1082;
 const OID_DATE_ARRAY = 1182;
+
+/** TIMESTAMP (without time zone) and its array — a wall clock, not an instant. */
+const OID_TIMESTAMP = 1114;
+const OID_TIMESTAMP_ARRAY = 1115;
+
+/** TIMETZ and its array — the server writes a whole-hour offset as `+02`. */
+const OID_TIMETZ = 1266;
+const OID_TIMETZ_ARRAY = 1270;
+
+type Converter = (value: unknown) => unknown;
+
+/** Apply `convert` to a value, or to every element of an array column. */
+const each =
+  (convert: Converter): Converter =>
+  (value) =>
+    Array.isArray(value) ? value.map(each(convert)) : convert(value);
 
 /**
  * `YYYY-MM-DD` from a Date's LOCAL components.
@@ -32,13 +52,75 @@ const OID_DATE_ARRAY = 1182;
  * /^\d{4}-\d{2}-\d{2}$/ (app/src/plugins/gantt/transform.ts).
  */
 function toCalendarDay(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(toCalendarDay);
   // 'infinity'::date arrives as Infinity, not a Date — leave it be rather
   // than inventing a day for it.
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return value;
   const pad = (n: number, width = 2) => String(n).padStart(width, "0");
   return `${pad(value.getFullYear(), 4)}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
 }
+
+/**
+ * A TIMESTAMP WITHOUT TIME ZONE as a zone-less ISO string:
+ * `2024-03-15T10:30:00.000` — no `Z`, no offset.
+ *
+ * node-pg builds it with `new Date(y, m, d, h, mi, s, ms)` — the server
+ * process's LOCAL clock — so the Date is an instant the database never stored.
+ * Serialising it (what JSON.stringify did) moved the value by the server's
+ * offset: 10:30 stored, 08:30Z shown on a UTC+2 server, a different answer on
+ * every host. That is #1306(c) exactly, fixed there for the graph side's
+ * identical concept: the wall clock has to stay zone-less all the way to the
+ * widget, which only a string can do. Reading the local components back
+ * recovers what was stored, the way toCalendarDay does for #1654.
+ *
+ * Shifting by the instant's own offset and dropping the `Z` lets the stdlib do
+ * the padding, including years outside 0000–9999.
+ *
+ * ponytail: a wall clock inside the server zone's DST gap (02:30 on a
+ * spring-forward night) never existed there, so node-pg has already moved it
+ * an hour before this runs. Exact only with a raw-text type parser for OID
+ * 1114 on the cursor — add it if a user stores such values and the server
+ * cannot run in UTC.
+ */
+function toLocalDateTime(value: unknown): unknown {
+  // 'infinity'::timestamp arrives as a number — leave it be.
+  if (!(value instanceof Date)) return value;
+  if (Number.isNaN(value.getTime())) return null;
+  const shifted = value.getTime() - value.getTimezoneOffset() * 60_000;
+  return new Date(shifted).toISOString().slice(0, -1);
+}
+
+/**
+ * `10:30:00+02` → `10:30:00+02:00`. The server omits the offset's minutes when
+ * they are zero and appends seconds for a pre-standard zone; every connector
+ * emits `±HH:MM`.
+ */
+function toOffsetTime(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const match = /^(.*)([+-]\d{2})(?::(\d{2}))?(?::\d{2})?$/.exec(value);
+  if (!match) return value;
+  const [, clock, hours, minutes = "00"] = match;
+  return `${clock}${hours}:${minutes}`;
+}
+
+const numericText: Converter = (value) =>
+  typeof value === "string" ? promoteNumericText(value) : value;
+
+/**
+ * What a column type needs BEFORE the generic conversion. A converter that
+ * does not recognise its value hands it back unchanged, and the generic pass
+ * still runs on the result — so a BigInt in an int8 column, or a Date nobody
+ * expected, is caught there rather than slipping through a typed column.
+ */
+const COLUMN_CONVERTERS: Record<number, Converter> = {
+  [OID_INT8]: numericText,
+  [OID_NUMERIC]: numericText,
+  [OID_DATE]: toCalendarDay,
+  [OID_DATE_ARRAY]: each(toCalendarDay),
+  [OID_TIMESTAMP]: toLocalDateTime,
+  [OID_TIMESTAMP_ARRAY]: each(toLocalDateTime),
+  [OID_TIMETZ]: toOffsetTime,
+  [OID_TIMETZ_ARRAY]: each(toOffsetTime),
+};
 
 export class PostgresRecordParser extends NeodashRecordParser {
   /**
@@ -53,33 +135,25 @@ export class PostgresRecordParser extends NeodashRecordParser {
     records: Record<string, unknown>[],
     fields?: ReadonlyArray<{ name: string; dataTypeID: number }>,
   ): NeodashRecord[] {
-    const numericColumns = new Set(
-      (fields ?? [])
-        .filter(
-          (f) => f.dataTypeID === OID_INT8 || f.dataTypeID === OID_NUMERIC,
-        )
-        .map((f) => f.name),
-    );
-    const dateColumns = new Set(
-      (fields ?? [])
-        .filter(
-          (f) => f.dataTypeID === OID_DATE || f.dataTypeID === OID_DATE_ARRAY,
-        )
-        .map((f) => f.name),
-    );
-    return records.map((r) => this._parse(r, numericColumns, dateColumns));
+    // Resolved once per query, not per row: the rows are then canonicalised in
+    // the one pass below, with a single map lookup per cell (#1904).
+    const converters = new Map<string, Converter>();
+    for (const field of fields ?? []) {
+      const convert = COLUMN_CONVERTERS[field.dataTypeID];
+      if (convert) converters.set(field.name, convert);
+    }
+    return records.map((r) => this._parse(r, converters));
   }
 
   /**
    * Parses a single PostgreSQL row into a NeodashRecord.
    * @param _record - A single row from PostgreSQL query results
-   * @param _numericColumns - column names whose text should become numbers
+   * @param _converters - per-column conversions, keyed by column name
    * @returns A NeodashRecord instance
    */
   _parse(
     _record: Record<string, unknown>,
-    _numericColumns?: ReadonlySet<string>,
-    _dateColumns?: ReadonlySet<string>,
+    _converters?: ReadonlyMap<string, Converter>,
   ): NeodashRecord {
     // If already a NeodashRecord, return as is
     if (_record instanceof NeodashRecord) {
@@ -90,14 +164,9 @@ export class PostgresRecordParser extends NeodashRecordParser {
 
     for (const key in _record) {
       if (Object.hasOwn(_record, key)) {
+        const convert = _converters?.get(key);
         const raw = _record[key];
-        if (_dateColumns?.has(key)) {
-          parsed[key] = toCalendarDay(raw);
-        } else if (_numericColumns?.has(key) && typeof raw === "string") {
-          parsed[key] = promoteNumericText(raw);
-        } else {
-          parsed[key] = this._pgToNative(raw);
-        }
+        parsed[key] = this._pgToNative(convert ? convert(raw) : raw);
       }
     }
 
@@ -112,14 +181,23 @@ export class PostgresRecordParser extends NeodashRecordParser {
    * @returns Value converted to JavaScript native type
    */
   private _pgToNative(value: unknown): unknown {
-    if (value == null) return value;
+    // A missing value is null, never undefined: JSON drops an undefined key,
+    // so the column would vanish from the row.
+    if (value == null) return null;
     if (Array.isArray(value))
       return value.map((item) => this._pgToNative(item));
-    // Temporals (timestamp/timestamptz/date) arrive as native Date instances.
-    // A Date is `typeof === 'object'`, so it must be handled BEFORE the
-    // plain-object branch — otherwise pgConvertPlainObject copies its (zero)
-    // enumerable own properties and flattens it to {}. (#1054)
-    if (this.isTemporal(value)) return this.parseTemporal(value);
+    // Only a custom type parser yields a BigInt, and JSON.stringify throws on
+    // one. Same number-or-decimal-string rule as int8 text (#1904).
+    if (typeof value === "bigint") return integerToRowValue(value);
+    // A Date that reaches here is an INSTANT — a timestamptz, or a Date with no
+    // column type to say otherwise (a timestamp WITHOUT zone was already made a
+    // zone-less string by its column converter). Emitted as an ISO string by
+    // the parser instead of left live for JSON.stringify to find (#1904).
+    // Before the plain-object branch, which would flatten it to {} (#1054).
+    // toISOString() throws on an invalid Date; JSON made that null already.
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value.toISOString();
+    }
     // bytea arrives as a Buffer. A Buffer is `typeof === 'object'` and not a
     // Date, so without this it falls into pgConvertPlainObject, which
     // enumerates its numeric indices and returns {"0":12,"1":255,…} — the
@@ -131,11 +209,23 @@ export class PostgresRecordParser extends NeodashRecordParser {
     // interval arrives as a prototype-bearing PostgresInterval whose own
     // enumerable keys are only the NON-ZERO components, so the generic object
     // copier below produced {days:1} for one row and {hours:2} for the next —
-    // a consumer reading .seconds got undefined rather than 0, and the
-    // prototype's toPostgres()/toISOString() were dropped. Emit Postgres's own
-    // canonical text instead, mirroring the bytea branch above (#1307).
+    // a consumer reading .seconds got undefined rather than 0 (#1307). It then
+    // became Postgres's own text ("1 mon 2 days"), which only this database
+    // writes. Now the SDK's one ISO-8601 duration, as every connector emits
+    // (#1904). Not the object's own toISOString(): that prints every zero
+    // component (`P0Y0M4DT1H2M3S`) and is a second rule.
     if (isPostgresInterval(value)) {
-      return value.toPostgres();
+      return toIsoDuration({
+        months: (value.years ?? 0) * 12 + (value.months ?? 0),
+        days: value.days ?? 0,
+        seconds:
+          (value.hours ?? 0) * 3600 +
+          (value.minutes ?? 0) * 60 +
+          (value.seconds ?? 0),
+        // `milliseconds` holds the microsecond fraction as a float (0.001 =
+        // 1 µs), so this is an integer again once rounded.
+        nanoseconds: Math.round((value.milliseconds ?? 0) * 1_000_000),
+      });
     }
     if (typeof value === "object")
       return this.pgConvertPlainObject(value as object);
@@ -214,10 +304,20 @@ function canonicalNumeric(text: string): string {
   return trimmed.replace(/0+$/, "").replace(/\.$/, "");
 }
 
+/** Only the NON-ZERO components are set, each signed on its own. */
+interface PostgresInterval {
+  toPostgres: () => string;
+  years?: number;
+  months?: number;
+  days?: number;
+  hours?: number;
+  minutes?: number;
+  seconds?: number;
+  milliseconds?: number;
+}
+
 /** postgres-interval instances expose toPostgres() on their prototype. */
-function isPostgresInterval(
-  value: unknown,
-): value is { toPostgres: () => string } {
+function isPostgresInterval(value: unknown): value is PostgresInterval {
   return (
     typeof value === "object" &&
     value !== null &&

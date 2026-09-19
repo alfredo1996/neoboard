@@ -113,7 +113,10 @@ describe("PostgreSQL Record Parser", () => {
     expect(result).toBeInstanceOf(NeodashRecord);
     expect(result.id).toBe(1);
     expect(result.name).toBeNull();
-    expect(result.age).toBeUndefined();
+    // A missing value is null, never undefined (#1904): JSON drops an
+    // undefined key, so the column would vanish from the row. node-pg itself
+    // only ever yields null, so this changes nothing a user sees.
+    expect(result.age).toBeNull();
   });
 
   test("should return existing NeodashRecord unchanged in _parse", () => {
@@ -126,32 +129,31 @@ describe("PostgreSQL Record Parser", () => {
     expect(result).toBe(existingRecord);
   });
 
-  // Regression: top-level Date columns (timestamp/timestamptz/date) must
-  // survive _parse as usable temporal values, not be flattened to {} by the
-  // plain-object branch of _pgToNative. The pg driver returns these as native
-  // Date instances. (#1054)
-  test("should preserve a top-level Date column instead of flattening to {}", () => {
+  // Regression: a top-level Date column must survive _parse as a usable
+  // temporal value, not be flattened to {} by the plain-object branch of
+  // _pgToNative (#1054). Since #1904 the parser emits the ISO string itself
+  // rather than leaving a live Date for JSON.stringify to find — the wire form
+  // asserted below is unchanged, it is just produced one step earlier.
+  test("should emit a top-level Date column as an ISO string, not flatten it to {}", () => {
     const ts = new Date("2025-12-07T00:07:58.104Z");
     const row = { id: 1, created_at: ts };
 
     const result = parser["_parse"](row);
 
-    expect(result.created_at).toBeInstanceOf(Date);
-    expect(result.created_at).toEqual(ts);
+    expect(result.created_at).toBe("2025-12-07T00:07:58.104Z");
     // The real-world symptom: JSON serialization (API boundary) must not be {}.
     expect(JSON.stringify(result.created_at)).toBe(
       '"2025-12-07T00:07:58.104Z"',
     );
   });
 
-  test("should preserve Date instances inside arrays", () => {
+  test("should emit Date instances inside arrays as ISO strings", () => {
     const ts = new Date("2025-12-07T00:07:58.104Z");
     const row = { id: 1, timestamps: [ts] };
 
     const result = parser["_parse"](row);
 
-    expect(Array.isArray(result.timestamps)).toBe(true);
-    expect((result.timestamps as unknown[])[0]).toBeInstanceOf(Date);
+    expect(result.timestamps).toEqual(["2025-12-07T00:07:58.104Z"]);
   });
 });
 
@@ -205,11 +207,17 @@ describe("PostgresRecordParser — numeric promotion and interval (#1307)", () =
     expect(rec.toObject().money).toBe(1.1);
   });
 
-  it("emits interval as text rather than a sparse object", () => {
+  it("emits interval as an ISO-8601 duration rather than a sparse object", () => {
     // postgres-interval only sets the components that are non-zero, so the
     // key set changed row to row: INTERVAL '1 day' gave {days:1} while
     // INTERVAL '2 hours' gave {hours:2}. A consumer reading .seconds got
-    // undefined for most rows instead of 0.
+    // undefined for most rows instead of 0 (#1307).
+    //
+    // #1307 settled on the database's own text ("1 day"). #1904 changed that
+    // pin on purpose: every connector emits one ISO-8601 duration form, so a
+    // duration reads the same whichever database it came from. The wire-text
+    // examples, negative and mixed-sign included, are in
+    // __tests__/conformance/pg-shapes.test.ts.
     const interval = Object.create({
       toPostgres() {
         return "1 day";
@@ -221,8 +229,7 @@ describe("PostgresRecordParser — numeric promotion and interval (#1307)", () =
       [{ span: interval }],
       fields([["span", 1186]]),
     );
-    expect(typeof rec.toObject().span).toBe("string");
-    expect(rec.toObject().span).toBe("1 day");
+    expect(rec.toObject().span).toBe("P1D");
   });
 
   it("still parses when no field descriptors are supplied", () => {
@@ -278,14 +285,16 @@ describe("PostgresRecordParser — DATE is a calendar day, not an instant (#1654
   });
 
   it("leaves TIMESTAMPTZ as an instant", () => {
-    // A timestamp genuinely IS a point in time; only DATE is a calendar day
-    // with no time and no zone.
+    // A timestamptz genuinely IS a point in time; only DATE is a calendar day
+    // with no time and no zone. #1654's decision stands — it still carries the
+    // instant. Since #1904 the parser spells it as the ISO string JSON always
+    // turned it into, instead of handing on a live Date.
     const instant = new Date("2024-06-01T14:30:05.000Z");
     const [rec] = parser.bulkParse(
       [{ t: instant }],
       fields([["t", TIMESTAMPTZ]]),
     );
-    expect(rec.toObject().t).toBe(instant);
+    expect(rec.toObject().t).toBe("2024-06-01T14:30:05.000Z");
   });
 
   it("handles a DATE array", () => {
