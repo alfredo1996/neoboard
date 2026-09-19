@@ -7,6 +7,7 @@ import type { ConnectorPlugin } from "@neoboard/connector-sdk";
 import { postgresDescriptor } from "./descriptor";
 import { PostgresConnectionModule } from "./PostgresConnectionModule";
 import { PostgresSchemaManager } from "../schema/pg-schema";
+import { classifyPostgresError } from "./classify-error";
 
 export const postgresPlugin: ConnectorPlugin = {
   ...postgresDescriptor,
@@ -18,4 +19,6 @@ export const postgresPlugin: ConnectorPlugin = {
   createSchemaManager() {
     return new PostgresSchemaManager();
   },
+
+  classifyError: classifyPostgresError,
 };

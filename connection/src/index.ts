@@ -7,6 +7,10 @@ export { createConnectionModule } from "./connector-registry";
 export type { AuthConfig } from "@neoboard/connector-sdk";
 /// Errors
 export { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
+export type {
+  ConnectorConstraintKind,
+  ConnectorErrorClassification,
+} from "@neoboard/connector-sdk";
 /// Schema
 export type {
   DatabaseSchema,
@@ -41,4 +45,5 @@ export {
   getConnector,
   getAllConnectors,
   getSchemaManager,
+  toConnectorError,
 } from "./connector-registry";

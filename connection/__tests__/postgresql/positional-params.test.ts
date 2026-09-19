@@ -3,6 +3,12 @@
  * the app sends every connector the same named map, and how the names reach
  * the driver is this connector's business. No container needed.
  */
+import {
+  ConnectorError,
+  ConnectorErrorType,
+  wrapError,
+} from "@neoboard/connector-sdk";
+import { classifyPostgresError } from "../../src/postgresql/classify-error";
 import { toPositionalParams } from "../../src/postgresql/positional-params";
 
 describe("toPositionalParams", () => {
@@ -80,6 +86,23 @@ describe("toPositionalParams", () => {
     expect(() =>
       toPositionalParams("SELECT $param_a, $param_b", { param_a: "s3cret" }),
     ).toThrow(/^Expected parameter\(s\): param_b$/);
+  });
+
+  // #1898: typed by message, a missing `$param_timeout` was a TIMEOUT — shown
+  // as "timed out" and retried three times. It is typed where it is raised, so
+  // no classifier ever reads its words.
+  it("raises the missing parameter as a QUERY ConnectorError, whatever it is called", () => {
+    let thrown: unknown;
+    try {
+      toPositionalParams("SELECT $param_timeout", {});
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(ConnectorError);
+    expect(wrapError(thrown, classifyPostgresError).classification).toEqual({
+      type: ConnectorErrorType.QUERY,
+      transient: false,
+    });
   });
 
   // An explicit null is a legitimate value and must stay bindable — it is the

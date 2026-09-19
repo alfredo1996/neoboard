@@ -7,7 +7,8 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { AuthType } from "@neoboard/connector-sdk";
+import { AuthType, wrapError } from "@neoboard/connector-sdk";
+import { getAllConnectors } from "../src/connector-registry";
 import { PostgresAuthenticationModule } from "../src/postgresql/PostgresAuthenticationModule";
 import { Neo4jAuthenticationModule } from "../src/neo4j/Neo4jAuthenticationModule";
 
@@ -98,5 +99,73 @@ describe("credential redaction (#1303)", () => {
       codeOnly(readFileSync(f, "utf8")).includes('split(":")'),
     );
     expect(offenders.map((f) => f.replace(SRC, "src"))).toEqual([]);
+  });
+});
+
+/**
+ * #1903 — a classification travels further than the error it came from: into
+ * API responses (`details`), logs and a 30 s memo. So it may hold categories
+ * and schema NAMES, never anything the driver quoted back.
+ */
+describe("a classified error exposes no secret (#1903)", () => {
+  const SECRETS = [
+    "s3cr3t-pw",
+    "db.internal",
+    "postgresql://",
+    "bolt://",
+    "hunter2-value",
+    "INSERT INTO",
+  ];
+
+  /** A driver error that quotes everything a driver can quote. */
+  const loud = (code: string) =>
+    Object.assign(
+      new Error(
+        "connect ECONNREFUSED postgresql://admin:s3cr3t-pw@db.internal:5432/app " +
+          "bolt://neo4j:s3cr3t-pw@db.internal:7687 — INSERT INTO t VALUES ('hunter2-value')",
+      ),
+      {
+        code,
+        column: "rating",
+        constraint: "rating_range",
+        detail: "Failing row contains (hunter2-value).",
+        where: "INSERT INTO t VALUES ('hunter2-value')",
+        parameters: { param_token: "hunter2-value" },
+      },
+    );
+
+  const CODES = [
+    "23502",
+    "23514",
+    "25006",
+    "28P01",
+    "ECONNREFUSED",
+    "Neo.ClientError.Schema.ConstraintValidationFailed",
+    "Neo.ClientError.Security.Unauthorized",
+    "",
+  ];
+
+  it.each(
+    getAllConnectors().flatMap((connector) =>
+      CODES.map((code) => [connector.type, code] as const),
+    ),
+  )("%s, code %j", (type, code) => {
+    const classify = getAllConnectors().find(
+      (c) => c.type === type,
+    )!.classifyError!;
+    const classification = JSON.stringify(classify(loud(code)));
+    // What a serialised ConnectorError carries is the classification alone.
+    const serialised = JSON.stringify(wrapError(loud(code), classify));
+
+    for (const secret of SECRETS) {
+      expect(classification).not.toContain(secret);
+      expect(serialised).not.toContain(secret);
+    }
+  });
+
+  it("every built-in connector classifies its own errors", () => {
+    for (const connector of getAllConnectors()) {
+      expect(typeof connector.classifyError).toBe("function");
+    }
   });
 });
