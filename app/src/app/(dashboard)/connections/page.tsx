@@ -281,7 +281,10 @@ export default function ConnectionsPage() {
       return;
     }
     // Validate URI format client-side before save (#1043).
-    const uriError = validateConnectionUri(form.uri, form.type);
+    const uriError = validateConnectionUri(
+      form.uri,
+      formConnector?.fields.find((field) => field.type === "uri"),
+    );
     if (uriError) {
       setCreateError(uriError);
       return;
@@ -501,7 +504,10 @@ export default function ConnectionsPage() {
     // Validate URI *format* before save when the user changed it (blank keeps
     // the existing one). Catches malformed URIs client-side (#1043).
     if (editForm.uri.trim()) {
-      const uriError = validateConnectionUri(editForm.uri, editTarget.type);
+      const uriError = validateConnectionUri(
+        editForm.uri,
+        editConnector?.fields.find((field) => field.type === "uri"),
+      );
       if (uriError) {
         setEditError(uriError);
         return;
@@ -781,6 +787,7 @@ export default function ConnectionsPage() {
                             <div className="mt-1 text-sm opacity-90">
                               {hintForConnectionErrorCode(
                                 inlineTestResult.code,
+                                formConnector,
                               )}
                             </div>
                           )}

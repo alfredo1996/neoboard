@@ -19,6 +19,11 @@ import {
   sanitizeErrorMessage,
 } from "@/lib/api/api-utils";
 import { UnauthorizedError, ForbiddenError } from "@/lib/auth/errors";
+import {
+  ConnectorError,
+  ConnectorErrorType,
+  type ConnectorErrorClassification,
+} from "@neoboard/connection";
 import { z } from "zod";
 
 describe("error helpers return envelope format", () => {
@@ -140,10 +145,25 @@ describe("handleRouteError", () => {
     expect(res.headers.get("Retry-After")).toBe("5");
   });
 
-  describe("transient driver/connector errors", () => {
-    it("returns 408 with Retry-After for ETIMEDOUT driver errors", async () => {
+  /**
+   * What a connector raises (#1903): a ConnectorError carrying the verdict of
+   * its own `classifyError` hook. The route reads that verdict and nothing
+   * else — the message below is opaque to it, whichever driver wrote it.
+   */
+  const classified = (
+    classification: Partial<ConnectorErrorClassification>,
+    message = "the driver's own words",
+  ) =>
+    new ConnectorError(message, {
+      type: ConnectorErrorType.QUERY,
+      transient: false,
+      ...classification,
+    });
+
+  describe("transient connector errors", () => {
+    it("returns 408 with Retry-After for an error its connector calls transient", async () => {
       const res = await handleRouteError(
-        new Error("connect ETIMEDOUT 10.0.0.1:5432"),
+        classified({ type: ConnectorErrorType.TIMEOUT, transient: true }),
         "Query execution failed",
       );
       expect(res.status).toBe(408);
@@ -152,36 +172,29 @@ describe("handleRouteError", () => {
       expect(res.headers.get("Retry-After")).toBe("3");
     });
 
-    it("returns 408 for statement_timeout (pg) errors", async () => {
-      const res = await handleRouteError(
-        new Error("canceling statement due to statement timeout"),
-        "Query execution failed",
-      );
-      expect(res.status).toBe(408);
-      expect(res.headers.get("Retry-After")).toBe("3");
-    });
-
     it("preserves the original message on transient 408 so the UI can show it", async () => {
       const res = await handleRouteError(
-        new Error("Connection terminated unexpectedly"),
+        classified({ transient: true }, "The backend went away"),
         "Query execution failed",
       );
       const body = await res.json();
-      expect(body.error.message).toBe("Connection terminated unexpectedly");
+      expect(body.error.message).toBe("The backend went away");
     });
 
-    it("does NOT set Retry-After for permanent failures (syntax error)", async () => {
+    it("does NOT set Retry-After for a permanent failure", async () => {
       const res = await handleRouteError(
-        new Error('syntax error at or near "FROM"'),
+        classified({ transient: false }),
         "Query execution failed",
       );
       expect(res.status).toBe(500);
       expect(res.headers.get("Retry-After")).toBeNull();
     });
 
-    it("does NOT set Retry-After for ECONNREFUSED (service down)", async () => {
+    it("never retries on the strength of a message: only a connector's verdict counts", async () => {
+      // No keyword list is left in the app. An error nobody classified — a bug,
+      // NeoBoard's own database — is a 500, whatever it happens to say.
       const res = await handleRouteError(
-        new Error("connect ECONNREFUSED 127.0.0.1:5432"),
+        new Error("timeout ETIMEDOUT connection reset"),
         "Query execution failed",
       );
       expect(res.status).toBe(500);
@@ -190,7 +203,7 @@ describe("handleRouteError", () => {
 
     it("safeMessage still hides the raw message on transient 408", async () => {
       const res = await handleRouteError(
-        new Error("ETIMEDOUT internal db host db-prod-1.internal"),
+        classified({ transient: true }, "lost db-prod-1.internal"),
         "Write query failed",
         { safeMessage: true },
       );
@@ -208,25 +221,16 @@ describe("handleRouteError", () => {
    * and retried three times against a host that never answers.
    */
   describe("connector unavailable (#1678)", () => {
-    /** What the connectors throw: `wrapError` names every raw driver error. */
-    const connectorError = (message: string) =>
-      Object.assign(new Error(message), { name: "ConnectorError" });
-
     it.each([
-      // pg-pool >=3.14 on connectionTimeoutMillis — the exact storm trigger,
-      // observed end to end against an unroutable host.
-      "Connection terminated due to connection timeout",
-      // pg-pool's pool-full wording.
-      "timeout exceeded when trying to connect",
-      // Neo4j channel on connectionTimeout.
-      "Failed to connect to server. Please ensure that your database is listening on the correct host and port. Caused by: Failed to establish connection in 30000ms",
-      "connect ETIMEDOUT 10.255.255.1:5432",
-      "connect ECONNREFUSED 127.0.0.1:5432",
+      ["a host nobody can reach", { transient: false }],
+      // The storm trigger: a connect timeout is BOTH unreachable and, by its
+      // wording, transient. Unavailable is decided first.
+      ["a connect timeout, which is also transient", { transient: true }],
     ])(
-      "returns 502 CONNECTOR_UNAVAILABLE with no Retry-After for %j",
-      async (message) => {
+      "returns 502 CONNECTOR_UNAVAILABLE with no Retry-After for %s",
+      async (_label, flags) => {
         const res = await handleRouteError(
-          connectorError(message),
+          classified({ type: ConnectorErrorType.NETWORK, ...flags }),
           "Query execution failed",
         );
         expect(res.status).toBe(502);
@@ -239,24 +243,7 @@ describe("handleRouteError", () => {
 
     it("classifies bad credentials as auth_failed, not as a retryable error", async () => {
       const res = await handleRouteError(
-        connectorError(
-          "The client is unauthorized due to authentication failure.",
-        ),
-        "Query execution failed",
-      );
-      expect(res.status).toBe(502);
-      const body = await res.json();
-      expect(body.error.details).toEqual({ reason: "auth_failed" });
-    });
-
-    it("classifies the PostgreSQL connector's refused-credentials error as auth_failed", async () => {
-      // The exact message PostgresConnectionModule emits when
-      // verifyAuthentication resolves false (#1678) — a plain Error there
-      // used to fall all the way through to a 500.
-      const res = await handleRouteError(
-        connectorError(
-          "PostgreSQL authentication failed: the server rejected the username or password",
-        ),
+        classified({ type: ConnectorErrorType.AUTHENTICATION }),
         "Query execution failed",
       );
       expect(res.status).toBe(502);
@@ -265,47 +252,45 @@ describe("handleRouteError", () => {
       expect(body.error.details).toEqual({ reason: "auth_failed" });
     });
 
-    it("keeps a genuine statement timeout on the 408 retry path", async () => {
-      const res = await handleRouteError(
-        connectorError("canceling statement due to statement timeout"),
-        "Query execution failed",
-      );
-      expect(res.status).toBe(408);
-      expect(res.headers.get("Retry-After")).toBe("3");
-    });
+    it.each([
+      ConnectorErrorType.TIMEOUT,
+      ConnectorErrorType.CONNECTION,
+      ConnectorErrorType.QUERY,
+    ])(
+      "keeps a transient %s on the 408 retry path: the connector answered",
+      async (type) => {
+        const res = await handleRouteError(
+          classified({ type, transient: true }),
+          "Query execution failed",
+        );
+        expect(res.status).toBe(408);
+        expect(res.headers.get("Retry-After")).toBe("3");
+      },
+    );
 
-    it("keeps a pool-acquisition timeout on the 408 retry path", async () => {
+    it("only acts on errors the connectors raised — the app's own DB being down is still a 500", async () => {
+      // A plain Error: this is NeoBoard's own database talking. Telling the
+      // user to check *their* connector's host would be a misdiagnosis.
       const res = await handleRouteError(
-        connectorError(
-          "Connection acquisition timed out in 60000 ms. Pool status: Active conn count = 100, Idle conn count = 0.",
-        ),
-        "Query execution failed",
-      );
-      expect(res.status).toBe(408);
-    });
-
-    it("only classifies errors the connectors raised — the app's own DB being down is still a 500", async () => {
-      // Same message, plain Error: this is drizzle/pg talking to NeoBoard's
-      // own database. Telling the user to check *their* connector's host
-      // would be a misdiagnosis.
-      const res = await handleRouteError(
-        new Error("connect ECONNREFUSED 127.0.0.1:5432"),
+        Object.assign(new Error("refused"), {
+          classification: { type: "NETWORK", transient: false },
+        }),
         "Query execution failed",
       );
       expect(res.status).toBe(500);
     });
 
     it("does not swallow an app-level Unauthorized into auth_failed", async () => {
-      // api-key.ts throws a plain Error("Unauthorized"); the classifier's
-      // auth keyword list contains "unauthorized".
+      // api-key.ts throws a plain Error("Unauthorized").
       const res = await handleRouteError(new Error("Unauthorized"));
       expect(res.status).toBe(401);
     });
 
     it("sanitizes the driver message on the 502", async () => {
       const res = await handleRouteError(
-        connectorError(
-          "connect ECONNREFUSED postgresql://neo:s3cret@db.internal:5432/x",
+        classified(
+          { type: ConnectorErrorType.NETWORK },
+          "refused by fixturedb://neo:s3cret@db.internal:5432/x",
         ),
         "Query execution failed",
       );
@@ -315,13 +300,56 @@ describe("handleRouteError", () => {
 
     it("safeMessage collapses the 502 message to the fallback", async () => {
       const res = await handleRouteError(
-        connectorError("connect ECONNREFUSED db-prod-1.internal:5432"),
+        classified(
+          { type: ConnectorErrorType.NETWORK },
+          "refused by db-prod-1.internal:5432",
+        ),
         "Write query failed",
         { safeMessage: true },
       );
       expect(res.status).toBe(502);
       const body = await res.json();
       expect(body.error.message).toBe("Write query failed");
+    });
+  });
+
+  /**
+   * #1903 — the preview's "this query writes" used to be a regex over the
+   * message, run in the browser. The connector flags it now, and the route
+   * passes the flag on beside the (unchanged) message.
+   */
+  describe("blocked write", () => {
+    it("passes the connector's blockedWrite flag to the client as details", async () => {
+      const res = await handleRouteError(
+        classified({ blockedWrite: true }, "cannot write here"),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error).toEqual({
+        code: "INTERNAL_ERROR",
+        message: "cannot write here",
+        details: { blockedWrite: true },
+      });
+    });
+
+    it("sends no details for any other error", async () => {
+      const res = await handleRouteError(classified({}), "Query failed");
+      const body = await res.json();
+      expect(body.error.details).toBeUndefined();
+    });
+
+    it("sends nothing but the fallback on a safeMessage route", async () => {
+      const res = await handleRouteError(
+        classified({ blockedWrite: true }, "cannot write here"),
+        "Write query failed",
+        { safeMessage: true },
+      );
+      const body = await res.json();
+      expect(body.error).toEqual({
+        code: "INTERNAL_ERROR",
+        message: "Write query failed",
+      });
     });
   });
 

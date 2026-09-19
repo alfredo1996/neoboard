@@ -170,8 +170,8 @@ function renderChart(props: {
       )}
       {previewQuery.isError && !previewQuery.data && !initialPreviewData ? (
         (() => {
-          // Map blocked-write driver errors to a clear message (#1043).
-          const writeMsg = mapPreviewError(previewQuery.error?.message);
+          // A write the connector flagged as blocked gets a clear message (#1043).
+          const writeMsg = mapPreviewError(previewQuery.error);
           return (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
               <AlertCircle className="h-8 w-8 text-destructive" />

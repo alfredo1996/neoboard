@@ -6,6 +6,7 @@ import {
   DEAD_CONNECTOR_TTL_MS,
 } from "../dead-connector";
 import type { QueryContext, QueryResult } from "@/lib/query/pipeline-types";
+import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
 
 function makeContext(overrides: Partial<QueryContext> = {}): QueryContext {
   return {
@@ -21,14 +22,11 @@ function makeContext(overrides: Partial<QueryContext> = {}): QueryContext {
   };
 }
 
-/** What `wrapError` in the connector SDK produces for a refused port. */
-function connectorError(message: string): Error {
-  const error = new Error(message);
-  error.name = "ConnectorError";
-  return error;
-}
+/** What a connector raises: an error carrying the verdict of its own classifier (#1903). */
+const raised = (type: ConnectorErrorType) =>
+  new ConnectorError("the driver's own words", type);
 
-const unreachable = () => connectorError("connect ECONNREFUSED 10.0.0.1:7687");
+const unreachable = () => raised(ConnectorErrorType.NETWORK);
 const ok: QueryResult = { data: [1] };
 
 describe("deadConnectorMiddleware (#1888)", () => {
@@ -78,30 +76,36 @@ describe("deadConnectorMiddleware (#1888)", () => {
   it("remembers bad credentials too", async () => {
     await expect(
       deadConnectorMiddleware(makeContext(), async () => {
-        throw connectorError(
-          "The client is unauthorized due to authentication failure.",
-        );
+        throw raised(ConnectorErrorType.AUTHENTICATION);
       }),
     ).rejects.toThrow();
 
     const next = vi.fn(async () => ok);
-    await expect(deadConnectorMiddleware(makeContext(), next)).rejects.toThrow(
-      /unauthorized/,
-    );
+    await expect(
+      deadConnectorMiddleware(makeContext(), next),
+    ).rejects.toMatchObject({ type: ConnectorErrorType.AUTHENTICATION });
     expect(next).not.toHaveBeenCalled();
   });
 
   it("never remembers an error the database itself returned", async () => {
-    // A syntax error proves the connector answered.
-    await expect(
-      deadConnectorMiddleware(makeContext(), async () => {
-        throw connectorError("Invalid input 'RETRUN': expected 'RETURN'");
-      }),
-    ).rejects.toThrow();
+    // A rejected statement, a query timeout, a dropped connection: each
+    // proves the connector answered.
+    for (const type of [
+      ConnectorErrorType.QUERY,
+      ConnectorErrorType.TIMEOUT,
+      ConnectorErrorType.CONNECTION,
+      ConnectorErrorType.BAD_URI,
+    ]) {
+      await expect(
+        deadConnectorMiddleware(makeContext(), async () => {
+          throw raised(type);
+        }),
+      ).rejects.toThrow();
+    }
     // Nor one that is not a connector error at all (scheduler backpressure).
     await expect(
       deadConnectorMiddleware(makeContext(), async () => {
-        throw new Error("connect ECONNREFUSED 10.0.0.1:7687");
+        throw new Error("no connector raised this");
       }),
     ).rejects.toThrow();
 

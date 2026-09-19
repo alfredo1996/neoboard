@@ -16,21 +16,16 @@
     "app/src/components/widget-editor/lab-metadata-form.tsx": 1,
     "app/src/components/widget-editor/query-editor-panel.tsx": 2,
     "app/src/instrumentation.ts": 1,
-    "app/src/lib/api/db-error-message.ts": 3,
     "app/src/lib/api/openapi-spec.ts": 20,
-    "app/src/lib/connector/connection-error-classifier.ts": 11,
     "app/src/lib/connector/registered-types.ts": 2,
-    "app/src/lib/connector/validate-connection-uri.ts": 15,
     "app/src/lib/dashboard/import-follow-up.ts": 1,
     "app/src/lib/dashboard/neodash-converter.ts": 1,
     "app/src/lib/dev/verify-connection-hosts.ts": 4,
     "app/src/lib/plugin/chart-helpers.ts": 31,
     "app/src/lib/plugin/chart-plugin-registry.ts": 2,
     "app/src/lib/query/dashboard-query-binding.ts": 1,
-    "app/src/lib/query/preview-error.ts": 2,
     "app/src/lib/query/query-templates.ts": 4,
     "app/src/lib/query/scheduler-registry.ts": 1,
-    "app/src/lib/query/transient-error-classifier.ts": 2,
     "app/src/lib/shared/normalize-value.ts": 2,
     "app/src/lib/widget/card-utils.ts": 2,
     "app/src/plugins/bar/component.tsx": 2,
@@ -60,10 +55,6 @@
     "component/src/charts/types.ts": 1
   },
   "exports": {
-    "connection/src/index.ts": ["Neo4jSchemaManager", "PostgresSchemaManager"],
-    "connector-sdk/src/index.ts": [
-      "detectNeo4jErrorType",
-      "detectPostgresErrorType"
-    ]
+    "connection/src/index.ts": ["Neo4jSchemaManager", "PostgresSchemaManager"]
   }
 }

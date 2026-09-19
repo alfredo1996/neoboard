@@ -493,7 +493,8 @@ const SPEC = {
         tags: ["Query"],
         summary: "Execute read query",
         description:
-          "Executes a read-only query against a connected database. Results are capped at 10,000 rows.",
+          "Executes a read-only query against a connected database. Results are capped at 10,000 rows. " +
+          "A write that read-only execution stopped answers 500 with `error.details.blockedWrite: true`.",
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
           200: jsonResponse(

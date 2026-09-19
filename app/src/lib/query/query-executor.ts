@@ -1,6 +1,7 @@
 import {
   createConnectionModule,
   DEFAULT_CONNECTION_CONFIG,
+  toConnectorError,
 } from "@/lib/connector/connection-adapter";
 import { QueryStatus } from "@neoboard/connection";
 import { createHash } from "node:crypto";
@@ -303,7 +304,11 @@ export async function executeQuery(
             truncated,
             rowLimit: effectiveRowLimit,
           }),
-        onFail: (error: unknown) => reject(error),
+        // Classified by the connector that raised it (#1903): the routes
+        // read that verdict and recognise no driver's words themselves. A
+        // no-op for the built-ins, which wrap at the point of failure; it is
+        // what makes a connector that hands over a raw error work the same.
+        onFail: (error: unknown) => reject(toConnectorError(type, error)),
         setStatus: (status: QueryStatus) => {
           if (status === QueryStatus.COMPLETE_TRUNCATED) {
             truncated = true;
@@ -328,16 +333,21 @@ export async function testConnection(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<boolean> {
-  const connModule = (await getOrCreateModule(type, credentials)) as {
-    checkConnection: (config: unknown) => Promise<boolean>;
-  };
-
   const config = {
     ...DEFAULT_CONNECTION_CONFIG,
     database: credentials.database,
   };
 
-  return connModule.checkConnection(config);
+  try {
+    const connModule = (await getOrCreateModule(type, credentials)) as {
+      checkConnection: (config: unknown) => Promise<boolean>;
+    };
+    return await connModule.checkConnection(config);
+  } catch (error) {
+    // Building the module is inside the try: a connector rejects a bad URI in
+    // its constructor, and the Test result has to say so (#1903).
+    throw toConnectorError(type, error);
+  }
 }
 
 /**

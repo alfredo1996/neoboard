@@ -4,44 +4,37 @@ import {
   PREVIEW_WRITE_NOT_ALLOWED_MESSAGE,
 } from "../preview-error";
 
-describe("mapPreviewError (#1043)", () => {
-  it("maps a PostgreSQL wrapped-write syntax error to the write message", () => {
-    // DELETE wrapped as SELECT * FROM (DELETE …) AS __preview
-    expect(mapPreviewError('syntax error at or near "DELETE"')).toBe(
-      PREVIEW_WRITE_NOT_ALLOWED_MESSAGE,
-    );
-    expect(mapPreviewError('syntax error at or near "UPDATE"')).toBe(
-      PREVIEW_WRITE_NOT_ALLOWED_MESSAGE,
-    );
-    expect(mapPreviewError('syntax error at or near "INSERT"')).toBe(
-      PREVIEW_WRITE_NOT_ALLOWED_MESSAGE,
-    );
-  });
+/** The Error the API client throws: the envelope's `details` ride along on it. */
+const apiError = (message: string, details?: Record<string, unknown>) =>
+  Object.assign(new Error(message), { details });
 
-  it("maps a Neo4j read-access-mode write error to the write message", () => {
+describe("mapPreviewError (#1043)", () => {
+  it("maps an error the connector flagged as a blocked write to the write message", () => {
     expect(
       mapPreviewError(
-        "Neo.ClientError.Request.Invalid: Writing in read access mode not allowed.",
+        apiError("whatever the driver said", { blockedWrite: true }),
       ),
     ).toBe(PREVIEW_WRITE_NOT_ALLOWED_MESSAGE);
   });
 
-  it("maps a PostgreSQL read-only transaction violation to the write message", () => {
+  it("does not read the message: only the connector knows what its driver means (#1903)", () => {
     expect(
-      mapPreviewError("cannot execute DELETE in a read-only transaction"),
-    ).toBe(PREVIEW_WRITE_NOT_ALLOWED_MESSAGE);
+      mapPreviewError(apiError("Writing is not allowed in a read-only mode")),
+    ).toBeNull();
   });
 
-  it("returns null for a genuine (non-write) syntax error so the raw message shows", () => {
-    expect(mapPreviewError('syntax error at or near "FROMM"')).toBeNull();
+  it("returns null for any other error so the raw message shows", () => {
+    expect(mapPreviewError(apiError("no such column"))).toBeNull();
+    expect(mapPreviewError(apiError("x", { column: "rating" }))).toBeNull();
+    expect(mapPreviewError(apiError("x", { blockedWrite: "yes" }))).toBeNull();
   });
 
-  it("returns null for an unrelated error", () => {
-    expect(mapPreviewError('column "foo" does not exist')).toBeNull();
-  });
-
-  it("returns null for empty/undefined input", () => {
+  it("returns null for a missing error", () => {
     expect(mapPreviewError(undefined)).toBeNull();
-    expect(mapPreviewError("")).toBeNull();
+    expect(mapPreviewError(null)).toBeNull();
+  });
+
+  it("the message names no connector and says what to do instead", () => {
+    expect(PREVIEW_WRITE_NOT_ALLOWED_MESSAGE).toMatch(/Form widget/);
   });
 });

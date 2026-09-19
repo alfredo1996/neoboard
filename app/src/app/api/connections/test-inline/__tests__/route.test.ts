@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
+import { raisedByConnector } from "@/__tests__/helpers/connector-errors";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -248,9 +249,7 @@ describe("POST /api/connections/test-inline", () => {
 
   it("classifies auth failures with code:auth_failed", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockTestConnection.mockRejectedValue(
-      new Error('password authentication failed for user "neo4j"'),
-    );
+    mockTestConnection.mockRejectedValue(raisedByConnector("AUTHENTICATION"));
     const res = await POST(
       makeRequest({
         type: "neo4j",
@@ -269,9 +268,7 @@ describe("POST /api/connections/test-inline", () => {
 
   it("classifies network failures with code:network", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockTestConnection.mockRejectedValue(
-      new Error("connect ECONNREFUSED 127.0.0.1:7687"),
-    );
+    mockTestConnection.mockRejectedValue(raisedByConnector("NETWORK"));
     const res = await POST(
       makeRequest({
         type: "neo4j",
@@ -290,9 +287,7 @@ describe("POST /api/connections/test-inline", () => {
 
   it("classifies malformed URI failures with code:bad_uri", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    mockTestConnection.mockRejectedValue(
-      new Error("Invalid URI scheme: 'http'"),
-    );
+    mockTestConnection.mockRejectedValue(raisedByConnector("BAD_URI"));
     const res = await POST(
       makeRequest({
         type: "neo4j",

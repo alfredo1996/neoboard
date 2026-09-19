@@ -127,7 +127,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     expect(elapsed).toBeLessThan(5_000);
     // Driver-level statement timeout is classified as transient by the
     // route handler, which returns 408 + Retry-After so clients can back
-    // off. See app/src/lib/query/transient-error-classifier.ts.
+    // off. Whether it is transient is the connector's call (classifyError).
     expect(res.status()).toBe(408);
     expect(res.headers()["retry-after"]).toBe("3");
 

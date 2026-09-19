@@ -1,25 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
+import { toConnectorError } from "@neoboard/connection";
 import {
   DRIVER_ERROR_FIXTURES,
   driverError,
   type DriverErrorFixture,
 } from "./connector-error-fixtures";
 import recorded from "./connector-error-characterization.json";
-import { classifyConnectionError } from "../connection-error-classifier";
-import { isTransientQueryError } from "@/lib/query/transient-error-classifier";
+import { connectionErrorCode } from "../connection-error-classifier";
 import { describeWriteError } from "@/lib/api/db-error-message";
-import { mapPreviewError } from "@/lib/query/preview-error";
 
 /**
  * Characterization of every user-facing outcome a driver error has (#1903).
  *
  * `connector-error-characterization.json` was recorded from the app-side
- * keyword classifiers BEFORE error classification moved into the connectors.
- * It is the contract the move has to keep: the same driver error must still
- * produce the same Test-connection code, the same retry decision, the same
- * form message and the same "this query writes" verdict. Only `outcomeOf`
- * below may change — never the recording.
+ * keyword classifiers BEFORE error classification moved into the connectors
+ * (the commit before this one ran it against them). It is the contract the
+ * move has to keep: the same driver error must still produce the same
+ * Test-connection code, the same retry decision, the same form message and the
+ * same "this query writes" verdict. Only `outcomeOf` below changed — never the
+ * recording.
  */
 interface Outcome {
   /** The connection Test result code; `network` / `auth_failed` also mean 502 + the dead-connector memo. */
@@ -32,18 +31,18 @@ interface Outcome {
   blockedWrite: boolean;
 }
 
+/**
+ * AFTER the move: the driver error goes to the connector that owns it — through
+ * the registry, by type — and the app maps the verdict that comes back. The
+ * version recorded from read the message itself, with four keyword lists.
+ */
 function outcomeOf(fixture: DriverErrorFixture): Outcome {
-  const raw = driverError(fixture);
-  const wrapped = new ConnectorError(
-    raw.message,
-    ConnectorErrorType.QUERY,
-    raw,
-  );
+  const raised = toConnectorError(fixture.connector, driverError(fixture));
   return {
-    code: classifyConnectionError(raw.message),
-    transient: isTransientQueryError(raw),
-    write: describeWriteError(wrapped) ?? null,
-    blockedWrite: mapPreviewError(raw.message) !== null,
+    code: connectionErrorCode(raised),
+    transient: raised.classification.transient,
+    write: describeWriteError(raised) ?? null,
+    blockedWrite: raised.classification.blockedWrite === true,
   };
 }
 

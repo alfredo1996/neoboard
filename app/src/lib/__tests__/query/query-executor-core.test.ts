@@ -28,9 +28,14 @@ const defaultModule = () => ({
 
 const mockCreateConnectionModule = vi.fn(defaultModule);
 
+// The registry's classifier, stubbed as the identity so every existing
+// assertion still sees the error the module raised.
+const mockToConnectorError = vi.fn((_type: string, error: unknown) => error);
+
 vi.mock("@/lib/connector/connection-adapter", () => ({
   createConnectionModule: mockCreateConnectionModule,
   DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
+  toConnectorError: mockToConnectorError,
 }));
 
 // Mirror the QueryStatus enum from @neoboard/connection (integer values are
@@ -134,6 +139,49 @@ describe("query-executor", () => {
     await executeQuery("mysql", pgCreds, { query: "SELECT 1" });
 
     expect(mockCreateConnectionModule).toHaveBeenCalledWith("mysql", pgCreds);
+  });
+
+  // #1903: whatever a connector raises leaves the executor classified by THAT
+  // connector — the type is the only thing the executor knows about it.
+  describe("errors are classified by the owning connector", () => {
+    const classified = new Error("classified");
+
+    it("hands a failed query's raw error to the connector's classifier", async () => {
+      const raw = new Error("FX-0042");
+      mockRunQuery.mockImplementation(
+        (_p: unknown, cbs: { onFail: (v: unknown) => void }) => cbs.onFail(raw),
+      );
+      mockToConnectorError.mockReturnValueOnce(classified);
+
+      await expect(
+        executeQuery("fixturedb", pgCreds, { query: "SELECT 1" }),
+      ).rejects.toBe(classified);
+      expect(mockToConnectorError).toHaveBeenCalledWith("fixturedb", raw);
+    });
+
+    it("does the same for a failed connection check", async () => {
+      const raw = new Error("FX-0042");
+      mockCheckConnection.mockRejectedValueOnce(raw);
+      mockToConnectorError.mockReturnValueOnce(classified);
+
+      await expect(testConnection("fixturedb", pgCreds)).rejects.toBe(
+        classified,
+      );
+      expect(mockToConnectorError).toHaveBeenCalledWith("fixturedb", raw);
+    });
+
+    it("and for a module that refuses to be built — a bad URI is rejected there", async () => {
+      const raw = new Error("FX-0001 malformed address");
+      mockCreateConnectionModule.mockImplementationOnce(() => {
+        throw raw;
+      });
+      mockToConnectorError.mockReturnValueOnce(classified);
+
+      await expect(
+        testConnection("fixturedb", { ...pgCreds, uri: "nonsense" }),
+      ).rejects.toBe(classified);
+      expect(mockToConnectorError).toHaveBeenCalledWith("fixturedb", raw);
+    });
   });
 
   it("rejects when runQuery calls onFail", async () => {

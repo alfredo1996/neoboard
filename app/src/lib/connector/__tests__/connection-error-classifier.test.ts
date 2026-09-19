@@ -1,100 +1,98 @@
 import { describe, it, expect } from "vitest";
 import {
-  classifyConnectionError,
+  ConnectorError,
+  ConnectorErrorType,
+  getAllConnectors,
+  toDescriptor,
+  type ConnectorDescriptor,
+} from "@neoboard/connection";
+import {
+  classificationOf,
+  connectionErrorCode,
+  connectorUnavailableReason,
   hintForConnectionErrorCode,
   type ConnectionErrorCode,
 } from "../connection-error-classifier";
 
-describe("classifyConnectionError", () => {
-  describe("auth_failed", () => {
-    it.each([
-      "authentication failure",
-      "AuthenticationRateLimit",
-      "The client is unauthorized due to authentication failure.",
-      'password authentication failed for user "neo4j"',
-      "Unauthorized: invalid credentials",
-    ])("classifies %j as auth_failed", (msg) => {
-      expect(classifyConnectionError(msg)).toBe("auth_failed");
+/** An error as any connector raises it: classified, its message opaque to the app. */
+const raised = (type: ConnectorErrorType) =>
+  new ConnectorError("the driver's own words", type);
+
+describe("classificationOf", () => {
+  it("reads the classification a connector attached", () => {
+    expect(classificationOf(raised(ConnectorErrorType.NETWORK))).toEqual({
+      type: "NETWORK",
+      transient: false,
     });
   });
 
-  describe("network", () => {
-    it.each([
-      "connect ECONNREFUSED 127.0.0.1:7687",
-      "getaddrinfo ENOTFOUND db.example.com",
-      "connect ETIMEDOUT",
-      "ServiceUnavailable: Could not perform discovery. No routing servers available.",
-      "WebSocket connection failure",
-      "Network is unreachable",
-      // What the drivers actually say about an unroutable host (#1678):
-      // pg-pool (>=3.14 wraps the client's connect timeout; the older
-      // wording is its pool-full message), pg.Client on its own, then the
-      // Neo4j channel on connectionTimeout. None of them names a network
-      // code. The first one is the E2E-observed storm trigger.
-      "Connection terminated due to connection timeout",
-      "timeout exceeded when trying to connect",
-      "timeout expired",
-      "Failed to connect to server. Please ensure that your database is listening on the correct host and port and that you have compatible encryption settings both on Neo4j server and driver. Note that the default encryption setting has changed in Neo4j 4.0. Caused by: Failed to establish connection in 30000ms",
-      "Failed to establish connection in 30000ms",
-    ])("classifies %j as network", (msg) => {
-      expect(classifyConnectionError(msg)).toBe("network");
+  it("recognises a ConnectorError from another copy of the SDK by name", () => {
+    const classification = { type: "TIMEOUT", transient: true };
+    const foreign = Object.assign(new Error("x"), {
+      name: "ConnectorError",
+      classification,
     });
-
-    it.each([
-      // A query the database itself cut short is not a dead connector.
-      "canceling statement due to statement timeout",
-      // A backend dying mid-query says "terminated" too; only the full
-      // pg-pool connect-timeout phrase means the host never answered.
-      "Connection terminated unexpectedly",
-      "The transaction has been terminated. Retry your operation in a new transaction, and you should see a successful result. The transaction has not completed within the specified timeout (dbms.transaction.timeout).",
-      "Connection acquisition timed out in 60000 ms. Pool status: Active conn count = 100, Idle conn count = 0.",
-    ])("leaves a query/pool timeout %j as unknown (#1678)", (msg) => {
-      expect(classifyConnectionError(msg)).toBe("unknown");
-    });
+    expect(classificationOf(foreign)).toBe(classification);
   });
 
-  describe("bad_uri", () => {
-    it.each([
-      "Invalid URI scheme: 'http'",
-      "Could not parse URI",
-      "Unknown scheme: postgres+s",
-      "Invalid connection URI: missing host",
-      "URI malformed",
-    ])("classifies %j as bad_uri", (msg) => {
-      expect(classifyConnectionError(msg)).toBe("bad_uri");
-    });
+  it.each([
+    ["a plain Error", new Error("x")],
+    [
+      "a plain Error that merely carries the field",
+      Object.assign(new Error("x"), { classification: { type: "NETWORK" } }),
+    ],
+    ["a string", "x"],
+    ["null", null],
+  ])("is undefined for %s — only a connector classifies", (_label, error) => {
+    expect(classificationOf(error)).toBeUndefined();
+  });
+});
+
+describe("connectionErrorCode — category to Test-result code", () => {
+  it.each([
+    [ConnectorErrorType.BAD_URI, "bad_uri"],
+    [ConnectorErrorType.AUTHENTICATION, "auth_failed"],
+    [ConnectorErrorType.NETWORK, "network"],
+    [ConnectorErrorType.CONNECTION, "unknown"],
+    [ConnectorErrorType.TIMEOUT, "unknown"],
+    [ConnectorErrorType.QUERY, "unknown"],
+    [ConnectorErrorType.CONSTRAINT, "unknown"],
+    [ConnectorErrorType.READ_ONLY_VIOLATION, "unknown"],
+    [ConnectorErrorType.UNKNOWN, "unknown"],
+  ])("%s is %s", (type, code) => {
+    expect(connectionErrorCode(raised(type))).toBe(code);
   });
 
-  describe("unknown", () => {
-    it("classifies an unrecognised error as unknown", () => {
-      expect(
-        classifyConnectionError("Something completely unrecognized happened"),
-      ).toBe("unknown");
-    });
+  it("is unknown for an error no connector classified", () => {
+    expect(connectionErrorCode(new Error("anything"))).toBe("unknown");
+    expect(connectionErrorCode("boom")).toBe("unknown");
+  });
+});
 
-    it("classifies empty string as unknown", () => {
-      expect(classifyConnectionError("")).toBe("unknown");
-    });
+describe("connectorUnavailableReason — what marks a connector dead", () => {
+  it.each([
+    [ConnectorErrorType.NETWORK, "network"],
+    [ConnectorErrorType.AUTHENTICATION, "auth_failed"],
+  ])("%s is unavailable: %s", (type, reason) => {
+    expect(connectorUnavailableReason(raised(type))).toBe(reason);
   });
 
-  describe("priority", () => {
-    it("auth wins over network when both keywords appear", () => {
-      // Network keywords showing up in auth-related stacks should still bucket as auth_failed
-      // (auth failures are higher-priority for the user — they fix credentials first)
-      expect(
-        classifyConnectionError(
-          "authentication failure: ECONNREFUSED while reading server greeting",
-        ),
-      ).toBe("auth_failed");
-    });
+  it.each([
+    ConnectorErrorType.BAD_URI,
+    ConnectorErrorType.CONNECTION,
+    ConnectorErrorType.TIMEOUT,
+    ConnectorErrorType.QUERY,
+    ConnectorErrorType.CONSTRAINT,
+    ConnectorErrorType.READ_ONLY_VIOLATION,
+    ConnectorErrorType.UNKNOWN,
+  ])("%s proves the connector answered", (type) => {
+    expect(connectorUnavailableReason(raised(type))).toBeUndefined();
+  });
 
-    it("bad_uri wins over network when URI is malformed (network is downstream)", () => {
-      expect(
-        classifyConnectionError(
-          "Invalid URI scheme: 'http' (ETIMEDOUT trying to connect)",
-        ),
-      ).toBe("bad_uri");
-    });
+  it("ignores an error that did not come from a connector", () => {
+    // handleRouteError catches for every route; NeoBoard's own database being
+    // down must not be blamed on the user's connector.
+    expect(connectorUnavailableReason(new Error("anything"))).toBeUndefined();
   });
 });
 
@@ -103,6 +101,7 @@ describe("hintForConnectionErrorCode", () => {
     "auth_failed",
     "network",
     "bad_uri",
+    "container_loopback",
     "unknown",
   ];
 
@@ -130,37 +129,108 @@ describe("hintForConnectionErrorCode", () => {
     );
   });
 
-  it("hint copy never leaks driver internals (heuristic)", () => {
-    for (const code of ALL) {
-      const hint = hintForConnectionErrorCode(code);
-      // Hints are written as user-facing English, no stack words leaking.
-      expect(hint.toLowerCase()).not.toContain("econnrefused");
-      expect(hint.toLowerCase()).not.toContain("enotfound");
+  // Every name a registered connector goes by: its type, its label, its URI
+  // schemes. Read off the registry, so connector N+1 is covered from birth.
+  const connectorNames = getAllConnectors().flatMap((c) => [
+    c.type,
+    c.label,
+    ...c.fields
+      .flatMap((f) => f.protocols ?? [])
+      .map((p) => p.split(/[+:]/)[0]),
+  ]);
+
+  it.each(ALL)("the %s hint names no connector", (code) => {
+    const hint = hintForConnectionErrorCode(code).toLowerCase();
+    expect(connectorNames.length).toBeGreaterThan(0);
+    for (const name of connectorNames) {
+      expect(hint).not.toContain(name.toLowerCase());
     }
+  });
+
+  describe("examples come from the connector's own descriptor", () => {
+    const fixture: ConnectorDescriptor = {
+      type: "fixturedb",
+      label: "FixtureDB",
+      category: "database",
+      fields: [
+        {
+          key: "uri",
+          label: "URI",
+          type: "uri",
+          group: "connection",
+          protocols: ["fixturedb:"],
+          placeholder: "fixturedb://localhost:4242",
+        },
+        {
+          key: "username",
+          label: "Username",
+          type: "text",
+          group: "connection",
+          placeholder: "fixture_admin",
+        },
+      ],
+    };
+
+    it("bad_uri shows the URI field's placeholder", () => {
+      expect(hintForConnectionErrorCode("bad_uri", fixture)).toContain(
+        "fixturedb://localhost:4242",
+      );
+    });
+
+    it("auth_failed shows the username field's placeholder", () => {
+      expect(hintForConnectionErrorCode("auth_failed", fixture)).toContain(
+        "fixture_admin",
+      );
+    });
+
+    it.each(getAllConnectors().map((c) => [c.type, toDescriptor(c)] as const))(
+      "%s gets its own examples",
+      (_type, descriptor) => {
+        const uri = descriptor.fields.find((f) => f.type === "uri");
+        expect(hintForConnectionErrorCode("bad_uri", descriptor)).toContain(
+          uri!.placeholder,
+        );
+      },
+    );
+
+    it.each(["network", "container_loopback", "unknown"] as const)(
+      "%s needs no example",
+      (code) => {
+        expect(hintForConnectionErrorCode(code, fixture)).toBe(
+          hintForConnectionErrorCode(code),
+        );
+      },
+    );
+
+    it("falls back to the plain hint when the descriptor has no such field", () => {
+      expect(
+        hintForConnectionErrorCode("bad_uri", { ...fixture, fields: [] }),
+      ).toBe(hintForConnectionErrorCode("bad_uri"));
+    });
   });
 });
 
 // The most common thing a user does after `neoboard demo` is connect their own
-// database. On a Docker install that database is on the HOST, so they type
-// neo4j://localhost:7688 — and localhost inside the app container is the
-// container. The driver says "Could not perform discovery. No routing servers
-// available", which classified as `network`, whose hint told them to verify the
+// database. On a Docker install that database is on the HOST, so they type a
+// localhost URI — and localhost inside the app container is the container. The
+// connector reports an unreachable host, whose hint told them to verify the
 // host, the port, that the database is running, and their firewall. All four
 // are already correct. There was no thread to pull (#1346).
+//
+// This is about the DEPLOYMENT, not the connector, so it stays in the app.
 describe("loopback from inside a container (#1346)", () => {
-  const DISCOVERY_ERROR =
-    "Could not perform discovery. No routing servers available.";
+  const unreachable = raised(ConnectorErrorType.NETWORK);
 
   it.each([
-    ["localhost", "neo4j://localhost:7688"],
-    ["127.0.0.1", "postgresql://127.0.0.1:5432/app"],
-    ["::1", "neo4j://[::1]:7687"],
-    ["with credentials in the URI", "postgresql://u:p@localhost:5432/app"],
-    ["uppercase host", "neo4j://LOCALHOST:7687"],
+    ["localhost", "fixturedb://localhost:7688"],
+    ["127.0.0.1", "fixturedb://127.0.0.1:5432/app"],
+    ["::1", "fixturedb://[::1]:7687"],
+    ["with credentials in the URI", "fixturedb://u:p@localhost:5432/app"],
+    ["uppercase host", "fixturedb://LOCALHOST:7687"],
   ])("codes a network failure to %s as container_loopback", (_l, uri) => {
-    expect(
-      classifyConnectionError(DISCOVERY_ERROR, { uri, containerised: true }),
-    ).toBe("container_loopback");
+    expect(connectionErrorCode(unreachable, { uri, containerised: true })).toBe(
+      "container_loopback",
+    );
   });
 
   it("stays `network` when the app is NOT containerised", () => {
@@ -168,37 +238,32 @@ describe("loopback from inside a container (#1346)", () => {
     // where localhost is exactly right — telling that user to use a Docker
     // hostname would send them somewhere that does not exist.
     expect(
-      classifyConnectionError(DISCOVERY_ERROR, {
-        uri: "neo4j://localhost:7688",
+      connectionErrorCode(unreachable, {
+        uri: "fixturedb://localhost:7688",
         containerised: false,
       }),
     ).toBe("network");
   });
 
   it.each([
-    ["a remote host", "neo4j://db.example.com:7687"],
-    ["a compose service name", "neo4j://neo4j:7687"],
-    ["a LAN address", "postgresql://192.168.1.50:5432/app"],
+    ["a remote host", "fixturedb://db.example.com:7687"],
+    ["a compose service name", "fixturedb://graph:7687"],
+    ["a LAN address", "fixturedb://192.168.1.50:5432/app"],
   ])("stays `network` for %s", (_l, uri) => {
-    expect(
-      classifyConnectionError(DISCOVERY_ERROR, { uri, containerised: true }),
-    ).toBe("network");
+    expect(connectionErrorCode(unreachable, { uri, containerised: true })).toBe(
+      "network",
+    );
   });
 
   it("does not outrank auth or bad_uri", () => {
-    // Priority order is unchanged: a loopback auth failure is still an auth
-    // failure, and the Docker hint would be a misdiagnosis.
+    // A loopback auth failure is still an auth failure, and the Docker hint
+    // would be a misdiagnosis.
+    const context = { uri: "fixturedb://localhost:7688", containerised: true };
     expect(
-      classifyConnectionError("Authentication failure", {
-        uri: "neo4j://localhost:7688",
-        containerised: true,
-      }),
+      connectionErrorCode(raised(ConnectorErrorType.AUTHENTICATION), context),
     ).toBe("auth_failed");
     expect(
-      classifyConnectionError("Invalid URI scheme", {
-        uri: "wat://localhost:7688",
-        containerised: true,
-      }),
+      connectionErrorCode(raised(ConnectorErrorType.BAD_URI), context),
     ).toBe("bad_uri");
   });
 
@@ -208,16 +273,13 @@ describe("loopback from inside a container (#1346)", () => {
   ])("degrades to `network` for %s rather than throwing", (_l, uri) => {
     // This runs on an error path. A classifier that throws replaces a bad
     // message with a 500.
-    expect(() =>
-      classifyConnectionError(DISCOVERY_ERROR, { uri, containerised: true }),
-    ).not.toThrow();
-    expect(
-      classifyConnectionError(DISCOVERY_ERROR, { uri, containerised: true }),
-    ).toBe("network");
+    expect(connectionErrorCode(unreachable, { uri, containerised: true })).toBe(
+      "network",
+    );
   });
 
   it("is unchanged when no context is passed at all", () => {
-    expect(classifyConnectionError(DISCOVERY_ERROR)).toBe("network");
+    expect(connectionErrorCode(unreachable)).toBe("network");
   });
 
   it("names Docker, the CLI flag, and host.docker.internal in the hint", () => {

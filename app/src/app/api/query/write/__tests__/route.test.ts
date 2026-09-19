@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
+import { toConnectorError } from "@neoboard/connection";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 import {
@@ -317,9 +317,8 @@ describe("POST /api/query/write", () => {
         detail: "Failing row contains (12, null, test, jpijpjp, ...).",
       },
     );
-    mockExecuteQuery.mockRejectedValue(
-      new ConnectorError("query failed", ConnectorErrorType.QUERY, pgError),
-    );
+    // Opaque to the app: the connector that owns the error says what it is.
+    mockExecuteQuery.mockRejectedValue(toConnectorError("postgresql", pgError));
 
     const res = await POST(
       makeRequest({
@@ -340,29 +339,36 @@ describe("POST /api/query/write", () => {
     expect(JSON.stringify(body)).not.toMatch(/Failing row|null value|INSERT/i);
   });
 
+  const PG = "postgresql";
   it.each([
-    ["23505", 409, "A record with these values already exists."],
-    ["23514", 400, "A value failed a validation constraint."],
-    ["25006", 403, "This connection is read-only; writes are not permitted."],
-    ["22001", 400, "A value is too long."],
-    ["22007", 400, "A date or time value is invalid."],
-    ["23P01", 400, "A record conflicts with an existing one."],
+    [PG, "23505", 409, "A record with these values already exists."],
+    [PG, "23514", 400, "A value failed a validation constraint."],
     [
+      PG,
+      "25006",
+      403,
+      "This connection is read-only; writes are not permitted.",
+    ],
+    [PG, "22001", 400, "A value is too long."],
+    [PG, "22007", 400, "A date or time value is invalid."],
+    [PG, "23P01", 400, "A record conflicts with an existing one."],
+    [
+      "neo4j",
       "Neo.ClientError.Schema.ConstraintValidationFailed",
       400,
       "A value violates a database constraint.",
     ],
   ])(
-    "responds to a recognised driver error %s with %i, not 500 (#1409)",
-    async (code, status, message) => {
+    "responds to a %s driver error %s its connector recognises with %i, not 500 (#1409)",
+    async (connector, code, status, message) => {
       mockRequireSession.mockResolvedValue(writerSession);
       mockDashboardAndConnection();
       mockDecryptJson.mockReturnValue({ uri: "postgresql://localhost" });
-      const pgError = Object.assign(new Error("INSERT INTO t ... secret"), {
+      const driverError = Object.assign(new Error("INSERT INTO t ... secret"), {
         code,
       });
       mockExecuteQuery.mockRejectedValue(
-        new ConnectorError("query failed", ConnectorErrorType.QUERY, pgError),
+        toConnectorError(connector, driverError),
       );
 
       const res = await POST(

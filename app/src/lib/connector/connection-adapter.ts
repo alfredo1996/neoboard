@@ -5,16 +5,10 @@
  * query-executor.ts remains fully mockable in tests (vi.mock("./connection-adapter", …)).
  */
 
-import {
-  createConnectionModule,
-  DEFAULT_CONNECTION_CONFIG,
-  getSchemaManager,
-  getConnector,
-} from "@neoboard/connection";
-
 export {
   createConnectionModule,
   DEFAULT_CONNECTION_CONFIG,
   getSchemaManager,
   getConnector,
-};
+  toConnectorError,
+} from "@neoboard/connection";
