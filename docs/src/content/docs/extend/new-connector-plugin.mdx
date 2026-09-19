@@ -78,6 +78,7 @@ import {
   databaseField,
   passwordField,
   poolSizeField,
+  timeoutField,
   uriField,
   usernameField,
   type ConnectorDescriptor,
@@ -102,6 +103,8 @@ export const descriptor: ConnectorDescriptor = {
       description: "Optional — leave empty for the server default.",
     }),
     poolSizeField("10"),
+    // This connection's default query timeout; step 4 reads it back.
+    timeoutField("queryTimeout", "Query Timeout", "30000"),
     // Anything the builders do not cover is a plain literal.
     { key: "tls", label: "Require TLS", type: "boolean", group: "advanced" },
   ],
@@ -215,6 +218,7 @@ import {
   collectUpToLimit,
   drainRetainingUpTo,
   determineQueryStatus,
+  resolveQueryTimeout,
   type ConnectionConfig,
   type ConnectorConfig,
   type QueryCallback,
@@ -226,10 +230,13 @@ type Row = Record<string, unknown>;
 
 export class MyDbConnectionModule extends ConnectionModule {
   authModule: MyDbAuthenticationModule;
+  /** The timeout field this connector declared in step 2. */
+  private readonly queryTimeout: unknown;
 
   constructor(config: ConnectorConfig) {
     super();
     this.authModule = new MyDbAuthenticationModule(config);
+    this.queryTimeout = config.queryTimeout;
   }
 
   async runQuery<T>(
@@ -247,7 +254,9 @@ export class MyDbConnectionModule extends ConnectionModule {
     try {
       const stream = this.authModule.createDriver().query(query, params, {
         readOnly,
-        timeoutMs: config.timeout,
+        // A per-query override if NeoBoard sent one, else this connection's
+        // own timeout, else the 30 s default — never "no bound".
+        timeoutMs: resolveQueryTimeout(config.timeout, this.queryTimeout),
       });
       // MAX_ROWS+1: pull at most rowLimit + 1 rows and keep rowLimit. A read
       // stops as soon as truncation is known; a write must drain to the end,
@@ -317,10 +326,10 @@ What the pieces of `config` and `callbacks` mean:
 
 | You receive                        | What to do with it                                                                                                                                                                                                                                                                                          |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `query`, `params`                  | Run the query exactly as written — never wrap it, never append a `LIMIT`. `params` is a name → value map and the text refers to each value as `$name` (a dashboard parameter arrives as `$param_xxx` with key `param_xxx`). Bind them through the driver. Never interpolate a value into the query string.   |
+| `query`, `params`                  | Run the query exactly as written — never wrap it, never append a `LIMIT`. `params` is a name → value map, the same for every connector: a dashboard parameter arrives as `$param_xxx` in the text with key `param_xxx` in the map. Bind them through the driver. If your driver only binds positional placeholders, rename the tokens inside `runQuery` and pass the values beside the text — the built-in PostgreSQL connector does that in `connection/src/postgresql/positional-params.ts`. Never interpolate a value into the query string. |
 | `config.accessMode`                | `"READ"` for every widget except Form widgets, which send `"WRITE"`. Enforce it at the database; anything that is not exactly `"WRITE"` is read-only.                                                                                                                                                       |
 | `config.rowLimit`                  | Keep at most this many rows. Detect truncation by pulling one more (`collectUpToLimit` does this) and report `COMPLETE_TRUNCATED`, which the UI turns into a "showing first N rows" banner.                                                                                                                  |
-| `config.timeout`                   | Milliseconds. Enforce at the driver or server (statement timeout, transaction timeout, `maxTimeMS` — whatever your database has) and report `TIMED_OUT`.                                                                                                                                                    |
+| `config.timeout`                   | An explicit per-query override in milliseconds — **usually unset**. The default is yours to resolve: `resolveQueryTimeout(config.timeout, yourConfiguredTimeout)` returns the override, else the timeout field you declared, else 30 s, and never lets zero or junk mean "unbounded". Enforce the result at the driver or server (statement timeout, transaction timeout, `maxTimeMS` — whatever your database has) and report `TIMED_OUT`. |
 | `config.database`                  | The database for this query, or `undefined` for the server default. It is the `database` of your config bag unless a widget overrides it. Applying it is your job — NeoBoard no longer rewrites the URI.                                                                                                    |
 | `callbacks.onSuccess(rows)`        | An array of plain row objects — it is serialised to JSON as-is and handed to the chart transforms. Exactly one of `onSuccess` / `onFail` fires per call.                                                                                                                                                     |
 | `callbacks.onFail(error)`          | A `ConnectorError` whose `type` says what went wrong. `wrapError` in the SDK only knows the two built-in drivers, so construct the error yourself.                                                                                                                                                           |
@@ -493,7 +502,7 @@ The key needs a creator or admin role ([API keys](/security/api-keys)). "Test co
 
 ## 9. Prove query safety
 
-The SDK ships a conformance harness: four cases that check what the database actually does, not what the code says. Run them in your own test runner against a real instance of your database — a mock cannot satisfy them.
+The SDK ships a conformance harness: five cases that check what the database actually does, not what the code says. Run them in your own test runner against a real instance of your database — a mock cannot satisfy them.
 
 ```ts
 // __tests__/conformance.test.ts
@@ -527,8 +536,9 @@ describe("MyDB query-safety conformance", () => {
     queries: {
       // Mutates data — must be refused under READ access mode.
       write: { query: "CREATE TABLE conformance_tmp (x int)" },
-      // Returns at least n rows, so the cap is observable.
-      manyRows: (n) => ({ query: "SELECT * FROM series(1, $n)", params: { n } }),
+      // Returns as many rows as $param_rows says, so the cap is observable.
+      // The harness binds it by name — { param_rows: n } — as NeoBoard does.
+      manyRows: "SELECT * FROM series(1, $param_rows)",
       // Runs longer than the 250 ms timeout the harness configures.
       slow: { query: "SELECT sleep(5)" },
     },
@@ -545,8 +555,9 @@ The cases, and what each one fails on:
 | Case                                                       | Fails when                                                                                                                                 |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | rejects a write query under READ access mode               | the write succeeds — no `onFail`, no `ERROR` status                                                                                        |
-| caps results at rowLimit and flags truncation (MAX_ROWS+1) | `onSuccess` gets anything other than an array of exactly `rowLimit` rows, or `COMPLETE_TRUNCATED` is never set                             |
+| caps results at rowLimit and flags truncation (MAX_ROWS+1) | `onSuccess` gets anything other than an array of exactly `rowLimit` rows — which is also what dropping the named parameter looks like — or `COMPLETE_TRUNCATED` is never set |
 | honors the driver-level timeout                            | a slow query neither fails nor reports `TIMED_OUT` within the configured timeout                                                           |
+| bounds a slow query when timeout is unset                  | `config.timeout` is unset — what NeoBoard sends for an ordinary query — and the slow query runs past the default timeout                 |
 | does not report a throwing onSuccess as a query failure    | a throwing `onSuccess` reaches `onFail` or sets `ERROR`, or `runQuery` rejects with anything but the caller's own error                    |
 
 The built-in connectors run the same cases against Neo4j and PostgreSQL containers in `connection/__tests__/conformance/` — copy their queries if your database speaks Cypher or SQL.
