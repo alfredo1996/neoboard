@@ -42,10 +42,6 @@ vi.mock("@/hooks/use-widget-query", () => ({
   ),
 }));
 
-vi.mock("@/lib/query/wrap-with-preview-limit", () => ({
-  wrapWithPreviewLimit: vi.fn((q: string) => q + " LIMIT 25"),
-}));
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function createDefaults(
@@ -58,9 +54,6 @@ function createDefaults(
     query: "MATCH (n) RETURN n",
     chartType: "bar",
     allParamValues: {},
-    selectedConnection: { id: "conn-1", type: "neo4j" } as Parameters<
-      typeof useAutoPreview
-    >[0]["selectedConnection"],
     initialPreviewData: undefined,
     previewQuery: { mutate: vi.fn() },
     buildWidgetForSave: vi.fn(() => ({
@@ -88,7 +81,7 @@ describe("useAutoPreview", () => {
   // ── handlePreview ────────────────────────────────────────────────
 
   describe("handlePreview", () => {
-    it("calls previewQuery.mutate with wrapped query and connectionId", () => {
+    it("sends the raw query text and rowLimit 25 (#1896)", () => {
       const opts = createDefaults();
       const { result } = renderHook(() => useAutoPreview(opts));
 
@@ -98,9 +91,46 @@ describe("useAutoPreview", () => {
 
       expect(opts.previewQuery.mutate).toHaveBeenCalledWith({
         connectionId: "conn-1",
-        query: "MATCH (n) RETURN n LIMIT 25",
+        query: "MATCH (n) RETURN n",
         params: undefined,
+        rowLimit: 25,
       });
+    });
+
+    it.each([
+      "SELECT * FROM orders;",
+      "MATCH (n) RETURN n LIMIT 1000",
+      "  SELECT 1 -- trailing comment\n",
+    ])("never alters the query text: %j (#1896)", (query) => {
+      const opts = createDefaults({ query });
+      const { result } = renderHook(() => useAutoPreview(opts));
+
+      act(() => {
+        result.current.handlePreview();
+      });
+
+      expect(opts.previewQuery.mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ query, rowLimit: 25 }),
+      );
+    });
+
+    it("makes no request while no connection is selected (#1896)", () => {
+      const opts = createDefaults({ connectionId: "", mode: "add" });
+      const { result, rerender } = renderHook(
+        (props) => useAutoPreview(props),
+        { initialProps: opts },
+      );
+
+      act(() => {
+        result.current.handlePreview();
+        vi.advanceTimersByTime(1_000);
+      });
+      rerender({ ...opts, query: "SELECT 1" });
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
+
+      expect(opts.previewQuery.mutate).not.toHaveBeenCalled();
     });
 
     it("extracts referenced params when query contains $param_ tokens", () => {
@@ -211,7 +241,10 @@ describe("useAutoPreview", () => {
     it("does not re-run when the editor loads the opened widget's query over the last one (#1809)", () => {
       // The store still holds the last edited widget's query for the first
       // open render, then loads the opened widget's: that is not an edit.
-      const closed = createDefaults({ open: false, query: "MATCH (a) RETURN a" });
+      const closed = createDefaults({
+        open: false,
+        query: "MATCH (a) RETURN a",
+      });
       const { rerender } = renderHook((props) => useAutoPreview(props), {
         initialProps: closed,
       });
@@ -459,7 +492,13 @@ describe("useAutoPreview", () => {
       });
 
       expect(mutate).toHaveBeenCalledTimes(1);
-      const [, callbacks] = mutate.mock.calls[0];
+      const [input, callbacks] = mutate.mock.calls[0];
+      // Run-and-save is a preview run too: raw text, capped rows (#1896).
+      expect(input).toEqual({
+        connectionId: "conn-1",
+        query: "MATCH (n) RETURN n",
+        rowLimit: 25,
+      });
 
       // simulate success
       act(() => {

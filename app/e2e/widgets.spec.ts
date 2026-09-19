@@ -106,9 +106,9 @@ test.describe("Widget creation", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
-    // Use a Cypher query that returns dotted field names.
-    // No LIMIT here — wrapWithPreviewLimit appends LIMIT 25 automatically.
-    // Including LIMIT in the query + wrapWithPreviewLimit = double LIMIT → Cypher error.
+    // Use a Cypher query that returns dotted field names. No LIMIT: the
+    // preview sends the text as typed with rowLimit 25, and the driver stops
+    // reading there (#1896).
     await typeInEditor(
       dialog,
       page,
@@ -414,6 +414,73 @@ test.describe("Widget editor UX", () => {
     // Wait for auto-preview to fire and render data
     // The preview pane should show data without explicitly clicking Run
     await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
+  });
+
+  // ── Preview row cap (#1896) ──────────────────────────────────────────
+  // The preview never rewrites the query: it sends the text as typed plus
+  // `rowLimit: 25`, and the driver stops reading rows there. Each query below
+  // returns 100 rows and carries what the old LIMIT-appending wrapper choked
+  // on or had to strip: no LIMIT of its own, and a trailing semicolon.
+  const HUNDRED_ROWS = [
+    ["Neo4j", "conn-neo4j-001", "UNWIND range(1, 100) AS n RETURN n"],
+    [
+      "PostgreSQL",
+      "conn-pg-001",
+      "SELECT n FROM generate_series(1, 100) AS n;",
+    ],
+  ] as const;
+
+  for (const [name, connectionId, query] of HUNDRED_ROWS) {
+    test(`a ${name} query run at the preview's rowLimit returns 25 of its 100 rows`, async ({
+      page,
+    }) => {
+      const res = await page.request.post("/api/query", {
+        data: { connectionId, query, rowLimit: 25 },
+      });
+      expect(res.status()).toBe(200);
+      const body = await res.json();
+      expect(body.data.data).toHaveLength(25);
+      expect(body.meta.rowLimit).toBe(25);
+      expect(body.meta.truncated).toBe(true);
+
+      // A client can lower the cap, never raise it.
+      const raised = await page.request.post("/api/query", {
+        data: { connectionId, query, rowLimit: 1_000_000 },
+      });
+      expect((await raised.json()).meta.rowLimit).toBe(5000);
+    });
+  }
+
+  test("the editor preview sends the query as typed with rowLimit 25, and shows no truncation warning", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    const [, , query] = HUNDRED_ROWS[0];
+
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Data Table" }).click();
+
+    const previewResponse = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === "/api/query" &&
+        r.request().postDataJSON()?.query === query,
+    );
+    await typeInEditor(dialog, page, query);
+    const response = await previewResponse;
+
+    expect(response.request().postDataJSON()).toMatchObject({
+      query,
+      rowLimit: 25,
+    });
+    expect((await response.json()).data.data).toHaveLength(25);
+    await expect(dialog.getByText("Preview shows up to 25 rows")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(dialog.getByText(/Showing first .* rows/)).toHaveCount(0);
   });
 });
 

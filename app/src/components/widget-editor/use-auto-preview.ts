@@ -7,13 +7,18 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ConnectionListItem } from "@/hooks/use-connections";
 import {
   extractReferencedParams,
   allReferencedParamsReady,
 } from "@/hooks/use-widget-query";
-import { wrapWithPreviewLimit } from "@/lib/query/wrap-with-preview-limit";
 import type { DashboardWidget } from "@/lib/db/schema";
+
+/**
+ * Rows the widget editor's preview shows (#1043). Sent as the request's
+ * `rowLimit`: the query text goes out exactly as typed, and the driver stops
+ * pulling rows at the cap (#1896).
+ */
+export const PREVIEW_ROW_LIMIT = 25;
 
 interface UseAutoPreviewOptions {
   open: boolean;
@@ -22,7 +27,6 @@ interface UseAutoPreviewOptions {
   query: string;
   chartType: string;
   allParamValues: Record<string, unknown>;
-  selectedConnection: ConnectionListItem | undefined;
   /** Pre-existing preview data — skip auto-preview when provided */
   initialPreviewData?: { data: unknown; resultId: string };
   /** The query `initialPreviewData` is the result of. The editor loads it into
@@ -35,6 +39,7 @@ interface UseAutoPreviewOptions {
         connectionId: string;
         query: string;
         params?: Record<string, unknown>;
+        rowLimit?: number;
       },
       options?: {
         onSuccess?: () => void;
@@ -54,7 +59,6 @@ export function useAutoPreview({
   query,
   chartType,
   allParamValues,
-  selectedConnection,
   initialPreviewData,
   initialPreviewQuery,
   previewQuery,
@@ -65,7 +69,6 @@ export function useAutoPreview({
   const connectionIdRef = useRef(connectionId);
   const queryRef = useRef(query);
   const allParamValuesRef = useRef(allParamValues);
-  const selectedConnectionRef = useRef(selectedConnection);
   const previewQueryRef = useRef(previewQuery);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -73,7 +76,6 @@ export function useAutoPreview({
     connectionIdRef.current = connectionId;
     queryRef.current = query;
     allParamValuesRef.current = allParamValues;
-    selectedConnectionRef.current = selectedConnection;
     previewQueryRef.current = previewQuery;
   });
 
@@ -99,11 +101,11 @@ export function useAutoPreview({
       const referenced = extractReferencedParams(q, allParamValuesRef.current);
       const params =
         Object.keys(referenced).length > 0 ? referenced : undefined;
-      const connectorType = selectedConnectionRef.current?.type ?? "neo4j";
       const input = {
         connectionId: cId,
-        query: wrapWithPreviewLimit(q, connectorType),
+        query: q,
         params,
+        rowLimit: PREVIEW_ROW_LIMIT,
       };
       const key = JSON.stringify(input);
       if (auto && key === lastRunRef.current) return;
@@ -174,7 +176,7 @@ export function useAutoPreview({
     if (!query.trim() || saveStatus === "saving") return;
     setSaveStatus("saving");
     previewQueryRef.current.mutate(
-      { connectionId, query },
+      { connectionId, query, rowLimit: PREVIEW_ROW_LIMIT },
       {
         onSuccess: () => {
           if (savedTimerRef.current !== null) {

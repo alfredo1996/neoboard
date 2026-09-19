@@ -6,6 +6,7 @@ import { CardContainer } from "../card-container";
 import { ParameterPreview } from "./parameter-preview";
 import { mapPreviewError } from "@/lib/query/preview-error";
 import { isRunDisabled } from "./preview-run-state";
+import { PREVIEW_ROW_LIMIT } from "./use-auto-preview";
 import type { StylingConfig } from "@/lib/db/schema";
 import type { Transform } from "@/lib/query/data-transforms";
 import type { ParamUIType, DateSubType } from "@/stores/widget-editor-store";
@@ -209,10 +210,12 @@ function renderChart(props: {
               }
             />
           </div>
-          {/* The preview query is capped server-side; surface the silent
-              LIMIT so authors don't mistake it for the full result (#1043). */}
+          {/* The preview runs at a row limit of PREVIEW_ROW_LIMIT, so its
+              result is truncated by design: say so here instead of raising the
+              dashboard's truncation warning, so authors don't mistake it for
+              the full result (#1043, #1896). */}
           <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
-            Preview shows up to 25 rows
+            Preview shows up to {PREVIEW_ROW_LIMIT} rows
           </p>
         </div>
       ) : connectionId && query.trim() && !previewQuery.isError ? (

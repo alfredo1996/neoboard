@@ -846,6 +846,26 @@ describe("CardContainer", () => {
     expect(screen.queryByText(/Showing first .* rows/)).toBeNull();
   });
 
+  it("shows no truncation warning over the editor preview, whose 25-row cap always truncates (#1896)", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: { data: [], resultId: "r1", truncated: true, rowLimit: 25 },
+      missingParams: [],
+    });
+
+    render(
+      <CardContainer
+        widget={makeWidget({ chartType: "bar", connectionId: "conn-1" })}
+        previewData={[{ name: "A", value: 1 }]}
+      />,
+    );
+
+    expect(screen.getByTestId("chart-renderer")).toBeDefined();
+    expect(screen.queryByText(/Showing first .* rows/)).toBeNull();
+  });
+
   // ----- Long-format rejection (#1400) -----
 
   describe("long-format results (#1400)", () => {

@@ -14,7 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, LayoutDashboard, Pencil, Plus } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { getShownWidgetQueryData } from "@/hooks/use-widget-query";
-import { PREVIEW_ROW_LIMIT } from "@/lib/query/wrap-with-preview-limit";
+import { PREVIEW_ROW_LIMIT } from "@/components/widget-editor/use-auto-preview";
 import { useConnections } from "@/hooks/use-connections";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
