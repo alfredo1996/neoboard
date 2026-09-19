@@ -781,6 +781,36 @@ describe("query-executor", () => {
       for (const value of strings) expect(key).not.toContain(value);
     });
 
+    it("a per-query rowLimit shares the driver, stays out of the bag, and is still clamped (#1896)", async () => {
+      // The two changes meet here: the row limit is a property of ONE query,
+      // so it must not split the module cache or reach the connector's config
+      // bag — and the clamp must survive the pass-through: a request can lower
+      // the connection's cap, never raise it.
+      const get = captureConfig();
+      const creds = { ...neo4jCreds, maxRows: 100 };
+
+      const preview = await executeQuery(
+        "neo4j",
+        creds,
+        { query: "RETURN 1" },
+        { rowLimit: 25 },
+      );
+      expect(get().rowLimit).toBe(25);
+      expect(preview.rowLimit).toBe(25);
+
+      const greedy = await executeQuery(
+        "neo4j",
+        creds,
+        { query: "RETURN 1" },
+        { rowLimit: 5000 },
+      );
+      expect(get().rowLimit).toBe(100);
+      expect(greedy.rowLimit).toBe(100);
+
+      expect(_getCacheSize()).toBe(1);
+      expect(mockCreateConnectionModule.mock.calls).toEqual([["neo4j", creds]]);
+    });
+
     it("closeConnection finds the module by the same key", async () => {
       ok();
       await executeQuery("postgresql", full, { query: "SELECT 1" });
