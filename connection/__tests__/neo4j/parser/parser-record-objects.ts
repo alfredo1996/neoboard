@@ -44,6 +44,7 @@ describe("Neo4jRecordParser - Objects Parsing", () => {
     const movieNode = result![0]["m"];
 
     // parseGraphObject now returns a plain object with { identity, elementId, labels, properties }
+    expect(movieNode.$type).toBe("node");
     expect(movieNode).toHaveProperty("labels");
     expect(movieNode).toHaveProperty("properties");
     const movieNodeProperties = movieNode["properties"];
@@ -92,6 +93,7 @@ describe("Neo4jRecordParser - Objects Parsing", () => {
     expect(relationship).toHaveProperty("properties");
 
     expect(relationship).toMatchObject({
+      $type: "relationship",
       identity: expect.anything(),
       start: expect.anything(),
       end: expect.anything(),
@@ -139,8 +141,9 @@ describe("Neo4jRecordParser - Objects Parsing", () => {
     const path = result![0]["p"];
 
     expect(path).toMatchObject({
-      start: expect.anything(),
-      end: expect.anything(),
+      $type: "path",
+      start: { $type: "node" },
+      end: { $type: "node" },
       segments: expect.any(Array),
       length: expect.any(Number),
     });

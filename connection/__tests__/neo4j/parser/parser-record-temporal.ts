@@ -147,12 +147,9 @@ describe("Neo4jRecordParser - Temporal Parsing", () => {
     const period = parsed![0]["period"];
     expect(period).toBeDefined();
 
-    expect(period).toMatchObject({
-      months: 5,
-      days: 10,
-      seconds: expect.any(Number),
-      nanoseconds: expect.any(Number),
-    });
+    // One ISO-8601 form from every connector (#1904) — it used to be a
+    // {months, days, seconds, nanoseconds} object only this database emitted.
+    expect(period).toBe("P5M10DT1M0.0000005S");
   });
 
   test("should correctly parse a Neo4j LocalTime value", async () => {
