@@ -10,6 +10,8 @@
  *  - read-only enforcement (a write query is rejected under READ access mode)
  *  - MAX_ROWS+1 capping (results capped at rowLimit, truncation flagged)
  *  - driver-level timeout (a slow query times out / fails)
+ *  - named parameters (the row-limit query is bound by name, as the app
+ *    sends every parameter — a connector that drops it returns no rows)
  *
  * Cancellation-cleanup ("no leaked cursor after a timed-out query") isn't
  * covered here: the contract has no generic cancel API, and leak detection is
@@ -24,11 +26,22 @@ import {
   QueryStatus,
 } from "../generalized/interfaces";
 
+/** The one parameter the harness binds; `$param_rows` in the query text. */
+const ROWS_PARAM = "param_rows";
+
 export interface ConformanceQueries {
   /** A query that mutates data — must be rejected under READ access mode. */
   write: QueryParams;
-  /** A query returning strictly more than `n` rows. */
-  manyRows: (n: number) => QueryParams;
+  /**
+   * Query text returning as many rows as its `$param_rows` parameter says,
+   * e.g. `SELECT * FROM generate_series(1, $param_rows)`.
+   *
+   * The harness binds it BY NAME — `{ param_rows: n }` — exactly as NeoBoard
+   * sends every parameter to every connector. Getting that name to the driver
+   * (natively, or rewritten to whatever placeholder it binds) happens inside
+   * your `runQuery`; neither the app nor this harness knows which (#1898).
+   */
+  manyRows: string;
   /** A query guaranteed to run longer than a short (sub-second) timeout. */
   slow: QueryParams;
 }
@@ -95,6 +108,10 @@ export function buildConformanceCases(
   setup: ConformanceSetup,
 ): ConformanceCase[] {
   const base = setup.baseConfig;
+  const manyRows = (n: number): QueryParams => ({
+    query: setup.queries.manyRows,
+    params: { [ROWS_PARAM]: n },
+  });
 
   return [
     {
@@ -120,7 +137,7 @@ export function buildConformanceCases(
         const rowLimit = 5;
         const { data, statuses } = await execute(
           getModule(),
-          setup.queries.manyRows(rowLimit + 10),
+          manyRows(rowLimit + 10),
           { ...base, accessMode: "READ", rowLimit },
         );
         // The lower bound matters as much as the upper one. With only
@@ -180,8 +197,8 @@ export function buildConformanceCases(
           captured = await execute(getModule(), setup.queries.slow, {
             ...base,
             accessMode: "READ",
-            // What a direct SDK consumer passes from untyped JS.
-            timeout: undefined as unknown as number,
+            // What NeoBoard passes for every query without an override.
+            timeout: undefined,
           });
         } finally {
           DEFAULT_CONNECTION_CONFIG.timeout = saved;
@@ -209,7 +226,7 @@ export function buildConformanceCases(
         let rejectedWith: unknown = undefined;
         try {
           await getModule().runQuery(
-            setup.queries.manyRows(1),
+            manyRows(1),
             {
               onSuccess: () => {
                 throw consumerBug;

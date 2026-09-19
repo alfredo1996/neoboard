@@ -2,7 +2,6 @@ import {
   createConnectionModule,
   DEFAULT_CONNECTION_CONFIG,
 } from "@/lib/connector/connection-adapter";
-import { rewriteParamsForPostgres } from "./query-params";
 import { QueryStatus } from "@neoboard/connection";
 import { createHash } from "node:crypto";
 
@@ -39,9 +38,9 @@ export interface ConnectionCredentials {
 }
 
 // Registry-supplied connectors are first-class (#1121): a connector type is
-// any registered string, not just the built-in union. createConnectionModule
-// resolves it via the registry; built-in-specific branches (pg param rewrite,
-// statement timeout) key off the literal type and safely no-op for others.
+// any registered string. createConnectionModule resolves it via the registry,
+// and nothing below compares it to anything — parameter style and timeout
+// precedence are each connector's own business (#1898).
 export type DbType = string;
 
 /**
@@ -177,16 +176,6 @@ function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
   return `${type}|${digest}`;
 }
 
-function effectiveQueryTimeout(
-  type: DbType,
-  credentials: ConnectionCredentials,
-): number | undefined {
-  if (type === "postgresql") {
-    return credentials.statementTimeout ?? credentials.queryTimeout;
-  }
-  return credentials.queryTimeout;
-}
-
 async function getOrCreateModule(
   type: DbType,
   credentials: ConnectionCredentials,
@@ -238,8 +227,8 @@ export function toConnectorAccessMode(
  *
  *   - `truncated` — true when the driver returned fewer rows than the
  *     query produced because it hit the configured row limit. Surfaced
- *     via `setStatus(QueryStatus.COMPLETE_TRUNCATED)` from both the
- *     PostgreSQL and Neo4j connector modules.
+ *     via `setStatus(QueryStatus.COMPLETE_TRUNCATED)` from every
+ *     connector module.
  *   - `rowLimit` — the effective cap used for this query (either the
  *     connection's `maxRows` override or `DEFAULT_MAX_ROWS`). The API
  *     route echoes this back in `meta` so the UI banner can render the
@@ -249,12 +238,26 @@ export function toConnectorAccessMode(
  * for 25, #1896). It is clamped HERE, where every caller passes through: a
  * request can ask for fewer rows than the connection allows, never more. The
  * query text is never touched — the connector stops pulling rows at the cap.
+ *
+ * `queryParams` reaches the connector exactly as given: the text as written
+ * and the NAMED parameter map. How a name gets to the driver is the
+ * connector's business (#1898).
+ *
+ * `options.timeout` is an explicit per-query override. Left out — as every
+ * caller does today — `config.timeout` stays unset and the connector resolves
+ * its own default from the timeout field it declares, falling back to
+ * DEFAULT_CONNECTION_CONFIG.timeout (30s). Either way the bound is enforced at
+ * the driver/transaction level, never here.
  */
 export async function executeQuery(
   type: DbType,
   credentials: ConnectionCredentials,
   queryParams: { query: string; params?: Record<string, unknown> },
-  options?: { accessMode?: ConnectorAccessMode; rowLimit?: number },
+  options?: {
+    accessMode?: ConnectorAccessMode;
+    rowLimit?: number;
+    timeout?: number;
+  },
 ): Promise<{
   data: unknown;
   fields?: unknown;
@@ -277,31 +280,13 @@ export async function executeQuery(
     database: credentials.database,
     rowLimit: effectiveRowLimit,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
-    // pg-specific statementTimeout wins over the generic queryTimeout for
-    // PostgreSQL; Neo4j only honors queryTimeout (#973). When neither is
-    // set, DEFAULT_CONNECTION_CONFIG.timeout (30s) applies via the spread.
-    ...(effectiveQueryTimeout(type, credentials)
-      ? { timeout: effectiveQueryTimeout(type, credentials) }
-      : {}),
+    // Overwrites the spread's 30s on purpose: a default passed from here would
+    // outrank the connector's own configured timeout (#1898).
+    timeout: options?.timeout,
     ...(credentials.connectionTimeout
       ? { connectionTimeout: credentials.connectionTimeout }
       : {}),
   };
-
-  // PostgreSQL uses positional $1, $2 params — rewrite $param_xxx tokens.
-  //
-  // Unconditional for PostgreSQL (#1516). Gating this on a non-empty params
-  // map made the same missing parameter fail two opposite ways: with an empty
-  // map the rewrite was skipped and a literal `$param_x` reached the driver as
-  // a syntax error, while with any other key present it was bound as NULL and
-  // the query silently succeeded on the wrong rows. A dashboard with one
-  // parameter set was therefore less safe than one with none. Both paths now
-  // raise the same named error. For a query with no tokens the rewrite is a
-  // no-op, so there is nothing to gate.
-  const finalQueryParams =
-    type === "postgresql"
-      ? rewriteParamsForPostgres(queryParams.query, queryParams.params ?? {})
-      : queryParams;
 
   return new Promise((resolve, reject) => {
     // Track truncation via setStatus — both connectors call
@@ -310,7 +295,7 @@ export async function executeQuery(
     // the signal was silently dropped.
     let truncated = false;
     const inFlight = connModule.runQuery(
-      finalQueryParams,
+      queryParams,
       {
         onSuccess: (result: unknown) =>
           resolve({
@@ -372,8 +357,8 @@ export async function listDatabases(
 }
 
 /**
- * List available schemas in the current database (PostgreSQL only).
- * Returns an empty array if the operation is unsupported or fails.
+ * List available schemas in the current database.
+ * Returns an empty array if the connector does not support it or it fails.
  */
 export async function listSchemas(
   type: DbType,

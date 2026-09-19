@@ -36,11 +36,9 @@ describe("PostgreSQL query-safety conformance (#1122)", () => {
     queries: {
       // A DDL write — must be refused under READ access mode (READ ONLY txn).
       write: { query: "CREATE TABLE __conformance_tmp (x int)" },
-      // Returns exactly `n` rows.
-      manyRows: (n) => ({
-        query: "SELECT i AS x FROM generate_series(1, $1) AS i",
-        params: { "0": n },
-      }),
+      // Returns exactly `$param_rows` rows. The harness binds it by name, as
+      // the app does; the rename to `$1` is the connector's own (#1898).
+      manyRows: "SELECT i AS x FROM generate_series(1, $param_rows) AS i",
       // Produces no rows until it finishes; statement_timeout fires first.
       slow: { query: "SELECT pg_sleep(5)" },
     },

@@ -141,8 +141,8 @@ describe("concurrent write isolation (#742 item 19)", () => {
       Array.from({ length: N }, (_, i) =>
         run(
           module,
-          "INSERT INTO conc (id, val) VALUES ($1, $2)",
-          { "0": i, "1": `w${i}` },
+          "INSERT INTO conc (id, val) VALUES ($param_id, $param_val)",
+          { param_id: i, param_val: `w${i}` },
           WRITE_CONFIG,
         ),
       ),
@@ -170,8 +170,8 @@ describe("parameter injection safety (#742 item 22)", () => {
     const payload = "'; DROP TABLE inj; --";
     const insert = await run(
       module,
-      "INSERT INTO inj (val) VALUES ($1)",
-      { "0": payload },
+      "INSERT INTO inj (val) VALUES ($param_val)",
+      { param_val: payload },
       WRITE_CONFIG,
     );
     expect(insert.status).toBe(QueryStatus.COMPLETE);

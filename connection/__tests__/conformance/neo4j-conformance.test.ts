@@ -15,11 +15,8 @@ describe("Neo4j query-safety conformance (#1122)", () => {
     queries: {
       // A write — must be refused under READ access mode.
       write: { query: "CREATE (n:__ConformanceTmp) RETURN n" },
-      // Returns exactly `n` rows.
-      manyRows: (n) => ({
-        query: "UNWIND range(1, $n) AS x RETURN x",
-        params: { n },
-      }),
+      // Returns exactly `$param_rows` rows; the harness binds it by name.
+      manyRows: "UNWIND range(1, $param_rows) AS x RETURN x",
       // A cartesian product large enough to always exceed a sub-second timeout.
       slow: {
         query:

@@ -117,8 +117,8 @@ describe("PostgreSQL Query Execution", () => {
 
     await connectionModule.runQuery(
       {
-        query: "SELECT * FROM users WHERE name = $1",
-        params: { "0": "Alice" }, // Positional parameter at index 0
+        query: "SELECT * FROM users WHERE name = $param_name",
+        params: { param_name: "Alice" }, // named, as the app sends them (#1898)
       },
       {
         onSuccess: (r) => (result = r),
@@ -324,8 +324,13 @@ describe("PostgreSQL Query Execution", () => {
 
     await connectionModule.runQuery(
       {
-        query: "INSERT INTO users (name, email, age) VALUES ($1, $2, $3)",
-        params: { "0": "Charlie", "1": "charlie@example.com", "2": 35 },
+        query:
+          "INSERT INTO users (name, email, age) VALUES ($param_name, $param_email, $param_age)",
+        params: {
+          param_name: "Charlie",
+          param_email: "charlie@example.com",
+          param_age: 35,
+        },
       },
       {
         setStatus: (s) => (status = s),
@@ -369,8 +374,8 @@ describe("PostgreSQL Query Execution", () => {
 
     await connectionModule.runQuery(
       {
-        query: "SELECT * FROM users WHERE name = $1",
-        params: { "0": "Alice" },
+        query: "SELECT * FROM users WHERE name = $param_name",
+        params: { param_name: "Alice" },
       },
       {
         onSuccess: (r) => (result = r),
@@ -396,8 +401,14 @@ describe("PostgreSQL Query Execution", () => {
 
     await connectionModule.runQuery(
       {
-        query: "INSERT INTO users (name, email, age) VALUES ($1, $2, $3)",
-        params: { "0": "Dave", "1": "alice@example.com", "2": 40 }, // Duplicate email should fail
+        query:
+          "INSERT INTO users (name, email, age) VALUES ($param_name, $param_email, $param_age)",
+        // Duplicate email should fail
+        params: {
+          param_name: "Dave",
+          param_email: "alice@example.com",
+          param_age: 40,
+        },
       },
       {
         onFail: (e) => (error = e),
@@ -412,7 +423,10 @@ describe("PostgreSQL Query Execution", () => {
     // Verify transaction was rolled back by checking user wasn't inserted
     let result: any = null;
     await connectionModule.runQuery(
-      { query: "SELECT * FROM users WHERE name = $1", params: { "0": "Dave" } },
+      {
+        query: "SELECT * FROM users WHERE name = $param_name",
+        params: { param_name: "Dave" },
+      },
       {
         onSuccess: (r) => (result = r),
       },

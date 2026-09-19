@@ -29,12 +29,15 @@ jest.mock("../../src/postgresql/cursor-read", () => ({
   }),
 }));
 
-function makeModule(): PostgresConnectionModule {
+function makeModule(
+  options: Record<string, unknown> = {},
+): PostgresConnectionModule {
   return new PostgresConnectionModule({
     username: "u",
     password: "p",
     authType: AuthType.NATIVE,
     uri: "postgresql://localhost:5432/db",
+    ...options,
   });
 }
 
@@ -290,6 +293,124 @@ describe("PostgresConnectionModule — statement timeout is unconditional (#1302
     );
 
     expect(queries).toContain("SET LOCAL statement_timeout = '1234'");
+  });
+});
+
+// #1898: the timeout precedence used to live in the app, which knew that one
+// connector's stored option was called `statementTimeout`. The connector now
+// resolves its own default from the field IT declares, and the app passes
+// config.timeout only for an explicit per-query override.
+describe("PostgresConnectionModule — resolves its own query timeout (#1898)", () => {
+  it.each([
+    [
+      "its declared statementTimeout",
+      { statementTimeout: 12_345 },
+      undefined,
+      12_345,
+    ],
+    [
+      "an explicit per-query override over the bag",
+      { statementTimeout: 12_345 },
+      777,
+      777,
+    ],
+    ["the default when nothing is configured", {}, undefined, 30_000],
+    [
+      "the default for a zero in the bag and a zero override",
+      { statementTimeout: 0 },
+      0,
+      30_000,
+    ],
+    [
+      "the default, not queryTimeout — a field it does not declare",
+      { queryTimeout: 99_999 },
+      undefined,
+      30_000,
+    ],
+  ])("uses %s", async (_label, options, timeout, expected) => {
+    const mod = makeModule(options);
+    const queries: string[] = [];
+    const pool = { connect: jest.fn().mockResolvedValue(fakeClient(queries)) };
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+
+    await mod.runQuery(
+      { query: "SELECT 1" },
+      { onSuccess: jest.fn(), onFail: jest.fn() } as any,
+      CONFIG({ timeout, parseToNeodashRecord: false }),
+    );
+
+    expect(queries).toContain(`SET LOCAL statement_timeout = '${expected}'`);
+  });
+});
+
+// #1898: the app sends NAMED parameters to every connector. node-pg binds only
+// positional ones, so the rename happens here, right before the driver — the
+// values travel beside the text, never inside it.
+describe("PostgresConnectionModule — named parameters (#1898)", () => {
+  const cursors = require("../../src/postgresql/cursor-read") as Record<
+    string,
+    jest.Mock
+  >;
+
+  it.each([
+    ["READ", "readBoundedCursor"],
+    ["WRITE", "drainBoundedCursor"],
+  ])(
+    "%s: the driver gets positional text and the values in text order",
+    async (accessMode, cursor) => {
+      const mod = makeModule();
+      const client = fakeClient([]);
+      const pool = { connect: jest.fn().mockResolvedValue(client) };
+      jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+      const onFail = jest.fn();
+
+      await mod.runQuery(
+        {
+          query:
+            "SELECT * FROM t WHERE a = $param_a AND b = $param_b OR a = $param_a",
+          // Map order is not text order, and one key is never referenced.
+          params: { param_unused: "x", param_b: 2, param_a: "one" },
+        },
+        { onSuccess: jest.fn(), onFail } as any,
+        CONFIG({ accessMode: accessMode as any, parseToNeodashRecord: false }),
+      );
+
+      expect(onFail).not.toHaveBeenCalled();
+      expect(cursors[cursor]).toHaveBeenLastCalledWith(
+        client,
+        "SELECT * FROM t WHERE a = $1 AND b = $2 OR a = $1",
+        ["one", 2],
+        101,
+      );
+    },
+  );
+
+  it("fails a missing parameter through onFail, naming it and no value, before touching the pool", async () => {
+    const mod = makeModule();
+    const pool = { connect: jest.fn() };
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+    const onFail = jest.fn();
+    const onSuccess = jest.fn();
+    const setStatus = jest.fn();
+
+    await expect(
+      mod.runQuery(
+        {
+          query: "SELECT $param_a, $param_b",
+          params: { param_a: "s3cret" },
+        },
+        { onSuccess, onFail, setStatus } as any,
+        CONFIG({}),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onFail).toHaveBeenCalledTimes(1);
+    const error = onFail.mock.calls[0][0];
+    expect(error.name).toBe("ConnectorError");
+    expect(error.message).toBe("Expected parameter(s): param_b");
+    expect(setStatus).toHaveBeenLastCalledWith(QueryStatus.ERROR);
+    expect(pool.connect).not.toHaveBeenCalled();
   });
 });
 

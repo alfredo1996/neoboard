@@ -338,7 +338,13 @@ describe("query-executor", () => {
   });
 
   // -----------------------------------------------------------------------
-  // executeQuery — query timeout wiring (#973)
+  // executeQuery — the timeout is the connector's to resolve (#1898)
+  //
+  // The app used to pick `statementTimeout ?? queryTimeout` for one connector
+  // type and `queryTimeout` for the rest, so it knew which connector it was
+  // talking to and which stored key was whose. Each connector now reads the
+  // timeout field IT declares from its own bag; the app sets config.timeout
+  // only for an explicit per-query override.
   // -----------------------------------------------------------------------
 
   function captureConfig(): () => Record<string, unknown> {
@@ -356,43 +362,37 @@ describe("query-executor", () => {
     return () => captured;
   }
 
-  it("pg: statementTimeout reaches the driver as config.timeout", async () => {
-    const get = captureConfig();
-    await executeQuery(
-      "postgresql",
-      { ...pgCreds, statementTimeout: 12_345 },
-      { query: "SELECT 1" },
-    );
-    expect(get().timeout).toBe(12_345);
-  });
+  /** Every connector type goes down the same path; the last is not a built-in. */
+  const ANY_TYPE = ["neo4j", "postgresql", "fixture-db"];
 
-  it("pg: statementTimeout wins over the generic queryTimeout", async () => {
-    const get = captureConfig();
-    await executeQuery(
-      "postgresql",
-      { ...pgCreds, statementTimeout: 12_345, queryTimeout: 99_999 },
-      { query: "SELECT 1" },
-    );
-    expect(get().timeout).toBe(12_345);
-  });
+  it.each(ANY_TYPE)(
+    "%s: leaves config.timeout unset whatever timeout keys the bag holds",
+    async (type) => {
+      const get = captureConfig();
+      await executeQuery(
+        type,
+        { ...pgCreds, statementTimeout: 12_345, queryTimeout: 99_999 },
+        { query: "SELECT 1" },
+      );
+      // Not the package default either: a 30s here would outrank the
+      // connector's own configured timeout.
+      expect(get().timeout).toBeUndefined();
+    },
+  );
 
-  it("neo4j: queryTimeout applies; pg-only statementTimeout does not", async () => {
-    const get = captureConfig();
-    await executeQuery(
-      "neo4j",
-      { ...neo4jCreds, statementTimeout: 12_345, queryTimeout: 23_456 },
-      { query: "RETURN 1" },
-    );
-    expect(get().timeout).toBe(23_456);
-  });
-
-  it("falls back to the 30s package default when no timeout is configured", async () => {
-    const get = captureConfig();
-    await executeQuery("postgresql", pgCreds, { query: "SELECT 1" });
-    // DEFAULT_CONNECTION_CONFIG.timeout (mocked at the documented 30s —
-    // the real value is asserted in the connection package, #973)
-    expect(get().timeout).toBe(30_000);
-  });
+  it.each(ANY_TYPE)(
+    "%s: passes an explicit per-query timeout override",
+    async (type) => {
+      const get = captureConfig();
+      await executeQuery(
+        type,
+        { ...pgCreds, statementTimeout: 12_345, queryTimeout: 99_999 },
+        { query: "SELECT 1" },
+        { timeout: 777 },
+      );
+      expect(get().timeout).toBe(777);
+    },
+  );
 
   // -----------------------------------------------------------------------
   // executeQuery — connection type mapping
@@ -438,7 +438,7 @@ describe("query-executor", () => {
     expect(capturedConfig.accessMode).toBe("WRITE");
   });
 
-  it("passes queryTimeout and connectionTimeout overrides", async () => {
+  it("passes a connectionTimeout override", async () => {
     let capturedConfig: Record<string, unknown> = {};
     mockRunQuery.mockImplementation(
       (
@@ -451,13 +451,8 @@ describe("query-executor", () => {
       },
     );
 
-    const creds = {
-      ...neo4jCreds,
-      queryTimeout: 5000,
-      connectionTimeout: 3000,
-    };
+    const creds = { ...neo4jCreds, connectionTimeout: 3000 };
     await executeQuery("neo4j", creds, { query: "RETURN 1" });
-    expect(capturedConfig.timeout).toBe(5000);
     expect(capturedConfig.connectionTimeout).toBe(3000);
   });
 
@@ -480,50 +475,60 @@ describe("query-executor", () => {
   });
 
   // -----------------------------------------------------------------------
-  // executeQuery — PostgreSQL param rewriting
+  // executeQuery — named parameters, for every connector (#1898)
+  //
+  // The app used to rewrite `$param_x` into positional `$1` for one connector
+  // type. Parameter style is the connector's business: the app hands over the
+  // query text and the named map exactly as it received them.
   // -----------------------------------------------------------------------
 
-  it("rewrites $param_ tokens for postgresql queries", async () => {
-    let capturedParams: unknown = null;
+  it.each(ANY_TYPE)(
+    "%s: hands the query text and the named params through untouched",
+    async (type) => {
+      let captured: unknown = null;
+      mockRunQuery.mockImplementation(
+        (p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
+          captured = p;
+          cbs.onSuccess([]);
+        },
+      );
+      const queryParams = {
+        query: "SELECT * FROM t WHERE name = $param_name AND id = $1",
+        params: { param_name: "Alice" },
+      };
+
+      await executeQuery(type, pgCreds, queryParams);
+
+      expect(captured).toBe(queryParams);
+    },
+  );
+
+  it("treats every connector type alike: same query, same per-query config", async () => {
+    const seen: unknown[][] = [];
     mockRunQuery.mockImplementation(
-      (p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
-        capturedParams = p;
+      (
+        p: unknown,
+        cbs: { onSuccess: (v: unknown) => void },
+        config: unknown,
+      ) => {
+        seen.push([p, config]);
         cbs.onSuccess([]);
       },
     );
+    const bag = { ...pgCreds, statementTimeout: 12_345, queryTimeout: 99_999 };
 
-    await executeQuery("postgresql", pgCreds, {
-      query: "SELECT * FROM t WHERE name = $param_name",
-      params: { param_name: "Alice" },
-    });
+    for (const type of ANY_TYPE) {
+      await executeQuery(
+        type,
+        bag,
+        { query: "SELECT $param_x", params: {} },
+        { accessMode: "READ", rowLimit: 25 },
+      );
+    }
 
-    const params = capturedParams as {
-      query: string;
-      params: Record<string, unknown>;
-    };
-    expect(params.query).toContain("$1");
-    expect(params.query).not.toContain("$param_name");
-  });
-
-  it("does NOT rewrite params for neo4j queries", async () => {
-    let capturedParams: unknown = null;
-    mockRunQuery.mockImplementation(
-      (p: unknown, cbs: { onSuccess: (v: unknown) => void }) => {
-        capturedParams = p;
-        cbs.onSuccess([]);
-      },
-    );
-
-    await executeQuery("neo4j", neo4jCreds, {
-      query: "MATCH (n {name: $param_name}) RETURN n",
-      params: { param_name: "Alice" },
-    });
-
-    const params = capturedParams as {
-      query: string;
-      params: Record<string, unknown>;
-    };
-    expect(params.query).toContain("$param_name");
+    expect(seen).toHaveLength(3);
+    expect(seen[1]).toEqual(seen[0]);
+    expect(seen[2]).toEqual(seen[0]);
   });
 
   // -----------------------------------------------------------------------
