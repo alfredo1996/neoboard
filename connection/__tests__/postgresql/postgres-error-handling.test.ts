@@ -130,7 +130,7 @@ describe("PostgresConnectionModule — read-only fails closed (#HIGH)", () => {
       await mod.runQuery(
         { query: "SELECT 1", params: {} },
         { onSuccess: jest.fn(), onFail: jest.fn() } as any,
-        CONFIG({ accessMode: accessMode as any, parseToNeodashRecord: false }),
+        CONFIG({ accessMode: accessMode as any }),
       );
 
       expect(queries).toContain("BEGIN TRANSACTION READ ONLY");
@@ -147,7 +147,7 @@ describe("PostgresConnectionModule — read-only fails closed (#HIGH)", () => {
     await mod.runQuery(
       { query: "INSERT INTO t DEFAULT VALUES", params: {} },
       { onSuccess: jest.fn(), onFail: jest.fn() } as any,
-      CONFIG({ accessMode: "WRITE" as any, parseToNeodashRecord: false }),
+      CONFIG({ accessMode: "WRITE" as any }),
     );
 
     expect(queries).toContain("BEGIN");
@@ -240,7 +240,7 @@ describe("PostgresConnectionModule — error-path routing", () => {
     await mod.runQuery(
       { query: "INSERT INTO t VALUES (1)", params: {} },
       { onFail, onSuccess: jest.fn() } as any,
-      CONFIG({ accessMode: "WRITE" as any, parseToNeodashRecord: false }),
+      CONFIG({ accessMode: "WRITE" as any }),
     );
 
     // The original query error surfaces; the ROLLBACK failure is only logged
@@ -273,7 +273,7 @@ describe("PostgresConnectionModule — statement timeout is unconditional (#1302
       await mod.runQuery(
         { query: "SELECT 1", params: {} },
         { onSuccess: jest.fn(), onFail: jest.fn() } as any,
-        CONFIG({ timeout: timeout as any, parseToNeodashRecord: false }),
+        CONFIG({ timeout: timeout as any }),
       );
 
       expect(queries).toContain("SET LOCAL statement_timeout = '30000'");
@@ -289,7 +289,7 @@ describe("PostgresConnectionModule — statement timeout is unconditional (#1302
     await mod.runQuery(
       { query: "SELECT 1", params: {} },
       { onSuccess: jest.fn(), onFail: jest.fn() } as any,
-      CONFIG({ timeout: 1234.9, parseToNeodashRecord: false }),
+      CONFIG({ timeout: 1234.9 }),
     );
 
     expect(queries).toContain("SET LOCAL statement_timeout = '1234'");
@@ -336,7 +336,7 @@ describe("PostgresConnectionModule — resolves its own query timeout (#1898)", 
     await mod.runQuery(
       { query: "SELECT 1" },
       { onSuccess: jest.fn(), onFail: jest.fn() } as any,
-      CONFIG({ timeout, parseToNeodashRecord: false }),
+      CONFIG({ timeout }),
     );
 
     expect(queries).toContain(`SET LOCAL statement_timeout = '${expected}'`);
@@ -372,7 +372,7 @@ describe("PostgresConnectionModule — named parameters (#1898)", () => {
           params: { param_unused: "x", param_b: 2, param_a: "one" },
         },
         { onSuccess: jest.fn(), onFail } as any,
-        CONFIG({ accessMode: accessMode as any, parseToNeodashRecord: false }),
+        CONFIG({ accessMode: accessMode as any }),
       );
 
       expect(onFail).not.toHaveBeenCalled();

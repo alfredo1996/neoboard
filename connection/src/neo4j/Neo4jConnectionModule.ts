@@ -17,7 +17,6 @@ import neo4j, { ManagedTransaction } from "neo4j-driver";
 import { Neo4jAuthenticationModule } from "./Neo4jAuthenticationModule";
 import { Driver } from "neo4j-driver-core";
 import { Neo4jRecordParser } from "./Neo4jRecordParser";
-import { extractNodeAndRelPropertiesFromRecords } from "./utils";
 import { toNeo4jParams } from "./coerce-params";
 import { optionalString } from "../config-bag";
 
@@ -161,33 +160,22 @@ export class Neo4jConnectionModule extends ConnectionModule {
           // Very long-running queries within the timeout window will still complete.
         },
       );
-      // Set schema if provided. Derived from the retained (≤ rowLimit) records,
-      // which is sufficient for the field/property panel.
-      callbacks.setSchema?.(extractNodeAndRelPropertiesFromRecords(records));
-
       // Streamed count is capped at rowLimit + 1, which yields the same status
       // as the true count would (> rowLimit ⇒ truncated).
       const rowCount = truncated ? config.rowLimit + 1 : records.length;
       callbacks.setStatus?.(determineQueryStatus(rowCount, config.rowLimit));
+      // The ONE pass over the rows (#1904). This used to be three: a walk of
+      // every retained record to build a schema for `setSchema`, the parse, and
+      // a second parse of records[0] for `setFields` — and the only consumer of
+      // either callback was an empty stub in the app, so up to 100 000 rows
+      // were walked per query for a result that was thrown away.
+      //
       // The driver's Record generics don't unify with the parser's
       // Record<string, unknown>[] input even though the runtime shape is
       // exactly that — bridge the identities once at the result boundary.
-      const limitedResult = records as unknown as Record<string, unknown>[];
-      const parsedResult = config.parseToNeodashRecord
-        ? this.parser.bulkParse(limitedResult)
-        : limitedResult;
-      // Calls `setFields` only if explicitly enabled (e.g., via `toSetFields`).
-      // This avoids redundant updates for reports like Graph Interactivity
-      // that don't need to reset fields after each result.
-      if (callbacks.setFields) {
-        if (parsedResult.length > 0) {
-          const parsed = this.parser.bulkParse([limitedResult[0]]);
-          callbacks.setFields(parsed[0].getFields(config.useNodePropsAsFields));
-        } else {
-          callbacks.setFields([]);
-        }
-      }
-      return parsedResult as T;
+      return this.parser.bulkParse(
+        records as unknown as Record<string, unknown>[],
+      ) as T;
     } catch (err: unknown) {
       const wrapped = wrapError(err, "neo4j");
       callbacks.setStatus?.(

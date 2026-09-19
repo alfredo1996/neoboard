@@ -16,7 +16,7 @@ describe("Neo4jRecordParser - Graph Integer Conversion", () => {
     );
 
     // parseGraphObject is called internally by __neo4jToNative via isGraphObject
-    // We test the full _parse path by wrapping the node in a NeodashRecord-like object
+    // We test the full _parse path by wrapping the node in a driver-Record-like object
     const fakeRecord = {
       keys: ["n"],
       get: (key: string) => (key === "n" ? node : undefined),

@@ -304,8 +304,6 @@ export async function executeQuery(
             rowLimit: effectiveRowLimit,
           }),
         onFail: (error: unknown) => reject(error),
-        setFields: () => {},
-        setSchema: () => {},
         setStatus: (status: QueryStatus) => {
           if (status === QueryStatus.COMPLETE_TRUNCATED) {
             truncated = true;

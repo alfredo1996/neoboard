@@ -11,11 +11,7 @@ import {
   resolveQueryTimeout,
   wrapError,
 } from "@neoboard/connector-sdk";
-import {
-  attachClientErrorGuard,
-  extractTableSchemaFromFields,
-  isAuthenticationError,
-} from "./utils";
+import { attachClientErrorGuard, isAuthenticationError } from "./utils";
 import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
@@ -227,33 +223,13 @@ export class PostgresConnectionModule extends ConnectionModule {
         affectedRowCount ??
         (isTruncated ? config.rowLimit + 1 : fetchedRows.length);
 
-      // Extract schema if callback is provided
-      if (callbacks.setSchema && fields) {
-        const schema = extractTableSchemaFromFields(fields);
-        callbacks.setSchema(schema);
-      }
-
       callbacks.setStatus?.(determineQueryStatus(rowCount, config.rowLimit));
 
-      // Parse results to NeodashRecord format
-      const parsedRecords = config.parseToNeodashRecord
-        ? this.parser.bulkParse(limitedRows, fields)
-        : limitedRows;
-
-      // Set fields if callback is provided
-      if (callbacks.setFields) {
-        if (limitedRows.length > 0 && config.parseToNeodashRecord) {
-          const firstRecord = this.parser.bulkParse(
-            [limitedRows[0]],
-            fields,
-          )[0];
-          callbacks.setFields(
-            firstRecord.getFields(config.useNodePropsAsFields),
-          );
-        } else {
-          callbacks.setFields([]);
-        }
-      }
+      // The ONE pass over the rows (#1904): canonicalised into the SDK's row
+      // values as they are parsed. The `setSchema` / `setFields` callbacks that
+      // used to sit either side of this — and the second parse of the first
+      // row that fed `setFields` — had an empty stub as their only consumer.
+      const parsedRecords = this.parser.bulkParse(limitedRows, fields);
 
       // Return a flat array of records — same shape as Neo4j's onSuccess.
       // query-executor.ts wraps this as { data: result } for consumers.

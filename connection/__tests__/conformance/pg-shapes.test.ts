@@ -150,6 +150,21 @@ describe("tabular parser — result-shape conformance (#1904)", () => {
   test.each(cases)("$name", ({ run }) => {
     expect(run).not.toThrow();
   });
+
+  it("returns rows as plain objects whose keys are the columns", () => {
+    // The Proxy this replaced had no ownKeys trap: Object.keys(row) was
+    // ["record"], so nothing in-process could enumerate a row's columns.
+    const [row] = parser.bulkParse(
+      [{ a: "1", b: "x" }],
+      [
+        { name: "a", dataTypeID: OID.int8 },
+        { name: "b", dataTypeID: OID.text },
+      ],
+    );
+    expect(Object.keys(row)).toEqual(["a", "b"]);
+    expect(Object.getPrototypeOf(row)).toBe(Object.prototype);
+    expect(row).toEqual({ a: 1, b: "x" });
+  });
 });
 
 describe("tabular parser — timestamps (#1904)", () => {

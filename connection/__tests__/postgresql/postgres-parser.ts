@@ -1,5 +1,4 @@
 import { PostgresRecordParser } from "../../src/postgresql/PostgresRecordParser";
-import { NeodashRecord } from "@neoboard/connector-sdk";
 
 describe("PostgreSQL Record Parser", () => {
   let parser: PostgresRecordParser;
@@ -8,12 +7,15 @@ describe("PostgreSQL Record Parser", () => {
     parser = new PostgresRecordParser();
   });
 
-  test("should implement _parse to return NeodashRecord", () => {
+  test("should implement _parse to return a plain row object", () => {
     const row = { id: 1, name: "Alice", age: 30 };
 
     const result = parser["_parse"](row);
 
-    expect(result).toBeInstanceOf(NeodashRecord);
+    // A plain object, not the Proxy it used to be (#1904): with no ownKeys
+    // trap, Object.keys(row) answered ["record"].
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    expect(Object.keys(result)).toEqual(["id", "name", "age"]);
     expect(result.id).toBe(1);
     expect(result.name).toBe("Alice");
     expect(result.age).toBe(30);
@@ -29,7 +31,7 @@ describe("PostgreSQL Record Parser", () => {
     expect(typeof result.blob).toBe("string");
   });
 
-  test("should implement bulkParse to return array of NeodashRecords", () => {
+  test("should implement bulkParse to return an array of plain rows", () => {
     const rows = [
       { id: 1, name: "Alice" },
       { id: 2, name: "Bob" },
@@ -37,58 +39,22 @@ describe("PostgreSQL Record Parser", () => {
 
     const results = parser.bulkParse(rows);
 
-    expect(Array.isArray(results)).toBe(true);
-    expect(results).toHaveLength(2);
-    expect(results[0]).toBeInstanceOf(NeodashRecord);
-    expect(results[1]).toBeInstanceOf(NeodashRecord);
-    expect(results[0].name).toBe("Alice");
-    expect(results[1].name).toBe("Bob");
+    expect(results).toEqual([
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob" },
+    ]);
+    // New objects, not the driver's own rows handed back.
+    expect(results[0]).not.toBe(rows[0]);
   });
 
-  test("should implement isPrimitive correctly", () => {
-    expect(parser["isPrimitive"]("string")).toBe(true);
-    expect(parser["isPrimitive"](123)).toBe(true);
-    expect(parser["isPrimitive"](true)).toBe(true);
-    expect(parser["isPrimitive"](BigInt(123))).toBe(true);
-    expect(parser["isPrimitive"](null)).toBe(false);
-    expect(parser["isPrimitive"](undefined)).toBe(false);
-    expect(parser["isPrimitive"]({})).toBe(false);
-    expect(parser["isPrimitive"]([])).toBe(false);
-  });
-
-  test("should implement parsePrimitive correctly", () => {
-    expect(parser["parsePrimitive"]("test")).toBe("test");
-    expect(parser["parsePrimitive"](123)).toBe(123);
-    expect(parser["parsePrimitive"](true)).toBe(true);
-    expect(parser["parsePrimitive"](BigInt(999))).toBe(BigInt(999));
-  });
-
-  test("should implement isTemporal correctly", () => {
-    const date = new Date();
-    expect(parser["isTemporal"](date)).toBe(true);
-    expect(parser["isTemporal"]("2023-01-01")).toBe(false);
-    expect(parser["isTemporal"](123)).toBe(false);
-    expect(parser["isTemporal"](null)).toBe(false);
-  });
-
-  test("should implement parseTemporal correctly", () => {
-    const date = new Date("2023-01-01T12:00:00Z");
-    const result = parser["parseTemporal"](date);
-    expect(result).toBeInstanceOf(Date);
-    expect(result).toBe(date);
-  });
-
-  test("should inherit default isGraphObject returning false", () => {
-    expect(parser["isGraphObject"]({})).toBe(false);
-    expect(parser["isGraphObject"]([])).toBe(false);
-    expect(parser["isGraphObject"]("string")).toBe(false);
-    expect(parser["isGraphObject"](null)).toBe(false);
-  });
-
-  test("should inherit default parseGraphObject returning value as is", () => {
-    const obj = { key: "value" };
-    expect(parser["parseGraphObject"](obj)).toBe(obj);
-  });
+  // The four no-op methods this block used to test — isPrimitive,
+  // parsePrimitive, isTemporal, parseTemporal — were deleted in #1904 together
+  // with the abstract declarations that forced them into existence, and so
+  // were the base class's isGraphObject / parseGraphObject defaults that
+  // nothing called. One of those tests pinned parsePrimitive(BigInt(999)) ===
+  // BigInt(999): a BigInt passed straight through, on which JSON.stringify
+  // throws. What replaced it is the BigInt fixture in
+  // __tests__/conformance/pg-shapes.test.ts.
 
   test("should handle nested objects in _parse", () => {
     const row = {
@@ -99,7 +65,6 @@ describe("PostgreSQL Record Parser", () => {
 
     const result = parser["_parse"](row);
 
-    expect(result).toBeInstanceOf(NeodashRecord);
     expect(result.id).toBe(1);
     expect(result.metadata).toBeDefined();
     expect(Array.isArray(result.scores)).toBe(true);
@@ -110,23 +75,12 @@ describe("PostgreSQL Record Parser", () => {
 
     const result = parser["_parse"](row);
 
-    expect(result).toBeInstanceOf(NeodashRecord);
     expect(result.id).toBe(1);
     expect(result.name).toBeNull();
     // A missing value is null, never undefined (#1904): JSON drops an
     // undefined key, so the column would vanish from the row. node-pg itself
     // only ever yields null, so this changes nothing a user sees.
     expect(result.age).toBeNull();
-  });
-
-  test("should return existing NeodashRecord unchanged in _parse", () => {
-    const existingRecord = new NeodashRecord({ id: 1, name: "Test" });
-
-    // `any` cast: _parse's signature takes a raw driver row; passing an
-    // already-parsed NeodashRecord on purpose to verify the pass-through guard.
-    const result = parser["_parse"](existingRecord as any);
-
-    expect(result).toBe(existingRecord);
   });
 
   // Regression: a top-level Date column must survive _parse as a usable
@@ -178,15 +132,15 @@ describe("PostgresRecordParser — numeric promotion and interval (#1307)", () =
         ["amount", NUMERIC],
       ]),
     );
-    expect(rec.toObject().total).toBe(42);
-    expect(rec.toObject().amount).toBe(-12.5);
+    expect(rec.total).toBe(42);
+    expect(rec.amount).toBe(-12.5);
   });
 
   it("leaves a text column alone even when it looks numeric", () => {
     // This is why promotion is gated on the column's OID rather than on the
     // string's shape: a product code of "42" must stay a string.
     const [rec] = parser.bulkParse([{ sku: "42" }], fields([["sku", TEXT]]));
-    expect(rec.toObject().sku).toBe("42");
+    expect(rec.sku).toBe("42");
   });
 
   it("keeps the string when Number() would not round-trip exactly", () => {
@@ -201,10 +155,10 @@ describe("PostgresRecordParser — numeric promotion and interval (#1307)", () =
       ]),
     );
     // Real data loss: 2^53+1 would silently become ...992.
-    expect(rec.toObject().big).toBe("9007199254740993");
+    expect(rec.big).toBe("9007199254740993");
     // NOT data loss: a trailing zero is display formatting, and refusing to
     // promote here is what leaves money columns sorting as text.
-    expect(rec.toObject().money).toBe(1.1);
+    expect(rec.money).toBe(1.1);
   });
 
   it("emits interval as an ISO-8601 duration rather than a sparse object", () => {
@@ -229,14 +183,14 @@ describe("PostgresRecordParser — numeric promotion and interval (#1307)", () =
       [{ span: interval }],
       fields([["span", 1186]]),
     );
-    expect(rec.toObject().span).toBe("P1D");
+    expect(rec.span).toBe("P1D");
   });
 
   it("still parses when no field descriptors are supplied", () => {
     // bulkParse(rows) without fields is used by callers that have no
     // descriptors; it must not throw, it simply cannot promote.
     const [rec] = parser.bulkParse([{ total: "42" }]);
-    expect(rec.toObject().total).toBe("42");
+    expect(rec.total).toBe("42");
   });
 });
 
@@ -262,7 +216,7 @@ describe("PostgresRecordParser — DATE is a calendar day, not an instant (#1654
       [{ d: new Date(2024, 5, 1) }], // local midnight, as pg's parser builds it
       fields([["d", DATE]]),
     );
-    expect(rec.toObject().d).toBe("2024-06-01");
+    expect(rec.d).toBe("2024-06-01");
   });
 
   it("is not sensitive to the runtime timezone", () => {
@@ -273,7 +227,7 @@ describe("PostgresRecordParser — DATE is a calendar day, not an instant (#1654
       [{ d: new Date(2024, 0, 1) }],
       fields([["d", DATE]]),
     );
-    expect(rec.toObject().d).toBe("2024-01-01");
+    expect(rec.d).toBe("2024-01-01");
   });
 
   it("pads single-digit months and days", () => {
@@ -281,7 +235,7 @@ describe("PostgresRecordParser — DATE is a calendar day, not an instant (#1654
       [{ d: new Date(2024, 0, 9) }],
       fields([["d", DATE]]),
     );
-    expect(rec.toObject().d).toBe("2024-01-09");
+    expect(rec.d).toBe("2024-01-09");
   });
 
   it("leaves TIMESTAMPTZ as an instant", () => {
@@ -294,7 +248,7 @@ describe("PostgresRecordParser — DATE is a calendar day, not an instant (#1654
       [{ t: instant }],
       fields([["t", TIMESTAMPTZ]]),
     );
-    expect(rec.toObject().t).toBe("2024-06-01T14:30:05.000Z");
+    expect(rec.t).toBe("2024-06-01T14:30:05.000Z");
   });
 
   it("handles a DATE array", () => {
@@ -302,17 +256,17 @@ describe("PostgresRecordParser — DATE is a calendar day, not an instant (#1654
       [{ ds: [new Date(2024, 5, 1), new Date(2024, 5, 2)] }],
       fields([["ds", DATE_ARRAY]]),
     );
-    expect(rec.toObject().ds).toEqual(["2024-06-01", "2024-06-02"]);
+    expect(rec.ds).toEqual(["2024-06-01", "2024-06-02"]);
   });
 
   it("passes a null date through", () => {
     const [rec] = parser.bulkParse([{ d: null }], fields([["d", DATE]]));
-    expect(rec.toObject().d).toBeNull();
+    expect(rec.d).toBeNull();
   });
 
   it("leaves an infinite date alone rather than inventing a day", () => {
     // pg renders 'infinity'::date as Infinity, not a Date.
     const [rec] = parser.bulkParse([{ d: Infinity }], fields([["d", DATE]]));
-    expect(rec.toObject().d).toBe(Infinity);
+    expect(rec.d).toBe(Infinity);
   });
 });

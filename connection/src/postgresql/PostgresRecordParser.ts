@@ -3,11 +3,10 @@ import {
   NeodashRecordParser,
   toIsoDuration,
 } from "@neoboard/connector-sdk";
-import { NeodashRecord } from "@neoboard/connector-sdk";
 
 /**
  * PostgreSQL Record Parser
- * Converts PostgreSQL result sets to NeodashRecord format.
+ * Converts PostgreSQL result sets to plain rows of the SDK's row value contract.
  */
 /** pg type OIDs that arrive as TEXT because pg-types registers no parser. */
 const OID_INT8 = 20;
@@ -134,7 +133,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
   bulkParse(
     records: Record<string, unknown>[],
     fields?: ReadonlyArray<{ name: string; dataTypeID: number }>,
-  ): NeodashRecord[] {
+  ): Record<string, unknown>[] {
     // Resolved once per query, not per row: the rows are then canonicalised in
     // the one pass below, with a single map lookup per cell (#1904).
     const converters = new Map<string, Converter>();
@@ -146,20 +145,15 @@ export class PostgresRecordParser extends NeodashRecordParser {
   }
 
   /**
-   * Parses a single PostgreSQL row into a NeodashRecord.
+   * Parses a single PostgreSQL row into a plain row object.
    * @param _record - A single row from PostgreSQL query results
    * @param _converters - per-column conversions, keyed by column name
-   * @returns A NeodashRecord instance
+   * @returns The row, column name → row value
    */
   _parse(
     _record: Record<string, unknown>,
     _converters?: ReadonlyMap<string, Converter>,
-  ): NeodashRecord {
-    // If already a NeodashRecord, return as is
-    if (_record instanceof NeodashRecord) {
-      return _record;
-    }
-
+  ): Record<string, unknown> {
     const parsed: Record<string, unknown> = {};
 
     for (const key in _record) {
@@ -170,7 +164,7 @@ export class PostgresRecordParser extends NeodashRecordParser {
       }
     }
 
-    return new NeodashRecord(parsed);
+    return parsed;
   }
 
   /**
@@ -184,11 +178,17 @@ export class PostgresRecordParser extends NeodashRecordParser {
     // A missing value is null, never undefined: JSON drops an undefined key,
     // so the column would vanish from the row.
     if (value == null) return null;
+    // Most cells are strings, numbers and booleans, and none of the object
+    // checks below can match one — so settle them here. Every cell passes
+    // through this function since #1904; without the early exit a 100 000-row
+    // result paid for six pointless checks per cell.
+    if (typeof value !== "object") {
+      // Only a custom type parser yields a BigInt, and JSON.stringify throws
+      // on one. Same number-or-decimal-string rule as int8 text (#1904).
+      return typeof value === "bigint" ? integerToRowValue(value) : value;
+    }
     if (Array.isArray(value))
       return value.map((item) => this._pgToNative(item));
-    // Only a custom type parser yields a BigInt, and JSON.stringify throws on
-    // one. Same number-or-decimal-string rule as int8 text (#1904).
-    if (typeof value === "bigint") return integerToRowValue(value);
     // A Date that reaches here is an INSTANT — a timestamptz, or a Date with no
     // column type to say otherwise (a timestamp WITHOUT zone was already made a
     // zone-less string by its column converter). Emitted as an ISO string by
@@ -227,43 +227,8 @@ export class PostgresRecordParser extends NeodashRecordParser {
         nanoseconds: Math.round((value.milliseconds ?? 0) * 1_000_000),
       });
     }
-    if (typeof value === "object")
-      return this.pgConvertPlainObject(value as object);
-    return value;
-  }
-
-  /**
-   * No-op: pg driver already returns native primitives.
-   */
-  isPrimitive(value: unknown): boolean {
-    const type = typeof value;
-    return (
-      type === "boolean" ||
-      type === "string" ||
-      type === "number" ||
-      type === "bigint"
-    );
-  }
-
-  /**
-   * No-op: pg driver already returns native primitives.
-   */
-  parsePrimitive(value: unknown): unknown {
-    return value;
-  }
-
-  /**
-   * No-op: pg driver already returns native Date instances.
-   */
-  isTemporal(value: unknown): boolean {
-    return value instanceof Date;
-  }
-
-  /**
-   * No-op: pg driver already returns native Date instances.
-   */
-  parseTemporal(value: unknown): unknown {
-    return value;
+    // Everything that is not an object returned at the top.
+    return this.pgConvertPlainObject(value);
   }
 
   /**

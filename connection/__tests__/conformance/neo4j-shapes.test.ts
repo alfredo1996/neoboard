@@ -242,4 +242,18 @@ describe("graph parser — result-shape conformance (#1904)", () => {
   test.each(cases)("$name", ({ run }) => {
     expect(run).not.toThrow();
   });
+
+  it("returns rows as plain objects whose keys are the columns", () => {
+    // The Proxy this replaced had no ownKeys trap: Object.keys(row) was
+    // ["record"], so nothing in-process could enumerate a row's columns.
+    const [row] = parser.bulkParse([
+      new types.Record(["a", "b"], [int(1), "x"]) as unknown as Record<
+        string,
+        unknown
+      >,
+    ]);
+    expect(Object.keys(row)).toEqual(["a", "b"]);
+    expect(Object.getPrototypeOf(row)).toBe(Object.prototype);
+    expect(row).toEqual({ a: 1, b: "x" });
+  });
 });

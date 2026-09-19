@@ -35,8 +35,7 @@ export {
   wrapError,
 } from "./generalized/ConnectorError";
 
-/// Result records
-export { NeodashRecord } from "./generalized/NeodashRecord";
+/// Record parser base class
 export { NeodashRecordParser } from "./generalized/NeodashRecordParser";
 
 /// Row value contract (#1904): what a result row may hold

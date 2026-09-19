@@ -4,7 +4,8 @@ import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
 import { toNumber } from "neo4j-driver-core";
 
-import { NeodashRecord } from "@neoboard/connector-sdk";
+/** A parsed row: a plain object, column name → row value (#1904). */
+type NeodashRecord = Record<string, unknown>;
 
 // #1642: assertions live AFTER the awaited runQuery, never inside onSuccess.
 // onSuccess is invoked inside the connector's try block, so an expect() that

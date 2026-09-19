@@ -1,4 +1,4 @@
-import type { FieldDef, Pool, QueryConfig, QueryResultRow } from "pg";
+import type { Pool, QueryConfig, QueryResultRow } from "pg";
 import { DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
 
 /**
@@ -6,18 +6,6 @@ import { DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
  */
 
 export { errorHasMessage } from "@neoboard/connector-sdk";
-
-/**
- * Extracts schema information from PostgreSQL field metadata.
- * Similar to Neo4j's extractNodeAndRelPropertiesFromRecords but for relational data.
- *
- * @param fields - PostgreSQL field metadata from query result
- * @returns Array of [tableName, field1, field2, ...] arrays, or empty array
- */
-export function extractTableSchemaFromFields(fields: FieldDef[]): string[][] {
-  if (!fields || fields.length === 0) return [];
-  return [["result", ...fields.map((f) => f.name)]];
-}
 
 /**
  * Checks if an error is an authentication error.

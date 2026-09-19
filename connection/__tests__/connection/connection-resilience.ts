@@ -97,7 +97,6 @@ describe("Connection Resilience — PostgreSQL", () => {
 
   const pgConfig = {
     ...DEFAULT_CONNECTION_CONFIG,
-    parseToNeodashRecord: true,
     timeout: 0, // Skip SET statement_timeout — not testing timeout behavior here
   };
 

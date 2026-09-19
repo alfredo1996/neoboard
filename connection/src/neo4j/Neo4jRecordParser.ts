@@ -19,7 +19,6 @@ import {
   PathSegment,
   Point,
 } from "neo4j-driver";
-import { NeodashRecord } from "@neoboard/connector-sdk";
 
 /**
  * Neo4jRecordParser
@@ -139,18 +138,11 @@ export class Neo4jRecordParser extends NeodashRecordParser {
    * @returns A parsed JavaScript object representing the record.
    */
   _parse(
-    _record:
-      | Record<string, unknown>
-      | NeodashRecord
-      | Neo4jRecord<Record<string, unknown>>,
-  ): NeodashRecord {
-    // Parsing the record twice should return the same record
-    if (_record instanceof NeodashRecord) {
-      return _record;
-    }
+    _record: Record<string, unknown> | Neo4jRecord<Record<string, unknown>>,
+  ): Record<string, unknown> {
     // Everything that reaches this point comes from the driver and has the
-    // Neo4j Record shape (keys + get) — the plain-object arm of the union
-    // exists only for already-parsed pass-through inputs, which share it.
+    // Neo4j Record shape (keys + get); the plain-object arm of the union is
+    // what the base class's signature calls the same thing.
     const record = _record as Neo4jRecord<Record<string, unknown>>;
     const parsed: Record<string, unknown> = {};
 
@@ -158,7 +150,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       const value = record.get(key);
       parsed[key as string] = this.__neo4jToNative(value);
     }
-    return new NeodashRecord(parsed);
+    return parsed;
   }
 
   /**
@@ -325,14 +317,21 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     // Duration is the one exception below. The driver's toString() keeps
     // months and seconds uncarried (`P14M3DT3723.500000000S`); every connector
     // emits the SDK's one ISO-8601 form instead, so a duration reads the same
-    // whichever database it came from (#1904). BigInt, not toNumber(): a
-    // 64-bit seconds count must not be rounded on the way.
+    // whichever database it came from (#1904).
+    //
+    // A field is a plain number whenever a double holds it exactly — which is
+    // every duration anyone stores — and a BigInt only beyond that, so a 64-bit
+    // seconds count is still never rounded. Integer#toBigInt() on all four
+    // fields cost 231 ms per 100 000 values, the whole of the parse regression
+    // this change first had; measured, not guessed.
     if (value instanceof Duration) {
+      const exact = (field: Duration["months"]) =>
+        field.inSafeRange() ? field.toNumber() : field.toBigInt();
       return toIsoDuration({
-        months: value.months.toBigInt(),
-        days: value.days.toBigInt(),
-        seconds: value.seconds.toBigInt(),
-        nanoseconds: value.nanoseconds.toBigInt(),
+        months: exact(value.months),
+        days: exact(value.days),
+        seconds: exact(value.seconds),
+        nanoseconds: exact(value.nanoseconds),
       });
     }
 
@@ -419,9 +418,9 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     // trust. Recursing through __neo4jToNative reuses the Node and
     // Relationship arms above rather than duplicating their conversion.
     //
-    // The key names are load-bearing: transformToGraphData, validateGraphData,
-    // extractNodeAndRelPropertiesFromRecords and NeodashRecord.getFields all
-    // key off start/end/segments/relationship.
+    // The key names are load-bearing: they are the SDK's GraphPath contract,
+    // and the app's graph transform still keys off start/end/segments/
+    // relationship until #1925 switches it to the `$type` tag.
     if (value instanceof Path) {
       return {
         $type: "path",
