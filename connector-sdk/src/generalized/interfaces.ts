@@ -1,5 +1,3 @@
-import { ConnectionTypes } from "../ConnectionModuleConfig";
-
 /**
  * Access mode for database connections: read-only or read-write.
  */
@@ -91,11 +89,6 @@ export const DEFAULT_CONNECTION_CONFIG: ConnectionConfig = {
   rowLimit: 5000,
 
   /**
-   * Type of connection being used.
-   */
-  connectionType: ConnectionTypes.NEO4J,
-
-  /**
    * Flag indicating whether to parse results to NeodashRecord format.
    */
   parseToNeodashRecord: true,
@@ -135,11 +128,6 @@ export interface ConnectionConfig {
    * The maximum number of records to return from a query before truncation is applied.
    */
   rowLimit: number;
-
-  /**
-   * A string representing the type of connection (e.g., 'neo4j', 'bolt').
-   */
-  connectionType: ConnectionTypes;
 
   /**
    * If true, the connection module will invoke its parsing module to parse the result to a NeodashRecord.
@@ -222,31 +210,3 @@ export interface QueryParams {
   query: string; // The query to be executed (Cypher for Neo4j, SQL for PostgreSQL).
   params?: Record<string, unknown>; // Optional parameters for the query.
 }
-
-/** Neo4j-specific advanced connection options. */
-export interface Neo4jAdvancedOptions {
-  neo4jConnectionTimeout?: number;
-  neo4jMaxPoolSize?: number;
-  neo4jAcquisitionTimeout?: number;
-}
-
-/** PostgreSQL-specific advanced connection options. */
-export interface PostgresAdvancedOptions {
-  pgConnectionTimeoutMillis?: number;
-  pgIdleTimeoutMillis?: number;
-  pgMaxPoolSize?: number;
-  pgSslRejectUnauthorized?: boolean;
-  /**
-   * Client-side bound (ms) on introspection and health-check queries —
-   * schema, database and schema lists, connection checks (#1302). Defaults to
-   * `DEFAULT_CONNECTION_CONFIG.timeout`.
-   */
-  pgIntrospectionTimeoutMillis?: number;
-}
-
-/** Union of all per-connector advanced options. The factory accepts this; each module narrows to its own type. */
-export type AdvancedConnectionOptions =
-  Neo4jAdvancedOptions | PostgresAdvancedOptions;
-
-// Re-export ConnectionTypes for convenience
-export { ConnectionTypes } from "../ConnectionModuleConfig";

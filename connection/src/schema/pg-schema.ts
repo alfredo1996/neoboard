@@ -1,10 +1,10 @@
 import { PostgresConnectionModule } from "../postgresql/PostgresConnectionModule";
 import { runBoundedQuery } from "../postgresql/utils";
+import { optionalNumber } from "../config-bag";
 import type {
-  AuthConfig,
   ColumnDef,
+  ConnectorConfig,
   DatabaseSchema,
-  PostgresAdvancedOptions,
   TableDef,
 } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
@@ -36,11 +36,8 @@ interface SchemaRow {
  * to retrieve all tables and their column definitions in the public schema.
  */
 export class PostgresSchemaManager implements SchemaManager {
-  async fetchSchema(
-    authConfig: AuthConfig,
-    advancedOptions?: PostgresAdvancedOptions,
-  ): Promise<DatabaseSchema> {
-    const module = new PostgresConnectionModule(authConfig, advancedOptions);
+  async fetchSchema(config: ConnectorConfig): Promise<DatabaseSchema> {
+    const module = new PostgresConnectionModule(config);
     const pool = module.getPool();
 
     if (!pool) {
@@ -57,7 +54,9 @@ export class PostgresSchemaManager implements SchemaManager {
       const rows = await runBoundedQuery<SchemaRow>(
         pool,
         SCHEMA_QUERY,
-        advancedOptions?.pgIntrospectionTimeoutMillis,
+        // Same bound as the module's own introspection: the connection's
+        // statementTimeout, so a big catalog can be given more than 30s (#1302).
+        optionalNumber(config.statementTimeout),
       );
 
       const tableMap = new Map<string, ColumnDef[]>();

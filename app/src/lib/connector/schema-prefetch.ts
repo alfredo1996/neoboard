@@ -1,22 +1,5 @@
-import {
-  buildAdvancedOptions,
-  type ConnectionCredentials,
-} from "@/lib/query/query-executor";
-import { ensureDatabaseInUri } from "@/lib/query/query-params";
+import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { getSchemaManager } from "@/lib/connector/connection-adapter";
-
-/**
- * Builds the auth configuration object for schema manager calls.
- * Exported for unit testing in isolation.
- */
-export function buildAuthConfig(credentials: ConnectionCredentials) {
-  return {
-    uri: ensureDatabaseInUri(credentials.uri, credentials.database),
-    username: credentials.username,
-    password: credentials.password,
-    authType: 1 as const, // AuthType.NATIVE
-  };
-}
 
 /**
  * Fetch the database schema for a given connection.
@@ -30,10 +13,9 @@ export async function fetchConnectionSchema(
   // Registry-keyed dispatch (#1119) — no hardcoded per-type branching.
   const manager = getSchemaManager(type);
   if (!manager) return null; // connector type has no schema introspection
-  return manager.fetchSchema(
-    buildAuthConfig(credentials),
-    buildAdvancedOptions(credentials),
-  );
+  // The decrypted config passes through as ONE bag, exactly as it does to
+  // createConnectionModule: the connector reads its own keys (#1897).
+  return manager.fetchSchema({ ...credentials });
 }
 
 /**

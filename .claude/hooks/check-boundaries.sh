@@ -28,9 +28,10 @@ if [[ "$FILE_PATH" == *"/connection/src/"* ]]; then
 fi
 
 # Connector agnosticism (#1894): app/ and component/ may know THAT connectors
-# exist, never WHICH. The names come from the connectors themselves — every
-# `type:` / `label:` and URI scheme in connection/src/*/plugin.ts — so a new
-# connector is covered with no edit here. Only an edit that ADDS names is
+# exist, never WHICH. The names come from the connectors themselves — the
+# `type:`, `label:` and `uri` field `protocols:` of every
+# connection/src/*/descriptor.ts (#1897 moved them there from plugin.ts) — so a
+# new connector is covered with no edit here. Only an edit that ADDS names is
 # blocked: migrating a line that already has one must stay possible.
 # The gate is app/src/lib/__tests__/connector-agnostic.test.ts; keep the
 # allowlist below in step with it.
@@ -42,12 +43,22 @@ case "$FILE_PATH" in
     ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
     NAMES=$(
       {
-        grep -hoE '^[[:space:]]{2}(type|label):[[:space:]]*"[^"]+"' "$ROOT"/connection/src/*/plugin.ts |
+        # The connector's OWN type and label: top-level keys, at 2-space
+        # indent. A field's `type:` / `label:` sit deeper and are generic words
+        # ("uri", "Username") the app must be able to say.
+        grep -hoE '^[[:space:]]{2}(type|label):[[:space:]]*"[^"]+"' "$ROOT"/connection/src/*/descriptor.ts |
           sed -E 's/^[^"]*"//; s/"$//'
-        grep -hoE '"[a-z][a-z0-9.-]*[+:]' "$ROOT"/connection/src/*/plugin.ts | tr -d '"+:'
+        # URI schemes: what a `protocols: [...]` list holds, on one line or many.
+        awk '/protocols:/ { p = 1 } p { print } p && /\]/ { p = 0 }' "$ROOT"/connection/src/*/descriptor.ts |
+          grep -oE '"[a-z][a-z0-9.-]*[+:]' | tr -d '"+:'
       } 2>/dev/null | sed -E 's/[][(){}.*+?^$|\\]/\\&/g' | sort -u | paste -sd '|' -
     )
-    [ -z "$NAMES" ] && exit 0
+    if [ -z "$NAMES" ]; then
+      # Nothing derived means nothing is checked. Say so: a hook reading the
+      # wrong file passes every edit, and silence looks exactly like that.
+      echo "check-boundaries: no connector names found in connection/src/*/descriptor.ts — connector-agnosticism check skipped" >&2
+      exit 0
+    fi
     # Library names that merely contain a connector's name are not connectors.
     count() {
       sed -E 's#@neo4j-(nvl|cypher)/[A-Za-z0-9_-]+##g; /@codemirror\/lang-sql/d; s/dialect:[[:space:]]*PostgreSQL//g' |

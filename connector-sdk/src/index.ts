@@ -20,11 +20,7 @@ export type {
   ConnectionConfig,
   QueryParams,
   QueryCallback,
-  Neo4jAdvancedOptions,
-  PostgresAdvancedOptions,
-  AdvancedConnectionOptions,
 } from "./generalized/interfaces";
-export { ConnectionTypes } from "./ConnectionModuleConfig";
 
 /// Base classes a connector extends
 export { ConnectionModule } from "./generalized/ConnectionModule";
@@ -60,11 +56,34 @@ export type {
   SchemaManager,
 } from "./schema/types";
 
+/// Connector descriptor (pure data) + config validation
+export type {
+  ConnectorDescriptor,
+  ConnectorField,
+  ConnectorConfig,
+  ConfigValidation,
+} from "./generalized/descriptor";
+export {
+  toDescriptor,
+  validateConfig,
+  MAX_ICON_SVG_BYTES,
+} from "./generalized/descriptor";
+export { validateUri } from "./generalized/validate-uri";
+
+/// Optional builders for the fields most connectors share
+export {
+  uriField,
+  usernameField,
+  passwordField,
+  databaseField,
+  timeoutField,
+  poolSizeField,
+} from "./generalized/fields";
+
 /// Connector plugin contract + registry factory
 export type {
   ConnectorPlugin,
   ConnectorRegistry,
-  ConnectorFormField,
 } from "./generalized/connector-plugin";
 export { createConnectorRegistry } from "./generalized/connector-plugin";
 

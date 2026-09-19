@@ -25,7 +25,6 @@
  */
 import { describe, it, expect } from "vitest";
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -42,6 +41,8 @@ import {
   getAllConnectors,
   registerConnector,
   unregisterConnector,
+  type ConnectorDescriptor,
+  type ConnectorField,
   type ConnectorPlugin,
 } from "@neoboard/connection";
 import baseline from "./connector-agnostic.baseline.json";
@@ -96,7 +97,14 @@ const LIBRARY_NAMES: { pattern: RegExp; reason: string }[] = [
 
 // ─── Names, derived ──────────────────────────────────────────────────
 
-type Named = Pick<ConnectorPlugin, "type" | "label" | "allowedProtocols">;
+/**
+ * What the guard reads off a connector — all of it descriptor data (#1897):
+ * its identity, and from its `fields` the URI schemes (`protocols` of a `uri`
+ * field) and the config keys it declares.
+ */
+type Named = Pick<ConnectorDescriptor, "type" | "label"> & {
+  fields?: Pick<ConnectorField, "key" | "type" | "protocols">[];
+};
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -110,9 +118,11 @@ const abbreviates = (short: string, full: string) =>
  * `type`, `label` and URI schemes (`bolt+s:` → `bolt`), case-insensitively and
  * anywhere in a word, so `isNeo4j` and `PostgresSchemaManager` count too.
  *
- * `optionKeys` are the keys a connector reads off its `advancedOptions`. When
- * their prefix abbreviates the connector's type (`pgMaxPoolSize`), that prefix
- * is forbidden as `\bpg[A-Z]` — case-sensitively, or `jpg` would offend.
+ * `optionKeys` are the config keys a connector declares in its `fields`. When
+ * a key's prefix abbreviates the connector's type (`pgMaxPoolSize`), that
+ * prefix is forbidden as `\bpg[A-Z]` — case-sensitively, or `jpg` would
+ * offend. The built-ins' keys are unprefixed since #1897, so today this
+ * derives nothing; it is here for the connector that spells one that way.
  *
  * ponytail: schemes match as substrings. A connector registering a generic
  * scheme (`https:`) would forbid every URL; narrow the scheme rule to
@@ -120,7 +130,7 @@ const abbreviates = (short: string, full: string) =>
  */
 export function forbiddenNames(
   connectors: Named[],
-  optionKeys: { type: string; key: string }[] = [],
+  optionKeys: { type: string; key: string }[] = declaredKeys(connectors),
 ): RegExp[] {
   const names = [
     ...new Set(
@@ -128,7 +138,9 @@ export function forbiddenNames(
         .flatMap((c) => [
           c.type,
           c.label,
-          ...(c.allowedProtocols ?? []).map((p) => p.split(/[+:]/)[0]),
+          ...(c.fields ?? [])
+            .flatMap((f) => (f.type === "uri" ? (f.protocols ?? []) : []))
+            .map((p) => p.split(/[+:]/)[0]),
         ])
         .filter(Boolean)
         .map((n) => n.toLowerCase()),
@@ -160,29 +172,17 @@ export function forbiddenNames(
 }
 
 /**
- * The option keys each built-in connector reads, from its own source: every
- * `connection/src/<dir>/` holding a `plugin.ts`. This is where `pg` comes from
- * — it is PostgresAuthenticationModule's spelling, not a constant in here.
- * (An external connector's source is not on disk; its type, label and schemes
- * still come from the registry.)
+ * The config keys each connector declares, straight from its descriptor. They
+ * used to be scraped from the built-ins' source (`advancedOptions.pgMaxPoolSize`
+ * under every `connection/src/<dir>/plugin.ts`); since #1897 a connector
+ * declares its keys in `fields`, so they come from the registry like every
+ * other name — which also covers an external connector, whose source is not
+ * on disk.
  */
-function builtInOptionKeys(): { type: string; key: string }[] {
-  const src = join(ROOT, "connection", "src");
-  return readdirSync(src).flatMap((dir) => {
-    const plugin = join(src, dir, "plugin.ts");
-    const type =
-      existsSync(plugin) &&
-      /\btype:\s*"([^"]+)"/.exec(readFileSync(plugin, "utf8"))?.[1];
-    if (!type) return [];
-    return sourceFiles(join(src, dir)).flatMap((f) =>
-      [...readFileSync(f, "utf8").matchAll(/advancedOptions\??\.(\w+)/gi)].map(
-        (m) => ({
-          type,
-          key: m[1],
-        }),
-      ),
-    );
-  });
+function declaredKeys(connectors: Named[]): { type: string; key: string }[] {
+  return connectors.flatMap((c) =>
+    (c.fields ?? []).map((f) => ({ type: c.type, key: f.key })),
+  );
 }
 
 // ─── Name guard ──────────────────────────────────────────────────────
@@ -326,7 +326,7 @@ const total = (counts: Record<string, number>) =>
 // ─── Tests ───────────────────────────────────────────────────────────
 
 describe("connector-agnostic guard (#1894)", () => {
-  const names = forbiddenNames(getAllConnectors(), builtInOptionKeys());
+  const names = forbiddenNames(getAllConnectors());
   const recordedNames: Record<string, number> = baseline.names;
   const recordedExports = Object.fromEntries(
     Object.entries(baseline.exports as Record<string, string[]>).flatMap(
@@ -347,6 +347,26 @@ describe("connector-agnostic guard (#1894)", () => {
       expect(findOffenders({ names, files }), c.type).toEqual({
         "app/src/x.ts": 1,
         "component/src/y.tsx": 1,
+      });
+    }
+  });
+
+  it("forbids every URI scheme a registered connector declares", () => {
+    // Schemes are how `Postgres…` identifiers are caught (`postgres:`), and
+    // they are the part that moved: from `plugin.allowedProtocols` to the
+    // `protocols` of the descriptor's `uri` field (#1897). A guard still
+    // reading the old place derives no scheme and says nothing — it just
+    // reports every `bolt` in the tree as progress. Hence the floor.
+    const protocols = getAllConnectors().flatMap((c) =>
+      c.fields.flatMap((f) => (f.type === "uri" ? (f.protocols ?? []) : [])),
+    );
+    expect(protocols.length).toBeGreaterThan(0);
+    for (const protocol of protocols) {
+      const files = [
+        { file: "app/src/z.ts", src: `const u = "${protocol}//host";` },
+      ];
+      expect(findOffenders({ names, files }), protocol).toEqual({
+        "app/src/z.ts": 1,
       });
     }
   });
@@ -385,7 +405,23 @@ describe("the guards themselves", () => {
     type: "acmegraph",
     label: "Acme Graph DB",
     category: "database",
-    allowedProtocols: ["acme:", "acme+s:"],
+    fields: [
+      {
+        key: "uri",
+        label: "URI",
+        type: "uri",
+        group: "connection",
+        protocols: ["acme:", "acme+s:"],
+      },
+      // `ag` abbreviates `acmegraph`, the way `pg` abbreviated `postgresql`.
+      { key: "agPoolSize", label: "Pool", type: "number", group: "advanced" },
+      {
+        key: "maxRetries",
+        label: "Retries",
+        type: "number",
+        group: "advanced",
+      },
+    ],
     createModule: () => {
       throw new Error("never connected");
     },
@@ -424,6 +460,10 @@ describe("the guards themselves", () => {
         file: "component/src/d.ts",
         src: 'const language = ["cypher", "sql"];',
       },
+      // Its declared config keys: the abbreviating prefix offends, the rest —
+      // and the generic words a descriptor is made of — do not.
+      { file: "app/src/e.ts", src: "opts.agPoolSize ?? opts.maxRetries" },
+      { file: "app/src/f.ts", src: 'field.type === "uri" ? "URI" : "Pool"' },
     ];
     expect(
       findOffenders({ names: forbiddenNames(getAllConnectors()), files }),
@@ -437,6 +477,7 @@ describe("the guards themselves", () => {
         "app/src/a.ts": 1,
         "app/src/b.tsx": 1,
         "component/src/c.ts": 1,
+        "app/src/e.ts": 1,
       });
     } finally {
       unregisterConnector(fixture.type);

@@ -35,6 +35,7 @@ describe("getSchemaManager", () => {
       type: "fixture-db",
       label: "Fixture DB",
       category: "database",
+      fields: [],
       createModule: fakeModule,
       createSchemaManager: () => fakeSchemaManager,
     };
@@ -51,6 +52,7 @@ describe("getSchemaManager", () => {
       type: "no-schema-db",
       label: "No Schema DB",
       category: "database",
+      fields: [],
       createModule: fakeModule,
     };
     registerConnector(plugin);

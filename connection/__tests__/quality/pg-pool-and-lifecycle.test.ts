@@ -10,7 +10,6 @@ import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
 import {
   AuthType,
-  ConnectionTypes,
   DEFAULT_CONNECTION_CONFIG,
   QueryStatus,
 } from "@neoboard/connector-sdk";
@@ -28,7 +27,6 @@ const authConfigFor = () => ({
 
 const QUERY_CONFIG = {
   ...DEFAULT_CONNECTION_CONFIG,
-  connectionType: ConnectionTypes.POSTGRESQL,
   timeout: 30_000,
 };
 
@@ -74,8 +72,9 @@ afterAll(async () => {
 
 describe("connection pool exhaustion (#742 item 11)", () => {
   it("serializes queries when the pool has a single client", async () => {
-    const module = new PostgresConnectionModule(authConfigFor(), {
-      pgMaxPoolSize: 1,
+    const module = new PostgresConnectionModule({
+      ...authConfigFor(),
+      maxPoolSize: 1,
     });
     expect(await module.authModule.verifyAuthentication()).toBe(true);
 
@@ -96,10 +95,11 @@ describe("connection pool exhaustion (#742 item 11)", () => {
   });
 
   it("fails with an acquisition timeout when the pool never frees up", async () => {
-    const module = new PostgresConnectionModule(authConfigFor(), {
-      pgMaxPoolSize: 1,
+    const module = new PostgresConnectionModule({
+      ...authConfigFor(),
+      maxPoolSize: 1,
       // Acquisition gives up long before the blocking query finishes.
-      pgConnectionTimeoutMillis: 300,
+      connectionTimeout: 300,
     });
     expect(await module.authModule.verifyAuthentication()).toBe(true);
 
@@ -124,8 +124,9 @@ describe("connection pool exhaustion (#742 item 11)", () => {
 
 describe("concurrent write isolation (#742 item 19)", () => {
   it("N concurrent INSERTs through one pool all persist exactly once", async () => {
-    const module = new PostgresConnectionModule(authConfigFor(), {
-      pgMaxPoolSize: 4,
+    const module = new PostgresConnectionModule({
+      ...authConfigFor(),
+      maxPoolSize: 4,
     });
     expect(await module.authModule.verifyAuthentication()).toBe(true);
     await run(

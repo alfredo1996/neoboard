@@ -9,9 +9,22 @@ connector works everywhere in NeoBoard without forking the app.
 
 ## What's in here
 
-- **`ConnectorPlugin`** — the plugin contract (type, label, category,
-  `createModule`, optional `formFields` for the connection UI, query
-  language, allowed protocols).
+- **`ConnectorDescriptor` / `ConnectorField`** — what a connector is, as
+  pure JSON-serializable data: type, label, category, query language, and the
+  `fields` it needs in its config (text, password, number, select, boolean,
+  uri — with ranges, options and accepted URI protocols).
+- **Field builders** — `uriField`, `usernameField`, `passwordField`,
+  `databaseField`, `timeoutField`, `poolSizeField`: optional one-line
+  shorthands for the fields most connectors share. Each returns the plain
+  literal; a descriptor can mix them with hand-written fields.
+- **`ConnectorPlugin`** — a descriptor plus `createModule(config)` and an
+  optional `createSchemaManager()`. `createModule` takes **one config bag**
+  keyed by the fields' keys; the connector builds its own driver auth from it.
+- **`validateConfig(descriptor, config)`** — pure validation of a config bag
+  against a descriptor (required, integer ranges, select membership, URI
+  rules; unknown keys stripped), returning per-field errors.
+  **`toDescriptor(plugin)`** strips the functions, leaving what is safe to
+  send to a browser.
 - **`ConnectionModule` / `AuthenticationModule`** — base classes a connector
   implements for connect / query / schema.
 - **Query-safety helpers** — the invariants every connector must uphold:
@@ -21,12 +34,21 @@ connector works everywhere in NeoBoard without forking the app.
   `TableDef`, `ColumnDef`, `PropertyDef`.
 - **Error types** — `ConnectorError` / `ConnectorErrorType` for classified,
   user-actionable failures.
-- **Connector registry** — `createConnectorRegistry()` / `registerConnector()`.
+- **Connector registry** — `createConnectorRegistry()`. `register()` throws on
+  a malformed descriptor (a field missing key/label/type, duplicate keys, a
+  `select` without options, a `uri` without protocols, an invalid category, an
+  `iconSvg` over 16 KB).
 
 ## Quick start
 
 ```ts
-import type { ConnectorPlugin } from "@neoboard/connector-sdk";
+import {
+  passwordField,
+  poolSizeField,
+  uriField,
+  usernameField,
+  type ConnectorPlugin,
+} from "@neoboard/connector-sdk";
 
 const mysqlPlugin: ConnectorPlugin = {
   type: "mysql",
@@ -34,13 +56,17 @@ const mysqlPlugin: ConnectorPlugin = {
   category: "database",
   queryLanguage: "sql",
   supportsWrite: true,
-  formFields: [
-    { key: "uri", label: "URI", type: "text", required: true },
-    { key: "username", label: "Username", type: "text", required: true },
-    { key: "password", label: "Password", type: "password", required: true },
+  fields: [
+    uriField({ protocols: ["mysql:"] }),
+    usernameField(),
+    passwordField(),
+    poolSizeField("10"),
+    // …or any field as a plain literal:
+    { key: "charset", label: "Charset", type: "text", group: "advanced" },
   ],
-  createModule(auth, opts) {
-    return new MysqlConnectionModule(auth, opts);
+  // ONE config bag: { uri, username, password, maxPoolSize, charset }
+  createModule(config) {
+    return new MysqlConnectionModule(config);
   },
 };
 

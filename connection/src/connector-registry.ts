@@ -12,6 +12,7 @@
 
 import {
   createConnectorRegistry,
+  type ConnectorConfig,
   type ConnectorPlugin,
   type ConnectorRegistry,
   type SchemaManager,
@@ -95,14 +96,11 @@ export function getSchemaManager(type: string): SchemaManager | undefined {
 }
 
 /**
- * Factory function — drop-in replacement for the old factory.ts.
- * Creates a ConnectionModule via the registry.
+ * Creates a ConnectionModule via the registry from ONE config bag — the
+ * connection's stored config. The connector reads its own keys from it; there
+ * is no separate auth object or options bag (#1897).
  */
-export function createConnectionModule(
-  type: string,
-  authConfig: Record<string, unknown>,
-  advancedOptions?: Record<string, unknown>,
-) {
+export function createConnectionModule(type: string, config: ConnectorConfig) {
   const plugin = registry.get(type);
   if (!plugin) {
     const available = registry.getTypes().join(", ");
@@ -110,6 +108,5 @@ export function createConnectionModule(
       `Unknown connector type: "${type}". Available: ${available}`,
     );
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return plugin.createModule(authConfig as any, advancedOptions);
+  return plugin.createModule(config);
 }

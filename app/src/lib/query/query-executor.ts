@@ -1,9 +1,8 @@
 import {
   createConnectionModule,
   DEFAULT_CONNECTION_CONFIG,
-  ConnectionTypes,
 } from "@/lib/connector/connection-adapter";
-import { ensureDatabaseInUri, rewriteParamsForPostgres } from "./query-params";
+import { rewriteParamsForPostgres } from "./query-params";
 import { QueryStatus } from "@neoboard/connection";
 import { createHash } from "node:crypto";
 
@@ -44,17 +43,6 @@ export interface ConnectionCredentials {
 // resolves it via the registry; built-in-specific branches (pg param rewrite,
 // statement timeout) key off the literal type and safely no-op for others.
 export type DbType = string;
-
-/**
- * Numeric type for connection module config (legacy enum). Registry-supplied
- * connectors have no built-in numeric identity → UNKNOWN, rather than being
- * mislabeled as PostgreSQL (#1121).
- */
-function toConnectionTypeEnum(type: DbType): number {
-  if (type === "neo4j") return ConnectionTypes.NEO4J;
-  if (type === "postgresql") return ConnectionTypes.POSTGRESQL;
-  return ConnectionTypes.UNKNOWN;
-}
 
 /**
  * TTL-based connection module cache. Each entry tracks last-access time
@@ -151,33 +139,42 @@ export function _getCacheSize(): number {
 }
 
 /**
- * Digest of the password, for the cache key (#1300).
- *
- * The key omitted the password entirely, so two connections differing only by
- * password collided: the second caller was handed the pool the first had
- * already authenticated, and a WRONG password still produced a working
- * connection. Where two tenants point at the same host with the same
- * username, that is one tenant querying through another's credentials.
- *
- * Hashed, never raw: cache keys reach diagnostics and error paths, and a
- * credential must not be recoverable from one.
+ * JSON with object keys sorted at every depth, so two bags with the same
+ * content serialize the same whatever order they were built in. `undefined`
+ * values are dropped, as JSON.stringify drops them: a config read back from
+ * storage never carries one.
  */
-function passwordFingerprint(password: string): string {
-  return createHash("sha256").update(password).digest("hex").slice(0, 16);
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  const entries = Object.entries(value)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`);
+  return `{${entries.join(",")}}`;
 }
 
+/**
+ * Cache key: the connector type plus a SHA-256 of the WHOLE config bag.
+ *
+ * The key used to enumerate the eight options the app knew about, so an option
+ * it did not know — any option of a registry-supplied connector — was not part
+ * of it, and two connections differing only there silently shared one driver
+ * (#1897). Before that it omitted the password, and a WRONG password still got
+ * the pool a right one had authenticated (#1300). Hashing everything closes the
+ * class instead of the instance.
+ *
+ * A digest, never the values: cache keys reach diagnostics and error paths,
+ * and nothing in the bag may be recoverable from one. The serialized bag is
+ * the hash input and nothing else — NEVER log it.
+ */
 function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
-  const advancedKey = [
-    credentials.connectionTimeout,
-    credentials.queryTimeout,
-    credentials.maxPoolSize,
-    credentials.connectionAcquisitionTimeout,
-    credentials.idleTimeout,
-    credentials.statementTimeout,
-    credentials.sslRejectUnauthorized,
-    credentials.maxRows,
-  ].join(",");
-  return `${type}|${credentials.uri}|${credentials.username}|${passwordFingerprint(credentials.password)}|${credentials.database ?? ""}|${advancedKey}`;
+  const digest = createHash("sha256")
+    .update(stableStringify(credentials))
+    .digest("hex");
+  return `${type}|${digest}`;
 }
 
 function effectiveQueryTimeout(
@@ -188,24 +185,6 @@ function effectiveQueryTimeout(
     return credentials.statementTimeout ?? credentials.queryTimeout;
   }
   return credentials.queryTimeout;
-}
-
-export function buildAdvancedOptions(credentials: ConnectionCredentials) {
-  // Per-query timeouts are NOT advanced options — they flow through
-  // config.timeout in executeQuery (#973). Only pool/connection-level
-  // settings that the auth modules read at construction belong here.
-  return {
-    neo4jConnectionTimeout: credentials.connectionTimeout,
-    neo4jMaxPoolSize: credentials.maxPoolSize,
-    neo4jAcquisitionTimeout: credentials.connectionAcquisitionTimeout,
-    pgConnectionTimeoutMillis: credentials.connectionTimeout,
-    pgIdleTimeoutMillis: credentials.idleTimeout,
-    pgMaxPoolSize: credentials.maxPoolSize,
-    pgSslRejectUnauthorized: credentials.sslRejectUnauthorized,
-    // Introspection and health checks share the connection's statement
-    // timeout instead of a fixed 30s a big catalog can outlast (#1302).
-    pgIntrospectionTimeoutMillis: credentials.statementTimeout,
-  };
 }
 
 async function getOrCreateModule(
@@ -219,20 +198,18 @@ async function getOrCreateModule(
     return entry.module;
   }
 
-  const authConfig = {
-    // resolveContainerHost LAST: from inside a container `localhost` is the
-    // container, so a loopback URI can never reach the user's database. The
-    // stored connection keeps what they typed; only the driver sees the
-    // rewrite (#1346).
-    uri: await resolveContainerHost(
-      ensureDatabaseInUri(credentials.uri, credentials.database),
-    ),
-    username: credentials.username,
-    password: credentials.password,
-    authType: 1, // NATIVE
-  };
-  const advancedOptions = buildAdvancedOptions(credentials);
-  const connModule = createConnectionModule(type, authConfig, advancedOptions);
+  // The decrypted config passes through as ONE bag: the connector builds its
+  // own auth, reads its own option keys and applies `database` itself, so the
+  // app knows none of them (#1897). The one thing done to it here is
+  // deployment logic, not connector logic — from inside a container
+  // `localhost` is the container, so a loopback URI can never reach the user's
+  // database. The stored connection keeps what they typed; only the driver
+  // sees the rewrite (#1346).
+  const config: Record<string, unknown> = { ...credentials };
+  if (typeof config.uri === "string") {
+    config.uri = await resolveContainerHost(config.uri);
+  }
+  const connModule = createConnectionModule(type, config);
   moduleCache.set(key, { module: connModule, lastAccessedAt: Date.now() });
   startEvictionTimer();
   return connModule;
@@ -297,7 +274,6 @@ export async function executeQuery(
 
   const config = {
     ...DEFAULT_CONNECTION_CONFIG,
-    connectionType: toConnectionTypeEnum(type),
     database: credentials.database,
     rowLimit: effectiveRowLimit,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
@@ -375,7 +351,6 @@ export async function testConnection(
 
   const config = {
     ...DEFAULT_CONNECTION_CONFIG,
-    connectionType: toConnectionTypeEnum(type),
     database: credentials.database,
   };
 

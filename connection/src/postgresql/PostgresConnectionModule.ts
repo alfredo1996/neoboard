@@ -1,12 +1,11 @@
 import {
-  AuthConfig,
   ConnectionConfig,
   ConnectionModule,
+  ConnectorConfig,
   ConnectorError,
   ConnectorErrorType,
   DEFAULT_CONNECTION_CONFIG,
   determineQueryStatus,
-  PostgresAdvancedOptions,
   QueryCallback,
   QueryParams,
   QueryStatus,
@@ -32,12 +31,11 @@ export class PostgresConnectionModule extends ConnectionModule {
 
   /**
    * Creates a new PostgreSQL connection module.
-   * @param config - The authentication configuration
-   * @param advancedOptions - Optional advanced pool/timeout settings
+   * @param config - The connection's config bag (see `descriptor.ts`)
    */
-  constructor(config: AuthConfig, advancedOptions?: PostgresAdvancedOptions) {
+  constructor(config: ConnectorConfig) {
     super();
-    this.authModule = new PostgresAuthenticationModule(config, advancedOptions);
+    this.authModule = new PostgresAuthenticationModule(config);
     this.parser = new PostgresRecordParser();
   }
 

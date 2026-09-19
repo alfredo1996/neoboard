@@ -25,18 +25,24 @@ Published a plugin? List it in [`PLUGINS.md`](https://github.com/alfredo1996/neo
 
 ## Plugin Architecture
 
-A connector plugin implements the `ConnectorPlugin` interface:
+A connector plugin is a `ConnectorDescriptor` — pure data saying what the connector is and which config it needs — plus the factories that need a database driver:
 
 ```ts
-interface ConnectorPlugin {
-  type: string;           // Unique identifier (e.g., "mongodb")
-  label: string;          // Display name
-  category: string;       // "database", "graph", "api", "file"
-  queryLanguage?: string; // CodeMirror syntax (e.g., "json", "sql")
-  createModule(auth, opts): ConnectionModule;
-  formFields?: ConnectorFormField[];  // Auto-generated connection form
+interface ConnectorDescriptor {
+  type: string;             // Unique identifier (e.g., "mongodb")
+  label: string;            // Display name
+  category: string;         // "database", "graph", "api", "file"
+  queryLanguage?: string;   // CodeMirror syntax (e.g., "json", "sql")
+  fields: ConnectorField[]; // Every value the connector reads from its config
 }
+
+type ConnectorPlugin = ConnectorDescriptor & {
+  createModule(config: Record<string, unknown>): ConnectionModule;
+  createSchemaManager?(): SchemaManager;
+};
 ```
+
+`createModule` takes one config bag: the values of `fields`, keyed by each field's `key`. The connector builds its own driver auth from it, so nothing — not even a username — is mandatory for every connector.
 
 A chart plugin is created with `defineChartPlugin()`:
 

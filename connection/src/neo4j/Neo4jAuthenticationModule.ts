@@ -1,30 +1,31 @@
-import { AuthenticationModule } from "@neoboard/connector-sdk";
 import {
-  AuthConfig,
+  AuthenticationModule,
   AuthType,
-  Neo4jAdvancedOptions,
+  type AuthConfig,
+  type ConnectorConfig,
 } from "@neoboard/connector-sdk";
 import neo4j from "neo4j-driver";
 import { Driver } from "neo4j-driver-core";
+import { optionalNumber, toAuthConfig, uriProtocols } from "../config-bag";
+import { neo4jDescriptor } from "./descriptor";
 
 export class Neo4jAuthenticationModule extends AuthenticationModule {
   private _authConfig!: AuthConfig;
-  private readonly _advancedOptions?: Neo4jAdvancedOptions;
+  private readonly _config: ConnectorConfig;
   private driver!: Driver;
 
-  constructor(authConfig: AuthConfig, advancedOptions?: Neo4jAdvancedOptions) {
+  /**
+   * @param config - The connection's config bag, keyed by the descriptor's
+   *   field keys. Auth and driver options are both read from it.
+   */
+  constructor(config: ConnectorConfig) {
     super();
+    if (config == undefined) throw new Error("Connection config is required");
+    const authConfig = toAuthConfig(config);
     this._checkConfigurationConsistency(authConfig);
-    this._validateUri(authConfig.uri, [
-      "bolt:",
-      "bolt+s:",
-      "bolt+ssc:",
-      "neo4j:",
-      "neo4j+s:",
-      "neo4j+ssc:",
-    ]);
+    this._validateUri(authConfig.uri, uriProtocols(neo4jDescriptor));
     this._authConfig = authConfig;
-    this._advancedOptions = advancedOptions;
+    this._config = config;
     this.driver = this.createDriver();
   }
 
@@ -69,10 +70,10 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
         ? neo4j.auth.basic(this._authConfig.username, this._authConfig.password)
         : undefined;
     const connectionTimeout =
-      this._advancedOptions?.neo4jConnectionTimeout ?? 30000;
+      optionalNumber(this._config.connectionTimeout) ?? 30000;
     return neo4j.driver(this._authConfig.uri, auth, {
       connectionTimeout,
-      maxConnectionPoolSize: this._advancedOptions?.neo4jMaxPoolSize,
+      maxConnectionPoolSize: optionalNumber(this._config.maxPoolSize),
       // Left unset, the driver waits its own 60 s default to acquire a
       // connection — doubling every attempt against a dead host (#1678).
       // Pinned just ABOVE the connect timeout, not equal to it: the pool
@@ -81,7 +82,7 @@ export class Neo4jAuthenticationModule extends AuthenticationModule {
       // pool timeout instead of the connect failure the API maps to
       // CONNECTOR_UNAVAILABLE.
       connectionAcquisitionTimeout:
-        this._advancedOptions?.neo4jAcquisitionTimeout ??
+        optionalNumber(this._config.connectionAcquisitionTimeout) ??
         connectionTimeout + 5000,
       // Queries run through executeRead/executeWrite, which retry
       // ServiceUnavailable for the driver's 30 s default. Against a dead host

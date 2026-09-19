@@ -9,11 +9,7 @@ import { Neo4jContainer } from "@testcontainers/neo4j";
 import type { StartedNeo4jContainer } from "@testcontainers/neo4j";
 import neo4j from "neo4j-driver";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
-import {
-  AuthType,
-  ConnectionTypes,
-  DEFAULT_CONNECTION_CONFIG,
-} from "@neoboard/connector-sdk";
+import { AuthType, DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
 
 // Two Neo4j boots — give it plenty of room.
 jest.setTimeout(300_000);
@@ -23,7 +19,6 @@ let connection: Neo4jConnectionModule;
 
 const READ_CONFIG = {
   ...DEFAULT_CONNECTION_CONFIG,
-  connectionType: ConnectionTypes.NEO4J,
   timeout: 20_000,
 };
 

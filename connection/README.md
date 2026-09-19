@@ -7,12 +7,19 @@ one exposes to the query editor.
 
 ## What is in here
 
-- `neo4j/`, `postgresql/` — the built-in connectors: authentication, query
+- `neo4j/`, `postgresql/` — the built-in connectors. Each is a
+  `descriptor.ts` — pure data, no driver import: type, label, query language
+  and every config field with its key, range and accepted URI protocols, written
+  with the SDK's field builders and owned entirely by that connector — and a
+  `plugin.ts` that adds the factories (`createModule(config)`,
+  `createSchemaManager()`). The modules read their own unprefixed keys
+  (`maxPoolSize`, `connectionTimeout`, `database`, …) from that one config bag.
+  Around them: authentication, query
   execution in a read-only or write transaction, and record parsing into plain
   JavaScript values (`NeodashRecord`). Neo4j temporal, spatial and `Integer`
   values are mapped; nodes, relationships and paths are returned as the driver
   gives them, so consumers keep `.labels` and `.properties`.
-- `connector-registry.ts` — `createConnectionModule()` plus the registry
+- `connector-registry.ts` — `createConnectionModule(type, config)` plus the registry
   (`registerConnector`, `getConnector`, `getSchemaManager`). External connector
   plugins register here; `external-connectors.generated.ts` is the generated
   import list for the ones a build includes.
@@ -20,7 +27,8 @@ one exposes to the query editor.
   labels and properties, or tables and columns.
 - `form-fields.ts`, `query-languages.ts`, `connector-types.ts` — the
   client-safe metadata the app's connection form and editor read without
-  pulling in a driver.
+  pulling in a driver. The first two are projections of the descriptors, not a
+  second copy of them.
 
 The shared contracts — `AuthConfig`, `ConnectionConfig`, `QueryStatus`,
 `ConnectorError`, `SchemaManager`, `DatabaseSchema` — come from

@@ -10,6 +10,32 @@ NeoBoard versioning resets at **1.0.0**.
 > `ghcr.io` container image. 1.0.0 to 1.4.0 were never tagged or published: each was a release branch consolidated
 > into `dev`, and the date beside it is the date of that consolidation.
 
+## [1.6.0] — Unreleased — Connector-agnostic core
+
+Makes a connector the only place that knows what that connector is. A connector now declares itself as a **descriptor** — pure data: its identity, its query language, and every config field with its key, type, range and accepted URI protocols — and is built from **one config bag** instead of an auth object plus a bag of connector-prefixed options the app had to assemble. **For connector authors:** this breaks the `ConnectorPlugin` contract on purpose. `@neoboard/connector-sdk` is still `0.1.0`, unpublished and without external consumers, so the old contract is deleted rather than deprecated — see Changed and Removed if you are building against the in-repo package. Nothing changes for users: stored connection configs keep their keys (no migration), and the connection dialog renders exactly what it did.
+
+### Added
+
+- `ConnectorDescriptor` and `ConnectorField` in `@neoboard/connector-sdk`. A field has a `key` (the stored config key), a `label`, a `type` (`text`, `password`, `number`, `select`, `boolean` or `uri`), a `group` (`connection` or `advanced`) and optional `required`, `placeholder`, `description`, `options`, `min`, `max`, `unit` and — for `uri` — `protocols`. No layout, class names or components: the connector says what it needs, the app decides how it looks. The descriptor may also carry an `iconSvg` (#1897)
+- `validateConfig(descriptor, config)`: pure validation of a config against a descriptor — required fields, integer ranges, select membership, boolean type, and for `uri` fields the protocol allowlist, a hostname, a port in 1–65535 and no password in the URI. Unknown keys are stripped rather than rejected, and errors come back per field, naming the rule and never the value. It is not wired into the API routes yet (#1897)
+- `toDescriptor(plugin)`: the plain-data half of a plugin — declared keys only, no functions, JSON-serializable — which is what may be sent to a browser (#1897)
+- Field builders in `@neoboard/connector-sdk` — `uriField`, `usernameField`, `passwordField`, `databaseField`, `timeoutField` and `poolSizeField` — optional one-line shorthands for the fields most connectors share. Each returns the plain field literal under NeoBoard's conventional key, so a descriptor reads as a short list of calls with its own protocols and placeholders, and can still write any field by hand (#1897)
+- `validateUri(uri, protocols)` as a standalone export; `AuthenticationModule._validateUri` delegates to it, so there is one set of URI rules (#1897)
+
+### Changed
+
+- **Breaking, connector authors:** `ConnectorPlugin` is now `ConnectorDescriptor & { createModule(config), createSchemaManager?() }`. `createModule` takes **one config bag** — the values of the descriptor's `fields`, keyed by `field.key` — where it took `(authConfig, advancedOptions)`. The connector builds its own driver auth, reads its own unprefixed option keys and applies `database` itself, so a URI, a username and a password stop being mandatory for every connector. `SchemaManager.fetchSchema(config)` takes the same bag, where it took `(authConfig, advancedOptions)` (#1897)
+- **Breaking, connector authors:** `createConnectorRegistry().register()` **throws** where it used to log a warning: a field missing `key`, `label` or `type`, an unknown field `type` or `group`, a duplicate field key, a `select` without `options`, a `uri` field without `protocols`, an invalid `category`, or an `iconSvg` over 16 KB. `fields` is required; use `[]` for a connector with no config (#1897)
+- The built-in connectors read `connectionTimeout`, `maxPoolSize`, `connectionAcquisitionTimeout`, `idleTimeout`, `statementTimeout` and `sslRejectUnauthorized` straight from the config bag — the keys a connection already stores — instead of `neo4jMaxPoolSize`, `pgMaxPoolSize` and the other prefixed copies the app built for them. Every default is unchanged. Their URI protocols are read from the descriptor instead of being repeated in each authentication module (#1897)
+- The PostgreSQL connector applies the connection's `database` itself. The app used to rewrite the URI before the connector saw it; the precedence is the same — a database already on the URI path wins (#1897)
+- The connection-module cache is keyed on a SHA-256 of the **whole** config instead of eight enumerated fields, so two connections that differ only in an option the app has never heard of no longer share a driver. The key holds a digest and nothing readable (#1897)
+- `createConnectionModule(type, config)` in `@neoboard/connection` takes the one bag, where it took `(type, authConfig, advancedOptions)` (#1897)
+
+### Removed
+
+- From `@neoboard/connector-sdk`: `allowedProtocols`, `uriPlaceholder`, `databasePlaceholder` and `formFields` on `ConnectorPlugin`, and the `ConnectorFormField` type — all four collapse into `fields`. `Neo4jAdvancedOptions`, `PostgresAdvancedOptions` and `AdvancedConnectionOptions`, which put two connectors' option names in the contract every connector builds on. The `ConnectionTypes` enum and `ConnectionConfig.connectionType`, which no connector read (#1897)
+- From the app: `buildAdvancedOptions`, `ensureDatabaseInUri` and `toConnectionTypeEnum`, the three places it translated a stored config into something connector-specific (#1897)
+
 ## [1.5.0] — First public release
 
 The first tagged and published release. Chart authoring, editing, rule-based styling and click actions, then a correctness pass on what charts, tables and connectors display, security hardening, and a documentation site built for GitHub Pages. `@neoboard/cli` keeps its own version and is not published with this tag.

@@ -1,49 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rewriteParamsForPostgres, ensureDatabaseInUri } from "../query-params";
-
-describe("ensureDatabaseInUri", () => {
-  it("returns uri unchanged when no database provided", () => {
-    expect(ensureDatabaseInUri("postgresql://localhost:5432")).toBe(
-      "postgresql://localhost:5432",
-    );
-  });
-
-  it("returns uri unchanged when database is empty string", () => {
-    expect(ensureDatabaseInUri("postgresql://localhost:5432", "")).toBe(
-      "postgresql://localhost:5432",
-    );
-  });
-
-  it("appends database to path when path is empty", () => {
-    const result = ensureDatabaseInUri("postgresql://localhost:5432", "mydb");
-    expect(result).toContain("/mydb");
-  });
-
-  it("appends database when path is just /", () => {
-    const result = ensureDatabaseInUri("postgresql://localhost:5432/", "mydb");
-    expect(result).toContain("/mydb");
-  });
-
-  it("does not override existing database in path", () => {
-    const result = ensureDatabaseInUri(
-      "postgresql://localhost:5432/existing",
-      "other",
-    );
-    expect(result).toContain("/existing");
-    expect(result).not.toContain("/other");
-  });
-
-  it("returns uri unchanged for invalid URLs", () => {
-    expect(ensureDatabaseInUri("not-a-url", "mydb")).toBe("not-a-url");
-  });
-
-  it("works with bolt:// URIs (Neo4j)", () => {
-    const result = ensureDatabaseInUri("bolt://localhost:7687", "neo4j");
-    // bolt:// might not parse as URL — should return original
-    // If it does parse, it should append database
-    expect(typeof result).toBe("string");
-  });
-});
+import { rewriteParamsForPostgres } from "../query-params";
 
 describe("rewriteParamsForPostgres", () => {
   it("rewrites $param_xxx to positional $1, $2, ...", () => {

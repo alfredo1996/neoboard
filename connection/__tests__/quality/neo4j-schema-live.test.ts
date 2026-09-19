@@ -12,11 +12,7 @@ import { Neo4jContainer } from "@testcontainers/neo4j";
 import type { StartedNeo4jContainer } from "@testcontainers/neo4j";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
 import { Neo4jSchemaManager } from "../../src/schema/neo4j-schema";
-import {
-  AuthType,
-  ConnectionTypes,
-  DEFAULT_CONNECTION_CONFIG,
-} from "@neoboard/connector-sdk";
+import { AuthType, DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
 import type { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 
 jest.setTimeout(180_000);
@@ -33,7 +29,6 @@ const getAuth = () => ({
 
 const READ_CONFIG = {
   ...DEFAULT_CONNECTION_CONFIG,
-  connectionType: ConnectionTypes.NEO4J,
   timeout: 20_000,
 };
 

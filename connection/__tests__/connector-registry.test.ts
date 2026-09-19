@@ -15,6 +15,7 @@ const makePlugin = (
   type: "test-db",
   label: "Test DB",
   category: "database",
+  fields: [],
   createModule: () => fakeModule as any,
   ...overrides,
 });
@@ -143,72 +144,21 @@ describe("built-in connector plugins", () => {
     expect(postgresPlugin.queryLanguage).toBe("sql");
   });
 
-  it("neo4j plugin has formFields with required uri/username/password", () => {
-    const { neo4jPlugin } = require("../src/neo4j/plugin");
-    expect(neo4jPlugin.formFields).toBeDefined();
-    expect(Array.isArray(neo4jPlugin.formFields)).toBe(true);
-
-    const keys = neo4jPlugin.formFields.map((f: any) => f.key);
-    expect(keys).toContain("uri");
-    expect(keys).toContain("username");
-    expect(keys).toContain("password");
-
-    const uri = neo4jPlugin.formFields.find((f: any) => f.key === "uri");
-    expect(uri.required).toBe(true);
-    const username = neo4jPlugin.formFields.find(
-      (f: any) => f.key === "username",
-    );
-    expect(username.required).toBe(true);
-    const password = neo4jPlugin.formFields.find(
-      (f: any) => f.key === "password",
-    );
-    expect(password.required).toBe(true);
-  });
-
-  it("postgresql plugin has formFields with required uri/username/password", () => {
-    const { postgresPlugin } = require("../src/postgresql/plugin");
-    expect(postgresPlugin.formFields).toBeDefined();
-    expect(Array.isArray(postgresPlugin.formFields)).toBe(true);
-
-    const keys = postgresPlugin.formFields.map((f: any) => f.key);
-    expect(keys).toContain("uri");
-    expect(keys).toContain("username");
-    expect(keys).toContain("password");
-
-    const uri = postgresPlugin.formFields.find((f: any) => f.key === "uri");
-    expect(uri.required).toBe(true);
-    const username = postgresPlugin.formFields.find(
-      (f: any) => f.key === "username",
-    );
-    expect(username.required).toBe(true);
-    const password = postgresPlugin.formFields.find(
-      (f: any) => f.key === "password",
-    );
-    expect(password.required).toBe(true);
-  });
-
-  it("all formFields have key, label, and type", () => {
-    const { neo4jPlugin } = require("../src/neo4j/plugin");
-    const { postgresPlugin } = require("../src/postgresql/plugin");
-
-    for (const plugin of [neo4jPlugin, postgresPlugin]) {
-      for (const field of plugin.formFields) {
-        expect(field.key).toBeDefined();
-        expect(typeof field.key).toBe("string");
-        expect(field.label).toBeDefined();
-        expect(typeof field.label).toBe("string");
-        expect(field.type).toBeDefined();
-        expect(["text", "password", "number", "select", "boolean"]).toContain(
-          field.type,
-        );
+  // What the fields ARE is pinned in descriptors.test.ts; this only checks the
+  // plugins expose them where the contract says (`fields`, not `formFields`).
+  it.each(["neo4j", "postgresql"])(
+    "%s plugin declares required uri/username/password fields",
+    (type) => {
+      const { getConnector } = require("../src/connector-registry");
+      const fields = getConnector(type).fields;
+      for (const key of ["uri", "username", "password"]) {
+        expect(fields.find((f: any) => f.key === key)).toMatchObject({
+          group: "connection",
+          required: true,
+        });
       }
-    }
-  });
-
-  it("plugin without formFields has undefined field (backward compatible)", () => {
-    const plugin = makePlugin();
-    expect(plugin.formFields).toBeUndefined();
-  });
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

@@ -1,9 +1,10 @@
 /**
  * Connector plugin contract.
  *
- * Defines everything NeoBoard needs to support a new database or service
- * type. Implement this interface and call `registerConnector()` to make
- * a new connector available throughout the app.
+ * A connector is a {@link ConnectorDescriptor} — pure data saying what it is
+ * and which config it needs — plus the factories that need a database driver.
+ * Implement this and list the package in `neoboard-connectors.json` to make a
+ * new connector available throughout the app.
  *
  * Example (adding MySQL):
  *
@@ -13,67 +14,37 @@
  *     category: "database",
  *     queryLanguage: "sql",
  *     supportsWrite: true,
- *     createModule(auth, opts) { return new MysqlConnectionModule(auth, opts); },
+ *     fields: [
+ *       { key: "uri", label: "URI", type: "uri", group: "connection",
+ *         required: true, protocols: ["mysql:"] },
+ *       { key: "password", label: "Password", type: "password",
+ *         group: "connection", required: true },
+ *     ],
+ *     createModule(config) { return new MysqlConnectionModule(config); },
  *   };
- *   registerConnector(mysqlPlugin);
  */
 
 import type { ConnectionModule } from "./ConnectionModule";
-import type { AuthConfig } from "./interfaces";
+import {
+  MAX_ICON_SVG_BYTES,
+  type ConnectorConfig,
+  type ConnectorDescriptor,
+  type ConnectorField,
+} from "./descriptor";
 import type { SchemaManager } from "../schema/types";
 
 /**
  * Connector plugin — the contract a connector must satisfy.
  */
-export interface ConnectorPlugin {
-  /** Unique string identifier. Used in DB, URLs, and API payloads. */
-  type: string;
-
-  /** Human-readable display name shown in the connection type picker. */
-  label: string;
-
-  /** Category for grouping in the UI. */
-  category: "database" | "graph" | "api" | "file";
-
+export type ConnectorPlugin = ConnectorDescriptor & {
   /**
-   * Factory: create a ConnectionModule instance from auth config.
-   * This is the only method that imports the actual database driver.
+   * Factory: create a ConnectionModule from ONE config bag — the values of the
+   * descriptor's `fields`, keyed by `field.key` (see {@link ConnectorConfig}).
+   * The connector builds its own driver auth, reads its own option keys and
+   * applies `database` itself. This is the only method that touches the actual
+   * database driver.
    */
-  createModule(
-    authConfig: AuthConfig,
-    advancedOptions?: Record<string, unknown>,
-  ): ConnectionModule;
-
-  /** Does this connector produce graph data (nodes/edges)? */
-  supportsGraphData?: boolean;
-
-  /** Does this connector support write operations? */
-  supportsWrite?: boolean;
-
-  /**
-   * Query language identifier for the CodeMirror editor.
-   * Built-in: "cypher", "sql". Determines syntax highlighting.
-   */
-  queryLanguage?: string;
-
-  /**
-   * URI protocols this connector accepts (for validation).
-   * e.g. ["bolt:", "neo4j:"] or ["postgresql:"]
-   */
-  allowedProtocols?: string[];
-
-  /** Default URI placeholder shown in the connection form. */
-  uriPlaceholder?: string;
-
-  /** Default database name placeholder. */
-  databasePlaceholder?: string;
-
-  /**
-   * Form field definitions for auto-generated connection forms.
-   * When present, the UI can render a connection form without
-   * hard-coding fields for each connector type.
-   */
-  formFields?: ConnectorFormField[];
+  createModule(config: ConnectorConfig): ConnectionModule;
 
   /**
    * Factory: create a SchemaManager for introspecting this connector's
@@ -82,20 +53,7 @@ export interface ConnectorPlugin {
    * via the registry (#1119), replacing hardcoded per-type dispatch.
    */
   createSchemaManager?(): SchemaManager;
-}
-
-/**
- * Describes a single field in a connector's connection form.
- */
-export interface ConnectorFormField {
-  key: string;
-  label: string;
-  type: "text" | "password" | "number" | "select" | "boolean";
-  required?: boolean;
-  placeholder?: string;
-  options?: { label: string; value: string }[];
-  description?: string;
-}
+};
 
 /**
  * Connector registry — stores and retrieves registered connector plugins.
@@ -107,6 +65,103 @@ export interface ConnectorRegistry {
   has(type: string): boolean;
   getAll(): ConnectorPlugin[];
   getTypes(): string[];
+}
+
+const CATEGORIES = new Set(["database", "graph", "api", "file"]);
+const FIELD_TYPES = new Set([
+  "text",
+  "password",
+  "number",
+  "select",
+  "boolean",
+  "uri",
+]);
+const FIELD_GROUPS = new Set(["connection", "advanced"]);
+
+/** One way a descriptor can be malformed, and what to tell its author. */
+interface Rule<T> {
+  broken: (subject: T, seenKeys: ReadonlySet<string>) => boolean;
+  problem: (subject: T) => string;
+}
+
+const DESCRIPTOR_RULES: Rule<ConnectorPlugin>[] = [
+  {
+    broken: (plugin) => !CATEGORIES.has(plugin.category),
+    problem: (plugin) =>
+      `invalid category "${plugin.category}". Expected: ${[...CATEGORIES].join(", ")}`,
+  },
+  {
+    broken: (plugin) =>
+      plugin.iconSvg !== undefined &&
+      new TextEncoder().encode(plugin.iconSvg).length > MAX_ICON_SVG_BYTES,
+    problem: () => `iconSvg is larger than ${MAX_ICON_SVG_BYTES} bytes`,
+  },
+  {
+    broken: (plugin) => !Array.isArray(plugin.fields),
+    problem: () =>
+      "fields must be an array (use [] for a connector with no config)",
+  },
+];
+
+/** Checked in this order, per field; the first that matches names the problem. */
+const FIELD_RULES: Rule<ConnectorField>[] = [
+  {
+    broken: (field) => !field.key || !field.label || !field.type,
+    problem: () => "a field is missing key, label or type",
+  },
+  {
+    broken: (field) => !FIELD_TYPES.has(field.type),
+    problem: (field) => `field "${field.key}" has unknown type "${field.type}"`,
+  },
+  {
+    broken: (field) => !FIELD_GROUPS.has(field.group),
+    problem: (field) =>
+      `field "${field.key}" has invalid group "${field.group}"`,
+  },
+  {
+    broken: (field, seenKeys) => seenKeys.has(field.key),
+    problem: (field) => `duplicate field key "${field.key}"`,
+  },
+  {
+    broken: (field) => field.type === "select" && !field.options?.length,
+    problem: (field) => `select field "${field.key}" has no options`,
+  },
+  {
+    broken: (field) => field.type === "uri" && !field.protocols?.length,
+    problem: (field) => `uri field "${field.key}" declares no protocols`,
+  },
+];
+
+const NO_KEYS: ReadonlySet<string> = new Set();
+
+function firstProblem<T>(
+  rules: Rule<T>[],
+  subject: T,
+  seenKeys: ReadonlySet<string> = NO_KEYS,
+): string | undefined {
+  return rules.find((rule) => rule.broken(subject, seenKeys))?.problem(subject);
+}
+
+function firstFieldProblem(fields: ConnectorField[]): string | undefined {
+  const seenKeys = new Set<string>();
+  for (const field of fields) {
+    const problem = firstProblem(FIELD_RULES, field, seenKeys);
+    if (problem) return problem;
+    seenKeys.add(field.key);
+  }
+  return undefined;
+}
+
+/**
+ * Throws on a malformed descriptor. These were warnings until #1897, which
+ * meant a typo registered fine and surfaced later as a broken connection form.
+ * A connector is compiled into the server, so throwing here fails startup —
+ * where its author is looking.
+ */
+function assertValidDescriptor(plugin: ConnectorPlugin): void {
+  const problem =
+    firstProblem(DESCRIPTOR_RULES, plugin) ?? firstFieldProblem(plugin.fields);
+  if (problem) throw new Error(`Connector "${plugin.type}": ${problem}`);
 }
 
 /**
@@ -133,56 +188,7 @@ export function createConnectorRegistry(): ConnectorRegistry {
         );
       }
 
-      // Validate formFields if provided
-      if (plugin.formFields) {
-        const keys = new Set<string>();
-        for (const field of plugin.formFields) {
-          if (!field.key || !field.label || !field.type) {
-            console.warn(
-              'Connector "' +
-                plugin.type +
-                '": formField missing key/label/type:',
-              field,
-            );
-            continue; // Skip duplicate check for invalid fields
-          }
-          if (keys.has(field.key)) {
-            console.warn(
-              'Connector "' +
-                plugin.type +
-                '": duplicate formField key "' +
-                field.key +
-                '"',
-            );
-          }
-          keys.add(field.key);
-          if (
-            field.type === "select" &&
-            (!field.options || field.options.length === 0)
-          ) {
-            console.warn(
-              'Connector "' +
-                plugin.type +
-                '": select field "' +
-                field.key +
-                '" has no options',
-            );
-          }
-        }
-      }
-
-      // Validate category if provided
-      const validCategories = ["database", "graph", "api", "file"];
-      if (plugin.category && !validCategories.includes(plugin.category)) {
-        console.warn(
-          'Connector "' +
-            plugin.type +
-            '": invalid category "' +
-            plugin.category +
-            '". Expected: ' +
-            validCategories.join(", "),
-        );
-      }
+      assertValidDescriptor(plugin);
 
       plugins.set(plugin.type, plugin);
     },

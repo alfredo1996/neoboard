@@ -1,7 +1,8 @@
 /**
- * Adapts a connector's `formFields` (SDK `ConnectorFormField`, keyed by
- * `key`) into the `DynamicConnectionField` shape the UI renderer expects
- * (keyed by `name`). The connection form is generated from this — no
+ * Adapts a connector's form fields (`ConnectorFormField` from
+ * `@neoboard/connection/form-fields`, keyed by `key`) into the
+ * `DynamicConnectionField` shape the UI renderer expects (keyed by
+ * `name`). The connection form is generated from this — no
  * hardcoded per-connector field arrays in the app (#1118).
  *
  * Imports the client-safe `/form-fields` subpath, which pulls in no DB

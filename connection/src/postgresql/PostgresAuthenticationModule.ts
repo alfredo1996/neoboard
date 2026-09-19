@@ -1,7 +1,17 @@
-import { AuthenticationModule } from "@neoboard/connector-sdk";
-import { AuthConfig, PostgresAdvancedOptions } from "@neoboard/connector-sdk";
+import {
+  AuthenticationModule,
+  type AuthConfig,
+  type ConnectorConfig,
+} from "@neoboard/connector-sdk";
 import { Pool, QueryResultRow } from "pg";
 import { isAuthenticationError, runBoundedQuery } from "./utils";
+import {
+  optionalNumber,
+  optionalString,
+  toAuthConfig,
+  uriProtocols,
+} from "../config-bag";
+import { postgresDescriptor } from "./descriptor";
 
 /**
  * Translate libpq's `sslmode` into node-pg's `ssl` option (#1299).
@@ -50,19 +60,21 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
   private pool: Pool | null = null;
   private _poolInitPromise: Promise<boolean> | null = null;
   protected _authConfig!: AuthConfig;
-  private readonly _advancedOptions?: PostgresAdvancedOptions;
+  private readonly _config: ConnectorConfig;
 
   /**
    * Creates a new PostgreSQL authentication module.
-   * @param config - The authentication configuration
-   * @param advancedOptions - Optional advanced pool/timeout settings
+   * @param config - The connection's config bag, keyed by the descriptor's
+   *   field keys. Auth, database and pool options are all read from it.
    */
-  constructor(config: AuthConfig, advancedOptions?: PostgresAdvancedOptions) {
+  constructor(config: ConnectorConfig) {
     super();
-    this._checkConfigurationConsistency(config);
-    this._validateUri(config.uri, ["postgresql:", "postgres:"]);
-    this._authConfig = config;
-    this._advancedOptions = advancedOptions;
+    if (config == undefined) throw new Error("Connection config is required");
+    const authConfig = toAuthConfig(config);
+    this._checkConfigurationConsistency(authConfig);
+    this._validateUri(authConfig.uri, uriProtocols(postgresDescriptor));
+    this._authConfig = authConfig;
+    this._config = config;
     this.pool = this.createDriver();
   }
 
@@ -75,7 +87,13 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
     try {
       // Parse URI
       const url = new URL(this._authConfig.uri);
-      const database = url.pathname.slice(1) || "postgres";
+      // A database on the URI path wins; the bag's `database` fills in when
+      // the URI has none. The app used to patch it onto the URI before the
+      // connector saw it — same precedence, now applied here (#1897).
+      const database =
+        url.pathname.slice(1) ||
+        optionalString(this._config.database) ||
+        "postgres";
 
       // Build SSL config. The explicit advanced option wins — an operator set
       // it deliberately in the connection form, and a query param inherited
@@ -83,12 +101,11 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
       // back to the URI's sslmode, which every managed Postgres includes and
       // which we previously discarded, silently connecting in plaintext to
       // databases that asked for TLS (#1299).
+      const rejectUnauthorized = this._config.sslRejectUnauthorized;
       const ssl =
-        this._advancedOptions?.pgSslRejectUnauthorized === undefined
-          ? sslFromSslMode(url.searchParams.get("sslmode"))
-          : {
-              rejectUnauthorized: this._advancedOptions.pgSslRejectUnauthorized,
-            };
+        typeof rejectUnauthorized === "boolean"
+          ? { rejectUnauthorized }
+          : sslFromSslMode(url.searchParams.get("sslmode"));
 
       // Create connection pool
       const pool = new Pool({
@@ -98,9 +115,9 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
         port: parseInt(url.port || "5432", 10),
         database: database,
         connectionTimeoutMillis:
-          this._advancedOptions?.pgConnectionTimeoutMillis ?? 10000,
-        idleTimeoutMillis: this._advancedOptions?.pgIdleTimeoutMillis ?? 10000,
-        max: this._advancedOptions?.pgMaxPoolSize ?? 10,
+          optionalNumber(this._config.connectionTimeout) ?? 10000,
+        idleTimeoutMillis: optionalNumber(this._config.idleTimeout) ?? 10000,
+        max: optionalNumber(this._config.maxPoolSize) ?? 10,
         // `!== undefined`, not truthiness: sslmode=disable resolves to the
         // boolean false, which is a deliberate "no TLS" instruction and must
         // reach the pool rather than being dropped as falsy (#1299).
@@ -191,7 +208,8 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
    */
   /**
    * Runs a hardcoded introspection or health-check statement on this pool,
-   * bounded by `pgIntrospectionTimeoutMillis` (default 30s) (#1302).
+   * bounded by the connection's `statementTimeout` (default 30s) rather than a
+   * fixed value a big catalog can outlast (#1302).
    */
   introspect<R extends QueryResultRow = QueryResultRow>(
     text: string,
@@ -199,7 +217,7 @@ export class PostgresAuthenticationModule extends AuthenticationModule {
     return runBoundedQuery<R>(
       this.getPool()!,
       text,
-      this._advancedOptions?.pgIntrospectionTimeoutMillis,
+      optionalNumber(this._config.statementTimeout),
     );
   }
 

@@ -1,13 +1,12 @@
 import {
-  AuthConfig,
   collectUpToLimit,
   ConnectionConfig,
   ConnectionModule,
+  ConnectorConfig,
   ConnectorErrorType,
   DEFAULT_CONNECTION_CONFIG,
   determineQueryStatus,
   drainRetainingUpTo,
-  Neo4jAdvancedOptions,
   QueryCallback,
   QueryParams,
   QueryStatus,
@@ -19,6 +18,7 @@ import { Driver } from "neo4j-driver-core";
 import { Neo4jRecordParser } from "./Neo4jRecordParser";
 import { extractNodeAndRelPropertiesFromRecords } from "./utils";
 import { toNeo4jParams } from "./coerce-params";
+import { optionalString } from "../config-bag";
 
 /**
  * Transaction config for the hardcoded introspection and health-check queries,
@@ -37,16 +37,18 @@ const INTROSPECTION_TX_CONFIG = { timeout: DEFAULT_CONNECTION_CONFIG.timeout };
 export class Neo4jConnectionModule extends ConnectionModule {
   authModule: Neo4jAuthenticationModule;
   private readonly parser: Neo4jRecordParser;
+  /** The bag's `database` — used when a call does not name one itself. */
+  private readonly database: string | undefined;
 
   /**
    * Creates a new Neo4jConnectionModule instance.
-   * @param config - The connection configuration object.
-   * @param advancedOptions - Optional advanced pool/timeout settings.
+   * @param config - The connection's config bag (see `descriptor.ts`).
    */
-  constructor(config: AuthConfig, advancedOptions?: Neo4jAdvancedOptions) {
+  constructor(config: ConnectorConfig) {
     super();
-    this.authModule = new Neo4jAuthenticationModule(config, advancedOptions);
+    this.authModule = new Neo4jAuthenticationModule(config);
     this.parser = new Neo4jRecordParser();
+    this.database = optionalString(config.database);
   }
 
   getDriver(): Driver {
@@ -112,7 +114,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
 
     const session = this.getDriver().session({
       defaultAccessMode: neo4j.session[config.accessMode],
-      database: config.database,
+      database: config.database ?? this.database,
     });
     const isWrite = config.accessMode === "WRITE";
     const execute = isWrite
@@ -228,7 +230,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
     const driver = this.authModule.getDriver();
     const session = driver.session({
       defaultAccessMode: neo4j.session[connectionConfig?.accessMode ?? "READ"],
-      database: connectionConfig?.database,
+      database: connectionConfig?.database ?? this.database,
     });
     try {
       await session.run("RETURN 1 AS connected", {}, INTROSPECTION_TX_CONFIG);
