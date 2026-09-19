@@ -6,6 +6,7 @@ import {
   classificationOf,
   connectorUnavailableReason,
 } from "@/lib/connector/connection-error-classifier";
+import type { ConnectorErrorClassification } from "@neoboard/connection";
 import { apiLogger } from "@/lib/logger";
 import { redactString } from "@/lib/log-redact";
 import { headers } from "next/headers";
@@ -108,6 +109,53 @@ export function validateBody<T>(
 // Generic catch handler
 // ---------------------------------------------------------------------------
 
+/**
+ * The verdict of the connector that raised the error, as a response (#1903).
+ * `undefined` when neither category applies, so the caller falls through to
+ * its generic handling.
+ *
+ * Unavailable is decided BEFORE transient, and must stay that way: a connect
+ * timeout is, by its wording, also transient, so every widget on a dead
+ * connection used to get 408 + Retry-After and retry three times, each attempt
+ * waiting the full connect timeout, and the dashboard never settled (#1678).
+ * 502 carries no Retry-After — the client only auto-retries 503/408 — so this
+ * is one request per widget per refresh cycle, and `reason` lets the UI show
+ * the matching hint.
+ */
+function connectorResponse(
+  error: unknown,
+  classification: ConnectorErrorClassification | undefined,
+  fallbackMsg: string,
+  safeMessage: boolean,
+): ReturnType<typeof apiError> | undefined {
+  // A connector nobody can reach — unroutable host, refused port, bad
+  // credentials.
+  const unavailable = connectorUnavailableReason(error);
+  if (unavailable) {
+    return apiError(
+      "CONNECTOR_UNAVAILABLE",
+      safeMessage
+        ? fallbackMsg
+        : sanitizeErrorMessage((error as Error).message, fallbackMsg),
+      { reason: unavailable },
+    );
+  }
+  // Transient failures — a query timeout, a dropped connection, a busy pool.
+  // These look like 500s but a quick retry usually succeeds, so respond with
+  // 408 + Retry-After so the client can transparently retry before showing
+  // the user an error. Which errors those are is the connector's call;
+  // permanent ones (a bad statement, a missing table) hit the regular 500.
+  if (classification?.transient) {
+    return apiError(
+      "REQUEST_TIMEOUT",
+      safeMessage ? fallbackMsg : (error as Error).message,
+      undefined,
+      { "Retry-After": "3" },
+    );
+  }
+  return undefined;
+}
+
 export async function handleRouteError(
   error: unknown,
   fallbackMsg = "Internal server error",
@@ -145,38 +193,13 @@ export async function handleRouteError(
   // What the connector that raised this says it is (#1903). Undefined for an
   // error no connector raised: the app recognises no driver's words itself.
   const classification = classificationOf(error);
-  // A connector nobody can reach — unroutable host, refused port, bad
-  // credentials. Checked BEFORE the transient branch on purpose: a connect
-  // timeout is, by its wording, also transient, so every widget on a dead
-  // connection used to get 408 + Retry-After and retry three times, each
-  // attempt waiting the full connect timeout, and the dashboard never settled
-  // (#1678). 502 with no Retry-After — the client only auto-retries 503/408,
-  // so this is one request per widget per refresh cycle. `reason` lets the UI
-  // show the matching hint.
-  const unavailable = connectorUnavailableReason(error);
-  if (unavailable) {
-    return apiError(
-      "CONNECTOR_UNAVAILABLE",
-      options?.safeMessage
-        ? fallbackMsg
-        : sanitizeErrorMessage((error as Error).message, fallbackMsg),
-      { reason: unavailable },
-    );
-  }
-  // Transient failures — a query timeout, a dropped connection, a busy pool.
-  // These look like 500s but a quick retry usually succeeds, so respond with
-  // 408 + Retry-After so the client can transparently retry before showing
-  // the user an error. Which errors those are is the connector's call;
-  // permanent ones (a bad statement, a missing table) hit the regular 500.
-  if (classification?.transient) {
-    const transientMsg = (error as Error).message;
-    return apiError(
-      "REQUEST_TIMEOUT",
-      options?.safeMessage ? fallbackMsg : transientMsg,
-      undefined,
-      { "Retry-After": "3" },
-    );
-  }
+  const classified = connectorResponse(
+    error,
+    classification,
+    fallbackMsg,
+    options?.safeMessage === true,
+  );
+  if (classified) return classified;
   const message = error instanceof Error ? error.message : fallbackMsg;
   if (message.includes("Unauthorized") || message.includes("session")) {
     return unauthorized();
