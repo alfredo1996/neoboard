@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getScheduler,
   listSchedulers,
@@ -82,6 +82,22 @@ describe("scheduler-registry", () => {
     });
     pending.catch(() => {});
     expect(s.getStats().queueDepth).toBe(1);
+  });
+
+  // #1426: a production Next build gives instrumentation.ts and every route
+  // handler their own copy of this module (#1888). The scheduler middleware
+  // runs from instrumentation's copy and the connection-test route from its
+  // own, so a module-level Map gave one connection two schedulers and two
+  // budgets. `vi.resetModules()` is that second bundle.
+  it("hands every copy of the module the same scheduler for a connection", async () => {
+    const first = getScheduler("conn-shared");
+    vi.resetModules();
+    const secondCopy = await import("@/lib/query/scheduler-registry");
+    expect(secondCopy.getScheduler).not.toBe(getScheduler);
+    expect(secondCopy.getScheduler("conn-shared")).toBe(first);
+    expect(secondCopy.listSchedulers().map((e) => e.connectionId)).toEqual([
+      "conn-shared",
+    ]);
   });
 
   it("accepts an explicit options override per call", () => {

@@ -198,9 +198,15 @@ export function useUpdateConnection() {
 
 export function useTestConnection() {
   return useMutation({
-    mutationFn: async (id: string) => {
+    /**
+     * `batch` marks a probe that is one of many ("Test all", #1426): the
+     * server schedules it at load priority, behind anyone working on that
+     * connection. A single Test sends nothing and runs as interactive.
+     */
+    mutationFn: async ({ id, batch }: { id: string; batch?: boolean }) => {
       const res = await fetch(`/api/connections/${id}/test`, {
         method: "POST",
+        ...(batch ? { headers: { "x-query-priority": "2" } } : {}),
       });
       return unwrapResponse<{ success: boolean; error?: string }>(res);
     },

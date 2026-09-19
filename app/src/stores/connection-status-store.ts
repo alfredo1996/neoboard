@@ -17,7 +17,8 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
  * ~85ms of badge churn per visit, on a page where nothing had changed.
  *
  * A module-level store outlives the mount, so a revisit paints the last known
- * status immediately and revalidates behind it.
+ * status immediately. Nothing revalidates behind it: since #1426 a connection
+ * is probed only when the user asks, and is "Not checked" until then.
  *
  * Deliberately NOT persisted to storage: a status is only meaningful for as
  * long as the tab has been open. Reading a "connected" badge from last week
@@ -30,16 +31,6 @@ interface ConnectionStatusStore {
   getError: (id: string) => string | undefined;
   /** Record a definite state. Clears any stored error unless one is given. */
   setStatus: (id: string, status: ConnectionState, error?: string) => void;
-  /**
-   * Start a probe the user did not ask for (the on-mount sweep).
-   *
-   * Shows "Connecting…" only when nothing is known yet. A connection we have
-   * already tested keeps its badge until the new result lands — that is the
-   * whole point: revalidate without flickering. User-initiated probes (the
-   * manual Test action, post-create, post-edit) call `setStatus` directly,
-   * because there the progress state is the feedback the user asked for.
-   */
-  beginBackgroundProbe: (id: string) => void;
   /**
    * What a dashboard query learned about its connection (#1678).
    *
@@ -77,13 +68,6 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
           errors[id] = error;
         }
         return { statuses: { ...prev.statuses, [id]: status }, errors };
-      }),
-
-    beginBackgroundProbe: (id) =>
-      set((prev) => {
-        const current = prev.statuses[id];
-        if (current && current !== "unknown") return prev;
-        return { statuses: { ...prev.statuses, [id]: "connecting" } };
       }),
 
     noteQueryOutcome: (id, error) => {

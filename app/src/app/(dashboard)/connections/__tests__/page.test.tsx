@@ -1,0 +1,363 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import React from "react";
+import { QueueFullError } from "@/lib/api/api-client";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
+
+/**
+ * #1426 — the Connections page opens no database connection on arrival.
+ *
+ * It used to test every connection on mount: N concurrent probes, each
+ * decrypting a credential and dialling a real database, because someone
+ * opened a settings page. Now a connection is "Not checked" until the user
+ * asks, per row or with "Test all", which probes three at a time.
+ */
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+interface Row {
+  id: string;
+  name: string;
+  type: string;
+  visibility: "private" | "shared";
+  isOwner: boolean;
+}
+
+let mockRole = "creator";
+let mockConnections: Row[] = [];
+const mockTest = vi.fn();
+const mockToast = vi.fn();
+
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { role: mockRole } } }),
+}));
+
+vi.mock("@/hooks/use-connections", () => {
+  const idle = () => ({
+    mutateAsync: vi.fn(),
+    mutate: vi.fn(),
+    isPending: false,
+  });
+  return {
+    useConnections: () => ({ data: mockConnections, isLoading: false }),
+    useConnectionUsage: () => ({ data: undefined, isLoading: false }),
+    useCreateConnection: idle,
+    useUpdateConnection: idle,
+    useDeleteConnection: idle,
+    useReassignConnection: idle,
+    useTestInlineConnection: idle,
+    useTestConnection: () => ({ mutateAsync: mockTest }),
+  };
+});
+
+vi.mock("@/components/db-logos", () => ({
+  Neo4jLogo: () => null,
+  PostgreSQLLogo: () => null,
+}));
+
+vi.mock("@neoboard/components", () => {
+  const Box = ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  );
+  const Button = ({
+    children,
+    onClick,
+    disabled,
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  );
+  return {
+    Button,
+    LoadingButton: Button,
+    Input: () => null,
+    Label: Box,
+    Switch: () => null,
+    PasswordInput: () => null,
+    DynamicConnectionFields: () => null,
+    ConfirmDialog: () => null,
+    Dialog: () => null,
+    DialogContent: Box,
+    DialogHeader: Box,
+    DialogTitle: Box,
+    DialogDescription: Box,
+    DialogFooter: Box,
+    Alert: Box,
+    AlertDescription: Box,
+    EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
+    LoadingOverlay: Box,
+    PageHeader: ({
+      title,
+      actions,
+    }: {
+      title: string;
+      actions: React.ReactNode;
+    }) => (
+      <header>
+        <h1>{title}</h1>
+        {actions}
+      </header>
+    ),
+    ConnectionCard: ({
+      name,
+      status,
+      onTest,
+    }: {
+      name: string;
+      status: string;
+      onTest?: () => void;
+    }) => (
+      <div data-testid={`card-${name}`}>
+        <span>{name}</span>
+        <span data-testid="status">{status}</span>
+        {onTest && <button onClick={onTest}>Test {name}</button>}
+      </div>
+    ),
+    useToast: () => ({ toast: mockToast }),
+  };
+});
+
+import ConnectionsPage from "../page";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function rows(count: number, over: Partial<Row> = {}): Row[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `c${i + 1}`,
+    name: `conn-${i + 1}`,
+    type: "any",
+    visibility: "private" as const,
+    isOwner: true,
+    ...over,
+  }));
+}
+
+/** Probes the test settles by hand, keyed by connection id. */
+function manualProbes() {
+  const settle = new Map<string, (result: unknown) => void>();
+  const fail = new Map<string, (error: unknown) => void>();
+  mockTest.mockImplementation(
+    ({ id }: { id: string }) =>
+      new Promise((resolve, reject) => {
+        settle.set(id, resolve);
+        fail.set(id, reject);
+      }),
+  );
+  return { settle, fail };
+}
+
+const statusOf = (name: string) =>
+  within(screen.getByTestId(`card-${name}`)).getByTestId("status").textContent;
+
+const flush = () => act(async () => {});
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  mockRole = "creator";
+  mockConnections = [];
+  useConnectionStatusStore.getState().reset();
+});
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("ConnectionsPage — arrival (#1426)", () => {
+  it("issues zero test requests on mount, however many connections there are", async () => {
+    mockConnections = rows(12);
+    render(<ConnectionsPage />);
+    await flush();
+
+    expect(mockTest).not.toHaveBeenCalled();
+    for (const c of mockConnections) {
+      expect(statusOf(c.name)).toBe("unknown");
+    }
+  });
+
+  it("does not test on a revisit either", async () => {
+    mockConnections = rows(3);
+    const first = render(<ConnectionsPage />);
+    first.unmount();
+    render(<ConnectionsPage />);
+    await flush();
+    expect(mockTest).not.toHaveBeenCalled();
+  });
+
+  it("offers Test all, enabled, without being asked", () => {
+    mockConnections = rows(2);
+    render(<ConnectionsPage />);
+    expect(screen.getByRole("button", { name: "Test all" })).toBeEnabled();
+  });
+
+  it("offers no Test all when nothing on the page is the user's to probe", () => {
+    mockConnections = rows(2, { isOwner: false, visibility: "shared" });
+    render(<ConnectionsPage />);
+    expect(screen.queryByRole("button", { name: "Test all" })).toBeNull();
+  });
+});
+
+describe("ConnectionsPage — single Test (#1426)", () => {
+  it("probes that one connection, as an interactive request", async () => {
+    mockConnections = rows(3);
+    mockTest.mockResolvedValue({ success: true });
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test conn-2" }));
+    await flush();
+
+    expect(mockTest).toHaveBeenCalledExactlyOnceWith({ id: "c2" });
+    expect(statusOf("conn-2")).toBe("connected");
+    expect(statusOf("conn-1")).toBe("unknown");
+  });
+
+  it("says the server is busy — not that the connection failed — on backpressure", async () => {
+    mockConnections = rows(1);
+    mockTest.mockRejectedValue(new QueueFullError("queue full", 2000));
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test conn-1" }));
+    await flush();
+
+    expect(statusOf("conn-1")).toBe("unknown");
+    expect(mockToast).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ title: "Server busy" }),
+    );
+  });
+
+  it("keeps a verdict it already had when a re-test is turned away", async () => {
+    mockConnections = rows(1);
+    useConnectionStatusStore.getState().setStatus("c1", "error", "refused");
+    mockTest.mockRejectedValue(new QueueFullError("queue full", 2000));
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test conn-1" }));
+    await flush();
+
+    // A busy server is no information: it must not erase what was known.
+    expect(statusOf("conn-1")).toBe("error");
+    expect(useConnectionStatusStore.getState().getError("c1")).toBe("refused");
+  });
+
+  it("still reports any other failure as an error", async () => {
+    mockConnections = rows(1);
+    mockTest.mockRejectedValue(new Error("Not found"));
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test conn-1" }));
+    await flush();
+
+    expect(statusOf("conn-1")).toBe("error");
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("ConnectionsPage — Test all (#1426)", () => {
+  it("probes only what the user may probe: owned connections, not shared ones (#1545)", async () => {
+    mockConnections = [
+      ...rows(2),
+      { ...rows(1)[0], id: "s1", name: "shared-1", isOwner: false },
+      { ...rows(1)[0], id: "s2", name: "shared-2", isOwner: false },
+    ];
+    mockTest.mockResolvedValue({ success: true });
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test all" }));
+    await flush();
+
+    expect(mockTest.mock.calls.map(([input]) => input)).toEqual([
+      { id: "c1", batch: true },
+      { id: "c2", batch: true },
+    ]);
+    expect(statusOf("shared-1")).toBe("unknown");
+    expect(statusOf("shared-2")).toBe("unknown");
+  });
+
+  it("probes every connection for an admin", async () => {
+    mockRole = "admin";
+    mockConnections = [
+      ...rows(1),
+      { ...rows(1)[0], id: "o1", name: "other-1", isOwner: false },
+    ];
+    mockTest.mockResolvedValue({ success: true });
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test all" }));
+    await flush();
+
+    expect(mockTest.mock.calls.map(([input]) => input.id)).toEqual([
+      "c1",
+      "o1",
+    ]);
+  });
+
+  it("runs three at a time, updates each row as its result lands, and shows progress", async () => {
+    mockConnections = rows(7);
+    const { settle } = manualProbes();
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test all" }));
+    await flush();
+
+    // Three in flight, never seven.
+    expect(mockTest).toHaveBeenCalledTimes(3);
+    const running = screen.getByRole("button", { name: /Tested 0 of 7/ });
+    expect(running).toBeDisabled();
+    expect(statusOf("conn-1")).toBe("connecting");
+    expect(statusOf("conn-4")).toBe("unknown");
+
+    // conn-1 hangs. Its neighbours land, their rows update at once, and the
+    // freed slots go to the next two — the hang holds one slot, not the run.
+    await act(async () => {
+      settle.get("c2")!({ success: true });
+      settle.get("c3")!({ success: false, error: "refused" });
+    });
+    expect(statusOf("conn-2")).toBe("connected");
+    expect(statusOf("conn-3")).toBe("error");
+    expect(statusOf("conn-1")).toBe("connecting");
+    expect(mockTest).toHaveBeenCalledTimes(5);
+    expect(
+      screen.getByRole("button", { name: /Tested 2 of 7/ }),
+    ).toBeDisabled();
+
+    await act(async () => {
+      for (const id of ["c4", "c5"]) settle.get(id)!({ success: true });
+    });
+    await act(async () => {
+      for (const id of ["c6", "c7", "c1"]) settle.get(id)!({ success: true });
+    });
+
+    expect(mockTest).toHaveBeenCalledTimes(7);
+    expect(screen.getByRole("button", { name: "Test all" })).toBeEnabled();
+    for (const c of mockConnections) {
+      expect(statusOf(c.name)).toMatch(/connected|error/);
+    }
+  });
+
+  it("reports busy once for the whole run, and leaves those rows unchecked", async () => {
+    mockConnections = rows(4);
+    mockTest.mockImplementation(({ id }: { id: string }) =>
+      id === "c1" || id === "c3"
+        ? Promise.reject(new QueueFullError("queue full", 2000))
+        : Promise.resolve({ success: true }),
+    );
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test all" }));
+    await flush();
+
+    expect(statusOf("conn-1")).toBe("unknown");
+    expect(statusOf("conn-2")).toBe("connected");
+    expect(statusOf("conn-3")).toBe("unknown");
+    expect(mockToast).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        title: "Server busy",
+        description: expect.stringContaining("2 connections"),
+      }),
+    );
+  });
+});

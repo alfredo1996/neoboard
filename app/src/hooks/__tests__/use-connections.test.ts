@@ -16,6 +16,7 @@ const {
   useTestConnection,
   useTestInlineConnection,
 } = await import("../use-connections");
+const { QueueFullError } = await import("@/lib/api/api-client");
 
 // ---------------------------------------------------------------------------
 // Helper to create a mock Response
@@ -245,9 +246,12 @@ describe("use-connections", () => {
       const body = { success: true };
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse(body));
       const config = useTestConnection() as unknown as {
-        mutationFn: (id: string) => Promise<unknown>;
+        mutationFn: (input: {
+          id: string;
+          batch?: boolean;
+        }) => Promise<unknown>;
       };
-      const result = await config.mutationFn("c5");
+      const result = await config.mutationFn({ id: "c5" });
       expect(result).toEqual(body);
       expect(globalThis.fetch).toHaveBeenCalledWith(
         "/api/connections/c5/test",
@@ -259,9 +263,12 @@ describe("use-connections", () => {
       const body = { success: false, error: "Connection refused" };
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse(body));
       const config = useTestConnection() as unknown as {
-        mutationFn: (id: string) => Promise<unknown>;
+        mutationFn: (input: {
+          id: string;
+          batch?: boolean;
+        }) => Promise<unknown>;
       };
-      const result = await config.mutationFn("c5");
+      const result = await config.mutationFn({ id: "c5" });
       expect(result).toEqual(body);
     });
 
@@ -270,9 +277,53 @@ describe("use-connections", () => {
         mockResponse({ error: "Not found" }, 404),
       );
       const config = useTestConnection() as unknown as {
-        mutationFn: (id: string) => Promise<unknown>;
+        mutationFn: (input: {
+          id: string;
+          batch?: boolean;
+        }) => Promise<unknown>;
       };
-      await expect(config.mutationFn("bad")).rejects.toThrow("Not found");
+      await expect(config.mutationFn({ id: "bad" })).rejects.toThrow(
+        "Not found",
+      );
+    });
+
+    // #1426: "Test all" tells the scheduler its probes are a batch (P2), so
+    // they queue behind anyone working on that connection. A single Test
+    // sends no header and runs as interactive.
+    it("marks a Test-all probe as load priority", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ success: true }),
+      );
+      const config = useTestConnection() as unknown as {
+        mutationFn: (input: {
+          id: string;
+          batch?: boolean;
+        }) => Promise<unknown>;
+      };
+      await config.mutationFn({ id: "c5", batch: true });
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/connections/c5/test",
+        {
+          method: "POST",
+          headers: { "x-query-priority": "2" },
+        },
+      );
+    });
+
+    it("throws the typed backpressure error on 503, so the page can say busy", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+        ...mockResponse({ data: null, error: { message: "queue full" } }, 503),
+        headers: new Headers({ "Retry-After": "2" }),
+      } as Response);
+      const config = useTestConnection() as unknown as {
+        mutationFn: (input: {
+          id: string;
+          batch?: boolean;
+        }) => Promise<unknown>;
+      };
+      await expect(config.mutationFn({ id: "c5" })).rejects.toBeInstanceOf(
+        QueueFullError,
+      );
     });
   });
 
