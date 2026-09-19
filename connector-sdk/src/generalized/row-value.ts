@@ -167,11 +167,12 @@ export function toIsoDuration(parts: DurationParts): string {
   const abs = nanos < 0n ? -nanos : nanos;
 
   const wholeSeconds = abs / NANOS_PER_SECOND;
-  const fraction = (abs % NANOS_PER_SECOND)
-    .toString()
-    .padStart(9, "0")
-    .replace(/0+$/, "");
-  const seconds = `${wholeSeconds % 60n}${fraction && `.${fraction}`}`;
+  // Trailing zeros are trimmed by hand rather than with `/0+$/`: that pattern
+  // backtracks super-linearly, and a nine-digit input is cheaper to walk.
+  let digits = (abs % NANOS_PER_SECOND).toString().padStart(9, "0");
+  while (digits.endsWith("0")) digits = digits.slice(0, -1);
+  const fraction = digits && `.${digits}`;
+  const seconds = `${wholeSeconds % 60n}${fraction}`;
 
   const date =
     unit(months / 12n, "Y") +
@@ -186,5 +187,6 @@ export function toIsoDuration(parts: DurationParts): string {
     .join("");
 
   if (!date && !time) return "PT0S";
-  return `P${date}${time && `T${time}`}`;
+  const timePart = time && `T${time}`;
+  return `P${date}${timePart}`;
 }
