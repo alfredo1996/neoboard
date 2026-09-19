@@ -1,0 +1,609 @@
+{
+  "postgresql | 23502 | null value in column \"rating\" of relation \"feedback\" ...": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "The field \"rating\" is required.",
+      "column": "rating"
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 23502 | null value": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A required field is missing."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 23505 | duplicate key": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "CONFLICT",
+      "message": "A record with these values already exists."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 23503 | foreign key": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A referenced record does not exist."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 23514 | check": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A value failed a validation constraint."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 23514 | chk": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A value failed a validation constraint (rating_range)."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 22P02 | bad text": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A value has an invalid format."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 22003 | out of range": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A numeric value is out of range."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 22001 | value too long": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A value is too long."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 22007 | bad date": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A date or time value is invalid."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 22008 | date overflow": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A date or time value is invalid."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 23P01 | exclusion": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A record conflicts with an existing one."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 25006 | cannot execute INSERT in a read-only transaction": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "FORBIDDEN",
+      "message": "This connection is read-only; writes are not permitted."
+    },
+    "blockedWrite": true
+  },
+  "neo4j | Neo.ClientError.Schema.ConstraintValidationFailed | Node(1) already exists with label `Person` and property `id`": {
+    "code": "unknown",
+    "transient": false,
+    "write": {
+      "code": "VALIDATION_ERROR",
+      "message": "A value violates a database constraint."
+    },
+    "blockedWrite": false
+  },
+  "postgresql | 42601 | syntax error at or near \"THIS\"": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | 42P01 | relation \"x\" does not exist": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | 42703 | column \"x\" does not exist": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | XX999 | internal": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | boom": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | connect ETIMEDOUT 10.0.0.1:5432": {
+    "code": "network",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | canceling statement due to statement timeout": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | The transaction has been terminated. timed out": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Query timeout exceeded (5000ms)": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Query timeout exceeded (5000ms)": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | read ECONNRESET": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | read ECONNRESET": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Connection terminated unexpectedly": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | write EPIPE: broken pipe": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | write EPIPE: broken pipe": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | socket hang up": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | socket hang up": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | connection acquisition timeout": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | server closed the connection unexpectedly": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | ETIMEDOUT | network error": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | ETIMEDOUT | network error": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | ECONNRESET | driver crashed": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | ECONNRESET | driver crashed": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | syntax error at or near \"FROM\"": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | relation \"users\" does not exist": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | column \"foo\" does not exist": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | permission denied for table users": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | password authentication failed for user": {
+    "code": "auth_failed",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | connect ECONNREFUSED 127.0.0.1:5432": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | getaddrinfo ENOTFOUND db.example.com": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | getaddrinfo ENOTFOUND db.example.com": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | invalid input syntax for type integer": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Invalid input '*': expected an identifier": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Cannot read properties of undefined": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Cannot read properties of undefined": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | ECONNREFUSED | nope": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | ECONNREFUSED | nope": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Connection TIMED OUT after 30s": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Connection TIMED OUT after 30s": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | STATEMENT TIMEOUT exceeded": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | syntax error at \"timeout\" near line 3": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | authentication failure": {
+    "code": "auth_failed",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | AuthenticationRateLimit": {
+    "code": "auth_failed",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | The client is unauthorized due to authentication failure.": {
+    "code": "auth_failed",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | password authentication failed for user \"neo4j\"": {
+    "code": "auth_failed",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Unauthorized: invalid credentials": {
+    "code": "auth_failed",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | connect ECONNREFUSED 127.0.0.1:7687": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | connect ETIMEDOUT": {
+    "code": "network",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | ServiceUnavailable: Could not perform discovery. No routing servers available.": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | WebSocket connection failure": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Network is unreachable": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Network is unreachable": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Connection terminated due to connection timeout": {
+    "code": "network",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | timeout exceeded when trying to connect": {
+    "code": "network",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | timeout expired": {
+    "code": "network",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Failed to connect to server. Please ensure that your database is listening on the correct host and port and that you have compatible encryption settings both on Neo4j server and driver. Note that the default encryption setting has changed in Neo4j 4.0. Caused by: Failed to establish connection in 30000ms": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Failed to establish connection in 30000ms": {
+    "code": "network",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | The transaction has been terminated. Retry your operation in a new transaction, and you should see a successful result. The transaction has not completed within the specified timeout (dbms.transaction.timeout).": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Connection acquisition timed out in 60000 ms. Pool status: Active conn count = 100, Idle conn count = 0.": {
+    "code": "unknown",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Invalid URI scheme: 'http'": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Invalid URI scheme: 'http'": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Could not parse URI": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Could not parse URI": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Unknown scheme: postgres+s": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Unknown scheme: postgres+s": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Invalid connection URI: missing host": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Invalid connection URI: missing host": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | URI malformed": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | URI malformed": {
+    "code": "bad_uri",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Something completely unrecognized happened": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Something completely unrecognized happened": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | authentication failure: ECONNREFUSED while reading server greeting": {
+    "code": "auth_failed",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | Invalid URI scheme: 'http' (ETIMEDOUT trying to connect)": {
+    "code": "bad_uri",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "neo4j | Invalid URI scheme: 'http' (ETIMEDOUT trying to connect)": {
+    "code": "bad_uri",
+    "transient": true,
+    "write": null,
+    "blockedWrite": false
+  },
+  "postgresql | syntax error at or near \"DELETE\"": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": true
+  },
+  "postgresql | syntax error at or near \"UPDATE\"": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": true
+  },
+  "postgresql | syntax error at or near \"INSERT\"": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": true
+  },
+  "neo4j | Neo.ClientError.Request.Invalid: Writing in read access mode not allowed.": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": true
+  },
+  "postgresql | cannot execute DELETE in a read-only transaction": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": true
+  },
+  "postgresql | syntax error at or near \"FROMM\"": {
+    "code": "unknown",
+    "transient": false,
+    "write": null,
+    "blockedWrite": false
+  }
+}
