@@ -99,6 +99,12 @@ const fixtures: ShapeFixtures<Raw> = {
       raw: { value: "10:30:00.5-05:30", oid: OID.timetz },
       expected: "10:30:00.5-05:30",
     },
+    // A pre-standard zone's offset carries seconds; every connector emits
+    // ±HH:MM, as the graph parser does for the same case (#1651).
+    {
+      raw: { value: "10:30:00+00:19:32", oid: OID.timetz },
+      expected: "10:30:00+00:19",
+    },
   ],
   localTime: {
     raw: { value: "12:05:03.0004", oid: OID.time },

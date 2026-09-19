@@ -346,11 +346,18 @@ export function buildShapeConformanceCases<Raw>(
     .filter((kind) => fixtures[kind] !== undefined)
     .map((kind) => ({
       name: kind,
-      run: () => {
-        for (const { raw, expected } of [fixtures[kind]!].flat()) {
-          const problem = violation(kind, parse(raw), expected);
-          if (problem) throw new Error(`shape violation (${kind}): ${problem}`);
-        }
-      },
+      run: () => runFixtures(kind, parse, [fixtures[kind]!].flat()),
     }));
+}
+
+/** Every fixture of one kind; throws on the first that violates the contract. */
+function runFixtures<Raw>(
+  kind: Kind,
+  parse: (raw: Raw) => unknown,
+  given: ShapeFixture<Raw>[],
+): void {
+  for (const { raw, expected } of given) {
+    const problem = violation(kind, parse(raw), expected);
+    if (problem) throw new Error(`shape violation (${kind}): ${problem}`);
+  }
 }

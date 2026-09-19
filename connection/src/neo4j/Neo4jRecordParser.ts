@@ -126,6 +126,15 @@ function zonedDateTimeToIso(value: DateTime): string {
   }
 }
 
+/**
+ * A Duration field for toIsoDuration: a plain number whenever a double holds
+ * it exactly, a BigInt only beyond that — so nothing is ever rounded, and an
+ * ordinary duration never pays for a BigInt conversion.
+ */
+function exactField(field: Duration["months"]): number | bigint {
+  return field.inSafeRange() ? field.toNumber() : field.toBigInt();
+}
+
 export class Neo4jRecordParser extends NeodashRecordParser {
   constructor() {
     // Constructor can be extended in the future if needed
@@ -325,13 +334,11 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     // fields cost 231 ms per 100 000 values, the whole of the parse regression
     // this change first had; measured, not guessed.
     if (value instanceof Duration) {
-      const exact = (field: Duration["months"]) =>
-        field.inSafeRange() ? field.toNumber() : field.toBigInt();
       return toIsoDuration({
-        months: exact(value.months),
-        days: exact(value.days),
-        seconds: exact(value.seconds),
-        nanoseconds: exact(value.nanoseconds),
+        months: exactField(value.months),
+        days: exactField(value.days),
+        seconds: exactField(value.seconds),
+        nanoseconds: exactField(value.nanoseconds),
       });
     }
 

@@ -95,10 +95,11 @@ function toLocalDateTime(value: unknown): unknown {
  */
 function toOffsetTime(value: unknown): unknown {
   if (typeof value !== "string") return value;
-  const match = /^(.*)([+-]\d{2})(?::(\d{2}))?(?::\d{2})?$/.exec(value);
+  // Only the offset at the tail is matched; the clock is whatever precedes it.
+  const match = /([+-]\d{2})(?::(\d{2}))?(?::\d{2})?$/.exec(value);
   if (!match) return value;
-  const [, clock, hours, minutes = "00"] = match;
-  return `${clock}${hours}:${minutes}`;
+  const [, hours, minutes = "00"] = match;
+  return `${value.slice(0, match.index)}${hours}:${minutes}`;
 }
 
 const numericText: Converter = (value) =>
@@ -212,21 +213,8 @@ export class PostgresRecordParser extends NeodashRecordParser {
     // a consumer reading .seconds got undefined rather than 0 (#1307). It then
     // became Postgres's own text ("1 mon 2 days"), which only this database
     // writes. Now the SDK's one ISO-8601 duration, as every connector emits
-    // (#1904). Not the object's own toISOString(): that prints every zero
-    // component (`P0Y0M4DT1H2M3S`) and is a second rule.
-    if (isPostgresInterval(value)) {
-      return toIsoDuration({
-        months: (value.years ?? 0) * 12 + (value.months ?? 0),
-        days: value.days ?? 0,
-        seconds:
-          (value.hours ?? 0) * 3600 +
-          (value.minutes ?? 0) * 60 +
-          (value.seconds ?? 0),
-        // `milliseconds` holds the microsecond fraction as a float (0.001 =
-        // 1 µs), so this is an integer again once rounded.
-        nanoseconds: Math.round((value.milliseconds ?? 0) * 1_000_000),
-      });
-    }
+    // (#1904).
+    if (isPostgresInterval(value)) return intervalToIsoDuration(value);
     // Everything that is not an object returned at the top.
     return this.pgConvertPlainObject(value);
   }
@@ -279,6 +267,31 @@ interface PostgresInterval {
   minutes?: number;
   seconds?: number;
   milliseconds?: number;
+}
+
+/**
+ * The interval's components into the SDK's four quantities. Not the object's
+ * own toISOString(): that prints every zero component (`P0Y0M4DT1H2M3S`) and
+ * would be a second rule beside the one every connector shares.
+ */
+function intervalToIsoDuration(interval: PostgresInterval): string {
+  const {
+    years = 0,
+    months = 0,
+    days = 0,
+    hours = 0,
+    minutes = 0,
+    seconds = 0,
+    milliseconds = 0,
+  } = interval;
+  return toIsoDuration({
+    months: years * 12 + months,
+    days,
+    seconds: hours * 3600 + minutes * 60 + seconds,
+    // `milliseconds` holds the microsecond fraction as a float (0.001 = 1 µs),
+    // so this is an integer again once rounded.
+    nanoseconds: Math.round(milliseconds * 1_000_000),
+  });
 }
 
 /** postgres-interval instances expose toPostgres() on their prototype. */
