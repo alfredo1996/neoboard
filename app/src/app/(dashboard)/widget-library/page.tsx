@@ -42,16 +42,14 @@ import {
   useToast,
 } from "@neoboard/components";
 import type { WidgetTemplate } from "@/lib/db/schema";
-import {
-  type ConnectorType,
-  CONNECTOR_TYPES,
-  CONNECTOR_LABELS,
-} from "@/lib/connector/connector-types";
-import { CONNECTOR_QUERY_LANGUAGES } from "@neoboard/connection/query-languages";
+import type { ConnectorType } from "@/lib/connector/connector-types";
+import { editorLanguageForConnector } from "@/lib/connector/editor-language";
+import { useConnectors } from "@/hooks/use-connectors";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 
 function TemplateCard({
   template,
+  language,
   canEdit,
   canDelete,
   onEdit,
@@ -62,6 +60,8 @@ function TemplateCard({
   onUseInDashboard,
 }: {
   readonly template: WidgetTemplate;
+  /** Editor language of the template's connector; "" is plain text. */
+  readonly language: string;
   readonly canEdit: boolean;
   readonly canDelete: boolean;
   readonly onEdit: () => void;
@@ -181,10 +181,7 @@ function TemplateCard({
             Content widget — no query
           </p>
         ) : (
-          <CodePreview
-            value={template.query}
-            language={CONNECTOR_QUERY_LANGUAGES[template.connectorType] ?? ""}
-          />
+          <CodePreview value={template.query} language={language} />
         )}
 
         <div className="flex items-center justify-between gap-2">
@@ -229,6 +226,7 @@ export default function WidgetLibraryPage() {
   const deleteTemplate = useDeleteWidgetTemplate();
   const createTemplate = useCreateWidgetTemplate();
   const { data: connections = [] } = useConnections();
+  const { data: connectors = [] } = useConnectors();
   const [testingTemplateId, setTestingTemplateId] = useState<string | null>(
     null,
   );
@@ -411,9 +409,9 @@ export default function WidgetLibraryPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All connectors</SelectItem>
-              {CONNECTOR_TYPES.map((ct) => (
-                <SelectItem key={ct} value={ct}>
-                  {CONNECTOR_LABELS[ct]}
+              {connectors.map((c) => (
+                <SelectItem key={c.type} value={c.type}>
+                  {c.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -472,6 +470,10 @@ export default function WidgetLibraryPage() {
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {filtered.map((template) => (
                 <TemplateCard
+                  language={editorLanguageForConnector(
+                    connectors,
+                    template.connectorType,
+                  )}
                   key={template.id}
                   template={template}
                   canEdit={canEditOrDelete(template)}

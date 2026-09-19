@@ -54,8 +54,9 @@ export function apiSuccess(
   data: unknown,
   status = 200,
   meta: Record<string, unknown> | null = null,
+  headers?: Record<string, string>,
 ) {
-  return NextResponse.json({ data, error: null, meta }, { status });
+  return NextResponse.json({ data, error: null, meta }, { status, headers });
 }
 
 /** List response with pagination meta. */

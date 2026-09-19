@@ -30,15 +30,21 @@ vi.mock("@neoboard/components", () => ({
   DialogFooter: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  CodePreview: ({ value }: { value: string }) => <pre>{value}</pre>,
+  CodePreview: ({ value, language }: { value: string; language: string }) => (
+    <pre data-language={language}>{value}</pre>
+  ),
 }));
 
 vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (t: string) => ({ label: t }),
 }));
 
-vi.mock("@neoboard/connection/query-languages", () => ({
-  CONNECTOR_QUERY_LANGUAGES: { neo4j: "cypher", postgresql: "sql" },
+// What GET /api/connectors serves (#1899): a fixture connector, so the
+// highlighting below can only have come from the descriptor list.
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnectors: () => ({
+    data: [{ type: "acme-sheets", queryLanguage: "acmeql" }],
+  }),
 }));
 
 import { TemplateBrowser } from "../template-browser";
@@ -98,6 +104,27 @@ describe("TemplateBrowser", () => {
       />,
     );
     expect(screen.getByText("Movies Bar Chart")).toBeInTheDocument();
+  });
+
+  it("highlights each query in its connector's language, read from the descriptor list", () => {
+    render(
+      <TemplateBrowser
+        templates={[
+          { ...sampleTemplate, connectorType: "acme-sheets", query: "SHEET 1" },
+          { ...sampleTemplate, id: "t2", connectorType: "gone", query: "??" },
+        ]}
+        loading={false}
+        connectorType={null}
+        onApply={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("SHEET 1")).toHaveAttribute(
+      "data-language",
+      "acmeql",
+    );
+    // A connector that is not installed: plain text, not somebody's grammar.
+    expect(screen.getByText("??")).toHaveAttribute("data-language", "");
   });
 
   it("filters by search", () => {

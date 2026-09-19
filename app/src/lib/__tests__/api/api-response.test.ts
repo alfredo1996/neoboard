@@ -34,6 +34,11 @@ describe("apiSuccess", () => {
     const body = await res.json();
     expect(body.meta).toEqual({ resultId: "abc" });
   });
+
+  it("accepts response headers, the way apiError does", () => {
+    const res = apiSuccess([], 200, null, { "Cache-Control": "private" });
+    expect(res.headers.get("Cache-Control")).toBe("private");
+  });
 });
 
 describe("apiList", () => {

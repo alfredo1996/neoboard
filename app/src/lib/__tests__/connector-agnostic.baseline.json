@@ -2,7 +2,7 @@
   "names": {
     "app/src/app/(auth)/login/page.tsx": 2,
     "app/src/app/(auth)/signup/page.tsx": 2,
-    "app/src/app/(dashboard)/connections/page.tsx": 19,
+    "app/src/app/(dashboard)/connections/page.tsx": 2,
     "app/src/app/(dashboard)/page.tsx": 7,
     "app/src/app/api/connections/[id]/reassign/route.ts": 1,
     "app/src/app/api/connections/list-databases-inline/route.ts": 2,
@@ -10,7 +10,6 @@
     "app/src/app/api/dashboards/route.ts": 1,
     "app/src/app/layout.tsx": 6,
     "app/src/components/dashboard-workspace.tsx": 2,
-    "app/src/components/db-logos.tsx": 8,
     "app/src/components/save-template-dialog.tsx": 1,
     "app/src/components/table-renderer.tsx": 2,
     "app/src/components/widget-editor-modal.tsx": 3,
@@ -58,16 +57,10 @@
     "component/src/charts/base-chart.tsx": 1,
     "component/src/charts/graph-chart.tsx": 7,
     "component/src/charts/nvl-color.ts": 1,
-    "component/src/charts/types.ts": 1,
-    "component/src/components/composed/connection-card.tsx": 2
+    "component/src/charts/types.ts": 1
   },
   "exports": {
-    "connection/src/index.ts": [
-      "Neo4jSchemaManager",
-      "PostgresSchemaManager",
-      "neo4jFormFields",
-      "postgresFormFields"
-    ],
+    "connection/src/index.ts": ["Neo4jSchemaManager", "PostgresSchemaManager"],
     "connector-sdk/src/index.ts": [
       "detectNeo4jErrorType",
       "detectPostgresErrorType"

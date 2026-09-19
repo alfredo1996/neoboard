@@ -89,6 +89,16 @@ describe.each([
     ]);
   });
 
+  it("ships its own icon: a standalone SVG document with nothing executable in it", () => {
+    // The app renders it through <img src="data:image/svg+xml,…"> (#1899), so
+    // it must stand alone — an <img> SVG without the namespace renders blank.
+    // Scripts could not run there anyway; keeping them out is belt and braces.
+    expect(descriptor.iconSvg).toMatch(
+      /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 24 24" fill="#[0-9A-F]{6}"><path d="[^"]+"\/><\/svg>$/,
+    );
+    expect(descriptor.iconSvg).not.toMatch(/<script|\son\w+=|href/i);
+  });
+
   it("does not declare maxRows — the row cap is the app's policy", () => {
     expect(byKey(descriptor).maxRows).toBeUndefined();
   });

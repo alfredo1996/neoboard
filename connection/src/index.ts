@@ -19,15 +19,6 @@ export { PostgresSchemaManager } from "./schema/pg-schema";
 /// Connector type constants
 export { CONNECTOR_TYPES, CONNECTOR_LABELS } from "./connector-types";
 export type { ConnectorType } from "./connector-types";
-/// Built-in connector form fields (client-safe — no drivers)
-export {
-  CONNECTOR_FORM_FIELDS,
-  neo4jFormFields,
-  postgresFormFields,
-} from "./form-fields";
-export type { ConnectorFormField } from "./form-fields";
-/// Built-in connector query languages (client-safe — no drivers)
-export { CONNECTOR_QUERY_LANGUAGES } from "./query-languages";
 /// Connector plugin system
 export type {
   ConnectorPlugin,

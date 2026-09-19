@@ -4,7 +4,9 @@ import { DOCS_LINKS } from "@/lib/docs-links";
 import { useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Database, Plus, ChevronDown, RefreshCw } from "lucide-react";
-import { Neo4jLogo, PostgreSQLLogo } from "@/components/db-logos";
+import { ConnectorIcon } from "@/components/connector-icon";
+import { ConnectorTypePicker } from "@/components/connector-type-picker";
+import { useConnector, useConnectors } from "@/hooks/use-connectors";
 import {
   useConnections,
   useConnectionUsage,
@@ -45,11 +47,8 @@ import { useConnectionStatusStore } from "@/stores/connection-status-store";
 import { connectionsToProbe } from "@/lib/connector/connections-to-probe";
 import { runWindowed } from "@/lib/connector/run-windowed";
 import { ClientQueueTimeoutError, QueueFullError } from "@/lib/api/api-client";
-import { connectionFieldsFor } from "@/lib/connector/connection-form-fields";
-import {
-  type ConnectorType,
-  CONNECTOR_LABELS,
-} from "@/lib/connector/connector-types";
+import { connectionFieldsOf } from "@/lib/connector/connection-fields";
+import type { ConnectorType } from "@/lib/connector/connector-types";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 import { validateConnectionUri } from "@/lib/connector/validate-connection-uri";
 import { missingRequiredConnectionFields } from "@/lib/connector/connection-form-validation";
@@ -65,7 +64,9 @@ const TEST_ALL_WINDOW = 3;
 
 const DEFAULT_FORM = {
   name: "",
-  type: "neo4j" as ConnectorType,
+  // No connector is the default: the type picker (or Duplicate) sets it before
+  // the form shows. The cast goes when #1900 opens `ConnectorType` to string.
+  type: "" as ConnectorType,
   uri: "",
   username: "",
   password: "",
@@ -86,6 +87,17 @@ export default function ConnectionsPage() {
   const { toast } = useToast();
   const isAdmin = session?.user?.role === "admin";
   const { data: connections, isLoading } = useConnections();
+  // #1899: every connector fact on this page — label, icon, category, fields,
+  // placeholders — is read from the descriptors the server hands over.
+  const connectorsQuery = useConnectors();
+  const connectors = connectorsQuery.data;
+  /**
+   * A stored connection can outlive its connector — an external one that was
+   * uninstalled. Known only once the descriptors are in: until then, and when
+   * they cannot be loaded, no connection is called uninstalled.
+   */
+  const isInstalled = (type: string) =>
+    connectors === undefined || connectors.some((c) => c.type === type);
   const createConnection = useCreateConnection();
   const updateConnection = useUpdateConnection();
   const deleteConnection = useDeleteConnection();
@@ -137,6 +149,8 @@ export default function ConnectionsPage() {
     type: ConnectorType;
   } | null>(null);
   const [editForm, setEditForm] = useState(DEFAULT_FORM);
+  const formConnector = useConnector(form.type);
+  const editConnector = useConnector(editTarget?.type);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [showEditAdvanced, setShowEditAdvanced] = useState(true);
@@ -249,8 +263,9 @@ export default function ConnectionsPage() {
     setShowAdvanced(false);
   }
 
-  function handlePickType(type: ConnectorType) {
-    setForm((f) => ({ ...f, type }));
+  function handlePickType(type: string) {
+    // Whatever is installed may be picked. The cast goes with #1900.
+    setForm((f) => ({ ...f, type: type as ConnectorType }));
     setDialogStep("fill-form");
   }
 
@@ -354,7 +369,9 @@ export default function ConnectionsPage() {
 
   // #1545: only what the user may probe — the test route 404s for the rest,
   // which would paint a red Error over a healthy shared connection.
-  const probeable = connectionsToProbe(connections ?? [], isAdmin);
+  const probeable = connectionsToProbe(connections ?? [], isAdmin).filter((c) =>
+    isInstalled(c.type),
+  );
 
   /** Three at a time, each row updating as its own result lands (#1426). */
   async function handleTestAll() {
@@ -551,40 +568,19 @@ export default function ConnectionsPage() {
           {dialogStep === "pick-type" ? (
             <>
               <DialogHeader>
-                <DialogTitle>Choose Database Type</DialogTitle>
+                <DialogTitle>Choose Connection Type</DialogTitle>
                 <DialogDescription>
-                  Select the kind of database this connection points at.
-                  You&apos;ll configure its details next.
+                  Select what this connection points at. You&apos;ll configure
+                  its details next.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-4 py-4">
-                <button
-                  data-testid="pick-neo4j"
-                  onClick={() => handlePickType("neo4j")}
-                  className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-6 text-center transition-colors hover:border-primary hover:bg-accent cursor-pointer"
-                >
-                  <Neo4jLogo className="h-10 w-10" />
-                  <div>
-                    <p className="font-semibold">Neo4j</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Graph database
-                    </p>
-                  </div>
-                </button>
-                <button
-                  data-testid="pick-postgresql"
-                  onClick={() => handlePickType("postgresql")}
-                  className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-border p-6 text-center transition-colors hover:border-primary hover:bg-accent cursor-pointer"
-                >
-                  <PostgreSQLLogo className="h-10 w-10" />
-                  <div>
-                    <p className="font-semibold">PostgreSQL</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Relational database
-                    </p>
-                  </div>
-                </button>
-              </div>
+              <ConnectorTypePicker
+                connectors={connectors}
+                isLoading={connectorsQuery.isLoading}
+                isError={connectorsQuery.isError}
+                onRetry={() => connectorsQuery.refetch()}
+                onPick={handlePickType}
+              />
             </>
           ) : (
             <form
@@ -594,7 +590,7 @@ export default function ConnectionsPage() {
             >
               <DialogHeader>
                 <DialogTitle>
-                  New {CONNECTOR_LABELS[form.type]} Connection
+                  New {formConnector?.label ?? form.type} Connection
                 </DialogTitle>
                 <DialogDescription>
                   Enter the host, credentials and options for this connection.
@@ -627,10 +623,10 @@ export default function ConnectionsPage() {
                   />
                 </div>
 
-                {/* Credential fields generated from the connector's
-                    formFields (#1118) — no hardcoded per-connector arrays. */}
+                {/* Credential fields generated from the connector's descriptor
+                    (#1118, #1899) — no hardcoded per-connector arrays. */}
                 <DynamicConnectionFields
-                  fields={connectionFieldsFor(form.type)}
+                  fields={connectionFieldsOf(formConnector)}
                   values={form}
                   onChange={(name, value) =>
                     // Built-in credential fields are all text/password, so the
@@ -878,9 +874,8 @@ export default function ConnectionsPage() {
                     }
                     required
                     placeholder={
-                      editTarget?.type === "neo4j"
-                        ? "bolt://localhost:7687"
-                        : "postgresql://localhost:5432"
+                      editConnector?.fields.find((f) => f.type === "uri")
+                        ?.placeholder
                     }
                   />
                 </div>
@@ -1253,22 +1248,34 @@ export default function ConnectionsPage() {
       </Dialog>
 
       <div className="mt-6">
-        <LoadingOverlay loading={isLoading} text="Loading connections...">
+        <LoadingOverlay
+          loading={isLoading || connectorsQuery.isLoading}
+          text="Loading connections..."
+        >
           {connections?.length ? (
             <div className="space-y-3">
               {connections.map((c) => {
                 const status = getConnectionStatus(c.id);
+                const installed = isInstalled(c.type);
+                // The owner manages, or an admin (#901). With its connector
+                // gone there is nothing left to test or configure — only to
+                // delete.
+                const canManage = c.isOwner || isAdmin;
+                const canUse = canManage && installed;
                 return (
                   <div key={c.id}>
                     <ConnectionCard
                       name={c.name}
-                      host={c.type}
+                      host={
+                        installed
+                          ? c.type
+                          : `${c.type} — connector not installed`
+                      }
                       icon={
-                        c.type === "neo4j" ? (
-                          <Neo4jLogo className="h-5 w-5" />
-                        ) : (
-                          <PostgreSQLLogo className="h-5 w-5" />
-                        )
+                        <ConnectorIcon
+                          connector={connectors?.find((d) => d.type === c.type)}
+                          className="h-5 w-5 text-muted-foreground"
+                        />
                       }
                       status={status}
                       statusText={statusErrors[c.id]}
@@ -1280,29 +1287,17 @@ export default function ConnectionsPage() {
                               )
                           : undefined
                       }
-                      onTest={
-                        c.isOwner || isAdmin
-                          ? () => handleTest(c.id)
-                          : undefined
-                      }
+                      onTest={canUse ? () => handleTest(c.id) : undefined}
                       shared={c.visibility === "shared"}
                       // Management actions only for the owner (or admin —
                       // who can reach any connection via the API): shared
                       // connections render read-only for everyone else (#901).
-                      onEdit={
-                        c.isOwner || isAdmin
-                          ? () => openEditDialog(c)
-                          : undefined
-                      }
+                      onEdit={canUse ? () => openEditDialog(c) : undefined}
                       onDelete={
-                        c.isOwner || isAdmin
-                          ? () => setDeleteTarget(c.id)
-                          : undefined
+                        canManage ? () => setDeleteTarget(c.id) : undefined
                       }
                       onDuplicate={
-                        c.isOwner || isAdmin
-                          ? () => handleDuplicate(c)
-                          : undefined
+                        canUse ? () => handleDuplicate(c) : undefined
                       }
                       onToggleVisibility={
                         isAdmin && c.isOwner
