@@ -6,6 +6,8 @@ import {
   isGraphNode,
   isGraphPath,
   isGraphRelationship,
+  type GraphNodeValue,
+  type GraphRelationshipValue,
 } from "@neoboard/components/row-shapes";
 import { toRecords, normalizeValue } from "../transforms/shared-utils";
 import { randomId } from "@/lib/random-id";
@@ -58,11 +60,11 @@ export function transformToGraphData(data: unknown): unknown {
   const nodesMap = new Map<string, Record<string, unknown>>();
   const edgesMap = new Map<string, Record<string, unknown>>();
 
-  function addNode(v: Record<string, unknown>) {
+  function addNode(v: GraphNodeValue) {
     const id = String(v.elementId ?? v.identity ?? randomId());
     if (!nodesMap.has(id)) {
-      const labels = (v.labels as string[]) ?? [];
-      const rawProps = (v.properties as Record<string, unknown>) ?? {};
+      const labels = v.labels ?? [];
+      const rawProps = v.properties ?? {};
       const props = normalizeProps(rawProps);
       nodesMap.set(id, {
         id,
@@ -75,7 +77,7 @@ export function transformToGraphData(data: unknown): unknown {
     }
   }
 
-  function addEdge(v: Record<string, unknown>) {
+  function addEdge(v: GraphRelationshipValue) {
     // An unbound relationship carries none of the four endpoint keys (#1904).
     // There is nothing to draw it between, so it is skipped rather than
     // pointed at a node called "undefined".
@@ -86,7 +88,7 @@ export function transformToGraphData(data: unknown): unknown {
       v.elementId ?? v.identity ?? `${source}-${v.type}-${target}`,
     );
     if (!edgesMap.has(edgeId)) {
-      const rawProps = (v.properties ?? {}) as Record<string, unknown>;
+      const rawProps = v.properties ?? {};
       edgesMap.set(edgeId, {
         id: edgeId,
         source: String(source),
@@ -98,28 +100,18 @@ export function transformToGraphData(data: unknown): unknown {
   }
 
   function extractGraphValue(value: unknown) {
-    if (!value || typeof value !== "object") return;
-    const v = value as Record<string, unknown>;
-
     if (isGraphNode(value)) {
-      addNode(v);
+      addNode(value);
     } else if (isGraphRelationship(value)) {
-      addEdge(v);
+      addEdge(value);
     } else if (isGraphPath(value)) {
-      const segments = v.segments as Record<string, unknown>[];
-      for (const seg of segments) {
-        if (seg.start && typeof seg.start === "object") {
-          extractGraphValue(seg.start);
-        }
-        if (seg.relationship && typeof seg.relationship === "object") {
-          extractGraphValue(seg.relationship);
-        }
-        if (seg.end && typeof seg.end === "object") {
-          extractGraphValue(seg.end);
-        }
+      for (const seg of value.segments ?? []) {
+        extractGraphValue(seg.start);
+        extractGraphValue(seg.relationship);
+        extractGraphValue(seg.end);
       }
-      if (v.start && typeof v.start === "object") extractGraphValue(v.start);
-      if (v.end && typeof v.end === "object") extractGraphValue(v.end);
+      extractGraphValue(value.start);
+      extractGraphValue(value.end);
     }
   }
 
