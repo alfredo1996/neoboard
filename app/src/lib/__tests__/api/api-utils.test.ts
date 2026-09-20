@@ -181,6 +181,23 @@ describe("handleRouteError", () => {
       expect(body.error.message).toBe("The backend went away");
     });
 
+    it("redacts a credential the driver put in a transient message", async () => {
+      // The 408 path used to return the driver's message raw while the 502 path
+      // sanitized it, so a retryable error that quoted the connection URI
+      // handed the password to the browser.
+      const res = await handleRouteError(
+        classified(
+          { transient: true },
+          "connection to neo4j://neo4j:s3cr3t@db.internal:7687 was reset",
+        ),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(408);
+      const body = await res.json();
+      expect(body.error.message).not.toMatch(/s3cr3t/);
+      expect(body.error.message).toContain("db.internal");
+    });
+
     it("does NOT set Retry-After for a permanent failure", async () => {
       const res = await handleRouteError(
         classified({ transient: false }),

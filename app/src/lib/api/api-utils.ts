@@ -146,9 +146,10 @@ function connectorResponse(
   // the user an error. Which errors those are is the connector's call;
   // permanent ones (a bad statement, a missing table) hit the regular 500.
   if (classification?.transient) {
+    const raw = error instanceof Error ? error.message : fallbackMsg;
     return apiError(
       "REQUEST_TIMEOUT",
-      safeMessage ? fallbackMsg : (error as Error).message,
+      safeMessage ? fallbackMsg : sanitizeErrorMessage(raw, fallbackMsg),
       undefined,
       { "Retry-After": "3" },
     );
