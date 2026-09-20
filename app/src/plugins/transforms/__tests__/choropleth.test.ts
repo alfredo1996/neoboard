@@ -46,3 +46,13 @@ describe("connector-shaped fixtures (#1636)", () => {
     expect(regions()[0].value).toBe(48210.5);
   });
 });
+
+// #1925
+describe("transformToChoroplethData — qualified column names", () => {
+  it("resolves a qualified name and value column", () => {
+    const out = transformToChoroplethData([
+      { "c.value": 100, "c.name": "Italy" },
+    ]) as Array<{ name: string; value: number }>;
+    expect(out[0]).toMatchObject({ name: "Italy", value: 100 });
+  });
+});

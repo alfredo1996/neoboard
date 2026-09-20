@@ -5,6 +5,7 @@
  */
 
 import { toRecords, normalizeValue } from "./shared-utils";
+import { findColumn } from "@/lib/shared/column-names";
 
 type HierNode = {
   name: string;
@@ -41,13 +42,13 @@ interface Resolved {
  */
 function resolveColumns(records: Record<string, unknown>[]): Resolved {
   const keys = Object.keys(records[0]);
-  const parentKey = keys.find((k) => PARENT_RE.test(k));
+  const parentKey = findColumn(keys, PARENT_RE);
   const nameKey =
-    keys.find((k) => NAME_RE.test(k) && k !== parentKey) ??
+    findColumn(keys, NAME_RE, [parentKey]) ??
     keys.find((k) => k !== parentKey) ??
     keys[0];
   const valueKey =
-    keys.find((k) => VALUE_RE.test(k) && k !== nameKey && k !== parentKey) ??
+    findColumn(keys, VALUE_RE, [nameKey, parentKey]) ??
     keys.find((k) => {
       if (k === nameKey || k === parentKey) return false;
       const sample = records.find((r) => r[k] !== null && r[k] !== undefined);

@@ -182,3 +182,13 @@ describe("connector-shaped fixtures (#1636)", () => {
     expect(json).toMatch(/48210\.5|48330\.5/);
   });
 });
+
+// #1925
+describe("transformToHierarchicalData — qualified column names", () => {
+  it("resolves qualified name and value columns", () => {
+    const out = transformToHierarchicalData([
+      { "n.value": 3, "n.name": "Root" },
+    ]) as Array<{ name: string; value: number }>;
+    expect(out[0]).toMatchObject({ name: "Root", value: 3 });
+  });
+});

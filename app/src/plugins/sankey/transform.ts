@@ -3,6 +3,7 @@
  */
 
 import { toRecords, normalizeValue } from "../transforms/shared-utils";
+import { findColumn } from "@/lib/shared/column-names";
 
 interface SankeyLink {
   /** The query row this link came from, for the click payload (#1598). */
@@ -21,16 +22,14 @@ interface SankeyLink {
 function buildLinks(records: Record<string, unknown>[]) {
   // Resolve source/target/value columns heuristically
   const keys = Object.keys(records[0]);
-  const sourceKey = keys.find((k) => /source|from|start/i.test(k)) ?? keys[0];
-  const targetKey =
-    keys.find((k) => /target|to|end/i.test(k) && k !== sourceKey) ?? keys[1];
+  // The patterns stay loose on purpose — they match `source_node` as well as
+  // `source` — but now read the bare name, so a qualified column resolves too
+  // (#1925).
+  const sourceKey = findColumn(keys, /source|from|start/i) ?? keys[0];
+  const targetKey = findColumn(keys, /target|to|end/i, [sourceKey]) ?? keys[1];
   const valueKey =
-    keys.find(
-      (k) =>
-        /value|count|weight|amount/i.test(k) &&
-        k !== sourceKey &&
-        k !== targetKey,
-    ) ?? keys[2];
+    findColumn(keys, /value|count|weight|amount/i, [sourceKey, targetKey]) ??
+    keys[2];
 
   const links: SankeyLink[] = [];
 

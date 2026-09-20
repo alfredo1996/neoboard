@@ -3,6 +3,7 @@ import {
   normalizeValue,
   toSeriesNumber,
 } from "../transforms/shared-utils";
+import { findColumn } from "@/lib/shared/column-names";
 
 /**
  * Transform raw query results into choropleth data.
@@ -16,13 +17,12 @@ export function transformToChoroplethData(data: unknown): unknown {
   if (keys.length < 2) return [];
 
   const nameKey =
-    keys.find((k) => /^(name|country|region|state|label)$/i.test(k)) ?? keys[0];
+    findColumn(keys, /^(name|country|region|state|label)$/i) ?? keys[0];
 
   const valueKey =
-    keys.find(
-      (k) =>
-        k !== nameKey && /^(value|count|total|population|gdp|amount)$/i.test(k),
-    ) ??
+    findColumn(keys, /^(value|count|total|population|gdp|amount)$/i, [
+      nameKey,
+    ]) ??
     keys.find((k) => k !== nameKey) ??
     keys[1];
 
