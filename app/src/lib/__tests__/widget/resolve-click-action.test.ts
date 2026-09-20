@@ -50,6 +50,48 @@ describe("resolveClickAction", () => {
     });
   });
 
+  // #1925: a node cell used to set nothing, because a node is not a scalar.
+  // Its elementId is the one value that identifies it, and is what the graph
+  // transform already keys on.
+  it("sets a node cell's elementId, not nothing", () => {
+    const widget = makeWidget({
+      settings: {
+        title: "Customers",
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: {
+            parameterName: "selectedCustomer",
+            sourceField: "customer",
+          },
+        },
+      },
+    });
+    const result = resolveClickAction(widget, {
+      customer: {
+        $type: "node",
+        identity: 42,
+        elementId: "4:abc:42",
+        labels: ["Customer"],
+        properties: { name: "Ada Lovelace" },
+      },
+    });
+    expect(result?.setParameter?.value).toBe("4:abc:42");
+  });
+
+  it("still sets nothing for an untagged object cell", () => {
+    const widget = makeWidget({
+      settings: {
+        clickAction: {
+          type: "set-parameter",
+          parameterMapping: { parameterName: "p", sourceField: "config" },
+        },
+      },
+    });
+    expect(
+      resolveClickAction(widget, { config: { labels: ["x"], properties: {} } }),
+    ).toBeNull();
+  });
+
   it("returns navigateToPageId for navigate-to-page action", () => {
     const widget = makeWidget({
       settings: {

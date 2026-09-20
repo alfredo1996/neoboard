@@ -4,7 +4,7 @@
  */
 import {
   sparseOrders,
-  neo4jNode,
+  graphNode,
   timestamp,
   numericString,
 } from "@/__tests__/fixtures/connector-output";
@@ -26,11 +26,6 @@ describe("transformToTableData", () => {
   it("returns array format unchanged", () => {
     const data = [{ a: 1, b: 2 }];
     expect(transformToTableData(data)).toEqual(data);
-  });
-
-  it("unwraps { records } wrapper", () => {
-    const records = [{ a: 1 }];
-    expect(transformToTableData({ records })).toEqual(records);
   });
 
   it("returns empty array for null", () => {
@@ -426,7 +421,7 @@ describe("connector-shaped fixtures (#1636)", () => {
     >;
 
     it("passes a node-valued cell through as the parser's plain object", () => {
-      expect(rows[0].customer).toEqual(neo4jNode);
+      expect(rows[0].customer).toEqual(graphNode);
     });
 
     it("passes a null cell through as null", () => {

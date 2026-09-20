@@ -12,15 +12,15 @@ export type { ColumnMapping };
 export { normalizeValue };
 
 /**
- * Normalize query results to a flat array of record objects.
- * Handles both Neo4j (array) and PostgreSQL ({ records }) formats.
+ * Query results as a flat array of rows.
+ *
+ * Every connector returns `Row[]` — the SDK's row value contract makes that
+ * structural (#1904). The `{ records }` wrapper this used to unwrap was a
+ * fossil: nothing produced it, and only the tests that built it by hand kept
+ * the branch alive (#1925).
  */
 export function toRecords(data: unknown): Record<string, unknown>[] {
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === "object" && "records" in data) {
-    return (data as { records: Record<string, unknown>[] }).records;
-  }
-  return [];
+  return Array.isArray(data) ? data : [];
 }
 
 /**

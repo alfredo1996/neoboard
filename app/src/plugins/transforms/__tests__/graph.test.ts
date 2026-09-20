@@ -14,6 +14,7 @@ describe("transformToGraphData", () => {
     const data = [
       {
         n: {
+          $type: "node",
           elementId: "node:0",
           labels: ["Person"],
           properties: { name: "Alice" },
@@ -33,6 +34,7 @@ describe("transformToGraphData", () => {
     const data = [
       {
         r: {
+          $type: "relationship",
           elementId: "rel:0",
           type: "KNOWS",
           start: "node:0",
@@ -53,6 +55,7 @@ describe("transformToGraphData", () => {
 
   it("deduplicates nodes", () => {
     const node = {
+      $type: "node",
       elementId: "node:42",
       labels: ["City"],
       properties: { name: "London" },
@@ -67,16 +70,19 @@ describe("transformToGraphData", () => {
 
   it("extracts nodes from path segments", () => {
     const startNode = {
+      $type: "node",
       elementId: "node:1",
       labels: ["A"],
       properties: { name: "Start" },
     };
     const endNode = {
+      $type: "node",
       elementId: "node:2",
       labels: ["B"],
       properties: { name: "End" },
     };
     const rel = {
+      $type: "relationship",
       elementId: "rel:1",
       type: "CONNECTED",
       start: "node:1",
@@ -86,6 +92,7 @@ describe("transformToGraphData", () => {
       properties: {},
     };
     const path = {
+      $type: "path",
       start: startNode,
       end: endNode,
       segments: [{ start: startNode, relationship: rel, end: endNode }],
@@ -99,6 +106,43 @@ describe("transformToGraphData", () => {
     expect(result.edges.length).toBeGreaterThanOrEqual(1);
   });
 
+  // #1925: detection reads the SDK's `$type` tag and nothing else. A cell that
+  // merely looks like a node — a jsonb column holding {labels, properties} — is
+  // data, and must render as data.
+  it("does not treat an untagged look-alike as a node", () => {
+    const result = transformToGraphData([
+      { config: { labels: ["not-a-node"], properties: { a: 1 } } },
+    ]) as { nodes: unknown[]; edges: unknown[] };
+    expect(result).toEqual({ nodes: [], edges: [] });
+  });
+
+  it("does not treat an untagged look-alike as a relationship or a path", () => {
+    const result = transformToGraphData([
+      { rel: { type: "KNOWS", start: 1, end: 2, properties: {} } },
+      { path: { segments: [], start: 1, end: 2 } },
+    ]) as { nodes: unknown[]; edges: unknown[] };
+    expect(result).toEqual({ nodes: [], edges: [] });
+  });
+
+  // A tagged relationship whose endpoints are absent — an unbound relationship,
+  // which #1904 emits without the four endpoint keys. There is nothing to draw
+  // it between, so it is skipped rather than pointed at a node called
+  // "undefined".
+  it("skips a tagged relationship that carries no endpoints", () => {
+    const result = transformToGraphData([
+      {
+        r: {
+          $type: "relationship",
+          elementId: "rel:unbound",
+          type: "KNOWS",
+          properties: {},
+        },
+      },
+    ]) as { nodes: unknown[]; edges: Array<{ source: string }> };
+    expect(result.edges).toHaveLength(0);
+    expect(result.nodes).toHaveLength(0);
+  });
+
   it("skips non-object record values", () => {
     const data = [{ scalar: "just-a-string" }];
     const result = transformToGraphData(data) as {
@@ -107,32 +151,6 @@ describe("transformToGraphData", () => {
     };
     expect(result.nodes).toHaveLength(0);
     expect(result.edges).toHaveLength(0);
-  });
-
-  it("never uses an object as an id, which would stringify to [object Object]", () => {
-    // An identity that reaches the transform unparsed ({low, high}) used to
-    // give every such node the same id, collapsing them into one.
-    const result = transformToGraphData([
-      { v: { identity: { low: 1, high: 0 }, labels: ["A"], properties: {} } },
-      { v: { identity: { low: 2, high: 0 }, labels: ["B"], properties: {} } },
-    ]) as { nodes: { id: string }[] };
-    expect(result.nodes).toHaveLength(2);
-    expect(result.nodes.map((n) => n.id)).not.toContain("[object Object]");
-  });
-
-  it("falls back to the start-type-end id for an edge whose id is an object", () => {
-    const result = transformToGraphData([
-      {
-        r: {
-          identity: { low: 9, high: 0 },
-          type: "KNOWS",
-          start: 1,
-          end: 2,
-          properties: {},
-        },
-      },
-    ]) as { edges: { id: string }[] };
-    expect(result.edges[0].id).toBe("1-KNOWS-2");
   });
 });
 
@@ -152,6 +170,7 @@ describe("transformToGraphData", () => {
  */
 describe("transformToGraphData — synthetic node detection", () => {
   const virtualNode = {
+    $type: "node",
     identity: -289,
     elementId: "-289",
     labels: ["Summary"],
@@ -159,6 +178,7 @@ describe("transformToGraphData — synthetic node detection", () => {
   };
 
   const realNode = {
+    $type: "node",
     identity: 0,
     elementId: "4:1a7aa765-ebcb-4a7b-9859-ca21d0d78e50:0",
     labels: ["Document"],
@@ -185,7 +205,14 @@ describe("transformToGraphData — synthetic node detection", () => {
     ]) as Nodes;
     // No elementId — the id falls through to the parsed numeric identity.
     const fromNumber = transformToGraphData([
-      { v: { identity: -290, labels: ["Summary"], properties: {} } },
+      {
+        v: {
+          $type: "node",
+          identity: -290,
+          labels: ["Summary"],
+          properties: {},
+        },
+      },
     ]) as Nodes;
 
     expect(fromString.nodes[0].id).toBe("-290");
@@ -197,7 +224,9 @@ describe("transformToGraphData — synthetic node detection", () => {
   it("does not mark a node whose id came from the randomUUID fallback", () => {
     // Neither elementId nor identity — addNode falls back to crypto.randomUUID().
     const result = transformToGraphData([
-      { v: { labels: ["Orphan"], properties: { name: "No id" } } },
+      {
+        v: { $type: "node", labels: ["Orphan"], properties: { name: "No id" } },
+      },
     ]) as Nodes;
     expect(result.nodes[0].synthetic).toBeFalsy();
     expect(result.nodes[0].id).not.toMatch(/^-/);
@@ -207,10 +236,12 @@ describe("transformToGraphData — synthetic node detection", () => {
     // JS stringifies -0 as "0", and node id 0 is a real Neo4j node. APOC's
     // virtual counter starts at -1, so -0 is never a virtual id.
     const numericMinusZero = transformToGraphData([
-      { v: { identity: -0, labels: ["Doc"], properties: {} } },
+      { v: { $type: "node", identity: -0, labels: ["Doc"], properties: {} } },
     ]) as Nodes;
     const stringMinusZero = transformToGraphData([
-      { v: { elementId: "-0", labels: ["Doc"], properties: {} } },
+      {
+        v: { $type: "node", elementId: "-0", labels: ["Doc"], properties: {} },
+      },
     ]) as Nodes;
 
     expect(numericMinusZero.nodes[0].id).toBe("0");
@@ -222,6 +253,7 @@ describe("transformToGraphData — synthetic node detection", () => {
     // The behaviour that ALREADY works and must not regress: addNode keys on
     // elementId, addEdge on startNodeElementId/endNodeElementId, and they agree.
     const virtualRel = {
+      $type: "relationship",
       identity: -275,
       elementId: "e1315589-8e3f-4a5e-9f0e-6c2a1d8b7c44",
       start: 0,
@@ -258,12 +290,14 @@ describe("transformToGraphData — synthetic node detection", () => {
     // parseGraphObject returns Path/PathSegment untouched, so a parser-level
     // flag would miss these — detection has to live at the addNode funnel.
     const path = {
+      $type: "path",
       start: realNode,
       end: virtualNode,
       segments: [
         {
           start: realNode,
           relationship: {
+            $type: "relationship",
             elementId: "e1315589-8e3f-4a5e-9f0e-6c2a1d8b7c44",
             type: "SUMMARISES",
             start: 0,
@@ -291,8 +325,22 @@ describe("validateGraphData", () => {
   });
 
   it("returns null when nodes are present", () => {
-    const data = [{ n: { elementId: "1", labels: ["X"], properties: {} } }];
+    const data = [
+      { n: { $type: "node", elementId: "1", labels: ["X"], properties: {} } },
+    ];
     expect(validateGraphData(data)).toBeNull();
+  });
+
+  it("names no connector and no query language in the error", () => {
+    const message = validateGraphData([{ a: 1, b: 2 }]);
+    expect(message).toBeTruthy();
+    expect(message).not.toMatch(/neo4j|postgres|cypher|sql/i);
+  });
+
+  it("does not accept an untagged look-alike as graph data", () => {
+    expect(
+      validateGraphData([{ config: { labels: ["x"], properties: {} } }]),
+    ).toBeTruthy();
   });
 
   it("returns error for tabular data", () => {
@@ -320,18 +368,21 @@ describe("validateGraphData", () => {
  */
 describe("transformToGraphData — converted Neo4j path (#1305)", () => {
   const alice = {
+    $type: "node",
     identity: 1,
     elementId: "node:1",
     labels: ["Person"],
     properties: { name: "Alice", age: 30 },
   };
   const bob = {
+    $type: "node",
     identity: 2,
     elementId: "node:2",
     labels: ["Person"],
     properties: { name: "Bob", age: 41 },
   };
   const knows = {
+    $type: "relationship",
     identity: 10,
     elementId: "rel:10",
     start: 1,
@@ -342,6 +393,7 @@ describe("transformToGraphData — converted Neo4j path (#1305)", () => {
     properties: { since: 1999 },
   };
   const path = {
+    $type: "path",
     start: alice,
     end: bob,
     segments: [{ start: alice, relationship: knows, end: bob }],

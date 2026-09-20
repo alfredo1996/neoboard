@@ -17,12 +17,6 @@ describe("transformToBarData", () => {
     expect(result[0].value).toBe(10);
   });
 
-  it("handles postgresql { records } wrapper", () => {
-    const data = { records: [{ category: "X", value: 5 }] };
-    const result = transformToBarData(data) as Array<{ label: string }>;
-    expect(result[0].label).toBe("X");
-  });
-
   it("returns empty array for empty input", () => {
     expect(transformToBarData([])).toEqual([]);
   });

@@ -1,3 +1,4 @@
+import { isGraphNode } from "@neoboard/components/row-shapes";
 import type {
   DashboardWidget,
   ClickAction,
@@ -11,6 +12,20 @@ function isScalar(v: unknown): v is string | number | boolean | null {
     typeof v === "number" ||
     typeof v === "boolean"
   );
+}
+
+/**
+ * The scalar a click on this cell sets a parameter to, or `undefined` when the
+ * cell holds nothing a parameter can carry.
+ *
+ * A tagged graph node resolves to its `elementId` (#1925): it is the one value
+ * in a node that identifies it, and the id the graph transform already keys
+ * on, so a parameter set from a node matches what a follow-up query selects by.
+ * Every other non-scalar still sets nothing — an untagged object is data.
+ */
+function clickScalar(v: unknown): string | number | boolean | null | undefined {
+  if (isGraphNode(v)) return v.elementId;
+  return isScalar(v) ? v : undefined;
 }
 
 export interface ClickActionResult {
@@ -75,11 +90,13 @@ export function resolveClickAction(
       effectiveSourceField = sourceField;
     }
 
-    if (value === undefined || !isScalar(value)) return null;
+    if (value === undefined) return null;
+    const scalar = clickScalar(value);
+    if (scalar === undefined) return null;
     const label = (ws.title as string) || widget.chartType;
     result.setParameter = {
       parameterName,
-      value,
+      value: scalar,
       label,
       sourceField: effectiveSourceField,
     };
@@ -122,11 +139,13 @@ function resolveRuleAction(
       effectiveSourceField = sourceField;
     }
 
-    if (value === undefined || !isScalar(value)) return null;
+    if (value === undefined) return null;
+    const scalar = clickScalar(value);
+    if (scalar === undefined) return null;
     const label = ((widget.settings ?? {}).title as string) || widget.chartType;
     result.setParameter = {
       parameterName,
-      value,
+      value: scalar,
       label,
       sourceField: effectiveSourceField,
     };
