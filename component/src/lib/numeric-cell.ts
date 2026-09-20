@@ -47,87 +47,58 @@ export function toChartNumber(v: unknown): number | null {
 }
 
 /**
- * Zero-trimming and grouping are done by hand rather than with `/0+$/`,
- * `/^0+(?=\d)/` and the usual `/\B(?=(\d{3})+(?!\d))/g`: all three backtrack
- * super-linearly, and a digit string here has no bound a caller can rely on.
+ * A number as sign, digits and a decimal exponent: the value is
+ * `0.<digits> x 10^exp`, with no leading or trailing zeros in `digits`. Zero
+ * is `digits === ""`.
+ *
+ * Comparison works on this form directly and never expands, so an exponent of
+ * any size orders exactly — `9e5000` below `1e5001` — in time proportional to
+ * the digits written, not to the value. Only formatting has to expand, and
+ * only formatting has a limit.
  */
+interface Decimal {
+  negative: boolean;
+  digits: string;
+  exp: number;
+}
+
 function trimTrailingZeros(s: string): string {
   let end = s.length;
   while (end > 0 && s.codePointAt(end - 1) === 48) end--;
   return s.slice(0, end);
 }
 
-function trimLeadingZeros(s: string): string {
-  let i = 0;
-  while (i < s.length - 1 && s.codePointAt(i) === 48) i++;
-  return s.slice(i);
-}
-
-/**
- * Exponent notation is a number written a different way, so it is expanded by
- * moving the decimal point across the digits. Going through a double instead
- * — `Number(s).toFixed(20)` — silently returned zero for 1e-21, whose only
- * significant digit falls off the end, and gave back exponent notation at
- * 1e21, which the thousands grouping then mangled into "1e,+21".
- *
- * ponytail: expansion is capped at MAX_EXPANDED_DIGITS. A cell is data from a
- * database, and "1e999999999" would otherwise allocate a gigabyte of zeros to
- * compare. Past the cap the value keeps its exponent form, which orders and
- * formats as text rather than exactly — raise the cap, or switch to comparing
- * mantissa and exponent directly, if a real result set ever needs it.
- */
-const MAX_EXPANDED_DIGITS = 4096;
-
-function expandExponent(s: string): string {
-  const [mantissa, exponent] = s.split(/[eE]/);
-  const e = Number(exponent);
-  const negative = mantissa.startsWith("-");
-  const body =
-    negative || mantissa.startsWith("+") ? mantissa.slice(1) : mantissa;
-  const [int = "", frac = ""] = body.split(".");
-  const digits = int + frac;
-  const point = int.length + e;
-  if (Math.abs(point) > MAX_EXPANDED_DIGITS) return s;
-
-  let out: string;
-  if (point <= 0) {
-    out = `0.${"0".repeat(-point)}${digits}`;
-  } else if (point >= digits.length) {
-    out = digits + "0".repeat(point - digits.length);
-  } else {
-    out = `${digits.slice(0, point)}.${digits.slice(point)}`;
-  }
-  return (negative ? "-" : "") + out;
-}
-
-interface Parts {
-  negative: boolean;
-  int: string;
-  frac: string;
-}
-
-/** Digits only, sign separated, exponent expanded, leading zeros stripped. */
-function parts(v: number | string): Parts {
+function normalize(v: number | string): Decimal {
   let s = String(v).trim();
-  if (s.includes("e") || s.includes("E")) s = expandExponent(s);
+  let exponent = 0;
+  const e = s.search(/[eE]/);
+  if (e !== -1) {
+    exponent = Number(s.slice(e + 1));
+    s = s.slice(0, e);
+  }
   const negative = s.startsWith("-");
   if (negative || s.startsWith("+")) s = s.slice(1);
+
   const [int = "", frac = ""] = s.split(".");
+  const all = int + frac;
+  let lead = 0;
+  while (lead < all.length && all.codePointAt(lead) === 48) lead++;
+  const digits = trimTrailingZeros(all.slice(lead));
+  // `int.length - lead` is where the point sits once leading zeros are gone.
   return {
     negative,
-    int: trimLeadingZeros(int) || "0",
-    frac: trimTrailingZeros(frac),
+    digits,
+    exp: digits === "" ? 0 : int.length - lead + exponent,
   };
 }
 
-function compareMagnitude(a: Parts, b: Parts): number {
-  if (a.int.length !== b.int.length) return a.int.length - b.int.length;
-  if (a.int !== b.int) return a.int < b.int ? -1 : 1;
-  const width = Math.max(a.frac.length, b.frac.length);
-  const af = a.frac.padEnd(width, "0");
-  const bf = b.frac.padEnd(width, "0");
-  if (af === bf) return 0;
-  return af < bf ? -1 : 1;
+function compareMagnitude(a: Decimal, b: Decimal): number {
+  if (a.exp !== b.exp) return a.exp < b.exp ? -1 : 1;
+  const width = Math.max(a.digits.length, b.digits.length);
+  const ad = a.digits.padEnd(width, "0");
+  const bd = b.digits.padEnd(width, "0");
+  if (ad === bd) return 0;
+  return ad < bd ? -1 : 1;
 }
 
 /**
@@ -139,26 +110,54 @@ export function compareNumericCells(a: unknown, b: unknown): number {
   const bNum = isNumericCell(b);
   if (!aNum || !bNum) return Number(bNum) - Number(aNum);
 
-  const pa = parts(a as number | string);
-  const pb = parts(b as number | string);
-  const aZero = pa.int === "0" && pa.frac === "";
-  const bZero = pb.int === "0" && pb.frac === "";
-  if (aZero && bZero) return 0; // -0 is 0
-  if (pa.negative !== pb.negative) return pa.negative ? -1 : 1;
-  const magnitude = compareMagnitude(pa, pb);
-  return pa.negative ? -magnitude : magnitude;
+  const da = normalize(a);
+  const db = normalize(b);
+  if (da.digits === "" && db.digits === "") return 0; // -0 is 0
+  if (da.digits === "") return db.negative ? 1 : -1;
+  if (db.digits === "") return da.negative ? -1 : 1;
+  if (da.negative !== db.negative) return da.negative ? -1 : 1;
+  const magnitude = compareMagnitude(da, db);
+  return da.negative ? -magnitude : magnitude;
+}
+
+/**
+ * ponytail: expansion is capped at MAX_EXPANDED_DIGITS. A cell is data from a
+ * database, and `"1e999999999"` would otherwise allocate a gigabyte of zeros
+ * to render. Past the cap the value is shown in scientific form instead — a
+ * defined answer, unlike the raw input, which the digit operations below would
+ * read as digits. Raise the cap if a real result set ever needs it.
+ */
+const MAX_EXPANDED_DIGITS = 4096;
+
+/** `<digits>` and `<exp>` laid out as an ordinary decimal, or null past the cap. */
+function expand(d: Decimal): { int: string; frac: string } | null {
+  if (Math.abs(d.exp) > MAX_EXPANDED_DIGITS) return null;
+  if (d.digits === "") return { int: "0", frac: "" };
+  if (d.exp <= 0) return { int: "0", frac: "0".repeat(-d.exp) + d.digits };
+  if (d.exp >= d.digits.length)
+    return { int: d.digits + "0".repeat(d.exp - d.digits.length), frac: "" };
+  return { int: d.digits.slice(0, d.exp), frac: d.digits.slice(d.exp) };
+}
+
+function scientific(d: Decimal): string {
+  const [first, ...rest] = d.digits;
+  const mantissa = rest.length ? `${first}.${rest.join("")}` : first;
+  return `${d.negative ? "-" : ""}${mantissa}e${d.exp - 1}`;
 }
 
 /** Round a digit string half-up, carrying an overflow into the integer part. */
-function round(p: Parts, places: number): Parts {
-  if (p.frac.length <= places) {
-    return { ...p, frac: p.frac.padEnd(places, "0") };
+function round(
+  parts: { int: string; frac: string },
+  places: number,
+): { int: string; frac: string } {
+  if (parts.frac.length <= places) {
+    return { ...parts, frac: parts.frac.padEnd(places, "0") };
   }
-  const keep = p.frac.slice(0, places);
-  const roundUp = (p.frac.codePointAt(places) ?? 0) >= 53; // '5'
-  if (!roundUp) return { ...p, frac: keep };
+  const keep = parts.frac.slice(0, places);
+  const roundUp = (parts.frac.codePointAt(places) ?? 0) >= 53; // '5'
+  if (!roundUp) return { ...parts, frac: keep };
 
-  const digits = (p.int + keep).split("");
+  const digits = (parts.int + keep).split("");
   let i = digits.length - 1;
   for (; i >= 0; i--) {
     if (digits[i] === "9") {
@@ -171,11 +170,7 @@ function round(p: Parts, places: number): Parts {
   if (i < 0) digits.unshift("1");
   const carried = digits.join("");
   const cut = carried.length - places;
-  return {
-    ...p,
-    int: carried.slice(0, cut) || "0",
-    frac: carried.slice(cut),
-  };
+  return { int: carried.slice(0, cut) || "0", frac: carried.slice(cut) };
 }
 
 function group(int: string): string {
@@ -205,10 +200,15 @@ export function formatNumericCell(
 ): string {
   if (!isNumericCell(value)) return String(value);
   const { decimalPlaces, prefix = "", suffix = "" } = config;
-  let p = parts(value as number | string);
+  const d = normalize(value);
+
+  let p = expand(d);
+  if (p === null) return `${prefix}${scientific(d)}${suffix}`;
   if (decimalPlaces !== undefined) p = round(p, decimalPlaces);
+
   const int = config.numberFormat === "comma" ? group(p.int) : p.int;
-  const sign = p.negative && !(p.int === "0" && p.frac === "") ? "-" : "";
+  const zero = p.int === "0" && trimTrailingZeros(p.frac) === "";
+  const sign = d.negative && !zero ? "-" : "";
   const body = p.frac ? `${int}.${p.frac}` : int;
   return `${prefix}${sign}${body}${suffix}`;
 }

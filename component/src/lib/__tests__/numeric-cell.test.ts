@@ -174,3 +174,37 @@ describe("exponent notation", () => {
     ).toBe(expected);
   });
 });
+
+/**
+ * Past any expansion limit the value must still behave like a number. An
+ * earlier cap handed raw exponent notation back to the digit operations, so
+ * "9e5000" sorted above "1e5001" and grouping produced "1e5,000".
+ */
+describe("exponents too large to expand", () => {
+  it.each([
+    ["9e5000", "1e5001", -1],
+    ["1e5001", "9e5000", 1],
+    ["1e5000", "1e5000", 0],
+    ["1e5000", "9.99e4999", 1],
+    ["-9e5000", "-1e5001", 1],
+    ["1e5000", "0", 1],
+    ["-1e5000", "0", -1],
+    ["1e-5000", "0", 1],
+  ])("orders %s against %s", (a, b, sign) => {
+    expect(Math.sign(compareNumericCells(a, b))).toBe(sign);
+  });
+
+  it.each([
+    ["1e5000", "comma"],
+    ["1e5000", "plain"],
+    ["9.5e5000", "plain"],
+    ["-1e-5000", "plain"],
+  ])("falls back to scientific for %s in %s form", (v, fmt) => {
+    const out = formatNumericCell(v, {
+      numberFormat: fmt as "plain" | "comma",
+    });
+    // A defined scientific form, never digits with a comma spliced into them.
+    expect(out).toMatch(/^-?\d(\.\d+)?e[+-]?\d+$/);
+    expect(out).not.toContain(",");
+  });
+});
