@@ -59,6 +59,31 @@ describe("inferColumnKind", () => {
     expect(inferColumnKind([1999, 2000])).toBe("numeric");
   });
 
+  // The ISO check is split across three small patterns (#1925), so the seams
+  // between date, clock and offset are worth pinning from both sides.
+  it.each([
+    "2026-09-01",
+    "2026-09-01T10:15:00.000Z",
+    "2026-09-01T10:15:00+02:00",
+    "2026-09-01T10:15:00-0500",
+    "2026-09-01 10:15:00",
+    "2026-03-15T10:30:00",
+    "2026-09-01T10:15",
+  ])("reads %s as a temporal", (v) => {
+    expect(inferColumnKind([v])).toBe("datetime");
+  });
+
+  it.each([
+    "P1M2DT3S",
+    "2026-09-01T10:15:00+2:00",
+    "2026-9-1",
+    "2026-09-01X10:15:00Z",
+    "2026-09-01T10:15:00Z extra",
+    "not a date",
+  ])("does not read %s as a temporal", (v) => {
+    expect(inferColumnKind([v])).not.toBe("datetime");
+  });
+
   it("calls a column with no values empty", () => {
     expect(inferColumnKind([])).toBe("empty");
     expect(inferColumnKind([null, undefined])).toBe("empty");

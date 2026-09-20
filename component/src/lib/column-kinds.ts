@@ -24,18 +24,26 @@ export type ColumnKind = "numeric" | "datetime" | "text" | "empty";
  * and sorts as what it is (#1925).
  */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const ISO_TIME = /^\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/;
+const ISO_CLOCK = /^\d{2}:\d{2}(:\d{2})?(\.\d+)?$/;
+const ISO_OFFSET = /^(Z|[+-]\d{2}:?\d{2})$/;
 
 /**
- * Split in two rather than written as one pattern: a single regex covering
- * both halves scores 39 on Sonar's complexity budget of 20, and the two-step
- * form says what it checks.
+ * Split three ways rather than written as one pattern: a single regex covering
+ * date, clock and offset scores 39 against Sonar's complexity budget of 20,
+ * and date-plus-clock still scores 23. Each part is now trivial, and the
+ * seams — the `T` separator, the start of the offset — are read positionally.
  */
+function isIsoTime(v: string): boolean {
+  const offset = v.search(/[Z+-]/);
+  if (offset === -1) return ISO_CLOCK.test(v);
+  return ISO_OFFSET.test(v.slice(offset)) && ISO_CLOCK.test(v.slice(0, offset));
+}
+
 function isIsoTemporal(v: string): boolean {
   if (ISO_DATE.test(v)) return true;
   const separator = v[10];
   if (separator !== "T" && separator !== " ") return false;
-  return ISO_DATE.test(v.slice(0, 10)) && ISO_TIME.test(v.slice(11));
+  return ISO_DATE.test(v.slice(0, 10)) && isIsoTime(v.slice(11));
 }
 
 export function inferColumnKind(values: readonly unknown[]): ColumnKind {
