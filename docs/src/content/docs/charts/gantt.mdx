@@ -13,15 +13,16 @@ The Gantt Chart displays tasks as horizontal bars on a time axis. Use it for pro
 
 Return 3+ columns: task name, start date, end date. Optional: category/status for color grouping, progress (0-1) for completion overlay.
 
+Columns are matched by name, ignoring any qualifier, so `RETURN t.task, t.start, t.end` resolves without an alias. Matching is case-insensitive but not partial. When nothing matches by name, the first three columns are used in order.
+
 ### Accepted date values
 
-| Shape | Example | Read as |
-|-------|---------|---------|
-| Date-only string | `2026-04-01` | Local midnight — the shape both a Neo4j `date()` and a PostgreSQL `DATE` arrive as |
-| ISO datetime | `2026-04-01T10:00:00Z` | Exactly as written |
-| `Date` value | a SQL `date` / `timestamp` column | As given |
-| Unix seconds | `1774994400` | Seconds since the epoch |
-| Unix milliseconds | `1774994400000` | Milliseconds since the epoch |
+| Shape             | Example                | Read as                                                             |
+| ----------------- | ---------------------- | ------------------------------------------------------------------- |
+| Date-only string  | `2026-04-01`           | Local midnight — the form every connector returns a calendar day in |
+| ISO datetime      | `2026-04-01T10:00:00Z` | Exactly as written                                                  |
+| Unix seconds      | `1774994400`           | Seconds since the epoch                                             |
+| Unix milliseconds | `1774994400000`        | Milliseconds since the epoch                                        |
 
 **A year is not a date.** A column such as `m.released` holding `1999` is a number, not a timestamp — it is rejected rather than drawn as a bar in January 1970. Anything below `1000000000` (September 2001 in seconds) is treated the same way.
 
@@ -47,13 +48,13 @@ ORDER BY start_date
 
 ## Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| Show Today Line | `true` | Muted grey dashed vertical line marking today's date |
-| Show Progress | `false` | Overlay showing completion percentage (requires progress column) |
-| Show Grid Lines | `true` | Vertical grid lines on the time axis |
-| Bar Corner Radius | `2` | Corner roundness for task bars |
-| Enable Time Zoom | `true` | Range slider under the chart plus scroll-to-zoom on the time axis. Off hides both and gives the plot the slider's room |
+| Option            | Default | Description                                                                                                            |
+| ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Show Today Line   | `true`  | Muted grey dashed vertical line marking today's date                                                                   |
+| Show Progress     | `false` | Overlay showing completion percentage (requires progress column)                                                       |
+| Show Grid Lines   | `true`  | Vertical grid lines on the time axis                                                                                   |
+| Bar Corner Radius | `2`     | Corner roundness for task bars                                                                                         |
+| Enable Time Zoom  | `true`  | Range slider under the chart plus scroll-to-zoom on the time axis. Off hides both and gives the plot the slider's room |
 
 ## Features
 

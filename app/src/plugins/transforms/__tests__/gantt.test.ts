@@ -270,3 +270,25 @@ describe("connector-shaped fixtures (#1636)", () => {
     }
   });
 });
+
+// #1925: `RETURN t.task, t.start, t.end` names the columns "t.task" and so on.
+// An anchored match against the whole key rejected them, so the chart silently
+// fell back to column position — right here by luck, wrong the moment the
+// query returns them in another order.
+describe("transformToGanttData — qualified column names", () => {
+  it("resolves a qualified column by its bare name", () => {
+    const out = transformToGanttData([
+      { "t.end": "2026-04-03", "t.task": "Design", "t.start": "2026-04-01" },
+    ]);
+    expect(item(out)?.task).toBe("Design");
+    expect(item(out)?.start).toBe(new Date(2026, 3, 1).getTime());
+    expect(item(out)?.end).toBe(new Date(2026, 3, 3).getTime());
+  });
+
+  it("does not collapse two nodes sharing a bare name", () => {
+    const out = transformToGanttData([
+      { "a.task": "A", "a.start": "2026-04-01", "a.end": "2026-04-02" },
+    ]);
+    expect(item(out)?.task).toBe("A");
+  });
+});

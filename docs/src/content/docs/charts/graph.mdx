@@ -1,13 +1,15 @@
 ---
 title: Graph Visualization
-description: Interactive node-and-relationship visualization for Neo4j graph data.
+description: Interactive node-and-relationship visualization for graph query results.
 sidebar:
   order: 6
 ---
 
 ## Overview
 
-The Graph widget renders Neo4j nodes and relationships as an interactive force-directed graph. Users can drag nodes, zoom, and click to explore properties. This widget is only available for Neo4j connectors.
+The Graph widget renders **graph values** — nodes, relationships and paths — as an interactive force-directed graph. Users can drag nodes, zoom, and click to explore properties.
+
+What matters is the shape a query returns, not where it came from: the widget reads the type tag every connector puts on a graph value, so a cell that merely looks like a node (a JSON column holding `labels` and `properties`) is left as data. A connector that cannot return graph values does not offer this widget.
 
 ## Query Format
 
@@ -30,15 +32,15 @@ RETURN p
 
 ### SQL
 
-Graph visualization is not available for PostgreSQL connectors. Use a Neo4j connection for graph data.
+A query that returns rows of scalars has no graph in it, so the widget reports that rather than drawing an empty canvas. Use a connection whose queries can return nodes, relationships or paths.
 
 ## Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| Layout | select | force | Node positioning algorithm: Force (physics simulation), Circular (ring), or Hierarchical (tree) |
-| Show Labels | boolean | true | Show the node label (first string property) on each node |
-| Show Relationship Labels | boolean | true | Show the relationship type name on each edge |
+| Option                   | Type    | Default | Description                                                                                     |
+| ------------------------ | ------- | ------- | ----------------------------------------------------------------------------------------------- |
+| Layout                   | select  | force   | Node positioning algorithm: Force (physics simulation), Circular (ring), or Hierarchical (tree) |
+| Show Labels              | boolean | true    | Show the node label (first string property) on each node                                        |
+| Show Relationship Labels | boolean | true    | Show the relationship type name on each edge                                                    |
 
 ## Virtual (synthetic) nodes
 
@@ -52,7 +54,7 @@ explore outward, expand the real node it was derived from instead.
 Detection is by convention, not by a flag: APOC gives virtual entities negative
 ids so they cannot collide with stored ones, and the Bolt driver returns them as
 ordinary nodes with no marker of their own. Anything whose id is a negative
-integer is therefore treated as virtual. A non-Neo4j connector that emitted
+integer is therefore treated as virtual. A connector that emitted
 graph-shaped rows with genuinely negative ids would be mislabelled the same way;
 none of the shipped connectors do.
 

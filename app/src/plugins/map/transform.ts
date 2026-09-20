@@ -3,6 +3,7 @@
  */
 
 import { toRecords, normalizeValue } from "../transforms/shared-utils";
+import { bareName, qualifierOf } from "@/lib/shared/column-names";
 
 /**
  * Anchored, not substring. `/lat/i` matched "population" and "platform";
@@ -13,20 +14,6 @@ import { toRecords, normalizeValue } from "../transforms/shared-utils";
 const LAT_RE = /^(lat|latitude)$/i;
 const LNG_RE = /^(lng|lon|long|longitude)$/i;
 const LABEL_RE = /^(name|label|title)$/i;
-
-/**
- * The column name without its Cypher qualifier: `RETURN c.latitude` names the
- * column "c.latitude", and an anchored match against the whole key would
- * reject it. Matching the last segment keeps unaliased queries working while
- * still refusing "c.population".
- */
-const bareName = (key: string) => key.slice(key.lastIndexOf(".") + 1);
-
-/** What the column was read from: "c" in "c.latitude", "" when unqualified. */
-const qualifierOf = (key: string) => {
-  const dot = key.lastIndexOf(".");
-  return dot === -1 ? "" : key.slice(0, dot);
-};
 
 export interface MapColumns {
   latKey?: string;
@@ -94,8 +81,9 @@ export function transformToMapData(data: unknown): unknown {
   if (!latKey || !lngKey) return [];
 
   // No row prefilter: it required at least one JS number in the row, so a
-  // PostgreSQL result of two NUMERIC columns — both strings — produced no
-  // markers at all.
+  // result whose two coordinate columns both arrived as decimal strings —
+  // which is how a connector keeps precision a double cannot hold (#1307) —
+  // produced no markers at all.
   return records.map((r, i) => {
     const label = labelKey ? normalizeValue(r[labelKey]) : undefined;
     return {

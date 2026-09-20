@@ -174,3 +174,20 @@ describe("connector-shaped fixtures (#1636)", () => {
     expect(out.nodes.map((n) => n.name)).not.toContain("");
   });
 });
+
+// #1925. Unlike gantt, choropleth and hierarchical, sankey already resolved a
+// qualified column — its patterns are unanchored, so "a.source" matched by
+// substring. This is a regression guard, not a fix: the patterns now read the
+// bare name instead, and must keep resolving what they used to.
+describe("transformToSankeyData — qualified column names", () => {
+  it("resolves qualified source, target and value columns", () => {
+    const out = transformToSankeyData([
+      { "r.value": 5, "a.source": "X", "b.target": "Y" },
+    ]) as { links: Array<{ source: string; target: string; value: number }> };
+    expect(out.links[0]).toMatchObject({
+      source: "X",
+      target: "Y",
+      value: 5,
+    });
+  });
+});

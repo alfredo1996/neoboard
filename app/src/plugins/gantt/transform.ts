@@ -1,4 +1,5 @@
 import { toRecords, normalizeValue } from "../transforms/shared-utils";
+import { findColumn } from "@/lib/shared/column-names";
 
 /**
  * Transform raw query results into Gantt chart data.
@@ -21,38 +22,27 @@ interface GanttKeys {
 
 /** Which column means what. Shared by the transform and by validate. */
 function resolveKeys(keys: string[]): GanttKeys {
-  const taskKey =
-    keys.find((k) => /^(task|name|label|title)$/i.test(k)) ?? keys[0];
-
+  // Matched on the bare name, so `RETURN t.task, t.start, t.end` resolves
+  // instead of falling through to column position (#1925).
+  const taskKey = findColumn(keys, /^(task|name|label|title)$/i) ?? keys[0];
   const startKey =
-    keys.find(
-      (k) => k !== taskKey && /^(start|start_date|begin|from)$/i.test(k),
-    ) ?? keys[1];
-
+    findColumn(keys, /^(start|start_date|begin|from)$/i, [taskKey]) ?? keys[1];
   const endKey =
-    keys.find(
-      (k) =>
-        k !== taskKey &&
-        k !== startKey &&
-        /^(end|end_date|finish|due|to|deadline)$/i.test(k),
-    ) ?? keys[2];
-
-  const categoryKey = keys.find(
-    (k) =>
-      k !== taskKey &&
-      k !== startKey &&
-      k !== endKey &&
-      /^(category|status|group|phase|type)$/i.test(k),
+    findColumn(keys, /^(end|end_date|finish|due|to|deadline)$/i, [
+      taskKey,
+      startKey,
+    ]) ?? keys[2];
+  const categoryKey = findColumn(
+    keys,
+    /^(category|status|group|phase|type)$/i,
+    [taskKey, startKey, endKey],
   );
-
-  const progressKey = keys.find(
-    (k) =>
-      k !== taskKey &&
-      k !== startKey &&
-      k !== endKey &&
-      k !== categoryKey &&
-      /^(progress|percent|completion|pct)$/i.test(k),
-  );
+  const progressKey = findColumn(keys, /^(progress|percent|completion|pct)$/i, [
+    taskKey,
+    startKey,
+    endKey,
+    categoryKey,
+  ]);
 
   return { taskKey, startKey, endKey, categoryKey, progressKey };
 }
@@ -105,7 +95,7 @@ export function transformToGanttData(data: unknown): unknown {
     .filter(Boolean);
 }
 
-/** A date-only ISO string — the shape a Neo4j `date` property arrives as. */
+/** A date-only ISO string — the contract's form for a calendar day (#1904). */
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 /** A bare number, so "1999" takes the number rule and not Date.parse. */
 const NUMERIC = /^[+-]?\d+(\.\d+)?$/;
@@ -138,7 +128,8 @@ function parseTime(value: unknown): number | null {
   if (typeof value === "string") {
     // ECMA-262 parses a date-only string as UTC midnight, which lands a day
     // early for every user west of UTC once it is drawn on a local-time axis
-    // (#1616). Neo4j hands `date` properties over in exactly this shape.
+    // (#1616). A calendar day arrives in exactly this shape from every
+    // connector (#1904).
     const dateOnly = DATE_ONLY.exec(value);
     if (dateOnly) {
       const [, y, m, d] = dateOnly;
