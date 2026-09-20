@@ -2,6 +2,11 @@
 // Client-side data transform pipeline
 // ---------------------------------------------------------------------------
 
+import {
+  compareNumericCells,
+  isNumericCell,
+} from "@neoboard/components/numeric-cell";
+
 type Row = Record<string, unknown>;
 
 export type FilterOperator =
@@ -190,11 +195,12 @@ function applySort(data: Row[], t: SortTransform): Row[] {
     const va = a[t.column];
     const vb = b[t.column];
 
-    // Numeric sort
-    const na = Number(va);
-    const nb = Number(vb);
-    if (!Number.isNaN(na) && !Number.isNaN(nb)) {
-      return t.direction === "asc" ? na - nb : nb - na;
+    // Numeric sort, on the digits: `Number(va) - Number(vb)` reports two ids
+    // past 2^53 equal, and the column mis-sorts with nothing to show for it
+    // (#1925).
+    if (isNumericCell(va) && isNumericCell(vb)) {
+      const cmp = compareNumericCells(va, vb);
+      return t.direction === "asc" ? cmp : -cmp;
     }
 
     // String sort

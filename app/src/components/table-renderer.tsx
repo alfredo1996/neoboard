@@ -33,16 +33,15 @@ const AGG_SYMBOLS: Record<string, string> = {
 };
 
 /**
- * One cell's text. A pg TIMESTAMP is still a Date here; JSON.stringify would
- * print it with its quotation marks (#1636). ISO is unambiguous and does not
- * depend on the viewer's locale. Objects (Neo4j nodes) become JSON.
+ * One cell's text. Every temporal arrives as an ISO-8601 string (#1904), so a
+ * `Date` cannot reach here — rows cross JSON. A graph node, an array, any
+ * object-shaped value becomes JSON.
  */
 function formatCell(v: unknown): string {
-  if (v instanceof Date) return v.toISOString();
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint")
     return v.toString();
-  // A Neo4j node, an array — anything object-shaped. Never String(v): on an
+  // A graph node, an array — anything object-shaped. Never String(v): on an
   // `unknown` the type still admits an object here, and "[object Object]" is
   // exactly what the table must never show (#1636, Sonar S6551).
   return JSON.stringify(v) ?? "";

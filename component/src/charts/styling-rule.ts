@@ -1,3 +1,5 @@
+import { compareNumericCells, isNumericCell } from "../lib/numeric-cell";
+
 export type StylingOperator =
   | "<="
   | ">="
@@ -103,20 +105,24 @@ const NULL_OPS = new Set(
   OPERATOR_REGISTRY.filter((o) => o.group === "Null").map((o) => o.value),
 );
 
-function evaluateNumeric(op: string, left: number, right: number): boolean {
+/**
+ * The same six operators, decided from a comparison sign rather than from two
+ * doubles, so precision past 2^53 survives the rule (#1925).
+ */
+function evaluateNumericOrder(op: string, cmp: number): boolean {
   switch (op) {
     case "<=":
-      return left <= right;
+      return cmp <= 0;
     case ">=":
-      return left >= right;
+      return cmp >= 0;
     case "<":
-      return left < right;
+      return cmp < 0;
     case ">":
-      return left > right;
+      return cmp > 0;
     case "==":
-      return left === right;
+      return cmp === 0;
     case "!=":
-      return left !== right;
+      return cmp !== 0;
     default:
       return false;
   }
@@ -172,33 +178,23 @@ export function resolveStylingRuleColor(
       // this the demo's own `margin <= 0 -> red` painted every NULL margin as
       // if the product were losing money (#1655).
       if (isNullish(cellValue)) continue;
-      const numCell = Number(cellValue);
-      if (Number.isNaN(numCell)) continue;
+      if (!isNumericCell(cellValue)) continue;
 
-      let low: number;
-      if (rule.parameterRef) {
-        const raw = resolvedParamValues?.[rule.parameterRef];
-        if (raw === undefined || raw === null) continue;
-        low = Number(raw);
-        if (Number.isNaN(low)) continue;
-      } else {
-        low = Number(rule.value);
-        if (Number.isNaN(low)) continue;
-      }
+      const low = rule.parameterRef
+        ? resolvedParamValues?.[rule.parameterRef]
+        : rule.value;
+      if (!isNumericCell(low)) continue;
 
-      let high: number;
-      if (rule.parameterRefTo) {
-        const raw = resolvedParamValues?.[rule.parameterRefTo];
-        if (raw === undefined || raw === null) continue;
-        high = Number(raw);
-        if (Number.isNaN(high)) continue;
-      } else {
-        if (rule.valueTo === undefined || rule.valueTo === null) continue;
-        high = Number(rule.valueTo);
-        if (Number.isNaN(high)) continue;
-      }
+      const high = rule.parameterRefTo
+        ? resolvedParamValues?.[rule.parameterRefTo]
+        : rule.valueTo;
+      if (!isNumericCell(high)) continue;
 
-      if (numCell >= low && numCell <= high) return rule.color;
+      if (
+        compareNumericCells(cellValue, low) >= 0 &&
+        compareNumericCells(cellValue, high) <= 0
+      )
+        return rule.color;
       continue;
     }
 
@@ -229,11 +225,13 @@ export function resolveStylingRuleColor(
       // Same reason as `between` above: an absent cell is not a zero. Only
       // is_null / is_not_null, handled earlier, have anything to say about it.
       if (isNullish(cellValue)) continue;
-      const numLeft = Number(cellValue);
-      const numRight = Number(compareValue);
-
-      if (!Number.isNaN(numLeft) && !Number.isNaN(numRight)) {
-        if (evaluateNumeric(op, numLeft, numRight)) return rule.color;
+      // Ordered on the digits, not as doubles: a rule on an id past 2^53
+      // would otherwise paint the wrong rows (#1925).
+      if (isNumericCell(cellValue) && isNumericCell(compareValue)) {
+        if (
+          evaluateNumericOrder(op, compareNumericCells(cellValue, compareValue))
+        )
+          return rule.color;
         continue;
       }
 

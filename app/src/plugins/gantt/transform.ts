@@ -134,10 +134,6 @@ function isDrawableSpan(start: number | null, end: number | null): boolean {
 
 function parseTime(value: unknown): number | null {
   if (value == null) return null;
-  if (value instanceof Date) {
-    const t = value.getTime();
-    return Number.isNaN(t) ? null : t;
-  }
   if (typeof value === "number") return parseNumericTime(value);
   if (typeof value === "string") {
     // ECMA-262 parses a date-only string as UTC midnight, which lands a day

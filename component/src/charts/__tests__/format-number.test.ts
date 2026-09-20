@@ -147,6 +147,43 @@ describe("formatNumber", () => {
   });
 });
 
+// #1925: a connector returns a number a double cannot hold as a decimal
+// string. It was passed through unformatted — the one column that most needs
+// grouping was the one that never got it.
+describe("formatNumber — numeric strings", () => {
+  it("groups a numeric string", () => {
+    expect(formatNumber("1234567", { numberFormat: "comma" })).toBe(
+      "1,234,567",
+    );
+  });
+
+  it("keeps every digit of a value past 2^53", () => {
+    expect(formatNumber("9007199254740993", { numberFormat: "plain" })).toBe(
+      "9007199254740993",
+    );
+    expect(formatNumber("9007199254740993", { numberFormat: "comma" })).toBe(
+      "9,007,199,254,740,993",
+    );
+  });
+
+  it("rounds a string exactly, where a double would not", () => {
+    expect(
+      formatNumber("1.005", { numberFormat: "plain", decimalPlaces: 2 }),
+    ).toBe("1.01");
+    expect((1.005).toFixed(2)).toBe("1.00"); // the trap
+  });
+
+  it("carries prefix and suffix", () => {
+    expect(
+      formatNumber("48210.5", { numberFormat: "comma", prefix: "$" }),
+    ).toBe("$48,210.5");
+  });
+
+  it("leaves a non-numeric string alone", () => {
+    expect(formatNumber("n/a", { numberFormat: "comma" })).toBe("n/a");
+  });
+});
+
 describe("buildTooltipFormatter", () => {
   it("returns a function", () => {
     const formatter = buildTooltipFormatter({});

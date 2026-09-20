@@ -2,6 +2,7 @@ import type { EChartsOption } from "echarts";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import type { PieChartDataPoint } from "./types";
+import { formatNumericCell, isNumericCell } from "../lib/numeric-cell";
 
 // ---------------------------------------------------------------------------
 // Number formatting
@@ -71,8 +72,7 @@ export function formatNumber(
   value: number | string,
   config: NumberFormatConfig = {},
 ): string {
-  if (typeof value !== "number" || !Number.isFinite(value))
-    return String(value);
+  if (!isNumericCell(value)) return String(value);
 
   const bothUnset =
     config.numberFormat === undefined && config.decimalPlaces === undefined;
@@ -84,18 +84,22 @@ export function formatNumber(
     suffix = "",
   } = config;
 
+  // A number a double cannot hold arrives as a decimal string (#1304, #1307).
+  // `plain` and `comma` are exact, so they work on the digits and never go
+  // through a double; `compact` and `percent` round by intent and do.
+  if (numberFormat === "plain" || numberFormat === "comma") {
+    return formatNumericCell(value, {
+      numberFormat,
+      decimalPlaces,
+      prefix,
+      suffix,
+    });
+  }
+
+  const asDouble = Number(value);
   let formatted: string;
 
   switch (numberFormat) {
-    case "comma":
-      formatted =
-        decimalPlaces !== undefined
-          ? value.toLocaleString("en-US", {
-              minimumFractionDigits: decimalPlaces,
-              maximumFractionDigits: decimalPlaces,
-            })
-          : value.toLocaleString("en-US");
-      break;
     case "compact":
       formatted = Intl.NumberFormat("en", {
         notation: "compact",
@@ -105,7 +109,7 @@ export function formatNumber(
               maximumFractionDigits: decimalPlaces,
             }
           : {}),
-      }).format(value);
+      }).format(asDouble);
       break;
     case "percent":
       // Takes a RATIO and scales it — 0.2005 → "20.05%" — matching Intl's own
@@ -123,13 +127,10 @@ export function formatNumber(
               maximumFractionDigits: decimalPlaces,
             }
           : { maximumFractionDigits: 2 }),
-      }).format(value);
+      }).format(asDouble);
       break;
-    default: // "plain"
-      formatted =
-        decimalPlaces !== undefined
-          ? value.toFixed(decimalPlaces)
-          : String(value);
+    default:
+      formatted = String(asDouble);
       break;
   }
 

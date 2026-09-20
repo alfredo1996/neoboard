@@ -7,6 +7,23 @@ import {
   escapeCsvCell,
 } from "../export-utils";
 
+// #1925: a negative total arriving as "-48210.50" begins with "-", so the
+// formula guard prefixed it with a quote and the column exported as text.
+describe("escapeCsvCell — numeric strings export as numbers", () => {
+  it.each(["-48210.50", "-7", "+3", "9007199254740993", "0.5"])(
+    "does not formula-guard %s",
+    (v) => {
+      expect(escapeCsvCell(v)).toBe(String(v));
+    },
+  );
+
+  it("still guards a real formula and a lookalike", () => {
+    expect(escapeCsvCell("=SUM(A1:A2)")).toBe("'=SUM(A1:A2)");
+    expect(escapeCsvCell("-not a number")).toBe("'-not a number");
+    expect(escapeCsvCell("@handle")).toBe("'@handle");
+  });
+});
+
 describe("escapeCsvCell", () => {
   it("returns empty string for null", () => {
     expect(escapeCsvCell(null)).toBe("");
