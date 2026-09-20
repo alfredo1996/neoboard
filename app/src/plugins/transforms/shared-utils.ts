@@ -7,6 +7,7 @@
 
 import { normalizeValue } from "@/lib/shared/normalize-value";
 import type { ColumnMapping } from "@neoboard/components";
+import { toChartNumber } from "@neoboard/components/numeric-cell";
 
 export type { ColumnMapping };
 export { normalizeValue };
@@ -74,12 +75,11 @@ export function collectAllKeys(records: Record<string, unknown>[]): string[] {
  * number; ECharts renders nulls as gaps rather than masquerading them as 0.
  */
 export function toSeriesNumber(raw: unknown): number | null {
-  if (raw === null || raw === undefined) return null;
-  // Whitespace-only strings would otherwise coerce to 0 via Number("   "),
-  // hiding what is really a missing cell behind a fake zero.
-  if (typeof raw === "string" && raw.trim() === "") return null;
-  const n = typeof raw === "number" ? raw : Number(raw);
-  return Number.isFinite(n) ? n : null;
+  // One notion of "a number in a cell", shared with the column kinds, the
+  // formatter, the sort and the styling rules (#1925). A chart draws in
+  // doubles, so this is the one place the precision loss is accepted; it also
+  // rules out `Number("   ") === 0`, which hid a missing cell behind a zero.
+  return toChartNumber(raw);
 }
 
 /**

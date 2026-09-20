@@ -50,12 +50,21 @@ describe("transformToGanttData — parsing dates", () => {
     expect(item(out)?.start).toBe(Date.parse("2024-06-01T12:30:05Z"));
   });
 
-  it("leaves a Date instance alone", () => {
-    const d = new Date(2026, 3, 1, 9, 30);
+  // #1925: this used to pass a `Date` and assert the branch that read one. A
+  // `Date` cannot reach a transform — rows cross JSON — so what a gantt
+  // actually receives is the contract's ISO-8601 string (#1904), zone and all.
+  it("reads a zone-less ISO date-time as the wall clock it is", () => {
     const out = transformToGanttData(
-      rows({ task: "A", start: d, end: new Date(2026, 3, 2) }),
+      rows({ task: "A", start: "2026-04-01T09:30:00", end: "2026-04-02" }),
     );
-    expect(item(out)?.start).toBe(d.getTime());
+    expect(item(out)?.start).toBe(new Date(2026, 3, 1, 9, 30).getTime());
+  });
+
+  it("reads an instant with an offset as that instant", () => {
+    const out = transformToGanttData(
+      rows({ task: "A", start: "2026-04-01T09:30:00Z", end: "2026-04-02" }),
+    );
+    expect(item(out)?.start).toBe(Date.parse("2026-04-01T09:30:00Z"));
   });
 
   it("drops a year column instead of drawing bars in 1970", () => {

@@ -4,15 +4,21 @@
  * newline, or carriage return; prefixes a single quote if the value would
  * otherwise be executed as a formula by Excel/Sheets.
  */
+import { isNumericCell } from "./numeric-cell";
+
 export function escapeCsvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const isNumeric = typeof value === "number" || typeof value === "bigint";
+  // A number a double cannot hold arrives as a decimal string (#1304, #1307),
+  // and a negative one begins with "-" — the guard below used to turn the
+  // whole column into text (#1925).
+  const isNumeric = typeof value === "bigint" || isNumericCell(value);
   let str = typeof value === "object" ? JSON.stringify(value) : String(value);
   // Neutralize formula injection: cells beginning with =, +, -, @, tab, or CR
   // are executed by Excel/Sheets. Quoting does NOT stop this — the CSV parser
   // strips the quotes before the spreadsheet evaluates the cell — so prefix a
-  // single quote to force text. Skip genuine numbers so negative values stay
-  // numeric in the export.
+  // single quote to force text. Skip genuine numbers — including the ones that
+  // crossed the wire as strings — so negative values stay numeric in the
+  // export.
   if (!isNumeric && /^[=@+\-\t\r]/.test(str)) {
     str = `'${str}`;
   }

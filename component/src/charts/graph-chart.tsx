@@ -205,17 +205,13 @@ function pickDefaultCaptionProp(propKeys: string[]): string {
 
 /**
  * Converts a property value to a human-readable string for graph display.
- * Neo4j types are converted to native JS types at the connection boundary,
- * so this function only handles standard JS types.
+ * Every value arrives as the row value contract's own forms (#1904) — ISO-8601
+ * strings for temporals, decimal strings past a double — so a `Date` cannot
+ * reach here.
  */
 function graphPrimitiveString(val: unknown): string {
   if (val === null || val === undefined) return "";
   if (typeof val !== "object") return String(val);
-  if (val instanceof Date) {
-    return isNaN(val.getTime())
-      ? String(val)
-      : val.toISOString().slice(0, 19).replace("T", " ");
-  }
   return JSON.stringify(val);
 }
 

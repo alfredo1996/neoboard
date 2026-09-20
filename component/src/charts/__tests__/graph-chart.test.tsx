@@ -773,34 +773,24 @@ describe("GraphChart", () => {
     expect(nvlNodes[0].caption).toBe("4294967296");
   });
 
-  it("renders a Date object as a readable datetime string in node caption", () => {
-    const nodes = [
-      {
-        id: "d1",
-        labels: ["Event"],
-        properties: {
-          date: new Date("2024-03-15T00:00:00Z"),
-        },
-      },
-    ];
-    render(<GraphChart nodes={nodes} edges={[]} />);
+  // #1925: these two used to build a `Date` and assert the branch that
+  // formatted one. A `Date` cannot reach a chart — rows cross JSON — so what
+  // a temporal property actually is, is the ISO-8601 string the contract
+  // defines (#1904), and it is shown as it came.
+  it.each([
+    ["a date", "2024-03-15"],
+    ["an instant", "2023-11-07T14:30:00.000Z"],
+    ["a zone-less date-time", "2026-03-15T10:30:00"],
+    ["a duration", "P1M2DT3S"],
+  ])("renders %s in a node caption as it arrived", (_label, value) => {
+    render(
+      <GraphChart
+        nodes={[{ id: "d1", labels: ["Event"], properties: { date: value } }]}
+        edges={[]}
+      />,
+    );
     const nvlNodes = capturedProps.nodes as NvlNode[];
-    expect(nvlNodes[0].caption).toBe("2024-03-15 00:00:00");
-  });
-
-  it("renders a Date with time components correctly", () => {
-    const nodes = [
-      {
-        id: "d2",
-        labels: ["Event"],
-        properties: {
-          date: new Date("2023-11-07T14:30:00Z"),
-        },
-      },
-    ];
-    render(<GraphChart nodes={nodes} edges={[]} />);
-    const nvlNodes = capturedProps.nodes as NvlNode[];
-    expect(nvlNodes[0].caption).toBe("2023-11-07 14:30:00");
+    expect(nvlNodes[0].caption).toBe(value);
   });
 
   it("falls back to JSON.stringify for unknown object values", () => {
