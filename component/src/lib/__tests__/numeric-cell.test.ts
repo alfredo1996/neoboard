@@ -58,7 +58,7 @@ describe("toChartNumber", () => {
 
 describe("compareNumericCells — exact past 2^53", () => {
   it("orders two values a double cannot tell apart", () => {
-    expect(Number(COLLIDES_A) === Number(COLLIDES_B)).toBe(true); // the trap
+    expect(Number(COLLIDES_A)).toBe(Number(COLLIDES_B)); // the trap
     expect(compareNumericCells(COLLIDES_A, COLLIDES_B)).toBeLessThan(0);
     expect(compareNumericCells(COLLIDES_B, COLLIDES_A)).toBeGreaterThan(0);
     expect(compareNumericCells(COLLIDES_A, COLLIDES_A)).toBe(0);

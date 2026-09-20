@@ -23,8 +23,20 @@ export type ColumnKind = "numeric" | "datetime" | "text" | "empty";
  * length, not a point, nothing in the app reads one, and as text it renders
  * and sorts as what it is (#1925).
  */
-const ISO_TEMPORAL =
-  /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_TIME = /^\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/;
+
+/**
+ * Split in two rather than written as one pattern: a single regex covering
+ * both halves scores 39 on Sonar's complexity budget of 20, and the two-step
+ * form says what it checks.
+ */
+function isIsoTemporal(v: string): boolean {
+  if (ISO_DATE.test(v)) return true;
+  const separator = v[10];
+  if (separator !== "T" && separator !== " ") return false;
+  return ISO_DATE.test(v.slice(0, 10)) && ISO_TIME.test(v.slice(11));
+}
 
 export function inferColumnKind(values: readonly unknown[]): ColumnKind {
   let seen = 0;
@@ -36,7 +48,7 @@ export function inferColumnKind(values: readonly unknown[]): ColumnKind {
     // Numeric first: a decimal string is a number whose precision a double
     // could not hold (#1304, #1307), not text that happens to contain digits.
     if (isNumericCell(v)) numbers++;
-    else if (typeof v === "string" && ISO_TEMPORAL.test(v)) temporals++;
+    else if (typeof v === "string" && isIsoTemporal(v)) temporals++;
   }
   if (seen === 0) return "empty";
   if (numbers === seen) return "numeric";

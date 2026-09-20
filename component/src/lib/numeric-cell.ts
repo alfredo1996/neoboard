@@ -41,6 +41,23 @@ export function toChartNumber(v: unknown): number | null {
   return typeof v === "number" ? v : Number(v.trim());
 }
 
+/**
+ * Zero-trimming and grouping are done by hand rather than with `/0+$/`,
+ * `/^0+(?=\d)/` and the usual `/\B(?=(\d{3})+(?!\d))/g`: all three backtrack
+ * super-linearly, and a digit string here has no bound a caller can rely on.
+ */
+function trimTrailingZeros(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.codePointAt(end - 1) === 48) end--;
+  return s.slice(0, end);
+}
+
+function trimLeadingZeros(s: string): string {
+  let i = 0;
+  while (i < s.length - 1 && s.codePointAt(i) === 48) i++;
+  return s.slice(i);
+}
+
 interface Parts {
   negative: boolean;
   int: string;
@@ -53,15 +70,16 @@ function parts(v: number | string): Parts {
   if (/[eE]/.test(s)) {
     // An exponent cannot be compared digit by digit, and a value written with
     // one is already inside double range in every case this sees.
-    s = Number(s).toFixed(20).replace(/0+$/, "").replace(/\.$/, "");
+    const expanded = trimTrailingZeros(Number(s).toFixed(20));
+    s = expanded.endsWith(".") ? expanded.slice(0, -1) : expanded;
   }
   const negative = s.startsWith("-");
   if (negative || s.startsWith("+")) s = s.slice(1);
   const [int = "", frac = ""] = s.split(".");
   return {
     negative,
-    int: int.replace(/^0+(?=\d)/, "") || "0",
-    frac: frac.replace(/0+$/, ""),
+    int: trimLeadingZeros(int) || "0",
+    frac: trimTrailingZeros(frac),
   };
 }
 
@@ -100,7 +118,7 @@ function round(p: Parts, places: number): Parts {
     return { ...p, frac: p.frac.padEnd(places, "0") };
   }
   const keep = p.frac.slice(0, places);
-  const roundUp = p.frac.charCodeAt(places) >= 53; // '5'
+  const roundUp = (p.frac.codePointAt(places) ?? 0) >= 53; // '5'
   if (!roundUp) return { ...p, frac: keep };
 
   const digits = (p.int + keep).split("");
@@ -124,7 +142,12 @@ function round(p: Parts, places: number): Parts {
 }
 
 function group(int: string): string {
-  return int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  let out = "";
+  for (let i = int.length; i > 0; i -= 3) {
+    const chunk = int.slice(Math.max(0, i - 3), i);
+    out = out ? `${chunk},${out}` : chunk;
+  }
+  return out;
 }
 
 export interface NumericCellFormat {
