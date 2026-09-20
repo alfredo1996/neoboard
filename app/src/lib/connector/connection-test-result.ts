@@ -1,6 +1,6 @@
 import { sanitizeErrorMessage } from "@/lib/api/api-utils";
 import {
-  classifyConnectionError,
+  connectionErrorCode,
   CONNECTION_CHECK_FALSE_MESSAGE,
   type ConnectionErrorCode,
   type ConnectionErrorContext,
@@ -17,7 +17,7 @@ export interface ConnectionTestResult {
   error?: string;
 }
 
-/** A driver check that returned false without throwing — no message to classify. */
+/** A driver check that returned false without throwing — there is no error to read. */
 export function connectionCheckFalseResult(): ConnectionTestResult {
   return {
     success: false,
@@ -26,17 +26,19 @@ export function connectionCheckFalseResult(): ConnectionTestResult {
   };
 }
 
-/** A thrown driver error — classify for a targeted hint, then sanitize for display. */
+/**
+ * A thrown connector error — its connector's verdict picks the targeted hint,
+ * and its message is sanitized for display.
+ */
 export function connectionTestErrorResult(
   thrown: unknown,
   context?: ConnectionErrorContext,
 ): ConnectionTestResult {
   const rawMessage =
     thrown instanceof Error ? thrown.message : "Connection test failed";
-  // Classify BEFORE sanitization — the classifier needs the raw driver text.
   // The context is read here and never returned: a URI can carry a password,
   // so it informs the code and goes no further (#1346).
-  const code = classifyConnectionError(rawMessage, context);
+  const code = connectionErrorCode(thrown, context);
   const error = sanitizeErrorMessage(rawMessage, "Connection test failed");
   return { success: false, code, error };
 }

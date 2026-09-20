@@ -48,7 +48,7 @@ describe("PostgreSQL Utils", () => {
 
     test("treats invalid_catalog_name (3D000) as NOT auth — missing database is a connection problem (#974)", () => {
       // Credentials can be perfectly valid when the database doesn't exist;
-      // detectPostgresErrorType (ConnectorError.ts) classifies 3D000 as
+      // classifyPostgresError (classify-error.ts) classifies 3D000 as
       // CONNECTION. checkConnection must rethrow it (surfaced with a hint),
       // not swallow it as a credential failure.
       const error = { code: "3D000" };

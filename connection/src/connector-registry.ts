@@ -12,7 +12,9 @@
 
 import {
   createConnectorRegistry,
+  wrapError,
   type ConnectorConfig,
+  type ConnectorError,
   type ConnectorPlugin,
   type ConnectorRegistry,
   type SchemaManager,
@@ -109,4 +111,16 @@ export function createConnectionModule(type: string, config: ConnectorConfig) {
     );
   }
   return plugin.createModule(config);
+}
+
+/**
+ * Whatever `type`'s connector raised, as a ConnectorError classified by THAT
+ * connector's `classifyError` hook (#1903) — or by the SDK's message-agnostic
+ * default when it has none. An error that already is one comes back untouched:
+ * the built-ins classify at the point of failure, so this only does work for
+ * an error that escaped unwrapped (a constructor throw, a connector that hands
+ * `onFail` a raw driver error).
+ */
+export function toConnectorError(type: string, err: unknown): ConnectorError {
+  return wrapError(err, registry.get(type)?.classifyError);
 }

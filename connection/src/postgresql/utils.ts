@@ -1,5 +1,6 @@
 import type { Pool, QueryConfig, QueryResultRow } from "pg";
 import { DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
+import { AUTHENTICATION_SQLSTATES } from "./classify-error";
 
 /**
  * PostgreSQL Utility Functions
@@ -20,15 +21,9 @@ export function isAuthenticationError(error: unknown): boolean {
       ? (error as { code: string }).code
       : "";
 
-  // PostgreSQL authentication error codes. Keep in sync with
-  // detectPostgresErrorType (generalized/ConnectorError.ts) — notably
-  // 3D000 (invalid_catalog_name) is a CONNECTION error there, not auth:
-  // credentials can be valid while the database doesn't exist (#974).
-  return (
-    code === "28P01" || // invalid_password
-    code === "28000" || // invalid_authorization_specification
-    code === "28001" // invalid_password (GSSAPI)
-  );
+  // 3D000 (invalid_catalog_name) is deliberately not among them: credentials
+  // can be valid while the database does not exist (#974).
+  return AUTHENTICATION_SQLSTATES.includes(code);
 }
 
 /**

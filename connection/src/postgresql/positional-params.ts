@@ -1,3 +1,5 @@
+import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
+
 /**
  * Named parameters → node-pg's positional ones.
  *
@@ -40,7 +42,13 @@ export function toPositionalParams(
   });
 
   if (missing.length > 0) {
-    throw new Error(`Expected parameter(s): ${missing.join(", ")}`);
+    // Typed here, where it is known to be the statement's fault: a parameter
+    // may be called anything — `$param_timeout` — and a classifier reading
+    // this message would believe the name.
+    throw new ConnectorError(
+      `Expected parameter(s): ${missing.join(", ")}`,
+      ConnectorErrorType.QUERY,
+    );
   }
   return { text, values };
 }

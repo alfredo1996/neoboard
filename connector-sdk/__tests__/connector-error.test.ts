@@ -1,9 +1,9 @@
 import {
   ConnectorError,
   ConnectorErrorType,
-  detectNeo4jErrorType,
-  detectPostgresErrorType,
+  defaultClassifyError,
   wrapError,
+  type ConnectorErrorClassification,
 } from "../src/generalized/ConnectorError";
 
 describe("ConnectorError", () => {
@@ -24,93 +24,186 @@ describe("ConnectorError", () => {
   it("defaults to UNKNOWN type", () => {
     const err = new ConnectorError("something");
     expect(err.type).toBe(ConnectorErrorType.UNKNOWN);
-  });
-});
-
-describe("detectNeo4jErrorType", () => {
-  it("detects ServiceUnavailable as CONNECTION", () => {
-    expect(
-      detectNeo4jErrorType({ code: "ServiceUnavailable", message: "" }),
-    ).toBe(ConnectorErrorType.CONNECTION);
+    expect(err.classification).toEqual({
+      type: ConnectorErrorType.UNKNOWN,
+      transient: false,
+    });
   });
 
-  it("detects authentication errors", () => {
-    expect(
-      detectNeo4jErrorType({ code: "Neo.ClientError.Security.Unauthorized" }),
-    ).toBe(ConnectorErrorType.AUTHENTICATION);
+  it("carries a full classification, and its type mirrors it", () => {
+    const classification: ConnectorErrorClassification = {
+      type: ConnectorErrorType.CONSTRAINT,
+      transient: false,
+      constraint: { kind: "not_null", column: "rating" },
+    };
+    const err = new ConnectorError("rejected", classification);
+    expect(err.classification).toBe(classification);
+    expect(err.type).toBe(ConnectorErrorType.CONSTRAINT);
   });
 
-  it("detects timeout from transaction terminated message", () => {
-    expect(
-      detectNeo4jErrorType({
-        message: "The transaction has been terminated. Retry your query",
-      }),
-    ).toBe(ConnectorErrorType.TIMEOUT);
+  it.each([
+    [ConnectorErrorType.TIMEOUT, true],
+    [ConnectorErrorType.QUERY, false],
+    [ConnectorErrorType.AUTHENTICATION, false],
+    [ConnectorErrorType.NETWORK, false],
+    [ConnectorErrorType.BAD_URI, false],
+  ])("a bare %s type is transient: %s", (type, transient) => {
+    expect(new ConnectorError("x", type).classification).toEqual({
+      type,
+      transient,
+    });
   });
 
-  it("falls back to QUERY for other errors", () => {
-    expect(detectNeo4jErrorType({ message: "syntax error" })).toBe(
+  it("serialises to its classification only — never the driver's error or message", () => {
+    const driverError = Object.assign(new Error("duplicate key"), {
+      detail: "Failing row contains (12, hunter2)",
+      uri: "postgresql://admin:s3cret@db.internal:5432/app",
+    });
+    const err = new ConnectorError(
+      'null value in column "rating" — INSERT INTO t VALUES ($1) [hunter2]',
       ConnectorErrorType.QUERY,
+      driverError,
     );
-  });
-
-  it("returns UNKNOWN for non-objects", () => {
-    expect(detectNeo4jErrorType(null)).toBe(ConnectorErrorType.UNKNOWN);
-    expect(detectNeo4jErrorType("string")).toBe(ConnectorErrorType.UNKNOWN);
+    const json = JSON.stringify(err);
+    expect(JSON.parse(json)).toEqual({
+      name: "ConnectorError",
+      type: "QUERY",
+      classification: { type: "QUERY", transient: false },
+    });
+    expect(json).not.toMatch(/hunter2|s3cret|db\.internal|INSERT/);
   });
 });
 
-describe("detectPostgresErrorType", () => {
-  it("detects timeout from error code 57014", () => {
-    expect(detectPostgresErrorType({ code: "57014" })).toBe(
-      ConnectorErrorType.TIMEOUT,
+describe("defaultClassifyError", () => {
+  it("honours what a ConnectorError already says", () => {
+    const classification: ConnectorErrorClassification = {
+      type: ConnectorErrorType.NETWORK,
+      transient: false,
+    };
+    expect(defaultClassifyError(new ConnectorError("x", classification))).toBe(
+      classification,
     );
   });
 
-  it("detects authentication from code 28P01", () => {
-    expect(detectPostgresErrorType({ code: "28P01" })).toBe(
-      ConnectorErrorType.AUTHENTICATION,
-    );
+  it("honours a ConnectorError from another copy of this package, by name", () => {
+    const classification = {
+      type: ConnectorErrorType.TIMEOUT,
+      transient: true,
+    };
+    const foreign = Object.assign(new Error("x"), {
+      name: "ConnectorError",
+      classification,
+    });
+    expect(defaultClassifyError(foreign)).toBe(classification);
   });
 
-  it("detects 3D000 (invalid database) as CONNECTION", () => {
-    expect(detectPostgresErrorType({ code: "3D000" })).toBe(
-      ConnectorErrorType.CONNECTION,
-    );
-  });
+  it.each([
+    [
+      "an error with a driver code",
+      Object.assign(new Error("x"), { code: "57014" }),
+    ],
+    ["a driver's own words", new Error('relation "users" does not exist')],
+    ["a string", "timeout"],
+    ["null", null],
+    ["undefined", undefined],
+  ])(
+    "reads no driver's words: %s is UNKNOWN and not transient",
+    (_label, err) => {
+      expect(defaultClassifyError(err)).toEqual({
+        type: ConnectorErrorType.UNKNOWN,
+        transient: false,
+      });
+    },
+  );
 
-  it("detects connection error from code 08001", () => {
-    expect(detectPostgresErrorType({ code: "08001" })).toBe(
-      ConnectorErrorType.CONNECTION,
-    );
-  });
+  // Before #1903 the app applied these same platform signals to every error, so
+  // a connector with no `classifyError` hook must not lose them: an unreachable
+  // host is still 502 and a dropped socket is still worth a retry.
+  it.each([
+    [
+      "a refused port",
+      "connect ECONNREFUSED 127.0.0.1:5432",
+      ConnectorErrorType.NETWORK,
+      false,
+    ],
+    [
+      "a name that does not resolve",
+      "getaddrinfo ENOTFOUND db.example.com",
+      ConnectorErrorType.NETWORK,
+      false,
+    ],
+    [
+      "a connect timeout, which is both",
+      "connect ETIMEDOUT 10.0.0.1:7687",
+      ConnectorErrorType.NETWORK,
+      true,
+    ],
+    ["a dropped socket", "read ECONNRESET", ConnectorErrorType.UNKNOWN, true],
+    ["a hung socket", "socket hang up", ConnectorErrorType.UNKNOWN, true],
+  ])(
+    "reads the platform's own signals: %s",
+    (_label, message, type, transient) => {
+      expect(defaultClassifyError(new Error(message))).toEqual({
+        type,
+        transient,
+      });
+    },
+  );
 
-  it("detects read-only violation", () => {
-    expect(detectPostgresErrorType({ code: "25006" })).toBe(
-      ConnectorErrorType.READ_ONLY_VIOLATION,
-    );
-  });
-
-  it("falls back to QUERY for other codes", () => {
+  it("does not retry a runtime crash that merely says timeout", () => {
     expect(
-      detectPostgresErrorType({ code: "42601", message: "syntax error" }),
-    ).toBe(ConnectorErrorType.QUERY);
+      defaultClassifyError(
+        new Error("Cannot read properties of undefined (reading 'timeout')"),
+      ),
+    ).toEqual({ type: ConnectorErrorType.UNKNOWN, transient: false });
   });
 });
 
 describe("wrapError", () => {
-  it("wraps Neo4j error correctly", () => {
-    const raw = { code: "ServiceUnavailable", message: "Failed to connect" };
-    const wrapped = wrapError(raw, "neo4j");
+  it("uses the default classifier when the connector supplies none", () => {
+    const raw = new Error("canceling statement due to statement timeout");
+    const wrapped = wrapError(raw);
     expect(wrapped).toBeInstanceOf(ConnectorError);
-    expect(wrapped.type).toBe(ConnectorErrorType.CONNECTION);
+    expect(wrapped.message).toBe(raw.message);
+    expect(wrapped.type).toBe(ConnectorErrorType.UNKNOWN);
+    // No driver owns the word, but a statement timeout is worth one retry —
+    // which is what the app did for every connector before #1903.
+    expect(wrapped.classification.transient).toBe(true);
     expect(wrapped.originalError).toBe(raw);
   });
 
-  it("wraps PostgreSQL error correctly", () => {
-    const raw = new Error("canceling statement due to statement timeout");
-    (raw as unknown as { code: string }).code = "57014";
-    const wrapped = wrapError(raw, "postgresql");
-    expect(wrapped.type).toBe(ConnectorErrorType.TIMEOUT);
+  it("classifies through the injected classifier", () => {
+    const raw = { code: "E_BUSY", message: "try again" };
+    const classify = jest.fn(() => ({
+      type: ConnectorErrorType.CONNECTION,
+      transient: true,
+    }));
+    const wrapped = wrapError(raw, classify);
+    expect(classify).toHaveBeenCalledWith(raw);
+    expect(wrapped.classification).toEqual({
+      type: ConnectorErrorType.CONNECTION,
+      transient: true,
+    });
+    expect(wrapped.message).toBe("try again");
+    expect(wrapped.originalError).toBe(raw);
+  });
+
+  it("stringifies a thrown non-object", () => {
+    expect(wrapError("boom").message).toBe("boom");
+  });
+
+  // #1898: a missing `$param_timeout` was typed TIMEOUT because its message
+  // says "timeout". An error typed where it was raised is never re-read.
+  it("returns an already-classified ConnectorError as it is, without consulting the classifier", () => {
+    const typed = new ConnectorError(
+      "Expected parameter(s): param_timeout",
+      ConnectorErrorType.QUERY,
+    );
+    const classify = jest.fn(() => ({
+      type: ConnectorErrorType.TIMEOUT,
+      transient: true,
+    }));
+    expect(wrapError(typed, classify)).toBe(typed);
+    expect(classify).not.toHaveBeenCalled();
   });
 });

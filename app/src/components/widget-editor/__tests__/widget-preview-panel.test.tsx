@@ -243,6 +243,27 @@ describe("WidgetPreviewPanel", () => {
     expect(screen.getAllByText("Boom").length).toBeGreaterThan(0);
   });
 
+  // #1903: the connector flags a blocked write, the API passes the flag on as
+  // `details`, and the panel never reads the driver's words.
+  it("says writes are not allowed when the connector flagged a blocked write", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          previewQuery: {
+            isPending: false,
+            isError: true,
+            error: Object.assign(new Error("the driver's own words"), {
+              details: { blockedWrite: true },
+            }),
+            data: undefined,
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText("Writes not allowed")).toBeTruthy();
+    expect(screen.getByText(/use a Form widget/)).toBeTruthy();
+  });
+
   it("shows form field list for form widgets with fields", () => {
     render(
       <WidgetPreviewPanel

@@ -17,6 +17,7 @@ import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
 import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
 import { toPositionalParams } from "./positional-params";
+import { classifyPostgresError } from "./classify-error";
 
 /**
  * PostgreSQL Connection Module
@@ -88,10 +89,9 @@ export class PostgresConnectionModule extends ConnectionModule {
             throw err;
           });
         if (!authenticated) {
-          // A ConnectorError, not a plain Error: the query route only
-          // classifies connector-raised failures, and "authentication failed"
-          // is what its classifier reads as auth_failed → 502 (#1678). A
-          // plain Error here went out as a 500 with no hint.
+          // A ConnectorError typed AUTHENTICATION, not a plain Error: the
+          // type is what the query route answers 502 + the credentials hint
+          // for (#1678). A plain Error here went out as a 500 with no hint.
           callbacks.setStatus?.(QueryStatus.ERROR);
           callbacks.onFail?.(
             new ConnectorError(
@@ -105,7 +105,7 @@ export class PostgresConnectionModule extends ConnectionModule {
 
       payload = await this._runSqlQuery<T>(query, callbacks, config, params);
     } catch (error: unknown) {
-      const wrapped = wrapError(error, "postgresql");
+      const wrapped = wrapError(error, classifyPostgresError);
       callbacks.setStatus?.(
         wrapped.type === ConnectorErrorType.TIMEOUT
           ? QueryStatus.TIMED_OUT
@@ -255,7 +255,7 @@ export class PostgresConnectionModule extends ConnectionModule {
       }
 
       // Wrap raw error into normalized ConnectorError
-      const wrapped = wrapError(error, "postgresql");
+      const wrapped = wrapError(error, classifyPostgresError);
       callbacks.setStatus?.(
         wrapped.type === ConnectorErrorType.TIMEOUT
           ? QueryStatus.TIMED_OUT
@@ -332,9 +332,9 @@ export class PostgresConnectionModule extends ConnectionModule {
   /**
    * Checks if the database connection is active and healthy.
    *
-   * Throws a wrapped `ConnectorError` on any failure so the API route can
-   * classify the cause (auth_failed / network / bad_uri / unknown) — see
-   * `app/src/lib/connector/connection-error-classifier.ts`. Returning a
+   * Throws a wrapped `ConnectorError` on any failure, classified by
+   * `classify-error.ts`, so the API route can tell the user which knob to
+   * turn — credentials, network or the URI. Returning a
    * bare `false` would leave the UI with the useless "Connection check
    * returned false" message (#900). This matches the Neo4j contract.
    *
@@ -352,7 +352,7 @@ export class PostgresConnectionModule extends ConnectionModule {
       await this.authModule.introspect("SELECT 1");
       return true;
     } catch (error) {
-      const wrapped = wrapError(error, "postgresql");
+      const wrapped = wrapError(error, classifyPostgresError);
       // Log only error type — never the full error which may contain connection details
       console.warn("Connection check failed:", wrapped.type);
       throw wrapped;

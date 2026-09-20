@@ -25,6 +25,7 @@
  */
 
 import type { ConnectionModule } from "./ConnectionModule";
+import type { ClassifyError } from "./ConnectorError";
 import {
   MAX_ICON_SVG_BYTES,
   type ConnectorConfig,
@@ -53,6 +54,21 @@ export type ConnectorPlugin = ConnectorDescriptor & {
    * via the registry (#1119), replacing hardcoded per-type dispatch.
    */
   createSchemaManager?(): SchemaManager;
+
+  /**
+   * Say what one of this connector's errors IS (#1903): unreachable host or
+   * bad credentials, worth a retry or not, which schema rule a write broke.
+   * NeoBoard recognises no driver's codes or messages — this hook is the only
+   * place they are read. Pass it to `wrapError` so every error the module
+   * raises carries its verdict; NeoBoard calls it for an error that escaped
+   * unwrapped. Optional — without it `defaultClassifyError` applies, which
+   * reads only the platform's own signals (a refused socket, a name that does
+   * not resolve, a dropped connection), so an unreachable host is still 502
+   * and a dropped socket still worth a retry; anything only your driver can
+   * explain stays UNKNOWN and is never retried.
+   * `createErrorClassifier` builds one from tables of codes and phrases.
+   */
+  classifyError?: ClassifyError;
 };
 
 /**

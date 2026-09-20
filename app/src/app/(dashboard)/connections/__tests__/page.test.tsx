@@ -63,6 +63,7 @@ let mockConnectors: {
 };
 const mockRefetch = vi.fn();
 const mockTest = vi.fn();
+const mockTestInline = vi.fn();
 const mockToast = vi.fn();
 
 vi.mock("next-auth/react", () => ({
@@ -82,7 +83,7 @@ vi.mock("@/hooks/use-connections", () => {
     useUpdateConnection: idle,
     useDeleteConnection: idle,
     useReassignConnection: idle,
-    useTestInlineConnection: idle,
+    useTestInlineConnection: () => ({ ...idle(), mutateAsync: mockTestInline }),
     useTestConnection: () => ({ mutateAsync: mockTest }),
   };
 });
@@ -119,12 +120,29 @@ vi.mock("@neoboard/components", () => {
     Switch: () => null,
     Skeleton: () => <div data-testid="skeleton" />,
     PasswordInput: () => null,
-    DynamicConnectionFields: ({ fields }: { fields: { label: string }[] }) => (
-      <ul data-testid="connection-fields">
-        {fields.map((f) => (
-          <li key={f.label}>{f.label}</li>
-        ))}
-      </ul>
+    DynamicConnectionFields: ({
+      fields,
+      onChange,
+    }: {
+      fields: { label: string }[];
+      onChange: (name: string, value: string) => void;
+    }) => (
+      <>
+        <ul data-testid="connection-fields">
+          {fields.map((f) => (
+            <li key={f.label}>{f.label}</li>
+          ))}
+        </ul>
+        {/* Stands in for typing: the Test button needs all three filled. */}
+        <button
+          data-testid="fill-credentials"
+          onClick={() =>
+            ["uri", "username", "password"].forEach((name) =>
+              onChange(name, "typed"),
+            )
+          }
+        />
+      </>
     ),
     ConfirmDialog: () => null,
     Dialog: ({
@@ -513,6 +531,29 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     expect(dialog.getByTestId("connection-fields")).toHaveTextContent(
       /^Workbook$/,
     );
+  });
+
+  // #1903: the app has no example of its own to offer — it would be an example
+  // of some connector it is not supposed to know.
+  it("a failed Test's hint carries the picked connector's own example", async () => {
+    mockTestInline.mockResolvedValue({
+      success: false,
+      code: "bad_uri",
+      error: "rejected",
+    });
+    render(<ConnectionsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Connection" }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(dialog.getByTestId("pick-acme-sheets"));
+    fireEvent.click(dialog.getByTestId("fill-credentials"));
+
+    await act(async () => {
+      fireEvent.click(dialog.getByRole("button", { name: "Test Connection" }));
+    });
+
+    expect(mockTestInline).toHaveBeenCalledOnce();
+    expect(dialog.getByText("rejected")).toBeInTheDocument();
+    expect(dialog.getByText(/acme:\/\/host\/book/)).toBeInTheDocument();
   });
 
   it("shows an error with a retry when the connectors cannot be loaded — no fallback type", () => {

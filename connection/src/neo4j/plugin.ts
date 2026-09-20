@@ -7,6 +7,7 @@ import type { ConnectorPlugin } from "@neoboard/connector-sdk";
 import { neo4jDescriptor } from "./descriptor";
 import { Neo4jConnectionModule } from "./Neo4jConnectionModule";
 import { Neo4jSchemaManager } from "../schema/neo4j-schema";
+import { classifyNeo4jError } from "./classify-error";
 
 export const neo4jPlugin: ConnectorPlugin = {
   ...neo4jDescriptor,
@@ -18,4 +19,6 @@ export const neo4jPlugin: ConnectorPlugin = {
   createSchemaManager() {
     return new Neo4jSchemaManager();
   },
+
+  classifyError: classifyNeo4jError,
 };

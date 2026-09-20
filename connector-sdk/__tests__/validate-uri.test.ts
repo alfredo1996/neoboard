@@ -1,4 +1,8 @@
 import { AuthenticationModule } from "../src/generalized/AuthenticationModule";
+import {
+  ConnectorError,
+  ConnectorErrorType,
+} from "../src/generalized/ConnectorError";
 
 /**
  * `_validateUri` is `protected`, and it runs in the constructor of every
@@ -83,6 +87,29 @@ describe("_validateUri", () => {
       expect(messageFor("::::not-a-uri::::")).toMatch(
         /expected scheme:\/\/host/,
       );
+    });
+  });
+});
+
+// #1903: the verdict is given where the URI is rejected, so nobody downstream
+// has to recognise these messages to know the URI is the problem.
+describe("a rejected URI is typed BAD_URI", () => {
+  it.each([
+    ["unparseable", "not a uri", []],
+    ["no hostname", "mydb://", []],
+    ["wrong protocol", "http://host:1", ["mydb:"]],
+    ["port out of range", "mydb://host:0", ["mydb:"]],
+  ])("%s", (_label, uri, protocols) => {
+    let thrown: unknown;
+    try {
+      new TestAuth().validate(uri, protocols);
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(ConnectorError);
+    expect((thrown as ConnectorError).classification).toEqual({
+      type: ConnectorErrorType.BAD_URI,
+      transient: false,
     });
   });
 });

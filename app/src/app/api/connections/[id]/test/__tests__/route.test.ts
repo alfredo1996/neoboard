@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeParams, makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
+import { raisedByConnector } from "@/__tests__/helpers/connector-errors";
 import {
   makeSelectChain as recordingSelectChain,
   sqlColumns,
@@ -165,7 +166,9 @@ describe("POST /api/connections/[id]/test", () => {
       username: "pg",
       password: "pass",
     });
-    mockTestConnection.mockRejectedValue(new Error("Connection refused"));
+    mockTestConnection.mockRejectedValue(
+      raisedByConnector("NETWORK", { message: "Connection refused" }),
+    );
 
     const res = await POST(makeRequest(null), makeParams("c1"));
     expect(res.status).toBe(200);
@@ -184,9 +187,7 @@ describe("POST /api/connections/[id]/test", () => {
       ]),
     );
     mockDecryptJson.mockReturnValue({ uri: "bolt://h", username: "u" });
-    mockTestConnection.mockRejectedValue(
-      new Error("The client is unauthorized due to authentication failure."),
-    );
+    mockTestConnection.mockRejectedValue(raisedByConnector("AUTHENTICATION"));
 
     const res = await POST(makeRequest(null), makeParams("c1"));
     const body = await res.json();

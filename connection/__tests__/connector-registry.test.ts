@@ -200,3 +200,85 @@ describe("global connector registry", () => {
     ).toThrow(/Unknown connector type.*mysql/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// toConnectorError (#1903) — a connector's errors, classified by ITS hook
+// ---------------------------------------------------------------------------
+
+describe("toConnectorError", () => {
+  const {
+    toConnectorError,
+    registerConnector,
+    unregisterConnector,
+  } = require("../src/connector-registry");
+  const {
+    ConnectorError,
+    ConnectorErrorType,
+  } = require("@neoboard/connector-sdk");
+
+  afterEach(() => unregisterConnector("test-db"));
+
+  it("classifies a third connector's raw error through that connector's hook", () => {
+    const classifyError = jest.fn(() => ({
+      type: ConnectorErrorType.NETWORK,
+      transient: false,
+    }));
+    registerConnector(makePlugin({ classifyError }));
+    const raw = Object.assign(new Error("TESTDB-0042 listener down"), {
+      code: "TESTDB-0042",
+    });
+
+    const wrapped = toConnectorError("test-db", raw);
+
+    expect(classifyError).toHaveBeenCalledWith(raw);
+    expect(wrapped).toBeInstanceOf(ConnectorError);
+    expect(wrapped.message).toBe("TESTDB-0042 listener down");
+    expect(wrapped.classification).toEqual({
+      type: ConnectorErrorType.NETWORK,
+      transient: false,
+    });
+  });
+
+  it("routes each built-in's error to its own classifier", () => {
+    const refused = { code: "28P01", message: "x" };
+    expect(toConnectorError("postgresql", refused).type).toBe(
+      ConnectorErrorType.AUTHENTICATION,
+    );
+    // The same error means nothing to a connector that does not own the code.
+    expect(toConnectorError("neo4j", refused).type).toBe(
+      ConnectorErrorType.QUERY,
+    );
+  });
+
+  // Without a hook the SDK default applies. It reads the platform's own signals
+  // — never a driver's — so a refused socket is still NETWORK and permanent,
+  // even though the message also carries the word the transient table matches.
+  it.each([
+    ["a connector without the hook", () => registerConnector(makePlugin())],
+    ["a type nobody registered", () => undefined],
+  ])("falls back to the SDK default for %s", (_label, arrange) => {
+    arrange();
+    expect(
+      toConnectorError("test-db", new Error("connect ECONNREFUSED timeout"))
+        .classification,
+    ).toEqual({ type: ConnectorErrorType.NETWORK, transient: false });
+  });
+
+  it.each([
+    ["a connector without the hook", () => registerConnector(makePlugin())],
+    ["a type nobody registered", () => undefined],
+  ])("leaves a driver's own words to the driver for %s", (_label, arrange) => {
+    arrange();
+    expect(
+      toConnectorError(
+        "test-db",
+        Object.assign(new Error("deadlock detected"), { code: "40P01" }),
+      ).classification,
+    ).toEqual({ type: ConnectorErrorType.UNKNOWN, transient: false });
+  });
+
+  it("returns an error that is already a ConnectorError as it is", () => {
+    const typed = new ConnectorError("x", ConnectorErrorType.BAD_URI);
+    expect(toConnectorError("postgresql", typed)).toBe(typed);
+  });
+});

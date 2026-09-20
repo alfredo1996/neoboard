@@ -1,4 +1,4 @@
-import type { ConnectorType } from "@/lib/connector/connector-types";
+import type { ConnectorField } from "@neoboard/connection";
 
 /**
  * Client-side URI *format* validation for the connection dialog (#1043).
@@ -8,16 +8,16 @@ import type { ConnectorType } from "@/lib/connector/connector-types";
  * Error-badge connection. This checks shape only (parseable, expected scheme,
  * has a host) — it never attempts a network connection.
  *
+ * `field` is the `uri` field of the connector's descriptor: the accepted
+ * schemes and the example are the connector's own, so this file knows none
+ * (#1903). Without it — the descriptors still loading — no scheme is checked;
+ * the server's check is the authoritative one either way.
+ *
  * Returns null when the URI is well-formed, otherwise an actionable message.
  */
-const SCHEMES: Record<ConnectorType, string[]> = {
-  neo4j: ["bolt:", "bolt+s:", "bolt+ssc:", "neo4j:", "neo4j+s:", "neo4j+ssc:"],
-  postgresql: ["postgres:", "postgresql:"],
-};
-
 export function validateConnectionUri(
   uri: string,
-  type: ConnectorType,
+  field: Pick<ConnectorField, "protocols" | "placeholder"> | undefined,
 ): string | null {
   const trimmed = uri.trim();
   if (!trimmed) return "URI is required.";
@@ -26,9 +26,9 @@ export function validateConnectionUri(
   try {
     parsed = new URL(trimmed);
   } catch {
-    return type === "neo4j"
-      ? "Enter a valid URI, e.g. bolt://localhost:7687 or neo4j+s://host."
-      : "Enter a valid URI, e.g. postgresql://localhost:5432/db.";
+    return field?.placeholder
+      ? `Enter a valid URI, e.g. ${field.placeholder}.`
+      : "Enter a valid URI.";
   }
 
   if (!parsed.hostname) {
@@ -42,15 +42,15 @@ export function validateConnectionUri(
   // rather than in the module constructor, which also runs for already-stored
   // connections and would break them (#1303).
   //
-  // A bare username (`postgres://user@host/db`) is deliberately still accepted:
+  // A bare username (`scheme://user@host/db`) is deliberately still accepted:
   // it is a standard documented form and is not a secret. It is ignored too,
   // but nothing leaks by ignoring it.
   if (parsed.password) {
     return "Do not put a password in the URI — use the password field.";
   }
 
-  const allowed = SCHEMES[type];
-  if (allowed && !allowed.includes(parsed.protocol)) {
+  const allowed = field?.protocols ?? [];
+  if (allowed.length > 0 && !allowed.includes(parsed.protocol)) {
     return `Unexpected scheme "${parsed.protocol.replace(
       ":",
       "",

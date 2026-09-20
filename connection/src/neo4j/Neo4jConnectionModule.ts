@@ -19,6 +19,7 @@ import { Driver } from "neo4j-driver-core";
 import { Neo4jRecordParser } from "./Neo4jRecordParser";
 import { toNeo4jParams } from "./coerce-params";
 import { optionalString } from "../config-bag";
+import { classifyNeo4jError } from "./classify-error";
 
 /**
  * Transaction config for the hardcoded introspection and health-check queries,
@@ -177,7 +178,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
         records as unknown as Record<string, unknown>[],
       ) as T;
     } catch (err: unknown) {
-      const wrapped = wrapError(err, "neo4j");
+      const wrapped = wrapError(err, classifyNeo4jError);
       callbacks.setStatus?.(
         wrapped.type === ConnectorErrorType.TIMEOUT
           ? QueryStatus.TIMED_OUT
@@ -233,7 +234,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
       await session.run("RETURN 1 AS connected", {}, INTROSPECTION_TX_CONFIG);
       return true;
     } catch (error) {
-      const wrapped = wrapError(error, "neo4j");
+      const wrapped = wrapError(error, classifyNeo4jError);
       // Log only error type — never the full error object which may contain credentials
       console.warn("Connection check failed:", wrapped.type);
       throw wrapped;
