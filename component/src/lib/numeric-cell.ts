@@ -35,10 +35,15 @@ export function isNumericCell(v: unknown): v is number | string {
   return s !== "" && NUMERIC.test(s);
 }
 
-/** A double, for drawing. `null` when the cell is not a number at all. */
+/**
+ * A double, for drawing. `null` when the cell is not a number at all — and
+ * also when it is one a double cannot hold: `Number("1e309")` is `Infinity`,
+ * and a chart handed that draws nothing useful while reporting no error.
+ */
 export function toChartNumber(v: unknown): number | null {
   if (!isNumericCell(v)) return null;
-  return typeof v === "number" ? v : Number(v.trim());
+  const n = typeof v === "number" ? v : Number(v.trim());
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -58,6 +63,43 @@ function trimLeadingZeros(s: string): string {
   return s.slice(i);
 }
 
+/**
+ * Exponent notation is a number written a different way, so it is expanded by
+ * moving the decimal point across the digits. Going through a double instead
+ * — `Number(s).toFixed(20)` — silently returned zero for 1e-21, whose only
+ * significant digit falls off the end, and gave back exponent notation at
+ * 1e21, which the thousands grouping then mangled into "1e,+21".
+ *
+ * ponytail: expansion is capped at MAX_EXPANDED_DIGITS. A cell is data from a
+ * database, and "1e999999999" would otherwise allocate a gigabyte of zeros to
+ * compare. Past the cap the value keeps its exponent form, which orders and
+ * formats as text rather than exactly — raise the cap, or switch to comparing
+ * mantissa and exponent directly, if a real result set ever needs it.
+ */
+const MAX_EXPANDED_DIGITS = 4096;
+
+function expandExponent(s: string): string {
+  const [mantissa, exponent] = s.split(/[eE]/);
+  const e = Number(exponent);
+  const negative = mantissa.startsWith("-");
+  const body =
+    negative || mantissa.startsWith("+") ? mantissa.slice(1) : mantissa;
+  const [int = "", frac = ""] = body.split(".");
+  const digits = int + frac;
+  const point = int.length + e;
+  if (Math.abs(point) > MAX_EXPANDED_DIGITS) return s;
+
+  let out: string;
+  if (point <= 0) {
+    out = `0.${"0".repeat(-point)}${digits}`;
+  } else if (point >= digits.length) {
+    out = digits + "0".repeat(point - digits.length);
+  } else {
+    out = `${digits.slice(0, point)}.${digits.slice(point)}`;
+  }
+  return (negative ? "-" : "") + out;
+}
+
 interface Parts {
   negative: boolean;
   int: string;
@@ -67,12 +109,7 @@ interface Parts {
 /** Digits only, sign separated, exponent expanded, leading zeros stripped. */
 function parts(v: number | string): Parts {
   let s = String(v).trim();
-  if (/[eE]/.test(s)) {
-    // An exponent cannot be compared digit by digit, and a value written with
-    // one is already inside double range in every case this sees.
-    const expanded = trimTrailingZeros(Number(s).toFixed(20));
-    s = expanded.endsWith(".") ? expanded.slice(0, -1) : expanded;
-  }
+  if (s.includes("e") || s.includes("E")) s = expandExponent(s);
   const negative = s.startsWith("-");
   if (negative || s.startsWith("+")) s = s.slice(1);
   const [int = "", frac = ""] = s.split(".");

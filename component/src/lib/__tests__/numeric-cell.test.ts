@@ -134,3 +134,43 @@ describe("formatNumericCell — a string is formatted, not passed through", () =
     expect(formatNumericCell("n/a", {})).toBe("n/a");
   });
 });
+
+/**
+ * Exponent notation is a number written a different way, not a different kind
+ * of number. Expanding it through a double broke every guarantee this module
+ * makes: `toFixed(20)` drops the only significant digit of 1e-21, and returns
+ * exponent notation again at 1e21, which the thousands grouping then mangled
+ * into "1e,+21".
+ */
+describe("exponent notation", () => {
+  it("does not draw a value a double cannot hold", () => {
+    expect(isNumericCell("1e309")).toBe(true); // it IS a number
+    expect(toChartNumber("1e309")).toBeNull(); // but not a drawable one
+    expect(toChartNumber("-1e309")).toBeNull();
+  });
+
+  it.each([
+    ["1e-21", "0", 1],
+    ["0", "1e-21", -1],
+    ["1e-21", "1e-22", 1],
+    ["1e21", "999999999999999999999", 1],
+    ["1e3", "1000", 0],
+    ["1.5e3", "1500", 0],
+    ["-1e-21", "0", -1],
+  ])("orders %s against %s", (a, b, sign) => {
+    expect(Math.sign(compareNumericCells(a, b))).toBe(sign);
+  });
+
+  it.each([
+    ["1e21", "plain", "1000000000000000000000"],
+    ["1e21", "comma", "1,000,000,000,000,000,000,000"],
+    ["1e-21", "plain", "0.000000000000000000001"],
+    ["1.5e3", "comma", "1,500"],
+    ["1.5e-3", "plain", "0.0015"],
+    ["-2.5e2", "plain", "-250"],
+  ])("formats %s as %s", (v, fmt, expected) => {
+    expect(
+      formatNumericCell(v, { numberFormat: fmt as "plain" | "comma" }),
+    ).toBe(expected);
+  });
+});
