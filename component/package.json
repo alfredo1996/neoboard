@@ -19,6 +19,7 @@
     "./charts/palettes": "./src/charts/palettes.ts",
     "./charts/choropleth-ramp": "./src/charts/choropleth-ramp.ts",
     "./hooks": "./src/hooks/index.ts",
+    "./row-shapes": "./src/lib/row-shapes.ts",
     "./*": "./src/*"
   },
   "sideEffects": false,

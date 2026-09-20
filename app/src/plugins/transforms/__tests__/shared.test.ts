@@ -14,11 +14,6 @@ describe("toRecords", () => {
     expect(toRecords(data)).toEqual(data);
   });
 
-  it("unwraps { records } wrapper from PostgreSQL", () => {
-    const records = [{ a: 1 }];
-    expect(toRecords({ records })).toEqual(records);
-  });
-
   it("returns empty array for null", () => {
     expect(toRecords(null)).toEqual([]);
   });

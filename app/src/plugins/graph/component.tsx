@@ -1,8 +1,8 @@
 /**
  * Graph widget plugin.
  *
- * Renders Neo4j nodes/relationships as an interactive force-directed graph
- * using Neo4j's NVL library. When a connection is available, uses the
+ * Renders graph nodes and relationships as an interactive force-directed
+ * graph using the NVL library. When a connection is available, uses the
  * GraphExplorationWrapper for expand-on-click exploration. Otherwise falls
  * back to the plain GraphChart component.
  */
@@ -107,7 +107,7 @@ export const graphPlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: true,
   },
-  queryHint:
-    "Return Neo4j nodes, relationships, or paths.\n" +
-    "Example: MATCH (n)-[r]->(m) RETURN n, r, m",
+  // Shape language, not a query language: any connector that returns graph
+  // values can drive this chart (#1925).
+  queryHint: "Return nodes, relationships, or paths.",
 });

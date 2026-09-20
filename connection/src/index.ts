@@ -38,6 +38,19 @@ export {
   toDescriptor,
   validateConfig,
 } from "@neoboard/connector-sdk";
+/// Row value contract (#1904) — the shapes the app is allowed to key on
+export {
+  isGraphNode,
+  isGraphRelationship,
+  isGraphPath,
+} from "@neoboard/connector-sdk";
+export type {
+  Row,
+  RowValue,
+  GraphNode,
+  GraphRelationship,
+  GraphPath,
+} from "@neoboard/connector-sdk";
 export {
   connectorRegistry,
   registerConnector,

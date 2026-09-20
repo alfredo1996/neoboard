@@ -17,7 +17,7 @@
  * - A missing cell is `null`; a "blank" cell can be whitespace.
  */
 
-export interface Neo4jNode {
+export interface GraphNodeFixture {
   $type: "node";
   identity: number;
   elementId: string;
@@ -25,7 +25,7 @@ export interface Neo4jNode {
   properties: Record<string, unknown>;
 }
 
-export const neo4jNode: Neo4jNode = {
+export const graphNode: GraphNodeFixture = {
   $type: "node",
   identity: 42,
   elementId: "4:9e2c1f0a-6d3b-4c8e-b1a7-2f5d8c9e0b11:42",
@@ -33,7 +33,7 @@ export const neo4jNode: Neo4jNode = {
   properties: { name: "Ada Lovelace", tier: "gold", since: "2024-01-15" },
 };
 
-export const neo4jNode2: Neo4jNode = {
+export const graphNode2: GraphNodeFixture = {
   $type: "node",
   identity: 43,
   elementId: "4:9e2c1f0a-6d3b-4c8e-b1a7-2f5d8c9e0b11:43",
@@ -59,7 +59,7 @@ export interface OrderRow {
   status: string;
   total: string | null;
   shipped_on: string | null;
-  customer: Neo4jNode | null;
+  customer: GraphNodeFixture | null;
   note: string | null;
   placed_at: string;
 }
@@ -71,7 +71,7 @@ export function sparseOrders(): OrderRow[] {
       status: "delivered",
       total: numericString,
       shipped_on: dateOnly,
-      customer: neo4jNode,
+      customer: graphNode,
       note: null,
       placed_at: timestamp,
     },
@@ -80,7 +80,7 @@ export function sparseOrders(): OrderRow[] {
       status: "pending",
       total: null,
       shipped_on: null,
-      customer: neo4jNode2,
+      customer: graphNode2,
       note: "gift",
       placed_at: timestamp,
     },
@@ -98,7 +98,7 @@ export function sparseOrders(): OrderRow[] {
       status: "cancelled",
       total: "  ",
       shipped_on: "2026-09-04",
-      customer: neo4jNode,
+      customer: graphNode,
       note: "n/a",
       placed_at: timestamp,
     },

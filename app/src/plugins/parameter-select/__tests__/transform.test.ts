@@ -38,14 +38,6 @@ describe("transformToSelectData", () => {
     expect(transformToSelectData(undefined)).toEqual([]);
   });
 
-  it("unwraps PostgreSQL { records } wrapper", () => {
-    expect(
-      transformToSelectData({
-        records: [{ name: "alpha" }, { name: "beta" }],
-      }),
-    ).toEqual(["alpha", "beta"]);
-  });
-
   it("returns an empty array when the first record has no keys", () => {
     // `Object.keys({})[0]` is undefined — make sure we don't blow up.
     expect(transformToSelectData([{}])).toEqual([]);

@@ -2,6 +2,11 @@
  * Graph chart data transform and validator.
  */
 
+import {
+  isGraphNode,
+  isGraphPath,
+  isGraphRelationship,
+} from "@neoboard/components/row-shapes";
 import { toRecords, normalizeValue } from "../transforms/shared-utils";
 import { randomId } from "@/lib/random-id";
 
@@ -20,66 +25,33 @@ function normalizeProps(
 
 /**
  * Matches an id that is a negative integer, in the stringified form ids reach
- * `addNode` in. Used to flag APOC virtual nodes (`apoc.create.vNode`), which
- * exist only inside the query result and therefore have no neighbours to
- * expand into (#1361).
+ * `addNode` in. Used to flag virtual nodes — nodes a query fabricated, which
+ * exist only inside its result and therefore have no neighbours to expand
+ * into (#1361).
  *
- * This is a HEURISTIC and there is no better signal available. Measured
- * against a live Neo4j 5 + APOC 5.26.25: the driver returns an ordinary `Node`
- * for a virtual node — same class, same fields, same `__isNode__` brand as a
- * stored node. The sign of the id is APOC's own collision-avoidance convention
- * and the only thing that distinguishes the two at ANY layer, so detecting it
- * earlier (in `connection/`'s Neo4jRecordParser) would be no more certain.
- * `addNode` is the one funnel every node shape routes through, which is why
- * the check belongs here rather than per-shape. (This note used to add that
- * `parseGraphObject` returned Path and PathSegment untouched, so path-borne
- * nodes would be missed — that is fixed as of #1305, but the funnel argument
- * stands on its own.)
+ * This is a HEURISTIC and there is no better signal available. Measured over
+ * the wire against a live graph database and its procedure library (#1361 has
+ * the versions): a fabricated node is indistinguishable from a stored one —
+ * same class, same fields, same brand. The sign of the id is that library's
+ * own collision-avoidance convention and the only thing that separates the two
+ * at ANY layer, so detecting it in the connector would be no more certain.
+ * `addNode` is the one funnel every node routes through, which is why the
+ * check belongs here rather than per-shape.
  *
- * What it would misfire on: a non-Neo4j connector emitting Neo4j-shaped
- * records (`{labels, properties}`) whose ids are genuinely negative integers.
- * Nothing shipped does — Neo4j allocates ids from a non-negative counter, and
- * the PostgreSQL connector produces no graph shapes at all.
+ * What it would misfire on: a connector that allocates genuinely negative node
+ * ids. Nothing shipped does.
  *
  * `-0` is excluded on purpose: node id 0 is a real node, JS stringifies `-0`
- * as `"0"` anyway, and APOC's virtual counter starts at -1.
+ * as `"0"` anyway, and the virtual counter starts at -1.
  */
 const SYNTHETIC_ID_PATTERN = /^-[1-9]\d*$/;
 
 /**
- * The first candidate that is a string or a number, as a string. An object is
- * skipped rather than stringified: `String({low, high})` is "[object Object]",
- * which would give every such node the same id and collapse them into one.
- */
-function firstScalarId(...candidates: unknown[]): string | undefined {
-  for (const c of candidates) {
-    if (typeof c === "string" || typeof c === "number") return String(c);
-  }
-  return undefined;
-}
-
-function isNode(v: Record<string, unknown>): boolean {
-  return "labels" in v && "properties" in v;
-}
-
-function isRelationship(v: Record<string, unknown>): boolean {
-  return "type" in v && "start" in v && "end" in v;
-}
-
-function isPath(v: Record<string, unknown>): boolean {
-  return (
-    "segments" in v &&
-    Array.isArray(v.segments) &&
-    "start" in v &&
-    "end" in v &&
-    !("type" in v)
-  );
-}
-
-/**
- * Transform to graph format: { nodes, edges }
- * Extracts Neo4j graph structures from query results.
- * Handles Node, Relationship, and Path objects (including nested segments).
+ * Transform to graph format: `{ nodes, edges }`.
+ *
+ * Reads the SDK's `$type` tag and nothing else (#1925). A cell that merely
+ * looks like a node — a JSON column holding `{labels, properties}` — is data,
+ * and stays data.
  */
 export function transformToGraphData(data: unknown): unknown {
   const records = toRecords(data);
@@ -87,7 +59,7 @@ export function transformToGraphData(data: unknown): unknown {
   const edgesMap = new Map<string, Record<string, unknown>>();
 
   function addNode(v: Record<string, unknown>) {
-    const id = firstScalarId(v.elementId, v.identity) ?? randomId();
+    const id = String(v.elementId ?? v.identity ?? randomId());
     if (!nodesMap.has(id)) {
       const labels = (v.labels as string[]) ?? [];
       const rawProps = (v.properties as Record<string, unknown>) ?? {};
@@ -104,15 +76,21 @@ export function transformToGraphData(data: unknown): unknown {
   }
 
   function addEdge(v: Record<string, unknown>) {
-    const edgeId =
-      firstScalarId(v.elementId, v.identity) ??
-      `${v.startNodeElementId ?? v.start}-${v.type}-${v.endNodeElementId ?? v.end}`;
+    // An unbound relationship carries none of the four endpoint keys (#1904).
+    // There is nothing to draw it between, so it is skipped rather than
+    // pointed at a node called "undefined".
+    const source = v.startNodeElementId ?? v.start;
+    const target = v.endNodeElementId ?? v.end;
+    if (source === undefined || target === undefined) return;
+    const edgeId = String(
+      v.elementId ?? v.identity ?? `${source}-${v.type}-${target}`,
+    );
     if (!edgesMap.has(edgeId)) {
       const rawProps = (v.properties ?? {}) as Record<string, unknown>;
       edgesMap.set(edgeId, {
         id: edgeId,
-        source: String(v.startNodeElementId ?? v.start),
-        target: String(v.endNodeElementId ?? v.end),
+        source: String(source),
+        target: String(target),
         label: String(v.type),
         properties: normalizeProps(rawProps),
       });
@@ -123,11 +101,11 @@ export function transformToGraphData(data: unknown): unknown {
     if (!value || typeof value !== "object") return;
     const v = value as Record<string, unknown>;
 
-    if (isNode(v)) {
+    if (isGraphNode(value)) {
       addNode(v);
-    } else if (isRelationship(v)) {
+    } else if (isGraphRelationship(value)) {
       addEdge(v);
-    } else if (isPath(v)) {
+    } else if (isGraphPath(value)) {
       const segments = v.segments as Record<string, unknown>[];
       for (const seg of segments) {
         if (seg.start && typeof seg.start === "object") {
@@ -166,13 +144,14 @@ export function validateGraphData(data: unknown): string | null {
   if (!records.length) return null;
   for (const record of records) {
     for (const value of Object.values(record)) {
-      if (value && typeof value === "object") {
-        const v = value as Record<string, unknown>;
-        if ("labels" in v && "properties" in v) return null;
-        if ("type" in v && "start" in v && "end" in v) return null;
-        if ("segments" in v && "start" in v && "end" in v) return null;
+      if (
+        isGraphNode(value) ||
+        isGraphRelationship(value) ||
+        isGraphPath(value)
+      ) {
+        return null;
       }
     }
   }
-  return "Graph chart requires Neo4j node and relationship data. Your query did not return any graph structures (nodes, relationships, or paths). Example: `MATCH (n)-[r]->(m) RETURN n, r, m`";
+  return "Graph chart requires graph data. Your query returned rows, but none of their values is a node, a relationship or a path.";
 }
