@@ -42,18 +42,70 @@ describe("Neo4j listDatabases", () => {
   });
 });
 
+/**
+ * #1308: this suite used to run `listDatabases()` against the live container
+ * with valid credentials and assert `Array.isArray(...)`. `SHOW DATABASES`
+ * succeeded, so the `catch` it claimed to cover was never entered, and the one
+ * assertion was satisfied by the success path — and by any implementation that
+ * returns an array at all.
+ *
+ * The failure is now injected at the session, which reaches the same `catch`
+ * the code comments document (Neo4j < 4.x, permission denied on `system`)
+ * without depending on a driver's auth-retry timing, and pins the `finally`
+ * block as well.
+ */
 describe("Neo4j listDatabases graceful fallback", () => {
-  test("should return empty array when SHOW DATABASES is not supported", async () => {
-    // Create a module with invalid config to simulate failure
-    // In practice this tests the catch path — SHOW DATABASES fails gracefully
-    const config = getNeo4jAuth();
-    const module = new Neo4jConnectionModule(config);
+  /** A module whose session always fails, plus the close() the module must call. */
+  function moduleWithFailingSession(reason: Error) {
+    const module = new Neo4jConnectionModule(getNeo4jAuth());
+    const close = jest.fn().mockResolvedValue(undefined);
+    jest.spyOn(module.getDriver(), "session").mockReturnValue({
+      run: jest.fn().mockRejectedValue(reason),
+      close,
+    } as never);
+    return { module, close };
+  }
 
-    // The method should never throw — it returns [] on failure
-    const databases = await module.listDatabases();
-    expect(Array.isArray(databases)).toBe(true);
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
-    await module.close();
+  it.each([
+    ["the command is unsupported", "Unsupported administration command"],
+    ["permission is denied", "Permission denied on database 'system'"],
+  ])("returns an empty array when %s", async (_label, message) => {
+    const { module } = moduleWithFailingSession(new Error(message));
+
+    // Exactly [], not merely "an array": the old assertion passed on the
+    // success path, which is what made it vacuous.
+    await expect(module.listDatabases()).resolves.toEqual([]);
+  });
+
+  it("closes the session even when the query fails", async () => {
+    const { module, close } = moduleWithFailingSession(new Error("boom"));
+
+    await module.listDatabases();
+
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("still reports the databases when the query succeeds", async () => {
+    // The negative control: a test that only ever saw a failing session would
+    // pass against an implementation that returned [] unconditionally.
+    const module = new Neo4jConnectionModule(getNeo4jAuth());
+    const close = jest.fn().mockResolvedValue(undefined);
+    jest.spyOn(module.getDriver(), "session").mockReturnValue({
+      run: jest.fn().mockResolvedValue({
+        records: [{ get: () => "movies" }, { get: () => "reporting" }],
+      }),
+      close,
+    } as never);
+
+    await expect(module.listDatabases()).resolves.toEqual([
+      "movies",
+      "reporting",
+    ]);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });
 
