@@ -135,7 +135,7 @@ describe("POST /api/connections/test-inline", () => {
       makeRequest({
         type: "postgresql",
         config: {
-          uri: "pg://localhost",
+          uri: "postgresql://localhost",
           username: "pg",
           password: "pass",
           database: "mydb",
@@ -145,7 +145,7 @@ describe("POST /api/connections/test-inline", () => {
     expect(mockTestConnection).toHaveBeenCalledWith(
       "postgresql",
       expect.objectContaining({
-        uri: "pg://localhost",
+        uri: "postgresql://localhost",
         username: "pg",
         password: "pass",
         database: "mydb",
@@ -153,41 +153,54 @@ describe("POST /api/connections/test-inline", () => {
     );
   });
 
-  it("passes advanced pool settings to testConnection", async () => {
+  it("passes the options the connector declares, and strips the ones it does not (#1901)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockTestConnection.mockResolvedValue(true);
+    const declared = {
+      uri: "bolt://localhost:7687",
+      username: "neo4j",
+      password: "pass",
+      connectionTimeout: 5000,
+      queryTimeout: 30000,
+      maxPoolSize: 20,
+      connectionAcquisitionTimeout: 10000,
+    };
     await POST(
       makeRequest({
         type: "neo4j",
         config: {
-          uri: "bolt://localhost:7687",
-          username: "neo4j",
-          password: "pass",
-          connectionTimeout: 5000,
-          queryTimeout: 30000,
-          maxPoolSize: 20,
-          connectionAcquisitionTimeout: 10000,
+          ...declared,
+          // Another connector's options: this descriptor does not declare them.
           idleTimeout: 15000,
           statementTimeout: 60000,
           sslRejectUnauthorized: false,
         },
       }),
     );
-    expect(mockTestConnection).toHaveBeenCalledWith(
+    expect(mockTestConnection).toHaveBeenCalledExactlyOnceWith(
       "neo4j",
-      expect.objectContaining({
-        uri: "bolt://localhost:7687",
-        username: "neo4j",
-        password: "pass",
-        connectionTimeout: 5000,
-        queryTimeout: 30000,
-        maxPoolSize: 20,
-        connectionAcquisitionTimeout: 10000,
-        idleTimeout: 15000,
-        statementTimeout: 60000,
-        sslRejectUnauthorized: false,
+      declared,
+    );
+  });
+
+  it("answers 400 per field for a value outside the descriptor's bounds, and never dials", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const res = await POST(
+      makeRequest({
+        type: "neo4j",
+        config: {
+          uri: "bolt://localhost:7687",
+          username: "neo4j",
+          password: "pass",
+          maxPoolSize: 101,
+        },
       }),
     );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.details.fields).toEqual({
+      maxPoolSize: "Max Pool Size must be at most 100",
+    });
+    expect(mockTestConnection).not.toHaveBeenCalled();
   });
 
   it("returns success:false with actionable message + code when testConnection returns false (#1043)", async () => {
@@ -196,7 +209,11 @@ describe("POST /api/connections/test-inline", () => {
     const res = await POST(
       makeRequest({
         type: "postgresql",
-        config: { uri: "pg://localhost", username: "pg", password: "pass" },
+        config: {
+          uri: "postgresql://localhost",
+          username: "pg",
+          password: "pass",
+        },
       }),
     );
     expect(res.status).toBe(200);
@@ -285,13 +302,25 @@ describe("POST /api/connections/test-inline", () => {
     expect(body.data.code).toBe("network");
   });
 
-  it("classifies malformed URI failures with code:bad_uri", async () => {
+  it("answers 400 for a URI scheme the connector does not accept — it never reaches the driver (#1901)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const res = await POST(
+      makeRequest({
+        type: "neo4j",
+        config: { uri: "http://oops", username: "u", password: "p" },
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(mockTestConnection).not.toHaveBeenCalled();
+  });
+
+  it("classifies a URI the driver itself rejects with code:bad_uri", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockTestConnection.mockRejectedValue(raisedByConnector("BAD_URI"));
     const res = await POST(
       makeRequest({
         type: "neo4j",
-        config: { uri: "http://oops", username: "u", password: "p" },
+        config: { uri: "bolt://oops", username: "u", password: "p" },
       }),
     );
     expect(res.status).toBe(200);

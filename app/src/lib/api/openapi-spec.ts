@@ -939,12 +939,17 @@ const SPEC = {
       },
       ConnectionConfig: {
         type: "object",
-        required: ["uri", "username", "password"],
+        description:
+          "The connector's config bag. Its keys, which of them are required and each one's constraints are the `fields` of that connector's descriptor (`GET /api/connectors`). The bag is validated against them — a violation is a 400 whose `error.details.fields` maps each field to its message — and a key the descriptor does not declare is dropped before the config is stored. A `password`-typed field is a secret: it is never returned, and on update a blank one keeps its stored value. `maxRows` is NeoBoard's own key.",
+        additionalProperties: true,
         properties: {
-          uri: { type: "string", example: "neo4j+s://xxx.databases.neo4j.io" },
-          username: { type: "string", example: "neo4j" },
-          password: { type: "string", format: "password" },
-          database: { type: "string", example: "neo4j" },
+          maxRows: {
+            type: "integer",
+            minimum: 100,
+            maximum: 100000,
+            description:
+              "Row cap for read queries on this connection. Default 5000.",
+          },
         },
       },
       ConnectionTestResult: {

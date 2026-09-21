@@ -208,6 +208,52 @@ describe("use-connections", () => {
     });
   });
 
+  // ── useConnectionConfig ─────────────────────────────────────────────
+  describe("useConnectionConfig", () => {
+    it("GETs the connection and returns its redacted config, never cached", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({
+          data: { id: "c1", config: { endpoint: "acme://host", pageSize: 5 } },
+          error: null,
+          meta: null,
+        }),
+      );
+      const { useConnectionConfig } = await import("../use-connections");
+      const config = useConnectionConfig("c1") as unknown as {
+        queryKey: unknown[];
+        queryFn: () => Promise<unknown>;
+        enabled: boolean;
+        gcTime: number;
+      };
+      expect(await config.queryFn()).toEqual({
+        endpoint: "acme://host",
+        pageSize: 5,
+      });
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/connections/c1");
+      // Under ["connections"], so a save invalidates it; dropped on unmount,
+      // so an edit dialog never opens on the config it had before the save.
+      expect(config.queryKey).toEqual(["connections", "config", "c1"]);
+      expect(config.gcTime).toBe(0);
+      expect(config.enabled).toBe(true);
+    });
+
+    it("is idle without an id, and yields an empty config when the server sends none", async () => {
+      const { useConnectionConfig } = await import("../use-connections");
+      const idle = useConnectionConfig(undefined) as unknown as {
+        enabled: boolean;
+      };
+      expect(idle.enabled).toBe(false);
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ data: { id: "c1" }, error: null, meta: null }),
+      );
+      const config = useConnectionConfig("c1") as unknown as {
+        queryFn: () => Promise<unknown>;
+      };
+      expect(await config.queryFn()).toEqual({});
+    });
+  });
+
   // ── useUpdateConnection ─────────────────────────────────────────────
   describe("useUpdateConnection mutationFn", () => {
     it("PATCHes /api/connections/:id with body excluding id", async () => {

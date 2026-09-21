@@ -85,7 +85,8 @@ export async function POST(
       }
       return apiSuccess(
         connectionTestErrorResult(testError, {
-          uri: credentials.uri,
+          uri:
+            typeof credentials.uri === "string" ? credentials.uri : undefined,
           containerised: isContainerised(),
         }),
       );

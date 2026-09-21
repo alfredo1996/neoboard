@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api/api-client";
 import type { ConnectorType } from "@/lib/connector/connector-types";
+import type { ConnectorConfig } from "@neoboard/connection";
 
 export interface ConnectionListItem {
   id: string;
@@ -18,15 +19,17 @@ export interface ConnectionListItem {
   updatedAt: string;
 }
 
+/**
+ * A connection config on the wire: the connector's own bag — its keys are the
+ * descriptor's, validated server-side against it (#1901) — plus the app's
+ * `maxRows`. No connector option is spelled out in the app.
+ */
+export type ConnectionConfigInput = ConnectorConfig & { maxRows?: number };
+
 export interface CreateConnectionInput {
   name: string;
   type: ConnectorType;
-  config: {
-    uri: string;
-    username: string;
-    password: string;
-    database?: string;
-  };
+  config: ConnectionConfigInput;
 }
 
 export interface UseConnectionsOptions {
@@ -47,6 +50,29 @@ export function useConnections(options?: UseConnectionsOptions) {
       return unwrapResponse<ConnectionListItem[]>(res);
     },
     enabled,
+  });
+}
+
+/**
+ * One connection's stored config as the server hands it out: the values its
+ * connector declares, WITHOUT any secret — what the edit and Duplicate dialogs
+ * pre-fill from. Idle without an id.
+ *
+ * Keyed under `["connections"]` so every save invalidates it, and dropped as
+ * soon as nothing renders it (`gcTime: 0`): a dialog must never open on the
+ * config the connection had before its last save.
+ */
+export function useConnectionConfig(id: string | undefined) {
+  return useQuery<ConnectorConfig>({
+    queryKey: ["connections", "config", id],
+    queryFn: async () => {
+      const connection = await unwrapResponse<{ config?: ConnectorConfig }>(
+        await fetch(`/api/connections/${id}`),
+      );
+      return connection.config ?? {};
+    },
+    enabled: id !== undefined,
+    gcTime: 0,
   });
 }
 
@@ -162,20 +188,8 @@ export interface UpdateConnectionInput {
   name?: string;
   /** Admin-only: toggle tenant-wide sharing (#901). */
   visibility?: "private" | "shared";
-  config?: Partial<{
-    uri: string;
-    username: string;
-    password: string;
-    database: string;
-    connectionTimeout: number;
-    queryTimeout: number;
-    maxPoolSize: number;
-    connectionAcquisitionTimeout: number;
-    idleTimeout: number;
-    statementTimeout: number;
-    sslRejectUnauthorized: boolean;
-    maxRows: number;
-  }>;
+  /** Replaces the stored config; a secret left out keeps its stored value. */
+  config?: ConnectionConfigInput;
 }
 
 export function useUpdateConnection() {
@@ -215,12 +229,7 @@ export function useTestConnection() {
 
 export interface TestInlineInput {
   type: ConnectorType;
-  config: {
-    uri: string;
-    username: string;
-    password: string;
-    database?: string;
-  };
+  config: ConnectionConfigInput;
 }
 
 export function useTestInlineConnection() {

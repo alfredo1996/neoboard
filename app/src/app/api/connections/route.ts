@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { encryptJson } from "@/lib/crypto/crypto";
 import { prefetchSchema } from "@/lib/connector/schema-prefetch";
+import { validateConnectionConfig } from "@/lib/connector/connection-config";
 import { createConnectionSchema } from "@/lib/shared/schemas";
 import { validateBody, handleRouteError } from "@/lib/api/api-utils";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
@@ -71,8 +72,12 @@ export async function POST(request: Request) {
     const result = validateBody(createConnectionSchema, body);
     if (!result.success) return result.response;
 
-    const { name, type, config } = result.data;
-    const configEncrypted = encryptJson(config);
+    const { name, type } = result.data;
+    // The connector's descriptor decides what a valid config is, and only
+    // what it declares is stored (#1901).
+    const checked = validateConnectionConfig(type, result.data.config);
+    if (!checked.success) return checked.response;
+    const configEncrypted = encryptJson(checked.config);
 
     const [connection] = await db
       .insert(connections)
@@ -93,7 +98,7 @@ export async function POST(request: Request) {
       });
 
     // Fire-and-forget: pre-warm the schema cache for the new connection
-    prefetchSchema(type, result.data.config);
+    prefetchSchema(type, checked.config);
 
     auditRequest(request, {
       tenantId,

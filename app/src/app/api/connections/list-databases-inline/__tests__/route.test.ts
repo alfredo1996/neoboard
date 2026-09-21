@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
+import { fixtureDescriptor } from "@/__tests__/fixtures/fixture-connector";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -29,7 +30,34 @@ vi.mock("@/lib/connector/registered-types", () => ({
   // A third type is registered too, so the route is exercised as it will be
   // once a connector nobody hardcoded is installed (#1902).
   isRegisteredConnectorType: (t: string) =>
-    ["neo4j", "postgresql", "fixturedb"].includes(t),
+    ["neo4j", "postgresql", fixtureDescriptor.type].includes(t),
+}));
+// #1901 makes the route validate the posted config against the descriptor, so
+// a type with no descriptor is now a 400. `getConnector` hands back the plugin,
+// which `validateConfig` reads as the descriptor.
+const BUILTIN_SHAPED = {
+  fields: [
+    {
+      key: "uri",
+      label: "URI",
+      type: "uri",
+      group: "connection",
+      required: true,
+    },
+    { key: "username", label: "User", type: "text", group: "connection" },
+    {
+      key: "password",
+      label: "Password",
+      type: "password",
+      group: "connection",
+    },
+  ],
+};
+vi.mock("@/lib/connector/connection-adapter", () => ({
+  getConnector: (t: string) => {
+    if (t === fixtureDescriptor.type) return fixtureDescriptor;
+    return ["neo4j", "postgresql"].includes(t) ? BUILTIN_SHAPED : undefined;
+  },
 }));
 vi.mock("@/lib/auth/errors", () => ({
   UnauthorizedError: class extends Error {
@@ -187,8 +215,8 @@ describe("POST /api/connections/list-databases-inline", () => {
 
     const res = await POST(
       makeRequest({
-        type: "fixturedb",
-        config: { uri: "fixturedb://h:1/db", username: "u", password: "p" },
+        type: fixtureDescriptor.type,
+        config: { endpoint: "acme://host/book", apiToken: "t" },
       }),
     );
 
@@ -204,8 +232,8 @@ describe("POST /api/connections/list-databases-inline", () => {
 
     const res = await POST(
       makeRequest({
-        type: "fixturedb",
-        config: { uri: "fixturedb://h:1/db", username: "u", password: "p" },
+        type: fixtureDescriptor.type,
+        config: { endpoint: "acme://host/book", apiToken: "t" },
       }),
     );
 

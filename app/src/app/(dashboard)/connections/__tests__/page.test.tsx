@@ -65,6 +65,8 @@ const mockRefetch = vi.fn();
 const mockTest = vi.fn();
 const mockTestInline = vi.fn();
 const mockToast = vi.fn();
+const mockUpdate = vi.fn();
+const mockConnectionConfig = vi.fn();
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: { user: { role: mockRole } } }),
@@ -79,8 +81,13 @@ vi.mock("@/hooks/use-connections", () => {
   return {
     useConnections: () => ({ data: mockConnections, isLoading: false }),
     useConnectionUsage: () => ({ data: undefined, isLoading: false }),
+    // What the edit and Duplicate dialogs pre-fill from (#1901).
+    useConnectionConfig: (id?: string) => ({
+      data: mockConnectionConfig(id),
+      isLoading: false,
+    }),
     useCreateConnection: idle,
-    useUpdateConnection: idle,
+    useUpdateConnection: () => ({ ...idle(), mutateAsync: mockUpdate }),
     useDeleteConnection: idle,
     useReassignConnection: idle,
     useTestInlineConnection: () => ({ ...idle(), mutateAsync: mockTestInline }),
@@ -120,11 +127,16 @@ vi.mock("@neoboard/components", () => {
     Switch: () => null,
     Skeleton: () => <div data-testid="skeleton" />,
     PasswordInput: () => null,
+    // The form renders this once per group (name, connection, advanced,
+    // advanced booleans, maxRows), so the fill button is keyed by the first
+    // field it was handed — a fixed id matched five elements. It fills the
+    // fields it was GIVEN: naming uri/username/password here would be this
+    // suite asserting a built-in connector's shape (#1901).
     DynamicConnectionFields: ({
       fields,
       onChange,
     }: {
-      fields: { label: string }[];
+      fields: { name: string; label: string; placeholder?: string }[];
       onChange: (name: string, value: string) => void;
     }) => (
       <>
@@ -133,13 +145,13 @@ vi.mock("@neoboard/components", () => {
             <li key={f.label}>{f.label}</li>
           ))}
         </ul>
-        {/* Stands in for typing: the Test button needs all three filled. */}
         <button
-          data-testid="fill-credentials"
+          data-testid={`fill-${fields[0]?.name ?? "none"}`}
+          // The field's own placeholder, so a value satisfies whatever the
+          // connector declared — a literal "typed" fails a uri field with
+          // protocols, and the form then refuses to submit.
           onClick={() =>
-            ["uri", "username", "password"].forEach((name) =>
-              onChange(name, "typed"),
-            )
+            fields.forEach((f) => onChange(f.name, f.placeholder ?? "typed"))
           }
         />
       </>
@@ -240,6 +252,14 @@ function manualProbes() {
 
 const statusOf = (name: string) =>
   within(screen.getByTestId(`card-${name}`)).getByTestId("status").textContent;
+
+/** The labels of every field the dialog renders, in order. */
+const fieldGroups = (dialog: ReturnType<typeof within>) =>
+  dialog.getAllByTestId("connection-fields").flatMap((group: HTMLElement) =>
+    within(group)
+      .queryAllByRole("listitem")
+      .map((item) => item.textContent),
+  );
 
 const flush = () => act(async () => {});
 
@@ -527,10 +547,9 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     fireEvent.click(dialog.getByTestId("pick-acme-sheets"));
 
     expect(dialog.getByText("New Acme Sheets Connection")).toBeInTheDocument();
-    // Only the descriptor's `connection` group; the advanced one is #1901's.
-    expect(dialog.getByTestId("connection-fields")).toHaveTextContent(
-      /^Workbook$/,
-    );
+    // The app's name field, then the descriptor's `connection` group; the
+    // advanced group waits inside its collapsed section (#1901).
+    expect(fieldGroups(dialog)).toEqual(["Name", "Workbook"]);
   });
 
   // #1903: the app has no example of its own to offer — it would be an example
@@ -545,7 +564,9 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     fireEvent.click(screen.getByRole("button", { name: "Add Connection" }));
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.click(dialog.getByTestId("pick-acme-sheets"));
-    fireEvent.click(dialog.getByTestId("fill-credentials"));
+    // This suite's own installed connector declares one connection field,
+    // "uri" — the fill button is keyed by it, not by a built-in's key.
+    fireEvent.click(dialog.getByTestId("fill-uri"));
 
     await act(async () => {
       fireEvent.click(dialog.getByRole("button", { name: "Test Connection" }));
@@ -571,19 +592,54 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
 
-  it("takes the edit dialog's URI placeholder from the descriptor", async () => {
+  it("edits through the same generated form, pre-filled from that connection's stored config", () => {
     mockConnections = rows(1, { name: "sheets", type: "acme-sheets" });
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      json: async () => ({ data: { config: {} } }),
-    } as Response);
     render(<ConnectionsPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Edit sheets" }));
+
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText("Edit sheets")).toBeInTheDocument();
+    expect(mockConnectionConfig).toHaveBeenCalledWith("c1");
+    // Edit opens with the advanced section — the descriptor's group and the
+    // app's own row cap — already showing.
+    expect(fieldGroups(dialog)).toEqual([
+      "Name",
+      "Workbook",
+      "Page Size",
+      "Max Rows per Query",
+    ]);
+  });
+
+  it("duplicates into a new connection of the source's type, pre-filled from it", () => {
+    mockConnections = rows(1, { name: "sheets", type: "acme-sheets" });
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate sheets" }));
+
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText("New Acme Sheets Connection")).toBeInTheDocument();
+    expect(mockConnectionConfig).toHaveBeenCalledWith("c1");
+  });
+
+  it("after a save: closes the dialog, says so, and tests that one connection", async () => {
+    mockConnections = rows(1, { name: "sheets", type: "acme-sheets" });
+    mockUpdate.mockResolvedValue({ id: "c1" });
+    mockTest.mockResolvedValue({ success: true });
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit sheets" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await flush();
 
-    expect(screen.getByPlaceholderText("acme://host/book")).toHaveAttribute(
-      "id",
-      "edit-uri",
-    );
+    expect(mockUpdate).toHaveBeenCalledExactlyOnceWith({
+      id: "c1",
+      name: "sheets",
+      config: {},
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mockToast).toHaveBeenCalledWith({ title: "Connection updated" });
+    expect(mockTest).toHaveBeenCalledExactlyOnceWith({ id: "c1" });
+    expect(statusOf("sheets")).toBe("connected");
   });
 });

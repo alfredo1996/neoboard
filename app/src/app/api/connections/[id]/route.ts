@@ -20,6 +20,22 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { getConnectionUsage } from "@/lib/db/connection-usage";
+import { getConnector } from "@/lib/connector/connection-adapter";
+import {
+  redactConfig,
+  validateConnectionConfig,
+} from "@/lib/connector/connection-config";
+
+/** The stored config — `undefined` when it cannot be decrypted (rotated or lost key). */
+function readStoredConfig(
+  configEncrypted: string,
+): ConnectionCredentials | undefined {
+  try {
+    return decryptJson<ConnectionCredentials>(configEncrypted);
+  } catch {
+    return undefined;
+  }
+}
 
 export async function GET(
   _request: Request,
@@ -77,22 +93,18 @@ export async function GET(
       return notFound("Connection not found");
     }
 
-    // Decrypt config and strip password before returning. ownerId never
-    // leaves the server — the UI gates editing on isOwner (#901).
+    // Decrypt the config and return only what the connector's descriptor
+    // declares, minus EVERY secret it declares (#1901) — this feeds the edit
+    // and Duplicate dialogs, so no secret may ride along. ownerId never leaves
+    // the server — the UI gates editing on isOwner (#901).
     const { configEncrypted, ownerId, ...metadata } = connection;
     const shapedMetadata = { ...metadata, isOwner: ownerId === userId };
-    let config: Record<string, unknown> | undefined;
-    if (configEncrypted) {
-      try {
-        const decrypted = decryptJson<Record<string, unknown>>(configEncrypted);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip password from response
-        const { password, ...safeConfig } = decrypted;
-        config = safeConfig;
-      } catch {
-        // Corrupted or legacy encrypted config — return metadata without config
-        config = undefined;
-      }
-    }
+    // Corrupted or legacy encrypted config — return metadata without config.
+    const stored = configEncrypted
+      ? readStoredConfig(configEncrypted)
+      : undefined;
+    const config =
+      stored && redactConfig(getConnector(connection.type), stored);
 
     return apiSuccess({ ...shapedMetadata, config });
   } catch (error) {
@@ -125,11 +137,12 @@ export async function PATCH(
       updates.visibility = result.data.visibility;
     }
 
-    // Fetch the existing row — needed for password merge and cache eviction.
-    let oldCredentials: ConnectionCredentials | null = null;
-    let finalConfig = result.data.config;
+    // Fetch the existing row — needed for the secret merge, the connector
+    // type that decides what a valid config is, and cache eviction.
+    let oldCredentials: ConnectionCredentials | undefined;
+    let finalConfig: ConnectionCredentials | undefined;
 
-    if (finalConfig) {
+    if (result.data.config) {
       const [existing] = await db
         .select({
           configEncrypted: connections.configEncrypted,
@@ -145,23 +158,26 @@ export async function PATCH(
         )
         .limit(1);
 
-      if (existing?.configEncrypted) {
-        try {
-          const prev = decryptJson<ConnectionCredentials>(
-            existing.configEncrypted,
-          );
-          oldCredentials = prev;
-          if (!finalConfig.password) {
-            finalConfig = { ...finalConfig, password: prev.password };
-          }
-        } catch {
-          // Stored config is corrupted/unreadable — user must re-enter password
-          return badRequest(
-            "Stored credentials could not be decrypted. Please re-enter the password.",
-          );
-        }
-      }
+      if (!existing) return notFound();
 
+      oldCredentials = readStoredConfig(existing.configEncrypted);
+      // A secret left blank keeps its stored value; everything else is
+      // replaced, and only what the descriptor declares is stored (#1901).
+      const checked = validateConnectionConfig(
+        existing.type,
+        result.data.config,
+        oldCredentials,
+      );
+      if (!checked.success) {
+        // With the stored config unreadable there was nothing to keep, so
+        // say why a secret left blank is suddenly required.
+        return oldCredentials
+          ? checked.response
+          : badRequest(
+              "Stored credentials could not be decrypted. Re-enter the password and any other secret, then save again.",
+            );
+      }
+      finalConfig = checked.config;
       updates.configEncrypted = encryptJson(finalConfig);
     }
 
@@ -197,13 +213,9 @@ export async function PATCH(
       closeConnection(connection.type as ConnectorType, oldCredentials);
     }
 
-    // Fire-and-forget: re-warm the schema cache after credential update
-    if (finalConfig?.password) {
-      prefetchSchema(
-        connection.type as ConnectorType,
-        finalConfig as { uri: string; username: string; password: string },
-      );
-    }
+    // Fire-and-forget: re-warm the schema cache after a config update. A
+    // validated config is complete — its kept secrets included.
+    if (finalConfig) prefetchSchema(connection.type, finalConfig);
 
     auditRequest(request, {
       tenantId,
@@ -293,16 +305,11 @@ export async function DELETE(
 
     forgetDeadConnector(tenantId, id);
 
-    // Evict the cached driver so the connection pool is closed
+    // Evict the cached driver so the connection pool is closed. Corrupted
+    // credentials leave nothing to evict.
     if (toDelete?.configEncrypted) {
-      try {
-        const creds = decryptJson<ConnectionCredentials>(
-          toDelete.configEncrypted,
-        );
-        closeConnection(toDelete.type as ConnectorType, creds);
-      } catch {
-        // Corrupted credentials — nothing to evict
-      }
+      const creds = readStoredConfig(toDelete.configEncrypted);
+      if (creds) closeConnection(toDelete.type as ConnectorType, creds);
     }
 
     auditRequest(request, {
