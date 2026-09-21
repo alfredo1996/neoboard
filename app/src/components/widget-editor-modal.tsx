@@ -370,13 +370,26 @@ export function WidgetEditorModal({
   // Chart types offered in the picker — excludes disabled types (#1158) and
   // keeps the widget's current (possibly legacy) type visible for editing.
   // Logic lives in the unit-tested getSelectableChartTypes helper.
+  // A descriptor that has not loaded yet is NOT "no connection selected": that
+  // would offer every chart, graph included, and a graph picked in that window
+  // survives as the widget's current type once the descriptor arrives. With a
+  // connection in hand, fall back to a bare type — no declared capability, so
+  // nothing capability-gated is offered until the real answer lands.
+  const descriptorFor = useCallback(
+    (type: string | undefined) =>
+      type ? (connectors?.find((c) => c.type === type) ?? { type }) : undefined,
+    [connectors],
+  );
+
+  // Which charts a connection can feed is the CONNECTOR's answer (#1902), so
+  // the picker reads its descriptor rather than its type.
   const compatibleChartTypes = useMemo(
     () =>
       getSelectableChartTypes(
-        selectedConnection?.type,
+        descriptorFor(selectedConnection?.type),
         chartType,
       ) as ChartType[],
-    [selectedConnection, chartType],
+    [descriptorFor, selectedConnection, chartType],
   );
 
   // Unified connection-change handler for both add and edit modes.
@@ -394,14 +407,23 @@ export function WidgetEditorModal({
         if (prevConnection && prevConnection.type !== newConnection.type) {
           useWidgetEditorStore.getState().clearQueryState();
         }
-        const compatible = getCompatibleChartTypes(newConnection.type);
+        const compatible = getCompatibleChartTypes(
+          descriptorFor(newConnection.type),
+        );
         if (!compatible.includes(chartType as ChartType)) {
           setChartType("table");
           setChartOptions(getDefaultChartSettings("table"));
         }
       }
     },
-    [connections, connectionId, chartType, mode, widget?.connectionId],
+    [
+      connections,
+      descriptorFor,
+      connectionId,
+      chartType,
+      mode,
+      widget?.connectionId,
+    ],
   );
 
   const handleChartTypeChange = useCallback(

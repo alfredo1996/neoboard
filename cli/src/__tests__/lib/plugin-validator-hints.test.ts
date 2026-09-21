@@ -20,13 +20,16 @@ describe("hintForValidatorError", () => {
     expect(h).toContain(PLUGIN_DOCS_URL);
   });
 
-  it("returns a hint for missing compatibleWith (chart plugins)", () => {
+  it("returns a hint for a malformed requires (chart plugins)", () => {
     const h = hintForValidatorError(
-      '"compatibleWith" must be a non-empty array of connector types',
+      '"requires" must be an array of capability names',
     );
     expect(h).toBeTruthy();
-    expect(h).toContain("compatibleWith");
-    expect(h).toMatch(/neo4j|postgresql/);
+    expect(h).toContain("requires");
+    // #1902: the hint names a capability, never a connector — the previous one
+    // told plugin authors to list "neo4j" and "postgresql" by name.
+    expect(h).toContain("graphData");
+    expect(h).not.toMatch(/neo4j|postgres/i);
     expect(h).toContain(PLUGIN_DOCS_URL);
   });
 

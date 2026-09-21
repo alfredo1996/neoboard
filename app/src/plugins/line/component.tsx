@@ -74,7 +74,6 @@ export const linePlugin = defineChartPlugin({
   transformWithMapping: transformToLineData,
   validate: validateLineData,
   options: getChartOptions("line"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: lineSettingsSchema,
   stylingTargets: [{ value: "color", label: "Line Color" }],
   capabilities: {

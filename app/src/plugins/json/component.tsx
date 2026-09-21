@@ -28,7 +28,6 @@ export const jsonPlugin = defineChartPlugin({
   transform: transformToJsonData,
   transformWithMapping: transformToJsonData,
   options: getChartOptions("json"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: jsonSettingsSchema,
   capabilities: {
     supportsClickAction: false,

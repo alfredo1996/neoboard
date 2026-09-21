@@ -26,8 +26,8 @@ const RULES: HintRule[] = [
     hint: 'Add `label: "Display Name"` — this is what users see in the chart picker.',
   },
   {
-    match: '"compatibleWith" must be a non-empty array',
-    hint: 'Add `compatibleWith: ["neo4j", "postgresql"]` — chart plugins must declare which connector types they support.',
+    match: '"requires" must be an array',
+    hint: 'Use `requires: ["graphData"]` only if your chart needs a capability. A chart names what it NEEDS, never which connectors it works with — most charts declare nothing.',
   },
   {
     match: '"category" must be one of',

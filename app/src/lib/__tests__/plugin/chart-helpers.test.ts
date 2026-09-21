@@ -146,34 +146,54 @@ describe("getStylingTargets", () => {
 // getCompatibleChartTypes
 // ---------------------------------------------------------------------------
 describe("getCompatibleChartTypes", () => {
-  it("returns all types for neo4j", () => {
-    const types = getCompatibleChartTypes("neo4j");
+  // #1902: which charts a connection offers is decided by what the CONNECTOR
+  // declares it can return, not by a list of connector names kept in the app.
+  // A connector nobody has heard of gets every chart its capabilities allow.
+  const graphCapable = { type: "fixturedb", supportsGraphData: true };
+  const tabularOnly = { type: "otherdb", supportsGraphData: false };
+  const unheardOf = { type: "brand-new-thing" };
+
+  it("offers the graph chart to a connector that returns graph data", () => {
+    const types = getCompatibleChartTypes(graphCapable);
     expect(types).toContain("bar");
     expect(types).toContain("graph");
   });
 
-  it("returns types excluding graph for postgresql", () => {
-    const types = getCompatibleChartTypes("postgresql");
+  it("withholds the graph chart from a connector that does not", () => {
+    const types = getCompatibleChartTypes(tabularOnly);
     expect(types).toContain("bar");
     expect(types).not.toContain("graph");
   });
 
-  it("returns empty array for invalid connector type", () => {
-    expect(getCompatibleChartTypes("invalid")).toEqual([]);
+  it("treats an undeclared capability as absent, not as unknown", () => {
+    const types = getCompatibleChartTypes(unheardOf);
+    expect(types).toContain("bar");
+    expect(types).not.toContain("graph");
+  });
+
+  it("offers charts to a connector the app has never heard of", () => {
+    // The bug this replaces: getCompatibleChartTypes returned [] for any type
+    // outside CONNECTOR_TYPES, so a third connector got no charts at all.
+    expect(getCompatibleChartTypes(unheardOf).length).toBeGreaterThan(3);
+  });
+
+  it("offers every enabled chart when there is no connector yet", () => {
+    const types = getCompatibleChartTypes(undefined);
+    expect(types).toContain("bar");
+    expect(types).toContain("graph");
   });
 
   // #1158 — ship fewer, better charts: these are disabled in the picker but
   // their plugins stay registered so existing dashboards keep rendering.
   it("excludes disabled chart types from the pickable list", () => {
-    const neo4j = getCompatibleChartTypes("neo4j");
-    const pg = getCompatibleChartTypes("postgresql");
-    for (const disabled of ["choropleth", "radar"]) {
-      expect(neo4j, `neo4j should not offer ${disabled}`).not.toContain(
-        disabled,
-      );
-      expect(pg, `postgresql should not offer ${disabled}`).not.toContain(
-        disabled,
-      );
+    for (const descriptor of [graphCapable, tabularOnly]) {
+      const types = getCompatibleChartTypes(descriptor);
+      for (const disabled of ["choropleth", "radar"]) {
+        expect(
+          types,
+          `${descriptor.type} should not offer ${disabled}`,
+        ).not.toContain(disabled);
+      }
     }
   });
 
@@ -264,8 +284,10 @@ describe("getAllChartTypes", () => {
 describe("getSelectableChartTypes", () => {
   const DISABLED = ["choropleth", "radar"];
 
+  const graphCapable = { type: "fixturedb", supportsGraphData: true };
+
   it("excludes disabled types for a connector", () => {
-    const types = getSelectableChartTypes("neo4j");
+    const types = getSelectableChartTypes(graphCapable);
     expect(types).toContain("bar");
     for (const d of DISABLED) expect(types).not.toContain(d);
   });
@@ -277,16 +299,20 @@ describe("getSelectableChartTypes", () => {
   });
 
   it("keeps the current type visible when it is disabled (editing a legacy widget)", () => {
-    const types = getSelectableChartTypes("neo4j", "radar");
+    const types = getSelectableChartTypes(graphCapable, "radar");
     expect(types).toContain("radar");
   });
 
   it("does not duplicate a current type that is already offered", () => {
-    const types = getSelectableChartTypes("neo4j", "bar");
+    const types = getSelectableChartTypes(graphCapable, "bar");
     expect(types.filter((t) => t === "bar")).toHaveLength(1);
   });
 
-  it("returns an empty list for an invalid connector (no current type)", () => {
-    expect(getSelectableChartTypes("nope")).toEqual([]);
+  // #1902: a connector the app has never heard of is not "invalid" — it is the
+  // case this whole epic exists for. It gets every chart its capabilities allow.
+  it("offers charts to a connector the app has never heard of", () => {
+    const types = getSelectableChartTypes({ type: "brand-new-thing" });
+    expect(types).toContain("bar");
+    expect(types).not.toContain("graph");
   });
 });

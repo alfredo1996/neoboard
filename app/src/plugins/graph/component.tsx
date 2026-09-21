@@ -98,7 +98,8 @@ export const graphPlugin = defineChartPlugin({
   transformWithMapping: transformToGraphData,
   validate: validateGraphData,
   options: getChartOptions("graph"),
-  compatibleWith: ["neo4j"],
+  // The one chart that needs something of its connector (#1902).
+  requires: ["graphData"],
   settingsSchema: graphSettingsSchema,
   stylingTargets: [{ value: "color", label: "Node Color" }],
   capabilities: {

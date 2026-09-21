@@ -54,7 +54,6 @@ export const gaugePlugin = defineChartPlugin({
   transform: transformToGaugeData,
   transformWithMapping: transformToGaugeData,
   options: getChartOptions("gauge"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: gaugeSettingsSchema,
   stylingTargets: [{ value: "color", label: "Gauge Color" }],
   capabilities: {

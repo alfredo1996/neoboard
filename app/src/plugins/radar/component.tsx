@@ -52,7 +52,6 @@ export const radarPlugin = defineChartPlugin({
   transform: transformToRadarData,
   transformWithMapping: transformToRadarData,
   options: getChartOptions("radar"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: radarSettingsSchema,
   stylingTargets: [{ value: "color", label: "Area Color" }],
   capabilities: {

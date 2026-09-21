@@ -58,7 +58,6 @@ export const piePlugin = defineChartPlugin({
   transformWithMapping: transformToPieData,
   validate: validatePieData,
   options: getChartOptions("pie"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: pieSettingsSchema,
   stylingTargets: [{ value: "color", label: "Slice Color" }],
   capabilities: {

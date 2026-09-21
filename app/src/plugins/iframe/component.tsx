@@ -27,7 +27,6 @@ export const iframePlugin = defineChartPlugin({
   component: IframePluginComponent,
   transform: () => null,
   options: getChartOptions("iframe"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: iframeSettingsSchema,
   capabilities: {
     supportsClickAction: false,

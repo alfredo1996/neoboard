@@ -113,7 +113,6 @@ export const singleValuePlugin = defineChartPlugin({
   transformWithMapping: transformToValueData,
   validate: validateValueData,
   options: getChartOptions("single-value"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: singleValueSettingsSchema,
   stylingTargets: [
     { value: "color", label: "Text Color" },

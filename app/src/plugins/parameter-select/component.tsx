@@ -63,7 +63,6 @@ export const parameterSelectPlugin = defineChartPlugin({
   transform: transformToSelectData,
   transformWithMapping: transformToSelectData,
   options: getChartOptions("parameter-select"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: parameterSelectSettingsSchema,
   capabilities: {
     supportsClickAction: false,

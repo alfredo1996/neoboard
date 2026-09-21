@@ -191,17 +191,17 @@ describe("plugin hardening", () => {
       spy.mockRestore();
     });
 
-    it("warns on empty compatibleWith entry", () => {
+    it("warns on an unknown requirement", () => {
       const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
       defineChartPlugin({
         type: "test2",
         label: "Test",
         component: (() => null) as never,
         transform: (d: unknown) => d,
-        compatibleWith: ["neo4j", ""],
+        requires: ["graphDate"],
       } as never);
       expect(spy).toHaveBeenCalledWith(
-        expect.stringContaining("invalid compatibleWith"),
+        expect.stringContaining("unknown requirement"),
         expect.anything(),
       );
       spy.mockRestore();

@@ -84,29 +84,7 @@ for (const t of CHART_TYPES) {
   }
 }
 
-// 2. Validate compatibleWith references actual connector types.
-// Uses the canonical CONNECTOR_TYPES from the connection package
-// so new connectors are automatically recognized.
-import { CONNECTOR_TYPES as KNOWN_CONNECTOR_LIST } from "@neoboard/connection/connector-types";
-const KNOWN_CONNECTORS = new Set<string>(KNOWN_CONNECTOR_LIST);
-for (const type of pluginRegistry.getTypes()) {
-  const plugin = pluginRegistry.get(type);
-  if (plugin?.compatibleWith) {
-    for (const ct of plugin.compatibleWith) {
-      if (!KNOWN_CONNECTORS.has(ct)) {
-        console.warn(
-          'Plugin "' +
-            type +
-            '" declares compatibleWith "' +
-            ct +
-            '" but no such connector is registered',
-        );
-      }
-    }
-  }
-}
-
-// 3. Validate stub/plugin capability sync (dev only).
+// 2. Validate stub/plugin capability sync (dev only).
 validatePluginStubSync();
 
 // 4. Log registration summary for debugging.

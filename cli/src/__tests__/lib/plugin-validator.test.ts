@@ -11,7 +11,6 @@ describe("validatePluginExport", () => {
       label: "Heatmap",
       component: () => null,
       transform: (d: unknown) => d,
-      compatibleWith: ["neo4j", "postgresql"],
     };
     const result = validatePluginExport(plugin);
     expect(result.valid).toBe(true);
@@ -64,15 +63,28 @@ describe("validatePluginExport", () => {
     expect(result.errors[0]).toContain("Not a valid NeoBoard plugin");
   });
 
-  it("rejects chart plugin missing compatibleWith", () => {
+  // #1902: a chart that needs nothing in particular is the common case — most
+  // charts work with anything that returns rows — so declaring nothing is
+  // valid, and only a malformed declaration is an error.
+  it("accepts a chart plugin that requires nothing", () => {
     const result = validatePluginExport({
       type: "x",
       label: "X",
       transform: () => {},
     });
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects a chart plugin whose requires is not an array", () => {
+    const result = validatePluginExport({
+      type: "x",
+      label: "X",
+      transform: () => {},
+      requires: "graphData",
+    });
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      '"compatibleWith" must be a non-empty array of connector types',
+      '"requires" must be an array of capability names',
     );
   });
 
