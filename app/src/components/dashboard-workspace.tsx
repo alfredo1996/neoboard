@@ -44,7 +44,6 @@ import { DashboardEditToolbar } from "@/components/dashboard-edit-toolbar";
 import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import type {
   DashboardSettings,
   DashboardWidget,
@@ -799,11 +798,11 @@ export function DashboardWorkspace({
               const conn = (connections ?? []).find(
                 (c) => c.id === templateWidget.connectionId,
               );
-              // Content-only widgets (markdown, iframe) have no connection;
-              // default to "postgresql" so the template dialog still opens.
-              const connectorType: ConnectorType = conn
-                ? conn.type
-                : "postgresql";
+              // Content-only widgets (markdown, iframe) have no connection,
+              // so the template has no connector type (#1900). It used to be
+              // given a hardcoded one purely so this dialog would open, which
+              // then offered the template back on that one connector only.
+              const connectorType = conn?.type;
               return (
                 <SaveTemplateDialog
                   open={true}

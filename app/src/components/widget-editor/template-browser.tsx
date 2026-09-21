@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { FlaskConical } from "lucide-react";
 import type { WidgetTemplate } from "@/lib/db/schema";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { editorLanguageForConnector } from "@/lib/connector/editor-language";
 import { useConnectors } from "@/hooks/use-connectors";
@@ -21,7 +20,7 @@ import {
 type TemplateBrowserProps = Readonly<{
   templates: WidgetTemplate[] | undefined;
   loading: boolean;
-  connectorType: ConnectorType | null;
+  connectorType: string | null;
   onApply: (template: WidgetTemplate) => void;
   onBack: () => void;
 }>;

@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api/api-client";
 import type { WidgetTemplate } from "@/lib/db/schema";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 
 export interface WidgetTemplateFilters {
   chartType?: string;
@@ -41,7 +40,8 @@ export interface CreateWidgetTemplateInput {
   description?: string;
   tags?: string[];
   chartType: string;
-  connectorType: ConnectorType;
+  /** Absent when the widget needs no connection (#1900). */
+  connectorType?: string;
   connectionId?: string;
   query?: string;
   params?: Record<string, unknown>;
@@ -54,7 +54,7 @@ export interface UpdateWidgetTemplateInput {
   description?: string;
   tags?: string[];
   chartType?: string;
-  connectorType?: ConnectorType;
+  connectorType?: string;
   connectionId?: string | null;
   query?: string;
   params?: Record<string, unknown>;

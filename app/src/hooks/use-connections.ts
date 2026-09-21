@@ -2,13 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api/api-client";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import type { ConnectorConfig } from "@neoboard/connection";
 
 export interface ConnectionListItem {
   id: string;
   name: string;
-  type: ConnectorType;
+  type: string;
   /** When true, widgets can override the connection's default database per-card. */
   allowPerCardDb: boolean;
   /** "shared" connections are queryable by every user in the tenant (#901). */
@@ -28,7 +27,7 @@ export type ConnectionConfigInput = ConnectorConfig & { maxRows?: number };
 
 export interface CreateConnectionInput {
   name: string;
-  type: ConnectorType;
+  type: string;
   config: ConnectionConfigInput;
 }
 
@@ -228,7 +227,7 @@ export function useTestConnection() {
 }
 
 export interface TestInlineInput {
-  type: ConnectorType;
+  type: string;
   config: ConnectionConfigInput;
 }
 

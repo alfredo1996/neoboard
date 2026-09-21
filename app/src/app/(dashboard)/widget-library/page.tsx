@@ -42,7 +42,6 @@ import {
   useToast,
 } from "@neoboard/components";
 import type { WidgetTemplate } from "@/lib/db/schema";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import { editorLanguageForConnector } from "@/lib/connector/editor-language";
 import { useConnectors } from "@/hooks/use-connectors";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
@@ -302,7 +301,8 @@ export default function WidgetLibraryPage() {
         description: template.description ?? undefined,
         tags: template.tags ?? undefined,
         chartType: template.chartType,
-        connectorType: template.connectorType as ConnectorType,
+        // The column is nullable now (#1900); the API takes absent, not null.
+        connectorType: template.connectorType ?? undefined,
         connectionId: template.connectionId ?? undefined,
         query: template.query,
         settings: (template.settings as Record<string, unknown>) ?? undefined,

@@ -4,7 +4,7 @@ import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto/crypto";
 import { testConnection } from "@/lib/query/query-executor";
-import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
+import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { apiSuccess } from "@/lib/api/api-response";
 import { notFound, handleRouteError } from "@/lib/api/api-utils";
 import {
@@ -63,7 +63,7 @@ export async function POST(
     try {
       const success = await withSchedulerSlot(
         { connectionId: id, userId, priority },
-        () => testConnection(connection.type as DbType, credentials),
+        () => testConnection(connection.type, credentials),
       );
       // A false result (no throw) gets an actionable fallback; a thrown error
       // is classified for a targeted hint. Both via the shared helper (#1043).

@@ -10,7 +10,7 @@ import {
   executeQuery,
   toConnectorAccessMode,
 } from "@/lib/query/query-executor";
-import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
+import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { runPipeline } from "@/lib/query/pipeline";
 import type { QueryContext } from "@/lib/query/pipeline-types";
 import { formParamNames, type FormFieldDef } from "@/lib/widget/form-field-def";
@@ -165,7 +165,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
       query: form ? form.query : query,
       params: form ? formParams(form, params) : (params ?? {}),
       connectionId,
-      connectionType: connection.type as DbType,
+      connectionType: connection.type,
       userId,
       tenantId,
       accessMode: "write",

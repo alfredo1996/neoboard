@@ -223,7 +223,14 @@ export const widgetTemplates = pgTable(
     description: text("description"),
     tags: text("tags").array().default([]),
     chartType: text("chartType").notNull(),
-    connectorType: text("connectorType").notNull(),
+    /**
+     * The connector a template's query is written for, or NULL when it needs
+     * none — a markdown or iframe widget has no connection, and #1900 made
+     * that absence explicit. A NULL template is offered on every connection;
+     * before, such widgets were stored against a hardcoded connector and were
+     * only ever offered there.
+     */
+    connectorType: text("connectorType"),
     /** Optional binding to a specific connection. Nullable — templates work without it. */
     connectionId: text("connectionId"),
     query: text("query").notNull().default(""),

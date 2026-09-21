@@ -40,6 +40,11 @@ vi.mock("@/hooks/use-connections", () => ({
   useConnections: () => ({ data: [] }),
 }));
 
+// The NeoDash import asks the registry which connector speaks Cypher (#1900).
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnectors: () => ({ data: [] }),
+}));
+
 vi.mock("@/components/dashboard-connection-dialog", () => ({
   DashboardConnectionDialog: () => null,
 }));

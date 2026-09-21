@@ -1,7 +1,7 @@
 {
   "name": "@neoboard/connector-sdk",
   "version": "0.1.0",
-  "description": "Stable contract for building NeoBoard connectors — plugin interface, ConnectionModule/AuthenticationModule base classes, error types, result records, and query-safety helpers (read-only, MAX_ROWS+1, timeout, cancellation).",
+  "description": "Stable contract for building NeoBoard connectors \u2014 plugin interface, ConnectionModule/AuthenticationModule base classes, error types, result records, and query-safety helpers (read-only, MAX_ROWS+1, timeout, cancellation).",
   "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": ">=20.0.0"
@@ -29,10 +29,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./connector-types": {
-      "types": "./dist/connector-types.d.ts",
-      "import": "./dist/connector-types.js"
     }
   },
   "files": [

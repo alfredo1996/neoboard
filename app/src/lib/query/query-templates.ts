@@ -78,17 +78,17 @@ export const QUERY_TEMPLATES: Record<string, QueryTemplate[]> = {
 };
 
 /**
- * Resolves query templates for a given editor language.
+ * The query templates for an editor LANGUAGE — `cypher`, `sql`, whatever a
+ * connector declares. A language the app ships no templates for falls back to
+ * the SQL set.
  *
- * Maps connector types to their template set:
- * - "neo4j" → cypher templates
- * - "postgresql" → sql templates
- * - unknown → falls back to sql templates
+ * It used to also accept a connector TYPE and map it to a language (#1900).
+ * Nothing passed one: the only caller resolves the language from the
+ * descriptor's `queryLanguage` first, so the map was tolerance for a call that
+ * never happened, and two connector names in a file that should know none.
  */
 export function getTemplates(lang: string): QueryTemplate[] {
-  const key =
-    lang === "neo4j" ? "cypher" : lang === "postgresql" ? "sql" : lang;
-  return QUERY_TEMPLATES[key] ?? QUERY_TEMPLATES.sql ?? [];
+  return QUERY_TEMPLATES[lang] ?? QUERY_TEMPLATES.sql ?? [];
 }
 
 /**

@@ -5,7 +5,6 @@ import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto/crypto";
 import { fetchConnectionSchema } from "@/lib/connector/schema-prefetch";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import { apiSuccess } from "@/lib/api/api-response";
 import { notFound, handleRouteError } from "@/lib/api/api-utils";
 
@@ -40,10 +39,7 @@ export async function GET(
       connection.configEncrypted,
     );
 
-    const schema = await fetchConnectionSchema(
-      connection.type as ConnectorType,
-      credentials,
-    );
+    const schema = await fetchConnectionSchema(connection.type, credentials);
 
     return apiSuccess(schema);
   } catch (error) {

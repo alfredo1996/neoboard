@@ -56,7 +56,6 @@ import {
   chartSupportsStyling,
 } from "@/lib/plugin/chart-helpers";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import { useParameterValues } from "@/stores/parameter-store";
 
 import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
@@ -586,7 +585,9 @@ export function WidgetEditorModal({
     setLabError(null);
 
     const selectedConn = connections.find((c) => c.id === connectionId);
-    const connectorType: ConnectorType = selectedConn?.type ?? "neo4j";
+    // No connection means no connector, and the template says so rather than
+    // claiming one (#1900). A connector-less template is offered everywhere.
+    const connectorType = selectedConn?.type;
 
     const tags = labTagsInput
       .split(",")

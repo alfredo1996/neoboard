@@ -25,7 +25,6 @@ import {
   useUpdateConnection,
 } from "@/hooks/use-connections";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import {
   EMPTY_CONNECTION_FORM,
   configToForm,
@@ -163,8 +162,8 @@ function FormStep({
             })
           : await createConnection.mutateAsync({
               name: form.name.trim(),
-              // The cast goes when #1900 opens `ConnectorType` to string.
-              type: connector.type as ConnectorType,
+              // The cast goes when #1900 opens `string` to string.
+              type: connector.type,
               config,
             });
       onSaved(saved.id);
@@ -186,7 +185,7 @@ function FormStep({
     try {
       setTestResult(
         await testInline.mutateAsync({
-          type: connector.type as ConnectorType,
+          type: connector.type,
           config,
         }),
       );

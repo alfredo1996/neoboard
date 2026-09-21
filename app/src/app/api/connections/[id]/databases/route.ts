@@ -4,7 +4,7 @@ import { connections } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { decryptJson } from "@/lib/crypto/crypto";
 import { listDatabases } from "@/lib/query/query-executor";
-import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
+import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { apiSuccess } from "@/lib/api/api-response";
 import { notFound, handleRouteError } from "@/lib/api/api-utils";
 
@@ -40,10 +40,7 @@ export async function GET(
     );
 
     try {
-      const databases = await listDatabases(
-        connection.type as DbType,
-        credentials,
-      );
+      const databases = await listDatabases(connection.type, credentials);
       return apiSuccess({ databases });
     } catch {
       return apiSuccess({ databases: [] });
