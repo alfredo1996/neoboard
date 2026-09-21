@@ -53,7 +53,6 @@ export const tablePlugin = defineChartPlugin({
   transform: transformToTableData,
   transformWithMapping: transformToTableData,
   options: getChartOptions("table"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: tableSettingsSchema,
   stylingTargets: [
     { value: "backgroundColor", label: "Background Color" },

@@ -75,7 +75,6 @@ beforeEach(() => {
     default: {
       type: "fake-chart",
       label: "Fake Chart",
-      compatibleWith: ["neo4j"],
       transform: () => ({}),
     },
   }));
@@ -130,7 +129,6 @@ describe("runPluginAdd", () => {
       default: {
         type: "x",
         label: "x",
-        compatibleWith: ["neo4j"],
         transform: () => ({}),
       },
     }));
@@ -183,7 +181,6 @@ describe("runPluginAdd", () => {
       myExport: {
         type: "fake-chart",
         label: "Fake",
-        compatibleWith: ["neo4j"],
         transform: () => ({}),
       },
     }));

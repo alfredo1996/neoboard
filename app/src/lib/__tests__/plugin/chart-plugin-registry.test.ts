@@ -86,9 +86,9 @@ describe("defineChartPlugin", () => {
     expect(plugin.options).toEqual([]);
   });
 
-  it("preserves compatibleWith list", () => {
-    const plugin = makePlugin({ compatibleWith: ["neo4j"] });
-    expect(plugin.compatibleWith).toEqual(["neo4j"]);
+  it("preserves the requirement list", () => {
+    const plugin = makePlugin({ requires: ["graphData"] });
+    expect(plugin.requires).toEqual(["graphData"]);
   });
 
   it("preserves queryHint", () => {
@@ -162,22 +162,28 @@ describe("createPluginRegistry", () => {
     expect(() => registry.unregister("nope")).not.toThrow();
   });
 
-  it("filters plugins by compatible connector type", () => {
-    registry.register(makePlugin({ type: "graph", compatibleWith: ["neo4j"] }));
-    registry.register(
-      makePlugin({ type: "bar", compatibleWith: ["neo4j", "postgresql"] }),
-    );
-    registry.register(makePlugin({ type: "pie" })); // no compatibleWith = all
+  it("filters plugins by what the connector can do, not by its name", () => {
+    registry.register(makePlugin({ type: "graph", requires: ["graphData"] }));
+    registry.register(makePlugin({ type: "bar" }));
+    registry.register(makePlugin({ type: "pie" })); // no requirement = always
 
-    const neo4jPlugins = registry.getCompatibleWith("neo4j");
-    expect(neo4jPlugins.map((p) => p.type).sort()).toEqual([
+    const withGraph = registry.getCompatibleWith({ graphData: true });
+    expect(withGraph.map((p) => p.type).sort()).toEqual([
       "bar",
       "graph",
       "pie",
     ]);
 
-    const pgPlugins = registry.getCompatibleWith("postgresql");
-    expect(pgPlugins.map((p) => p.type).sort()).toEqual(["bar", "pie"]);
+    const withoutGraph = registry.getCompatibleWith({ graphData: false });
+    expect(withoutGraph.map((p) => p.type).sort()).toEqual(["bar", "pie"]);
+
+    // An absent flag is an absent capability, not an unknown one.
+    expect(
+      registry
+        .getCompatibleWith({})
+        .map((p) => p.type)
+        .sort(),
+    ).toEqual(["bar", "pie"]);
   });
 });
 

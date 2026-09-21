@@ -56,7 +56,6 @@ export const sunburstPlugin = defineChartPlugin({
   validate: validateHierarchicalData,
   transformWithMapping: transformToHierarchicalData,
   options: getChartOptions("sunburst"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: sunburstSettingsSchema,
   stylingTargets: [{ value: "color", label: "Segment Color" }],
   capabilities: {

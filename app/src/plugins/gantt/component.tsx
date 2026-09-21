@@ -53,7 +53,6 @@ export const ganttPlugin = defineChartPlugin({
   transformWithMapping: transformToGanttData,
   validate: validateGanttData,
   options: getChartOptions("gantt"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: ganttSettingsSchema,
   stylingTargets: [{ value: "color", label: "Bar Color" }],
   capabilities: {

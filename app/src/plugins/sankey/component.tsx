@@ -54,7 +54,6 @@ export const sankeyPlugin = defineChartPlugin({
   transformWithMapping: transformToSankeyData,
   validate: validateSankeyData,
   options: getChartOptions("sankey"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: sankeySettingsSchema,
   stylingTargets: [{ value: "color", label: "Link Color" }],
   capabilities: {

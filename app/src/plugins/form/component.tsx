@@ -37,7 +37,6 @@ export const formPlugin = defineChartPlugin({
   component: FormPluginComponent,
   transform: () => [],
   options: getChartOptions("form"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: formSettingsSchema,
   capabilities: {
     supportsClickAction: true,

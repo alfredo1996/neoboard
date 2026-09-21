@@ -23,17 +23,18 @@ export async function POST(request: Request) {
       () => [] as string[],
     );
 
-    // For PostgreSQL, also fetch schemas
-    let schemas: string[] | undefined;
-    if (type === "postgresql") {
-      schemas = await listSchemas(type as DbType, config).catch(
-        () => [] as string[],
-      );
-    }
+    // Schemas come from whichever connectors have them (#1902). `listSchemas`
+    // already answers [] for a module that does not implement it, so asking
+    // every connector is both simpler and right for one nobody hardcoded —
+    // the `type === "postgresql"` gate this replaces gave a third connector
+    // none, however well it implemented the method.
+    const schemas = await listSchemas(type as DbType, config).catch(
+      () => [] as string[],
+    );
 
     return apiSuccess({
       databases,
-      ...(schemas !== undefined ? { schemas } : {}),
+      schemas,
     });
   } catch (error) {
     return handleRouteError(error, "Failed to list databases");

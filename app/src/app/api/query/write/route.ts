@@ -21,6 +21,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { apiError, apiSuccess } from "@/lib/api/api-response";
+import { getConnector } from "@neoboard/connection";
 import { describeWriteError } from "@/lib/api/db-error-message";
 import { logRoute } from "@/lib/api/log-route";
 import { apiLogger } from "@/lib/logger";
@@ -80,9 +81,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
         required: "viewer",
       });
       const layout = access?.dashboard.layoutJson as
-        | DashboardLayoutV2
-        | null
-        | undefined;
+        DashboardLayoutV2 | null | undefined;
       widget = layout?.pages
         ?.flatMap((p) => p.widgets)
         .find(
@@ -128,6 +127,18 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     // carries allowWrites (#1824); any other stored widget needs it.
     if (widget && !form && !widget.allowWrites) {
       return forbidden("Write mode is not enabled for this widget");
+    }
+
+    // What the CONNECTOR can do, which is a different question from what the
+    // user may do (#1902). Checked for a form submit too: that path is
+    // deliberately not gated by `can_write` (#1831), so a check that rode
+    // along with the permission gate would let it through. Before the query
+    // runs, and before the credentials are decrypted.
+    if (getConnector(connection.type)?.supportsWrite === false) {
+      return apiError(
+        "VALIDATION_ERROR",
+        "This connection's type does not support write queries",
+      );
     }
 
     const credentials = decryptJson<ConnectionCredentials>(

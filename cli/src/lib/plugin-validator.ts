@@ -68,10 +68,12 @@ export function validatePluginExport(exported: unknown): ValidationResult {
 
   // Type-specific validation
   if (pluginType === "chart") {
-    if (!Array.isArray(obj.compatibleWith) || obj.compatibleWith.length === 0) {
-      errors.push(
-        '"compatibleWith" must be a non-empty array of connector types',
-      );
+    // A chart declares what it NEEDS of a connector, never which connectors it
+    // works with (#1902). Optional: most charts need nothing in particular, so
+    // an absent `requires` is the common, correct case — only its shape is
+    // checked.
+    if (obj.requires !== undefined && !Array.isArray(obj.requires)) {
+      errors.push('"requires" must be an array of capability names');
     }
   }
 

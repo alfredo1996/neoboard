@@ -54,7 +54,6 @@ export const choroplethPlugin = defineChartPlugin({
   transform: transformToChoroplethData,
   transformWithMapping: transformToChoroplethData,
   options: getChartOptions("choropleth"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: choroplethSettingsSchema,
   capabilities: {
     supportsClickAction: true,

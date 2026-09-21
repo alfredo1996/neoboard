@@ -62,7 +62,6 @@ export const barPlugin = defineChartPlugin({
   transformWithMapping: transformToBarData,
   validate: validateBarData,
   options: getChartOptions("bar"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: barSettingsSchema,
   stylingTargets: [{ value: "color", label: "Bar Color" }],
   capabilities: {

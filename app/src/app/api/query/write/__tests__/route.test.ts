@@ -81,6 +81,14 @@ vi.mock("@/lib/query/query-executor", () => ({
 }));
 
 // Minimal Next.js server shim
+const mockGetConnector = vi.fn((_type: string) => ({
+  type: "fixturedb",
+  supportsWrite: true,
+}));
+vi.mock("@neoboard/connection", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getConnector: (t: string) => mockGetConnector(t),
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
@@ -152,6 +160,13 @@ describe("POST /api/query/write", () => {
     vi.clearAllMocks();
     // clearAllMocks keeps queued return values; no test inherits another's.
     mockDb.select.mockReset();
+
+    // Shuffle is on: every test starts from a connector that CAN write, so a
+    // test that makes one refuse cannot leak that into another (#1902).
+    mockGetConnector.mockReturnValue({
+      type: "fixturedb",
+      supportsWrite: true,
+    });
 
     const mod = await import("../route");
     POST = mod.POST;
@@ -1198,5 +1213,117 @@ describe("POST /api/query/write", () => {
     const body = await res.json();
     expect(body.data).toHaveLength(15000);
     expect(body.meta).not.toHaveProperty("truncated");
+  });
+  /**
+   * #1902: a connector that cannot write must be refused server-side, before any
+   * query runs — not merely hidden in the UI. This is separate from `can_write`,
+   * which is about the USER; this is about the connector.
+   */
+  describe("a connector that does not support writes", () => {
+    beforeEach(() => {
+      mockGetConnector.mockReturnValue({
+        type: "fixturedb",
+        supportsWrite: false,
+      });
+    });
+
+    it("refuses a plain write with 400, before executing anything", async () => {
+      mockRequireSession.mockResolvedValue(writerSession);
+      mockDashboardAndConnection();
+
+      const res = await POST(
+        makeRequest({
+          connectionId: "c1",
+          query: "CREATE (n:Test)",
+          dashboardId: "d1",
+          widgetId: "w1",
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+
+    it("refuses a form submit too, for the same reason", async () => {
+      // A form submit is not gated by can_write (#1831), so if the connector
+      // check rode along with that gate this path would slip through. The
+      // widget has to really be a form — a non-form widget with no query is
+      // rejected by validation at 400 and would pass this test for nothing.
+      mockRequireSession.mockResolvedValue(readerSession);
+      mockDb.select
+        .mockReturnValueOnce(
+          makeSelectChain([
+            {
+              id: "d1",
+              tenantId: "tenant-a",
+              userId: "user-2",
+              layoutJson: {
+                version: 2,
+                pages: [
+                  {
+                    id: "p1",
+                    title: "Page 1",
+                    widgets: [
+                      {
+                        id: "w-form",
+                        chartType: "form",
+                        connectionId: "c1",
+                        query: "CREATE (n:Test {tag: $param_tag})",
+                        settings: {
+                          formFields: [
+                            {
+                              id: "f-tag",
+                              label: "Tag",
+                              parameterName: "tag",
+                              parameterType: "text",
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                    gridLayout: [],
+                  },
+                ],
+              },
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeSelectChain([fakeConnection]));
+
+      const res = await POST(
+        makeRequest({
+          connectionId: "c1",
+          query: "CREATE (n:Test {tag: $param_tag})",
+          params: { param_tag: "t" },
+          dashboardId: "d1",
+          widgetId: "w-form",
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+
+    it("allows the write when the connector says it can write", async () => {
+      mockGetConnector.mockReturnValue({
+        type: "fixturedb",
+        supportsWrite: true,
+      });
+      mockRequireSession.mockResolvedValue(writerSession);
+      mockDashboardAndConnection();
+      mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
+
+      const res = await POST(
+        makeRequest({
+          connectionId: "c1",
+          query: "CREATE (n:Test)",
+          dashboardId: "d1",
+          widgetId: "w1",
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery).toHaveBeenCalled();
+    });
   });
 });

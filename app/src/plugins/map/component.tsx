@@ -73,7 +73,6 @@ export const mapPlugin = defineChartPlugin({
   transformWithMapping: transformToMapData,
   validate: validateMapData,
   options: getChartOptions("map"),
-  compatibleWith: ["neo4j", "postgresql"],
   settingsSchema: mapSettingsSchema,
   stylingTargets: [{ value: "color", label: "Marker Color" }],
   capabilities: {

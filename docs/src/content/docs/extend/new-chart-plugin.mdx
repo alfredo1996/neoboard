@@ -39,7 +39,6 @@ export const myChartPlugin = defineChartPlugin({
   label: "My Chart",
   component: MyChartPlugin,
   transform: (rows) => rows, // transform raw query rows to chart data
-  compatibleWith: ["neo4j", "postgresql"],
   capabilities: {
     supportsClickAction: true,
     supportsStyling: false,
@@ -89,7 +88,7 @@ defineChartPlugin({
   validate?: (data) => string | null,           // return error or null
   options?: ChartOptionDef[],                   // chart options panel entries
   queryHint?: string,                           // shown in query editor
-  compatibleWith?: ConnectorType[],             // ["neo4j", "postgresql"]
+  requires?: ChartRequirement[],                // ["graphData"] — omit unless you need one
   stylingTargets?: { value, label }[],          // enables rule-based styling
   enrichClickEvent?: (event, row) => event,     // customize click payload
 
@@ -312,7 +311,6 @@ export const heatmapPlugin = defineChartPlugin({
   label: "Heatmap",
   component: HeatmapPlugin,
   transform: (rows) => rows,
-  compatibleWith: ["neo4j", "postgresql"],
   capabilities: { supportsClickAction: true, isECharts: true, requiresQuery: true, supportsStyling: false },
   queryHint: "Return 3 columns: x, y, value.\nExample: RETURN day, hour, count",
   options: [

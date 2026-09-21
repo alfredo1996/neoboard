@@ -35,7 +35,8 @@ describe("barPlugin", () => {
   });
 
   it("compatible with neo4j and postgresql", () => {
-    expect(barPlugin.compatibleWith).toEqual(["neo4j", "postgresql"]);
+    // #1902: a chart declares what it NEEDS, and bar needs nothing.
+    expect(barPlugin.requires).toBeUndefined();
   });
 
   it("has a styling target for bar color", () => {

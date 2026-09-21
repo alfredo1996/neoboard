@@ -239,7 +239,7 @@ neoboard plugin add <package> [--override] [--export <name>]
 
 The CLI validates the package after installation:
 - Must export an object with `type` (string) and `label` (string)
-- Chart plugins must have `transform` (function) and `compatibleWith` (array)
+- Chart plugins must have `transform` (function); `requires` is optional and, when present, must be an array of capability names
 - Connector plugins must have `createModule` (function) and `category` (enum)
 - If validation fails, the package is automatically uninstalled
 

@@ -14,11 +14,20 @@
 
 import { pluginRegistry } from "@/plugins/registry";
 import { defineChartPlugin } from "@/lib/plugin/chart-plugin-registry";
-import type { ChartPlugin } from "@/lib/plugin/chart-plugin-registry";
-import {
-  CONNECTOR_TYPES,
-  type ConnectorType,
-} from "@/lib/connector/connector-types";
+import type {
+  ChartPlugin,
+  ChartCapabilityFlags,
+  ChartRequirement,
+} from "@/lib/plugin/chart-plugin-registry";
+// Type-only, so it is erased at build and never pulls the connection barrel
+// into the browser bundle — the same way `connection-fields.ts` reads it.
+import type { ConnectorDescriptor } from "@neoboard/connection";
+
+/** All a chart needs to know about a connection: what it says it can return. */
+export type ChartConnector = Pick<
+  ConnectorDescriptor,
+  "type" | "supportsGraphData"
+>;
 import { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
 
 // Re-export types for backward compatibility
@@ -51,7 +60,7 @@ const nullTransform = () => null;
 interface LightDef {
   type: string;
   label: string;
-  compatibleWith?: ConnectorType[];
+  requires?: ChartRequirement[];
   stylingTargets?: { value: string; label: string }[];
   capabilities?: {
     supportsClickAction?: boolean;
@@ -65,28 +74,24 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   {
     type: "bar",
     label: "Bar Chart",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Bar Color" }],
     capabilities: { isECharts: true, supportsStyling: true },
   },
   {
     type: "line",
     label: "Line Chart",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Line Color" }],
     capabilities: { isECharts: true, supportsStyling: true },
   },
   {
     type: "pie",
     label: "Pie Chart",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Slice Color" }],
     capabilities: { isECharts: true, supportsStyling: true },
   },
   {
     type: "table",
     label: "Data Table",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [
       { value: "backgroundColor", label: "Background Color" },
       { value: "textColor", label: "Text Color" },
@@ -96,7 +101,6 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   {
     type: "single-value",
     label: "Single Value",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [
       { value: "color", label: "Text Color" },
       { value: "backgroundColor", label: "Background Color" },
@@ -110,27 +114,24 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   {
     type: "graph",
     label: "Graph",
-    compatibleWith: ["neo4j"],
+    requires: ["graphData"],
     stylingTargets: [{ value: "color", label: "Node Color" }],
     capabilities: { supportsStyling: true },
   },
   {
     type: "map",
     label: "Map",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Marker Color" }],
     capabilities: { supportsStyling: true },
   },
   {
     type: "json",
     label: "JSON Viewer",
-    compatibleWith: ["neo4j", "postgresql"],
     capabilities: { supportsClickAction: false, supportsStyling: false },
   },
   {
     type: "parameter-select",
     label: "Parameter Selector",
-    compatibleWith: ["neo4j", "postgresql"],
     capabilities: {
       supportsClickAction: false,
       supportsStyling: false,
@@ -140,13 +141,11 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   {
     type: "form",
     label: "Form",
-    compatibleWith: ["neo4j", "postgresql"],
     capabilities: { supportsStyling: false, requiresQuery: false },
   },
   {
     type: "markdown",
     label: "Markdown",
-    compatibleWith: ["neo4j", "postgresql"],
     capabilities: {
       supportsClickAction: false,
       supportsStyling: false,
@@ -156,7 +155,6 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   {
     type: "iframe",
     label: "iFrame",
-    compatibleWith: ["neo4j", "postgresql"],
     capabilities: {
       supportsClickAction: false,
       supportsStyling: false,
@@ -166,28 +164,24 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   {
     type: "gauge",
     label: "Gauge",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Gauge Color" }],
     capabilities: { isECharts: true, supportsStyling: true },
   },
   {
     type: "sankey",
     label: "Sankey",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Link Color" }],
     capabilities: { isECharts: true, supportsStyling: true },
   },
   {
     type: "sunburst",
     label: "Sunburst",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Segment Color" }],
     capabilities: { isECharts: true, supportsStyling: true },
   },
   {
     type: "radar",
     label: "Radar",
-    compatibleWith: ["neo4j", "postgresql"],
     stylingTargets: [{ value: "color", label: "Area Color" }],
     capabilities: {
       supportsClickAction: false,
@@ -212,7 +206,7 @@ for (const def of LIGHTWEIGHT_DEFS) {
           def.type === "markdown" || def.type === "iframe"
             ? nullTransform
             : identity,
-        compatibleWith: def.compatibleWith,
+        requires: def.requires,
         stylingTargets: def.stylingTargets,
         capabilities: def.capabilities,
       }),
@@ -308,12 +302,22 @@ export function getStylingTargets(
 }
 
 /**
- * Get all chart types compatible with a given connector type.
+ * The chart types a connection can feed, decided by what its connector says it
+ * can return (#1902).
+ *
+ * `undefined` means no connection is chosen yet, so every enabled chart is
+ * offered. This used to take a connector TYPE and return `[]` for anything
+ * outside `CONNECTOR_TYPES` — so a third connector got no charts at all, which
+ * is the bug the capability answer removes rather than patches.
  */
-export function getCompatibleChartTypes(connectorType: string): string[] {
-  if (!CONNECTOR_TYPES.includes(connectorType as ConnectorType)) return [];
+export function getCompatibleChartTypes(
+  descriptor?: ChartConnector | null,
+): string[] {
+  const capabilities: ChartCapabilityFlags = descriptor
+    ? { graphData: descriptor.supportsGraphData === true }
+    : { graphData: true };
   return pluginRegistry
-    .getCompatibleWith(connectorType as ConnectorType)
+    .getCompatibleWith(capabilities)
     .map((p) => p.type)
     .filter((t) => !DISABLED_CHART_TYPES.has(t));
 }
@@ -366,19 +370,18 @@ export function getAllChartTypes(): string[] {
 /**
  * The chart types to OFFER in the widget picker (#1158).
  *
- * - With a connector: its compatible types (already excludes disabled types).
- * - Without a connector: all registered types minus disabled ones.
+ * - With a connector: what its capabilities allow (already excludes disabled
+ *   types).
+ * - Without one: every enabled type, since nothing has said otherwise yet.
  * - When editing a widget whose `currentType` is disabled (a legacy
  *   radar/choropleth), that type is appended so the selector still shows it
  *   rather than a blank value.
  */
 export function getSelectableChartTypes(
-  connectorType?: string,
+  descriptor?: ChartConnector | null,
   currentType?: string,
 ): string[] {
-  const base = connectorType
-    ? getCompatibleChartTypes(connectorType)
-    : getAllChartTypes().filter((t) => !DISABLED_CHART_TYPES.has(t));
+  const base = getCompatibleChartTypes(descriptor);
   if (currentType && !base.includes(currentType)) {
     return [...base, currentType];
   }

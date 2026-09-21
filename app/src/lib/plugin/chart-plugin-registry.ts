@@ -21,7 +21,7 @@
  *     component: BarChart,
  *     transform: transformToBarData,
  *     options: barOptions,
- *     compatibleWith: ["neo4j", "postgresql"],
+ *     requires: ["graphData"],
  *   });
  *
  *   registry.register(barPlugin);
@@ -29,7 +29,6 @@
 
 import type React from "react";
 import type { z } from "zod";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 
 // ---------------------------------------------------------------------------
 // Chart option definition (duplicated shape from @neoboard/components to
@@ -107,8 +106,15 @@ export interface ChartPluginConfig {
   options?: ChartOptionDef[];
   /** Example + column expectations shown to users when they pick this chart. */
   queryHint?: string;
-  /** Which connector types can feed this chart. Omit = all connectors. */
-  compatibleWith?: ConnectorType[];
+  /**
+   * What this chart needs a connector to be able to return. Omit = nothing in
+   * particular, which is every chart but one (#1902).
+   *
+   * A requirement names a CAPABILITY, never a connector: the question "can
+   * this connection feed a graph chart?" is answered by what the connector
+   * declares it returns, not by a list of connector names kept in the app.
+   */
+  requires?: ChartRequirement[];
   /** Conditional styling targets (e.g. color, backgroundColor). */
   stylingTargets?: { value: string; label: string }[];
   /** Explicit capability overrides. Merged with defaults. */
@@ -125,6 +131,17 @@ export interface ChartPluginConfig {
     row: Record<string, unknown>,
   ) => Record<string, unknown>;
 }
+
+/**
+ * What a chart can require of a connector. One entry today; the point is that
+ * the list is a vocabulary the app owns, and a connector answers it — rather
+ * than the app keeping a list of which connectors exist (#1902).
+ */
+export const CHART_REQUIREMENTS = ["graphData"] as const;
+export type ChartRequirement = (typeof CHART_REQUIREMENTS)[number];
+
+/** A connector's answers, keyed by requirement. */
+export type ChartCapabilityFlags = Partial<Record<ChartRequirement, boolean>>;
 
 // ---------------------------------------------------------------------------
 // Resolved plugin (what the registry stores — capabilities always present)
@@ -169,15 +186,14 @@ export function defineChartPlugin(config: ChartPluginConfig): ChartPlugin {
     }
   }
 
-  // Validate compatibleWith entries
-  if (config.compatibleWith) {
-    for (const ct of config.compatibleWith) {
-      if (typeof ct !== "string" || ct.trim() === "") {
-        console.warn(
-          'Chart plugin "' + config.type + '": invalid compatibleWith entry:',
-          ct,
-        );
-      }
+  // Validate requirements — a typo here silently hides a chart from every
+  // connection, which looks like the chart was never registered.
+  for (const requirement of config.requires ?? []) {
+    if (!CHART_REQUIREMENTS.includes(requirement)) {
+      console.warn(
+        'Chart plugin "' + config.type + '": unknown requirement:',
+        requirement,
+      );
     }
   }
 
@@ -200,7 +216,7 @@ export function defineChartPlugin(config: ChartPluginConfig): ChartPlugin {
     validate: config.validate,
     options: config.options ?? [],
     queryHint: config.queryHint,
-    compatibleWith: config.compatibleWith,
+    requires: config.requires,
     stylingTargets: config.stylingTargets,
     enrichClickEvent: config.enrichClickEvent,
     settingsSchema: config.settingsSchema,
@@ -219,7 +235,7 @@ export interface PluginRegistry {
   has(type: string): boolean;
   getAll(): ChartPlugin[];
   getTypes(): string[];
-  getCompatibleWith(connectorType: ConnectorType): ChartPlugin[];
+  getCompatibleWith(capabilities: ChartCapabilityFlags): ChartPlugin[];
 }
 
 export function createPluginRegistry(): PluginRegistry {
@@ -250,9 +266,9 @@ export function createPluginRegistry(): PluginRegistry {
     getTypes() {
       return Array.from(plugins.keys());
     },
-    getCompatibleWith(connectorType) {
-      return Array.from(plugins.values()).filter(
-        (p) => !p.compatibleWith || p.compatibleWith.includes(connectorType),
+    getCompatibleWith(capabilities) {
+      return Array.from(plugins.values()).filter((p) =>
+        (p.requires ?? []).every((r) => capabilities[r]),
       );
     },
   };

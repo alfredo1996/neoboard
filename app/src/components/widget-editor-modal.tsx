@@ -370,13 +370,15 @@ export function WidgetEditorModal({
   // Chart types offered in the picker — excludes disabled types (#1158) and
   // keeps the widget's current (possibly legacy) type visible for editing.
   // Logic lives in the unit-tested getSelectableChartTypes helper.
+  // Which charts a connection can feed is the CONNECTOR's answer (#1902), so
+  // the picker reads its descriptor rather than its type.
   const compatibleChartTypes = useMemo(
     () =>
       getSelectableChartTypes(
-        selectedConnection?.type,
+        connectors?.find((c) => c.type === selectedConnection?.type),
         chartType,
       ) as ChartType[],
-    [selectedConnection, chartType],
+    [connectors, selectedConnection, chartType],
   );
 
   // Unified connection-change handler for both add and edit modes.
@@ -394,14 +396,23 @@ export function WidgetEditorModal({
         if (prevConnection && prevConnection.type !== newConnection.type) {
           useWidgetEditorStore.getState().clearQueryState();
         }
-        const compatible = getCompatibleChartTypes(newConnection.type);
+        const compatible = getCompatibleChartTypes(
+          connectors?.find((c) => c.type === newConnection.type),
+        );
         if (!compatible.includes(chartType as ChartType)) {
           setChartType("table");
           setChartOptions(getDefaultChartSettings("table"));
         }
       }
     },
-    [connections, connectionId, chartType, mode, widget?.connectionId],
+    [
+      connections,
+      connectors,
+      connectionId,
+      chartType,
+      mode,
+      widget?.connectionId,
+    ],
   );
 
   const handleChartTypeChange = useCallback(

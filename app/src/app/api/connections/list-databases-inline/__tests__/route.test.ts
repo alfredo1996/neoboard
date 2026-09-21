@@ -26,7 +26,10 @@ vi.mock("next/server", () => nextResponseMockFactory());
 // Connector-type validation is registry-driven (#1121); stub it so the route
 // tests don't load the driver-heavy connection registry.
 vi.mock("@/lib/connector/registered-types", () => ({
-  isRegisteredConnectorType: (t: string) => t === "neo4j" || t === "postgresql",
+  // A third type is registered too, so the route is exercised as it will be
+  // once a connector nobody hardcoded is installed (#1902).
+  isRegisteredConnectorType: (t: string) =>
+    ["neo4j", "postgresql", "fixturedb"].includes(t),
 }));
 vi.mock("@/lib/auth/errors", () => ({
   UnauthorizedError: class extends Error {
@@ -165,6 +168,43 @@ describe("POST /api/connections/list-databases-inline", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.databases).toEqual([]);
+    expect(body.data.schemas).toEqual([]);
+  });
+
+  // #1902: schemas were fetched only when the type was literally "postgresql",
+  // so a third connector that implements listSchemas got none. The executor
+  // already returns [] for a module without the method, so the type gate was
+  // both redundant and wrong.
+  it("returns schemas for any connector that implements listSchemas", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockListDatabases.mockResolvedValue(["db1"]);
+    mockListSchemas.mockResolvedValue(["public", "reporting"]);
+
+    const res = await POST(
+      makeRequest({
+        type: "fixturedb",
+        config: { uri: "fixturedb://h:1/db", username: "u", password: "p" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.schemas).toEqual(["public", "reporting"]);
+  });
+
+  it("reports an empty list for a connector with no schemas", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockListDatabases.mockResolvedValue(["neo4j"]);
+    mockListSchemas.mockResolvedValue([]);
+
+    const res = await POST(
+      makeRequest({
+        type: "fixturedb",
+        config: { uri: "fixturedb://h:1/db", username: "u", password: "p" },
+      }),
+    );
+
+    const body = await res.json();
     expect(body.data.schemas).toEqual([]);
   });
 });
