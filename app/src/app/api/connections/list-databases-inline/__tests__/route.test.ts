@@ -61,6 +61,11 @@ describe("POST /api/connections/list-databases-inline", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    // Every connector is asked for schemas now (#1902), so both listers need a
+    // defined answer in every test. Shuffle is on: without this, a test passes
+    // or fails depending on whether an earlier one happened to prime the mock.
+    mockListDatabases.mockResolvedValue([]);
+    mockListSchemas.mockResolvedValue([]);
     const mod = await import("../route");
     POST = mod.POST;
   });
