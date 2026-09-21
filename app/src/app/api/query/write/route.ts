@@ -134,7 +134,10 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     // deliberately not gated by `can_write` (#1831), so a check that rode
     // along with the permission gate would let it through. Before the query
     // runs, and before the credentials are decrypted.
-    if (getConnector(connection.type)?.supportsWrite === false) {
+    // Fails CLOSED: a connector that has not declared it can write does not
+    // get to, and neither does a stored connection whose connector is no
+    // longer installed. Both built-ins declare `supportsWrite: true`.
+    if (getConnector(connection.type)?.supportsWrite !== true) {
       return apiError(
         "VALIDATION_ERROR",
         "This connection's type does not support write queries",

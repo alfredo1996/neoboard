@@ -1304,6 +1304,32 @@ describe("POST /api/query/write", () => {
       expect(mockExecuteQuery).not.toHaveBeenCalled();
     });
 
+    it.each([
+      ["declares nothing", { type: "fixturedb" }],
+      ["is not installed at all", undefined],
+    ])("refuses a write when the connector %s", async (_label, connector) => {
+      // Fails closed: `supportsWrite` is optional, so a connector that never
+      // says it can write must not get to, and neither must a stored
+      // connection whose connector has been uninstalled.
+      mockGetConnector.mockReturnValue(
+        connector as { type: string; supportsWrite: boolean },
+      );
+      mockRequireSession.mockResolvedValue(writerSession);
+      mockDashboardAndConnection();
+
+      const res = await POST(
+        makeRequest({
+          connectionId: "c1",
+          query: "CREATE (n:Test)",
+          dashboardId: "d1",
+          widgetId: "w1",
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+
     it("allows the write when the connector says it can write", async () => {
       mockGetConnector.mockReturnValue({
         type: "fixturedb",
