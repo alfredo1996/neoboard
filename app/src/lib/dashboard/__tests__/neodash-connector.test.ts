@@ -28,6 +28,8 @@ describe("cypherConnector", () => {
     expect(cypherConnector([tabular, mute])).toBeUndefined();
   });
 
+  // Loading and "nothing installed" are both `undefined` here on purpose —
+  // the caller tells them apart, because only one of them is permanent.
   it("is undefined while the connectors are still loading", () => {
     expect(cypherConnector(undefined)).toBeUndefined();
   });

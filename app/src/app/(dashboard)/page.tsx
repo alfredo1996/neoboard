@@ -235,6 +235,16 @@ function ImportDashboardDialog({
         // the query language it declares, not by its name (#1900). With none
         // installed there is nothing to map the import onto, so say so rather
         // than offering a placeholder pointing at a connector that is not here.
+        // Still loading is not the same as nothing installed: the message
+        // below is permanent, and a file picked before /api/connectors
+        // resolves would have been refused with it.
+        if (!connectors) {
+          setFileError(
+            "Still loading the installed connectors — try the file again in a moment.",
+          );
+          setParsed(null);
+          return;
+        }
         const target = cypherConnector(connectors);
         if (!target) {
           setFileError(

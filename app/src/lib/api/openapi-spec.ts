@@ -1144,7 +1144,9 @@ const SPEC = {
       },
       CreateWidgetTemplateRequest: {
         type: "object",
-        required: ["name", "chartType", "connectorType"],
+        // connectorType is absent for a widget that needs no connection
+        // (markdown, iframe) — #1900.
+        required: ["name", "chartType"],
         properties: {
           name: { type: "string", minLength: 1 },
           description: { type: "string" },
@@ -1153,7 +1155,7 @@ const SPEC = {
           connectorType: {
             type: "string",
             description:
-              "A registered connector type. GET /api/connectors lists the installed ones.",
+              "A registered connector type; GET /api/connectors lists the installed ones. Omit it for a widget that needs no connection — such a template is offered on every connection.",
           },
           connectionId: { type: "string" },
           query: { type: "string", default: "" },
