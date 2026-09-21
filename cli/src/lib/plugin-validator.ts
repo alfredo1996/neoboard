@@ -27,6 +27,31 @@ export function detectPluginType(
 }
 
 /**
+ * What each kind of plugin must additionally satisfy. Split out of
+ * `validatePluginExport` to keep it inside the complexity budget — the two
+ * branches share nothing with the checks above them.
+ */
+function typeSpecificErrors(
+  pluginType: "chart" | "connector",
+  obj: Record<string, unknown>,
+): string[] {
+  // A chart declares what it NEEDS of a connector, never which connectors it
+  // works with (#1902). Optional: most charts need nothing in particular, so
+  // an absent `requires` is the common, correct case — only its shape is
+  // checked.
+  if (pluginType === "chart") {
+    return obj.requires === undefined || Array.isArray(obj.requires)
+      ? []
+      : ['"requires" must be an array of capability names'];
+  }
+
+  const category = obj.category as (typeof VALID_CATEGORIES)[number];
+  return VALID_CATEGORIES.includes(category)
+    ? []
+    : ['"category" must be one of: ' + VALID_CATEGORIES.join(", ")];
+}
+
+/**
  * Validate a plugin export object.
  * Returns a list of specific validation errors, or an empty list if valid.
  */
@@ -66,27 +91,7 @@ export function validatePluginExport(exported: unknown): ValidationResult {
     return { valid: false, errors };
   }
 
-  // Type-specific validation
-  if (pluginType === "chart") {
-    // A chart declares what it NEEDS of a connector, never which connectors it
-    // works with (#1902). Optional: most charts need nothing in particular, so
-    // an absent `requires` is the common, correct case — only its shape is
-    // checked.
-    if (obj.requires !== undefined && !Array.isArray(obj.requires)) {
-      errors.push('"requires" must be an array of capability names');
-    }
-  }
-
-  if (pluginType === "connector") {
-    if (
-      typeof obj.category !== "string" ||
-      !VALID_CATEGORIES.includes(
-        obj.category as (typeof VALID_CATEGORIES)[number],
-      )
-    ) {
-      errors.push('"category" must be one of: ' + VALID_CATEGORIES.join(", "));
-    }
-  }
+  errors.push(...typeSpecificErrors(pluginType, obj));
 
   return {
     valid: errors.length === 0,
