@@ -89,6 +89,51 @@ describe("DynamicConnectionFields", () => {
     expect(screen.getByLabelText(/Port/)).toHaveAttribute("type", "number");
   });
 
+  describe("number constraints and unit", () => {
+    const timeout: DynamicConnectionField = {
+      name: "idleTimeout",
+      id: "idle-timeout",
+      label: "Idle Timeout",
+      type: "number",
+      min: 1000,
+      max: 300000,
+      unit: "ms",
+    };
+
+    it("puts min, max and a whole-number step on the input", () => {
+      renderFields({ fields: [timeout], values: {} });
+      const input = screen.getByRole("spinbutton");
+      expect(input).toHaveAttribute("min", "1000");
+      expect(input).toHaveAttribute("max", "300000");
+      expect(input).toHaveAttribute("step", "1");
+    });
+
+    it("leaves min and max off when the field has none", () => {
+      renderFields();
+      const input = screen.getByLabelText(/Port/);
+      expect(input).not.toHaveAttribute("min");
+      expect(input).not.toHaveAttribute("max");
+    });
+
+    // jsdom computes no accessible name, so assert the DOM that produces it:
+    // the unit sits INSIDE the <label> that points at the input.
+    it("shows the unit inside the label that names the input", () => {
+      renderFields({ fields: [timeout], values: {} });
+      const input = screen.getByRole("spinbutton");
+      const label = screen.getByText("Idle Timeout").closest("label");
+      expect(label).toHaveAttribute("for", input.id);
+      expect(label).toContainElement(screen.getByText("(ms)"));
+    });
+
+    it("uses the field's own id suffix when it has one", () => {
+      renderFields({ fields: [timeout], values: {}, idPrefix: "edit-" });
+      expect(screen.getByRole("spinbutton")).toHaveAttribute(
+        "id",
+        "edit-idle-timeout",
+      );
+    });
+  });
+
   it("renders password fields with a show/hide toggle", () => {
     renderFields();
     expect(screen.getByLabelText(/Password/)).toHaveAttribute(
@@ -116,10 +161,16 @@ describe("DynamicConnectionFields", () => {
     expect(onChange).toHaveBeenCalledWith("uri", "bolt://db:7687");
   });
 
-  it("calls onChange with a boolean for boolean fields", () => {
+  it("renders a boolean as a switch, named by its label, and reports the new value", () => {
     const onChange = vi.fn();
     renderFields({ onChange });
-    fireEvent.click(screen.getByLabelText(/Verify TLS/));
+    const toggle = screen.getByRole("switch");
+    expect(screen.getByText("Verify TLS").closest("label")).toHaveAttribute(
+      "for",
+      toggle.id,
+    );
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle);
     expect(onChange).toHaveBeenCalledWith("verifyTls", true);
   });
 

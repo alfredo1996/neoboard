@@ -3,7 +3,7 @@ import {
   DEFAULT_CONNECTION_CONFIG,
   toConnectorError,
 } from "@/lib/connector/connection-adapter";
-import { QueryStatus } from "@neoboard/connection";
+import { QueryStatus, type ConnectorConfig } from "@neoboard/connection";
 import { createHash } from "node:crypto";
 
 import { resolveContainerHost } from "@/lib/connector/container-host";
@@ -16,19 +16,12 @@ import { resolveContainerHost } from "@/lib/connector/container-host";
  */
 export const DEFAULT_MAX_ROWS = 5000;
 
-export interface ConnectionCredentials {
-  uri: string;
-  username: string;
-  password: string;
-  database?: string;
-  // Advanced pool/timeout settings (optional)
-  connectionTimeout?: number;
-  queryTimeout?: number;
-  maxPoolSize?: number;
-  connectionAcquisitionTimeout?: number;
-  idleTimeout?: number;
-  statementTimeout?: number;
-  sslRejectUnauthorized?: boolean;
+/**
+ * A stored connection config, decrypted: the connector's own bag — its keys
+ * are declared by its descriptor and validated against it on save (#1901), so
+ * none is spelled out here — plus the one key the app owns.
+ */
+export type ConnectionCredentials = ConnectorConfig & {
   /**
    * Max rows returned per read query on this connection. When unset,
    * DEFAULT_MAX_ROWS is used. Queries returning more than this many rows
@@ -36,7 +29,7 @@ export interface ConnectionCredentials {
    * `truncated: true` flag in meta so the UI can render a banner.
    */
   maxRows?: number;
-}
+};
 
 // Registry-supplied connectors are first-class (#1121): a connector type is
 // any registered string. createConnectionModule resolves it via the registry,

@@ -3,6 +3,7 @@ import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { listDatabases, listSchemas } from "@/lib/query/query-executor";
 import type { DbType } from "@/lib/query/query-executor";
 import { testInlineSchema } from "@/lib/shared/schemas";
+import { validateConnectionConfig } from "@/lib/connector/connection-config";
 import { apiSuccess } from "@/lib/api/api-response";
 import { handleRouteError, validateBody } from "@/lib/api/api-utils";
 
@@ -17,7 +18,11 @@ export async function POST(request: Request) {
       return validation.response;
     }
 
-    const { type, config } = validation.data;
+    const { type } = validation.data;
+    // The same descriptor check a save runs (#1901).
+    const checked = validateConnectionConfig(type, validation.data.config);
+    if (!checked.success) return checked.response;
+    const { config } = checked;
 
     const databases = await listDatabases(type as DbType, config).catch(
       () => [] as string[],

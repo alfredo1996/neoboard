@@ -1,8 +1,8 @@
 import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { testConnection } from "@/lib/query/query-executor";
-import type { DbType } from "@/lib/query/query-executor";
 import { testInlineSchema } from "@/lib/shared/schemas";
+import { validateConnectionConfig } from "@/lib/connector/connection-config";
 import { apiSuccess } from "@/lib/api/api-response";
 import { handleRouteError, validateBody } from "@/lib/api/api-utils";
 import {
@@ -22,22 +22,15 @@ export async function POST(request: Request) {
       return validation.response;
     }
 
-    const { type, config } = validation.data;
+    const { type } = validation.data;
+    // The same descriptor check a save runs; the connector is handed its
+    // declared values and nothing else (#1901).
+    const checked = validateConnectionConfig(type, validation.data.config);
+    if (!checked.success) return checked.response;
+    const { config } = checked;
 
     try {
-      const success = await testConnection(type as DbType, {
-        uri: config.uri,
-        username: config.username,
-        password: config.password,
-        database: config.database,
-        connectionTimeout: config.connectionTimeout,
-        queryTimeout: config.queryTimeout,
-        maxPoolSize: config.maxPoolSize,
-        connectionAcquisitionTimeout: config.connectionAcquisitionTimeout,
-        idleTimeout: config.idleTimeout,
-        statementTimeout: config.statementTimeout,
-        sslRejectUnauthorized: config.sslRejectUnauthorized,
-      });
+      const success = await testConnection(type, config);
       // Shared helper builds the false/thrown result identically to the
       // [id]/test route (#1043).
       return apiSuccess(
@@ -46,7 +39,7 @@ export async function POST(request: Request) {
     } catch (testError) {
       return apiSuccess(
         connectionTestErrorResult(testError, {
-          uri: config.uri,
+          uri: typeof config.uri === "string" ? config.uri : undefined,
           containerised: isContainerised(),
         }),
       );

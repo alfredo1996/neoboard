@@ -536,10 +536,11 @@ describe("PATCH /api/connections/[id]", () => {
     );
   });
 
-  it("does not call prefetchSchema when password is omitted", async () => {
+  it("still calls prefetchSchema when the password is omitted", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const existing = {
       configEncrypted: "enc:existing",
+      type: "neo4j",
     };
     mockDb.select.mockReturnValue(makeSelectChain([existing]));
     const updated = {
@@ -562,17 +563,10 @@ describe("PATCH /api/connections/[id]", () => {
     expect(mockPrefetchSchema).toHaveBeenCalled();
   });
 
-  it("handles config without password when no existing config exists", async () => {
+  it("answers 404 for a config update on a connection the caller does not own, and stores nothing", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    // No existing config found
+    // The owner- and tenant-scoped read finds no row.
     mockDb.select.mockReturnValue(makeSelectChain([]));
-    const updated = {
-      id: "c1",
-      name: "Neo4j",
-      type: "neo4j",
-      updatedAt: new Date(),
-    };
-    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
 
     const res = await PATCH(
       makeRequest({
@@ -581,27 +575,30 @@ describe("PATCH /api/connections/[id]", () => {
       makeParams("c1"),
     );
 
-    expect(res.status).toBe(200);
-    // Should encrypt the config without the password since there's no existing to merge
-    expect(mockEncryptJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        uri: "bolt://new-host",
-        username: "neo4j",
-      }),
-    );
-    // No password in final config — should not call prefetchSchema
+    expect(res.status).toBe(404);
+    expect(mockEncryptJson).not.toHaveBeenCalled();
+    expect(mockDb.update).not.toHaveBeenCalled();
     expect(mockPrefetchSchema).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when body fails validation", async () => {
+  it("returns 400 with a per-field message when the config fails its descriptor", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([{ configEncrypted: "enc:existing", type: "neo4j" }]),
+    );
     const res = await PATCH(
-      makeRequest({ config: { uri: "" } }), // uri must be min(1)
+      makeRequest({ config: { uri: "", maxPoolSize: 0 } }),
       makeParams("c1"),
     );
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBeDefined();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(body.error.details.fields).toEqual({
+      uri: "URI is required",
+      username: "Username is required",
+      maxPoolSize: "Max Pool Size must be at least 1",
+    });
+    expect(mockEncryptJson).not.toHaveBeenCalled();
   });
 
   it("returns 400 when stored credentials are corrupted and password is omitted", async () => {
@@ -609,7 +606,7 @@ describe("PATCH /api/connections/[id]", () => {
     mockDecryptJson.mockImplementationOnce(() => {
       throw new Error("bad cipher");
     });
-    const existing = { configEncrypted: "enc:corrupted" };
+    const existing = { configEncrypted: "enc:corrupted", type: "neo4j" };
     mockDb.select.mockReturnValue(makeSelectChain([existing]));
 
     const res = await PATCH(

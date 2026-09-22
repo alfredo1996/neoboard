@@ -2,7 +2,6 @@
   "names": {
     "app/src/app/(auth)/login/page.tsx": 2,
     "app/src/app/(auth)/signup/page.tsx": 2,
-    "app/src/app/(dashboard)/connections/page.tsx": 2,
     "app/src/app/(dashboard)/page.tsx": 7,
     "app/src/app/api/connections/[id]/reassign/route.ts": 1,
     "app/src/app/api/connections/list-databases-inline/route.ts": 1,
@@ -15,7 +14,7 @@
     "app/src/components/widget-editor/lab-metadata-form.tsx": 1,
     "app/src/components/widget-editor/query-editor-panel.tsx": 2,
     "app/src/instrumentation.ts": 1,
-    "app/src/lib/api/openapi-spec.ts": 20,
+    "app/src/lib/api/openapi-spec.ts": 16,
     "app/src/lib/connector/registered-types.ts": 2,
     "app/src/lib/dashboard/import-follow-up.ts": 1,
     "app/src/lib/dashboard/neodash-converter.ts": 1,

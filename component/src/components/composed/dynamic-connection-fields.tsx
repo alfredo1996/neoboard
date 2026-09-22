@@ -2,6 +2,7 @@ import type { ChangeEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field-error";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -19,12 +20,19 @@ import { cn } from "@/lib/utils";
  */
 export interface DynamicConnectionField {
   name: string;
+  /** Input id suffix after `idPrefix`; defaults to `name`. */
+  id?: string;
   label: string;
   type: "text" | "password" | "number" | "select" | "boolean";
   required?: boolean;
   placeholder?: string;
   description?: string;
   options?: { label: string; value: string }[];
+  /** `number` only — inclusive bounds, put on the input. */
+  min?: number;
+  max?: number;
+  /** `number` only — shown after the label, e.g. "ms". */
+  unit?: string;
 }
 
 export interface DynamicConnectionFieldsProps {
@@ -39,14 +47,14 @@ export interface DynamicConnectionFieldsProps {
 }
 
 /**
- * Renders a connection form's fields from a connector's `formFields`
- * definition (#1118). Controlled — the parent owns the values and gets
- * `(name, value)` change callbacks. The credential block of the connections
- * page renders through this.
+ * Renders a connection form's fields from the field list it is handed (#1118,
+ * #1901). Controlled — the parent owns the values and gets `(name, value)`
+ * change callbacks. Purely presentational: which fields exist, how they are
+ * grouped and what is valid are the caller's business.
  */
 type ChangeHandler = (name: string, value: string | boolean) => void;
 
-/** Field label with a required-asterisk. */
+/** Field label with its unit and a required-asterisk. */
 function FieldLabel({
   field,
   id,
@@ -54,12 +62,15 @@ function FieldLabel({
   return (
     <Label htmlFor={id} className="text-xs">
       {field.label}
+      {field.unit && (
+        <span className="text-muted-foreground"> ({field.unit})</span>
+      )}
       {field.required && <span className="text-destructive ml-0.5">*</span>}
     </Label>
   );
 }
 
-/** The input control for a non-boolean field (select / password / text). */
+/** The input control for a non-boolean field (select / password / number / text). */
 function FieldControl({
   field,
   id,
@@ -106,9 +117,19 @@ function FieldControl({
   if (field.type === "password") {
     return <PasswordInput {...shared} />;
   }
-  return (
-    <Input type={field.type === "number" ? "number" : "text"} {...shared} />
-  );
+  if (field.type === "number") {
+    // Whole numbers within the field's bounds; an absent bound leaves no attribute.
+    return (
+      <Input
+        type="number"
+        step={1}
+        min={field.min}
+        max={field.max}
+        {...shared}
+      />
+    );
+  }
+  return <Input type="text" {...shared} />;
 }
 
 /** One labelled field row with optional description + error. */
@@ -125,22 +146,20 @@ function FieldRow({
   error?: string;
   onChange: ChangeHandler;
 }>) {
-  const id = `${idPrefix}${field.name}`;
+  const id = `${idPrefix}${field.id ?? field.name}`;
   const errorId = `${id}-error`;
   const strValue = String(values[field.name] ?? "");
 
   return (
     <div className="space-y-1.5">
       {field.type === "boolean" ? (
-        <div className="flex items-center gap-2">
-          <input
-            id={id}
-            type="checkbox"
-            className="h-4 w-4 rounded border-input"
-            checked={Boolean(values[field.name])}
-            onChange={(e) => onChange(field.name, e.target.checked)}
-          />
+        <div className="flex items-center justify-between gap-2">
           <FieldLabel field={field} id={id} />
+          <Switch
+            id={id}
+            checked={Boolean(values[field.name])}
+            onCheckedChange={(checked) => onChange(field.name, checked)}
+          />
         </div>
       ) : (
         <>

@@ -29,8 +29,10 @@ test.describe("Connection Advanced Settings", () => {
     // Neo4j fields should be visible
     await expect(dialog.locator("#conn-connection-timeout")).toBeVisible();
     await expect(dialog.locator("#conn-query-timeout")).toBeVisible();
-    await expect(dialog.locator("#conn-max-pool")).toBeVisible();
-    await expect(dialog.locator("#conn-acquisition-timeout")).toBeVisible();
+    await expect(dialog.locator("#conn-max-pool-size")).toBeVisible();
+    await expect(
+      dialog.locator("#conn-connection-acquisition-timeout"),
+    ).toBeVisible();
 
     // PG-only fields should NOT be visible
     await expect(dialog.locator("#conn-idle-timeout")).not.toBeVisible();
@@ -50,13 +52,15 @@ test.describe("Connection Advanced Settings", () => {
     // PG fields should be visible
     await expect(dialog.locator("#conn-connection-timeout")).toBeVisible();
     await expect(dialog.locator("#conn-idle-timeout")).toBeVisible();
-    await expect(dialog.locator("#conn-max-pool")).toBeVisible();
+    await expect(dialog.locator("#conn-max-pool-size")).toBeVisible();
     await expect(dialog.locator("#conn-statement-timeout")).toBeVisible();
-    await expect(dialog.locator("#conn-ssl-reject")).toBeVisible();
+    await expect(dialog.locator("#conn-ssl-reject-unauthorized")).toBeVisible();
 
     // Neo4j-only fields should NOT be visible
     await expect(dialog.locator("#conn-query-timeout")).not.toBeVisible();
-    await expect(dialog.locator("#conn-acquisition-timeout")).not.toBeVisible();
+    await expect(
+      dialog.locator("#conn-connection-acquisition-timeout"),
+    ).not.toBeVisible();
   });
 
   test("should create Neo4j connection with custom timeout", async ({
@@ -76,7 +80,7 @@ test.describe("Connection Advanced Settings", () => {
     // Expand and fill advanced fields
     await dialog.getByText("Advanced Settings").click();
     await dialog.locator("#conn-connection-timeout").fill("15000");
-    await dialog.locator("#conn-max-pool").fill("25");
+    await dialog.locator("#conn-max-pool-size").fill("25");
 
     // Create
     await dialog.getByRole("button", { name: "Create" }).click();
@@ -103,7 +107,7 @@ test.describe("Connection Advanced Settings", () => {
 
     // Expand and fill advanced fields
     await dialog.getByText("Advanced Settings").click();
-    await dialog.locator("#conn-max-pool").fill("20");
+    await dialog.locator("#conn-max-pool-size").fill("20");
     await dialog.locator("#conn-idle-timeout").fill("30000");
     await dialog.locator("#conn-statement-timeout").fill("60000");
 
@@ -174,5 +178,154 @@ test.describe("Connection Advanced Settings", () => {
     await expect(
       dialog.getByRole("button", { name: "Cancel" }),
     ).toBeInViewport();
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // #1901 — create and edit are one form generated from the connector's
+  // descriptor, and the server validates against the same descriptor.
+  // ───────────────────────────────────────────────────────────────────────
+
+  test("shows a descriptor constraint inline and saves nothing (#1901)", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("pick-postgresql").click();
+
+    await dialog.locator("#conn-name").fill(`Too Big ${Date.now()}`);
+    await dialog
+      .locator("#conn-uri")
+      .fill(`postgresql://localhost:${TEST_PG_PORT}`);
+    await dialog.locator("#conn-username").fill("neoboard");
+    await dialog.locator("#conn-password").fill("neoboard");
+    await dialog.getByText("Advanced Settings").click();
+    await dialog.locator("#conn-max-pool-size").fill("500");
+    await dialog.getByRole("button", { name: "Create" }).click();
+
+    await expect(dialog.locator("#conn-max-pool-size-error")).toHaveText(
+      "Max Pool Size must be at most 100",
+    );
+    await expect(dialog).toBeVisible();
+  });
+
+  test("the edit dialog is the same generated form, and a blank password keeps the stored one (#1901)", async ({
+    page,
+  }) => {
+    const name = `Edit Generated ${Date.now()}`;
+    const created = await page.request.post("/api/connections", {
+      data: {
+        name,
+        type: "postgresql",
+        config: {
+          uri: `postgresql://localhost:${TEST_PG_PORT}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+          maxPoolSize: 20,
+          statementTimeout: 60000,
+          maxRows: 2000,
+        },
+      },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const id = (await created.json()).data.id as string;
+
+    try {
+      await page.reload();
+      const card = page
+        .locator("div[class*='border']")
+        .filter({ hasText: name })
+        .filter({
+          has: page.getByRole("button", { name: "Connection actions" }),
+        });
+      await card.getByRole("button", { name: "Connection actions" }).click();
+      await page.getByRole("menuitem", { name: /Edit/ }).click();
+
+      // Pre-filled from the stored config, under edit- ids derived from the
+      // same keys; the advanced section starts open.
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.locator("#edit-max-pool-size")).toHaveValue("20");
+      await expect(dialog.locator("#edit-statement-timeout")).toHaveValue(
+        "60000",
+      );
+      await expect(dialog.locator("#edit-max-rows")).toHaveValue("2000");
+      await expect(dialog.locator("#edit-database")).toHaveValue("movies");
+      await expect(
+        dialog.locator("#edit-ssl-reject-unauthorized"),
+      ).toBeVisible();
+      // This connector declares no query or acquisition timeout.
+      await expect(dialog.locator("#edit-query-timeout")).toHaveCount(0);
+      await expect(
+        dialog.locator("#edit-connection-acquisition-timeout"),
+      ).toHaveCount(0);
+      // The secret never comes back, and says what leaving it blank does.
+      await expect(dialog.locator("#edit-password")).toHaveValue("");
+      await expect(dialog.locator("#edit-password")).toHaveAttribute(
+        "placeholder",
+        "Leave blank to keep existing",
+      );
+
+      await dialog.locator("#edit-max-pool-size").fill("30");
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await expect(
+        page.getByText("Connection updated", { exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // The change is stored, the secret is not handed out…
+      const stored = await page.request.get(`/api/connections/${id}`);
+      const config = (await stored.json()).data.config;
+      expect(config.maxPoolSize).toBe(30);
+      expect(config.statementTimeout).toBe(60000);
+      expect(config).not.toHaveProperty("password");
+      // …and it is still the one that was stored: the connection dials.
+      const probe = await page.request.post(`/api/connections/${id}/test`);
+      expect((await probe.json()).data.success).toBe(true);
+    } finally {
+      await page.request.delete(`/api/connections/${id}?force=true`);
+    }
+  });
+
+  test("the API validates against the descriptor: per-field 400, undeclared keys dropped (#1901)", async ({
+    page,
+  }) => {
+    const base = {
+      uri: `postgresql://localhost:${TEST_PG_PORT}`,
+      username: "neoboard",
+      password: "neoboard",
+    };
+    const rejected = await page.request.post("/api/connections", {
+      data: {
+        name: `Rejected ${Date.now()}`,
+        type: "postgresql",
+        config: { ...base, maxPoolSize: 500, uri: "bolt://localhost:7687" },
+      },
+    });
+    expect(rejected.status()).toBe(400);
+    const { error } = await rejected.json();
+    expect(error.code).toBe("VALIDATION_ERROR");
+    expect(Object.keys(error.details.fields).sort()).toEqual([
+      "maxPoolSize",
+      "uri",
+    ]);
+
+    const created = await page.request.post("/api/connections", {
+      data: {
+        name: `Stripped ${Date.now()}`,
+        type: "postgresql",
+        // queryTimeout belongs to another connector; nobody declares `note`.
+        config: { ...base, queryTimeout: 5000, note: "dropped" },
+      },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const id = (await created.json()).data.id as string;
+    try {
+      const stored = await page.request.get(`/api/connections/${id}`);
+      expect((await stored.json()).data.config).toEqual({
+        uri: base.uri,
+        username: base.username,
+      });
+    } finally {
+      await page.request.delete(`/api/connections/${id}?force=true`);
+    }
   });
 });
