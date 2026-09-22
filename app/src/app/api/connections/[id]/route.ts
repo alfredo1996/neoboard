@@ -9,7 +9,6 @@ import { closeConnection } from "@/lib/query/query-executor";
 import { forgetDeadConnector } from "@/lib/query/middleware/dead-connector";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { updateConnectionSchema } from "@/lib/shared/schemas";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 import { auditRequest } from "@/lib/audit/audit";
 import {
   validateBody,
@@ -210,7 +209,7 @@ export async function PATCH(
 
     // Evict the old cached driver so stale credentials aren't reused
     if (oldCredentials) {
-      closeConnection(connection.type as ConnectorType, oldCredentials);
+      closeConnection(connection.type, oldCredentials);
     }
 
     // Fire-and-forget: re-warm the schema cache after a config update. A
@@ -309,7 +308,7 @@ export async function DELETE(
     // credentials leave nothing to evict.
     if (toDelete?.configEncrypted) {
       const creds = readStoredConfig(toDelete.configEncrypted);
-      if (creds) closeConnection(toDelete.type as ConnectorType, creds);
+      if (creds) closeConnection(toDelete.type, creds);
     }
 
     auditRequest(request, {

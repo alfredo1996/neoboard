@@ -17,13 +17,13 @@ import {
   Textarea,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
-import type { ConnectorType } from "@/lib/connector/connector-types";
 
 interface SaveTemplateDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly widget: DashboardWidget;
-  readonly connectorType: ConnectorType;
+  /** Absent when the widget needs no connection — markdown, iframe (#1900). */
+  readonly connectorType?: string;
   readonly onSaved?: () => void;
 }
 

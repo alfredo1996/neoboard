@@ -43,6 +43,13 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+// #1900: the route validates against the REGISTRY, not a hardcoded union, so
+// the stub decides what is installed — including a connector nothing in app/
+// has heard of.
+vi.mock("@/lib/connector/registered-types", () => ({
+  isRegisteredConnectorType: (t: string) =>
+    ["neo4j", "postgresql", "acme-sheets"].includes(t),
+}));
 
 // ---------------------------------------------------------------------------
 // Tests — GET /api/widget-templates
@@ -120,6 +127,34 @@ describe("GET /api/widget-templates", () => {
       .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET(makeRequest({ chartType: "bar" }));
     expect(res.status).toBe(200);
+  });
+
+  // #1900: a template whose widget needs no connection (markdown, iframe) has
+  // no connectorType, and must be offered on EVERY connection. Filtering with
+  // a plain equality hid exactly those templates — which is what storing a
+  // hardcoded connector type was papering over.
+  it("offers connector-less templates alongside the filtered ones", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    const rows = makeSelectChain([]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ total: 0 }]))
+      .mockReturnValueOnce(rows);
+
+    await GET(makeRequest({ connectorType: "neo4j" }));
+
+    // The filter must be an OR over (type matches, type IS NULL) — a bare
+    // equality would exclude the connector-less ones. Drizzle renders the
+    // operator into the SQL chunks; `table` and `decoder` are circular.
+    const sql = JSON.stringify(rows.calls.where, (k, v) =>
+      k === "table" || k === "decoder" ? undefined : v,
+    );
+    expect(sql).toContain(" is null");
+    expect(sql).toContain(" or ");
   });
 
   it("supports filtering by connectorType", async () => {
@@ -324,5 +359,28 @@ describe("POST /api/widget-templates", () => {
       tenantId: "tenant-x",
       createdBy: "user-1",
     });
+  });
+
+  // #1900: which types are valid is the REGISTRY's answer, not a union in the
+  // app. "mysql" above is rejected because nothing registers it — not because
+  // it is absent from a hardcoded list.
+  it("accepts a template for a connector the app has never heard of", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "default",
+    });
+    mockDb.insert.mockReturnValue(makeInsertChain([{ id: "t1" }]));
+
+    const res = await POST(
+      makeRequest({
+        name: "Acme table",
+        chartType: "table",
+        connectorType: "acme-sheets",
+      }),
+    );
+
+    expect(res.status).toBe(201);
   });
 });

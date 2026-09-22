@@ -24,13 +24,15 @@ const mockRequireSession = vi.fn<
   }>
 >();
 const mockEncryptJson = vi.fn((v: unknown) => `enc:${JSON.stringify(v)}`);
-const mockDecryptJson = vi.fn(() => ({
+/** What the decrypt mock yields, named so assertions can refer to it. */
+const STORED_CONFIG = {
   uri: "bolt://localhost:7687",
   username: "neo4j",
   password: "secret",
   database: "neo4j",
   connectionTimeout: 5000,
-}));
+};
+const mockDecryptJson = vi.fn(() => ({ ...STORED_CONFIG }));
 const mockPrefetchSchema = vi.fn();
 // Default: connection is NOT in use. Individual tests override per-scenario.
 // The explicit generic is load-bearing — without it, vi.fn's return type is
@@ -765,6 +767,54 @@ describe("DELETE /api/connections/[id]", () => {
         expect.arrayContaining(["c1", "user-1", "t1"]),
       );
     }
+  });
+
+  // The cached driver holds an open pool, so a delete has to evict it — but
+  // only when the stored config can still be read.
+  it("evicts the cached driver when the stored config decrypts", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        { name: "PostgreSQL", type: "postgresql", configEncrypted: "enc:data" },
+      ]),
+    );
+    mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
+
+    const res = await DELETE(req(), makeParams("c1"));
+
+    expect(res.status).toBe(200);
+    expect(mockCloseConnection).toHaveBeenCalledExactlyOnceWith(
+      "postgresql",
+      STORED_CONFIG,
+    );
+  });
+
+  it("still deletes when the stored config cannot be decrypted, and evicts nothing", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // Once, so the default implementation survives for whichever test the
+    // shuffle runs next.
+    mockDecryptJson.mockImplementationOnce(() => {
+      throw new Error("bad key");
+    });
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        {
+          name: "PostgreSQL",
+          type: "postgresql",
+          configEncrypted: "enc:corrupted",
+        },
+      ]),
+    );
+    mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
+
+    const res = await DELETE(req(), makeParams("c1"));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.deleted).toBe(true);
+    // Nothing to evict — a corrupted config leaves no credentials to key the
+    // cached pool by, and the row must still go.
+    expect(mockCloseConnection).not.toHaveBeenCalled();
+    expect(mockForgetDeadConnector).toHaveBeenCalledExactlyOnceWith("t1", "c1");
   });
 
   // -------------------------------------------------------------------------

@@ -1,7 +1,6 @@
 import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { listDatabases, listSchemas } from "@/lib/query/query-executor";
-import type { DbType } from "@/lib/query/query-executor";
 import { testInlineSchema } from "@/lib/shared/schemas";
 import { validateConnectionConfig } from "@/lib/connector/connection-config";
 import { apiSuccess } from "@/lib/api/api-response";
@@ -24,7 +23,7 @@ export async function POST(request: Request) {
     if (!checked.success) return checked.response;
     const { config } = checked;
 
-    const databases = await listDatabases(type as DbType, config).catch(
+    const databases = await listDatabases(type, config).catch(
       () => [] as string[],
     );
 
@@ -33,9 +32,7 @@ export async function POST(request: Request) {
     // every connector is both simpler and right for one nobody hardcoded —
     // the `type === "postgresql"` gate this replaces gave a third connector
     // none, however well it implemented the method.
-    const schemas = await listSchemas(type as DbType, config).catch(
-      () => [] as string[],
-    );
+    const schemas = await listSchemas(type, config).catch(() => [] as string[]);
 
     return apiSuccess({
       databases,

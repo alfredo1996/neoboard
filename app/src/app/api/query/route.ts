@@ -13,7 +13,7 @@ import {
   executeQuery,
   toConnectorAccessMode,
 } from "@/lib/query/query-executor";
-import type { ConnectionCredentials, DbType } from "@/lib/query/query-executor";
+import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { computeResultId } from "@/lib/query/query-hash";
 import { runPipeline } from "@/lib/query/pipeline";
 import type { QueryContext } from "@/lib/query/pipeline-types";
@@ -172,7 +172,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
       query,
       params: params ?? {},
       connectionId,
-      connectionType: connection.type as DbType,
+      connectionType: connection.type,
       userId,
       tenantId: sessionTenantId,
       accessMode: "read",

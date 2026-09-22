@@ -1,6 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
+
+const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
 
 /**
  * #1899 — the widget library reads connector facts from the descriptor list
@@ -13,7 +15,7 @@ const connectors = [
   { type: "acme-graph", label: "Acme Graph" },
 ];
 
-const templates = [
+const BASE_TEMPLATES = [
   {
     id: "t1",
     name: "Budget rows",
@@ -32,6 +34,8 @@ const templates = [
   },
 ];
 
+let templates: (typeof BASE_TEMPLATES)[number][] = BASE_TEMPLATES;
+
 vi.mock("@/hooks/use-connectors", () => ({
   useConnectors: () => ({ data: connectors }),
 }));
@@ -43,7 +47,10 @@ vi.mock("@/hooks/use-widget-templates", () => {
   return {
     useWidgetTemplates: () => ({ data: templates, isLoading: false }),
     useDeleteWidgetTemplate: idle,
-    useCreateWidgetTemplate: idle,
+    useCreateWidgetTemplate: () => ({
+      mutate: mockCreate,
+      mutateAsync: vi.fn(),
+    }),
   };
 });
 vi.mock("next-auth/react", () => ({
@@ -69,7 +76,21 @@ vi.mock("@neoboard/components", () => {
     EmptyState: Box,
     LoadingOverlay: Box,
     Badge: Box,
-    Button: Box,
+    // Only the two props the page's own row actions need — forwarding the rest
+    // would put `variant` and `size` on a DOM button.
+    Button: ({
+      children,
+      onClick,
+      "aria-label": label,
+    }: {
+      children?: React.ReactNode;
+      onClick?: () => void;
+      "aria-label"?: string;
+    }) => (
+      <button onClick={onClick} aria-label={label}>
+        {children}
+      </button>
+    ),
     Input: () => null,
     ConfirmDialog: () => null,
     Tooltip: Box,
@@ -98,6 +119,49 @@ vi.mock("@neoboard/components", () => {
 });
 
 import WidgetLibraryPage from "../page";
+
+beforeEach(() => {
+  templates = BASE_TEMPLATES;
+  mockCreate.mockClear();
+});
+
+/**
+ * #1900: `connectorType` is nullable — a template whose widget needs no
+ * connection has none. The column is null; the create API takes absent.
+ */
+describe("WidgetLibraryPage duplicate", () => {
+  it("duplicates a connector-less template without inventing a connector", () => {
+    templates = [
+      {
+        id: "t3",
+        name: "Release notes",
+        chartType: "markdown",
+        connectorType: null as unknown as string,
+        query: "# Notes",
+        tags: [],
+      },
+    ];
+    render(<WidgetLibraryPage />);
+
+    fireEvent.click(screen.getByLabelText("Duplicate"));
+
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    const payload = mockCreate.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload.name).toBe("Release notes (copy)");
+    expect(payload.connectorType).toBeUndefined();
+    expect("connectorType" in payload).toBe(true);
+  });
+
+  it("keeps the connector when the template has one", () => {
+    render(<WidgetLibraryPage />);
+
+    fireEvent.click(screen.getAllByLabelText("Duplicate")[0]);
+
+    expect(mockCreate.mock.calls[0][0]).toMatchObject({
+      connectorType: "acme-sheets",
+    });
+  });
+});
 
 describe("WidgetLibraryPage — connector facts come from the descriptor list (#1899)", () => {
   it("offers one connector filter option per installed connector, by label", () => {

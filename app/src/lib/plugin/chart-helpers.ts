@@ -34,7 +34,6 @@ import { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
 export type { ChartType } from "@/plugins/chart-types";
 export { CHART_TYPES } from "@/plugins/chart-types";
 export { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
-export type { ConnectorType } from "@/lib/connector/connector-types";
 export type { ColumnMapping } from "@neoboard/components";
 export type { ChartPlugin };
 

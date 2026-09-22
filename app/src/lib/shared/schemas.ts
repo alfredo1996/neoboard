@@ -11,7 +11,7 @@ import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
  * Connector type accepted by the API — any type registered in the connector
  * registry (built-in or external), not a hardcoded union (#1121).
  */
-const connectorTypeSchema = z
+export const connectorTypeSchema = z
   .string()
   .min(1)
   .refine(isRegisteredConnectorType, { message: "Unknown connector type" });

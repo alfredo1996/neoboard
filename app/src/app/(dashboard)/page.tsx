@@ -31,6 +31,8 @@ import {
   useImportDashboard,
 } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
+import { useConnectors } from "@/hooks/use-connectors";
+import { cypherConnector } from "@/lib/dashboard/neodash-connector";
 import {
   Alert,
   AlertDescription,
@@ -169,6 +171,7 @@ function ImportDashboardDialog({
   );
 
   const { data: availableConnections = [] } = useConnections();
+  const { data: connectors } = useConnectors();
   const importDashboard = useImportDashboard();
 
   function reset() {
@@ -228,10 +231,32 @@ function ImportDashboardDialog({
         // — the title is already shown above in the parsed-preview box, and
         // duplicating it caused strict-mode locator collisions in E2E tests
         // (the same text would resolve to 2 elements in the dialog).
+        // Which installed connector can run a NeoDash dashboard is decided by
+        // the query language it declares, not by its name (#1900). With none
+        // installed there is nothing to map the import onto, so say so rather
+        // than offering a placeholder pointing at a connector that is not here.
+        // Still loading is not the same as nothing installed: the message
+        // below is permanent, and a file picked before /api/connectors
+        // resolves would have been refused with it.
+        if (!connectors) {
+          setFileError(
+            "Still loading the installed connectors — try the file again in a moment.",
+          );
+          setParsed(null);
+          return;
+        }
+        const target = cypherConnector(connectors);
+        if (!target) {
+          setFileError(
+            "This is a NeoDash dashboard, whose queries are Cypher. No installed connector runs Cypher, so there is nothing to import it onto. Add one and try again.",
+          );
+          setParsed(null);
+          return;
+        }
         const synthesized: Record<string, ConnectionInfo> = {
           [NEODASH_PLACEHOLDER_KEY]: {
-            name: "Neo4j connection",
-            type: "neo4j",
+            name: `${target.label} connection`,
+            type: target.type,
           },
         };
         setMapping({ [NEODASH_PLACEHOLDER_KEY]: "" });

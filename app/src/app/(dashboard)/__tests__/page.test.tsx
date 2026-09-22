@@ -1,9 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
 
-const { mockToast } = vi.hoisted(() => ({ mockToast: vi.fn() }));
+const { mockToast, connectorsQuery } = vi.hoisted(() => ({
+  mockToast: vi.fn(),
+  // Reassigned per test: the import has to tell "still loading" from
+  // "nothing installed speaks Cypher" (#1900).
+  connectorsQuery: { data: [] as unknown },
+}));
 
 const DENIED =
   "This dashboard uses a connection you don't have access to, so it can't be duplicated";
@@ -38,6 +43,11 @@ vi.mock("@/hooks/use-dashboards", () => ({
 
 vi.mock("@/hooks/use-connections", () => ({
   useConnections: () => ({ data: [] }),
+}));
+
+// The NeoDash import asks the registry which connector speaks Cypher (#1900).
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnectors: () => connectorsQuery,
 }));
 
 vi.mock("@/components/dashboard-connection-dialog", () => ({
@@ -92,7 +102,6 @@ vi.mock("@neoboard/components", () => {
     "DropdownMenuSeparator",
     "DropdownMenuTrigger",
     "EmptyState",
-    "Input",
     "Label",
     "LoadingButton",
     "LoadingOverlay",
@@ -106,6 +115,11 @@ vi.mock("@neoboard/components", () => {
   ];
   return {
     ...Object.fromEntries(names.map((name) => [name, Passthrough])),
+    // A real input: the import flow is driven through its change event, so a
+    // passthrough div would leave `handleFile` unreachable.
+    Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+      <input {...props} />
+    ),
     useToast: () => ({ toast: mockToast }),
   };
 });
@@ -123,5 +137,59 @@ describe("DashboardListPage duplicate", () => {
       description: DENIED,
       variant: "destructive",
     });
+  });
+});
+
+/**
+ * #1900: which connector can run a NeoDash dashboard is decided by the query
+ * language it declares, not by its name. Two refusals fall out of that, and
+ * only one of them is permanent — so they must not share a message.
+ */
+describe("DashboardListPage NeoDash import", () => {
+  const NEODASH = { title: "Movies", pages: [{ reports: [{}, {}] }] };
+
+  beforeEach(() => {
+    connectorsQuery.data = [];
+  });
+
+  function pickNeoDashFile() {
+    // By id, not by label: `Label` is a passthrough div here, so there is no
+    // htmlFor association for getByLabelText to follow.
+    const input = document.getElementById("import-file") as HTMLInputElement;
+    const text = JSON.stringify(NEODASH);
+    const file = new File([text], "neodash.json", {
+      type: "application/json",
+    });
+    // jsdom's File.text() is unreliable across versions; the flow only needs
+    // the text, so hand it over directly.
+    Object.defineProperty(file, "text", { value: () => Promise.resolve(text) });
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+  }
+
+  it("says to try again while the connectors are still loading", async () => {
+    connectorsQuery.data = undefined;
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+
+    expect(
+      await screen.findByText(
+        "Still loading the installed connectors — try the file again in a moment.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("refuses permanently when no installed connector speaks Cypher", async () => {
+    connectorsQuery.data = [
+      { type: "acme-sheets", label: "Acme Sheets", queryLanguage: "sql" },
+    ];
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+
+    expect(
+      await screen.findByText(/No installed connector runs Cypher/),
+    ).toBeTruthy();
   });
 });

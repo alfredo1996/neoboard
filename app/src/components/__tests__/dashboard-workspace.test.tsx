@@ -177,11 +177,13 @@ vi.mock("@/components/widget-editor-modal", () => ({
     initialPreviewData,
     widget,
     onSave,
+    onSaveAsTemplate,
   }: {
     open?: boolean;
     initialPreviewData?: { data: unknown };
     widget?: unknown;
     onSave?: (w: unknown) => void;
+    onSaveAsTemplate?: (w: unknown) => void;
   }) =>
     open ? (
       <div
@@ -191,6 +193,10 @@ vi.mock("@/components/widget-editor-modal", () => ({
         }
       >
         <button data-testid="editor-save" onClick={() => onSave?.(widget)} />
+        <button
+          data-testid="editor-save-as-template"
+          onClick={() => onSaveAsTemplate?.(widget)}
+        />
       </div>
     ) : null,
 }));
@@ -211,7 +217,12 @@ vi.mock("@/components/dashboard-assign-panel", () => ({
 }));
 
 vi.mock("@/components/save-template-dialog", () => ({
-  SaveTemplateDialog: () => <div data-testid="save-template-dialog" />,
+  SaveTemplateDialog: ({ connectorType }: { connectorType?: string }) => (
+    <div
+      data-testid="save-template-dialog"
+      data-connector-type={connectorType ?? "none"}
+    />
+  ),
 }));
 
 vi.mock("@/components/page-tabs", () => ({
@@ -407,6 +418,19 @@ function makeDashboard(pageCount = 3, role = "owner") {
   };
 }
 
+/** A dashboard whose only widget needs no connection — markdown (#1900). */
+function makeContentOnlyDashboard() {
+  const d = makeDashboard(1);
+  d.layoutJson.pages[0].widgets[0] = {
+    id: "w1",
+    chartType: "markdown",
+    connectionId: "",
+    query: "",
+    settings: { content: "# Notes" },
+  };
+  return d;
+}
+
 /** A dashboard whose only widget sets a parameter — enables the Filters button. */
 function makeParameterDashboard() {
   const d = makeDashboard(1);
@@ -599,6 +623,23 @@ describe("DashboardWorkspace", () => {
     expect(screen.getByTestId("page-tabs")).toHaveAttribute(
       "data-editable",
       "true",
+    );
+  });
+
+  // #1900: a markdown or iframe widget has no connection, so its template has
+  // no connector type. It used to be given a hardcoded one purely so this
+  // dialog would open — which then offered the template back on that one
+  // connector only.
+  it("opens the template dialog for a content-only widget, with no connector type", () => {
+    dashboard = makeContentOnlyDashboard();
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+
+    fireEvent.click(screen.getByTestId("act-edit"));
+    fireEvent.click(screen.getByTestId("editor-save-as-template"));
+
+    expect(screen.getByTestId("save-template-dialog")).toHaveAttribute(
+      "data-connector-type",
+      "none",
     );
   });
 
@@ -1185,9 +1226,7 @@ describe("DashboardWorkspace", () => {
       await new Promise((r) => setTimeout(r, 5));
       rerender(workspace(true, true));
       await waitFor(() =>
-        expect(screen.getByTestId("probe-other").textContent).toBe(
-          '[{"n":2}]',
-        ),
+        expect(screen.getByTestId("probe-other").textContent).toBe('[{"n":2}]'),
       );
 
       fireEvent.click(screen.getByTestId("act-edit"));
@@ -1230,7 +1269,10 @@ describe("DashboardWorkspace", () => {
       render(workspace(true));
       setV("old");
       await probeShows("old");
-      const invalidate = vi.spyOn(testQueryClient.current!, "invalidateQueries");
+      const invalidate = vi.spyOn(
+        testQueryClient.current!,
+        "invalidateQueries",
+      );
 
       fireEvent.click(screen.getByTestId("act-edit"));
       fireEvent.click(screen.getByTestId("editor-save"));

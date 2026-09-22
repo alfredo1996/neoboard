@@ -157,9 +157,13 @@ describe("QueryEditorPanel", () => {
     expect(screen.queryByText("Templates")).not.toBeInTheDocument();
   });
 
-  it("renders cypher template items for neo4j language", () => {
+  // #1900: these used to pass a connector TYPE as the language and rely on the
+  // panel mapping it. Nothing in the app did that — `editorLanguage` is the
+  // descriptor's `queryLanguage` — so the map was tolerance that only a test
+  // exercised. The prop is a language.
+  it("renders cypher template items for the cypher language", () => {
     useWidgetEditorStore.getState().setConnectionId("conn-1");
-    render(<QueryEditorPanel editorLanguage="neo4j" />);
+    render(<QueryEditorPanel editorLanguage="cypher" />);
     // Cypher templates include these labels
     expect(screen.getByText("Top N by count")).toBeInTheDocument();
     expect(screen.getByText("Time series")).toBeInTheDocument();
@@ -167,9 +171,9 @@ describe("QueryEditorPanel", () => {
     expect(screen.getByText("Relationships")).toBeInTheDocument();
   });
 
-  it("renders sql template items for postgresql language", () => {
+  it("renders sql template items for the sql language", () => {
     useWidgetEditorStore.getState().setConnectionId("conn-1");
-    render(<QueryEditorPanel editorLanguage="postgresql" />);
+    render(<QueryEditorPanel editorLanguage="sql" />);
     // SQL templates (3 items, no "Relationships")
     expect(screen.getByText("Top N by count")).toBeInTheDocument();
     expect(screen.getByText("Time series")).toBeInTheDocument();

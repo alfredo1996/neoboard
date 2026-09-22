@@ -1,19 +1,20 @@
 import { z } from "zod";
-import { and, count, eq, asc } from "drizzle-orm";
+import { and, asc, count, eq, isNull, or, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
 import { forbidden, badRequest, handleRouteError } from "@/lib/api/api-utils";
 import { previewImageUrlSchema } from "./shared";
-import { CONNECTOR_TYPES } from "@/lib/connector/connector-types";
+import { connectorTypeSchema } from "@/lib/shared/schemas";
 
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
   tags: z.array(z.string().max(100)).max(20).optional(),
   chartType: z.string().min(1),
-  connectorType: z.enum(CONNECTOR_TYPES),
+  // Absent when the widget needs no connection at all (#1900).
+  connectorType: connectorTypeSchema.optional(),
   connectionId: z.string().optional(),
   query: z.string().default(""),
   params: z.record(z.string(), z.unknown()).optional(),
@@ -29,12 +30,24 @@ export async function GET(request: Request) {
     const connectorType = url.searchParams.get("connectorType");
     const { limit, offset } = parsePagination(request);
 
-    const conditions = [eq(widgetTemplates.tenantId, tenantId)];
+    const conditions: (SQL | undefined)[] = [
+      eq(widgetTemplates.tenantId, tenantId),
+    ];
     if (chartType) {
       conditions.push(eq(widgetTemplates.chartType, chartType));
     }
     if (connectorType) {
-      conditions.push(eq(widgetTemplates.connectorType, connectorType));
+      // A template whose widget needs no connection has no connectorType, and
+      // belongs on every connection (#1900) — an equality alone would hide
+      // exactly those, which is what the old hardcoded default masked.
+      // `or` is only undefined when every argument is; both of these are
+      // always present, and `and` skips undefined entries regardless.
+      conditions.push(
+        or(
+          eq(widgetTemplates.connectorType, connectorType),
+          isNull(widgetTemplates.connectorType),
+        ),
+      );
     }
 
     const [{ total }] = await db

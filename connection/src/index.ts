@@ -21,8 +21,6 @@ export type {
 export { Neo4jSchemaManager } from "./schema/neo4j-schema";
 export { PostgresSchemaManager } from "./schema/pg-schema";
 /// Connector type constants
-export { CONNECTOR_TYPES, CONNECTOR_LABELS } from "./connector-types";
-export type { ConnectorType } from "./connector-types";
 /// Connector plugin system
 export type {
   ConnectorPlugin,

@@ -629,7 +629,11 @@ const SPEC = {
           {
             name: "connectorType",
             in: "query",
-            schema: { type: "string", enum: ["neo4j", "postgresql"] },
+            schema: {
+              type: "string",
+              description:
+                "A registered connector type. GET /api/connectors lists the installed ones.",
+            },
             description: "Filter by connector type",
           },
         ],
@@ -916,7 +920,11 @@ const SPEC = {
         properties: {
           id: { type: "string" },
           name: { type: "string" },
-          type: { type: "string", enum: ["neo4j", "postgresql"] },
+          type: {
+            type: "string",
+            description:
+              "A registered connector type. GET /api/connectors lists the installed ones.",
+          },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -926,7 +934,11 @@ const SPEC = {
         required: ["name", "type", "config"],
         properties: {
           name: { type: "string", minLength: 1, example: "Production Neo4j" },
-          type: { type: "string", enum: ["neo4j", "postgresql"] },
+          type: {
+            type: "string",
+            description:
+              "A registered connector type. GET /api/connectors lists the installed ones.",
+          },
           config: { $ref: "#/components/schemas/ConnectionConfig" },
         },
       },
@@ -964,7 +976,11 @@ const SPEC = {
         type: "object",
         required: ["type", "config"],
         properties: {
-          type: { type: "string", enum: ["neo4j", "postgresql"] },
+          type: {
+            type: "string",
+            description:
+              "A registered connector type. GET /api/connectors lists the installed ones.",
+          },
           config: { $ref: "#/components/schemas/ConnectionConfig" },
         },
       },
@@ -1110,7 +1126,11 @@ const SPEC = {
           description: { type: "string", nullable: true },
           tags: { type: "array", items: { type: "string" } },
           chartType: { type: "string" },
-          connectorType: { type: "string", enum: ["neo4j", "postgresql"] },
+          connectorType: {
+            type: "string",
+            description:
+              "A registered connector type. GET /api/connectors lists the installed ones.",
+          },
           connectionId: { type: "string", nullable: true },
           query: { type: "string" },
           params: { type: "object", nullable: true },
@@ -1124,13 +1144,19 @@ const SPEC = {
       },
       CreateWidgetTemplateRequest: {
         type: "object",
-        required: ["name", "chartType", "connectorType"],
+        // connectorType is absent for a widget that needs no connection
+        // (markdown, iframe) — #1900.
+        required: ["name", "chartType"],
         properties: {
           name: { type: "string", minLength: 1 },
           description: { type: "string" },
           tags: { type: "array", items: { type: "string" } },
           chartType: { type: "string" },
-          connectorType: { type: "string", enum: ["neo4j", "postgresql"] },
+          connectorType: {
+            type: "string",
+            description:
+              "A registered connector type; GET /api/connectors lists the installed ones. Omit it for a widget that needs no connection — such a template is offered on every connection.",
+          },
           connectionId: { type: "string" },
           query: { type: "string", default: "" },
           params: { type: "object" },
