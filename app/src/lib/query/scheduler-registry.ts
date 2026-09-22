@@ -4,7 +4,7 @@ import { readSchedulerConfig } from "./scheduler-config";
 /**
  * Singleton registry of per-connector schedulers.
  *
- * A query that runs against connection `conn-neo4j-001` goes through the
+ * A query that runs against connection `conn-001` goes through the
  * scheduler keyed on that connection — separate from queries against
  * `conn-pg-001`. This gives each data source its own concurrency budget
  * and prevents one slow connector from starving another.

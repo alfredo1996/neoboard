@@ -1,5 +1,5 @@
 /**
- * Normalize a CSS color for the Neo4j NVL graph renderer.
+ * Normalize a CSS color for the NVL graph renderer (`@neo4j-nvl/base`).
  *
  * NVL draws nodes/relationships to WebGL and only understands hex colors — it
  * silently drops `hsl()` strings, leaving nodes with no fill (invisible but

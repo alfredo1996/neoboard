@@ -178,6 +178,19 @@ describe("WidgetLibraryPage — connector facts come from the descriptor list (#
     ]);
   });
 
+  // #1905: the card's connector badge printed the raw `connectorType`.
+  it("badges each card with its connector's label, the type when it is gone", () => {
+    render(<WidgetLibraryPage />);
+    const badges = screen
+      .getAllByText(/^(Acme Sheets|acme-sheets|uninstalled)$/)
+      .map((b) => b.textContent);
+    // "Acme Sheets" also appears once as a filter <option>; the card badge is
+    // the other one.
+    expect(badges.filter((t) => t === "Acme Sheets")).toHaveLength(2);
+    expect(badges).not.toContain("acme-sheets");
+    expect(badges).toContain("uninstalled");
+  });
+
   it("highlights a template's query in its connector's language, plain text when the connector is gone", () => {
     render(<WidgetLibraryPage />);
     expect(screen.getByText("SHEET budget")).toHaveAttribute(

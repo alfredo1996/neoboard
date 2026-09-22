@@ -106,7 +106,7 @@ describe("package boundary hook", () => {
 
 describe("connector-agnosticism hook (#1894)", () => {
   // app/ and component/ may know THAT connectors exist, never WHICH. The
-  // vitest ratchet (app/src/lib/__tests__/connector-agnostic.test.ts) is the
+  // vitest guard (app/src/lib/__tests__/connector-agnostic.test.ts) is the
   // gate; this is the same rule at edit time. Later PRs in #1893 have to be
   // able to touch a line that already names a connector while migrating it,
   // so the hook blocks an edit only when it ADDS names.
@@ -168,6 +168,30 @@ describe("connector-agnosticism hook (#1894)", () => {
         "check-boundaries.sh",
         `${ROOT}/app/src/lib/db/new-helper.ts`,
         "// PostgreSQL advisory lock, taken before migrating",
+      ),
+      0,
+    );
+  });
+
+  // #1905 put app/src/lib/dev/ on the guard's permanent allowlist; the hook
+  // has to agree, or an edit the guard accepts is refused at edit time. A
+  // sibling that only shares the prefix gets no pass.
+  test("allows it under app/src/lib/dev — dev-only helpers — and not beside it", () => {
+    assert.equal(
+      runHook(
+        "check-boundaries.sh",
+        // A file that does not exist: against an existing one the hook only
+        // compares counts, and verify-connection-hosts.ts already holds four.
+        `${ROOT}/app/src/lib/dev/new-helper.ts`,
+        "// a seed URI like `bolt://neoboard-neo4j:7687`",
+      ),
+      0,
+    );
+    assert.notEqual(
+      runHook(
+        "check-boundaries.sh",
+        `${ROOT}/app/src/lib/devtools/x.ts`,
+        'const t = "neo4j";',
       ),
       0,
     );

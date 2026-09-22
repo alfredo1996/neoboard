@@ -135,7 +135,7 @@ export function SaveTemplateDialog({
               id="template-tags"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g. neo4j, monitoring, kpi"
+              placeholder="e.g. sales, monitoring, kpi"
             />
           </div>
 

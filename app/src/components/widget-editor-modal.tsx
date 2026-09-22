@@ -402,7 +402,8 @@ export function WidgetEditorModal({
       const newConnection = connections.find((c) => c.id === newId);
       if (newConnection) {
         // Clear query state when switching between different connection types
-        // (e.g. neo4j → postgresql) since the query language is incompatible.
+        // (to a connector with a different query language), since the query
+        // would not run there.
         if (prevConnection && prevConnection.type !== newConnection.type) {
           useWidgetEditorStore.getState().clearQueryState();
         }

@@ -1,27 +1,31 @@
 import type { Metadata } from "next";
 import { Providers } from "@/components/providers";
+import {
+  PRODUCT_NAME,
+  PRODUCT_PITCH,
+  PRODUCT_DESCRIPTION,
+} from "@/lib/branding";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
-  title: "NeoBoard",
-  description:
-    "Open-source dashboards for Neo4j + PostgreSQL — the modern alternative to NeoDash",
+  title: PRODUCT_NAME,
+  description: PRODUCT_DESCRIPTION,
   icons: {
     icon: "/logo.svg",
     apple: "/logo.svg",
   },
   manifest: "/site.webmanifest",
   openGraph: {
-    title: "NeoBoard",
-    description: "Open-source dashboards for Neo4j + PostgreSQL",
+    title: PRODUCT_NAME,
+    description: PRODUCT_PITCH,
     images: [{ url: "/og-image.svg", width: 1200, height: 630 }],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "NeoBoard",
-    description: "Open-source dashboards for Neo4j + PostgreSQL",
+    title: PRODUCT_NAME,
+    description: PRODUCT_PITCH,
     images: ["/og-image.svg"],
   },
 };

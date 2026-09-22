@@ -48,7 +48,8 @@ export interface LayoutQuery {
  * A missing and an empty database are one key: the query route applies no
  * override for either. Names otherwise compare exactly, since clients send the
  * saved name verbatim. A connector may resolve two spellings to one database
- * (Neo4j ignores case) but never two equal names to different ones, so an
+ * (some compare database names case-insensitively) but never two equal
+ * names to different ones, so an
  * exact match can refuse a request, never widen one. Naming the connection's
  * default explicitly is an override like any other: without a configured name
  * the driver picks the default, and the route cannot know which.

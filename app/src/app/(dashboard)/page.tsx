@@ -32,6 +32,7 @@ import {
 } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
 import { useConnectors } from "@/hooks/use-connectors";
+import { connectorLabel } from "@/lib/connector/connector-label";
 import { cypherConnector } from "@/lib/dashboard/neodash-connector";
 import {
   Alert,
@@ -85,6 +86,10 @@ import {
   filterDashboardsByName,
   isDuplicateDashboardName,
 } from "@/lib/dashboard/dashboard-list-helpers";
+import {
+  PRODUCT_ONBOARDING_PITCH,
+  PRODUCT_CONNECTION_PITCH,
+} from "@/lib/branding";
 
 // ── Types for import dialog ──────────────────────────────────────────
 
@@ -218,8 +223,8 @@ function ImportDashboardDialog({
 
       if (isNeoDashFormat(json)) {
         // NeoDash — synthesize a single placeholder for the whole dashboard.
-        // NeoDash always pointed at one global Neo4j; surface that as one
-        // required mapping in the UI.
+        // NeoDash always pointed at one global graph database; surface that
+        // as one required mapping in the UI.
         const widgetCount =
           (json.pages as Array<{ reports?: unknown[] }>)?.reduce(
             (sum: number, p) => sum + (p.reports?.length ?? 0),
@@ -486,6 +491,7 @@ function ImportDashboardDialog({
                   const compatible = availableConnections.filter(
                     (c) => c.type === info.type,
                   );
+                  const connectorName = connectorLabel(connectors, info.type);
                   const isSkipped = skipped.has(key);
                   const hasNoCompatible = compatible.length === 0;
                   return (
@@ -499,7 +505,7 @@ function ImportDashboardDialog({
                             {info.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {info.type}
+                            {connectorName}
                           </p>
                         </div>
                         <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer shrink-0">
@@ -525,7 +531,7 @@ function ImportDashboardDialog({
                             <SelectContent>
                               {hasNoCompatible ? (
                                 <SelectItem value="__none__" disabled>
-                                  No {info.type} connections
+                                  No {connectorName} connections
                                 </SelectItem>
                               ) : (
                                 compatible.map((c) => (
@@ -538,7 +544,7 @@ function ImportDashboardDialog({
                           </Select>
                           {hasNoCompatible && (
                             <p className="text-xs text-muted-foreground">
-                              No compatible {info.type} connections in your
+                              No compatible {connectorName} connections in your
                               tenant.{" "}
                               <a
                                 href="/connections"
@@ -598,8 +604,7 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
         </div>
         <h2 className="text-2xl font-semibold">Welcome to NeoBoard</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-          Build dashboards that connect to your Neo4j and PostgreSQL databases.
-          Get started in three simple steps.
+          {PRODUCT_ONBOARDING_PITCH}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" onClick={onCreateDashboard}>
@@ -629,10 +634,7 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
               <span className="mr-2 text-muted-foreground">1.</span>
               Add a connection
             </CardTitle>
-            <CardDescription>
-              Connect to your Neo4j or PostgreSQL database so NeoBoard can query
-              your data.
-            </CardDescription>
+            <CardDescription>{PRODUCT_CONNECTION_PITCH}</CardDescription>
           </CardHeader>
           <CardFooter>
             <Link

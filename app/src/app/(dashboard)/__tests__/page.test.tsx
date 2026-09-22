@@ -180,6 +180,26 @@ describe("DashboardListPage NeoDash import", () => {
     ).toBeTruthy();
   });
 
+  // The mapping card used to print the raw type under the placeholder and in
+  // both "no connections" messages — `acme-graph`, where the descriptor says
+  // `Acme Graph`. Same defect as the connections page's re-assign copy.
+  it("names the connector by its label on the mapping card", async () => {
+    connectorsQuery.data = [
+      { type: "acme-graph", label: "Acme Graph", queryLanguage: "cypher" },
+    ];
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+
+    expect(
+      await screen.findByText("No compatible Acme Graph connections", {
+        exact: false,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText("No Acme Graph connections")).toBeTruthy();
+    expect(screen.queryByText(/acme-graph/)).toBeNull();
+  });
+
   it("refuses permanently when no installed connector speaks Cypher", async () => {
     connectorsQuery.data = [
       { type: "acme-sheets", label: "Acme Sheets", queryLanguage: "sql" },

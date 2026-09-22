@@ -47,7 +47,7 @@ export function LabMetadataForm() {
           id="lab-template-tags"
           value={labTagsInput}
           onChange={(e) => setLabTagsInput(e.target.value)}
-          placeholder="e.g. neo4j, monitoring, kpi"
+          placeholder="e.g. sales, monitoring, kpi"
         />
       </div>
     </div>

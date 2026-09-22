@@ -38,6 +38,7 @@ fi
 case "$FILE_PATH" in
   */__tests__/* | *.test.ts | *.test.tsx | *.stories.tsx) ;;
   */app/src/lib/db/*) ;;                # the app's OWN metadata PostgreSQL
+  */app/src/lib/dev/*) ;;               # dev-only helpers, never shipped (#1905)
   */component/src/lib/cypher-lang/*) ;; # vendored grammar
   */app/src/* | */component/src/*)
     ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"

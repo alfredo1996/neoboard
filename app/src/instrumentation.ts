@@ -89,9 +89,9 @@ export async function register() {
 
   // Dev-only: warn about seeded connections that reference unreachable hosts.
   // Fire-and-forget; startup never waits on DNS. Common cause: seed ran inside
-  // the docker-app container (where NEO4J_HOST/PG_HOST resolved to container
-  // names) and the dev server later runs on the host where those names don't
-  // resolve. #899
+  // the docker-app container (where the seed's host variables resolved to
+  // container names) and the dev server later runs on the host where those
+  // names don't resolve. #899
   if (process.env.NODE_ENV === "development") {
     void (async () => {
       try {

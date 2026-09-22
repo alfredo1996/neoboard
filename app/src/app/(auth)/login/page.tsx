@@ -17,6 +17,7 @@ import {
   AlertDescription,
 } from "@neoboard/components";
 import { LoadingButton, PasswordInput } from "@neoboard/components";
+import { PRODUCT_PITCH } from "@/lib/branding";
 
 /** Hydration probe helpers — module scope so the refs stay stable (#1272). */
 const subscribeNoop = () => () => {};
@@ -150,9 +151,7 @@ export default function LoginPage() {
           <CardTitle className="text-2xl">
             <h1>NeoBoard</h1>
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Visual dashboards for Neo4j &amp; PostgreSQL
-          </p>
+          <p className="text-sm text-muted-foreground">{PRODUCT_PITCH}</p>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>

@@ -244,7 +244,7 @@ function BaseChart({
     } catch (err) {
       // ECharts throws synchronously on malformed data — a Sankey with a cyclic
       // flow, duplicate node names, or a link to a missing node (all reachable
-      // from ordinary Neo4j/PG results). Clear the half-drawn chart and surface
+      // from ordinary query results). Clear the half-drawn chart and surface
       // the error instead of letting the throw crash the whole widget. The
       // inline overlay is the better UX: ChartErrorBoundary
       // (app/src/components/chart-renderer.tsx) already stops a throw from

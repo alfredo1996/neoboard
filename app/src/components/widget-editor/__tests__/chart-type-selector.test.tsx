@@ -36,6 +36,16 @@ vi.mock("@neoboard/components", () => ({
   ),
 }));
 
+// Labels no rule could derive from the type (#1905).
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnectors: () => ({
+    data: [
+      { type: "neo4j", label: "Graph Store" },
+      { type: "postgresql", label: "Relational Store" },
+    ],
+  }),
+}));
+
 vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (type: string) => ({
     label: type.charAt(0).toUpperCase() + type.slice(1),
@@ -120,6 +130,34 @@ describe("ChartTypeSelector", () => {
     expect(screen.getByText("Connection")).toBeInTheDocument();
   });
 
+  // #1905: each entry read "Neo4j Local (neo4j)" — the raw type.
+  it("names each connection's connector by its descriptor label", () => {
+    render(
+      <ChartTypeSelector
+        connectionId="c1"
+        onConnectionChange={vi.fn()}
+        chartType="bar"
+        onChartTypeChange={vi.fn()}
+        compatibleChartTypes={chartTypes}
+        connections={[
+          ...connections,
+          { id: "c3", name: "Legacy", type: "uninstalled" },
+        ]}
+        showConnection={true}
+      />,
+    );
+    const labels = Array.from(
+      screen.getByTestId("Select a connection...").querySelectorAll("option"),
+    ).map((o) => o.textContent);
+    expect(labels).toEqual([
+      "Select a connection...",
+      "Neo4j Local (Graph Store)",
+      "Postgres Prod (Relational Store)",
+      // No descriptor to ask: its type is the only name left.
+      "Legacy (uninstalled)",
+    ]);
+  });
+
   it("calls onChartTypeChange when chart type changes", () => {
     const onChartTypeChange = vi.fn();
     render(
@@ -174,22 +212,6 @@ describe("ChartTypeSelector", () => {
     expect(screen.getByText("Line")).toBeInTheDocument();
     expect(screen.getByText("Pie")).toBeInTheDocument();
     expect(screen.getByText("Table")).toBeInTheDocument();
-  });
-
-  it("renders connection options with name and type", () => {
-    render(
-      <ChartTypeSelector
-        connectionId="c1"
-        onConnectionChange={vi.fn()}
-        chartType="bar"
-        onChartTypeChange={vi.fn()}
-        compatibleChartTypes={chartTypes}
-        connections={connections}
-        showConnection={true}
-      />,
-    );
-    expect(screen.getByText("Neo4j Local (neo4j)")).toBeInTheDocument();
-    expect(screen.getByText("Postgres Prod (postgresql)")).toBeInTheDocument();
   });
 
   it("shows required indicator on connection label", () => {
