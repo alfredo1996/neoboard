@@ -5,7 +5,7 @@ import type { Transform } from "@/lib/query/data-transforms";
 
 /**
  * Extract column names from raw query result data.
- * Both Neo4j and PostgreSQL return flat Record[] arrays.
+ * Every connector returns a flat row array — the SDK's value contract (#1904).
  */
 export function extractColumnNames(data: unknown): string[] {
   const records = Array.isArray(data) ? data : [];

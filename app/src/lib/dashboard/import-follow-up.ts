@@ -19,8 +19,8 @@ export function importFollowUp(
   skippedConnectorTypes: ReadonlyArray<string | undefined>,
 ): ImportFollowUp {
   if (unassignedWidgetCount <= 0) return { kind: "none" };
-  // An unknown type counts as its own value: mixing "neo4j" with something
-  // unidentified is not safe to bulk-assign either.
+  // An unknown type counts as its own value: mixing a known connector type
+  // with something unidentified is not safe to bulk-assign either.
   return new Set(skippedConnectorTypes).size > 1
     ? { kind: "manual", count: unassignedWidgetCount }
     : { kind: "bulk", count: unassignedWidgetCount };

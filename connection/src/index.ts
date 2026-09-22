@@ -18,9 +18,9 @@ export type {
   ColumnDef,
   PropertyDef,
 } from "@neoboard/connector-sdk";
-export { Neo4jSchemaManager } from "./schema/neo4j-schema";
-export { PostgresSchemaManager } from "./schema/pg-schema";
-/// Connector type constants
+// Each connector's schema manager is reached through `getSchemaManager(type)`,
+// not exported by name: a connector-named export is one more thing that
+// changes when a connector is added (#1905).
 /// Connector plugin system
 export type {
   ConnectorPlugin,

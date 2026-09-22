@@ -32,7 +32,8 @@ const importRequestSchema = z.object({
 });
 
 // Synthesized placeholder used for NeoDash imports. NeoDash dashboards always
-// pointed at one global Neo4j; we surface that as a single required mapping.
+// pointed at one global graph database; we surface that as a single required
+// mapping.
 const NEODASH_PLACEHOLDER_KEY = "neodash-default";
 
 function pluralWidgets(count: number): string {

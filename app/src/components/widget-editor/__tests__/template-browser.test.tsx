@@ -43,7 +43,9 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
 // highlighting below can only have come from the descriptor list.
 vi.mock("@/hooks/use-connectors", () => ({
   useConnectors: () => ({
-    data: [{ type: "acme-sheets", queryLanguage: "acmeql" }],
+    data: [
+      { type: "acme-sheets", label: "Acme Sheets", queryLanguage: "acmeql" },
+    ],
   }),
 }));
 
@@ -125,6 +127,25 @@ describe("TemplateBrowser", () => {
     );
     // A connector that is not installed: plain text, not somebody's grammar.
     expect(screen.getByText("??")).toHaveAttribute("data-language", "");
+  });
+
+  // #1905: the badge printed the raw `connectorType`.
+  it("names each template's connector by its label, the type when it is gone", () => {
+    render(
+      <TemplateBrowser
+        templates={[
+          { ...sampleTemplate, connectorType: "acme-sheets", query: "SHEET 1" },
+          { ...sampleTemplate, id: "t2", connectorType: "gone", query: "??" },
+        ]}
+        loading={false}
+        connectorType={null}
+        onApply={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Acme Sheets")).toBeInTheDocument();
+    expect(screen.queryByText("acme-sheets")).toBeNull();
+    expect(screen.getByText("gone")).toBeInTheDocument();
   });
 
   it("filters by search", () => {

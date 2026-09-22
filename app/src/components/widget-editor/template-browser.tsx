@@ -6,6 +6,7 @@ import type { WidgetTemplate } from "@/lib/db/schema";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { editorLanguageForConnector } from "@/lib/connector/editor-language";
 import { useConnectors } from "@/hooks/use-connectors";
+import { connectorLabel } from "@/lib/connector/connector-label";
 import {
   Badge,
   Button,
@@ -111,7 +112,7 @@ export function TemplateBrowser({
                         variant="outline"
                         className="text-[10px] px-1.5 py-0"
                       >
-                        {t.connectorType}
+                        {connectorLabel(connectors, t.connectorType)}
                       </Badge>
                     </div>
                   </button>

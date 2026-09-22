@@ -30,8 +30,8 @@ const reassignSchema = z.object({
  *     caller must be an admin in the same tenant).
  *   - Target connection must be one the caller can use: in the same tenant
  *     and their own, shared with the tenant, or any for an admin (#1816).
- *   - Target must be the same `type` as source — Cypher queries won't
- *     work on a PostgreSQL connection and vice versa.
+ *   - Target must be the same `type` as source — a saved query is written
+ *     in its connector's query language, which another type may not speak.
  *
  * Query compatibility is NOT validated. Widgets referencing tables or
  * nodes that don't exist on the target connection will simply fail to

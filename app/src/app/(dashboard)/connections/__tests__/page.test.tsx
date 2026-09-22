@@ -27,6 +27,13 @@ interface Row {
 
 let mockRole = "creator";
 let mockConnections: Row[] = [];
+/** What the delete dialog reads to offer "Re-assign widgets…" (#1905). */
+let mockUsage:
+  | {
+      widgetCount: number;
+      dashboards: { id: string; name: string; widgetCount: number }[];
+    }
+  | undefined;
 
 // What GET /api/connectors serves (#1899). Fixture connectors only: the page
 // must work for a connector nothing in app/ has heard of.
@@ -80,7 +87,7 @@ vi.mock("@/hooks/use-connections", () => {
   });
   return {
     useConnections: () => ({ data: mockConnections, isLoading: false }),
-    useConnectionUsage: () => ({ data: undefined, isLoading: false }),
+    useConnectionUsage: () => ({ data: mockUsage, isLoading: false }),
     // What the edit and Duplicate dialogs pre-fill from (#1901).
     useConnectionConfig: (id?: string) => ({
       data: mockConnectionConfig(id),
@@ -156,7 +163,15 @@ vi.mock("@neoboard/components", () => {
         />
       </>
     ),
-    ConfirmDialog: () => null,
+    // Renders its description while open, the way Dialog below does — the
+    // delete dialog is where "Re-assign widgets…" lives.
+    ConfirmDialog: ({
+      open,
+      description,
+    }: {
+      open: boolean;
+      description?: React.ReactNode;
+    }) => (open ? <div role="alertdialog">{description}</div> : null),
     Dialog: ({
       open,
       children,
@@ -267,6 +282,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mockRole = "creator";
   mockConnections = [];
+  mockUsage = undefined;
   mockConnectors = { data: INSTALLED, isLoading: false, isError: false };
   useConnectionStatusStore.getState().reset();
 });
@@ -641,5 +657,55 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     expect(mockToast).toHaveBeenCalledWith({ title: "Connection updated" });
     expect(mockTest).toHaveBeenCalledExactlyOnceWith({ id: "c1" });
     expect(statusOf("sheets")).toBe("connected");
+  });
+});
+
+// #1905: the re-assign dialog used to interpolate the raw type, so a user was
+// asked to "Pick a acme-sheets connection". It names the connector by the
+// label its descriptor declares — the only place a label comes from.
+describe("ConnectionsPage — re-assign names the connector by its label (#1905)", () => {
+  function openReassign() {
+    mockUsage = {
+      widgetCount: 2,
+      dashboards: [{ id: "d1", name: "Budget", widgetCount: 2 }],
+    };
+    render(<ConnectionsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete source" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Re-assign widgets to another connection…",
+      }),
+    );
+    return screen.getByRole("dialog");
+  }
+
+  it("offers the other connections of the same connector, by its label", () => {
+    mockConnections = [
+      ...rows(1, { name: "source", type: "acme-sheets" }),
+      { ...rows(1)[0], id: "c2", name: "target", type: "acme-sheets" },
+    ];
+
+    const dialog = openReassign();
+
+    expect(dialog).toHaveTextContent("Pick another Acme Sheets connection");
+    expect(dialog).not.toHaveTextContent("acme-sheets");
+  });
+
+  it("says so by label when there is none to move to", () => {
+    mockConnections = rows(1, { name: "source", type: "acme-sheets" });
+
+    const dialog = openReassign();
+
+    expect(dialog).toHaveTextContent("No other Acme Sheets connection");
+    expect(dialog).not.toHaveTextContent("acme-sheets");
+  });
+
+  it("falls back to the type when the connector is not installed", () => {
+    mockConnections = rows(1, { name: "source", type: "uninstalled" });
+
+    const dialog = openReassign();
+
+    // Nothing else could name it: the descriptor is gone.
+    expect(dialog).toHaveTextContent("No other uninstalled connection");
   });
 });

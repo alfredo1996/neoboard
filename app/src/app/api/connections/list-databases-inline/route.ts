@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     // Schemas come from whichever connectors have them (#1902). `listSchemas`
     // already answers [] for a module that does not implement it, so asking
     // every connector is both simpler and right for one nobody hardcoded —
-    // the `type === "postgresql"` gate this replaces gave a third connector
+    // the connector-type gate this replaces gave a third connector
     // none, however well it implemented the method.
     const schemas = await listSchemas(type, config).catch(() => [] as string[]);
 

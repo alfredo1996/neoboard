@@ -20,6 +20,8 @@ import {
   useReassignDashboardConnection,
 } from "@/hooks/use-dashboards";
 import { useConnections } from "@/hooks/use-connections";
+import { useConnectors } from "@/hooks/use-connectors";
+import { connectorLabel } from "@/lib/connector/connector-label";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
 
@@ -89,6 +91,7 @@ export function DashboardConnectionDialog({
 }: DashboardConnectionDialogProps) {
   const { data: dashboard, isLoading } = useDashboard(dashboardId);
   const { data: connections = [] } = useConnections();
+  const { data: connectors } = useConnectors();
   const reassign = useReassignDashboardConnection();
 
   const [source, setSource] = useState<string | null>(null);
@@ -240,7 +243,7 @@ export function DashboardConnectionDialog({
                   <option value="">Select a connection…</option>
                   {targets.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} ({c.type})
+                      {c.name} ({connectorLabel(connectors, c.type)})
                     </option>
                   ))}
                 </select>

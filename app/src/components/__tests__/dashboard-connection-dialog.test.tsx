@@ -27,6 +27,17 @@ vi.mock("@/hooks/use-connections", () => ({
   useConnections: () => ({ data: mockConnections, isLoading: false }),
 }));
 
+// Labels no rule could derive from the type — so a picker that reads them can
+// only have read the descriptor (#1905), not capitalised the type.
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnectors: () => ({
+    data: [
+      { type: "neo4j", label: "Graph Store" },
+      { type: "postgresql", label: "Relational Store" },
+    ],
+  }),
+}));
+
 vi.mock("@neoboard/components", () => ({
   Alert: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   AlertDescription: ({ children }: React.PropsWithChildren) => (
@@ -225,8 +236,10 @@ describe("DashboardConnectionDialog — target picker", () => {
       document.querySelectorAll("#reassign-dashboard-target option"),
     ).map((o) => o.textContent);
 
-    expect(options).toContain("Neo4j Staging (neo4j)");
-    expect(options).not.toContain("Postgres Prod (postgresql)");
+    // Named by the descriptor's label, not the raw type (#1905).
+    expect(options).toContain("Neo4j Staging (Graph Store)");
+    expect(options).not.toContain("Postgres Prod (Relational Store)");
+    expect(options.join()).not.toMatch(/\((neo4j|postgresql)\)/);
     expect(options.join()).not.toContain("Neo4j Prod");
   });
 
@@ -240,8 +253,8 @@ describe("DashboardConnectionDialog — target picker", () => {
       document.querySelectorAll("#reassign-dashboard-target option"),
     ).map((o) => o.textContent);
 
-    expect(options).toContain("Neo4j Prod (neo4j)");
-    expect(options).toContain("Postgres Prod (postgresql)");
+    expect(options).toContain("Neo4j Prod (Graph Store)");
+    expect(options).toContain("Postgres Prod (Relational Store)");
   });
 
   it("keeps the apply button disabled until a target is chosen", () => {

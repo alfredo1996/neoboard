@@ -37,7 +37,7 @@ const LABEL_COLOR_PALETTE_LIGHT = CITRINE_LIGHT;
 const LABEL_COLOR_PALETTE_DARK = CITRINE_DARK;
 
 /**
- * Builds a map of Neo4j label → palette color.
+ * Builds a map of node label → palette color.
  * Labels are sorted so the same set of labels always yields the same colors.
  */
 function buildLabelColorMap(
@@ -166,7 +166,7 @@ const LAYOUT_LABELS: Record<GraphLayout, string> = {
 };
 
 /**
- * Scans nodes to build a map of Neo4j label → available property keys.
+ * Scans nodes to build a map of node label → available property keys.
  */
 function buildLabelPropertyMap(nodes: GraphNode[]): Map<string, string[]> {
   const map = new Map<string, Set<string>>();
@@ -338,7 +338,7 @@ function toNvlRelationship(
 }
 
 /**
- * GraphChart — renders a Neo4j graph using the NVL (Neo4j Visualization Library).
+ * GraphChart — renders a property graph with NVL (`@neo4j-nvl/react`).
  *
  * Features a built-in overlay toolbar (top-right) with:
  * - Fit button: re-centers and fits the graph in the viewport
@@ -397,7 +397,7 @@ function GraphChartInner({
     [nodes, dark],
   );
 
-  // Caption map: Neo4j label → chosen property key for display
+  // Caption map: node label → chosen property key for display
   const [captionMap, setCaptionMap] = useState<Record<string, string>>(
     initialCaptionMap ?? {},
   );
@@ -520,8 +520,8 @@ function GraphChartInner({
         if (!onNodeSelectRef.current) return;
         const current = selectedRef.current ?? [];
         const id = node.id;
-        // Cmd/Ctrl toggles a node in/out of a multi-selection (file-manager and
-        // Neo4j Browser convention); Shift is accepted too — it is what plenty
+        // Cmd/Ctrl toggles a node in/out of a multi-selection (the file-manager
+        // and graph-browser convention); Shift is accepted too — it is what plenty
         // of people reach for first and nothing else in this widget claims it
         // (the box-select and lasso interactions are not wired up). A plain
         // click REPLACES the selection, so stepping through nodes one at a time

@@ -301,7 +301,7 @@ export function isNeoDashFormat(json: unknown): boolean {
  * connection later, or the dashboard will render with broken widgets).
  *
  * The single-connection model matches NeoDash's actual semantics — a NeoDash
- * dashboard always pointed at one global Neo4j instance.
+ * dashboard always pointed at one global graph database.
  */
 export function convertNeoDash(
   json: unknown,

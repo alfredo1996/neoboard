@@ -44,11 +44,13 @@ import {
 import type { WidgetTemplate } from "@/lib/db/schema";
 import { editorLanguageForConnector } from "@/lib/connector/editor-language";
 import { useConnectors } from "@/hooks/use-connectors";
+import { connectorLabel } from "@/lib/connector/connector-label";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 
 function TemplateCard({
   template,
   language,
+  connectorName,
   canEdit,
   canDelete,
   onEdit,
@@ -61,6 +63,8 @@ function TemplateCard({
   readonly template: WidgetTemplate;
   /** Editor language of the template's connector; "" is plain text. */
   readonly language: string;
+  /** What to call the template's connector — its descriptor label (#1905). */
+  readonly connectorName: string;
   readonly canEdit: boolean;
   readonly canDelete: boolean;
   readonly onEdit: () => void;
@@ -190,7 +194,7 @@ function TemplateCard({
             </Badge>
             {!isContentOnlyChartType(template.chartType) && (
               <Badge variant="outline" className="text-xs">
-                {template.connectorType}
+                {connectorName}
               </Badge>
             )}
             {(template.tags ?? []).map((tag) => (
@@ -471,6 +475,10 @@ export default function WidgetLibraryPage() {
               {filtered.map((template) => (
                 <TemplateCard
                   language={editorLanguageForConnector(
+                    connectors,
+                    template.connectorType,
+                  )}
+                  connectorName={connectorLabel(
                     connectors,
                     template.connectorType,
                   )}

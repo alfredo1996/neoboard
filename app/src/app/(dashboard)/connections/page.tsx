@@ -10,6 +10,7 @@ import {
   type ConnectionDialogTarget,
 } from "@/components/connection-dialog";
 import { useConnectors } from "@/hooks/use-connectors";
+import { connectorLabel } from "@/lib/connector/connector-label";
 import {
   useConnections,
   useConnectionUsage,
@@ -323,21 +324,22 @@ export default function ConnectionsPage() {
                 sourceConn &&
                 c.type === sourceConn.type,
             );
+            const connectorName = connectorLabel(connectors, sourceConn?.type);
             return (
               <div className="space-y-4 py-4">
                 <p
                   id="reassign-widgets-desc"
                   className="text-sm text-muted-foreground"
                 >
-                  Pick a {sourceConn?.type ?? ""} connection to migrate widgets
-                  to. Queries on widgets are not validated against the target
-                  schema — broken queries will show their usual error state.
+                  Pick another {connectorName} connection to migrate widgets to.
+                  Queries on widgets are not validated against the target schema
+                  — broken queries will show their usual error state.
                 </p>
                 {compatible.length === 0 ? (
                   <Alert>
                     <AlertDescription>
-                      No compatible {sourceConn?.type ?? ""} connections
-                      available. Create one first.
+                      No other {connectorName} connection available. Create one
+                      first.
                     </AlertDescription>
                   </Alert>
                 ) : (

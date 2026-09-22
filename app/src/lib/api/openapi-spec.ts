@@ -5,6 +5,8 @@
  * Served at GET /api/openapi.json.
  */
 
+import { PRODUCT_NAME, PRODUCT_PITCH } from "@/lib/branding";
+
 // ---------------------------------------------------------------------------
 // Helpers to reduce structural repetition in path definitions
 // ---------------------------------------------------------------------------
@@ -71,13 +73,13 @@ const R = {
 const SPEC = {
   openapi: "3.0.3",
   info: {
-    title: "NeoBoard API",
+    title: `${PRODUCT_NAME} API`,
     version: "1.0.0",
     description:
-      "REST API for NeoBoard — a dashboarding tool for hybrid Neo4j + PostgreSQL architectures. " +
+      `REST API for ${PRODUCT_NAME} — ${PRODUCT_PITCH}. ` +
       "Authenticate via session cookie (browser) or Bearer API key (programmatic access).",
     contact: {
-      name: "NeoBoard",
+      name: PRODUCT_NAME,
       url: "https://github.com/alfredo1996/neoboard",
     },
   },
@@ -520,7 +522,7 @@ const SPEC = {
           "A dashboard the caller cannot open, a widget it does not hold or holds on another connection, and a form saved with other query text answer 404, the same as a dashboard that does not exist. " +
           "Any other write requires `canWrite` and a connection the caller owns; a stored widget that is not a form also needs write mode on, and runs on its saved database when its connection allows a per-card database. " +
           "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
-          "foreign-key, check, exclusion, length, format or date/time violation, or a Neo4j constraint violation, answers 400 (a NOT NULL violation names its column in " +
+          "foreign-key, check, exclusion, length, format or date/time violation, or a graph constraint violation, answers 400 (a NOT NULL violation names its column in " +
           "`error.details.column`), a unique violation 409, and a read-only connection 403.",
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
@@ -933,7 +935,11 @@ const SPEC = {
         type: "object",
         required: ["name", "type", "config"],
         properties: {
-          name: { type: "string", minLength: 1, example: "Production Neo4j" },
+          name: {
+            type: "string",
+            minLength: 1,
+            example: "Production analytics",
+          },
           type: {
             type: "string",
             description:

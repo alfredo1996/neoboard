@@ -24,6 +24,8 @@ import type { LucideIcon } from "lucide-react";
 import { Label, Combobox } from "@neoboard/components";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
+import { useConnectors } from "@/hooks/use-connectors";
+import { connectorLabel } from "@/lib/connector/connector-label";
 
 /** Icon map for chart type dropdown (labels come from chartRegistry, icons stay in UI layer) */
 export const chartTypeIcons: Record<ChartType, LucideIcon> = {
@@ -83,6 +85,7 @@ export function ChartTypeSelector({
   connections,
   showConnection,
 }: ChartTypeSelectorProps) {
+  const { data: connectors } = useConnectors();
   const chartTypeOptions = compatibleChartTypes.map((type) => {
     const meta = getChartTypeMeta(type);
     return {
@@ -122,7 +125,7 @@ export function ChartTypeSelector({
           onChange={onConnectionChange}
           options={connections.map((c) => ({
             value: c.id,
-            label: `${c.name} (${c.type})`,
+            label: `${c.name} (${connectorLabel(connectors, c.type)})`,
           }))}
           placeholder="Select a connection..."
           searchPlaceholder="Search connections..."

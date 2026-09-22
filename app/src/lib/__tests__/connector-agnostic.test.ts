@@ -15,13 +15,15 @@
  *  2. the export-surface guard — `connection` and `connector-sdk` export no
  *     identifier that names a connector.
  *
- * Each is a **shrinking ratchet**, in the style of `tenant-scope.test.ts`:
- * today's offenders are recorded in `connector-agnostic.baseline.json`, a new
- * offence fails, and so does an entry that no longer offends — the list can
- * only get shorter, and it cannot rot. The epic closes when it is empty.
+ * Both began as shrinking ratchets over a recorded baseline, which started at
+ * 297 names in 71 files and 10 exports. The epic drove it to zero and #1905
+ * deleted it: there is no baseline to raise any more. What remains is the
+ * permanent allowlist below, each entry carrying the reason it is not
+ * connector knowledge.
  *
  * If this fails on your change, the fix is to read the fact off the connector
- * (the registry / descriptor, server-side), not to raise a baseline number.
+ * (the registry / descriptor, server-side). Widening the allowlist is for a
+ * name that genuinely is not a connector fact, and it needs its reason.
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -45,7 +47,6 @@ import {
   type ConnectorField,
   type ConnectorPlugin,
 } from "@neoboard/connection";
-import baseline from "./connector-agnostic.baseline.json";
 
 const ROOT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -54,13 +55,12 @@ const ROOT = join(
   "..",
   "..",
 );
-const BASELINE_FILE = "app/src/lib/__tests__/connector-agnostic.baseline.json";
 
 // ─── Permanent allowlist ─────────────────────────────────────────────
 //
-// The only names that stay once the baseline is empty. Query-language names
-// (`cypher`, `sql`) need no entry: a language is not a connector, and no
-// connector is registered under one.
+// The only names the guard lets through. Query-language names (`cypher`,
+// `sql`) need no entry: a language is not a connector, and no connector is
+// registered under one.
 
 /** Trees the name guard does not read. */
 const ALLOWED_PATHS: { prefix: string; reason: string }[] = [
@@ -73,6 +73,12 @@ const ALLOWED_PATHS: { prefix: string; reason: string }[] = [
   {
     prefix: "component/src/lib/cypher-lang/",
     reason: "vendored Cypher grammar, kept byte-close to upstream",
+  },
+  {
+    prefix: "app/src/lib/dev/",
+    reason:
+      "dev-only helpers, imported only under NODE_ENV=development and never " +
+      "shipped behaviour; rewriting the seeded containers' URIs is their subject (#1905)",
   },
 ];
 
@@ -92,6 +98,21 @@ const LIBRARY_NAMES: { pattern: RegExp; reason: string }[] = [
     reason:
       "@codemirror/lang-sql names its SQL dialect export `PostgreSQL`; " +
       "importing and passing it is a fact about the `sql` language",
+  },
+];
+
+/**
+ * Statements about NeoBoard's OWN metadata store, outside `app/src/lib/db/`.
+ * Blanked before counting, like `LIBRARY_NAMES`. Each pattern is one sentence,
+ * never a word, so the same file naming a connector anywhere else still fails.
+ */
+const OWN_INFRASTRUCTURE: { pattern: RegExp; reason: string }[] = [
+  {
+    pattern:
+      /\bPostgres requires DISTINCT ON to match the leading ORDER BY columns\b/g,
+    reason:
+      "the dashboards list queries the app's own metadata store; DISTINCT ON " +
+      "is that store's dialect rule, and the comment is why the query is shaped so (#1905)",
   },
 ];
 
@@ -207,7 +228,10 @@ export function findOffenders({
   const out: Record<string, number> = {};
   for (const { file, src } of files) {
     if (ALLOWED_PATHS.some((p) => file.startsWith(p.prefix))) continue;
-    const code = LIBRARY_NAMES.reduce((s, l) => s.replace(l.pattern, ""), src);
+    const code = [...LIBRARY_NAMES, ...OWN_INFRASTRUCTURE].reduce(
+      (s, l) => s.replace(l.pattern, ""),
+      src,
+    );
     const count = names.reduce((n, re) => n + (code.match(re)?.length ?? 0), 0);
     if (count > 0) out[file] = count;
   }
@@ -285,54 +309,12 @@ const PUBLIC_ENTRY_POINTS = [
   "connector-sdk/src/index.ts",
 ];
 
-// ─── The ratchet ─────────────────────────────────────────────────────
-
-/**
- * Why the tree and the baseline disagree, one line per entry; empty when they
- * match exactly. More than recorded is a new offence. Fewer is progress the
- * baseline has not caught up with — also a failure, or the list would rot
- * into permission for whoever offends there next.
- */
-export function baselineDrift(
-  actual: Record<string, number>,
-  recorded: Record<string, number>,
-): string[] {
-  const keys = [
-    ...new Set([...Object.keys(actual), ...Object.keys(recorded)]),
-  ].sort();
-  return keys.flatMap((key) => {
-    const found = actual[key] ?? 0;
-    const allowed = recorded[key] ?? 0;
-    if (found > allowed) {
-      return [
-        `${key}: names a connector ${found}×, baseline allows ${allowed} — ` +
-          "take the fact from the registry instead of naming the connector",
-      ];
-    }
-    if (found < allowed) {
-      return [
-        `${key}: baseline records ${allowed}, found ${found} — ` +
-          (found === 0 ? "delete the entry" : `lower the entry to ${found}`) +
-          ` in ${BASELINE_FILE}`,
-      ];
-    }
-    return [];
-  });
-}
-
-const total = (counts: Record<string, number>) =>
-  Object.values(counts).reduce((a, b) => a + b, 0);
-
 // ─── Tests ───────────────────────────────────────────────────────────
 
 describe("connector-agnostic guard (#1894)", () => {
   const names = forbiddenNames(getAllConnectors());
-  const recordedNames: Record<string, number> = baseline.names;
-  const recordedExports = Object.fromEntries(
-    Object.entries(baseline.exports as Record<string, string[]>).flatMap(
-      ([file, ids]) => ids.map((id) => [`${file}::${id}`, 1]),
-    ),
-  );
+  const HOW_TO_FIX =
+    "take the fact from the registry / descriptor instead of naming the connector";
 
   it("forbids something for every registered connector", () => {
     // Not a pin on today's names — that would need editing for connector N+1.
@@ -371,20 +353,14 @@ describe("connector-agnostic guard (#1894)", () => {
     }
   });
 
-  it("app/ and component/ name no connector beyond the baseline", () => {
+  it("app/ and component/ name no connector", () => {
     const files = readTree(ROOT, ["app/src", "component/src"]);
-    // A floor, for the day the baseline is empty: a walker that finds no
-    // files would otherwise pass as "no offenders".
+    // A floor: a walker that finds no files would pass as "no offenders".
     expect(files.length).toBeGreaterThan(300);
-    const actual = findOffenders({ names, files });
-    console.log(
-      `connector-name baseline: ${total(recordedNames)} occurrences in ` +
-        `${Object.keys(recordedNames).length} files (target: 0)`,
-    );
-    expect(baselineDrift(actual, recordedNames)).toEqual([]);
+    expect(findOffenders({ names, files }), HOW_TO_FIX).toEqual({});
   });
 
-  it("connection and connector-sdk export no connector-named identifier beyond the baseline", () => {
+  it("connection and connector-sdk export no connector-named identifier", () => {
     const actual = exportOffenders(
       names,
       PUBLIC_ENTRY_POINTS.map((file) => ({
@@ -392,11 +368,7 @@ describe("connector-agnostic guard (#1894)", () => {
         src: readFileSync(join(ROOT, file), "utf8"),
       })),
     );
-    console.log(
-      `connector-named export baseline: ${total(recordedExports)} identifiers ` +
-        `in ${Object.keys(baseline.exports).length} files (target: 0)`,
-    );
-    expect(baselineDrift(actual, recordedExports)).toEqual([]);
+    expect(actual, HOW_TO_FIX).toEqual({});
   });
 });
 
@@ -445,7 +417,6 @@ describe("the guards themselves", () => {
         files: readTree(root, ["app/src", "component/src"]),
       });
       expect(found).toEqual({ "app/src/planted.ts": 1 });
-      expect(baselineDrift(found, {})).toHaveLength(1);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -550,7 +521,6 @@ describe("the guards themselves", () => {
       "pkg/index.ts::detectAcmeErrorType",
       "pkg/index.ts::AcmeGraphRow",
     ]);
-    expect(baselineDrift(found, {})).toHaveLength(4);
   });
 
   it("refuses an `export *`, which would hide names from the guard", () => {
@@ -559,21 +529,42 @@ describe("the guards themselves", () => {
     );
   });
 
-  it("a baseline entry that no longer offends fails", () => {
-    expect(baselineDrift({}, { "app/src/fixed.ts": 3 })).toEqual([
-      expect.stringMatching(/app\/src\/fixed\.ts.*found 0.*delete the entry/),
-    ]);
-    expect(
-      baselineDrift({ "app/src/better.ts": 1 }, { "app/src/better.ts": 3 }),
-    ).toEqual([expect.stringMatching(/lower the entry to 1/)]);
+  // #1905 widened the permanent allowlist. Each entry has to let through what
+  // it names and nothing next to it, or it becomes the permission a baseline
+  // used to be.
+  it("lets a dev-only helper name a connector, and nothing beside it", () => {
+    const [{ type }] = getAllConnectors();
+    const src = `const u = "${type}";`;
+    const found = findOffenders({
+      names: forbiddenNames(getAllConnectors()),
+      files: [
+        { file: "app/src/lib/dev/verify.ts", src },
+        // A trailing slash on the prefix is what keeps these out.
+        { file: "app/src/lib/devtools/x.ts", src },
+        { file: "app/src/lib/dev.ts", src },
+      ],
+    });
+    expect(found).toEqual({
+      "app/src/lib/devtools/x.ts": 1,
+      "app/src/lib/dev.ts": 1,
+    });
   });
 
-  it("a file that offends more than its baseline entry fails, and an exact match passes", () => {
-    expect(baselineDrift({ "app/src/a.ts": 4 }, { "app/src/a.ts": 3 })).toEqual(
-      [expect.stringMatching(/4×, baseline allows 3/)],
+  it("blanks the metadata store's dialect sentence, not the file it is in", () => {
+    const names = forbiddenNames(getAllConnectors());
+    const [{ type }] = getAllConnectors();
+    const file = "app/src/app/api/dashboards/route.ts";
+    const sentence =
+      "// Postgres requires DISTINCT ON to match the leading ORDER BY columns;";
+    // The sentence alone is clean…
+    expect(findOffenders({ names, files: [{ file, src: sentence }] })).toEqual(
+      {},
     );
-    expect(baselineDrift({ "app/src/a.ts": 3 }, { "app/src/a.ts": 3 })).toEqual(
-      [],
-    );
+    // …and it exempts nothing else in the file.
+    const found = findOffenders({
+      names,
+      files: [{ file, src: `${sentence}\nconst t = "${type}";` }],
+    });
+    expect(Object.keys(found)).toEqual([file]);
   });
 });
