@@ -118,7 +118,7 @@ const QUERY_TEMPLATES: Record<string, { label: string; query: string }[]> = {
 
 /** Templates for an editor LANGUAGE; the connector-type arm was dead (#1900). */
 function getTemplates(lang: string) {
-  return QUERY_TEMPLATES[lang] ?? QUERY_TEMPLATES.sql ?? [];
+  return QUERY_TEMPLATES[lang] ?? QUERY_TEMPLATES.sql;
 }
 
 export interface QueryEditorPanelProps {

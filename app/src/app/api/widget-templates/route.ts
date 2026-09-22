@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, asc, count, eq, isNull, or } from "drizzle-orm";
+import { and, asc, count, eq, isNull, or, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -30,7 +30,9 @@ export async function GET(request: Request) {
     const connectorType = url.searchParams.get("connectorType");
     const { limit, offset } = parsePagination(request);
 
-    const conditions = [eq(widgetTemplates.tenantId, tenantId)];
+    const conditions: (SQL | undefined)[] = [
+      eq(widgetTemplates.tenantId, tenantId),
+    ];
     if (chartType) {
       conditions.push(eq(widgetTemplates.chartType, chartType));
     }
@@ -38,11 +40,14 @@ export async function GET(request: Request) {
       // A template whose widget needs no connection has no connectorType, and
       // belongs on every connection (#1900) — an equality alone would hide
       // exactly those, which is what the old hardcoded default masked.
-      const matchesOrNeedsNone = or(
-        eq(widgetTemplates.connectorType, connectorType),
-        isNull(widgetTemplates.connectorType),
+      // `or` is only undefined when every argument is; both of these are
+      // always present, and `and` skips undefined entries regardless.
+      conditions.push(
+        or(
+          eq(widgetTemplates.connectorType, connectorType),
+          isNull(widgetTemplates.connectorType),
+        ),
       );
-      if (matchesOrNeedsNone) conditions.push(matchesOrNeedsNone);
     }
 
     const [{ total }] = await db
