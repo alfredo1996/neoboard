@@ -26,6 +26,11 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
+/** The dismiss handlers the modal hands its DialogContent (#1952). */
+const { dismiss } = vi.hoisted(() => ({
+  dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
+}));
+
 vi.mock("@neoboard/components", () => {
   const passthrough = ({ children }: React.PropsWithChildren) => (
     <>{children}</>
@@ -36,11 +41,26 @@ vi.mock("@neoboard/components", () => {
     DialogContent: ({
       children,
       className,
-    }: React.PropsWithChildren<{ className?: string }>) => (
-      <div role="dialog" className={className}>
-        {children}
-      </div>
-    ),
+      onPointerDownOutside,
+      onInteractOutside,
+      onFocusOutside,
+    }: React.PropsWithChildren<{
+      className?: string;
+      onPointerDownOutside?: () => void;
+      onInteractOutside?: () => void;
+      onFocusOutside?: () => void;
+    }>) => {
+      Object.assign(dismiss, {
+        onPointerDownOutside,
+        onInteractOutside,
+        onFocusOutside,
+      });
+      return (
+        <div role="dialog" className={className}>
+          {children}
+        </div>
+      );
+    },
     DialogHeader: ({ children }: React.PropsWithChildren) => (
       <div>{children}</div>
     ),
@@ -342,5 +362,29 @@ describe("WidgetEditorModal — a parameter selector's database (#1824)", () => 
   it("shows no database for a selector without an option list", () => {
     renderSelector("text");
     expect(screen.queryByTestId("database-selector")).not.toBeInTheDocument();
+  });
+});
+
+// #1952: the editor closed on any interaction outside it, and focus leaving
+// counts — the card menu hands focus back to its trigger as it closes, so Edit
+// Widget opened an editor that dismissed itself at once. The E2E test in
+// widgets.spec.ts shows the behaviour; this pins which handler does it.
+describe("WidgetEditorModal — what dismisses it (#1952)", () => {
+  it("closes on a pointer-down outside it (#404), and not on focus leaving", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <WidgetEditorModal
+        open
+        onOpenChange={onOpenChange}
+        mode="add"
+        connections={[]}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(dismiss.onInteractOutside).toBeUndefined();
+    expect(dismiss.onFocusOutside).toBeUndefined();
+    dismiss.onPointerDownOutside?.();
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
   });
 });

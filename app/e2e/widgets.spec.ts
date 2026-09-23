@@ -529,3 +529,92 @@ test.describe("Widget fullscreen", () => {
     });
   });
 });
+
+// #1952: on a dashboard whose layout the API wrote, Edit Widget opened
+// nothing. The editor dismissed itself on any *interaction* outside it — and
+// focus leaving counts: the card's menu hands focus back to its trigger as it
+// closes, which is outside the dialog. #404 only needed the click.
+test.describe("Edit Widget on an API-written layout (#1952)", () => {
+  async function seedOneTable(
+    request: import("@playwright/test").APIRequestContext,
+  ) {
+    const { id, cleanup } = await createTestDashboard(
+      request,
+      `Edit widget ${Date.now()}`,
+    );
+    const res = await request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "page-1952",
+              title: "Main",
+              widgets: [
+                {
+                  id: "w-1952",
+                  chartType: "table",
+                  connectionId: "conn-neo4j-001",
+                  query: "MATCH (m:Movie) RETURN m.title AS title LIMIT 3",
+                  settings: { title: "Seeded table" },
+                },
+              ],
+              gridLayout: [{ i: "w-1952", x: 0, y: 0, w: 6, h: 4 }],
+            },
+          ],
+        },
+      },
+    });
+    if (!res.ok()) throw new Error(`Seed layout failed: ${res.status()}`);
+    return { id, cleanup };
+  }
+
+  async function openEditor(page: import("@playwright/test").Page) {
+    const card = page
+      .locator("[data-testid='widget-card']")
+      .filter({ hasText: "Seeded table" });
+    await card.hover();
+    await card.getByRole("button", { name: "Widget actions" }).click();
+    await page.getByRole("menuitem", { name: "Edit Widget" }).click();
+    return page.getByRole("dialog", { name: "Edit Widget" });
+  }
+
+  test.beforeEach(async ({ authPage }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+  });
+
+  test("opens the editor", async ({ page }) => {
+    const { id, cleanup } = await seedOneTable(page.request);
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(page.getByText("Seeded table")).toBeVisible({
+        timeout: 15_000,
+      });
+      const dialog = await openEditor(page);
+      await expect(dialog).toBeVisible({ timeout: 10_000 });
+      // Still open once the menu has finished handing focus back.
+      await page.waitForTimeout(500);
+      await expect(dialog).toBeVisible();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // #404's behaviour, which the fix must keep: a click outside closes it.
+  test("still closes on a click outside it (#404)", async ({ page }) => {
+    const { id, cleanup } = await seedOneTable(page.request);
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(page.getByText("Seeded table")).toBeVisible({
+        timeout: 15_000,
+      });
+      const dialog = await openEditor(page);
+      await expect(dialog).toBeVisible({ timeout: 10_000 });
+      // The overlay, top-left: the dialog is centred and narrower.
+      await page.mouse.click(5, 5);
+      await expect(dialog).not.toBeVisible({ timeout: 5_000 });
+    } finally {
+      await cleanup();
+    }
+  });
+});
