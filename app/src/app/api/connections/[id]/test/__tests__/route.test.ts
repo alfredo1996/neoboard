@@ -438,7 +438,7 @@ describe("POST /api/connections/[id]/test — scheduling (#1426)", () => {
     expect(registry.getScheduler("c1").getStats().activeQueries).toBe(0);
   });
 
-  it("looks the connection up by id AND the caller's own user id, before any slot is taken", async () => {
+  it("looks the connection up by id, the caller's own user id AND tenant, before any slot is taken", async () => {
     const chain = recordingSelectChain([]);
     mockDb.select.mockReturnValueOnce(chain);
     const res = await POST(makeRequest(null), makeParams("c1"));
@@ -446,11 +446,56 @@ describe("POST /api/connections/[id]/test — scheduling (#1426)", () => {
     expect(res.status).toBe(404);
     expect(sqlColumns(chain.calls.where[0][0]).sort()).toEqual([
       "id",
+      "tenant_id",
       "userId",
     ]);
-    expect(sqlValues(chain.calls.where[0][0]).sort()).toEqual(["c1", "user-1"]);
+    expect(sqlValues(chain.calls.where[0][0]).sort()).toEqual([
+      "c1",
+      "t1",
+      "user-1",
+    ]);
     expect(mockTestConnection).not.toHaveBeenCalled();
     expect(registry.listSchedulers()).toEqual([]);
+  });
+
+  // #1923: an admin is offered Test on every connection in the tenant, as GET
+  // and DELETE already allow, and can already run queries on any of them. The
+  // route matched on ownership alone, so an admin's test always failed.
+  describe("as an admin (#1923)", () => {
+    const ADMIN = { ...SESSION, userId: "admin-1", role: "admin" };
+
+    it("tests a connection they do not own, found by id and their tenant", async () => {
+      mockRequireSession.mockResolvedValue(ADMIN);
+      const chain = recordingSelectChain([
+        { id: "c1", userId: "user-1", type: "neo4j", configEncrypted: "enc" },
+      ]);
+      mockDb.select.mockReturnValueOnce(chain);
+      mockDecryptJson.mockReturnValue({ uri: "bolt://x", username: "u" });
+      mockTestConnection.mockReset();
+      mockTestConnection.mockResolvedValue(true);
+
+      const res = await POST(makeRequest(null), makeParams("c1"));
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).data.success).toBe(true);
+      expect(sqlColumns(chain.calls.where[0][0]).sort()).toEqual([
+        "id",
+        "tenant_id",
+      ]);
+      expect(sqlValues(chain.calls.where[0][0]).sort()).toEqual(["c1", "t1"]);
+    });
+
+    it("cannot reach another tenant's connection: the lookup is scoped to theirs", async () => {
+      mockRequireSession.mockResolvedValue({ ...ADMIN, tenantId: "t2" });
+      const chain = recordingSelectChain([]);
+      mockDb.select.mockReturnValueOnce(chain);
+
+      const res = await POST(makeRequest(null), makeParams("c1"));
+
+      expect(res.status).toBe(404);
+      expect(sqlValues(chain.calls.where[0][0])).toContain("t2");
+      expect(mockTestConnection).not.toHaveBeenCalled();
+    });
   });
 
   it("logs no decrypted credential on any path: pass, fail, busy", async () => {

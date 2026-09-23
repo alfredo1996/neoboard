@@ -41,7 +41,12 @@ const APP_SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
  * the derived map cannot notice a table that was never derived.
  */
 export function tenantTablesIn(src: string): Record<string, string> {
-  const sf = ts.createSourceFile("schema.ts", src, ts.ScriptTarget.Latest, true);
+  const sf = ts.createSourceFile(
+    "schema.ts",
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+  );
   const out: Record<string, string> = {};
   const tables: ts.CallExpression[] = [];
   const literals: ts.StringLiteral[] = [];
@@ -68,7 +73,11 @@ export function tenantTablesIn(src: string): Record<string, string> {
         ? owner.name.getText(sf)
         : "an unbound pgTable";
       const [physical, columns] = n.arguments;
-      if (!ts.isVariableDeclaration(owner) || !physical || !ts.isStringLiteral(physical)) {
+      if (
+        !ts.isVariableDeclaration(owner) ||
+        !physical ||
+        !ts.isStringLiteral(physical)
+      ) {
         throw new Error(`cannot read the table name of ${name}`);
       }
       if (columns && declaresTenant(columns)) out[name] = physical.text;
@@ -109,7 +118,11 @@ const TENANT_TABLES = tenantTablesIn(
  * Calls whose result is the caller's own session, or the operator's configured
  * tenant (`resolveTenantId()`, the only reader of TENANT_ID — #1728).
  */
-const SESSION_SOURCES = new Set(["requireSession", "requireAdmin", "resolveTenantId"]);
+const SESSION_SOURCES = new Set([
+  "requireSession",
+  "requireAdmin",
+  "resolveTenantId",
+]);
 /** Database clients: a row they return carries the tenant it was stored with. */
 const DB_CLIENTS = new Set(["db", "tx"]);
 /** Next.js route handlers, whose parameters are the request itself. */
@@ -125,7 +138,11 @@ interface Src {
 
 function bind(file: string, src: string): Src {
   const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true);
-  const options: ts.CompilerOptions = { noLib: true, noResolve: true, types: [] };
+  const options: ts.CompilerOptions = {
+    noLib: true,
+    noResolve: true,
+    types: [],
+  };
   const host = ts.createCompilerHost(options);
   host.getSourceFile = () => sf;
   const first = sf.statements[0];
@@ -177,7 +194,8 @@ function localFunction(
   if (!ts.isIdentifier(callee)) return undefined;
   const d = declOf(callee, s);
   if (d && ts.isFunctionDeclaration(d)) return d;
-  const init = d && ts.isVariableDeclaration(d) && d.initializer && unwrap(d.initializer);
+  const init =
+    d && ts.isVariableDeclaration(d) && d.initializer && unwrap(d.initializer);
   return init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))
     ? init
     : undefined;
@@ -187,7 +205,9 @@ function localFunction(
  * Everything a function can return; `undefined` for a bare `return;` or for
  * falling off the end of the body.
  */
-function returnsOf(fn: ts.FunctionLikeDeclaration): (ts.Expression | undefined)[] {
+function returnsOf(
+  fn: ts.FunctionLikeDeclaration,
+): (ts.Expression | undefined)[] {
   if (!fn.body) return [undefined];
   if (!ts.isBlock(fn.body)) return [fn.body];
   const out: (ts.Expression | undefined)[] = [];
@@ -287,7 +307,9 @@ function trustedReturn(
   const call = unwrap(
     (ts.isIdentifier(target) && initializerOf(target, s)) || target,
   );
-  const fn = ts.isCallExpression(call) ? localFunction(call.expression, s) : undefined;
+  const fn = ts.isCallExpression(call)
+    ? localFunction(call.expression, s)
+    : undefined;
   const props = (fn ? returnsOf(fn) : []).flatMap((r) => {
     const o = r && unwrap(r);
     return o && ts.isObjectLiteralExpression(o)
@@ -361,7 +383,9 @@ function constrainsTenant(
   // `${dashboards.tenantId} = ${tenantId}` — at its own level, on every
   // variant. A subquery's alias scopes the subquery, not this row.
   if (isSqlTag(e)) {
-    return sqlVariants(e, s).every((v) => fragmentConstrains(sqlCode(v), table));
+    return sqlVariants(e, s).every((v) =>
+      fragmentConstrains(sqlCode(v), table),
+    );
   }
   if (ts.isConditionalExpression(e)) return sub(e.whenTrue) && sub(e.whenFalse);
   if (ts.isIdentifier(e)) return resolved(initializerOf(e, s));
@@ -404,9 +428,14 @@ function valuesSetTenant(n: ts.Node, s: Src, depth = 4): boolean {
   }
   if (ts.isIdentifier(e)) {
     const init = initializerOf(e, s);
-    return depth > 0 && init !== undefined && valuesSetTenant(init, s, depth - 1);
+    return (
+      depth > 0 && init !== undefined && valuesSetTenant(init, s, depth - 1)
+    );
   }
-  return ts.forEachChild(e, (c) => valuesSetTenant(c, s, depth) || undefined) ?? false;
+  return (
+    ts.forEachChild(e, (c) => valuesSetTenant(c, s, depth) || undefined) ??
+    false
+  );
 }
 
 // ─── Raw SQL ─────────────────────────────────────────────────────────
@@ -477,13 +506,19 @@ function renderSql(n: ts.Expression, s: Src, depth: number): string[] {
   if (ts.isCallExpression(e)) {
     const fn = localFunction(e.expression, s);
     return fn
-      ? returnsOf(fn).flatMap((r) => (r ? renderSql(r, s, depth - 1) : [OPAQUE]))
+      ? returnsOf(fn).flatMap((r) =>
+          r ? renderSql(r, s, depth - 1) : [OPAQUE],
+        )
       : [OPAQUE];
   }
   const init = ts.isIdentifier(e) ? initializerOf(e, s) : undefined;
   if (init) return renderSql(init, s, depth - 1);
   // ponytail: a parameter holding a SQL fragment still renders as a value.
-  if (ts.isIdentifier(e) || ts.isPropertyAccessExpression(e) || ts.isLiteralExpression(e)) {
+  if (
+    ts.isIdentifier(e) ||
+    ts.isPropertyAccessExpression(e) ||
+    ts.isLiteralExpression(e)
+  ) {
     return [trusted(e, s) ? VALUE : CALLER];
   }
   return [OPAQUE];
@@ -516,7 +551,7 @@ function enclosingParen(code: string, i: number, step: 1 | -1): number {
 /** Blank every parenthesised group, offsets kept, leaving one level of SQL. */
 function mask(text: string): string {
   let out = text;
-  for (let prev = ""; prev !== out; ) {
+  for (let prev = ""; prev !== out;) {
     prev = out;
     out = out.replace(/\([^()]*\)/g, (g) => " ".repeat(g.length));
   }
@@ -581,10 +616,12 @@ function sqlRefs(code: string): Ref[] {
 const CLAUSE =
   /\b(WHERE|ON|HAVING|SET|SELECT|FROM|VALUES|RETURNING|ORDER|GROUP|LIMIT)\b/gi;
 const FILTERS = new Set(["WHERE", "ON", "HAVING"]);
-const JOIN_KEYWORD = /\b(?:(LEFT|RIGHT|FULL|INNER|CROSS)\s+)?(?:OUTER\s+)?JOIN\b/gi;
+const JOIN_KEYWORD =
+  /\b(?:(LEFT|RIGHT|FULL|INNER|CROSS)\s+)?(?:OUTER\s+)?JOIN\b/gi;
 
 /** `[<qualifier>.]tenant_id = $VALUE`, schema-qualified or not. */
-const PREDICATE = /(?<![\w."])((?:(?:\w+|"\w+")\.)*)"?tenant_id"?\s*=\s*\$VALUE\b/g;
+const PREDICATE =
+  /(?<![\w."])((?:(?:\w+|"\w+")\.)*)"?tenant_id"?\s*=\s*\$VALUE\b/g;
 
 interface Predicate {
   /** The name it qualifies the column with; undefined when bare. */
@@ -598,7 +635,9 @@ interface Predicate {
 function predicatesIn(code: string): Predicate[] {
   return [...code.matchAll(PREDICATE)].flatMap((m) => {
     const where = filterAt(code, m.index, m.index + m[0].length);
-    const qualifier = m[1] ? m[1].split(".").at(-2)?.replaceAll('"', "") : undefined;
+    const qualifier = m[1]
+      ? m[1].split(".").at(-2)?.replaceAll('"', "")
+      : undefined;
     return where ? [{ ...where, qualifier }] : [];
   });
 }
@@ -623,7 +662,9 @@ function filterAt(
   for (;;) {
     const open = enclosingParen(code, lo - 1, -1);
     const atScope = open < scope[0];
-    const [start, end] = atScope ? scope : [open + 1, enclosingParen(code, hi, 1)];
+    const [start, end] = atScope
+      ? scope
+      : [open + 1, enclosingParen(code, hi, 1)];
     const before = mask(code.slice(start, lo));
     const keyword = [...before.matchAll(CLAUSE)].pop();
     clause ??= keyword && {
@@ -825,12 +866,6 @@ const ALLOWLIST: Record<string, { count: number; reason: string }> = {
     count: 1,
     reason: "self-access by users.id from the caller's own session",
   },
-  // connections.userId FKs to a per-tenant user row, and userId is the
-  // caller's own — a connection in another tenant cannot match.
-  "app/api/connections/[id]/test/route.ts::connections::from": {
-    count: 1,
-    reason: "scoped by connections.userId = caller's own session userId",
-  },
   // Both operands were tenant-verified earlier in the same handler:
   // `id` via requireShareAccess() and `targetUser.id` via a tenant-scoped
   // lookup. The update then keys off the row that select returned.
@@ -903,15 +938,25 @@ export function scanSource(file: string, src: string): Hit[] {
       // lib/auth/api-key.ts for exactly that reason.
       const gate = kind === "insert" ? "values" : "where";
       const predicates: ts.Node[] = [];
-      const joins: { table: string; on?: ts.Node; filters: boolean; line: number }[] = [];
+      const joins: {
+        table: string;
+        on?: ts.Node;
+        filters: boolean;
+        line: number;
+      }[] = [];
       const findClauses = (n: ts.Node): void => {
-        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
+        if (
+          ts.isCallExpression(n) &&
+          ts.isPropertyAccessExpression(n.expression)
+        ) {
           const method = n.expression.name.text;
           if (method === gate) predicates.push(...n.arguments);
           // Every tenant table joined into this statement is its own query
           // surface. These produced no Hit at all before #1626 — not an
           // unscoped Hit, none — so 8 live joins were invisible to the guard.
-          const joined = JOINS.has(method) ? tableOf(n.arguments[0]) : undefined;
+          const joined = JOINS.has(method)
+            ? tableOf(n.arguments[0])
+            : undefined;
           if (joined !== undefined) {
             joins.push({
               table: joined,
@@ -947,7 +992,9 @@ export function scanSource(file: string, src: string): Hit[] {
           table: j.table,
           kind: "join",
           scoped:
-            (j.filters && j.on !== undefined && constrainsTenant(j.on, j.table, s)) ||
+            (j.filters &&
+              j.on !== undefined &&
+              constrainsTenant(j.on, j.table, s)) ||
             predicates.some((p) => constrainsTenant(p, j.table, s)),
           snippet: brief(j.on?.getText(sf) ?? ""),
         });
@@ -1214,7 +1261,8 @@ describe("scanSource", () => {
   });
 
   it("rejects a builder predicate with a branch that drops the filter", () => {
-    const scoped = "and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId))";
+    const scoped =
+      "and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId))";
     for (const [label, prelude, where] of [
       ["ternary", "", `isAdmin ? eq(dashboards.id, id) : ${scoped}`],
       [
@@ -1237,9 +1285,14 @@ describe("scanSource", () => {
   });
 
   it("accepts a builder predicate whose every branch carries the filter", () => {
-    const scoped = "and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId))";
+    const scoped =
+      "and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId))";
     for (const [label, prelude, where] of [
-      ["ternary", "", `isAdmin ? eq(dashboards.tenantId, tenantId) : ${scoped}`],
+      [
+        "ternary",
+        "",
+        `isAdmin ? eq(dashboards.tenantId, tenantId) : ${scoped}`,
+      ],
       [
         "helper",
         `function scope(a) { if (a) return eq(dashboards.tenantId, tenantId); return ${scoped}; }`,
@@ -1384,8 +1437,10 @@ describe("scanSource", () => {
   // banned names. Only a binding that resolves to the session is credited.
 
   describe("tenant value provenance", () => {
-    const raw = 'await db.execute(sql`SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId}`);';
-    const builder = "await db.select().from(dashboards).where(eq(dashboards.tenantId, tenantId));";
+    const raw =
+      'await db.execute(sql`SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId}`);';
+    const builder =
+      "await db.select().from(dashboards).where(eq(dashboards.tenantId, tenantId));";
     // No import prelude: a "use server" directive only counts as the first statement.
     const scan = (src: string) =>
       scanSource("f.ts", src)
@@ -1394,14 +1449,38 @@ describe("scanSource", () => {
 
     it("rejects a tenant value that does not trace to the session", () => {
       for (const [label, src] of [
-        ["destructured from the body, raw", `export async function POST(req) { const body = await req.json(); const { tenantId } = body; ${raw} }`],
-        ["destructured from req.json(), builder", `export async function POST(req) { const { tenantId } = await req.json(); ${builder} }`],
-        ["property of a renamed body, raw", 'export async function POST(req) { const data = await req.json(); await db.execute(sql`SELECT id FROM "dashboard" d WHERE d.tenant_id = ${data.tenantId}`); }'],
-        ["renamed request object", "export async function PUT(r) { const b = await r.json(); await db.select().from(dashboards).where(eq(dashboards.tenantId, b.tenantId)); }"],
-        ["a route handler's own parameter", `export const DELETE = async (tenantId) => { ${builder} };`],
-        ["a callback's parameter", "await Promise.all(items.map((tenantId) => db.select().from(dashboards).where(eq(dashboards.tenantId, tenantId))));"],
-        ["a server action's parameter", `"use server";\nexport async function save(tenantId) { ${builder} }`],
-        ["destructured from the body, insert", "export async function POST(req) { const { tenantId } = await req.json(); await db.insert(dashboards).values({ name, tenantId }); }"],
+        [
+          "destructured from the body, raw",
+          `export async function POST(req) { const body = await req.json(); const { tenantId } = body; ${raw} }`,
+        ],
+        [
+          "destructured from req.json(), builder",
+          `export async function POST(req) { const { tenantId } = await req.json(); ${builder} }`,
+        ],
+        [
+          "property of a renamed body, raw",
+          'export async function POST(req) { const data = await req.json(); await db.execute(sql`SELECT id FROM "dashboard" d WHERE d.tenant_id = ${data.tenantId}`); }',
+        ],
+        [
+          "renamed request object",
+          "export async function PUT(r) { const b = await r.json(); await db.select().from(dashboards).where(eq(dashboards.tenantId, b.tenantId)); }",
+        ],
+        [
+          "a route handler's own parameter",
+          `export const DELETE = async (tenantId) => { ${builder} };`,
+        ],
+        [
+          "a callback's parameter",
+          "await Promise.all(items.map((tenantId) => db.select().from(dashboards).where(eq(dashboards.tenantId, tenantId))));",
+        ],
+        [
+          "a server action's parameter",
+          `"use server";\nexport async function save(tenantId) { ${builder} }`,
+        ],
+        [
+          "destructured from the body, insert",
+          "export async function POST(req) { const { tenantId } = await req.json(); await db.insert(dashboards).values({ name, tenantId }); }",
+        ],
         ["bound nowhere", builder],
       ]) {
         expect(scan(src), label).toEqual([false]);
@@ -1426,18 +1505,39 @@ describe("scanSource", () => {
 
     it("accepts the session bindings the codebase writes", () => {
       for (const [label, src] of [
-        ["destructured requireSession()", `const { tenantId } = await requireSession(); ${raw} ${builder}`],
-        ["destructured requireAdmin()", `const { tenantId } = await requireAdmin(); ${raw} ${builder}`],
-        ["renamed destructure", "const { tenantId: sessionTenantId } = await requireSession(); await db.select().from(dashboards).where(eq(dashboards.tenantId, sessionTenantId));"],
-        ["session.tenantId through a local", `const session = await requireSession(); const tenantId = session.tenantId; ${raw} ${builder}`],
+        [
+          "destructured requireSession()",
+          `const { tenantId } = await requireSession(); ${raw} ${builder}`,
+        ],
+        [
+          "destructured requireAdmin()",
+          `const { tenantId } = await requireAdmin(); ${raw} ${builder}`,
+        ],
+        [
+          "renamed destructure",
+          "const { tenantId: sessionTenantId } = await requireSession(); await db.select().from(dashboards).where(eq(dashboards.tenantId, sessionTenantId));",
+        ],
+        [
+          "session.tenantId through a local",
+          `const session = await requireSession(); const tenantId = session.tenantId; ${raw} ${builder}`,
+        ],
         [
           "session returned by a local guard",
           `async function owned() { const session = await requireSession(); if (x) return { error: 1 }; return { template, session }; }
            export async function DELETE() { const result = await owned(); const { tenantId } = result.session; ${builder} }`,
         ],
-        ["a library helper's parameter", `export async function usage(tenantId: string) { ${raw} ${builder} }`],
-        ["a row fetched from the database", "const [row] = await db.select().from(users); await db.insert(dashboards).values({ tenantId: row.tenantId });"],
-        ["operator config", "const tenantId = resolveTenantId(); await db.insert(dashboards).values({ tenantId });"],
+        [
+          "a library helper's parameter",
+          `export async function usage(tenantId: string) { ${raw} ${builder} }`,
+        ],
+        [
+          "a row fetched from the database",
+          "const [row] = await db.select().from(users); await db.insert(dashboards).values({ tenantId: row.tenantId });",
+        ],
+        [
+          "operator config",
+          "const tenantId = resolveTenantId(); await db.insert(dashboards).values({ tenantId });",
+        ],
       ]) {
         expect(scan(src).every(Boolean), label).toBe(true);
       }
@@ -1523,8 +1623,8 @@ describe("scanSource", () => {
         "d.tenant_id = ${body.tenantId}",
         "d.tenant_id = ${req.body.tenantId}",
         "d.id = ${id} OR d.tenant_id = ${tenantId}",
-        "d.tenant_id = ${tenantId} AND d.id = ${id} OR d.\"isPublic\"",
-        "(d.tenant_id = ${tenantId}) OR d.\"isPublic\"",
+        'd.tenant_id = ${tenantId} AND d.id = ${id} OR d."isPublic"',
+        '(d.tenant_id = ${tenantId}) OR d."isPublic"',
         "d.name = 'd.tenant_id = ${tenantId}'",
         "d.id = ${id} -- d.tenant_id = ${tenantId}\n",
         // A block comment is not a filter either.
@@ -1548,9 +1648,15 @@ describe("scanSource", () => {
     it("rejects a tenant_id comparison that sits outside WHERE/ON/HAVING", () => {
       for (const [body, table] of [
         // An assignment moves rows into a tenant; it filters nothing.
-        ["UPDATE connection SET tenant_id = ${tenantId} WHERE id = ${id}", "connections"],
+        [
+          "UPDATE connection SET tenant_id = ${tenantId} WHERE id = ${id}",
+          "connections",
+        ],
         // A projection computes a column; every tenant's rows come back.
-        ['SELECT d.tenant_id = ${tenantId} AS mine FROM "dashboard" d', "dashboards"],
+        [
+          'SELECT d.tenant_id = ${tenantId} AS mine FROM "dashboard" d',
+          "dashboards",
+        ],
       ]) {
         expect(verdicts(run(body), table), body).toEqual([false]);
       }
@@ -1571,11 +1677,20 @@ describe("scanSource", () => {
 
     it("sees every way a statement names a tenant table", () => {
       for (const [body, table] of [
-        ['DELETE FROM "dashboard" d USING "dashboard_share" s WHERE s."dashboardId" = d.id AND d.tenant_id = ${tenantId}', "dashboardShares"],
-        ['INSERT INTO "dashboard" (id, name) VALUES (${id}, ${n})', "dashboards"],
+        [
+          'DELETE FROM "dashboard" d USING "dashboard_share" s WHERE s."dashboardId" = d.id AND d.tenant_id = ${tenantId}',
+          "dashboardShares",
+        ],
+        [
+          'INSERT INTO "dashboard" (id, name) VALUES (${id}, ${n})',
+          "dashboards",
+        ],
         ["SELECT id FROM public.dashboard WHERE id = ${id}", "dashboards"],
         ['SELECT id FROM "public"."dashboard" WHERE id = ${id}', "dashboards"],
-        ["SELECT * FROM ${dashboards} WHERE ${dashboards.id} = ${id}", "dashboards"],
+        [
+          "SELECT * FROM ${dashboards} WHERE ${dashboards.id} = ${id}",
+          "dashboards",
+        ],
         ["SELECT * FROM ${schema.dashboards} WHERE id = ${id}", "dashboards"],
       ]) {
         expect(verdicts(run(body), table), body).toEqual([false]);
@@ -1612,13 +1727,17 @@ describe("scanSource", () => {
     });
 
     it("traces the interpolated tenant value through a local", () => {
-      const where = 'SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId}';
+      const where =
+        'SELECT id FROM "dashboard" d WHERE d.tenant_id = ${tenantId}';
       expect(
         verdicts(run(where, "const tenantId = body.tenantId;"), "dashboards"),
       ).toEqual([false]);
       expect(
         verdicts(
-          run(where, "const session = await requireSession(); const tenantId = session.tenantId;"),
+          run(
+            where,
+            "const session = await requireSession(); const tenantId = session.tenantId;",
+          ),
           "dashboards",
         ),
       ).toEqual([true]);
@@ -1682,7 +1801,9 @@ describe("tenantTablesIn", () => {
 
   it("fails loudly on a table name it cannot read", () => {
     expect(() =>
-      tenantTablesIn(`export const a = pgTable(NAME, { tenantId: text("tenant_id") });`),
+      tenantTablesIn(
+        `export const a = pgTable(NAME, { tenantId: text("tenant_id") });`,
+      ),
     ).toThrow(/cannot read the table name of a/);
   });
 
