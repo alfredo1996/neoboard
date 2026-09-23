@@ -511,6 +511,122 @@ describe("useAutoPreview", () => {
       expect(opts.onOpenChange).toHaveBeenCalledWith(false);
     });
 
+    // #1912: the shortcut built its own input and forgot the parameters, so
+    // every query with a $param_ token failed and nothing saved.
+    describe("with query parameters (#1912)", () => {
+      const PARAM_QUERY = "MATCH (n) WHERE n.id = $param_myId RETURN n";
+      const pressRunAndSave = () =>
+        act(() => {
+          document.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              metaKey: true,
+              shiftKey: true,
+            }),
+          );
+        });
+
+      it("sends the parameters the query references", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: PARAM_QUERY,
+          allParamValues: { myId: 42 },
+          previewQuery: { mutate },
+        });
+        renderHook(() => useAutoPreview(opts));
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+
+        expect(mutate).toHaveBeenCalledTimes(1);
+        expect(mutate.mock.calls[0][0]).toEqual({
+          connectionId: "conn-1",
+          query: PARAM_QUERY,
+          params: { param_myId: 42 },
+          rowLimit: 25,
+        });
+      });
+
+      // Owner's call: the shortcut means "save only if it runs". It cannot
+      // run yet, and the preview already says "Waiting for parameters…".
+      it("does nothing while a referenced parameter is unset", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: PARAM_QUERY,
+          allParamValues: {},
+          previewQuery: { mutate },
+        });
+        const { result } = renderHook(() => useAutoPreview(opts));
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+
+        pressRunAndSave();
+
+        expect(mutate).not.toHaveBeenCalled();
+        expect(result.current.saveStatus).toBe("idle");
+        expect(opts.onSave).not.toHaveBeenCalled();
+      });
+
+      // Found by the #1912 E2E test, flaking: type, then press the shortcut
+      // before the 800ms auto-preview fires. The preview's `mutate` came
+      // second, and TanStack fires `mutate`'s callbacks only for the latest
+      // call — so run-and-save never saved and stayed "saving" for good.
+      it("is not superseded by the auto-preview of the query just typed", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        // Typing: the auto-preview is now due in 800ms.
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 5" });
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        pressRunAndSave();
+        act(() => {
+          vi.advanceTimersByTime(800);
+        });
+
+        expect(mutate).toHaveBeenCalledTimes(1);
+        expect(mutate.mock.calls[0][1]).toHaveProperty("onSuccess");
+      });
+
+      // The two paths share one input builder, so they cannot drift again.
+      it("runs exactly what the preview runs", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: PARAM_QUERY,
+          allParamValues: { myId: 7 },
+          previewQuery: { mutate },
+        });
+        const { result } = renderHook(() => useAutoPreview(opts));
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        act(() => {
+          result.current.handlePreview();
+        });
+        pressRunAndSave();
+
+        expect(mutate).toHaveBeenCalledTimes(2);
+        expect(mutate.mock.calls[1][0]).toEqual(mutate.mock.calls[0][0]);
+      });
+    });
+
     it("resets saveStatus to idle on error", () => {
       const mutate = vi.fn();
       const opts = createDefaults({ previewQuery: { mutate } });

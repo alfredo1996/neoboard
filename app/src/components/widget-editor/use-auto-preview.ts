@@ -89,30 +89,41 @@ export function useAutoPreview({
   // nothing (#1762). Auto-runs skip a repeat; a manual Run always runs.
   const lastRunRef = useRef<string | null>(null);
 
-  const runPreview = useCallback((auto: boolean) => {
+  /**
+   * What a run sends — one builder for the preview and for run-and-save, so
+   * they cannot drift apart again. Run-and-save built its own and forgot the
+   * parameters, so every query with a $param_ token failed and never saved
+   * (#1912). `null` while there is nothing that can run.
+   */
+  const buildRunInput = useCallback(() => {
     const cId = connectionIdRef.current;
     const q = queryRef.current;
-    if (cId && q.trim()) {
-      // Don't run a query that still has unbound $param_x tokens — the literal
-      // token would surface a raw `syntax error at or near "$"` in the editor
-      // preview. Mirror the dashboard's "Waiting for parameters…" state by
-      // skipping the run (#1055).
-      if (!allReferencedParamsReady(q, allParamValuesRef.current)) return;
-      const referenced = extractReferencedParams(q, allParamValuesRef.current);
-      const params =
-        Object.keys(referenced).length > 0 ? referenced : undefined;
-      const input = {
-        connectionId: cId,
-        query: q,
-        params,
-        rowLimit: PREVIEW_ROW_LIMIT,
-      };
+    if (!cId || !q.trim()) return null;
+    // Don't run a query that still has unbound $param_x tokens — the literal
+    // token would surface a raw `syntax error at or near "$"` in the editor
+    // preview. Mirror the dashboard's "Waiting for parameters…" state by
+    // skipping the run (#1055).
+    if (!allReferencedParamsReady(q, allParamValuesRef.current)) return null;
+    const referenced = extractReferencedParams(q, allParamValuesRef.current);
+    return {
+      connectionId: cId,
+      query: q,
+      params: Object.keys(referenced).length > 0 ? referenced : undefined,
+      rowLimit: PREVIEW_ROW_LIMIT,
+    };
+  }, []);
+
+  const runPreview = useCallback(
+    (auto: boolean) => {
+      const input = buildRunInput();
+      if (!input) return;
       const key = JSON.stringify(input);
       if (auto && key === lastRunRef.current) return;
       lastRunRef.current = key;
       previewQueryRef.current.mutate(input);
-    }
-  }, []);
+    },
+    [buildRunInput],
+  );
 
   const handlePreview = useCallback(() => runPreview(false), [runPreview]);
 
@@ -170,37 +181,44 @@ export function useAutoPreview({
     initialPreviewQuery,
   ]);
 
-  // CMD+Shift+Enter: run query, then save on success.
+  // CMD+Shift+Enter: run query, then save on success. Save only if it runs:
+  // while a parameter is unset it cannot, and the preview already says so
+  // ("Waiting for parameters…"); the Save button still saves (#1912).
   const handleRunAndSave = useCallback(() => {
     if (chartType === "markdown" || chartType === "iframe") return;
-    if (!query.trim() || saveStatus === "saving") return;
+    if (saveStatus === "saving") return;
+    const input = buildRunInput();
+    if (!input) return;
+    // Recorded like any run, so the auto-preview of what was just typed —
+    // still due when the shortcut is pressed — is skipped as a repeat. Sent
+    // after this, its `mutate` would supersede this one's callbacks: nothing
+    // saves, and the status stays "saving" (#1912).
+    // ponytail: typing *after* pressing the shortcut is a different query and
+    // still supersedes; skip auto-runs while saving if that ever shows up.
+    lastRunRef.current = JSON.stringify(input);
     setSaveStatus("saving");
-    previewQueryRef.current.mutate(
-      { connectionId, query, rowLimit: PREVIEW_ROW_LIMIT },
-      {
-        onSuccess: () => {
-          if (savedTimerRef.current !== null) {
-            clearTimeout(savedTimerRef.current);
-          }
-          setSaveStatus("saved");
-          savedTimerRef.current = setTimeout(() => {
-            setSaveStatus("idle");
-            savedTimerRef.current = null;
-          }, 1500);
-          const widgetToSave = buildWidgetForSave();
-          onSave(widgetToSave);
-          onOpenChange(false);
-        },
-        onError: () => {
+    previewQueryRef.current.mutate(input, {
+      onSuccess: () => {
+        if (savedTimerRef.current !== null) {
+          clearTimeout(savedTimerRef.current);
+        }
+        setSaveStatus("saved");
+        savedTimerRef.current = setTimeout(() => {
           setSaveStatus("idle");
-        },
+          savedTimerRef.current = null;
+        }, 1500);
+        const widgetToSave = buildWidgetForSave();
+        onSave(widgetToSave);
+        onOpenChange(false);
       },
-    );
+      onError: () => {
+        setSaveStatus("idle");
+      },
+    });
   }, [
-    query,
     saveStatus,
-    connectionId,
     chartType,
+    buildRunInput,
     buildWidgetForSave,
     onSave,
     onOpenChange,

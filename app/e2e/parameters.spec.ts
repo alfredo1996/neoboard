@@ -668,75 +668,75 @@ test.describe("Click actions", () => {
   });
 });
 
-test.describe("Parameter interpolation in titles", () => {
-  /**
-   * Helper: create a dashboard with a parameter-select widget and a table whose
-   * title contains $param_year.
-   */
-  async function createInterpolatedTitleDashboard(
-    request: import("@playwright/test").APIRequestContext,
-  ) {
-    const res = await request.post("/api/dashboards", {
-      data: { name: `Interpolation ${Date.now()}` },
-    });
-    if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
-    const { id } = (await res.json()).data;
+/**
+ * Helper: create a dashboard with a parameter-select widget and a table whose
+ * title contains $param_year.
+ */
+async function createInterpolatedTitleDashboard(
+  request: import("@playwright/test").APIRequestContext,
+) {
+  const res = await request.post("/api/dashboards", {
+    data: { name: `Interpolation ${Date.now()}` },
+  });
+  if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
+  const { id } = (await res.json()).data;
 
-    const layout = {
-      version: 2 as const,
-      pages: [
-        {
-          id: "page-interp",
-          title: "Main",
-          widgets: [
-            {
-              id: "interp-param",
-              chartType: "parameter-select",
-              connectionId: "conn-neo4j-001",
-              query: "",
-              settings: {
-                title: "Year Selector",
-                chartOptions: {
-                  parameterType: "select",
-                  parameterName: "year",
-                  seedQuery:
-                    "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
-                },
+  const layout = {
+    version: 2 as const,
+    pages: [
+      {
+        id: "page-interp",
+        title: "Main",
+        widgets: [
+          {
+            id: "interp-param",
+            chartType: "parameter-select",
+            connectionId: "conn-neo4j-001",
+            query: "",
+            settings: {
+              title: "Year Selector",
+              chartOptions: {
+                parameterType: "select",
+                parameterName: "year",
+                seedQuery:
+                  "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
               },
             },
-            {
-              id: "interp-table",
-              chartType: "table",
-              connectionId: "conn-neo4j-001",
-              query:
-                "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title LIMIT 5",
-              settings: {
-                title: "Movies from $param_year",
-              },
+          },
+          {
+            id: "interp-table",
+            chartType: "table",
+            connectionId: "conn-neo4j-001",
+            query:
+              "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title LIMIT 5",
+            settings: {
+              title: "Movies from $param_year",
             },
-          ],
-          gridLayout: [
-            { i: "interp-param", x: 0, y: 0, w: 4, h: 3 },
-            { i: "interp-table", x: 4, y: 0, w: 8, h: 5 },
-          ],
-        },
-      ],
-    };
-
-    const putRes = await request.put(`/api/dashboards/${id}`, {
-      data: { layoutJson: layout },
-    });
-    if (!putRes.ok())
-      throw new Error(`Update dashboard failed: ${putRes.status()}`);
-
-    return {
-      id,
-      cleanup: async () => {
-        await request.delete(`/api/dashboards/${id}`);
+          },
+        ],
+        gridLayout: [
+          { i: "interp-param", x: 0, y: 0, w: 4, h: 3 },
+          { i: "interp-table", x: 4, y: 0, w: 8, h: 5 },
+        ],
       },
-    };
-  }
+    ],
+  };
 
+  const putRes = await request.put(`/api/dashboards/${id}`, {
+    data: { layoutJson: layout },
+  });
+  if (!putRes.ok())
+    throw new Error(`Update dashboard failed: ${putRes.status()}`);
+
+  return {
+    id,
+    cleanup: async () => {
+      await request.delete(`/api/dashboards/${id}`);
+    },
+  };
+}
+
+test.describe("Parameter interpolation in titles", () => {
   test("widget title interpolates parameter values", async ({
     authPage,
     page,
@@ -770,6 +770,62 @@ test.describe("Parameter interpolation in titles", () => {
       // The widget card should show the interpolated title
       await expect(page.getByText(/Movies from \d{4}/)).toBeVisible({
         timeout: 5_000,
+      });
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+test.describe("Run and save with a parameter (#1912)", () => {
+  // The shortcut used to run the query without its parameters, so the server
+  // answered "Expected parameter(s): param_year", nothing was added and the
+  // dialog stayed open. It closes only when the run succeeds and the widget
+  // is saved into the layout.
+  test("Cmd/Ctrl+Shift+Enter adds a widget whose query uses a parameter", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    // A year selector to give $param_year a value.
+    const { id, cleanup } = await createInterpolatedTitleDashboard(
+      page.request,
+    );
+
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible();
+
+      await page.getByText("Select a value…").click();
+      await expect(async () => {
+        await page.getByRole("option").first().click({ timeout: 2_000 });
+      }).toPass({ timeout: 15_000 });
+      await expect(page.getByRole("listbox")).toBeHidden();
+
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+      await dialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "Data Table" }).click();
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option").first().click();
+      await typeInEditor(
+        dialog,
+        page,
+        "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS run_and_save_title LIMIT 5",
+      );
+      // The preview can run: the parameter is bound, not waited for.
+      await expect(dialog.getByText("run_and_save_title")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      await page.keyboard.press("ControlOrMeta+Shift+Enter");
+
+      await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+      // …and the widget is on the dashboard, not merely closed.
+      await expect(page.getByText("run_and_save_title")).toBeVisible({
+        timeout: 15_000,
       });
     } finally {
       await cleanup();
