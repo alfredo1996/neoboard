@@ -41,3 +41,21 @@ export async function resolveContainerHost(uri: string): Promise<string> {
   parsed.hostname = CONTAINER_HOST_ALIAS;
   return parsed.toString();
 }
+
+/**
+ * A stored connection's config as a driver should see it: a copy, with a
+ * loopback `uri` rewritten for a containerised deployment. The one place both
+ * the query path and the schema fetch build it, so they reach the same host —
+ * the schema fetch skipped the rewrite, and in a container a connection saved
+ * with a loopback URI ran queries but had no schema (#1919). Every other key
+ * passes through: the connector reads its own (#1897).
+ */
+export async function driverConfig(
+  stored: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const config = { ...stored };
+  if (typeof config.uri === "string") {
+    config.uri = await resolveContainerHost(config.uri);
+  }
+  return config;
+}

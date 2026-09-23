@@ -6,7 +6,7 @@ import {
 import { QueryStatus, type ConnectorConfig } from "@neoboard/connection";
 import { createHash } from "node:crypto";
 
-import { resolveContainerHost } from "@/lib/connector/container-host";
+import { driverConfig } from "@/lib/connector/container-host";
 /**
  * Default row cap applied to read queries when a connection doesn't
  * specify its own `maxRows`. Matches the connection package's own
@@ -188,11 +188,10 @@ async function getOrCreateModule(
   // `localhost` is the container, so a loopback URI can never reach the user's
   // database. The stored connection keeps what they typed; only the driver
   // sees the rewrite (#1346).
-  const config: Record<string, unknown> = { ...credentials };
-  if (typeof config.uri === "string") {
-    config.uri = await resolveContainerHost(config.uri);
-  }
-  const connModule = createConnectionModule(type, config);
+  const connModule = createConnectionModule(
+    type,
+    await driverConfig(credentials),
+  );
   moduleCache.set(key, { module: connModule, lastAccessedAt: Date.now() });
   startEvictionTimer();
   return connModule;

@@ -168,6 +168,34 @@ describe("Neo4jSchemaManager", () => {
     expect(schema.relProperties).toEqual({});
   });
 
+  // #1919: the sessions opened with no `database`, so a connection pointed at
+  // `movies` got the schema of the server's HOME database — labels and
+  // properties of a database its queries never touch.
+  describe("which database it introspects (#1919)", () => {
+    // The mocked driver's own session spy.
+    const sessionSpy = () =>
+      require("neo4j-driver").default.driver().session as jest.Mock;
+
+    it.each([
+      ["the connection's database", "movies", "movies"],
+      ["the home database when none is set", undefined, undefined],
+      ["the home database when the field is blank", "", undefined],
+    ])("opens every session on %s", async (_label, database, expected) => {
+      mockFourCalls([], [], [], []);
+      sessionSpy().mockClear();
+
+      await new Neo4jSchemaManager().fetchSchema({ ...authConfig, database });
+
+      expect(sessionSpy()).toHaveBeenCalledTimes(4);
+      for (const [options] of sessionSpy().mock.calls) {
+        expect(options).toEqual({
+          defaultAccessMode: "READ",
+          database: expected,
+        });
+      }
+    });
+  });
+
   // #1302: each procedure ran as a bare session.run(query) with no transaction
   // timeout, so db.schema.nodeTypeProperties() on a big store could run for
   // as long as the server let it.

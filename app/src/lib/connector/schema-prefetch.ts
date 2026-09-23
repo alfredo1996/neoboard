@@ -1,5 +1,6 @@
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import { getSchemaManager } from "@/lib/connector/connection-adapter";
+import { driverConfig } from "@/lib/connector/container-host";
 
 /**
  * Fetch the database schema for a given connection.
@@ -13,9 +14,9 @@ export async function fetchConnectionSchema(
   // Registry-keyed dispatch (#1119) — no hardcoded per-type branching.
   const manager = getSchemaManager(type);
   if (!manager) return null; // connector type has no schema introspection
-  // The decrypted config passes through as ONE bag, exactly as it does to
-  // createConnectionModule: the connector reads its own keys (#1897).
-  return manager.fetchSchema({ ...credentials });
+  // Built exactly as the query path builds it, so the schema comes from the
+  // same host as the connection's queries (#1919).
+  return manager.fetchSchema(await driverConfig(credentials));
 }
 
 /**

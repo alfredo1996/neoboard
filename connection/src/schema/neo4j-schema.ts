@@ -7,6 +7,7 @@ import {
   type PropertyDef,
 } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
+import { optionalString } from "../config-bag";
 
 /**
  * Fetches schema information from a Neo4j database.
@@ -28,15 +29,20 @@ export class Neo4jSchemaManager implements SchemaManager {
       typeof neo4j.driver
     >;
 
+    // The connection's own database, as its queries use — not the server's
+    // home database (#1919). Blank means home, as it does for queries.
+    const database = optionalString(config.database);
+    const openSession = () =>
+      driver.session({ defaultAccessMode: neo4j.session.READ, database });
     try {
       const [labels, relationshipTypes, nodeProperties, relProperties] =
         await Promise.all([
           this._runQuery<{ label: string }>(
-            driver,
+            openSession,
             "CALL db.labels() YIELD label RETURN label",
           ),
           this._runQuery<{ relationshipType: string }>(
-            driver,
+            openSession,
             "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType",
           ),
           this._runQuery<{
@@ -44,7 +50,7 @@ export class Neo4jSchemaManager implements SchemaManager {
             propertyName: string;
             propertyTypes: string[];
           }>(
-            driver,
+            openSession,
             "CALL db.schema.nodeTypeProperties() YIELD nodeType, propertyName, propertyTypes",
           ),
           this._runQuery<{
@@ -52,7 +58,7 @@ export class Neo4jSchemaManager implements SchemaManager {
             propertyName: string;
             propertyTypes: string[];
           }>(
-            driver,
+            openSession,
             "CALL db.schema.relTypeProperties() YIELD relType, propertyName, propertyTypes",
           ),
         ]);
@@ -94,10 +100,10 @@ export class Neo4jSchemaManager implements SchemaManager {
   }
 
   private async _runQuery<T>(
-    driver: ReturnType<typeof neo4j.driver>,
+    openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
     query: string,
   ): Promise<T[]> {
-    const session = driver.session({ defaultAccessMode: neo4j.session.READ });
+    const session = openSession();
     try {
       // Server-enforced transaction timeout; these ran unbounded (#1302).
       const result = await session.run(
