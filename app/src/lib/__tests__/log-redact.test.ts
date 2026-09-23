@@ -296,8 +296,13 @@ describe("redactSecrets — Errors", () => {
  * message, stack, code, and the named fields of our own error classes.
  */
 describe("redactSecrets — only the fields the policy promises (#1934)", () => {
-  /** What node-pg throws: its own class, with diagnostics as own properties. */
-  class DatabaseError extends Error {}
+  /**
+   * What node-pg throws: its own class, with diagnostics as own properties,
+   * and a `name` that is the protocol message's — "error" (#1957).
+   */
+  class DatabaseError extends Error {
+    name = "error";
+  }
   const ROW_VALUE = "alice@example.com";
   const uniqueViolation = () =>
     Object.assign(
@@ -383,6 +388,41 @@ describe("redactSecrets — only the fields the policy promises (#1934)", () => 
   it("drops a field nobody listed", () => {
     const err = Object.assign(new Error("boom"), { payload: "row data" });
     expect(line({ err })).not.toContain("row data");
+  });
+});
+
+/**
+ * #1957. A production build minifies class names, so a type read off the
+ * constructor logged as "s" or "b". The `name` an error sets survives.
+ */
+describe("redactSecrets — an error's type is its name, not its class (#1957)", () => {
+  // What the minifier leaves: a one-letter class whose `name` is the real one.
+  class s extends Error {
+    name = "ConnectorError";
+  }
+  class b extends Error {
+    name = "Neo4jError";
+  }
+  const typeOf = (err: Error) =>
+    (redactSecrets({ err }) as { err: Record<string, unknown> }).err;
+
+  it("logs a minified class under the name it set", () => {
+    expect(typeOf(new s("boom")).type).toBe("ConnectorError");
+  });
+
+  it("logs a minified wrapped driver error under the name it set", () => {
+    const wrapped = Object.assign(new s("boom"), {
+      originalError: Object.assign(new b("boom"), { code: "X" }),
+    });
+    expect(typeOf(wrapped).originalError).toEqual({
+      type: "Neo4jError",
+      code: "X",
+    });
+  });
+
+  it("falls back to the class for a subclass that never set a name", () => {
+    class DatabaseError extends Error {}
+    expect(typeOf(new DatabaseError("boom")).type).toBe("DatabaseError");
   });
 });
 
