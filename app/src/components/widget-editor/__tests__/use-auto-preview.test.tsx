@@ -655,6 +655,67 @@ describe("useAutoPreview", () => {
         expect(mutate).toHaveBeenCalledTimes(2);
       });
 
+      // CodeRabbit, second pass: a preview held back during a save that then
+      // fails must still run, or the preview shows the old query's result
+      // next to the new query in the editor.
+      it("runs the held-back preview of what was typed once a failed save settles", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 1" });
+        act(() => {
+          vi.advanceTimersByTime(800);
+        });
+        act(() => {
+          mutate.mock.calls[0][1].onError();
+        });
+
+        expect(mutate).toHaveBeenCalledTimes(2);
+        expect(mutate.mock.calls[1][0].query).toBe(
+          "MATCH (n) RETURN n LIMIT 1",
+        );
+      });
+
+      it("does not re-run the query whose save just failed", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        // Typed, then saved before its preview ran: the last *preview* is of
+        // the old query, so only the save's own run says this one was sent.
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 1" });
+        pressRunAndSave();
+        act(() => {
+          mutate.mock.calls[0][1].onError();
+        });
+        act(() => {
+          vi.advanceTimersByTime(800);
+        });
+
+        // Its failure is already on screen; running it again adds nothing.
+        expect(mutate).toHaveBeenCalledTimes(1);
+      });
+
       // The two paths share one input builder, so they cannot drift again.
       it("runs exactly what the preview runs", () => {
         const mutate = vi.fn();

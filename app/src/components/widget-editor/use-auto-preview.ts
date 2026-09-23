@@ -195,6 +195,9 @@ export function useAutoPreview({
     const input = buildRunInput();
     if (!input) return;
     savingRef.current = true;
+    // Recorded like any run, so replaying the held-back preview after a failed
+    // save skips it when nothing changed: its failure is already shown.
+    lastRunRef.current = JSON.stringify(input);
     setSaveStatus("saving");
     previewQueryRef.current.mutate(input, {
       onSuccess: () => {
@@ -214,12 +217,16 @@ export function useAutoPreview({
       onError: () => {
         savingRef.current = false;
         setSaveStatus("idle");
+        // A preview held back while this was pending — the query edited
+        // meanwhile — runs now, or the preview shows the old query's result.
+        runPreview(true);
       },
     });
   }, [
     saveStatus,
     chartType,
     buildRunInput,
+    runPreview,
     buildWidgetForSave,
     onSave,
     onOpenChange,
