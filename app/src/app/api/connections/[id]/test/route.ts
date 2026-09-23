@@ -21,7 +21,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, tenantId } = await requireSession();
+    const { userId, tenantId, role } = await requireSession();
     const { id } = await params;
     // A probe opens a real connection, so it takes a slot from the same
     // per-connection scheduler as a query (#1426). One Test is interactive
@@ -34,7 +34,18 @@ export async function POST(
     const [connection] = await db
       .select()
       .from(connections)
-      .where(and(eq(connections.id, id), eq(connections.userId, userId)))
+      .where(
+        // An admin may test any connection in their tenant, as GET and DELETE
+        // already allow and as they may already query it (#1923); anyone else
+        // only their own. The tenant filter is explicit either way.
+        role === "admin"
+          ? and(eq(connections.id, id), eq(connections.tenantId, tenantId))
+          : and(
+              eq(connections.id, id),
+              eq(connections.userId, userId),
+              eq(connections.tenantId, tenantId),
+            ),
+      )
       .limit(1);
 
     if (!connection) {

@@ -218,3 +218,87 @@ test.describe.serial("Connection sharing (#901)", () => {
     );
   });
 });
+
+// #1923: an admin is offered Test on every connection in the tenant, but the
+// test route matched on ownership alone — so testing someone else's
+// connection always ended in a red Error, however healthy the database.
+test.describe
+  .serial("An admin tests a connection they do not own (#1923)", () => {
+  let creator: { id: string; email: string; password: string };
+  let connectionId: string;
+  let connectionName: string;
+
+  async function asUser(
+    browser: Browser,
+    email: string,
+    password: string,
+    fn: (page: Page) => Promise<void>,
+  ) {
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      await new AuthPage(page).login(email, password);
+      await fn(page);
+    } finally {
+      await context.close();
+    }
+  }
+
+  test.beforeAll(async ({ browser }) => {
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    connectionName = `admin-test-${suffix}`;
+    await asUser(browser, ALICE.email, ALICE.password, async (page) => {
+      const email = `admin-test-creator-${suffix}@example.com`;
+      const password = "password123";
+      const res = await page.request.post("/api/users", {
+        data: { name: `Owner ${suffix}`, email, password, role: "creator" },
+      });
+      expect(res.status()).toBe(201);
+      creator = { id: (await res.json()).data.id, email, password };
+    });
+    // The creator's own connection — not the admin's.
+    await asUser(browser, creator.email, creator.password, async (page) => {
+      const res = await page.request.post("/api/connections", {
+        data: {
+          name: connectionName,
+          type: "postgresql",
+          config: {
+            uri: `postgresql://localhost:${TEST_PG_PORT}`,
+            username: "neoboard",
+            password: "neoboard",
+            database: "movies",
+          },
+        },
+      });
+      expect(res.status()).toBe(201);
+      connectionId = (await res.json()).data.id;
+    });
+  });
+
+  test.afterAll(async ({ browser }) => {
+    await asUser(browser, ALICE.email, ALICE.password, async (page) => {
+      if (connectionId)
+        await page.request.delete(
+          `/api/connections/${connectionId}?force=true`,
+        );
+      if (creator) await page.request.delete(`/api/users/${creator.id}`);
+    });
+  });
+
+  test("the admin's Test reaches Connected", async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    await page.goto("/connections");
+    const card = page
+      .locator("div[class*='border']")
+      .filter({ hasText: connectionName })
+      .filter({
+        has: page.getByRole("button", { name: "Connection actions" }),
+      });
+    await card.getByRole("button", { name: "Connection actions" }).click();
+    await page.getByRole("menuitem", { name: /Test Connection/ }).click();
+    // The positive end state, not the absence of an error (#1748).
+    await expect(
+      card.locator('[role="status"][aria-label^="Connection status"]'),
+    ).toHaveText("Connected", { timeout: 30_000 });
+  });
+});
