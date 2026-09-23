@@ -565,7 +565,11 @@ test.describe("Edit Widget on an API-written layout (#1952)", () => {
         },
       },
     });
-    if (!res.ok()) throw new Error(`Seed layout failed: ${res.status()}`);
+    if (!res.ok()) {
+      // Don't leave a half-seeded dashboard behind for later tests.
+      await cleanup();
+      throw new Error(`Seed layout failed: ${res.status()}`);
+    }
     return { id, cleanup };
   }
 
