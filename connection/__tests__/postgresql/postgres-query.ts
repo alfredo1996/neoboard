@@ -3,6 +3,7 @@ import {
   DEFAULT_CONNECTION_CONFIG,
   QueryStatus,
   AuthType,
+  ConnectorError,
 } from "@neoboard/connector-sdk";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
@@ -388,6 +389,39 @@ describe("PostgreSQL Query Execution", () => {
     );
 
     expect(result).toHaveLength(0);
+  });
+
+  // #1932: a blocked write is what PostgreSQL says it is (25006), never a
+  // syntax error that happens to name a write keyword. That keyword pattern was
+  // a true positive only while the preview wrapped queries in a SELECT (#1043).
+  describe("what a failure means under READ access (#1932)", () => {
+    async function failureOf(query: string) {
+      let error: unknown = null;
+      await connectionModule.runQuery(
+        { query },
+        { onFail: (e) => (error = e) },
+        { ...DEFAULT_CONNECTION_CONFIG, accessMode: "READ" },
+      );
+      expect(error).toBeInstanceOf(ConnectorError);
+      return error as ConnectorError;
+    }
+
+    test("a real write is a blocked write", async () => {
+      const error = await failureOf("DELETE FROM users");
+
+      expect(error.classification).toMatchObject({
+        type: "READ_ONLY_VIOLATION",
+        blockedWrite: true,
+      });
+    });
+
+    test("a syntax error naming a write keyword is a syntax error", async () => {
+      const error = await failureOf("SELECT create FROM users");
+
+      expect(error.message).toMatch(/syntax error at or near "create"/);
+      expect(error.classification.type).toBe("QUERY");
+      expect(error.classification.blockedWrite).toBeFalsy();
+    });
   });
 
   test("streams a huge READ result without buffering it all (MAX_ROWS+1)", async () => {

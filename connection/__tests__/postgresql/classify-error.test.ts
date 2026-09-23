@@ -222,6 +222,12 @@ describe("classifyPostgresError", () => {
       },
     );
 
+    // #1932: this used to be a blocked write. The signature was written for
+    // #1043, when the preview wrapped a query as `SELECT * FROM (<query>)` and
+    // a wrapped DELETE really did fail at "DELETE". #1896 removed the wrapper:
+    // a real write now reaches PostgreSQL untouched and fails as 25006, caught
+    // above. What still fails at a write keyword is a genuine syntax error —
+    // `SELECT create FROM movies` — and the user was sent to build a Form.
     it.each([
       "INSERT",
       "UPDATE",
@@ -233,13 +239,17 @@ describe("classifyPostgresError", () => {
       "TRUNCATE",
       "SET",
       "REMOVE",
-    ])("a syntax error at or near the write keyword %s", (keyword) => {
-      expect(
-        classifyPostgresError(
-          pgError(`syntax error at or near "${keyword}"`, { code: "42601" }),
-        ),
-      ).toEqual({ type: QUERY, transient: false, blockedWrite: true });
-    });
+      "create",
+    ])(
+      "a syntax error at or near the write keyword %s is a syntax error, not a blocked write (#1932)",
+      (keyword) => {
+        expect(
+          classifyPostgresError(
+            pgError(`syntax error at or near "${keyword}"`, { code: "42601" }),
+          ),
+        ).toEqual({ type: QUERY, transient: false });
+      },
+    );
 
     it.each(['syntax error at or near "FROMM"', 'column "foo" does not exist'])(
       "not %j",
