@@ -690,9 +690,13 @@ describe("query-executor", () => {
       // the driver sees the rewritten host, the stored config keeps what the
       // user typed, and every other key passes through untouched.
       vi.resetModules();
-      vi.doMock("@/lib/connector/container-host", () => ({
-        resolveContainerHost: async (uri: string) =>
-          uri.replace("localhost", "host.docker.internal"),
+      // Mocked at the leaves, so the rewrite is the real one — the same
+      // helper the schema fetch uses (#1919).
+      vi.doMock("@/lib/connector/is-containerised", () => ({
+        isContainerised: () => true,
+      }));
+      vi.doMock("@/lib/connector/host-alias", () => ({
+        hostAliasResolves: async () => true,
       }));
       try {
         const mod = await import("@/lib/query/query-executor");
@@ -707,7 +711,8 @@ describe("query-executor", () => {
         ]);
         expect(creds.uri).toBe(pgCreds.uri);
       } finally {
-        vi.doUnmock("@/lib/connector/container-host");
+        vi.doUnmock("@/lib/connector/is-containerised");
+        vi.doUnmock("@/lib/connector/host-alias");
       }
     });
 

@@ -15,6 +15,16 @@ vi.mock("@/lib/connector/connection-adapter", () => ({
   getSchemaManager: (type: string) => getSchemaManager(type),
 }));
 
+// The deployment facts `resolveContainerHost` reads — mocked at the leaves, so
+// the rewrite under test is the real one (#1919).
+let containerised = false;
+vi.mock("@/lib/connector/is-containerised", () => ({
+  isContainerised: () => containerised,
+}));
+vi.mock("@/lib/connector/host-alias", () => ({
+  hostAliasResolves: async () => true,
+}));
+
 import {
   fetchConnectionSchema,
   prefetchSchema,
@@ -22,6 +32,7 @@ import {
 
 beforeEach(() => {
   getSchemaManager.mockReset();
+  containerised = false;
 });
 
 describe("fetchConnectionSchema", () => {
@@ -108,5 +119,42 @@ describe("schema-prefetch module exports", () => {
 
   it("exports prefetchSchema as a function", () => {
     expect(typeof prefetchSchema).toBe("function");
+  });
+});
+
+// #1919: queries rewrite a loopback URI when NeoBoard runs in a container
+// (#1346); the schema fetch did not, so a connection saved as
+// bolt://localhost ran queries fine and had no schema panel and no
+// autocomplete — silently, since the prefetch swallows its error.
+describe("fetchConnectionSchema in a container (#1919)", () => {
+  it("reaches the same host as the connection's queries", async () => {
+    containerised = true;
+    const fetchSchema = vi.fn().mockResolvedValue({});
+    getSchemaManager.mockReturnValue({ fetchSchema });
+    const stored = {
+      uri: "bolt://localhost:7687",
+      username: "u",
+      database: "movies",
+    };
+
+    await fetchConnectionSchema("graphdb", stored);
+
+    expect(fetchSchema).toHaveBeenCalledWith({
+      uri: "bolt://host.docker.internal:7687",
+      username: "u",
+      database: "movies",
+    });
+    // What the user typed stays stored; only the driver sees the rewrite.
+    expect(stored.uri).toBe("bolt://localhost:7687");
+  });
+
+  it("passes a config with no uri through untouched", async () => {
+    containerised = true;
+    const fetchSchema = vi.fn().mockResolvedValue({});
+    getSchemaManager.mockReturnValue({ fetchSchema });
+
+    await fetchConnectionSchema("files", { path: "/data" });
+
+    expect(fetchSchema).toHaveBeenCalledWith({ path: "/data" });
   });
 });
