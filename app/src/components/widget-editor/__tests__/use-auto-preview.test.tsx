@@ -716,6 +716,38 @@ describe("useAutoPreview", () => {
         expect(mutate).toHaveBeenCalledTimes(1);
       });
 
+      // CodeRabbit, third pass: the owner's rule is "save only if it runs".
+      // A query edited while the save ran is not the one that ran.
+      it("does not save a query edited while its run was pending", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { result, rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 1" });
+        act(() => {
+          mutate.mock.calls[0][1].onSuccess();
+        });
+
+        expect(opts.onSave).not.toHaveBeenCalled();
+        expect(opts.onOpenChange).not.toHaveBeenCalled();
+        expect(result.current.saveStatus).toBe("idle");
+        // …and the edited query gets its preview instead.
+        expect(mutate).toHaveBeenCalledTimes(2);
+        expect(mutate.mock.calls[1][0].query).toBe(
+          "MATCH (n) RETURN n LIMIT 1",
+        );
+      });
+
       // The two paths share one input builder, so they cannot drift again.
       it("runs exactly what the preview runs", () => {
         const mutate = vi.fn();

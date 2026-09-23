@@ -194,13 +194,25 @@ export function useAutoPreview({
     if (saveStatus === "saving") return;
     const input = buildRunInput();
     if (!input) return;
+    const ran = JSON.stringify(input);
     savingRef.current = true;
     // Recorded like any run, so replaying the held-back preview after a failed
     // save skips it when nothing changed: its failure is already shown.
-    lastRunRef.current = JSON.stringify(input);
+    lastRunRef.current = ran;
     setSaveStatus("saving");
+    // Nothing is saved: back to idle, and the preview held back while this
+    // was pending — the query edited meanwhile — runs now, or the preview
+    // shows the old query's result.
+    const settleUnsaved = () => {
+      savingRef.current = false;
+      setSaveStatus("idle");
+      runPreview(true);
+    };
     previewQueryRef.current.mutate(input, {
       onSuccess: () => {
+        // Save only if it ran: a query edited while this was pending is not
+        // the one that ran, and would be saved untried.
+        if (JSON.stringify(buildRunInput()) !== ran) return settleUnsaved();
         savingRef.current = false;
         if (savedTimerRef.current !== null) {
           clearTimeout(savedTimerRef.current);
@@ -214,13 +226,7 @@ export function useAutoPreview({
         onSave(widgetToSave);
         onOpenChange(false);
       },
-      onError: () => {
-        savingRef.current = false;
-        setSaveStatus("idle");
-        // A preview held back while this was pending — the query edited
-        // meanwhile — runs now, or the preview shows the old query's result.
-        runPreview(true);
-      },
+      onError: settleUnsaved,
     });
   }, [
     saveStatus,
