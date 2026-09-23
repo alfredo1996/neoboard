@@ -603,6 +603,58 @@ describe("useAutoPreview", () => {
         expect(mutate.mock.calls[0][1]).toHaveProperty("onSuccess");
       });
 
+      // CodeRabbit on #1912: the same, with a *different* query — typed after
+      // the shortcut was pressed. No preview may overtake a pending save.
+      it("is not superseded by a preview of what is typed after it", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { result, rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 1" });
+        act(() => {
+          vi.advanceTimersByTime(800);
+        });
+        // …and a manual Run while it is pending is held too.
+        act(() => {
+          result.current.handlePreview();
+        });
+
+        expect(mutate).toHaveBeenCalledTimes(1);
+      });
+
+      it("lets previews run again once the save has settled", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { result } = renderHook(() => useAutoPreview(opts));
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+        act(() => {
+          mutate.mock.calls[0][1].onError();
+        });
+        act(() => {
+          result.current.handlePreview();
+        });
+
+        expect(mutate).toHaveBeenCalledTimes(2);
+      });
+
       // The two paths share one input builder, so they cannot drift again.
       it("runs exactly what the preview runs", () => {
         const mutate = vi.fn();

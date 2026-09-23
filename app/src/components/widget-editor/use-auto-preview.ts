@@ -71,6 +71,10 @@ export function useAutoPreview({
   const allParamValuesRef = useRef(allParamValues);
   const previewQueryRef = useRef(previewQuery);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A run-and-save in flight. No preview may run meanwhile: a later `mutate`
+  // supersedes this one's callbacks — TanStack fires them only for the latest
+  // call — so the widget never saves and the status stays "saving" (#1912).
+  const savingRef = useRef(false);
 
   useLayoutEffect(() => {
     connectionIdRef.current = connectionId;
@@ -115,6 +119,7 @@ export function useAutoPreview({
 
   const runPreview = useCallback(
     (auto: boolean) => {
+      if (savingRef.current) return;
       const input = buildRunInput();
       if (!input) return;
       const key = JSON.stringify(input);
@@ -189,16 +194,11 @@ export function useAutoPreview({
     if (saveStatus === "saving") return;
     const input = buildRunInput();
     if (!input) return;
-    // Recorded like any run, so the auto-preview of what was just typed —
-    // still due when the shortcut is pressed — is skipped as a repeat. Sent
-    // after this, its `mutate` would supersede this one's callbacks: nothing
-    // saves, and the status stays "saving" (#1912).
-    // ponytail: typing *after* pressing the shortcut is a different query and
-    // still supersedes; skip auto-runs while saving if that ever shows up.
-    lastRunRef.current = JSON.stringify(input);
+    savingRef.current = true;
     setSaveStatus("saving");
     previewQueryRef.current.mutate(input, {
       onSuccess: () => {
+        savingRef.current = false;
         if (savedTimerRef.current !== null) {
           clearTimeout(savedTimerRef.current);
         }
@@ -212,6 +212,7 @@ export function useAutoPreview({
         onOpenChange(false);
       },
       onError: () => {
+        savingRef.current = false;
         setSaveStatus("idle");
       },
     });
