@@ -511,6 +511,267 @@ describe("useAutoPreview", () => {
       expect(opts.onOpenChange).toHaveBeenCalledWith(false);
     });
 
+    // #1912: the shortcut built its own input and forgot the parameters, so
+    // every query with a $param_ token failed and nothing saved.
+    describe("with query parameters (#1912)", () => {
+      const PARAM_QUERY = "MATCH (n) WHERE n.id = $param_myId RETURN n";
+      const pressRunAndSave = () =>
+        act(() => {
+          document.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              metaKey: true,
+              shiftKey: true,
+            }),
+          );
+        });
+
+      it("sends the parameters the query references", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: PARAM_QUERY,
+          allParamValues: { myId: 42 },
+          previewQuery: { mutate },
+        });
+        renderHook(() => useAutoPreview(opts));
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+
+        expect(mutate).toHaveBeenCalledTimes(1);
+        expect(mutate.mock.calls[0][0]).toEqual({
+          connectionId: "conn-1",
+          query: PARAM_QUERY,
+          params: { param_myId: 42 },
+          rowLimit: 25,
+        });
+      });
+
+      // Owner's call: the shortcut means "save only if it runs". It cannot
+      // run yet, and the preview already says "Waiting for parameters…".
+      it("does nothing while a referenced parameter is unset", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: PARAM_QUERY,
+          allParamValues: {},
+          previewQuery: { mutate },
+        });
+        const { result } = renderHook(() => useAutoPreview(opts));
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+
+        pressRunAndSave();
+
+        expect(mutate).not.toHaveBeenCalled();
+        expect(result.current.saveStatus).toBe("idle");
+        expect(opts.onSave).not.toHaveBeenCalled();
+      });
+
+      // Found by the #1912 E2E test, flaking: type, then press the shortcut
+      // before the 800ms auto-preview fires. The preview's `mutate` came
+      // second, and TanStack fires `mutate`'s callbacks only for the latest
+      // call — so run-and-save never saved and stayed "saving" for good.
+      it("is not superseded by the auto-preview of the query just typed", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        // Typing: the auto-preview is now due in 800ms.
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 5" });
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        pressRunAndSave();
+        act(() => {
+          vi.advanceTimersByTime(800);
+        });
+
+        expect(mutate).toHaveBeenCalledTimes(1);
+        expect(mutate.mock.calls[0][1]).toHaveProperty("onSuccess");
+      });
+
+      // CodeRabbit on #1912: the same, with a *different* query — typed after
+      // the shortcut was pressed. No preview may overtake a pending save.
+      it("is not superseded by a preview of what is typed after it", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { result, rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 1" });
+        act(() => {
+          vi.advanceTimersByTime(800);
+        });
+        // …and a manual Run while it is pending is held too.
+        act(() => {
+          result.current.handlePreview();
+        });
+
+        expect(mutate).toHaveBeenCalledTimes(1);
+      });
+
+      it("lets previews run again once the save has settled", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { result } = renderHook(() => useAutoPreview(opts));
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+        act(() => {
+          mutate.mock.calls[0][1].onError();
+        });
+        act(() => {
+          result.current.handlePreview();
+        });
+
+        expect(mutate).toHaveBeenCalledTimes(2);
+      });
+
+      // CodeRabbit, second pass: a preview held back during a save that then
+      // fails must still run, or the preview shows the old query's result
+      // next to the new query in the editor.
+      it("runs the held-back preview of what was typed once a failed save settles", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 1" });
+        act(() => {
+          vi.advanceTimersByTime(800);
+        });
+        act(() => {
+          mutate.mock.calls[0][1].onError();
+        });
+
+        expect(mutate).toHaveBeenCalledTimes(2);
+        expect(mutate.mock.calls[1][0].query).toBe(
+          "MATCH (n) RETURN n LIMIT 1",
+        );
+      });
+
+      it("does not re-run the query whose save just failed", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        // Typed, then saved before its preview ran: the last *preview* is of
+        // the old query, so only the save's own run says this one was sent.
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 1" });
+        pressRunAndSave();
+        act(() => {
+          mutate.mock.calls[0][1].onError();
+        });
+        act(() => {
+          vi.advanceTimersByTime(800);
+        });
+
+        // Its failure is already on screen; running it again adds nothing.
+        expect(mutate).toHaveBeenCalledTimes(1);
+      });
+
+      // CodeRabbit, third pass: the owner's rule is "save only if it runs".
+      // A query edited while the save ran is not the one that ran.
+      it("does not save a query edited while its run was pending", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: "MATCH (n) RETURN n",
+          previewQuery: { mutate },
+        });
+        const { result, rerender } = renderHook((p) => useAutoPreview(p), {
+          initialProps: opts,
+        });
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        pressRunAndSave();
+        rerender({ ...opts, query: "MATCH (n) RETURN n LIMIT 1" });
+        act(() => {
+          mutate.mock.calls[0][1].onSuccess();
+        });
+
+        expect(opts.onSave).not.toHaveBeenCalled();
+        expect(opts.onOpenChange).not.toHaveBeenCalled();
+        expect(result.current.saveStatus).toBe("idle");
+        // …and the edited query gets its preview instead.
+        expect(mutate).toHaveBeenCalledTimes(2);
+        expect(mutate.mock.calls[1][0].query).toBe(
+          "MATCH (n) RETURN n LIMIT 1",
+        );
+      });
+
+      // The two paths share one input builder, so they cannot drift again.
+      it("runs exactly what the preview runs", () => {
+        const mutate = vi.fn();
+        const opts = createDefaults({
+          query: PARAM_QUERY,
+          allParamValues: { myId: 7 },
+          previewQuery: { mutate },
+        });
+        const { result } = renderHook(() => useAutoPreview(opts));
+        act(() => {
+          vi.advanceTimersByTime(50);
+        });
+        mutate.mockClear();
+
+        act(() => {
+          result.current.handlePreview();
+        });
+        pressRunAndSave();
+
+        expect(mutate).toHaveBeenCalledTimes(2);
+        expect(mutate.mock.calls[1][0]).toEqual(mutate.mock.calls[0][0]);
+      });
+    });
+
     it("resets saveStatus to idle on error", () => {
       const mutate = vi.fn();
       const opts = createDefaults({ previewQuery: { mutate } });
