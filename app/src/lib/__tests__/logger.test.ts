@@ -175,6 +175,34 @@ describe("logger", () => {
       delete process.env.LOG_QUERY_TEXT;
     });
 
+    // #1934, end to end. The earlier redaction tests asserted over
+    // `JSON.stringify(connectorError)`, which calls `toJSON()` — and the
+    // logger never calls it. Only the real output shows what reaches disk.
+    it("logs a wrapped driver error without its row data or a nested credential", async () => {
+      const { wrapError } = await import("@neoboard/connector-sdk");
+      const ROW_VALUE = "alice@example.com";
+      const driverErr = Object.assign(
+        new Error(
+          `duplicate key via postgresql://app:${SECRET}@db.internal:5432/prod`,
+        ),
+        {
+          code: "23505",
+          detail: `Key (email)=(${ROW_VALUE}) already exists.`,
+          where: `INSERT INTO users(email) VALUES ('${ROW_VALUE}')`,
+        },
+      );
+      const out = await capture((l) => {
+        l.error({ err: wrapError(driverErr) }, "api_error");
+        // The bare form: pino files a lone Error under `err` itself.
+        l.error(wrapError(driverErr));
+      });
+      expect(out).not.toContain(ROW_VALUE);
+      expect(out).not.toContain(SECRET);
+      // Still a log someone can debug with.
+      expect(out).toContain("23505");
+      expect(out).toContain("db.internal");
+    });
+
     it("scrubs a connection URI password with LOG_ANONYMIZE unset", async () => {
       const out = await capture((l) =>
         l.info(
