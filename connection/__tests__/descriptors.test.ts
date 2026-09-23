@@ -145,12 +145,13 @@ describe("neo4j descriptor", () => {
     });
     expect(fields.queryTimeout).toMatchObject({
       ...TIMEOUT,
-      placeholder: "2000",
+      placeholder: "30000",
     });
     expect(fields.maxPoolSize).toMatchObject({ ...POOL, placeholder: "100" });
     expect(fields.connectionAcquisitionTimeout).toMatchObject({
       ...TIMEOUT,
-      placeholder: "60000",
+      placeholder: "35000",
+      description: "Defaults to Connection Timeout + 5000 ms.",
     });
   });
 });
