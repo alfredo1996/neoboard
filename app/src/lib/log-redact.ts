@@ -183,6 +183,18 @@ const ERROR_FIELDS = [
   "status", // SaveError, ExportError
 ] as const;
 
+/**
+ * What an error is, by the `name` it sets. pino reads `constructor.name`,
+ * which a production build minifies to "s" (#1957). A name that only says
+ * "error" — a subclass that never set one, or a driver naming it after the
+ * protocol message — says less than the class, so the class it is.
+ */
+function typeOf(err: Error): string {
+  return !err.name || err.name.toLowerCase() === "error"
+    ? err.constructor.name
+    : err.name;
+}
+
 function serializeError(
   err: Error,
   path: Set<object>,
@@ -196,6 +208,7 @@ function serializeError(
     unknown
   >;
   const out: Record<string, unknown> = {};
+  serialized.type = typeOf(err);
   for (const key of ERROR_FIELDS) {
     if (serialized[key] !== undefined) out[key] = walk(serialized[key], path);
   }
@@ -206,7 +219,7 @@ function serializeError(
   const inner = (err as { originalError?: unknown }).originalError;
   if (inner instanceof Error) {
     out.originalError = {
-      type: inner.constructor.name,
+      type: typeOf(inner),
       code: walk((inner as { code?: unknown }).code, path),
     };
   }
