@@ -1,4 +1,11 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  typeInEditor,
+  getPreview,
+} from "./fixtures";
 import type { APIRequestContext } from "@playwright/test";
 
 /**
@@ -412,5 +419,66 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     const body = await res.json();
     expect(body.error?.message).toBeTruthy();
     expect(body.error?.message).not.toMatch(/\s+at\s.+:\d+:\d+/);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// #1932: the preview calls a query a blocked write only when the database
+// refused a write — never when a syntax error merely names a write keyword.
+// ───────────────────────────────────────────────────────────────────────────
+test.describe("Widget editor preview — blocked write vs syntax error (#1932)", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Blocked write ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  async function previewOf(
+    page: import("@playwright/test").Page,
+    query: string,
+  ) {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await typeInEditor(dialog, page, query);
+    const run = dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)");
+    await expect(run).toBeEnabled({ timeout: 10_000 });
+    await run.click();
+    return getPreview(dialog);
+  }
+
+  test("a real write previews as Writes not allowed", async ({ page }) => {
+    const preview = await previewOf(page, "DELETE FROM movies");
+
+    await expect(preview.getByText("Writes not allowed")).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("a syntax error naming a write keyword previews as Query failed", async ({
+    page,
+  }) => {
+    const preview = await previewOf(page, "SELECT create FROM movies");
+
+    await expect(preview.getByText("Query failed")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(
+      preview.getByText(/syntax error at or near "create"/),
+    ).toBeVisible();
   });
 });

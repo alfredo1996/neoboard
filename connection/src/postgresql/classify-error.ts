@@ -116,10 +116,10 @@ const classify = createErrorClassifier({
       "read only transaction",
       "cannot execute",
     ],
-    // A write keyword where a READ ONLY context expected a query.
-    patterns: [
-      /syntax error at or near "(?:insert|update|delete|merge|create|drop|alter|truncate|set|remove)"/,
-    ],
+    // No syntax signature (#1932). "syntax error at or near <write keyword>"
+    // meant a blocked write only while the preview wrapped the query in a
+    // SELECT (#1043); #1896 removed the wrapper, so a real write fails as
+    // 25006 above and every remaining match was a genuine syntax error.
   },
 });
 

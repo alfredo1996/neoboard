@@ -17,8 +17,15 @@ import { describeWriteError } from "@/lib/api/db-error-message";
  * (the commit before this one ran it against them). It is the contract the
  * move has to keep: the same driver error must still produce the same
  * Test-connection code, the same retry decision, the same form message and the
- * same "this query writes" verdict. Only `outcomeOf` below changed — never the
- * recording.
+ * same "this query writes" verdict. The move changed only `outcomeOf` below —
+ * never the recording.
+ *
+ * Deliberate departures since, each in its own commit with its reason:
+ *  - #1932: the three `syntax error at or near "DELETE" | "UPDATE" |
+ *    "INSERT"` rows no longer mark a blocked write. That signature was a true
+ *    positive only while the preview wrapped a query in a SELECT (#1043);
+ *    #1896 removed the wrapper, so a real write fails as 25006 and these are
+ *    genuine syntax errors.
  */
 interface Outcome {
   /** The connection Test result code; `network` / `auth_failed` also mean 502 + the dead-connector memo. */

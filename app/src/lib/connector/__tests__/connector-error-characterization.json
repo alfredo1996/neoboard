@@ -574,19 +574,19 @@
     "code": "unknown",
     "transient": false,
     "write": null,
-    "blockedWrite": true
+    "blockedWrite": false
   },
   "postgresql | syntax error at or near \"UPDATE\"": {
     "code": "unknown",
     "transient": false,
     "write": null,
-    "blockedWrite": true
+    "blockedWrite": false
   },
   "postgresql | syntax error at or near \"INSERT\"": {
     "code": "unknown",
     "transient": false,
     "write": null,
-    "blockedWrite": true
+    "blockedWrite": false
   },
   "neo4j | Neo.ClientError.Request.Invalid: Writing in read access mode not allowed.": {
     "code": "unknown",
