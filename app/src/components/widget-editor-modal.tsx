@@ -648,7 +648,12 @@ export function WidgetEditorModal({
       <DialogContent
         size="full"
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
-        onInteractOutside={() => onOpenChange(false)}
+        // A click outside closes it (#404): nested Select / Popover layers
+        // could swallow Radix's own pointer-down-outside. Not *any*
+        // interaction outside — focus leaving counts as one, and the card
+        // menu hands focus back to its trigger as it closes, so the editor
+        // dismissed itself the moment Edit Widget opened it (#1952).
+        onPointerDownOutside={() => onOpenChange(false)}
       >
         {dialogStep === "styling-rules" ? (
           <StylingRulesEditor onBack={() => setDialogStep("main")} />
