@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { redactSecrets, redactString } from "@/lib/log-redact";
+import { ConnectorErrorType, wrapError } from "@neoboard/connector-sdk";
+import { QueueRejectedError } from "@/lib/query/scheduler";
 
 /**
  * Real secret-shaped values. Every assertion checks the SECRET STRING is
@@ -283,6 +285,104 @@ describe("redactSecrets — Errors", () => {
     expect(result.err.type).toBe("Error");
     expect(result.err.message).toContain("boom");
     expect(typeof result.err.stack).toBe("string");
+  });
+});
+
+/**
+ * #1934. A driver error carries diagnostics — `detail`, `where`, the failing
+ * row — that are user data, and every property of it used to reach the log.
+ * Worse, a *nested* error (a connector's `originalError`) skipped the credential
+ * scrub entirely. An error is now logged as what the policy promises: type,
+ * message, stack, code, and the named fields of our own error classes.
+ */
+describe("redactSecrets — only the fields the policy promises (#1934)", () => {
+  /** What node-pg throws: its own class, with diagnostics as own properties. */
+  class DatabaseError extends Error {}
+  const ROW_VALUE = "alice@example.com";
+  const uniqueViolation = () =>
+    Object.assign(
+      new DatabaseError(
+        'duplicate key value violates unique constraint "users_email_key"',
+      ),
+      {
+        code: "23505",
+        detail: `Key (email)=(${ROW_VALUE}) already exists.`,
+        where: `SQL statement "INSERT INTO users(email) VALUES ('${ROW_VALUE}')"`,
+        table: "users",
+        column: "email",
+        constraint: "users_email_key",
+        schema: "public",
+      },
+    );
+
+  it("keeps none of a wrapped driver error's diagnostics — only its type and code", () => {
+    const out = redactSecrets({ err: wrapError(uniqueViolation()) }) as {
+      err: Record<string, unknown>;
+    };
+    expect(JSON.stringify(out)).not.toContain(ROW_VALUE);
+    expect(out.err.originalError).toEqual({
+      type: "DatabaseError",
+      code: "23505",
+    });
+    // The wrapper's own message is what an operator reads, and it stays.
+    expect(out.err.message).toContain("users_email_key");
+  });
+
+  // Found in the #1934 drill: the nested error was passed through untouched,
+  // so its message and stack skipped even the always-on credential scrub.
+  it("leaks no credential from inside a wrapped driver error", () => {
+    const driverErr = new Error(
+      `connect failed for postgresql://app:${SECRET}@db.internal:5432/prod`,
+    );
+    expect(line({ err: wrapError(driverErr) })).not.toContain(SECRET);
+  });
+
+  // The other route: the app's own metadata database throws raw pg errors,
+  // never wrapped, and they carry the same diagnostics.
+  it("keeps none of a raw driver error's diagnostics, and its message, stack and code", () => {
+    const out = redactSecrets({ err: uniqueViolation() }) as {
+      err: Record<string, unknown>;
+    };
+    expect(JSON.stringify(out)).not.toContain(ROW_VALUE);
+    expect(Object.keys(out.err).sort()).toEqual([
+      "code",
+      "message",
+      "stack",
+      "type",
+    ]);
+    expect(out.err.code).toBe("23505");
+  });
+
+  it("keeps the named fields our own errors declare", () => {
+    const rejected = redactSecrets({
+      err: new QueueRejectedError("shed", "Query shed under load"),
+    }) as { err: Record<string, unknown> };
+    expect(rejected.err.reason).toBe("shed");
+
+    // Schema metadata only — a constraint's kind, column and name, never a value.
+    const constraint = redactSecrets({
+      err: wrapError(uniqueViolation(), () => ({
+        type: ConnectorErrorType.CONSTRAINT,
+        transient: false,
+        constraint: {
+          kind: "unique",
+          column: "email",
+          name: "users_email_key",
+        },
+      })),
+    }) as { err: Record<string, unknown> };
+    expect(constraint.err.classification).toEqual({
+      type: ConnectorErrorType.CONSTRAINT,
+      transient: false,
+      constraint: { kind: "unique", column: "email", name: "users_email_key" },
+    });
+  });
+
+  // Fail closed: a field nobody listed is not logged. A new one has to be
+  // added to the allowlist on purpose, with a reason.
+  it("drops a field nobody listed", () => {
+    const err = Object.assign(new Error("boom"), { payload: "row data" });
+    expect(line({ err })).not.toContain("row data");
   });
 });
 

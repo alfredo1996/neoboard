@@ -20,6 +20,10 @@ import pino from "pino";
  *   - values under credential-shaped keys, at any depth, in objects and arrays
  *   - inline `PASSWORD '...'` / `password=...` literals in SQL, Cypher and
  *     libpq-style connection strings
+ *   - every property of an error beyond what it keeps below (#1934). A
+ *     driver's diagnostics are user data — node-pg's `detail` holds the
+ *     failing row — and a connector's wrapped `originalError` keeps only its
+ *     type and code. See `ERROR_FIELDS`.
  *
  * What it deliberately KEEPS, because a log you cannot debug with is worse
  * than no log at all:
@@ -142,16 +146,9 @@ function walk(value: unknown, path: Set<object>): unknown {
   if (path.has(value)) return "[Circular]";
   path.add(value);
   try {
-    if (value instanceof Error) {
-      // pino's own serializer flattens the `cause` chain into `message` and
-      // `stack`, so scrubbing those two covers arbitrarily deep causes. Doing
-      // it here rather than via `serializers.err` means it also applies to
-      // Errors nested inside objects and arrays, which that hook never sees.
-      return redactEntries(
-        pino.stdSerializers.err(value) as unknown as Record<string, unknown>,
-        path,
-      );
-    }
+    // Here rather than via `serializers.err`, so it also applies to Errors
+    // nested inside objects and arrays, which that hook never sees.
+    if (value instanceof Error) return serializeError(value, path);
     if (Array.isArray(value)) return value.map((item) => walk(item, path));
     if (!isPlainObject(value)) {
       // ponytail: Buffers, Maps and class instances pass through untouched —
@@ -163,6 +160,57 @@ function walk(value: unknown, path: Set<object>): unknown {
   } finally {
     path.delete(value);
   }
+}
+
+/**
+ * What an error is logged as: exactly what the header promises (#1934).
+ *
+ * pino's serializer copies every property of an error, and a driver's
+ * diagnostics are user data — node-pg puts the failing row in `detail` and
+ * the statement with its values in `where`. So an error keeps only these, and
+ * a field nobody listed is not logged: a new one is added here on purpose.
+ */
+const ERROR_FIELDS = [
+  // pino's own, and the driver's code (SQLSTATE, ECONNREFUSED).
+  "type",
+  "message",
+  "stack",
+  "code",
+  // The named fields of our own error classes.
+  "classification", // ConnectorError — schema metadata only, never a value
+  "reason", // QueueRejectedError, QueueTimeoutError
+  "feature", // EnterpriseRequiredError
+  "status", // SaveError, ExportError
+] as const;
+
+function serializeError(
+  err: Error,
+  path: Set<object>,
+): Record<string, unknown> {
+  // pino flattens the `cause` chain into `message` and `stack`, so scrubbing
+  // those two covers arbitrarily deep causes.
+  // ponytail: an AggregateError's children are dropped; walk them here the
+  // day something logs one.
+  const serialized = pino.stdSerializers.err(err) as unknown as Record<
+    string,
+    unknown
+  >;
+  const out: Record<string, unknown> = {};
+  for (const key of ERROR_FIELDS) {
+    if (serialized[key] !== undefined) out[key] = walk(serialized[key], path);
+  }
+  // A connector's wrapped driver error: its class and code say which failure
+  // it was. Its message is the wrapper's, already above; the rest is user
+  // data. It used to be passed through whole — and, being a pino object
+  // rather than a plain one, unscrubbed, credentials included.
+  const inner = (err as { originalError?: unknown }).originalError;
+  if (inner instanceof Error) {
+    out.originalError = {
+      type: inner.constructor.name,
+      code: walk((inner as { code?: unknown }).code, path),
+    };
+  }
+  return out;
 }
 
 function redactEntries(
