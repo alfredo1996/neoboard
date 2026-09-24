@@ -123,12 +123,18 @@ export class RequestBodyTooLargeError extends RequestBodyError {
  * that was sent: too large, checked before parsing.
  */
 export async function readJsonBody(request: Request): Promise<unknown> {
+  // ponytail: a chunked body declares no length, so one cut at the limit
+  // parses as malformed (400, not 413). Next drops the whole chunk that
+  // crosses the limit, so the bytes that arrive don't mark the cut either.
+  // Browsers and common clients declare a length for an in-memory body.
   const declared = Number(request.headers.get("content-length"));
   if (declared > PROXY_BODY_LIMIT_BYTES) throw new RequestBodyTooLargeError();
   try {
     return await request.json();
-  } catch {
-    throw new InvalidJsonBodyError();
+  } catch (error) {
+    // Only a parse failure is the caller's; an unusable body is ours.
+    if (error instanceof SyntaxError) throw new InvalidJsonBodyError();
+    throw error;
   }
 }
 

@@ -577,6 +577,20 @@ describe("readJsonBody (#1963)", () => {
       ),
     }) as unknown as Request;
 
+  it("leaves a body the server could not read at all a server error", async () => {
+    // An unusable body (already read, locked) is a TypeError, not bad JSON:
+    // it must reach handleRouteError as itself (CodeRabbit on #1977).
+    const unusable = {
+      json: async () => {
+        throw new TypeError("Body is unusable");
+      },
+      headers: new Headers(),
+    } as unknown as Request;
+    const err = await readJsonBody(unusable).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TypeError);
+    expect((await handleRouteError(err)).status).toBe(500);
+  });
+
   it("calls a body declared over 10 MB too large even when what arrived parses", async () => {
     // Cut at 10 MB inside trailing whitespace, the rest still parses; it is
     // still not the body that was sent (CodeRabbit on #1977).
