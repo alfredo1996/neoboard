@@ -1,6 +1,28 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { MarkdownWidget } from "../markdown-widget";
+import { MarkdownWidget, parseMarkdown } from "../markdown-widget";
+
+/** Fastest of `repeats` runs, so one busy moment on a shared runner cannot decide the verdict. */
+function fastestMs(run: () => void, repeats = 5): number {
+  let best = Infinity;
+  for (let i = 0; i < repeats; i++) {
+    const start = performance.now();
+    run();
+    best = Math.min(best, performance.now() - start);
+  }
+  return best;
+}
+
+/** How much longer 4n takes than n: about 4 when linear, about 16 when quadratic. */
+function growth(
+  parse: (s: string) => unknown,
+  unit: string,
+  n: number,
+): number {
+  const small = fastestMs(() => parse(unit.repeat(n)));
+  const large = fastestMs(() => parse(unit.repeat(4 * n)));
+  return large / Math.max(small, 0.05);
+}
 
 // Mock the code highlighter — Shiki uses WASM which isn't available in jsdom
 vi.mock("@/lib/code-highlighter", () => ({
@@ -660,10 +682,26 @@ describe("MarkdownWidget", () => {
       expect(ems.map((e) => e.textContent)).toEqual(["a", "b"]);
     });
 
+    // #1407 was catastrophic backtracking: seconds, not milliseconds. A
+    // wall-clock budget cannot tell a busy runner from a regressed parser
+    // (#1937), so this asserts the SHAPE of the growth: 4x the input costs
+    // about 4x the time when linear, about 16x when quadratic.
     it("parses a long line of unclosed underscores in linear time", () => {
-      const start = performance.now();
-      render(<MarkdownWidget content={"(_a)".repeat(25_000)} />);
-      expect(performance.now() - start).toBeLessThan(1000);
+      expect(growth(parseMarkdown, "(_a)", 25_000)).toBeLessThan(8);
+      // A hang still fails, however busy the runner.
+      expect(
+        fastestMs(() => parseMarkdown("(_a)".repeat(100_000)), 1),
+      ).toBeLessThan(5000);
+    });
+
+    it("the growth check catches a quadratic parser (negative control)", () => {
+      const quadratic = (s: string) => {
+        let n = 0;
+        for (let i = 0; i < s.length; i++)
+          for (let j = i; j < s.length; j++) n += s.charCodeAt(j) & 1;
+        return n;
+      };
+      expect(growth(quadratic, "(_a)", 500)).toBeGreaterThan(8);
     });
 
     it.each([
