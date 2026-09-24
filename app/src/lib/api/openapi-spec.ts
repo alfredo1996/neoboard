@@ -7,6 +7,7 @@
 
 import { PRODUCT_NAME, PRODUCT_PITCH } from "@/lib/branding";
 import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
+import { API_ERROR_CODES } from "./api-response";
 import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
 
 // ---------------------------------------------------------------------------
@@ -21,36 +22,59 @@ function jsonBody(schemaRef: string) {
   };
 }
 
-/** Single-object JSON response pointing to a $ref schema */
-function jsonResponse(description: string, schemaRef: string) {
+/**
+ * The body every handler sends (#1961): `apiSuccess` and `apiList` wrap each
+ * payload as `{ data, error: null, meta }`. `data` is a schema, or a $ref to one.
+ */
+function envelope(
+  data: string | object,
+  meta: object = { type: "object", nullable: true },
+) {
+  return {
+    type: "object" as const,
+    required: ["data", "error", "meta"],
+    properties: {
+      data: typeof data === "string" ? { $ref: data } : data,
+      error: {
+        type: "object" as const,
+        nullable: true,
+        description: "Always null on success.",
+      },
+      meta,
+    },
+  };
+}
+
+/** A success response: `data` is the payload, in the envelope. */
+function jsonResponse(description: string, data: string | object) {
   return {
     description,
-    content: { "application/json": { schema: { $ref: schemaRef } } },
+    content: { "application/json": { schema: envelope(data) } },
+  };
+}
+
+/** A response whose schema already describes the whole body. */
+function bodyResponse(description: string, schema: object) {
+  return {
+    description,
+    content: { "application/json": { schema } },
   };
 }
 
 /**
- * Paginated list JSON response (#908). Wraps the item schema in the standard
- * `{data, error, meta}` envelope that the runtime's `apiList()` emits, so
- * Swagger UI shows the meta.total / meta.limit / meta.offset fields and
- * generated clients can page through results.
+ * Paginated list JSON response (#908): the item array in the envelope, with
+ * the pagination meta that `apiList()` sends, so Swagger UI shows
+ * meta.total / meta.limit / meta.offset and generated clients can page.
  */
 function paginatedResponse(description: string, itemSchemaRef: string) {
   return {
     description,
     content: {
       "application/json": {
-        schema: {
-          type: "object" as const,
-          properties: {
-            data: {
-              type: "array" as const,
-              items: { $ref: itemSchemaRef },
-            },
-            error: { $ref: "#/components/schemas/EnvelopeError" },
-            meta: { $ref: "#/components/schemas/PaginationMeta" },
-          },
-        },
+        schema: envelope(
+          { type: "array" as const, items: { $ref: itemSchemaRef } },
+          { $ref: "#/components/schemas/PaginationMeta" },
+        ),
       },
     },
   };
@@ -213,24 +237,17 @@ const SPEC = {
         description:
           "Returns the schema (labels/node types, relationship types, table names) for the connection.",
         responses: {
-          200: {
-            description: "Schema information",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    nodeLabels: { type: "array", items: { type: "string" } },
-                    relationshipTypes: {
-                      type: "array",
-                      items: { type: "string" },
-                    },
-                    tables: { type: "array", items: { type: "string" } },
-                  },
-                },
+          200: jsonResponse("Schema information", {
+            type: "object",
+            properties: {
+              nodeLabels: { type: "array", items: { type: "string" } },
+              relationshipTypes: {
+                type: "array",
+                items: { type: "string" },
               },
+              tables: { type: "array", items: { type: "string" } },
             },
-          },
+          }),
           401: R.unauthorized,
           404: R.notFound,
         },
@@ -247,19 +264,10 @@ const SPEC = {
             description: "Connector descriptors",
             content: {
               "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    data: {
-                      type: "array",
-                      items: {
-                        $ref: "#/components/schemas/ConnectorDescriptor",
-                      },
-                    },
-                    error: { $ref: "#/components/schemas/EnvelopeError" },
-                    meta: { type: "object", nullable: true },
-                  },
-                },
+                schema: envelope({
+                  type: "array",
+                  items: { $ref: "#/components/schemas/ConnectorDescriptor" },
+                }),
               },
             },
           },
@@ -402,20 +410,13 @@ const SPEC = {
           },
         },
         responses: {
-          200: {
-            description: "Widgets re-assigned",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    dashboardsUpdated: { type: "integer" },
-                    widgetsReassigned: { type: "integer" },
-                  },
-                },
-              },
+          200: jsonResponse("Widgets re-assigned", {
+            type: "object",
+            properties: {
+              dashboardsUpdated: { type: "integer" },
+              widgetsReassigned: { type: "integer" },
             },
-          },
+          }),
           400: R.badRequest,
           401: R.unauthorized,
           403: R.forbidden,
@@ -431,7 +432,15 @@ const SPEC = {
         description: "Exports the dashboard as a NeoDash-compatible JSON file.",
         responses: {
           200: {
-            description: "Dashboard export file",
+            description:
+              "The export file itself, sent as a download (`Content-Disposition: attachment`): the one response not wrapped in the `{ data, error, meta }` envelope.",
+            headers: {
+              "Content-Disposition": {
+                schema: { type: "string" },
+                description:
+                  'attachment; filename="dashboard-<slugified name>.json"',
+              },
+            },
             content: { "application/json": { schema: { type: "object" } } },
           },
           401: R.unauthorized,
@@ -502,10 +511,9 @@ const SPEC = {
           "A write that read-only execution stopped answers 500 with `error.details.blockedWrite: true`.",
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
-          200: jsonResponse(
-            "Query results",
-            "#/components/schemas/QueryResponse",
-          ),
+          200: bodyResponse("Query results", {
+            $ref: "#/components/schemas/QueryResponse",
+          }),
           400: R.badRequest,
           401: R.unauthorized,
           403: R.forbidden,
@@ -530,18 +538,16 @@ const SPEC = {
           `The rows a write returns are capped like a read's, at the connection's \`maxRows\` or ${DEFAULT_MAX_ROWS}, with no truncation flag; the write itself is never cut short.`,
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
-          200: jsonResponse(
-            "Query results",
-            "#/components/schemas/WriteQueryResponse",
-          ),
+          200: bodyResponse("Query results", {
+            $ref: "#/components/schemas/WriteQueryResponse",
+          }),
           400: R.badRequest,
           401: R.unauthorized,
           403: R.forbidden,
           404: R.notFound,
-          409: jsonResponse(
-            "A record with these values already exists",
-            "#/components/schemas/Error",
-          ),
+          409: bodyResponse("A record with these values already exists", {
+            $ref: "#/components/schemas/ErrorResponse",
+          }),
           500: R.serverError,
         },
       },
@@ -573,10 +579,9 @@ const SPEC = {
           400: R.badRequest,
           401: R.unauthorized,
           403: R.forbidden,
-          409: jsonResponse(
-            "Email already in use",
-            "#/components/schemas/Error",
-          ),
+          409: bodyResponse("Email already in use", {
+            $ref: "#/components/schemas/ErrorResponse",
+          }),
         },
       },
     },
@@ -719,10 +724,10 @@ const SPEC = {
         description:
           "Returns all API keys for the authenticated user. Key hashes are never exposed.",
         responses: {
-          200: jsonResponse(
-            "Envelope containing array of API key summaries",
-            "#/components/schemas/ApiKeyListEnvelope",
-          ),
+          200: jsonResponse("API key summaries", {
+            type: "array",
+            items: { $ref: "#/components/schemas/ApiKey" },
+          }),
           401: R.unauthorized,
         },
       },
@@ -735,8 +740,8 @@ const SPEC = {
         requestBody: jsonBody("#/components/schemas/CreateApiKeyRequest"),
         responses: {
           201: jsonResponse(
-            "Envelope containing the created key with plaintext (shown only once)",
-            "#/components/schemas/ApiKeyCreatedEnvelope",
+            "The created key, with its plaintext (shown only once)",
+            "#/components/schemas/ApiKeyCreated",
           ),
           400: R.badRequest,
           401: R.unauthorized,
@@ -754,7 +759,7 @@ const SPEC = {
         responses: {
           200: jsonResponse(
             "Key revoked",
-            "#/components/schemas/EnvelopeSuccess",
+            "#/components/schemas/SuccessResult",
           ),
           401: R.unauthorized,
           403: R.forbidden,
@@ -805,34 +810,64 @@ const SPEC = {
       },
     },
     responses: {
-      Unauthorized: jsonResponse(
-        "Not authenticated",
-        "#/components/schemas/Error",
+      Unauthorized: bodyResponse(
+        "Not authenticated. A handler answers in the envelope; the proxy, " +
+          "before any handler, answers a request with no session and no API " +
+          "key in its own `{ error }` form (#1982).",
+        {
+          oneOf: [
+            { $ref: "#/components/schemas/ErrorResponse" },
+            { $ref: "#/components/schemas/ProxyError" },
+          ],
+        },
       ),
-      Forbidden: jsonResponse(
-        "Insufficient permissions",
-        "#/components/schemas/Error",
+      Forbidden: bodyResponse(
+        "Insufficient permissions. The proxy's own `{ error }` form answers a " +
+          "change to data from a session that must change its password first (#1982).",
+        {
+          oneOf: [
+            { $ref: "#/components/schemas/ErrorResponse" },
+            { $ref: "#/components/schemas/ProxyError" },
+          ],
+        },
       ),
-      NotFound: jsonResponse(
-        "Resource not found",
-        "#/components/schemas/Error",
-      ),
-      BadRequest: jsonResponse(
-        "Validation error",
-        "#/components/schemas/Error",
-      ),
-      ServerError: jsonResponse(
-        "Internal server error",
-        "#/components/schemas/Error",
-      ),
+      NotFound: bodyResponse("Resource not found", {
+        $ref: "#/components/schemas/ErrorResponse",
+      }),
+      BadRequest: bodyResponse("Validation error", {
+        $ref: "#/components/schemas/ErrorResponse",
+      }),
+      ServerError: bodyResponse("Internal server error", {
+        $ref: "#/components/schemas/ErrorResponse",
+      }),
       DeleteSuccess: jsonResponse(
         "Resource deleted",
         "#/components/schemas/SuccessResult",
       ),
     },
     schemas: {
-      Error: {
+      ErrorResponse: {
         type: "object",
+        description: "The body of every error a handler answers (`apiError`).",
+        required: ["data", "error", "meta"],
+        properties: {
+          data: {
+            type: "object",
+            nullable: true,
+            description: "Always null on an error.",
+          },
+          error: { $ref: "#/components/schemas/EnvelopeError" },
+          meta: {
+            type: "object",
+            nullable: true,
+            description: "Always null on an error.",
+          },
+        },
+      },
+      ProxyError: {
+        type: "object",
+        description:
+          "The proxy's own form, answered before any handler runs: a 401 with no session and no API key, a 403 for a session that must change its password (#1982).",
         required: ["error"],
         properties: { error: { type: "string" } },
       },
@@ -852,8 +887,17 @@ const SPEC = {
       },
       EnvelopeError: {
         type: "object",
-        nullable: true,
-        properties: { message: { type: "string" } },
+        required: ["code", "message"],
+        properties: {
+          code: { type: "string", enum: API_ERROR_CODES },
+          message: { type: "string" },
+          details: {
+            type: "object",
+            additionalProperties: true,
+            description:
+              "Present on some errors: `fields` on a config validation error, `blockedWrite` on a blocked write, `column` on a NOT NULL violation, `reason` on a 502 or 503.",
+          },
+        },
       },
       ConnectorField: {
         type: "object",
@@ -1090,7 +1134,11 @@ const SPEC = {
               },
             },
           },
-          error: { $ref: "#/components/schemas/EnvelopeError" },
+          error: {
+            type: "object",
+            nullable: true,
+            description: "Always null on success.",
+          },
           meta: {
             type: "object",
             required: ["resultId", "serverDurationMs", "rowLimit"],
@@ -1130,7 +1178,11 @@ const SPEC = {
               { type: "object" },
             ],
           },
-          error: { $ref: "#/components/schemas/EnvelopeError" },
+          error: {
+            type: "object",
+            nullable: true,
+            description: "Always null on success.",
+          },
           meta: {
             type: "object",
             required: ["serverDurationMs"],
@@ -1262,33 +1314,6 @@ const SPEC = {
             description:
               "Optional expiration date. Omit for non-expiring keys.",
           },
-        },
-      },
-      ApiKeyListEnvelope: {
-        type: "object",
-        properties: {
-          data: {
-            type: "array",
-            items: { $ref: "#/components/schemas/ApiKey" },
-          },
-          error: { $ref: "#/components/schemas/EnvelopeError" },
-          meta: { type: "object", nullable: true },
-        },
-      },
-      ApiKeyCreatedEnvelope: {
-        type: "object",
-        properties: {
-          data: { $ref: "#/components/schemas/ApiKeyCreated" },
-          error: { $ref: "#/components/schemas/EnvelopeError" },
-          meta: { type: "object", nullable: true },
-        },
-      },
-      EnvelopeSuccess: {
-        type: "object",
-        properties: {
-          data: { $ref: "#/components/schemas/SuccessResult" },
-          error: { $ref: "#/components/schemas/EnvelopeError" },
-          meta: { type: "object", nullable: true },
         },
       },
     },
