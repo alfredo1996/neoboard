@@ -365,6 +365,20 @@ describe("PATCH /api/connections/[id]", () => {
     expect(mockDb.update).not.toHaveBeenCalled();
   });
 
+  // #1983: a body naming nothing to change used to reach `.set({})`, which
+  // Drizzle refuses — answered 500 "No values to set" for the caller's request.
+  it("answers an empty body 400 and touches nothing", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const res = await PATCH(makeRequest({}), makeParams("c1"));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: "Nothing to update: send name, config or visibility",
+    });
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
   it("rejects visibility changes from non-admins (#901)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const res = await PATCH(

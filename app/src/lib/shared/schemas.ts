@@ -43,13 +43,23 @@ export const createConnectionSchema = z.object({
   config: connectionConfigSchema,
 });
 
-export const updateConnectionSchema = z.object({
-  name: z.string().min(1).optional(),
-  /** Replaces the stored config; a secret left blank keeps its stored value. */
-  config: connectionConfigSchema.optional(),
-  /** #901 — admin-only; toggles tenant-wide read/query access. */
-  visibility: z.enum(["private", "shared"]).optional(),
-});
+export const updateConnectionSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    /** Replaces the stored config; a secret left blank keeps its stored value. */
+    config: connectionConfigSchema.optional(),
+    /** #901 — admin-only; toggles tenant-wide read/query access. */
+    visibility: z.enum(["private", "shared"]).optional(),
+  })
+  // A body naming nothing reached `.set({})`, which Drizzle refuses: 500 for
+  // the caller's own empty request (#1983).
+  .refine(
+    (b) =>
+      b.name !== undefined ||
+      b.config !== undefined ||
+      b.visibility !== undefined,
+    { message: "Nothing to update: send name, config or visibility" },
+  );
 
 export const testInlineSchema = z.object({
   type: connectorTypeSchema,

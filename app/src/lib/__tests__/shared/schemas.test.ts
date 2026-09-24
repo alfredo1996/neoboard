@@ -100,12 +100,20 @@ describe("maxRows — the app's own row-limit policy", () => {
 });
 
 describe("updateConnectionSchema", () => {
-  it("accepts a name-only, a config-only and an empty update", () => {
+  it("accepts a name-only and a config-only update", () => {
     expect(updateConnectionSchema.safeParse({ name: "New" }).success).toBe(
       true,
     );
     expect(updateConnectionSchema.safeParse({ config }).success).toBe(true);
-    expect(updateConnectionSchema.safeParse({}).success).toBe(true);
+  });
+
+  // #1983: an empty update reached `.set({})` and answered 500.
+  it("rejects an update that names nothing to change", () => {
+    const result = updateConnectionSchema.safeParse({});
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].message).toBe(
+      "Nothing to update: send name, config or visibility",
+    );
   });
 
   it("rejects an empty name", () => {
