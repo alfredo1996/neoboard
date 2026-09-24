@@ -81,6 +81,8 @@ describe("CI image pulls retry a registry blip (#1922)", () => {
     const run = runPull(Infinity);
     expect(run.status).not.toBe(0);
     expect(run.tries).toBe(3);
-    expect(run.stdout).toContain("::error::docker pull neo4j:5.26-community failed");
+    expect(run.stdout).toContain(
+      "::error::docker pull neo4j:5.26-community failed",
+    );
   });
 });
