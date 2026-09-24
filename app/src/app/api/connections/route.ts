@@ -7,7 +7,11 @@ import { encryptJson } from "@/lib/crypto/crypto";
 import { prefetchSchema } from "@/lib/connector/schema-prefetch";
 import { validateConnectionConfig } from "@/lib/connector/connection-config";
 import { createConnectionSchema } from "@/lib/shared/schemas";
-import { validateBody, handleRouteError } from "@/lib/api/api-utils";
+import {
+  validateBody,
+  handleRouteError,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
 
@@ -68,7 +72,7 @@ export async function POST(request: Request) {
   try {
     const { userId, tenantId, role } = await requireSession();
     assertCanManageConnections(role);
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(createConnectionSchema, body);
     if (!result.success) return result.response;
 

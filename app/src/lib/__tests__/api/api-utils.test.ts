@@ -17,6 +17,8 @@ import {
   handleRouteError,
   validateBody,
   sanitizeErrorMessage,
+  readJsonBody,
+  InvalidJsonBodyError,
 } from "@/lib/api/api-utils";
 import { UnauthorizedError, ForbiddenError } from "@/lib/auth/errors";
 import {
@@ -526,5 +528,38 @@ describe("sanitizeErrorMessage", () => {
     );
     expect(out).not.toContain("Tr0ub4dor-hunter2");
     expect(out).toContain("syntax error at or near");
+  });
+});
+
+describe("readJsonBody (#1963)", () => {
+  const post = (body?: string) =>
+    new Request("http://localhost/api/x", { method: "POST", body });
+
+  it("returns the parsed body", async () => {
+    await expect(readJsonBody(post('{"a":1}'))).resolves.toEqual({ a: 1 });
+  });
+
+  it.each([
+    ["malformed", "{not json"],
+    ["empty", ""],
+  ])("throws InvalidJsonBodyError for a %s body", async (_label, body) => {
+    await expect(readJsonBody(post(body))).rejects.toBeInstanceOf(
+      InvalidJsonBodyError,
+    );
+  });
+
+  it("is answered 400 VALIDATION_ERROR, with no text from the body", async () => {
+    const res = await handleRouteError(new InvalidJsonBodyError());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: "Request body is not valid JSON",
+    });
+  });
+
+  it("leaves any other SyntaxError a 500 — a server-side parse is not the caller's fault", async () => {
+    const res = await handleRouteError(new SyntaxError("Unexpected token"));
+    expect(res.status).toBe(500);
   });
 });

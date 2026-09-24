@@ -22,6 +22,7 @@ import {
   forbidden,
   notFound,
   handleRouteError,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { layoutsAllowQuery } from "@/lib/query/dashboard-query-binding";
@@ -73,7 +74,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
     const priority = readPriorityHeader(
       request.headers.get("x-query-priority"),
     );
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validation = validateBody(querySchema, body);
     if (!validation.success) return validation.response;
 

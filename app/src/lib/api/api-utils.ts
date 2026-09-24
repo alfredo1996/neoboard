@@ -90,6 +90,26 @@ export function sanitizeErrorMessage(
 // Validation helper
 // ---------------------------------------------------------------------------
 
+/** A request body that is not JSON (#1963): the caller's mistake, answered 400. */
+export class InvalidJsonBodyError extends Error {
+  constructor() {
+    super("Request body is not valid JSON");
+  }
+}
+
+/**
+ * The request's JSON body. A body that does not parse (empty included) throws
+ * InvalidJsonBodyError, which handleRouteError answers 400 — a bare
+ * `request.json()` threw a SyntaxError that answered 500 as a server fault.
+ */
+export async function readJsonBody(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    throw new InvalidJsonBodyError();
+  }
+}
+
 export function validateBody<T>(
   schema: ZodSchema<T>,
   data: unknown,
@@ -177,6 +197,9 @@ export async function handleRouteError(
   // a signed-in user to sign in again.
   if (error instanceof UnauthorizedError) return unauthorized();
   if (error instanceof ForbiddenError) return forbidden();
+  if (error instanceof InvalidJsonBodyError) {
+    return apiError("VALIDATION_ERROR", error.message);
+  }
   if (error instanceof EnterpriseRequiredError) {
     return apiError("ENTERPRISE_REQUIRED", error.message);
   }

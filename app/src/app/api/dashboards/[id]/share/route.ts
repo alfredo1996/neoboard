@@ -9,6 +9,7 @@ import {
   notFound,
   badRequest,
   handleRouteError,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
@@ -103,7 +104,7 @@ export async function POST(
       return notFound();
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(shareSchema, body);
     if (!result.success) return result.response;
 

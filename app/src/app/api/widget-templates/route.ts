@@ -4,7 +4,12 @@ import { db } from "@/lib/db";
 import { widgetTemplates } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
-import { forbidden, badRequest, handleRouteError } from "@/lib/api/api-utils";
+import {
+  forbidden,
+  badRequest,
+  handleRouteError,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 import { previewImageUrlSchema } from "./shared";
 import { connectorTypeSchema } from "@/lib/shared/schemas";
 
@@ -77,7 +82,7 @@ export async function POST(request: Request) {
       return forbidden();
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const parsed = createTemplateSchema.safeParse(body);
 
     if (!parsed.success) {

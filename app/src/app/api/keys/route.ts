@@ -4,7 +4,12 @@ import { db } from "@/lib/db";
 import { apiKeys } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { generateApiKey } from "@/lib/auth/api-key";
-import { validateBody, forbidden, handleRouteError } from "@/lib/api/api-utils";
+import {
+  validateBody,
+  forbidden,
+  handleRouteError,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
 
@@ -42,7 +47,7 @@ export async function POST(request: Request) {
       return forbidden();
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validation = validateBody(createKeySchema, body);
     if (!validation.success) return validation.response;
 

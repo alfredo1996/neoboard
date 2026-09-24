@@ -1353,3 +1353,31 @@ describe("POST /api/query/write", () => {
     });
   });
 });
+
+// #1963: a body that is not JSON is the caller's mistake — 400, never a 500
+// "Query execution failed" logged as a server error.
+describe("POST /api/query/write with a body that is not JSON (#1963)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let POST: (req: Request) => Promise<any>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    ({ POST } = await import("../route"));
+  });
+
+  it("answers 400 VALIDATION_ERROR and runs nothing", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    const res = await POST(
+      new Request("http://localhost/api/query/write", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{not json",
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(mockExecuteQuery).not.toHaveBeenCalled();
+  });
+});

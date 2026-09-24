@@ -9,6 +9,7 @@ import {
   badRequest,
   forbidden,
   handleRouteError,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { reassignConnectionWidgets } from "@/lib/db/connection-reassign";
@@ -49,7 +50,7 @@ export async function POST(
     const { id } = await params;
     const isAdmin = role === "admin";
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validation = validateBody(reassignSchema, body);
     if (!validation.success) return validation.response;
     const { targetConnectionId } = validation.data;

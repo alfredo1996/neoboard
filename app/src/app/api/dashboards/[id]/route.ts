@@ -17,6 +17,7 @@ import {
   forbidden,
   notFound,
   handleRouteError,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
@@ -280,7 +281,7 @@ export async function PUT(
       return viewAccess ? forbidden() : notFound();
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(updateDashboardSchema, body);
     if (!result.success) return result.response;
 

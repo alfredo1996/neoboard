@@ -4,7 +4,12 @@ import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { validateBody, forbidden, handleRouteError } from "@/lib/api/api-utils";
+import {
+  validateBody,
+  forbidden,
+  handleRouteError,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
 
@@ -149,7 +154,7 @@ export async function POST(request: Request) {
       return forbidden();
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(createDashboardSchema, body);
     if (!result.success) return result.response;
 

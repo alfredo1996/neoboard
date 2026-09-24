@@ -19,6 +19,7 @@ import {
   forbidden,
   notFound,
   handleRouteError,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { apiError, apiSuccess } from "@/lib/api/api-response";
 import { getConnector } from "@neoboard/connection";
@@ -59,7 +60,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     const { userId, canWrite, tenantId, role } = await requireSession();
 
     const requestId = request.headers.get("x-request-id") ?? undefined;
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validation = validateBody(writeQuerySchema, body);
     if (!validation.success) return validation.response;
 

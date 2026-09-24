@@ -8,6 +8,7 @@ import {
   badRequest,
   notFound,
   handleRouteError,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
@@ -73,7 +74,7 @@ export async function PATCH(
       return badRequest("You cannot change your own role");
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(updateUserSchema, body);
     if (!result.success) return result.response;
 

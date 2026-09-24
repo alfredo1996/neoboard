@@ -8,6 +8,7 @@ import {
   badRequest,
   notFound,
   handleRouteError,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
@@ -44,7 +45,7 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const parsed = resetPasswordSchema.safeParse(body);
     if (!parsed.success) {
       return badRequest(parsed.error.issues[0].message);

@@ -4,7 +4,11 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
-import { validateBody, handleRouteError } from "@/lib/api/api-utils";
+import {
+  validateBody,
+  handleRouteError,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 import {
   apiSuccess,
   apiList,
@@ -65,7 +69,7 @@ export async function POST(request: Request) {
   try {
     const { userId: actorId, tenantId } = await requireAdmin();
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(createUserSchema, body);
     if (!result.success) return result.response;
 
