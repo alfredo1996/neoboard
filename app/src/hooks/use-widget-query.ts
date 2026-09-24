@@ -30,7 +30,6 @@ interface WidgetQueryInput {
 
 interface QueryResult {
   data: unknown;
-  fields?: unknown;
   /** Unique ID for this execution, generated server-side. Can be used as a
    *  stable cache/state key (e.g. to detect when graph data changed). */
   resultId: string;
@@ -313,7 +312,7 @@ export function useWidgetQuery(
       // mergedInput is non-null whenever the query is enabled (see below).
       const { data, meta } = await trackConnectorOutcome(
         mergedInput!.connectionId,
-        unwrapFullResponse<{ data: unknown; fields?: unknown }>(res),
+        unwrapFullResponse<{ data: unknown }>(res),
       );
       const result: QueryResult = {
         ...data,

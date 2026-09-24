@@ -25,7 +25,6 @@ export interface QueryContext {
  */
 export interface QueryResult {
   data: unknown;
-  fields?: unknown;
   truncated?: boolean;
   rowLimit?: number;
 }

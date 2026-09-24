@@ -15,7 +15,6 @@ interface QueryInput {
 
 interface QueryResult {
   data: unknown;
-  fields?: unknown;
   /** Unique ID for this execution, generated server-side. */
   resultId: string;
 }
@@ -28,10 +27,7 @@ export function useQueryExecution() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const { data, meta } = await unwrapFullResponse<{
-        data: unknown;
-        fields?: unknown;
-      }>(res);
+      const { data, meta } = await unwrapFullResponse<{ data: unknown }>(res);
       return { ...data, ...meta } as QueryResult;
     },
   });

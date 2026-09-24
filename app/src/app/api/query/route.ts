@@ -203,7 +203,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
     // its setStatus handler and returns { truncated, rowLimit } alongside
     // the data, so the route just forwards those fields to the client for
     // the widget banner.
-    const { data, fields, truncated, rowLimit } = result;
+    const { data, truncated, rowLimit } = result;
 
     // Deterministic query hash: same connection + normalized query + params
     // + effective row limit → same resultId. Clients can use this to preserve
@@ -213,7 +213,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
     // Normalization handled inside computeResultId.
     const resultId = computeResultId(connectionId, query, params, rowLimit);
 
-    return apiSuccess({ data, fields }, 200, {
+    return apiSuccess({ data }, 200, {
       resultId,
       serverDurationMs,
       rowLimit,

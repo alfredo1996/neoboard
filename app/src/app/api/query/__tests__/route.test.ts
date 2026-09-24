@@ -175,7 +175,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }] });
 
     const res = await POST(
       makeRequest({
@@ -204,7 +204,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }] });
 
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "SELECT 1" }),
@@ -233,7 +233,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+    mockExecuteQuery.mockResolvedValue({ data: [] });
 
     await POST(makeRequest({ connectionId: "c1", query: "SELECT 1" }));
 
@@ -258,7 +258,7 @@ describe("POST /api/query", () => {
       username: "neo4j",
       password: "pass",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+    mockExecuteQuery.mockResolvedValue({ data: [] });
 
     const { computeResultId } = await import("@/lib/query/query-hash");
     const expected = computeResultId("c1", "MATCH (n) RETURN n");
@@ -314,7 +314,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }] });
 
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "SELECT 1" }),
@@ -359,7 +359,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }] });
 
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "SELECT 1" }),
@@ -421,7 +421,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }] });
 
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "SELECT 1" }),
@@ -513,7 +513,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+    mockExecuteQuery.mockResolvedValue({ data: [] });
 
     const res = await POST(
       makeRequest({
@@ -566,7 +566,7 @@ describe("POST /api/query", () => {
         username: "u",
         password: "p",
       });
-      mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+      mockExecuteQuery.mockResolvedValue({ data: [] });
       return POST(makeRequest({ connectionId: "c1", query }));
     }
 
@@ -688,7 +688,7 @@ describe("POST /api/query", () => {
         password: "p",
         database: "neoboard",
       });
-      mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+      mockExecuteQuery.mockResolvedValue({ data: [] });
       return POST(makeRequest({ connectionId: "c1", query: QUERY, ...body }));
     }
 
@@ -819,7 +819,7 @@ describe("POST /api/query", () => {
         username: "u",
         password: "p",
       });
-      mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+      mockExecuteQuery.mockResolvedValue({ data: [] });
       return POST(makeRequest({ connectionId: "c1", query }));
     }
 
@@ -970,7 +970,7 @@ describe("POST /api/query", () => {
         password: "p",
         database: "neoboard",
       });
-      mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+      mockExecuteQuery.mockResolvedValue({ data: [] });
 
       const res = await POST(
         makeRequest({
@@ -1004,7 +1004,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }], fields: ["n"] });
+    mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }] });
 
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "SELECT 1" }),
@@ -1030,7 +1030,7 @@ describe("POST /api/query", () => {
       username: "u",
       password: "p",
     });
-    mockExecuteQuery.mockResolvedValue({ data: [], fields: [] });
+    mockExecuteQuery.mockResolvedValue({ data: [] });
 
     const res = await POST(
       makeRequest({ connectionId: "c1", query: "SELECT something_new FROM t" }),
@@ -1097,7 +1097,6 @@ describe("POST /api/query", () => {
     const cappedData = Array.from({ length: 5000 }, (_, i) => ({ n: i }));
     mockExecuteQuery.mockResolvedValue({
       data: cappedData,
-      fields: ["n"],
       truncated: true,
       rowLimit: 5000,
     });
@@ -1131,7 +1130,6 @@ describe("POST /api/query", () => {
     });
     mockExecuteQuery.mockResolvedValue({
       data: [{ n: 1 }],
-      fields: ["n"],
       truncated: false,
       rowLimit: 5000,
     });
@@ -1170,7 +1168,6 @@ describe("POST /api/query", () => {
     const cappedData = Array.from({ length: 20000 }, (_, i) => ({ n: i }));
     mockExecuteQuery.mockResolvedValue({
       data: cappedData,
-      fields: ["n"],
       truncated: true,
       rowLimit: 20000,
     });
@@ -1268,7 +1265,6 @@ describe("POST /api/query", () => {
     // rowLimit in meta, but not truncated since the driver didn't flag it.
     mockExecuteQuery.mockResolvedValue({
       data: { nodes: [], edges: [] },
-      fields: [],
       truncated: false,
       rowLimit: 5000,
     });
@@ -1306,7 +1302,6 @@ describe("POST /api/query", () => {
     });
     mockExecuteQuery.mockResolvedValue({
       data: [{ n: 1 }],
-      fields: ["n"],
       truncated: false,
       rowLimit: 5000,
     });
@@ -1350,7 +1345,6 @@ describe("POST /api/query", () => {
     });
     mockExecuteQuery.mockResolvedValue({
       data: [{ n: 1 }],
-      fields: ["n"],
       truncated: false,
       rowLimit: 5000,
     });
@@ -1394,7 +1388,6 @@ describe("POST /api/query", () => {
     });
     mockExecuteQuery.mockResolvedValue({
       data: [{ n: 1 }],
-      fields: ["n"],
       truncated: false,
       rowLimit: 5000,
     });
@@ -1438,7 +1431,6 @@ describe("POST /api/query", () => {
     });
     mockExecuteQuery.mockResolvedValue({
       data: [],
-      fields: [],
       truncated: false,
       rowLimit: 5000,
     });
@@ -1487,5 +1479,46 @@ describe("POST /api/query with a body that is not JSON (#1963)", () => {
     const body = await res.json();
     expect(body.error.code).toBe("VALIDATION_ERROR");
     expect(mockExecuteQuery).not.toHaveBeenCalled();
+  });
+});
+
+// #1967: no connector supplies column metadata (#1904 removed setFields), so
+// the route sends the rows alone. A mock returning extra keys must not put
+// them on the wire.
+describe("POST /api/query — the 200 body carries the rows alone (#1967)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let POST: (req: Request) => Promise<any>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    ({ POST } = await import("../route"));
+  });
+
+  it("sends data with exactly one key, whatever the executor returns", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "fixturedb",
+          configEncrypted: "enc",
+          userId: "user-1",
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "fixturedb://localhost" });
+    mockExecuteQuery.mockResolvedValue({
+      data: [{ n: 1 }],
+      fields: ["n"],
+      rowLimit: 5000,
+    });
+
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT 1" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(Object.keys((await res.json()).data)).toEqual(["data"]);
   });
 });

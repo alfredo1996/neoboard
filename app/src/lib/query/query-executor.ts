@@ -253,7 +253,6 @@ export async function executeQuery(
   },
 ): Promise<{
   data: unknown;
-  fields?: unknown;
   truncated: boolean;
   rowLimit: number;
 }> {
