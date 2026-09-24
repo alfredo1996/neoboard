@@ -5,6 +5,11 @@
 #   check-commit  — PreToolUse Bash: block git commit if E2E not run
 #   clear-on-test — PostToolUse Bash: clear flag after playwright runs
 #
+# `mark` sees only Edit and Write, so a UI file written through Bash was never
+# flagged (#1939). check-commit therefore also reads what the commit carries:
+# a staged UI file changed after the checkout's last Playwright run, whatever
+# wrote it. clear-on-test stamps that run.
+#
 # The flag belongs to a CHECKOUT, not to the project (#1926). Every session —
 # including agents in linked worktrees — runs this script with the main checkout
 # as CLAUDE_PROJECT_DIR, so one shared flag let an agent's UI edits block commits
@@ -27,6 +32,27 @@ checkout_of() {
 }
 
 marker_of() { echo "$1/.claude/.e2e-needed"; }
+stamp_of() { echo "$1/.claude/.e2e-last-run"; }
+
+# The UI files a commit in checkout $1 would carry that changed after its last
+# Playwright run (all of them before any run), as absolute paths. $2 non-empty:
+# `commit -a`, which also carries modified tracked files. Deletions don't count,
+# as they never did through Edit/Write.
+# ponytail: `git commit <paths>` reads the working tree, not the index; not seen.
+unverified_ui() {
+  local checkout="$1" all="$2" stamp f
+  stamp=$(stamp_of "$checkout")
+  {
+    git -C "$checkout" diff --cached --name-only --diff-filter=d 2>/dev/null
+    [ -n "$all" ] && git -C "$checkout" diff --name-only --diff-filter=d 2>/dev/null
+  } | sort -u | while read -r f; do
+    case "$f" in
+      app/src/components/*|app/src/app/*)
+        # -nt is also true when the stamp does not exist yet.
+        [ "$checkout/$f" -nt "$stamp" ] && echo "$checkout/$f" ;;
+    esac
+  done
+}
 
 # One path token: "double quoted", 'single quoted' or bare.
 Q="'"
@@ -115,7 +141,19 @@ case "$1" in
       UNRESOLVED=1
       MARKERS=$(all_markers "$BASE")
     fi
-    FILES=$(echo "$MARKERS" | while read -r m; do [ -f "$m" ] && cat "$m"; done | sort -u)
+    # `commit -a` / `--all` (also bundled, as in -am) carries modified tracked
+    # files too. A message that merely contains " -a" only makes this stricter.
+    ALL=""
+    echo "$CMD" | grep -qE '[[:space:]](-[a-zA-Z]*a[a-zA-Z]*|--all)([[:space:]]|$)' && ALL=1
+    # Each marker lives in <checkout>/.claude/, so the markers name the checkouts.
+    FILES=$(
+      {
+        echo "$MARKERS" | while read -r m; do [ -f "$m" ] && cat "$m"; done
+        echo "$MARKERS" | while read -r m; do
+          unverified_ui "$(dirname "$(dirname "$m")")" "$ALL"
+        done
+      } | sort -u
+    )
     [ -z "$FILES" ] && exit 0
     COUNT=$(echo "$FILES" | wc -l | tr -d ' ')
     echo "BLOCKED: $COUNT UI file(s) were edited and Playwright E2E has not run since." >&2
@@ -142,7 +180,10 @@ case "$1" in
     BASE="${BASE:-$PROJECT_DIR}"
     # Only the checkout the run happened in; an unknowable one clears nothing.
     DIR=$(target_dir "$CMD" "$BASE") || exit 0
-    rm -f "$(marker_of "$(checkout_of "$DIR")")"
+    CHECKOUT=$(checkout_of "$DIR")
+    rm -f "$(marker_of "$CHECKOUT")"
+    mkdir -p "$CHECKOUT/.claude"
+    touch "$(stamp_of "$CHECKOUT")"
     ;;
 
   *)

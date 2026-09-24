@@ -9,6 +9,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -690,6 +691,117 @@ describe("E2E commit gate is per checkout (#1926)", () => {
 
     playwright(linked);
     assert.ok(!existsSync(markerOf(linked)));
+  });
+});
+
+describe("E2E commit gate sees staged UI files, however they were written (#1939)", () => {
+  // The marker is set only by the Edit/Write hook. A UI file written through
+  // Bash (sed -i, a heredoc, `>`) was never marked, so it was committed with no
+  // Playwright run and no warning. The gate now also reads what the commit
+  // carries: a staged UI file changed after the checkout's last Playwright run.
+
+  const git = (cwd, ...args) =>
+    execFileSync(
+      "git",
+      ["-c", "user.email=t@t", "-c", "user.name=t", ...args],
+      { cwd, stdio: "pipe", encoding: "utf8" },
+    );
+
+  /** A main checkout with one linked worktree, each with a committed UI file. */
+  function checkouts() {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "e2e-staged-")));
+    const main = join(base, "main");
+    const linked = join(base, "linked");
+    mkdirSync(join(main, "app/src/components"), { recursive: true });
+    git(main, "init", "-q");
+    writeFileSync(join(main, "app/src/components/x.tsx"), "v1\n");
+    writeFileSync(join(main, "README.md"), "v1\n");
+    git(main, "add", ".");
+    git(main, "commit", "-q", "-m", "init");
+    git(main, "worktree", "add", "-q", linked);
+    return { main, linked };
+  }
+
+  const hook = (mode, payload, main) =>
+    run("enforce-e2e.sh", [mode], payload, { CLAUDE_PROJECT_DIR: main });
+  const commit = (command, cwd, main) =>
+    hook("check-commit", { cwd, tool_input: { command } }, main).status;
+  const playwright = (
+    cwd,
+    main,
+    command = "cd app && npx playwright test e2e/x.spec.ts",
+  ) => hook("clear-on-test", { cwd, tool_input: { command } }, main);
+
+  /** Write a file the way Bash would — no Edit/Write hook fires — at `when`. */
+  function bashWrite(file, content, when = new Date()) {
+    writeFileSync(file, content);
+    utimesSync(file, when, when);
+  }
+  const past = () => new Date(Date.now() - 60_000);
+  const future = () => new Date(Date.now() + 60_000);
+
+  test("blocks a staged UI file no hook ever marked", () => {
+    const { main } = checkouts();
+    bashWrite(join(main, "app/src/components/x.tsx"), "v2\n");
+    git(main, "add", "app/src/components/x.tsx");
+    assert.equal(commit("git commit -m x", main, main), BLOCK);
+  });
+
+  test("allows it after a Playwright run, and blocks it again after a later write", () => {
+    const { main } = checkouts();
+    const ui = join(main, "app/src/components/x.tsx");
+    bashWrite(ui, "v2\n", past());
+    git(main, "add", ui);
+    playwright(main, main);
+    assert.equal(commit("git commit -m x", main, main), 0);
+
+    bashWrite(ui, "v3\n", future());
+    git(main, "add", ui);
+    assert.equal(commit("git commit -m x", main, main), BLOCK);
+  });
+
+  test("listing the specs does not count as a run", () => {
+    const { main } = checkouts();
+    bashWrite(join(main, "app/src/components/x.tsx"), "v2\n", past());
+    git(main, "add", ".");
+    playwright(main, main, "cd app && npx playwright test --list");
+    assert.equal(commit("git commit -m x", main, main), BLOCK);
+  });
+
+  test("allows a staged file that is not UI", () => {
+    const { main } = checkouts();
+    bashWrite(join(main, "README.md"), "v2\n");
+    git(main, "add", "README.md");
+    assert.equal(commit("git commit -m x", main, main), 0);
+  });
+
+  test("git commit -a counts the modified UI files it will carry", () => {
+    const { main } = checkouts();
+    bashWrite(join(main, "app/src/components/x.tsx"), "v2\n");
+    assert.equal(commit("git commit -m x", main, main), 0, "nothing staged");
+    assert.equal(commit("git commit -am x", main, main), BLOCK);
+    assert.equal(commit("git commit --all -m x", main, main), BLOCK);
+  });
+
+  test("a staged UI file in a worktree blocks only that worktree's commits", () => {
+    const { main, linked } = checkouts();
+    bashWrite(join(linked, "app/src/components/x.tsx"), "v2\n");
+    git(linked, "add", ".");
+    assert.equal(commit("git commit -m x", linked, main), BLOCK);
+    assert.equal(commit(`git -C ${linked} commit -m x`, main, main), BLOCK);
+    assert.equal(commit("git commit -m x", main, main), 0, "main checkout");
+    // A run in the main checkout does not vouch for the worktree.
+    playwright(main, main);
+    assert.equal(commit("git commit -m x", linked, main), BLOCK);
+  });
+
+  test("an unresolvable target checks every checkout's staged files", () => {
+    const { main, linked } = checkouts();
+    const command = 'cd "$WT" && git commit -m x';
+    assert.equal(commit(command, main, main), 0, "nothing staged anywhere");
+    bashWrite(join(linked, "app/src/components/x.tsx"), "v2\n");
+    git(linked, "add", ".");
+    assert.equal(commit(command, main, main), BLOCK);
   });
 });
 
