@@ -403,6 +403,33 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
+  // #1962: 401 means "you are signed out", and nothing else. A query error
+  // that merely says "session" used to answer 401 — "please log in again".
+  // ─────────────────────────────────────────────────────────────────────────
+  test("a query error naming a session table is a 500, not a sign-out", async ({
+    page,
+  }) => {
+    const res = await page.request.post("/api/query", {
+      data: {
+        connectionId: PG_CONNECTION_ID,
+        query: "SELECT * FROM session_1962_missing",
+      },
+    });
+    expect(res.status()).toBe(500);
+    const body = await res.json();
+    expect(body.error?.message).toContain(
+      'relation "session_1962_missing" does not exist',
+    );
+  });
+
+  test("a signed-out query is still a 401", async ({ request }) => {
+    const res = await request.post("/api/query", {
+      data: { connectionId: PG_CONNECTION_ID, query: "SELECT 1" },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 7. Cypher syntax error → 500 + user-facing message
   // ─────────────────────────────────────────────────────────────────────────
   test("Cypher syntax error returns a user-facing message, not a stack trace", async ({

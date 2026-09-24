@@ -234,6 +234,7 @@ describe("hashApiKey", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveApiKeyAuth", () => {
+  let UnauthorizedError: typeof import("../errors").UnauthorizedError;
   let resolveApiKeyAuth: () => Promise<{
     userId: string;
     role: string;
@@ -266,6 +267,8 @@ describe("resolveApiKeyAuth", () => {
     });
     const mod = await import("../api-key");
     resolveApiKeyAuth = mod.resolveApiKeyAuth;
+    // resetModules gives api-key a fresh errors module; compare against that.
+    ({ UnauthorizedError } = await import("../errors"));
   });
 
   afterEach(() => {
@@ -298,7 +301,7 @@ describe("resolveApiKeyAuth", () => {
   it("throws generic Unauthorized when key hash not found in DB", async () => {
     mockHeadersGet.mockReturnValue("Bearer nb_" + "a".repeat(64));
     mockDb.select.mockReturnValue(makeSelectChain([]));
-    await expect(resolveApiKeyAuth()).rejects.toThrow("Unauthorized");
+    await expect(resolveApiKeyAuth()).rejects.toBeInstanceOf(UnauthorizedError);
   });
 
   it("throws generic Unauthorized when key is expired (no info disclosure)", async () => {
@@ -321,7 +324,7 @@ describe("resolveApiKeyAuth", () => {
         },
       ]),
     );
-    await expect(resolveApiKeyAuth()).rejects.toThrow("Unauthorized");
+    await expect(resolveApiKeyAuth()).rejects.toBeInstanceOf(UnauthorizedError);
   });
 
   it("returns user context for a valid non-expired key", async () => {
@@ -449,7 +452,7 @@ describe("resolveApiKeyAuth", () => {
         },
       ]),
     );
-    await expect(resolveApiKeyAuth()).rejects.toThrow("Unauthorized");
+    await expect(resolveApiKeyAuth()).rejects.toBeInstanceOf(UnauthorizedError);
   });
 
   it("logs api_key_last_used_update_failed when the lastUsedAt update rejects", async () => {

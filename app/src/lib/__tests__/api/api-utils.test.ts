@@ -298,10 +298,30 @@ describe("handleRouteError", () => {
     });
 
     it("does not swallow an app-level Unauthorized into auth_failed", async () => {
-      // api-key.ts throws a plain Error("Unauthorized").
-      const res = await handleRouteError(new Error("Unauthorized"));
+      const res = await handleRouteError(new UnauthorizedError());
       expect(res.status).toBe(401);
     });
+
+    // #1962: 401 and 403 are our own typed errors, never words in a message.
+    // A driver error that happens to say "session" used to tell a signed-in
+    // user to sign in again.
+    it("answers a query error that names a session table as the query error it is", async () => {
+      const res = await handleRouteError(
+        classified({}, 'relation "session" does not exist'),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error.message).toBe('relation "session" does not exist');
+    });
+
+    it.each(["Unauthorized", "Forbidden", "session expired"])(
+      "does not read auth into a plain error that says %j",
+      async (message) => {
+        const res = await handleRouteError(new Error(message));
+        expect(res.status).toBe(500);
+      },
+    );
 
     it("sanitizes the driver message on the 502", async () => {
       const res = await handleRouteError(

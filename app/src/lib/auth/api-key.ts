@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { apiKeys, users } from "@/lib/db/schema";
 import type { UserRole } from "@/lib/db/schema";
 import { authLogger } from "@/lib/logger";
+import { UnauthorizedError } from "./errors";
 
 /**
  * Server-side secret for HMAC-SHA256 key hashing.
@@ -80,7 +81,7 @@ export async function resolveApiKeyAuth(): Promise<{
     .where(eq(apiKeys.keyHash, keyHash));
 
   if (rows.length === 0) {
-    throw new Error("Unauthorized");
+    throw new UnauthorizedError();
   }
 
   // Constant-time comparison to prevent timing attacks that could
@@ -91,13 +92,13 @@ export async function resolveApiKeyAuth(): Promise<{
     storedHash.length !== computedHash.length ||
     !timingSafeEqual(storedHash, computedHash)
   ) {
-    throw new Error("Unauthorized");
+    throw new UnauthorizedError();
   }
 
   const row = rows[0];
 
   if (row.expiresAt && row.expiresAt < new Date()) {
-    throw new Error("Unauthorized");
+    throw new UnauthorizedError();
   }
 
   // Fire-and-forget lastUsedAt update — failure is acceptable (audit trail, not security)

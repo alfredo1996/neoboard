@@ -82,6 +82,7 @@ vi.mock("next/server", () => ({
 // ---------------------------------------------------------------------------
 
 describe("POST /api/admin/rotate-key", () => {
+  let UnauthorizedError: typeof import("@/lib/auth/errors").UnauthorizedError;
   const originalOldKey = process.env.ENCRYPTION_KEY_OLD;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,6 +118,8 @@ describe("POST /api/admin/rotate-key", () => {
 
     const mod = await import("../route");
     POST = mod.POST;
+    // resetModules gives the route a fresh errors module; throw that one (#1962).
+    ({ UnauthorizedError } = await import("@/lib/auth/errors"));
   });
 
   afterEach(() => {
@@ -128,7 +131,7 @@ describe("POST /api/admin/rotate-key", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRotateRequest());
     expect(res.status).toBe(401);
   });

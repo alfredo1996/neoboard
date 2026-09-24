@@ -1,6 +1,7 @@
 import type { ZodSchema } from "zod";
 import { apiError } from "./api-response";
 import { EnterpriseRequiredError } from "@/lib/features/require-feature";
+import { ForbiddenError, UnauthorizedError } from "@/lib/auth/errors";
 import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
 import {
   classificationOf,
@@ -171,6 +172,11 @@ export async function handleRouteError(
     safeMessage?: boolean;
   },
 ): Promise<ReturnType<typeof apiError>> {
+  // Our own auth errors, by type (#1962). They used to be recognised by
+  // their words, so a driver error that said "session" answered 401 and told
+  // a signed-in user to sign in again.
+  if (error instanceof UnauthorizedError) return unauthorized();
+  if (error instanceof ForbiddenError) return forbidden();
   if (error instanceof EnterpriseRequiredError) {
     return apiError("ENTERPRISE_REQUIRED", error.message);
   }
@@ -202,12 +208,6 @@ export async function handleRouteError(
   );
   if (classified) return classified;
   const message = error instanceof Error ? error.message : fallbackMsg;
-  if (message.includes("Unauthorized") || message.includes("session")) {
-    return unauthorized();
-  }
-  if (message === "Forbidden") {
-    return forbidden();
-  }
   apiLogger.error(
     {
       event: "api_error",

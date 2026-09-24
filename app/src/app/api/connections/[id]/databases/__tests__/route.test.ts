@@ -67,6 +67,7 @@ const fakeConnection = {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/connections/[id]/databases", () => {
+  let UnauthorizedError: typeof import("@/lib/auth/errors").UnauthorizedError;
   let GET: (
     req: Request,
     ctx: { params: Promise<{ id: string }> },
@@ -77,10 +78,12 @@ describe("GET /api/connections/[id]/databases", () => {
     vi.clearAllMocks();
     const mod = await import("../route");
     GET = mod.GET;
+    // resetModules gives the route a fresh errors module; throw that one (#1962).
+    ({ UnauthorizedError } = await import("@/lib/auth/errors"));
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await GET(makeRequest({}), {
       params: Promise.resolve({ id: "c1" }),
     });

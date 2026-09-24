@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { apiKeys } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { ForbiddenError } from "@/lib/auth/errors";
 import { handleRouteError, notFound } from "@/lib/api/api-utils";
 import { auditRequest } from "@/lib/audit/audit";
 
@@ -13,7 +14,7 @@ export async function DELETE(
   try {
     const { userId, tenantId, canWrite } = await requireSession();
     if (!canWrite) {
-      throw new Error("Forbidden");
+      throw new ForbiddenError();
     }
     const { id } = await params;
 
