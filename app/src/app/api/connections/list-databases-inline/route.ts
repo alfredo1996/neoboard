@@ -4,13 +4,17 @@ import { listDatabases, listSchemas } from "@/lib/query/query-executor";
 import { testInlineSchema } from "@/lib/shared/schemas";
 import { validateConnectionConfig } from "@/lib/connector/connection-config";
 import { apiSuccess } from "@/lib/api/api-response";
-import { handleRouteError, validateBody } from "@/lib/api/api-utils";
+import {
+  handleRouteError,
+  validateBody,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 
 export async function POST(request: Request) {
   try {
     const { role } = await requireSession();
     assertCanManageConnections(role);
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validation = validateBody(testInlineSchema, body);
 
     if (!validation.success) {

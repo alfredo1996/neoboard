@@ -4,7 +4,11 @@ import { db } from "@/lib/db";
 import { ssoProviders } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth/session";
 import { encrypt } from "@/lib/crypto/crypto";
-import { validateBody, handleRouteError } from "@/lib/api/api-utils";
+import {
+  validateBody,
+  handleRouteError,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { invalidateProviderCache } from "@/lib/auth/sso/provider-cache";
 import { requireFeature } from "@/lib/features/require-feature";
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
     requireFeature("sso");
     const { userId, tenantId } = await requireAdmin();
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(createProviderSchema, body);
     if (!result.success) return result.response;
 
@@ -219,7 +223,7 @@ export async function PATCH(request: Request) {
     requireFeature("sso");
     const { userId, tenantId } = await requireAdmin();
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(updateProviderSchema, body);
     if (!result.success) return result.response;
 

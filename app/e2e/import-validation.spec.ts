@@ -172,3 +172,37 @@ test.describe("Dashboard import validation", () => {
     }
   });
 });
+
+// #1963: a body the route cannot use is the caller's, answered 4xx — never a
+// 500. Through the proxy, Next passes a route only the first 10 MB of a body,
+// cut silently; the route must call that too large, not malformed.
+test.describe("Dashboard import — request bodies it cannot use (#1963)", () => {
+  test.beforeEach(async ({ authPage }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+  });
+
+  test("a malformed body answers 400 VALIDATION_ERROR", async ({ page }) => {
+    const res = await page.request.post("/api/dashboards/import", {
+      headers: { "content-type": "application/json" },
+      // A Buffer goes out as-is; a string with a JSON content type would be
+      // serialised as a JSON string, which parses.
+      data: Buffer.from("{not json"),
+    });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error.code).toBe("VALIDATION_ERROR");
+  });
+
+  test("a valid body over the proxy's 10 MB answers 413, not 'not valid JSON'", async ({
+    page,
+  }) => {
+    const body = Buffer.from(
+      JSON.stringify({ payload: { pad: "x".repeat(11 * 1024 * 1024) } }),
+    );
+    const res = await page.request.post("/api/dashboards/import", {
+      headers: { "content-type": "application/json" },
+      data: body,
+    });
+    expect(res.status()).toBe(413);
+    expect((await res.json()).error.code).toBe("PAYLOAD_TOO_LARGE");
+  });
+});

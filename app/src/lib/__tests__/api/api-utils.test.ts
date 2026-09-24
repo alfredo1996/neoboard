@@ -17,6 +17,9 @@ import {
   handleRouteError,
   validateBody,
   sanitizeErrorMessage,
+  readJsonBody,
+  InvalidJsonBodyError,
+  RequestBodyTooLargeError,
 } from "@/lib/api/api-utils";
 import { UnauthorizedError, ForbiddenError } from "@/lib/auth/errors";
 import {
@@ -527,4 +530,98 @@ describe("sanitizeErrorMessage", () => {
     expect(out).not.toContain("Tr0ub4dor-hunter2");
     expect(out).toContain("syntax error at or near");
   });
+});
+
+describe("readJsonBody (#1963)", () => {
+  const post = (body?: string) =>
+    new Request("http://localhost/api/x", { method: "POST", body });
+
+  it("returns the parsed body", async () => {
+    await expect(readJsonBody(post('{"a":1}'))).resolves.toEqual({ a: 1 });
+  });
+
+  it.each([
+    ["malformed", "{not json"],
+    ["empty", ""],
+  ])("throws InvalidJsonBodyError for a %s body", async (_label, body) => {
+    await expect(readJsonBody(post(body))).rejects.toBeInstanceOf(
+      InvalidJsonBodyError,
+    );
+  });
+
+  it("is answered 400 VALIDATION_ERROR, with no text from the body", async () => {
+    const res = await handleRouteError(new InvalidJsonBodyError());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: "Request body is not valid JSON",
+    });
+  });
+
+  it("leaves any other SyntaxError a 500 — a server-side parse is not the caller's fault", async () => {
+    const res = await handleRouteError(new SyntaxError("Unexpected token"));
+    expect(res.status).toBe(500);
+  });
+
+  // Through the proxy, Next hands a route only the first 10 MB of a body and
+  // cuts the rest silently, so a valid import over that fails to parse. That
+  // is too large, not malformed.
+  const unparsable = (contentLength?: string) =>
+    ({
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+      headers: new Headers(
+        contentLength ? { "content-length": contentLength } : {},
+      ),
+    }) as unknown as Request;
+
+  it("leaves a body the server could not read at all a server error", async () => {
+    // An unusable body (already read, locked) is a TypeError, not bad JSON:
+    // it must reach handleRouteError as itself (CodeRabbit on #1977).
+    const unusable = {
+      json: async () => {
+        throw new TypeError("Body is unusable");
+      },
+      headers: new Headers(),
+    } as unknown as Request;
+    const err = await readJsonBody(unusable).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TypeError);
+    expect((await handleRouteError(err)).status).toBe(500);
+  });
+
+  it("calls a body declared over 10 MB too large even when what arrived parses", async () => {
+    // Cut at 10 MB inside trailing whitespace, the rest still parses; it is
+    // still not the body that was sent (CodeRabbit on #1977).
+    const parses = {
+      json: async () => ({ a: 1 }),
+      headers: new Headers({ "content-length": String(11 * 1024 * 1024) }),
+    } as unknown as Request;
+    await expect(readJsonBody(parses)).rejects.toBeInstanceOf(
+      RequestBodyTooLargeError,
+    );
+  });
+
+  it("calls a body cut short at the proxy's 10 MB too large, answered 413", async () => {
+    const err = await readJsonBody(unparsable(String(11 * 1024 * 1024))).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(RequestBodyTooLargeError);
+    const res = await handleRouteError(err);
+    expect(res.status).toBe(413);
+    expect((await res.json()).error.code).toBe("PAYLOAD_TOO_LARGE");
+  });
+
+  it.each([
+    ["under the limit", "2048"],
+    ["with no length", undefined],
+  ])(
+    "still calls an unparsable body %s malformed",
+    async (_label, contentLength) => {
+      await expect(
+        readJsonBody(unparsable(contentLength)),
+      ).rejects.toBeInstanceOf(InvalidJsonBodyError);
+    },
+  );
 });

@@ -9,6 +9,7 @@ import {
   notFound,
   badRequest,
   handleRouteError,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { previewImageUrlSchema } from "../shared";
 import { connectorTypeSchema } from "@/lib/shared/schemas";
@@ -90,7 +91,7 @@ export async function PUT(
     if ("error" in result) return result.error;
     const { tenantId } = result.session;
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const parsed = updateTemplateSchema.safeParse(body);
 
     if (!parsed.success) {

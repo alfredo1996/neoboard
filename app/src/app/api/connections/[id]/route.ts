@@ -16,6 +16,7 @@ import {
   forbidden,
   handleRouteError,
   badRequest,
+  readJsonBody,
 } from "@/lib/api/api-utils";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { getConnectionUsage } from "@/lib/db/connection-usage";
@@ -119,7 +120,7 @@ export async function PATCH(
     const { userId, tenantId, role } = await requireSession();
     assertCanManageConnections(role);
     const { id } = await params;
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const result = validateBody(updateConnectionSchema, body);
     if (!result.success) return result.response;
 

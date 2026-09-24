@@ -12,7 +12,12 @@ import {
   convertNeoDashWithNotes,
 } from "@/lib/dashboard/neodash-converter";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
-import { forbidden, badRequest, handleRouteError } from "@/lib/api/api-utils";
+import {
+  forbidden,
+  badRequest,
+  handleRouteError,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { formatImportError } from "@/lib/dashboard/format-import-error";
 import { auditRequest } from "@/lib/audit/audit";
@@ -48,7 +53,9 @@ export async function POST(request: Request) {
       return forbidden();
     }
 
-    const parsedBody = importRequestSchema.safeParse(await request.json());
+    const parsedBody = importRequestSchema.safeParse(
+      await readJsonBody(request),
+    );
     if (!parsedBody.success) {
       return badRequest(
         parsedBody.error.issues[0]?.message ?? "Invalid request body",
