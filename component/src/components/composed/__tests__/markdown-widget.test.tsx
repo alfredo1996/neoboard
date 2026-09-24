@@ -18,9 +18,10 @@ function growth(
   parse: (s: string) => unknown,
   unit: string,
   n: number,
+  repeats = 5,
 ): number {
-  const small = fastestMs(() => parse(unit.repeat(n)));
-  const large = fastestMs(() => parse(unit.repeat(4 * n)));
+  const small = fastestMs(() => parse(unit.repeat(n)), repeats);
+  const large = fastestMs(() => parse(unit.repeat(4 * n)), repeats);
   return large / Math.max(small, 0.05);
 }
 
@@ -692,7 +693,9 @@ describe("MarkdownWidget", () => {
       expect(
         fastestMs(() => parseMarkdown("(_a)".repeat(100_000)), 1),
       ).toBeLessThan(5000);
-    });
+      // The timing assertions above are the verdict; the test timeout only has
+      // to outlast a slow runner with coverage on.
+    }, 30_000);
 
     it("the growth check catches a quadratic parser (negative control)", () => {
       const quadratic = (s: string) => {
@@ -701,8 +704,10 @@ describe("MarkdownWidget", () => {
           for (let j = i; j < s.length; j++) n += s.charCodeAt(j) & 1;
         return n;
       };
-      expect(growth(quadratic, "(_a)", 500)).toBeGreaterThan(8);
-    });
+      // Small on purpose: a nested loop is the worst case for CI's coverage
+      // instrumentation (6.4 s at n = 500), and 16x holds at any size.
+      expect(growth(quadratic, "(_a)", 250, 3)).toBeGreaterThan(8);
+    }, 30_000);
 
     it.each([
       ["[a](`b`)", "[a](b)"],
