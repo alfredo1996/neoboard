@@ -20,6 +20,7 @@ import {
   notFound,
   handleRouteError,
   readJsonBody,
+  RequestBodyError,
 } from "@/lib/api/api-utils";
 import { apiError, apiSuccess } from "@/lib/api/api-response";
 import { getConnector } from "@neoboard/connection";
@@ -188,6 +189,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
 
     return apiSuccess(result.data, 200, { serverDurationMs });
   } catch (error) {
+    // A body the route could not use is the caller's mistake, not a failed
+    // write: answer it without an error-level log (#1963).
+    if (error instanceof RequestBodyError) return handleRouteError(error);
     apiLogger.error(
       {
         event: "write_query_failed",

@@ -36,7 +36,8 @@ describe("request bodies are read with readJsonBody (#1963)", () => {
       .map((file) => relative(API_DIR, file))
       .filter((file) => !HANDLES_ITS_OWN.has(file))
       .filter((file) =>
-        /\b(?:request|req)\.json\(\)/.test(
+        // json(), or text() for a hand parse, on the request or a clone of it.
+        /\b(?:request|req)(?:\.clone\(\))?\.(?:json|text)\(\)/.test(
           readFileSync(join(API_DIR, file), "utf8"),
         ),
       );

@@ -19,6 +19,7 @@ import {
   sanitizeErrorMessage,
   readJsonBody,
   InvalidJsonBodyError,
+  RequestBodyTooLargeError,
 } from "@/lib/api/api-utils";
 import { UnauthorizedError, ForbiddenError } from "@/lib/auth/errors";
 import {
@@ -562,4 +563,39 @@ describe("readJsonBody (#1963)", () => {
     const res = await handleRouteError(new SyntaxError("Unexpected token"));
     expect(res.status).toBe(500);
   });
+
+  // Through the proxy, Next hands a route only the first 10 MB of a body and
+  // cuts the rest silently, so a valid import over that fails to parse. That
+  // is too large, not malformed.
+  const unparsable = (contentLength?: string) =>
+    ({
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+      headers: new Headers(
+        contentLength ? { "content-length": contentLength } : {},
+      ),
+    }) as unknown as Request;
+
+  it("calls a body cut short at the proxy's 10 MB too large, answered 413", async () => {
+    const err = await readJsonBody(unparsable(String(11 * 1024 * 1024))).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(RequestBodyTooLargeError);
+    const res = await handleRouteError(err);
+    expect(res.status).toBe(413);
+    expect((await res.json()).error.code).toBe("PAYLOAD_TOO_LARGE");
+  });
+
+  it.each([
+    ["under the limit", "2048"],
+    ["with no length", undefined],
+  ])(
+    "still calls an unparsable body %s malformed",
+    async (_label, contentLength) => {
+      await expect(
+        readJsonBody(unparsable(contentLength)),
+      ).rejects.toBeInstanceOf(InvalidJsonBodyError);
+    },
+  );
 });

@@ -1360,10 +1360,15 @@ describe("POST /api/query/write with a body that is not JSON (#1963)", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let POST: (req: Request) => Promise<any>;
 
+  let logError: ReturnType<typeof vi.spyOn>;
+
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
     ({ POST } = await import("../route"));
+    // The route's own logger instance, from the same module graph.
+    const { apiLogger } = await import("@/lib/logger");
+    logError = vi.spyOn(apiLogger, "error");
   });
 
   it("answers 400 VALIDATION_ERROR and runs nothing", async () => {
@@ -1379,5 +1384,7 @@ describe("POST /api/query/write with a body that is not JSON (#1963)", () => {
     const body = await res.json();
     expect(body.error.code).toBe("VALIDATION_ERROR");
     expect(mockExecuteQuery).not.toHaveBeenCalled();
+    // The caller's mistake, not a failed write: nothing at error level.
+    expect(logError).not.toHaveBeenCalled();
   });
 });

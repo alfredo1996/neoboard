@@ -90,22 +90,43 @@ export function sanitizeErrorMessage(
 // Validation helper
 // ---------------------------------------------------------------------------
 
-/** A request body that is not JSON (#1963): the caller's mistake, answered 400. */
-export class InvalidJsonBodyError extends Error {
+/**
+ * What Next hands a route through the proxy: the first 10 MB of a body, the
+ * rest cut with only a console warning (DEFAULT_BODY_CLONE_SIZE_LIMIT in
+ * next/dist/server/body-streams.js).
+ * ponytail: Next's default, not read from Next; raise it here too if
+ * next.config ever raises the proxy's body limit.
+ */
+const PROXY_BODY_LIMIT_BYTES = 10 * 1024 * 1024;
+
+/** A request body the route could not use (#1963): the caller's, never a 500. */
+export class RequestBodyError extends Error {}
+
+/** A body that is not JSON, empty included: answered 400. */
+export class InvalidJsonBodyError extends RequestBodyError {
   constructor() {
     super("Request body is not valid JSON");
   }
 }
 
+/** A body the proxy cut short at its limit: answered 413. */
+export class RequestBodyTooLargeError extends RequestBodyError {
+  constructor() {
+    super("Request body is larger than the server accepts (10 MB)");
+  }
+}
+
 /**
- * The request's JSON body. A body that does not parse (empty included) throws
- * InvalidJsonBodyError, which handleRouteError answers 400 — a bare
- * `request.json()` threw a SyntaxError that answered 500 as a server fault.
+ * The request's JSON body. A bare `request.json()` threw a SyntaxError that
+ * answered 500 as a server fault. A body declared larger than the proxy passes
+ * on was cut short, so its parse failure means too large, not malformed.
  */
 export async function readJsonBody(request: Request): Promise<unknown> {
   try {
     return await request.json();
   } catch {
+    const declared = Number(request.headers.get("content-length"));
+    if (declared > PROXY_BODY_LIMIT_BYTES) throw new RequestBodyTooLargeError();
     throw new InvalidJsonBodyError();
   }
 }
@@ -199,6 +220,9 @@ export async function handleRouteError(
   if (error instanceof ForbiddenError) return forbidden();
   if (error instanceof InvalidJsonBodyError) {
     return apiError("VALIDATION_ERROR", error.message);
+  }
+  if (error instanceof RequestBodyTooLargeError) {
+    return apiError("PAYLOAD_TOO_LARGE", error.message);
   }
   if (error instanceof EnterpriseRequiredError) {
     return apiError("ENTERPRISE_REQUIRED", error.message);
