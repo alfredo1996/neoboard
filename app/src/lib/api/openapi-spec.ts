@@ -6,6 +6,7 @@
  */
 
 import { PRODUCT_NAME, PRODUCT_PITCH } from "@/lib/branding";
+import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
 
 // ---------------------------------------------------------------------------
 // Helpers to reduce structural repetition in path definitions
@@ -495,7 +496,8 @@ const SPEC = {
         tags: ["Query"],
         summary: "Execute read query",
         description:
-          "Executes a read-only query against a connected database. Results are capped at 10,000 rows. " +
+          "Executes a read-only query against a connected database. Results are capped at the connection's `maxRows`, " +
+          `else ${DEFAULT_MAX_ROWS} rows; a request's \`rowLimit\` can only lower that. \`meta.rowLimit\` is the cap applied. ` +
           "A write that read-only execution stopped answers 500 with `error.details.blockedWrite: true`.",
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
@@ -528,7 +530,7 @@ const SPEC = {
         responses: {
           200: jsonResponse(
             "Query results",
-            "#/components/schemas/QueryResponse",
+            "#/components/schemas/WriteQueryResponse",
           ),
           400: R.badRequest,
           401: R.unauthorized,
@@ -965,8 +967,7 @@ const SPEC = {
             type: "integer",
             minimum: 100,
             maximum: 100000,
-            description:
-              "Row cap for read queries on this connection. Default 5000.",
+            description: `Row cap for read queries on this connection. Default ${DEFAULT_MAX_ROWS}.`,
           },
         },
       },
@@ -1073,20 +1074,56 @@ const SPEC = {
         type: "object",
         properties: {
           data: {
+            type: "object",
+            properties: {
+              data: {
+                oneOf: [
+                  { type: "array", items: { type: "object" } },
+                  { type: "object" },
+                ],
+              },
+              fields: {
+                description:
+                  "The result's columns, as the connector reports them",
+              },
+            },
+          },
+          error: { $ref: "#/components/schemas/EnvelopeError" },
+          meta: {
+            type: "object",
+            properties: {
+              resultId: {
+                type: "string",
+                description:
+                  "Deterministic hash of connection + query + params + effective row limit",
+              },
+              serverDurationMs: { type: "integer" },
+              rowLimit: {
+                type: "integer",
+                description: `The row cap this run applied: the request's \`rowLimit\` if lower, else the connection's \`maxRows\`, else ${DEFAULT_MAX_ROWS}`,
+              },
+              truncated: {
+                type: "boolean",
+                description:
+                  "Present, and true, only when the result had more rows than `rowLimit`",
+              },
+            },
+          },
+        },
+      },
+      WriteQueryResponse: {
+        type: "object",
+        properties: {
+          data: {
             oneOf: [
               { type: "array", items: { type: "object" } },
               { type: "object" },
             ],
           },
-          resultId: {
-            type: "string",
-            description:
-              "Deterministic hash of connection + query + params + effective row limit",
-          },
-          serverDurationMs: { type: "integer" },
-          truncated: {
-            type: "boolean",
-            description: "True when results were capped at 10,000 rows",
+          error: { $ref: "#/components/schemas/EnvelopeError" },
+          meta: {
+            type: "object",
+            properties: { serverDurationMs: { type: "integer" } },
           },
         },
       },
