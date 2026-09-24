@@ -56,7 +56,8 @@ interface CardContainerProps {
   /** When provided, renders the chart from this data without executing a query. */
   previewData?: unknown;
   /** resultId from the query execution — passed through to chart components
-   *  that need to detect when the underlying data changed (e.g. graph widget). */
+   *  that need to detect when the widget runs a different query (e.g. graph
+   *  widget); it hashes what was asked, not the rows returned. */
   previewResultId?: string;
   /**
    * When true, the column mapping overlay is rendered for supported chart types.

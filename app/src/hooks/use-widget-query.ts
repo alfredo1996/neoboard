@@ -30,8 +30,9 @@ interface WidgetQueryInput {
 
 interface QueryResult {
   data: unknown;
-  /** Unique ID for this execution, generated server-side. Can be used as a
-   *  stable cache/state key (e.g. to detect when graph data changed). */
+  /** Server-side hash of what was asked (connection, database, query, params,
+   *  row limit); the same query keeps it across runs. A UI-state key (e.g.
+   *  graph exploration), never a data cache key (see computeResultId). */
   resultId: string;
   /** True when the driver truncated the result set to `rowLimit`. */
   truncated?: boolean;

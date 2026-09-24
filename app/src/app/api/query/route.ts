@@ -205,13 +205,20 @@ async function handleReadQuery(request: Request): Promise<Response> {
     // the widget banner.
     const { data, truncated, rowLimit } = result;
 
-    // Deterministic query hash: same connection + normalized query + params
-    // + effective row limit → same resultId. Clients can use this to preserve
-    // state (e.g. graph exploration) across re-executions of the same query,
-    // and as a future cache key. The row limit is in it because the editor
-    // preview runs the card's exact query text at 25 rows (#1896).
-    // Normalization handled inside computeResultId.
-    const resultId = computeResultId(connectionId, query, params, rowLimit);
+    // Deterministic query hash: same connection + database + trimmed query
+    // + params + effective row limit → same resultId. Clients use it to keep
+    // state (e.g. graph exploration) across re-runs of the same query; it is
+    // not a cache key (see computeResultId). The row limit is in it because the
+    // editor preview runs the card's exact query text at 25 rows (#1896), the
+    // database because a card can switch databases on one connection (#1964).
+    const database = effectiveCredentials.database;
+    const resultId = computeResultId(
+      connectionId,
+      query,
+      params,
+      rowLimit,
+      typeof database === "string" ? database : undefined,
+    );
 
     return apiSuccess({ data }, 200, {
       resultId,

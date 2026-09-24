@@ -8,9 +8,11 @@ interface GraphWidgetState {
   layout?: GraphLayout;
   captionMap?: Record<string, string>;
   /**
-   * Server-generated resultId (SHA-256 of query result data) from the last
-   * query execution. Used to detect when the underlying data changed so stale
-   * exploration state is discarded instead of being shown on top of new data.
+   * Server-generated resultId from the last query execution: a hash of what
+   * was asked (connection, database, query, params, row limit), not of the
+   * rows returned (computeResultId). Used to detect when the widget runs a
+   * different query, so stale exploration state is discarded instead of being
+   * shown on top of the new query's data.
    */
   resultId?: string;
 }

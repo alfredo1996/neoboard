@@ -15,7 +15,7 @@ interface QueryInput {
 
 interface QueryResult {
   data: unknown;
-  /** Unique ID for this execution, generated server-side. */
+  /** Server-side hash of what was asked; the same query keeps it across runs. */
   resultId: string;
 }
 

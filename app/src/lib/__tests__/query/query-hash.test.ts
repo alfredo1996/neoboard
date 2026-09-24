@@ -14,16 +14,39 @@ describe("computeResultId", () => {
     expect(id).toMatch(/^[0-9a-f]{16}$/);
   });
 
-  it("normalizes whitespace: extra spaces produce same hash", () => {
-    const a = computeResultId("conn-1", "MATCH  (n)   RETURN  n");
-    const b = computeResultId("conn-1", "MATCH (n) RETURN n");
-    expect(a).toBe(b);
+  // #1964 (CodeRabbit): whitespace inside a literal is meaning too — 'a  b'
+  // and 'a b' are different values. Only the ends of the text are trimmed.
+  it("keeps inner whitespace: a literal differing only in spacing is a different query", () => {
+    expect(
+      computeResultId("conn-1", "MATCH (n) WHERE n.name = 'a  b' RETURN n"),
+    ).not.toBe(
+      computeResultId("conn-1", "MATCH (n) WHERE n.name = 'a b' RETURN n"),
+    );
   });
 
-  it("normalizes case: uppercase and lowercase produce same hash", () => {
-    const a = computeResultId("conn-1", "MATCH (n) RETURN n");
-    const b = computeResultId("conn-1", "match (n) return n");
-    expect(a).toBe(b);
+  // #1964: case is not formatting in a query. `:Person` and `:person` are
+  // different labels, `'Alice'` and `'alice'` different literals; folding them
+  // kept a changed graph query's exploration state.
+  it("keeps case: a query differing only in case is a different query", () => {
+    expect(computeResultId("conn-1", "MATCH (n:Person) RETURN n")).not.toBe(
+      computeResultId("conn-1", "MATCH (n:person) RETURN n"),
+    );
+    expect(
+      computeResultId("conn-1", "SELECT * FROM t WHERE name = 'Alice'"),
+    ).not.toBe(
+      computeResultId("conn-1", "SELECT * FROM t WHERE name = 'alice'"),
+    );
+  });
+
+  it("includes the database: the same query on two databases is two results", () => {
+    const q = "MATCH (n) RETURN n";
+    expect(computeResultId("conn-1", q, undefined, 25, "sales")).not.toBe(
+      computeResultId("conn-1", q, undefined, 25, "hr"),
+    );
+    // No database is the connection's default, the same as before.
+    expect(computeResultId("conn-1", q, undefined, 25, undefined)).toBe(
+      computeResultId("conn-1", q, undefined, 25),
+    );
   });
 
   it("normalizes leading/trailing whitespace", () => {
