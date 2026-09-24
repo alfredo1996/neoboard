@@ -84,6 +84,7 @@ const SESSION = {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/connections/list-databases-inline", () => {
+  let UnauthorizedError: typeof import("@/lib/auth/errors").UnauthorizedError;
   let POST: (req: Request) => Promise<Response>;
 
   beforeEach(async () => {
@@ -96,10 +97,12 @@ describe("POST /api/connections/list-databases-inline", () => {
     mockListSchemas.mockResolvedValue([]);
     const mod = await import("../route");
     POST = mod.POST;
+    // resetModules gives the route a fresh errors module; throw that one (#1962).
+    ({ UnauthorizedError } = await import("@/lib/auth/errors"));
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({}));
     expect(res.status).toBe(401);
   });

@@ -52,6 +52,10 @@ describe("GET /api/users", () => {
     vi.doMock("@/lib/db", () => ({ db: mockDb }));
     vi.doMock("bcryptjs", () => ({ default: { hash: mockBcryptHash } }));
     vi.doMock("next/server", () => nextResponseMockFactory());
+    vi.doMock("@/lib/auth/errors", () => ({
+      UnauthorizedError,
+      ForbiddenError,
+    }));
     const mod = await import("../route");
     GET = mod.GET;
   });

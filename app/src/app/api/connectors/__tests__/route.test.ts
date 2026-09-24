@@ -22,6 +22,7 @@ vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("next/server", () => nextResponseMockFactory());
 
 const { GET } = await import("../route");
+const { UnauthorizedError } = await import("@/lib/auth/errors");
 
 const ICON =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><path d="M0 0h1v1z"/></svg>';
@@ -77,7 +78,7 @@ describe("GET /api/connectors", () => {
   afterEach(() => unregisterConnector(fixture.type));
 
   it("is 401 without a session, and says nothing about the connectors", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await GET();
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({

@@ -40,6 +40,7 @@ const SESSION = {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/connections/test-inline", () => {
+  let UnauthorizedError: typeof import("@/lib/auth/errors").UnauthorizedError;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let POST: (req: Request) => Promise<any>;
 
@@ -48,10 +49,12 @@ describe("POST /api/connections/test-inline", () => {
     vi.clearAllMocks();
     const mod = await import("../route");
     POST = mod.POST;
+    // resetModules gives the route a fresh errors module; throw that one (#1962).
+    ({ UnauthorizedError } = await import("@/lib/auth/errors"));
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mockRequireSession.mockRejectedValue(new Error("Unauthorized"));
+    mockRequireSession.mockRejectedValue(new UnauthorizedError());
     const res = await POST(makeRequest({}));
     expect(res.status).toBe(401);
     const body = await res.json();
