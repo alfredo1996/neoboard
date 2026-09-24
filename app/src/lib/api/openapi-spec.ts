@@ -6,6 +6,8 @@
  */
 
 import { PRODUCT_NAME, PRODUCT_PITCH } from "@/lib/branding";
+import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
+import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
 
 // ---------------------------------------------------------------------------
 // Helpers to reduce structural repetition in path definitions
@@ -495,7 +497,8 @@ const SPEC = {
         tags: ["Query"],
         summary: "Execute read query",
         description:
-          "Executes a read-only query against a connected database. Results are capped at 10,000 rows. " +
+          "Executes a read-only query against a connected database. Results are capped at the connection's `maxRows`, " +
+          `else ${DEFAULT_MAX_ROWS} rows; a request's \`rowLimit\` can only lower that. \`meta.rowLimit\` is the cap applied. ` +
           "A write that read-only execution stopped answers 500 with `error.details.blockedWrite: true`.",
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
@@ -523,12 +526,13 @@ const SPEC = {
           "Any other write requires `canWrite` and a connection the caller owns; a stored widget that is not a form also needs write mode on, and runs on its saved database when its connection allows a per-card database. " +
           "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
           "foreign-key, check, exclusion, length, format or date/time violation, or a graph constraint violation, answers 400 (a NOT NULL violation names its column in " +
-          "`error.details.column`), a unique violation 409, and a read-only connection 403.",
+          "`error.details.column`), a unique violation 409, and a read-only connection 403. " +
+          `The rows a write returns are capped like a read's, at the connection's \`maxRows\` or ${DEFAULT_MAX_ROWS}, with no truncation flag; the write itself is never cut short.`,
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
           200: jsonResponse(
             "Query results",
-            "#/components/schemas/QueryResponse",
+            "#/components/schemas/WriteQueryResponse",
           ),
           400: R.badRequest,
           401: R.unauthorized,
@@ -963,10 +967,9 @@ const SPEC = {
         properties: {
           maxRows: {
             type: "integer",
-            minimum: 100,
-            maximum: 100000,
-            description:
-              "Row cap for read queries on this connection. Default 5000.",
+            minimum: MAX_ROWS_BOUNDS.min,
+            maximum: MAX_ROWS_BOUNDS.max,
+            description: `Row cap for query results on this connection, the rows a write returns included. Default ${DEFAULT_MAX_ROWS}.`,
           },
         },
       },
@@ -1065,28 +1068,79 @@ const SPEC = {
             type: "integer",
             minimum: 1,
             description:
-              "`/api/query` only. Return at most this many rows for this run. It can only lower the connection's row cap: a larger value runs at the cap. The query text is never changed; the driver stops reading rows at the limit, and `truncated` is true when there were more.",
+              "`/api/query` only. Return at most this many rows for this run. It can only lower the connection's row cap: a larger value runs at the cap. The query text is never changed; the driver reads one row past the limit to tell, and `meta.truncated` is present, and true, when there were more.",
           },
         },
       },
       QueryResponse: {
         type: "object",
+        required: ["data", "error", "meta"],
         properties: {
           data: {
+            type: "object",
+            required: ["data"],
+            properties: {
+              data: {
+                description:
+                  "The result rows. A built-in connector returns an array of row objects (column name to value), empty when nothing matched; another connector's result passes through as it returns it.",
+                oneOf: [
+                  { type: "array", items: { type: "object" } },
+                  { type: "object" },
+                ],
+              },
+            },
+          },
+          error: { $ref: "#/components/schemas/EnvelopeError" },
+          meta: {
+            type: "object",
+            required: ["resultId", "serverDurationMs", "rowLimit"],
+            properties: {
+              resultId: {
+                type: "string",
+                description:
+                  "16 hex characters hashing the connection, the query text (trimmed, whitespace collapsed, lower-cased), the params and `rowLimit`. The per-card database is not part of it.",
+              },
+              serverDurationMs: {
+                type: "integer",
+                description:
+                  "Wall time of the whole run on the server, queue wait included; not database execution time.",
+              },
+              rowLimit: {
+                type: "integer",
+                description: `The row cap this run applied: the request's \`rowLimit\` if lower, else the connection's \`maxRows\`, else ${DEFAULT_MAX_ROWS}`,
+              },
+              truncated: {
+                type: "boolean",
+                description:
+                  "Present, and true, only when the result had more rows than `rowLimit`",
+              },
+            },
+          },
+        },
+      },
+      WriteQueryResponse: {
+        type: "object",
+        required: ["data", "error", "meta"],
+        properties: {
+          data: {
+            description:
+              "The rows the write returned, capped at the connection's `maxRows`. A built-in connector returns an array of row objects; another connector's result passes through as it returns it.",
             oneOf: [
               { type: "array", items: { type: "object" } },
               { type: "object" },
             ],
           },
-          resultId: {
-            type: "string",
-            description:
-              "Deterministic hash of connection + query + params + effective row limit",
-          },
-          serverDurationMs: { type: "integer" },
-          truncated: {
-            type: "boolean",
-            description: "True when results were capped at 10,000 rows",
+          error: { $ref: "#/components/schemas/EnvelopeError" },
+          meta: {
+            type: "object",
+            required: ["serverDurationMs"],
+            properties: {
+              serverDurationMs: {
+                type: "integer",
+                description:
+                  "Wall time of the whole run on the server; not database execution time.",
+              },
+            },
           },
         },
       },

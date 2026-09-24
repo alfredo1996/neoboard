@@ -11,6 +11,8 @@
  */
 import { describe, it, expect } from "vitest";
 import SPEC from "../openapi-spec";
+import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
+import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
 
 const PAGINATED_OFFSET_ROUTES = [
   "/api/connections",
@@ -103,5 +105,108 @@ describe("POST /api/query/write description (#1831)", () => {
     expect(paths["/api/query/write"].post?.description).toMatch(
       /not a form also needs write mode on, and runs on its saved database when its connection allows a per-card database/,
     );
+  });
+});
+
+/**
+ * #1913. The spec said results were capped at 10,000 rows. The cap is the
+ * connection's maxRows, else DEFAULT_MAX_ROWS, and `rowLimit` can only lower
+ * it. QueryResponse also described a flat body the route never sends: the
+ * route answers `{ data: { data }, error, meta: { resultId, serverDurationMs,
+ * rowLimit, truncated? } }` — the paths query/route.test.ts reads off a
+ * response. The route also forwards a `fields` no connector supplies, so it
+ * never reaches the wire and is not documented.
+ */
+describe("POST /api/query row cap and response (#1913)", () => {
+  const paths = SPEC.paths as Record<
+    string,
+    { post?: { description?: string } }
+  >;
+  const schemas = (SPEC.components as { schemas: Record<string, unknown> })
+    .schemas;
+  type Node = {
+    properties?: Record<string, Node>;
+    required?: string[];
+    description?: string;
+    minimum?: number;
+    maximum?: number;
+  };
+  const queryResponse = schemas.QueryResponse as Node;
+  const at = (path: string) =>
+    path
+      .split(".")
+      .reduce<Node | undefined>(
+        (n, key) => n?.properties?.[key],
+        queryResponse,
+      );
+
+  it("states no row count but DEFAULT_MAX_ROWS", () => {
+    const text = [
+      paths["/api/query"].post?.description,
+      paths["/api/query/write"].post?.description,
+      JSON.stringify(queryResponse),
+      JSON.stringify(schemas.WriteQueryResponse),
+      JSON.stringify(schemas.QueryRequest),
+    ].join(" ");
+    const counts = [...text.matchAll(/\b\d{1,3}(?:,\d{3})+\b|\b\d{4,}\b/g)].map(
+      ([n]) => Number(n.replaceAll(",", "")),
+    );
+    expect([...new Set(counts)]).toEqual([DEFAULT_MAX_ROWS]);
+  });
+
+  it.each([
+    "data.data",
+    "error",
+    "meta.resultId",
+    "meta.serverDurationMs",
+    "meta.rowLimit",
+    "meta.truncated",
+  ])("describes %s where the route puts it", (path) => {
+    expect(at(path)).toBeDefined();
+  });
+
+  it("gives the write route its own response: the rows, and only a duration", () => {
+    type Op = {
+      post?: {
+        responses?: Record<
+          string,
+          { content?: Record<string, { schema?: { $ref?: string } }> }
+        >;
+      };
+    };
+    const ref = (paths["/api/query/write"] as Op).post?.responses?.["200"]
+      ?.content?.["application/json"]?.schema?.$ref;
+    const write = schemas[ref!.split("/").pop()!] as Node;
+    expect(write.properties?.data?.properties).toBeUndefined();
+    expect(Object.keys(write.properties?.meta?.properties ?? {})).toEqual([
+      "serverDurationMs",
+    ]);
+  });
+
+  it("documents no key the route never sends", () => {
+    expect(at("data.fields")).toBeUndefined();
+  });
+
+  it("marks what every 200 carries as required, and only truncated as optional", () => {
+    expect(queryResponse.required).toEqual(["data", "error", "meta"]);
+    expect(at("meta")?.required).toEqual([
+      "resultId",
+      "serverDurationMs",
+      "rowLimit",
+    ]);
+  });
+
+  it("says a write's returned rows are capped too", () => {
+    expect(paths["/api/query/write"].post?.description).toMatch(
+      new RegExp(`capped[^.]*maxRows[^.]*${DEFAULT_MAX_ROWS}`),
+    );
+  });
+
+  it("states the maxRows bounds the server validates", () => {
+    const config = schemas.ConnectionConfig as Node;
+    expect(config.properties?.maxRows).toMatchObject({
+      minimum: MAX_ROWS_BOUNDS.min,
+      maximum: MAX_ROWS_BOUNDS.max,
+    });
   });
 });
