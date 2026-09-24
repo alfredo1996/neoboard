@@ -6,10 +6,9 @@
  * never pull in neo4j-driver. `plugin.ts` adds the factories that do.
  *
  * Field keys are the STORED config keys. Renaming one is a data migration.
- * Placeholders are the connection form's own, carried over unchanged; they are
- * never applied as values — the defaults live in Neo4jAuthenticationModule.
- * Two of them are stale (queryTimeout's real default is 30000, and
- * connectionAcquisitionTimeout's is connectionTimeout + 5000): #1920.
+ * A placeholder states what a blank field gets; it is never applied as a
+ * value — the defaults live in Neo4jAuthenticationModule and the SDK, and
+ * advanced-connection-options.test.ts holds the two together (#1920).
  */
 
 import {
@@ -52,12 +51,16 @@ export const neo4jDescriptor: ConnectorDescriptor = {
       description: "Database name (leave empty for default).",
     }),
     timeoutField("connectionTimeout", "Connection Timeout", "30000"),
-    timeoutField("queryTimeout", "Query Timeout", "2000"),
+    timeoutField("queryTimeout", "Query Timeout", "30000"),
     poolSizeField("100"),
-    timeoutField(
-      "connectionAcquisitionTimeout",
-      "Acquisition Timeout",
-      "60000",
-    ),
+    {
+      ...timeoutField(
+        "connectionAcquisitionTimeout",
+        "Acquisition Timeout",
+        "35000",
+      ),
+      // 35000 holds only while Connection Timeout is blank too.
+      description: "Defaults to Connection Timeout + 5000 ms.",
+    },
   ],
 };

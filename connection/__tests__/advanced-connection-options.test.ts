@@ -1,4 +1,9 @@
-import type { ConnectorConfig } from "@neoboard/connector-sdk";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  resolveQueryTimeout,
+  type ConnectorConfig,
+} from "@neoboard/connector-sdk";
 
 // Since #1897 a connector is built from ONE config bag — the connection's
 // stored config, keyed by the descriptor's field keys. These tests pin what
@@ -503,4 +508,71 @@ describe("DEFAULT_CONNECTION_CONFIG (#973)", () => {
       await import("@neoboard/connector-sdk");
     expect(DEFAULT_CONNECTION_CONFIG.timeout).toBe(30_000);
   });
+});
+
+// ---------------------------------------------------------------------------
+// #1920 — a placeholder is a promise: "leave this blank and you get this".
+// Two Neo4j placeholders broke it for months (Query Timeout said 2000 after
+// #973 made it 30000; Acquisition Timeout said 60000 after #1678 made it
+// Connection Timeout + 5000), because nothing compared the two.
+// ---------------------------------------------------------------------------
+
+/** What each connector uses for a field left blank, read off its own code path. */
+const BLANK: Record<string, Record<string, () => unknown>> = {
+  neo4j: {
+    connectionTimeout: () =>
+      neo4jDriverArgs(neo4jConfig).options.connectionTimeout,
+    queryTimeout: () => resolveQueryTimeout(undefined, undefined),
+    // Left unset, so the driver's own maxConnectionPoolSize applies: 100.
+    maxPoolSize: () =>
+      neo4jDriverArgs(neo4jConfig).options.maxConnectionPoolSize ?? 100,
+    connectionAcquisitionTimeout: () =>
+      neo4jDriverArgs(neo4jConfig).options.connectionAcquisitionTimeout,
+  },
+  postgresql: {
+    connectionTimeout: () => pgPoolArgs(pgConfig).connectionTimeoutMillis,
+    idleTimeout: () => pgPoolArgs(pgConfig).idleTimeoutMillis,
+    maxPoolSize: () => pgPoolArgs(pgConfig).max,
+    statementTimeout: () => resolveQueryTimeout(undefined, undefined),
+  },
+};
+
+const { getAllConnectors } = require("../src/connector-registry");
+const PLACEHOLDERS: [string, string, string][] = getAllConnectors().flatMap(
+  (c: {
+    type: string;
+    fields: { key: string; group?: string; placeholder?: string }[];
+  }) =>
+    c.fields
+      .filter((f) => f.group === "advanced" && f.placeholder)
+      .map((f) => [c.type, f.key, f.placeholder!]),
+);
+
+describe("an advanced placeholder states what a blank field gets (#1920)", () => {
+  it.each(PLACEHOLDERS)("%s %s: blank gets %s", (type, key, placeholder) => {
+    const blank = BLANK[type]?.[key];
+    if (!blank) {
+      throw new Error(
+        `Add ${type}.${key} to BLANK: what does a blank field get?`,
+      );
+    }
+    expect(String(blank())).toBe(placeholder);
+  });
+});
+
+describe("the docs' Advanced Settings table states the same defaults (#1920)", () => {
+  const docs = readFileSync(
+    join(__dirname, "../../docs/src/content/docs/using/connectors.mdx"),
+    "utf8",
+  );
+
+  it.each(PLACEHOLDERS)(
+    "%s %s: its row lists %s",
+    (_type, key, placeholder) => {
+      const row = docs.split("\n").find((l) => l.includes(`| \`${key}\` |`));
+      expect(row).toBeDefined();
+      const defaultCell = row!.split("|").at(-2);
+      expect(defaultCell).toMatch(new RegExp(`\\b${placeholder}\\b`));
+    },
+  );
 });
