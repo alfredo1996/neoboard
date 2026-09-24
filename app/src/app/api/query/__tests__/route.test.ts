@@ -1522,3 +1522,50 @@ describe("POST /api/query — the 200 body carries the rows alone (#1967)", () =
     expect(Object.keys((await res.json()).data)).toEqual(["data"]);
   });
 });
+
+// #1964: the id covers the database the run used, so a card switched to
+// another database on the same connection does not keep the old result's
+// graph exploration state.
+describe("POST /api/query — resultId covers the database (#1964)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let POST: (req: Request) => Promise<any>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    ({ POST } = await import("../route"));
+  });
+
+  async function idFor(database?: string) {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "fixturedb",
+          configEncrypted: "enc",
+          userId: "user-1",
+          allowPerCardDb: true,
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "fixturedb://localhost" });
+    mockExecuteQuery.mockResolvedValue({ data: [], rowLimit: 5000 });
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "MATCH (n) RETURN n",
+        database,
+      }),
+    );
+    return (await res.json()).meta.resultId as string;
+  }
+
+  it("hashes the per-card database the run used", async () => {
+    const { computeResultId } = await import("@/lib/query/query-hash");
+    expect(await idFor("sales")).toBe(
+      computeResultId("c1", "MATCH (n) RETURN n", undefined, 5000, "sales"),
+    );
+    expect(await idFor("sales")).not.toBe(await idFor("hr"));
+  });
+});

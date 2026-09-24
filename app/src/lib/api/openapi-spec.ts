@@ -1098,7 +1098,7 @@ const SPEC = {
               resultId: {
                 type: "string",
                 description:
-                  "16 hex characters hashing the connection, the query text (trimmed, whitespace collapsed, lower-cased), the params and `rowLimit`. The per-card database is not part of it.",
+                  "16 hex characters hashing the connection, the database the run used, the query text (trimmed, whitespace collapsed; case kept), the params and `rowLimit`.",
               },
               serverDurationMs: {
                 type: "integer",
