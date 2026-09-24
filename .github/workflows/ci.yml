@@ -258,11 +258,24 @@ jobs:
 
       - name: Install dependencies + pre-pull container images
         run: |
+          # One registry blip must not fail a shard before any test runs
+          # (#1922): each pull gets three tries, 10 s then 20 s apart.
+          # scripts/__tests__/ci-image-pull.test.mjs runs this function.
+          pull() {
+            for i in 1 2 3; do
+              docker pull "$1" && return 0
+              echo "::warning::docker pull $1 failed (try $i of 3)"
+              if [ "$i" -lt 3 ]; then sleep $((i * 10)); fi
+            done
+            echo "::error::docker pull $1 failed three times"
+            return 1
+          }
+
           npm ci &
           NPM_PID=$!
-          docker pull postgres:16-alpine  &
+          pull postgres:16-alpine &
           PG_PID=$!
-          docker pull neo4j:5.26-community   &
+          pull neo4j:5.26-community &
           NEO4J_PID=$!
 
           FAIL=0
