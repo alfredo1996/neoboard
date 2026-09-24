@@ -577,6 +577,18 @@ describe("readJsonBody (#1963)", () => {
       ),
     }) as unknown as Request;
 
+  it("calls a body declared over 10 MB too large even when what arrived parses", async () => {
+    // Cut at 10 MB inside trailing whitespace, the rest still parses; it is
+    // still not the body that was sent (CodeRabbit on #1977).
+    const parses = {
+      json: async () => ({ a: 1 }),
+      headers: new Headers({ "content-length": String(11 * 1024 * 1024) }),
+    } as unknown as Request;
+    await expect(readJsonBody(parses)).rejects.toBeInstanceOf(
+      RequestBodyTooLargeError,
+    );
+  });
+
   it("calls a body cut short at the proxy's 10 MB too large, answered 413", async () => {
     const err = await readJsonBody(unparsable(String(11 * 1024 * 1024))).catch(
       (e: unknown) => e,

@@ -119,14 +119,15 @@ export class RequestBodyTooLargeError extends RequestBodyError {
 /**
  * The request's JSON body. A bare `request.json()` threw a SyntaxError that
  * answered 500 as a server fault. A body declared larger than the proxy passes
- * on was cut short, so its parse failure means too large, not malformed.
+ * on was cut short, so whatever arrived — parsable or not — is not the body
+ * that was sent: too large, checked before parsing.
  */
 export async function readJsonBody(request: Request): Promise<unknown> {
+  const declared = Number(request.headers.get("content-length"));
+  if (declared > PROXY_BODY_LIMIT_BYTES) throw new RequestBodyTooLargeError();
   try {
     return await request.json();
   } catch {
-    const declared = Number(request.headers.get("content-length"));
-    if (declared > PROXY_BODY_LIMIT_BYTES) throw new RequestBodyTooLargeError();
     throw new InvalidJsonBodyError();
   }
 }

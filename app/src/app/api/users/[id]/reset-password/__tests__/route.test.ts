@@ -11,9 +11,7 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // ---------------------------------------------------------------------------
 
 const mockRequireAdmin =
-  vi.fn<
-    () => Promise<{ userId: string; tenantId: string }>
-  >();
+  vi.fn<() => Promise<{ userId: string; tenantId: string }>>();
 
 const mockDb = {
   update: vi.fn(),
@@ -52,7 +50,7 @@ vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 // ---------------------------------------------------------------------------
 
 function makeRequest(body: unknown) {
-  return { json: async () => body } as Request;
+  return { json: async () => body, headers: new Headers() } as Request;
 }
 
 function makeParams(id: string) {

@@ -188,7 +188,7 @@ describe("POST /api/widget-templates", () => {
   });
 
   function makeRequest(body: unknown) {
-    return { json: async () => body } as Request;
+    return { json: async () => body, headers: new Headers() } as Request;
   }
 
   it("returns 401 when unauthenticated", async () => {
