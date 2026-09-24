@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { apiError } from "@/lib/api/api-response";
 
 /** Paths that use prefix matching (sub-routes allowed) */
 const publicPrefixes = ["/api/auth/", "/api/openapi"];
@@ -115,10 +116,8 @@ export async function proxy(req: NextRequest) {
   if (!token) {
     // For API routes, return 401 JSON instead of redirect
     if (pathname.startsWith("/api/")) {
-      return withRequestId(
-        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-        requestId,
-      );
+      // The envelope every handler answers in, not a bare `{ error }` (#1982).
+      return withRequestId(apiError("UNAUTHORIZED", "Unauthorized"), requestId);
     }
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
@@ -149,10 +148,7 @@ export async function proxy(req: NextRequest) {
     pathname !== "/api/users/me/password"
   ) {
     return withRequestId(
-      NextResponse.json(
-        { error: "Password change required before modifying data" },
-        { status: 403 },
-      ),
+      apiError("FORBIDDEN", "Password change required before modifying data"),
       requestId,
     );
   }
