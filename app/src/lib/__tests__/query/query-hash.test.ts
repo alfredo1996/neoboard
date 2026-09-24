@@ -14,10 +14,14 @@ describe("computeResultId", () => {
     expect(id).toMatch(/^[0-9a-f]{16}$/);
   });
 
-  it("normalizes whitespace: extra spaces produce same hash", () => {
-    const a = computeResultId("conn-1", "MATCH  (n)   RETURN  n");
-    const b = computeResultId("conn-1", "MATCH (n) RETURN n");
-    expect(a).toBe(b);
+  // #1964 (CodeRabbit): whitespace inside a literal is meaning too — 'a  b'
+  // and 'a b' are different values. Only the ends of the text are trimmed.
+  it("keeps inner whitespace: a literal differing only in spacing is a different query", () => {
+    expect(
+      computeResultId("conn-1", "MATCH (n) WHERE n.name = 'a  b' RETURN n"),
+    ).not.toBe(
+      computeResultId("conn-1", "MATCH (n) WHERE n.name = 'a b' RETURN n"),
+    );
   });
 
   // #1964: case is not formatting in a query. `:Person` and `:person` are

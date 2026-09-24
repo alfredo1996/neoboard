@@ -5,11 +5,11 @@ import { createHash } from "crypto";
  * database the run used, the query string, optional parameters and the row
  * limit the query ran at.
  *
- * Normalization: trim + collapse whitespace, so formatting alone does not
- * change the id. Case is kept (#1964): `:Person` and `:person` are different
- * labels, `'Alice'` and `'alice'` different literals.
- * ponytail: whitespace inside a string literal collapses too; fine for an id
- * that only gates UI state, not for a cache key.
+ * Normalization: trim the ends, nothing else (#1964). Case and inner
+ * whitespace are meaning in a query: `:Person` and `:person` are different
+ * labels, `'a  b'` and `'a b'` different literals. A literal cannot start or
+ * end the text, so trimming is safe; re-running after a whitespace-only edit
+ * gets a new id, which only resets the widget's exploration once.
  *
  * The row limit is part of the identity (#1896): the editor preview runs the
  * same query text as the dashboard card at a lower cap, and its 25 rows are
@@ -23,7 +23,7 @@ export function computeResultId(
   rowLimit?: number,
   database?: string,
 ): string {
-  const normalizedQuery = query.trim().replace(/\s+/g, " ");
+  const normalizedQuery = query.trim();
   return createHash("sha256")
     .update(connectionId)
     .update("\x00")

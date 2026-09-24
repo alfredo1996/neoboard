@@ -1098,7 +1098,7 @@ const SPEC = {
               resultId: {
                 type: "string",
                 description:
-                  "16 hex characters hashing the connection, the database the run used, the query text (trimmed, whitespace collapsed; case kept), the params and `rowLimit`.",
+                  "16 hex characters hashing the connection, the database the run used, the query text (trimmed, otherwise exactly as written), the params and `rowLimit`.",
               },
               serverDurationMs: {
                 type: "integer",

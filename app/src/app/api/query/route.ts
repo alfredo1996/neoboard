@@ -205,7 +205,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
     // the widget banner.
     const { data, truncated, rowLimit } = result;
 
-    // Deterministic query hash: same connection + database + normalized query
+    // Deterministic query hash: same connection + database + trimmed query
     // + params + effective row limit → same resultId. Clients use it to keep
     // state (e.g. graph exploration) across re-runs of the same query; it is
     // not a cache key (see computeResultId). The row limit is in it because the
