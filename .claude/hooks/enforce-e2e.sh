@@ -7,9 +7,13 @@
 #
 # `mark` sees only Edit and Write, so a UI file written through Bash was never
 # flagged (#1939). check-commit therefore also reads the checkout itself: a UI
-# file that differs from HEAD (staged, unstaged or new) and changed after the
-# checkout's last Playwright run blocks a commit there, whatever wrote it — the
-# same obligation the marker carries. clear-on-test stamps the run.
+# file that differs from HEAD (staged, unstaged or new) and holds content no
+# Playwright run in that checkout has seen blocks a commit there, whatever wrote
+# it — the same obligation the marker carries. clear-on-test records what a run
+# saw. Content, not file times: a rename, a moved directory, `cp -p` or a stash
+# round trip cannot fool it, and nothing depends on /bin/bash 3.2's clock.
+# ponytail: a UI file written AND committed in the same Bash call is written
+# after this PreToolUse check runs, so it is not seen; a post-commit audit would.
 #
 # The flag belongs to a CHECKOUT, not to the project (#1926). Every session —
 # including agents in linked worktrees — runs this script with the main checkout
@@ -20,9 +24,6 @@
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -z "$PROJECT_DIR" ] && exit 0
 
-# The checkout a directory belongs to: its git top level (a linked worktree has
-# its own), else the project dir, so a plain directory behaves as it always did.
-# A directory that does not exist yet counts as its nearest existing parent.
 # The git top level of a directory (its nearest existing parent if it does not
 # exist yet), or nothing outside a git work tree.
 git_top() {
@@ -33,6 +34,8 @@ git_top() {
   git -C "$dir" rev-parse --show-toplevel 2>/dev/null
 }
 
+# The checkout a directory belongs to: its git top level (a linked worktree has
+# its own), else the project dir, so a plain directory behaves as it always did.
 checkout_of() {
   local top
   top=$(git_top "$1")
@@ -41,58 +44,77 @@ checkout_of() {
 
 marker_of() { echo "$1/.claude/.e2e-needed"; }
 
-# When checkout $1 last ran Playwright: a file in that worktree's own git dir,
-# so it is never tracked and never lands in another repo's working tree.
-stamp_of() {
-  git -C "$1" rev-parse --path-format=absolute --git-path e2e-last-run 2>/dev/null
+# What the last Playwright run in checkout $1 saw: a file in that worktree's own
+# git dir, so it is never tracked and never lands in another repo's working
+# tree. One "blob<TAB>path" line per changed UI file.
+seen_of() {
+  git -C "$1" rev-parse --path-format=absolute --git-path e2e-seen 2>/dev/null
 }
 
-# The UI files in checkout $1 that differ from HEAD — staged, unstaged or new —
-# and changed after its last Playwright run (all of them before a first run),
-# as absolute paths. Whatever this commit will carry and however they were
-# written: `git add && git commit`, `-a`, `-p` and pathspecs need no parsing.
-# ctime, which no command can set back (cp -p, touch -r); `find` compares it
-# finely, where /bin/bash 3.2's -nt has whole seconds. One read-only status
-# call, NUL-separated, so no name is quoted or split. Deletions don't count,
-# as they never did through Edit/Write.
-unverified_ui() {
-  local checkout="$1" stamp incoming ref entry xy path
-  stamp=$(stamp_of "$checkout")
-  # Finishing a merge, cherry-pick or revert: files the other side changed
-  # arrive freshly written. Only a path that differs from that side too was
-  # touched here.
-  incoming=""
-  for ref in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD; do
-    if git -C "$checkout" rev-parse -q --verify "$ref" >/dev/null 2>&1; then
-      incoming="$ref"
-      break
-    fi
+# A merge, cherry-pick, revert or rebase is in progress in checkout $1.
+op_in_progress() {
+  local ref dir
+  for ref in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD REBASE_HEAD; do
+    git -C "$1" rev-parse -q --verify "$ref" >/dev/null 2>&1 && return 0
   done
-  [ "$incoming" = REVERT_HEAD ] && incoming="REVERT_HEAD^"
-  git --no-optional-locks -C "$checkout" status --porcelain -z \
-    --untracked-files=all -- app/src/components app/src/app 2>/dev/null |
-    while IFS= read -r -d '' entry; do
-      xy="${entry:0:2}"
-      path="${entry:3}"
-      # A rename's source path follows as its own entry.
-      case "$xy" in R* | C*) IFS= read -r -d '' _ ;; esac
-      case "$xy" in D* | ?D) continue ;; esac
-      if [ -n "$incoming" ] &&
-        git -C "$checkout" diff --quiet "$incoming" -- "$path" 2>/dev/null; then
-        continue
-      fi
-      case "$xy" in
-        # Staged content that is not what is on disk, or a rename (which keeps
-        # its old times): nothing on disk can vouch for it.
-        [MARC][MD] | R* | C*) echo "$checkout/$path" ;;
-        *)
-          if [ -z "$stamp" ] || [ ! -e "$stamp" ] ||
-            [ -n "$(find "$checkout/$path" -prune -cnewer "$stamp" 2>/dev/null)" ]; then
-            echo "$checkout/$path"
-          fi
-          ;;
-      esac
-    done
+  for dir in rebase-merge rebase-apply; do
+    [ -d "$(git -C "$1" rev-parse --path-format=absolute --git-path "$dir" 2>/dev/null)" ] &&
+      return 0
+  done
+  return 1
+}
+
+# The UI content checkout $1 holds beyond HEAD, one "blob<TAB>path" line each:
+# what is on disk of every changed UI file (staged, unstaged or new) and, with
+# $2 set, what is staged where the index differs from HEAD. One read-only
+# status call, NUL-separated, so no name is quoted or split. Deletions carry no
+# content and never counted through Edit/Write.
+# ponytail: a UI filename containing a newline is not hashed (hash-object
+# --stdin-paths reads lines).
+ui_content() {
+  local checkout="$1" staged="$2" entry xy on_disk="" in_index=""
+  while IFS= read -r -d '' entry; do
+    xy="${entry:0:2}"
+    # A rename's source path follows as its own entry.
+    case "$xy" in R* | C*) IFS= read -r -d '' _ ;; esac
+    case "$xy" in D* | ' D') continue ;; esac
+    [ -f "$checkout/${entry:3}" ] && on_disk="$on_disk${entry:3}"$'\n'
+    case "$xy" in [MARC]?) in_index="$in_index${entry:3}"$'\n' ;; esac
+  done < <(git --no-optional-locks -C "$checkout" status --porcelain -z \
+    --untracked-files=all -- app/src/components app/src/app 2>/dev/null)
+  if [ -n "$on_disk" ]; then
+    paste \
+      <(printf '%s' "$on_disk" | git -C "$checkout" hash-object --stdin-paths 2>/dev/null) \
+      <(printf '%s' "$on_disk")
+  fi
+  if [ -n "$staged" ] && [ -n "$in_index" ]; then
+    git -C "$checkout" ls-files -s -z -- app/src/components app/src/app 2>/dev/null |
+      while IFS= read -r -d '' entry; do
+        # "<mode> <blob> <stage><TAB><path>" -> "<blob><TAB><path>"
+        entry="${entry#* }"
+        printf '%s\t%s\n' "${entry%% *}" "${entry#*$'\t'}"
+      done |
+      awk -F'\t' 'NR == FNR { want[$0]; next } ($2 in want)' \
+        <(printf '%s' "$in_index") -
+  fi
+}
+
+# The changed UI files of checkout $1 whose content, on disk or staged, no run
+# there has seen, as absolute paths. Whatever this commit will carry and
+# however it was written: `git add && git commit`, `-a`, `-p` and pathspecs
+# need no parsing. Nothing while a merge, cherry-pick, revert or rebase is in
+# progress: git wrote what it brought in, which no run can have seen, and the
+# Edit/Write marker still applies.
+# ponytail: a UI file written through Bash during such an operation is not seen.
+unverified_ui() {
+  local checkout="$1" seen
+  op_in_progress "$checkout" && return 0
+  seen=$(seen_of "$checkout")
+  [ -n "$seen" ] || return 0
+  ui_content "$checkout" staged |
+    if [ -s "$seen" ]; then grep -Fxv -f "$seen"; else cat; fi |
+    cut -f2- | sort -u |
+    awk -v c="$checkout" '{ print c "/" $0 }'
 }
 
 # Every git checkout a session could be committing to: the project, the cwd's,
@@ -222,9 +244,11 @@ case "$1" in
   clear-on-test)
     INPUT=$(cat)
     CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
-    # Clear marker when playwright tests are run (directly, or through the
-    # documented `npm run test:e2e`).
-    echo "$CMD" | grep -qE 'playwright test|test:e2e' || exit 0
+    # Clear marker when Playwright really runs: a command that invokes it, or
+    # the documented `npm run test:e2e` — not one that merely mentions either.
+    RUN_RE='(^|[;&|({][[:space:]]*)((npx|npm[[:space:]]+exec)[[:space:]]+)?playwright[[:space:]]+test([[:space:]]|$)'
+    RUN_RE="$RUN_RE"'|(^|[;&|({][[:space:]]*)npm([[:space:]]+(-w|--workspace)[[:space:]=]*[^[:space:]]+)?[[:space:]]+run[[:space:]]+test:e2e([[:space:]]|$)'
+    echo "$CMD" | grep -qE "$RUN_RE" || exit 0
     # Listing the specs is not running them.
     echo "$CMD" | grep -qE -- '--list' && exit 0
     BASE=$(echo "$INPUT" | jq -r '.cwd // empty')
@@ -232,11 +256,11 @@ case "$1" in
     # Only the checkout the run happened in; an unknowable one clears nothing.
     DIR=$(target_dir "$CMD" "$BASE") || exit 0
     rm -f "$(marker_of "$(checkout_of "$DIR")")"
-    # Stamp only a real git checkout, in its own git dir.
+    # Record what the run saw, only for a real git checkout, in its own git dir.
     TOP=$(git_top "$DIR")
-    STAMP=""
-    [ -n "$TOP" ] && STAMP=$(stamp_of "$TOP")
-    [ -n "$STAMP" ] && touch "$STAMP"
+    SEEN=""
+    [ -n "$TOP" ] && SEEN=$(seen_of "$TOP")
+    [ -n "$SEEN" ] && ui_content "$TOP" > "$SEEN"
     ;;
 
   *)

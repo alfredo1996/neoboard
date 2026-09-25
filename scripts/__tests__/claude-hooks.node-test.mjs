@@ -697,9 +697,8 @@ describe("E2E commit gate is per checkout (#1926)", () => {
 describe("E2E commit gate sees UI changes, however they were written (#1939)", () => {
   // The marker is set only by the Edit/Write hook, so a UI file written through
   // Bash (sed -i, a heredoc, `>`) was committed with no Playwright run and no
-  // warning. The gate now also reads the checkout itself: a UI file that
-  // differs from HEAD and changed (by ctime) after the checkout's last
-  // Playwright run blocks a commit there, as the marker does.
+  // warning. A run now records the content of every changed UI file; a commit
+  // is blocked while a changed UI file holds content no run has seen.
 
   const git = (cwd, ...args) =>
     execFileSync(
@@ -710,12 +709,13 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
 
   /** A main checkout with one linked worktree, each with a committed UI file. */
   function checkouts() {
-    const base = realpathSync(mkdtempSync(join(tmpdir(), "e2e-dirty-")));
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "e2e-seen-")));
     const main = join(base, "main");
     const linked = join(base, "linked");
-    mkdirSync(join(main, "app/src/components"), { recursive: true });
+    mkdirSync(join(main, "app/src/components/cards"), { recursive: true });
     git(main, "init", "-q");
     writeFileSync(join(main, "app/src/components/x.tsx"), "v1\n");
+    writeFileSync(join(main, "app/src/components/cards/card.tsx"), "card\n");
     writeFileSync(join(main, "README.md"), "v1\n");
     git(main, "add", ".");
     git(main, "commit", "-q", "-m", "init");
@@ -748,41 +748,80 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     assert.equal(commit("git commit -m x", main, main), BLOCK, "staged");
   });
 
-  test("a Playwright run vouches for what is on disk; a later write does not", () => {
+  test("a run vouches for the content it saw; different content is not vouched for", () => {
     const { main } = checkouts();
     writeFileSync(ui(main), "v2\n");
     playwright(main, main);
     assert.equal(commit("git commit -am x", main, main), 0);
     writeFileSync(ui(main), "v3\n");
     assert.equal(commit("git commit -am x", main, main), BLOCK);
+    // Back to what the run saw: vouched for again, whatever the file times say.
+    writeFileSync(ui(main), "v2\n");
+    assert.equal(commit("git commit -am x", main, main), 0);
   });
 
-  test("a write that keeps an old mtime after the run still counts", () => {
+  test("content copied in after the run counts, whatever its times (cp -p)", () => {
     const { main, base } = checkouts();
     const draft = join(base, "draft.tsx");
     writeFileSync(draft, "draft\n");
     const old = new Date(Date.now() - 3_600_000);
     utimesSync(draft, old, old);
     playwright(main, main);
-    // cp -p carries the draft's hour-old mtime; the ctime is new.
     execFileSync("cp", ["-p", draft, ui(main)]);
     assert.equal(commit("git commit -am x", main, main), BLOCK);
   });
 
-  test("staged content that is not what is on disk is never vouched for", () => {
+  test("a rename is vouched for by a run after it, and blocks before one", () => {
+    const { main } = checkouts();
+    git(main, "mv", "app/src/components/x.tsx", "app/src/components/y.tsx");
+    assert.equal(commit("git commit -m x", main, main), BLOCK);
+    playwright(main, main);
+    assert.equal(commit("git commit -m x", main, main), 0);
+  });
+
+  test("a directory moved after the run counts, though its files keep their times", () => {
+    const { main } = checkouts();
+    playwright(main, main);
+    execFileSync("mv", [
+      join(main, "app/src/components/cards"),
+      join(main, "app/src/components/tiles"),
+    ]);
+    assert.equal(commit("git add -A && git commit -m x", main, main), BLOCK);
+  });
+
+  test("a stash round trip does not undo a run", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    playwright(main, main);
+    git(main, "stash", "-q");
+    git(main, "stash", "pop", "-q");
+    assert.equal(commit("git commit -am x", main, main), 0);
+  });
+
+  test("staged content the run did not see is never vouched for", () => {
     const { main } = checkouts();
     writeFileSync(ui(main), "staged\n");
     git(main, "add", ".");
     writeFileSync(ui(main), "on disk\n");
     playwright(main, main);
-    assert.equal(commit("git commit -m x", main, main), BLOCK);
+    assert.equal(commit("git commit -m x", main, main), BLOCK, "MM");
+    // Staged, then deleted from disk (MD): the staged content is still unseen.
+    execFileSync("rm", [ui(main)]);
+    assert.equal(commit("git commit -m x", main, main), BLOCK, "MD");
   });
 
-  test("npm run test:e2e counts as a run; --list does not", () => {
+  test("only a real run counts: npm run test:e2e does, grep and --list do not", () => {
     const { main } = checkouts();
     writeFileSync(ui(main), "v2\n");
-    playwright(main, main, "cd app && npx playwright test --list");
-    assert.equal(commit("git commit -am x", main, main), BLOCK);
+    for (const command of [
+      "cd app && npx playwright test --list",
+      'grep "playwright test" e2e.log',
+      "echo npm run test:e2e",
+      "npm run test:e2e:ui",
+    ]) {
+      playwright(main, main, command);
+      assert.equal(commit("git commit -am x", main, main), BLOCK, command);
+    }
     playwright(main, main, "npm run test:e2e");
     assert.equal(commit("git commit -am x", main, main), 0);
   });
@@ -799,23 +838,24 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     assert.equal(commit("git commit -m x", main, main), BLOCK);
   });
 
-  test("finishing a merge is not blocked by UI files the other side brought", () => {
+  test("finishing a merge is left to the marker: what git merged in is not blocked", () => {
+    // Ceiling: a UI file written through Bash while a merge, cherry-pick,
+    // revert or rebase is in progress is not seen; an Edit/Write one is.
     const { main } = checkouts();
     git(main, "switch", "-q", "-c", "other");
-    writeFileSync(ui(main), "theirs\n");
+    writeFileSync(ui(main), "v1\ntheirs\n");
     writeFileSync(join(main, "README.md"), "theirs\n");
     git(main, "commit", "-q", "-am", "other");
     git(main, "switch", "-q", "-");
+    writeFileSync(ui(main), "ours\nv1\n");
     writeFileSync(join(main, "README.md"), "ours\n");
     git(main, "commit", "-q", "-am", "ours");
-    // Conflicts in README.md only; git writes the UI file from `other`.
+    // README conflicts; the UI file is auto-merged from both sides.
     assert.throws(() => git(main, "merge", "-q", "other"));
     writeFileSync(join(main, "README.md"), "resolved\n");
     git(main, "add", "README.md");
     assert.equal(commit("git commit --no-edit", main, main), 0);
-    // Touching that UI file during the resolution does count.
-    writeFileSync(ui(main), "resolved by hand\n");
-    git(main, "add", ".");
+    hook("mark", { tool_input: { file_path: ui(main) } }, main);
     assert.equal(commit("git commit --no-edit", main, main), BLOCK);
   });
 
@@ -838,14 +878,15 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     assert.equal(commit(command, main, main), BLOCK);
   });
 
-  test("the run stamp lives in git's own directory, never in the working tree", () => {
+  test("the run record lives in git's own directory, never in the working tree", () => {
     const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
     playwright(main, main);
     assert.equal(
       git(main, "status", "--porcelain", "--untracked-files=all"),
-      "",
+      " M app/src/components/x.tsx\n",
     );
-    // Outside any git work tree a run stamps nothing.
+    // Outside any git work tree a run records nothing.
     const plain = realpathSync(mkdtempSync(join(tmpdir(), "e2e-plain-")));
     playwright(plain, main);
     assert.deepEqual(readdirSync(plain), []);
