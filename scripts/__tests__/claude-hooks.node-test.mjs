@@ -53,7 +53,7 @@ function runHook(script, filePath, content) {
   }
 }
 
-/** Run a hook with any payload, arguments and env. Returns exit code and stdout. */
+/** Run a hook with any payload, arguments and env. Returns exit code, stdout and stderr. */
 function run(script, args, payload, env = {}) {
   try {
     const stdout = execFileSync("/bin/bash", [join(HOOKS, script), ...args], {
@@ -64,7 +64,11 @@ function run(script, args, payload, env = {}) {
     });
     return { status: 0, stdout };
   } catch (err) {
-    return { status: err.status ?? 1, stdout: err.stdout ?? "" };
+    return {
+      status: err.status ?? 1,
+      stdout: err.stdout ?? "",
+      stderr: err.stderr ?? "",
+    };
   }
 }
 
@@ -748,6 +752,19 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     assert.equal(commit("git commit -m x", main, main), BLOCK, "staged");
   });
 
+  test("a first UI file in a repo that has none blocks before any run", () => {
+    // Nothing committed and nothing seen: an empty reference set once made
+    // every line count as seen (awk's NR == FNR on an empty first input).
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "e2e-first-")));
+    git(dir, "init", "-q");
+    writeFileSync(join(dir, "README.md"), "x\n");
+    git(dir, "add", ".");
+    git(dir, "commit", "-q", "-m", "init");
+    mkdirSync(join(dir, "app/src/components"), { recursive: true });
+    writeFileSync(join(dir, "app/src/components/first.tsx"), "new\n");
+    assert.equal(commit("git add -A && git commit -m x", dir, dir), BLOCK);
+  });
+
   test("a run vouches for the content it saw; different content is not vouched for", () => {
     const { main } = checkouts();
     writeFileSync(ui(main), "v2\n");
@@ -857,6 +874,99 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     assert.equal(commit("git commit --no-edit", main, main), 0);
     hook("mark", { tool_input: { file_path: ui(main) } }, main);
     assert.equal(commit("git commit --no-edit", main, main), BLOCK);
+  });
+
+  test("a run counts however it is spelled: env prefixes, wrappers, flags, a pipe", () => {
+    for (const command of [
+      "cd app && TEST_SERVER_PORT=3400 npx playwright test e2e/x.spec.ts",
+      "cd app && env TEST_SERVER_PORT=3400 npx playwright test",
+      "cd app && timeout 900 npx playwright test",
+      "cd app && npx -y playwright test",
+      "cd app && npx playwright test e2e/x.spec.ts | tail -5",
+      "CI=1 npm run test:e2e",
+    ]) {
+      const { main } = checkouts();
+      writeFileSync(ui(main), "v2\n");
+      playwright(main, main, command);
+      assert.equal(commit("git commit -am x", main, main), 0, command);
+    }
+  });
+
+  test("asking Playwright for help is not a run", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    playwright(main, main, "cd app && npx playwright test --help");
+    assert.equal(commit("git commit -am x", main, main), BLOCK);
+  });
+
+  test("a finished rebase does not switch the check off", () => {
+    // REBASE_HEAD outlives a rebase; only rebase-merge/rebase-apply mean one
+    // is in progress.
+    const { main } = checkouts();
+    git(main, "switch", "-q", "-c", "topic");
+    writeFileSync(join(main, "README.md"), "topic\n");
+    git(main, "commit", "-q", "-am", "topic");
+    git(main, "switch", "-q", "-");
+    writeFileSync(join(main, "README.md"), "base\n");
+    git(main, "commit", "-q", "-am", "base");
+    git(main, "switch", "-q", "topic");
+    assert.throws(() => git(main, "rebase", "-q", "-"));
+    writeFileSync(join(main, "README.md"), "resolved\n");
+    git(main, "add", "README.md");
+    execFileSync(
+      "git",
+      ["-c", "user.email=t@t", "-c", "user.name=t", "rebase", "--continue"],
+      { cwd: main, stdio: "pipe", env: { ...process.env, GIT_EDITOR: "true" } },
+    );
+    writeFileSync(ui(main), "after the rebase\n");
+    assert.equal(commit("git commit -am x", main, main), BLOCK);
+  });
+
+  test("content a run saw stays seen: redoing a commit after it is not blocked", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    playwright(main, main);
+    git(main, "commit", "-q", "-am", "wip");
+    // A later run on the committed tree, then the commit is undone to redo it.
+    playwright(main, main);
+    git(main, "reset", "-q", "--soft", "HEAD~1");
+    assert.equal(commit("git commit -m redo", main, main), 0);
+  });
+
+  test("a mode-only change carries no new content", () => {
+    const { main } = checkouts();
+    git(main, "update-index", "--chmod=+x", "app/src/components/x.tsx");
+    assert.equal(commit("git commit -m x", main, main), 0);
+  });
+
+  test("a squash merge needs a run like any change", () => {
+    // Ceiling, on purpose: SQUASH_MSG can outlive an aborted squash, and a
+    // leftover marker of an operation would switch the check off (as a
+    // leftover REBASE_HEAD did).
+    const { main } = checkouts();
+    git(main, "switch", "-q", "-c", "other");
+    writeFileSync(ui(main), "theirs\n");
+    git(main, "commit", "-q", "-am", "other");
+    git(main, "switch", "-q", "-");
+    git(main, "merge", "-q", "--squash", "other");
+    assert.equal(commit("git commit -m squash", main, main), BLOCK);
+    playwright(main, main);
+    assert.equal(commit("git commit -m squash", main, main), 0);
+  });
+
+  test("the block says how to vouch for staged content the run did not see", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "staged\n");
+    git(main, "add", ".");
+    writeFileSync(ui(main), "on disk\n");
+    playwright(main, main);
+    const { status, stderr } = hook(
+      "check-commit",
+      { cwd: main, tool_input: { command: "git commit -m x" } },
+      main,
+    );
+    assert.equal(status, BLOCK);
+    assert.match(stderr, /git add/);
   });
 
   test("a worktree's UI change blocks only that worktree", () => {

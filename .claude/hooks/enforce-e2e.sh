@@ -12,8 +12,12 @@
 # it — the same obligation the marker carries. clear-on-test records what a run
 # saw. Content, not file times: a rename, a moved directory, `cp -p` or a stash
 # round trip cannot fool it, and nothing depends on /bin/bash 3.2's clock.
-# ponytail: a UI file written AND committed in the same Bash call is written
-# after this PreToolUse check runs, so it is not seen; a post-commit audit would.
+# ponytail — known ceilings, each accepted on purpose:
+#  - a UI file written AND committed in the same Bash call is written after this
+#    PreToolUse check runs (#1989 adds a post-commit audit);
+#  - UI content written after a run in the same Bash call counts as seen;
+#  - `git commit -p` commits hunks that are neither staged nor on disk;
+#  - a filename containing a newline is not hashed (hash-object reads lines).
 #
 # The flag belongs to a CHECKOUT, not to the project (#1926). Every session —
 # including agents in linked worktrees — runs this script with the main checkout
@@ -44,17 +48,22 @@ checkout_of() {
 
 marker_of() { echo "$1/.claude/.e2e-needed"; }
 
-# What the last Playwright run in checkout $1 saw: a file in that worktree's own
+# What Playwright runs in checkout $1 have seen: a file in that worktree's own
 # git dir, so it is never tracked and never lands in another repo's working
-# tree. One "blob<TAB>path" line per changed UI file.
+# tree. "blob<TAB>path" lines, accumulated over runs: the committed UI tree each
+# run exercised plus the changed UI content it had on disk, so redoing a commit
+# (`git reset --soft`) after a run does not undo it.
 seen_of() {
   git -C "$1" rev-parse --path-format=absolute --git-path e2e-seen 2>/dev/null
 }
 
-# A merge, cherry-pick, revert or rebase is in progress in checkout $1.
+# A merge, cherry-pick, revert or rebase is in progress in checkout $1: the
+# state git deletes when the operation ends. REBASE_HEAD is not such a sign —
+# it outlives a finished rebase. `merge --squash` and `cherry-pick -n` leave no
+# reliable sign, so what they bring needs a run like any change.
 op_in_progress() {
   local ref dir
-  for ref in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD REBASE_HEAD; do
+  for ref in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD; do
     git -C "$1" rev-parse -q --verify "$ref" >/dev/null 2>&1 && return 0
   done
   for dir in rebase-merge rebase-apply; do
@@ -64,47 +73,66 @@ op_in_progress() {
   return 1
 }
 
+# The committed UI tree of checkout $1's HEAD, as "blob<TAB>path" lines.
+head_ui() {
+  git -C "$1" ls-tree -r -z HEAD -- app/src/components app/src/app 2>/dev/null |
+    while IFS= read -r -d '' entry; do
+      # "<mode> <type> <blob><TAB><path>"
+      entry="${entry#* }"
+      entry="${entry#* }"
+      printf '%s\t%s\n' "${entry%%$'\t'*}" "${entry#*$'\t'}"
+    done
+}
+
 # The UI content checkout $1 holds beyond HEAD, one "blob<TAB>path" line each:
 # what is on disk of every changed UI file (staged, unstaged or new) and, with
 # $2 set, what is staged where the index differs from HEAD. One read-only
-# status call, NUL-separated, so no name is quoted or split. Deletions carry no
-# content and never counted through Edit/Write.
-# ponytail: a UI filename containing a newline is not hashed (hash-object
-# --stdin-paths reads lines).
+# status call, NUL-separated, so no name is quoted or split; one batched
+# hash-object call. A symlink is hashed as git stores it: its target text.
+# Deletions carry no content and never counted through Edit/Write.
 ui_content() {
-  local checkout="$1" staged="$2" entry xy on_disk="" in_index=""
+  local checkout="$1" staged="$2" entry xy path tmp
+  tmp=$(mktemp -d) || return 0
+  : > "$tmp/disk"
+  : > "$tmp/index"
   while IFS= read -r -d '' entry; do
     xy="${entry:0:2}"
+    path="${entry:3}"
     # A rename's source path follows as its own entry.
     case "$xy" in R* | C*) IFS= read -r -d '' _ ;; esac
     case "$xy" in D* | ' D') continue ;; esac
-    [ -f "$checkout/${entry:3}" ] && on_disk="$on_disk${entry:3}"$'\n'
-    case "$xy" in [MARC]?) in_index="$in_index${entry:3}"$'\n' ;; esac
+    if [ -L "$checkout/$path" ]; then
+      printf '%s\t%s\n' \
+        "$(printf '%s' "$(readlink "$checkout/$path")" | git -C "$checkout" hash-object --stdin)" \
+        "$path"
+    elif [ -f "$checkout/$path" ]; then
+      printf '%s\n' "$path" >> "$tmp/disk"
+    fi
+    case "$xy" in [MARC]?) printf '%s\n' "$path" >> "$tmp/index" ;; esac
   done < <(git --no-optional-locks -C "$checkout" status --porcelain -z \
     --untracked-files=all -- app/src/components app/src/app 2>/dev/null)
-  if [ -n "$on_disk" ]; then
-    paste \
-      <(printf '%s' "$on_disk" | git -C "$checkout" hash-object --stdin-paths 2>/dev/null) \
-      <(printf '%s' "$on_disk")
+  if [ -s "$tmp/disk" ]; then
+    paste <(git -C "$checkout" hash-object --stdin-paths < "$tmp/disk" 2>/dev/null) \
+      "$tmp/disk"
   fi
-  if [ -n "$staged" ] && [ -n "$in_index" ]; then
+  if [ -n "$staged" ] && [ -s "$tmp/index" ]; then
     git -C "$checkout" ls-files -s -z -- app/src/components app/src/app 2>/dev/null |
       while IFS= read -r -d '' entry; do
         # "<mode> <blob> <stage><TAB><path>" -> "<blob><TAB><path>"
         entry="${entry#* }"
         printf '%s\t%s\n' "${entry%% *}" "${entry#*$'\t'}"
       done |
-      awk -F'\t' 'NR == FNR { want[$0]; next } ($2 in want)' \
-        <(printf '%s' "$in_index") -
+      awk -F'\t' 'FILENAME == ARGV[1] { want[$0]; next } ($2 in want)' "$tmp/index" -
   fi
+  rm -rf "$tmp"
 }
 
-# The changed UI files of checkout $1 whose content, on disk or staged, no run
-# there has seen, as absolute paths. Whatever this commit will carry and
-# however it was written: `git add && git commit`, `-a`, `-p` and pathspecs
-# need no parsing. Nothing while a merge, cherry-pick, revert or rebase is in
-# progress: git wrote what it brought in, which no run can have seen, and the
-# Edit/Write marker still applies.
+# The changed UI files of checkout $1 whose content, on disk or staged, is
+# neither in HEAD nor seen by a run there, as absolute paths. Whatever this
+# commit will carry and however it was written: `git add && git commit`, `-a`
+# and pathspecs need no parsing. Nothing while a merge, cherry-pick, revert or
+# rebase is in progress: git wrote what it brought in, which no run can have
+# seen, and the Edit/Write marker still applies.
 # ponytail: a UI file written through Bash during such an operation is not seen.
 unverified_ui() {
   local checkout="$1" seen
@@ -112,7 +140,10 @@ unverified_ui() {
   seen=$(seen_of "$checkout")
   [ -n "$seen" ] || return 0
   ui_content "$checkout" staged |
-    if [ -s "$seen" ]; then grep -Fxv -f "$seen"; else cat; fi |
+    # FILENAME, not NR == FNR: an empty first input (nothing committed, nothing
+    # seen) would otherwise make every line count as seen.
+    awk 'FILENAME == ARGV[1] { ok[$0]; next } !($0 in ok)' \
+      <(head_ui "$checkout"; [ -f "$seen" ] && cat "$seen") - |
     cut -f2- | sort -u |
     awk -v c="$checkout" '{ print c "/" $0 }'
 }
@@ -230,6 +261,7 @@ case "$1" in
     COUNT=$(echo "$FILES" | wc -l | tr -d ' ')
     echo "BLOCKED: $COUNT UI file(s) were edited and Playwright E2E has not run since." >&2
     echo "Run first: cd app && npx playwright test <affected spec>" >&2
+    echo "If the run saw what is on disk but a different version is staged, git add it so the commit carries what was tested." >&2
     if [ -n "$UNRESOLVED" ]; then
       echo "" >&2
       echo "The hook could not tell which checkout this commits to, so it checked all of them." >&2
@@ -245,12 +277,16 @@ case "$1" in
     INPUT=$(cat)
     CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
     # Clear marker when Playwright really runs: a command that invokes it, or
-    # the documented `npm run test:e2e` — not one that merely mentions either.
-    RUN_RE='(^|[;&|({][[:space:]]*)((npx|npm[[:space:]]+exec)[[:space:]]+)?playwright[[:space:]]+test([[:space:]]|$)'
-    RUN_RE="$RUN_RE"'|(^|[;&|({][[:space:]]*)npm([[:space:]]+(-w|--workspace)[[:space:]=]*[^[:space:]]+)?[[:space:]]+run[[:space:]]+test:e2e([[:space:]]|$)'
+    # the documented `npm run test:e2e` — behind env assignments, `env` or
+    # `timeout`, with npx flags, piped on — not one that merely mentions either.
+    AT='(^|[;&|({][[:space:]]*)([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*'
+    AT="$AT"'((env|timeout[[:space:]]+[0-9.]+[smhd]?)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*)?'
+    END='([[:space:];&|)]|$)'
+    RUN_RE="${AT}((npx([[:space:]]+-[^[:space:]]+)*|npm[[:space:]]+exec)[[:space:]]+)?playwright[[:space:]]+test${END}"
+    RUN_RE="$RUN_RE|${AT}npm([[:space:]]+(-w|--workspace)[[:space:]=]*[^[:space:]]+)?[[:space:]]+run[[:space:]]+test:e2e${END}"
     echo "$CMD" | grep -qE "$RUN_RE" || exit 0
-    # Listing the specs is not running them.
-    echo "$CMD" | grep -qE -- '--list' && exit 0
+    # Listing the specs, or asking for help, is not running them.
+    echo "$CMD" | grep -qE -- '(^|[[:space:]])(--list|--help|-h)([[:space:]]|$)' && exit 0
     BASE=$(echo "$INPUT" | jq -r '.cwd // empty')
     BASE="${BASE:-$PROJECT_DIR}"
     # Only the checkout the run happened in; an unknowable one clears nothing.
@@ -260,7 +296,11 @@ case "$1" in
     TOP=$(git_top "$DIR")
     SEEN=""
     [ -n "$TOP" ] && SEEN=$(seen_of "$TOP")
-    [ -n "$SEEN" ] && ui_content "$TOP" > "$SEEN"
+    if [ -n "$SEEN" ]; then
+      # Added to what earlier runs saw, and replaced atomically.
+      { [ -f "$SEEN" ] && cat "$SEEN"; head_ui "$TOP"; ui_content "$TOP"; } |
+        sort -u > "$SEEN.$$" && mv "$SEEN.$$" "$SEEN"
+    fi
     ;;
 
   *)
