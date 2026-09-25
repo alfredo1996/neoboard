@@ -11,6 +11,7 @@
  */
 import { describe, it, expect } from "vitest";
 import SPEC from "../openapi-spec";
+import { API_ERROR_CODES } from "../api-response";
 import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
 import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
 
@@ -208,5 +209,110 @@ describe("POST /api/query row cap and response (#1913)", () => {
       minimum: MAX_ROWS_BOUNDS.min,
       maximum: MAX_ROWS_BOUNDS.max,
     });
+  });
+});
+
+/**
+ * #1961. Every handler answers through apiSuccess / apiList / apiError, so every
+ * JSON body is `{ data, error, meta }` — but most responses were documented as
+ * the bare payload, and every error as `{ error: string }`. This walks every
+ * operation, so a new one is held to the envelope from birth.
+ */
+describe("every response is documented in the envelope the server sends (#1961)", () => {
+  type Schema = {
+    $ref?: string;
+    oneOf?: Schema[];
+    required?: string[];
+    properties?: Record<string, Schema>;
+    enum?: string[];
+  };
+  type Response = {
+    $ref?: string;
+    content?: Record<string, { schema?: Schema }>;
+  };
+  const components = SPEC.components as unknown as {
+    schemas: Record<string, Schema>;
+    responses: Record<string, Response>;
+  };
+  const deref = <T extends { $ref?: string }>(node: T): T => {
+    if (!node.$ref) return node;
+    const [, , kind, name] = node.$ref.split("/");
+    return deref(
+      (components as unknown as Record<string, Record<string, T>>)[kind][name],
+    );
+  };
+
+  /** [label, status, the JSON body schema] for every documented response. */
+  const bodies: [string, number, Schema][] = Object.entries(
+    SPEC.paths as Record<
+      string,
+      Record<string, { responses?: Record<string, Response> }>
+    >,
+  ).flatMap(([path, item]) =>
+    Object.entries(item)
+      .filter(([method]) => method !== "parameters")
+      .flatMap(([method, op]) =>
+        Object.entries(op.responses ?? {}).flatMap(
+          ([status, response]): [string, number, Schema][] => {
+            const schema =
+              deref(response).content?.["application/json"]?.schema;
+            return schema
+              ? [
+                  [
+                    `${method.toUpperCase()} ${path} ${status}`,
+                    Number(status),
+                    deref(schema),
+                  ],
+                ]
+              : [];
+          },
+        ),
+      ),
+  );
+
+  const isEnvelope = (s: Schema) =>
+    ["data", "error", "meta"].every((k) => s.properties?.[k] !== undefined) &&
+    ["data", "error", "meta"].every((k) => s.required?.includes(k));
+
+  it("covers the documented operations", () => {
+    expect(bodies.length).toBeGreaterThan(60);
+  });
+
+  it.each(bodies.filter(([, status]) => status < 400))(
+    "%s is an envelope",
+    (label, _status, schema) => {
+      // The export is a file download, deliberately outside the envelope.
+      if (label.startsWith("GET /api/dashboards/{id}/export")) return;
+      expect(isEnvelope(schema)).toBe(true);
+    },
+  );
+
+  it.each(bodies.filter(([, status]) => status >= 400))(
+    "%s is apiError's body",
+    (label, status, schema) => {
+      const forms = schema.oneOf ? schema.oneOf.map(deref) : [schema];
+      const handler = forms.find(isEnvelope);
+      expect(handler, label).toBeDefined();
+      expect(deref(handler!.properties!.error).required).toEqual([
+        "code",
+        "message",
+      ]);
+      // Only 401 and 403 have a second, proxy-made form (#1982).
+      expect(forms.length).toBe(status === 401 || status === 403 ? 2 : 1);
+    },
+  );
+
+  it("documents every error code apiError can send", () => {
+    expect(components.schemas.EnvelopeError.properties?.code.enum).toEqual(
+      API_ERROR_CODES,
+    );
+  });
+
+  it("keeps no hand-written envelope schema", () => {
+    expect(
+      Object.keys(components.schemas).filter((name) =>
+        /Envelope(?!Error)/.test(name),
+      ),
+    ).toEqual([]);
   });
 });

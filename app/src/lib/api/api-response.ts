@@ -47,6 +47,9 @@ const ERROR_STATUS: Record<ApiErrorCode, number> = {
   CONNECTOR_UNAVAILABLE: 502,
 };
 
+/** Every code apiError can send — the OpenAPI spec documents exactly these (#1961). */
+export const API_ERROR_CODES = Object.keys(ERROR_STATUS) as ApiErrorCode[];
+
 // ---------------------------------------------------------------------------
 // Response helpers
 // ---------------------------------------------------------------------------
