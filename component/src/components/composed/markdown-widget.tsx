@@ -80,11 +80,7 @@ function isTableAlignmentRow(line: string): boolean {
 /** h1/h2 take the preset's display sizes; h3-h6 stay at body size. */
 const HEADING_SIZE = { 1: "text-h2", 2: "text-h3" } as const;
 
-/**
- * Markdown to HTML. Exported for its linear-time test (#1937); the package
- * barrel re-exports only MarkdownWidget.
- */
-export function parseMarkdown(md: string): string {
+function parseMarkdown(md: string): string {
   // Process line-by-line for block elements
   const lines = md.split("\n");
   const result: string[] = [];
@@ -474,4 +470,6 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
   );
 }
 
-export { MarkdownWidget };
+// parseMarkdown is exported for its linear-time test (#1937); the package
+// barrel re-exports only MarkdownWidget.
+export { MarkdownWidget, parseMarkdown };
