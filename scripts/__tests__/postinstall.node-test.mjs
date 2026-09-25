@@ -100,6 +100,24 @@ describe("scripts/postinstall.sh", () => {
     assert.equal(r.npm, "");
   });
 
+  it("the package.json hook no-ops where only the manifests exist", () => {
+    // The Dockerfile's deps stage copies package.json files and runs `npm ci`
+    // before any script is in the image; a hook that needs one fails the build.
+    const pkg = JSON.parse(
+      readFileSync(resolve(dirname(SCRIPT), "../package.json"), "utf8"),
+    );
+    const manifestsOnly = join(root, "manifests-only");
+    mkdirSync(manifestsOnly);
+    writeFileSync(log, "");
+    const r = spawnSync("sh", ["-c", pkg.scripts.postinstall], {
+      cwd: manifestsOnly,
+      encoding: "utf8",
+      env: { ...process.env, CI: "", PATH: `${stubDir}:${process.env.PATH}` },
+    });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(readFileSync(log, "utf8"), "");
+  });
+
   it("fails when the CLI build fails, and does not link", () => {
     writeFileSync(
       join(stubDir, "npm"),

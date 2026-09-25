@@ -6,6 +6,9 @@
 # command stays on the primary checkout instead of following whichever
 # throwaway worktree ran `npm ci` last, and breaking when that one is removed.
 # To use a worktree's CLI on purpose, run `npm link ./cli` in it by hand.
+#
+# package.json runs this only when the file exists: the Dockerfile's deps stage
+# installs from the manifests alone, before any script is in the image.
 
 [ -n "$CI" ] && exit 0
 [ -d cli/src ] || exit 0
