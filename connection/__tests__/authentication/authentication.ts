@@ -31,6 +31,7 @@ describe("Neo4jAuthenticationModule creation to check consistency", () => {
   });
   test("creating an authenticationModule with undefined config", () => {
     // Expect a raised exception
+    // @ts-expect-error the negative case: no config at all
     expect(() => new Neo4jAuthenticationModule(undefined)).toThrow(
       "Connection config is required",
     );

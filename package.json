@@ -29,7 +29,7 @@
     "prepare": "husky",
     "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && env -u npm_config_prefix npm link ./cli)",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run test:scripts",
-    "typecheck": "npm -w component exec tsc -- --noEmit && npm -w app exec tsc -- --noEmit",
+    "typecheck": "npm -w connector-sdk exec tsc -- --noEmit && npm -w connection exec tsc -- --noEmit && npm -w component exec tsc -- --noEmit && npm -w app exec tsc -- --noEmit",
     "sonar:local": "node scripts/sonar-local.mjs",
     "review:local": "node scripts/review-local.mjs",
     "test:scripts": "vitest run scripts/__tests__ --exclude '**/.claude/**' && node --test 'scripts/__tests__/*.node-test.mjs' 'scripts/demo/__tests__/*.node-test.mjs'"

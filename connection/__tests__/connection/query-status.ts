@@ -4,6 +4,7 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
+  type ConnectionConfig,
 } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 
@@ -233,7 +234,7 @@ describe("Query to Neo4j", () => {
       },
     };
 
-    const shortTimeoutConfig = {
+    const shortTimeoutConfig: ConnectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       timeout: 2000, // Short transaction timeout to trigger TIMED_OUT
     };
@@ -267,7 +268,7 @@ describe("Query to Neo4j", () => {
       },
     };
 
-    const shortTimeoutConfig = {
+    const shortTimeoutConfig: ConnectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       accessMode: "WRITE",
       timeout: 2000, // Short transaction timeout to trigger TIMED_OUT

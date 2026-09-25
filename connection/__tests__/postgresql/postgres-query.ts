@@ -4,11 +4,15 @@ import {
   QueryStatus,
   AuthType,
   ConnectorError,
+  type ConnectionConfig,
 } from "@neoboard/connector-sdk";
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import {
+  PostgreSqlContainer,
+  type StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
 
 describe("PostgreSQL Query Execution", () => {
-  let container: PostgreSqlContainer;
+  let container: StartedPostgreSqlContainer;
   let connectionModule: PostgresConnectionModule;
 
   beforeAll(async () => {
@@ -84,7 +88,7 @@ describe("PostgreSQL Query Execution", () => {
     let status: QueryStatus | null = null;
     let error: any = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
     };
 
@@ -110,7 +114,7 @@ describe("PostgreSQL Query Execution", () => {
     let result: any = null;
     let status: QueryStatus | null = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
     };
 
@@ -134,7 +138,7 @@ describe("PostgreSQL Query Execution", () => {
   test("should return NO_DATA for empty result set", async () => {
     let status: QueryStatus | null = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
     };
 
@@ -152,7 +156,7 @@ describe("PostgreSQL Query Execution", () => {
   test("should return NO_QUERY for empty query", async () => {
     let status: QueryStatus | null = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
     };
 
@@ -171,7 +175,7 @@ describe("PostgreSQL Query Execution", () => {
     let status: QueryStatus | null = null;
     let error: any = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
     };
 
@@ -191,7 +195,7 @@ describe("PostgreSQL Query Execution", () => {
   test("should handle row limiting", async () => {
     let result: any = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
       rowLimit: 1,
     };
@@ -209,7 +213,7 @@ describe("PostgreSQL Query Execution", () => {
   });
 
   test("should check connection health", async () => {
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
     };
 
@@ -221,7 +225,7 @@ describe("PostgreSQL Query Execution", () => {
     let result: any = null;
     let status: QueryStatus | null = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
     };
 
@@ -244,7 +248,7 @@ describe("PostgreSQL Query Execution", () => {
     let result: any = null;
     let status: QueryStatus | null = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
       accessMode: "READ",
     };
@@ -266,7 +270,7 @@ describe("PostgreSQL Query Execution", () => {
   test("should execute write query with WRITE access mode", async () => {
     let status: QueryStatus | null = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
       accessMode: "WRITE",
     };
@@ -295,7 +299,7 @@ describe("PostgreSQL Query Execution", () => {
     let status: QueryStatus | null = null;
     let error: any = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
       timeout: 1, // 1ms timeout to force timeout
     };
@@ -316,7 +320,7 @@ describe("PostgreSQL Query Execution", () => {
   test("should return plain row objects whose keys are the columns (#1904)", async () => {
     let result: any = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
     };
 
@@ -347,7 +351,7 @@ describe("PostgreSQL Query Execution", () => {
     let error: any = null;
     let status: QueryStatus | null = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
       accessMode: "WRITE",
     };
@@ -428,7 +432,7 @@ describe("PostgreSQL Query Execution", () => {
     let result: any = null;
     let status: QueryStatus | null = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
       accessMode: "READ",
       rowLimit: 5,
@@ -456,7 +460,7 @@ describe("PostgreSQL Query Execution", () => {
     let status: QueryStatus | null = null;
     let result: any = null;
 
-    const config = {
+    const config: ConnectionConfig = {
       ...DEFAULT_CONNECTION_CONFIG,
       rowLimit: 1,
     };

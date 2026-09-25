@@ -8,6 +8,9 @@ module.exports = {
     global: { statements: 87, branches: 79, functions: 80, lines: 88 },
   },
   testEnvironment: "node",
+  // `diagnostics: false` keeps each run fast; the tests are type-checked by
+  // `npm run typecheck` and the CI typecheck job instead, whose tsconfig
+  // includes __tests__ (#1918).
   transform: {
     "^.+\\.tsx?$": ["ts-jest", { diagnostics: false }],
   },

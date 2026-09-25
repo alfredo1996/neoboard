@@ -1,6 +1,9 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} **/
 module.exports = {
   testEnvironment: "node",
+  // `diagnostics: false` keeps each run fast; the tests are type-checked by
+  // `npm run typecheck` and the CI typecheck job instead, whose tsconfig
+  // includes __tests__ (#1918).
   transform: {
     "^.+\\.tsx?$": ["ts-jest", { diagnostics: false }],
     "^.+\\.m?js$": ["ts-jest", { diagnostics: false, useESM: false }],

@@ -82,6 +82,8 @@ describe("Neo4jRecordParser - Temporal Conversion", () => {
       int(30),
       int(5),
       int(0),
+      // @ts-expect-error a Bolt 4.x server hands the parser a null offset; the
+      // constructor's type admits only undefined
       null,
       "Europe/Rome",
     );
@@ -102,6 +104,8 @@ describe("Neo4jRecordParser - Temporal Conversion", () => {
       int(0),
       int(0),
       int(0),
+      // @ts-expect-error a Bolt 4.x server hands the parser a null offset; the
+      // constructor's type admits only undefined
       null,
       "Europe/Rome",
     );
@@ -119,6 +123,8 @@ describe("Neo4jRecordParser - Temporal Conversion", () => {
       int(30),
       int(5),
       int(123456789),
+      // @ts-expect-error a Bolt 4.x server hands the parser a null offset; the
+      // constructor's type admits only undefined
       null,
       "Europe/Rome",
     );
@@ -136,6 +142,8 @@ describe("Neo4jRecordParser - Temporal Conversion", () => {
       int(0),
       int(0),
       int(0),
+      // @ts-expect-error a Bolt 4.x server hands the parser a null offset; the
+      // constructor's type admits only undefined
       null,
       "Asia/Kolkata",
     );

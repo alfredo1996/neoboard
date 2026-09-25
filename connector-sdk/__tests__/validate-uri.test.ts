@@ -11,14 +11,17 @@ import {
  * directly without booting a database.
  */
 class TestAuth extends AuthenticationModule {
+  constructor() {
+    super();
+  }
+
   validate(uri: string, protocols: string[] = []): void {
     this._validateUri(uri, protocols);
   }
 
   // The three abstract members exist only to satisfy the contract; nothing here
   // touches a driver. ts-jest runs with `diagnostics: false`, so omitting them
-  // ran fine — but no tsconfig includes this directory, so any compiler pointed
-  // at it would reject the class.
+  // would still run — `npm run typecheck` is what rejects it (#1918).
   createDriver(): unknown {
     throw new Error("not used in these tests");
   }
