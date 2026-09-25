@@ -1,8 +1,12 @@
 import { getNeo4jAuth } from "../../utils/setup";
 import { Neo4jConnectionModule } from "../../../src/neo4j/Neo4jConnectionModule";
 import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
-/** A parsed row: a plain object, column name → row value (#1904). */
-type NeodashRecord = Record<string, unknown>;
+/**
+ * A parsed row: a plain object, column name → row value (#1904). `any` because
+ * each test asserts a value's shape with expect(); a precise RowValue would
+ * need a narrowing before every read (#1918).
+ */
+type NeodashRecord = Record<string, any>;
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
 
 describe("Neo4jRecordParser - Temporal Parsing", () => {

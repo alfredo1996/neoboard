@@ -4,6 +4,7 @@ import {
   QueryCallback,
   QueryParams,
   QueryStatus,
+  type ConnectionConfig,
 } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
@@ -128,10 +129,12 @@ describe("Query to Neo4j", () => {
       onFail: (err) => {
         expect(err).toBeInstanceOf(ConnectorError);
         expect((err as ConnectorError).type).toBe(ConnectorErrorType.TIMEOUT);
-        expect(err.message).toMatch(/The transaction has been terminated/);
+        expect((err as ConnectorError).message).toMatch(
+          /The transaction has been terminated/,
+        );
       },
     };
-    const connectionConfig = {
+    const connectionConfig: ConnectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       connectionTimeout: 100,
       timeout: 2000, // Short transaction timeout so the slow read trips it fast.
@@ -155,10 +158,12 @@ describe("Query to Neo4j", () => {
       onFail: (err) => {
         expect(err).toBeInstanceOf(ConnectorError);
         expect((err as ConnectorError).type).toBe(ConnectorErrorType.TIMEOUT);
-        expect(err.message).toMatch(/The transaction has been terminated/);
+        expect((err as ConnectorError).message).toMatch(
+          /The transaction has been terminated/,
+        );
       },
     };
-    const connectionConfig = {
+    const connectionConfig: ConnectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       connectionTimeout: 100,
       accessMode: "WRITE",

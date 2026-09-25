@@ -1,11 +1,19 @@
 import { getNeo4jAuth } from "../utils/setup";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
-import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
+import {
+  QueryCallback,
+  QueryParams,
+  type ConnectionConfig,
+} from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../utils/setup";
 import { toNumber } from "neo4j-driver-core";
 import { ConnectorError } from "@neoboard/connector-sdk";
-/** A parsed row: a plain object, column name → row value (#1904). */
-type NeodashRecord = Record<string, unknown>;
+/**
+ * A parsed row: a plain object, column name → row value (#1904). `any` because
+ * each test asserts a value's shape with expect(); a precise RowValue would
+ * need a narrowing before every read (#1918).
+ */
+type NeodashRecord = Record<string, any>;
 
 describe("Advanced Query to Neo4j", () => {
   let connection: Neo4jConnectionModule;
@@ -41,7 +49,7 @@ describe("Advanced Query to Neo4j", () => {
       },
     };
 
-    const writeConfig = {
+    const writeConfig: ConnectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       accessMode: "WRITE",
       connectionTimeout: 30 * 1000, // ms
@@ -104,7 +112,9 @@ describe("Advanced Query to Neo4j", () => {
       },
       onFail: (err) => {
         expect(err).toBeInstanceOf(ConnectorError);
-        expect(err.message).toMatch(/Writing in read access mode not allowed/);
+        expect((err as ConnectorError).message).toMatch(
+          /Writing in read access mode not allowed/,
+        );
       },
     };
     await connection.runQuery(
@@ -142,7 +152,7 @@ test('should create, delete, and verify the deletion of the Person "Nodename"', 
       },
     };
 
-    const writeConfig = {
+    const writeConfig: ConnectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       accessMode: "WRITE",
       connectionTimeout: 30 * 1000, // ms
@@ -225,7 +235,7 @@ test("should update born and nationality properties for a Person", async () => {
       },
     };
 
-    const writeConfig = {
+    const writeConfig: ConnectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       accessMode: "WRITE",
       connectionTimeout: 30 * 1000, // ms
@@ -325,7 +335,7 @@ test("should delete a Person node and verify it is no longer present", async () 
   const connection = new Neo4jConnectionModule(config);
 
   try {
-    const writeConfig = {
+    const writeConfig: ConnectionConfig = {
       ...NEO4J_TEST_CONNECTION_CONFIG,
       accessMode: "WRITE",
       connectionTimeout: 30 * 1000, // ms

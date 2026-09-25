@@ -89,6 +89,15 @@ jobs:
       - name: Build connector-sdk + connection packages
         run: npm -w connector-sdk run build && npm -w connection run build
 
+      # The two library packages' tsconfigs include their __tests__: ts-jest
+      # runs with `diagnostics: false`, so this is the only type check their
+      # tests get (#1918).
+      - name: Type-check connector-sdk
+        run: npm -w connector-sdk exec tsc -- --noEmit
+
+      - name: Type-check connection
+        run: npm -w connection exec tsc -- --noEmit
+
       - name: Type-check component
         run: npm -w component exec tsc -- --noEmit
 

@@ -352,7 +352,7 @@ describe("toDescriptor", () => {
       ...plugin,
       internalDefaultToken: "tok_live",
       fields: [{ ...plugin.fields[0], testId: "uri-input" }],
-    } as ConnectorPlugin;
+    } as unknown as ConnectorPlugin;
     const data = toDescriptor(leaky) as unknown as Record<string, unknown>;
     expect(data.internalDefaultToken).toBeUndefined();
     expect(

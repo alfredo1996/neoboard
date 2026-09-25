@@ -10,6 +10,7 @@ import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectionModule";
 import {
   AuthType,
+  type ConnectionConfig,
   DEFAULT_CONNECTION_CONFIG,
   QueryStatus,
 } from "@neoboard/connector-sdk";
@@ -37,7 +38,7 @@ async function run(
   module: PostgresConnectionModule,
   query: string,
   params: Record<string, unknown> = {},
-  config: Record<string, unknown> = QUERY_CONFIG,
+  config: ConnectionConfig = QUERY_CONFIG,
 ) {
   let status: QueryStatus | null = null;
   let error: unknown = null;

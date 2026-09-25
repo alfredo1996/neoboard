@@ -1,3 +1,4 @@
+import type { AuthenticationModule } from "../src/generalized/AuthenticationModule";
 import { ConnectionModule } from "../src/generalized/ConnectionModule";
 import { QueryStatus } from "../src/generalized/interfaces";
 import type { QueryCallback } from "../src/generalized/interfaces";
@@ -11,8 +12,14 @@ import type { QueryCallback } from "../src/generalized/interfaces";
  */
 
 /** Minimal concrete subclass — we only exercise the protected helper. */
-class TestModule extends ConnectionModule<unknown> {
-  runQuery(): void {}
+class TestModule extends ConnectionModule {
+  declare authModule: AuthenticationModule;
+
+  constructor() {
+    super();
+  }
+
+  async runQuery(): Promise<void> {}
   checkConnection(): Promise<boolean> {
     return Promise.resolve(true);
   }

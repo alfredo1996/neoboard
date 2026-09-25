@@ -4,8 +4,12 @@ import { QueryCallback, QueryParams } from "@neoboard/connector-sdk";
 import { NEO4J_TEST_CONNECTION_CONFIG } from "../../utils/setup";
 import { toNumber } from "neo4j-driver-core";
 
-/** A parsed row: a plain object, column name → row value (#1904). */
-type NeodashRecord = Record<string, unknown>;
+/**
+ * A parsed row: a plain object, column name → row value (#1904). `any` because
+ * each test asserts a value's shape with expect(); a precise RowValue would
+ * need a narrowing before every read (#1918).
+ */
+type NeodashRecord = Record<string, any>;
 
 // #1642: assertions live AFTER the awaited runQuery, never inside onSuccess.
 // onSuccess is invoked inside the connector's try block, so an expect() that

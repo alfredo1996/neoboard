@@ -6,7 +6,10 @@ import {
   QueryStatus,
   AuthType,
 } from "@neoboard/connector-sdk";
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import {
+  PostgreSqlContainer,
+  type StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
 
 describe("Connection Resilience — Neo4j", () => {
   test("follow-up query works after a query error", async () => {
@@ -92,7 +95,7 @@ describe("Connection Resilience — Neo4j", () => {
 });
 
 describe("Connection Resilience — PostgreSQL", () => {
-  let container: PostgreSqlContainer;
+  let container: StartedPostgreSqlContainer;
   let connectionModule: PostgresConnectionModule;
 
   const pgConfig = {

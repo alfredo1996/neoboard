@@ -4,10 +4,13 @@ import {
   QueryStatus,
   AuthType,
 } from "@neoboard/connector-sdk";
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import {
+  PostgreSqlContainer,
+  type StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
 
 describe("PostgreSQL Parameter Ordering", () => {
-  let container: PostgreSqlContainer;
+  let container: StartedPostgreSqlContainer;
   let connectionModule: PostgresConnectionModule;
 
   const pgConfig = {
