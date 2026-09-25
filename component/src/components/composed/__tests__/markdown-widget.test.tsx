@@ -19,10 +19,10 @@ function growth(
   unit: string,
   n: number,
   repeats = 5,
-): number {
+): { ratio: number; largeMs: number } {
   const small = fastestMs(() => parse(unit.repeat(n)), repeats);
   const large = fastestMs(() => parse(unit.repeat(4 * n)), repeats);
-  return large / Math.max(small, 0.05);
+  return { ratio: large / Math.max(small, 0.05), largeMs: large };
 }
 
 // Mock the code highlighter — Shiki uses WASM which isn't available in jsdom
@@ -688,14 +688,14 @@ describe("MarkdownWidget", () => {
     // (#1937), so this asserts the SHAPE of the growth: 4x the input costs
     // about 4x the time when linear, about 16x when quadratic.
     it("parses a long line of unclosed underscores in linear time", () => {
-      expect(growth(parseMarkdown, "(_a)", 25_000)).toBeLessThan(8);
-      // A hang still fails, however busy the runner.
-      expect(
-        fastestMs(() => parseMarkdown("(_a)".repeat(100_000)), 1),
-      ).toBeLessThan(5000);
-      // The timing assertions above are the verdict; the test timeout only has
-      // to outlast a slow runner with coverage on.
-    }, 30_000);
+      const { ratio, largeMs } = growth(parseMarkdown, "(_a)", 25_000);
+      expect(ratio).toBeLessThan(8);
+      // A hang still fails, however busy the runner: the fastest 100 000-unit
+      // parse is the ceiling, measured once rather than parsed again.
+      expect(largeMs).toBeLessThan(5000);
+      // The assertions are the verdict. The timeout covers ten parses near the
+      // ceiling, so it cannot fire first (CodeRabbit on #1986).
+    }, 60_000);
 
     it("the growth check catches a quadratic parser (negative control)", () => {
       const quadratic = (s: string) => {
@@ -706,7 +706,7 @@ describe("MarkdownWidget", () => {
       };
       // Small on purpose: a nested loop is the worst case for CI's coverage
       // instrumentation (6.4 s at n = 500), and 16x holds at any size.
-      expect(growth(quadratic, "(_a)", 250, 3)).toBeGreaterThan(8);
+      expect(growth(quadratic, "(_a)", 250, 3).ratio).toBeGreaterThan(8);
     }, 30_000);
 
     it.each([
