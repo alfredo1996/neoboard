@@ -26,10 +26,9 @@ function jsonBody(schemaRef: string) {
  * The body every handler sends (#1961): `apiSuccess` and `apiList` wrap each
  * payload as `{ data, error: null, meta }`. `data` is a schema, or a $ref to one.
  */
-function envelope(
-  data: string | object,
-  meta: object = { type: "object", nullable: true },
-) {
+const NULLABLE_META = { type: "object", nullable: true } as const;
+
+function envelope(data: string | object, meta: object = NULLABLE_META) {
   return {
     type: "object" as const,
     required: ["data", "error", "meta"],
