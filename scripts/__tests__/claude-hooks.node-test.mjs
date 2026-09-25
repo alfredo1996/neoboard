@@ -1237,6 +1237,25 @@ describe("settings.json and .claude/hooks agree (#1843)", () => {
     );
   });
 
+  test("the E2E gate's modes are reached by the tools they answer for (#1939)", () => {
+    // `mark` was reachable only from Edit|Write, so a UI file written through
+    // Bash never set the marker and every test of the script still passed.
+    // Pin the wiring itself: check-commit and clear-on-test see every Bash call.
+    const wiring = Object.entries(settings.hooks).flatMap(([phase, groups]) =>
+      groups.flatMap((g) =>
+        (g.hooks ?? []).flatMap((h) => {
+          const m = (h.command ?? "").match(/enforce-e2e\.sh (\S+)/);
+          return m ? [`${phase} ${g.matcher} ${m[1]}`] : [];
+        }),
+      ),
+    );
+    assert.deepEqual(wiring.sort(), [
+      "PostToolUse Bash clear-on-test",
+      "PostToolUse Edit|Write mark",
+      "PreToolUse Bash check-commit",
+    ]);
+  });
+
   test("every script in .claude/hooks is wired up", () => {
     // check-migration-guard.sh sat here while CLAUDE.md listed it as an active
     // guardrail. settings.json never ran it.
