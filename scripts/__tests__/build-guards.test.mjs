@@ -214,7 +214,8 @@ describe("connector-sdk builds itself on install (#1356)", () => {
     //   npm error error TS5058: The specified path does not exist:
     //   'tsconfig.build.json'
     // — verified by replaying that stage. This mirrors the trick the root
-    // postinstall already uses (`[ ! -d "cli/src" ] || ...`).
+    // postinstall already uses (`[ -d cli/src ] || exit 0` in
+    // scripts/postinstall.sh).
     //
     // If the Dockerfile ever copies source before installing, this guard
     // stops being load-bearing and this test should go with it.
