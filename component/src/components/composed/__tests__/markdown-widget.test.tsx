@@ -1,6 +1,29 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { MarkdownWidget } from "../markdown-widget";
+import { MarkdownWidget, parseMarkdown } from "../markdown-widget";
+
+/** Fastest of `repeats` runs, so one busy moment on a shared runner cannot decide the verdict. */
+function fastestMs(run: () => void, repeats = 5): number {
+  let best = Infinity;
+  for (let i = 0; i < repeats; i++) {
+    const start = performance.now();
+    run();
+    best = Math.min(best, performance.now() - start);
+  }
+  return best;
+}
+
+/** How much longer 4n takes than n: about 4 when linear, about 16 when quadratic. */
+function growth(
+  parse: (s: string) => unknown,
+  unit: string,
+  n: number,
+  repeats = 5,
+): { ratio: number; largeMs: number } {
+  const small = fastestMs(() => parse(unit.repeat(n)), repeats);
+  const large = fastestMs(() => parse(unit.repeat(4 * n)), repeats);
+  return { ratio: large / Math.max(small, 0.05), largeMs: large };
+}
 
 // Mock the code highlighter — Shiki uses WASM which isn't available in jsdom
 vi.mock("@/lib/code-highlighter", () => ({
@@ -660,11 +683,31 @@ describe("MarkdownWidget", () => {
       expect(ems.map((e) => e.textContent)).toEqual(["a", "b"]);
     });
 
+    // #1407 was catastrophic backtracking: seconds, not milliseconds. A
+    // wall-clock budget cannot tell a busy runner from a regressed parser
+    // (#1937), so this asserts the SHAPE of the growth: 4x the input costs
+    // about 4x the time when linear, about 16x when quadratic.
     it("parses a long line of unclosed underscores in linear time", () => {
-      const start = performance.now();
-      render(<MarkdownWidget content={"(_a)".repeat(25_000)} />);
-      expect(performance.now() - start).toBeLessThan(1000);
-    });
+      const { ratio, largeMs } = growth(parseMarkdown, "(_a)", 25_000);
+      expect(ratio).toBeLessThan(8);
+      // A hang still fails, however busy the runner: the fastest 100 000-unit
+      // parse is the ceiling, measured once rather than parsed again.
+      expect(largeMs).toBeLessThan(5000);
+      // The assertions are the verdict. The timeout covers ten parses near the
+      // ceiling, so it cannot fire first (CodeRabbit on #1986).
+    }, 60_000);
+
+    it("the growth check catches a quadratic parser (negative control)", () => {
+      const quadratic = (s: string) => {
+        let n = 0;
+        for (let i = 0; i < s.length; i++)
+          for (let j = i; j < s.length; j++) n += s.charCodeAt(j) & 1;
+        return n;
+      };
+      // Small on purpose: a nested loop is the worst case for CI's coverage
+      // instrumentation (6.4 s at n = 500), and 16x holds at any size.
+      expect(growth(quadratic, "(_a)", 250, 3).ratio).toBeGreaterThan(8);
+    }, 30_000);
 
     it.each([
       ["[a](`b`)", "[a](b)"],

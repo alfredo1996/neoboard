@@ -470,4 +470,6 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
   );
 }
 
-export { MarkdownWidget };
+// parseMarkdown is exported for its linear-time test (#1937); the package
+// barrel re-exports only MarkdownWidget.
+export { MarkdownWidget, parseMarkdown };
