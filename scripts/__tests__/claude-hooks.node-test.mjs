@@ -9,6 +9,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
@@ -827,13 +828,15 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     assert.equal(commit("git commit -m x", main, main), BLOCK, "MD");
   });
 
-  test("only a real run counts: npm run test:e2e does, grep and --list do not", () => {
+  test("listing the specs, asking for help, or the UI mode is not a run", () => {
+    // Ceiling: a command that only mentions a run (a grep, an echo, an issue
+    // body) counts as one. The gate is a reminder, not a proof.
     const { main } = checkouts();
     writeFileSync(ui(main), "v2\n");
     for (const command of [
       "cd app && npx playwright test --list",
-      'grep "playwright test" e2e.log',
-      "echo npm run test:e2e",
+      "cd app && npx playwright test e2e/x.spec.ts --help",
+      "cd app && npx playwright test -h",
       "npm run test:e2e:ui",
     ]) {
       playwright(main, main, command);
@@ -884,19 +887,22 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
       "cd app && npx -y playwright test",
       "cd app && npx playwright test e2e/x.spec.ts | tail -5",
       "CI=1 npm run test:e2e",
+      // #1939 round 4: every one of these ran the suite and cleared nothing.
+      "cd app && TEST_SERVER_PORT=3400 \\\n  npx playwright test e2e/x.spec.ts",
+      'cd app && for s in e2e/a.spec.ts e2e/b.spec.ts; do npx playwright test "$s"; done',
+      "cd app && time npx playwright test e2e/x.spec.ts",
+      "cd app && if npx playwright test e2e/x.spec.ts; then echo ok; fi",
+      "cd app && ./node_modules/.bin/playwright test e2e/x.spec.ts",
+      'cd app && DEBUG="pw:api pw:browser" npx playwright test',
+      "npx -w app playwright test e2e/x.spec.ts",
+      "npm exec -w app -- playwright test e2e/x.spec.ts",
+      "cd app && npx playwright test e2e/x.spec.ts 2>&1 | sort -h | tail",
     ]) {
       const { main } = checkouts();
       writeFileSync(ui(main), "v2\n");
       playwright(main, main, command);
       assert.equal(commit("git commit -am x", main, main), 0, command);
     }
-  });
-
-  test("asking Playwright for help is not a run", () => {
-    const { main } = checkouts();
-    writeFileSync(ui(main), "v2\n");
-    playwright(main, main, "cd app && npx playwright test --help");
-    assert.equal(commit("git commit -am x", main, main), BLOCK);
   });
 
   test("a finished rebase does not switch the check off", () => {
@@ -931,6 +937,51 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     playwright(main, main);
     git(main, "reset", "-q", "--soft", "HEAD~1");
     assert.equal(commit("git commit -m redo", main, main), 0);
+  });
+
+  test("a staged type change is checked: a symlink staged over a UI file", () => {
+    const { main } = checkouts();
+    execFileSync("rm", [ui(main)]);
+    symlinkSync("../../../README.md", ui(main));
+    git(main, "add", ".");
+    // Disk back to HEAD's content; the index still holds the symlink.
+    execFileSync("rm", [ui(main)]);
+    writeFileSync(ui(main), "v1\n");
+    assert.equal(commit("git commit -m x", main, main), BLOCK);
+  });
+
+  test("a UI file the run could not hash is never recorded as seen", () => {
+    const { main } = checkouts();
+    writeFileSync(join(main, "app/src/components/a.tsx"), "unreadable\n");
+    writeFileSync(join(main, "app/src/components/b.tsx"), "unseen\n");
+    chmodSync(join(main, "app/src/components/a.tsx"), 0o000);
+    try {
+      playwright(main, main);
+    } finally {
+      chmodSync(join(main, "app/src/components/a.tsx"), 0o644);
+    }
+    const seen = git(
+      main,
+      "rev-parse",
+      "--path-format=absolute",
+      "--git-path",
+      "e2e-seen",
+    ).trim();
+    assert.doesNotMatch(readFileSync(seen, "utf8"), /^\t/m);
+    assert.equal(commit("git add -A && git commit -m x", main, main), BLOCK);
+  });
+
+  test("a submodule under a UI directory does not block every commit", () => {
+    const { main } = checkouts();
+    const sha = git(main, "rev-parse", "HEAD").trim();
+    git(
+      main,
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      `160000,${sha},app/src/components/sub`,
+    );
+    assert.equal(commit("git commit -m x", main, main), 0);
   });
 
   test("a mode-only change carries no new content", () => {

@@ -17,7 +17,12 @@
 #    PreToolUse check runs (#1989 adds a post-commit audit);
 #  - UI content written after a run in the same Bash call counts as seen;
 #  - `git commit -p` commits hunks that are neither staged nor on disk;
-#  - a filename containing a newline is not hashed (hash-object reads lines).
+#  - a filename containing a newline or a tab is not checked (the record is
+#    "blob<TAB>path" lines);
+#  - a command that only mentions a run (a grep, an echo, an issue body) counts
+#    as one: the gate is a reminder, not a proof;
+#  - when the commit's checkout is unknowable, every worktree is checked, and
+#    past ~36 worktrees that outlasts the hook's timeout and lets the commit by.
 #
 # The flag belongs to a CHECKOUT, not to the project (#1926). Every session —
 # including agents in linked worktrees — runs this script with the main checkout
@@ -108,7 +113,7 @@ ui_content() {
     elif [ -f "$checkout/$path" ]; then
       printf '%s\n' "$path" >> "$tmp/disk"
     fi
-    case "$xy" in [MARC]?) printf '%s\n' "$path" >> "$tmp/index" ;; esac
+    case "$xy" in [MARCT]?) printf '%s\n' "$path" >> "$tmp/index" ;; esac
   done < <(git --no-optional-locks -C "$checkout" status --porcelain -z \
     --untracked-files=all -- app/src/components app/src/app 2>/dev/null)
   if [ -s "$tmp/disk" ]; then
@@ -118,6 +123,8 @@ ui_content() {
   if [ -n "$staged" ] && [ -s "$tmp/index" ]; then
     git -C "$checkout" ls-files -s -z -- app/src/components app/src/app 2>/dev/null |
       while IFS= read -r -d '' entry; do
+        # A submodule is a commit, not content a run could see.
+        case "$entry" in 160000\ *) continue ;; esac
         # "<mode> <blob> <stage><TAB><path>" -> "<blob><TAB><path>"
         entry="${entry#* }"
         printf '%s\t%s\n' "${entry%% *}" "${entry#*$'\t'}"
@@ -276,17 +283,14 @@ case "$1" in
   clear-on-test)
     INPUT=$(cat)
     CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
-    # Clear marker when Playwright really runs: a command that invokes it, or
-    # the documented `npm run test:e2e` — behind env assignments, `env` or
-    # `timeout`, with npx flags, piped on — not one that merely mentions either.
-    AT='(^|[;&|({][[:space:]]*)([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*'
-    AT="$AT"'((env|timeout[[:space:]]+[0-9.]+[smhd]?)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*)?'
-    END='([[:space:];&|)]|$)'
-    RUN_RE="${AT}((npx([[:space:]]+-[^[:space:]]+)*|npm[[:space:]]+exec)[[:space:]]+)?playwright[[:space:]]+test${END}"
-    RUN_RE="$RUN_RE|${AT}npm([[:space:]]+(-w|--workspace)[[:space:]=]*[^[:space:]]+)?[[:space:]]+run[[:space:]]+test:e2e${END}"
-    echo "$CMD" | grep -qE "$RUN_RE" || exit 0
-    # Listing the specs, or asking for help, is not running them.
-    echo "$CMD" | grep -qE -- '(^|[[:space:]])(--list|--help|-h)([[:space:]]|$)' && exit 0
+    # A Playwright run, however it is spelled: `playwright test`, or the
+    # documented `npm run test:e2e` (not :ui). Anchoring it to "a command that
+    # invokes it" missed real runs behind do, then, time and quoted env values;
+    # a mention counting as a run is the cheaper mistake (see the ceilings).
+    echo "$CMD" | grep -qE 'playwright[[:space:]]+test|run[[:space:]]+test:e2e([^:]|$)' || exit 0
+    # Listing the specs, or asking for help, is not running them: those flags on
+    # the Playwright command itself, not on a `sort -h` further down the pipe.
+    echo "$CMD" | grep -qE -- 'playwright[[:space:]]+test[^;&|]*[[:space:]](--list|--help|-h)([[:space:]]|$)' && exit 0
     BASE=$(echo "$INPUT" | jq -r '.cwd // empty')
     BASE="${BASE:-$PROJECT_DIR}"
     # Only the checkout the run happened in; an unknowable one clears nothing.
@@ -298,8 +302,9 @@ case "$1" in
     [ -n "$TOP" ] && SEEN=$(seen_of "$TOP")
     if [ -n "$SEEN" ]; then
       # Added to what earlier runs saw, and replaced atomically.
+      # A file that could not be hashed has an empty blob: never vouch for it.
       { [ -f "$SEEN" ] && cat "$SEEN"; head_ui "$TOP"; ui_content "$TOP"; } |
-        sort -u > "$SEEN.$$" && mv "$SEEN.$$" "$SEEN"
+        grep -v $'^\t' | sort -u > "$SEEN.$$" && mv "$SEEN.$$" "$SEEN"
     fi
     ;;
 
