@@ -287,10 +287,14 @@ case "$1" in
     # documented `npm run test:e2e` (not :ui). Anchoring it to "a command that
     # invokes it" missed real runs behind do, then, time and quoted env values;
     # a mention counting as a run is the cheaper mistake (see the ceilings).
-    echo "$CMD" | grep -qE 'playwright[[:space:]]+test|run[[:space:]]+test:e2e([^:]|$)' || exit 0
     # Listing the specs, or asking for help, is not running them: those flags on
-    # the Playwright command itself, not on a `sort -h` further down the pipe.
-    echo "$CMD" | grep -qE -- 'playwright[[:space:]]+test[^;&|]*[[:space:]](--list|--help|-h)([[:space:]]|$)' && exit 0
+    # a Playwright command itself, not on a `sort -h` further down the pipe, and
+    # not on a listing that a real run follows (`--list && … playwright test`).
+    RAN=""
+    echo "$CMD" | grep -qE 'run[[:space:]]+test:e2e([^:]|$)' && RAN=1
+    echo "$CMD" | grep -oE 'playwright[[:space:]]+test[^;&|]*' |
+      grep -qvE -- '[[:space:]](--list|--help|-h)([[:space:]]|$)' && RAN=1
+    [ -n "$RAN" ] || exit 0
     BASE=$(echo "$INPUT" | jq -r '.cwd // empty')
     BASE="${BASE:-$PROJECT_DIR}"
     # Only the checkout the run happened in; an unknowable one clears nothing.

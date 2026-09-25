@@ -897,6 +897,8 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
       "npx -w app playwright test e2e/x.spec.ts",
       "npm exec -w app -- playwright test e2e/x.spec.ts",
       "cd app && npx playwright test e2e/x.spec.ts 2>&1 | sort -h | tail",
+      // A listing first does not hide the run after it (CodeRabbit on #1992).
+      "cd app && npx playwright test --list && npx playwright test e2e/x.spec.ts",
     ]) {
       const { main } = checkouts();
       writeFileSync(ui(main), "v2\n");
@@ -951,15 +953,38 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
   });
 
   test("a UI file the run could not hash is never recorded as seen", () => {
-    const { main } = checkouts();
-    writeFileSync(join(main, "app/src/components/a.tsx"), "unreadable\n");
+    // A stub git whose `hash-object --stdin-paths` fails, as it does on an
+    // unreadable file. Not a mode-000 file: root reads that anyway.
+    const { base, main } = checkouts();
+    const realGit = execFileSync("sh", ["-c", "command -v git"], {
+      encoding: "utf8",
+    }).trim();
+    const bin = join(base, "bin");
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, "git"),
+      [
+        "#!/bin/sh",
+        'for a in "$@"; do',
+        '  if [ "$a" = --stdin-paths ]; then',
+        '    cat >/dev/null; echo "fatal: Unable to hash" >&2; exit 128',
+        "  fi",
+        "done",
+        `exec "${realGit}" "$@"`,
+        "",
+      ].join("\n"),
+    );
+    chmodSync(join(bin, "git"), 0o755);
     writeFileSync(join(main, "app/src/components/b.tsx"), "unseen\n");
-    chmodSync(join(main, "app/src/components/a.tsx"), 0o000);
-    try {
-      playwright(main, main);
-    } finally {
-      chmodSync(join(main, "app/src/components/a.tsx"), 0o644);
-    }
+    run(
+      "enforce-e2e.sh",
+      ["clear-on-test"],
+      {
+        cwd: main,
+        tool_input: { command: "cd app && npx playwright test e2e/x.spec.ts" },
+      },
+      { CLAUDE_PROJECT_DIR: main, PATH: `${bin}:${process.env.PATH}` },
+    );
     const seen = git(
       main,
       "rev-parse",
