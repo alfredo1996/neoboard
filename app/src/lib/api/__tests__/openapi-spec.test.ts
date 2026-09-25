@@ -297,10 +297,14 @@ describe("every response is documented in the envelope the server sends (#1961)"
         "code",
         "message",
       ]);
-      // Only 401 and 403 have a second, proxy-made form (#1982).
-      expect(forms.length).toBe(status === 401 || status === 403 ? 2 : 1);
+      // One form: the proxy answers in the envelope too since #1982.
+      expect(forms.length, `${label} (${status})`).toBe(1);
     },
   );
+
+  it("documents no proxy-only error form (#1982)", () => {
+    expect(components.schemas.ProxyError).toBeUndefined();
+  });
 
   it("documents every error code apiError can send", () => {
     expect(components.schemas.EnvelopeError.properties?.code.enum).toEqual(
