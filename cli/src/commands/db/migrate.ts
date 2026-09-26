@@ -241,8 +241,10 @@ function reportMigrateFailure(err: unknown): void {
       );
       break;
     case "unknown":
-      logError("Migration failed with an unrecognized error.");
-      logError("See `neoboard db migrate --status` for current state.");
+      logError("Migration failed. The database's error is below:");
+      logError(
+        "  • A migration that stops an upgrade says why, and what to fix, in its last line.",
+      );
       break;
   }
 

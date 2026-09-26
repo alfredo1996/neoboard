@@ -325,6 +325,9 @@ describe("runDbMigrate", () => {
       const lines = vi.mocked(logError).mock.calls.map((c) => c[0] as string);
       expect(lines).toContain("Underlying error:");
       expect(lines.join("\n")).toContain("Upgrade stopped (#2001)");
+      // The text is right below: point at it, not at --status, which reads
+      // only the journal and cannot say what failed.
+      expect(lines.join("\n")).not.toMatch(/unrecognized|--status/);
     });
 
     it("redacts credentials in surfaced stderr (DSN passwords + password= params)", async () => {
