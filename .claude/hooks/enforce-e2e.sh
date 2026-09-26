@@ -1,8 +1,9 @@
 #!/bin/bash
 # Hook: Enforce E2E testing when UI files are edited
-# Three modes:
+# Four modes:
 #   mark          — PostToolUse Edit|Write: flag when UI files change
 #   check-commit  — PreToolUse Bash: block git commit if E2E not run
+#   audit-commit  — PostToolUse Bash: flag a commit that carried unseen UI
 #   clear-on-test — PostToolUse Bash: clear flag after playwright runs
 #
 # `mark` sees only Edit and Write, so a UI file written through Bash was never
@@ -12,9 +13,10 @@
 # it — the same obligation the marker carries. clear-on-test records what a run
 # saw. Content, not file times: a rename, a moved directory, `cp -p` or a stash
 # round trip cannot fool it, and nothing depends on /bin/bash 3.2's clock.
+# A UI file written AND committed in the same Bash call is written after the
+# PreToolUse check has run, so audit-commit looks at what the command committed
+# and blocks the next commit until a run has seen it (#1989).
 # ponytail — known ceilings, each accepted on purpose:
-#  - a UI file written AND committed in the same Bash call is written after this
-#    PreToolUse check runs (#1989 adds a post-commit audit);
 #  - UI content written after a run in the same Bash call counts as seen;
 #  - `git commit -p` commits hunks that are neither staged nor on disk;
 #  - a filename containing a newline or a tab is not checked (the record is
@@ -52,6 +54,19 @@ checkout_of() {
 }
 
 marker_of() { echo "$1/.claude/.e2e-needed"; }
+
+# `git commit` as any subcommand: at the start, after && ; | ( {, behind env
+# assignments, and behind any git options (-C <dir>, -c k=v, --no-pager).
+# `^\s*git commit` alone let `cd app && git commit` through (#1843).
+is_commit() {
+  printf '%s\n' "$1" | grep -qE '(^|[;&|({][[:space:]]*)([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+commit([[:space:]]|$)'
+}
+
+# Where check-commit leaves checkout $1's HEAD from before a commit command,
+# for audit-commit to compare with afterwards: in the worktree's own git dir.
+pre_commit_of() {
+  git -C "$1" rev-parse --path-format=absolute --git-path e2e-pre-commit 2>/dev/null
+}
 
 # What Playwright runs in checkout $1 have seen: a file in that worktree's own
 # git dir, so it is never tracked and never lands in another repo's working
@@ -240,10 +255,7 @@ case "$1" in
   check-commit)
     INPUT=$(cat)
     CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
-    # `git commit` as any subcommand: at the start, after && ; | ( {, behind
-    # env assignments, and behind any git options (-C <dir>, -c k=v, --no-pager).
-    # `^\s*git commit` alone let `cd app && git commit` through (#1843).
-    echo "$CMD" | grep -qE '(^|[;&|({][[:space:]]*)([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+commit([[:space:]]|$)' || exit 0
+    is_commit "$CMD" || exit 0
     BASE=$(echo "$INPUT" | jq -r '.cwd // empty')
     BASE="${BASE:-$PROJECT_DIR}"
     UNRESOLVED=""
@@ -251,6 +263,14 @@ case "$1" in
       MARKERS=$(marker_of "$(checkout_of "$DIR")")
       # Only a real git checkout: the project-dir fallback is for the marker.
       CHECKOUTS=$(git_top "$DIR")
+      # For audit-commit: HEAD before the command. Not while a merge, rebase
+      # or cherry-pick is in progress: git wrote what that commit carries.
+      if [ -n "$CHECKOUTS" ] && PRE=$(pre_commit_of "$CHECKOUTS") && [ -n "$PRE" ]; then
+        rm -f "$PRE"
+        op_in_progress "$CHECKOUTS" ||
+          git -C "$CHECKOUTS" rev-parse -q --verify HEAD > "$PRE" 2>/dev/null ||
+          rm -f "$PRE"
+      fi
     else
       # Which checkout this commits to is unknowable, so answer for all of them.
       UNRESOLVED=1
@@ -279,6 +299,53 @@ case "$1" in
     echo "Edited UI files:" >&2
     echo "$FILES" | while read -r f; do echo "  - $f" >&2; done
     exit 2
+    ;;
+
+  audit-commit)
+    INPUT=$(cat)
+    CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+    is_commit "$CMD" || exit 0
+    BASE=$(echo "$INPUT" | jq -r '.cwd // empty')
+    BASE="${BASE:-$PROJECT_DIR}"
+    # check-commit recorded HEAD only for a checkout it could name.
+    DIR=$(target_dir "$CMD" "$BASE") || exit 0
+    TOP=$(git_top "$DIR")
+    [ -n "$TOP" ] || exit 0
+    PRE=$(pre_commit_of "$TOP")
+    [ -n "$PRE" ] && [ -f "$PRE" ] || exit 0
+    BEFORE=$(cat "$PRE")
+    rm -f "$PRE"
+    AFTER=$(git -C "$TOP" rev-parse -q --verify HEAD) || exit 0
+    # No commit happened (it failed, or was refused): nothing to answer for.
+    [ -n "$BEFORE" ] && [ "$BEFORE" != "$AFTER" ] || exit 0
+    # A merge commit carries what git brought in, which check-commit skips too.
+    [ "$(git -C "$TOP" rev-list --no-walk --parents "$AFTER" | wc -w)" -gt 2 ] && exit 0
+    SEEN=$(seen_of "$TOP")
+    FILES=$(
+      git -C "$TOP" diff-tree -r -z --no-renames --diff-filter=d "$BEFORE" "$AFTER" \
+        -- app/src/components app/src/app 2>/dev/null |
+        while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+          # ":<old mode> <new mode> <old blob> <new blob> <status>"
+          # A submodule is a commit, not content a run could see. [[ ]], not
+          # case: /bin/bash 3.2 misreads a case pattern's ) inside $( ).
+          [[ "$meta" == *" 160000 "* ]] && continue
+          set -- $meta
+          printf '%s\t%s\n' "$4" "$path"
+        done |
+        awk 'FILENAME == ARGV[1] { ok[$0]; next } !($0 in ok)' \
+          <([ -n "$SEEN" ] && [ -f "$SEEN" ] && cat "$SEEN") - |
+        cut -f2- | sort -u
+    )
+    [ -z "$FILES" ] && exit 0
+    MARKER=$(marker_of "$TOP")
+    mkdir -p "$TOP/.claude"
+    touch "$MARKER"
+    echo "$FILES" | while read -r f; do
+      grep -qxF "$TOP/$f" "$MARKER" || echo "$TOP/$f" >> "$MARKER"
+    done
+    COUNT=$(echo "$FILES" | wc -l | tr -d ' ')
+    jq -n --arg r "The commit just made carries $COUNT UI file(s) that no Playwright run has seen: $(echo "$FILES" | paste -sd, - | sed 's/,/, /g'). They were written in the same Bash call as the commit, after the E2E gate had checked. Run cd app && npx playwright test <affected spec>, then git commit --amend. The next commit is blocked until a run." \
+      '{decision: "block", reason: $r}'
     ;;
 
   clear-on-test)
@@ -314,7 +381,7 @@ case "$1" in
     ;;
 
   *)
-    echo "Usage: enforce-e2e.sh <mark|check-commit|clear-on-test>" >&2
+    echo "Usage: enforce-e2e.sh <mark|check-commit|audit-commit|clear-on-test>" >&2
     exit 1
     ;;
 esac
