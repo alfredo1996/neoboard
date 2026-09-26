@@ -152,11 +152,11 @@ describe("DashboardListPage NeoDash import", () => {
     connectorsQuery.data = [];
   });
 
-  function pickNeoDashFile() {
+  function pickNeoDashFile(dashboard: object = NEODASH) {
     // By id, not by label: `Label` is a passthrough div here, so there is no
     // htmlFor association for getByLabelText to follow.
     const input = document.getElementById("import-file") as HTMLInputElement;
-    const text = JSON.stringify(NEODASH);
+    const text = JSON.stringify(dashboard);
     const file = new File([text], "neodash.json", {
       type: "application/json",
     });
@@ -211,5 +211,17 @@ describe("DashboardListPage NeoDash import", () => {
     expect(
       await screen.findByText(/No installed connector runs Cypher/),
     ).toBeTruthy();
+  });
+
+  // #2013: the preview names the dashboard the import will create.
+  it("previews a blank-titled file under the name it imports as", async () => {
+    connectorsQuery.data = [
+      { type: "acme-graph", label: "Acme Graph", queryLanguage: "cypher" },
+    ];
+    render(<DashboardListPage />);
+
+    pickNeoDashFile({ ...NEODASH, title: "   " });
+
+    expect(await screen.findByText("Imported Dashboard")).toBeTruthy();
   });
 });

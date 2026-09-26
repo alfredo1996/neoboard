@@ -356,7 +356,10 @@ describe("convertNeoDash", () => {
 
   it("does not stack a non-bar report that carries a stray groupMode", () => {
     const result = convertNeoDash(
-      makeSingleReportDash({ type: "table", settings: { groupMode: "stacked" } }),
+      makeSingleReportDash({
+        type: "table",
+        settings: { groupMode: "stacked" },
+      }),
     );
     expect(
       (result.layout.pages[0].widgets[0].settings as Record<string, unknown>)
@@ -504,6 +507,23 @@ describe("convertNeoDash", () => {
   it("falls back to 'Imported Dashboard' when title is missing", () => {
     const result = convertNeoDash(makeSingleReportDash({}));
     expect(result.dashboard.name).toBe("Imported Dashboard");
+  });
+
+  // #2013: `??` let a blank title through as a dashboard named "".
+  it.each([[""], ["   "], [42]])(
+    "falls back to 'Imported Dashboard' when title is %j",
+    (dashTitle) => {
+      const result = convertNeoDash(makeSingleReportDash({ dashTitle }));
+      expect(result.dashboard.name).toBe("Imported Dashboard");
+    },
+  );
+
+  // Like every other path that names a dashboard, a real title is not trimmed.
+  it("keeps a real title exactly as written", () => {
+    const result = convertNeoDash(
+      makeSingleReportDash({ dashTitle: " Sales " }),
+    );
+    expect(result.dashboard.name).toBe(" Sales ");
   });
 
   it("preserves the report query in widget.query", () => {

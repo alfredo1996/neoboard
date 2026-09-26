@@ -294,6 +294,19 @@ export function isNeoDashFormat(json: unknown): boolean {
 }
 
 /**
+ * The name a NeoDash dashboard imports under. A blank or non-string title
+ * counts as missing (#2013), since every other path that names a dashboard
+ * requires a non-empty name; a real title is kept as written, untrimmed,
+ * like those paths keep theirs.
+ */
+export function neoDashDashboardName(json: unknown): string {
+  const title = (json as { title?: unknown }).title;
+  return typeof title === "string" && title.trim()
+    ? title
+    : "Imported Dashboard";
+}
+
+/**
  * Convert a NeoDash dashboard JSON to NeoBoard's export envelope.
  *
  * Pass `defaultConnectionId` to assign every widget to that connection.
@@ -449,7 +462,7 @@ export function convertNeoDashWithNotes(
       formatVersion: 1,
       exportedAt: new Date().toISOString(),
       dashboard: {
-        name: nd.title ?? "Imported Dashboard",
+        name: neoDashDashboardName(nd),
         description: nd.description ?? null,
       },
       connections: {},

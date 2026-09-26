@@ -574,7 +574,7 @@ const SPEC = {
           "and is not counted as unassigned; a NeoDash file's widgets then arrive with no connection. A mapping target the " +
           "caller does not own answers 400 `Invalid connection mapping`, a shared connection or, for an admin, another user's " +
           "included; a finished layout naming a connection the caller cannot use answers 403. The name is the file's " +
-          "(`Imported Dashboard` for a NeoDash file without a title), with ' (imported)' appended when the tenant already has " +
+          "(`Imported Dashboard` for a NeoDash file whose title is missing or blank), with ' (imported)' appended when the tenant already has " +
           "a dashboard of that name. A body that is not JSON answers 400 `VALIDATION_ERROR`; an invalid NeoBoard file answers " +
           "400 naming the offending field; a malformed NeoDash report can answer 500.",
         requestBody: jsonBody("#/components/schemas/ImportDashboardRequest"),
