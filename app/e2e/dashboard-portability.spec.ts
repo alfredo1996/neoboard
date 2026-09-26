@@ -1,4 +1,5 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, TEST_PG_PORT } from "./fixtures";
+import { AuthPage } from "./pages/auth";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -41,6 +42,113 @@ test.describe("Dashboard export", () => {
     expect(json).toHaveProperty("dashboard");
     expect(json.formatVersion).toBe(1);
     expect(json.dashboard).toHaveProperty("name");
+  });
+
+  test("a creator exports their dashboard on another user's shared connection (#2000)", async ({
+    browser,
+  }) => {
+    // The export's connection lookup was scoped to connections the caller
+    // OWNS, so a widget on a colleague's shared connection made it 500.
+    test.setTimeout(60_000);
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const connectionName = `export-shared-${suffix}`;
+    const dashboardName = `Export shared ${suffix}`;
+    const email = `export-creator-${suffix}@example.com`;
+    const password = "password123";
+    const adminContext = await browser.newContext();
+    const creatorContext = await browser.newContext();
+    const admin = await adminContext.newPage();
+    let creatorId: string | undefined;
+    let connectionId: string | undefined;
+    try {
+      await new AuthPage(admin).login(ALICE.email, ALICE.password);
+      const userRes = await admin.request.post("/api/users", {
+        data: { name: `Export ${suffix}`, email, password, role: "creator" },
+      });
+      expect(userRes.status()).toBe(201);
+      creatorId = (await userRes.json()).data.id;
+      const connRes = await admin.request.post("/api/connections", {
+        data: {
+          name: connectionName,
+          type: "postgresql",
+          config: {
+            uri: `postgresql://localhost:${TEST_PG_PORT}`,
+            username: "neoboard",
+            password: "neoboard",
+            database: "movies",
+          },
+        },
+      });
+      expect(connRes.status()).toBe(201);
+      connectionId = (await connRes.json()).data.id;
+      const shareRes = await admin.request.patch(
+        `/api/connections/${connectionId}`,
+        { data: { visibility: "shared" } },
+      );
+      expect(shareRes.ok()).toBe(true);
+
+      const creator = await creatorContext.newPage();
+      await new AuthPage(creator).login(email, password);
+      const dashRes = await creator.request.post("/api/dashboards", {
+        data: { name: dashboardName },
+      });
+      expect(dashRes.ok()).toBe(true);
+      const dashboardId = (await dashRes.json()).data.id;
+      const layoutRes = await creator.request.put(
+        `/api/dashboards/${dashboardId}`,
+        {
+          data: {
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId,
+                      query: "SELECT 1 AS one",
+                    },
+                  ],
+                  gridLayout: [{ i: "w1", x: 0, y: 0, w: 6, h: 4 }],
+                },
+              ],
+            },
+          },
+        },
+      );
+      expect(layoutRes.ok()).toBe(true);
+
+      await creator.goto("/");
+      const card = creator
+        .locator("div[class*='cursor-pointer']")
+        .filter({ hasText: dashboardName })
+        .first();
+      await expect(card).toBeVisible({ timeout: 10_000 });
+      await card.getByRole("button", { name: "Dashboard options" }).click();
+      const downloadPromise = creator.waitForEvent("download");
+      await creator.getByRole("menuitem", { name: "Export" }).click();
+      const download = await downloadPromise;
+      const json = JSON.parse(
+        fs.readFileSync((await download.path())!, "utf-8"),
+      );
+      expect(Object.values(json.connections)).toContainEqual({
+        name: connectionName,
+        type: "postgresql",
+      });
+    } finally {
+      // Deleting the creator removes their dashboard with them.
+      if (creatorId) await admin.request.delete(`/api/users/${creatorId}`);
+      if (connectionId) {
+        await admin.request.delete(
+          `/api/connections/${connectionId}?force=true`,
+        );
+      }
+      await creatorContext.close();
+      await adminContext.close();
+    }
   });
 });
 
