@@ -248,6 +248,24 @@ function publicRefusal(
   return null;
 }
 
+/** The answer to a PUT that has nothing left to write (#1998). */
+async function answerUnchanged(
+  id: string,
+  tenantId: string,
+  expectedVersion: number | undefined,
+) {
+  const [current] = await db
+    .select()
+    .from(dashboards)
+    .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
+    .limit(1);
+  if (!current) return notFound();
+  if (expectedVersion !== undefined && expectedVersion !== current.version) {
+    return apiError("CONFLICT", CONFLICT_MESSAGE);
+  }
+  return apiSuccess(current);
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -301,8 +319,11 @@ export async function PUT(
     if (publicRefused) return forbidden(publicRefused);
     // An editor's re-sent isPublic was dropped above; nothing is left to write,
     // so bumping the version would only turn other editors' saves into 409s.
-    if (Object.keys(updateData).length === 0)
-      return apiSuccess(access.dashboard);
+    // Answer the row as it is now: a save that landed since the access check
+    // still makes a stale expectedVersion a conflict.
+    if (Object.keys(updateData).length === 0) {
+      return answerUnchanged(id, tenantId, expectedVersion);
+    }
 
     if (updateData.layoutJson) {
       const refusal = await layoutRefusal(

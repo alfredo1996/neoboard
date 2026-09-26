@@ -1429,6 +1429,56 @@ describe("PUT /api/dashboards/[id] — who can make a dashboard public", () => {
     expect(mockDb.update).not.toHaveBeenCalled();
   });
 
+  it("answers a no-op save 409 when another save landed after the access check", async () => {
+    // CodeRabbit on #2024: the no-op answer came from the row read at the
+    // access check, so a save landing in between went unnoticed. The row is
+    // re-read, and a stale expectedVersion is still a conflict.
+    asShare("editor");
+    const share = {
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      role: "editor",
+    };
+    const reads = [
+      [OWNER_DASHBOARD],
+      [share],
+      [{ ...OWNER_DASHBOARD, version: 4 }],
+    ];
+    mockDb.select.mockImplementation(() =>
+      makeSelectChain(reads[mockDb.select.mock.calls.length - 1] ?? []),
+    );
+    const res = await PUT(
+      makeRequest({ isPublic: false, expectedVersion: 3 }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(409);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("answers a no-op save with the row as it is now", async () => {
+    asShare("editor");
+    const share = {
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      role: "editor",
+    };
+    const reads = [
+      [OWNER_DASHBOARD],
+      [share],
+      [{ ...OWNER_DASHBOARD, version: 4, name: "Renamed elsewhere" }],
+    ];
+    mockDb.select.mockImplementation(() =>
+      makeSelectChain(reads[mockDb.select.mock.calls.length - 1] ?? []),
+    );
+    const res = await PUT(makeRequest({ isPublic: false }), makeParams("d1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.version).toBe(4);
+    expect(body.data.name).toBe("Renamed elsewhere");
+  });
+
   it("writes an editor's rename sent along with the re-sent isPublic", async () => {
     asShare("editor");
     const chain = makeUpdateChain([{ ...OWNER_DASHBOARD, name: "Renamed" }]);
