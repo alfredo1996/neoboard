@@ -16,11 +16,12 @@ import {
   parsePagination,
 } from "@/lib/api/api-response";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
+import { emailSchema } from "@/lib/auth/email-schema";
 import { auditRequest } from "@/lib/audit/audit";
 
 const createUserSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: emailSchema,
   password: newPasswordSchema,
   role: z.enum(["admin", "creator", "reader"]).optional().default("creator"),
   canWrite: z.boolean().optional().default(true),

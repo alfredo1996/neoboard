@@ -13,9 +13,10 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
+import { emailSchema } from "@/lib/auth/email-schema";
 
 const shareSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   role: z.enum(["viewer", "editor"]),
 });
 

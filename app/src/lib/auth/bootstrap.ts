@@ -42,7 +42,8 @@ export async function bootstrapAdmin({
       const tenantId = resolveTenantId();
       await tx.insert(users).values({
         name: "Admin",
-        email,
+        // Stored normalized like every other write path (#2001).
+        email: email.trim().toLowerCase(),
         passwordHash,
         role: "admin",
         tenantId,

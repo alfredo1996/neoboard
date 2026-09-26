@@ -11,6 +11,18 @@ test.describe("Authentication", () => {
     await expect(page).toHaveURL("/");
   });
 
+  test("logs in with the email typed in another case (#2001)", async ({
+    authPage,
+    page,
+  }) => {
+    // A mobile keyboard capitalising the first letter is the real trigger.
+    await authPage.login(ALICE.email.toUpperCase(), ALICE.password);
+    await expect(page).toHaveURL("/", { timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("should redirect to /login when session expires mid-session", async ({
     authPage,
     page,

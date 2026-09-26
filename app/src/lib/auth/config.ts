@@ -12,6 +12,7 @@ import { resolveRoleFromClaims } from "@/lib/auth/sso/claim-mapping";
 import type { LoadedSsoProvider } from "@/lib/auth/sso/provider-loader";
 import { authLogger, logger } from "@/lib/logger";
 import { isTenantIdSet, resolveTenantId } from "@/lib/auth/tenant-id";
+import { emailSchema } from "@/lib/auth/email-schema";
 
 /** Reasons an authorize() call can fail. */
 type SignInFailureReason =
@@ -39,7 +40,7 @@ function logSignInFailed(
 }
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string().min(6),
 });
 
@@ -192,16 +193,17 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
           const { claimMappings, autoProvision, defaultRole } =
             providerConfig.metadata;
 
+          // Emails are stored lowercased and trimmed (#2001). `user` is the
+          // same object the adapter's getUserByEmail and createUser receive
+          // next, so normalizing it here also covers linking and provisioning.
+          const email = (user.email ?? "").trim().toLowerCase();
+          if (user.email) user.email = email;
+
           // Check if user already exists in the DB
           const existingUsers = await db
             .select({ id: users.id })
             .from(users)
-            .where(
-              and(
-                eq(users.email, user.email ?? ""),
-                eq(users.tenantId, tenantId),
-              ),
-            )
+            .where(and(eq(users.email, email), eq(users.tenantId, tenantId)))
             .limit(1);
 
           if (existingUsers.length === 0 && !autoProvision) {

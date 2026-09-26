@@ -302,6 +302,53 @@ describe("POST /api/users", () => {
     expect(body.error.message).toMatch(/already exists/i);
   });
 
+  it("checks for and stores the email lowercased and trimmed (#2001)", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
+    const selectChain = makeSelectChain([]);
+    mockDb.select.mockReturnValue(selectChain);
+    const insertChain = makeInsertChain([{ id: "u3", role: "creator" }]);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const res = await POST(
+      makeRequest({
+        name: "Alice",
+        email: " Alice@Example.com ",
+        password: "password123",
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const [expr] = selectChain.calls.where[0];
+    expect(sqlValues(expr)).toContain("alice@example.com");
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      email: "alice@example.com",
+    });
+  });
+
+  it("returns 409 when the email differs from an existing one only by case (#2001)", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "default",
+    });
+    const selectChain = makeSelectChain([{ id: "existing" }]);
+    mockDb.select.mockReturnValue(selectChain);
+
+    const res = await POST(
+      makeRequest({
+        name: "Alice 2",
+        email: "ALICE@example.com",
+        password: "password123",
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    const [expr] = selectChain.calls.where[0];
+    expect(sqlValues(expr)).toContain("alice@example.com");
+  });
+
   it("returns 400 envelope for invalid body", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",

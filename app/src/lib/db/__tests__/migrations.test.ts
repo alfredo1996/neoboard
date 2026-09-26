@@ -21,6 +21,34 @@ const MIGRATIONS_FOLDER = path.resolve(
   "../../../../drizzle/migrations",
 );
 
+const journal = JSON.parse(
+  readFileSync(path.join(MIGRATIONS_FOLDER, "meta/_journal.json"), "utf8"),
+) as { entries: Array<{ tag: string }> };
+
+/**
+ * A migrations folder holding only the first `count` journal entries, so an
+ * upgrade test can bring a database to an older version through the migrator
+ * itself and have it recorded as applied. Applying the SQL raw would leave
+ * drizzle's bookkeeping empty and the later migrate() would start again from
+ * 0000.
+ */
+function migrationsThrough(count: number): string {
+  const dir = mkdtempSync(path.join(tmpdir(), "nb-migrations-"));
+  mkdirSync(path.join(dir, "meta"));
+  const entries = journal.entries.slice(0, count);
+  for (const { tag } of entries) {
+    copyFileSync(
+      path.join(MIGRATIONS_FOLDER, `${tag}.sql`),
+      path.join(dir, `${tag}.sql`),
+    );
+  }
+  writeFileSync(
+    path.join(dir, "meta/_journal.json"),
+    JSON.stringify({ ...journal, entries }),
+  );
+  return dir;
+}
+
 /**
  * Integration test: verifies that running all Drizzle migrations twice
  * on the same database produces no errors (idempotency).
@@ -264,25 +292,8 @@ describe("Database migrations", () => {
         await client`SELECT count(*)::int AS n FROM pg_type WHERE typname = 'connection_visibility'`
       )[0].n,
     ).toBe(0);
-    // Bring the database to the INITIAL migration only, through the migrator
-    // itself so it is recorded as applied: a folder holding 0000 and a
-    // one-entry journal. Applying the SQL raw would leave drizzle's bookkeeping
-    // empty and the later migrate() would start again from 0000.
-    const journal = JSON.parse(
-      readFileSync(path.join(MIGRATIONS_FOLDER, "meta/_journal.json"), "utf8"),
-    ) as { entries: Array<{ tag: string }> };
-    const initialOnly = mkdtempSync(path.join(tmpdir(), "nb-1646-"));
-    mkdirSync(path.join(initialOnly, "meta"));
-    const first = journal.entries[0];
-    copyFileSync(
-      path.join(MIGRATIONS_FOLDER, `${first.tag}.sql`),
-      path.join(initialOnly, `${first.tag}.sql`),
-    );
-    writeFileSync(
-      path.join(initialOnly, "meta/_journal.json"),
-      JSON.stringify({ ...journal, entries: [first] }),
-    );
-    await migrate(drizzle(client), { migrationsFolder: initialOnly });
+    // Bring the database to the INITIAL migration only.
+    await migrate(drizzle(client), { migrationsFolder: migrationsThrough(1) });
     await client`INSERT INTO "user" (id, email) VALUES ('u1', 'u1@x')`;
     await client`INSERT INTO dashboard (id, "userId", name) VALUES ('d1', 'u1', 'dash')`;
     await client`INSERT INTO connection (id, "userId", name, type, "configEncrypted") VALUES ('c1', 'u1', 'conn', 'neo4j', 'enc')`;
@@ -300,6 +311,47 @@ describe("Database migrations", () => {
       const rows = await client.unsafe(`SELECT count(*)::int AS n FROM "${t}"`);
       expect(rows[0].n, `${t} lost rows across the upgrade`).toBe(1);
     }
+    await client.end();
+  }, 90_000);
+
+  it("lowercases existing emails and refuses a mixed-case one from then on (#2001)", async () => {
+    // Emails were stored as typed, so an existing "Alice@X.com" row could not
+    // sign in once login lowercases its input. 0003 normalizes the rows, then
+    // adds the check so a write path that skips the shared schema fails loudly.
+    const admin = postgres(connectionString, { max: 1 });
+    await admin`CREATE DATABASE upgrade_2001`;
+    await admin.end();
+    const client = postgres(
+      `postgres://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getPort()}/upgrade_2001`,
+      { max: 1 },
+    );
+    // Through 0002, the last migration before the email check.
+    await migrate(drizzle(client), { migrationsFolder: migrationsThrough(3) });
+    await client`INSERT INTO "user" (id, email) VALUES ('u1', ' Alice@X.com ')`;
+
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+
+    const [row] = await client`SELECT email FROM "user" WHERE id = 'u1'`;
+    expect(row.email).toBe("alice@x.com");
+    await expect(
+      client`INSERT INTO "user" (id, email) VALUES ('u2', 'Bob@x.com')`,
+    ).rejects.toMatchObject({
+      code: "23514",
+      constraint_name: "user_email_normalized",
+    });
+
+    // Idempotent as SQL, not only because the migrator skips applied entries:
+    // run 0003's statements again by hand.
+    const { tag } = journal.entries[3];
+    expect(tag).toMatch(/^0003_/);
+    const statements = readFileSync(
+      path.join(MIGRATIONS_FOLDER, `${tag}.sql`),
+      "utf8",
+    ).split("--> statement-breakpoint");
+    for (const statement of statements) await client.unsafe(statement);
+    await expect(
+      migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER }),
+    ).resolves.not.toThrow();
     await client.end();
   }, 90_000);
 });
