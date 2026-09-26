@@ -121,7 +121,8 @@ export default async () => {
     .withWaitStrategy(
       Wait.forLogMessage("Remote interface available at"), // ✅ Neo4j logs this when ready
     )
-    .withReuse()
+    // No withReuse(): teardown.ts removes the container after every run, so
+    // reuse only ever made two concurrent runs share one (#1929).
     .start();
 
   createNeo4jRuntimeFile(container); // Create the runtime file
