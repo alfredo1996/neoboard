@@ -9,6 +9,7 @@ import {
   buildConformanceCases,
   type ConformanceSetup,
 } from "@neoboard/connector-sdk";
+import { CONTAINER_START_MS } from "../utils/container-start";
 
 // #1122 — the built-in PostgreSQL connector must pass the shared query-safety
 // conformance suite shipped from the SDK.
@@ -24,7 +25,7 @@ describe("PostgreSQL query-safety conformance (#1122)", () => {
       authType: AuthType.NATIVE,
       uri: `postgresql://${container.getHost()}:${container.getPort()}/${container.getDatabase()}`,
     });
-  }, 60_000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     if (connection) await connection.close();

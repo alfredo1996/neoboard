@@ -3,6 +3,7 @@ import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectio
 import { getNeo4jAuth } from "../utils/setup";
 import { AuthType } from "@neoboard/connector-sdk";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import { CONTAINER_START_MS } from "../utils/container-start";
 
 describe("Neo4j listDatabases", () => {
   let connectionModule: Neo4jConnectionModule;
@@ -125,7 +126,7 @@ describe("PostgreSQL listDatabases", () => {
     const authenticated =
       await connectionModule.authModule.verifyAuthentication();
     expect(authenticated).toBe(true);
-  }, 60000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     if (connectionModule) {
@@ -186,7 +187,7 @@ describe("PostgreSQL listSchemas", () => {
     const authenticated =
       await connectionModule.authModule.verifyAuthentication();
     expect(authenticated).toBe(true);
-  }, 60000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     if (connectionModule) {

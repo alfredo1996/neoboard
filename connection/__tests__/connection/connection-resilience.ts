@@ -10,6 +10,7 @@ import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
+import { CONTAINER_START_MS } from "../utils/container-start";
 
 describe("Connection Resilience — Neo4j", () => {
   test("follow-up query works after a query error", async () => {
@@ -127,7 +128,7 @@ describe("Connection Resilience — PostgreSQL", () => {
     } finally {
       client.release();
     }
-  }, 60000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     try {

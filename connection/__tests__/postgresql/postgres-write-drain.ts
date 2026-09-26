@@ -8,6 +8,7 @@ import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
+import { CONTAINER_START_MS } from "../utils/container-start";
 
 /**
  * Write-path row limiting against a REAL PostgreSQL (#1298 / #1326).
@@ -57,7 +58,7 @@ describe("PostgreSQL write path — row limit must not truncate side effects", (
     } finally {
       client.release();
     }
-  }, 120_000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     // Guarded: if beforeAll throws before construction, an unguarded close()

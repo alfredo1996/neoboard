@@ -8,6 +8,7 @@ import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
+import { CONTAINER_START_MS } from "../utils/container-start";
 
 describe("PostgreSQL Parameter Ordering", () => {
   let container: StartedPostgreSqlContainer;
@@ -46,7 +47,7 @@ describe("PostgreSQL Parameter Ordering", () => {
     } finally {
       client.release();
     }
-  }, 60000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     try {

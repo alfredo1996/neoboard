@@ -10,6 +10,7 @@ import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
+import { CONTAINER_START_MS } from "../utils/container-start";
 
 describe("PostgreSQL Query Execution", () => {
   let container: StartedPostgreSqlContainer;
@@ -63,7 +64,7 @@ describe("PostgreSQL Query Execution", () => {
     } finally {
       (await client).release();
     }
-  }, 60000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     // Close module first before stopping container
