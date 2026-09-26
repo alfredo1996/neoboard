@@ -1644,6 +1644,7 @@ describe("#1981 payloads: drift", () => {
       const c = src[i];
       if (c === '"' || c === "'" || c === "`") {
         i = src.indexOf(c, i + 1); // ponytail: no escaped quotes in fixtures
+        if (i < 0) break; // an unclosed quote ends the scan, never restarts it
         if (depth === 1) top += '""';
       } else if ("{[(".includes(c)) depth++;
       else if ("}])".includes(c) && --depth === 0) break;
@@ -1697,7 +1698,9 @@ describe("#1981 payloads: drift", () => {
   const API = join(__dirname, "..", "..", "..", "app", "api");
   /** `METHOD /api/path` → the keys its tests read, and the files reading them. */
   const cases = new Map<string, { keys: Set<string>; files: Set<string> }>();
-  for (const file of readdirSync(API, { recursive: true }) as string[]) {
+  for (const raw of readdirSync(API, { recursive: true }) as string[]) {
+    // Windows separators are "\\": match on "/" everywhere.
+    const file = raw.replaceAll("\\", "/");
     if (!/(^|\/)__tests__\/[^/]+\.test\.ts$/.test(file)) continue;
     const route =
       "/api/" + file.split("/__tests__/")[0].replaceAll(/\[(\w+)\]/g, "{$1}");
