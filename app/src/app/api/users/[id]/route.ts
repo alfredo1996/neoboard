@@ -62,6 +62,43 @@ export async function GET(
   }
 }
 
+/** The audit entries one PATCH writes: a user.update, and more below. */
+function auditUserPatch(
+  request: Request,
+  { tenantId, userId, id }: { tenantId: string; userId: string; id: string },
+  data: { role?: string; canWrite?: boolean; disabled?: boolean },
+  updated: { role: string; canWrite: boolean },
+) {
+  const entry = {
+    tenantId,
+    userId,
+    resourceType: "user" as const,
+    resourceId: id,
+  };
+  auditRequest(request, { ...entry, action: "user.update" });
+
+  // A privilege change is the most audit-relevant event in the product —
+  // emit it as its own action so it stays greppable instead of being buried
+  // inside a generic user.update.
+  if (data.role !== undefined || data.canWrite !== undefined) {
+    auditRequest(request, {
+      ...entry,
+      action: "user.role.change",
+      details: { role: updated.role, canWrite: updated.canWrite },
+    });
+  }
+
+  // Disabling also cuts off every API key the user holds (#2003), so it gets
+  // its own action too — the row's timestamp says when (#2006).
+  if (data.disabled !== undefined) {
+    auditRequest(request, {
+      ...entry,
+      action: data.disabled ? "user.disable" : "user.enable",
+      details: { disabled: data.disabled },
+    });
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -129,40 +166,7 @@ export async function PATCH(
       return notFound("User not found");
     }
 
-    auditRequest(request, {
-      tenantId,
-      userId,
-      action: "user.update",
-      resourceType: "user",
-      resourceId: id,
-    });
-
-    // A privilege change is the most audit-relevant event in the product —
-    // emit it as its own action so it stays greppable instead of being buried
-    // inside a generic user.update.
-    if (result.data.role !== undefined || result.data.canWrite !== undefined) {
-      auditRequest(request, {
-        tenantId,
-        userId,
-        action: "user.role.change",
-        resourceType: "user",
-        resourceId: id,
-        details: { role: updated.role, canWrite: updated.canWrite },
-      });
-    }
-
-    // Disabling also cuts off every API key the user holds (#2003), so it gets
-    // its own action too — the row's timestamp says when (#2006).
-    if (result.data.disabled !== undefined) {
-      auditRequest(request, {
-        tenantId,
-        userId,
-        action: result.data.disabled ? "user.disable" : "user.enable",
-        resourceType: "user",
-        resourceId: id,
-        details: { disabled: result.data.disabled },
-      });
-    }
+    auditUserPatch(request, { tenantId, userId, id }, result.data, updated);
 
     return apiSuccess(updated);
   } catch (e) {
