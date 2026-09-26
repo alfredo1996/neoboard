@@ -215,9 +215,9 @@ const SPEC = {
         tags: ["Connections"],
         summary: "Delete connection",
         description:
-          "Admins may delete any connection in the tenant; everyone else only their own (404 otherwise). Unless `force` is " +
-          "`true`, a connection still used by widgets answers 409. That check runs first, so a caller who could not delete " +
-          "the connection may get the 409 for a widget on a dashboard they can see.",
+          "Admins may delete any connection in the tenant; everyone else only their own. Readers are refused (403). A " +
+          "connection the caller cannot delete, or an id with no connection, answers 404 before any usage check. Unless " +
+          "`force` is `true`, a connection still used by widgets answers 409.",
         parameters: [
           {
             name: "force",
@@ -234,9 +234,7 @@ const SPEC = {
             "#/components/schemas/DeletedResult",
           ),
           401: R.unauthorized,
-          403: bodyResponse("A session that must change its password first.", {
-            $ref: "#/components/schemas/ErrorResponse",
-          }),
+          403: R.forbidden,
           404: R.notFound,
           409: bodyResponse(
             "In use by widgets and `force` is not `true`: `error.details.usage` is a ConnectionUsage.",

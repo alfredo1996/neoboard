@@ -236,12 +236,25 @@ export async function PATCH(
   }
 }
 
+/** The 409 a DELETE answers while widgets still use the connection. */
+function inUseConflict(usage: Awaited<ReturnType<typeof getConnectionUsage>>) {
+  const count = (n: number, word: string) =>
+    `${n} ${word}${n === 1 ? "" : "s"}`;
+  return apiError(
+    "CONFLICT",
+    `Connection is in use by ${count(usage.widgetCount, "widget")} across ${count(usage.dashboards.length, "dashboard")}`,
+    { usage },
+  );
+}
+
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId, role, tenantId } = await requireSession();
+    // Before any DB read, so a reader never sees the usage breakdown (#1995).
+    assertCanManageConnections(role);
     const { id } = await params;
     const isAdmin = role === "admin";
 
@@ -251,30 +264,11 @@ export async function DELETE(
     const url = new URL(request.url);
     const force = url.searchParams.get("force") === "true";
 
-    // Before deleting, check whether any dashboard widget still
-    // references this connection. If so — and the caller hasn't
-    // acknowledged by passing `?force=true` — return 409 Conflict with
-    // the full usage breakdown so the client can render a warning.
-    //
-    // Tenant-scoped: creators see their own dashboards + shared +
-    // public; admins see every dashboard in their tenant.
-    if (!force) {
-      const usage = await getConnectionUsage(id, userId, isAdmin, tenantId);
-      if (usage.widgetCount > 0) {
-        return apiError(
-          "CONFLICT",
-          `Connection is in use by ${usage.widgetCount} widget${
-            usage.widgetCount === 1 ? "" : "s"
-          } across ${usage.dashboards.length} dashboard${
-            usage.dashboards.length === 1 ? "" : "s"
-          }`,
-          { usage },
-        );
-      }
-    }
-
-    // Ownership check is enforced by the WHERE clause below. Admins
-    // bypass the owner constraint but still require tenant match.
+    // Ownership check: the WHERE clause scopes both the lookup and the
+    // delete. Admins bypass the owner constraint but still require tenant
+    // match. The lookup runs before the in-use guard, so a caller who may
+    // not delete the connection — or an id with no row — gets 404, never
+    // the 409 usage breakdown (#1996).
     const whereClause = isAdmin
       ? and(eq(connections.id, id), eq(connections.tenantId, tenantId))
       : and(
@@ -283,7 +277,7 @@ export async function DELETE(
           eq(connections.tenantId, tenantId),
         );
 
-    // Fetch credentials before deletion so we can evict the cached driver
+    // Also fetches credentials so we can evict the cached driver.
     const [toDelete] = await db
       .select({
         name: connections.name,
@@ -294,11 +288,28 @@ export async function DELETE(
       .where(whereClause)
       .limit(1);
 
+    if (!toDelete) {
+      return notFound();
+    }
+
+    // Before deleting, check whether any dashboard widget still
+    // references this connection. If so — and the caller hasn't
+    // acknowledged by passing `?force=true` — return 409 Conflict with
+    // the full usage breakdown so the client can render a warning.
+    //
+    // Tenant-scoped: creators see their own dashboards + shared +
+    // public; admins see every dashboard in their tenant.
+    if (!force) {
+      const usage = await getConnectionUsage(id, userId, isAdmin, tenantId);
+      if (usage.widgetCount > 0) return inUseConflict(usage);
+    }
+
     const deleted = await db
       .delete(connections)
       .where(whereClause)
       .returning({ id: connections.id });
 
+    // The row can vanish between the lookup and the delete.
     if (deleted.length === 0) {
       return notFound();
     }
@@ -307,7 +318,7 @@ export async function DELETE(
 
     // Evict the cached driver so the connection pool is closed. Corrupted
     // credentials leave nothing to evict.
-    if (toDelete?.configEncrypted) {
+    if (toDelete.configEncrypted) {
       const creds = readStoredConfig(toDelete.configEncrypted);
       if (creds) closeConnection(toDelete.type, creds);
     }
@@ -318,7 +329,7 @@ export async function DELETE(
       action: "connection.delete",
       resourceType: "connection",
       resourceId: id,
-      details: { name: toDelete?.name, forced: force },
+      details: { name: toDelete.name, forced: force },
     });
 
     return apiSuccess({ deleted: true });
