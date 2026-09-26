@@ -30,6 +30,7 @@ vi.mock("../../../lib/exec.js", () => ({
 vi.mock("../../../lib/config.js", () => ({
   assertCheckout: vi.fn(),
   paths: {
+    root: "/project",
     journalPath: "/project/app/drizzle/migrations/meta/_journal.json",
     appDir: "/project/app",
     envFile: "/project/app/.env.local",
@@ -140,7 +141,7 @@ describe("runDbMigrate", () => {
   it("runs migrations locally with DATABASE_URL from .env.local", async () => {
     await runDbMigrate({});
     expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
-      cwd: "/project/app",
+      cwd: "/project",
       env: expect.objectContaining({
         DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
       }),
@@ -151,7 +152,7 @@ describe("runDbMigrate", () => {
     mockExistsSync.mockReturnValue(false);
     await runDbMigrate({});
     expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
-      cwd: "/project/app",
+      cwd: "/project",
       env: expect.objectContaining({
         DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
       }),
@@ -171,7 +172,7 @@ describe("runDbMigrate", () => {
     );
     await runDbMigrate({});
     expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
-      cwd: "/project/app",
+      cwd: "/project",
       env: expect.objectContaining({
         DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
       }),
@@ -184,7 +185,7 @@ describe("runDbMigrate", () => {
     );
     await runDbMigrate({});
     expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
-      cwd: "/project/app",
+      cwd: "/project",
       env: expect.objectContaining({
         DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
       }),
@@ -204,7 +205,7 @@ describe("runDbMigrate", () => {
     } as ReturnType<typeof readProjectConfig>);
     await runDbMigrate({});
     expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
-      cwd: "/project/app",
+      cwd: "/project",
       env: expect.objectContaining({
         DATABASE_URL:
           "postgresql://neo%40board:p%40ss%3Aword@localhost:5432/neo%20board",

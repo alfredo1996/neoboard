@@ -431,16 +431,17 @@ describe("Database migrations", () => {
   // `neoboard db migrate` runs this script (#2019). The drizzle-kit binary it
   // ran before exited 1 with nothing on stderr, so the CLI had no text to show.
   describe("scripts/db-migrate.mjs (#2019)", () => {
-    const APP_DIR = path.resolve(__dirname, "../../../..");
+    const ROOT = path.resolve(__dirname, "../../../../..");
 
     function runScript(name: string) {
       return new Promise<{ status: number | null; stderr: string }>(
         (resolve) => {
           const child = spawn(
             process.execPath,
-            [path.join(APP_DIR, "scripts/db-migrate.mjs")],
+            [path.join(ROOT, "scripts/db-migrate.mjs")],
             {
-              cwd: APP_DIR,
+              // Not the root or the app dir: the script finds its migrations.
+              cwd: tmpdir(),
               env: { ...process.env, DATABASE_URL: urlOf(name) },
             },
           );

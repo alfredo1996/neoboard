@@ -1,4 +1,4 @@
-// Plain JavaScript so `scripts/db-migrate.mjs` can run it with bare node,
+// Plain JavaScript so the repo's `scripts/db-migrate.mjs` can run it with bare node,
 // outside the Next build: `neoboard db migrate` and the server's boot migration
 // share one migrator, one lock and one error text (#2019).
 import postgres from "postgres";

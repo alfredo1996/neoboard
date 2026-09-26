@@ -116,7 +116,7 @@ export async function runDbMigrate(opts: {
   // exited 1 with nothing on stderr (#2019).
   try {
     run("node scripts/db-migrate.mjs", {
-      cwd: paths.appDir,
+      cwd: paths.root,
       env: { ...process.env, DATABASE_URL: dbUrl },
     });
   } catch (err) {

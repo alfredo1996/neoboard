@@ -151,7 +151,7 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
       const dbUrl = content.match(/^DATABASE_URL=(.+)$/m)?.[1];
       if (dbUrl) {
         execSync("node scripts/db-migrate.mjs", {
-          cwd: resolve(ROOT, "app"),
+          cwd: ROOT,
           stdio: "pipe",
           env: { ...process.env, DATABASE_URL: dbUrl },
         });
