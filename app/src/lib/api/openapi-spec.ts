@@ -108,6 +108,19 @@ const R = {
   connectorDown: { $ref: "#/components/responses/ConnectorUnavailable" },
 } as const;
 
+/** A new password, as every route that sets one validates it (newPasswordSchema). */
+const NEW_PASSWORD = {
+  type: "string" as const,
+  minLength: 8,
+  format: "password",
+  description:
+    "At least 8 characters, with at least one ASCII letter (A-Z or a-z) and one digit (0-9). Only the first 72 UTF-8 bytes are significant.",
+};
+
+/** Sessions a password change ends, as the jwt callback judges it. */
+const ENDS_SESSIONS =
+  "Ends the user's sessions, except one refreshed in the 30 seconds before the change; their API keys keep working.";
+
 /** The query operations' header parameters (#1966). */
 const REQUEST_ID_HEADER = { $ref: "#/components/parameters/RequestIdHeader" };
 
@@ -130,7 +143,11 @@ const SPEC = {
     { name: "Connections", description: "Database connector management" },
     { name: "Dashboards", description: "Dashboard CRUD and sharing" },
     { name: "Query", description: "Query execution" },
-    { name: "Users", description: "User management (admin only)" },
+    {
+      name: "Users",
+      description:
+        "User management (admin only), and the caller's own profile and password",
+    },
     {
       name: "Widget Templates",
       description: "Reusable widget template library",
@@ -828,6 +845,94 @@ const SPEC = {
           401: R.unauthorized,
           403: R.forbidden,
           404: R.notFound,
+          500: R.serverError,
+        },
+      },
+    },
+
+    "/api/users/{id}/reset-password": {
+      parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      post: {
+        tags: ["Users"],
+        summary: "Reset a user's password",
+        description:
+          "Sets the password of another user in the caller's tenant. **Admin only.** Send `newPassword`, or " +
+          "`generatePassword: true` for a random 16-character one, answered once as `generatedPassword`; when both are " +
+          "sent, `newPassword` is set and echoed back as `generatedPassword`. The caller's own id answers 400: use " +
+          "PUT /api/users/me/password. A user outside the tenant answers 404. " +
+          ENDS_SESSIONS,
+        requestBody: jsonBody("#/components/schemas/ResetPasswordRequest"),
+        responses: {
+          200: jsonResponse(
+            "Password reset",
+            "#/components/schemas/ResetPasswordResult",
+          ),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
+          413: R.tooLarge,
+          500: R.serverError,
+        },
+      },
+    },
+    "/api/users/me": {
+      get: {
+        tags: ["Users"],
+        summary: "Get your profile",
+        description:
+          "Returns the caller's own user, for a session or an API key. 404 when that user no longer exists.",
+        responses: {
+          200: jsonResponse(
+            "The caller's profile",
+            "#/components/schemas/UserProfile",
+          ),
+          401: R.unauthorized,
+          404: R.notFound,
+          500: R.serverError,
+        },
+      },
+      put: {
+        tags: ["Users"],
+        summary: "Change your display name",
+        description:
+          "Changes the caller's own name; other keys are ignored. Needs no write permission, so a reader can rename " +
+          "themselves. A session that must change its password first answers 403.",
+        requestBody: jsonBody("#/components/schemas/UpdateProfileRequest"),
+        responses: {
+          200: jsonResponse(
+            "Name changed",
+            "#/components/schemas/SuccessResult",
+          ),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          413: R.tooLarge,
+          500: R.serverError,
+        },
+      },
+    },
+    "/api/users/me/password": {
+      put: {
+        tags: ["Users"],
+        summary: "Change your password",
+        description:
+          "Changes the caller's own password once `currentPassword` matches (403 `Current password is incorrect` " +
+          "otherwise). 404 for a user with no password, such as one provisioned through single sign-on. Clears " +
+          "`forcePasswordChange`: this is the one changing call a session that must change its password can make. " +
+          ENDS_SESSIONS +
+          " The response re-issues the caller's session cookie, best effort.",
+        requestBody: jsonBody("#/components/schemas/ChangePasswordRequest"),
+        responses: {
+          200: jsonResponse(
+            "Password changed",
+            "#/components/schemas/SuccessResult",
+          ),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
+          413: R.tooLarge,
           500: R.serverError,
         },
       },
@@ -2195,13 +2300,7 @@ const SPEC = {
         properties: {
           name: { type: "string", minLength: 1 },
           email: { type: "string", format: "email" },
-          password: {
-            type: "string",
-            minLength: 8,
-            format: "password",
-            description:
-              "At least 8 characters, with at least one ASCII letter (A-Z or a-z) and one digit (0-9). Only the first 72 UTF-8 bytes are significant.",
-          },
+          password: NEW_PASSWORD,
           role: {
             type: "string",
             enum: ["admin", "creator", "reader"],
@@ -2227,6 +2326,68 @@ const SPEC = {
             type: "boolean",
             description:
               "true sets `disabledAt` (the user can no longer sign in or use their API keys); false clears it.",
+          },
+        },
+      },
+      UserProfile: {
+        type: "object",
+        description: "The caller's own user, as GET /api/users/me answers it.",
+        required: ["id", "name", "email", "role", "canWrite", "createdAt"],
+        properties: {
+          id: { type: "string" },
+          name: {
+            type: "string",
+            nullable: true,
+            description:
+              "Can be null for a user provisioned through single sign-on without a name.",
+          },
+          email: { type: "string", format: "email" },
+          role: { type: "string", enum: ["admin", "creator", "reader"] },
+          canWrite: {
+            type: "boolean",
+            description:
+              "The stored write flag. It only matters for creators: admins always write and readers never do, whatever it holds.",
+          },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      UpdateProfileRequest: {
+        type: "object",
+        required: ["name"],
+        properties: { name: { type: "string", minLength: 1 } },
+      },
+      ChangePasswordRequest: {
+        type: "object",
+        required: ["currentPassword", "newPassword"],
+        properties: {
+          currentPassword: { type: "string", minLength: 1, format: "password" },
+          newPassword: NEW_PASSWORD,
+        },
+      },
+      ResetPasswordRequest: {
+        type: "object",
+        description:
+          "`newPassword` or `generatePassword: true` is required (400 otherwise).",
+        properties: {
+          newPassword: NEW_PASSWORD,
+          generatePassword: { type: "boolean", default: false },
+          forcePasswordChange: {
+            type: "boolean",
+            default: false,
+            description:
+              "true makes the user change the password at their next sign-in; false leaves the flag as it was.",
+          },
+        },
+      },
+      ResetPasswordResult: {
+        type: "object",
+        required: ["reset"],
+        properties: {
+          reset: { type: "boolean", enum: [true] },
+          generatedPassword: {
+            type: "string",
+            description:
+              "Present only when the request set `generatePassword`. Shown this once.",
           },
         },
       },

@@ -1365,6 +1365,118 @@ describe("#1981 payloads: users", () => {
   });
 });
 
+/**
+ * #2011. The caller's own profile and password, and the admin's password
+ * reset, were not in the spec at all; the /me routes also answered outside
+ * the envelope, which the #1961 walk above now holds them to.
+ */
+describe("#2011: the /me operations and reset-password", () => {
+  type Schema = {
+    $ref?: string;
+    type?: string;
+    required?: string[];
+    properties?: Record<string, Schema>;
+    enum?: unknown[];
+    nullable?: boolean;
+    minLength?: number;
+    default?: unknown;
+  };
+  type Resp = { $ref?: string; content?: Record<string, { schema: Schema }> };
+  type Op = {
+    description?: string;
+    responses: Record<string, Resp>;
+    requestBody?: { content: Record<string, { schema: Schema }> };
+  };
+  const paths = SPEC.paths as unknown as Record<string, Record<string, Op>>;
+  const me = paths["/api/users/me"];
+  const password = paths["/api/users/me/password"]?.put;
+  const reset = paths["/api/users/{id}/reset-password"]?.post;
+  const components = SPEC.components as unknown as {
+    schemas: Record<string, Schema>;
+    responses: Record<string, Resp>;
+  };
+  const deref = (s: Schema): Schema =>
+    s.$ref ? deref(components.schemas[s.$ref.split("/").pop()!]) : s;
+  const resp = (r: Resp): Resp =>
+    r.$ref ? components.responses[r.$ref.split("/").pop()!] : r;
+  const data = (op: Op) =>
+    deref(
+      resp(op.responses["200"]).content!["application/json"].schema.properties!
+        .data,
+    );
+  const body = (op: Op) =>
+    deref(op.requestBody!.content["application/json"].schema);
+  const statuses = (op: Op) => Object.keys(op.responses).sort();
+
+  it("GET /me answers the six profile keys, name nullable", () => {
+    const profile = data(me.get);
+    const KEYS = ["id", "name", "email", "role", "canWrite", "createdAt"];
+    expect(profile.required).toEqual(KEYS);
+    expect(Object.keys(profile.properties!).sort()).toEqual([...KEYS].sort());
+    expect(profile.properties!.name.nullable).toBe(true);
+    expect(statuses(me.get)).toEqual(["200", "401", "404", "500"]);
+  });
+
+  it("PUT /me takes a non-empty name and answers { success: true }", () => {
+    const req = body(me.put);
+    expect(req.required).toEqual(["name"]);
+    expect(req.properties!.name.minLength).toBe(1);
+    expect(data(me.put).properties!.success.enum).toEqual([true]);
+    expect(statuses(me.put)).toEqual([
+      "200",
+      "400",
+      "401",
+      "403",
+      "413",
+      "500",
+    ]);
+  });
+
+  it("PUT /me/password takes both passwords and answers { success: true }", () => {
+    const req = body(password);
+    expect(req.required).toEqual(["currentPassword", "newPassword"]);
+    expect(req.properties!.newPassword.minLength).toBe(8);
+    expect(data(password).properties!.success.enum).toEqual([true]);
+    expect(statuses(password)).toEqual([
+      "200",
+      "400",
+      "401",
+      "403",
+      "404",
+      "413",
+      "500",
+    ]);
+    expect(password.description).toMatch(/forcePasswordChange/);
+  });
+
+  it("POST reset-password is admin only and answers reset, plus the generated password", () => {
+    const req = body(reset);
+    expect(Object.keys(req.properties!).sort()).toEqual([
+      "forcePasswordChange",
+      "generatePassword",
+      "newPassword",
+    ]);
+    expect(req.properties!.generatePassword.default).toBe(false);
+    expect(req.properties!.forcePasswordChange.default).toBe(false);
+    const ok = data(reset);
+    expect(ok.required).toEqual(["reset"]);
+    expect(Object.keys(ok.properties!).sort()).toEqual([
+      "generatedPassword",
+      "reset",
+    ]);
+    expect(reset.description).toMatch(/Admin only/);
+    expect(statuses(reset)).toEqual([
+      "200",
+      "400",
+      "401",
+      "403",
+      "404",
+      "413",
+      "500",
+    ]);
+  });
+});
+
 describe("#1981 payloads: templates-keys", () => {
   type Schema = {
     $ref?: string;

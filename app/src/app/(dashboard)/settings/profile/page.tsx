@@ -69,7 +69,7 @@ export default function ProfilePage() {
         const body = await res.json();
         toast({
           title: "Failed to update name",
-          description: body.error ?? "Something went wrong.",
+          description: body.error?.message ?? "Something went wrong.",
           variant: "destructive",
         });
       } else {
@@ -113,7 +113,7 @@ export default function ProfilePage() {
       });
       if (!res.ok) {
         const body = await res.json();
-        setPasswordError(body.error ?? "Failed to change password");
+        setPasswordError(body.error?.message ?? "Failed to change password");
         setSavingPassword(false);
       } else {
         // The change bumps passwordChangedAt, which the auth layer uses to
