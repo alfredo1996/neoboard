@@ -4,6 +4,7 @@ import {
   StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { AuthType } from "@neoboard/connector-sdk";
+import { CONTAINER_START_MS } from "../utils/container-start";
 
 describe("PostgreSQL Authentication", () => {
   let container: StartedPostgreSqlContainer;
@@ -11,7 +12,7 @@ describe("PostgreSQL Authentication", () => {
 
   beforeAll(async () => {
     container = await new PostgreSqlContainer("postgres:16-alpine").start();
-  }, 30000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     // Close module first before stopping container

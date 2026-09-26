@@ -14,13 +14,14 @@ import { PostgresConnectionModule } from "../../src/postgresql/PostgresConnectio
 import { AuthType } from "@neoboard/connector-sdk";
 import { ConnectorError, ConnectorErrorType } from "@neoboard/connector-sdk";
 import { runBoundedQuery } from "../../src/postgresql/utils";
+import { CONTAINER_START_MS } from "../utils/container-start";
 
 describe("PostgresConnectionModule.checkConnection", () => {
   let container: StartedPostgreSqlContainer;
 
   beforeAll(async () => {
     container = await new PostgreSqlContainer("postgres:16-alpine").start();
-  }, 30000);
+  }, CONTAINER_START_MS);
 
   afterAll(async () => {
     try {
