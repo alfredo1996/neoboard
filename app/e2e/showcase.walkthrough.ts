@@ -486,7 +486,12 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
       const res = await api.post("/api/dashboards/import", {
         data: {
           payload,
-          connectionMapping: moviesMapping,
+          // Only the keys this file lists: any other key answers 400 (#1999).
+          connectionMapping: Object.fromEntries(
+            Object.entries(moviesMapping).filter(
+              ([key]) => key in payload.connections,
+            ),
+          ),
           skippedConnections: Object.keys(payload.connections).filter(
             (key) => !(key in moviesMapping),
           ),

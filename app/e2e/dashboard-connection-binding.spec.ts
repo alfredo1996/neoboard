@@ -56,9 +56,7 @@ interface Scene {
   /** Dashboards created in the test, deleted by id afterwards. */
   created: string[];
   /** A user Alice creates; `login` signs them in on a fresh context. */
-  newUser(
-    role: Role,
-  ): Promise<{
+  newUser(role: Role): Promise<{
     id: string;
     email: string;
     login(): Promise<APIRequestContext>;
@@ -280,7 +278,9 @@ test.describe("Dashboard connection binding (#1816)", () => {
             formatVersion: 1,
             exportedAt: new Date().toISOString(),
             dashboard: { name: `binding-import-${s.suffix}` },
-            connections: {},
+            // Listed as a key and left unmapped, the raw id reaches the
+            // layout as sent (#1999).
+            connections: { [s.connectionId]: { name: "raw", type: "any" } },
             layout: layoutOn(s.connectionId, NOT_ON_DASHBOARD),
           },
           connectionMapping: {},

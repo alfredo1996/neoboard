@@ -91,6 +91,17 @@ export async function POST(request: Request) {
         return badRequest(formatImportError(parsed.error));
       }
       exportData = parsed.data;
+      // `connections` indexes the file's source keys: a mapping or a skip
+      // naming any other key would otherwise be dropped silently (#1999).
+      const unknownKey = [
+        ...Object.keys(connectionMapping),
+        ...skippedConnections,
+      ].find((key) => !Object.hasOwn(parsed.data.connections, key));
+      if (unknownKey !== undefined) {
+        return badRequest(
+          `Connection "${unknownKey}" is not in the file's connections`,
+        );
+      }
     }
 
     // Validate mapping targets belong to the caller's tenant + user.
@@ -104,7 +115,7 @@ export async function POST(request: Request) {
     ];
     if (mappedIds.length > 0) {
       const allowed = await db
-        .select({ id: connections.id })
+        .select({ id: connections.id, type: connections.type })
         .from(connections)
         .where(
           and(
@@ -115,6 +126,22 @@ export async function POST(request: Request) {
         );
       if (allowed.length !== mappedIds.length) {
         return badRequest("Invalid connection mapping");
+      }
+      // A target of another connector type imports fine and fails every
+      // widget on its key when it runs (#1999). A NeoDash file lists no types.
+      if (!isNeoDash) {
+        const typeOf = new Map(allowed.map((row) => [row.id, row.type]));
+        const mismatched = Object.entries(connectionMapping).find(
+          ([key, target]) =>
+            !!target &&
+            !skipSet.has(key) &&
+            typeOf.get(target) !== exportData.connections[key]?.type,
+        );
+        if (mismatched) {
+          return badRequest(
+            `Connection "${mismatched[0]}" is mapped to a connection of another type`,
+          );
+        }
       }
     }
 

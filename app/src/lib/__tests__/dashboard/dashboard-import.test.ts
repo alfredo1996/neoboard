@@ -46,7 +46,6 @@ describe("neoboardExportSchema", () => {
   });
 
   it("rejects missing formatVersion", () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { formatVersion: _fv, ...noVersion } = VALID_EXPORT;
     const result = neoboardExportSchema.safeParse(noVersion);
     expect(result.success).toBe(false);
@@ -85,15 +84,74 @@ describe("neoboardExportSchema", () => {
   });
 
   it("accepts empty connections map", () => {
+    const page = VALID_EXPORT.layout.pages[0];
     const result = neoboardExportSchema.safeParse({
       ...VALID_EXPORT,
       connections: {},
+      layout: {
+        ...VALID_EXPORT.layout,
+        pages: [
+          { ...page, widgets: [{ ...page.widgets[0], connectionId: "" }] },
+        ],
+      },
     });
     expect(result.success).toBe(true);
   });
 
+  // `connections` indexes the file's source keys; a widget naming any other
+  // id would be saved with it and never reported as unassigned (#1999).
+  describe("widget connection ids (#1999)", () => {
+    const withWidgetIds = (...ids: string[]) => ({
+      ...VALID_EXPORT,
+      layout: {
+        ...VALID_EXPORT.layout,
+        pages: [
+          {
+            ...VALID_EXPORT.layout.pages[0],
+            widgets: ids.map((connectionId, i) => ({
+              id: `w${i}`,
+              chartType: "table",
+              connectionId,
+              query: "q",
+            })),
+          },
+        ],
+      },
+    });
+
+    it("accepts an empty id and ids that are keys of connections", () => {
+      const result = neoboardExportSchema.safeParse(
+        withWidgetIds("", "conn_0", "conn_1"),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects any other id at that widget's path", () => {
+      const result = neoboardExportSchema.safeParse(
+        withWidgetIds("conn_0", "conn_9"),
+      );
+      expect(result.success).toBe(false);
+      expect(result.error?.issues).toHaveLength(1);
+      expect(result.error?.issues[0].path).toEqual([
+        "layout",
+        "pages",
+        0,
+        "widgets",
+        1,
+        "connectionId",
+      ]);
+      expect(result.error?.issues[0].message).toContain("conn_9");
+    });
+
+    it("does not take an inherited property for a key", () => {
+      const result = neoboardExportSchema.safeParse(
+        withWidgetIds("constructor"),
+      );
+      expect(result.success).toBe(false);
+    });
+  });
+
   it("rejects missing exportedAt", () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { exportedAt: _ea, ...noDate } = VALID_EXPORT;
     const result = neoboardExportSchema.safeParse(noDate);
     expect(result.success).toBe(false);
