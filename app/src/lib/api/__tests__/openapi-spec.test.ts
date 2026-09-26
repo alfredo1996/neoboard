@@ -11,7 +11,10 @@
  */
 import { describe, it, expect } from "vitest";
 import SPEC from "../openapi-spec";
-import { API_ERROR_CODES } from "../api-response";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { API_ERROR_CODES, apiError, type ApiErrorCode } from "../api-response";
+import { DEAD_CONNECTOR_TTL_MS } from "@/lib/query/middleware/dead-connector";
 import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
 import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
 
@@ -318,5 +321,146 @@ describe("every response is documented in the envelope the server sends (#1961)"
         /Envelope(?!Error)/.test(name),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("the query operations document what their routes send (#1966)", () => {
+  type Resp = {
+    $ref?: string;
+    headers?: Record<string, unknown>;
+    description?: string;
+  };
+  type Param = {
+    $ref?: string;
+    name?: string;
+    in?: string;
+    schema?: { enum?: unknown[]; default?: unknown };
+  };
+  type Op = {
+    description?: string;
+    parameters?: Param[];
+    responses: Record<string, Resp>;
+    requestBody?: {
+      content: Record<string, { schema: { $ref: string } }>;
+    };
+  };
+  const paths = SPEC.paths as unknown as Record<string, { post: Op }>;
+  const components = SPEC.components as unknown as {
+    schemas: Record<string, { properties?: Record<string, unknown> }>;
+    responses: Record<string, Resp>;
+    parameters: Record<string, Param>;
+  };
+  const last = (ref: string) => ref.split("/").pop()!;
+  const response = (r: Resp) =>
+    r.$ref ? components.responses[last(r.$ref)] : r;
+  const params = (op: Op) =>
+    (op.parameters ?? []).map((p) =>
+      p.$ref ? components.parameters[last(p.$ref)] : p,
+    );
+  const header = (op: Op, name: string) =>
+    params(op).find((p) => p.in === "header" && p.name === name);
+  const bodyKeys = (op: Op) =>
+    Object.keys(
+      components.schemas[
+        last(op.requestBody!.content["application/json"].schema.$ref)
+      ].properties ?? {},
+    );
+  const read = paths["/api/query"].post;
+  const write = paths["/api/query/write"].post;
+  const ops: [string, Op][] = [
+    ["/api/query", read],
+    ["/api/query/write", write],
+  ];
+
+  it.each(ops)(
+    "%s documents every status the shared error path can answer",
+    (_path, op) => {
+      // Every code api-utils.ts hands to apiError: handleRouteError,
+      // readJsonBody, validateBody and the auth helpers. A new branch there
+      // fails this until the query operations document its status.
+      const source = readFileSync(
+        join(__dirname, "..", "api-utils.ts"),
+        "utf8",
+      );
+      const codes = [...source.matchAll(/apiError\(\s*"([A-Z_]+)"/g)]
+        .map((m) => m[1] as ApiErrorCode)
+        // requireFeature is the only source, and no query route calls it.
+        .filter((code) => code !== "ENTERPRISE_REQUIRED");
+      expect(codes.length).toBeGreaterThan(5);
+      const statuses = new Set(
+        codes.map((code) => String(apiError(code, "x").status)),
+      );
+      expect([...statuses].filter((s) => !(s in op.responses))).toEqual([]);
+    },
+  );
+
+  it.each(ops)(
+    "%s says when to retry a 408 or 503, and not a 502",
+    (_p, op) => {
+      expect(response(op.responses["408"]).headers).toHaveProperty(
+        "Retry-After",
+      );
+      expect(response(op.responses["503"]).headers).toHaveProperty(
+        "Retry-After",
+      );
+      expect(response(op.responses["502"]).headers).toBeUndefined();
+    },
+  );
+
+  it("states how long a dead connection is answered without dialling", () => {
+    expect(response(read.responses["502"]).description).toContain(
+      `${DEAD_CONNECTOR_TTL_MS / 1000} seconds`,
+    );
+  });
+
+  it("warns that a write retried after a 408 may run twice", () => {
+    expect(write.description).toMatch(/408[^.]*(twice|again)/);
+  });
+
+  it("the read request declares its per-card database and tenant check", () => {
+    expect(bodyKeys(read)).toEqual(
+      expect.arrayContaining([
+        "connectionId",
+        "query",
+        "params",
+        "tenantId",
+        "database",
+        "rowLimit",
+      ]),
+    );
+  });
+
+  it("the write request declares its form fields and nothing it strips", () => {
+    const keys = bodyKeys(write);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "connectionId",
+        "query",
+        "params",
+        "widgetId",
+        "dashboardId",
+      ]),
+    );
+    for (const stripped of ["rowLimit", "database", "tenantId"]) {
+      expect(keys).not.toContain(stripped);
+    }
+  });
+
+  it("the read takes x-query-priority 1-3, default 2; the write runs at 1", () => {
+    const priority = header(read, "x-query-priority");
+    expect(priority?.schema?.enum).toEqual([1, 2, 3]);
+    expect(priority?.schema?.default).toBe(2);
+    expect(header(write, "x-query-priority")).toBeUndefined();
+    expect(write.description).toMatch(/priority 1/);
+  });
+
+  it.each(ops)("%s takes an x-request-id", (_p, op) => {
+    expect(header(op, "x-request-id")).toBeDefined();
+  });
+
+  it("the read says who may run what, and that 404 also means no access", () => {
+    for (const term of [/admin/i, /shared/i, /view/i, /edit/i, /404/]) {
+      expect(read.description).toMatch(term);
+    }
   });
 });
