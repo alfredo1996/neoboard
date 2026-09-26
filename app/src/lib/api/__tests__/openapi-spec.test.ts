@@ -1157,6 +1157,8 @@ describe("#1981 payloads: dashboards-share", () => {
     ]);
     expect(share.post.description).toMatch(/User not found/);
     expect(share.post.description).toMatch(/yourself/);
+    expect(share.post.description).toMatch(/already owns this dashboard/);
+    expect(share.post.description).not.toMatch(/add a share for the .*owner/);
     expect(share.post.description).toMatch(/disabled user still matches/);
     expect(req.properties!.email.description).toMatch(/disabled ones included/);
   });
@@ -1793,4 +1795,12 @@ describe("#1981 payloads: drift", () => {
       ).toEqual([]);
     },
   );
+});
+
+describe("the spec matches emails the way #2001 does", () => {
+  it("never says an email match is case-sensitive", () => {
+    // #2001 lowercases and trims every email; three sentences still said
+    // the match was exact and case-sensitive.
+    expect(JSON.stringify(SPEC)).not.toMatch(/case-sensitive/i);
+  });
 });

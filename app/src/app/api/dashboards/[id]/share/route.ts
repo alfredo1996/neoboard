@@ -126,6 +126,13 @@ export async function POST(
       return badRequest("Cannot share with yourself");
     }
 
+    // An admin managing someone else's dashboard could otherwise add a share
+    // row for its owner, which grants nothing (#2002). Kept after the self
+    // check so an owner sharing with themselves still reads "yourself".
+    if (targetUser.id === dashboard.userId) {
+      return badRequest("User already owns this dashboard");
+    }
+
     // Upsert share
     const existing = await db
       .select()

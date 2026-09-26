@@ -616,9 +616,10 @@ const SPEC = {
         description:
           "Creates the share, or changes the role of the user's existing share; both answer 201. " +
           "The dashboard's owner or an admin only; anyone else gets 404, before the body is read. " +
-          "An email that matches no user in the tenant answers 404 `User not found` (the match is exact and case-sensitive); " +
-          "the caller's own email answers 400 `Cannot share with yourself`. A disabled user still matches and is shared with. " +
-          "Only the caller's own email is refused, so an admin can add a share for the dashboard's owner.",
+          "An email that matches no user in the tenant answers 404 `User not found` (emails are matched ignoring case and surrounding spaces, #2001); " +
+          "the caller's own email answers 400 `Cannot share with yourself`, and the dashboard owner's email " +
+          "(an admin managing someone else's dashboard) answers 400 `User already owns this dashboard`; neither writes a share. " +
+          "A disabled user still matches and is shared with.",
         requestBody: jsonBody("#/components/schemas/ShareDashboardRequest"),
         responses: {
           201: jsonResponse(
@@ -776,7 +777,7 @@ const SPEC = {
           401: R.unauthorized,
           403: R.forbidden,
           409: bodyResponse(
-            "A user with this email already exists in the tenant (the match is exact and case-sensitive)",
+            "A user with this email already exists in the tenant (emails are matched ignoring case and surrounding spaces, #2001)",
             { $ref: "#/components/schemas/ErrorResponse" },
           ),
           413: R.tooLarge,
@@ -1983,7 +1984,7 @@ const SPEC = {
             type: "string",
             format: "email",
             description:
-              "Any user in the caller's tenant, disabled ones included, other than the caller; matched exactly (case-sensitive).",
+              "Any user in the caller's tenant, disabled ones included, other than the caller; matched ignoring case and surrounding spaces (#2001).",
           },
           role: { type: "string", enum: ["viewer", "editor"] },
         },
