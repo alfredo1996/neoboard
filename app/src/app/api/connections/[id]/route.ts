@@ -236,6 +236,17 @@ export async function PATCH(
   }
 }
 
+/** The 409 a DELETE answers while widgets still use the connection. */
+function inUseConflict(usage: Awaited<ReturnType<typeof getConnectionUsage>>) {
+  const count = (n: number, word: string) =>
+    `${n} ${word}${n === 1 ? "" : "s"}`;
+  return apiError(
+    "CONFLICT",
+    `Connection is in use by ${count(usage.widgetCount, "widget")} across ${count(usage.dashboards.length, "dashboard")}`,
+    { usage },
+  );
+}
+
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -290,17 +301,7 @@ export async function DELETE(
     // public; admins see every dashboard in their tenant.
     if (!force) {
       const usage = await getConnectionUsage(id, userId, isAdmin, tenantId);
-      if (usage.widgetCount > 0) {
-        return apiError(
-          "CONFLICT",
-          `Connection is in use by ${usage.widgetCount} widget${
-            usage.widgetCount === 1 ? "" : "s"
-          } across ${usage.dashboards.length} dashboard${
-            usage.dashboards.length === 1 ? "" : "s"
-          }`,
-          { usage },
-        );
-      }
+      if (usage.widgetCount > 0) return inUseConflict(usage);
     }
 
     const deleted = await db
