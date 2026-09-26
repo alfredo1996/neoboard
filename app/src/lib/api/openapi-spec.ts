@@ -586,7 +586,10 @@ const SPEC = {
           "or a NeoDash dashboard file, which is converted. Needs write permission (403). Map each export connection key to a " +
           "connection the caller owns, or skip it; a skipped key's widgets arrive with no connection. In a NeoBoard file a key " +
           "left neither mapped nor skipped stays as its widgets' `connectionId` (e.g. `conn_0`), which names no connection " +
-          "and is not counted as unassigned; a NeoDash file's widgets then arrive with no connection. A mapping target the " +
+          "and is not counted as unassigned; a NeoDash file's widgets then arrive with no connection. In a NeoBoard file " +
+          "`connections` is the index of keys: a widget `connectionId` that is not one of its keys answers 400 naming the " +
+          "widget's path, a mapped or skipped key that is not one answers 400 naming the key, and a mapping target of " +
+          "another connector type than its key's `type` answers 400. A mapping target the " +
           "caller does not own answers 400 `Invalid connection mapping`, a shared connection or, for an admin, another user's " +
           "included; a finished layout naming a connection the caller cannot use answers 403. The name is the file's " +
           "(`Imported Dashboard` for a NeoDash file whose title is missing or blank), with ' (imported)' appended when the tenant already has " +

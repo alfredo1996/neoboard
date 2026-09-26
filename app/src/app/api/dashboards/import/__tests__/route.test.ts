@@ -218,7 +218,9 @@ describe("POST /api/dashboards/import", () => {
   it("imports a valid NeoBoard export and returns 201 with notes array", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // Connection ownership check returns 1 allowed connection
-    const connectionsChain = makeSelectChain([{ id: "real-conn-id" }]);
+    const connectionsChain = makeSelectChain([
+      { id: "real-conn-id", type: "neo4j" },
+    ]);
     mockDb.select.mockReturnValueOnce(connectionsChain);
     // Nothing in the mapped layout is out of the caller's reach (#1816)
     const usableChain = makeSelectChain([]);
@@ -284,7 +286,7 @@ describe("POST /api/dashboards/import", () => {
   it("records a dashboard.import audit entry (#1234)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(
-      makeSelectChain([{ id: "real-conn-id" }]),
+      makeSelectChain([{ id: "real-conn-id", type: "neo4j" }]),
     );
     // Nothing in the mapped layout is out of the caller's reach (#1816)
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
@@ -441,7 +443,7 @@ describe("POST /api/dashboards/import", () => {
   it("excludes content-only widgets from unassignedWidgetCount and emits no note", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(
-      makeSelectChain([{ id: "real-conn-id" }]),
+      makeSelectChain([{ id: "real-conn-id", type: "neo4j" }]),
     );
     // Nothing in the mapped layout is out of the caller's reach (#1816)
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
@@ -516,7 +518,7 @@ describe("POST /api/dashboards/import", () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // Connection ownership check returns 1 allowed connection
     mockDb.select.mockReturnValueOnce(
-      makeSelectChain([{ id: "real-conn-id" }]),
+      makeSelectChain([{ id: "real-conn-id", type: "neo4j" }]),
     );
     // Nothing in the mapped layout is out of the caller's reach (#1816)
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
@@ -557,7 +559,8 @@ describe("POST /api/dashboards/import", () => {
     const page = VALID_PAYLOAD.layout.pages[0];
     const payload = {
       ...VALID_PAYLOAD,
-      connections: {},
+      // Listed as a key and left unmapped, so it reaches the layout as sent.
+      connections: { "c-private": { name: "Private", type: "neo4j" } },
       layout: {
         ...VALID_PAYLOAD.layout,
         pages: [
@@ -600,7 +603,8 @@ describe("POST /api/dashboards/import", () => {
     };
     const payload = {
       ...VALID_PAYLOAD,
-      connections: {},
+      // Listed as a key and left unmapped, so it reaches the layout as sent.
+      connections: { "c-private": { name: "Private", type: "neo4j" } },
       layout: {
         ...VALID_PAYLOAD.layout,
         pages: [{ ...page, widgets: [form] }],
@@ -614,5 +618,106 @@ describe("POST /api/dashboards/import", () => {
     expect(sqlValues(connectionCheck.calls.where[0][0])).toEqual(
       expect.arrayContaining(["tenant-1", "c-private", "user-1", "shared"]),
     );
+  });
+
+  // `connections` is the file's index of source keys: the mapping, the skips
+  // and the widgets must name its keys, and a target must be of the key's
+  // connector type (#1999). Each refusal inserts nothing.
+  describe("checks the file's connections index (#1999)", () => {
+    it("refuses a target of another connector type", async () => {
+      mockRequireSession.mockResolvedValue(SESSION);
+      mockDb.select.mockReturnValueOnce(
+        makeSelectChain([{ id: "s-id", type: "other-type" }]),
+      );
+
+      const res = await POST(
+        makeRequest({
+          payload: VALID_PAYLOAD,
+          connectionMapping: { conn_0: "s-id" },
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.message).toContain("conn_0");
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("refuses a mapping key the file does not list", async () => {
+      mockRequireSession.mockResolvedValue(SESSION);
+
+      const res = await POST(
+        makeRequest({
+          payload: VALID_PAYLOAD,
+          connectionMapping: {
+            conn_0: "real-conn-id",
+            conn_99: "real-conn-id",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.message).toContain("conn_99");
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("refuses a skipped key the file does not list", async () => {
+      mockRequireSession.mockResolvedValue(SESSION);
+
+      const res = await POST(
+        makeRequest({
+          payload: VALID_PAYLOAD,
+          connectionMapping: {},
+          skippedConnections: ["conn_0", "conn_99"],
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.message).toContain("conn_99");
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("refuses a key inherited from Object.prototype", async () => {
+      mockRequireSession.mockResolvedValue(SESSION);
+
+      const res = await POST(
+        makeRequest({
+          payload: VALID_PAYLOAD,
+          connectionMapping: {},
+          skippedConnections: ["toString"],
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("refuses a widget id the file does not list, naming its path", async () => {
+      mockRequireSession.mockResolvedValue(SESSION);
+      const page = VALID_PAYLOAD.layout.pages[0];
+      const payload = {
+        ...VALID_PAYLOAD,
+        layout: {
+          ...VALID_PAYLOAD.layout,
+          pages: [
+            {
+              ...page,
+              widgets: [{ ...page.widgets[0], connectionId: "conn_9" }],
+            },
+          ],
+        },
+      };
+
+      const res = await POST(
+        makeRequest({ payload, connectionMapping: { conn_0: "real-conn-id" } }),
+      );
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.message).toContain(
+        "layout.pages[0].widgets[0].connectionId",
+      );
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
   });
 });

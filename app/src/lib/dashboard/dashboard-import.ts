@@ -120,22 +120,39 @@ export const dashboardLayoutSchema = z
   })
   .passthrough();
 
-export const neoboardExportSchema = z.object({
-  formatVersion: z.literal(1),
-  exportedAt: z.string(),
-  dashboard: z.object({
-    name: z.string().min(1),
-    description: z.string().nullable().optional(),
-  }),
-  connections: z.record(
-    z.string(),
-    z.object({
-      name: z.string(),
-      type: z.string(),
+export const neoboardExportSchema = z
+  .object({
+    formatVersion: z.literal(1),
+    exportedAt: z.string(),
+    dashboard: z.object({
+      name: z.string().min(1),
+      description: z.string().nullable().optional(),
     }),
-  ),
-  layout: dashboardLayoutSchema,
-});
+    connections: z.record(
+      z.string(),
+      z.object({
+        name: z.string(),
+        type: z.string(),
+      }),
+    ),
+    layout: dashboardLayoutSchema,
+  })
+  .superRefine((file, ctx) => {
+    // `connections` indexes the file's source keys: a widget naming any other
+    // id would be saved with it and never counted as unassigned (#1999).
+    file.layout.pages.forEach((page, p) => {
+      page.widgets.forEach((widget, w) => {
+        const id = widget.connectionId;
+        if (id && !Object.hasOwn(file.connections, id)) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["layout", "pages", p, "widgets", w, "connectionId"],
+            message: `"${id}" is not a key of connections`,
+          });
+        }
+      });
+    });
+  });
 
 export type NeoboardExportInput = z.infer<typeof neoboardExportSchema>;
 
