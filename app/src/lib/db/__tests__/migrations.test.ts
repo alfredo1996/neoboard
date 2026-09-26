@@ -15,6 +15,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { spawn } from "node:child_process";
+import { MIGRATION_LOCK_ID } from "../migrate.mjs";
 
 const MIGRATIONS_FOLDER = path.resolve(
   __dirname,
@@ -70,15 +72,16 @@ describe("Database migrations", () => {
     }
   });
 
+  function urlOf(name: string) {
+    return `postgres://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getPort()}/${name}`;
+  }
+
   /** A new, empty database on the container, for a test that upgrades in place. */
   async function emptyDatabase(name: string) {
     const admin = postgres(connectionString, { max: 1 });
     await admin`CREATE DATABASE ${admin(name)}`;
     await admin.end();
-    return postgres(
-      `postgres://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getPort()}/${name}`,
-      { max: 1 },
-    );
+    return postgres(urlOf(name), { max: 1 });
   }
 
   it("should run all migrations on a fresh database", async () => {
@@ -425,4 +428,69 @@ describe("Database migrations", () => {
     ).toHaveLength(0);
     await client.end();
   }, 90_000);
+
+  // `neoboard db migrate` runs this script (#2019). The drizzle-kit binary it
+  // ran before exited 1 with nothing on stderr, so the CLI had no text to show.
+  describe("scripts/db-migrate.mjs (#2019)", () => {
+    const ROOT = path.resolve(__dirname, "../../../../..");
+
+    function runScript(name: string, env: Record<string, string> = {}) {
+      return new Promise<{ status: number | null; stderr: string }>(
+        (resolve) => {
+          const child = spawn(
+            process.execPath,
+            [path.join(ROOT, "scripts/db-migrate.mjs")],
+            {
+              // Not the root or the app dir: the script finds its migrations.
+              cwd: tmpdir(),
+              env: { ...process.env, DATABASE_URL: urlOf(name), ...env },
+            },
+          );
+          let stderr = "";
+          child.stderr.on("data", (chunk) => (stderr += chunk));
+          child.on("close", (status) => resolve({ status, stderr }));
+        },
+      );
+    }
+
+    it("applies every migration and exits 0", async () => {
+      const client = await emptyDatabase("script_fresh_2019");
+
+      const { status, stderr } = await runScript("script_fresh_2019");
+
+      expect(stderr).toBe("");
+      expect(status).toBe(0);
+      const [{ n }] =
+        await client`SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations`;
+      expect(n).toBe(journal.entries.length);
+      await client.end();
+    }, 90_000);
+
+    // The CLI now takes the boot migrator's lock, which drizzle-kit never did:
+    // a session stuck holding it must not hang the command with no output.
+    it("gives up on a lock another session holds, saying it is a lock timeout", async () => {
+      const client = await emptyDatabase("script_lock_2019");
+      await client`select pg_advisory_lock(${MIGRATION_LOCK_ID})`;
+
+      const { status, stderr } = await runScript("script_lock_2019", {
+        MIGRATION_LOCK_TIMEOUT_MS: "500",
+      });
+
+      expect(status).toBe(1);
+      expect(stderr).toContain("lock timeout");
+      await client.end();
+    }, 90_000);
+
+    it("exits 1 and prints a migration's own RAISE text", async () => {
+      const client = await databaseAt0002("script_raise_2019");
+      await client`INSERT INTO "user" (id, email) VALUES ('u1', 'Alice@X.com'), ('u2', 'alice@x.com')`;
+      await client.end();
+
+      const { status, stderr } = await runScript("script_raise_2019");
+
+      expect(status).toBe(1);
+      expect(stderr).toContain("Upgrade stopped (#2001)");
+      expect(stderr).toContain("Alice@X.com");
+    }, 90_000);
+  });
 });

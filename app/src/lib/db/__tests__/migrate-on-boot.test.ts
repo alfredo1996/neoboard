@@ -41,6 +41,7 @@ vi.mock("drizzle-orm/postgres-js", () => ({ drizzle: mockDrizzle }));
 vi.mock("drizzle-orm/postgres-js/migrator", () => ({ migrate: mockMigrate }));
 
 import { migrateOnBoot, shouldMigrateOnBoot } from "../migrate-on-boot";
+import { describeMigrationError, migrateWithLock } from "../migrate.mjs";
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -132,5 +133,55 @@ describe("migrateOnBoot", () => {
   it("closes the client on success", async () => {
     await migrateOnBoot();
     expect(mockEnd).toHaveBeenCalled();
+  });
+});
+
+// The CLI bounds its wait for the lock (#2019); the bound must end with the
+// wait, and hand the migration back whatever lock_timeout the role or the
+// database sets, not 0, which would lift that limit for every statement.
+describe("migrateWithLock's lock timeout (#2019)", () => {
+  it("bounds only the wait for the lock, then resets to the session default", async () => {
+    await migrateWithLock("postgresql://u:p@localhost:5432/db", "m", {
+      lockTimeoutMs: 500,
+    });
+    const set = sqlCalls.findIndex((s) =>
+      s.includes("set_config('lock_timeout'"),
+    );
+    const lock = sqlCalls.findIndex((s) => s.includes("pg_advisory_lock("));
+    const reset = sqlCalls.findIndex((s) =>
+      /^\s*reset lock_timeout\s*$/i.test(s),
+    );
+    expect(set).toBeGreaterThanOrEqual(0);
+    expect(set).toBeLessThan(lock);
+    expect(reset).toBeGreaterThan(lock);
+    expect(sqlCalls.some((s) => s.includes("'0'"))).toBe(false);
+  });
+
+  it("touches no timeout when none is asked for, as at boot", async () => {
+    await migrateOnBoot();
+    expect(sqlCalls.some((s) => /lock_timeout/i.test(s))).toBe(false);
+  });
+});
+
+describe("describeMigrationError", () => {
+  it("prints the database's reason from the cause, with its detail", () => {
+    const cause = Object.assign(new Error("Upgrade stopped"), {
+      detail: "Key (email) is duplicated.",
+    });
+    expect(
+      describeMigrationError(new Error("Failed query: DO $$", { cause })),
+    ).toBe(
+      "Failed query: DO $$\n  Upgrade stopped\n  Key (email) is duplicated.",
+    );
+  });
+
+  it("prints a plain error's message alone", () => {
+    expect(describeMigrationError(new Error("ECONNREFUSED"))).toBe(
+      "ECONNREFUSED",
+    );
+  });
+
+  it("prints anything else as text", () => {
+    expect(describeMigrationError("boom")).toBe("boom");
   });
 });

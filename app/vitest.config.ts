@@ -31,7 +31,8 @@ export default defineConfig({
       provider: "v8",
       reportsDirectory: "./coverage",
       reporter: ["text", "lcov", "json"],
-      include: ["src/**/*.ts", "src/**/*.tsx"],
+      // .mjs: plain JavaScript that bare node runs too (lib/db/migrate.mjs, #2019).
+      include: ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mjs"],
       exclude: ["src/**/__tests__/**", "src/**/*.d.ts"],
       // Floors, not targets: each sits a few points under the value measured
       // on 2026-09-06, so ordinary churn does not trip them but a real

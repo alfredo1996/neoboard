@@ -169,14 +169,15 @@ Do not run `neoboard env --regenerate`. It rewrites the whole file with a new `E
 
 ## Migration failures
 
-`neoboard db migrate` classifies failures into four buckets and prints a hint for each. The buckets are:
+`neoboard db migrate` prints the database's error, a migration's own message included, and classifies it into one of five buckets with a hint for each. The buckets are:
 
 | Bucket | Typical stderr | First thing to check |
 | --- | --- | --- |
 | **connection** | `ECONNREFUSED`, `password authentication failed`, `getaddrinfo` | See [DB connection refused](#database-connection-refused--timeout) above |
 | **lock** | `could not obtain advisory lock`, `deadlock detected` | Is another `db migrate` running? Wait for it. If nothing else is running, restart postgres to drop a stale lock. |
-| **schema** | `already exists`, `does not exist`, `violates`, `syntax error` | Manual schema changes have caused drift. NeoBoard migrations are **forward-only**. |
-| **unknown** | anything else | Raw stderr is always printed — paste it in an issue. |
+| **data** | `violates … constraint`, `duplicate key` | The rows already stored break a rule the migration adds. Nothing was applied: fix the rows named in the error and migrate again. Never `db reset` for this, it deletes every row. |
+| **schema** | `already exists`, `does not exist`, `syntax error` | Manual schema changes have caused drift. NeoBoard migrations are **forward-only**. |
+| **unknown** | anything else, such as a migration's own refusal | The error is always printed under **Underlying error**. Read it first; if it names no fix, paste it in an issue. |
 
 ### Pre-launch recovery: nuke and reseed
 
@@ -200,7 +201,7 @@ Email addresses are stored and matched lowercased, with surrounding whitespace r
 Upgrade stopped (#2001): emails are now matched ignoring case and surrounding whitespace, and these user rows would share one address: tenant 'default': 'Alice@example.com', 'alice@example.com'. Merge or delete the extra user rows, then upgrade again.
 ```
 
-A server that migrates on start (`MIGRATE_ON_START=1`, as the Docker image does) prints this in its startup error. Whichever way you migrate, this query lists the colliding addresses:
+`neoboard db migrate` prints this under **Underlying error**, and a server that migrates on start (`MIGRATE_ON_START=1`, as the Docker image does) prints it in its startup error. Whichever way you migrate, this query lists the colliding addresses:
 
 ```sql
 SELECT lower(regexp_replace(email,'^\s+|\s+$','','g')) AS email, tenant_id, count(*), string_agg(id, ', ') AS user_ids
