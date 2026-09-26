@@ -27,7 +27,7 @@
     "setup:enterprise": "bash scripts/setup-enterprise.sh",
     "dev:enterprise": "bash scripts/setup-enterprise.sh && npm run dev",
     "prepare": "husky",
-    "postinstall": "[ -n \"$CI\" ] || [ ! -d \"cli/src\" ] || (npm -w cli run build && env -u npm_config_prefix npm link ./cli)",
+    "postinstall": "[ ! -f scripts/postinstall.sh ] || sh scripts/postinstall.sh",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run test:scripts",
     "typecheck": "npm -w connector-sdk exec tsc -- --noEmit && npm -w connection exec tsc -- --noEmit && npm -w component exec tsc -- --noEmit && npm -w app exec tsc -- --noEmit",
     "sonar:local": "node scripts/sonar-local.mjs",
