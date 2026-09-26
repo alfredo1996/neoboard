@@ -10,6 +10,8 @@ import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
 import { API_ERROR_CODES } from "./api-response";
 import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
 import { DEAD_CONNECTOR_TTL_MS } from "@/lib/query/middleware/dead-connector";
+import { SCHEDULER_DEFAULTS } from "@/lib/query/scheduler-config";
+import { PROXY_BODY_LIMIT_BYTES } from "./api-utils";
 
 // ---------------------------------------------------------------------------
 // Helpers to reduce structural repetition in path definitions
@@ -524,10 +526,11 @@ const SPEC = {
           "A write that read-only execution stopped answers 500 with `error.details.blockedWrite: true`.\n\n" +
           "**Who may run what.** An admin, the connection's owner, or anyone in the tenant when the connection is shared, runs any query on it. " +
           "Anyone else needs a dashboard that uses the connection. Edit access (the dashboard's owner or an editor share) runs any query, " +
-          "while the caller may write and the dashboard's owner can use the connection. View access (a viewer share, or a public dashboard) " +
-          "runs only a query that dashboard saves, on its saved database; anything else answers 403. " +
+          "while the caller may write and the dashboard's owner can use the connection. View access (a viewer share, a public dashboard, " +
+          "or an owner or editor share without edit access) runs only a query one of those dashboards saves (a widget's query, or a " +
+          "parameter selector's or form field's seed query), on that widget's connection and saved database; anything else answers 403. " +
           "Without either, the answer is 404, the same as for a connection that does not exist.\n\n" +
-          "A `tenantId` in the body must equal the session's, or the answer is 403. Unknown body keys are stripped, not rejected.",
+          "A non-empty `tenantId` in the body must equal the session's, or the answer is 403. Unknown body keys are stripped, not rejected.",
         parameters: [
           { $ref: "#/components/parameters/QueryPriorityHeader" },
           REQUEST_ID_HEADER,
@@ -565,7 +568,8 @@ const SPEC = {
           `The rows a write returns are capped like a read's, at the connection's \`maxRows\` or ${DEFAULT_MAX_ROWS}, with no truncation flag; the write itself is never cut short.\n\n` +
           "A write always runs at scheduler priority 1; `x-query-priority` is not read. " +
           "A 408 from the queue (`Retry-After: 5`) means the write never started. " +
-          "A 408 from a transient connector error (`Retry-After: 3`) can arrive after the database applied the write, so retrying it may run the write twice. " +
+          "A 408 from a transient connector error (`Retry-After: 3`), or a 502, can arrive after the database applied the write, so retrying it may run the write twice. " +
+          "A write is never shed: its 503 is always `queue_full`. " +
           "Unknown body keys are stripped, not rejected: a `rowLimit` or `database` sent here is ignored.",
         parameters: [REQUEST_ID_HEADER],
         requestBody: jsonBody("#/components/schemas/WriteQueryRequest"),
@@ -850,7 +854,8 @@ const SPEC = {
         required: false,
         schema: { type: "integer", enum: [1, 2, 3], default: 2 },
         description:
-          "Scheduler tier: 1 interactive, 2 load, 3 refresh. Anything else counts as 2. Under load a 3 can be shed with a 503.",
+          "Scheduler tier: 1 interactive, 2 load, 3 refresh. Anything else counts as 2. " +
+          `A 3 is shed with a 503 once the connection's queue is ${SCHEDULER_DEFAULTS.shedThreshold * 100}% full (\`QUERY_SHED_THRESHOLD\`).`,
       },
       RequestIdHeader: {
         name: "x-request-id",
@@ -858,7 +863,8 @@ const SPEC = {
         required: false,
         schema: { type: "string" },
         description:
-          "Correlation id for the request's logs. The server uses the one sent, or makes one, and echoes it on the response.",
+          "Correlation id for the request's logs. The server uses the one sent, or makes one, and echoes it on the response " +
+          "(all but the HTTP-to-HTTPS redirect, which is answered before the id is set).",
       },
     },
     responses: {
@@ -886,31 +892,34 @@ const SPEC = {
         "#/components/schemas/SuccessResult",
       ),
       PayloadTooLarge: bodyResponse(
-        "The request body is over 10 MB, judged by its `Content-Length` before it is read.",
+        `The request body is over ${PROXY_BODY_LIMIT_BYTES / 1024 / 1024} MiB, judged by its declared \`Content-Length\` before it is read. ` +
+          "A larger body sent without a length is cut off and answers 400.",
         { $ref: "#/components/schemas/ErrorResponse" },
       ),
       RequestTimeout: {
         ...bodyResponse(
-          "Timed out, and worth retrying. Either the connection's scheduler queue timed out before the query started " +
-            "(`Retry-After: 5`), or the connector judged the failure transient, such as a query timeout or a dropped " +
-            "connection (`Retry-After: 3`).",
+          "Timed out or dropped: worth retrying a read; for a write, see the operation. Either the connection's scheduler " +
+            "queue timed out before the query started (`Retry-After: 5`), or the connector judged the failure transient, such as " +
+            "a query timeout or a dropped connection (`Retry-After: 3`). A transient failure that is also a network or " +
+            "credentials failure answers 502 instead.",
           { $ref: "#/components/schemas/ErrorResponse" },
         ),
         headers: { "Retry-After": RETRY_AFTER },
       },
       ServiceUnavailable: {
         ...bodyResponse(
-          'The connection\'s scheduler refused the request: its queue is full (`error.details.reason: "queue_full"`), ' +
-            'or the request was priority 3 and was shed under load (`"shed"`).',
+          "The connection's scheduler refused the request (`Retry-After: 2`): its queue is full " +
+            '(`error.details.reason: "queue_full"`), or the request was priority 3 and was shed under load (`"shed"`).',
           { $ref: "#/components/schemas/ErrorResponse" },
         ),
         headers: { "Retry-After": RETRY_AFTER },
       },
       ConnectorUnavailable: bodyResponse(
-        "The connector cannot reach the database: `error.details.reason` is `network` (an unroutable host or a refused port) " +
-          "or `auth_failed`. No `Retry-After`: retrying does not help until the connection is fixed. " +
-          `For the next ${DEAD_CONNECTOR_TTL_MS / 1000} seconds the server answers this 502 for the same connection ` +
-          "without dialling it again (per tenant, per server process).",
+        "The connector cannot use the connection: `error.details.reason` is `network` (the host cannot be reached: a refused " +
+          "port, an unresolved name, an unroutable or timed-out host) or `auth_failed` (the database refused the credentials). " +
+          `No \`Retry-After\`. For up to ${DEAD_CONNECTOR_TTL_MS / 1000} seconds after the first such failure the server answers ` +
+          "this same 502 for that connection without dialling it again (per tenant, per server process), so retrying within " +
+          "that window returns it again. A passing connection test, or editing or deleting the connection, ends the window early.",
         { $ref: "#/components/schemas/ErrorResponse" },
       ),
     },
@@ -1173,12 +1182,13 @@ const SPEC = {
           database: {
             type: "string",
             description:
-              "The database to run on, for this card. Ignored unless the connection allows a per-card database. A view-level caller must send the one the dashboard saves.",
+              "The database to run on, for this card. Applied only when the connection allows a per-card database. " +
+              "A view-level caller must send the database saved on the widget that runs this query (none, if it saves none), whatever that setting, or the answer is 403.",
           },
           tenantId: {
             type: "string",
             description:
-              "Optional check: must equal the session's tenant, or the answer is 403.",
+              "Optional check: a non-empty `tenantId` must equal the session's tenant, or the answer is 403.",
           },
           rowLimit: {
             type: "integer",
@@ -1203,7 +1213,11 @@ const SPEC = {
           widgetId: {
             type: "string",
             description:
-              "A form submit sends this with `dashboardId`; they count only together. One alone is a plain write.",
+              "The stored widget this write comes from, sent with `dashboardId`; the two count only together, and one alone is a plain write. " +
+              "With both, the widget must be on a dashboard the caller can open and on this connection, or the answer is 404. " +
+              "A form runs its saved query (the `query` sent must match it) for anyone who can open the dashboard. " +
+              "Any other widget needs write permission, the caller's own connection and write mode on the widget, or the answer is 403. " +
+              "Either way it runs on the widget's saved database when the connection allows a per-card one.",
           },
           dashboardId: {
             type: "string",
