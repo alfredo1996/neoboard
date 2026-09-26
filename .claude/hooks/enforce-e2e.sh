@@ -103,8 +103,9 @@ ui_content() {
   while IFS= read -r -d '' entry; do
     xy="${entry:0:2}"
     path="${entry:3}"
-    # A rename's source path follows as its own entry.
-    case "$xy" in R* | C*) IFS= read -r -d '' _ ;; esac
+    # A rename's or copy's source path follows as its own entry, whether git
+    # saw it in the index (R, C) or in the work tree (` R`, after `git add -N`).
+    case "$xy" in R* | C* | ?R | ?C) IFS= read -r -d '' _ ;; esac
     case "$xy" in D* | ' D') continue ;; esac
     if [ -L "$checkout/$path" ]; then
       printf '%s\t%s\n' \

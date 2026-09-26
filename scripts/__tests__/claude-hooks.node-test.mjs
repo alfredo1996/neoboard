@@ -797,6 +797,17 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     assert.equal(commit("git commit -m x", main, main), 0);
   });
 
+  test("a rename in the work tree (git add -N) is checked like any change", () => {
+    // Status ` R new NUL old`: the source path is its own entry, not a status.
+    const { main } = checkouts();
+    execFileSync("mv", [ui(main), join(main, "app/src/components/y.tsx")]);
+    writeFileSync(join(main, "app/src/components/y.tsx"), "v2\n");
+    git(main, "add", "-N", "app/src/components/y.tsx");
+    assert.equal(commit("git add -A && git commit -m x", main, main), BLOCK);
+    playwright(main, main);
+    assert.equal(commit("git add -A && git commit -m x", main, main), 0);
+  });
+
   test("a directory moved after the run counts, though its files keep their times", () => {
     const { main } = checkouts();
     playwright(main, main);
