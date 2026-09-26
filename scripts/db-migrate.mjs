@@ -18,6 +18,11 @@ try {
     url,
     process.env.MIGRATIONS_DIR ??
       fileURLToPath(new URL("../app/drizzle/migrations", import.meta.url)),
+    // A minute for a booting server to finish migrating; past that the lock
+    // is stuck, and the CLI says so rather than hanging.
+    {
+      lockTimeoutMs: Number(process.env.MIGRATION_LOCK_TIMEOUT_MS) || 60_000,
+    },
   );
 } catch (err) {
   process.stderr.write(`${describeMigrationError(err)}\n`);

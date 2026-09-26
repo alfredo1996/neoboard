@@ -16,14 +16,28 @@ export const MIGRATION_LOCK_ID = 772002001;
  * Apply pending schema migrations using drizzle's programmatic migrator,
  * serialized across replicas via a Postgres advisory lock.
  *
+ * `lockTimeoutMs` bounds the wait for the lock, and only that wait: the
+ * migration's own statements keep Postgres's default. A booting replica
+ * passes none and waits for the one that migrates; `neoboard db migrate`
+ * passes one, so a session stuck holding the lock fails it with
+ * "lock timeout" instead of hanging it (#2019).
+ *
  * @param {string} url
  * @param {string} migrationsFolder
+ * @param {{ lockTimeoutMs?: number }} [options]
  * @returns {Promise<void>}
  */
-export async function migrateWithLock(url, migrationsFolder) {
+export async function migrateWithLock(url, migrationsFolder, options = {}) {
+  const { lockTimeoutMs } = options;
   const client = postgres(url, { max: 1 });
   try {
+    if (lockTimeoutMs) {
+      await client`select set_config('lock_timeout', ${String(lockTimeoutMs)}, false)`;
+    }
     await client`select pg_advisory_lock(${MIGRATION_LOCK_ID})`;
+    if (lockTimeoutMs) {
+      await client`select set_config('lock_timeout', '0', false)`;
+    }
     try {
       await migrate(drizzle(client), { migrationsFolder });
     } finally {

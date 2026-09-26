@@ -16,6 +16,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { MIGRATION_LOCK_ID } from "../migrate.mjs";
 
 const MIGRATIONS_FOLDER = path.resolve(
   __dirname,
@@ -433,7 +434,7 @@ describe("Database migrations", () => {
   describe("scripts/db-migrate.mjs (#2019)", () => {
     const ROOT = path.resolve(__dirname, "../../../../..");
 
-    function runScript(name: string) {
+    function runScript(name: string, env: Record<string, string> = {}) {
       return new Promise<{ status: number | null; stderr: string }>(
         (resolve) => {
           const child = spawn(
@@ -442,7 +443,7 @@ describe("Database migrations", () => {
             {
               // Not the root or the app dir: the script finds its migrations.
               cwd: tmpdir(),
-              env: { ...process.env, DATABASE_URL: urlOf(name) },
+              env: { ...process.env, DATABASE_URL: urlOf(name), ...env },
             },
           );
           let stderr = "";
@@ -462,6 +463,21 @@ describe("Database migrations", () => {
       const [{ n }] =
         await client`SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations`;
       expect(n).toBe(journal.entries.length);
+      await client.end();
+    }, 90_000);
+
+    // The CLI now takes the boot migrator's lock, which drizzle-kit never did:
+    // a session stuck holding it must not hang the command with no output.
+    it("gives up on a lock another session holds, saying it is a lock timeout", async () => {
+      const client = await emptyDatabase("script_lock_2019");
+      await client`select pg_advisory_lock(${MIGRATION_LOCK_ID})`;
+
+      const { status, stderr } = await runScript("script_lock_2019", {
+        MIGRATION_LOCK_TIMEOUT_MS: "500",
+      });
+
+      expect(status).toBe(1);
+      expect(stderr).toContain("lock timeout");
       await client.end();
     }, 90_000);
 
