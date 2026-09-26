@@ -2,28 +2,47 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { MarkdownWidget, parseMarkdown } from "../markdown-widget";
 
-/** Fastest of `repeats` runs, so one busy moment on a shared runner cannot decide the verdict. */
-function fastestMs(run: () => void, repeats = 5): number {
-  let best = Infinity;
-  for (let i = 0; i < repeats; i++) {
-    const start = performance.now();
-    run();
-    best = Math.min(best, performance.now() - start);
-  }
-  return best;
+/**
+ * CPU time of one run, not wall time (#1993). A busy runner deschedules this
+ * process, which adds wall time but no CPU time. With every core oversubscribed
+ * the wall-clock ratio swung past 2x either way (the quadratic control read 7.5
+ * where 16 was due); CPU time stayed within 12% of the nominal ratio. Vitest
+ * runs each file in its own forked process, so no other test's work counts.
+ */
+function cpuMs(run: () => void): number {
+  const start = process.cpuUsage();
+  run();
+  const { user, system } = process.cpuUsage(start);
+  return (user + system) / 1000;
 }
 
-/** How much longer 4n takes than n: about 4 when linear, about 16 when quadratic. */
+/** How much longer 8n takes than n: about 8 when linear, about 64 when quadratic. */
 function growth(
   parse: (s: string) => unknown,
   unit: string,
   n: number,
   repeats = 5,
 ): { ratio: number; largeMs: number } {
-  const small = fastestMs(() => parse(unit.repeat(n)), repeats);
-  const large = fastestMs(() => parse(unit.repeat(4 * n)), repeats);
-  return { ratio: large / Math.max(small, 0.05), largeMs: large };
+  const small = unit.repeat(n);
+  const large = unit.repeat(8 * n);
+  let smallMs = Infinity;
+  let largeMs = Infinity;
+  // Interleaved, fastest of each, so no one moment decides the ratio.
+  for (let i = 0; i < repeats; i++) {
+    smallMs = Math.min(
+      smallMs,
+      cpuMs(() => parse(small)),
+    );
+    largeMs = Math.min(
+      largeMs,
+      cpuMs(() => parse(large)),
+    );
+  }
+  return { ratio: largeMs / Math.max(smallMs, 0.05), largeMs };
 }
+
+/** Between linear (about 8) and quadratic (about 64), ~2.7x from each. */
+const GROWTH_SPLIT = 24;
 
 // Mock the code highlighter — Shiki uses WASM which isn't available in jsdom
 vi.mock("@/lib/code-highlighter", () => ({
@@ -685,11 +704,11 @@ describe("MarkdownWidget", () => {
 
     // #1407 was catastrophic backtracking: seconds, not milliseconds. A
     // wall-clock budget cannot tell a busy runner from a regressed parser
-    // (#1937), so this asserts the SHAPE of the growth: 4x the input costs
-    // about 4x the time when linear, about 16x when quadratic.
+    // (#1937), so this asserts the SHAPE of the growth: 8x the input costs
+    // about 8x the CPU time when linear, about 64x when quadratic.
     it("parses a long line of unclosed underscores in linear time", () => {
-      const { ratio, largeMs } = growth(parseMarkdown, "(_a)", 25_000);
-      expect(ratio).toBeLessThan(8);
+      const { ratio, largeMs } = growth(parseMarkdown, "(_a)", 12_500);
+      expect(ratio).toBeLessThan(GROWTH_SPLIT);
       // A hang still fails, however busy the runner: the fastest 100 000-unit
       // parse is the ceiling, measured once rather than parsed again.
       expect(largeMs).toBeLessThan(5000);
@@ -705,8 +724,10 @@ describe("MarkdownWidget", () => {
         return n;
       };
       // Small on purpose: a nested loop is the worst case for CI's coverage
-      // instrumentation (6.4 s at n = 500), and 16x holds at any size.
-      expect(growth(quadratic, "(_a)", 250, 3).ratio).toBeGreaterThan(8);
+      // instrumentation (6.4 s for 2000 units), and 64x holds at any size.
+      expect(growth(quadratic, "(_a)", 125).ratio).toBeGreaterThan(
+        GROWTH_SPLIT,
+      );
     }, 30_000);
 
     it.each([
