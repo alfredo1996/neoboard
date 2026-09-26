@@ -244,6 +244,41 @@ describe("POST /api/dashboards/[id]/share", () => {
     expect(body.error.message).toBe("Cannot share with yourself");
   });
 
+  it("returns 400 when an admin shares a dashboard with its owner, writing nothing (#2002)", async () => {
+    mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "user-1" }]));
+    const res = await POST(
+      makeRequest({ email: "owner@example.com", role: "viewer" }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.message).toBe("User already owns this dashboard");
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(mockDb.update).not.toHaveBeenCalled();
+    expect(mockAuditRequest).not.toHaveBeenCalled();
+  });
+
+  it("still lets an admin share another user's dashboard with a third user (#2002)", async () => {
+    mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "user-2" }]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    const insertChain = makeInsertChain();
+    mockDb.insert.mockReturnValue(insertChain);
+    const res = await POST(
+      makeRequest({ email: "other@example.com", role: "viewer" }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(201);
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: ADMIN_SESSION.tenantId,
+    });
+  });
+
   it("creates new share when none exists", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));

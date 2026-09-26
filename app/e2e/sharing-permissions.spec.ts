@@ -314,6 +314,41 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
     }
   });
 
+  test("10b. admin cannot share a dashboard with its own owner (#2002)", async ({
+    page,
+    browser,
+  }) => {
+    await new AuthPage(page).login(BOB.email, BOB.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Share Test 10b ${Date.now()}`,
+    );
+    try {
+      const alice = await loginAs(browser, ALICE.email, ALICE.password);
+      try {
+        await openSharingPanel(alice.page, id);
+        await alice.page.locator("#assign-email").fill(BOB.email);
+        await alice.page.getByRole("button", { name: "Assign" }).click();
+
+        await expect(
+          alice.page.getByText(/already owns this dashboard/i),
+        ).toBeVisible({ timeout: 5_000 });
+
+        // Positive end state: no share row was written for the owner.
+        const listRes = await alice.page.request.get(
+          `/api/dashboards/${id}/share`,
+        );
+        expect(listRes.status()).toBe(200);
+        const shares: { userEmail: string }[] = (await listRes.json()).data;
+        expect(shares.map((s) => s.userEmail)).not.toContain(BOB.email);
+      } finally {
+        await alice.close();
+      }
+    } finally {
+      await cleanup();
+    }
+  });
+
   test("11. reader cannot create dashboards (UI hidden + API returns 403)", async ({
     page,
   }) => {
