@@ -271,6 +271,38 @@ describe("JWT callback", () => {
     const result = (await callbacks.jwt({ token })) as Record<string, unknown>;
     expect(result.name).toBe("Updated Name");
   });
+
+  // The lookup is the revocation check: disabled, deleted, password changed.
+  describe("when the users lookup fails (#2004)", () => {
+    function mockDbDown() {
+      mockDbSelect.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockRejectedValue(new Error("connection refused")),
+          }),
+        }),
+      });
+    }
+
+    it("refuses a sign-in, which it could not check", async () => {
+      mockDbDown();
+      const user = { id: "u1", name: "Alice", role: "admin", canWrite: true };
+
+      expect(await callbacks.jwt({ token: {}, user })).toBeNull();
+    });
+
+    it("keeps an existing session's token as it was", async () => {
+      mockDbDown();
+      const token = {
+        id: "u1",
+        name: "Alice",
+        role: "reader",
+        canWrite: false,
+      };
+
+      expect(await callbacks.jwt({ token: { ...token } })).toEqual(token);
+    });
+  });
 });
 
 describe("session callback", () => {
