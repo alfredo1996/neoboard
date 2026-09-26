@@ -111,6 +111,9 @@ export async function PUT(
       )
       .returning();
 
+    // Deleted since requireOwnedTemplate read it (#2012).
+    if (!updated) return notFound();
+
     return apiSuccess(updated);
   } catch (err) {
     return handleRouteError(err);

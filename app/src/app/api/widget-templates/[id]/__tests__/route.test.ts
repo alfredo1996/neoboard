@@ -263,6 +263,33 @@ describe("PUT /api/widget-templates/[id]", () => {
     expectScopedToTenant(update.calls.where[0][0], "t1");
   });
 
+  // A delete landing between the ownership read and the UPDATE leaves
+  // RETURNING empty; the route must answer the 404 a retry would get, not a
+  // 200 with no data (#2012).
+  it("returns 404 when the template is deleted before the update lands", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "tenant-x",
+    });
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        { id: "t1", name: "Old", createdBy: "user-1", tenantId: "tenant-x" },
+      ]),
+    );
+    mockDb.update.mockReturnValue(makeUpdateChain([]));
+    const res = await PUT(makeRequest({ name: "Updated" }), {
+      params: Promise.resolve({ id: "t1" }),
+    });
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
+      data: null,
+      error: { code: "NOT_FOUND", message: "Not found" },
+      meta: null,
+    });
+  });
+
   // The schema-validation branch reads `parsed.error.issues[0].message`. Under
   // zod 3 that field was `.errors`; reaching for the wrong one throws on
   // `[0]` and turns this 400 into a 500, so the path needs a test of its own
