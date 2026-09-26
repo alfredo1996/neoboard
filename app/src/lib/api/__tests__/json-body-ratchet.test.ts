@@ -14,12 +14,6 @@ const API_DIR = resolve(
   "../../../app/api",
 );
 
-/** Routes that catch a bad body themselves and already answer 400. */
-const HANDLES_ITS_OWN = new Set([
-  "users/me/route.ts",
-  "users/me/password/route.ts",
-]);
-
 function routeFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
@@ -34,7 +28,6 @@ describe("request bodies are read with readJsonBody (#1963)", () => {
   it("no route parses a request body directly", () => {
     const offenders = routeFiles(API_DIR)
       .map((file) => relative(API_DIR, file))
-      .filter((file) => !HANDLES_ITS_OWN.has(file))
       .filter((file) =>
         // json(), or text() for a hand parse, on the request or a clone of it.
         /\b(?:request|req)(?:\.clone\(\))?\.(?:json|text)\(\)/.test(
@@ -42,11 +35,5 @@ describe("request bodies are read with readJsonBody (#1963)", () => {
         ),
       );
     expect(offenders).toEqual([]);
-  });
-
-  it("still finds the routes it allowlists", () => {
-    // A rename would otherwise leave the allowlist vouching for nothing.
-    const found = new Set(routeFiles(API_DIR).map((f) => relative(API_DIR, f)));
-    for (const file of HANDLES_ITS_OWN) expect(found.has(file)).toBe(true);
   });
 });

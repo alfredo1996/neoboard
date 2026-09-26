@@ -81,9 +81,18 @@ beforeEach(() => {
   vi.clearAllMocks();
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
-    json: async () => ({ data: PROFILE }),
+    json: async () => ({ data: PROFILE, error: null, meta: null }),
   }) as unknown as typeof fetch;
 });
+
+/** The next fetch answers the route's error envelope (#2011). */
+function failNextFetch(status: number, code: string, message: string) {
+  vi.mocked(global.fetch).mockResolvedValueOnce({
+    ok: false,
+    status,
+    json: async () => ({ data: null, error: { code, message }, meta: null }),
+  } as Response);
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -141,5 +150,45 @@ describe("ProfilePage password form (#1038)", () => {
     await renderLoaded();
     // The removed double-feedback copy must be gone from the component.
     expect(screen.queryByText(/changed successfully/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("ProfilePage shows the API's error message (#2011)", () => {
+  it("renders the envelope's message when the current password is wrong", async () => {
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText("Current Password"), {
+      target: { value: "wrongpassword" },
+    });
+    fireEvent.change(screen.getByLabelText("New Password"), {
+      target: { value: "newpass123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm New Password"), {
+      target: { value: "newpass123" },
+    });
+    failNextFetch(403, "FORBIDDEN", "Current password is incorrect");
+    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+
+    expect(
+      await screen.findByText("Current password is incorrect"),
+    ).toBeInTheDocument();
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it("puts the envelope's message in the toast when saving the name fails", async () => {
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Bob" },
+    });
+    failNextFetch(400, "VALIDATION_ERROR", "Name is required");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Failed to update name",
+          description: "Name is required",
+        }),
+      ),
+    );
   });
 });

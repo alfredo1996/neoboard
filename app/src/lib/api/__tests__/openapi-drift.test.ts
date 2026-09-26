@@ -58,9 +58,6 @@ const UNDOCUMENTED_DEBT = new Set<string>([
   "/api/features",
   "/api/health",
   "/api/sso-providers",
-  "/api/users/me",
-  "/api/users/me/password",
-  "/api/users/{id}/reset-password",
 ]);
 
 /** Recursively collect every route.ts under app/api. */

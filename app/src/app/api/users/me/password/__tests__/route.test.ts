@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { UnauthorizedError } from "@/lib/auth/errors";
 
 const mockSession = {
   userId: "u1",
@@ -6,9 +7,9 @@ const mockSession = {
   canWrite: true,
   tenantId: "default",
 };
-vi.mock("@/lib/auth/session", () => ({
-  requireSession: vi.fn().mockResolvedValue(mockSession),
-}));
+const { requireSession } = vi.hoisted(() => ({ requireSession: vi.fn() }));
+requireSession.mockResolvedValue(mockSession);
+vi.mock("@/lib/auth/session", () => ({ requireSession }));
 
 const mockUser = { id: "u1", passwordHash: "$2a$12$fakehash" };
 const mockSelect = vi.fn();
@@ -46,6 +47,23 @@ vi.mock("@/lib/auth/config", () => ({
 
 import bcrypt from "bcryptjs";
 
+/** #2011: every answer is `{ data, error, meta }`, as from every other route. */
+async function expectError(res: Response, status: number, code: string) {
+  expect(res.status).toBe(status);
+  const body = await res.json();
+  expect(body).toEqual({
+    data: null,
+    error: { code, message: expect.any(String) },
+    meta: null,
+  });
+  return body.error.message as string;
+}
+
+const VALID = JSON.stringify({
+  currentPassword: "old123",
+  newPassword: "newPass1",
+});
+
 describe("PUT /api/users/me/password", () => {
   let PUT: (req: Request) => Promise<Response>;
 
@@ -68,8 +86,8 @@ describe("PUT /api/users/me/password", () => {
       body: JSON.stringify({}),
       headers: { "Content-Type": "application/json" },
     });
-    const res = await PUT(req);
-    expect(res.status).toBe(400);
+    await expectError(await PUT(req), 400, "VALIDATION_ERROR");
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("returns 400 when new password is too short", async () => {
@@ -78,8 +96,9 @@ describe("PUT /api/users/me/password", () => {
       body: JSON.stringify({ currentPassword: "old123", newPassword: "short" }),
       headers: { "Content-Type": "application/json" },
     });
-    const res = await PUT(req);
-    expect(res.status).toBe(400);
+    expect(await expectError(await PUT(req), 400, "VALIDATION_ERROR")).toBe(
+      "Password must be at least 8 characters",
+    );
   });
 
   it("returns 400 when new password lacks a letter", async () => {
@@ -118,8 +137,32 @@ describe("PUT /api/users/me/password", () => {
       }),
       headers: { "Content-Type": "application/json" },
     });
-    const res = await PUT(req);
-    expect(res.status).toBe(403);
+    expect(await expectError(await PUT(req), 403, "FORBIDDEN")).toBe(
+      "Current password is incorrect",
+    );
+  });
+
+  it("answers 413 for a body larger than the proxy passes on (#2011)", async () => {
+    const req = new Request("http://localhost/api/users/me/password", {
+      method: "PUT",
+      body: VALID,
+      headers: {
+        "Content-Type": "application/json",
+        "content-length": String(11 * 1024 * 1024),
+      },
+    });
+    await expectError(await PUT(req), 413, "PAYLOAD_TOO_LARGE");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("answers 401 in the envelope without a session (#2011)", async () => {
+    requireSession.mockRejectedValueOnce(new UnauthorizedError());
+    const req = new Request("http://localhost/api/users/me/password", {
+      method: "PUT",
+      body: VALID,
+    });
+    await expectError(await PUT(req), 401, "UNAUTHORIZED");
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("returns 200 and updates password on success", async () => {
@@ -133,6 +176,11 @@ describe("PUT /api/users/me/password", () => {
     });
     const res = await PUT(req);
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      data: { success: true },
+      error: null,
+      meta: null,
+    });
     expect(mockUpdate).toHaveBeenCalled();
   });
 
@@ -257,9 +305,11 @@ describe("PUT /api/users/me/password", () => {
       mockUpdate.mockReturnValueOnce({
         set: () => ({ where: () => Promise.reject(new Error("db down")) }),
       });
-      await expect(
-        PUT(put({ currentPassword: "old123", newPassword: "newPass1" })),
-      ).rejects.toThrow("db down");
+      await expectError(
+        await PUT(put({ currentPassword: "old123", newPassword: "newPass1" })),
+        500,
+        "INTERNAL_ERROR",
+      );
       expect(mockAuditRequest).not.toHaveBeenCalled();
     });
 
@@ -287,7 +337,7 @@ describe("PUT /api/users/me/password", () => {
           body: "{not json",
         }),
       );
-      expect(res.status).toBe(400);
+      await expectError(res, 400, "VALIDATION_ERROR");
       expect(mockAuditRequest).not.toHaveBeenCalled();
     });
 
@@ -302,7 +352,9 @@ describe("PUT /api/users/me/password", () => {
       const res = await PUT(
         put({ currentPassword: "old123", newPassword: "newPass1" }),
       );
-      expect(res.status).toBe(404);
+      expect(await expectError(res, 404, "NOT_FOUND")).toBe(
+        "User not found or has no password",
+      );
       expect(mockAuditRequest).not.toHaveBeenCalled();
     });
   });

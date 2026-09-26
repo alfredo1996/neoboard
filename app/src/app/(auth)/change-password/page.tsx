@@ -43,7 +43,7 @@ export default function ChangePasswordPage() {
 
       if (!res.ok) {
         const body = await res.json();
-        setError(body.error ?? "Failed to change password");
+        setError(body.error?.message ?? "Failed to change password");
         setLoading(false);
         return;
       }
