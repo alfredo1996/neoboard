@@ -44,9 +44,11 @@ export async function GET(
       }
     }
 
-    // Load connection name + type (no credentials).
-    // Include connections owned by the user OR referenced by dashboards
-    // they have access to (admin sees all in tenant context).
+    // Load connection name + type (no credentials) for every connection the
+    // stored layout names, within the tenant. The dashboard ACL above has
+    // already authorized the caller, and they can run this dashboard's
+    // queries on these connections; scoping to connections they OWN made the
+    // export 500 for a dashboard on a colleague's shared connection (#2000).
     let connectionRows: { id: string; name: string; type: string }[] = [];
     if (connectionIds.size > 0) {
       connectionRows = await db
@@ -60,7 +62,6 @@ export async function GET(
           and(
             inArray(connections.id, [...connectionIds]),
             eq(connections.tenantId, tenantId),
-            role === "admin" ? undefined : eq(connections.userId, userId),
           ),
         );
     }

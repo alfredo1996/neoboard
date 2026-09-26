@@ -233,31 +233,58 @@ describe("GET /api/dashboards/[id]/export", () => {
     expect(body.error.code).toBe("INTERNAL_ERROR");
   });
 
-  it("scopes connection query to userId", async () => {
+  // #2000: a non-admin's lookup was scoped to connections they OWN, so a
+  // widget on a colleague's shared connection made the export 500 for the
+  // dashboard's own owner. The dashboard ACL has already authorized the
+  // caller, and only id, name and type are read.
+  it("a creator exports their dashboard on another user's shared connection (#2000)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD_ROW]));
-    // Return empty connections — simulates user not owning the connection
-    const connChain = makeSelectChain([]);
+    const connChain = makeSelectChain([CONNECTION_ROW]);
     mockDb.select.mockReturnValueOnce(connChain);
 
     const res = await GET(new Request("http://localhost"), {
       params: Promise.resolve({ id: "dash-1" }),
     });
 
-    // buildExportPayload throws when connection row is missing
-    expect(res.status).toBe(500);
-    // Verify select was called twice (dashboard + connections)
-    expect(mockDb.select).toHaveBeenCalledTimes(2);
-
-    // The connections lookup is id IN (...) AND tenant AND owner for a
-    // non-admin — the tenant comes from the session (#1607).
-    expect(connChain.calls.where).toHaveLength(1);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.connections.conn_0).toEqual({
+      name: CONNECTION_ROW.name,
+      type: CONNECTION_ROW.type,
+    });
     const [expr] = connChain.calls.where[0];
     expect(sqlColumns(expr)).toEqual(
-      expect.arrayContaining(["id", "tenant_id", "userId"]),
+      expect.arrayContaining(["id", "tenant_id"]),
     );
+    expect(sqlColumns(expr)).not.toContain("userId");
     expect(sqlValues(expr)).toEqual(
-      expect.arrayContaining(["conn-abc", "tenant-1", "user-1"]),
+      expect.arrayContaining(["conn-abc", "tenant-1"]),
+    );
+  });
+
+  it("a viewer-share recipient exports a dashboard on the owner's private connection (#2000)", async () => {
+    mockRequireSession.mockResolvedValue({
+      ...SESSION,
+      userId: "user-2",
+      role: "reader",
+    });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD_ROW]));
+    mockDb.select.mockReturnValueOnce(
+      makeSelectChain([{ id: "share-1", role: "viewer" }]),
+    );
+    const connChain = makeSelectChain([CONNECTION_ROW]);
+    mockDb.select.mockReturnValueOnce(connChain);
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "dash-1" }),
+    });
+
+    expect(res.status).toBe(200);
+    const [expr] = connChain.calls.where[0];
+    expect(sqlColumns(expr)).not.toContain("userId");
+    expect(sqlValues(expr)).toEqual(
+      expect.arrayContaining(["conn-abc", "tenant-1"]),
     );
   });
 
