@@ -70,6 +70,17 @@ describe("Database migrations", () => {
     }
   });
 
+  /** A new, empty database on the container, for a test that upgrades in place. */
+  async function emptyDatabase(name: string) {
+    const admin = postgres(connectionString, { max: 1 });
+    await admin`CREATE DATABASE ${admin(name)}`;
+    await admin.end();
+    return postgres(
+      `postgres://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getPort()}/${name}`,
+      { max: 1 },
+    );
+  }
+
   it("should run all migrations on a fresh database", async () => {
     const client = postgres(connectionString, { max: 1 });
     const db = drizzle(client);
@@ -275,13 +286,7 @@ describe("Database migrations", () => {
     // populate it the way a single-tenant install looks (every row on the
     // "default" tenant), then let the migrator bring it to head: the uniques
     // and composite FKs must add over live rows, and the rows must survive.
-    const admin = postgres(connectionString, { max: 1 });
-    await admin`CREATE DATABASE upgrade_1646`;
-    await admin.end();
-    const client = postgres(
-      `postgres://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getPort()}/upgrade_1646`,
-      { max: 1 },
-    );
+    const client = await emptyDatabase("upgrade_1646");
     // Guards: this test must run in its own, empty database. If either fails,
     // the failure names the cause instead of "type already exists" downstream.
     expect((await client`SELECT current_database() AS db`)[0].db).toBe(
@@ -314,44 +319,110 @@ describe("Database migrations", () => {
     await client.end();
   }, 90_000);
 
-  it("lowercases existing emails and refuses a mixed-case one from then on (#2001)", async () => {
-    // Emails were stored as typed, so an existing "Alice@X.com" row could not
-    // sign in once login lowercases its input. 0003 normalizes the rows, then
-    // adds the check so a write path that skips the shared schema fails loudly.
-    const admin = postgres(connectionString, { max: 1 });
-    await admin`CREATE DATABASE upgrade_2001`;
-    await admin.end();
-    const client = postgres(
-      `postgres://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getPort()}/upgrade_2001`,
-      { max: 1 },
-    );
-    // Through 0002, the last migration before the email check.
+  // ── #2001: emails are stored lowercased and trimmed ──
+
+  /** Its own database, brought through 0002: the last migration before the email check. */
+  async function databaseAt0002(name: string) {
+    const client = await emptyDatabase(name);
     await migrate(drizzle(client), { migrationsFolder: migrationsThrough(3) });
-    await client`INSERT INTO "user" (id, email) VALUES ('u1', ' Alice@X.com ')`;
+    return client;
+  }
+
+  it("normalizes existing emails, whatever the whitespace, and refuses a mixed-case one from then on (#2001)", async () => {
+    // Emails were stored as typed, so an existing "Alice@X.com" row could not
+    // sign in once login lowercases its input. Postgres trim() strips only
+    // spaces, while login's JS trim() also strips \t, \r and \n.
+    const client = await databaseAt0002("upgrade_2001");
+    await client`
+      INSERT INTO "user" (id, email, tenant_id) VALUES
+        ('u1', ' Alice@X.com ', 'default'),
+        ('u2', ${"admin@x.com\r"}, 'default'),
+        ('u3', ${"\tbob@x.com"}, 'default'),
+        ('u4', 'ALICE@x.com', 't2')
+    `; // u4: the same address in another tenant is not a collision.
 
     await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
 
-    const [row] = await client`SELECT email FROM "user" WHERE id = 'u1'`;
-    expect(row.email).toBe("alice@x.com");
+    const rows = await client`SELECT email FROM "user" ORDER BY id`;
+    expect(rows.map((r) => r.email)).toEqual([
+      "alice@x.com",
+      "admin@x.com",
+      "bob@x.com",
+      "alice@x.com",
+    ]);
     await expect(
-      client`INSERT INTO "user" (id, email) VALUES ('u2', 'Bob@x.com')`,
+      client`INSERT INTO "user" (id, email) VALUES ('u5', 'Bob@x.com')`,
     ).rejects.toMatchObject({
       code: "23514",
       constraint_name: "user_email_normalized",
     });
 
     // Idempotent as SQL, not only because the migrator skips applied entries:
-    // run 0003's statements again by hand.
+    // run 0003's statements again by hand, in one transaction as the migrator
+    // does (LOCK TABLE refuses to run outside one).
     const { tag } = journal.entries[3];
     expect(tag).toMatch(/^0003_/);
     const statements = readFileSync(
       path.join(MIGRATIONS_FOLDER, `${tag}.sql`),
       "utf8",
     ).split("--> statement-breakpoint");
-    for (const statement of statements) await client.unsafe(statement);
+    await client.begin(async (tx) => {
+      for (const statement of statements) await tx.unsafe(statement);
+    });
     await expect(
       migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER }),
     ).resolves.not.toThrow();
+    await client.end();
+  }, 90_000);
+
+  it("refuses an email with a tab around it, which login could never match (#2001)", async () => {
+    const client = await emptyDatabase("check_2001");
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    await expect(
+      client`INSERT INTO "user" (id, email) VALUES ('u1', ${"\talice@x.com"})`,
+    ).rejects.toMatchObject({
+      code: "23514",
+      constraint_name: "user_email_normalized",
+    });
+    await client.end();
+  }, 90_000);
+
+  it("stops the upgrade on case variants in one tenant, naming them, and leaves the database at 0002 (#2001)", async () => {
+    // Lowercasing would merge two accounts; that needs a person, not a pick.
+    const client = await databaseAt0002("collision_2001");
+    await client`INSERT INTO "user" (id, email) VALUES ('u1', 'Alice@X.com'), ('u2', 'alice@x.com')`;
+
+    const error = await migrate(drizzle(client), {
+      migrationsFolder: MIGRATIONS_FOLDER,
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    // drizzle wraps the statement error; the RAISE text is on `cause`.
+    const { message, cause } = error as Error;
+    const text = `${message}\n${(cause as Error | undefined)?.message}`;
+    expect(text).toContain("Alice@X.com");
+    expect(text).toContain("alice@x.com");
+    expect(text).toContain("default");
+    // `neoboard db migrate` files an error containing any of these under
+    // "schema" and advises a reset, which would destroy the rows to merge.
+    for (const word of [
+      "already exists",
+      "does not exist",
+      "syntax error",
+      "violates",
+      "constraint",
+    ]) {
+      expect(text.toLowerCase()).not.toContain(word);
+    }
+
+    const rows = await client`SELECT email FROM "user" ORDER BY id`;
+    expect(rows.map((r) => r.email)).toEqual(["Alice@X.com", "alice@x.com"]);
+    const [{ n }] =
+      await client`SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations`;
+    expect(n).toBe(3);
+    expect(
+      await client`SELECT 1 FROM pg_constraint WHERE conname = 'user_email_normalized'`,
+    ).toHaveLength(0);
     await client.end();
   }, 90_000);
 });

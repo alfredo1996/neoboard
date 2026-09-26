@@ -12,7 +12,7 @@ import { resolveRoleFromClaims } from "@/lib/auth/sso/claim-mapping";
 import type { LoadedSsoProvider } from "@/lib/auth/sso/provider-loader";
 import { authLogger, logger } from "@/lib/logger";
 import { isTenantIdSet, resolveTenantId } from "@/lib/auth/tenant-id";
-import { emailSchema } from "@/lib/auth/email-schema";
+import { emailSchema, normalizeEmail } from "@/lib/auth/email-schema";
 
 /** Reasons an authorize() call can fail. */
 type SignInFailureReason =
@@ -193,10 +193,17 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
           const { claimMappings, autoProvision, defaultRole } =
             providerConfig.metadata;
 
-          // Emails are stored lowercased and trimmed (#2001). `user` is the
-          // same object the adapter's getUserByEmail and createUser receive
-          // next, so normalizing it here also covers linking and provisioning.
-          const email = (user.email ?? "").trim().toLowerCase();
+          // Emails are stored lowercased and trimmed (#2001). On a first
+          // sign-in with this provider, @auth/core passes this same `user`
+          // object on to the adapter's getUserByEmail (linking) and
+          // createUser (provisioning), so normalizing it in place keeps both
+          // on the stored form. That object identity is @auth/core's
+          // behaviour (lib/actions/callback/index.js), checked against the
+          // installed version; config.test.ts "the SSO signIn callback looks
+          // up and hands on the IdP email lowercased" pins only the mutation.
+          // The jwt and session callbacks read the user from the database
+          // row, not from this object.
+          const email = normalizeEmail(user.email ?? "");
           if (user.email) user.email = email;
 
           // Check if user already exists in the DB

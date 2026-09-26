@@ -128,6 +128,28 @@ describe("provisionOrLinkSsoUser", () => {
     expect(mockDb.insert).toHaveBeenCalled();
   });
 
+  it("looks up and provisions the IdP email lowercased and trimmed (#2001)", async () => {
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+    const insertChain = makeInsertChain([{ id: "new-user" }]);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const { eq } = await import("drizzle-orm");
+    const { provisionOrLinkSsoUser } = await import("../provision");
+    await provisionOrLinkSsoUser({
+      email: " Bob@Example.com ",
+      name: "Bob",
+      image: null,
+      resolvedRole: "creator",
+      tenantId: "default",
+      autoProvision: true,
+    });
+
+    expect(eq).toHaveBeenCalledWith("email", "bob@example.com");
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      email: "bob@example.com",
+    });
+  });
+
   it("returns null when no existing user and autoProvision is false", async () => {
     mockDb.select.mockReturnValue(makeSelectChain([]));
 

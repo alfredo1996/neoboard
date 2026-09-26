@@ -186,6 +186,34 @@ describe("register — migrate on boot", () => {
     exitSpy.mockRestore();
     stderrSpy.mockRestore();
   });
+
+  it("prints the database's own error, not only drizzle's wrapper (#2001)", async () => {
+    // drizzle wraps every statement error as "Failed query: <sql>"; the
+    // database's own message (a migration's RAISE text) and detail are on `cause`.
+    process.env.MIGRATE_ON_START = "1";
+    const pgError = Object.assign(new Error("Upgrade stopped (#2001): ..."), {
+      detail: "Key (email)=(a@x.com) is duplicated.",
+    });
+    mockMigrateOnBoot.mockRejectedValueOnce(
+      new Error("Failed query: DO $$ ... $$", { cause: pgError }),
+    );
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {
+      throw new Error("process.exit called");
+    }) as never);
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+
+    const register = await loadRegister();
+    await expect(register()).rejects.toThrow("process.exit called");
+    const output = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+    expect(output).toContain("Failed query: DO $$ ... $$");
+    expect(output).toContain("Upgrade stopped (#2001): ...");
+    expect(output).toContain("Key (email)=(a@x.com) is duplicated.");
+
+    exitSpy.mockRestore();
+    stderrSpy.mockRestore();
+  });
 });
 
 // ─── Cold-start env validation (fail-fast on missing required vars) ────────

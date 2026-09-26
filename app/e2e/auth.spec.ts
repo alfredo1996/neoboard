@@ -21,6 +21,9 @@ test.describe("Authentication", () => {
     await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
       timeout: 10_000,
     });
+    // Signed in as the seeded account, not a case-variant lookalike.
+    const session = await (await page.request.get("/api/auth/session")).json();
+    expect(session.user.email).toBe(ALICE.email);
   });
 
   test("should redirect to /login when session expires mid-session", async ({

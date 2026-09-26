@@ -1,5 +1,5 @@
 {
-  "id": "5142373e-a020-4367-a83c-5c0df516c4d5",
+  "id": "fd6b8e1a-e8dc-4341-9a9c-a3c6176ac476",
   "prevId": "da770afe-d69a-45ef-b8bd-d4708eb2fde2",
   "version": "7",
   "dialect": "postgresql",
@@ -890,7 +890,7 @@
       "checkConstraints": {
         "user_email_normalized": {
           "name": "user_email_normalized",
-          "value": "\"user\".\"email\" = lower(trim(\"user\".\"email\"))"
+          "value": "\"user\".\"email\" = lower(regexp_replace(\"user\".\"email\", '^\\s+|\\s+$', '', 'g'))"
         }
       },
       "isRLSEnabled": false

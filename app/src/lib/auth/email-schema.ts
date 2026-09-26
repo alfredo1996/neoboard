@@ -11,3 +11,6 @@ export const emailSchema = z
   .trim()
   .toLowerCase()
   .email("Invalid email address");
+
+/** The same normalization, for a path that takes an email without the schema. */
+export const normalizeEmail = (email: string) => email.trim().toLowerCase();

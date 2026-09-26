@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { emailSchema } from "../email-schema";
+import { emailSchema, normalizeEmail } from "../email-schema";
+
+describe("normalizeEmail (#2001)", () => {
+  it("trims and lowercases, the same as emailSchema", () => {
+    expect(normalizeEmail("\t Alice@X.com \r\n")).toBe("alice@x.com");
+  });
+});
 
 describe("emailSchema (#2001)", () => {
   it("trims and lowercases before validating", () => {

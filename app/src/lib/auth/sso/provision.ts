@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import type { UserRole } from "@/lib/db/schema";
+import { normalizeEmail } from "@/lib/auth/email-schema";
 
 interface SsoUserInput {
   email: string;
@@ -33,7 +34,8 @@ interface SsoUserResult {
 export async function provisionOrLinkSsoUser(
   input: SsoUserInput,
 ): Promise<SsoUserResult | null> {
-  const { email, name, image, resolvedRole, tenantId, autoProvision } = input;
+  const { name, image, resolvedRole, tenantId, autoProvision } = input;
+  const email = normalizeEmail(input.email); // stored normalized (#2001)
 
   // Look up existing user by email + tenant
   const [existingUser] = await db
