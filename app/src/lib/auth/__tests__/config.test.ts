@@ -329,6 +329,32 @@ describe("adapter", () => {
   });
 });
 
+// signIn runs before the jwt callback refuses a disabled user, so anything it
+// writes is committed first: a role an admin set by hand would be overwritten
+// from the IdP's claims, with no audit event (#2005).
+describe("SSO sign-in by a disabled user (#2005)", () => {
+  const signInAs = () =>
+    callbacks.signIn({
+      user: { email: "alice@example.com" },
+      account: { provider: "sso-p1" },
+      profile: {},
+    });
+
+  it("is refused before the role sync writes anything", async () => {
+    mockDbRows([{ id: "u1", disabledAt: new Date() }]);
+
+    expect(await signInAs()).toBe(false);
+    expect(mockUpdateThen).not.toHaveBeenCalled();
+  });
+
+  it("still syncs an enabled user's role from the claims", async () => {
+    mockDbRows([{ id: "u1", disabledAt: null }]);
+
+    expect(await signInAs()).toBe(true);
+    expect(mockUpdateThen).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("Auth event logging", () => {
   beforeEach(() => {
     loggedEvents.length = 0;
