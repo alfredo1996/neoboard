@@ -321,6 +321,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: true,
           expiresAt: pastDate,
+          disabledAt: null,
         },
       ]),
     );
@@ -344,6 +345,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: true,
           expiresAt: futureDate,
+          disabledAt: null,
         },
       ]),
     );
@@ -354,6 +356,60 @@ describe("resolveApiKeyAuth", () => {
       role: "creator",
       canWrite: true,
       tenantId: "tenant-abc",
+    });
+  });
+
+  describe("a disabled user's key (#2003)", () => {
+    // Disabling a user blocked sign-in and the JWT refresh, but not their
+    // keys: the lookup never read users.disabledAt.
+    function disabledKey(role: string) {
+      const token = "nb_" + "d".repeat(64);
+      const keyHash = createHmac("sha256", TEST_HMAC_SECRET)
+        .update(token)
+        .digest("hex");
+      mockHeadersGet.mockReturnValue("Bearer " + token);
+      mockDb.select.mockReturnValue(
+        makeSelectChain([
+          {
+            id: "key-d",
+            userId: "user-d",
+            tenantId: "default",
+            keyHash,
+            role,
+            canWrite: true,
+            expiresAt: null,
+            disabledAt: new Date(Date.now() - 1000),
+          },
+        ]),
+      );
+      mockDb.update.mockReturnValue(makeUpdateChain());
+    }
+
+    it("throws the same generic Unauthorized as an expired key", async () => {
+      disabledKey("creator");
+      await expect(resolveApiKeyAuth()).rejects.toBeInstanceOf(
+        UnauthorizedError,
+      );
+    });
+
+    it("throws for a disabled admin too", async () => {
+      disabledKey("admin");
+      await expect(resolveApiKeyAuth()).rejects.toBeInstanceOf(
+        UnauthorizedError,
+      );
+    });
+
+    it("does not record a use of the key", async () => {
+      disabledKey("creator");
+      await resolveApiKeyAuth().catch(() => undefined);
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    it("reads disabledAt from the user row", async () => {
+      disabledKey("creator");
+      await resolveApiKeyAuth().catch(() => undefined);
+      const { users } = await import("@/lib/db/schema");
+      expect(mockDb.select.mock.calls[0][0].disabledAt).toBe(users.disabledAt);
     });
   });
 
@@ -373,6 +429,7 @@ describe("resolveApiKeyAuth", () => {
           role: "admin",
           canWrite: true,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
@@ -401,6 +458,7 @@ describe("resolveApiKeyAuth", () => {
           role: "admin",
           canWrite: false,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
@@ -425,6 +483,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: false,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
@@ -449,6 +508,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: true,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
@@ -472,6 +532,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: true,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );

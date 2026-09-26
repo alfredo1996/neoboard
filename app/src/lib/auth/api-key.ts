@@ -75,6 +75,7 @@ export async function resolveApiKeyAuth(): Promise<{
       role: users.role,
       canWrite: users.canWrite,
       expiresAt: apiKeys.expiresAt,
+      disabledAt: users.disabledAt,
     })
     .from(apiKeys)
     .innerJoin(users, eq(apiKeys.userId, users.id))
@@ -98,6 +99,12 @@ export async function resolveApiKeyAuth(): Promise<{
   const row = rows[0];
 
   if (row.expiresAt && row.expiresAt < new Date()) {
+    throw new UnauthorizedError();
+  }
+
+  // A disabled user's keys stop working with their sign-in (#2003). Same
+  // generic error as an expired key, and no lastUsedAt write.
+  if (row.disabledAt) {
     throw new UnauthorizedError();
   }
 

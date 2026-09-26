@@ -1,4 +1,5 @@
 import { test, expect, ALICE } from "./fixtures";
+import { AuthPage } from "./pages/auth";
 
 test.describe("API Key management", () => {
   test.beforeEach(async ({ authPage, sidebarPage, page }) => {
@@ -162,5 +163,61 @@ test.describe("API key authentication", () => {
       },
     });
     expect(res.status()).toBe(401);
+  });
+
+  test("a disabled user's key is refused, and works again when re-enabled (#2003)", async ({
+    browser,
+    request,
+  }) => {
+    // Disabling a user blocked their sign-in but not their keys: the key
+    // lookup never read users.disabledAt. Real database, real join.
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const email = `disabled-key-${suffix}@example.com`;
+    const password = "password123";
+    const adminContext = await browser.newContext();
+    const userContext = await browser.newContext();
+    const admin = await adminContext.newPage();
+    let userId: string | undefined;
+    try {
+      await new AuthPage(admin).login(ALICE.email, ALICE.password);
+      const created = await admin.request.post("/api/users", {
+        data: { name: `Disabled key ${suffix}`, email, password },
+      });
+      expect(created.status()).toBe(201);
+      userId = (await created.json()).data.id;
+
+      const user = await userContext.newPage();
+      await new AuthPage(user).login(email, password);
+      const keyRes = await user.request.post("/api/keys", {
+        data: { name: `key ${suffix}` },
+      });
+      expect(keyRes.status()).toBe(201);
+      const key: string = (await keyRes.json()).data.key;
+      const asKey = { headers: { Authorization: `Bearer ${key}` } };
+
+      expect((await request.get("/api/dashboards", asKey)).status()).toBe(200);
+
+      const disable = await admin.request.patch(`/api/users/${userId}`, {
+        data: { disabled: true },
+      });
+      expect(disable.ok()).toBe(true);
+      expect((await request.get("/api/dashboards", asKey)).status()).toBe(401);
+      // Nor can the disabled user mint a fresh key with the old one.
+      const mint = await request.post("/api/keys", {
+        ...asKey,
+        data: { name: `second ${suffix}` },
+      });
+      expect(mint.status()).toBe(401);
+
+      const enable = await admin.request.patch(`/api/users/${userId}`, {
+        data: { disabled: false },
+      });
+      expect(enable.ok()).toBe(true);
+      expect((await request.get("/api/dashboards", asKey)).status()).toBe(200);
+    } finally {
+      if (userId) await admin.request.delete(`/api/users/${userId}`);
+      await userContext.close();
+      await adminContext.close();
+    }
   });
 });
