@@ -124,7 +124,8 @@ export async function PATCH(
     const result = validateBody(updateConnectionSchema, body);
     if (!result.success) return result.response;
 
-    const updates: Record<string, unknown> = {};
+    // Nothing in the schema bumps updatedAt, so the route does (#1997).
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (result.data.name) updates.name = result.data.name;
 
     // Visibility changes are admin-only (#901 'admin provisions' model) —
