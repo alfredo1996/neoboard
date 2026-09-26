@@ -192,6 +192,23 @@ neoboard demo seed      # optional: reload the sample dataset
 
 Once you ship: never run `db reset`. Revert the manual schema change, or write a **new** migration that reconciles the drift. Drizzle migrations append to a journal — editing or deleting an old migration breaks every other deployment.
 
+### Upgrade stops on two users with the same email
+
+Email addresses are stored and matched lowercased, with surrounding whitespace removed, so `Alice@example.com` and `alice@example.com` are one account (#2001). The upgrade that introduced this rewrites the addresses already stored. If one tenant holds two users whose addresses differ only by case or surrounding whitespace, the upgrade stops before changing anything and names them:
+
+```text
+Upgrade stopped (#2001): emails are now matched ignoring case and surrounding whitespace, and these user rows would share one address: tenant 'default': 'Alice@example.com', 'alice@example.com'. Merge or delete the extra user rows, then upgrade again.
+```
+
+A server that migrates on start (`MIGRATE_ON_START=1`, as the Docker image does) prints this in its startup error. Whichever way you migrate, this query lists the colliding addresses:
+
+```sql
+SELECT lower(regexp_replace(email,'^\s+|\s+$','','g')) AS email, tenant_id, count(*), string_agg(id, ', ') AS user_ids
+FROM "user" GROUP BY 1,2 HAVING count(*) > 1;
+```
+
+For each pair, keep one account and delete the other, then upgrade again. Deleting a user row also deletes everything it owns (its dashboards, connections, widget templates and API keys, and the shares made to it), so first point anything worth keeping at the account you keep. Never use `neoboard db reset` for this: it deletes every user, not only the extra ones.
+
 ---
 
 ## `ENCRYPTION_KEY` mistakes

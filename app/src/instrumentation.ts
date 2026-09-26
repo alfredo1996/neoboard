@@ -9,6 +9,18 @@
  * If either var is absent the bootstrap step is silently skipped.
  * Once any user exists in the database the function is permanently a no-op.
  */
+/**
+ * drizzle wraps every statement error as "Failed query: <sql>", with the
+ * database's own error (a migration's RAISE text, and its detail) on `cause`.
+ */
+function describeMigrationError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const cause = err.cause as { message?: string; detail?: string } | undefined;
+  return [err.message, cause?.message, cause?.detail]
+    .filter(Boolean)
+    .join("\n  ");
+}
+
 export async function register() {
   // Only run in the Node.js runtime (not in the Edge runtime)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -50,9 +62,9 @@ export async function register() {
         await migrateOnBoot();
       } catch (err) {
         process.stderr.write(
-          `\n✗ NeoBoard cannot start — database migration failed:\n\n  ${
-            err instanceof Error ? err.message : String(err)
-          }\n\nFix the database (see logs above) and restart. To boot without\nmigrating (emergency debugging only): MIGRATE_ON_START=0\n\n`,
+          `\n✗ NeoBoard cannot start — database migration failed:\n\n  ${describeMigrationError(
+            err,
+          )}\n\nFix the database (see logs above) and restart. To boot without\nmigrating (emergency debugging only): MIGRATE_ON_START=0\n\n`,
         );
         process.exit(1);
       }

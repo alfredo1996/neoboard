@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   foreignKey,
   index,
   integer,
@@ -45,6 +47,14 @@ export const users = pgTable(
     // only reference a user in its own tenant. Also the index that leads on
     // tenant_id — user_email_tenant_unique leads on email (#1646).
     unique("user_tenant_id_unique").on(table.tenantId, table.id),
+    // Emails are stored lowercased and trimmed, so the unique above is
+    // case-insensitive in effect and a write path that skips emailSchema
+    // fails loudly (#2001). regexp_replace, not trim(): trim() strips only
+    // spaces, while the app's JS trim() also strips tabs and line breaks.
+    check(
+      "user_email_normalized",
+      sql`${table.email} = lower(regexp_replace(${table.email}, '^\\s+|\\s+$', '', 'g'))`,
+    ),
   ],
 );
 

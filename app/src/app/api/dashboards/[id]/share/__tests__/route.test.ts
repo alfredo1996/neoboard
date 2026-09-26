@@ -277,6 +277,22 @@ describe("POST /api/dashboards/[id]/share", () => {
     });
   });
 
+  it("shares with the existing user whatever the typed email's case (#2001)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
+    const userChain = makeSelectChain([{ id: "user-2" }]);
+    mockDb.select.mockReturnValueOnce(userChain);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(makeInsertChain());
+    const res = await POST(
+      makeRequest({ email: " Alice@Example.COM ", role: "viewer" }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(201);
+    const [userExpr] = userChain.calls.where[0];
+    expect(sqlValues(userExpr)).toContain("alice@example.com");
+  });
+
   it("records a dashboard.share audit entry (#1234)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));

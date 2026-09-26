@@ -18,7 +18,6 @@ const {
   authorize,
   mockDbSelect,
   mockUpdateThen,
-  mockSafeParse,
   loggedEvents,
   originalTenantId,
 } = vi.hoisted(() => {
@@ -29,6 +28,8 @@ const {
     jwt: null as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     session: null as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    signIn: null as any,
   };
   const events = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,13 +50,6 @@ const {
       successCb(undefined);
     },
   );
-  type SafeParseResult =
-    | { success: true; data: { email: string; password: string } }
-    | { success: false; error: unknown };
-  const mockSafeParse = vi.fn<() => SafeParseResult>(() => ({
-    success: true,
-    data: { email: "a@b.c", password: "123456" },
-  }));
   const loggedEvents: Array<{
     level: string;
     obj: Record<string, unknown>;
@@ -67,7 +61,6 @@ const {
     authorize,
     mockDbSelect,
     mockUpdateThen,
-    mockSafeParse,
     loggedEvents,
     originalTenantId: orig,
   };
@@ -99,6 +92,7 @@ vi.mock("next-auth", () => ({
         typeof configOrFn === "function" ? await configOrFn() : configOrFn;
       callbacks.jwt = config.callbacks.jwt;
       callbacks.session = config.callbacks.session;
+      callbacks.signIn = config.callbacks.signIn;
       events.signOut = config.events?.signOut ?? null;
       authorize.fn = config.providers[0].authorize;
     };
@@ -165,7 +159,16 @@ vi.mock("bcryptjs", () => ({
 }));
 
 vi.mock("@/lib/auth/sso/provider-cache", () => ({
-  getCachedSsoProviders: vi.fn(async () => []),
+  getCachedSsoProviders: vi.fn(async () => [
+    {
+      id: "sso-p1",
+      metadata: {
+        claimMappings: [],
+        autoProvision: true,
+        defaultRole: "creator",
+      },
+    },
+  ]),
 }));
 
 vi.mock("@/lib/auth/sso/claim-mapping", () => ({
@@ -176,16 +179,7 @@ vi.mock("@/lib/auth/sso/provision", () => ({
   provisionOrLinkSsoUser: vi.fn(async () => null),
 }));
 
-vi.mock("zod", () => {
-  const schema = { safeParse: mockSafeParse };
-  return {
-    z: {
-      object: () => schema,
-      string: () => ({ email: () => schema, min: () => schema }),
-    },
-  };
-});
-
+import { eq } from "drizzle-orm";
 // Import triggers NextAuth() which captures callbacks via the async resolve()
 import "../config";
 
@@ -300,6 +294,31 @@ describe("session callback", () => {
   });
 });
 
+describe("email case (#2001)", () => {
+  it("authorize looks the user up by the email lowercased and trimmed", async () => {
+    mockDbRows([]);
+    await authorize.fn(
+      { email: " Alice@Example.com ", password: "abcdef" },
+      { headers: { get: () => null } },
+    );
+    expect(eq).toHaveBeenCalledWith("email", "alice@example.com");
+  });
+
+  it("the SSO signIn callback looks up and hands on the IdP email lowercased", async () => {
+    mockDbRows([]);
+    const user = { email: " Alice@Example.com " };
+    const ok = await callbacks.signIn({
+      user,
+      account: { provider: "sso-p1" },
+      profile: {},
+    });
+    expect(ok).toBe(true);
+    expect(eq).toHaveBeenCalledWith("email", "alice@example.com");
+    // The same object reaches the adapter's getUserByEmail and createUser.
+    expect(user.email).toBe("alice@example.com");
+  });
+});
+
 describe("Auth event logging", () => {
   beforeEach(() => {
     loggedEvents.length = 0;
@@ -313,7 +332,7 @@ describe("Auth event logging", () => {
           passwordHash: "hash",
           disabledAt: null,
           name: "Alice",
-          email: "a@b.c",
+          email: "a@b.co",
           role: "admin",
           canWrite: true,
           forcePasswordChange: false,
@@ -329,7 +348,7 @@ describe("Auth event logging", () => {
           get: (name: string) => (name === "x-request-id" ? "req-123" : null),
         },
       };
-      await authorize.fn({ email: "a@b.c", password: "abc" }, req);
+      await authorize.fn({ email: "a@b.co", password: "abcdef" }, req);
 
       const signIn = loggedEvents.find((e) => e.msg === "sign_in");
       expect(signIn).toBeDefined();
@@ -342,11 +361,6 @@ describe("Auth event logging", () => {
 
   describe("sign_in_failed", () => {
     it("logs invalid_input when the credentials schema rejects the payload", async () => {
-      mockSafeParse.mockReturnValueOnce({
-        success: false,
-        error: {},
-      });
-
       const result = await authorize.fn(
         { email: "not-an-email", password: "" },
         { headers: { get: () => null } },
@@ -367,7 +381,7 @@ describe("Auth event logging", () => {
           passwordHash: "hash",
           disabledAt: null,
           name: "Bob",
-          email: "a@b.c",
+          email: "a@b.co",
           role: "creator",
           canWrite: true,
           forcePasswordChange: false,
@@ -383,7 +397,7 @@ describe("Auth event logging", () => {
       });
 
       await authorize.fn(
-        { email: "a@b.c", password: "abc" },
+        { email: "a@b.co", password: "abcdef" },
         { headers: { get: () => null } },
       );
 
@@ -402,7 +416,7 @@ describe("Auth event logging", () => {
       });
 
       const result = await authorize.fn(
-        { email: "a@b.c", password: "abc" },
+        { email: "a@b.co", password: "abcdef" },
         { headers: { get: () => null } },
       );
 
@@ -411,14 +425,14 @@ describe("Auth event logging", () => {
       expect(entry.msg).toBe("sign_in_failed");
       expect(entry.level).toBe("warn");
       expect(entry.obj.reason).toBe("rate_limited");
-      expect(entry.obj.email).toBe("a@b.c");
+      expect(entry.obj.email).toBe("a@b.co");
     });
 
     it("logs user_not_found when the email does not exist", async () => {
       mockDbRows([]);
 
       const result = await authorize.fn(
-        { email: "a@b.c", password: "abc" },
+        { email: "a@b.co", password: "abcdef" },
         { headers: { get: () => null } },
       );
 
@@ -432,7 +446,7 @@ describe("Auth event logging", () => {
           id: "u1",
           passwordHash: "h",
           disabledAt: new Date("2026-01-01"),
-          email: "a@b.c",
+          email: "a@b.co",
           role: "reader",
           canWrite: false,
           tenantId: "t1",
@@ -440,7 +454,7 @@ describe("Auth event logging", () => {
       ]);
 
       const result = await authorize.fn(
-        { email: "a@b.c", password: "abc" },
+        { email: "a@b.co", password: "abcdef" },
         { headers: { get: () => null } },
       );
 
@@ -454,7 +468,7 @@ describe("Auth event logging", () => {
           id: "u1",
           passwordHash: "h",
           disabledAt: null,
-          email: "a@b.c",
+          email: "a@b.co",
           role: "reader",
           canWrite: true,
           tenantId: "t1",
@@ -464,7 +478,7 @@ describe("Auth event logging", () => {
       (bcrypt.compare as ReturnType<typeof vi.fn>).mockResolvedValue(false);
 
       const result = await authorize.fn(
-        { email: "a@b.c", password: "abc" },
+        { email: "a@b.co", password: "abcdef" },
         { headers: { get: () => null } },
       );
 
@@ -475,7 +489,7 @@ describe("Auth event logging", () => {
     it("never includes the password in failure logs", async () => {
       mockDbRows([]);
       await authorize.fn(
-        { email: "a@b.c", password: "super-secret" },
+        { email: "a@b.co", password: "super-secret" },
         { headers: { get: () => null } },
       );
       const entry = loggedEvents[0];

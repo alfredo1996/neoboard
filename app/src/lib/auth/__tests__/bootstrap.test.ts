@@ -142,6 +142,21 @@ describe("bootstrapAdmin", () => {
     );
   });
 
+  it("stores BOOTSTRAP_ADMIN_EMAIL lowercased and trimmed (#2001)", async () => {
+    // The user_email_normalized check would otherwise refuse the insert and
+    // leave the install with no admin.
+    mockSelectLimit.mockResolvedValue([]);
+
+    await bootstrapAdmin({
+      email: " Admin@Example.com ",
+      password: "secret12",
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "admin@example.com" }),
+    );
+  });
+
   it("honours TENANT_ID env var when inserting the admin user", async () => {
     mockSelectLimit.mockResolvedValue([]);
     process.env.TENANT_ID = "tenant-xyz";
@@ -158,15 +173,18 @@ describe("bootstrapAdmin", () => {
     ["", "default"],
     ["   ", "default"],
     ["acme", "acme"],
-  ])("TENANT_ID=%j inserts the admin into tenant %j (#1728)", async (value, tenant) => {
-    mockSelectLimit.mockResolvedValue([]);
-    if (value === undefined) delete process.env.TENANT_ID;
-    else process.env.TENANT_ID = value;
+  ])(
+    "TENANT_ID=%j inserts the admin into tenant %j (#1728)",
+    async (value, tenant) => {
+      mockSelectLimit.mockResolvedValue([]);
+      if (value === undefined) delete process.env.TENANT_ID;
+      else process.env.TENANT_ID = value;
 
-    await bootstrapAdmin({ email: "a@b.c", password: "secret12" });
+      await bootstrapAdmin({ email: "a@b.c", password: "secret12" });
 
-    expect(mockInsertValues).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: tenant }),
-    );
-  });
+      expect(mockInsertValues).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: tenant }),
+      );
+    },
+  );
 });

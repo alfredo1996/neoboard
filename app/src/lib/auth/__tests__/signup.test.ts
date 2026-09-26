@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  makeSelectChain as makeTrackedSelectChain,
+  sqlValues,
+} from "@/__tests__/helpers/drizzle-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -35,20 +39,17 @@ function setupTx(selectResults: unknown[][]) {
   const txInsert = vi
     .fn()
     .mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) });
+  const selectChains: ReturnType<typeof makeTrackedSelectChain>[] = [];
   const txSelect = vi.fn(() => {
-    const rows = selectResults[callCount++] ?? [];
-    const c = {
-      from: () => c,
-      where: () => c,
-      limit: () => Promise.resolve(rows),
-    };
+    const c = makeTrackedSelectChain(selectResults[callCount++] ?? []);
+    selectChains.push(c);
     return c;
   });
   const tx = { select: txSelect, insert: txInsert };
   mockDb.transaction.mockImplementation(
     async (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
   );
-  return { txInsert, txSelect };
+  return { txInsert, txSelect, selectChains };
 }
 
 // ---------------------------------------------------------------------------
@@ -119,19 +120,22 @@ describe("signup", () => {
     ["", "default"],
     ["   ", "default"],
     ["acme", "acme"],
-  ])("TENANT_ID=%j creates the user in tenant %j (#1728)", async (value, tenant) => {
-    process.env.REGISTRATION_ENABLED = "true";
-    vi.stubEnv("TENANT_ID", value);
-    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
-    const { txInsert } = setupTx([[]]); // tx: email not taken
-    const res = await signup(
-      makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
-    );
-    expect(res.success).toBe(true);
-    expect(txInsert.mock.results[0].value.values).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: tenant }),
-    );
-  });
+  ])(
+    "TENANT_ID=%j creates the user in tenant %j (#1728)",
+    async (value, tenant) => {
+      process.env.REGISTRATION_ENABLED = "true";
+      vi.stubEnv("TENANT_ID", value);
+      mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
+      const { txInsert } = setupTx([[]]); // tx: email not taken
+      const res = await signup(
+        makeForm({ name: "Bob", email: "bob@b.com", password: "bobpass12" }),
+      );
+      expect(res.success).toBe(true);
+      expect(txInsert.mock.results[0].value.values).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: tenant }),
+      );
+    },
+  );
 
   it("returns error when name is missing", async () => {
     const res = await signup(
@@ -213,6 +217,32 @@ describe("signup", () => {
     );
     expect(res.success).toBe(false);
     expect((res as { error: string }).error).toMatch(/already exists/i);
+  });
+
+  it("checks for and stores the email lowercased and trimmed (#2001)", async () => {
+    process.env.REGISTRATION_ENABLED = "true";
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
+    const { txInsert, selectChains } = setupTx([[]]); // tx: email not taken
+    const res = await signup(
+      makeForm({ name: "Bob", email: " Bob@B.com ", password: "bobpass12" }),
+    );
+    expect(res.success).toBe(true);
+    expect(sqlValues(selectChains[0].calls.where[0][0])).toContain("bob@b.com");
+    expect(txInsert.mock.results[0].value.values).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "bob@b.com" }),
+    );
+  });
+
+  it("refuses an email that differs from an existing one only by case (#2001)", async () => {
+    process.env.REGISTRATION_ENABLED = "true";
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "u1" }])); // areUsersEmpty → false
+    const { selectChains } = setupTx([[{ id: "u2" }]]); // tx: email already taken
+    const res = await signup(
+      makeForm({ name: "Bob", email: "BOB@b.com", password: "bobpass12" }),
+    );
+    expect(res.success).toBe(false);
+    expect((res as { error: string }).error).toMatch(/already exists/i);
+    expect(sqlValues(selectChains[0].calls.where[0][0])).toContain("bob@b.com");
   });
 
   // -------------------------------------------------------------------------

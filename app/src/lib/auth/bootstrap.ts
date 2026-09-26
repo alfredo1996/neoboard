@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { authLogger } from "@/lib/logger";
 import { resolveTenantId } from "@/lib/auth/tenant-id";
+import { normalizeEmail } from "@/lib/auth/email-schema";
 
 /**
  * Creates the first admin user if the users table is empty.
@@ -42,7 +43,8 @@ export async function bootstrapAdmin({
       const tenantId = resolveTenantId();
       await tx.insert(users).values({
         name: "Admin",
-        email,
+        // Stored normalized like every other write path (#2001).
+        email: normalizeEmail(email),
         passwordHash,
         role: "admin",
         tenantId,

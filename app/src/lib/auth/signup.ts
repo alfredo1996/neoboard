@@ -9,11 +9,12 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { signupRateLimiter } from "@/lib/crypto/rate-limiter";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
+import { emailSchema } from "@/lib/auth/email-schema";
 import { resolveTenantId } from "@/lib/auth/tenant-id";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email address"),
+  email: emailSchema,
   password: newPasswordSchema,
 });
 
