@@ -14,9 +14,7 @@ import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 // ---------------------------------------------------------------------------
 
 const mockRequireAdmin =
-  vi.fn<
-    () => Promise<{ userId: string; tenantId: string }>
-  >();
+  vi.fn<() => Promise<{ userId: string; tenantId: string }>>();
 
 const mockAuditRequest = vi.fn();
 
@@ -234,25 +232,60 @@ describe("PATCH /api/users/[id]", () => {
     });
   });
 
-  it("emits only user.update when no privilege field changes (#1234)", async () => {
+  it.each([
+    [true, "user.disable"],
+    [false, "user.enable"],
+  ])(
+    "PATCH disabled=%s emits user.update and one %s, not user.role.change (#2006)",
+    async (disabled, action) => {
+      mockRequireAdmin.mockResolvedValue(ADMIN);
+      mockDb.update.mockReturnValue(
+        makeUpdateChain([
+          {
+            id: "u3",
+            name: "Bob",
+            email: "bob@example.com",
+            role: "creator",
+            canWrite: true,
+            disabledAt: disabled ? new Date() : null,
+            createdAt: new Date(),
+          },
+        ]),
+      );
+
+      await PATCH(makeRequest({ disabled }), makeParams("u3"));
+
+      const actions = mockAuditRequest.mock.calls.map(([, e]) => e.action);
+      expect(actions).toEqual(["user.update", action]);
+      expect(mockAuditRequest.mock.calls[1][1]).toMatchObject({
+        tenantId: ADMIN.tenantId,
+        userId: ADMIN.userId,
+        resourceType: "user",
+        resourceId: "u3",
+        details: { disabled },
+      });
+    },
+  );
+
+  it("a PATCH without disabled emits neither user.disable nor user.enable (#2006)", async () => {
     mockRequireAdmin.mockResolvedValue(ADMIN);
     mockDb.update.mockReturnValue(
       makeUpdateChain([
         {
           id: "u3",
-          name: "Renamed",
-          email: "r@example.com",
+          name: "Bob",
+          email: "bob@example.com",
           role: "creator",
-          canWrite: true,
+          canWrite: false,
           createdAt: new Date(),
         },
       ]),
     );
 
-    await PATCH(makeRequest({ disabled: false }), makeParams("u3"));
+    await PATCH(makeRequest({ canWrite: false }), makeParams("u3"));
 
     const actions = mockAuditRequest.mock.calls.map(([, e]) => e.action);
-    expect(actions).toEqual(["user.update"]);
+    expect(actions).toEqual(["user.update", "user.role.change"]);
   });
 
   it("writes no audit entry when an admin tries to change their own role (#1234)", async () => {
@@ -465,5 +498,19 @@ describe("DELETE /api/users/[id]", () => {
     expect(body.error).toBeNull();
     expect(chain.calls.where).toHaveLength(1);
     expectScopedToTenant(chain.calls.where[0][0], "u1");
+  });
+
+  it("logs a hard delete as user.delete, not user.disable (#2006)", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN);
+    mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "u1" }]));
+
+    await DELETE(makeRequest({}), makeParams("u1"));
+
+    expect(mockAuditRequest).toHaveBeenCalledTimes(1);
+    expect(mockAuditRequest.mock.calls[0][1]).toMatchObject({
+      action: "user.delete",
+      resourceType: "user",
+      resourceId: "u1",
+    });
   });
 });

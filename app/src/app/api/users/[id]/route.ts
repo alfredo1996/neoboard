@@ -151,6 +151,19 @@ export async function PATCH(
       });
     }
 
+    // Disabling also cuts off every API key the user holds (#2003), so it gets
+    // its own action too — the row's timestamp says when (#2006).
+    if (result.data.disabled !== undefined) {
+      auditRequest(request, {
+        tenantId,
+        userId,
+        action: result.data.disabled ? "user.disable" : "user.enable",
+        resourceType: "user",
+        resourceId: id,
+        details: { disabled: result.data.disabled },
+      });
+    }
+
     return apiSuccess(updated);
   } catch (e) {
     return handleRouteError(e);
@@ -181,7 +194,7 @@ export async function DELETE(
     auditRequest(request, {
       tenantId,
       userId,
-      action: "user.disable",
+      action: "user.delete",
       resourceType: "user",
       resourceId: id,
     });
