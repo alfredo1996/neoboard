@@ -859,8 +859,8 @@ const SPEC = {
         summary: "Reset a user's password",
         description:
           "Sets the password of another user in the caller's tenant. **Admin only.** Send `newPassword`, or " +
-          "`generatePassword: true` for a random 16-character one, answered once as `generatedPassword`; when both are " +
-          "sent, `newPassword` is set and echoed back as `generatedPassword`. The caller's own id answers 400: use " +
+          "`generatePassword: true` for a random 16-character one, answered once as `generatedPassword`; sending " +
+          "both, or neither, answers 400 `BAD_REQUEST`. The caller's own id answers 400: use " +
           "PUT /api/users/me/password. A user outside the tenant answers 404. " +
           ENDS_SESSIONS,
         requestBody: jsonBody("#/components/schemas/ResetPasswordRequest"),
@@ -2369,7 +2369,7 @@ const SPEC = {
       ResetPasswordRequest: {
         type: "object",
         description:
-          "`newPassword` or `generatePassword: true` is required (400 otherwise).",
+          "Exactly one of `newPassword` or `generatePassword: true` (400 otherwise).",
         properties: {
           newPassword: NEW_PASSWORD,
           generatePassword: { type: "boolean", default: false },

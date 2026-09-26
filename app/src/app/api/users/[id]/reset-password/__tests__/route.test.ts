@@ -182,6 +182,24 @@ describe("POST /api/users/[id]/reset-password", () => {
     expect(typeof body.data.generatedPassword).toBe("string");
   });
 
+  // A typed password echoed back labelled as generated misleads the admin
+  // who asked for a generated one (#2027).
+  it("refuses newPassword and generatePassword together and resets nothing", async () => {
+    mockRequireAdmin.mockResolvedValue({
+      userId: "admin-1",
+      tenantId: "tenant-a",
+    });
+    const res = await POST(
+      makeRequest({ newPassword: "NewPassword1!", generatePassword: true }),
+      makeParams("user-2"),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("BAD_REQUEST");
+    expect(body.error.message).toMatch(/not both/i);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
   it("records a user.password.reset audit entry with no password (#1234)", async () => {
     mockRequireAdmin.mockResolvedValue({
       userId: "admin-1",
