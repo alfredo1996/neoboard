@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -56,21 +56,17 @@ function runHook(script, filePath, content) {
 
 /** Run a hook with any payload, arguments and env. Returns exit code, stdout and stderr. */
 function run(script, args, payload, env = {}) {
-  try {
-    const stdout = execFileSync("/bin/bash", [join(HOOKS, script), ...args], {
-      input: JSON.stringify(payload),
-      stdio: ["pipe", "pipe", "pipe"],
-      encoding: "utf8",
-      env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT, ...env },
-    });
-    return { status: 0, stdout };
-  } catch (err) {
-    return {
-      status: err.status ?? 1,
-      stdout: err.stdout ?? "",
-      stderr: err.stderr ?? "",
-    };
-  }
+  // spawnSync, not execFileSync: stderr on the success path too.
+  const r = spawnSync("/bin/bash", [join(HOOKS, script), ...args], {
+    input: JSON.stringify(payload),
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT, ...env },
+  });
+  return {
+    status: r.status ?? 1,
+    stdout: r.stdout ?? "",
+    stderr: r.stderr ?? "",
+  };
 }
 
 const BLOCK = 2;
