@@ -242,6 +242,8 @@ export async function DELETE(
 ) {
   try {
     const { userId, role, tenantId } = await requireSession();
+    // Before any DB read, so a reader never sees the usage breakdown (#1995).
+    assertCanManageConnections(role);
     const { id } = await params;
     const isAdmin = role === "admin";
 
@@ -250,6 +252,34 @@ export async function DELETE(
     // breakdown, and by CLI/automation that accept the data-loss tradeoff.
     const url = new URL(request.url);
     const force = url.searchParams.get("force") === "true";
+
+    // Ownership check: the WHERE clause scopes both the lookup and the
+    // delete. Admins bypass the owner constraint but still require tenant
+    // match. The lookup runs before the in-use guard, so a caller who may
+    // not delete the connection — or an id with no row — gets 404, never
+    // the 409 usage breakdown (#1996).
+    const whereClause = isAdmin
+      ? and(eq(connections.id, id), eq(connections.tenantId, tenantId))
+      : and(
+          eq(connections.id, id),
+          eq(connections.userId, userId),
+          eq(connections.tenantId, tenantId),
+        );
+
+    // Also fetches credentials so we can evict the cached driver.
+    const [toDelete] = await db
+      .select({
+        name: connections.name,
+        type: connections.type,
+        configEncrypted: connections.configEncrypted,
+      })
+      .from(connections)
+      .where(whereClause)
+      .limit(1);
+
+    if (!toDelete) {
+      return notFound();
+    }
 
     // Before deleting, check whether any dashboard widget still
     // references this connection. If so — and the caller hasn't
@@ -273,32 +303,12 @@ export async function DELETE(
       }
     }
 
-    // Ownership check is enforced by the WHERE clause below. Admins
-    // bypass the owner constraint but still require tenant match.
-    const whereClause = isAdmin
-      ? and(eq(connections.id, id), eq(connections.tenantId, tenantId))
-      : and(
-          eq(connections.id, id),
-          eq(connections.userId, userId),
-          eq(connections.tenantId, tenantId),
-        );
-
-    // Fetch credentials before deletion so we can evict the cached driver
-    const [toDelete] = await db
-      .select({
-        name: connections.name,
-        type: connections.type,
-        configEncrypted: connections.configEncrypted,
-      })
-      .from(connections)
-      .where(whereClause)
-      .limit(1);
-
     const deleted = await db
       .delete(connections)
       .where(whereClause)
       .returning({ id: connections.id });
 
+    // The row can vanish between the lookup and the delete.
     if (deleted.length === 0) {
       return notFound();
     }
@@ -307,7 +317,7 @@ export async function DELETE(
 
     // Evict the cached driver so the connection pool is closed. Corrupted
     // credentials leave nothing to evict.
-    if (toDelete?.configEncrypted) {
+    if (toDelete.configEncrypted) {
       const creds = readStoredConfig(toDelete.configEncrypted);
       if (creds) closeConnection(toDelete.type, creds);
     }
@@ -318,7 +328,7 @@ export async function DELETE(
       action: "connection.delete",
       resourceType: "connection",
       resourceId: id,
-      details: { name: toDelete?.name, forced: force },
+      details: { name: toDelete.name, forced: force },
     });
 
     return apiSuccess({ deleted: true });

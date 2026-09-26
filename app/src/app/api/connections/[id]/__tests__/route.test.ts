@@ -952,4 +952,116 @@ describe("DELETE /api/connections/[id]", () => {
     expect(res.status).toBe(409);
     expect(mockGetConnectionUsage).toHaveBeenCalled();
   });
+
+  // -------------------------------------------------------------------------
+  // #1995 — readers cannot delete connections, even ones they own (a demoted
+  // creator or admin keeps their rows)
+  // -------------------------------------------------------------------------
+
+  const READER_SESSION = { ...SESSION, role: "reader", canWrite: false };
+
+  it.each([
+    ["a plain delete", "http://localhost/api/connections/c1"],
+    ["?force=true", "http://localhost/api/connections/c1?force=true"],
+  ])(
+    "returns 403 for a reader on %s, before any DB read",
+    async (_label, url) => {
+      mockRequireSession.mockResolvedValue(READER_SESSION);
+      mockDb.delete.mockReturnValue(makeDeleteChain([{ id: "c1" }]));
+
+      const res = await DELETE(req(url), makeParams("c1"));
+
+      expect(res.status).toBe(403);
+      expect(mockGetConnectionUsage).not.toHaveBeenCalled();
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockDb.delete).not.toHaveBeenCalled();
+    },
+  );
+
+  it("returns 403, not 409, for a reader on an in-use connection — no usage breakdown", async () => {
+    mockRequireSession.mockResolvedValue(READER_SESSION);
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 3,
+      dashboards: [{ id: "d1", name: "Shared dash", widgetCount: 3 }],
+    });
+
+    const res = await DELETE(req(), makeParams("c1"));
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.details?.usage).toBeUndefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // #1996 — the owner/tenant lookup runs before the in-use guard, so only a
+  // caller who may delete the connection ever sees the 409 breakdown
+  // -------------------------------------------------------------------------
+
+  it("returns 404, not 409, for a non-owner or an id with no row (a dangling widget reference left by a force delete)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    // At the mock layer both cases are the same: the scoped select finds nothing.
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 3,
+      dashboards: [{ id: "d1", name: "Someone else's", widgetCount: 3 }],
+    });
+
+    const res = await DELETE(req(), makeParams("c1"));
+
+    expect(res.status).toBe(404);
+    expect(mockGetConnectionUsage).not.toHaveBeenCalled();
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns 404, not 409, for an admin when the id has no row in the tenant", async () => {
+    mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 2,
+      dashboards: [{ id: "d1", name: "Tenant dash", widgetCount: 2 }],
+    });
+
+    const res = await DELETE(req(), makeParams("c1"));
+
+    expect(res.status).toBe(404);
+    expect(mockGetConnectionUsage).not.toHaveBeenCalled();
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it("looks the row up by id + owner + tenant before computing usage", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const selectChain = makeSelectChain([
+      { name: "PostgreSQL", type: "postgresql", configEncrypted: null },
+    ]);
+    mockDb.select.mockReturnValue(selectChain);
+    mockGetConnectionUsage.mockResolvedValue({
+      widgetCount: 1,
+      dashboards: [{ id: "d1", name: "A", widgetCount: 1 }],
+    });
+
+    const res = await DELETE(req(), makeParams("c1"));
+
+    expect(res.status).toBe(409);
+    expect(selectChain.calls.where).toHaveLength(1);
+    const [expr] = selectChain.calls.where[0];
+    expect(sqlColumns(expr)).toEqual(["id", "userId", "tenant_id"]);
+    expect(sqlValues(expr)).toEqual(["c1", "user-1", "t1"]);
+    expect(mockDb.select.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetConnectionUsage.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("returns 404 on ?force=true when the owner has no such row, without deleting", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([]));
+    mockDb.delete.mockReturnValue(makeDeleteChain([]));
+
+    const res = await DELETE(
+      req("http://localhost/api/connections/c1?force=true"),
+      makeParams("c1"),
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
 });
