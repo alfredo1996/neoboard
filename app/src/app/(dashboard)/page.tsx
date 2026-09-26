@@ -78,7 +78,10 @@ import {
   importFollowUp,
   type ImportFollowUp,
 } from "@/lib/dashboard/import-follow-up";
-import { isNeoDashFormat } from "@/lib/dashboard/neodash-converter";
+import {
+  isNeoDashFormat,
+  neoDashDashboardName,
+} from "@/lib/dashboard/neodash-converter";
 import { ExportError, classifyExportError } from "@/lib/dashboard/export-error";
 import { dashboardListSubtitle } from "./dashboard-list-subtitle";
 import { deleteDashboardToast } from "./delete-dashboard-toast";
@@ -230,8 +233,7 @@ function ImportDashboardDialog({
             (sum: number, p) => sum + (p.reports?.length ?? 0),
             0,
           ) ?? 0;
-        const title =
-          (json as { title?: string }).title ?? "Imported Dashboard";
+        const title = neoDashDashboardName(json);
         // Placeholder name intentionally avoids repeating the dashboard title
         // — the title is already shown above in the parsed-preview box, and
         // duplicating it caused strict-mode locator collisions in E2E tests
