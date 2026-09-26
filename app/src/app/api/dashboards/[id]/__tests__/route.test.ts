@@ -1388,6 +1388,8 @@ describe("PUT /api/dashboards/[id] — who can make a dashboard public", () => {
 
   // The unchanged value is never written: an editor's copy read before the
   // owner's toggle would otherwise overwrite it, as the update pins no version.
+  // With nothing else left to write, the route writes nothing at all: no
+  // version bump, so no other editor's save turns into a 409 (#1998).
   it.each([
     [null, false],
     [false, false],
@@ -1396,16 +1398,50 @@ describe("PUT /api/dashboards/[id] — who can make a dashboard public", () => {
     "lets an editor share re-send the stored isPublic (%s as %s) without writing it",
     async (stored, requested) => {
       asShare("editor", { ...OWNER_DASHBOARD, isPublic: stored as never });
-      const chain = makeUpdateChain([OWNER_DASHBOARD]);
-      mockDb.update.mockReturnValue(chain);
       const res = await PUT(
         makeRequest({ isPublic: requested }),
         makeParams("d1"),
       );
       expect(res.status).toBe(200);
-      expect(chain.calls.set[0][0]).not.toHaveProperty("isPublic");
+      expect(mockDb.update).not.toHaveBeenCalled();
+      expect((await res.json()).data.version).toBe(OWNER_DASHBOARD.version);
     },
   );
+
+  it("answers an editor's re-sent isPublic with a current version without writing", async () => {
+    asShare("editor");
+    const res = await PUT(
+      makeRequest({ isPublic: false, expectedVersion: 3 }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(200);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("still answers an editor's re-sent isPublic with a stale version with 409", async () => {
+    asShare("editor");
+    const res = await PUT(
+      makeRequest({ isPublic: false, expectedVersion: 2 }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe("CONFLICT");
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("writes an editor's rename sent along with the re-sent isPublic", async () => {
+    asShare("editor");
+    const chain = makeUpdateChain([{ ...OWNER_DASHBOARD, name: "Renamed" }]);
+    mockDb.update.mockReturnValue(chain);
+    const res = await PUT(
+      makeRequest({ isPublic: false, name: "Renamed" }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(200);
+    expect(mockDb.update).toHaveBeenCalledTimes(1);
+    expect(chain.calls.set[0][0]).toMatchObject({ name: "Renamed" });
+    expect(chain.calls.set[0][0]).not.toHaveProperty("isPublic");
+  });
 
   it("lets the owner make the dashboard public", async () => {
     mockRequireSession.mockResolvedValue(SESSION);

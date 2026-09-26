@@ -428,7 +428,8 @@ const SPEC = {
           "The owner, an editor or an admin may save. Readers and users without write permission get 403, so does a " +
           "caller with only a viewer share; a caller with no share (a merely public dashboard included) gets 404. " +
           "Only the owner or an admin may change `isPublic` (403); anyone else may re-send the stored value, which is " +
-          "not written, but the save still counts and adds one to `version`. " +
+          "not written: when no other field (name, description, layoutJson) is sent the stored dashboard is answered as it is and `version` is not bumped. " +
+          "An accepted save that sends one of those fields adds one to `version`, even one that changes no value. " +
           "A save answers 403 when its layout adds a connection the caller cannot use, or adds or changes a query while the dashboard names a connection neither the caller nor its owner can use. " +
           "Adding a form, or changing a form's query, connection or database, needs the caller's own access to that connection even when the dashboard already uses it: " +
           "the connection's owner, anyone in the tenant once it is shared, or an admin. A form left as saved stays.",
@@ -1642,7 +1643,7 @@ const SPEC = {
             type: "integer",
             minimum: 1,
             description:
-              "Optimistic-lock counter. Every accepted PUT, and every connection re-assignment that rewrites its widgets, adds one; send it back as `expectedVersion`.",
+              "Optimistic-lock counter. Every PUT that writes a field, and every connection re-assignment that rewrites its widgets, adds one; send it back as `expectedVersion`. A PUT whose only field is an editor's re-sent `isPublic` writes nothing and adds none.",
           },
           isPublic: { type: "boolean", nullable: true },
           createdAt: { type: "string", format: "date-time", nullable: true },
@@ -1733,7 +1734,7 @@ const SPEC = {
             type: "boolean",
             description:
               "Only the owner or an admin may change it (403). Anyone else may re-send the stored value: it is not " +
-              "written, but the save still adds one to `version`.",
+              "written, and when no other field (name, description, layoutJson) is sent the stored dashboard is answered as it is and `version` is not bumped.",
           },
           layoutJson: {
             type: "object",

@@ -912,6 +912,30 @@ describe("#1981 payloads: dashboards-crud", () => {
     ]);
   });
 
+  it("an update says a re-sent isPublic with nothing else bumps no version (#1998)", () => {
+    const body = deref(update.requestBody!.content["application/json"].schema);
+    for (const text of [
+      update.description,
+      body.properties!.isPublic.description,
+    ]) {
+      expect(text).toMatch(
+        /no other field \(name, description, layoutJson\) is sent.*`version` is not bumped/,
+      );
+      expect(text).not.toMatch(/still (counts|adds)/);
+    }
+    // The schema's own description must not still say every PUT adds one.
+    const version = (
+      SPEC.components as unknown as {
+        schemas: Record<
+          string,
+          { properties?: Record<string, { description?: string }> }
+        >;
+      }
+    ).schemas.Dashboard.properties!.version.description!;
+    expect(version).not.toMatch(/Every accepted PUT/);
+    expect(version).toMatch(/re-sent `isPublic` writes nothing and adds none/);
+  });
+
   it.each([
     ["POST /api/dashboards", create, ["400", "401", "403", "413", "500"]],
     ["GET /api/dashboards", list, ["401", "500"]],
