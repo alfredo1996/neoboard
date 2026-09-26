@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export class AuthPage {
   constructor(private page: Page) {}
@@ -38,7 +38,7 @@ export class AuthPage {
       await this.page.getByRole("button", { name: "Sign in" }).click();
       try {
         await this.page.waitForURL("/", { timeout: 10_000 });
-        return;
+        break;
       } catch {
         if (attempt === 2) {
           // Strip query params from the URL before logging. In the exact
@@ -54,6 +54,11 @@ export class AuthPage {
         }
       }
     }
+    // Reaching / is not proof of whose cookie the context holds: a late
+    // response from the previous user's page can re-set theirs (#2016).
+    await expect
+      .poll(() => this.sessionEmail(), { message: `signed in as ${email}` })
+      .toBe(email.trim().toLowerCase());
   }
 
   async signup(name: string, email: string, password: string) {
@@ -65,7 +70,29 @@ export class AuthPage {
     await this.page.getByRole("button", { name: "Create account" }).click();
   }
 
+  /**
+   * Sign out and wait until the server sees no session (#2016). The click
+   * starts next-auth's signOut, a fetch and then a redirect; a login() fired
+   * before they finish raced them, and a probe sent after it could run under
+   * the previous user's session.
+   */
   async logout() {
     await this.page.getByRole("button", { name: "Sign out" }).click();
+    await this.page.waitForURL(/\/login/, { timeout: 15_000 });
+    await expect.poll(() => this.sessionEmail()).toBeUndefined();
+  }
+
+  /**
+   * The signed-in user's email, as the server reads this context's cookie.
+   * Undefined only from a valid answer with no user: a failed request throws,
+   * so a poll retries it rather than reading it as signed out.
+   */
+  private async sessionEmail(): Promise<string | undefined> {
+    const res = await this.page.request.get("/api/auth/session");
+    if (!res.ok()) {
+      throw new Error(`GET /api/auth/session answered ${res.status()}`);
+    }
+    const body = (await res.json()) as { user?: { email?: string } } | null;
+    return body?.user?.email;
   }
 }
