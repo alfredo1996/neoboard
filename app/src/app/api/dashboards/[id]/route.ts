@@ -224,7 +224,8 @@ async function layoutRefusal(
  * route. Anyone else may re-send the stored value (a stored null counts as
  * false), but it is dropped from `update` rather than written: an update
  * without a layout pins no version, so a copy read before the owner's toggle
- * would otherwise overwrite it.
+ * would otherwise overwrite it. A body left empty by the drop is answered
+ * without a write (#1998).
  */
 function publicRefusal(
   update: { isPublic?: boolean },
@@ -245,6 +246,24 @@ function publicRefusal(
   }
   delete update.isPublic;
   return null;
+}
+
+/** The answer to a PUT that has nothing left to write (#1998). */
+async function answerUnchanged(
+  id: string,
+  tenantId: string,
+  expectedVersion: number | undefined,
+) {
+  const [current] = await db
+    .select()
+    .from(dashboards)
+    .where(and(eq(dashboards.id, id), eq(dashboards.tenantId, tenantId)))
+    .limit(1);
+  if (!current) return notFound();
+  if (expectedVersion !== undefined && expectedVersion !== current.version) {
+    return apiError("CONFLICT", CONFLICT_MESSAGE);
+  }
+  return apiSuccess(current);
 }
 
 export async function PUT(
@@ -298,6 +317,13 @@ export async function PUT(
 
     const publicRefused = publicRefusal(updateData, access);
     if (publicRefused) return forbidden(publicRefused);
+    // An editor's re-sent isPublic was dropped above; nothing is left to write,
+    // so bumping the version would only turn other editors' saves into 409s.
+    // Answer the row as it is now: a save that landed since the access check
+    // still makes a stale expectedVersion a conflict.
+    if (Object.keys(updateData).length === 0) {
+      return answerUnchanged(id, tenantId, expectedVersion);
+    }
 
     if (updateData.layoutJson) {
       const refusal = await layoutRefusal(
@@ -322,9 +348,9 @@ export async function PUT(
       );
     }
 
-    // The schema's .refine() guarantees at least one real data field, so every
-    // accepted update is a meaningful edit — always bump version (which drives
-    // the "updated by X" banner in other viewers' browsers).
+    // At least one field is left to write (the .refine() and the empty-update
+    // return above), so always bump version (which drives the "updated by X"
+    // banner in other viewers' browsers). An unchanged value is not detected.
     const [updated] = await db
       .update(dashboards)
       .set({
