@@ -859,6 +859,89 @@ describe("E2E commit gate sees UI changes, however they were written (#1939)", (
     assert.equal(commit("git commit -am x", main, main), 0);
   });
 
+  // check-commit runs before the command, so a UI file written and committed
+  // in one Bash call was written after the check passed (#1989). The audit
+  // runs after it and looks at what the command actually committed.
+  describe("the post-commit audit (#1989)", () => {
+    const ONE_CALL =
+      "sed -i '' s/v1/v2/ app/src/components/x.tsx && git commit -am tweak";
+    const audit = (cwd, main, command = ONE_CALL) =>
+      hook("audit-commit", { cwd, tool_input: { command } }, main);
+    const marker = (dir) => join(dir, ".claude/.e2e-needed");
+    /** The one Bash call: the gate before it, the write and commit, the audit after. */
+    function oneCall(main, write) {
+      assert.equal(commit(ONE_CALL, main, main), 0, "the gate passes first");
+      write();
+      git(main, "commit", "-q", "-am", "tweak");
+      return audit(main, main);
+    }
+
+    test("a UI file written and committed in one call is caught after the commit", () => {
+      const { main } = checkouts();
+      const r = oneCall(main, () => writeFileSync(ui(main), "v2\n"));
+      assert.equal(JSON.parse(r.stdout).decision, "block");
+      assert.match(JSON.parse(r.stdout).reason, /playwright/i);
+      assert.match(readFileSync(marker(main), "utf8"), /x\.tsx/);
+      // The next commit is blocked until a run.
+      assert.equal(commit("git commit --amend --no-edit", main, main), BLOCK);
+    });
+
+    test("a run and an amend clear it", () => {
+      const { main } = checkouts();
+      oneCall(main, () => writeFileSync(ui(main), "v2\n"));
+      playwright(main, main);
+      assert.equal(existsSync(marker(main)), false);
+      assert.equal(commit("git commit --amend --no-edit", main, main), 0);
+      git(main, "commit", "-q", "--amend", "--no-edit");
+      assert.equal(
+        audit(main, main, "git commit --amend --no-edit").stdout,
+        "",
+      );
+    });
+
+    test("a commit of UI content a run had seen passes", () => {
+      const { main } = checkouts();
+      writeFileSync(ui(main), "v2\n");
+      playwright(main, main);
+      const r = oneCall(main, () => {});
+      assert.equal(r.stdout, "");
+      assert.equal(existsSync(marker(main)), false);
+    });
+
+    test("a commit with no UI file passes", () => {
+      const { main } = checkouts();
+      const r = oneCall(main, () =>
+        writeFileSync(join(main, "README.md"), "v2\n"),
+      );
+      assert.equal(r.stdout, "");
+      assert.equal(existsSync(marker(main)), false);
+    });
+
+    test("a commit that did not happen audits nothing", () => {
+      // HEAD's UI file was never seen by a run; a failed commit must not be
+      // blamed for it.
+      const { main } = checkouts();
+      assert.equal(commit(ONE_CALL, main, main), 0);
+      assert.equal(audit(main, main).stdout, "");
+      assert.equal(existsSync(marker(main)), false);
+    });
+
+    test("a commit that concludes a merge audits nothing", () => {
+      // git wrote what the merge brought in; check-commit skips it too.
+      const { main } = checkouts();
+      git(main, "checkout", "-q", "-b", "side");
+      writeFileSync(ui(main), "side\n");
+      git(main, "commit", "-q", "-am", "side");
+      git(main, "checkout", "-q", "-");
+      writeFileSync(join(main, "README.md"), "v2\n");
+      git(main, "commit", "-q", "-am", "main");
+      git(main, "merge", "-q", "--no-commit", "side");
+      assert.equal(commit("git commit -m merge", main, main), 0);
+      git(main, "commit", "-q", "-m", "merge");
+      assert.equal(audit(main, main, "git commit -m merge").stdout, "");
+    });
+  });
+
   test("a UI path git would quote is still seen", () => {
     const { main } = checkouts();
     writeFileSync(join(main, "app/src/components/Café Card.tsx"), "new\n");
@@ -1282,6 +1365,7 @@ describe("settings.json and .claude/hooks agree (#1843)", () => {
       ),
     );
     assert.deepEqual(wiring.sort(), [
+      "PostToolUse Bash audit-commit",
       "PostToolUse Bash clear-on-test",
       "PostToolUse Edit|Write mark",
       "PreToolUse Bash check-commit",
