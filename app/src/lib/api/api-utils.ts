@@ -2,7 +2,7 @@ import type { ZodSchema } from "zod";
 import { apiError } from "./api-response";
 import { EnterpriseRequiredError } from "@/lib/features/require-feature";
 import { ForbiddenError, UnauthorizedError } from "@/lib/auth/errors";
-import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
+import { isQueueRejected, isQueueTimeout } from "@/lib/query/scheduler";
 import {
   classificationOf,
   connectorUnavailableReason,
@@ -234,7 +234,7 @@ export async function handleRouteError(
   if (error instanceof EnterpriseRequiredError) {
     return apiError("ENTERPRISE_REQUIRED", error.message);
   }
-  if (error instanceof QueueRejectedError) {
+  if (isQueueRejected(error)) {
     // 503 with Retry-After so clients can back off without hard-failing
     // the user. The header value (in seconds) is a hint — clients should
     // use this as a minimum, then apply jitter/backoff.
@@ -245,7 +245,7 @@ export async function handleRouteError(
       { "Retry-After": "2" },
     );
   }
-  if (error instanceof QueueTimeoutError) {
+  if (isQueueTimeout(error)) {
     // 408 with Retry-After so auto-refreshers know when to try again.
     return apiError("REQUEST_TIMEOUT", error.message, undefined, {
       "Retry-After": "5",

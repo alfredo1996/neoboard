@@ -14,7 +14,7 @@ import {
 import { isContainerised } from "@/lib/connector/is-containerised";
 import { forgetDeadConnector } from "@/lib/query/middleware/dead-connector";
 import { withSchedulerSlot } from "@/lib/query/middleware/scheduler";
-import { QueueRejectedError, QueueTimeoutError } from "@/lib/query/scheduler";
+import { isQueueRejected, isQueueTimeout } from "@/lib/query/scheduler";
 
 export async function POST(
   request: Request,
@@ -88,10 +88,7 @@ export async function POST(
       // Backpressure is not a verdict on the connection: the probe never
       // reached it. Let handleRouteError answer 503 / 408 as it does for a
       // query, so the page can say "busy, try again" instead of "failed".
-      if (
-        testError instanceof QueueRejectedError ||
-        testError instanceof QueueTimeoutError
-      ) {
+      if (isQueueRejected(testError) || isQueueTimeout(testError)) {
         throw testError;
       }
       return apiSuccess(

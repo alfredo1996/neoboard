@@ -376,6 +376,24 @@ describe("POST /api/connections/[id]/test — scheduling (#1426)", () => {
     await first;
   });
 
+  it("answers another bundle's copy of the scheduler's rejection as backpressure (#2008)", async () => {
+    // In a production build the scheduler throws the instrumentation
+    // bundle's class, which fails `instanceof` here: the route answered it as
+    // a failed test. Same name, another constructor.
+    class QueueRejectedError extends Error {
+      readonly reason = "queue_full" as const;
+      constructor() {
+        super("query scheduler queue full");
+        this.name = "QueueRejectedError";
+      }
+    }
+    mockTestConnection.mockRejectedValueOnce(new QueueRejectedError());
+
+    const res = await probe("rejected");
+    expect(res.status).toBe(503);
+    expect((await res.json()).error.details).toEqual({ reason: "queue_full" });
+  });
+
   it("runs a single Test as interactive (P1), ahead of a Test-all probe (P2)", async () => {
     registry.resetSchedulerRegistry();
     registry.setDefaultSchedulerOptions({

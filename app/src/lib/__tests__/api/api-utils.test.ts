@@ -148,6 +148,51 @@ describe("handleRouteError", () => {
     expect(res.headers.get("Retry-After")).toBe("5");
   });
 
+  describe("the scheduler's errors from another bundle's copy (#2008)", () => {
+    // A production build loads scheduler.ts once per bundle. The scheduler on
+    // globalThis throws the instrumentation bundle's classes, so `instanceof`
+    // in a route was false and a full queue answered 500. Same name, another
+    // constructor: exactly what that copy looks like from here.
+    class QueueRejectedError extends Error {
+      readonly reason: "queue_full" | "shed";
+      constructor(reason: "queue_full" | "shed", message: string) {
+        super(message);
+        this.name = "QueueRejectedError";
+        this.reason = reason;
+      }
+    }
+    class QueueTimeoutError extends Error {
+      constructor() {
+        super("query scheduler queue timeout");
+        this.name = "QueueTimeoutError";
+      }
+    }
+
+    it("answers a full queue with 503, its reason and Retry-After", async () => {
+      const res = await handleRouteError(
+        new QueueRejectedError("queue_full", "query scheduler queue full"),
+      );
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.error.code).toBe("SERVICE_UNAVAILABLE");
+      expect(body.error.details).toEqual({ reason: "queue_full" });
+      expect(res.headers.get("Retry-After")).toBe("2");
+    });
+
+    it("answers a queue timeout with 408 and Retry-After", async () => {
+      const res = await handleRouteError(new QueueTimeoutError());
+      expect(res.status).toBe(408);
+      expect(res.headers.get("Retry-After")).toBe("5");
+    });
+
+    it("does not take an unrelated error for one by its message", async () => {
+      const res = await handleRouteError(
+        new Error("query scheduler queue full"),
+      );
+      expect(res.status).toBe(500);
+    });
+  });
+
   /**
    * What a connector raises (#1903): a ConnectorError carrying the verdict of
    * its own `classifyError` hook. The route reads that verdict and nothing

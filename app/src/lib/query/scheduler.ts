@@ -93,6 +93,21 @@ export class QueueTimeoutError extends Error {
   }
 }
 
+/**
+ * The scheduler's errors, recognised by name, never by `instanceof` (#2008).
+ * A production build loads this module once per bundle, and the scheduler on
+ * globalThis throws the instrumentation bundle's classes: `instanceof` in a
+ * route compares against another copy, and a full queue answered 500.
+ */
+export function isQueueRejected(error: unknown): error is QueueRejectedError {
+  return error instanceof Error && error.name === "QueueRejectedError";
+}
+
+/** See {@link isQueueRejected}. */
+export function isQueueTimeout(error: unknown): error is QueueTimeoutError {
+  return error instanceof Error && error.name === "QueueTimeoutError";
+}
+
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
