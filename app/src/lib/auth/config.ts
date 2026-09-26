@@ -1,11 +1,10 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
+import { users } from "@/lib/db/schema";
 import { loginRateLimiter } from "@/lib/crypto/rate-limiter";
 import { getCachedSsoProviders } from "@/lib/auth/sso/provider-cache";
 import { resolveRoleFromClaims } from "@/lib/auth/sso/claim-mapping";
@@ -13,6 +12,7 @@ import type { LoadedSsoProvider } from "@/lib/auth/sso/provider-loader";
 import { authLogger, logger } from "@/lib/logger";
 import { isTenantIdSet, resolveTenantId } from "@/lib/auth/tenant-id";
 import { emailSchema, normalizeEmail } from "@/lib/auth/email-schema";
+import { tenantScopedAdapter } from "@/lib/auth/tenant-adapter";
 
 /** Reasons an authorize() call can fail. */
 type SignInFailureReason =
@@ -64,12 +64,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
 
     return {
       trustHost: true,
-      adapter: DrizzleAdapter(db, {
-        usersTable: users,
-        accountsTable: accounts,
-        sessionsTable: sessions,
-        verificationTokensTable: verificationTokens,
-      }),
+      adapter: tenantScopedAdapter(tenantId),
       session: {
         strategy: "jwt",
         maxAge: parseInt(process.env.SESSION_MAX_AGE || "28800", 10),
@@ -242,9 +237,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
               );
           }
 
-          // For new users: the DrizzleAdapter creates the user record
-          // automatically. We set default role/tenantId via the profile.
-          // The JWT callback will pick up the role from DB on next refresh.
+          // For new users: the adapter creates the user record in this
+          // tenant (tenant-adapter.ts, #2018). The JWT callback will pick up
+          // the role from DB on next refresh.
 
           return true;
         },
