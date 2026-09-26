@@ -97,7 +97,7 @@ export function sanitizeErrorMessage(
  * ponytail: Next's default, not read from Next; raise it here too if
  * next.config ever raises the proxy's body limit.
  */
-const PROXY_BODY_LIMIT_BYTES = 10 * 1024 * 1024;
+export const PROXY_BODY_LIMIT_BYTES = 10 * 1024 * 1024;
 
 /** A request body the route could not use (#1963): the caller's, never a 500. */
 export class RequestBodyError extends Error {}

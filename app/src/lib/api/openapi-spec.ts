@@ -9,6 +9,9 @@ import { PRODUCT_NAME, PRODUCT_PITCH } from "@/lib/branding";
 import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
 import { API_ERROR_CODES } from "./api-response";
 import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
+import { DEAD_CONNECTOR_TTL_MS } from "@/lib/query/middleware/dead-connector";
+import { SCHEDULER_DEFAULTS } from "@/lib/query/scheduler-config";
+import { PROXY_BODY_LIMIT_BYTES } from "./api-utils";
 
 // ---------------------------------------------------------------------------
 // Helpers to reduce structural repetition in path definitions
@@ -85,6 +88,12 @@ const PAGINATION_PARAMS = [
   { $ref: "#/components/parameters/OffsetParam" },
 ] as const;
 
+/** Seconds to wait before retrying: a hint, to use as a minimum. */
+const RETRY_AFTER = {
+  schema: { type: "integer" as const },
+  description: "Seconds to wait before retrying, as a minimum.",
+};
+
 // Shorthand aliases for common $ref responses
 const R = {
   unauthorized: { $ref: "#/components/responses/Unauthorized" },
@@ -93,7 +102,14 @@ const R = {
   badRequest: { $ref: "#/components/responses/BadRequest" },
   serverError: { $ref: "#/components/responses/ServerError" },
   deleteSuccess: { $ref: "#/components/responses/DeleteSuccess" },
+  tooLarge: { $ref: "#/components/responses/PayloadTooLarge" },
+  timeout: { $ref: "#/components/responses/RequestTimeout" },
+  busy: { $ref: "#/components/responses/ServiceUnavailable" },
+  connectorDown: { $ref: "#/components/responses/ConnectorUnavailable" },
 } as const;
+
+/** The query operations' header parameters (#1966). */
+const REQUEST_ID_HEADER = { $ref: "#/components/parameters/RequestIdHeader" };
 
 const SPEC = {
   openapi: "3.0.3",
@@ -507,7 +523,18 @@ const SPEC = {
         description:
           "Executes a read-only query against a connected database. Results are capped at the connection's `maxRows`, " +
           `else ${DEFAULT_MAX_ROWS} rows; a request's \`rowLimit\` can only lower that. \`meta.rowLimit\` is the cap applied. ` +
-          "A write that read-only execution stopped answers 500 with `error.details.blockedWrite: true`.",
+          "A write that read-only execution stopped answers 500 with `error.details.blockedWrite: true`.\n\n" +
+          "**Who may run what.** An admin, the connection's owner, or anyone in the tenant when the connection is shared, runs any query on it. " +
+          "Anyone else needs a dashboard that uses the connection. Edit access (the dashboard's owner or an editor share) runs any query, " +
+          "while the caller may write and the dashboard's owner can use the connection. View access (a viewer share, a public dashboard, " +
+          "or an owner or editor share without edit access) runs only a query one of those dashboards saves (a widget's query, or a " +
+          "parameter selector's or form field's seed query), on that widget's connection and saved database; anything else answers 403. " +
+          "Without either, the answer is 404, the same as for a connection that does not exist.\n\n" +
+          "A non-empty `tenantId` in the body must equal the session's, or the answer is 403. Unknown body keys are stripped, not rejected.",
+        parameters: [
+          { $ref: "#/components/parameters/QueryPriorityHeader" },
+          REQUEST_ID_HEADER,
+        ],
         requestBody: jsonBody("#/components/schemas/QueryRequest"),
         responses: {
           200: bodyResponse("Query results", {
@@ -517,7 +544,11 @@ const SPEC = {
           401: R.unauthorized,
           403: R.forbidden,
           404: R.notFound,
+          408: R.timeout,
+          413: R.tooLarge,
           500: R.serverError,
+          502: R.connectorDown,
+          503: R.busy,
         },
       },
     },
@@ -534,8 +565,14 @@ const SPEC = {
           "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
           "foreign-key, check, exclusion, length, format or date/time violation, or a graph constraint violation, answers 400 (a NOT NULL violation names its column in " +
           "`error.details.column`), a unique violation 409, and a read-only connection 403. " +
-          `The rows a write returns are capped like a read's, at the connection's \`maxRows\` or ${DEFAULT_MAX_ROWS}, with no truncation flag; the write itself is never cut short.`,
-        requestBody: jsonBody("#/components/schemas/QueryRequest"),
+          `The rows a write returns are capped like a read's, at the connection's \`maxRows\` or ${DEFAULT_MAX_ROWS}, with no truncation flag; the write itself is never cut short.\n\n` +
+          "A write always runs at scheduler priority 1; `x-query-priority` is not read. " +
+          "A 408 from the queue (`Retry-After: 5`) means the write never started. " +
+          "A 408 from a transient connector error (`Retry-After: 3`), or a 502, can arrive after the database applied the write, so retrying it may run the write twice. " +
+          "A write is never shed: its 503 is always `queue_full`. " +
+          "Unknown body keys are stripped, not rejected: a `rowLimit` or `database` sent here is ignored.",
+        parameters: [REQUEST_ID_HEADER],
+        requestBody: jsonBody("#/components/schemas/WriteQueryRequest"),
         responses: {
           200: bodyResponse("Query results", {
             $ref: "#/components/schemas/WriteQueryResponse",
@@ -544,10 +581,14 @@ const SPEC = {
           401: R.unauthorized,
           403: R.forbidden,
           404: R.notFound,
+          408: R.timeout,
           409: bodyResponse("A record with these values already exists", {
             $ref: "#/components/schemas/ErrorResponse",
           }),
+          413: R.tooLarge,
           500: R.serverError,
+          502: R.connectorDown,
+          503: R.busy,
         },
       },
     },
@@ -807,6 +848,24 @@ const SPEC = {
         description:
           "Number of rows to skip. Combine with `limit` to page through results.",
       },
+      QueryPriorityHeader: {
+        name: "x-query-priority",
+        in: "header",
+        required: false,
+        schema: { type: "integer", enum: [1, 2, 3], default: 2 },
+        description:
+          "Scheduler tier: 1 interactive, 2 load, 3 refresh. Anything else counts as 2. " +
+          `A 3 is shed with a 503 once the connection's queue is ${SCHEDULER_DEFAULTS.shedThreshold * 100}% full (\`QUERY_SHED_THRESHOLD\`).`,
+      },
+      RequestIdHeader: {
+        name: "x-request-id",
+        in: "header",
+        required: false,
+        schema: { type: "string" },
+        description:
+          "Correlation id for the request's logs. The server uses the one sent, or makes one, and echoes it on the response " +
+          "(all but the HTTP-to-HTTPS redirect, which is answered before the id is set).",
+      },
     },
     responses: {
       Unauthorized: bodyResponse(
@@ -831,6 +890,37 @@ const SPEC = {
       DeleteSuccess: jsonResponse(
         "Resource deleted",
         "#/components/schemas/SuccessResult",
+      ),
+      PayloadTooLarge: bodyResponse(
+        `The request body is over ${PROXY_BODY_LIMIT_BYTES / 1024 / 1024} MiB, judged by its declared \`Content-Length\` before it is read. ` +
+          "A larger body sent without a length is cut off and answers 400.",
+        { $ref: "#/components/schemas/ErrorResponse" },
+      ),
+      RequestTimeout: {
+        ...bodyResponse(
+          "Timed out or dropped: worth retrying a read; for a write, see the operation. Either the connection's scheduler " +
+            "queue timed out before the query started (`Retry-After: 5`), or the connector judged the failure transient, such as " +
+            "a query timeout or a dropped connection (`Retry-After: 3`). A transient failure that is also a network or " +
+            "credentials failure answers 502 instead.",
+          { $ref: "#/components/schemas/ErrorResponse" },
+        ),
+        headers: { "Retry-After": RETRY_AFTER },
+      },
+      ServiceUnavailable: {
+        ...bodyResponse(
+          "The connection's scheduler refused the request (`Retry-After: 2`): its queue is full " +
+            '(`error.details.reason: "queue_full"`), or the request was priority 3 and was shed under load (`"shed"`).',
+          { $ref: "#/components/schemas/ErrorResponse" },
+        ),
+        headers: { "Retry-After": RETRY_AFTER },
+      },
+      ConnectorUnavailable: bodyResponse(
+        "The connector cannot use the connection: `error.details.reason` is `network` (the host cannot be reached: a refused " +
+          "port, an unresolved name, an unroutable or timed-out host) or `auth_failed` (the database refused the credentials). " +
+          `No \`Retry-After\`. For up to ${DEAD_CONNECTOR_TTL_MS / 1000} seconds after the first such failure the server answers ` +
+          "this same 502 for that connection without dialling it again (per tenant, per server process), so retrying within " +
+          "that window returns it again. A passing connection test, or editing or deleting the connection, ends the window early.",
+        { $ref: "#/components/schemas/ErrorResponse" },
       ),
     },
     schemas: {
@@ -1089,11 +1179,49 @@ const SPEC = {
             additionalProperties: true,
             description: "Named query parameters",
           },
+          database: {
+            type: "string",
+            description:
+              "The database to run on, for this card. Applied only when the connection allows a per-card database. " +
+              "A view-level caller must send the database saved on the widget that runs this query (none, if it saves none), whatever that setting, or the answer is 403.",
+          },
+          tenantId: {
+            type: "string",
+            description:
+              "Optional check: a non-empty `tenantId` must equal the session's tenant, or the answer is 403.",
+          },
           rowLimit: {
             type: "integer",
             minimum: 1,
             description:
-              "`/api/query` only. Return at most this many rows for this run. It can only lower the connection's row cap: a larger value runs at the cap. The query text is never changed; the driver reads one row past the limit to tell, and `meta.truncated` is present, and true, when there were more.",
+              "Return at most this many rows for this run. It can only lower the connection's row cap: a larger value runs at the cap. The query text is never changed; the driver reads one row past the limit to tell, and `meta.truncated` is present, and true, when there were more.",
+          },
+        },
+      },
+      WriteQueryRequest: {
+        type: "object",
+        required: ["connectionId", "query"],
+        properties: {
+          connectionId: { type: "string" },
+          query: { type: "string" },
+          params: {
+            type: "object",
+            additionalProperties: true,
+            description:
+              "Named query parameters. On a form submit, only the form's own fields are bound.",
+          },
+          widgetId: {
+            type: "string",
+            description:
+              "The stored widget this write comes from, sent with `dashboardId`; the two count only together, and one alone is a plain write. " +
+              "With both, the widget must be on a dashboard the caller can open and on this connection, or the answer is 404. " +
+              "A form runs its saved query (the `query` sent must match it) for anyone who can open the dashboard. " +
+              "Any other widget needs write permission, the caller's own connection and write mode on the widget, or the answer is 403. " +
+              "Either way it runs on the widget's saved database when the connection allows a per-card one.",
+          },
+          dashboardId: {
+            type: "string",
+            description: "The dashboard that holds `widgetId`.",
           },
         },
       },
