@@ -41,7 +41,7 @@ vi.mock("drizzle-orm/postgres-js", () => ({ drizzle: mockDrizzle }));
 vi.mock("drizzle-orm/postgres-js/migrator", () => ({ migrate: mockMigrate }));
 
 import { migrateOnBoot, shouldMigrateOnBoot } from "../migrate-on-boot";
-import { migrateWithLock } from "../migrate.mjs";
+import { describeMigrationError, migrateWithLock } from "../migrate.mjs";
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -160,5 +160,28 @@ describe("migrateWithLock's lock timeout (#2019)", () => {
   it("touches no timeout when none is asked for, as at boot", async () => {
     await migrateOnBoot();
     expect(sqlCalls.some((s) => /lock_timeout/i.test(s))).toBe(false);
+  });
+});
+
+describe("describeMigrationError", () => {
+  it("prints the database's reason from the cause, with its detail", () => {
+    const cause = Object.assign(new Error("Upgrade stopped"), {
+      detail: "Key (email) is duplicated.",
+    });
+    expect(
+      describeMigrationError(new Error("Failed query: DO $$", { cause })),
+    ).toBe(
+      "Failed query: DO $$\n  Upgrade stopped\n  Key (email) is duplicated.",
+    );
+  });
+
+  it("prints a plain error's message alone", () => {
+    expect(describeMigrationError(new Error("ECONNREFUSED"))).toBe(
+      "ECONNREFUSED",
+    );
+  });
+
+  it("prints anything else as text", () => {
+    expect(describeMigrationError("boom")).toBe("boom");
   });
 });
