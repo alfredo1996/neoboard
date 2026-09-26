@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -9,6 +9,8 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  symlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -41,7 +43,7 @@ function runHook(script, filePath, content) {
     tool_input: { file_path: filePath, content },
   });
   try {
-    execFileSync("bash", [join(HOOKS, script)], {
+    execFileSync("/bin/bash", [join(HOOKS, script)], {
       input: payload,
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT },
@@ -52,19 +54,19 @@ function runHook(script, filePath, content) {
   }
 }
 
-/** Run a hook with any payload, arguments and env. Returns exit code and stdout. */
+/** Run a hook with any payload, arguments and env. Returns exit code, stdout and stderr. */
 function run(script, args, payload, env = {}) {
-  try {
-    const stdout = execFileSync("bash", [join(HOOKS, script), ...args], {
-      input: JSON.stringify(payload),
-      stdio: ["pipe", "pipe", "pipe"],
-      encoding: "utf8",
-      env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT, ...env },
-    });
-    return { status: 0, stdout };
-  } catch (err) {
-    return { status: err.status ?? 1, stdout: err.stdout ?? "" };
-  }
+  // spawnSync, not execFileSync: stderr on the success path too.
+  const r = spawnSync("/bin/bash", [join(HOOKS, script), ...args], {
+    input: JSON.stringify(payload),
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: ROOT, ...env },
+  });
+  return {
+    status: r.status ?? 1,
+    stdout: r.stdout ?? "",
+    stderr: r.stderr ?? "",
+  };
 }
 
 const BLOCK = 2;
@@ -693,6 +695,397 @@ describe("E2E commit gate is per checkout (#1926)", () => {
   });
 });
 
+describe("E2E commit gate sees UI changes, however they were written (#1939)", () => {
+  // The marker is set only by the Edit/Write hook, so a UI file written through
+  // Bash (sed -i, a heredoc, `>`) was committed with no Playwright run and no
+  // warning. A run now records the content of every changed UI file; a commit
+  // is blocked while a changed UI file holds content no run has seen.
+
+  const git = (cwd, ...args) =>
+    execFileSync(
+      "git",
+      ["-c", "user.email=t@t", "-c", "user.name=t", ...args],
+      { cwd, stdio: "pipe", encoding: "utf8" },
+    );
+
+  /** A main checkout with one linked worktree, each with a committed UI file. */
+  function checkouts() {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "e2e-seen-")));
+    const main = join(base, "main");
+    const linked = join(base, "linked");
+    mkdirSync(join(main, "app/src/components/cards"), { recursive: true });
+    git(main, "init", "-q");
+    writeFileSync(join(main, "app/src/components/x.tsx"), "v1\n");
+    writeFileSync(join(main, "app/src/components/cards/card.tsx"), "card\n");
+    writeFileSync(join(main, "README.md"), "v1\n");
+    git(main, "add", ".");
+    git(main, "commit", "-q", "-m", "init");
+    git(main, "worktree", "add", "-q", linked);
+    return { base, main, linked };
+  }
+
+  const hook = (mode, payload, main) =>
+    run("enforce-e2e.sh", [mode], payload, { CLAUDE_PROJECT_DIR: main });
+  const commit = (command, cwd, main) =>
+    hook("check-commit", { cwd, tool_input: { command } }, main).status;
+  const playwright = (
+    cwd,
+    main,
+    command = "cd app && npx playwright test e2e/x.spec.ts",
+  ) => hook("clear-on-test", { cwd, tool_input: { command } }, main);
+  const ui = (dir) => join(dir, "app/src/components/x.tsx");
+
+  test("a UI file written through Bash blocks a commit, staged or not", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    assert.equal(commit("git commit -m x", main, main), BLOCK, "unstaged");
+    // The index is read before `git add` runs in the same command.
+    assert.equal(
+      commit("git add -A && git commit -m x", main, main),
+      BLOCK,
+      "add and commit in one call",
+    );
+    git(main, "add", ".");
+    assert.equal(commit("git commit -m x", main, main), BLOCK, "staged");
+  });
+
+  test("a first UI file in a repo that has none blocks before any run", () => {
+    // Nothing committed and nothing seen: an empty reference set once made
+    // every line count as seen (awk's NR == FNR on an empty first input).
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "e2e-first-")));
+    git(dir, "init", "-q");
+    writeFileSync(join(dir, "README.md"), "x\n");
+    git(dir, "add", ".");
+    git(dir, "commit", "-q", "-m", "init");
+    mkdirSync(join(dir, "app/src/components"), { recursive: true });
+    writeFileSync(join(dir, "app/src/components/first.tsx"), "new\n");
+    assert.equal(commit("git add -A && git commit -m x", dir, dir), BLOCK);
+  });
+
+  test("a run vouches for the content it saw; different content is not vouched for", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    playwright(main, main);
+    assert.equal(commit("git commit -am x", main, main), 0);
+    writeFileSync(ui(main), "v3\n");
+    assert.equal(commit("git commit -am x", main, main), BLOCK);
+    // Back to what the run saw: vouched for again, whatever the file times say.
+    writeFileSync(ui(main), "v2\n");
+    assert.equal(commit("git commit -am x", main, main), 0);
+  });
+
+  test("content copied in after the run counts, whatever its times (cp -p)", () => {
+    const { main, base } = checkouts();
+    const draft = join(base, "draft.tsx");
+    writeFileSync(draft, "draft\n");
+    const old = new Date(Date.now() - 3_600_000);
+    utimesSync(draft, old, old);
+    playwright(main, main);
+    execFileSync("cp", ["-p", draft, ui(main)]);
+    assert.equal(commit("git commit -am x", main, main), BLOCK);
+  });
+
+  test("a rename is vouched for by a run after it, and blocks before one", () => {
+    const { main } = checkouts();
+    git(main, "mv", "app/src/components/x.tsx", "app/src/components/y.tsx");
+    assert.equal(commit("git commit -m x", main, main), BLOCK);
+    playwright(main, main);
+    assert.equal(commit("git commit -m x", main, main), 0);
+  });
+
+  test("a rename in the work tree (git add -N) is checked like any change", () => {
+    // Status ` R new NUL old`: the source path is its own entry, not a status.
+    const { main } = checkouts();
+    execFileSync("mv", [ui(main), join(main, "app/src/components/y.tsx")]);
+    writeFileSync(join(main, "app/src/components/y.tsx"), "v2\n");
+    git(main, "add", "-N", "app/src/components/y.tsx");
+    assert.equal(commit("git add -A && git commit -m x", main, main), BLOCK);
+    playwright(main, main);
+    assert.equal(commit("git add -A && git commit -m x", main, main), 0);
+  });
+
+  test("a directory moved after the run counts, though its files keep their times", () => {
+    const { main } = checkouts();
+    playwright(main, main);
+    execFileSync("mv", [
+      join(main, "app/src/components/cards"),
+      join(main, "app/src/components/tiles"),
+    ]);
+    assert.equal(commit("git add -A && git commit -m x", main, main), BLOCK);
+  });
+
+  test("a stash round trip does not undo a run", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    playwright(main, main);
+    git(main, "stash", "-q");
+    git(main, "stash", "pop", "-q");
+    assert.equal(commit("git commit -am x", main, main), 0);
+  });
+
+  test("staged content the run did not see is never vouched for", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "staged\n");
+    git(main, "add", ".");
+    writeFileSync(ui(main), "on disk\n");
+    playwright(main, main);
+    assert.equal(commit("git commit -m x", main, main), BLOCK, "MM");
+    // Staged, then deleted from disk (MD): the staged content is still unseen.
+    execFileSync("rm", [ui(main)]);
+    assert.equal(commit("git commit -m x", main, main), BLOCK, "MD");
+  });
+
+  test("listing the specs, asking for help, or the UI mode is not a run", () => {
+    // Ceiling: a command that only mentions a run (a grep, an echo, an issue
+    // body) counts as one. The gate is a reminder, not a proof.
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    for (const command of [
+      "cd app && npx playwright test --list",
+      "cd app && npx playwright test e2e/x.spec.ts --help",
+      "cd app && npx playwright test -h",
+      "npm run test:e2e:ui",
+    ]) {
+      playwright(main, main, command);
+      assert.equal(commit("git commit -am x", main, main), BLOCK, command);
+    }
+    playwright(main, main, "npm run test:e2e");
+    assert.equal(commit("git commit -am x", main, main), 0);
+  });
+
+  test("a change that is not UI does not block", () => {
+    const { main } = checkouts();
+    writeFileSync(join(main, "README.md"), "v2\n");
+    assert.equal(commit("git commit -am x", main, main), 0);
+  });
+
+  test("a UI path git would quote is still seen", () => {
+    const { main } = checkouts();
+    writeFileSync(join(main, "app/src/components/Café Card.tsx"), "new\n");
+    assert.equal(commit("git commit -m x", main, main), BLOCK);
+  });
+
+  test("finishing a merge is left to the marker: what git merged in is not blocked", () => {
+    // Ceiling: a UI file written through Bash while a merge, cherry-pick,
+    // revert or rebase is in progress is not seen; an Edit/Write one is.
+    const { main } = checkouts();
+    git(main, "switch", "-q", "-c", "other");
+    writeFileSync(ui(main), "v1\ntheirs\n");
+    writeFileSync(join(main, "README.md"), "theirs\n");
+    git(main, "commit", "-q", "-am", "other");
+    git(main, "switch", "-q", "-");
+    writeFileSync(ui(main), "ours\nv1\n");
+    writeFileSync(join(main, "README.md"), "ours\n");
+    git(main, "commit", "-q", "-am", "ours");
+    // README conflicts; the UI file is auto-merged from both sides.
+    assert.throws(() => git(main, "merge", "-q", "other"));
+    writeFileSync(join(main, "README.md"), "resolved\n");
+    git(main, "add", "README.md");
+    assert.equal(commit("git commit --no-edit", main, main), 0);
+    hook("mark", { tool_input: { file_path: ui(main) } }, main);
+    assert.equal(commit("git commit --no-edit", main, main), BLOCK);
+  });
+
+  test("a run counts however it is spelled: env prefixes, wrappers, flags, a pipe", () => {
+    for (const command of [
+      "cd app && TEST_SERVER_PORT=3400 npx playwright test e2e/x.spec.ts",
+      "cd app && env TEST_SERVER_PORT=3400 npx playwright test",
+      "cd app && timeout 900 npx playwright test",
+      "cd app && npx -y playwright test",
+      "cd app && npx playwright test e2e/x.spec.ts | tail -5",
+      "CI=1 npm run test:e2e",
+      // #1939 round 4: every one of these ran the suite and cleared nothing.
+      "cd app && TEST_SERVER_PORT=3400 \\\n  npx playwright test e2e/x.spec.ts",
+      'cd app && for s in e2e/a.spec.ts e2e/b.spec.ts; do npx playwright test "$s"; done',
+      "cd app && time npx playwright test e2e/x.spec.ts",
+      "cd app && if npx playwright test e2e/x.spec.ts; then echo ok; fi",
+      "cd app && ./node_modules/.bin/playwright test e2e/x.spec.ts",
+      'cd app && DEBUG="pw:api pw:browser" npx playwright test',
+      "npx -w app playwright test e2e/x.spec.ts",
+      "npm exec -w app -- playwright test e2e/x.spec.ts",
+      "cd app && npx playwright test e2e/x.spec.ts 2>&1 | sort -h | tail",
+      // A listing first does not hide the run after it (CodeRabbit on #1992).
+      "cd app && npx playwright test --list && npx playwright test e2e/x.spec.ts",
+    ]) {
+      const { main } = checkouts();
+      writeFileSync(ui(main), "v2\n");
+      playwright(main, main, command);
+      assert.equal(commit("git commit -am x", main, main), 0, command);
+    }
+  });
+
+  test("a finished rebase does not switch the check off", () => {
+    // REBASE_HEAD outlives a rebase; only rebase-merge/rebase-apply mean one
+    // is in progress.
+    const { main } = checkouts();
+    git(main, "switch", "-q", "-c", "topic");
+    writeFileSync(join(main, "README.md"), "topic\n");
+    git(main, "commit", "-q", "-am", "topic");
+    git(main, "switch", "-q", "-");
+    writeFileSync(join(main, "README.md"), "base\n");
+    git(main, "commit", "-q", "-am", "base");
+    git(main, "switch", "-q", "topic");
+    assert.throws(() => git(main, "rebase", "-q", "-"));
+    writeFileSync(join(main, "README.md"), "resolved\n");
+    git(main, "add", "README.md");
+    execFileSync(
+      "git",
+      ["-c", "user.email=t@t", "-c", "user.name=t", "rebase", "--continue"],
+      { cwd: main, stdio: "pipe", env: { ...process.env, GIT_EDITOR: "true" } },
+    );
+    writeFileSync(ui(main), "after the rebase\n");
+    assert.equal(commit("git commit -am x", main, main), BLOCK);
+  });
+
+  test("content a run saw stays seen: redoing a commit after it is not blocked", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    playwright(main, main);
+    git(main, "commit", "-q", "-am", "wip");
+    // A later run on the committed tree, then the commit is undone to redo it.
+    playwright(main, main);
+    git(main, "reset", "-q", "--soft", "HEAD~1");
+    assert.equal(commit("git commit -m redo", main, main), 0);
+  });
+
+  test("a staged type change is checked: a symlink staged over a UI file", () => {
+    const { main } = checkouts();
+    execFileSync("rm", [ui(main)]);
+    symlinkSync("../../../README.md", ui(main));
+    git(main, "add", ".");
+    // Disk back to HEAD's content; the index still holds the symlink.
+    execFileSync("rm", [ui(main)]);
+    writeFileSync(ui(main), "v1\n");
+    assert.equal(commit("git commit -m x", main, main), BLOCK);
+  });
+
+  test("a UI file the run could not hash is never recorded as seen", () => {
+    // A stub git whose `hash-object --stdin-paths` fails, as it does on an
+    // unreadable file. Not a mode-000 file: root reads that anyway.
+    const { base, main } = checkouts();
+    const realGit = execFileSync("sh", ["-c", "command -v git"], {
+      encoding: "utf8",
+    }).trim();
+    const bin = join(base, "bin");
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, "git"),
+      [
+        "#!/bin/sh",
+        'for a in "$@"; do',
+        '  if [ "$a" = --stdin-paths ]; then',
+        '    cat >/dev/null; echo "fatal: Unable to hash" >&2; exit 128',
+        "  fi",
+        "done",
+        `exec "${realGit}" "$@"`,
+        "",
+      ].join("\n"),
+    );
+    chmodSync(join(bin, "git"), 0o755);
+    writeFileSync(join(main, "app/src/components/b.tsx"), "unseen\n");
+    run(
+      "enforce-e2e.sh",
+      ["clear-on-test"],
+      {
+        cwd: main,
+        tool_input: { command: "cd app && npx playwright test e2e/x.spec.ts" },
+      },
+      { CLAUDE_PROJECT_DIR: main, PATH: `${bin}:${process.env.PATH}` },
+    );
+    const seen = git(
+      main,
+      "rev-parse",
+      "--path-format=absolute",
+      "--git-path",
+      "e2e-seen",
+    ).trim();
+    assert.doesNotMatch(readFileSync(seen, "utf8"), /^\t/m);
+    assert.equal(commit("git add -A && git commit -m x", main, main), BLOCK);
+  });
+
+  test("a submodule under a UI directory does not block every commit", () => {
+    const { main } = checkouts();
+    const sha = git(main, "rev-parse", "HEAD").trim();
+    git(
+      main,
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      `160000,${sha},app/src/components/sub`,
+    );
+    assert.equal(commit("git commit -m x", main, main), 0);
+  });
+
+  test("a mode-only change carries no new content", () => {
+    const { main } = checkouts();
+    git(main, "update-index", "--chmod=+x", "app/src/components/x.tsx");
+    assert.equal(commit("git commit -m x", main, main), 0);
+  });
+
+  test("a squash merge needs a run like any change", () => {
+    // Ceiling, on purpose: SQUASH_MSG can outlive an aborted squash, and a
+    // leftover marker of an operation would switch the check off (as a
+    // leftover REBASE_HEAD did).
+    const { main } = checkouts();
+    git(main, "switch", "-q", "-c", "other");
+    writeFileSync(ui(main), "theirs\n");
+    git(main, "commit", "-q", "-am", "other");
+    git(main, "switch", "-q", "-");
+    git(main, "merge", "-q", "--squash", "other");
+    assert.equal(commit("git commit -m squash", main, main), BLOCK);
+    playwright(main, main);
+    assert.equal(commit("git commit -m squash", main, main), 0);
+  });
+
+  test("the block says how to vouch for staged content the run did not see", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "staged\n");
+    git(main, "add", ".");
+    writeFileSync(ui(main), "on disk\n");
+    playwright(main, main);
+    const { status, stderr } = hook(
+      "check-commit",
+      { cwd: main, tool_input: { command: "git commit -m x" } },
+      main,
+    );
+    assert.equal(status, BLOCK);
+    assert.match(stderr, /git add/);
+  });
+
+  test("a worktree's UI change blocks only that worktree", () => {
+    const { main, linked } = checkouts();
+    writeFileSync(ui(linked), "v2\n");
+    assert.equal(commit("git commit -m x", linked, main), BLOCK);
+    assert.equal(commit(`git -C ${linked} commit -m x`, main, main), BLOCK);
+    assert.equal(commit("git commit -m x", main, main), 0, "main checkout");
+    // A run in the main checkout does not vouch for the worktree.
+    playwright(main, main);
+    assert.equal(commit("git commit -m x", linked, main), BLOCK);
+  });
+
+  test("an unresolvable target checks every checkout", () => {
+    const { main, linked } = checkouts();
+    const command = 'cd "$WT" && git commit -m x';
+    assert.equal(commit(command, main, main), 0, "nothing changed anywhere");
+    writeFileSync(ui(linked), "v2\n");
+    assert.equal(commit(command, main, main), BLOCK);
+  });
+
+  test("the run record lives in git's own directory, never in the working tree", () => {
+    const { main } = checkouts();
+    writeFileSync(ui(main), "v2\n");
+    playwright(main, main);
+    assert.equal(
+      git(main, "status", "--porcelain", "--untracked-files=all"),
+      " M app/src/components/x.tsx\n",
+    );
+    // Outside any git work tree a run records nothing.
+    const plain = realpathSync(mkdtempSync(join(tmpdir(), "e2e-plain-")));
+    playwright(plain, main);
+    assert.deepEqual(readdirSync(plain), []);
+  });
+});
+
 describe("format-and-lint hook (#923, #1843)", () => {
   // `next lint` was removed in Next.js 16 and the hook sent its error to
   // /dev/null, so app/ files were never linted after an edit. npx is stubbed:
@@ -874,6 +1267,25 @@ describe("settings.json and .claude/hooks agree (#1843)", () => {
       [...referenced].filter((s) => !scripts.includes(s)),
       [],
     );
+  });
+
+  test("the E2E gate's modes are reached by the tools they answer for (#1939)", () => {
+    // `mark` was reachable only from Edit|Write, so a UI file written through
+    // Bash never set the marker and every test of the script still passed.
+    // Pin the wiring itself: check-commit and clear-on-test see every Bash call.
+    const wiring = Object.entries(settings.hooks).flatMap(([phase, groups]) =>
+      groups.flatMap((g) =>
+        (g.hooks ?? []).flatMap((h) => {
+          const m = (h.command ?? "").match(/enforce-e2e\.sh (\S+)/);
+          return m ? [`${phase} ${g.matcher} ${m[1]}`] : [];
+        }),
+      ),
+    );
+    assert.deepEqual(wiring.sort(), [
+      "PostToolUse Bash clear-on-test",
+      "PostToolUse Edit|Write mark",
+      "PreToolUse Bash check-commit",
+    ]);
   });
 
   test("every script in .claude/hooks is wired up", () => {
