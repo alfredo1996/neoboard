@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   makeSelectChain,
   resetDbMock,
@@ -413,6 +413,42 @@ describe("PATCH /api/connections/[id]", () => {
     expect(sqlValues(expr)).toEqual(
       expect.arrayContaining(["c1", "admin-1", "t1"]),
     );
+  });
+
+  // #1997: nothing in the schema or database bumps updatedAt, so the route
+  // must write it on every update path.
+  describe("bumps updatedAt", () => {
+    const FIXED = new Date("2026-01-02T03:04:05.000Z");
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(FIXED);
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it.each([
+      ["name", SESSION, { name: "New name" }],
+      ["visibility", ADMIN_SESSION, { visibility: "shared" }],
+      [
+        "config",
+        SESSION,
+        { config: { uri: "bolt://new-host", username: "neo4j" } },
+      ],
+    ])("on a %s update", async (_, session, patch) => {
+      mockRequireSession.mockResolvedValue(session);
+      mockDb.select.mockReturnValue(
+        makeSelectChain([{ configEncrypted: "enc:existing", type: "neo4j" }]),
+      );
+      const chain = makeUpdateChain([{ id: "c1" }]);
+      mockDb.update.mockReturnValue(chain);
+
+      const res = await PATCH(makeRequest(patch), makeParams("c1"));
+
+      expect(res.status).toBe(200);
+      expect(chain.calls.set[0][0]).toMatchObject({ updatedAt: FIXED });
+    });
   });
 
   it("returns 404 when connection not owned", async () => {
