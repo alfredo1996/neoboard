@@ -22,6 +22,10 @@ const resetPasswordSchema = z
   })
   .refine((d) => d.newPassword || d.generatePassword, {
     message: "Either newPassword or generatePassword must be provided",
+  })
+  // A typed password answered as `generatedPassword` would mislead (#2027).
+  .refine((d) => !(d.newPassword && d.generatePassword), {
+    message: "Send newPassword or generatePassword, not both",
   });
 
 /** Generate a cryptographically random temporary password. */
