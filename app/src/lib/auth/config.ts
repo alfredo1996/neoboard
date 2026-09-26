@@ -256,8 +256,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
               (user as { tenantId?: string }).tenantId ?? resolveTenantId();
           }
           // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions.
-          // Wrapped in try/catch so a transient DB hiccup (e.g. dev-server restart) doesn't
-          // destroy the session — existing token values are preserved as a fallback.
           if (token.id) {
             try {
               const [dbUser] = await db
@@ -296,7 +294,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
               token.name = dbUser.name;
               token.tenantId = dbUser.tenantId;
             } catch {
-              // DB unavailable — keep existing token values (graceful degradation)
+              // The lookup is the revocation check, so a sign-in it could not
+              // check is refused (#2004). An existing session keeps its token:
+              // every data route fails while the database does, and the next
+              // call re-checks once it is back, so a blip on the session poll
+              // does not sign anyone out mid-edit.
+              if (user) return null;
             }
           }
           return token;
