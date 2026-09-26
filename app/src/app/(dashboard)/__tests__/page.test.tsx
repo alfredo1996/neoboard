@@ -7,7 +7,10 @@ const { mockToast, connectorsQuery } = vi.hoisted(() => ({
   mockToast: vi.fn(),
   // Reassigned per test: the import has to tell "still loading" from
   // "nothing installed speaks Cypher" (#1900).
-  connectorsQuery: { data: [] as unknown },
+  connectorsQuery: {
+    data: [] as unknown,
+    refetch: vi.fn(async () => ({ data: undefined as unknown })),
+  },
 }));
 
 const DENIED =
@@ -167,15 +170,44 @@ describe("DashboardListPage NeoDash import", () => {
     fireEvent.change(input);
   }
 
-  it("says to try again while the connectors are still loading", async () => {
+  // A file picked before /api/connectors answered used to be refused, and
+  // the user had to pick it again (#2029). The pick waits for the list.
+  it("keeps a file picked while the connectors load and reads it once they arrive", async () => {
     connectorsQuery.data = undefined;
+    const list = [
+      { type: "acme-graph", label: "Acme Graph", queryLanguage: "cypher" },
+    ];
+    // As React Query does: the cache holds the list before refetch resolves.
+    connectorsQuery.refetch.mockImplementationOnce(async () => {
+      connectorsQuery.data = list;
+      return { data: list };
+    });
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+
+    expect(
+      await screen.findByText("No compatible Acme Graph connections", {
+        exact: false,
+      }),
+    ).toBeTruthy();
+    // Joins the fetch already in flight rather than starting another.
+    expect(connectorsQuery.refetch).toHaveBeenCalledWith({
+      cancelRefetch: false,
+    });
+    expect(screen.queryByText(/try the file again/i)).toBeNull();
+  });
+
+  it("says so when the connectors cannot be loaded", async () => {
+    connectorsQuery.data = undefined;
+    connectorsQuery.refetch.mockResolvedValueOnce({ data: undefined });
     render(<DashboardListPage />);
 
     pickNeoDashFile();
 
     expect(
       await screen.findByText(
-        "Still loading the installed connectors — try the file again in a moment.",
+        "Couldn't load the installed connectors, so this NeoDash file can't be read. Reload the page and try again.",
       ),
     ).toBeTruthy();
   });

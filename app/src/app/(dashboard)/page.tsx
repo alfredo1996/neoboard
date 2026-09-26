@@ -179,7 +179,7 @@ function ImportDashboardDialog({
   );
 
   const { data: availableConnections = [] } = useConnections();
-  const { data: connectors } = useConnectors();
+  const { data: connectors, refetch: refetchConnectors } = useConnectors();
   const importDashboard = useImportDashboard();
 
   function reset() {
@@ -242,17 +242,18 @@ function ImportDashboardDialog({
         // the query language it declares, not by its name (#1900). With none
         // installed there is nothing to map the import onto, so say so rather
         // than offering a placeholder pointing at a connector that is not here.
-        // Still loading is not the same as nothing installed: the message
-        // below is permanent, and a file picked before /api/connectors
-        // resolves would have been refused with it.
-        if (!connectors) {
+        // A file picked before /api/connectors answers waits for it, joining
+        // the fetch in flight: refusing it made the user pick it again (#2029).
+        const installed =
+          connectors ??
+          (await refetchConnectors({ cancelRefetch: false })).data;
+        if (!installed) {
           setFileError(
-            "Still loading the installed connectors — try the file again in a moment.",
+            "Couldn't load the installed connectors, so this NeoDash file can't be read. Reload the page and try again.",
           );
-          setParsed(null);
           return;
         }
-        const target = cypherConnector(connectors);
+        const target = cypherConnector(installed);
         if (!target) {
           setFileError(
             "This is a NeoDash dashboard, whose queries are Cypher. No installed connector runs Cypher, so there is nothing to import it onto. Add one and try again.",
