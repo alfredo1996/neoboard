@@ -357,6 +357,59 @@ describe("resolveApiKeyAuth", () => {
     });
   });
 
+  describe("a disabled user's key (#2003)", () => {
+    // Disabling a user blocked sign-in and the JWT refresh, but not their
+    // keys: the lookup never read users.disabledAt.
+    function disabledKey(role: string) {
+      const token = "nb_" + "d".repeat(64);
+      const keyHash = createHmac("sha256", TEST_HMAC_SECRET)
+        .update(token)
+        .digest("hex");
+      mockHeadersGet.mockReturnValue("Bearer " + token);
+      mockDb.select.mockReturnValue(
+        makeSelectChain([
+          {
+            id: "key-d",
+            userId: "user-d",
+            tenantId: "default",
+            keyHash,
+            role,
+            canWrite: true,
+            expiresAt: null,
+            disabledAt: new Date(Date.now() - 1000),
+          },
+        ]),
+      );
+      mockDb.update.mockReturnValue(makeUpdateChain());
+    }
+
+    it("throws the same generic Unauthorized as an expired key", async () => {
+      disabledKey("creator");
+      await expect(resolveApiKeyAuth()).rejects.toBeInstanceOf(
+        UnauthorizedError,
+      );
+    });
+
+    it("throws for a disabled admin too", async () => {
+      disabledKey("admin");
+      await expect(resolveApiKeyAuth()).rejects.toBeInstanceOf(
+        UnauthorizedError,
+      );
+    });
+
+    it("does not record a use of the key", async () => {
+      disabledKey("creator");
+      await resolveApiKeyAuth().catch(() => undefined);
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    it("reads disabledAt from the user row", async () => {
+      disabledKey("creator");
+      await resolveApiKeyAuth().catch(() => undefined);
+      expect(mockDb.select.mock.calls[0][0]).toHaveProperty("disabledAt");
+    });
+  });
+
   it("returns user context for a key with no expiry (null expiresAt)", async () => {
     const token = "nb_" + "c".repeat(64);
     const keyHash = createHmac("sha256", TEST_HMAC_SECRET)

@@ -28,7 +28,9 @@ describe("requireUserId", () => {
     // Default: no API key header (session auth path)
     mockResolveApiKeyAuth.mockResolvedValue(null);
     vi.doMock("../config", () => ({ auth: mockAuth }));
-    vi.doMock("../api-key", () => ({ resolveApiKeyAuth: mockResolveApiKeyAuth }));
+    vi.doMock("../api-key", () => ({
+      resolveApiKeyAuth: mockResolveApiKeyAuth,
+    }));
     const mod = await import("../session");
     requireUserId = mod.requireUserId;
   });
@@ -63,6 +65,14 @@ describe("requireUserId", () => {
     expect(id).toBe("api-user-1");
     expect(mockAuth).not.toHaveBeenCalled();
   });
+  it("rethrows a refused API key and never falls back to the session (#2003)", async () => {
+    // A disabled user may still hold a live cookie; a refused key must not
+    // be retried as a session.
+    mockResolveApiKeyAuth.mockRejectedValue(new Error("Unauthorized"));
+    mockAuth.mockResolvedValue({ user: { id: "user-1" } });
+    await expect(requireUserId()).rejects.toThrow("Unauthorized");
+    expect(mockAuth).not.toHaveBeenCalled();
+  });
 });
 
 describe("requireAdmin", () => {
@@ -74,7 +84,9 @@ describe("requireAdmin", () => {
     // Default: no API key header (session auth path)
     mockResolveApiKeyAuth.mockResolvedValue(null);
     vi.doMock("../config", () => ({ auth: mockAuth }));
-    vi.doMock("../api-key", () => ({ resolveApiKeyAuth: mockResolveApiKeyAuth }));
+    vi.doMock("../api-key", () => ({
+      resolveApiKeyAuth: mockResolveApiKeyAuth,
+    }));
     const mod = await import("../session");
     requireAdmin = mod.requireAdmin;
   });
@@ -154,7 +166,9 @@ describe("requireSession", () => {
     // Default: no API key header (session auth path)
     mockResolveApiKeyAuth.mockResolvedValue(null);
     vi.doMock("../config", () => ({ auth: mockAuth }));
-    vi.doMock("../api-key", () => ({ resolveApiKeyAuth: mockResolveApiKeyAuth }));
+    vi.doMock("../api-key", () => ({
+      resolveApiKeyAuth: mockResolveApiKeyAuth,
+    }));
     const mod = await import("../session");
     requireSession = mod.requireSession;
   });
@@ -179,6 +193,20 @@ describe("requireSession", () => {
       canWrite: true,
       tenantId: "tenant-x",
     });
+    expect(mockAuth).not.toHaveBeenCalled();
+  });
+
+  it("rethrows a refused API key and never falls back to the session (#2003)", async () => {
+    mockResolveApiKeyAuth.mockRejectedValue(new Error("Unauthorized"));
+    mockAuth.mockResolvedValue({
+      user: {
+        id: "user-1",
+        role: "admin",
+        canWrite: true,
+        tenantId: "default",
+      },
+    });
+    await expect(requireSession()).rejects.toThrow("Unauthorized");
     expect(mockAuth).not.toHaveBeenCalled();
   });
 
@@ -275,14 +303,17 @@ describe("requireSession", () => {
     ["", "default"],
     ["   ", "default"],
     ["acme", "acme"],
-  ])("TENANT_ID=%j falls back to tenant %j when the session has none (#1728)", async (value, tenant) => {
-    vi.stubEnv("TENANT_ID", value);
-    try {
-      mockAuth.mockResolvedValue({ user: { id: "user-6", role: "creator" } });
-      const session = await requireSession();
-      expect(session.tenantId).toBe(tenant);
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
+  ])(
+    "TENANT_ID=%j falls back to tenant %j when the session has none (#1728)",
+    async (value, tenant) => {
+      vi.stubEnv("TENANT_ID", value);
+      try {
+        mockAuth.mockResolvedValue({ user: { id: "user-6", role: "creator" } });
+        const session = await requireSession();
+        expect(session.tenantId).toBe(tenant);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
 });
