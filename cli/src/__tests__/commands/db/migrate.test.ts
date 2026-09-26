@@ -139,7 +139,7 @@ describe("runDbMigrate", () => {
 
   it("runs migrations locally with DATABASE_URL from .env.local", async () => {
     await runDbMigrate({});
-    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+    expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
       cwd: "/project/app",
       env: expect.objectContaining({
         DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
@@ -150,7 +150,7 @@ describe("runDbMigrate", () => {
   it("falls back to config-derived DATABASE_URL when .env.local missing", async () => {
     mockExistsSync.mockReturnValue(false);
     await runDbMigrate({});
-    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+    expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
       cwd: "/project/app",
       env: expect.objectContaining({
         DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
@@ -170,7 +170,7 @@ describe("runDbMigrate", () => {
       'DATABASE_URL="postgresql://neoboard:neoboard@localhost:5432/neoboard"\n',
     );
     await runDbMigrate({});
-    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+    expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
       cwd: "/project/app",
       env: expect.objectContaining({
         DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
@@ -183,7 +183,7 @@ describe("runDbMigrate", () => {
       "DATABASE_URL='postgresql://neoboard:neoboard@localhost:5432/neoboard'\n",
     );
     await runDbMigrate({});
-    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+    expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
       cwd: "/project/app",
       env: expect.objectContaining({
         DATABASE_URL: "postgresql://neoboard:neoboard@localhost:5432/neoboard",
@@ -203,7 +203,7 @@ describe("runDbMigrate", () => {
       },
     } as ReturnType<typeof readProjectConfig>);
     await runDbMigrate({});
-    expect(mockRun).toHaveBeenCalledWith("npx drizzle-kit migrate", {
+    expect(mockRun).toHaveBeenCalledWith("node scripts/db-migrate.mjs", {
       cwd: "/project/app",
       env: expect.objectContaining({
         DATABASE_URL:
@@ -220,7 +220,7 @@ describe("runDbMigrate", () => {
   describe("error classification", () => {
     function failWith(stderr: string): void {
       mockRun.mockImplementationOnce(() => {
-        throw new FakeExecError("npx drizzle-kit migrate", 1, stderr);
+        throw new FakeExecError("node scripts/db-migrate.mjs", 1, stderr);
       });
     }
 
@@ -292,6 +292,39 @@ describe("runDbMigrate", () => {
       expect(hintMsgs.toLowerCase()).toMatch(/migration|reset|drift/);
       expect(hintMsgs).toContain(stderr);
       expect(process.exitCode).toBe(1);
+    });
+
+    // A data migration refused by the rows already stored is not drift, and
+    // `db reset` would delete every user to get past it (#2019).
+    it("files a constraint violation under data, with no db reset advice", async () => {
+      const stderr =
+        'duplicate key value violates unique constraint "user_email_unique"';
+      failWith(stderr);
+
+      await runDbMigrate({});
+
+      const hintMsgs = vi
+        .mocked(logError)
+        .mock.calls.map((c) => c[0] as string)
+        .join("\n");
+      expect(hintMsgs.toLowerCase()).toContain("data");
+      expect(hintMsgs).not.toMatch(/db reset/);
+      expect(hintMsgs).toContain(stderr);
+      expect(process.exitCode).toBe(1);
+    });
+
+    // The script prints the database's own message, a migration's RAISE
+    // included, where drizzle-kit printed nothing (#2019).
+    it("prints a migration's own RAISE message as the underlying error", async () => {
+      const stderr =
+        "Failed to run the query 'DO $$ ...'\n  Upgrade stopped (#2001): emails are now matched ignoring case";
+      failWith(stderr);
+
+      await runDbMigrate({});
+
+      const lines = vi.mocked(logError).mock.calls.map((c) => c[0] as string);
+      expect(lines).toContain("Underlying error:");
+      expect(lines.join("\n")).toContain("Upgrade stopped (#2001)");
     });
 
     it("redacts credentials in surfaced stderr (DSN passwords + password= params)", async () => {

@@ -101,7 +101,7 @@ export async function runDbMigrate(opts: {
 
   if (opts.to) {
     warn(
-      `--to ${opts.to}: Drizzle Kit applies all pending migrations. Version validation is not yet supported.`,
+      `--to ${opts.to}: every pending migration is applied. Version validation is not yet supported.`,
     );
   }
 
@@ -111,8 +111,11 @@ export async function runDbMigrate(opts: {
   // Resolve DATABASE_URL: use .env.local if set, otherwise build from config.
   // This works regardless of where the DB runs (Docker, local, remote).
   const dbUrl = resolveDatabaseUrl();
+  // The app's own migrator, the one the server runs at boot: same advisory
+  // lock, and it prints the database's error, where the drizzle-kit binary
+  // exited 1 with nothing on stderr (#2019).
   try {
-    run("npx drizzle-kit migrate", {
+    run("node scripts/db-migrate.mjs", {
       cwd: paths.appDir,
       env: { ...process.env, DATABASE_URL: dbUrl },
     });
@@ -128,10 +131,10 @@ export async function runDbMigrate(opts: {
   return true;
 }
 
-type MigrateErrorKind = "connection" | "lock" | "schema" | "unknown";
+type MigrateErrorKind = "connection" | "lock" | "data" | "schema" | "unknown";
 
 /**
- * Classify a drizzle-kit / postgres failure by inspecting stderr text.
+ * Classify a migration failure by inspecting the text the migrator printed.
  * Kept simple on purpose — the goal is to point the user at the right
  * troubleshooting bucket, not to be exhaustive.
  */
@@ -157,12 +160,15 @@ export function classifyMigrateError(stderr: string): MigrateErrorKind {
   ) {
     return "lock";
   }
+  // A constraint the stored rows break is not drift, and `db reset` would
+  // delete the rows to get past it (#2019).
+  if (s.includes("violates") || s.includes("duplicate key")) {
+    return "data";
+  }
   if (
     s.includes("already exists") ||
     s.includes("does not exist") ||
-    s.includes("syntax error") ||
-    s.includes("violates") ||
-    s.includes("constraint")
+    s.includes("syntax error")
   ) {
     return "schema";
   }
@@ -211,6 +217,15 @@ function reportMigrateFailure(err: unknown): void {
       );
       logError(
         "  • If nothing else is running, an earlier crash may have left a stale lock; restart postgres or contact your DBA.",
+      );
+      break;
+    case "data":
+      logError("The data already stored breaks a rule this migration adds.");
+      logError(
+        "  • The migration runs in one transaction, so nothing was applied.",
+      );
+      logError(
+        "  • Fix the rows named below, then run `neoboard db migrate` again.",
       );
       break;
     case "schema":

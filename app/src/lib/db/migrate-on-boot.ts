@@ -1,13 +1,4 @@
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-
-/**
- * Application-wide advisory lock key for schema migrations. Concurrent
- * replicas booting at the same time serialize here: the first runs the
- * migrations, the rest wait and then no-op (drizzle skips applied entries).
- */
-const MIGRATION_LOCK_ID = 772002001;
+import { migrateWithLock } from "./migrate.mjs";
 
 /**
  * Opt-in flag for running migrations at server boot. The production Docker
@@ -34,17 +25,8 @@ export async function migrateOnBoot(): Promise<void> {
   if (!url) {
     throw new Error("DATABASE_URL is required to run migrations on boot");
   }
-  const migrationsFolder = process.env.MIGRATIONS_DIR ?? "drizzle/migrations";
-
-  const client = postgres(url, { max: 1 });
-  try {
-    await client`select pg_advisory_lock(${MIGRATION_LOCK_ID})`;
-    try {
-      await migrate(drizzle(client), { migrationsFolder });
-    } finally {
-      await client`select pg_advisory_unlock(${MIGRATION_LOCK_ID})`;
-    }
-  } finally {
-    await client.end();
-  }
+  await migrateWithLock(
+    url,
+    process.env.MIGRATIONS_DIR ?? "drizzle/migrations",
+  );
 }

@@ -9,17 +9,6 @@
  * If either var is absent the bootstrap step is silently skipped.
  * Once any user exists in the database the function is permanently a no-op.
  */
-/**
- * drizzle wraps every statement error as "Failed query: <sql>", with the
- * database's own error (a migration's RAISE text, and its detail) on `cause`.
- */
-function describeMigrationError(err: unknown): string {
-  if (!(err instanceof Error)) return String(err);
-  const cause = err.cause as { message?: string; detail?: string } | undefined;
-  return [err.message, cause?.message, cause?.detail]
-    .filter(Boolean)
-    .join("\n  ");
-}
 
 export async function register() {
   // Only run in the Node.js runtime (not in the Edge runtime)
@@ -57,6 +46,7 @@ export async function register() {
   {
     const { shouldMigrateOnBoot, migrateOnBoot } =
       await import("@/lib/db/migrate-on-boot");
+    const { describeMigrationError } = await import("@/lib/db/migrate.mjs");
     if (shouldMigrateOnBoot()) {
       try {
         await migrateOnBoot();
