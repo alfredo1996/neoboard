@@ -28,6 +28,8 @@ export type AuditAction =
   | "user.create"
   | "user.update"
   | "user.disable"
+  | "user.enable"
+  | "user.delete"
   | "user.role.change"
   | "user.password.reset"
   | "user.password.change"
