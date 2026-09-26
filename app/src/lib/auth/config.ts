@@ -203,10 +203,15 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
 
           // Check if user already exists in the DB
           const existingUsers = await db
-            .select({ id: users.id })
+            .select({ id: users.id, disabledAt: users.disabledAt })
             .from(users)
             .where(and(eq(users.email, email), eq(users.tenantId, tenantId)))
             .limit(1);
+
+          // Refused before the role sync below writes anything, as
+          // authorize() refuses one; the jwt callback's refusal comes after
+          // the write is committed (#2005).
+          if (existingUsers[0]?.disabledAt) return false;
 
           if (existingUsers.length === 0 && !autoProvision) {
             // Auto-provision is off and user doesn't exist — reject login
