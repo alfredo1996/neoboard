@@ -36,7 +36,9 @@ export async function migrateWithLock(url, migrationsFolder, options = {}) {
     }
     await client`select pg_advisory_lock(${MIGRATION_LOCK_ID})`;
     if (lockTimeoutMs) {
-      await client`select set_config('lock_timeout', '0', false)`;
+      // Back to what the role or database sets, not 0, which would lift that
+      // limit for every migration statement.
+      await client`reset lock_timeout`;
     }
     try {
       await migrate(drizzle(client), { migrationsFolder });
