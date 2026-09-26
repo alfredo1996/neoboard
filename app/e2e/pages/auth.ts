@@ -82,12 +82,17 @@ export class AuthPage {
     await expect.poll(() => this.sessionEmail()).toBeUndefined();
   }
 
-  /** The signed-in user's email, as the server reads this context's cookie. */
+  /**
+   * The signed-in user's email, as the server reads this context's cookie.
+   * Undefined only from a valid answer with no user: a failed request throws,
+   * so a poll retries it rather than reading it as signed out.
+   */
   private async sessionEmail(): Promise<string | undefined> {
     const res = await this.page.request.get("/api/auth/session");
-    const body = (await res.json().catch(() => null)) as {
-      user?: { email?: string };
-    } | null;
+    if (!res.ok()) {
+      throw new Error(`GET /api/auth/session answered ${res.status()}`);
+    }
+    const body = (await res.json()) as { user?: { email?: string } } | null;
     return body?.user?.email;
   }
 }
