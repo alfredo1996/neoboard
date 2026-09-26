@@ -312,3 +312,17 @@ test.describe.serial("Force password change", () => {
     await expect(page).toHaveURL("/", { timeout: 30_000 });
   });
 });
+
+// #1982: the proxy refuses a signed-out API call before any handler runs, and
+// answers in the same envelope the handlers use.
+test.describe("Signed-out API calls", () => {
+  test("answer 401 in the API's envelope", async ({ request }) => {
+    const res = await request.get("/api/dashboards");
+    expect(res.status()).toBe(401);
+    expect(await res.json()).toEqual({
+      data: null,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized" },
+      meta: null,
+    });
+  });
+});

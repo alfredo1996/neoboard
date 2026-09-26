@@ -132,6 +132,16 @@ describe("proxy", () => {
       expect(res.status).toBe(401);
       expect(res.headers.get("content-type")).toContain("application/json");
     });
+
+    // #1982: in the envelope every handler answers in, not a bare `{ error }`.
+    it("answers that 401 in the API's envelope", async () => {
+      const res = await proxy(makeRequest("/api/dashboards"));
+      expect(await res.json()).toEqual({
+        data: null,
+        error: { code: "UNAUTHORIZED", message: "Unauthorized" },
+        meta: null,
+      });
+    });
   });
 
   describe("API key passthrough", () => {
@@ -211,6 +221,20 @@ describe("proxy", () => {
       mockGetToken.mockResolvedValue({
         sub: "user-1",
         forcePasswordChange: true,
+      });
+    });
+
+    it("answers that 403 in the API's envelope (#1982)", async () => {
+      const res = await proxy(
+        makeRequest("/api/dashboards", { method: "POST" }),
+      );
+      expect(await res.json()).toEqual({
+        data: null,
+        error: {
+          code: "FORBIDDEN",
+          message: "Password change required before modifying data",
+        },
+        meta: null,
       });
     });
 

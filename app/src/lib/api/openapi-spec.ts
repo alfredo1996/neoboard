@@ -26,10 +26,9 @@ function jsonBody(schemaRef: string) {
  * The body every handler sends (#1961): `apiSuccess` and `apiList` wrap each
  * payload as `{ data, error: null, meta }`. `data` is a schema, or a $ref to one.
  */
-function envelope(
-  data: string | object,
-  meta: object = { type: "object", nullable: true },
-) {
+const NULLABLE_META = { type: "object", nullable: true } as const;
+
+function envelope(data: string | object, meta: object = NULLABLE_META) {
   return {
     type: "object" as const,
     required: ["data", "error", "meta"],
@@ -811,25 +810,14 @@ const SPEC = {
     },
     responses: {
       Unauthorized: bodyResponse(
-        "Not authenticated. A handler answers in the envelope; the proxy, " +
-          "before any handler, answers a request with no session and no API " +
-          "key in its own `{ error }` form (#1982).",
-        {
-          oneOf: [
-            { $ref: "#/components/schemas/ErrorResponse" },
-            { $ref: "#/components/schemas/ProxyError" },
-          ],
-        },
+        "Not authenticated: no session and no valid API key. The proxy answers " +
+          "a request with neither before any handler runs, in the same envelope (#1982).",
+        { $ref: "#/components/schemas/ErrorResponse" },
       ),
       Forbidden: bodyResponse(
-        "Insufficient permissions. The proxy's own `{ error }` form answers a " +
-          "change to data from a session that must change its password first (#1982).",
-        {
-          oneOf: [
-            { $ref: "#/components/schemas/ErrorResponse" },
-            { $ref: "#/components/schemas/ProxyError" },
-          ],
-        },
+        "Insufficient permissions, or a change to data from a session that " +
+          "must change its password first.",
+        { $ref: "#/components/schemas/ErrorResponse" },
       ),
       NotFound: bodyResponse("Resource not found", {
         $ref: "#/components/schemas/ErrorResponse",
@@ -863,13 +851,6 @@ const SPEC = {
             description: "Always null on an error.",
           },
         },
-      },
-      ProxyError: {
-        type: "object",
-        description:
-          "The proxy's own form, answered before any handler runs: a 401 with no session and no API key, a 403 for a session that must change its password (#1982).",
-        required: ["error"],
-        properties: { error: { type: "string" } },
       },
       SuccessResult: {
         type: "object",
