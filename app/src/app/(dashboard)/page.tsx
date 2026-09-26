@@ -165,6 +165,9 @@ function ImportDashboardDialog({
 }: ImportDashboardDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Which pick may still update the dialog: handleFile awaits the file and
+  // the connectors, so an earlier pick can resume after a later one (#2029).
+  const latestPick = useRef(0);
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
@@ -189,6 +192,7 @@ function ImportDashboardDialog({
     setFileError(null);
     setSubmitError(null);
     setSuccessState(null);
+    latestPick.current++;
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -218,10 +222,12 @@ function ImportDashboardDialog({
     setMapping({});
     setSkipped(new Set());
     const file = e.target.files?.[0];
+    const pick = ++latestPick.current;
     if (!file) return;
 
     try {
       const text = await file.text();
+      if (pick !== latestPick.current) return;
       const json = JSON.parse(text);
 
       if (isNeoDashFormat(json)) {
@@ -247,6 +253,7 @@ function ImportDashboardDialog({
         const installed =
           connectors ??
           (await refetchConnectors({ cancelRefetch: false })).data;
+        if (pick !== latestPick.current) return;
         if (!installed) {
           setFileError(
             "Couldn't load the installed connectors, so this NeoDash file can't be read. Reload the page and try again.",

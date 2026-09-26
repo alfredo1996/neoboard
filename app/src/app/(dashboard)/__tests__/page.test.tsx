@@ -153,6 +153,10 @@ describe("DashboardListPage NeoDash import", () => {
 
   beforeEach(() => {
     connectorsQuery.data = [];
+    // mockReset, not clearAllMocks: a queued once-value a test left unused
+    // would answer the next test's fetch.
+    connectorsQuery.refetch.mockReset();
+    connectorsQuery.refetch.mockResolvedValue({ data: undefined });
   });
 
   function pickNeoDashFile(dashboard: object = NEODASH) {
@@ -166,7 +170,11 @@ describe("DashboardListPage NeoDash import", () => {
     // jsdom's File.text() is unreliable across versions; the flow only needs
     // the text, so hand it over directly.
     Object.defineProperty(file, "text", { value: () => Promise.resolve(text) });
-    Object.defineProperty(input, "files", { value: [file] });
+    // configurable: a test may pick twice.
+    Object.defineProperty(input, "files", {
+      value: [file],
+      configurable: true,
+    });
     fireEvent.change(input);
   }
 
@@ -196,6 +204,42 @@ describe("DashboardListPage NeoDash import", () => {
       cancelRefetch: false,
     });
     expect(screen.queryByText(/try the file again/i)).toBeNull();
+  });
+
+  // A second file picked while the first waits for the connectors is the
+  // one the user chose; the first, resuming later, must not replace it.
+  it("keeps the latest pick when an earlier one resumes after it", async () => {
+    connectorsQuery.data = undefined;
+    let release!: (value: { data: unknown }) => void;
+    connectorsQuery.refetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+    // The race: the first pick is inside the connectors fetch when the
+    // second arrives.
+    await vi.waitFor(() => expect(connectorsQuery.refetch).toHaveBeenCalled());
+    pickNeoDashFile({
+      formatVersion: 1,
+      dashboard: { name: "Second pick" },
+      connections: {},
+      layout: { version: 2, pages: [] },
+    });
+    expect(await screen.findByText("Second pick")).toBeTruthy();
+
+    const list = [
+      { type: "acme-graph", label: "Acme Graph", queryLanguage: "cypher" },
+    ];
+    connectorsQuery.data = list;
+    release({ data: list });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.getByText("Second pick")).toBeTruthy();
+    expect(screen.queryByText("Movies")).toBeNull();
   });
 
   it("says so when the connectors cannot be loaded", async () => {
