@@ -8,6 +8,7 @@
 import { Neo4jContainer } from "@testcontainers/neo4j";
 import type { StartedNeo4jContainer } from "@testcontainers/neo4j";
 import neo4j from "neo4j-driver";
+import { createServer, type AddressInfo } from "node:net";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
 import { AuthType, DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
 
@@ -57,15 +58,31 @@ async function waitForBolt(uri: string, password: string, timeoutMs: number) {
   throw lastErr;
 }
 
-const FIXED_BOLT_PORT = 30687;
+/**
+ * A host port nothing holds now, fixed for this run. A constant made two runs
+ * at once (two checkouts) both claim it: "port is already allocated" (#1929).
+ */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, () => {
+      const { port } = server.address() as AddressInfo;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+let boltPort: number;
 
 beforeAll(async () => {
+  boltPort = await freePort();
   container = await new Neo4jContainer("neo4j:5-community")
     .withPassword("recovery-test-pw")
-    .withExposedPorts({ container: 7687, host: FIXED_BOLT_PORT }, 7474)
+    .withExposedPorts({ container: 7687, host: boltPort }, 7474)
     .start();
   connection = new Neo4jConnectionModule({
-    uri: `bolt://localhost:${FIXED_BOLT_PORT}`,
+    uri: `bolt://localhost:${boltPort}`,
     username: container.getUsername(),
     password: container.getPassword(),
     authType: AuthType.NATIVE,
