@@ -19,6 +19,7 @@ const {
   mockDbSelect,
   mockUpdateThen,
   loggedEvents,
+  captured,
   originalTenantId,
 } = vi.hoisted(() => {
   const orig = process.env.TENANT_ID;
@@ -62,6 +63,7 @@ const {
     mockDbSelect,
     mockUpdateThen,
     loggedEvents,
+    captured: { adapter: null as unknown },
     originalTenantId: orig,
   };
 });
@@ -93,6 +95,7 @@ vi.mock("next-auth", () => ({
       callbacks.jwt = config.callbacks.jwt;
       callbacks.session = config.callbacks.session;
       callbacks.signIn = config.callbacks.signIn;
+      captured.adapter = config.adapter;
       events.signOut = config.events?.signOut ?? null;
       authorize.fn = config.providers[0].authorize;
     };
@@ -105,8 +108,8 @@ vi.mock("next-auth/providers/credentials", () => ({
   default: (opts: unknown) => opts,
 }));
 
-vi.mock("@auth/drizzle-adapter", () => ({
-  DrizzleAdapter: vi.fn(),
+vi.mock("@/lib/auth/tenant-adapter", () => ({
+  tenantScopedAdapter: (tenantId: string) => ({ scopedTo: tenantId }),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -316,6 +319,13 @@ describe("email case (#2001)", () => {
     expect(eq).toHaveBeenCalledWith("email", "alice@example.com");
     // The same object reaches the adapter's getUserByEmail and createUser.
     expect(user.email).toBe("alice@example.com");
+  });
+});
+
+// The bare Drizzle adapter finds and creates users with no tenant (#2018).
+describe("adapter", () => {
+  it("is the one scoped to this deployment's tenant", () => {
+    expect(captured.adapter).toEqual({ scopedTo: "test-tenant" });
   });
 });
 
