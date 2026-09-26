@@ -612,6 +612,14 @@ describe("#1981 payloads: connections-crud", () => {
     ]);
     expect(remove.description).toMatch(/admin/i);
   });
+
+  it("a delete refuses readers (#1995) and answers 404 before the in-use check (#1996)", () => {
+    expect(remove.responses["403"].$ref).toBe(
+      "#/components/responses/Forbidden",
+    );
+    expect(remove.description).toMatch(/Readers are refused \(403\)/);
+    expect(remove.description).toMatch(/404 before any usage check/);
+  });
 });
 
 describe("#1981 payloads: connections-test-schema", () => {
