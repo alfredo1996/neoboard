@@ -1557,7 +1557,7 @@ describe("security claims the code does not back (#1790)", () => {
     ["security/query-safety.mdx", /only allowed through \**Form widgets/i, "/api/query/write also runs writes that name no widget, on canWrite and ownership"],
     ["security/password-login.mdx", /rate-limited by IP address|per minute per IP\b/i, "keyed on the client-supplied X-Forwarded-For"],
     ["security/api-keys.mdx", /Keys inherit the permissions of the user who created them/i, "keys read the user's current role and write permission on every request (auth/api-key.ts)"],
-    ["security/api-keys.mdx", /Disabling a user does \*\*not\*\* revoke|disabled user's keys keep working/i, "a disabled user's keys are refused (auth/api-key.ts, #2003)"],
+    ["security/api-keys.mdx", /disabled user's keys keep working|Keys are checked only for their hash and expiry/i, "a disabled user's keys are refused (auth/api-key.ts, #2003)"],
     ["extend/architecture.mdx", /AES-256-GCM envelope encryption/i, "ENCRYPTION_KEY is the AES key directly (crypto.ts)"],
     ["extend/architecture.mdx", /All queries filter by the authenticated user's tenant/, "adapter tables have no tenant_id; allowlisted instance-wide queries"],
     ["extend/architecture.mdx", /\*\*Public routes\*\*(?![^\n]*`\/api\/health`)(?![^\n]*`\/change-password`)/, "proxy.ts publicExact includes /api/health and /change-password"],
