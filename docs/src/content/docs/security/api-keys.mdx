@@ -114,13 +114,14 @@ Ensure your key is:
 - Correctly prefixed with `nb_`
 - Not expired
 - Not revoked
+- Owned by a user who is not disabled
 - Included in the `Authorization` header (not query params)
 
 ## Security Notes
 
 - API keys are hashed with HMAC-SHA256 before storage. NeoBoard never stores the plain-text key.
 - Keys use the current role and write permission of the user who created them, read fresh on every request. They also carry that user's tenant.
-- Disabling a user does **not** revoke their API keys. Keys are checked only for their hash and expiry, so a disabled user's keys keep working. Only browser sessions are cut off.
-- Admins can't revoke another user's keys one at a time. To end a user's API access immediately, delete the user, which removes all their keys.
+- Disabling a user stops their API keys along with their sign-in: a key whose user is disabled gets the same `401` as an expired key. Re-enabling the user makes the keys work again.
+- Admins can't revoke another user's keys one at a time. To stop a user's API access at once and keep their keys, disable the user. To remove the keys for good, delete the user.
 - Revoked keys are immediately invalid.
 - Use short expiration dates for temporary access.

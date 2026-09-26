@@ -321,6 +321,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: true,
           expiresAt: pastDate,
+          disabledAt: null,
         },
       ]),
     );
@@ -344,6 +345,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: true,
           expiresAt: futureDate,
+          disabledAt: null,
         },
       ]),
     );
@@ -406,7 +408,8 @@ describe("resolveApiKeyAuth", () => {
     it("reads disabledAt from the user row", async () => {
       disabledKey("creator");
       await resolveApiKeyAuth().catch(() => undefined);
-      expect(mockDb.select.mock.calls[0][0]).toHaveProperty("disabledAt");
+      const { users } = await import("@/lib/db/schema");
+      expect(mockDb.select.mock.calls[0][0].disabledAt).toBe(users.disabledAt);
     });
   });
 
@@ -426,6 +429,7 @@ describe("resolveApiKeyAuth", () => {
           role: "admin",
           canWrite: true,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
@@ -454,6 +458,7 @@ describe("resolveApiKeyAuth", () => {
           role: "admin",
           canWrite: false,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
@@ -478,6 +483,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: false,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
@@ -502,6 +508,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: true,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
@@ -525,6 +532,7 @@ describe("resolveApiKeyAuth", () => {
           role: "creator",
           canWrite: true,
           expiresAt: null,
+          disabledAt: null,
         },
       ]),
     );
