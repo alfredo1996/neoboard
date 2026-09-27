@@ -1189,7 +1189,7 @@ describe("POST /api/query/write", () => {
     });
   });
 
-  it("does not apply MAX_ROWS truncation on write results", async () => {
+  it("does not slice the executor's rows itself, and sends no truncated when the executor reports none", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDashboardAndConnection();
     mockDecryptJson.mockReturnValue({
@@ -1197,9 +1197,15 @@ describe("POST /api/query/write", () => {
       username: "neo4j",
       password: "pass",
     });
-    // Return a large result (write routes should not truncate)
+    // The executor caps a write's rows at the connection's maxRows (#1965);
+    // here that is 15000, above DEFAULT_MAX_ROWS, and nothing was cut off. The
+    // route passes every row through — it applies no cap of its own.
     const bigData = Array.from({ length: 15000 }, (_, i) => ({ n: i }));
-    mockExecuteQuery.mockResolvedValue({ data: bigData });
+    mockExecuteQuery.mockResolvedValue({
+      data: bigData,
+      truncated: false,
+      rowLimit: 15000,
+    });
 
     const res = await POST(
       makeRequest({
@@ -1212,7 +1218,59 @@ describe("POST /api/query/write", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(15000);
+    expect(body.meta.rowLimit).toBe(15000);
     expect(body.meta).not.toHaveProperty("truncated");
+  });
+
+  /**
+   * #1965: the executor caps a write's returned rows at the connection's
+   * maxRows, so the route forwards the signal the way POST /api/query does —
+   * rowLimit always, truncated only when it is true.
+   */
+  describe("the row cap on a write's returned rows (#1965)", () => {
+    async function submit(result: Record<string, unknown>) {
+      mockRequireSession.mockResolvedValue(writerSession);
+      mockDashboardAndConnection();
+      mockDecryptJson.mockReturnValue({ uri: "bolt://localhost" });
+      mockExecuteQuery.mockResolvedValue(result);
+      const res = await POST(
+        makeRequest({
+          connectionId: "c1",
+          query: "CREATE (n:Test) RETURN n",
+          widgetId: "w1",
+          dashboardId: "d1",
+        }),
+      );
+      expect(res.status).toBe(200);
+      return res.json();
+    }
+
+    it("answers meta.truncated and meta.rowLimit when the rows were capped", async () => {
+      // What the executor returns when it cut: exactly rowLimit rows.
+      const rows = Array.from({ length: 250 }, (_, n) => ({ n }));
+      const body = await submit({
+        data: rows,
+        truncated: true,
+        rowLimit: 250,
+      });
+
+      expect(body.data).toEqual(rows);
+      expect(body.meta).toMatchObject({ truncated: true, rowLimit: 250 });
+    });
+
+    it("omits truncated but still carries rowLimit when nothing was capped", async () => {
+      const body = await submit({
+        data: [{ n: 1 }],
+        truncated: false,
+        // Not DEFAULT_MAX_ROWS (5000), so a route that hardcodes the default
+        // instead of forwarding the executor's value fails here.
+        rowLimit: 250,
+      });
+
+      expect(body.data).toEqual([{ n: 1 }]);
+      expect(body.meta.rowLimit).toBe(250);
+      expect(body.meta).not.toHaveProperty("truncated");
+    });
   });
   /**
    * #1902: a connector that cannot write must be refused server-side, before any
