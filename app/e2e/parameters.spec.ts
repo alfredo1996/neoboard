@@ -1859,17 +1859,21 @@ test.describe("Test Seed Query — a seed that filters on $param_search (#2043)"
         },
       ],
     };
-    const putRes = await request.put(`/api/dashboards/${id}`, {
-      data: { layoutJson: layout },
-    });
-    if (!putRes.ok())
-      throw new Error(`Update dashboard failed: ${putRes.status()}`);
-    return {
-      id,
-      cleanup: async () => {
-        await request.delete(`/api/dashboards/${id}`);
-      },
+    const cleanup = async () => {
+      await request.delete(`/api/dashboards/${id}`);
     };
+    // Past this point the dashboard exists: a failed setup deletes it too.
+    try {
+      const putRes = await request.put(`/api/dashboards/${id}`, {
+        data: { layoutJson: layout },
+      });
+      if (!putRes.ok())
+        throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    } catch (e) {
+      await cleanup();
+      throw e;
+    }
+    return { id, cleanup };
   }
 
   test("Test Seed Query sends param_search, so the seed loads (#2043)", async ({
