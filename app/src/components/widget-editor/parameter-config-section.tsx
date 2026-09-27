@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
+import { useCascadeParent } from "@/components/parameters/use-seed-query-options";
 import {
   Calendar,
   Type,
@@ -143,17 +144,41 @@ export interface SeedQueryExecutionState {
     connectionId: string;
     query: string;
     database?: string;
+    params?: Record<string, unknown>;
   }) => void;
 }
 
 export interface ParameterConfigSectionProps {
   seedQueryExecution: SeedQueryExecutionState;
   seedPreviewOptions: { value: string; label: string }[] | null;
+  /** Editing a Widget Library template: no dashboard is open (#1951). */
+  isLabMode?: boolean;
+}
+
+/**
+ * Why Test Seed Query cannot run a cascading seed query yet, or undefined
+ * when it can. The dashboard holds a cascade back for an unset parent and for
+ * a list or range one, so the editor does too — and says which (#1951).
+ */
+function missingParentHint(
+  parentParameterName: string | undefined,
+  cascade: { parentValue: string | undefined; nonScalar: boolean },
+  isLabMode: boolean,
+): string | undefined {
+  if (!parentParameterName || cascade.parentValue) return undefined;
+  if (isLabMode) {
+    return `Test Seed Query needs a ${parentParameterName} value, which a dashboard sets`;
+  }
+  if (cascade.nonScalar) {
+    return `A cascade needs a single ${parentParameterName} value; the dashboard's is a list or range`;
+  }
+  return `Pick a ${parentParameterName} value on the dashboard first`;
 }
 
 export function ParameterConfigSection({
   seedQueryExecution,
   seedPreviewOptions,
+  isLabMode = false,
 }: ParameterConfigSectionProps) {
   const paramUIType = useWidgetEditorStore((s) => s.paramUIType);
   const onParamUITypeChange = useWidgetEditorStore((s) => s.setParamUIType);
@@ -171,6 +196,14 @@ export function ParameterConfigSection({
   const onChartOptionsChange = useWidgetEditorStore((s) => s.setChartOptions);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
   const database = useWidgetEditorStore((s) => s.database);
+  // A cascading seed query references $param_<parent>; the dashboard binds the
+  // parent's current value, so Test Seed Query does too, and without one it
+  // cannot run. The Widget Library has no dashboard, and the store still holds
+  // the last one's values, so there it never binds (#1951).
+  const parentParameterName =
+    (chartOptions.parentParameterName as string) || undefined;
+  const cascade = useCascadeParent(isLabMode ? undefined : parentParameterName);
+  const parentHint = missingParentHint(parentParameterName, cascade, isLabMode);
   return (
     <div className="space-y-4" data-testid="param-config-section">
       {/* Parameter Type dropdown */}
@@ -361,8 +394,11 @@ export function ParameterConfigSection({
             size="sm"
             className="mt-2"
             disabled={
-              !connectionId || !String(chartOptions.seedQuery ?? "").trim()
+              !connectionId ||
+              !String(chartOptions.seedQuery ?? "").trim() ||
+              !!parentHint
             }
+            aria-describedby={parentHint ? "seed-parent-hint" : undefined}
             onClick={() => {
               const sq = (chartOptions.seedQuery as string) ?? "";
               if (connectionId && sq.trim()) {
@@ -371,12 +407,23 @@ export function ParameterConfigSection({
                   connectionId,
                   query: sq,
                   ...(database ? { database } : {}),
+                  ...(parentParameterName
+                    ? { params: cascade.parentParams }
+                    : {}),
                 });
               }
             }}
           >
             {seedQueryExecution.isPending ? "Running..." : "Test Seed Query"}
           </Button>
+          {parentHint && (
+            <p
+              id="seed-parent-hint"
+              className="text-xs text-muted-foreground mt-1"
+            >
+              {parentHint}
+            </p>
+          )}
           {seedQueryExecution.isError && (
             <p className="text-xs text-destructive mt-1">
               {seedQueryExecution.error?.message}

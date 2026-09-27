@@ -783,6 +783,7 @@ export function WidgetEditorModal({
                         <ParameterConfigSection
                           seedQueryExecution={seedQueryExecution}
                           seedPreviewOptions={seedPreviewOptions}
+                          isLabMode={isLabMode}
                         />
                       )}
 
@@ -965,6 +966,7 @@ export function WidgetEditorModal({
                   transformsEnabled={transformsEnabled}
                   buildStylingConfig={buildStylingConfig}
                   isParamSelect={isParamSelect}
+                  isLabMode={isLabMode}
                   isForm={isForm}
                   isContentOnly={isContentOnly}
                   isMarkdown={isMarkdown}

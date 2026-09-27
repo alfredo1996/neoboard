@@ -1722,6 +1722,102 @@ test.describe("Cascading-select parameter widget", () => {
       await cleanup();
     }
   });
+
+  // #1951: the child's seed query references $param_test_director. Test Seed
+  // Query binds the parent's dashboard value, as the dashboard does, and
+  // without one it does not run and says why.
+  async function openChildEditor(page: import("@playwright/test").Page) {
+    const card = page.locator("[data-widget-id='cascade-child']");
+    await card.hover();
+    await card.getByRole("button", { name: "Widget actions" }).click();
+    await page.getByRole("menuitem", { name: "Edit Widget" }).click();
+    const dialog = page.getByRole("dialog", { name: "Edit Widget" });
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    return dialog;
+  }
+
+  test("Test Seed Query waits for the cascade parent's dashboard value (#1951)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createCascadingSelectDashboard(page.request);
+
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible();
+      await expect(page.getByText("Select test_director first…")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      const dialog = await openChildEditor(page);
+      await expect(
+        dialog.getByText("Pick a test_director value on the dashboard first"),
+      ).toBeVisible();
+      await expect(
+        dialog.getByRole("button", { name: "Test Seed Query" }),
+      ).toBeDisabled();
+      // The preview waits for the parent too.
+      await expect(
+        dialog
+          .getByTestId("param-preview")
+          .getByText("Select test_director first…"),
+      ).toBeVisible();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("Test Seed Query binds the cascade parent's dashboard value (#1951)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createCascadingSelectDashboard(page.request);
+
+    try {
+      await page.goto(`/${id}`);
+      const child = page.locator("[data-widget-id='cascade-child']");
+      await expect(child.getByText("Select test_director first…")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // Pick a director on the dashboard.
+      await page.getByText("Select a value…").first().click();
+      await expect(async () => {
+        await page.getByRole("option").first().click({ timeout: 2_000 });
+      }).toPass({ timeout: 15_000 });
+      // The child's options loaded: the parent's value is in the store.
+      await expect(child.getByText("Select a value…")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // Into edit mode in-app, so the dashboard's values stay in the store.
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible({ timeout: 10_000 });
+
+      const dialog = await openChildEditor(page);
+      const testSeed = dialog.getByRole("button", { name: "Test Seed Query" });
+      await expect(testSeed).toBeEnabled();
+      await testSeed.click();
+
+      await expect(
+        dialog.getByText(/^\d+ options? loaded — see preview$/),
+      ).toBeVisible({ timeout: 15_000 });
+      // The preview opens on the options the test loaded.
+      await expect(
+        dialog.getByTestId("param-preview").getByText("Select a value…"),
+      ).toBeVisible();
+      // Positive end state first (#1748); then no seed error beside it.
+      await expect(dialog.locator("p.text-destructive")).toHaveCount(0);
+    } finally {
+      await cleanup();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -74,6 +74,39 @@ function scalarParentValue(raw: unknown): string | undefined {
 }
 
 /**
+ * The cascade parent's current dashboard value, and the `param_<parent>` it
+ * binds in the seed query. `parentValue` is undefined — "no parent value
+ * yet" — for an unset or non-scalar parent, and `nonScalar` tells the second
+ * case apart; `parentParams` is empty until the value is non-empty. The widget
+ * editor's Test Seed Query reads it here so it binds the parent the same way
+ * the dashboard does (#1951).
+ */
+export function useCascadeParent(parentParameterName?: string): {
+  parentValue: string | undefined;
+  parentParams: Record<string, string>;
+  nonScalar: boolean;
+} {
+  const parentRawValue = useParameterStore((s) =>
+    parentParameterName ? s.parameters[parentParameterName]?.value : undefined,
+  );
+  const parentValue = parentParameterName
+    ? scalarParentValue(parentRawValue)
+    : undefined;
+  const parentParams = useMemo(
+    () =>
+      parentParameterName && parentValue
+        ? { [`param_${parentParameterName}`]: parentValue }
+        : {},
+    [parentParameterName, parentValue],
+  );
+  return {
+    parentValue,
+    parentParams,
+    nonScalar: parentRawValue != null && parentValue === undefined,
+  };
+}
+
+/**
  * Loads the option list for an option-backed parameter widget.
  *
  * "Cascading" is not a separate widget type — it is simply a select (or
@@ -90,15 +123,12 @@ export function useSeedQueryOptions(
   /** The selector widget's saved per-card database (#1824). */
   database?: string,
 ): SeedQueryResult {
-  const parentRawValue = useParameterStore((s) =>
-    parentParameterName ? s.parameters[parentParameterName]?.value : undefined,
-  );
+  const { parentValue, parentParams } = useCascadeParent(parentParameterName);
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
 
   // A parent name is what makes this select cascading.
   const hasParent = !!parentParameterName;
-  const parentValue = hasParent ? scalarParentValue(parentRawValue) : undefined;
 
   // Debounced search term — only used when `searchable` is true.
   const [searchTerm, setSearchTerm] = useState("");
@@ -135,14 +165,6 @@ export function useSeedQueryOptions(
     );
     return () => clearTimeout(timer);
   }, [searchTerm, searchable]);
-
-  const parentParams = useMemo(
-    () =>
-      parentParameterName && parentValue
-        ? { [`param_${parentParameterName}`]: parentValue }
-        : {},
-    [parentParameterName, parentValue],
-  );
 
   // Seed query enablement
   const needsSeed =

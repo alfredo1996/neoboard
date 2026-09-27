@@ -9,7 +9,7 @@
  */
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 
@@ -158,7 +158,9 @@ vi.mock("../widget-editor/use-widget-save", () => ({
 
 // Heavy children stubbed — this test is about the modal's layout, not theirs.
 vi.mock("../widget-editor/widget-preview-panel", () => ({
-  WidgetPreviewPanel: () => <div data-testid="widget-preview" />,
+  WidgetPreviewPanel: ({ isLabMode }: { isLabMode?: boolean }) => (
+    <div data-testid="widget-preview" data-lab-mode={String(isLabMode)} />
+  ),
 }));
 vi.mock("../widget-editor/chart-type-selector", () => ({
   ChartTypeSelector: () => <div />,
@@ -167,7 +169,9 @@ vi.mock("../widget-editor/form-fields-editor", () => ({
   FormFieldsEditor: () => <div />,
 }));
 vi.mock("../widget-editor/parameter-config-section", () => ({
-  ParameterConfigSection: () => <div />,
+  ParameterConfigSection: ({ isLabMode }: { isLabMode?: boolean }) => (
+    <div data-testid="param-config" data-lab-mode={String(isLabMode)} />
+  ),
 }));
 vi.mock("../widget-editor/action-rules-editor", () => ({
   ActionRulesEditor: () => <div />,
@@ -363,6 +367,40 @@ describe("WidgetEditorModal — a parameter selector's database (#1824)", () => 
     renderSelector("text");
     expect(screen.queryByTestId("database-selector")).not.toBeInTheDocument();
   });
+});
+
+// #1951: the Widget Library has no dashboard, and the parameter store still
+// holds the last one's values, so neither the Test Seed Query check nor the
+// preview may bind a cascade parent there.
+describe("WidgetEditorModal — no dashboard in the Widget Library (#1951)", () => {
+  it.each([
+    ["lab-create", "true"],
+    ["add", "false"],
+  ] as const)(
+    "in %s mode tells the selector editor isLabMode=%s",
+    (mode, lab) => {
+      render(
+        <WidgetEditorModal
+          open
+          onOpenChange={vi.fn()}
+          mode={mode}
+          connections={[]}
+          onSave={vi.fn()}
+        />,
+      );
+      act(() =>
+        useWidgetEditorStore.getState().setChartType("parameter-select"),
+      );
+      expect(screen.getByTestId("param-config")).toHaveAttribute(
+        "data-lab-mode",
+        lab,
+      );
+      expect(screen.getByTestId("widget-preview")).toHaveAttribute(
+        "data-lab-mode",
+        lab,
+      );
+    },
+  );
 });
 
 // #1952: the editor closed on any interaction outside it, and focus leaving

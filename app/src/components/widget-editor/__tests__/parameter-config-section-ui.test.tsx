@@ -3,15 +3,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 vi.mock("@neoboard/components", () => ({
+  // The rest reach the DOM so aria-describedby is asserted, not dropped (#1951).
   Button: ({
     children,
-    onClick,
-    disabled,
-  }: React.PropsWithChildren<{ onClick?: () => void; disabled?: boolean }>) => (
-    <button onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  ),
+    variant: _variant,
+    size: _size,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    variant?: string;
+    size?: string;
+  }) => <button {...props}>{children}</button>,
   Label: ({
     children,
     htmlFor,
@@ -113,6 +114,7 @@ vi.mock("@/stores/widget-editor-store", () => ({
 }));
 
 import { ParameterConfigSection } from "../parameter-config-section";
+import { useParameterStore } from "@/stores/parameter-store";
 
 const baseSeedExecution = {
   isPending: false,
@@ -161,6 +163,153 @@ describe("ParameterConfigSection — Test Seed Query runs on the selector's data
 
   it("sends no database when the selector saves none", () => {
     expect(testSeedWith("")).not.toHaveProperty("database");
+  });
+});
+
+// #1951: a cascading child's seed query references $param_<parent>. The
+// dashboard binds the parent's current value (use-seed-query-options.ts), so
+// the editor's check does too — and refuses to run without one.
+describe("ParameterConfigSection — Test Seed Query binds the cascade parent (#1951)", () => {
+  beforeEach(() => {
+    useParameterStore.getState().clearAll();
+  });
+
+  function renderSeed(
+    chartOptions: Record<string, unknown>,
+    isLabMode = false,
+  ) {
+    mockStoreState = {
+      paramUIType: "select",
+      setParamUIType: vi.fn(),
+      paramWidgetName: "city",
+      setParamWidgetName: vi.fn(),
+      multiSelect: false,
+      setMultiSelect: vi.fn(),
+      dateSub: "single",
+      setDateSub: vi.fn(),
+      chartOptions,
+      setChartOptions: vi.fn(),
+      connectionId: "conn-1",
+      database: "",
+    };
+    const mutate = vi.fn();
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={{ ...baseSeedExecution, mutate }}
+        seedPreviewOptions={null}
+        isLabMode={isLabMode}
+      />,
+    );
+    return mutate;
+  }
+
+  /** Click Test Seed Query and report what a held-back button must show. */
+  function clickTestSeed(mutate: ReturnType<typeof vi.fn>) {
+    const button = screen.getByText("Test Seed Query");
+    fireEvent.click(button);
+    return {
+      disabled: button.hasAttribute("disabled"),
+      ran: mutate.mock.calls.length > 0,
+      // The button names its hint, so a screen reader says why it is disabled.
+      describedBy: button.getAttribute("aria-describedby"),
+    };
+  }
+
+  function heldBackBy(hint: string) {
+    return {
+      disabled: true,
+      ran: false,
+      describedBy: screen.getByText(hint).id,
+    };
+  }
+
+  const cascading = {
+    parentParameterName: "country",
+    seedQuery: "SELECT name FROM city WHERE country = $param_country",
+  };
+
+  it("sends the parent's dashboard value as param_<parent>", () => {
+    useParameterStore
+      .getState()
+      .setParameter("country", "Italy", "Country", "country", "select");
+    const mutate = renderSeed(cascading);
+    fireEvent.click(screen.getByText("Test Seed Query"));
+    expect(mutate).toHaveBeenCalledWith({
+      connectionId: "conn-1",
+      query: cascading.seedQuery,
+      params: { param_country: "Italy" },
+    });
+  });
+
+  it.each([
+    ["unset", undefined],
+    ["empty", ""],
+  ])("does not run and says why when the parent is %s", (_, value) => {
+    if (value !== undefined) {
+      useParameterStore
+        .getState()
+        .setParameter("country", value, "Country", "country", "select");
+    }
+    const mutate = renderSeed(cascading);
+    expect(clickTestSeed(mutate)).toEqual(
+      heldBackBy("Pick a country value on the dashboard first"),
+    );
+  });
+
+  // The dashboard holds a cascade back for a list or range parent too, so
+  // asking the user to pick the value they already picked would be wrong.
+  it("says the cascade needs a single value when the parent is a list", () => {
+    useParameterStore
+      .getState()
+      .setParameter(
+        "country",
+        ["Italy", "France"],
+        "Country",
+        "country",
+        "multi-select",
+      );
+    const mutate = renderSeed(cascading);
+    expect(clickTestSeed(mutate)).toEqual(
+      heldBackBy(
+        "A cascade needs a single country value; the dashboard's is a list or range",
+      ),
+    );
+  });
+
+  // The Widget Library has no dashboard, and the store still holds the last
+  // dashboard's values: binding one would test against an unrelated dashboard.
+  it("never binds a store value in the Widget Library", () => {
+    useParameterStore
+      .getState()
+      .setParameter("country", "Italy", "Country", "country", "select");
+    const mutate = renderSeed(cascading, true);
+    expect(clickTestSeed(mutate)).toEqual(
+      heldBackBy(
+        "Test Seed Query needs a country value, which a dashboard sets",
+      ),
+    );
+  });
+
+  it("runs a non-cascading seed query in the Widget Library", () => {
+    const mutate = renderSeed(
+      { parentParameterName: "", seedQuery: "SELECT 1" },
+      true,
+    );
+    fireEvent.click(screen.getByText("Test Seed Query"));
+    expect(mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends a non-cascading seed query with no params key", () => {
+    useParameterStore
+      .getState()
+      .setParameter("country", "Italy", "Country", "country", "select");
+    const mutate = renderSeed({
+      parentParameterName: "",
+      seedQuery: "SELECT 1",
+    });
+    fireEvent.click(screen.getByText("Test Seed Query"));
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate.mock.calls[0][0]).not.toHaveProperty("params");
   });
 });
 
