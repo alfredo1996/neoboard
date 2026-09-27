@@ -226,6 +226,10 @@ export function WidgetEditorModal({
   }, [open, mode, widget, templateProp]);
 
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // A save can close the editor under the question (run-and-save's shortcut
+  // ignores layers): the question goes with it, and is not there on reopen.
+  if (!open && confirmDiscard) setConfirmDiscard(false);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   // Every way out but a save comes through here (#2054): Escape, the close
   // button and a click outside (Radix), and Cancel. With edits since the
   // editor opened, it asks first.
@@ -235,11 +239,21 @@ export function WidgetEditorModal({
       openedWith !== null &&
       editorSnapshot(useWidgetEditorStore.getState()) !== openedWith
     ) {
+      returnFocusRef.current = document.activeElement as HTMLElement | null;
       setConfirmDiscard(true);
     } else {
       onOpenChange(false);
     }
   }, [onOpenChange]);
+  // Radix only ever calls this to close the question.
+  const closeQuestion = useCallback(() => {
+    setConfirmDiscard(false);
+    // Radix hands focus back to the question's trigger, and it has none, so
+    // focus fell to <body> and typing went nowhere. Put it back.
+    const back = returnFocusRef.current;
+    returnFocusRef.current = null;
+    if (back) setTimeout(() => back.focus(), 0);
+  }, []);
 
   // ── Local-only state (not in store) ────────────────────────────────
 
@@ -677,13 +691,16 @@ export function WidgetEditorModal({
     <Dialog open={open} onOpenChange={requestClose}>
       <ConfirmDialog
         open={confirmDiscard}
-        onOpenChange={setConfirmDiscard}
+        onOpenChange={closeQuestion}
         title="Discard unsaved changes?"
         description="The changes you made since opening the editor will be lost."
         confirmText="Discard"
         cancelText="Keep editing"
         variant="destructive"
-        onConfirm={() => onOpenChange(false)}
+        onConfirm={() => {
+          returnFocusRef.current = null;
+          onOpenChange(false);
+        }}
       />
       <DialogContent
         size="full"
@@ -694,6 +711,15 @@ export function WidgetEditorModal({
         // menu hands focus back to its trigger as it closes, so the editor
         // dismissed itself the moment Edit Widget opened it (#1952).
         onPointerDownOutside={requestClose}
+        // Radix hears Escape on the document before anything inside, so an
+        // open suggestion list lost it to the editor: the list keeps it.
+        onEscapeKeyDown={(e) => {
+          if (
+            e.target instanceof Element &&
+            e.target.matches('[role="combobox"][aria-expanded="true"]')
+          )
+            e.preventDefault();
+        }}
       >
         {dialogStep === "styling-rules" ? (
           <StylingRulesEditor onBack={() => setDialogStep("main")} />

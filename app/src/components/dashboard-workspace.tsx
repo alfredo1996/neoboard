@@ -627,7 +627,9 @@ export function DashboardWorkspace({
         if (editMode) leaveEditMode();
         else if (dashboard) enterEditMode();
       },
-      disabled: !editMode && !canEdit,
+      // Not under the widget editor: leaving edit mode unmounts it and drops
+      // its unsaved edits without its question (#2054).
+      disabled: (!editMode && !canEdit) || editorOpen,
     },
     {
       shortcut: "Cmd+S",

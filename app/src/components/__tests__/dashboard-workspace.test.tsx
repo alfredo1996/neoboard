@@ -1069,6 +1069,20 @@ describe("DashboardWorkspace", () => {
     expect(screen.getByTestId("widget-editor-modal")).toBeInTheDocument();
   });
 
+  // #2054: leaving edit mode unmounts the editor and its unsaved edits with
+  // it, without the editor's question. Focus on a button in the editor does
+  // not hold the shortcut back the way a text field does.
+  it("Cmd+E leaves edit mode alone while the widget editor is open", async () => {
+    pathname = "/d1/edit";
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    await userEvent.click(screen.getByText("Add Widget"));
+
+    fireEvent.keyDown(document, { key: "e", metaKey: true });
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.getByTestId("widget-editor-modal")).toBeInTheDocument();
+  });
+
   // ── Widget actions are wired only in edit mode ───────────────────────
   it("does not wire widget mutations in view mode", () => {
     render(<DashboardWorkspace id="d1" editMode={false} />);

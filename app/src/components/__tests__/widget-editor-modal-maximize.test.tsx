@@ -9,7 +9,7 @@
  */
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 
@@ -37,6 +37,9 @@ vi.mock("@neoboard/components", () => {
   const passthrough = ({ children }: React.PropsWithChildren) => (
     <>{children}</>
   );
+  // As in Radix: the root always renders its children, and only the content
+  // goes when it closes — so a sibling of the content outlives it (#2054).
+  const OpenContext = React.createContext(false);
   return {
     Dialog: ({
       open,
@@ -47,7 +50,9 @@ vi.mock("@neoboard/components", () => {
       onOpenChange?: (open: boolean) => void;
     }>) => {
       dismiss.onOpenChange = onOpenChange as (e?: unknown) => void;
-      return open ? <div>{children}</div> : null;
+      return (
+        <OpenContext.Provider value={open}>{children}</OpenContext.Provider>
+      );
     },
     ConfirmDialog: ({
       open,
@@ -86,22 +91,25 @@ vi.mock("@neoboard/components", () => {
       onPointerDownOutside,
       onInteractOutside,
       onFocusOutside,
+      onEscapeKeyDown,
     }: React.PropsWithChildren<{
       className?: string;
       onPointerDownOutside?: () => void;
       onInteractOutside?: () => void;
       onFocusOutside?: () => void;
+      onEscapeKeyDown?: (e: KeyboardEvent) => void;
     }>) => {
       Object.assign(dismiss, {
         onPointerDownOutside,
         onInteractOutside,
         onFocusOutside,
+        onEscapeKeyDown,
       });
-      return (
+      return React.useContext(OpenContext) ? (
         <div role="dialog" className={className}>
           {children}
         </div>
-      );
+      ) : null;
     },
     DialogHeader: ({ children }: React.PropsWithChildren) => (
       <div>{children}</div>
@@ -616,5 +624,72 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(useWidgetEditorStore.getState().dialogStep).toBe("rules");
     expect(useWidgetEditorStore.getState().actionRules).toHaveLength(1);
+  });
+
+  // Radix hears Escape on the document before an inner widget does, so an
+  // open suggestion list (CreatableCombobox: the rules step's Parameter Name,
+  // a styling or transform value) lost the key to the editor. The E2E in
+  // widgets.spec.ts shows it end to end; this pins who keeps the key.
+  it.each([
+    ["an open suggestion list keeps it", "combobox", "true", true],
+    ["a closed combobox passes it on", "combobox", "false", false],
+    ["an expanded accordion header passes it on", "button", "true", false],
+  ] as const)("Escape from %s", async (_what, role, expanded, kept) => {
+    await openEditor();
+    const el = document.createElement(role === "combobox" ? "input" : "button");
+    el.setAttribute("role", role);
+    el.setAttribute("aria-expanded", expanded);
+    document.body.appendChild(el);
+    el.addEventListener("keydown", (e) => dismiss.onEscapeKeyDown?.(e));
+    const escape = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+
+    el.dispatchEvent(escape);
+
+    expect(escape.defaultPrevented).toBe(kept);
+    el.remove();
+  });
+
+  it("a save that closes the editor takes the confirmation with it", async () => {
+    const props = {
+      onOpenChange: vi.fn(),
+      mode: "add" as const,
+      connections: [],
+      onSave: vi.fn(),
+    };
+    const { rerender } = render(<WidgetEditorModal open {...props} />);
+    await settle();
+    act(() => useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n"));
+    await act(async () => dismiss.onOpenChange?.(false));
+    expect(
+      screen.getByRole("alertdialog", { name: CONFIRM }),
+    ).toBeInTheDocument();
+
+    // Run-and-save's shortcut, or a save already under way, still lands.
+    await userEvent.click(screen.getByRole("button", { name: "Add Widget" }));
+    expect(props.onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    rerender(<WidgetEditorModal open={false} {...props} />);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+    rerender(<WidgetEditorModal open {...props} />);
+    await settle();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("Keep editing hands focus back to where it was", async () => {
+    await openEditor();
+    const expand = screen.getByRole("button", { name: /expand editor/i });
+    act(() => {
+      useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n");
+      expand.focus();
+    });
+    await act(async () => dismiss.onOpenChange?.(false));
+
+    await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+    await waitFor(() => expect(expand).toHaveFocus());
   });
 });

@@ -557,7 +557,12 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     await adder.getByRole("tab", { name: "Style" }).click();
     await adder.getByLabel("Sync to URL").click();
     await docsShot(page, "sync-to-url");
+    // The editor has edits, so Escape asks before dropping them (#2054).
     await page.keyboard.press("Escape");
+    await page
+      .getByRole("alertdialog", { name: "Discard unsaved changes?" })
+      .getByRole("button", { name: "Discard" })
+      .click();
     await expect(adder).not.toBeVisible();
 
     await page.getByRole("button", { name: "Sharing" }).click();
