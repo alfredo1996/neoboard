@@ -115,7 +115,7 @@ The application tables carry a `tenant_id` column. The Auth.js adapter tables (`
 - **Credentials**: AES-256-GCM, with the 64-character hex `ENCRYPTION_KEY` used directly as the key (no key derivation, no envelope); each value is stored as `iv:authTag:ciphertext`. Covers connection credentials and SSO client secrets. `ENCRYPTION_KEY_OLD` plus the admin rotate-key endpoint handles [rotation](/security/credential-encryption). Lost `ENCRYPTION_KEY` = unrecoverable.
 - **Queries**: Always parameterized. User input never interpolated into query strings.
 - **Read-only**: PostgreSQL uses `BEGIN TRANSACTION READ ONLY`. Neo4j uses `session.executeRead()`.
-- **Timeouts**: Enforced at driver level (statement timeout for PostgreSQL, transaction timeout for Neo4j).
+- **Timeouts**: Enforced at driver level (statement timeout for PostgreSQL, transaction timeout for Neo4j). The query executor adds a backstop deadline for a connector that never answers: the longest millisecond timeout the connection holds, at least 30 s, plus 10 s. It also cuts a result longer than the row limit.
 - **Rate limiting**: password sign-in allows 20 attempts per minute and signup 10, counted per client address; the public `bootstrap-status` and `sso-providers` endpoints allow 60. Counters live in memory in each server process, so they reset on restart and are not shared across replicas. The client address is the first `X-Forwarded-For` value, and requests without that header share one bucket. A client can send its own `X-Forwarded-For` to change its key, so put NeoBoard behind a reverse proxy that overwrites the header.
 
 ## Further reading

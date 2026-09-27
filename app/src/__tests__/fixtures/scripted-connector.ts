@@ -20,8 +20,14 @@ export type Script = (
 
 export const SCRIPTED_TYPE = "scripted-stub";
 
-/** What the next query does. Tests set it; the default never answers. */
-export const scripted: { script: Script } = { script: () => {} };
+/**
+ * What the next query does, and what the next connection probe does. Tests
+ * set them; the default query never answers, the default probe passes.
+ */
+export const scripted: { script: Script; check: () => Promise<boolean> } = {
+  script: () => {},
+  check: async () => true,
+};
 
 const waiting: ((callbacks: ScriptedCallbacks) => void)[] = [];
 
@@ -70,9 +76,7 @@ export const scriptedConnector = {
         scripted.script(callbacks, config);
         for (const resolve of waiting.splice(0)) resolve(callbacks);
       },
-      async checkConnection() {
-        return true;
-      },
+      checkConnection: () => scripted.check(),
       async listDatabases() {
         return [];
       },

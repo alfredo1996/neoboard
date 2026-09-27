@@ -231,6 +231,9 @@ export function toConnectorAccessMode(
  */
 export const QUERY_DEADLINE_GRACE_MS = 10_000;
 
+/** setTimeout's ceiling: past it, Node fires the timer after 1 ms. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 const isDuration = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
@@ -254,7 +257,28 @@ function queryDeadlineMs(
     DEFAULT_CONNECTION_CONFIG.timeout,
     ...[override, ...declared].filter(isDuration),
   );
-  return longest + QUERY_DEADLINE_GRACE_MS;
+  // A field without a `max` accepts any duration; unclamped, one past the
+  // ceiling would fail every query on the connection at once.
+  return Math.min(longest + QUERY_DEADLINE_GRACE_MS, MAX_TIMER_MS);
+}
+
+/**
+ * Fails the work with a TIMEOUT once `ms` pass. Not transient, unlike a
+ * connector's own timeout: the client retries transient errors, and every
+ * retry of a connector that never answers pins a slot for the whole deadline
+ * again (#1678).
+ */
+function armDeadline(ms: number, fail: (error: ConnectorError) => void) {
+  return setTimeout(
+    () =>
+      fail(
+        new ConnectorError(`The connector did not answer within ${ms} ms`, {
+          type: ConnectorErrorType.TIMEOUT,
+          transient: false,
+        }),
+      ),
+    ms,
+  );
 }
 
 /**
@@ -350,19 +374,7 @@ export async function executeQuery(
   return new Promise((resolve, reject) => {
     // Armed before runQuery, which may call back synchronously. Once it
     // fires the promise has settled, so a late callback changes nothing.
-    // Not transient, unlike a connector's own timeout: the client retries
-    // transient errors, and every retry of a connector that never answers
-    // pins a slot for the whole deadline again (#1678).
-    const deadline = setTimeout(
-      () =>
-        reject(
-          new ConnectorError(
-            `The connector did not answer within ${deadlineMs} ms`,
-            { type: ConnectorErrorType.TIMEOUT, transient: false },
-          ),
-        ),
-      deadlineMs,
-    );
+    const deadline = armDeadline(deadlineMs, reject);
     const settle =
       <V>(done: (value: V) => void) =>
       (value: V) => {
@@ -408,7 +420,9 @@ export async function executeQuery(
 }
 
 /**
- * Test a database connection.
+ * Test a database connection. The probe holds a scheduler slot like a query
+ * (#1426), so it gets the same deadline: a `checkConnection` that never
+ * settles fails with the same TIMEOUT instead of pinning the slot (#2060).
  */
 export async function testConnection(
   type: DbType,
@@ -418,16 +432,25 @@ export async function testConnection(
     ...DEFAULT_CONNECTION_CONFIG,
     database: credentials.database,
   };
+  let deadline: ReturnType<typeof setTimeout> | undefined;
 
   try {
     const connModule = (await getOrCreateModule(type, credentials)) as {
       checkConnection: (config: unknown) => Promise<boolean>;
     };
-    return await connModule.checkConnection(config);
+    const deadlineMs = queryDeadlineMs(type, credentials);
+    return await Promise.race([
+      connModule.checkConnection(config),
+      new Promise<never>((_, reject) => {
+        deadline = armDeadline(deadlineMs, reject);
+      }),
+    ]);
   } catch (error) {
     // Building the module is inside the try: a connector rejects a bad URI in
     // its constructor, and the Test result has to say so (#1903).
     throw toConnectorError(type, error);
+  } finally {
+    clearTimeout(deadline);
   }
 }
 

@@ -16,6 +16,7 @@ import {
   closeAllConnections,
   executeQuery,
   QUERY_DEADLINE_GRACE_MS,
+  testConnection,
 } from "@/lib/query/query-executor";
 
 /**
@@ -43,6 +44,7 @@ describe("executeQuery backstops a connector that breaks its contract (#2060)", 
   beforeEach(() => {
     registerConnector(scriptedConnector);
     scripted.script = () => {};
+    scripted.check = async () => true;
   });
 
   afterEach(async () => {
@@ -184,6 +186,37 @@ describe("executeQuery backstops a connector that breaks its contract (#2060)", 
       expect(state.error).toMatchObject({ type: "TIMEOUT" });
     });
 
+    // Past 2^31 - 1 ms Node fires a timer after 1 ms, which would fail every
+    // query on the connection at once. A field with no `max` accepts such a
+    // value, so the deadline is clamped: late, never early.
+    it.each([
+      {
+        name: "a stored duration",
+        config: { callTimeout: 2_592_000_000 },
+        options: undefined,
+      },
+      {
+        name: "a per-query timeout",
+        config: {},
+        options: { timeout: 2_592_000_000 },
+      },
+    ])(
+      "lets a prompt answer through when $name is past setTimeout's range",
+      async ({ config, options }) => {
+        scripted.script = (cb) => {
+          setTimeout(() => cb.onSuccess?.(rows(1)), 50);
+        };
+
+        const state = outcome(
+          executeQuery(SCRIPTED_TYPE, config, { query: "SLOW" }, options),
+        );
+        await vi.advanceTimersByTimeAsync(50);
+
+        expect(state.error).toBeUndefined();
+        expect(state.value).toMatchObject({ data: rows(1) });
+      },
+    );
+
     it("ignores a callback that arrives after the deadline", async () => {
       const run = nextRun();
       const pending = executeQuery(SCRIPTED_TYPE, {}, { query: "LATE" });
@@ -222,5 +255,58 @@ describe("executeQuery backstops a connector that breaks its contract (#2060)", 
         expect(vi.getTimerCount()).toBe(0);
       },
     );
+
+    describe("the connection probe", () => {
+      /** Resolves once checkConnection has been called. */
+      function probeOnce(answer: Promise<boolean>) {
+        return new Promise<void>((called) => {
+          scripted.check = () => {
+            called();
+            return answer;
+          };
+        });
+      }
+
+      // A probe holds a scheduler slot too (#1426), so one that never settles
+      // would pin it for the life of the process, one per Test click.
+      it("rejects with a non-transient TIMEOUT when checkConnection never settles", async () => {
+        const probed = probeOnce(new Promise(() => {}));
+        const state = outcome(testConnection(SCRIPTED_TYPE, {}));
+        await probed;
+
+        await vi.advanceTimersByTimeAsync(DEFAULT_DEADLINE - 1);
+        expect(state.settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(state.error).toMatchObject({
+          name: "ConnectorError",
+          type: "TIMEOUT",
+          classification: { type: "TIMEOUT", transient: false },
+        });
+        expect(vi.getTimerCount()).toBe(0);
+      });
+
+      it.each([
+        { name: "passes", answer: () => Promise.resolve(true), value: true },
+        { name: "fails", answer: () => Promise.resolve(false), value: false },
+      ])(
+        "answers as the connector did and clears its deadline when it $name",
+        async ({ answer, value }) => {
+          scripted.check = answer;
+
+          await expect(testConnection(SCRIPTED_TYPE, {})).resolves.toBe(value);
+          expect(vi.getTimerCount()).toBe(0);
+        },
+      );
+
+      it("clears its deadline when the probe throws", async () => {
+        scripted.check = () => Promise.reject(new Error("refused"));
+
+        await expect(testConnection(SCRIPTED_TYPE, {})).rejects.toMatchObject({
+          name: "ConnectorError",
+        });
+        expect(vi.getTimerCount()).toBe(0);
+      });
+    });
   });
 });

@@ -36,12 +36,15 @@ Every query has a timeout enforced inside the transaction, not in application co
 - **Neo4j**: the managed-transaction `timeout` option, enforced by the server
 - Default: **30 seconds**, set per connection in the Connections UI
 
+The server also keeps a backstop deadline in application code, for a connector that never answers. A query, or a connection test, that its connector has not answered within the longest millisecond timeout the connection holds (never under 30 seconds) plus 10 seconds fails with a timeout, and its place in the connection's query queue is freed. The backstop acts on the answer, never on the query, and it cannot stop the database: a write it fails can still commit afterwards, for example a PostgreSQL write whose large `RETURNING` result takes longer to drain than the deadline, since the statement timeout bounds each batch rather than the whole drain.
+
 ## Row Limits
 
 Results are consumed with a `MAX_ROWS + 1` pattern:
 
 - The extra row detects if results were truncated, so the UI can show a "results truncated" banner
 - NeoBoard **never** adds `LIMIT` clauses to user queries
+- A connector that returns more rows than the limit anyway has its result cut to the limit on the server and marked truncated
 - Default limit: **5,000 rows**, overridable per connection (`maxRows`, range 100–100,000)
 
 ## Concurrency Control
