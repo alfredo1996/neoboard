@@ -134,6 +134,31 @@ describe("PostgreSQL write path — row limit must not truncate side effects", (
     }
   }, 60_000);
 
+  it("does not flag truncation on a write that returns no rows, however many it affects (#1965)", async () => {
+    // Truncation is about the rows RETURNED. The affected-row count only tells
+    // COMPLETE from NO_DATA; an INSERT without RETURNING that touches more
+    // rows than rowLimit returned nothing, so nothing was cut off — and the
+    // write route now forwards this status to the caller as meta.truncated.
+    const affected = ROW_LIMIT * 3;
+    const { rows, statuses } = await runWrite(
+      `INSERT INTO counters (n) SELECT 77 FROM generate_series(1, ${affected})`,
+    );
+
+    expect(rows).toEqual([]);
+    expect(statuses).not.toContain(QueryStatus.COMPLETE_TRUNCATED);
+    expect(statuses.at(-1)).toBe(QueryStatus.COMPLETE);
+
+    const client = await connectionModule.getPool()!.connect();
+    try {
+      const { rows: check } = await client.query(
+        `SELECT count(*)::int AS inserted FROM counters WHERE n = 77`,
+      );
+      expect(check[0].inserted).toBe(affected);
+    } finally {
+      client.release();
+    }
+  }, 60_000);
+
   it("flags truncation when a write returns more rows than the limit", async () => {
     const { statuses } = await runWrite(
       `UPDATE counters SET n = n WHERE n <> 99 RETURNING *`,

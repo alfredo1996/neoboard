@@ -737,7 +737,7 @@ const SPEC = {
           "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
           "foreign-key, check, exclusion, length, format or date/time violation, or a graph constraint violation, answers 400 (a NOT NULL violation names its column in " +
           "`error.details.column`), a unique violation 409, and a read-only connection 403. " +
-          `The rows a write returns are capped like a read's, at the connection's \`maxRows\` or ${DEFAULT_MAX_ROWS}, with no truncation flag; the write itself is never cut short.\n\n` +
+          `The rows a write returns are capped like a read's, at the connection's \`maxRows\` or ${DEFAULT_MAX_ROWS}, and \`meta.truncated\` is present, and true, when there were more; the write itself is never cut short.\n\n` +
           "A write always runs at scheduler priority 1; `x-query-priority` is not read. " +
           "A 408 from the queue (`Retry-After: 5`) means the write never started. " +
           "A 408 from a transient connector error (`Retry-After: 3`), or a 502, can arrive after the database applied the write, so retrying it may run the write twice. " +
@@ -2225,12 +2225,21 @@ const SPEC = {
           },
           meta: {
             type: "object",
-            required: ["serverDurationMs"],
+            required: ["serverDurationMs", "rowLimit"],
             properties: {
               serverDurationMs: {
                 type: "integer",
                 description:
                   "Wall time of the whole run on the server; not database execution time.",
+              },
+              rowLimit: {
+                type: "integer",
+                description: `The cap applied to the rows the write returned: the connection's \`maxRows\`, else ${DEFAULT_MAX_ROWS}`,
+              },
+              truncated: {
+                type: "boolean",
+                description:
+                  "Present, and true, only when the write returned more rows than `rowLimit`",
               },
             },
           },

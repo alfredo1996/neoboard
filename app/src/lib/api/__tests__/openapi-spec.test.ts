@@ -169,7 +169,7 @@ describe("POST /api/query row cap and response (#1913)", () => {
     expect(at(path)).toBeDefined();
   });
 
-  it("gives the write route its own response: the rows, and only a duration", () => {
+  it("gives the write route its own response: the rows, a duration and the row cap (#1965)", () => {
     type Op = {
       post?: {
         responses?: Record<
@@ -182,9 +182,27 @@ describe("POST /api/query row cap and response (#1913)", () => {
       ?.content?.["application/json"]?.schema?.$ref;
     const write = schemas[ref!.split("/").pop()!] as Node;
     expect(write.properties?.data?.properties).toBeUndefined();
-    expect(Object.keys(write.properties?.meta?.properties ?? {})).toEqual([
+    // The write route forwards the executor's row cap the way POST /api/query
+    // does: rowLimit always, truncated only when true (#1965).
+    const meta = write.properties?.meta;
+    expect(Object.keys(meta?.properties ?? {})).toEqual([
       "serverDurationMs",
+      "rowLimit",
+      "truncated",
     ]);
+    expect(meta?.required).toEqual(["serverDurationMs", "rowLimit"]);
+    expect(meta?.properties?.truncated?.description).toMatch(
+      /Present, and true, only when/,
+    );
+  });
+
+  it("no longer says a write's rows come with no truncation flag (#1965)", () => {
+    expect(paths["/api/query/write"].post?.description).not.toMatch(
+      /no truncation flag/,
+    );
+    expect(paths["/api/query/write"].post?.description).toMatch(
+      /meta\.truncated/,
+    );
   });
 
   it("documents no key the route never sends", () => {

@@ -187,7 +187,14 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     );
     const serverDurationMs = Math.round(performance.now() - queryStart);
 
-    return apiSuccess(result.data, 200, { serverDurationMs });
+    // The executor caps a write's returned rows like a read's, so forward its
+    // signal the way POST /api/query does: rowLimit always, truncated only
+    // when true (#1965).
+    return apiSuccess(result.data, 200, {
+      serverDurationMs,
+      rowLimit: result.rowLimit,
+      ...(result.truncated ? { truncated: true } : {}),
+    });
   } catch (error) {
     // A body the route could not use is the caller's mistake, not a failed
     // write: answer it without an error-level log (#1963).
