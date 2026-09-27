@@ -622,3 +622,95 @@ test.describe("Edit Widget on an API-written layout (#1952)", () => {
     }
   });
 });
+
+// #2054: Escape, a click outside, the close button and Cancel closed the
+// editor and dropped everything typed, without asking. With edits since it
+// opened, the editor now asks first.
+test.describe("Unsaved edits in the widget editor (#2054)", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Unsaved edits ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("Escape asks first: Keep editing keeps the query, Discard adds nothing", async ({
+    page,
+  }) => {
+    const query = "MATCH (m:Movie) RETURN m.title AS title LIMIT 3";
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+    await typeInEditor(dialog, page, query);
+
+    const confirm = page.getByRole("alertdialog", {
+      name: "Discard unsaved changes?",
+    });
+    await page.keyboard.press("Escape");
+    await expect(confirm).toBeVisible();
+    await expect(dialog).toBeVisible();
+
+    await confirm.getByRole("button", { name: "Keep editing" }).click();
+    await expect(confirm).toBeHidden();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator(".cm-content")).toHaveText(query);
+
+    await page.keyboard.press("Escape");
+    await confirm.getByRole("button", { name: "Discard" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText("No widgets yet")).toBeVisible();
+    await expect(page.locator("[data-testid='widget-card']")).toHaveCount(0);
+  });
+
+  test("an unchanged editor still closes at once on Escape", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await expect(dialog).toBeVisible();
+    // Let opening settle: what the editor opened with is taken after it.
+    await expect(
+      dialog.locator("[data-testid='codemirror-container']"),
+    ).toHaveAttribute("data-editor-ready", "true", { timeout: 10_000 });
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await expect(page.getByText("No widgets yet")).toBeVisible();
+  });
+
+  test("Escape on an open select closes only the select", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+    await typeInEditor(dialog, page, "MATCH (n) RETURN n LIMIT 1");
+
+    await dialog.getByRole("combobox").nth(1).click();
+    const listbox = page.getByRole("listbox");
+    await expect(listbox).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(listbox).toBeHidden();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+
+    // The next Escape is the editor's, and there are edits to ask about.
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("alertdialog", { name: "Discard unsaved changes?" }),
+    ).toBeVisible();
+  });
+});

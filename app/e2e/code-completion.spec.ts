@@ -76,8 +76,6 @@ async function waitForSchemaLoaded(dialog: Locator, page: Page): Promise<void> {
  * The neo4j-cypher editor's completion source needs the schema to be fully
  * propagated through the editor-support instance before it returns results.
  * Retry Ctrl+Space until the popup appears.
- *
- * Note: Do NOT press Escape — it will close the parent dialog, not the popup.
  */
 async function triggerCypherAutocomplete(
   page: Page,
@@ -224,6 +222,38 @@ test.describe("Code completion — Cypher + SQL", () => {
 
     // The seeded PostgreSQL database exposes a "movies" table.
     expect(await hasCompletionItem(page, /movies/i)).toBe(true);
+  });
+
+  // #2054: the editor's dialog hears Escape before CodeMirror does, so Escape
+  // on the list closed the whole editor and left the list. The list takes it.
+  test("Escape on the completion list closes only the list", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /PostgreSQL/i }).click();
+    await waitForEditorReady(dialog, page);
+    await waitForSchemaLoaded(dialog, page);
+
+    await typeInCmEditor(dialog, page, "SELECT * FROM m");
+    await page.keyboard.press("Control+Space");
+    await waitForAutocompletePopup(page);
+
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(
+      () => !document.querySelector(".cm-tooltip-autocomplete"),
+      undefined,
+      { timeout: 5_000 },
+    );
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+
+    // The next Escape is the editor's, with a typed query to ask about.
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("alertdialog", { name: "Discard unsaved changes?" }),
+    ).toBeVisible();
   });
 
   test("SQL editor shows column name completions from PostgreSQL schema", async ({

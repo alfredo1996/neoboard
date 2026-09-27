@@ -641,11 +641,8 @@ export function DashboardWorkspace({
       handler: openAddWidget,
       disabled: !editMode || editorOpen,
     },
-    {
-      shortcut: "Escape",
-      handler: () => setEditorOpen(false),
-      disabled: !editorOpen,
-    },
+    // No Escape here: the widget editor handles its own, and asks before
+    // dropping unsaved edits (#2054).
   ]);
 
   // ── Render ──────────────────────────────────────────────────────────

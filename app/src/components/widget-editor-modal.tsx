@@ -43,6 +43,7 @@ import {
   AlertTitle,
   AlertDescription,
   Checkbox,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -65,7 +66,10 @@ import { FormFieldsEditor } from "./widget-editor/form-fields-editor";
 import { ParameterConfigSection } from "./widget-editor/parameter-config-section";
 import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
-import { useWidgetEditorStore } from "@/stores/widget-editor-store";
+import {
+  useWidgetEditorStore,
+  editorSnapshot,
+} from "@/stores/widget-editor-store";
 import { TransformEditor } from "./widget-editor/transform-editor";
 import { DatabaseSelector } from "./widget-editor/database-selector";
 import { TemplateBrowser } from "./widget-editor/template-browser";
@@ -177,6 +181,7 @@ export function WidgetEditorModal({
   // ── Initialize store when modal opens ────────────────────────────
   // loadFromWidget / resetForAdd sets all store fields from the widget prop.
   // This replaces the old bidirectional sync approach.
+  const openedWithRef = useRef<string | null>(null);
   useEffect(() => {
     if (!open) return;
     const store = useWidgetEditorStore.getState();
@@ -210,7 +215,31 @@ export function WidgetEditorModal({
         store.setLabTagsInput("");
       }
     }
+    // What the editor opened with, taken once opening has settled: the
+    // chart-type effect below still rewrites the options on the next render,
+    // and that is not an edit (#2054).
+    openedWithRef.current = null;
+    const settled = setTimeout(() => {
+      openedWithRef.current = editorSnapshot(useWidgetEditorStore.getState());
+    }, 0);
+    return () => clearTimeout(settled);
   }, [open, mode, widget, templateProp]);
+
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Every way out but a save comes through here (#2054): Escape, the close
+  // button and a click outside (Radix), and Cancel. With edits since the
+  // editor opened, it asks first.
+  const requestClose = useCallback(() => {
+    const openedWith = openedWithRef.current;
+    if (
+      openedWith !== null &&
+      editorSnapshot(useWidgetEditorStore.getState()) !== openedWith
+    ) {
+      setConfirmDiscard(true);
+    } else {
+      onOpenChange(false);
+    }
+  }, [onOpenChange]);
 
   // ── Local-only state (not in store) ────────────────────────────────
 
@@ -644,7 +673,18 @@ export function WidgetEditorModal({
   }, [onSaveAsTemplate, buildWidgetForSave, onOpenChange]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    // Radix only ever changes `open` here to close it: nothing inside opens it.
+    <Dialog open={open} onOpenChange={requestClose}>
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="Discard unsaved changes?"
+        description="The changes you made since opening the editor will be lost."
+        confirmText="Discard"
+        cancelText="Keep editing"
+        variant="destructive"
+        onConfirm={() => onOpenChange(false)}
+      />
       <DialogContent
         size="full"
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
@@ -653,7 +693,7 @@ export function WidgetEditorModal({
         // interaction outside — focus leaving counts as one, and the card
         // menu hands focus back to its trigger as it closes, so the editor
         // dismissed itself the moment Edit Widget opened it (#1952).
-        onPointerDownOutside={() => onOpenChange(false)}
+        onPointerDownOutside={requestClose}
       >
         {dialogStep === "styling-rules" ? (
           <StylingRulesEditor onBack={() => setDialogStep("main")} />
@@ -1003,7 +1043,7 @@ export function WidgetEditorModal({
               labSaving={labSaving}
               saveStatus={saveStatus}
               isContentOnly={isContentOnly}
-              onCancel={() => onOpenChange(false)}
+              onCancel={requestClose}
               onSave={handleSave}
               onLabSave={handleLabSave}
               onSaveAsTemplate={

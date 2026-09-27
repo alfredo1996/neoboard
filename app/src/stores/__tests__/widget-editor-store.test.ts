@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useWidgetEditorStore } from "../widget-editor-store";
+import { useWidgetEditorStore, editorSnapshot } from "../widget-editor-store";
 
 function getState() {
   return useWidgetEditorStore.getState();
@@ -753,5 +753,48 @@ describe("widget-editor-store", () => {
       expect(getState().database).toBe("");
       expect(getState().allowWrites).toBe(false);
     });
+  });
+});
+
+// #2054: the editor asks before a close drops what was typed. It compares what
+// it holds against what it opened with, so the snapshot must move with every
+// edit and with nothing else.
+describe("editorSnapshot (#2054)", () => {
+  beforeEach(() => {
+    getState().resetForAdd();
+  });
+
+  it("is the same for the same edits, whatever order the options were built in", () => {
+    getState().setChartOptions({ a: 1, nested: { x: 1, y: [1, null] } });
+    const before = editorSnapshot(getState());
+    getState().setChartOptions({ nested: { y: [1, null], x: 1 }, a: 1 });
+    expect(editorSnapshot(getState())).toBe(before);
+  });
+
+  it.each([
+    ["the query", () => getState().setQuery("MATCH (n) RETURN n")],
+    ["the title", () => getState().setTitle("Top movies")],
+    ["the chart options", () => getState().setChartOptions({ stacked: true })],
+    [
+      "a rule in the rules step",
+      () => getState().setActionRules([{ id: "r1", type: "set-parameter" }]),
+    ],
+    ["a template's name", () => getState().setLabName("Revenue")],
+  ])("changes when %s changes", (_what, edit) => {
+    const before = editorSnapshot(getState());
+    edit();
+    expect(editorSnapshot(getState())).not.toBe(before);
+  });
+
+  it("ignores what the editor derives or shows, which is not an edit", () => {
+    const before = editorSnapshot(getState());
+    useWidgetEditorStore.setState({
+      availableFields: ["title"],
+      parameterSuggestions: ["movie"],
+      dialogStep: "rules",
+      connectorChanged: true,
+      queryHistory: [{ query: "RETURN 1", savedAt: "2026-09-27" }],
+    });
+    expect(editorSnapshot(getState())).toBe(before);
   });
 });

@@ -28,6 +28,8 @@ import { QueryEditor } from "../query-editor";
 const mockDispatch = vi.fn();
 const mockDestroy = vi.fn();
 const mockFocus = vi.fn();
+/** CodeMirror's closeCompletion: true when it closed an open list. */
+const mockCloseCompletion = vi.fn((_view: unknown) => false);
 
 // Track the update listener callback so tests can trigger it
 let capturedUpdateListener:
@@ -43,7 +45,10 @@ vi.mock("@codemirror/view", () => {
     dispatch = mockDispatch;
     destroy = mockDestroy;
     focus = mockFocus;
-    constructor(_config: unknown) {}
+    dom = document.createElement("div");
+    constructor(config: { parent?: HTMLElement }) {
+      config.parent?.appendChild(this.dom);
+    }
   }
   return {
     EditorView: Object.assign(FakeEditorView, {
@@ -87,6 +92,7 @@ vi.mock("@codemirror/commands", () => ({
 }));
 
 vi.mock("@codemirror/autocomplete", () => ({
+  closeCompletion: (view: unknown) => mockCloseCompletion(view),
   autocompletion: () => ({ type: "autocompletion" }),
   completionKeymap: [],
   closeBrackets: () => ({ type: "closeBrackets" }),
@@ -118,6 +124,7 @@ beforeEach(() => {
   mockDispatch.mockClear();
   mockDestroy.mockClear();
   mockFocus.mockClear();
+  mockCloseCompletion.mockClear();
   mockResolveLanguageExt.mockClear();
   capturedUpdateListener = null;
 });
@@ -439,5 +446,75 @@ describe("QueryEditor — history select", () => {
     await flushAsync();
 
     expect(screen.getByText("History")).toBeInTheDocument();
+  });
+});
+
+// #2054: a dialog around the editor hears Escape before CodeMirror does — Radix
+// listens on the document in the capture phase — so Escape on an open
+// completion list closed the dialog and left the list. The list is the layer
+// the user is in, so it takes the key.
+describe("QueryEditor — Escape on the completion list (#2054)", () => {
+  /** What a dialog's document capture listener would hear. */
+  function listenLikeADialog() {
+    const heard = vi.fn();
+    document.addEventListener("keydown", heard, { capture: true });
+    return {
+      heard,
+      stop: () =>
+        document.removeEventListener("keydown", heard, { capture: true }),
+    };
+  }
+
+  function editorDom() {
+    const dom = screen.getByTestId("codemirror-container").firstElementChild;
+    expect(dom).not.toBeNull();
+    return dom as HTMLElement;
+  }
+
+  it("closes an open list and nothing else hears the key", async () => {
+    render(<QueryEditor />);
+    await flushAsync();
+    const dialog = listenLikeADialog();
+    mockCloseCompletion.mockReturnValueOnce(true);
+
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    editorDom().dispatchEvent(event);
+    dialog.stop();
+
+    expect(mockCloseCompletion).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(true);
+    expect(dialog.heard).not.toHaveBeenCalled();
+  });
+
+  it("with no list open, lets Escape through to the dialog", async () => {
+    render(<QueryEditor />);
+    await flushAsync();
+    const dialog = listenLikeADialog();
+
+    editorDom().dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    dialog.stop();
+
+    expect(mockCloseCompletion).toHaveBeenCalledOnce();
+    expect(dialog.heard).toHaveBeenCalledOnce();
+  });
+
+  it("leaves Escape outside the editor, and other keys, alone", async () => {
+    render(<QueryEditor />);
+    await flushAsync();
+
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    editorDom().dispatchEvent(
+      new KeyboardEvent("keydown", { key: "a", bubbles: true }),
+    );
+
+    expect(mockCloseCompletion).not.toHaveBeenCalled();
   });
 });
