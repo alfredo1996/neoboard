@@ -20,11 +20,20 @@ import {
   numericString,
 } from "@/__tests__/fixtures/connector-output";
 
+type GridRow = { getValue: (columnId: string) => unknown };
+
 type Col = {
   id: string;
   accessorFn: (row: Record<string, unknown>) => unknown;
   cell: (ctx: { getValue: () => unknown }) => React.ReactNode;
+  getGroupingValue?: (row: Record<string, unknown>) => unknown;
+  filterFn?: (row: GridRow, columnId: string, filterValue: unknown) => boolean;
+  sortingFn?: (a: GridRow, b: GridRow, columnId: string) => number;
 };
+
+// The column defs the last render handed the grid, for the grouping, filter
+// and sort hooks the stub itself never calls.
+const grid = vi.hoisted(() => ({ columns: [] as Col[] }));
 
 vi.mock("@neoboard/components", () => ({
   EmptyState: ({ title }: { title?: string }) => <div>{title ?? "empty"}</div>,
@@ -36,24 +45,27 @@ vi.mock("@neoboard/components", () => ({
     columns: Col[];
     data: Record<string, unknown>[];
     pagination?: (table: unknown) => React.ReactNode;
-  }) => (
-    <>
-      {pagination?.({})}
-      <table>
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={i}>
-              {columns.map((c) => (
-                <td key={c.id} data-col={c.id}>
-                  {c.cell({ getValue: () => c.accessorFn(row) })}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
-  ),
+  }) => {
+    grid.columns = columns;
+    return (
+      <>
+        {pagination?.({})}
+        <table>
+          <tbody>
+            {data.map((row, i) => (
+              <tr key={i}>
+                {columns.map((c) => (
+                  <td key={c.id} data-col={c.id}>
+                    {c.cell({ getValue: () => c.accessorFn(row) })}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    );
+  },
   DataGridColumnHeader: ({ title }: { title: string }) => <span>{title}</span>,
   DataGridViewOptions: () => <div data-testid="view-options" />,
   DataGridPagination: () => <div data-testid="pager" />,
@@ -255,6 +267,71 @@ describe("TableRenderer graph cells (#2050)", () => {
       />,
     );
     expect(cells("v")).toEqual(['["a",1]', "42", "true", "plain"]);
+  });
+
+  it("reads a graph value inside a list or map as its text, a node in parentheses", () => {
+    // `collect(m)`, `nodes(p)`, `{m: m}`: the owner's "never shown" holds
+    // inside JSON too. The brackets and separators stay JSON's.
+    render(
+      <TableRenderer
+        data={[
+          { v: [keanu, matrix] },
+          { v: { m: matrix, r: rel("DIRECTED", lana, matrix), n: 1 } },
+        ]}
+        settings={noPaging}
+      />,
+    );
+    const shown = cells("v");
+    expect(shown).toEqual([
+      '[(:Person:Actor {name: "Keanu Reeves", born: 1964}),(:Movie {title: "The Matrix", released: 1999})]',
+      '{"m":(:Movie {title: "The Matrix", released: 1999}),"r":[:DIRECTED],"n":1}',
+    ]);
+    for (const text of shown) {
+      expect(text).not.toContain("$type");
+      expect(text).not.toContain("elementId");
+    }
+  });
+});
+
+describe("TableRenderer groups, filters and sorts a graph column by its text (#2050)", () => {
+  // TanStack reads the accessor's raw value: every node grouped under
+  // "[object Object]" (one group, headed by the first node), the filter
+  // matched "object", and the sort saw every node as equal.
+  const column = (data: Record<string, unknown>[]) => {
+    render(<TableRenderer data={data} settings={noPaging} />);
+    return grid.columns[0];
+  };
+  const row = (v: unknown): GridRow => ({ getValue: () => v });
+
+  it("groups each node under the text its cell shows", () => {
+    const col = column([{ v: keanu }, { v: matrix }]);
+    expect(col.getGroupingValue?.({ v: keanu })).toBe(
+      ':Person:Actor {name: "Keanu Reeves", born: 1964}',
+    );
+    expect(col.getGroupingValue?.({ v: matrix })).toBe(
+      ':Movie {title: "The Matrix", released: 1999}',
+    );
+  });
+
+  it("filters on the text its cell shows, case-insensitively", () => {
+    const col = column([{ v: keanu }]);
+    expect(col.filterFn?.(row(keanu), "v", "person")).toBe(true);
+    expect(col.filterFn?.(row(keanu), "v", "Keanu")).toBe(true);
+    expect(col.filterFn?.(row(keanu), "v", "object")).toBe(false);
+  });
+
+  it("sorts on the text its cell shows", () => {
+    const col = column([{ v: keanu }, { v: matrix }]);
+    // ":Movie …" before ":Person …"
+    expect(col.sortingFn?.(row(matrix), row(keanu), "v")).toBeLessThan(0);
+    expect(col.sortingFn?.(row(keanu), row(matrix), "v")).toBeGreaterThan(0);
+  });
+
+  it("leaves a column of primitives to the grid's own grouping, filter and sort", () => {
+    const col = column([{ n: 10 }, { n: 9 }]);
+    expect(col.getGroupingValue).toBeUndefined();
+    expect(col.filterFn).toBeUndefined();
+    expect(col.sortingFn).toBeUndefined();
   });
 });
 
