@@ -3,9 +3,11 @@ import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { databaseUrl } from "../db-migrate.mjs";
 
-const ROOT = new URL("../..", import.meta.url).pathname;
+// fileURLToPath, not .pathname: a checkout path with a space stays encoded.
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const scripts = (pkg) =>
   JSON.parse(readFileSync(join(ROOT, pkg), "utf8")).scripts;
 
@@ -79,14 +81,20 @@ describe("scripts/db-migrate.mjs as a command (#2041)", () => {
       process.execPath,
       [join(link, "scripts/db-migrate.mjs")],
       {
-        env: { PATH: process.env.PATH, DATABASE_URL: "" },
+        // A URL nothing listens on: never "" (the script would fall back to
+        // the checkout's own app/.env.local and migrate a developer's
+        // database), and never anything reachable.
+        env: {
+          PATH: process.env.PATH,
+          DATABASE_URL: "postgres://nobody:none@127.0.0.1:1/none",
+        },
         cwd: tmpdir(),
         encoding: "utf8",
       },
     );
-    // No URL anywhere reachable from the link's app/.env.local? It says so
-    // and exits 1 — proof main() ran rather than being skipped.
+    // It tried to connect and was refused: proof main() ran rather than
+    // being skipped, which exits 0 in silence.
     if (r.status === 0) throw new Error("the script did not run: " + r.stderr);
-    expect(r.stderr).toMatch(/DATABASE_URL|ECONNREFUSED|connect/);
+    expect(r.stderr).toMatch(/ECONNREFUSED/);
   });
 });
