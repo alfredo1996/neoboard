@@ -318,9 +318,7 @@ jobs:
           restore-keys: |
             nextjs-${{ runner.os }}-
 
-      - name: Build connector-sdk + connection packages
-        run: npm -w connector-sdk run build && npm -w connection run build
-
+      # App's prebuild compiles connector-sdk and connection first (#2062).
       - name: Build Next.js
         working-directory: app
         run: npm run build

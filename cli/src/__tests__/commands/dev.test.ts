@@ -106,7 +106,7 @@ describe("runDev", () => {
     expect(env).toMatchObject({ PATH: process.env.PATH });
   });
 
-  it("starts a dev script that rebuilds connection from the connector manifest (#2062)", () => {
+  it("starts a dev script that rebuilds the SDK, then connection from the connector manifest (#2062)", () => {
     // `npm run dev` in app/ fires app's predev first. It ran only the chart
     // codegen, so a connector added to neoboard-connectors.json never reached
     // the connection/dist the app imports. The contract lives in the two
@@ -118,9 +118,14 @@ describe("runDev", () => {
           "utf8",
         ),
       ).scripts;
-    expect(scripts("app").predev).toContain(
-      "npm --prefix ../connection run build",
-    );
+    // The SDK goes first: connection's types resolve it from its dist, and a
+    // stale SDK dist after a pull would fail the connection build.
+    const predev = scripts("app").predev;
+    const sdk = predev.indexOf("npm --prefix ../connector-sdk run build");
+    expect(sdk).toBeGreaterThan(-1);
+    expect(
+      predev.indexOf("npm --prefix ../connection run build"),
+    ).toBeGreaterThan(sdk);
     expect(scripts("connection").prebuild).toContain(
       "scripts/generate-connector-imports.mjs",
     );

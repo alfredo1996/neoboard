@@ -237,31 +237,32 @@ describe("connector-sdk builds itself on install (#1356)", () => {
 describe("the Docker build regenerates the connector list (#2062)", () => {
   // The image compiled whatever connection/src/external-connectors.generated.ts
   // was in the build context: a manifest edited without regenerating shipped
-  // without its connector, silently. connection's own build now regenerates
-  // the file, so the build stage only has to compile connection from the
-  // copied source, before the app.
+  // without its connector, silently. App's build now compiles the SDK and
+  // connection itself, and connection's build regenerates the file, so the
+  // build stage only has to build the app from the copied source.
   const dockerfile = readFileSync(join(ROOT, "Dockerfile"), "utf8");
   const buildStage =
     dockerfile
       .split(/^FROM\s/m)
       .find((s) => /\bAS build\b/.test(s.split("\n")[0])) ?? "";
   const steps = buildStage.split("\n").filter((l) => /^(RUN|COPY)\s/.test(l));
-  const at = (re) => steps.findIndex((l) => re.test(l));
+  const scripts = (pkg) =>
+    JSON.parse(readFileSync(join(ROOT, pkg, "package.json"), "utf8")).scripts;
 
-  it("compiles connection from the copied source, before the app", () => {
-    const copy = at(/^COPY \. \.$/);
-    const connection = at(/^RUN npm -w connection run build$/);
-    const app = at(/^RUN cd app && npm run build$/);
+  it("builds the app from the copied source, and nothing else twice", () => {
+    const copy = steps.indexOf("COPY . .");
     expect(copy, "build stage has no COPY . .").toBeGreaterThan(-1);
-    expect(connection).toBeGreaterThan(copy);
-    expect(app).toBeGreaterThan(connection);
+    expect(steps.filter((l) => /\brun build\b/.test(l))).toEqual([
+      "RUN cd app && npm run build",
+    ]);
+    expect(steps.indexOf("RUN cd app && npm run build")).toBeGreaterThan(copy);
   });
 
-  it("where connection's build runs the codegen first", () => {
-    const pkg = JSON.parse(
-      readFileSync(join(ROOT, "connection/package.json"), "utf8"),
+  it("where app's build compiles connection, whose build runs the codegen first", () => {
+    expect(scripts("app").prebuild ?? "").toContain(
+      "npm --prefix ../connection run build",
     );
-    expect(pkg.scripts?.prebuild ?? "").toContain(
+    expect(scripts("connection").prebuild ?? "").toContain(
       "scripts/generate-connector-imports.mjs",
     );
   });

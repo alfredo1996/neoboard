@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "dev": "npm -w app run dev",
-    "build": "npm -w connector-sdk run build && npm -w connection run build && npm -w app run build",
+    "build": "npm -w app run build",
     "test": "npm -w app run test && npm -w component run test && npm -w cli run test",
     "test:visual": "npm -w component run test:storybook",
     "test:e2e": "npm -w app run test:e2e",

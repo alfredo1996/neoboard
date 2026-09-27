@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -133,31 +141,61 @@ describe("renderSource", () => {
 
 // #2062 — only the root `npm run build` picked a connector up from the
 // manifest. The generated file is `connection` source and the app imports
-// `connection/dist`, so connection's own build regenerates it, and every entry
-// point that builds or serves the app builds connection first. The Docker
-// build stage is pinned in build-guards.test.mjs.
+// `connection/dist`, so connection's own build regenerates it, and app's own
+// dev and build compile the SDK and connection before the app. Every entry
+// point that builds or serves the app goes through one of those two scripts.
+// The Docker build stage is pinned in build-guards.test.mjs.
 describe("every entry point regenerates the connector list (#2062)", () => {
   const ROOT = fileURLToPath(new URL("../..", import.meta.url));
   const scripts = (pkg) =>
     JSON.parse(readFileSync(join(ROOT, pkg, "package.json"), "utf8")).scripts;
   const CODEGEN = "generate-connector-imports.mjs";
+  const SDK_BUILD = "npm --prefix ../connector-sdk run build";
+  const CONNECTION_BUILD = "npm --prefix ../connection run build";
 
   it("connection's build runs the codegen before compiling", () => {
     expect(scripts("connection").prebuild).toBe(`node ../scripts/${CODEGEN}`);
   });
 
-  it("the codegen runs from connection/, where prebuild starts it", () => {
-    const res = spawnSync(process.execPath, [`../scripts/${CODEGEN}`], {
-      cwd: join(ROOT, "connection"),
-      encoding: "utf8",
-    });
-    expect(res.status, res.stderr).toBe(0);
+  it("the codegen reads the manifest beside scripts/, not in its cwd", () => {
+    // prebuild starts it from connection/. A cwd-relative lookup finds no
+    // manifest there and writes the empty list, exit 0, so the probe is a
+    // manifest that must fail: one listing a package that is not installed.
+    // A copy in a temp tree keeps the checkout's generated file untouched.
+    const tmp = mkdtempSync(join(tmpdir(), "codegen-2062-"));
+    try {
+      mkdirSync(join(tmp, "scripts"));
+      mkdirSync(join(tmp, "connection", "src"), { recursive: true });
+      copyFileSync(
+        join(ROOT, "scripts", CODEGEN),
+        join(tmp, "scripts", CODEGEN),
+      );
+      writeFileSync(
+        join(tmp, "neoboard-connectors.json"),
+        JSON.stringify({
+          connectors: [{ package: "@neoboard-test/not-installed-2062" }],
+        }),
+      );
+      const res = spawnSync(process.execPath, [`../scripts/${CODEGEN}`], {
+        cwd: join(tmp, "connection"),
+        encoding: "utf8",
+      });
+      expect(res.status, res.stdout).toBe(1);
+      expect(res.stderr).toContain("is not installed");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
-  it("app's dev builds connection first, for npm run dev and neoboard dev", () => {
-    expect(scripts("app").predev).toContain(
-      "npm --prefix ../connection run build",
-    );
+  it("app's dev and build both compile the SDK, then connection", () => {
+    // connection's types resolve @neoboard/connector-sdk from its dist, and
+    // its tsconfig has noEmitOnError: a stale SDK dist after a pull fails the
+    // connection build, so the SDK is built first, as the root build did.
+    const app = scripts("app");
+    expect(app.predev).toBe(app.prebuild);
+    const sdk = app.prebuild.indexOf(SDK_BUILD);
+    expect(sdk).toBeGreaterThan(-1);
+    expect(app.prebuild.indexOf(CONNECTION_BUILD)).toBeGreaterThan(sdk);
   });
 
   it("root dev goes through app's dev without a second codegen run", () => {
@@ -166,11 +204,17 @@ describe("every entry point regenerates the connector list (#2062)", () => {
     expect(root.predev ?? "").not.toContain(CODEGEN);
   });
 
-  it("root build compiles connection before the app, running the codegen once", () => {
+  it("root build goes through app's build, compiling nothing twice", () => {
     const root = scripts(".");
-    const connection = root.build.indexOf("npm -w connection run build");
-    expect(connection).toBeGreaterThan(-1);
-    expect(connection).toBeLessThan(root.build.indexOf("npm -w app run build"));
-    expect(root.prebuild ?? "").not.toContain(CODEGEN);
+    expect(root.build).toBe("npm -w app run build");
+    expect(root.prebuild).toBeUndefined();
+  });
+
+  it("the E2E server is built through app's build script, so prebuild runs", () => {
+    // `npx next build` skips every npm lifecycle script: local E2E served an
+    // app compiled against whatever connection/dist was lying around.
+    const setup = readFileSync(join(ROOT, "app/e2e/global-setup.ts"), "utf8");
+    expect(setup).toContain('execSync("npm run build"');
+    expect(setup).not.toContain("npx next build");
   });
 });
