@@ -19,6 +19,24 @@ describe("logger", () => {
     }
   });
 
+  /** Build a logger from the app's options, writing into a capture buffer. */
+  async function capture(
+    emit: (log: import("pino").Logger) => void,
+  ): Promise<string> {
+    const pino = (await import("pino")).default;
+    const { buildOptions } = await import("../logger");
+    let written = "";
+    const sink = {
+      write(chunk: string) {
+        written += chunk;
+      },
+    };
+    emit(
+      pino(buildOptions(), sink as unknown as import("pino").DestinationStream),
+    );
+    return written;
+  }
+
   it("exports root, query, auth, and api loggers", async () => {
     const mod = await import("../logger");
     expect(typeof mod.logger.info).toBe("function");
@@ -149,27 +167,6 @@ describe("logger", () => {
     // driver message or a stack frame.
     const SECRET = "Tr0ub4dor-hunter2";
 
-    /** Build a logger from the app's options, writing into a capture buffer. */
-    async function capture(
-      emit: (log: import("pino").Logger) => void,
-    ): Promise<string> {
-      const pino = (await import("pino")).default;
-      const { buildOptions } = await import("../logger");
-      let written = "";
-      const sink = {
-        write(chunk: string) {
-          written += chunk;
-        },
-      };
-      emit(
-        pino(
-          buildOptions(),
-          sink as unknown as import("pino").DestinationStream,
-        ),
-      );
-      return written;
-    }
-
     beforeEach(() => {
       delete process.env.LOG_ANONYMIZE;
       delete process.env.LOG_QUERY_TEXT;
@@ -260,6 +257,16 @@ describe("logger", () => {
       expect(out).not.toContain(SECRET);
     });
 
+    it("scrubs the message pino takes from `{ err }` logged with none", async () => {
+      const out = await capture((l) =>
+        l.error({
+          err: new Error(`connect failed: postgresql://u:${SECRET}@h:5432/d`),
+        }),
+      );
+      expect(out).not.toContain(SECRET);
+      expect(out).toContain('"msg":"connect failed: postgresql://u:***@h');
+    });
+
     it("scrubs secrets logged through a child logger", async () => {
       const out = await capture((l) =>
         l.child({ module: "query" }).warn({ password: SECRET }, "oops"),
@@ -273,6 +280,48 @@ describe("logger", () => {
         l.info({ query: "MATCH (n) RETURN n" }, "query_executed"),
       );
       expect(out).toContain("MATCH (n) RETURN n");
+    });
+  });
+
+  // #1949, end to end: the value a driver quotes in its message reaches disk
+  // through `message`, `stack` and — for a bare error — `msg`.
+  describe("LOG_ANONYMIZE scrubs the values a driver error quotes", () => {
+    const VALUE = "alice@example.com";
+    const MESSAGE = `Node(12) already exists with label \`User\` and property \`email\` = '${VALUE}'`;
+
+    async function logWrapped(): Promise<Record<string, unknown>[]> {
+      const { wrapError } = await import("@neoboard/connector-sdk");
+      const out = await capture((l) => {
+        l.error({ err: wrapError(new Error(MESSAGE)) }, "api_error");
+        l.error(wrapError(new Error(MESSAGE)));
+        // No message either: pino takes `msg` from `err.message`.
+        l.error({ err: wrapError(new Error(MESSAGE)) });
+      });
+      return out
+        .trim()
+        .split("\n")
+        .map((row) => JSON.parse(row) as Record<string, unknown>);
+    }
+
+    it("replaces the value in message, stack and msg, keeping the schema names", async () => {
+      process.env.LOG_ANONYMIZE = "true";
+      const rows = await logWrapped();
+      expect(JSON.stringify(rows)).not.toContain(VALUE);
+      for (const row of rows) {
+        const err = row.err as Record<string, string>;
+        expect(err.message).toContain("`email` = '[value]'");
+        expect(err.stack).toContain("`email` = '[value]'");
+      }
+      expect(rows[1].msg).toContain("label `User`");
+      expect(rows[2].msg).toContain("label `User`");
+    });
+
+    it("logs the message unchanged with LOG_ANONYMIZE unset", async () => {
+      delete process.env.LOG_ANONYMIZE;
+      const rows = await logWrapped();
+      expect((rows[0].err as Record<string, string>).message).toBe(MESSAGE);
+      expect(rows[1].msg).toBe(MESSAGE);
+      expect(rows[2].msg).toBe(MESSAGE);
     });
   });
 });

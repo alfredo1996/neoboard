@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { toConnectorError } from "@neoboard/connection";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
@@ -1386,5 +1386,62 @@ describe("POST /api/query/write with a body that is not JSON (#1963)", () => {
     expect(mockExecuteQuery).not.toHaveBeenCalled();
     // The caller's mistake, not a failed write: nothing at error level.
     expect(logError).not.toHaveBeenCalled();
+  });
+});
+
+// #1949: a form submit that fails logs the driver's error — and under
+// LOG_ANONYMIZE, the value the driver quotes in it must not reach the log.
+describe("POST /api/query/write logs a failed write through the error scrub (#1949)", () => {
+  const VALUE = "alice@example.com";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let POST: (req: Request) => Promise<any>;
+  let written: string;
+  const anonymize = process.env.LOG_ANONYMIZE;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mockDb.select.mockReset();
+    process.env.LOG_ANONYMIZE = "true";
+    ({ POST } = await import("../route"));
+    // The route's own logger, its calls replayed into a real pino built from
+    // the app's options, so the bytes are the ones that would reach disk.
+    const pino = (await import("pino")).default;
+    const { apiLogger, buildOptions } = await import("@/lib/logger");
+    written = "";
+    const sink = pino(buildOptions(), {
+      write: (chunk: string) => {
+        written += chunk;
+      },
+    } as unknown as import("pino").DestinationStream);
+    vi.spyOn(apiLogger, "error").mockImplementation(((...args: unknown[]) =>
+      (sink.error as (...a: unknown[]) => void)(...args)) as never);
+  });
+
+  afterEach(() => {
+    if (anonymize === undefined) delete process.env.LOG_ANONYMIZE;
+    else process.env.LOG_ANONYMIZE = anonymize;
+  });
+
+  it("logs write_query_failed with the quoted value replaced", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDashboardAndConnection();
+    mockDecryptJson.mockReturnValue({ uri: "fixturedb://localhost" });
+    mockExecuteQuery.mockRejectedValue(
+      new Error(`invalid input syntax for type integer: "${VALUE}"`),
+    );
+
+    await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "INSERT INTO t (a) VALUES ($param_a)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+
+    expect(written).toContain('"event":"write_query_failed"');
+    expect(written).toContain('for type integer: \\"[value]\\"');
+    expect(written).not.toContain(VALUE);
   });
 });

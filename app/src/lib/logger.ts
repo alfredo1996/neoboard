@@ -1,6 +1,6 @@
 import pino from "pino";
 import { anonymizeLogRecord } from "./log-anonymizer";
-import { redactSecrets, redactString } from "./log-redact";
+import { redactSecrets, redactString, scrubQuotedValues } from "./log-redact";
 import { buildTransport } from "./logger-transports";
 
 /**
@@ -24,7 +24,10 @@ import { buildTransport } from "./logger-transports";
  *   LOG_ANONYMIZE  — true | false  (default: false) — when true, every
  *                    log call is additionally routed through the anonymizer
  *                    which hashes userId/email, redacts query params, and
- *                    masks the DB *username* too. Privacy, not secrecy.
+ *                    masks the DB *username* too, and replaces each value
+ *                    a driver quotes in an error message or stack with
+ *                    `[value]`, inside its quotes (#1949). Privacy, not
+ *                    secrecy.
  *   LOG_QUERY_TEXT — true | false  (default: true)  — see log-redact.ts.
  *
  * Credential redaction is NOT env-gated and NOT opt-in: `log-redact.ts` runs
@@ -64,7 +67,11 @@ export function buildOptions(): pino.LoggerOptions {
       // pino.stdSerializers` is gone: pino's `err` serializer only ever sees
       // the top-level `err` key, so an Error nested in an object or an array
       // escaped it entirely.
-      log: (obj) => redactSecrets(obj) as Record<string, unknown>,
+      log: (obj) =>
+        redactSecrets(obj, { anonymize: LOG_ANONYMIZE }) as Record<
+          string,
+          unknown
+        >,
     },
     serializers: {
       // Identity, on purpose. `formatters.log` runs first and has already
@@ -100,14 +107,30 @@ export function buildOptions(): pino.LoggerOptions {
           const arg = args[i];
           if (typeof arg === "string") args[i] = redactString(arg);
         }
-        // `logger.error(err)` with no message: pino falls back to
-        // `err.message` verbatim. Supply a scrubbed one instead.
-        if (args.length === 1 && args[0] instanceof Error) {
-          args[1] = redactString(args[0].message);
+        // `logger.error(err)`, or `logger.error({ err })`, with no message:
+        // pino falls back to `err.message` verbatim, past `formatters.log`.
+        // Supply a scrubbed one instead.
+        const first: unknown = args[0];
+        const record = first as { err?: unknown; msg?: unknown } | null;
+        // An object's own `msg` wins over its `err`, as it does in pino.
+        const err =
+          first instanceof Error || record?.msg !== undefined
+            ? first
+            : record?.err;
+        if (args.length === 1 && err instanceof Error) {
+          const message = redactString(err.message);
+          args[1] = LOG_ANONYMIZE ? scrubQuotedValues(message) : message;
         }
         if (LOG_ANONYMIZE) {
-          const first = args[0];
-          if (first && typeof first === "object" && !Array.isArray(first)) {
+          // Not an Error: copied into a plain object it loses its message and
+          // stack, is no longer filed under `err`, and its `originalError`
+          // gets logged whole (#1949). `formatters.log` serializes it.
+          if (
+            first &&
+            typeof first === "object" &&
+            !Array.isArray(first) &&
+            !(first instanceof Error)
+          ) {
             args[0] = anonymizeLogRecord(first as Record<string, unknown>);
           }
         }

@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { redactSecrets, redactString } from "@/lib/log-redact";
+import {
+  redactSecrets,
+  redactString,
+  scrubQuotedValues,
+} from "@/lib/log-redact";
 import { ConnectorErrorType, wrapError } from "@neoboard/connector-sdk";
 import { QueueRejectedError } from "@/lib/query/scheduler";
 
@@ -424,6 +428,144 @@ describe("redactSecrets — an error's type is its name, not its class (#1957)",
     class DatabaseError extends Error {}
     expect(typeOf(new DatabaseError("boom")).type).toBe("DatabaseError");
   });
+});
+
+/**
+ * A driver's message can quote the data that failed (#1949). The default
+ * keeps it — a log you cannot debug with is worse than none — but an operator
+ * who set LOG_ANONYMIZE asked for the values to go, while the schema names
+ * around them stay.
+ */
+// The scrub runs inside pino's formatters.log, which does not catch: a throw
+// there makes the log call itself throw and replaces the error being logged.
+// A long enough quoted run exhausts V8's regex backtracking stack (#1949).
+describe("scrubQuotedValues fails closed (#1949)", () => {
+  it("answers a marker, not a throw and not the text, for a value too long to scrub", () => {
+    const huge = `invalid input: '${"a".repeat(12_000_000)}`;
+    let out = "";
+    expect(() => {
+      out = scrubQuotedValues(huge);
+    }).not.toThrow();
+    expect(out).toBe("[unscrubbable]");
+  });
+});
+
+describe("redactSecrets — quoted values under LOG_ANONYMIZE (#1949)", () => {
+  const VALUE = "alice@example.com";
+  // What the graph driver throws for a uniqueness violation.
+  const graphMessage = `Node(12) already exists with label \`User\` and property \`email\` = '${VALUE}'`;
+  const errOf = (err: Error, anonymize?: boolean) =>
+    (
+      redactSecrets(
+        { err },
+        anonymize === undefined ? undefined : { anonymize },
+      ) as {
+        err: Record<string, string>;
+      }
+    ).err;
+
+  it("scrubs a quoted value out of a wrapped driver error's message and stack", () => {
+    const out = errOf(wrapError(new Error(graphMessage)), true);
+    for (const text of [out.message, out.stack]) {
+      expect(text).not.toContain(VALUE);
+      expect(text).toContain("label `User` and property `email` = '[value]'");
+    }
+  });
+
+  it("leaves the same error unchanged by default", () => {
+    const err = wrapError(new Error(graphMessage));
+    for (const out of [errOf(err), errOf(err, false)]) {
+      expect(out.message).toBe(graphMessage);
+      expect(out.stack).toContain(graphMessage);
+    }
+  });
+
+  it.each([
+    [
+      'invalid input syntax for type integer: "abc"',
+      'invalid input syntax for type integer: "[value]"',
+    ],
+    [
+      'invalid input value for enum mood: "happy"',
+      'invalid input value for enum mood: "[value]"',
+    ],
+    [
+      'value "99999999999" is out of range for type integer',
+      'value "[value]" is out of range for type integer',
+    ],
+    // A value the driver prints raw, quotes and all, runs to the last quote.
+    [
+      'invalid input syntax for type json: "{"a": "b"}"',
+      'invalid input syntax for type json: "[value]"',
+    ],
+    // An apostrophe inside a word neither opens nor closes a literal.
+    [
+      "Can't merge: property `name` = 'O'Brien'",
+      "Can't merge: property `name` = '[value]'",
+    ],
+    // A quote that never closes runs to the end of its line.
+    ["property `name` = 'alice", "property `name` = '[value]'"],
+    ['for type integer: "abc', 'for type integer: "[value]"'],
+  ])("scrubs the value in %s", (message, expected) => {
+    expect(scrubQuotedValues(message)).toBe(expected);
+  });
+
+  // ponytail's ceiling, pinned: a value spanning lines loses its first line
+  // only, since a quote never runs past its line.
+  it.each([
+    ["property `bio` = 'first\nsecond'", "property `bio` = '[value]'\nsecond'"],
+    ['for type integer: "12\n34"', 'for type integer: "[value]"\n34"'],
+  ])("scrubs only the first line of %j", (message, expected) => {
+    expect(scrubQuotedValues(message)).toBe(expected);
+  });
+
+  // Logged the way the logger logs it, so the stack's own `Name: ` header —
+  // and pino's `caused by: Name: ` — sits in front of the message.
+  it.each([
+    "connect ECONNREFUSED 10.0.0.5:5432",
+    'relation "users" does not exist',
+    '"users_view" is not a table',
+    'column "email" of relation "user" does not exist',
+    'duplicate key value violates unique constraint "users_email_key"',
+    'null value in column "email" of relation "users" violates not-null constraint',
+    "Variable `n` not defined",
+  ])("keeps %s, which quotes no value", (message) => {
+    expect(scrubQuotedValues(message)).toBe(message);
+    const out = errOf(wrapError(new Error(message)), true);
+    expect(out.message).toBe(message);
+    expect(out.stack.split("\n")[0]).toBe(`ConnectorError: ${message}`);
+    const caused = errOf(
+      new Error("query failed", { cause: new Error(message) }),
+      true,
+    );
+    expect(caused.stack).toContain(`\ncaused by: Error: ${message}\n`);
+  });
+
+  /** CPU time of one run, not wall time (#1993): a busy runner adds none. */
+  function cpuMs(run: () => void): number {
+    const start = process.cpuUsage();
+    run();
+    const { user, system } = process.cpuUsage(start);
+    return (user + system) / 1000;
+  }
+
+  // A pattern that backtracks turns one long driver message into seconds of a
+  // blocked event loop, on every request, under LOG_ANONYMIZE: every quote
+  // must open, and close, in one pass.
+  it.each([
+    ["an unclosed single quote", " 'a"],
+    ["an unclosed double quote after `: `", ': "a'],
+    ['an unclosed double quote after "value "', 'value "a'],
+    ["a line per double quote", ': "a\n'],
+  ])(
+    "scrubs a 120 KB message of %s in linear time",
+    (_, unit) => {
+      const message = unit.repeat(Math.ceil(120_000 / unit.length));
+      const ms = cpuMs(() => errOf(new Error(message), true));
+      expect(ms).toBeLessThan(200);
+    },
+    60_000,
+  );
 });
 
 describe("redactSecrets — hostile shapes", () => {

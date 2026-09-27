@@ -195,7 +195,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     apiLogger.error(
       {
         event: "write_query_failed",
-        err: error instanceof Error ? error.message : String(error),
+        // The Error itself, so the logger's error policy — the fields it
+        // keeps (#1934), the values LOG_ANONYMIZE scrubs (#1949) — applies.
+        err: error instanceof Error ? error : String(error),
       },
       "write_query_failed",
     );
