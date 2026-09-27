@@ -1820,6 +1820,90 @@ test.describe("Cascading-select parameter widget", () => {
   });
 });
 
+// #2043: a searchable selector whose seed filters on $param_search gets it on
+// the dashboard ("" before anything is typed); Test Seed Query sends it too.
+test.describe("Test Seed Query — a seed that filters on $param_search (#2043)", () => {
+  async function createSearchingSeedDashboard(
+    request: import("@playwright/test").APIRequestContext,
+  ) {
+    const res = await request.post("/api/dashboards", {
+      data: { name: `Search Seed ${Date.now()}` },
+    });
+    if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
+    const { id } = (await res.json()).data;
+    const layout = {
+      version: 2 as const,
+      pages: [
+        {
+          id: "page-search",
+          title: "Main",
+          widgets: [
+            {
+              id: "search-select",
+              chartType: "parameter-select",
+              connectionId: "conn-neo4j-001",
+              query: "",
+              settings: {
+                title: "Person",
+                chartOptions: {
+                  parameterType: "select",
+                  parameterName: "test_person",
+                  searchable: true,
+                  seedQuery:
+                    "MATCH (p:Person) WHERE $param_search = '' OR toLower(p.name) CONTAINS toLower($param_search) RETURN p.name AS value, p.name AS label ORDER BY p.name LIMIT 20",
+                },
+              },
+            },
+          ],
+          gridLayout: [{ i: "search-select", x: 0, y: 0, w: 4, h: 2 }],
+        },
+      ],
+    };
+    const putRes = await request.put(`/api/dashboards/${id}`, {
+      data: { layoutJson: layout },
+    });
+    if (!putRes.ok())
+      throw new Error(`Update dashboard failed: ${putRes.status()}`);
+    return {
+      id,
+      cleanup: async () => {
+        await request.delete(`/api/dashboards/${id}`);
+      },
+    };
+  }
+
+  test("Test Seed Query sends param_search, so the seed loads (#2043)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createSearchingSeedDashboard(page.request);
+
+    try {
+      await page.goto(`/${id}/edit`);
+      await expect(
+        page.getByRole("heading", { name: /^Editing:/ }),
+      ).toBeVisible({ timeout: 15_000 });
+
+      const card = page.locator("[data-widget-id='search-select']");
+      await card.hover();
+      await card.getByRole("button", { name: "Widget actions" }).click();
+      await page.getByRole("menuitem", { name: "Edit Widget" }).click();
+      const dialog = page.getByRole("dialog", { name: "Edit Widget" });
+      await expect(dialog).toBeVisible({ timeout: 10_000 });
+
+      await dialog.getByRole("button", { name: "Test Seed Query" }).click();
+      // Positive end state first (#1748); then no seed error beside it.
+      await expect(
+        dialog.getByText(/^\d+ options? loaded — see preview$/),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(dialog.locator("p.text-destructive")).toHaveCount(0);
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Action rules — multi-rule editor (extended coverage)
 // ---------------------------------------------------------------------------

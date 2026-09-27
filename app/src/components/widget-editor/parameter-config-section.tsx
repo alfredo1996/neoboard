@@ -3,7 +3,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
-import { useCascadeParent } from "@/components/parameters/use-seed-query-options";
+import {
+  buildSeedExtraParams,
+  useCascadeParent,
+} from "@/components/parameters/use-seed-query-options";
 import {
   Calendar,
   Type,
@@ -403,13 +406,20 @@ export function ParameterConfigSection({
               const sq = (chartOptions.seedQuery as string) ?? "";
               if (connectionId && sq.trim()) {
                 // Where the dashboard card asks for the options (#1824).
+                // The params the dashboard sends before anything is typed:
+                // the cascade parent, and param_search when the seed consumes
+                // it (#1951, #2043). Same helper, so the two cannot drift.
+                const params = buildSeedExtraParams(
+                  parentParameterName ? cascade.parentParams : {},
+                  (chartOptions.searchable as boolean | undefined) ?? true,
+                  sq,
+                  "",
+                );
                 seedQueryExecution.mutate({
                   connectionId,
                   query: sq,
                   ...(database ? { database } : {}),
-                  ...(parentParameterName
-                    ? { params: cascade.parentParams }
-                    : {}),
+                  ...(params ? { params } : {}),
                 });
               }
             }}
