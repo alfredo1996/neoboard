@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
 
@@ -273,6 +273,38 @@ describe("DashboardListPage NeoDash import", () => {
 
     expect(screen.queryByText(/Failed to parse file/)).toBeNull();
     expect(screen.getByText("Second pick")).toBeTruthy();
+  });
+
+  // Closing the dialog retires a pick still waiting on the connectors: it
+  // must not fill a dialog the user has already dismissed.
+  it("drops a pick still loading when the dialog is closed", async () => {
+    connectorsQuery.data = undefined;
+    let release!: (value: { data: unknown }) => void;
+    connectorsQuery.refetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+    await vi.waitFor(() => expect(connectorsQuery.refetch).toHaveBeenCalled());
+    const form = document.getElementById("import-file")!.closest("form")!;
+    fireEvent.click(within(form).getByText("Cancel"));
+
+    const list = [
+      { type: "acme-graph", label: "Acme Graph", queryLanguage: "cypher" },
+    ];
+    connectorsQuery.data = list;
+    release({ data: list });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(
+      screen.queryByText("No compatible Acme Graph connections", {
+        exact: false,
+      }),
+    ).toBeNull();
   });
 
   it("says so when the connectors cannot be loaded", async () => {
