@@ -35,6 +35,8 @@ const mockToConnectorError = vi.fn((_type: string, error: unknown) => error);
 vi.mock("@/lib/connector/connection-adapter", () => ({
   createConnectionModule: mockCreateConnectionModule,
   DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
+  // No descriptor: the executor's deadline falls back to the default (#2060).
+  getConnector: () => undefined,
   toConnectorError: mockToConnectorError,
 }));
 
