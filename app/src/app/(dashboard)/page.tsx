@@ -158,6 +158,33 @@ interface ImportSuccessState {
   followUp: ImportFollowUp;
 }
 
+/**
+ * A NeoBoard export's preview and its empty connection mapping, one row per
+ * key the file lists.
+ */
+function readNeoBoardExport(json: {
+  connections?: Record<string, ConnectionInfo>;
+  layout?: { pages?: Array<{ widgets?: unknown[] }> };
+  dashboard?: { name?: string };
+}): { mapping: Record<string, string>; parsed: ParsedImport } {
+  const connections = json.connections ?? {};
+  const widgetCount =
+    json.layout?.pages?.reduce(
+      (sum: number, p) => sum + (p.widgets?.length ?? 0),
+      0,
+    ) ?? 0;
+  return {
+    mapping: Object.fromEntries(Object.keys(connections).map((k) => [k, ""])),
+    parsed: {
+      payload: json,
+      dashboardName: json.dashboard?.name ?? "Imported Dashboard",
+      widgetCount,
+      isNeoDash: false,
+      connections,
+    },
+  };
+}
+
 function ImportDashboardDialog({
   open,
   onOpenChange,
@@ -283,28 +310,9 @@ function ImportDashboardDialog({
           connections: synthesized,
         });
       } else if (json.formatVersion === 1) {
-        // NeoBoard export
-        const connections = (json.connections ?? {}) as Record<
-          string,
-          ConnectionInfo
-        >;
-        const widgetCount =
-          (json.layout?.pages as Array<{ widgets?: unknown[] }>)?.reduce(
-            (sum: number, p) => sum + (p.widgets?.length ?? 0),
-            0,
-          ) ?? 0;
-        const initialMapping: Record<string, string> = {};
-        for (const key of Object.keys(connections)) {
-          initialMapping[key] = "";
-        }
-        setMapping(initialMapping);
-        setParsed({
-          payload: json,
-          dashboardName: json.dashboard?.name ?? "Imported Dashboard",
-          widgetCount,
-          isNeoDash: false,
-          connections,
-        });
+        const exported = readNeoBoardExport(json);
+        setMapping(exported.mapping);
+        setParsed(exported.parsed);
       } else {
         setFileError(
           "Unrecognised file format. Expected a NeoBoard or NeoDash export.",
