@@ -242,6 +242,39 @@ describe("DashboardListPage NeoDash import", () => {
     expect(screen.queryByText("Movies")).toBeNull();
   });
 
+  // Nor may an earlier pick that fails late put its error on the newer file.
+  it("shows no error from an earlier pick that fails after a later one", async () => {
+    render(<DashboardListPage />);
+    const input = document.getElementById("import-file") as HTMLInputElement;
+    let fail!: (reason: Error) => void;
+    const first = new File(["x"], "first.json");
+    Object.defineProperty(first, "text", {
+      value: () =>
+        new Promise<string>((_, reject) => {
+          fail = reject;
+        }),
+    });
+    Object.defineProperty(input, "files", {
+      value: [first],
+      configurable: true,
+    });
+    fireEvent.change(input);
+
+    pickNeoDashFile({
+      formatVersion: 1,
+      dashboard: { name: "Second pick" },
+      connections: {},
+      layout: { version: 2, pages: [] },
+    });
+    expect(await screen.findByText("Second pick")).toBeTruthy();
+
+    fail(new Error("read failed"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.queryByText(/Failed to parse file/)).toBeNull();
+    expect(screen.getByText("Second pick")).toBeTruthy();
+  });
+
   it("says so when the connectors cannot be loaded", async () => {
     connectorsQuery.data = undefined;
     connectorsQuery.refetch.mockResolvedValueOnce({ data: undefined });

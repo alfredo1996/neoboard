@@ -311,6 +311,8 @@ function ImportDashboardDialog({
         );
       }
     } catch {
+      // A superseded pick's failure is not the current file's.
+      if (pick !== latestPick.current) return;
       setFileError("Failed to parse file. Make sure it is a valid JSON file.");
     }
   }
