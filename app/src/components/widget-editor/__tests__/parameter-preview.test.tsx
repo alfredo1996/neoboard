@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 // Mock @neoboard/components so we render lightweight stand-ins. Each preview
@@ -36,12 +36,14 @@ vi.mock("@neoboard/components", () => ({
     options,
     placeholder,
     parentParameterName,
+    parentValue,
   }: {
     parameterName: string;
     loading?: boolean;
     options: { value: string; label: string }[];
     placeholder?: string;
     parentParameterName?: string;
+    parentValue?: string;
   }) => (
     <div
       data-testid="select-single"
@@ -50,6 +52,7 @@ vi.mock("@neoboard/components", () => ({
       data-option-count={options.length}
       data-placeholder={placeholder ?? ""}
       data-parent={parentParameterName ?? ""}
+      data-parent-value={parentValue ?? ""}
     />
   ),
   ParamMultiSelector: ({
@@ -87,6 +90,7 @@ vi.mock("@neoboard/components", () => ({
 }));
 
 import { ParameterPreview } from "../parameter-preview";
+import { useParameterStore } from "@/stores/parameter-store";
 
 const baseProps = {
   paramUIType: "freetext" as const,
@@ -305,6 +309,49 @@ describe("ParameterPreview", () => {
         "data-parent",
         "region",
       );
+    });
+
+    // #1951: Test Seed Query binds the parent's dashboard value, so the
+    // preview takes the same value — otherwise it stays "Select <parent>
+    // first…" and hides the options the test just loaded.
+    describe("the parent's value (#1951)", () => {
+      beforeEach(() => {
+        useParameterStore
+          .getState()
+          .setParameter("region", "EU", "Region", "region", "select");
+      });
+      afterEach(() => {
+        useParameterStore.getState().clearAll();
+      });
+
+      it("takes the parent's dashboard value", () => {
+        render(
+          <ParameterPreview
+            {...baseProps}
+            paramUIType="select"
+            chartOptions={{ parentParameterName: "region" }}
+          />,
+        );
+        expect(screen.getByTestId("select-single")).toHaveAttribute(
+          "data-parent-value",
+          "EU",
+        );
+      });
+
+      it("never takes a store value in the Widget Library", () => {
+        render(
+          <ParameterPreview
+            {...baseProps}
+            paramUIType="select"
+            chartOptions={{ parentParameterName: "region" }}
+            isLabMode
+          />,
+        );
+        expect(screen.getByTestId("select-single")).toHaveAttribute(
+          "data-parent-value",
+          "",
+        );
+      });
     });
 
     it("leaves the parent empty for a plain select", () => {

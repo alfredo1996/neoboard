@@ -38,6 +38,8 @@ type WidgetPreviewPanelProps = Readonly<{
   buildStylingConfig: () => StylingConfig | undefined;
 
   isParamSelect: boolean;
+  /** Editing a Widget Library template: no dashboard is open (#1951). */
+  isLabMode?: boolean;
   isForm: boolean;
   isContentOnly: boolean;
   isMarkdown: boolean;
@@ -91,6 +93,7 @@ function renderParamSelect(props: {
   seedPreviewOptions: { value: string; label: string }[] | null;
   seedQueryPending: boolean;
   seedQueryError: string | null;
+  isLabMode?: boolean;
 }) {
   return (
     <ParameterPreview
@@ -102,6 +105,7 @@ function renderParamSelect(props: {
       seedPreviewOptions={props.seedPreviewOptions}
       seedQueryPending={props.seedQueryPending}
       seedQueryError={props.seedQueryError}
+      isLabMode={props.isLabMode}
     />
   );
 }
@@ -242,6 +246,7 @@ export function WidgetPreviewPanel({
   transformsEnabled,
   buildStylingConfig,
   isParamSelect,
+  isLabMode,
   isForm,
   isContentOnly,
   isMarkdown,
@@ -273,6 +278,7 @@ export function WidgetPreviewPanel({
         seedPreviewOptions,
         seedQueryPending,
         seedQueryError,
+        isLabMode,
       });
     }
     if (isForm) return renderForm(formFields, chartOptions);

@@ -12,6 +12,7 @@ import {
 } from "@neoboard/components";
 import type { ParamUIType, DateSubType } from "./parameter-config-section";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
+import { useCascadeParent } from "@/components/parameters/use-seed-query-options";
 
 const DEFAULT_PREVIEW_OPTIONS = [
   { value: "option-1", label: "Option 1" },
@@ -28,6 +29,8 @@ export interface ParameterPreviewProps {
   seedPreviewOptions: { value: string; label: string }[] | null;
   seedQueryPending: boolean;
   seedQueryError?: string | null;
+  /** Editing a Widget Library template: no dashboard is open (#1951). */
+  isLabMode?: boolean;
 }
 
 export function ParameterPreview({
@@ -39,7 +42,15 @@ export function ParameterPreview({
   seedPreviewOptions,
   seedQueryPending,
   seedQueryError,
+  isLabMode = false,
 }: ParameterPreviewProps) {
+  const parentParameterName =
+    (chartOptions.parentParameterName as string) || undefined;
+  // The value Test Seed Query binds, so the preview opens exactly when the
+  // test can run and shows the options it loaded; none in the library (#1951).
+  const { parentValue } = useCascadeParent(
+    isLabMode ? undefined : parentParameterName,
+  );
   return (
     <div
       className="h-full flex items-center justify-center p-6"
@@ -96,10 +107,8 @@ export function ParameterPreview({
             // Left undefined when unset so the component can show its own
             // "Select <parent> first…" prompt for a cascading config.
             placeholder={(chartOptions.placeholder as string) || undefined}
-            parentParameterName={
-              (chartOptions.parentParameterName as string) || undefined
-            }
-            parentValue={undefined}
+            parentParameterName={parentParameterName}
+            parentValue={parentValue}
           />
         )}
         {paramUIType === "select" && multiSelect && (

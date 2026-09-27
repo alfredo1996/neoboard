@@ -46,7 +46,11 @@ vi.mock("../../card-container", () => ({
 }));
 
 vi.mock("../parameter-preview", () => ({
-  ParameterPreview: () => <div data-testid="parameter-preview">param</div>,
+  ParameterPreview: ({ isLabMode }: { isLabMode?: boolean }) => (
+    <div data-testid="parameter-preview" data-lab-mode={String(isLabMode)}>
+      param
+    </div>
+  ),
 }));
 
 import { WidgetPreviewPanel } from "../widget-preview-panel";
@@ -175,6 +179,19 @@ describe("WidgetPreviewPanel", () => {
       />,
     );
     expect(screen.getByTestId("markdown")).toHaveTextContent("# Hello");
+  });
+
+  // In the Widget Library the preview must not bind a parent value the last
+  // dashboard left in the store, as the Test Seed Query button does not (#1951).
+  it("tells ParameterPreview it is in the Widget Library", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({ isParamSelect: true, isLabMode: true })}
+      />,
+    );
+    expect(
+      screen.getByTestId("parameter-preview").getAttribute("data-lab-mode"),
+    ).toBe("true");
   });
 
   it("renders ParameterPreview when isParamSelect", () => {
