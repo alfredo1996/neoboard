@@ -197,19 +197,16 @@ describe("UsersPage — disable and enable (#2049)", () => {
     expect(row("u3").queryByRole("menuitem", { name: "Disable" })).toBeNull();
   });
 
-  it("does not let the admin disable their own account, as Delete does not", () => {
+  it("offers neither Disable nor Enable on the admin's own row", () => {
     render(<UsersPage />);
 
-    const own = row(ME).getByRole("menuitem", { name: "Disable" });
-    expect(own).toHaveAttribute("aria-disabled", "true");
+    expect(
+      row(ME).queryByRole("menuitem", { name: /^(Disable|Enable)$/ }),
+    ).toBeNull();
     expect(row(ME).getByRole("menuitem", { name: "Delete" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
-
-    fireEvent.click(own);
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(mockSetDisabled).not.toHaveBeenCalled();
   });
 
   it("asks before disabling, says what happens, then sends { disabled: true } and names the user", async () => {

@@ -216,14 +216,7 @@ export default function UsersPage() {
       {
         accessorKey: "name",
         header: "Name",
-        cell: ({ row }) => (
-          <span className="inline-flex items-center gap-2">
-            {row.original.name}
-            {row.original.disabledAt && (
-              <Badge variant="warning">Disabled</Badge>
-            )}
-          </span>
-        ),
+        cell: renderNameCell,
       },
       { accessorKey: "email", header: "Email" },
       {
@@ -294,12 +287,13 @@ export default function UsersPage() {
                   <KeyRound className="mr-2 h-4 w-4" />
                   Require Password Change
                 </DropdownMenuItem>
-                <DisableToggleItem
-                  user={row.original}
-                  isSelf={isSelf}
-                  onDisable={setDisableTarget}
-                  onEnable={(user) => void handleSetDisabled(user, false)}
-                />
+                {!isSelf && (
+                  <DisableToggleItem
+                    user={row.original}
+                    onDisable={setDisableTarget}
+                    onEnable={(user) => void handleSetDisabled(user, false)}
+                  />
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={isSelf}
@@ -611,32 +605,34 @@ function displayNameOf(user: UserListItem | null): string {
   return user?.name ?? user?.email ?? "This user";
 }
 
+// Module scope, not inline in the columns: an inline JSX renderer is a nested
+// component definition (Sonar S6478).
+function renderNameCell({ row }: { row: { original: UserListItem } }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      {row.original.name}
+      {row.original.disabledAt && <Badge variant="warning">Disabled</Badge>}
+    </span>
+  );
+}
+
 /**
- * Disable on an enabled user, Enable on a disabled one (#2049). Never on the
- * admin's own row, the same self-protection Delete has; the API refuses a
- * self-PATCH too.
+ * Disable on an enabled user, Enable on a disabled one (#2049). The page does
+ * not render it on the admin's own row; the API refuses a self-PATCH too.
  */
 function DisableToggleItem({
   user,
-  isSelf,
   onDisable,
   onEnable,
 }: Readonly<{
   user: UserListItem;
-  isSelf: boolean;
   onDisable: (user: UserListItem) => void;
   onEnable: (user: UserListItem) => void;
 }>) {
   const disabled = Boolean(user.disabledAt);
   const Icon = disabled ? UserCheck : UserX;
   return (
-    <DropdownMenuItem
-      disabled={isSelf}
-      onClick={() => {
-        if (isSelf) return;
-        (disabled ? onEnable : onDisable)(user);
-      }}
-    >
+    <DropdownMenuItem onClick={() => (disabled ? onEnable : onDisable)(user)}>
       <Icon className="mr-2 h-4 w-4" />
       {disabled ? "Enable" : "Disable"}
     </DropdownMenuItem>
