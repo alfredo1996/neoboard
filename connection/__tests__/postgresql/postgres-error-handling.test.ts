@@ -511,3 +511,48 @@ describe("PostgresConnectionModule — introspection timeout is overridable (#13
     );
   });
 });
+
+// Truncation is about the rows returned (#1965). drainBoundedCursor reports an
+// affected-row count only when a statement returned none, but the status must
+// not lean on that: returned rows past the limit win over any count.
+describe("PostgresConnectionModule — a write's status (#1965)", () => {
+  const cursors = require("../../src/postgresql/cursor-read") as Record<
+    string,
+    jest.Mock
+  >;
+
+  async function writeStatuses(drained: {
+    rows: Record<string, unknown>[];
+    affectedRowCount?: number;
+  }) {
+    const mod = makeModule();
+    const client = fakeClient([]);
+    const pool = { connect: jest.fn().mockResolvedValue(client) };
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+    cursors.drainBoundedCursor.mockResolvedValueOnce({
+      fields: [],
+      ...drained,
+    });
+    const setStatus = jest.fn();
+    await mod.runQuery(
+      { query: "UPDATE t SET n = n + 1 RETURNING n", params: {} },
+      { onSuccess: jest.fn(), onFail: jest.fn(), setStatus } as any,
+      CONFIG({ accessMode: "WRITE" as any, rowLimit: 2 }),
+    );
+    return setStatus.mock.calls.map((c) => c[0]);
+  }
+
+  it("is truncated when more rows came back than the limit, whatever the count", async () => {
+    const statuses = await writeStatuses({
+      rows: [{ n: 1 }, { n: 2 }, { n: 3 }],
+      affectedRowCount: 3,
+    });
+    expect(statuses).toContain(QueryStatus.COMPLETE_TRUNCATED);
+  });
+
+  it("is complete, not truncated, when none came back but many were affected", async () => {
+    const statuses = await writeStatuses({ rows: [], affectedRowCount: 6000 });
+    expect(statuses).not.toContain(QueryStatus.COMPLETE_TRUNCATED);
+    expect(statuses.at(-1)).toBe(QueryStatus.COMPLETE);
+  });
+});

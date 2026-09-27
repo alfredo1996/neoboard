@@ -216,19 +216,19 @@ export class PostgresConnectionModule extends ConnectionModule {
       const limitedRows = isTruncated
         ? fetchedRows.slice(0, config.rowLimit)
         : fetchedRows;
-      // The streamed count is capped at rowLimit + 1, which yields the same
-      // status as the true count (> rowLimit ⇒ truncated). A write that
-      // returned no rows reports the driver's affected-row count instead, so
+      // Truncation is about the rows RETURNED, so they decide first: past
+      // the limit is truncated, whatever else the driver reports (#1965). A
+      // write that returned none reports its affected-row count instead, so
       // an INSERT without RETURNING reads as COMPLETE rather than NO_DATA —
-      // clamped at rowLimit, because truncation is about the rows RETURNED:
-      // a 6000-row UPDATE that returned none cut nothing off (#1965).
-      const returnedCount = isTruncated
-        ? config.rowLimit + 1
-        : fetchedRows.length;
-      const rowCount =
-        affectedRowCount === undefined
-          ? returnedCount
-          : Math.min(affectedRowCount, config.rowLimit);
+      // clamped at rowLimit: a 6000-row UPDATE that returned none cut nothing.
+      let rowCount: number;
+      if (isTruncated) {
+        rowCount = config.rowLimit + 1;
+      } else if (affectedRowCount === undefined) {
+        rowCount = fetchedRows.length;
+      } else {
+        rowCount = Math.min(affectedRowCount, config.rowLimit);
+      }
 
       callbacks.setStatus?.(determineQueryStatus(rowCount, config.rowLimit));
 
