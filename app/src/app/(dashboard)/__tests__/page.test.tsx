@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
 
@@ -7,7 +7,10 @@ const { mockToast, connectorsQuery } = vi.hoisted(() => ({
   mockToast: vi.fn(),
   // Reassigned per test: the import has to tell "still loading" from
   // "nothing installed speaks Cypher" (#1900).
-  connectorsQuery: { data: [] as unknown },
+  connectorsQuery: {
+    data: [] as unknown,
+    refetch: vi.fn(async () => ({ data: undefined as unknown })),
+  },
 }));
 
 const DENIED =
@@ -150,6 +153,10 @@ describe("DashboardListPage NeoDash import", () => {
 
   beforeEach(() => {
     connectorsQuery.data = [];
+    // mockReset, not clearAllMocks: a queued once-value a test left unused
+    // would answer the next test's fetch.
+    connectorsQuery.refetch.mockReset();
+    connectorsQuery.refetch.mockResolvedValue({ data: undefined });
   });
 
   function pickNeoDashFile(dashboard: object = NEODASH) {
@@ -163,19 +170,153 @@ describe("DashboardListPage NeoDash import", () => {
     // jsdom's File.text() is unreliable across versions; the flow only needs
     // the text, so hand it over directly.
     Object.defineProperty(file, "text", { value: () => Promise.resolve(text) });
-    Object.defineProperty(input, "files", { value: [file] });
+    // configurable: a test may pick twice.
+    Object.defineProperty(input, "files", {
+      value: [file],
+      configurable: true,
+    });
     fireEvent.change(input);
   }
 
-  it("says to try again while the connectors are still loading", async () => {
+  // A file picked before /api/connectors answered used to be refused, and
+  // the user had to pick it again (#2029). The pick waits for the list.
+  it("keeps a file picked while the connectors load and reads it once they arrive", async () => {
     connectorsQuery.data = undefined;
+    const list = [
+      { type: "acme-graph", label: "Acme Graph", queryLanguage: "cypher" },
+    ];
+    // As React Query does: the cache holds the list before refetch resolves.
+    connectorsQuery.refetch.mockImplementationOnce(async () => {
+      connectorsQuery.data = list;
+      return { data: list };
+    });
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+
+    expect(
+      await screen.findByText("No compatible Acme Graph connections", {
+        exact: false,
+      }),
+    ).toBeTruthy();
+    // Joins the fetch already in flight rather than starting another.
+    expect(connectorsQuery.refetch).toHaveBeenCalledWith({
+      cancelRefetch: false,
+    });
+    expect(screen.queryByText(/try the file again/i)).toBeNull();
+  });
+
+  // A second file picked while the first waits for the connectors is the
+  // one the user chose; the first, resuming later, must not replace it.
+  it("keeps the latest pick when an earlier one resumes after it", async () => {
+    connectorsQuery.data = undefined;
+    let release!: (value: { data: unknown }) => void;
+    connectorsQuery.refetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+    // The race: the first pick is inside the connectors fetch when the
+    // second arrives.
+    await vi.waitFor(() => expect(connectorsQuery.refetch).toHaveBeenCalled());
+    pickNeoDashFile({
+      formatVersion: 1,
+      dashboard: { name: "Second pick" },
+      connections: {},
+      layout: { version: 2, pages: [] },
+    });
+    expect(await screen.findByText("Second pick")).toBeTruthy();
+
+    const list = [
+      { type: "acme-graph", label: "Acme Graph", queryLanguage: "cypher" },
+    ];
+    connectorsQuery.data = list;
+    release({ data: list });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.getByText("Second pick")).toBeTruthy();
+    expect(screen.queryByText("Movies")).toBeNull();
+  });
+
+  // Nor may an earlier pick that fails late put its error on the newer file.
+  it("shows no error from an earlier pick that fails after a later one", async () => {
+    render(<DashboardListPage />);
+    const input = document.getElementById("import-file") as HTMLInputElement;
+    let fail!: (reason: Error) => void;
+    const first = new File(["x"], "first.json");
+    Object.defineProperty(first, "text", {
+      value: () =>
+        new Promise<string>((_, reject) => {
+          fail = reject;
+        }),
+    });
+    Object.defineProperty(input, "files", {
+      value: [first],
+      configurable: true,
+    });
+    fireEvent.change(input);
+
+    pickNeoDashFile({
+      formatVersion: 1,
+      dashboard: { name: "Second pick" },
+      connections: {},
+      layout: { version: 2, pages: [] },
+    });
+    expect(await screen.findByText("Second pick")).toBeTruthy();
+
+    fail(new Error("read failed"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.queryByText(/Failed to parse file/)).toBeNull();
+    expect(screen.getByText("Second pick")).toBeTruthy();
+  });
+
+  // Closing the dialog retires a pick still waiting on the connectors: it
+  // must not fill a dialog the user has already dismissed.
+  it("drops a pick still loading when the dialog is closed", async () => {
+    connectorsQuery.data = undefined;
+    let release!: (value: { data: unknown }) => void;
+    connectorsQuery.refetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    render(<DashboardListPage />);
+
+    pickNeoDashFile();
+    await vi.waitFor(() => expect(connectorsQuery.refetch).toHaveBeenCalled());
+    const form = document.getElementById("import-file")!.closest("form")!;
+    fireEvent.click(within(form).getByText("Cancel"));
+
+    const list = [
+      { type: "acme-graph", label: "Acme Graph", queryLanguage: "cypher" },
+    ];
+    connectorsQuery.data = list;
+    release({ data: list });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(
+      screen.queryByText("No compatible Acme Graph connections", {
+        exact: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("says so when the connectors cannot be loaded", async () => {
+    connectorsQuery.data = undefined;
+    connectorsQuery.refetch.mockResolvedValueOnce({ data: undefined });
     render(<DashboardListPage />);
 
     pickNeoDashFile();
 
     expect(
       await screen.findByText(
-        "Still loading the installed connectors — try the file again in a moment.",
+        "Couldn't load the installed connectors, so this NeoDash file can't be read. Reload the page and try again.",
       ),
     ).toBeTruthy();
   });

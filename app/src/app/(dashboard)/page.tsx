@@ -158,6 +158,33 @@ interface ImportSuccessState {
   followUp: ImportFollowUp;
 }
 
+/**
+ * A NeoBoard export's preview and its empty connection mapping, one row per
+ * key the file lists.
+ */
+function readNeoBoardExport(json: {
+  connections?: Record<string, ConnectionInfo>;
+  layout?: { pages?: Array<{ widgets?: unknown[] }> };
+  dashboard?: { name?: string };
+}): { mapping: Record<string, string>; parsed: ParsedImport } {
+  const connections = json.connections ?? {};
+  const widgetCount =
+    json.layout?.pages?.reduce(
+      (sum: number, p) => sum + (p.widgets?.length ?? 0),
+      0,
+    ) ?? 0;
+  return {
+    mapping: Object.fromEntries(Object.keys(connections).map((k) => [k, ""])),
+    parsed: {
+      payload: json,
+      dashboardName: json.dashboard?.name ?? "Imported Dashboard",
+      widgetCount,
+      isNeoDash: false,
+      connections,
+    },
+  };
+}
+
 function ImportDashboardDialog({
   open,
   onOpenChange,
@@ -165,6 +192,9 @@ function ImportDashboardDialog({
 }: ImportDashboardDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Which pick may still update the dialog: handleFile awaits the file and
+  // the connectors, so an earlier pick can resume after a later one (#2029).
+  const latestPick = useRef(0);
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
@@ -179,7 +209,7 @@ function ImportDashboardDialog({
   );
 
   const { data: availableConnections = [] } = useConnections();
-  const { data: connectors } = useConnectors();
+  const { data: connectors, refetch: refetchConnectors } = useConnectors();
   const importDashboard = useImportDashboard();
 
   function reset() {
@@ -189,6 +219,7 @@ function ImportDashboardDialog({
     setFileError(null);
     setSubmitError(null);
     setSuccessState(null);
+    latestPick.current++;
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -218,10 +249,12 @@ function ImportDashboardDialog({
     setMapping({});
     setSkipped(new Set());
     const file = e.target.files?.[0];
+    const pick = ++latestPick.current;
     if (!file) return;
 
     try {
       const text = await file.text();
+      if (pick !== latestPick.current) return;
       const json = JSON.parse(text);
 
       if (isNeoDashFormat(json)) {
@@ -242,17 +275,19 @@ function ImportDashboardDialog({
         // the query language it declares, not by its name (#1900). With none
         // installed there is nothing to map the import onto, so say so rather
         // than offering a placeholder pointing at a connector that is not here.
-        // Still loading is not the same as nothing installed: the message
-        // below is permanent, and a file picked before /api/connectors
-        // resolves would have been refused with it.
-        if (!connectors) {
+        // A file picked before /api/connectors answers waits for it, joining
+        // the fetch in flight: refusing it made the user pick it again (#2029).
+        const installed =
+          connectors ??
+          (await refetchConnectors({ cancelRefetch: false })).data;
+        if (pick !== latestPick.current) return;
+        if (!installed) {
           setFileError(
-            "Still loading the installed connectors — try the file again in a moment.",
+            "Couldn't load the installed connectors, so this NeoDash file can't be read. Reload the page and try again.",
           );
-          setParsed(null);
           return;
         }
-        const target = cypherConnector(connectors);
+        const target = cypherConnector(installed);
         if (!target) {
           setFileError(
             "This is a NeoDash dashboard, whose queries are Cypher. No installed connector runs Cypher, so there is nothing to import it onto. Add one and try again.",
@@ -275,34 +310,17 @@ function ImportDashboardDialog({
           connections: synthesized,
         });
       } else if (json.formatVersion === 1) {
-        // NeoBoard export
-        const connections = (json.connections ?? {}) as Record<
-          string,
-          ConnectionInfo
-        >;
-        const widgetCount =
-          (json.layout?.pages as Array<{ widgets?: unknown[] }>)?.reduce(
-            (sum: number, p) => sum + (p.widgets?.length ?? 0),
-            0,
-          ) ?? 0;
-        const initialMapping: Record<string, string> = {};
-        for (const key of Object.keys(connections)) {
-          initialMapping[key] = "";
-        }
-        setMapping(initialMapping);
-        setParsed({
-          payload: json,
-          dashboardName: json.dashboard?.name ?? "Imported Dashboard",
-          widgetCount,
-          isNeoDash: false,
-          connections,
-        });
+        const exported = readNeoBoardExport(json);
+        setMapping(exported.mapping);
+        setParsed(exported.parsed);
       } else {
         setFileError(
           "Unrecognised file format. Expected a NeoBoard or NeoDash export.",
         );
       }
     } catch {
+      // A superseded pick's failure is not the current file's.
+      if (pick !== latestPick.current) return;
       setFileError("Failed to parse file. Make sure it is a valid JSON file.");
     }
   }
