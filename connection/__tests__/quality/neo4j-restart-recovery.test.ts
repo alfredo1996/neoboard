@@ -8,6 +8,7 @@
 import { Neo4jContainer } from "@testcontainers/neo4j";
 import type { StartedNeo4jContainer } from "@testcontainers/neo4j";
 import neo4j from "neo4j-driver";
+import { onFreePort } from "../utils/free-port";
 import { Neo4jConnectionModule } from "../../src/neo4j/Neo4jConnectionModule";
 import { AuthType, DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
 
@@ -57,15 +58,20 @@ async function waitForBolt(uri: string, password: string, timeoutMs: number) {
   throw lastErr;
 }
 
-const FIXED_BOLT_PORT = 30687;
+let boltPort: number;
 
 beforeAll(async () => {
-  container = await new Neo4jContainer("neo4j:5-community")
-    .withPassword("recovery-test-pw")
-    .withExposedPorts({ container: 7687, host: FIXED_BOLT_PORT }, 7474)
-    .start();
+  // A fixed binding, not a Docker-mapped port: a mapped port can change across
+  // the restart this suite exercises. Free for this run, so two runs at once
+  // do not both claim one constant (#1929).
+  ({ value: container, port: boltPort } = await onFreePort((port) =>
+    new Neo4jContainer("neo4j:5-community")
+      .withPassword("recovery-test-pw")
+      .withExposedPorts({ container: 7687, host: port }, 7474)
+      .start(),
+  ));
   connection = new Neo4jConnectionModule({
-    uri: `bolt://localhost:${FIXED_BOLT_PORT}`,
+    uri: `bolt://localhost:${boltPort}`,
     username: container.getUsername(),
     password: container.getPassword(),
     authType: AuthType.NATIVE,
