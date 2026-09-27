@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { onFreePort } from "./utils/free-port";
 
 // The global teardown removes the Neo4j container after every run, so
 // `withReuse()` never reused one across runs. Its only effect was that two runs
@@ -45,5 +46,37 @@ describe("fixed host ports (#1929)", () => {
         .map((v) => `${file.slice(__dirname.length + 1)}: ${v}`);
     });
     expect(fixed).toEqual([]);
+  });
+});
+
+// A port freePort() found can be taken before Docker binds it. The restart
+// suite needs a fixed binding (a Docker-mapped port can change across the
+// restart it exercises), so a taken port is answered by picking another.
+describe("onFreePort (#1929)", () => {
+  const taken = () =>
+    Promise.reject(new Error("Bind for 0.0.0.0:1: port is already allocated"));
+
+  it("picks another port when Docker says the first was taken", async () => {
+    const start = jest
+      .fn<Promise<string>, [number]>()
+      .mockImplementationOnce(taken)
+      .mockImplementationOnce(async (port) => `up on ${port}`);
+
+    const { value, port } = await onFreePort(start);
+
+    expect(start).toHaveBeenCalledTimes(2);
+    expect(value).toBe(`up on ${port}`);
+  });
+
+  it("rethrows any other failure at once", async () => {
+    const start = jest.fn(() => Promise.reject(new Error("image not found")));
+    await expect(onFreePort(start)).rejects.toThrow("image not found");
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up after three taken ports", async () => {
+    const start = jest.fn(taken);
+    await expect(onFreePort(start)).rejects.toThrow(/already allocated/);
+    expect(start).toHaveBeenCalledTimes(3);
   });
 });
