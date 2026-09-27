@@ -55,7 +55,52 @@ describe("classifyPostgresError", () => {
         classifyPostgresError(
           pgError('column "timeout" does not exist', { code: "42703" }),
         ),
-      ).toEqual({ type: QUERY, transient: false });
+      ).toEqual({ type: QUERY, transient: false, statementFault: true });
+    });
+  });
+
+  // #2053: the statement's own fault answers 422, so only a positive match
+  // may say so. Anything the tables do not recognise stays a server fault.
+  describe("statement fault", () => {
+    it.each([
+      ["a syntax error", "42601", 'syntax error at or near "SELEKT"'],
+      ["a missing column", "42703", 'column "category" does not exist'],
+      ["a missing table", "42P01", 'relation "nope" does not exist'],
+      ["a denied table", "42501", "permission denied for table users"],
+      ["a bad value", "22012", "division by zero"],
+    ])("%s (%s) carries the flag", (_label, code, message) => {
+      expect(
+        classifyPostgresError(pgError(message, { code })).statementFault,
+      ).toBe(true);
+    });
+
+    it.each([
+      'syntax error at or near "FROM"',
+      'column "category" does not exist',
+      "invalid input syntax for type integer",
+    ])("so does %j without its SQLSTATE", (message) => {
+      expect(classifyPostgresError(pgError(message)).statementFault).toBe(true);
+    });
+
+    it.each([
+      ["an unrecognised SQLSTATE", pgError("x", { code: "XX999" })],
+      ["an unrecognised message", pgError("boom")],
+      // Its words say "does not exist", but the SQLSTATE is read first.
+      [
+        "a database that does not exist",
+        pgError('database "nope" does not exist', { code: "3D000" }),
+      ],
+      ["a timeout", pgError("canceling statement", { code: "57014" })],
+      [
+        "a blocked write",
+        pgError("cannot execute DELETE in a read-only transaction", {
+          code: "25006",
+        }),
+      ],
+      ["an unreachable host", pgError("connect ECONNREFUSED 127.0.0.1:5432")],
+      ["bad credentials", pgError("x", { code: "28P01" })],
+    ])("%s does not", (_label, err) => {
+      expect(classifyPostgresError(err).statementFault).toBeUndefined();
     });
   });
 
@@ -76,6 +121,8 @@ describe("classifyPostgresError", () => {
         type: CONSTRAINT,
         transient: false,
         constraint: { kind },
+        // Classes 22 and 23 are statement SQLSTATEs (#2053).
+        statementFault: true,
       });
     });
 
@@ -97,6 +144,7 @@ describe("classifyPostgresError", () => {
           column: "rating",
           name: "feedback_rating_not_null",
         },
+        statementFault: true,
       });
       expect(JSON.stringify(classification)).not.toMatch(/hunter2|Failing/);
     });
@@ -192,11 +240,11 @@ describe("classifyPostgresError", () => {
     it("a statement's own fault is never a timeout, even without its SQLSTATE", () => {
       expect(
         classifyPostgresError(pgError('syntax error at "timeout" near line 3')),
-      ).toEqual({ type: QUERY, transient: false });
+      ).toEqual({ type: QUERY, transient: false, statementFault: true });
       // #1898, should the message ever arrive unwrapped.
       expect(
         classifyPostgresError(pgError("Expected parameter(s): param_timeout")),
-      ).toEqual({ type: QUERY, transient: false });
+      ).toEqual({ type: QUERY, transient: false, statementFault: true });
     });
   });
 
@@ -247,7 +295,7 @@ describe("classifyPostgresError", () => {
           classifyPostgresError(
             pgError(`syntax error at or near "${keyword}"`, { code: "42601" }),
           ),
-        ).toEqual({ type: QUERY, transient: false });
+        ).toEqual({ type: QUERY, transient: false, statementFault: true });
       },
     );
 

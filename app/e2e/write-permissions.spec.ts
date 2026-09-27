@@ -249,7 +249,7 @@ test.describe("Form widget — write permission enforcement", () => {
     }
   });
 
-  test("4. write query runtime error returns safe 500 message", async ({
+  test("4. write query syntax error returns a safe 422 message", async ({
     page,
     browser,
   }) => {
@@ -285,17 +285,18 @@ test.describe("Form widget — write permission enforcement", () => {
       connectionId = (await connRes.json()).data.id as string;
 
       // Intentionally broken SQL — the executor will throw; the route should
-      // translate that into a 500 with a user-safe message and NOT leak the
-      // raw driver error.
+      // translate that into a 422 (the statement's fault, #2053) with a
+      // user-safe message and NOT leak the raw driver error.
       const res = await creatorSession.page.request.post("/api/query/write", {
         data: {
           connectionId,
           query: "THIS IS NOT VALID SQL",
         },
       });
-      expect(res.status()).toBe(500);
+      expect(res.status()).toBe(422);
 
       const body = await res.json();
+      expect(body.error?.code).toBe("QUERY_ERROR");
       expect(body.error?.message).toBe("Write query execution failed");
       // Safety check: raw driver syntax errors must not bleed through.
       expect(body.error?.message).not.toMatch(/syntax error at or near/i);

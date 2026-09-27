@@ -438,6 +438,150 @@ describe("handleRouteError", () => {
     });
   });
 
+  /**
+   * #2053 — a user's typo answered 500 and logged at error with a stack, so
+   * an operator's error rate tracked how many typos their users made. Only a
+   * connector's positive statement-fault flag is the caller's fault: its
+   * no-match QUERY fallback is a guess and stays a server fault.
+   */
+  describe("statement fault (#2053)", () => {
+    const spyLogs = async () => {
+      const { apiLogger } = await import("@/lib/logger");
+      return {
+        warn: vi.spyOn(apiLogger, "warn").mockReturnValue(undefined as never),
+        error: vi.spyOn(apiLogger, "error").mockReturnValue(undefined as never),
+      };
+    };
+
+    it("answers 422 QUERY_ERROR with the sanitized driver message", async () => {
+      const res = await handleRouteError(
+        classified(
+          { statementFault: true },
+          'column "category" does not exist at fixturedb://u:s3cret@db:1',
+        ),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(422);
+      expect(res.headers.get("Retry-After")).toBeNull();
+      const body = await res.json();
+      expect(body.error.code).toBe("QUERY_ERROR");
+      expect(body.error.message).toContain('column "category" does not exist');
+      expect(body.error.message).not.toMatch(/s3cret/);
+      expect(body.error.details).toBeUndefined();
+    });
+
+    it("logs at warn with the request id and no stack, never at error", async () => {
+      const { headers } = await import("next/headers");
+      vi.mocked(headers).mockResolvedValueOnce(
+        new Map([["x-request-id", "req-2053"]]) as unknown as Awaited<
+          ReturnType<typeof headers>
+        >,
+      );
+      const logs = await spyLogs();
+
+      await handleRouteError(
+        classified({ statementFault: true }, "syntax error"),
+        "Query execution failed",
+      );
+
+      expect(logs.error).not.toHaveBeenCalled();
+      expect(logs.warn).toHaveBeenCalledTimes(1);
+      const [record, msg] = logs.warn.mock.calls[0] as unknown as [
+        Record<string, unknown>,
+        string,
+      ];
+      expect(msg).toBe("api_query_error");
+      expect(record).toEqual({
+        event: "api_query_error",
+        requestId: "req-2053",
+        errorCode: "ConnectorError",
+        // Categories only: never the message, the statement or a value.
+        classification: {
+          type: ConnectorErrorType.QUERY,
+          transient: false,
+          statementFault: true,
+        },
+      });
+      expect(JSON.stringify(record)).not.toMatch(/\bat\s.+:\d+:\d+/);
+      expect(record).not.toHaveProperty("err");
+      logs.warn.mockRestore();
+      logs.error.mockRestore();
+    });
+
+    it("keeps the blockedWrite detail", async () => {
+      const res = await handleRouteError(
+        classified({ statementFault: true, blockedWrite: true }, "no writes"),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(422);
+      expect((await res.json()).error).toEqual({
+        code: "QUERY_ERROR",
+        message: "no writes",
+        details: { blockedWrite: true },
+      });
+    });
+
+    it("answers only the fallback on a safeMessage route: a statement echoes values", async () => {
+      const res = await handleRouteError(
+        classified(
+          { statementFault: true },
+          'syntax error at or near "hunter2"',
+        ),
+        "Write query execution failed",
+        { safeMessage: true },
+      );
+      expect(res.status).toBe(422);
+      expect((await res.json()).error).toEqual({
+        code: "QUERY_ERROR",
+        message: "Write query execution failed",
+      });
+    });
+
+    it("leaves the no-match QUERY fallback a 500, logged at error", async () => {
+      const logs = await spyLogs();
+      const res = await handleRouteError(
+        classified({}, "something nobody recognised"),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(500);
+      expect((await res.json()).error.code).toBe("INTERNAL_ERROR");
+      expect(logs.error).toHaveBeenCalledTimes(1);
+      expect(logs.warn).not.toHaveBeenCalled();
+      logs.warn.mockRestore();
+      logs.error.mockRestore();
+    });
+
+    it("never reads the flag off an error no connector raised", async () => {
+      const res = await handleRouteError(
+        Object.assign(new Error("typo"), {
+          classification: {
+            type: "QUERY",
+            transient: false,
+            statementFault: true,
+          },
+        }),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(500);
+    });
+
+    it.each([
+      [
+        "an unavailable connector stays 502",
+        ConnectorErrorType.NETWORK,
+        false,
+        502,
+      ],
+      ["a transient one stays 408", ConnectorErrorType.QUERY, true, 408],
+    ])("decides it last: %s", async (_label, type, transient, status) => {
+      const res = await handleRouteError(
+        classified({ type, transient, statementFault: true }),
+        "Query execution failed",
+      );
+      expect(res.status).toBe(status);
+    });
+  });
+
   describe("safeMessage option", () => {
     it("collapses raw driver errors to fallback when safeMessage=true", async () => {
       const res = await handleRouteError(

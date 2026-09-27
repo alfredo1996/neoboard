@@ -315,6 +315,39 @@ describe("POST /api/query/write", () => {
     expect(body.error.message).not.toMatch(/syntax error/i);
   });
 
+  it("answers a statement fault 422 QUERY_ERROR, still with only the fallback message (#2053)", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDashboardAndConnection();
+    mockDecryptJson.mockReturnValue({
+      uri: "postgresql://localhost",
+      username: "neoboard",
+      password: "pass",
+    });
+    mockExecuteQuery.mockRejectedValue(
+      toConnectorError(
+        "postgresql",
+        Object.assign(new Error('syntax error at or near "hunter2"'), {
+          code: "42601",
+        }),
+      ),
+    );
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "THIS IS NOT VALID SQL",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toEqual({
+      code: "QUERY_ERROR",
+      message: "Write query execution failed",
+    });
+  });
+
   it("surfaces a specific reason for a NOT NULL violation without leaking row data (#1162)", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDashboardAndConnection();

@@ -25,6 +25,11 @@ export type ApiErrorCode =
   | "REQUEST_TIMEOUT"
   | "SERVICE_UNAVAILABLE"
   /**
+   * The connector says the statement itself is at fault: a syntax error, a
+   * missing column (#2053). The caller's to fix, so not a 500; never retried.
+   */
+  | "QUERY_ERROR"
+  /**
    * The user's connector cannot be reached or refuses the credentials
    * (#1678). Deliberately NOT a 408/503: those carry Retry-After and the
    * client auto-retries them, which against a dead host is a retry storm.
@@ -44,6 +49,7 @@ const ERROR_STATUS: Record<ApiErrorCode, number> = {
   ENTERPRISE_REQUIRED: 402,
   REQUEST_TIMEOUT: 408,
   SERVICE_UNAVAILABLE: 503,
+  QUERY_ERROR: 422,
   CONNECTOR_UNAVAILABLE: 502,
 };
 

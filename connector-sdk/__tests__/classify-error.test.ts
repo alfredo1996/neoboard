@@ -125,6 +125,53 @@ describe("createErrorClassifier", () => {
     expect(classify(new Error("Read-only mode")).blockedWrite).toBe(true);
     expect(classify(new Error("anything else")).blockedWrite).toBe(undefined);
   });
+
+  // #2053: only a statement fault is the caller's to fix (422). The no-match
+  // QUERY fallback is a guess, so it must never carry the flag.
+  describe("statementFault", () => {
+    const statements = createErrorClassifier({
+      types: [
+        { codes: ["E_AUTH"], type: AUTHENTICATION },
+        { codePrefixes: ["STMT."], type: QUERY, statementFault: true },
+        { phrases: ["no such column"], type: QUERY, statementFault: true },
+      ],
+      permanent: {},
+      transient: {},
+      constraints: new Map<string, ConnectorConstraintKind>([
+        ["STMT.BadValue", "invalid_format"],
+      ]),
+    });
+
+    it.each([
+      ["a statement code", { code: "STMT.Syntax", message: "x" }],
+      ["a statement phrase", new Error("No such column: price")],
+    ])("is set when a statement rule names the type: %s", (_label, err) => {
+      expect(statements(err)).toEqual({
+        type: QUERY,
+        transient: false,
+        statementFault: true,
+      });
+    });
+
+    it.each([
+      ["the no-match QUERY fallback", new Error("something unexpected")],
+      [
+        "a rule not marked as a statement rule",
+        { code: "E_AUTH", message: "" },
+      ],
+    ])("is absent for %s", (_label, err) => {
+      expect(statements(err).statementFault).toBeUndefined();
+    });
+
+    it("rides along when a constraint names the type, since the statement rule still matched", () => {
+      expect(statements({ code: "STMT.BadValue", message: "x" })).toEqual({
+        type: CONSTRAINT,
+        transient: false,
+        constraint: { kind: "invalid_format" },
+        statementFault: true,
+      });
+    });
+  });
 });
 
 describe("shared signals", () => {

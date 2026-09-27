@@ -61,6 +61,13 @@ export interface ConnectorErrorClassification {
   };
   /** A write that read-only execution stopped — what a query preview shows as "this query writes". */
   blockedWrite?: boolean;
+  /**
+   * The statement itself is at fault — a syntax error, a missing column, a
+   * value of the wrong type — so NeoBoard answers the caller's 422, not a
+   * server fault's 500 (#2053). Set it only on a positive match: an error
+   * the connector does not recognise must not claim to be the caller's.
+   */
+  statementFault?: boolean;
 }
 
 /** A connector's `classifyError` hook. Pure: it reads the error, nothing else. */

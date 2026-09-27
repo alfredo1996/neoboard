@@ -386,6 +386,45 @@ describe("CONNECTOR_UNAVAILABLE envelope (#1678)", () => {
 });
 
 /**
+ * #2053 — a user's typo moved from 500 INTERNAL_ERROR to 422 QUERY_ERROR. The
+ * client must not notice: the same plain Error with the driver's message and
+ * `details`, so the preview renders it as before and nothing retries it.
+ */
+describe("QUERY_ERROR envelope (#2053)", () => {
+  it.each([
+    ["unwrapResponse", unwrapResponse],
+    ["unwrapFullResponse", unwrapFullResponse],
+  ] as const)("%s throws the 500's plain Error", async (_n, unwrap) => {
+    const err = await unwrap(
+      fakeResponse(
+        {
+          data: null,
+          error: {
+            code: "QUERY_ERROR",
+            message: "no writes here",
+            details: { blockedWrite: true },
+          },
+          meta: null,
+        },
+        422,
+      ),
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toMatchObject({
+      message: "no writes here",
+      details: { blockedWrite: true },
+    });
+    for (const typed of [
+      QueueFullError,
+      ClientQueueTimeoutError,
+      ConnectorUnavailableError,
+    ]) {
+      expect(err).not.toBeInstanceOf(typed);
+    }
+  });
+});
+
+/**
  * #1409 — a 4xx write error carries the offending column in `details`; the
  * form needs it on the thrown error to put the message on the right field.
  */

@@ -65,7 +65,7 @@ describe("classifyNeo4jError", () => {
             "Neo.ClientError.Statement.ParameterMissing",
           ),
         ),
-      ).toEqual({ type: QUERY, transient: false });
+      ).toEqual({ type: QUERY, transient: false, statementFault: true });
     });
 
     it("keeps a transaction timeout transient although it is a ClientError", () => {
@@ -77,6 +77,55 @@ describe("classifyNeo4jError", () => {
           ),
         ),
       ).toEqual({ type: TIMEOUT, transient: true });
+    });
+  });
+
+  // #2053: the statement's own fault answers 422, so only the server's
+  // statement codes may say so. Anything unrecognised stays a server fault.
+  describe("statement fault", () => {
+    it.each([
+      [
+        "a syntax error",
+        "Neo.ClientError.Statement.SyntaxError",
+        "Invalid input 'MATCH': expected an identifier",
+      ],
+      [
+        "an undefined variable",
+        "Neo.ClientError.Statement.SyntaxError",
+        "Variable `category` not defined",
+      ],
+      [
+        "a missing parameter",
+        "Neo.ClientError.Statement.ParameterMissing",
+        "Expected parameter(s): param_x",
+      ],
+    ])("%s carries the flag", (_label, code, message) => {
+      expect(classifyNeo4jError(neo4jError(message, code)).statementFault).toBe(
+        true,
+      );
+    });
+
+    it.each([
+      ["an unrecognised error", neo4jError("Something else")],
+      ["a syntax error that lost its code", neo4jError("Invalid input 'x'")],
+      [
+        "bad credentials",
+        neo4jError("x", "Neo.ClientError.Security.Unauthorized"),
+      ],
+      [
+        "a transaction timeout",
+        neo4jError(
+          TX_TIMEOUT,
+          "Neo.ClientError.Transaction.TransactionTimedOut",
+        ),
+      ],
+      ["a dropped connection", neo4jError("x", "ServiceUnavailable")],
+      [
+        "a broken constraint",
+        neo4jError("x", "Neo.ClientError.Schema.ConstraintValidationFailed"),
+      ],
+    ])("%s does not", (_label, err) => {
+      expect(classifyNeo4jError(err).statementFault).toBeUndefined();
     });
   });
 
@@ -199,7 +248,12 @@ describe("classifyNeo4jError", () => {
         classifyNeo4jError(
           neo4jError(message, "Neo.ClientError.Statement.AccessMode"),
         ),
-      ).toEqual({ type: QUERY, transient: false, blockedWrite: true });
+      ).toEqual({
+        type: QUERY,
+        transient: false,
+        blockedWrite: true,
+        statementFault: true,
+      });
     });
 
     it("is not set for any other statement error", () => {

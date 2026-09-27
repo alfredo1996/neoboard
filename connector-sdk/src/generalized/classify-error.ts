@@ -27,8 +27,15 @@ import {
 } from "./ConnectorError";
 
 export interface ErrorClassifierTables {
-  /** Walked in order: the first rule that matches names the type. No match is a `QUERY` error. */
-  types: readonly (ErrorSignals & { type: ConnectorErrorType })[];
+  /**
+   * Walked in order: the first rule that matches names the type. No match is a
+   * `QUERY` error. A rule marked `statementFault` sets that flag when it is the
+   * one that matches; the no-match fallback never does.
+   */
+  types: readonly (ErrorSignals & {
+    type: ConnectorErrorType;
+    statementFault?: boolean;
+  })[];
   /** Never worth a retry. Beats `transient` when both match: `syntax error near "timeout"` fails the same way twice. */
   permanent: ErrorSignals;
   transient: ErrorSignals;
@@ -47,15 +54,16 @@ export function createErrorClassifier(
     if (!facts) return { type: ConnectorErrorType.UNKNOWN, transient: false };
 
     const kind = tables.constraints?.get(facts.code);
+    const rule = tables.types.find((candidate) => matches(facts, candidate));
     const classification: ConnectorErrorClassification = {
       type: kind
         ? ConnectorErrorType.CONSTRAINT
-        : (tables.types.find((rule) => matches(facts, rule))?.type ??
-          ConnectorErrorType.QUERY),
+        : (rule?.type ?? ConnectorErrorType.QUERY),
       transient:
         !matches(facts, tables.permanent) && matches(facts, tables.transient),
     };
     if (kind) classification.constraint = { kind };
+    if (rule?.statementFault) classification.statementFault = true;
     if (tables.blockedWrite && matches(facts, tables.blockedWrite)) {
       classification.blockedWrite = true;
     }

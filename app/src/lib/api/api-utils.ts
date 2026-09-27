@@ -159,9 +159,35 @@ export function validateBody<T>(
 // ---------------------------------------------------------------------------
 
 /**
+ * What the client reads: the fallback on a `safeMessage` route, else the
+ * driver's message, sanitized.
+ */
+function clientMessage(
+  error: unknown,
+  fallbackMsg: string,
+  safeMessage: boolean,
+): string {
+  if (safeMessage || !(error instanceof Error)) return fallbackMsg;
+  return sanitizeErrorMessage(error.message, fallbackMsg);
+}
+
+/** A write that read-only execution stopped: the preview says so in plain words (#1043). */
+function blockedWriteDetails(
+  classification: ConnectorErrorClassification | undefined,
+): Record<string, unknown> | undefined {
+  return classification?.blockedWrite ? { blockedWrite: true } : undefined;
+}
+
+function errorCodeOf(error: unknown): string {
+  return error instanceof Error
+    ? ((error as Error & { code?: string }).code ?? error.name)
+    : "UNKNOWN";
+}
+
+/**
  * The verdict of the connector that raised the error, as a response (#1903).
- * `undefined` when neither category applies, so the caller falls through to
- * its generic handling.
+ * `undefined` when no category applies, so the caller falls through to its
+ * generic handling.
  *
  * Unavailable is decided BEFORE transient, and must stay that way: a connect
  * timeout is, by its wording, also transient, so every widget on a dead
@@ -169,38 +195,51 @@ export function validateBody<T>(
  * waiting the full connect timeout, and the dashboard never settled (#1678).
  * 502 carries no Retry-After — the client only auto-retries 503/408 — so this
  * is one request per widget per refresh cycle, and `reason` lets the UI show
- * the matching hint.
+ * the matching hint. A statement fault is decided last: it only ever lowers a
+ * 500 to a 422.
  */
-function connectorResponse(
+async function connectorResponse(
   error: unknown,
   classification: ConnectorErrorClassification | undefined,
   fallbackMsg: string,
   safeMessage: boolean,
-): ReturnType<typeof apiError> | undefined {
+): Promise<ReturnType<typeof apiError> | undefined> {
+  const message = clientMessage(error, fallbackMsg, safeMessage);
   // A connector nobody can reach — unroutable host, refused port, bad
   // credentials.
   const unavailable = connectorUnavailableReason(error);
   if (unavailable) {
-    return apiError(
-      "CONNECTOR_UNAVAILABLE",
-      safeMessage
-        ? fallbackMsg
-        : sanitizeErrorMessage((error as Error).message, fallbackMsg),
-      { reason: unavailable },
-    );
+    return apiError("CONNECTOR_UNAVAILABLE", message, { reason: unavailable });
   }
   // Transient failures — a query timeout, a dropped connection, a busy pool.
   // These look like 500s but a quick retry usually succeeds, so respond with
   // 408 + Retry-After so the client can transparently retry before showing
-  // the user an error. Which errors those are is the connector's call;
-  // permanent ones (a bad statement, a missing table) hit the regular 500.
+  // the user an error. Which errors those are is the connector's call.
   if (classification?.transient) {
-    const raw = error instanceof Error ? error.message : fallbackMsg;
+    return apiError("REQUEST_TIMEOUT", message, undefined, {
+      "Retry-After": "3",
+    });
+  }
+  // The statement's own fault — a typo, a missing column (#2053). The
+  // caller's to fix, so a 422 and a warn without the stack: at error level an
+  // operator's error rate tracked their users' typos. Only the connector's
+  // positive flag counts; its no-match fallback is also QUERY, and an error it
+  // does not recognise stays a 500. The query's own `query_failed` record,
+  // under the same requestId, carries the driver's error.
+  if (classification?.statementFault) {
+    apiLogger.warn(
+      {
+        event: "api_query_error",
+        requestId: await currentRequestId(),
+        errorCode: errorCodeOf(error),
+        classification,
+      },
+      "api_query_error",
+    );
     return apiError(
-      "REQUEST_TIMEOUT",
-      safeMessage ? fallbackMsg : sanitizeErrorMessage(raw, fallbackMsg),
-      undefined,
-      { "Retry-After": "3" },
+      "QUERY_ERROR",
+      message,
+      blockedWriteDetails(classification),
     );
   }
   return undefined;
@@ -254,7 +293,7 @@ export async function handleRouteError(
   // What the connector that raised this says it is (#1903). Undefined for an
   // error no connector raised: the app recognises no driver's words itself.
   const classification = classificationOf(error);
-  const classified = connectorResponse(
+  const classified = await connectorResponse(
     error,
     classification,
     fallbackMsg,
@@ -271,10 +310,7 @@ export async function handleRouteError(
       requestId: await currentRequestId(),
       // `err` key triggers pino.stdSerializers → message + stack + code
       err: error instanceof Error ? error : String(error),
-      errorCode:
-        error instanceof Error
-          ? ((error as Error & { code?: string }).code ?? error.name)
-          : "UNKNOWN",
+      errorCode: errorCodeOf(error),
     },
     "api_error",
   );
@@ -290,8 +326,6 @@ export async function handleRouteError(
   return apiError(
     "INTERNAL_ERROR",
     sanitizeErrorMessage(message, fallbackMsg),
-    // A write that read-only execution stopped: the preview says so in plain
-    // words instead of showing the driver's (#1043).
-    classification?.blockedWrite ? { blockedWrite: true } : undefined,
+    blockedWriteDetails(classification),
   );
 }

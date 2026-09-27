@@ -63,7 +63,8 @@ const classify = createErrorClassifier({
     { codes: AUTHENTICATION_SQLSTATES, type: AUTHENTICATION },
     { codes: ["57014", "57P01"], type: TIMEOUT }, // query_canceled, admin_shutdown
     { codes: ["3D000", "08001", "08003", "08006"], type: CONNECTION },
-    { ...STATEMENT_SQLSTATES, type: QUERY },
+    // The statement's own fault: the caller's 422, not a 500 (#2053).
+    { ...STATEMENT_SQLSTATES, type: QUERY, statementFault: true },
     // No SQLSTATE: pg-pool, the socket, or a message on its own. A bad URI is
     // read before a network failure because it usually causes one; bad
     // credentials before it because they are the first thing to fix.
@@ -82,7 +83,7 @@ const classify = createErrorClassifier({
       }),
       type: NETWORK,
     },
-    { ...STATEMENT_PHRASES, type: QUERY },
+    { ...STATEMENT_PHRASES, type: QUERY, statementFault: true },
     { phrases: ["timeout", "canceling statement"], type: TIMEOUT },
     { phrases: ["connect"], type: CONNECTION },
   ],

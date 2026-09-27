@@ -18,8 +18,8 @@ import type { APIRequestContext } from "@playwright/test";
  *   3. PG row cap              — UI + API (banner + meta.truncated)
  *   4. Cypher row cap          — UI + API
  *   5. Empty result "No data"  — UI (EmptyState)
- *   6. SQL syntax error        — API-only
- *   7. Cypher syntax error     — API-only
+ *   6. SQL syntax error        — API-only (422 since #2053)
+ *   7. Cypher syntax error     — API-only (422 since #2053)
  *
  * Findings that shape these tests (documented in the PR body):
  *
@@ -384,7 +384,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 6. SQL syntax error → 500 + user-facing message
+  // 6. SQL syntax error → 422 QUERY_ERROR + user-facing message (#2053)
   // ─────────────────────────────────────────────────────────────────────────
   test("SQL syntax error returns a user-facing message, not a stack trace", async ({
     page,
@@ -395,18 +395,39 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
         query: "SELEKT * FROM movies",
       },
     });
-    expect(res.status()).toBe(500);
+    expect(res.status()).toBe(422);
 
     const body = await res.json();
-    expect(body.error?.message).toBeTruthy();
+    expect(body.error?.code).toBe("QUERY_ERROR");
+    expect(body.error?.message).toMatch(/syntax error at or near "SELEKT"/);
     expect(body.error?.message).not.toMatch(/\s+at\s.+:\d+:\d+/);
+  });
+
+  // #2053: a user's typo is the caller's error, not the server's. It answered
+  // 500 INTERNAL_ERROR, so an operator's 5xx rate tracked their users' typos.
+  test("a query naming a missing column answers 422 with the driver's message", async ({
+    page,
+  }) => {
+    const res = await page.request.post("/api/query", {
+      data: {
+        connectionId: PG_CONNECTION_ID,
+        query: "SELECT category FROM movies",
+      },
+    });
+    expect(res.status()).toBe(422);
+    expect(res.headers()["retry-after"]).toBeUndefined();
+    const body = await res.json();
+    expect(body.error).toEqual({
+      code: "QUERY_ERROR",
+      message: 'column "category" does not exist',
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
   // #1962: 401 means "you are signed out", and nothing else. A query error
   // that merely says "session" used to answer 401 — "please log in again".
   // ─────────────────────────────────────────────────────────────────────────
-  test("a query error naming a session table is a 500, not a sign-out", async ({
+  test("a query error naming a session table is a query error, not a sign-out", async ({
     page,
   }) => {
     const res = await page.request.post("/api/query", {
@@ -415,7 +436,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
         query: "SELECT * FROM session_1962_missing",
       },
     });
-    expect(res.status()).toBe(500);
+    expect(res.status()).toBe(422);
     const body = await res.json();
     expect(body.error?.message).toContain(
       'relation "session_1962_missing" does not exist',
@@ -430,7 +451,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 7. Cypher syntax error → 500 + user-facing message
+  // 7. Cypher syntax error → 422 QUERY_ERROR + user-facing message (#2053)
   // ─────────────────────────────────────────────────────────────────────────
   test("Cypher syntax error returns a user-facing message, not a stack trace", async ({
     page,
@@ -441,9 +462,10 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
         query: "MATCH MATCH MATCH",
       },
     });
-    expect(res.status()).toBe(500);
+    expect(res.status()).toBe(422);
 
     const body = await res.json();
+    expect(body.error?.code).toBe("QUERY_ERROR");
     expect(body.error?.message).toBeTruthy();
     expect(body.error?.message).not.toMatch(/\s+at\s.+:\d+:\d+/);
   });

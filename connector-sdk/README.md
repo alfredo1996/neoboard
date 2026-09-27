@@ -40,7 +40,7 @@ connector works everywhere in NeoBoard without forking the app.
 - **Schema types** — `DatabaseSchema`, `TableDef`, `ColumnDef`,
   `PropertyDef`.
 - **Error classification** — the optional `classifyError(err)` plugin hook says
-  what one of your errors IS (`{ type, transient, constraint?, blockedWrite? }`);
+  what one of your errors IS (`{ type, transient, constraint?, blockedWrite?, statementFault? }`);
   NeoBoard reads no driver's codes or messages itself. `createErrorClassifier`
   builds the hook from tables, `wrapError(err, classify)` attaches its verdict
   to a `ConnectorError`, and `defaultClassifyError` is what applies without
