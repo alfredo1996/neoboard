@@ -298,6 +298,39 @@ describe("CardContainer", () => {
       const meta = metaFor({ chartType: "graph", query: "MATCH (n) RETURN n" });
       expect(meta.database).toBe("neoboard");
     });
+
+    // #2061: the graph finds its Expand query from the connector the query
+    // result names, not from a connection list this user may not see.
+    it("hands a graph the connector that ran its query", () => {
+      widgetQueryData = {
+        data: { nodes: [], edges: [] },
+        resultId: "r1",
+        connectorType: "fixturedb",
+      };
+      const meta = metaFor({ chartType: "graph", query: "MATCH (n) RETURN n" });
+      expect(meta).toMatchObject({
+        resultId: "r1",
+        connectorType: "fixturedb",
+      });
+    });
+
+    it("hands a preview graph the connector that ran the preview", () => {
+      renderWithProviders(
+        <CardContainer
+          widget={createWidget({
+            chartType: "graph",
+            query: "MATCH (n) RETURN n",
+          })}
+          previewData={{ nodes: [], edges: [] }}
+          previewResultId="r1"
+          previewConnectorType="fixturedb"
+        />,
+      );
+      expect(capturedChartProps.meta).toMatchObject({
+        resultId: "r1",
+        connectorType: "fixturedb",
+      });
+    });
   });
 
   describe("form widget path", () => {

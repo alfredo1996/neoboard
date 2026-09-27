@@ -83,13 +83,11 @@ vi.mock("@/lib/api/api-client", () => ({
 
 // A connector that declares how to expand, so only the synthetic flag can
 // take Expand away here (#2061).
-vi.mock("@/hooks/use-connections", () => ({
-  useConnections: () => ({ data: [{ id: "c1", type: "fixturedb" }] }),
-}));
 vi.mock("@/hooks/use-connectors", () => ({
-  useConnector: () => ({
-    graphExpansion: { query: "EXPAND $id", nodeIdParam: "id" },
-  }),
+  useConnector: (type: string | undefined) =>
+    type === "fixturedb"
+      ? { graphExpansion: { query: "EXPAND $id", nodeIdParam: "id" } }
+      : undefined,
 }));
 
 import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
@@ -114,6 +112,7 @@ function renderWrapper() {
       nodes={[realNode, virtualNode]}
       edges={[]}
       connectionId="c1"
+      connectorType="fixturedb"
       settings={{}}
     />,
   );

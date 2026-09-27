@@ -1405,6 +1405,17 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
     );
   });
 
+  it("the SDK README lists graphExpansion's refusals among register()'s (#2061)", () => {
+    // The README ships in the npm package. Its list of what register() refuses
+    // missed the two graphExpansion rules connector-plugin.ts added.
+    const refusals =
+      readFileSync(join(ROOT, "connector-sdk/README.md"), "utf8").match(
+        /`register\(\)` throws on[\s\S]*?\)\./,
+      )?.[0] ?? "";
+    expect(refusals).toMatch(/`graphExpansion` with a blank/);
+    expect(refusals).toMatch(/without `supportsGraphData: true`/);
+  });
+
   it("lists no community connector that does not exist", () => {
     // PLUGINS.md offered `neoboard plugin add neoboard-connector-mongodb` as
     // an "Example". No such package or repo exists; the command fails at npm

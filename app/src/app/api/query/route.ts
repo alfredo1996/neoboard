@@ -222,6 +222,9 @@ async function handleReadQuery(request: Request): Promise<Response> {
 
     return apiSuccess({ data }, 200, {
       resultId,
+      // Which connector ran it, so the graph chart can ask that connector how
+      // to expand a node, on a connection the caller may not list (#2061).
+      connectorType: connection.type,
       serverDurationMs,
       rowLimit,
       ...(truncated ? { truncated: true } : {}),

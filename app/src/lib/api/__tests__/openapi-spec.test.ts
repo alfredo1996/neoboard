@@ -162,6 +162,7 @@ describe("POST /api/query row cap and response (#1913)", () => {
     "data.data",
     "error",
     "meta.resultId",
+    "meta.connectorType",
     "meta.serverDurationMs",
     "meta.rowLimit",
     "meta.truncated",
@@ -213,6 +214,7 @@ describe("POST /api/query row cap and response (#1913)", () => {
     expect(queryResponse.required).toEqual(["data", "error", "meta"]);
     expect(at("meta")?.required).toEqual([
       "resultId",
+      "connectorType",
       "serverDurationMs",
       "rowLimit",
     ]);

@@ -82,16 +82,19 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: () => ({ transform: () => ({ nodes: [], edges: [] }) }),
 }));
 
-// The widget's connection, and the connector behind it — a fixture nothing in
-// app/ has heard of, so the expand query can only have come from it (#2061).
+// The connector that ran the widget's query, as the query result names it — a
+// fixture nothing in app/ has heard of, so the expand query can only have come
+// from it (#2061).
 const EXPANSION = {
   query: "EXPAND NEIGHBOURS OF @vertex",
   nodeIdParam: "vertex",
 };
-let connections: { id: string; type: string }[] = [];
+let connectorType: string | undefined;
 let connectors: Record<string, { graphExpansion?: typeof EXPANSION }> = {};
+// This user can list no connection, as a dashboard editor on its owner's
+// private one cannot: Expand must not depend on the list (#2061 review).
 vi.mock("@/hooks/use-connections", () => ({
-  useConnections: () => ({ data: connections }),
+  useConnections: () => ({ data: [] }),
 }));
 vi.mock("@/hooks/use-connectors", () => ({
   useConnector: (type: string | undefined) =>
@@ -100,7 +103,7 @@ vi.mock("@/hooks/use-connectors", () => ({
 
 beforeEach(() => {
   expandable = false;
-  connections = [{ id: "c1", type: "fixturedb" }];
+  connectorType = "fixturedb";
   connectors = { fixturedb: { graphExpansion: EXPANSION } };
 });
 
@@ -111,6 +114,7 @@ function renderWrapper() {
       nodes={graphNodes}
       edges={[]}
       connectionId="c1"
+      connectorType={connectorType}
       settings={{}}
       resultId="r1"
     />,
@@ -228,6 +232,7 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
         nodes={graphNodes}
         edges={[]}
         connectionId="c1"
+        connectorType={connectorType}
         database={database}
         settings={{}}
         resultId="r1"
@@ -269,6 +274,7 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
       nodes: graphNodes,
       edges: [],
       connectionId: "c1",
+      connectorType,
       settings: {},
       resultId: "r1",
     };
@@ -287,8 +293,8 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
 
 // ---------------------------------------------------------------------------
 // #2061 — a connector that declares no graph expansion has nothing to expand
-// with: no Expand in the menu, and nothing posted. So does a connection whose
-// connector this user cannot see, and one still loading.
+// with: no Expand in the menu, and nothing posted. So does a result that names
+// no connector, and a connector that is not installed.
 // ---------------------------------------------------------------------------
 
 describe("GraphExplorationWrapper — Expand only when the connector declares how (#2061)", () => {
@@ -317,7 +323,7 @@ describe("GraphExplorationWrapper — Expand only when the connector declares ho
     );
   }
 
-  it("offers Expand when the connector declares it", () => {
+  it("offers Expand when the connector that ran the query declares it, on a connection the user cannot list", () => {
     openMenuOnA();
     expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
   });
@@ -325,7 +331,10 @@ describe("GraphExplorationWrapper — Expand only when the connector declares ho
   it.each([
     ["its connector declares no expansion", () => (connectors.fixturedb = {})],
     ["its connector is not installed", () => (connectors = {})],
-    ["the connection is not listed to this user", () => (connections = [])],
+    [
+      "no connector came with the query result",
+      () => (connectorType = undefined),
+    ],
   ])("offers no Expand, and posts nothing, when %s", async (_case, arrange) => {
     arrange();
     openMenuOnA();

@@ -2191,12 +2191,22 @@ const SPEC = {
           },
           meta: {
             type: "object",
-            required: ["resultId", "serverDurationMs", "rowLimit"],
+            required: [
+              "resultId",
+              "connectorType",
+              "serverDurationMs",
+              "rowLimit",
+            ],
             properties: {
               resultId: {
                 type: "string",
                 description:
                   "16 hex characters hashing the connection, the database the run used, the query text (trimmed, otherwise exactly as written), the params and `rowLimit`.",
+              },
+              connectorType: {
+                type: "string",
+                description:
+                  "The type of the connector that ran the query, as `GET /api/connectors` lists it. The graph chart reads that connector's `graphExpansion` from it.",
               },
               serverDurationMs: {
                 type: "integer",

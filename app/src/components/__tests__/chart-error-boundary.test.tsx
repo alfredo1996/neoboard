@@ -135,6 +135,7 @@ describe("ChartRenderer plugin props", () => {
           connectionId: "conn-1",
           widgetId: "w-1",
           resultId: "res-1",
+          connectorType: "fixturedb",
           query: "SELECT 1",
           database: "neoboard",
           autoFit: true,
@@ -153,6 +154,7 @@ describe("ChartRenderer plugin props", () => {
       connectionId: "conn-1",
       widgetId: "w-1",
       resultId: "res-1",
+      connectorType: "fixturedb",
       query: "SELECT 1",
       database: "neoboard",
       autoFit: true,
@@ -215,6 +217,7 @@ describe("ChartRenderer — the saved database reaches each request builder (#18
           connectionId: "c1",
           widgetId: "w-graph",
           resultId: "r1",
+          connectorType: "fixturedb",
           database: "neoboard",
         }}
       />,
@@ -233,6 +236,8 @@ describe("ChartRenderer — the saved database reaches each request builder (#18
     expect(rendererProps.graph).toMatchObject({
       connectionId: "c1",
       database: "neoboard",
+      // Whose Expand query to run (#2061).
+      connectorType: "fixturedb",
     });
   });
 });

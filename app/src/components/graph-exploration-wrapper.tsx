@@ -18,7 +18,6 @@ import type {
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { normalizeValue } from "@/lib/shared/normalize-value";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
-import { useConnections } from "@/hooks/use-connections";
 import { useConnector } from "@/hooks/use-connectors";
 
 interface GraphExplorationWrapperProps {
@@ -35,6 +34,8 @@ interface GraphExplorationWrapperProps {
    *  Used to detect when the query changed so stale exploration state
    *  can be discarded. */
   resultId?: string;
+  /** The connector that ran that query, as its result names it (#2061). */
+  connectorType?: string;
   /** When true, triggers a fit-to-viewport after mount with a short delay. */
   autoFit?: boolean;
 }
@@ -188,6 +189,7 @@ export function GraphExplorationWrapper({
   settings,
   onChartClick,
   resultId,
+  connectorType,
   autoFit,
 }: GraphExplorationWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -209,14 +211,10 @@ export function GraphExplorationWrapper({
     stored != null && resultId != null && stored.resultId === resultId;
 
   // How to expand a node is the connector's to say, in its own query language
-  // (#2061). Undefined while the lists load, for a connector that declares
-  // none, and for a connection this user cannot list: then there is no Expand.
-  // ponytail: reads the connection's type off the user's connection list; a
-  // dashboard editor on someone else's private connection gets no Expand.
-  const { data: connections } = useConnections();
-  const expansion = useConnector(
-    connections?.find((c) => c.id === connectionId)?.type,
-  )?.graphExpansion;
+  // (#2061). The connector is the one the query result names, so whoever could
+  // run the query can expand it, listed connection or not. Undefined while the
+  // connectors load and for a connector that declares none: then no Expand.
+  const expansion = useConnector(connectorType)?.graphExpansion;
 
   const fetchNeighbors = useCallback(
     async (node: GraphNode): Promise<FetchNeighborsResult> => {

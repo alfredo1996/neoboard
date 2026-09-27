@@ -27,6 +27,8 @@ export interface ChartMetaProps {
   database?: string;
   widgetId?: string;
   resultId?: string;
+  /** The connector that ran the query (#2061). */
+  connectorType?: string;
   query?: string;
   autoFit?: boolean;
 }
@@ -65,8 +67,15 @@ function ChartRendererInner({
 }: ChartRendererProps) {
   const { rules: stylingRules, paramValues, colorScales } = styling ?? {};
   const { onChartClick, clickableColumns } = interaction ?? {};
-  const { connectionId, database, widgetId, resultId, query, autoFit } =
-    meta ?? {};
+  const {
+    connectionId,
+    database,
+    widgetId,
+    resultId,
+    connectorType,
+    query,
+    autoFit,
+  } = meta ?? {};
   const colorThresholds =
     typeof settings.colorThresholds === "string"
       ? settings.colorThresholds
@@ -93,6 +102,7 @@ function ChartRendererInner({
         database={database}
         widgetId={widgetId}
         resultId={resultId}
+        connectorType={connectorType}
         query={query}
         autoFit={autoFit}
         clickableColumns={clickableColumns}

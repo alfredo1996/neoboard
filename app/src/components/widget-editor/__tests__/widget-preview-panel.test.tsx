@@ -38,8 +38,18 @@ vi.mock("@neoboard/components", () => ({
 }));
 
 vi.mock("../../card-container", () => ({
-  CardContainer: ({ widget }: { widget: { chartType: string } }) => (
-    <div data-testid="card-container" data-chart={widget.chartType}>
+  CardContainer: ({
+    widget,
+    previewConnectorType,
+  }: {
+    widget: { chartType: string };
+    previewConnectorType?: string;
+  }) => (
+    <div
+      data-testid="card-container"
+      data-chart={widget.chartType}
+      data-connector={previewConnectorType}
+    >
       card
     </div>
   ),
@@ -213,6 +223,27 @@ describe("WidgetPreviewPanel", () => {
       />,
     );
     expect(screen.getByTestId("card-container")).toBeInTheDocument();
+  });
+
+  // #2061: a graph preview finds its Expand query from the connector the
+  // preview's result names.
+  it("hands the card the connector that ran the preview", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          previewQuery: {
+            isPending: false,
+            isError: false,
+            error: null,
+            data: { data: [], resultId: "r1", connectorType: "fixturedb" },
+          },
+        })}
+      />,
+    );
+    expect(screen.getByTestId("card-container")).toHaveAttribute(
+      "data-connector",
+      "fixturedb",
+    );
   });
 
   it("renders a truncated result as a normal preview: the 25-row cap is the point, not a warning (#1896)", () => {
