@@ -18,6 +18,7 @@
     }
   },
   "scripts": {
+    "prebuild": "node ../scripts/generate-connector-imports.mjs",
     "build": "tsc -p tsconfig.build.json",
     "test": "jest --testPathIgnorePatterns '/__tests__/utils/' '/dist/' '/__tests__/quality/' && jest __tests__/quality --runInBand",
     "test:coverage": "jest --testPathIgnorePatterns '/__tests__/utils/' '/dist/' '/__tests__/quality/' --coverage --coverageThreshold '{\"global\":{\"lines\":92,\"statements\":90}}' && jest __tests__/quality --runInBand --coverage --coverageDirectory=coverage-quality"

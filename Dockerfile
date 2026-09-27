@@ -39,6 +39,9 @@ COPY . .
 # Build connector-sdk → connection (TypeScript → JS+d.ts) before app.
 # connection imports @neoboard/connector-sdk, which resolves to its built
 # dist, so the SDK must be compiled first (mirrors the root build chain).
+# connection's prebuild regenerates its connector list from
+# neoboard-connectors.json, and fails the build on a listed connector that is
+# not installed (#2062).
 RUN npm -w connector-sdk run build
 RUN npm -w connection run build
 RUN cd app && npm run build

@@ -553,7 +553,7 @@ External connectors are compiled into the server, not discovered at runtime. The
    }
    ```
 
-3. Run `npm run dev` or `npm run build`. Both run `scripts/generate-connector-imports.mjs` first, which checks that every listed package is installed and writes `connection/src/external-connectors.generated.ts`. The connector is part of that build.
+3. Run `npm run dev`, `neoboard dev` or `npm run build`, or build the Docker image. Each one builds the `connection` package, and that build runs `scripts/generate-connector-imports.mjs` first, which checks that every listed package is installed and writes `connection/src/external-connectors.generated.ts`. The connector is part of that build.
 
 Each entry may also carry `"export": "<name>"` when the plugin is not the package's default export, and `"overrides": true` to replace a connector with the same `type` — without it, a duplicate `type` throws at startup so a conflict cannot pass silently.
 

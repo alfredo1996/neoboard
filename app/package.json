@@ -10,7 +10,7 @@
     "url": "https://github.com/alfredo1996/neoboard.git"
   },
   "scripts": {
-    "predev": "node ../scripts/generate-plugin-imports.mjs",
+    "predev": "node ../scripts/generate-plugin-imports.mjs && npm --prefix ../connection run build",
     "prebuild": "node ../scripts/generate-plugin-imports.mjs",
     "dev": "next dev --turbopack",
     "build": "next build --webpack",

@@ -233,3 +233,67 @@ describe("connector-sdk builds itself on install (#1356)", () => {
     expect(pkg.exports?.["."]?.types).toMatch(/^\.\/dist\//);
   });
 });
+
+describe("the Docker build regenerates the connector list (#2062)", () => {
+  // The image compiled whatever connection/src/external-connectors.generated.ts
+  // was in the build context: a manifest edited without regenerating shipped
+  // without its connector, silently. connection's own build now regenerates
+  // the file, so the build stage only has to compile connection from the
+  // copied source, before the app.
+  const dockerfile = readFileSync(join(ROOT, "Dockerfile"), "utf8");
+  const buildStage =
+    dockerfile
+      .split(/^FROM\s/m)
+      .find((s) => /\bAS build\b/.test(s.split("\n")[0])) ?? "";
+  const steps = buildStage.split("\n").filter((l) => /^(RUN|COPY)\s/.test(l));
+  const at = (re) => steps.findIndex((l) => re.test(l));
+
+  it("compiles connection from the copied source, before the app", () => {
+    const copy = at(/^COPY \. \.$/);
+    const connection = at(/^RUN npm -w connection run build$/);
+    const app = at(/^RUN cd app && npm run build$/);
+    expect(copy, "build stage has no COPY . .").toBeGreaterThan(-1);
+    expect(connection).toBeGreaterThan(copy);
+    expect(app).toBeGreaterThan(connection);
+  });
+
+  it("where connection's build runs the codegen first", () => {
+    const pkg = JSON.parse(
+      readFileSync(join(ROOT, "connection/package.json"), "utf8"),
+    );
+    expect(pkg.scripts?.prebuild ?? "").toContain(
+      "scripts/generate-connector-imports.mjs",
+    );
+  });
+
+  it("with the manifest and the codegen in the build context", () => {
+    // .dockerignore patterns are anchored at the context root, and a bare
+    // name also excludes everything under it.
+    // ponytail: `*` only; teach it `**` and `?` when .dockerignore uses them.
+    const toRegex = (p) =>
+      new RegExp(
+        `^${p
+          .replace(/^\/|\/$/g, "")
+          .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+          .replace(/\*/g, "[^/]*")}(/.*)?$`,
+      );
+    const patterns = readFileSync(join(ROOT, ".dockerignore"), "utf8")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("#") && !l.startsWith("!"));
+    for (const path of [
+      "neoboard-connectors.json",
+      "scripts/generate-connector-imports.mjs",
+    ]) {
+      expect(
+        patterns.filter((p) => toRegex(p).test(path)),
+        path,
+      ).toEqual([]);
+    }
+    // The matcher itself: a pattern that should exclude does.
+    expect(
+      toRegex("scripts").test("scripts/generate-connector-imports.mjs"),
+    ).toBe(true);
+    expect(toRegex("*.json").test("neoboard-connectors.json")).toBe(true);
+  });
+});

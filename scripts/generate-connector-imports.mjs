@@ -6,6 +6,9 @@
  * Mirrors the chart plugin codegen (generate-plugin-imports.mjs) but
  * targets the connection package instead of the app package.
  *
+ * Runs as connection's prebuild, so every build of connection regenerates it
+ * first: the root build, the Docker build stage and app's predev (#2062).
+ *
  * Exit code 1 on:
  *   - manifest unparseable
  *   - entries fail shape validation
