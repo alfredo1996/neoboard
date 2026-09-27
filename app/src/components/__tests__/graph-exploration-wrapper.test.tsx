@@ -26,6 +26,9 @@ const graphNodes = [
   { id: "B", label: "Bob", properties: { name: "Bob" } },
 ];
 
+/** What the stubbed exploration says about every node's expandability. */
+let expandable = false;
+
 const explorationStub = {
   nodes: graphNodes,
   edges: [],
@@ -33,7 +36,7 @@ const explorationStub = {
   onNodeSelect: () => {},
   onExpandRequest: () => {},
   collapse: () => {},
-  canExpand: () => false,
+  canExpand: () => expandable,
   canCollapse: () => false,
   reset: () => {},
   expandedNodeIds: [],
@@ -78,6 +81,28 @@ vi.mock("@/lib/api/api-client", () => ({
 vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: () => ({ transform: () => ({ nodes: [], edges: [] }) }),
 }));
+
+// The widget's connection, and the connector behind it — a fixture nothing in
+// app/ has heard of, so the expand query can only have come from it (#2061).
+const EXPANSION = {
+  query: "EXPAND NEIGHBOURS OF @vertex",
+  nodeIdParam: "vertex",
+};
+let connections: { id: string; type: string }[] = [];
+let connectors: Record<string, { graphExpansion?: typeof EXPANSION }> = {};
+vi.mock("@/hooks/use-connections", () => ({
+  useConnections: () => ({ data: connections }),
+}));
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnector: (type: string | undefined) =>
+    type === undefined ? undefined : connectors[type],
+}));
+
+beforeEach(() => {
+  expandable = false;
+  connections = [{ id: "c1", type: "fixturedb" }];
+  connectors = { fixturedb: { graphExpansion: EXPANSION } };
+});
 
 function renderWrapper() {
   render(
@@ -219,12 +244,18 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
   }
 
   it("sends the database the widget saves", async () => {
-    expect(await expansionBody("neoboard")).toEqual({
-      connectionId: "c1",
-      query:
-        "MATCH (n)-[r]-(neighbor) WHERE elementId(n) = $nodeId RETURN n, r, neighbor",
-      params: { nodeId: "A" },
+    expect(await expansionBody("neoboard")).toMatchObject({
       database: "neoboard",
+    });
+  });
+
+  // #2061: the query and its parameter's name are the connector's, read off
+  // its descriptor. They were hard-coded here, in one connector's dialect.
+  it("sends the connector's own query, the node's id under its own parameter name", async () => {
+    expect(await expansionBody()).toEqual({
+      connectionId: "c1",
+      query: "EXPAND NEIGHBOURS OF @vertex",
+      params: { vertex: "A" },
     });
   });
 
@@ -251,5 +282,61 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
       RequestInit,
     ];
     expect(JSON.parse(String(init.body)).database).toBe("movies");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #2061 — a connector that declares no graph expansion has nothing to expand
+// with: no Expand in the menu, and nothing posted. So does a connection whose
+// connector this user cannot see, and one still loading.
+// ---------------------------------------------------------------------------
+
+describe("GraphExplorationWrapper — Expand only when the connector declares how (#2061)", () => {
+  const fetchMock = vi.fn(async () => ({}) as Response);
+
+  beforeEach(() => {
+    expandable = true;
+    explorationOptions = {};
+    fetchMock.mockClear();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  function openMenuOnA() {
+    renderWrapper();
+    const onNodeRightClick = chartProps.onNodeRightClick as (e: {
+      node: { id: string };
+      position: { x: number; y: number };
+    }) => void;
+    act(() =>
+      onNodeRightClick({ node: graphNodes[0], position: { x: 1, y: 1 } }),
+    );
+  }
+
+  it("offers Expand when the connector declares it", () => {
+    openMenuOnA();
+    expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["its connector declares no expansion", () => (connectors.fixturedb = {})],
+    ["its connector is not installed", () => (connectors = {})],
+    ["the connection is not listed to this user", () => (connections = [])],
+  ])("offers no Expand, and posts nothing, when %s", async (_case, arrange) => {
+    arrange();
+    openMenuOnA();
+    expect(screen.getByRole("button", { name: "Properties" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Expand" }),
+    ).not.toBeInTheDocument();
+
+    await expect(
+      explorationOptions.fetchNeighbors!({ id: "A" }),
+    ).resolves.toEqual({ nodes: [], edges: [] });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -360,6 +360,15 @@ describe("connector-agnostic guard (#1894)", () => {
     expect(findOffenders({ names, files }), HOW_TO_FIX).toEqual({});
   });
 
+  it("app/ and component/ hold no connector's query text (#2061)", () => {
+    // Query text is written in one connector's dialect, and no name in it
+    // trips the guard above: `elementId()` is how the graph chart once sent
+    // one connector's expand query to every connector. The connector declares
+    // its own now (`graphExpansion`).
+    const files = readTree(ROOT, ["app/src", "component/src"]);
+    expect(findOffenders({ names: [/\belementId\(/g], files })).toEqual({});
+  });
+
   it("connection and connector-sdk export no connector-named identifier", () => {
     const actual = exportOffenders(
       names,

@@ -1343,6 +1343,16 @@ const SPEC = {
             description: "Editor language key. Absent means plain text.",
           },
           supportsGraphData: { type: "boolean" },
+          graphExpansion: {
+            type: "object",
+            description:
+              "How the graph chart expands a node: a read query in the connector's own language, and the parameter it binds the node's id to. Absent means no Expand.",
+            required: ["query", "nodeIdParam"],
+            properties: {
+              query: { type: "string" },
+              nodeIdParam: { type: "string" },
+            },
+          },
           supportsWrite: { type: "boolean" },
           fields: {
             type: "array",

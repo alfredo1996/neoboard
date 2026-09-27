@@ -701,7 +701,10 @@ test.describe("Graph chart exploration", () => {
    * Helper: add a graph widget to the dashboard and save it.
    * Returns after the dialog has closed and the widget is on the grid.
    */
-  async function addGraphWidget(page: import("@playwright/test").Page) {
+  async function addGraphWidget(
+    page: import("@playwright/test").Page,
+    query = "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 5",
+  ) {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
@@ -710,11 +713,7 @@ test.describe("Graph chart exploration", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    await typeInEditor(
-      dialog,
-      page,
-      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 5",
-    );
+    await typeInEditor(dialog, page, query);
     await expect(
       dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
     ).toBeEnabled({ timeout: 10_000 });
@@ -823,6 +822,53 @@ test.describe("Graph chart exploration", () => {
 
     // Regardless of whether we hit a node, no errors should occur
     await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+
+  // #2061: the expand query is the connection's connector's, read off its
+  // descriptor, no longer written in app/. View mode, because that is where a
+  // dashboard is explored — and where the editor's connection list is not
+  // otherwise loaded. One node, so the layout's fit puts it under the canvas
+  // centre and the right-click lands on it, where the tests above may miss.
+  test("graph chart — expanding a node in view mode adds its neighbours (#2061)", async ({
+    page,
+  }) => {
+    await addGraphWidget(
+      page,
+      "MATCH (p:Person {name: 'Keanu Reeves'}) RETURN p",
+    );
+    await saveDashboard(page);
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
+      timeout: 10_000,
+    });
+
+    const exploration = page.getByTestId("graph-exploration");
+    const nodeCount = exploration.getByTestId("graph-node-count");
+    await expect(nodeCount).toHaveText("1 nodes", { timeout: 15_000 });
+
+    const canvas = exploration.locator("canvas").first();
+    const expand = page
+      .getByTestId("graph-context-menu")
+      .getByRole("button", { name: "Expand" });
+    await expect(async () => {
+      const box = await canvas.boundingBox();
+      expect(box).not.toBeNull();
+      await canvas.click({
+        button: "right",
+        position: { x: box!.width / 2, y: box!.height / 2 },
+        force: true,
+      });
+      await expect(expand).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 20_000 });
+
+    await expand.click();
+
+    // The node's films and co-workers join the graph.
+    await expect(async () => {
+      const count = Number.parseInt((await nodeCount.textContent()) ?? "", 10);
+      expect(count).toBeGreaterThan(1);
+    }).toPass({ timeout: 15_000 });
+    await expect(page.getByTestId("graph-reset-button")).toBeVisible();
   });
 
   test("graph chart — reset clears all expansions", async ({ page }) => {

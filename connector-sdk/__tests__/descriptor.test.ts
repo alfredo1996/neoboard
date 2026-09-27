@@ -360,6 +360,19 @@ describe("toDescriptor", () => {
     ).toBeUndefined();
   });
 
+  it("serves the graph expansion, and nothing hung on it besides (#2061)", () => {
+    // The browser posts this query to expand a node, so it has to cross; a
+    // stray key an author left on the object does not.
+    const graphExpansion = { query: "EXPAND $id", nodeIdParam: "id" };
+    const data = toDescriptor({
+      ...plugin,
+      supportsGraphData: true,
+      graphExpansion: { ...graphExpansion, driverHint: "x" },
+    } as ConnectorPlugin);
+    expect(data.graphExpansion).toEqual(graphExpansion);
+    expect(toDescriptor(plugin)).not.toHaveProperty("graphExpansion");
+  });
+
   it("returns copies, so a caller cannot mutate the registered plugin", () => {
     const data = toDescriptor(plugin);
     data.fields[0].protocols?.push("evil:");

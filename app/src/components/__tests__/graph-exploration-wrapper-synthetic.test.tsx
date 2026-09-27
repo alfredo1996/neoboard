@@ -81,6 +81,17 @@ vi.mock("@/lib/api/api-client", () => ({
   unwrapFullResponse: vi.fn(),
 }));
 
+// A connector that declares how to expand, so only the synthetic flag can
+// take Expand away here (#2061).
+vi.mock("@/hooks/use-connections", () => ({
+  useConnections: () => ({ data: [{ id: "c1", type: "fixturedb" }] }),
+}));
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnector: () => ({
+    graphExpansion: { query: "EXPAND $id", nodeIdParam: "id" },
+  }),
+}));
+
 import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
 
 const realNode: GraphNode = {

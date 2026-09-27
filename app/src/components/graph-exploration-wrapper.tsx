@@ -18,6 +18,8 @@ import type {
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { normalizeValue } from "@/lib/shared/normalize-value";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
+import { useConnections } from "@/hooks/use-connections";
+import { useConnector } from "@/hooks/use-connectors";
 
 interface GraphExplorationWrapperProps {
   widgetId: string;
@@ -206,17 +208,26 @@ export function GraphExplorationWrapper({
   const storedIsValid =
     stored != null && resultId != null && stored.resultId === resultId;
 
+  // How to expand a node is the connector's to say, in its own query language
+  // (#2061). Undefined while the lists load, for a connector that declares
+  // none, and for a connection this user cannot list: then there is no Expand.
+  // ponytail: reads the connection's type off the user's connection list; a
+  // dashboard editor on someone else's private connection gets no Expand.
+  const { data: connections } = useConnections();
+  const expansion = useConnector(
+    connections?.find((c) => c.id === connectionId)?.type,
+  )?.graphExpansion;
+
   const fetchNeighbors = useCallback(
     async (node: GraphNode): Promise<FetchNeighborsResult> => {
-      const query =
-        "MATCH (n)-[r]-(neighbor) WHERE elementId(n) = $nodeId RETURN n, r, neighbor";
+      if (!expansion) return { nodes: [], edges: [] };
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           connectionId,
-          query,
-          params: { nodeId: node.id },
+          query: expansion.query,
+          params: { [expansion.nodeIdParam]: node.id },
           ...(database ? { database } : {}),
         }),
       });
@@ -237,7 +248,7 @@ export function GraphExplorationWrapper({
         edges: transformed.edges ?? [],
       };
     },
-    [connectionId, database],
+    [connectionId, database, expansion],
   );
 
   const exploration = useGraphExploration({
@@ -376,7 +387,7 @@ export function GraphExplorationWrapper({
             setMenu(null);
           }}
           onExpand={
-            exploration.canExpand(menu.node.id)
+            expansion && exploration.canExpand(menu.node.id)
               ? () => exploration.onExpandRequest(menu.node)
               : undefined
           }
