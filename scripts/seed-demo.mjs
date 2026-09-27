@@ -29,6 +29,10 @@ import {
 } from "./demo/showcases.mjs";
 import { importShowcase } from "./demo/import-dashboard.mjs";
 import { resolveSeedHosts } from "./lib/seed-hosts.mjs";
+import {
+  demoConnectionInsert,
+  demoConnectionUpdate,
+} from "./lib/demo-connection.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(resolve(__dirname, "../app/") + "/");
@@ -373,21 +377,21 @@ async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
   const existing = await sql`
     SELECT id FROM "connection" WHERE name = ${name} AND "userId" = ${userId}
   `;
+  const configEncrypted = encryptJson(config, encryptionKey);
   if (existing.length > 0) {
-    const encrypted = encryptJson(config, encryptionKey);
     await sql`
       UPDATE "connection"
-      SET "configEncrypted" = ${encrypted}, "updatedAt" = NOW()
+      SET ${sql(demoConnectionUpdate(configEncrypted))}, "updatedAt" = NOW()
       WHERE id = ${existing[0].id}
     `;
     return existing[0].id;
   }
 
   const id = uuid();
-  const encrypted = encryptJson(config, encryptionKey);
   await sql`
-    INSERT INTO "connection" (id, "userId", name, type, "configEncrypted", "createdAt", "updatedAt")
-    VALUES (${id}, ${userId}, ${name}, ${type}, ${encrypted}, NOW(), NOW())
+    INSERT INTO "connection" ${sql(
+      demoConnectionInsert({ id, userId, name, type, configEncrypted }),
+    )}
   `;
   return id;
 }
