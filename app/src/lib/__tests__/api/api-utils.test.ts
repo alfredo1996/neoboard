@@ -445,6 +445,8 @@ describe("handleRouteError", () => {
    * no-match QUERY fallback is a guess and stays a server fault.
    */
   describe("statement fault (#2053)", () => {
+    /** The read and write routes: they run the caller's own statement. */
+    const CALLER = { callerStatement: true } as const;
     const spyLogs = async () => {
       const { apiLogger } = await import("@/lib/logger");
       return {
@@ -460,6 +462,7 @@ describe("handleRouteError", () => {
           'column "category" does not exist at fixturedb://u:s3cret@db:1',
         ),
         "Query execution failed",
+        CALLER,
       );
       expect(res.status).toBe(422);
       expect(res.headers.get("Retry-After")).toBeNull();
@@ -482,6 +485,7 @@ describe("handleRouteError", () => {
       await handleRouteError(
         classified({ statementFault: true }, "syntax error"),
         "Query execution failed",
+        CALLER,
       );
 
       expect(logs.error).not.toHaveBeenCalled();
@@ -512,6 +516,7 @@ describe("handleRouteError", () => {
       const res = await handleRouteError(
         classified({ statementFault: true, blockedWrite: true }, "no writes"),
         "Query execution failed",
+        CALLER,
       );
       expect(res.status).toBe(422);
       expect((await res.json()).error).toEqual({
@@ -528,7 +533,7 @@ describe("handleRouteError", () => {
           'syntax error at or near "hunter2"',
         ),
         "Write query execution failed",
-        { safeMessage: true },
+        { ...CALLER, safeMessage: true },
       );
       expect(res.status).toBe(422);
       expect((await res.json()).error).toEqual({
@@ -542,6 +547,7 @@ describe("handleRouteError", () => {
       const res = await handleRouteError(
         classified({}, "something nobody recognised"),
         "Query execution failed",
+        CALLER,
       );
       expect(res.status).toBe(500);
       expect((await res.json()).error.code).toBe("INTERNAL_ERROR");
@@ -561,6 +567,7 @@ describe("handleRouteError", () => {
           },
         }),
         "Query execution failed",
+        CALLER,
       );
       expect(res.status).toBe(500);
     });
@@ -577,8 +584,27 @@ describe("handleRouteError", () => {
       const res = await handleRouteError(
         classified({ type, transient, statementFault: true }),
         "Query execution failed",
+        CALLER,
       );
       expect(res.status).toBe(status);
+    });
+
+    it("keeps a route's own statement at fault a 500, logged at error with the driver's error", async () => {
+      // The schema route runs the connector's introspection, never the
+      // caller's statement: the caller cannot fix it, and the operator needs
+      // the message and the stack, which that route logs nowhere else.
+      const logs = await spyLogs();
+      const fault = classified({ statementFault: true }, "unknown procedure");
+      const res = await handleRouteError(fault, "Failed to fetch schema");
+      expect(res.status).toBe(500);
+      expect((await res.json()).error.code).toBe("INTERNAL_ERROR");
+      expect(logs.warn).not.toHaveBeenCalled();
+      expect(logs.error).toHaveBeenCalledWith(
+        expect.objectContaining({ event: "api_error", err: fault }),
+        "api_error",
+      );
+      logs.warn.mockRestore();
+      logs.error.mockRestore();
     });
   });
 

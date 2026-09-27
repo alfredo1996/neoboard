@@ -63,9 +63,11 @@ export interface ConnectorErrorClassification {
   blockedWrite?: boolean;
   /**
    * The statement itself is at fault — a syntax error, a missing column, a
-   * value of the wrong type — so NeoBoard answers the caller's 422, not a
-   * server fault's 500 (#2053). Set it only on a positive match: an error
-   * the connector does not recognise must not claim to be the caller's.
+   * value of the wrong type — so NeoBoard answers a caller's query 422, not
+   * a server fault's 500 (#2053); the connector's own statements (schema
+   * introspection, a connection test) stay 500. Set it only on a positive
+   * match: an error the connector does not recognise must not claim to be
+   * the caller's.
    */
   statementFault?: boolean;
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
+import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -141,5 +142,26 @@ describe("GET /api/connections/[id]/schema", () => {
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL_ERROR");
     expect(body.error.message).toBe("Schema fetch failed");
+  });
+
+  it("answers the connector's own introspection statement at fault 500, not the caller's 422 (#2053)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        { id: "c1", userId: "user-1", type: "fixturedb", configEncrypted: "e" },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "fixturedb://localhost" });
+    mockFetchConnectionSchema.mockRejectedValue(
+      new ConnectorError("unknown procedure", {
+        type: ConnectorErrorType.QUERY,
+        transient: false,
+        statementFault: true,
+      }),
+    );
+
+    const res = await GET({} as Request, makeParams("c1"));
+    expect(res.status).toBe(500);
+    expect((await res.json()).error.code).toBe("INTERNAL_ERROR");
   });
 });

@@ -331,8 +331,8 @@ const SPEC = {
           "Introspects the connection's database. Readable by the owner and, for a tenant-shared connection, by anyone in " +
           "the tenant; there is no admin override (404). `data` is null when the connection's connector has no schema " +
           "introspection or is no longer installed. Stored credentials that cannot be decrypted, or a failed introspection, " +
-          "answer 500; a connector that classifies its error answers 502 for a network or credentials failure, 408 " +
-          "(`Retry-After: 3`) for a transient one, or 422 for an introspection statement it judges at fault. There is no scheduler queue here.",
+          "answer 500; a connector that classifies its error answers 502 for a network or credentials failure, or 408 " +
+          "(`Retry-After: 3`) for a transient one. There is no scheduler queue here.",
         responses: {
           200: jsonResponse(
             "Schema information",
@@ -341,7 +341,6 @@ const SPEC = {
           401: R.unauthorized,
           404: R.notFound,
           408: R.timeout,
-          422: R.queryError,
           500: R.serverError,
           502: R.connectorDown,
         },
@@ -1229,9 +1228,10 @@ const SPEC = {
         headers: { "Retry-After": RETRY_AFTER },
       },
       QueryError: bodyResponse(
-        "The connector judged the statement itself at fault (`QUERY_ERROR`): a syntax error, a missing column, table or " +
-          "label, a value of the wrong type. `error.message` is the driver's message, sanitized. Retrying fails the same " +
-          "way, so there is no `Retry-After`. An error the connector does not recognise answers 500 instead.",
+        "The connector judged the caller's statement itself at fault (`QUERY_ERROR`): a syntax error, a missing column " +
+          "or table, a value of the wrong type. `error.message` is the driver's message, sanitized, except on " +
+          "`/api/query/write`, which answers its fallback message. Retrying fails the same way, so there is no " +
+          "`Retry-After`. An error the connector does not recognise answers 500 instead.",
         { $ref: "#/components/schemas/ErrorResponse" },
       ),
       ConnectorUnavailable: bodyResponse(

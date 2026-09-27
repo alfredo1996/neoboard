@@ -440,6 +440,12 @@ describe("the query operations document what their routes send (#1966)", () => {
 
   it("says the write's 422 carries only its fallback message", () => {
     expect(write.description).toMatch(/422[^.]*fallback/);
+    // The response object is what a client generator reads, not the prose.
+    expect(response(write.responses["422"]).description).toMatch(/fallback/);
+  });
+
+  it("claims no 422 for an unknown label: that is a notification, not an error", () => {
+    expect(response(read.responses["422"]).description).not.toMatch(/label/);
   });
 
   it("states how long a dead connection is answered without dialling", () => {
@@ -740,11 +746,13 @@ describe("#1981 payloads: connections-test-schema", () => {
     expect(schemas.TestInlineRequest.properties!.type.minLength).toBe(1);
   });
 
-  it("the schema documents a classified connector error as 408, 422 or 502", () => {
-    for (const status of ["401", "404", "408", "422", "500", "502"]) {
+  it("the schema documents a classified connector error as 408 or 502", () => {
+    for (const status of ["401", "404", "408", "500", "502"]) {
       expect(schema.responses).toHaveProperty(status);
     }
     expect(schema.responses).not.toHaveProperty("403");
+    // Introspection runs the connector's statement, never the caller's (#2053).
+    expect(schema.responses).not.toHaveProperty("422");
     expect(schema.description).toMatch(/no longer installed/);
   });
 

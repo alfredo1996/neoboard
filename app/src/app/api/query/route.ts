@@ -230,7 +230,9 @@ async function handleReadQuery(request: Request): Promise<Response> {
       ...(truncated ? { truncated: true } : {}),
     });
   } catch (error) {
-    return handleRouteError(error, "Query execution failed");
+    return handleRouteError(error, "Query execution failed", {
+      callerStatement: true,
+    });
   }
 }
 

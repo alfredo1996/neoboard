@@ -348,6 +348,42 @@ describe("POST /api/query/write", () => {
     });
   });
 
+  it("logs a statement fault's write_query_failed at warn, never at error (#2053)", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDashboardAndConnection();
+    mockDecryptJson.mockReturnValue({ uri: "fixturedb://localhost" });
+    const fault = toConnectorError(
+      "postgresql",
+      Object.assign(new Error("syntax error"), { code: "42601" }),
+    );
+    mockExecuteQuery.mockRejectedValue(fault);
+    // The route's own logger, from the module graph beforeEach imported.
+    const { apiLogger } = await import("@/lib/logger");
+    const warn = vi
+      .spyOn(apiLogger, "warn")
+      .mockReturnValue(undefined as never);
+    const error = vi
+      .spyOn(apiLogger, "error")
+      .mockReturnValue(undefined as never);
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "INSERT",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+
+    expect(res.status).toBe(422);
+    // A form's typo is the caller's: it must not page an operator.
+    expect(error).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "write_query_failed", err: fault }),
+      "write_query_failed",
+    );
+  });
+
   it("surfaces a specific reason for a NOT NULL violation without leaking row data (#1162)", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDashboardAndConnection();

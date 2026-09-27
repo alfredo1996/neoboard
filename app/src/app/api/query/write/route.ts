@@ -199,7 +199,26 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     // A body the route could not use is the caller's mistake, not a failed
     // write: answer it without an error-level log (#1963).
     if (error instanceof RequestBodyError) return handleRouteError(error);
-    apiLogger.error(
+    // safeMessage: write queries echo user SQL in driver errors — never leak.
+    // But surface a specific, sanitized reason (constraint/column) when we can
+    // recognise the driver error, so form users see "The field X is required"
+    // instead of a bare "execution failed" (#1162).
+    // Recognised errors are the user's to fix, so they answer 4xx, with the
+    // blank column attached for the form to put on its field (#1409).
+    const described = describeWriteError(error);
+    const response = described
+      ? apiError(
+          described.code,
+          described.message,
+          described.column ? { column: described.column } : undefined,
+        )
+      : await handleRouteError(error, "Write query execution failed", {
+          safeMessage: true,
+          callerStatement: true,
+        });
+    // A 422 is the caller's statement at fault: a warn, as on the read route,
+    // so a form's typo does not page an operator on every submit (#2053).
+    apiLogger[response.status === 422 ? "warn" : "error"](
       {
         event: "write_query_failed",
         // The Error itself, so the logger's error policy — the fields it
@@ -208,22 +227,6 @@ async function handleWriteQuery(request: Request): Promise<Response> {
       },
       "write_query_failed",
     );
-    // safeMessage: write queries echo user SQL in driver errors — never leak.
-    // But surface a specific, sanitized reason (constraint/column) when we can
-    // recognise the driver error, so form users see "The field X is required"
-    // instead of a bare "execution failed" (#1162).
-    // Recognised errors are the user's to fix, so they answer 4xx, with the
-    // blank column attached for the form to put on its field (#1409).
-    const described = describeWriteError(error);
-    if (described) {
-      return apiError(
-        described.code,
-        described.message,
-        described.column ? { column: described.column } : undefined,
-      );
-    }
-    return handleRouteError(error, "Write query execution failed", {
-      safeMessage: true,
-    });
+    return response;
   }
 }

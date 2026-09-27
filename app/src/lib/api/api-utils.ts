@@ -158,6 +158,22 @@ export function validateBody<T>(
 // Generic catch handler
 // ---------------------------------------------------------------------------
 
+interface RouteErrorOptions {
+  /**
+   * When true, untyped errors (e.g. raw driver/query errors) collapse to
+   * `fallbackMsg` instead of being passed through `sanitizeErrorMessage`.
+   * Use this on routes where the underlying error message could leak schema
+   * details, query structure, or other sensitive shape — most notably the
+   * write-query route, where a syntax error echoes the user's statement.
+   */
+  safeMessage?: boolean;
+  /**
+   * The route runs the caller's own statement, so one its connector judges
+   * at fault is the caller's 422 `QUERY_ERROR` (#2053). Off everywhere else.
+   */
+  callerStatement?: boolean;
+}
+
 /**
  * What the client reads: the fallback on a `safeMessage` route, else the
  * driver's message, sanitized.
@@ -202,9 +218,9 @@ async function connectorResponse(
   error: unknown,
   classification: ConnectorErrorClassification | undefined,
   fallbackMsg: string,
-  safeMessage: boolean,
+  { safeMessage, callerStatement }: RouteErrorOptions,
 ): Promise<ReturnType<typeof apiError> | undefined> {
-  const message = clientMessage(error, fallbackMsg, safeMessage);
+  const message = clientMessage(error, fallbackMsg, safeMessage === true);
   // A connector nobody can reach — unroutable host, refused port, bad
   // credentials.
   const unavailable = connectorUnavailableReason(error);
@@ -225,8 +241,10 @@ async function connectorResponse(
   // operator's error rate tracked their users' typos. Only the connector's
   // positive flag counts; its no-match fallback is also QUERY, and an error it
   // does not recognise stays a 500. The query's own `query_failed` record,
-  // under the same requestId, carries the driver's error.
-  if (classification?.statementFault) {
+  // under the same requestId, carries the driver's error. Only on a route
+  // that ran the caller's statement: a connector's own (introspection, a
+  // test) at fault is the server's, and needs the api_error record's stack.
+  if (callerStatement && classification?.statementFault) {
     apiLogger.warn(
       {
         event: "api_query_error",
@@ -248,16 +266,7 @@ async function connectorResponse(
 export async function handleRouteError(
   error: unknown,
   fallbackMsg = "Internal server error",
-  options?: {
-    /**
-     * When true, untyped errors (e.g. raw driver/query errors) collapse to
-     * `fallbackMsg` instead of being passed through `sanitizeErrorMessage`.
-     * Use this on routes where the underlying error message could leak schema
-     * details, query structure, or other sensitive shape — most notably the
-     * write-query route, where a syntax error echoes the user's statement.
-     */
-    safeMessage?: boolean;
-  },
+  options: RouteErrorOptions = {},
 ): Promise<ReturnType<typeof apiError>> {
   // Our own auth errors, by type (#1962). They used to be recognised by
   // their words, so a driver error that said "session" answered 401 and told
@@ -297,7 +306,7 @@ export async function handleRouteError(
     error,
     classification,
     fallbackMsg,
-    options?.safeMessage === true,
+    options,
   );
   if (classified) return classified;
   const message = error instanceof Error ? error.message : fallbackMsg;
@@ -320,7 +329,7 @@ export async function handleRouteError(
   // Routes that opt into `safeMessage` collapse to the fallback unconditionally
   // — used by the write route to keep a driver's syntax errors, which echo the
   // statement, out of responses.
-  if (options?.safeMessage) {
+  if (options.safeMessage) {
     return serverError(fallbackMsg);
   }
   return apiError(

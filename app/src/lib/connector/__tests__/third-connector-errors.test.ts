@@ -119,7 +119,9 @@ describe("a third connector's errors classify through ITS hook (#1903)", () => {
   });
 
   it("what it calls a statement fault is the caller's: 422 with its message (#2053)", async () => {
-    const res = await handleRouteError(await failure("SELECT nosuch"), "x");
+    const res = await handleRouteError(await failure("SELECT nosuch"), "x", {
+      callerStatement: true,
+    });
     expect(res.status).toBe(422);
     expect((await res.json()).error).toEqual({
       code: "QUERY_ERROR",
