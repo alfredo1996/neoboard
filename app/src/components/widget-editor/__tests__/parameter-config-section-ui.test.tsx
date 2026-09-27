@@ -311,6 +311,46 @@ describe("ParameterConfigSection — Test Seed Query binds the cascade parent (#
     expect(mutate).toHaveBeenCalledTimes(1);
     expect(mutate.mock.calls[0][0]).not.toHaveProperty("params");
   });
+
+  // A searchable selector whose seed consumes $param_search always gets it
+  // on the dashboard, "" before anything is typed (#1743); the editor's test
+  // sends the same, built by the same helper (#2043).
+  describe("param_search (#2043)", () => {
+    const searching = "SELECT name FROM city WHERE name ILIKE $param_search";
+
+    it('sends param_search: "" for a searchable seed that consumes it', () => {
+      const mutate = renderSeed({ searchable: true, seedQuery: searching });
+      fireEvent.click(screen.getByText("Test Seed Query"));
+      expect(mutate.mock.calls[0][0].params).toEqual({ param_search: "" });
+    });
+
+    it("treats an unset searchable as searchable, as the dashboard does", () => {
+      const mutate = renderSeed({ seedQuery: searching });
+      fireEvent.click(screen.getByText("Test Seed Query"));
+      expect(mutate.mock.calls[0][0].params).toEqual({ param_search: "" });
+    });
+
+    it("sends the cascade parent and param_search together", () => {
+      useParameterStore
+        .getState()
+        .setParameter("country", "Italy", "Country", "country", "select");
+      const mutate = renderSeed({
+        parentParameterName: "country",
+        seedQuery: `${searching} AND country = $param_country`,
+      });
+      fireEvent.click(screen.getByText("Test Seed Query"));
+      expect(mutate.mock.calls[0][0].params).toEqual({
+        param_country: "Italy",
+        param_search: "",
+      });
+    });
+
+    it("sends no param_search for a selector that is not searchable", () => {
+      const mutate = renderSeed({ searchable: false, seedQuery: searching });
+      fireEvent.click(screen.getByText("Test Seed Query"));
+      expect(mutate.mock.calls[0][0]).not.toHaveProperty("params");
+    });
+  });
 });
 
 describe("ParameterConfigSection", () => {
