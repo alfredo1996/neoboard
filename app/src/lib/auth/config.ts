@@ -25,8 +25,8 @@ type SignInFailureReason =
 /**
  * Log a failed sign-in attempt. Never includes the password. Email is
  * included so operators can correlate multiple failures against the
- * same account, but will be anonymized when LOG_ANONYMIZE=true lands
- * (see #128 slice 4).
+ * same account; with LOG_ANONYMIZE=true it is logged as a keyed hash
+ * instead (`log-anonymizer.ts`), which still correlates them.
  */
 function logSignInFailed(
   email: string | undefined,

@@ -29,7 +29,11 @@ import pino from "pino";
  * than no log at all:
  *   - URI scheme, username, host, port and database — you need these to know
  *     *which* data source failed and as *whom*
- *   - error `type`, `message`, `stack` and driver `code` (SQLSTATE, ECONNREFUSED)
+ *   - error `type`, `message`, `stack` and driver `code` (SQLSTATE, ECONNREFUSED).
+ *     A driver's message keeps its words by default, even where it quotes the
+ *     value that failed; under `LOG_ANONYMIZE` each quoted value becomes
+ *     `[value]`, inside its quotes, in `message` and `stack` (#1949). See
+ *     `scrubQuotedValues`.
  *   - connectionId, connectionType, tenantId, requestId, durations, row counts
  *   - query text, unless `LOG_QUERY_TEXT=false` (see below)
  *
@@ -110,6 +114,65 @@ const KEEP_QUERY_TEXT = !["false", "0", "no", "off"].includes(
   (process.env.LOG_QUERY_TEXT ?? "").toLowerCase(),
 );
 
+/**
+ * The values a driver quotes in its error text (#1949), each replaced by
+ * `[value]` inside its quotes. The rule, by quote, from what the built-in
+ * drivers write:
+ *   '…'  a literal: `property \`email\` = 'alice@example.com'`. An apostrophe
+ *        inside a word ("can't", "O'Brien") neither opens nor closes one.
+ *   "…"  an identifier — `relation "users"`, `constraint "users_email_key"` —
+ *        except after `: ` or `value `, which is where SQL puts the input it
+ *        rejected (`for type integer: "abc"`, `value "999" is out of range`).
+ *        That value is printed raw, so it runs to the last quote on its line.
+ *        A stack's own `Name: ` header, and pino's `caused by: Name: `, is
+ *        not such a `: `.
+ *   `…`  an identifier, always: labels and property names.
+ * A quote that does not close on its line runs to the end of it. Anything
+ * unquoted stays, host and port included.
+ *
+ * Each pattern opens and closes a quote in one pass, never backtracking over
+ * the rest of the line: this runs on every logged error, and a quadratic one
+ * turned a 60 KB message into 4 seconds of blocked event loop.
+ *
+ * ponytail: a heuristic over English driver messages, not a parser. It misses
+ * a value the driver does not quote (a uniqueness violation on a number:
+ * `` `id` = 7 ``), the lines after the first of a value that spans lines, and
+ * the rest of a single-quoted value after a quote inside it that a non-word
+ * character follows (`'rock 'n' roll'` keeps ` roll'`). It over-scrubs a
+ * single-quoted identifier (`Unknown function 'foo'`, a syntax error's
+ * `Invalid input 'x'`) and, in `message`, a message that opens with a quoted
+ * identifier once a cause chain prefixes it with `: `. Parse per driver in
+ * the connector the day a miss matters.
+ */
+const DOUBLE_QUOTED_VALUE = /(: |\bvalue )"(?:[^\n]*"|[^\n]*)/g;
+const STACK_DOUBLE_QUOTED_VALUE = new RegExp(
+  String.raw`(?:^|\ncaused by: )[\w$.]+: |` + DOUBLE_QUOTED_VALUE.source,
+  "g",
+);
+const SINGLE_QUOTED_VALUE = /(?<!\w)'(?:[^'\n]|'(?=\w))*(?:'(?!\w)|(?=\n|$))/g;
+
+/**
+ * Replace every quoted value in a driver's error text with `[value]`.
+ * `stack`: the text is a stack, whose `Name: ` headers are kept.
+ */
+export function scrubQuotedValues(text: string, stack = false): string {
+  // Fails closed: this runs inside pino's formatters.log, which does not
+  // catch, and a long enough quoted run exhausts V8's regex backtracking
+  // stack. A throw would make the log call itself throw; the unscrubbed text
+  // would leak the value. Neither: a marker.
+  try {
+    return text
+      .replace(
+        stack ? STACK_DOUBLE_QUOTED_VALUE : DOUBLE_QUOTED_VALUE,
+        (match, before?: string) =>
+          before === undefined ? match : `${before}"[value]"`,
+      )
+      .replace(SINGLE_QUOTED_VALUE, "'[value]'");
+  } catch {
+    return "[unscrubbable]";
+  }
+}
+
 /** Strip credentials from a free-text string. Safe to call on anything. */
 export function redactString(text: string): string {
   let out = text;
@@ -128,12 +191,18 @@ export function redactString(text: string): string {
  * Deep-copy `value` with every credential removed. Never mutates the input —
  * the same Error object is usually re-thrown to the caller and must not be
  * altered by having been logged.
+ *
+ * `anonymize` is `LOG_ANONYMIZE`, handed in by the logger: it also scrubs the
+ * quoted values out of every error's message and stack.
  */
-export function redactSecrets(value: unknown): unknown {
-  return walk(value, new Set());
+export function redactSecrets(
+  value: unknown,
+  { anonymize = false }: { anonymize?: boolean } = {},
+): unknown {
+  return walk(value, new Set(), anonymize);
 }
 
-function walk(value: unknown, path: Set<object>): unknown {
+function walk(value: unknown, path: Set<object>, anonymize: boolean): unknown {
   if (typeof value === "string") return redactString(value);
   if (value === null || typeof value !== "object") return value;
 
@@ -148,15 +217,17 @@ function walk(value: unknown, path: Set<object>): unknown {
   try {
     // Here rather than via `serializers.err`, so it also applies to Errors
     // nested inside objects and arrays, which that hook never sees.
-    if (value instanceof Error) return serializeError(value, path);
-    if (Array.isArray(value)) return value.map((item) => walk(item, path));
+    if (value instanceof Error) return serializeError(value, path, anonymize);
+    if (Array.isArray(value)) {
+      return value.map((item) => walk(item, path, anonymize));
+    }
     if (!isPlainObject(value)) {
       // ponytail: Buffers, Maps and class instances pass through untouched —
       // nothing logs one today. If that changes, unwrap it here rather than
       // at the call site.
       return value;
     }
-    return redactEntries(value, path);
+    return redactEntries(value, path, anonymize);
   } finally {
     path.delete(value);
   }
@@ -198,6 +269,7 @@ function typeOf(err: Error): string {
 function serializeError(
   err: Error,
   path: Set<object>,
+  anonymize: boolean,
 ): Record<string, unknown> {
   // pino flattens the `cause` chain into `message` and `stack`, so scrubbing
   // those two covers arbitrarily deep causes.
@@ -210,7 +282,16 @@ function serializeError(
   const out: Record<string, unknown> = {};
   serialized.type = typeOf(err);
   for (const key of ERROR_FIELDS) {
-    if (serialized[key] !== undefined) out[key] = walk(serialized[key], path);
+    if (serialized[key] !== undefined) {
+      out[key] = walk(serialized[key], path, anonymize);
+    }
+  }
+  if (anonymize) {
+    for (const key of ["message", "stack"]) {
+      if (typeof out[key] === "string") {
+        out[key] = scrubQuotedValues(out[key], key === "stack");
+      }
+    }
   }
   // A connector's wrapped driver error: its class and code say which failure
   // it was. Its message is the wrapper's, already above; the rest is user
@@ -220,7 +301,7 @@ function serializeError(
   if (inner instanceof Error) {
     out.originalError = {
       type: typeOf(inner),
-      code: walk((inner as { code?: unknown }).code, path),
+      code: walk((inner as { code?: unknown }).code, path, anonymize),
     };
   }
   return out;
@@ -229,6 +310,7 @@ function serializeError(
 function redactEntries(
   input: Record<string, unknown>,
   path: Set<object>,
+  anonymize: boolean,
 ): Record<string, unknown> {
   const output: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(input)) {
@@ -237,7 +319,7 @@ function redactEntries(
     } else if (key === "query" && !KEEP_QUERY_TEXT) {
       output[key] = REDACTED;
     } else {
-      output[key] = walk(value, path);
+      output[key] = walk(value, path, anonymize);
     }
   }
   return output;
