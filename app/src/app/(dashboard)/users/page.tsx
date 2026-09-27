@@ -4,7 +4,14 @@ import { DOCS_LINKS } from "@/lib/docs-links";
 import { useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
-import { Users as UsersIcon, Plus, MoreVertical, KeyRound } from "lucide-react";
+import {
+  Users as UsersIcon,
+  Plus,
+  MoreVertical,
+  KeyRound,
+  UserX,
+  UserCheck,
+} from "lucide-react";
 import {
   useUsers,
   useCreateUser,
@@ -12,10 +19,12 @@ import {
   useUpdateUserRole,
   useUpdateUserCanWrite,
   useResetPassword,
+  useSetUserDisabled,
 } from "@/hooks/use-users";
 import type { UserListItem } from "@/hooks/use-users";
 import type { UserRole } from "@/lib/db/schema";
 import {
+  Badge,
   Button,
   Input,
   Label,
@@ -72,6 +81,7 @@ export default function UsersPage() {
   const updateCanWrite = useUpdateUserCanWrite();
 
   const resetPassword = useResetPassword();
+  const setUserDisabled = useSetUserDisabled();
 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<{
@@ -88,6 +98,7 @@ export default function UsersPage() {
     forcePasswordChange: false,
   });
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [disableTarget, setDisableTarget] = useState<UserListItem | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [tempPasswordData, setTempPasswordData] = useState<{
     userName: string;
@@ -170,9 +181,50 @@ export default function UsersPage() {
     [resetPassword, toast],
   );
 
+  // mutateAsync, not mutate's callbacks: TanStack v5 runs those for the
+  // latest call only, so a second click would swallow the first toast (#1912).
+  const handleSetDisabled = useCallback(
+    async (user: UserListItem, disabled: boolean) => {
+      const name = displayNameOf(user);
+      try {
+        await setUserDisabled.mutateAsync({ id: user.id, disabled });
+        toast(
+          disabled
+            ? {
+                title: "User disabled",
+                description: `${name} can no longer sign in, and their API keys no longer work.`,
+              }
+            : {
+                title: "User enabled",
+                description: `${name} can sign in again, and their API keys work again.`,
+              },
+        );
+      } catch (err) {
+        toast({
+          title: `Failed to ${disabled ? "disable" : "enable"} user`,
+          description:
+            err instanceof Error ? err.message : "Something went wrong.",
+          variant: "destructive",
+        });
+      }
+    },
+    [setUserDisabled, toast],
+  );
+
   const columns = useMemo(
     (): DataGridColumn<UserListItem>[] => [
-      { accessorKey: "name", header: "Name" },
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-2">
+            {row.original.name}
+            {row.original.disabledAt && (
+              <Badge variant="warning">Disabled</Badge>
+            )}
+          </span>
+        ),
+      },
       { accessorKey: "email", header: "Email" },
       {
         accessorKey: "role",
@@ -242,6 +294,12 @@ export default function UsersPage() {
                   <KeyRound className="mr-2 h-4 w-4" />
                   Require Password Change
                 </DropdownMenuItem>
+                <DisableToggleItem
+                  user={row.original}
+                  isSelf={isSelf}
+                  onDisable={setDisableTarget}
+                  onEnable={(user) => void handleSetDisabled(user, false)}
+                />
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={isSelf}
@@ -262,6 +320,7 @@ export default function UsersPage() {
       handleRoleUpdate,
       handleCanWriteToggle,
       handleForcePasswordChange,
+      handleSetDisabled,
     ],
   );
 
@@ -443,6 +502,20 @@ export default function UsersPage() {
         }}
       />
 
+      <ConfirmDialog
+        open={disableTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDisableTarget(null);
+        }}
+        title="Disable User"
+        description={`${displayNameOf(disableTarget)} will not be able to sign in, and their API keys will stop working. You can enable the account again later.`}
+        confirmText="Disable"
+        variant="destructive"
+        onConfirm={() => {
+          if (disableTarget) void handleSetDisabled(disableTarget, true);
+        }}
+      />
+
       <Dialog
         open={tempPasswordData !== null}
         onOpenChange={(open) => {
@@ -531,5 +604,41 @@ export default function UsersPage() {
         </LoadingOverlay>
       </div>
     </div>
+  );
+}
+
+function displayNameOf(user: UserListItem | null): string {
+  return user?.name ?? user?.email ?? "This user";
+}
+
+/**
+ * Disable on an enabled user, Enable on a disabled one (#2049). Never on the
+ * admin's own row, the same self-protection Delete has; the API refuses a
+ * self-PATCH too.
+ */
+function DisableToggleItem({
+  user,
+  isSelf,
+  onDisable,
+  onEnable,
+}: Readonly<{
+  user: UserListItem;
+  isSelf: boolean;
+  onDisable: (user: UserListItem) => void;
+  onEnable: (user: UserListItem) => void;
+}>) {
+  const disabled = Boolean(user.disabledAt);
+  const Icon = disabled ? UserCheck : UserX;
+  return (
+    <DropdownMenuItem
+      disabled={isSelf}
+      onClick={() => {
+        if (isSelf) return;
+        (disabled ? onEnable : onDisable)(user);
+      }}
+    >
+      <Icon className="mr-2 h-4 w-4" />
+      {disabled ? "Enable" : "Disable"}
+    </DropdownMenuItem>
   );
 }

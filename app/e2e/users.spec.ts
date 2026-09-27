@@ -1,4 +1,5 @@
 import { test, expect, ALICE, CAROL } from "./fixtures";
+import { AuthPage } from "./pages/auth";
 
 /**
  * Wait for the users table to have loaded at least one data row.
@@ -262,6 +263,104 @@ test.describe("can_write toggle", () => {
     // Reader always shows No and the switch is disabled
     await expect(row.getByText("No")).toBeVisible();
     await expect(row.getByRole("switch")).toBeDisabled();
+  });
+});
+
+test.describe("Disable and enable a user (#2049)", () => {
+  /** Sign in as `email` in a fresh context: refused, or reaches the app. */
+  async function expectSignIn(
+    browser: import("@playwright/test").Browser,
+    email: string,
+    password: string,
+    allowed: boolean,
+  ) {
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      if (allowed) {
+        // login() waits for / and for the server to see this email signed in.
+        await new AuthPage(page).login(email, password);
+        return;
+      }
+      await page.goto("/login");
+      await page
+        .locator('form[data-hydrated="true"]')
+        .waitFor({ state: "attached", timeout: 10_000 });
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password").fill(password);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await expect(page.getByText("Invalid email or password")).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(page).toHaveURL(/\/login/);
+    } finally {
+      await context.close();
+    }
+  }
+
+  test("an admin disables a user, whose sign-in is refused, then enables them and it works again", async ({
+    authPage,
+    sidebarPage,
+    page,
+    browser,
+  }) => {
+    test.setTimeout(90_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const name = `Disable Me ${suffix}`;
+    const email = `disable-${suffix}@example.com`;
+    const password = "password123";
+    const res = await page.request.post("/api/users", {
+      data: { name, email, password },
+    });
+    expect(res.ok()).toBeTruthy();
+    const { data: created } = await res.json();
+
+    try {
+      await sidebarPage.navigateTo("Users");
+      const row = await filterToUser(page, email);
+      const badge = row.getByText("Disabled", { exact: true });
+      await expect(badge).toHaveCount(0);
+
+      // Disable asks first, and says what it does.
+      await row.getByRole("button", { name: "User actions" }).click();
+      await page.getByRole("menuitem", { name: "Disable" }).click();
+      const confirm = page.getByRole("alertdialog", { name: "Disable User" });
+      await expect(confirm).toContainText(
+        `${name} will not be able to sign in, and their API keys will stop working.`,
+      );
+      await confirm.getByRole("button", { name: "Disable" }).click();
+
+      await expect(badge).toBeVisible({ timeout: 10_000 });
+      await expect(
+        page.getByText(
+          `${name} can no longer sign in, and their API keys no longer work.`,
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expectSignIn(browser, email, password, false);
+
+      // Enable needs no confirmation.
+      await row.getByRole("button", { name: "User actions" }).click();
+      await page.getByRole("menuitem", { name: "Enable" }).click();
+      await expect(
+        page.getByText(
+          `${name} can sign in again, and their API keys work again.`,
+          { exact: true },
+        ),
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(badge).toHaveCount(0);
+      await row.getByRole("button", { name: "User actions" }).click();
+      await expect(
+        page.getByRole("menuitem", { name: "Disable" }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      await expectSignIn(browser, email, password, true);
+    } finally {
+      await page.request.delete(`/api/users/${created.id}`);
+    }
   });
 });
 

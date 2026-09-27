@@ -10,6 +10,8 @@ export interface UserListItem {
   email: string | null;
   role: UserRole;
   canWrite: boolean;
+  /** Set while the account is disabled: no sign-in, no API keys (#2006). */
+  disabledAt: string | null;
   createdAt: string;
 }
 
@@ -56,18 +58,25 @@ export function useCreateUser() {
   });
 }
 
+/** PATCH /api/users/:id with the fields to change. */
+async function patchUser(
+  id: string,
+  fields: { role?: UserRole; canWrite?: boolean; disabled?: boolean },
+) {
+  const res = await fetch(`/api/users/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+  return unwrapResponse(res);
+}
+
 export function useUpdateUserRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: UserRole }) => {
-      const res = await fetch(`/api/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
-      return unwrapResponse(res);
-    },
+    mutationFn: ({ id, role }: { id: string; role: UserRole }) =>
+      patchUser(id, { role }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
     },
@@ -78,14 +87,21 @@ export function useUpdateUserCanWrite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, canWrite }: { id: string; canWrite: boolean }) => {
-      const res = await fetch(`/api/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ canWrite }),
-      });
-      return unwrapResponse(res);
+    mutationFn: ({ id, canWrite }: { id: string; canWrite: boolean }) =>
+      patchUser(id, { canWrite }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
     },
+  });
+}
+
+/** Disable or re-enable a user's account (#2049). */
+export function useSetUserDisabled() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, disabled }: { id: string; disabled: boolean }) =>
+      patchUser(id, { disabled }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
     },
