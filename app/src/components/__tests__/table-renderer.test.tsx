@@ -2,9 +2,10 @@
  * TableRenderer — the cell formatter, fed connector-shaped rows (#1636).
  *
  * The table is the app's default widget type and had no test of its own. Its
- * one piece of logic is the cell formatter: null → a muted "null", object →
+ * one piece of logic is the cell formatter: null → a muted "null", a tagged
+ * graph value → its labels or type and properties (#2050), any other object →
  * JSON, everything else → String(). Replace the object branch with a bare
- * String(v) and every Neo4j node renders "[object Object]" across the app —
+ * String(v) and every graph node renders "[object Object]" across the app —
  * this file is what fails when that happens.
  *
  * DataGrid is stubbed to a plain table that pushes every row through the real
@@ -75,11 +76,11 @@ const cells = (col: string) =>
   );
 
 describe("TableRenderer cell formatting (#1636)", () => {
-  it("renders a Neo4j node as its JSON, never as [object Object]", () => {
+  it("renders a graph node as text, never as [object Object]", () => {
     render(<TableRenderer data={sparseOrders()} settings={noPaging} />);
     expect(screen.queryByText("[object Object]")).toBeNull();
-    expect(cells("customer")[0]).toContain('"name":"Ada Lovelace"');
-    expect(cells("customer")[0]).toContain('"labels":["Customer"]');
+    expect(cells("customer")[0]).toContain('name: "Ada Lovelace"');
+    expect(cells("customer")[0]).toContain(":Customer");
   });
 
   it("renders a null cell as a muted null, not as an empty cell", () => {
@@ -103,6 +104,157 @@ describe("TableRenderer cell formatting (#1636)", () => {
     const shown = cells("placed_at")[0];
     expect(shown).toContain("2026-09-01");
     expect(shown.startsWith('"')).toBe(false);
+  });
+});
+
+// The SDK's canonical shapes, tagged by `$type` (#1904, #1925).
+const node = (
+  id: string,
+  labels: string[],
+  properties: Record<string, unknown>,
+) => ({
+  $type: "node",
+  identity: id,
+  elementId: `4:db:${id}`,
+  labels,
+  properties,
+});
+
+const rel = (
+  type: string,
+  from: { elementId: string },
+  to: { elementId: string },
+  properties: Record<string, unknown> = {},
+) => ({
+  $type: "relationship",
+  identity: `${from.elementId}-${to.elementId}`,
+  elementId: `5:db:${type}`,
+  type,
+  properties,
+  start: from.elementId,
+  startNodeElementId: from.elementId,
+  end: to.elementId,
+  endNodeElementId: to.elementId,
+});
+
+const keanu = node("1", ["Person", "Actor"], {
+  name: "Keanu Reeves",
+  born: 1964,
+});
+const matrix = node("2", ["Movie"], { title: "The Matrix", released: 1999 });
+const lana = node("3", ["Person"], { name: "Lana Wachowski" });
+
+const one = (v: unknown) => {
+  render(<TableRenderer data={[{ v }]} settings={noPaging} />);
+  return cells("v")[0];
+};
+
+describe("TableRenderer graph cells (#2050)", () => {
+  it("renders a node as its labels and properties", () => {
+    const shown = one(
+      node("9", ["Movie"], {
+        title: "Cloud Atlas",
+        released: 2012,
+        restricted: false,
+        genres: ["Drama", "Sci-Fi"],
+        meta: { rated: "R" },
+      }),
+    );
+    expect(shown).toBe(
+      ':Movie {title: "Cloud Atlas", released: 2012, restricted: false, genres: ["Drama","Sci-Fi"], meta: {"rated":"R"}}',
+    );
+  });
+
+  it("never shows $type or elementId", () => {
+    const shown = one(keanu);
+    expect(shown).toBe(':Person:Actor {name: "Keanu Reeves", born: 1964}');
+    expect(shown).not.toContain("$type");
+    expect(shown).not.toContain("elementId");
+    expect(shown).not.toContain("4:db:");
+  });
+
+  it("drops an empty property map, and an empty node reads as {}", () => {
+    render(
+      <TableRenderer
+        data={[{ v: node("7", ["Genre"], {}) }, { v: node("8", [], {}) }]}
+        settings={noPaging}
+      />,
+    );
+    expect(cells("v")).toEqual([":Genre", "{}"]);
+  });
+
+  it("renders a relationship as its type and properties", () => {
+    render(
+      <TableRenderer
+        data={[
+          { v: rel("ACTED_IN", keanu, matrix, { roles: ["Neo"] }) },
+          { v: rel("DIRECTED", lana, matrix) },
+        ]}
+        settings={noPaging}
+      />,
+    );
+    expect(cells("v")).toEqual(['[:ACTED_IN {roles: ["Neo"]}]', "[:DIRECTED]"]);
+  });
+
+  it("renders a path as its chain, each arrow the relationship's own direction", () => {
+    // Traversal: Keanu → The Matrix → Lana. The second hop walks DIRECTED
+    // against its direction, so its arrow points back at the traversal.
+    const shown = one({
+      $type: "path",
+      start: keanu,
+      end: lana,
+      segments: [
+        {
+          start: keanu,
+          relationship: rel("ACTED_IN", keanu, matrix),
+          end: matrix,
+        },
+        {
+          start: matrix,
+          relationship: rel("DIRECTED", lana, matrix),
+          end: lana,
+        },
+      ],
+      length: 2,
+    });
+    expect(shown).toBe(
+      '(:Person:Actor {name: "Keanu Reeves", born: 1964})-[:ACTED_IN]->' +
+        '(:Movie {title: "The Matrix", released: 1999})<-[:DIRECTED]-' +
+        '(:Person {name: "Lana Wachowski"})',
+    );
+    expect(shown).not.toContain("$type");
+  });
+
+  it("renders a zero-length path as its one node", () => {
+    const shown = one({
+      $type: "path",
+      start: lana,
+      end: lana,
+      segments: [],
+      length: 0,
+    });
+    expect(shown).toBe('(:Person {name: "Lana Wachowski"})');
+  });
+
+  it("keeps JSON for an untagged object that has labels and properties keys", () => {
+    // A JSON column, not a node: the tag is the only signal (#1925).
+    const shown = one({ labels: ["Movie"], properties: { title: "X" } });
+    expect(shown).toBe('{"labels":["Movie"],"properties":{"title":"X"}}');
+  });
+
+  it("keeps JSON for a tagged value that is not the shape it claims", () => {
+    // A JSON column holding a `$type` key: data, and must not crash the table.
+    expect(one({ $type: "node" })).toBe('{"$type":"node"}');
+  });
+
+  it("leaves arrays and primitives unchanged", () => {
+    render(
+      <TableRenderer
+        data={[{ v: ["a", 1] }, { v: 42 }, { v: true }, { v: "plain" }]}
+        settings={noPaging}
+      />,
+    );
+    expect(cells("v")).toEqual(['["a",1]', "42", "true", "plain"]);
   });
 });
 

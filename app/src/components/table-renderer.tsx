@@ -17,6 +17,14 @@ import type {
   ColorScaleConfig,
   DataGridColumn,
 } from "@neoboard/components";
+import {
+  isGraphNode,
+  isGraphPath,
+  isGraphRelationship,
+  type GraphNodeValue,
+  type GraphPathValue,
+  type GraphRelationshipValue,
+} from "@neoboard/components/row-shapes";
 import { parseGroupByColumns } from "@/lib/widget/table-utils";
 import {
   resolveStylingRuleRowStyle,
@@ -32,19 +40,73 @@ const AGG_SYMBOLS: Record<string, string> = {
   max: "max",
 };
 
+/** ` {key: value, …}`, or nothing for no properties. Values are JSON. */
+function formatProperties(properties: Record<string, unknown>): string {
+  const pairs = Object.entries(properties).map(
+    ([key, value]) => `${key}: ${JSON.stringify(value)}`,
+  );
+  return pairs.length ? ` {${pairs.join(", ")}}` : "";
+}
+
+/** `:Label {…}`; a node with neither labels nor properties reads `{}`. */
+function formatNode({ labels, properties }: GraphNodeValue): string {
+  const text =
+    labels.map((label) => `:${label}`).join("") + formatProperties(properties);
+  return text.trimStart() || "{}";
+}
+
+function formatRelationship({
+  type,
+  properties,
+}: GraphRelationshipValue): string {
+  return `[:${type}${formatProperties(properties)}]`;
+}
+
+/** The chain in traversal order, each arrow pointing the relationship's way. */
+function formatPath(path: GraphPathValue): string {
+  let chain = `(${formatNode(path.start)})`;
+  for (const { start, relationship, end } of path.segments) {
+    const hop = formatRelationship(relationship);
+    chain +=
+      relationship.startNodeElementId === start.elementId
+        ? `-${hop}->`
+        : `<-${hop}-`;
+    chain += `(${formatNode(end)})`;
+  }
+  return chain;
+}
+
+/**
+ * A node, relationship or path, read off the SDK's `$type` tag (#1925) —
+ * never its `$type` or `elementId`. Undefined for anything else.
+ */
+function formatGraphValue(v: unknown): string | undefined {
+  try {
+    if (isGraphNode(v)) return formatNode(v);
+    if (isGraphRelationship(v)) return formatRelationship(v);
+    if (isGraphPath(v)) return formatPath(v);
+  } catch {
+    // Tagged, but not the shape the tag claims: a JSON column holding a
+    // `$type` key. It is data, and renders as JSON like any other object.
+    return undefined;
+  }
+  return undefined;
+}
+
 /**
  * One cell's text. Every temporal arrives as an ISO-8601 string (#1904), so a
- * `Date` cannot reach here — rows cross JSON. A graph node, an array, any
- * object-shaped value becomes JSON.
+ * `Date` cannot reach here — rows cross JSON. A graph value reads as its
+ * labels or type and properties (#2050); an array or any other object-shaped
+ * value becomes JSON.
  */
 function formatCell(v: unknown): string {
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint")
     return v.toString();
-  // A graph node, an array — anything object-shaped. Never String(v): on an
-  // `unknown` the type still admits an object here, and "[object Object]" is
-  // exactly what the table must never show (#1636, Sonar S6551).
-  return JSON.stringify(v) ?? "";
+  // Never String(v): on an `unknown` the type still admits an object here,
+  // and "[object Object]" is exactly what the table must never show (#1636,
+  // Sonar S6551).
+  return formatGraphValue(v) ?? JSON.stringify(v) ?? "";
 }
 
 export interface TableRendererProps {
