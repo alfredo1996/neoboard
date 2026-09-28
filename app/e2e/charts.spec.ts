@@ -861,11 +861,11 @@ test.describe("Graph chart exploration", () => {
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
 
-  // #2061: the expand query is the connection's connector's, read off its
-  // descriptor, no longer written in app/. View mode, because that is where a
-  // dashboard is explored — and where the editor's connection list is not
-  // otherwise loaded. One node, so the layout's fit puts it under the canvas
-  // centre and the right-click lands on it, where the tests above may miss.
+  // #2061: the expand query is the connector's, named by the query result and
+  // read off its descriptor, no longer written in app/. View mode, because
+  // that is where a dashboard is explored. One node, so the layout's fit puts
+  // it under the canvas centre and the right-click lands on it, where the
+  // tests above may miss.
   test("graph chart — expanding a node in view mode adds its neighbours (#2061)", async ({
     page,
   }) => {
