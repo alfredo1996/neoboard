@@ -8,6 +8,21 @@ import {
   getPreview,
 } from "./fixtures";
 
+/** Cancel on an edited widget asks first (#2054): Discard, and the empty
+ *  dashboard is back with nothing added. */
+async function cancelAndDiscard(
+  page: import("@playwright/test").Page,
+  dialog: import("@playwright/test").Locator,
+) {
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await page
+    .getByRole("alertdialog", { name: "Discard unsaved changes?" })
+    .getByRole("button", { name: "Discard" })
+    .click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("No widgets yet")).toBeVisible();
+}
+
 test.describe("Parameter selectors", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
@@ -457,7 +472,7 @@ test.describe("Click actions", () => {
         dialog.getByText("No action rules configured."),
       ).toBeVisible();
 
-      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();
     }
@@ -537,7 +552,7 @@ test.describe("Click actions", () => {
         dialog.getByText("1 action rule(s) configured."),
       ).toBeVisible();
 
-      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();
     }
@@ -588,7 +603,7 @@ test.describe("Click actions", () => {
       await dialog.getByRole("tab", { name: "Advanced" }).click();
       await expect(dialog.getByLabel("Enable click action")).toBeVisible();
 
-      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();
     }
@@ -661,7 +676,7 @@ test.describe("Click actions", () => {
 
       // Click Done and cancel
       await rulesDialog.getByRole("button", { name: "Done" }).click();
-      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();
     }
@@ -1996,7 +2011,7 @@ test.describe("Action rules — multi-rule editor", () => {
         dialog.getByText("2 action rule(s) configured."),
       ).toBeVisible();
 
-      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();
     }
@@ -2066,7 +2081,7 @@ test.describe("Action rules — multi-rule editor", () => {
         dialog.getByText("1 action rule(s) configured."),
       ).toBeVisible();
 
-      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();
     }
@@ -2131,7 +2146,7 @@ test.describe("Action rules — multi-rule editor", () => {
       await expect(rulesDialog.getByText("Source Field")).not.toBeVisible();
 
       await rulesDialog.getByRole("button", { name: "Done" }).click();
-      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();
     }
@@ -2182,7 +2197,7 @@ test.describe("Preview Run button", () => {
     await dialog.getByRole("tab", { name: "Advanced" }).click();
     await expect(runButton.first()).toBeVisible();
 
-    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await cancelAndDiscard(page, dialog);
   });
 });
 
