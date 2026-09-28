@@ -243,16 +243,18 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     // Recognised errors are the user's to fix, so they answer 4xx, with the
     // blank column attached for the form to put on its field (#1409).
     const described = describeWriteError(error);
-    const response = described
-      ? apiError(
-          described.code,
-          described.message,
-          described.column ? { column: described.column } : undefined,
-        )
-      : await handleRouteError(error, "Write query execution failed", {
-          safeMessage: true,
-          callerStatement: true,
-        });
+    let response: ReturnType<typeof apiError>;
+    if (described) {
+      const details = described.column
+        ? { column: described.column }
+        : undefined;
+      response = apiError(described.code, described.message, details);
+    } else {
+      response = await handleRouteError(error, "Write query execution failed", {
+        safeMessage: true,
+        callerStatement: true,
+      });
+    }
     logWriteFailure(error, response.status, requestId);
     return response;
   }
