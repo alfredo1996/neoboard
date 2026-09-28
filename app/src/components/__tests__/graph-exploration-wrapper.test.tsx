@@ -10,7 +10,14 @@
  * the chain that #1191 broke: a plain click yields exactly one id, and exactly
  * one id opens the inspector.
  */
-import { render, screen, act, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  act,
+  cleanup,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
 
@@ -26,6 +33,9 @@ const graphNodes = [
   { id: "B", label: "Bob", properties: { name: "Bob" } },
 ];
 
+/** Toasts the wrapper raised. */
+let toasts: unknown[] = [];
+
 /** What the stubbed exploration says about every node's expandability. */
 let expandable = false;
 
@@ -34,7 +44,7 @@ const explorationStub = {
   edges: [],
   selectedNodeIds: [],
   onNodeSelect: () => {},
-  onExpandRequest: () => {},
+  onExpandRequest: vi.fn(async (_node: { id: string }) => {}),
   collapse: () => {},
   canExpand: () => expandable,
   canCollapse: () => false,
@@ -71,6 +81,7 @@ vi.mock("@neoboard/components", () => ({
   Badge: ({ children }: { children: React.ReactNode }) => (
     <span>{children}</span>
   ),
+  toast: (t: unknown) => toasts.push(t),
 }));
 
 // Node expansion reads its response through these; only the request it sends
@@ -347,5 +358,37 @@ describe("GraphExplorationWrapper — Expand only when the connector declares ho
       explorationOptions.fetchNeighbors!({ id: "A" }),
     ).resolves.toEqual({ nodes: [], edges: [] });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // A failed expansion used to reject into the void: the spinner stopped and
+  // nothing said why.
+  it("says why when an expansion fails", async () => {
+    toasts = [];
+    explorationStub.onExpandRequest.mockRejectedValueOnce(
+      new Error("Connection refused"),
+    );
+    openMenuOnA();
+    fireEvent.click(screen.getByRole("button", { name: "Expand" }));
+    await waitFor(() =>
+      expect(toasts).toEqual([
+        {
+          title: "Expand failed",
+          description: "Connection refused",
+          variant: "destructive",
+        },
+      ]),
+    );
+  });
+
+  // A viewer bound to the dashboard's own queries (#972) is offered Expand and
+  // refused on the server; the server's words assume they wrote a query.
+  it("tells a viewer bound to the dashboard's queries why it cannot expand", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 403 } as Response);
+    renderWrapper();
+    await expect(
+      explorationOptions.fetchNeighbors!({ id: "A" }),
+    ).rejects.toThrow(
+      "Your access to this dashboard covers its own queries, and expanding a node runs another.",
+    );
   });
 });

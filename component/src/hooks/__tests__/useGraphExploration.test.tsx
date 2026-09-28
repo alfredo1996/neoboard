@@ -67,6 +67,23 @@ describe("useGraphExploration", () => {
     expect(result.current.expandedNodeIds).toEqual(["b"]);
   });
 
+  // The app shows the reason; the node stays expandable for a retry (#2061).
+  it("rejects with fetchNeighbors' error and leaves the node expandable", async () => {
+    const fetchNeighbors = vi.fn(async () => {
+      throw new Error("refused");
+    });
+    const { result } = renderHook(() =>
+      useGraphExploration(makeOptions({ fetchNeighbors })),
+    );
+
+    await act(() =>
+      expect(result.current.onExpandRequest(nodeB)).rejects.toThrow("refused"),
+    );
+
+    expect(result.current.expandingNodeId).toBeNull();
+    expect(result.current.canExpand("b")).toBe(true);
+  });
+
   it("deduplicates nodes already present", async () => {
     const fetchNeighbors = vi.fn(async () => ({
       nodes: [nodeA, nodeC], // nodeA already exists
