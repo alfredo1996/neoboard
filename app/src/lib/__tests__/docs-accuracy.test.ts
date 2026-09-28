@@ -146,6 +146,15 @@ describe("documentation accuracy", () => {
     expect(doc).not.toMatch(/leak that nothing catches/i);
   });
 
+  it(".claude/CLAUDE.md says the query executor backstops row caps and timeouts (#2060)", () => {
+    // Query Safety used to say only the driver enforces both. An agent that
+    // believes that will not look for, or will duplicate, the executor's cut
+    // and deadline. Pinned by path; "never the query" is the load-bearing part.
+    const doc = readDoc(".claude/CLAUDE.md");
+    expect(doc).toContain("`app/src/lib/query/query-executor.ts`");
+    expect(doc).toMatch(/backstops both[^\n]*#2060[^\n]*never the query/);
+  });
+
   describe.each(["ARCHITECTURE.md", "SECURITY.md"])(
     "%s describes multi-tenancy as it is enforced",
     (docName) => {
