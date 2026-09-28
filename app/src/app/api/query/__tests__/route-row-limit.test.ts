@@ -20,6 +20,7 @@ vi.mock("@/lib/crypto/crypto", () => ({ decryptJson: mockDecryptJson }));
 vi.mock("@/lib/connector/connection-adapter", () => ({
   createConnectionModule: () => ({ runQuery: mockRunQuery }),
   DEFAULT_CONNECTION_CONFIG: { connectionTimeout: 30000, timeout: 30000 },
+  getConnector: () => undefined,
   ConnectionTypes: { UNKNOWN: 0, NEO4J: 1, POSTGRESQL: 2 },
 }));
 vi.mock("next/server", () => nextResponseMockFactory());

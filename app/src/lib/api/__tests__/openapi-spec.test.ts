@@ -435,6 +435,11 @@ describe("the query operations document what their routes send (#1966)", () => {
     expect(write.description).toMatch(/408[^.]*(twice|again)/);
   });
 
+  it("warns that a write failed by the executor's deadline may run twice (#2060)", () => {
+    // The backstop answers 500 while the connector may still commit.
+    expect(write.description).toMatch(/500[^.]*deadline[^.]*twice/);
+  });
+
   it("the read request declares its per-card database and tenant check", () => {
     expect(bodyKeys(read)).toEqual(
       expect.arrayContaining([

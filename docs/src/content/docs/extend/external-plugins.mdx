@@ -23,6 +23,14 @@ Published a plugin? List it in [`PLUGINS.md`](https://github.com/alfredo1996/neo
 - You want to add a custom chart type for your organization
 - You want to distribute a plugin via npm without forking NeoBoard
 
+## Trust Boundary
+
+A connector is not sandboxed. It is compiled into the NeoBoard server and runs in the server's process with the server's privileges: its network access, its environment (`ENCRYPTION_KEY` included) and the decrypted config of every connection of its type. It also owns its read-only enforcement. NeoBoard asks for a read, but only the connector can make the database refuse a write, so a connector that ignores the access mode lets a dashboard widget write.
+
+NeoBoard backstops two of a connector's promises, and only on what comes back, never on the query. A result longer than the row cap is cut to the cap and marked truncated. A query the connector has not answered by the longest millisecond timeout its connection holds (never less than 30 seconds), plus 10 seconds, fails with a timeout, and its place in the connection's query queue is freed.
+
+Install only connectors you trust, and run the SDK's [conformance harness](/extend/new-connector-plugin#9-prove-query-safety) against a real database before you build one in.
+
 ## Plugin Architecture
 
 A connector plugin is a `ConnectorDescriptor` — pure data saying what the connector is and which config it needs — plus the factories that need a database driver:

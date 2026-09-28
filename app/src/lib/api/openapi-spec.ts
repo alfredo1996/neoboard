@@ -741,6 +741,7 @@ const SPEC = {
           "A write always runs at scheduler priority 1; `x-query-priority` is not read. " +
           "A 408 from the queue (`Retry-After: 5`) means the write never started. " +
           "A 408 from a transient connector error (`Retry-After: 3`), or a 502, can arrive after the database applied the write, so retrying it may run the write twice. " +
+          "So can a 500 from the server's own deadline, which fails a write the connector has not answered within its longest configured timeout (at least 30 seconds) plus 10 seconds while the connector may still commit it: retrying it may run the write twice. " +
           "A write is never shed: its 503 is always `queue_full`. " +
           "Unknown body keys are stripped, not rejected: a `rowLimit` or `database` sent here is ignored.",
         parameters: [REQUEST_ID_HEADER],

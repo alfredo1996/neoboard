@@ -1,4 +1,19 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import {
+  DEFAULT_CONNECTION_CONFIG,
+  registerConnector,
+  unregisterConnector,
+} from "@neoboard/connection";
+import {
+  nextRun,
+  scriptedConnector,
+  SCRIPTED_TYPE,
+} from "@/__tests__/fixtures/scripted-connector";
+import {
+  closeAllConnections,
+  executeQuery,
+  QUERY_DEADLINE_GRACE_MS,
+} from "@/lib/query/query-executor";
 import { schedulerMiddleware, withSchedulerSlot } from "../scheduler";
 import {
   resetSchedulerRegistry,
@@ -253,5 +268,55 @@ describe("withSchedulerSlot", () => {
   it("reports how long the work waited for its slot", async () => {
     const waited = await withSchedulerSlot(who, async (waitMs) => waitMs);
     expect(waited).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// #2060: a connector that never answers used to pin its slot forever. The
+// executor's deadline settles the query, and the slot goes with it.
+describe("a query the executor timed out", () => {
+  beforeEach(() => {
+    resetSchedulerRegistry();
+    setDefaultSchedulerOptions({
+      ...baseOptions,
+      maxConcurrent: 1,
+      queueTimeoutMs: 10 * 60_000,
+    });
+    registerConnector(scriptedConnector);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await closeAllConnections();
+    unregisterConnector(SCRIPTED_TYPE);
+  });
+
+  it("frees its slot for the next queued query", async () => {
+    const who = {
+      connectionId: "conn-1",
+      userId: "user-1",
+      priority: 1,
+    } as const;
+    const run = nextRun();
+    const hung = withSchedulerSlot(who, () =>
+      executeQuery(SCRIPTED_TYPE, {}, { query: "HANG" }),
+    ).catch((error: unknown) => error);
+    await run;
+    const next = withSchedulerSlot(who, async () => "ran");
+    expect(getScheduler("conn-1").getStats()).toMatchObject({
+      activeQueries: 1,
+      queueDepth: 1,
+    });
+
+    await vi.advanceTimersByTimeAsync(
+      DEFAULT_CONNECTION_CONFIG.timeout + QUERY_DEADLINE_GRACE_MS,
+    );
+
+    await expect(hung).resolves.toMatchObject({ type: "TIMEOUT" });
+    await expect(next).resolves.toBe("ran");
+    expect(getScheduler("conn-1").getStats()).toMatchObject({
+      activeQueries: 0,
+      queueDepth: 0,
+    });
   });
 });

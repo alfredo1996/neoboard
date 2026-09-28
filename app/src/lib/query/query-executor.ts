@@ -1,9 +1,15 @@
 import {
   createConnectionModule,
   DEFAULT_CONNECTION_CONFIG,
+  getConnector,
   toConnectorError,
 } from "@/lib/connector/connection-adapter";
-import { QueryStatus, type ConnectorConfig } from "@neoboard/connection";
+import {
+  ConnectorError,
+  ConnectorErrorType,
+  QueryStatus,
+  type ConnectorConfig,
+} from "@neoboard/connection";
 import { createHash } from "node:crypto";
 
 import { driverConfig } from "@/lib/connector/container-host";
@@ -197,6 +203,85 @@ export function toConnectorAccessMode(
 }
 
 /**
+ * How long past the query's timeout the executor waits for a connector before
+ * failing the query itself (#2060). A connector's timeout bounds its
+ * statement, not the connection it opens first, so the connector gets room
+ * to answer with its own verdict first: a default connect or pool timeout
+ * that sits a few seconds above the query timeout still lands inside this.
+ *
+ * ponytail: one fixed grace. A connector whose setup outlasts every duration
+ * it declares plus 10 s is failed early; make it a QUERY_* variable if one does.
+ */
+export const QUERY_DEADLINE_GRACE_MS = 10_000;
+
+/** setTimeout's ceiling: past it, Node fires the timer after 1 ms. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+const isDuration = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+/**
+ * The longest this query can legitimately run, before the grace: an explicit
+ * per-query timeout, or any millisecond duration the connection holds for a
+ * field its connector declares with `unit: "ms"`, and never less than the
+ * default. Which of those fields is the query timeout is the connector's
+ * business (#1898), so the app takes the longest: a backstop may be late,
+ * never early.
+ */
+function queryDeadlineMs(
+  type: DbType,
+  credentials: ConnectionCredentials,
+  override?: number,
+): number {
+  const declared = (getConnector(type)?.fields ?? [])
+    .filter((field) => field.unit === "ms")
+    .map((field) => credentials[field.key]);
+  const longest = Math.max(
+    DEFAULT_CONNECTION_CONFIG.timeout,
+    ...[override, ...declared].filter(isDuration),
+  );
+  // A field without a `max` accepts any duration; unclamped, one past the
+  // ceiling would fail every query on the connection at once.
+  return Math.min(longest + QUERY_DEADLINE_GRACE_MS, MAX_TIMER_MS);
+}
+
+/**
+ * Fails the work with a TIMEOUT once `ms` pass. Not transient, unlike a
+ * connector's own timeout: the client retries transient errors, and every
+ * retry of a connector that never answers pins a slot for the whole deadline
+ * again (#1678).
+ */
+function armDeadline(ms: number, fail: (error: ConnectorError) => void) {
+  return setTimeout(
+    () =>
+      fail(
+        new ConnectorError(`The connector did not answer within ${ms} ms`, {
+          type: ConnectorErrorType.TIMEOUT,
+          transient: false,
+        }),
+      ),
+    ms,
+  );
+}
+
+/**
+ * A result longer than the cap, cut to it and marked truncated, as a
+ * compliant connector reports it (#2060). The query is never touched: this
+ * acts on what came back. A list within the cap, or a result that is not a
+ * list, is returned as the connector gave it.
+ */
+function capRows(
+  result: unknown,
+  rowLimit: number,
+  reported: boolean,
+): { data: unknown; truncated: boolean } {
+  if (Array.isArray(result) && result.length > rowLimit) {
+    return { data: result.slice(0, rowLimit), truncated: true };
+  }
+  return { data: result, truncated: reported };
+}
+
+/**
  * Execute a query against a database connection.
  *
  * Returns the query result plus two pieces of driver-reported metadata:
@@ -204,7 +289,8 @@ export function toConnectorAccessMode(
  *   - `truncated` — true when the driver returned fewer rows than the
  *     query produced because it hit the configured row limit. Surfaced
  *     via `setStatus(QueryStatus.COMPLETE_TRUNCATED)` from every
- *     connector module.
+ *     connector module. A connector that hands back more rows than the cap
+ *     anyway is cut to it here, and the result is marked truncated.
  *   - `rowLimit` — the effective cap used for this query (either the
  *     connection's `maxRows` override or `DEFAULT_MAX_ROWS`). The API
  *     route echoes this back in `meta` so the UI banner can render the
@@ -223,7 +309,10 @@ export function toConnectorAccessMode(
  * caller does today — `config.timeout` stays unset and the connector resolves
  * its own default from the timeout field it declares, falling back to
  * DEFAULT_CONNECTION_CONFIG.timeout (30s). Either way the bound is enforced at
- * the driver/transaction level, never here.
+ * the driver/transaction level. The executor only backstops it: a connector
+ * that has not called `onSuccess` or `onFail` by `queryDeadlineMs` is failed
+ * with a TIMEOUT, which frees its scheduler slot, and whatever it says after
+ * that is ignored (#2060).
  */
 export async function executeQuery(
   type: DbType,
@@ -263,7 +352,21 @@ export async function executeQuery(
       : {}),
   };
 
+  const deadlineMs = queryDeadlineMs(type, credentials, options?.timeout);
+
   return new Promise((resolve, reject) => {
+    // Armed before runQuery, which may call back synchronously. Once it
+    // fires the promise has settled, so a late callback changes nothing.
+    const deadline = armDeadline(deadlineMs, reject);
+    const settle =
+      <V>(done: (value: V) => void) =>
+      (value: V) => {
+        clearTimeout(deadline);
+        done(value);
+      };
+    const succeed = settle(resolve);
+    const fail = settle(reject);
+
     // Track truncation via setStatus — both connectors call
     // `callbacks.setStatus(COMPLETE_TRUNCATED)` when they hit the
     // rowLimit cap. Previously this callback was unimplemented and
@@ -273,16 +376,15 @@ export async function executeQuery(
       queryParams,
       {
         onSuccess: (result: unknown) =>
-          resolve({
-            data: result,
-            truncated,
+          succeed({
+            ...capRows(result, effectiveRowLimit, truncated),
             rowLimit: effectiveRowLimit,
           }),
         // Classified by the connector that raised it (#1903): the routes
         // read that verdict and recognise no driver's words themselves. A
         // no-op for the built-ins, which wrap at the point of failure; it is
         // what makes a connector that hands over a raw error work the same.
-        onFail: (error: unknown) => reject(toConnectorError(type, error)),
+        onFail: (error: unknown) => fail(toConnectorError(type, error)),
         setStatus: (status: QueryStatus) => {
           if (status === QueryStatus.COMPLETE_TRUNCATED) {
             truncated = true;
@@ -296,12 +398,14 @@ export async function executeQuery(
     // backstop — but without it a rejection would leave this promise pending
     // forever and pin a scheduler slot. Promise.resolve() tolerates a stub
     // that returns nothing.
-    Promise.resolve(inFlight).catch(reject);
+    Promise.resolve(inFlight).catch(fail);
   });
 }
 
 /**
- * Test a database connection.
+ * Test a database connection. The probe holds a scheduler slot like a query
+ * (#1426), so it gets the same deadline: a `checkConnection` that never
+ * settles fails with the same TIMEOUT instead of pinning the slot (#2060).
  */
 export async function testConnection(
   type: DbType,
@@ -311,16 +415,25 @@ export async function testConnection(
     ...DEFAULT_CONNECTION_CONFIG,
     database: credentials.database,
   };
+  let deadline: ReturnType<typeof setTimeout> | undefined;
 
   try {
     const connModule = (await getOrCreateModule(type, credentials)) as {
       checkConnection: (config: unknown) => Promise<boolean>;
     };
-    return await connModule.checkConnection(config);
+    const deadlineMs = queryDeadlineMs(type, credentials);
+    return await Promise.race([
+      connModule.checkConnection(config),
+      new Promise<never>((_, reject) => {
+        deadline = armDeadline(deadlineMs, reject);
+      }),
+    ]);
   } catch (error) {
     // Building the module is inside the try: a connector rejects a bad URI in
     // its constructor, and the Test result has to say so (#1903).
     throw toConnectorError(type, error);
+  } finally {
+    clearTimeout(deadline);
   }
 }
 
