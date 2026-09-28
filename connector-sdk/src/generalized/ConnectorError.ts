@@ -59,7 +59,11 @@ export interface ConnectorErrorClassification {
     column?: string;
     name?: string;
   };
-  /** A write that read-only execution stopped — what a query preview shows as "this query writes". */
+  /**
+   * A write that read-only execution stopped — what a query preview shows as
+   * "this query writes". Like `statementFault`, a caller's query answers 422
+   * (#2053), whether or not the connector sets that flag too.
+   */
   blockedWrite?: boolean;
   /**
    * The statement itself is at fault — a syntax error, a missing column, a

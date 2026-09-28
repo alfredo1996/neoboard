@@ -34,6 +34,7 @@ const FIXTURE_ERRORS: Record<string, string> = {
   "SELECT typo": "FX-0900 unexpected token",
   "SELECT nosuch": "FX-0400 no such field: price",
   "INSERT dup": "FX-2300 slot already taken",
+  "DELETE all": "FX-2500 session is read-only",
 };
 
 const fixturePlugin: ConnectorPlugin = {
@@ -66,6 +67,14 @@ const fixturePlugin: ConnectorPlugin = {
         type: ConnectorErrorType.QUERY,
         transient: false,
         statementFault: true,
+      };
+    }
+    if (code === "FX-2500") {
+      // Flags the blocked write alone, as the plugin guide allows.
+      return {
+        type: ConnectorErrorType.READ_ONLY_VIOLATION,
+        transient: false,
+        blockedWrite: true,
       };
     }
     if (code === "FX-2300") {
@@ -126,6 +135,18 @@ describe("a third connector's errors classify through ITS hook (#1903)", () => {
     expect((await res.json()).error).toEqual({
       code: "QUERY_ERROR",
       message: "FX-0400 no such field: price",
+    });
+  });
+
+  it("a write it says read-only execution stopped is the caller's 422 (#2053)", async () => {
+    const res = await handleRouteError(await failure("DELETE all"), "x", {
+      callerStatement: true,
+    });
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toEqual({
+      code: "QUERY_ERROR",
+      message: "FX-2500 session is read-only",
+      details: { blockedWrite: true },
     });
   });
 

@@ -404,7 +404,7 @@ describe("handleRouteError", () => {
    * passes the flag on beside the (unchanged) message.
    */
   describe("blocked write", () => {
-    it("passes the connector's blockedWrite flag to the client as details", async () => {
+    it("passes the connector's blockedWrite flag as details, off the caller's routes too", async () => {
       const res = await handleRouteError(
         classified({ blockedWrite: true }, "cannot write here"),
         "Query execution failed",
@@ -524,6 +524,28 @@ describe("handleRouteError", () => {
         message: "no writes",
         details: { blockedWrite: true },
       });
+    });
+
+    it("answers a blocked write 422 on its own, whatever else the connector marks", async () => {
+      // A connector that flags only blockedWrite, as the plugin guide lets
+      // it, is still the caller's 422: the contract promises it on every
+      // connector, not only on those that also mark statementFault.
+      const logs = await spyLogs();
+      const res = await handleRouteError(
+        classified({ blockedWrite: true }, "cannot write here"),
+        "Query execution failed",
+        CALLER,
+      );
+      expect(res.status).toBe(422);
+      expect((await res.json()).error).toEqual({
+        code: "QUERY_ERROR",
+        message: "cannot write here",
+        details: { blockedWrite: true },
+      });
+      expect(logs.warn).toHaveBeenCalledTimes(1);
+      expect(logs.error).not.toHaveBeenCalled();
+      logs.warn.mockRestore();
+      logs.error.mockRestore();
     });
 
     it("answers only the fallback on a safeMessage route: a statement echoes values", async () => {

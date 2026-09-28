@@ -240,11 +240,16 @@ async function connectorResponse(
   // caller's to fix, so a 422 and a warn without the stack: at error level an
   // operator's error rate tracked their users' typos. Only the connector's
   // positive flag counts; its no-match fallback is also QUERY, and an error it
-  // does not recognise stays a 500. The query's own `query_failed` record,
-  // under the same requestId, carries the driver's error. Only on a route
-  // that ran the caller's statement: a connector's own (introspection, a
-  // test) at fault is the server's, and needs the api_error record's stack.
-  if (callerStatement && classification?.statementFault) {
+  // does not recognise stays a 500. A blocked write is such a flag too, so it
+  // is a 422 whether or not the connector also marks it statementFault. The
+  // query's own `query_failed` record, under the same requestId, carries the
+  // driver's error. Only on a route that ran the caller's statement: a
+  // connector's own (introspection, a test) at fault is the server's, and
+  // needs the api_error record's stack.
+  if (
+    callerStatement &&
+    (classification?.statementFault || classification?.blockedWrite)
+  ) {
     apiLogger.warn(
       {
         event: "api_query_error",
