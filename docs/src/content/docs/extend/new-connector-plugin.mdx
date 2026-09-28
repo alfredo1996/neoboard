@@ -138,7 +138,7 @@ Each field's `key` is the key its value is **stored** under on the connection, a
 
 Every field also takes `group` (`"connection"` for what it takes to connect, `"advanced"` for tuning that has a sensible default), and optionally `required`, `placeholder` and `description`. A `placeholder` is only ever shown — apply your defaults in code.
 
-The registry **throws** at startup on a malformed descriptor: a field without `key`, `label` or `type`, an unknown `type` or `group`, a duplicate `key`, a `select` without `options`, a `uri` without `protocols`, an invalid `category`, or an `iconSvg` over 16 KB.
+The registry **throws** at startup on a malformed descriptor: a field without `key`, `label` or `type`, an unknown `type` or `group`, a duplicate `key`, a `select` without `options`, a `uri` without `protocols`, an invalid `category`, an `iconSvg` over 16 KB, or a `graphExpansion` with a blank `query` or `nodeIdParam`, or on a connector without `supportsGraphData: true`.
 
 The SDK's `validateConfig(descriptor, config)` checks a config against these declarations — required fields, integer ranges, select membership, the URI rules — and returns `{ config, errors }`: the declared values with unknown keys stripped, and one message per failing field. `toDescriptor(plugin)` is the reverse of step 6: it returns the plain-data half of a plugin, which is what may be sent to a browser.
 
