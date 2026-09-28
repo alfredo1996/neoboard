@@ -113,6 +113,25 @@ describe("TableRenderer filters and sorts through the grid (#2070)", () => {
     ]);
   });
 
+  it("sorts a node column with one shared collator, not one per comparison", () => {
+    // localeCompare with an options object builds a fresh ICU collator on
+    // every call: about 190 ms of a 5000-row sort's 256 ms.
+    const localeCompare = vi.spyOn(String.prototype, "localeCompare");
+    try {
+      render(
+        <TableRenderer
+          data={[{ m: keanu }, { m: matrix }, { m: atlas }]}
+          settings={settings}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "m" }));
+      expect(shown(0)[0]).toBe(':Movie {title: "Cloud Atlas"}');
+      expect(localeCompare).not.toHaveBeenCalled();
+    } finally {
+      localeCompare.mockRestore();
+    }
+  });
+
   it("still sorts a number column numerically", () => {
     render(
       <TableRenderer

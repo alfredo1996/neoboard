@@ -134,6 +134,12 @@ function formatCell(v: unknown): string {
 type GridRow = { getValue: (columnId: string) => unknown };
 
 /**
+ * One collator for every sort. `localeCompare` with options builds a new one
+ * per call, which was most of a 5000-row sort's time.
+ */
+const byText = new Intl.Collator(undefined, { numeric: true });
+
+/**
  * An object column groups, filters and sorts by the text its cells show
  * (#2050, #2070). TanStack reads the accessor's raw value, which the click
  * action needs: every node grouped under "[object Object]" in one group
@@ -148,13 +154,12 @@ function byDisplayText(key: string) {
       formatCell(row.getValue(columnId))
         .toLowerCase()
         .includes(String(filterValue).toLowerCase()),
-    // ponytail: formats both cells per comparison; cache the text per value
-    // if sorting a large graph column ever shows up as slow.
+    // ponytail: the remaining cost is formatting both cells on each
+    // comparison; cache the text per value if a large sort shows up as slow.
     sortingFn: (a: GridRow, b: GridRow, columnId: string) =>
-      formatCell(a.getValue(columnId)).localeCompare(
+      byText.compare(
+        formatCell(a.getValue(columnId)),
         formatCell(b.getValue(columnId)),
-        undefined,
-        { numeric: true },
       ),
   };
 }
