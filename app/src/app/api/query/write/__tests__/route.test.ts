@@ -416,7 +416,10 @@ describe("POST /api/query/write", () => {
       expect(res.status).toBe(500);
       expect(warned).toHaveLength(0);
       expect(errored).toEqual([
-        [{ event: "write_query_failed", err: fault }, "write_query_failed"],
+        [
+          { event: "write_query_failed", requestId: "req-2053", err: fault },
+          "write_query_failed",
+        ],
       ]);
     });
   });

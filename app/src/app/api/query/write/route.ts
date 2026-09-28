@@ -75,6 +75,7 @@ function logWriteFailure(
     apiLogger.error(
       {
         event: "write_query_failed",
+        requestId,
         err: error instanceof Error ? error : String(error),
       },
       "write_query_failed",
