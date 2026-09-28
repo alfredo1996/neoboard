@@ -207,6 +207,36 @@ describe("hintForConnectionErrorCode", () => {
         hintForConnectionErrorCode("bad_uri", { ...fixture, fields: [] }),
       ).toBe(hintForConnectionErrorCode("bad_uri"));
     });
+
+    it("quotes the example, so it still stands out as plain text (#2052)", () => {
+      expect(hintForConnectionErrorCode("bad_uri", fixture)).toContain(
+        '"fixturedb://localhost:4242"',
+      );
+      expect(hintForConnectionErrorCode("auth_failed", fixture)).toContain(
+        '"fixture_admin"',
+      );
+    });
+
+    // Every surface renders a hint as plain text — the connection dialog, the
+    // widget card, the connection status store, the seed-query error — so a
+    // Markdown mark reads as a literal asterisk or backtick (#2052).
+    const descriptors = [
+      ["no connector", undefined],
+      ["the fixture", fixture],
+      ...getAllConnectors().map((c) => [c.type, toDescriptor(c)] as const),
+    ] as const;
+    it.each(
+      ALL.flatMap((code) =>
+        descriptors.map(([name, descriptor]) => [code, name, descriptor]),
+      ),
+    )("the %s hint with %s carries no Markdown", (code, _name, descriptor) => {
+      const hint = hintForConnectionErrorCode(
+        code as ConnectionErrorCode,
+        descriptor as ConnectorDescriptor | undefined,
+      );
+      expect(hint).not.toContain("**");
+      expect(hint).not.toContain("`");
+    });
   });
 });
 

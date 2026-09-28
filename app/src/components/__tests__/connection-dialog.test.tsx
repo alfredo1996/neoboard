@@ -170,6 +170,30 @@ describe("ConnectionDialog — create", () => {
     click("Test Connection");
     expect(await screen.findByText("Connection test failed")).toBeVisible();
   });
+
+  // The dialog renders the hint as text, so Markdown in it shows literally (#2052).
+  it.each([
+    ["container_loopback", /host\.docker\.internal/],
+    ["bad_uri", /"acme:\/\/host\/book"/],
+  ])(
+    "shows the %s hint as plain text, with no Markdown marks",
+    async (code, expected) => {
+      testInlineMutate.mockResolvedValueOnce({
+        success: false,
+        error: "The connector could not connect",
+        code,
+      });
+      open({ mode: "create", type: TYPE });
+      type("conn-endpoint", "acme://host/book");
+      type("conn-api-token", "t");
+      click("Test Connection");
+
+      const hint = await screen.findByText(expected);
+      expect(hint).toBeVisible();
+      expect(hint.textContent).not.toContain("**");
+      expect(hint.textContent).not.toContain("`");
+    },
+  );
 });
 
 describe("ConnectionDialog — Duplicate", () => {

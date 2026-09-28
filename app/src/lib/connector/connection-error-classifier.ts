@@ -120,6 +120,10 @@ export function connectionErrorCode(
     : code;
 }
 
+/**
+ * Plain text, not Markdown: every surface renders a hint as text, so a
+ * backtick or `**` would show literally (#2052). Quote a command or hostname.
+ */
 const HINTS: Record<ConnectionErrorCode, string> = {
   auth_failed:
     "Check the username and password — the server reported invalid credentials.",
@@ -128,7 +132,7 @@ const HINTS: Record<ConnectionErrorCode, string> = {
   bad_uri:
     "The connection URI looks malformed. Confirm the scheme and that the host/port are present.",
   container_loopback:
-    "The connection is opened by the NeoBoard **server**, not by your browser — so `localhost` means the machine NeoBoard runs on, and right now that is the container it runs inside. If the database is on that same host, restart NeoBoard with `neoboard start --full --expose-host` and use `host.docker.internal` in place of `localhost`. A database in the same Docker network is reached by its service name. If the database is on **your own computer** and NeoBoard is deployed elsewhere, it is not reachable at all — the server cannot see your machine; expose it at a routable address first.",
+    'The connection is opened by the NeoBoard server, not by your browser — so "localhost" means the machine NeoBoard runs on, and right now that is the container it runs inside. If the database is on that same host, restart NeoBoard with "neoboard start --full --expose-host" and use "host.docker.internal" in place of "localhost". A database in the same Docker network is reached by its service name. If the database is on your own computer and NeoBoard is deployed elsewhere, it is not reachable at all — the server cannot see your machine; expose it at a routable address first.',
   unknown:
     "Connection test failed for an unrecognised reason. Check the server logs for more detail.",
 };
@@ -146,11 +150,11 @@ const EXAMPLES: Partial<
 > = {
   auth_failed: {
     of: (field) => field.key === "username",
-    say: (example) => ` A typical username is \`${example}\`.`,
+    say: (example) => ` A typical username is "${example}".`,
   },
   bad_uri: {
     of: (field) => field.type === "uri",
-    say: (example) => ` For example: \`${example}\`.`,
+    say: (example) => ` For example: "${example}".`,
   },
 };
 
