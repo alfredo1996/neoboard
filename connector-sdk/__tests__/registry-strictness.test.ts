@@ -108,6 +108,39 @@ describe("createConnectorRegistry — strict descriptor validation", () => {
     ).toThrow(/iconSvg is larger than/);
   });
 
+  describe("graphExpansion (#2061)", () => {
+    const graphExpansion = { query: "EXPAND $id", nodeIdParam: "id" };
+
+    it("registers a graph connector that declares one", () => {
+      expect(
+        register({ supportsGraphData: true, graphExpansion }),
+      ).not.toThrow();
+    });
+
+    it.each([
+      ["an empty query", { ...graphExpansion, query: "" }],
+      ["a blank parameter name", { ...graphExpansion, nodeIdParam: " " }],
+      ["a missing parameter name", { query: "EXPAND $id" }],
+      ["a query that is not text", { ...graphExpansion, query: 1 }],
+      ["null", null],
+    ])("throws on %s", (_case, broken) => {
+      expect(
+        register({
+          supportsGraphData: true,
+          graphExpansion: broken as ConnectorPlugin["graphExpansion"],
+        }),
+      ).toThrow(/graphExpansion needs a query and a nodeIdParam/);
+    });
+
+    it("throws when the connector returns no graph data to expand", () => {
+      // Without supportsGraphData the graph chart is never offered, so the
+      // query could never run: a mistake, not a choice.
+      expect(register({ graphExpansion })).toThrow(
+        /graphExpansion needs supportsGraphData: true/,
+      );
+    });
+  });
+
   it("names the connector in the error", () => {
     expect(register({ fields: [field(), field()] })).toThrow(/"fixture-db"/);
   });

@@ -17,6 +17,8 @@ interface QueryResult {
   data: unknown;
   /** Server-side hash of what was asked; the same query keeps it across runs. */
   resultId: string;
+  /** The connector that ran the query (#2061). */
+  connectorType?: string;
 }
 
 export function useQueryExecution() {

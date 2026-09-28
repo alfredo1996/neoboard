@@ -59,6 +59,8 @@ interface CardContainerProps {
    *  that need to detect when the widget runs a different query (e.g. graph
    *  widget); it hashes what was asked, not the rows returned. */
   previewResultId?: string;
+  /** The connector that ran the preview query (#2061). */
+  previewConnectorType?: string;
   /**
    * When true, the column mapping overlay is rendered for supported chart types.
    * The overlay allows in-place axis reassignment without re-running the query.
@@ -224,6 +226,7 @@ export function CardContainer({
   widget,
   previewData,
   previewResultId,
+  previewConnectorType,
   isEditMode = false,
   onWidgetSettingsChange,
   refetchInterval,
@@ -457,6 +460,7 @@ export function CardContainer({
               connectionId: widget.connectionId,
               widgetId: effectiveWidgetId,
               resultId: previewResultId,
+              connectorType: previewConnectorType,
               autoFit,
             }}
           />
@@ -845,6 +849,7 @@ export function CardContainer({
             database: widget.database,
             widgetId: effectiveWidgetId,
             resultId: widgetQuery.data.resultId,
+            connectorType: widgetQuery.data.connectorType,
             autoFit,
           }}
         />

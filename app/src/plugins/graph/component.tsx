@@ -34,6 +34,7 @@ function GraphPluginComponent({
   database,
   widgetId,
   resultId,
+  connectorType,
   autoFit,
 }: PluginProps) {
   const settings = safeParseSettings(graphSettingsSchema, raw, "graph");
@@ -47,6 +48,7 @@ function GraphPluginComponent({
       nodes={graphData.nodes ?? []}
       edges={graphData.edges ?? []}
       connectionId={connectionId}
+      connectorType={connectorType}
       database={database}
       settings={raw}
       onChartClick={onChartClick}

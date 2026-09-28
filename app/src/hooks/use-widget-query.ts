@@ -34,6 +34,8 @@ interface QueryResult {
    *  row limit); the same query keeps it across runs. A UI-state key (e.g.
    *  graph exploration), never a data cache key (see computeResultId). */
   resultId: string;
+  /** The connector that ran the query (#2061). */
+  connectorType?: string;
   /** True when the driver truncated the result set to `rowLimit`. */
   truncated?: boolean;
   /** The effective row limit the driver used for this query (per-connection

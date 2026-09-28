@@ -116,6 +116,16 @@ describe("neo4j descriptor", () => {
     });
   });
 
+  it("expands a graph node with its own query, the node's id bound as a parameter (#2061)", () => {
+    // The query the graph chart used to hard-code in app/: the behaviour is
+    // unchanged, only its owner moved.
+    expect(neo4jDescriptor.graphExpansion).toEqual({
+      query:
+        "MATCH (n)-[r]-(neighbor) WHERE elementId(n) = $nodeId RETURN n, r, neighbor",
+      nodeIdParam: "nodeId",
+    });
+  });
+
   it("lists the URI schemes once", () => {
     expect(byKey(neo4jDescriptor).uri.protocols).toEqual([
       "neo4j:",
@@ -166,6 +176,10 @@ describe("postgresql descriptor", () => {
       supportsGraphData: false,
       supportsWrite: true,
     });
+  });
+
+  it("declares no graph expansion: it returns no graph data (#2061)", () => {
+    expect(postgresDescriptor).not.toHaveProperty("graphExpansion");
   });
 
   it("lists the URI schemes once", () => {

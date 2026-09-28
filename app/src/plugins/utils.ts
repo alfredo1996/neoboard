@@ -21,6 +21,8 @@ export interface PluginProps {
   database?: string;
   widgetId?: string;
   resultId?: string;
+  /** The connector that ran the query (#2061). */
+  connectorType?: string;
   query?: string;
   autoFit?: boolean;
   clickableColumns?: string[];

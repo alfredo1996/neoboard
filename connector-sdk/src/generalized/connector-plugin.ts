@@ -94,6 +94,10 @@ const FIELD_TYPES = new Set([
 ]);
 const FIELD_GROUPS = new Set(["connection", "advanced"]);
 
+/** A non-blank string. */
+const isText = (value: unknown): boolean =>
+  typeof value === "string" && value.trim() !== "";
+
 /** One way a descriptor can be malformed, and what to tell its author. */
 interface Rule<T> {
   broken: (subject: T, seenKeys: ReadonlySet<string>) => boolean;
@@ -116,6 +120,18 @@ const DESCRIPTOR_RULES: Rule<ConnectorPlugin>[] = [
     broken: (plugin) => !Array.isArray(plugin.fields),
     problem: () =>
       "fields must be an array (use [] for a connector with no config)",
+  },
+  {
+    broken: ({ graphExpansion }) =>
+      graphExpansion !== undefined &&
+      !(isText(graphExpansion?.query) && isText(graphExpansion?.nodeIdParam)),
+    problem: () => "graphExpansion needs a query and a nodeIdParam",
+  },
+  {
+    // Without graph data the graph chart is never offered: the query could never run.
+    broken: (plugin) =>
+      plugin.graphExpansion !== undefined && plugin.supportsGraphData !== true,
+    problem: () => "graphExpansion needs supportsGraphData: true",
   },
 ];
 

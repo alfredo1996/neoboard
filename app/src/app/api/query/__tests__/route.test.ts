@@ -366,6 +366,9 @@ describe("POST /api/query", () => {
     );
     expect(res.status).toBe(200);
     expect(mockDb.select).toHaveBeenCalledTimes(3);
+    // Names the connector that ran it, so the graph chart can find its Expand
+    // query on a connection this editor cannot list (#2061).
+    expect((await res.json()).meta.connectorType).toBe("postgresql");
   });
 
   it("non-admin without dashboard access gets 404", async () => {

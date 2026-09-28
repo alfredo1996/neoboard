@@ -24,6 +24,7 @@ import {
 interface PreviewData {
   data: unknown;
   resultId: string;
+  connectorType?: string;
 }
 
 type WidgetPreviewPanelProps = Readonly<{
@@ -211,6 +212,9 @@ function renderChart(props: {
               previewData={(previewQuery.data ?? initialPreviewData)!.data}
               previewResultId={
                 (previewQuery.data ?? initialPreviewData)!.resultId
+              }
+              previewConnectorType={
+                (previewQuery.data ?? initialPreviewData)!.connectorType
               }
             />
           </div>

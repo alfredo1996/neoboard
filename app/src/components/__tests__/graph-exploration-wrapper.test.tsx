@@ -10,7 +10,14 @@
  * the chain that #1191 broke: a plain click yields exactly one id, and exactly
  * one id opens the inspector.
  */
-import { render, screen, act, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  act,
+  cleanup,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
 
@@ -26,14 +33,20 @@ const graphNodes = [
   { id: "B", label: "Bob", properties: { name: "Bob" } },
 ];
 
+/** Toasts the wrapper raised. */
+let toasts: unknown[] = [];
+
+/** What the stubbed exploration says about every node's expandability. */
+let expandable = false;
+
 const explorationStub = {
   nodes: graphNodes,
   edges: [],
   selectedNodeIds: [],
   onNodeSelect: () => {},
-  onExpandRequest: () => {},
+  onExpandRequest: vi.fn(async (_node: { id: string }) => {}),
   collapse: () => {},
-  canExpand: () => false,
+  canExpand: () => expandable,
   canCollapse: () => false,
   reset: () => {},
   expandedNodeIds: [],
@@ -68,6 +81,7 @@ vi.mock("@neoboard/components", () => ({
   Badge: ({ children }: { children: React.ReactNode }) => (
     <span>{children}</span>
   ),
+  toast: (t: unknown) => toasts.push(t),
 }));
 
 // Node expansion reads its response through these; only the request it sends
@@ -79,6 +93,31 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: () => ({ transform: () => ({ nodes: [], edges: [] }) }),
 }));
 
+// The connector that ran the widget's query, as the query result names it — a
+// fixture nothing in app/ has heard of, so the expand query can only have come
+// from it (#2061).
+const EXPANSION = {
+  query: "EXPAND NEIGHBOURS OF @vertex",
+  nodeIdParam: "vertex",
+};
+let connectorType: string | undefined;
+let connectors: Record<string, { graphExpansion?: typeof EXPANSION }> = {};
+// This user can list no connection, as a dashboard editor on its owner's
+// private one cannot: Expand must not depend on the list (#2061 review).
+vi.mock("@/hooks/use-connections", () => ({
+  useConnections: () => ({ data: [] }),
+}));
+vi.mock("@/hooks/use-connectors", () => ({
+  useConnector: (type: string | undefined) =>
+    type === undefined ? undefined : connectors[type],
+}));
+
+beforeEach(() => {
+  expandable = false;
+  connectorType = "fixturedb";
+  connectors = { fixturedb: { graphExpansion: EXPANSION } };
+});
+
 function renderWrapper() {
   render(
     <GraphExplorationWrapper
@@ -86,6 +125,7 @@ function renderWrapper() {
       nodes={graphNodes}
       edges={[]}
       connectionId="c1"
+      connectorType={connectorType}
       settings={{}}
       resultId="r1"
     />,
@@ -203,6 +243,7 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
         nodes={graphNodes}
         edges={[]}
         connectionId="c1"
+        connectorType={connectorType}
         database={database}
         settings={{}}
         resultId="r1"
@@ -219,12 +260,18 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
   }
 
   it("sends the database the widget saves", async () => {
-    expect(await expansionBody("neoboard")).toEqual({
-      connectionId: "c1",
-      query:
-        "MATCH (n)-[r]-(neighbor) WHERE elementId(n) = $nodeId RETURN n, r, neighbor",
-      params: { nodeId: "A" },
+    expect(await expansionBody("neoboard")).toMatchObject({
       database: "neoboard",
+    });
+  });
+
+  // #2061: the query and its parameter's name are the connector's, read off
+  // its descriptor. They were hard-coded here, in one connector's dialect.
+  it("sends the connector's own query, the node's id under its own parameter name", async () => {
+    expect(await expansionBody()).toEqual({
+      connectionId: "c1",
+      query: "EXPAND NEIGHBOURS OF @vertex",
+      params: { vertex: "A" },
     });
   });
 
@@ -238,6 +285,7 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
       nodes: graphNodes,
       edges: [],
       connectionId: "c1",
+      connectorType,
       settings: {},
       resultId: "r1",
     };
@@ -251,5 +299,96 @@ describe("GraphExplorationWrapper — node expansion runs on the widget's saved 
       RequestInit,
     ];
     expect(JSON.parse(String(init.body)).database).toBe("movies");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #2061 — a connector that declares no graph expansion has nothing to expand
+// with: no Expand in the menu, and nothing posted. So does a result that names
+// no connector, and a connector that is not installed.
+// ---------------------------------------------------------------------------
+
+describe("GraphExplorationWrapper — Expand only when the connector declares how (#2061)", () => {
+  const fetchMock = vi.fn(async () => ({}) as Response);
+
+  beforeEach(() => {
+    expandable = true;
+    explorationOptions = {};
+    fetchMock.mockClear();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  function openMenuOnA() {
+    renderWrapper();
+    const onNodeRightClick = chartProps.onNodeRightClick as (e: {
+      node: { id: string };
+      position: { x: number; y: number };
+    }) => void;
+    act(() =>
+      onNodeRightClick({ node: graphNodes[0], position: { x: 1, y: 1 } }),
+    );
+  }
+
+  it("offers Expand when the connector that ran the query declares it, on a connection the user cannot list", () => {
+    openMenuOnA();
+    expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["its connector declares no expansion", () => (connectors.fixturedb = {})],
+    ["its connector is not installed", () => (connectors = {})],
+    [
+      "no connector came with the query result",
+      () => (connectorType = undefined),
+    ],
+  ])("offers no Expand, and posts nothing, when %s", async (_case, arrange) => {
+    arrange();
+    openMenuOnA();
+    expect(screen.getByRole("button", { name: "Properties" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Expand" }),
+    ).not.toBeInTheDocument();
+
+    await expect(
+      explorationOptions.fetchNeighbors!({ id: "A" }),
+    ).resolves.toEqual({ nodes: [], edges: [] });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // A failed expansion used to reject into the void: the spinner stopped and
+  // nothing said why.
+  it("says why when an expansion fails", async () => {
+    toasts = [];
+    explorationStub.onExpandRequest.mockRejectedValueOnce(
+      new Error("Connection refused"),
+    );
+    openMenuOnA();
+    fireEvent.click(screen.getByRole("button", { name: "Expand" }));
+    await waitFor(() =>
+      expect(toasts).toEqual([
+        {
+          title: "Expand failed",
+          description: "Connection refused",
+          variant: "destructive",
+        },
+      ]),
+    );
+  });
+
+  // A viewer bound to the dashboard's own queries (#972) is offered Expand and
+  // refused on the server; the server's words assume they wrote a query.
+  it("tells a viewer bound to the dashboard's queries why it cannot expand", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 403 } as Response);
+    renderWrapper();
+    await expect(
+      explorationOptions.fetchNeighbors!({ id: "A" }),
+    ).rejects.toThrow(
+      "Your access to this dashboard covers its own queries, and expanding a node runs another.",
+    );
   });
 });

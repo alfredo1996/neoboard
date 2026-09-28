@@ -2,11 +2,13 @@ import {
   test,
   expect,
   ALICE,
+  TEST_NEO4J_BOLT_URL,
   createTestDashboard,
   typeInEditor,
   getPreview,
   saveDashboard,
 } from "./fixtures";
+import { AuthPage } from "./pages/auth";
 
 // ---------------------------------------------------------------------------
 // Read-only tests: use the seeded "Movie Analytics" dashboard (no mutations)
@@ -677,6 +679,41 @@ test.describe("Graph chart visualization", () => {
 // Graph exploration: right-click context menu, expand, collapse, reset
 // ---------------------------------------------------------------------------
 
+/**
+ * Right-click the one node a graph widget shows, click Expand, and wait for its
+ * neighbours to join (#2061). One node, so the layout's fit puts it under the
+ * canvas centre and the right-click lands on it.
+ */
+async function expandTheOnlyNode(page: import("@playwright/test").Page) {
+  const exploration = page.getByTestId("graph-exploration");
+  const nodeCount = exploration.getByTestId("graph-node-count");
+  await expect(nodeCount).toHaveText("1 nodes", { timeout: 15_000 });
+
+  const canvas = exploration.locator("canvas").first();
+  const expand = page
+    .getByTestId("graph-context-menu")
+    .getByRole("button", { name: "Expand" });
+  await expect(async () => {
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    await canvas.click({
+      button: "right",
+      position: { x: box!.width / 2, y: box!.height / 2 },
+      force: true,
+    });
+    await expect(expand).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+
+  await expand.click();
+
+  // The node's films and co-workers join the graph.
+  await expect(async () => {
+    const count = Number.parseInt((await nodeCount.textContent()) ?? "", 10);
+    expect(count).toBeGreaterThan(1);
+  }).toPass({ timeout: 15_000 });
+  await expect(page.getByTestId("graph-reset-button")).toBeVisible();
+}
+
 test.describe("Graph chart exploration", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
@@ -701,7 +738,10 @@ test.describe("Graph chart exploration", () => {
    * Helper: add a graph widget to the dashboard and save it.
    * Returns after the dialog has closed and the widget is on the grid.
    */
-  async function addGraphWidget(page: import("@playwright/test").Page) {
+  async function addGraphWidget(
+    page: import("@playwright/test").Page,
+    query = "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 5",
+  ) {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
@@ -710,11 +750,7 @@ test.describe("Graph chart exploration", () => {
     await dialog.getByRole("combobox").nth(0).click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
-    await typeInEditor(
-      dialog,
-      page,
-      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 5",
-    );
+    await typeInEditor(dialog, page, query);
     await expect(
       dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
     ).toBeEnabled({ timeout: 10_000 });
@@ -823,6 +859,26 @@ test.describe("Graph chart exploration", () => {
 
     // Regardless of whether we hit a node, no errors should occur
     await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+
+  // #2061: the expand query is the connector's, named by the query result and
+  // read off its descriptor, no longer written in app/. View mode, because
+  // that is where a dashboard is explored. One node, so the layout's fit puts
+  // it under the canvas centre and the right-click lands on it, where the
+  // tests above may miss.
+  test("graph chart — expanding a node in view mode adds its neighbours (#2061)", async ({
+    page,
+  }) => {
+    await addGraphWidget(
+      page,
+      "MATCH (p:Person {name: 'Keanu Reeves'}) RETURN p",
+    );
+    await saveDashboard(page);
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
+      timeout: 10_000,
+    });
+    await expandTheOnlyNode(page);
   });
 
   test("graph chart — reset clears all expansions", async ({ page }) => {
@@ -1059,6 +1115,117 @@ test.describe("Graph chart exploration", () => {
     }
 
     await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+});
+
+// #2061 review: Expand used to hang on the viewer's own connection list, so an
+// editor share on its owner's private connection lost it. The connector now
+// comes with the query result. Every row is uniquely named and deleted by id.
+test.describe("Graph Expand for a dashboard editor (#2061)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("an editor share expands a node on the owner's private connection it cannot list", async ({
+    authPage,
+    page,
+    browser,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const email = `graph-editor-${suffix}@example.com`;
+    const password = "password123";
+    const editorCtx = await browser.newContext();
+    let userId: string | undefined;
+    let connectionId: string | undefined;
+    let dashboardId: string | undefined;
+
+    try {
+      const userRes = await page.request.post("/api/users", {
+        data: {
+          name: `Graph editor ${suffix}`,
+          email,
+          password,
+          role: "creator",
+          canWrite: true,
+        },
+      });
+      expect(userRes.status()).toBe(201);
+      userId = (await userRes.json()).data.id;
+
+      // Alice's connection, private by default.
+      const connRes = await page.request.post("/api/connections", {
+        data: {
+          name: `graph-editor-${suffix}`,
+          type: "neo4j",
+          config: {
+            uri: TEST_NEO4J_BOLT_URL,
+            username: "neo4j",
+            password: "neoboard123",
+            // One driver per distinct config, closed when a connection is
+            // deleted: a unique timeout keeps this test's driver its own.
+            connectionTimeout: 20_000 + Math.floor(Math.random() * 280_000),
+          },
+        },
+      });
+      expect(connRes.status()).toBe(201);
+      connectionId = (await connRes.json()).data.id;
+
+      ({ id: dashboardId } = await createTestDashboard(
+        page.request,
+        `graph-editor-${suffix}`,
+      ));
+      const put = await page.request.put(`/api/dashboards/${dashboardId}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Page 1",
+                widgets: [
+                  {
+                    id: "w-graph",
+                    chartType: "graph",
+                    connectionId,
+                    query: "MATCH (p:Person {name: 'Keanu Reeves'}) RETURN p",
+                    settings: { title: "Keanu", chartOptions: {} },
+                  },
+                ],
+                gridLayout: [{ i: "w-graph", x: 0, y: 0, w: 12, h: 8 }],
+              },
+            ],
+          },
+        },
+      });
+      expect(put.ok()).toBeTruthy();
+      const share = await page.request.post(
+        `/api/dashboards/${dashboardId}/share`,
+        { data: { email, role: "editor" } },
+      );
+      expect(share.ok()).toBeTruthy();
+
+      const editor = await editorCtx.newPage();
+      await new AuthPage(editor).login(email, password);
+      // The case itself: the editor cannot list the connection.
+      const listed = await editor.request.get(
+        "/api/connections?limit=100&offset=0",
+      );
+      expect(listed.ok()).toBeTruthy();
+      expect(
+        ((await listed.json()).data as { id: string }[]).map((c) => c.id),
+      ).not.toContain(connectionId);
+
+      await editor.goto(`/${dashboardId}`);
+      await expandTheOnlyNode(editor);
+    } finally {
+      await editorCtx.close();
+      if (dashboardId)
+        await page.request.delete(`/api/dashboards/${dashboardId}`);
+      if (connectionId)
+        await page.request.delete(
+          `/api/connections/${connectionId}?force=true`,
+        );
+      if (userId) await page.request.delete(`/api/users/${userId}`);
+    }
   });
 });
 

@@ -53,6 +53,15 @@ export interface ConnectorDescriptor {
   queryLanguage?: string;
   /** Does this connector return graph data (nodes and relationships)? */
   supportsGraphData?: boolean;
+  /**
+   * How the graph chart expands a node (#2061): a read query in this
+   * connector's own language that returns the node's relationships and
+   * neighbours as graph values, and the name of the parameter it reads the
+   * node's id from — the `elementId` this connector gave the node. It runs as
+   * written, the id bound as that parameter. Without it the graph chart offers
+   * no Expand. Needs `supportsGraphData: true`.
+   */
+  graphExpansion?: { query: string; nodeIdParam: string };
   /** Does this connector support write queries? */
   supportsWrite?: boolean;
   /** Every value the connector reads from its config bag. */
@@ -111,8 +120,15 @@ function pick<T extends object, K extends keyof T>(
  * author hung on the plugin object can ride along.
  */
 export function toDescriptor(plugin: ConnectorDescriptor): ConnectorDescriptor {
+  const { graphExpansion } = plugin;
   return {
     ...pick(plugin, DESCRIPTOR_KEYS),
+    ...(graphExpansion && {
+      graphExpansion: {
+        query: graphExpansion.query,
+        nodeIdParam: graphExpansion.nodeIdParam,
+      },
+    }),
     fields: plugin.fields.map((field) => ({
       ...pick(field, FIELD_KEYS),
       ...(field.options && {

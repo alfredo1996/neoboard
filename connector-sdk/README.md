@@ -46,10 +46,15 @@ connector works everywhere in NeoBoard without forking the app.
   to a `ConnectorError`, and `defaultClassifyError` is what applies without
   one — platform signals only (refused socket, unresolved name, dropped
   connection), never a driver's own codes or words.
+- **Graph expansion** — a connector with `supportsGraphData: true` can declare
+  `graphExpansion: { query, nodeIdParam }`: a read query in its own language
+  that returns a node's relationships and neighbours, and the parameter it
+  binds the node's id to. The graph chart offers Expand only with it.
 - **Connector registry** — `createConnectorRegistry()`. `register()` throws on
   a malformed descriptor (a field missing key/label/type, duplicate keys, a
   `select` without options, a `uri` without protocols, an invalid category, an
-  `iconSvg` over 16 KB).
+  `iconSvg` over 16 KB, a `graphExpansion` with a blank `query` or
+  `nodeIdParam`, or one on a connector without `supportsGraphData: true`).
 
 ## Quick start
 

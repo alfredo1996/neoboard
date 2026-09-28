@@ -39,8 +39,9 @@ export interface UseGraphExplorationReturn {
   expandedNodeIds: string[];
   /** Selection handler — pass directly to GraphChart's onNodeSelect */
   onNodeSelect: (ids: string[]) => void;
-  /** Expansion handler — pass directly to GraphChart's onExpandRequest */
-  onExpandRequest: (node: GraphNode) => void;
+  /** Expansion handler — pass directly to GraphChart's onExpandRequest.
+   *  Rejects with fetchNeighbors' error, for the caller to show. */
+  onExpandRequest: (node: GraphNode) => Promise<void>;
   /** Collapse a previously expanded node, removing its uniquely-added neighbors */
   collapse: (nodeId: string) => void;
   /** Reset to initial state, clearing all expansions and selection */
