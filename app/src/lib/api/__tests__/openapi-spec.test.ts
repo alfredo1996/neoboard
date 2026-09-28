@@ -444,6 +444,14 @@ describe("the query operations document what their routes send (#1966)", () => {
     expect(response(write.responses["422"]).description).toMatch(/fallback/);
   });
 
+  it("says a blocked write answers 422 on every connector, never a 500", () => {
+    expect(read.description).toMatch(/blockedWrite[^.]*422/);
+    expect(read.description).not.toMatch(/blockedWrite[^.]*500/);
+    expect(response(read.responses["422"]).description).toContain(
+      "blockedWrite",
+    );
+  });
+
   it("claims no 422 for an unknown label: that is a notification, not an error", () => {
     expect(response(read.responses["422"]).description).not.toMatch(/label/);
   });

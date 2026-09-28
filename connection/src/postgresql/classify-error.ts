@@ -59,7 +59,9 @@ const STATEMENT_PHRASES: ErrorSignals = {
 const classify = createErrorClassifier({
   types: [
     // SQLSTATE first: it is authoritative.
-    { codes: ["25006"], type: READ_ONLY_VIOLATION }, // read_only_sql_transaction
+    // read_only_sql_transaction. The statement's fault too: a blocked write
+    // is the caller's 422 on every connector, as the graph one's is (#2053).
+    { codes: ["25006"], type: READ_ONLY_VIOLATION, statementFault: true },
     { codes: AUTHENTICATION_SQLSTATES, type: AUTHENTICATION },
     { codes: ["57014", "57P01"], type: TIMEOUT }, // query_canceled, admin_shutdown
     { codes: ["3D000", "08001", "08003", "08006"], type: CONNECTION },

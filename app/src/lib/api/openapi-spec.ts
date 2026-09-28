@@ -697,7 +697,7 @@ const SPEC = {
           "Executes a read-only query against a connected database. Results are capped at the connection's `maxRows`, " +
           `else ${DEFAULT_MAX_ROWS} rows; a request's \`rowLimit\` can only lower that. \`meta.rowLimit\` is the cap applied. ` +
           "A query the connector judges at fault, such as a syntax error or a missing column, answers 422 `QUERY_ERROR` with the driver's message. " +
-          "A write that read-only execution stopped carries `error.details.blockedWrite: true`, on a 422 or a 500.\n\n" +
+          "A write that read-only execution stopped carries `error.details.blockedWrite: true` on that 422, whatever the connector.\n\n" +
           "**Who may run what.** An admin, the connection's owner, or anyone in the tenant when the connection is shared, runs any query on it. " +
           "Anyone else needs a dashboard that uses the connection. Edit access (the dashboard's owner or an editor share) runs any query, " +
           "while the caller may write and the dashboard's owner can use the connection. View access (a viewer share, a public dashboard, " +
@@ -1229,7 +1229,8 @@ const SPEC = {
       },
       QueryError: bodyResponse(
         "The connector judged the caller's statement itself at fault (`QUERY_ERROR`): a syntax error, a missing column " +
-          "or table, a value of the wrong type. `error.message` is the driver's message, sanitized, except on " +
+          "or table, a value of the wrong type; on `/api/query`, a write that read-only execution stopped, with " +
+          "`error.details.blockedWrite: true`. `error.message` is the driver's message, sanitized, except on " +
           "`/api/query/write`, which answers its fallback message. Retrying fails the same way, so there is no " +
           "`Retry-After`. An error the connector does not recognise answers 500 instead.",
         { $ref: "#/components/schemas/ErrorResponse" },

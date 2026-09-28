@@ -397,6 +397,12 @@ export const classifyMyDbError = createErrorClassifier({
       type: ConnectorErrorType.QUERY,
       statementFault: true,
     },
+    // So is a write that read-only execution stopped: a 422 on every connector.
+    {
+      codes: ["MYDB_READ_ONLY"],
+      type: ConnectorErrorType.READ_ONLY_VIOLATION,
+      statementFault: true,
+    },
   ],
   // Never worth a retry. It beats `transient` when both match.
   permanent: mergeSignals(PERMANENT_FAILURE_SIGNALS, {

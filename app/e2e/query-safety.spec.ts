@@ -423,6 +423,26 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     });
   });
 
+  // #2053: a blocked write is the caller's statement at fault on every
+  // connector — a 422, and the preview still reads details.blockedWrite.
+  // The Cypher write deletes what it creates, should read-only ever let it by.
+  for (const [language, connectionId, query] of [
+    ["SQL", PG_CONNECTION_ID, "DELETE FROM movies"],
+    ["Cypher", NEO4J_CONNECTION_ID, "CREATE (n:Blocked2053) DELETE n"],
+  ] as const) {
+    test(`a ${language} write on the read route answers 422 with blockedWrite`, async ({
+      page,
+    }) => {
+      const res = await page.request.post("/api/query", {
+        data: { connectionId, query },
+      });
+      expect(res.status()).toBe(422);
+      const body = await res.json();
+      expect(body.error?.code).toBe("QUERY_ERROR");
+      expect(body.error?.details).toEqual({ blockedWrite: true });
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // #1962: 401 means "you are signed out", and nothing else. A query error
   // that merely says "session" used to answer 401 — "please log in again".

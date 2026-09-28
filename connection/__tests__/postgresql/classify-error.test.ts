@@ -68,6 +68,13 @@ describe("classifyPostgresError", () => {
       ["a missing table", "42P01", 'relation "nope" does not exist'],
       ["a denied table", "42501", "permission denied for table users"],
       ["a bad value", "22012", "division by zero"],
+      // A blocked write answers 422 on every connector, as the graph
+      // connector's Statement.AccessMode already did.
+      [
+        "a blocked write",
+        "25006",
+        "cannot execute DELETE in a read-only transaction",
+      ],
     ])("%s (%s) carries the flag", (_label, code, message) => {
       expect(
         classifyPostgresError(pgError(message, { code })).statementFault,
@@ -91,12 +98,6 @@ describe("classifyPostgresError", () => {
         pgError('database "nope" does not exist', { code: "3D000" }),
       ],
       ["a timeout", pgError("canceling statement", { code: "57014" })],
-      [
-        "a blocked write",
-        pgError("cannot execute DELETE in a read-only transaction", {
-          code: "25006",
-        }),
-      ],
       ["an unreachable host", pgError("connect ECONNREFUSED 127.0.0.1:5432")],
       ["bad credentials", pgError("x", { code: "28P01" })],
     ])("%s does not", (_label, err) => {
@@ -260,6 +261,7 @@ describe("classifyPostgresError", () => {
         type: READ_ONLY_VIOLATION,
         transient: false,
         blockedWrite: true,
+        statementFault: true,
       });
     });
 
