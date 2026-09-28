@@ -308,7 +308,7 @@ export default async function globalSetup() {
   if (process.env.E2E_SKIP_BUILD && !hasCachedBuild) {
     throw new Error(
       "E2E_SKIP_BUILD is set but no prior build found at .next/BUILD_ID. " +
-        "Run `npx next build` once or unset E2E_SKIP_BUILD.",
+        "Run `npm run build` in app/ once or unset E2E_SKIP_BUILD.",
     );
   }
 
@@ -324,7 +324,9 @@ export default async function globalSetup() {
     } else {
       console.log("⏳ Building Next.js (production)...");
     }
-    execSync("npx next build --webpack", {
+    // Through the npm script, so app's prebuild compiles the SDK and
+    // connection (with its connector list) first, as every build does (#2062).
+    execSync("npm run build", {
       cwd: appDir,
       stdio: "inherit",
       env: serverEnv,

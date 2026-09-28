@@ -6,6 +6,11 @@
  * Mirrors the chart plugin codegen (generate-plugin-imports.mjs) but
  * targets the connection package instead of the app package.
  *
+ * Runs as connection's prebuild, so every build of connection regenerates it
+ * first. App's predev and prebuild build connection, so every path that serves
+ * or builds the app does too: root dev and build, neoboard dev, the Docker
+ * build stage and E2E global setup (#2062).
+ *
  * Exit code 1 on:
  *   - manifest unparseable
  *   - entries fail shape validation
