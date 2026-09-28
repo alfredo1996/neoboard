@@ -7,6 +7,8 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
 }));
 
+const { useQueryClient } = await import("@tanstack/react-query");
+
 // Import after mocks are set up
 const {
   useUsers,
@@ -14,6 +16,7 @@ const {
   useUpdateUserRole,
   useUpdateUserCanWrite,
   useDeleteUser,
+  useSetUserDisabled,
 } = await import("../use-users");
 
 // ---------------------------------------------------------------------------
@@ -211,6 +214,54 @@ describe("use-users", () => {
       await expect(
         config.mutationFn({ id: "u1", canWrite: true }),
       ).rejects.toThrow("Forbidden");
+    });
+  });
+
+  // ── useSetUserDisabled (#2049) ──────────────────────────────────────
+  describe("useSetUserDisabled mutationFn", () => {
+    it.each([true, false])(
+      "PATCHes /api/users/:id with { disabled: %s }",
+      async (disabled) => {
+        vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+          mockResponse({ id: "u4", disabledAt: null }),
+        );
+        const config = useSetUserDisabled() as unknown as {
+          mutationFn: (i: {
+            id: string;
+            disabled: boolean;
+          }) => Promise<unknown>;
+        };
+        await config.mutationFn({ id: "u4", disabled });
+        expect(globalThis.fetch).toHaveBeenCalledWith("/api/users/u4", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ disabled }),
+        });
+      },
+    );
+
+    it("throws on error response", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ error: "Forbidden" }, 403),
+      );
+      const config = useSetUserDisabled() as unknown as {
+        mutationFn: (i: { id: string; disabled: boolean }) => Promise<unknown>;
+      };
+      await expect(
+        config.mutationFn({ id: "u4", disabled: true }),
+      ).rejects.toThrow("Forbidden");
+    });
+
+    it("refreshes the users list after either action", () => {
+      const invalidateQueries = vi.fn();
+      vi.mocked(useQueryClient).mockReturnValueOnce({
+        invalidateQueries,
+      } as unknown as ReturnType<typeof useQueryClient>);
+      const config = useSetUserDisabled() as unknown as {
+        onSuccess: () => void;
+      };
+      config.onSuccess();
+      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["users"] });
     });
   });
 
