@@ -46,6 +46,6 @@ export function validatePieData(data: unknown): string | null {
   if (!records.length) return null;
   const cols = Object.keys(records[0]).length;
   if (cols < 2)
-    return `Pie chart requires at least 2 columns: first column for slice names and second column for numeric values. Your query returned only ${cols} column(s). Example: \`SELECT category, total FROM ...\``;
+    return `Pie chart requires at least 2 columns: first column for slice names and second column for numeric values. Your query returned only ${cols} column(s).`;
   return null;
 }

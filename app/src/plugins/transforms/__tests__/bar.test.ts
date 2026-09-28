@@ -101,6 +101,17 @@ describe("validateBarData", () => {
     expect(err).toContain("Bar chart");
     expect(err).toContain("1 column");
   });
+
+  // A widget can sit on any connector, so the message cannot quote a query in
+  // one language (#2051). Keywords are matched in capitals, as queries write them.
+  const QUERY_SYNTAX = /\b(SELECT|FROM|GROUP BY|MATCH|RETURN)\b|`|Example:/;
+
+  it("describes the needed columns without quoting a query (#2051)", () => {
+    const err = validateBarData([{ name: "A" }]) ?? "";
+    expect(err).not.toMatch(QUERY_SYNTAX);
+    expect(err).toContain("category labels");
+    expect(err).toContain("numeric values");
+  });
 });
 
 // #1400 — the reference dashboard itself demonstrated two stackMode options

@@ -65,6 +65,6 @@ export function validateLineData(
   if (!records.length) return null;
   const cols = collectAllKeys(records).length;
   if (cols < 2)
-    return `Line chart requires at least 2 columns: first column for x-axis values (dates, numbers, or labels) and one or more columns for numeric series. Your query returned only ${cols} column(s). Example: \`SELECT date, revenue FROM ...\``;
+    return `Line chart requires at least 2 columns: first column for x-axis values (dates, numbers, or labels) and one or more columns for numeric series. Your query returned only ${cols} column(s).`;
   return validateNumericValueColumns(records, "Line chart", mapping);
 }

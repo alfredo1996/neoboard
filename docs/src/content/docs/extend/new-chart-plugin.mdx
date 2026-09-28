@@ -206,7 +206,7 @@ validate?: (data: unknown) => string | null;
 
 **When it's called.** After `transform` runs but before the chart renders. The widget shows the returned string as an "Incompatible data" message in place of the chart. Returning `null` means the data is valid — including the empty case. An empty array should resolve to `null` so the widget renders its "No data" state, not an error.
 
-**What the UI does with it.** The error string is shown verbatim inside the widget body — so write it as user-facing copy with at least one concrete column requirement and ideally an example query.
+**What the UI does with it.** The error string is shown verbatim inside the widget body — so write it as user-facing copy that names the columns the chart needs and what each one holds. Describe the shape in words, not as a query: the same chart runs on every connector, so an example in one query language is wrong for the others.
 
 **Working example.**
 
@@ -217,7 +217,7 @@ export function validateBarData(data: unknown): string | null {
   if (!records.length) return null; // empty -> "No data" state, not an error
   const cols = Object.keys(records[0]).length;
   if (cols < 2) {
-    return `Bar chart requires at least 2 columns: first for labels, one or more for values. Your query returned ${cols} column(s). Example: SELECT category, count FROM ...`;
+    return `Bar chart requires at least 2 columns: first for labels, one or more for values. Your query returned ${cols} column(s).`;
   }
   return null;
 }

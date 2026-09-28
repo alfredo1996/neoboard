@@ -127,5 +127,5 @@ export function validateNumericValueColumns(
 
   const named = offenders.map((k) => `"${k}"`).join(", ");
   const plural = offenders.length > 1;
-  return `${chartLabel} cannot plot ${named} — ${plural ? "those columns contain" : "that column contains"} no numeric values. This usually means the result is in long format (one row per category *and* series, e.g. \`GROUP BY category, status\`), where the series name is its own column. Pivot it so each series is a column, or map the value column explicitly. Example: \`SELECT category, SUM(x) FILTER (WHERE status='delivered') AS delivered, SUM(x) FILTER (WHERE status='shipped') AS shipped FROM ... GROUP BY category\`.`;
+  return `${chartLabel} cannot plot ${named} — ${plural ? "those columns contain" : "that column contains"} no numeric values. This usually means the result is in long format, one row per category and series, with the series name in a column of its own. The chart needs one label column followed by one numeric column per series: pivot the result into that shape, or map the value column explicitly.`;
 }
