@@ -29,6 +29,12 @@ import {
 } from "./demo/showcases.mjs";
 import { importShowcase } from "./demo/import-dashboard.mjs";
 import { resolveSeedHosts } from "./lib/seed-hosts.mjs";
+import {
+  demoConnectionInsert,
+  demoConnectionUpdate,
+  demoPgConfigs,
+  grantDemoRoles,
+} from "./lib/demo-connection.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(resolve(__dirname, "../app/") + "/");
@@ -268,12 +274,8 @@ async function main() {
       password: "neoboard123",
       database: "neo4j",
     };
-    const pgConfig = {
-      uri: `postgresql://${pgHost}:5432`,
-      username: "neoboard",
-      password: "neoboard",
-      database: "movies",
-    };
+    // Least-privilege logins, never the superuser: see ./lib/demo-connection.mjs.
+    const pgConfigs = demoPgConfigs(pgHost);
 
     const neo4jConnId = await upsertConnector(
       sql,
@@ -288,24 +290,18 @@ async function main() {
       adminId,
       "PostgreSQL Movies",
       "postgresql",
-      pgConfig,
+      pgConfigs.movies,
       encryptionKey,
     );
 
     // Demo e-commerce connections — point at the isolated
     // `neoboard_demo_public` schema on the `neoboard` config DB.
-    const ecommerceConfig = {
-      uri: `postgresql://${pgHost}:5432/neoboard`,
-      username: "neoboard",
-      password: "neoboard",
-      database: "neoboard",
-    };
     const ecommerceReadConnId = await upsertConnector(
       sql,
       adminId,
       "PostgreSQL Ecommerce (demo, read)",
       "postgresql",
-      ecommerceConfig,
+      pgConfigs.ecommerceRead,
       encryptionKey,
     );
     const ecommerceWriteConnId = await upsertConnector(
@@ -313,7 +309,7 @@ async function main() {
       adminId,
       "PostgreSQL Ecommerce (demo, write)",
       "postgresql",
-      ecommerceConfig,
+      pgConfigs.ecommerceWrite,
       encryptionKey,
     );
 
@@ -322,9 +318,18 @@ async function main() {
     console.log(`    Ecommerce (read):      ${ecommerceReadConnId}`);
     console.log(`    Ecommerce (write):     ${ecommerceWriteConnId}`);
 
-    // 3. Recreate the demo e-commerce schema + deterministic data
+    // 3. Recreate the demo e-commerce schema + deterministic data, then grant
+    //    the demo roles the connections above log in as.
     await recreateEcommerceSchema(sql);
     await seedEcommerceData(sql);
+    const moviesUrl = new URL(databaseUrl);
+    moviesUrl.pathname = "/movies";
+    const movies = postgres(moviesUrl.href, { max: 1, onnotice: () => {} });
+    try {
+      await grantDemoRoles(sql, movies);
+    } finally {
+      await movies.end();
+    }
 
     // 4. Showcase JSON import
     const connectionMap = buildConnectionMap({
@@ -373,21 +378,21 @@ async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
   const existing = await sql`
     SELECT id FROM "connection" WHERE name = ${name} AND "userId" = ${userId}
   `;
+  const configEncrypted = encryptJson(config, encryptionKey);
   if (existing.length > 0) {
-    const encrypted = encryptJson(config, encryptionKey);
     await sql`
       UPDATE "connection"
-      SET "configEncrypted" = ${encrypted}, "updatedAt" = NOW()
+      SET ${sql(demoConnectionUpdate(configEncrypted))}, "updatedAt" = NOW()
       WHERE id = ${existing[0].id}
     `;
     return existing[0].id;
   }
 
   const id = uuid();
-  const encrypted = encryptJson(config, encryptionKey);
   await sql`
-    INSERT INTO "connection" (id, "userId", name, type, "configEncrypted", "createdAt", "updatedAt")
-    VALUES (${id}, ${userId}, ${name}, ${type}, ${encrypted}, NOW(), NOW())
+    INSERT INTO "connection" ${sql(
+      demoConnectionInsert({ id, userId, name, type, configEncrypted }),
+    )}
   `;
   return id;
 }
