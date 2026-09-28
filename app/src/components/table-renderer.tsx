@@ -94,30 +94,32 @@ function formatGraphValue(v: unknown): string | undefined {
 }
 
 /**
- * JSON, except that a graph value anywhere inside a list or map reads as its
- * text, so `collect(m)` or `nodes(p)` never shows `$type` or `elementId`
- * either (#2050). A node sits in parentheses, as it does in a path, so
- * `{"m":(:Movie {…})}` stays readable. Rows cross JSON, so nothing in here is
- * a `Date`, a `bigint` or `undefined`.
+ * A graph value's text, or a list's or map's with each graph value inside it
+ * read as its text at any depth: `collect(m)` reads
+ * `[:Movie {title: "A"}, :Movie {title: "B"}]`, `{m: m}` reads
+ * `{m: :Movie {…}}` (#2050). What holds no graph value stays JSON, so this is
+ * undefined for it. Rows cross JSON, so nothing inside a list or map is a
+ * `Date`, a `bigint` or `undefined`.
  */
-function formatNested(v: unknown): string {
+function formatGraphText(v: unknown): string | undefined {
   const graph = formatGraphValue(v);
-  if (graph !== undefined) return isGraphNode(v) ? `(${graph})` : graph;
-  if (Array.isArray(v)) return `[${v.map(formatNested).join(",")}]`;
-  if (v !== null && typeof v === "object") {
-    const pairs = Object.entries(v).map(
-      ([key, value]) => `${JSON.stringify(key)}:${formatNested(value)}`,
-    );
-    return `{${pairs.join(",")}}`;
-  }
-  return JSON.stringify(v) ?? "null";
+  if (graph !== undefined || v === null || typeof v !== "object") return graph;
+  const entries = Object.entries(v);
+  const texts = entries.map(([, value]) => formatGraphText(value));
+  if (texts.every((text) => text === undefined)) return undefined;
+  const isList = Array.isArray(v);
+  const parts = entries.map(([key, value], i) => {
+    const text = texts[i] ?? JSON.stringify(value);
+    return isList ? text : `${key}: ${text}`;
+  });
+  return isList ? `[${parts.join(", ")}]` : `{${parts.join(", ")}}`;
 }
 
 /**
  * One cell's text. Every temporal arrives as an ISO-8601 string (#1904), so a
  * `Date` cannot reach here — rows cross JSON. A graph value reads as its
- * labels or type and properties (#2050); an array or any other object-shaped
- * value becomes JSON, with any graph value inside it read the same way.
+ * labels or type and properties, and so does each one inside a list or map
+ * (#2050); any other object-shaped value becomes JSON.
  */
 function formatCell(v: unknown): string {
   if (typeof v === "string") return v;
@@ -125,18 +127,19 @@ function formatCell(v: unknown): string {
     return v.toString();
   // Never String(v): on an `unknown` the type still admits an object here,
   // and "[object Object]" is exactly what the table must never show (#1636,
-  // Sonar S6551).
-  return formatGraphValue(v) ?? formatNested(v);
+  // Sonar S6551). A missing key reads "null", as its cell does.
+  return formatGraphText(v) ?? JSON.stringify(v) ?? "null";
 }
 
 type GridRow = { getValue: (columnId: string) => unknown };
 
 /**
  * An object column groups, filters and sorts by the text its cells show
- * (#2050). TanStack reads the accessor's raw value, which the click action
- * needs: every node grouped under "[object Object]" in one group headed by
- * its first node, the filter matched "object", and the sort saw every node
- * as equal. A column of primitives keeps the grid's own comparators.
+ * (#2050, #2070). TanStack reads the accessor's raw value, which the click
+ * action needs: every node grouped under "[object Object]" in one group
+ * headed by its first node, the filter matched "object", and the sort saw
+ * every node as equal. A column of primitives keeps the grid's own filter
+ * and comparators, numeric sort included.
  */
 function byDisplayText(key: string) {
   return {

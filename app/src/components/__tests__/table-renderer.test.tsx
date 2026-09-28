@@ -20,19 +20,16 @@ import {
   numericString,
 } from "@/__tests__/fixtures/connector-output";
 
-type GridRow = { getValue: (columnId: string) => unknown };
-
 type Col = {
   id: string;
   accessorFn: (row: Record<string, unknown>) => unknown;
   cell: (ctx: { getValue: () => unknown }) => React.ReactNode;
   getGroupingValue?: (row: Record<string, unknown>) => unknown;
-  filterFn?: (row: GridRow, columnId: string, filterValue: unknown) => boolean;
-  sortingFn?: (a: GridRow, b: GridRow, columnId: string) => number;
 };
 
-// The column defs the last render handed the grid, for the grouping, filter
-// and sort hooks the stub itself never calls.
+// The column defs the last render handed the grid, for the grouping hook the
+// stub itself never calls. Filtering and sorting run through the real grid in
+// table-renderer-grid.test.tsx (#2070).
 const grid = vi.hoisted(() => ({ columns: [] as Col[] }));
 
 vi.mock("@neoboard/components", () => ({
@@ -269,39 +266,63 @@ describe("TableRenderer graph cells (#2050)", () => {
     expect(cells("v")).toEqual(['["a",1]', "42", "true", "plain"]);
   });
 
-  it("reads a graph value inside a list or map as its text, a node in parentheses", () => {
-    // `collect(m)`, `nodes(p)`, `{m: m}`: the owner's "never shown" holds
-    // inside JSON too. The brackets and separators stay JSON's.
+  it("reads each graph value inside a list or map as its text, at any depth", () => {
+    // `collect(m)`, `nodes(p)`, `{m: m}`: "never shown" holds inside a list
+    // or map too. The brackets stay; the pairs read as a node's do.
+    const path = {
+      $type: "path",
+      start: lana,
+      end: matrix,
+      segments: [
+        {
+          start: lana,
+          relationship: rel("DIRECTED", lana, matrix),
+          end: matrix,
+        },
+      ],
+      length: 1,
+    };
     render(
       <TableRenderer
         data={[
           { v: [keanu, matrix] },
           { v: { m: matrix, r: rel("DIRECTED", lana, matrix), n: 1 } },
+          { v: [[lana], { p: path, tags: ["a", 1] }, "x", null] },
         ]}
         settings={noPaging}
       />,
     );
     const shown = cells("v");
     expect(shown).toEqual([
-      '[(:Person:Actor {name: "Keanu Reeves", born: 1964}),(:Movie {title: "The Matrix", released: 1999})]',
-      '{"m":(:Movie {title: "The Matrix", released: 1999}),"r":[:DIRECTED],"n":1}',
+      '[:Person:Actor {name: "Keanu Reeves", born: 1964}, :Movie {title: "The Matrix", released: 1999}]',
+      '{m: :Movie {title: "The Matrix", released: 1999}, r: [:DIRECTED], n: 1}',
+      // A path keeps its parentheses; whatever holds no graph value stays JSON.
+      '[[:Person {name: "Lana Wachowski"}], {p: (:Person {name: "Lana Wachowski"})-[:DIRECTED]->(:Movie {title: "The Matrix", released: 1999}), tags: ["a",1]}, "x", null]',
     ]);
     for (const text of shown) {
       expect(text).not.toContain("$type");
       expect(text).not.toContain("elementId");
     }
   });
+
+  it("keeps JSON for a list or map with no graph value in it", () => {
+    render(
+      <TableRenderer
+        data={[{ v: [{ a: [1, "b"] }, null] }, { v: { a: { b: [true] } } }]}
+        settings={noPaging}
+      />,
+    );
+    expect(cells("v")).toEqual(['[{"a":[1,"b"]},null]', '{"a":{"b":[true]}}']);
+  });
 });
 
-describe("TableRenderer groups, filters and sorts a graph column by its text (#2050)", () => {
+describe("TableRenderer groups a graph column by its text (#2050)", () => {
   // TanStack reads the accessor's raw value: every node grouped under
-  // "[object Object]" (one group, headed by the first node), the filter
-  // matched "object", and the sort saw every node as equal.
+  // "[object Object]", one group headed by the first node.
   const column = (data: Record<string, unknown>[]) => {
     render(<TableRenderer data={data} settings={noPaging} />);
     return grid.columns[0];
   };
-  const row = (v: unknown): GridRow => ({ getValue: () => v });
 
   it("groups each node under the text its cell shows", () => {
     const col = column([{ v: keanu }, { v: matrix }]);
@@ -313,25 +334,8 @@ describe("TableRenderer groups, filters and sorts a graph column by its text (#2
     );
   });
 
-  it("filters on the text its cell shows, case-insensitively", () => {
-    const col = column([{ v: keanu }]);
-    expect(col.filterFn?.(row(keanu), "v", "person")).toBe(true);
-    expect(col.filterFn?.(row(keanu), "v", "Keanu")).toBe(true);
-    expect(col.filterFn?.(row(keanu), "v", "object")).toBe(false);
-  });
-
-  it("sorts on the text its cell shows", () => {
-    const col = column([{ v: keanu }, { v: matrix }]);
-    // ":Movie …" before ":Person …"
-    expect(col.sortingFn?.(row(matrix), row(keanu), "v")).toBeLessThan(0);
-    expect(col.sortingFn?.(row(keanu), row(matrix), "v")).toBeGreaterThan(0);
-  });
-
-  it("leaves a column of primitives to the grid's own grouping, filter and sort", () => {
-    const col = column([{ n: 10 }, { n: 9 }]);
-    expect(col.getGroupingValue).toBeUndefined();
-    expect(col.filterFn).toBeUndefined();
-    expect(col.sortingFn).toBeUndefined();
+  it("leaves a column of primitives to the grid's own grouping", () => {
+    expect(column([{ n: 10 }, { n: 9 }]).getGroupingValue).toBeUndefined();
   });
 });
 
