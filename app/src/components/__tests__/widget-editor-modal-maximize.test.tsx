@@ -9,7 +9,7 @@
  */
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 
@@ -26,7 +26,9 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
-/** The dismiss handlers the modal hands its DialogContent (#1952). */
+/** The dismiss handlers the modal hands its Dialog and DialogContent (#1952).
+ *  Radix closes on Escape and on the close button by calling the Dialog's
+ *  `onOpenChange(false)`, so that one stands for both. */
 const { dismiss } = vi.hoisted(() => ({
   dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
 }));
@@ -35,31 +37,79 @@ vi.mock("@neoboard/components", () => {
   const passthrough = ({ children }: React.PropsWithChildren) => (
     <>{children}</>
   );
+  // As in Radix: the root always renders its children, and only the content
+  // goes when it closes — so a sibling of the content outlives it (#2054).
+  const OpenContext = React.createContext(false);
   return {
-    Dialog: ({ open, children }: React.PropsWithChildren<{ open: boolean }>) =>
-      open ? <div>{children}</div> : null,
+    Dialog: ({
+      open,
+      onOpenChange,
+      children,
+    }: React.PropsWithChildren<{
+      open: boolean;
+      onOpenChange?: (open: boolean) => void;
+    }>) => {
+      dismiss.onOpenChange = onOpenChange as (e?: unknown) => void;
+      return (
+        <OpenContext.Provider value={open}>{children}</OpenContext.Provider>
+      );
+    },
+    ConfirmDialog: ({
+      open,
+      onOpenChange,
+      title,
+      confirmText,
+      cancelText,
+      onConfirm,
+    }: {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      title: string;
+      confirmText: string;
+      cancelText: string;
+      onConfirm: () => void;
+    }) =>
+      open ? (
+        <div role="alertdialog" aria-label={title}>
+          <button type="button" onClick={() => onOpenChange(false)}>
+            {cancelText}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onConfirm();
+              onOpenChange(false);
+            }}
+          >
+            {confirmText}
+          </button>
+        </div>
+      ) : null,
     DialogContent: ({
       children,
       className,
       onPointerDownOutside,
       onInteractOutside,
       onFocusOutside,
+      onEscapeKeyDown,
     }: React.PropsWithChildren<{
       className?: string;
       onPointerDownOutside?: () => void;
       onInteractOutside?: () => void;
       onFocusOutside?: () => void;
+      onEscapeKeyDown?: (e: KeyboardEvent) => void;
     }>) => {
       Object.assign(dismiss, {
         onPointerDownOutside,
         onInteractOutside,
         onFocusOutside,
+        onEscapeKeyDown,
       });
-      return (
+      return React.useContext(OpenContext) ? (
         <div role="dialog" className={className}>
           {children}
         </div>
-      );
+      ) : null;
     },
     DialogHeader: ({ children }: React.PropsWithChildren) => (
       <div>{children}</div>
@@ -123,7 +173,8 @@ vi.mock("@neoboard/components", () => {
     ),
     ChartOptionsPanel: () => <div />,
     ColorScalePanel: () => <div />,
-    getDefaultChartSettings: () => ({}),
+    // Per type, so a reset to another type's defaults shows (#2054).
+    getDefaultChartSettings: (type: string) => ({ defaultsFor: type }),
   };
 });
 
@@ -424,5 +475,221 @@ describe("WidgetEditorModal — what dismisses it (#1952)", () => {
     expect(dismiss.onFocusOutside).toBeUndefined();
     dismiss.onPointerDownOutside?.();
     expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+  });
+});
+
+// #2054: Escape, a click outside, the close button and Cancel dropped every
+// edit without asking. With something changed since the editor opened they
+// ask first; with nothing changed they close at once, as before.
+describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () => {
+  const CONFIRM = "Discard unsaved changes?";
+
+  beforeEach(() => {
+    useWidgetEditorStore.getState().resetForAdd();
+  });
+
+  /** Opening settles over the next render (the chart-options reset runs
+   *  there); the editor takes what it opened with after that. */
+  async function settle() {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  }
+
+  async function openEditor(
+    props: Partial<React.ComponentProps<typeof WidgetEditorModal>> = {},
+  ) {
+    const onOpenChange = vi.fn();
+    render(
+      <WidgetEditorModal
+        open
+        onOpenChange={onOpenChange}
+        mode="add"
+        connections={[]}
+        onSave={vi.fn()}
+        {...props}
+      />,
+    );
+    await settle();
+    return onOpenChange;
+  }
+
+  const closePaths = [
+    [
+      "Escape or the close button",
+      async () => act(() => dismiss.onOpenChange?.(false)),
+    ],
+    [
+      "a pointer-down outside",
+      async () => act(() => dismiss.onPointerDownOutside?.()),
+    ],
+    [
+      "Cancel",
+      () => userEvent.click(screen.getByRole("button", { name: "Cancel" })),
+    ],
+  ] as const;
+
+  it.each(closePaths)(
+    "an unchanged editor closes at once on %s",
+    async (_path, close) => {
+      const onOpenChange = await openEditor();
+      await close();
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(closePaths)(
+    "with a changed query, %s asks first and keeps the editor open",
+    async (_path, close) => {
+      const onOpenChange = await openEditor();
+      act(() => useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n"));
+      await close();
+      expect(
+        screen.getByRole("alertdialog", { name: CONFIRM }),
+      ).toBeInTheDocument();
+      expect(onOpenChange).not.toHaveBeenCalled();
+    },
+  );
+
+  it("Discard closes the editor", async () => {
+    const onOpenChange = await openEditor();
+    act(() => useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n"));
+    await act(async () => dismiss.onOpenChange?.(false));
+
+    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("Keep editing returns to the editor with the edits intact", async () => {
+    const onOpenChange = await openEditor();
+    act(() => useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n"));
+    await act(async () => dismiss.onOpenChange?.(false));
+
+    await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(useWidgetEditorStore.getState().query).toBe("MATCH (n) RETURN n");
+  });
+
+  it("an Edit Widget left as it opened closes without asking", async () => {
+    const onOpenChange = await openEditor({
+      mode: "edit",
+      widget: {
+        id: "w-2054",
+        chartType: "table",
+        connectionId: "c1",
+        query: "MATCH (m:Movie) RETURN m.title AS title",
+        settings: { title: "Movies", chartOptions: { pageSize: 20 } },
+      },
+    });
+    await act(async () => dismiss.onOpenChange?.(false));
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("the chart-options reset that opening runs is not an edit", async () => {
+    // The last editor left a bar chart in the store; Create Template opens on
+    // a table, and the chart-type effect rewrites the options on the way.
+    useWidgetEditorStore.getState().setChartType("bar");
+    const onOpenChange = await openEditor({ mode: "lab-create" });
+    await act(async () => dismiss.onOpenChange?.(false));
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  it("an edit in the rules step counts, and Keep editing stays on that step", async () => {
+    const onOpenChange = await openEditor();
+    act(() => {
+      const s = useWidgetEditorStore.getState();
+      s.setDialogStep("rules");
+      s.setActionRules([
+        {
+          id: "r1",
+          type: "set-parameter",
+          parameterMapping: { parameterName: "movie", sourceField: "title" },
+        },
+      ]);
+    });
+    await act(async () => dismiss.onOpenChange?.(false));
+    expect(
+      screen.getByRole("alertdialog", { name: CONFIRM }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(useWidgetEditorStore.getState().dialogStep).toBe("rules");
+    expect(useWidgetEditorStore.getState().actionRules).toHaveLength(1);
+  });
+
+  // Radix hears Escape on the document before an inner widget does, so an
+  // open suggestion list (CreatableCombobox: the rules step's Parameter Name,
+  // a styling or transform value) lost the key to the editor. The E2E in
+  // widgets.spec.ts shows it end to end; this pins who keeps the key.
+  it.each([
+    ["an open suggestion list keeps it", "combobox", "true", true],
+    ["a closed combobox passes it on", "combobox", "false", false],
+    ["an expanded accordion header passes it on", "button", "true", false],
+  ] as const)("Escape from %s", async (_what, role, expanded, kept) => {
+    await openEditor();
+    const el = document.createElement(role === "combobox" ? "input" : "button");
+    el.setAttribute("role", role);
+    el.setAttribute("aria-expanded", expanded);
+    document.body.appendChild(el);
+    el.addEventListener("keydown", (e) => dismiss.onEscapeKeyDown?.(e));
+    const escape = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+
+    el.dispatchEvent(escape);
+
+    expect(escape.defaultPrevented).toBe(kept);
+    el.remove();
+  });
+
+  it("a save that closes the editor takes the confirmation with it", async () => {
+    const props = {
+      onOpenChange: vi.fn(),
+      mode: "add" as const,
+      connections: [],
+      onSave: vi.fn(),
+    };
+    const { rerender } = render(<WidgetEditorModal open {...props} />);
+    await settle();
+    act(() => useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n"));
+    await act(async () => dismiss.onOpenChange?.(false));
+    expect(
+      screen.getByRole("alertdialog", { name: CONFIRM }),
+    ).toBeInTheDocument();
+
+    // Run-and-save's shortcut, or a save already under way, still lands.
+    await userEvent.click(screen.getByRole("button", { name: "Add Widget" }));
+    expect(props.onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    rerender(<WidgetEditorModal open={false} {...props} />);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+    rerender(<WidgetEditorModal open {...props} />);
+    await settle();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("Keep editing hands focus back to where it was", async () => {
+    await openEditor();
+    const expand = screen.getByRole("button", { name: /expand editor/i });
+    act(() => {
+      useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n");
+      expand.focus();
+    });
+    await act(async () => dismiss.onOpenChange?.(false));
+
+    await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+    await waitFor(() => expect(expand).toHaveFocus());
   });
 });

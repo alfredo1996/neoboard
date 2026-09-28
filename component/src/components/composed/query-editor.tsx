@@ -209,6 +209,26 @@ function QueryEditor({
   // the compartment synchronously (no extra async import tick).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM EditorState
   const editorStateRef = React.useRef<any>(null);
+  // CodeMirror's closeCompletion command: true when it closed an open list.
+  const closeCompletionRef = React.useRef<
+    ((view: CMEditorView) => boolean) | null
+  >(null);
+
+  // Escape on an open completion list closes the list and nothing else
+  // (#2054). A dialog around the editor hears Escape before CodeMirror's
+  // keymap does — Radix listens on the document in the capture phase — and
+  // closed itself instead. The window's capture phase runs earlier still.
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const view = viewRef.current;
+      if (e.key !== "Escape" || !view?.dom.contains(e.target as Node)) return;
+      if (!closeCompletionRef.current?.(view)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
 
   // -------------------------------------------------------------------------
   // Cleanup helper
@@ -243,14 +263,20 @@ function QueryEditor({
         containerRef.current.removeChild(containerRef.current.firstChild);
       }
 
-      const [{ EditorView }, { EditorState, Compartment }] = await Promise.all([
+      const [
+        { EditorView },
+        { EditorState, Compartment },
+        { closeCompletion },
+      ] = await Promise.all([
         import("@codemirror/view"),
         import("@codemirror/state"),
+        import("@codemirror/autocomplete"),
       ]);
 
       if (abortSignal.aborted) return;
 
       editorStateRef.current = EditorState;
+      closeCompletionRef.current = closeCompletion;
 
       const langCompartment = new Compartment();
       const readOnlyCompartment = new Compartment();

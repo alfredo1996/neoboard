@@ -1055,7 +1055,10 @@ describe("DashboardWorkspace", () => {
     expect(screen.getByTestId("widget-editor-modal")).toBeInTheDocument();
   });
 
-  it("Escape closes the widget editor", async () => {
+  // #2054: the editor decides what Escape does — with unsaved edits it asks
+  // first. A workspace shortcut that closed it on the same key went around
+  // that question.
+  it("leaves Escape to the widget editor", async () => {
     pathname = "/d1/edit";
     render(<DashboardWorkspace id="d1" editMode={true} />);
     await userEvent.click(screen.getByText("Add Widget"));
@@ -1063,7 +1066,21 @@ describe("DashboardWorkspace", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
 
-    expect(screen.queryByTestId("widget-editor-modal")).toBeNull();
+    expect(screen.getByTestId("widget-editor-modal")).toBeInTheDocument();
+  });
+
+  // #2054: leaving edit mode unmounts the editor and its unsaved edits with
+  // it, without the editor's question. Focus on a button in the editor does
+  // not hold the shortcut back the way a text field does.
+  it("Cmd+E leaves edit mode alone while the widget editor is open", async () => {
+    pathname = "/d1/edit";
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    await userEvent.click(screen.getByText("Add Widget"));
+
+    fireEvent.keyDown(document, { key: "e", metaKey: true });
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.getByTestId("widget-editor-modal")).toBeInTheDocument();
   });
 
   // ── Widget actions are wired only in edit mode ───────────────────────

@@ -627,7 +627,9 @@ export function DashboardWorkspace({
         if (editMode) leaveEditMode();
         else if (dashboard) enterEditMode();
       },
-      disabled: !editMode && !canEdit,
+      // Not under the widget editor: leaving edit mode unmounts it and drops
+      // its unsaved edits without its question (#2054).
+      disabled: (!editMode && !canEdit) || editorOpen,
     },
     {
       shortcut: "Cmd+S",
@@ -641,11 +643,8 @@ export function DashboardWorkspace({
       handler: openAddWidget,
       disabled: !editMode || editorOpen,
     },
-    {
-      shortcut: "Escape",
-      handler: () => setEditorOpen(false),
-      disabled: !editorOpen,
-    },
+    // No Escape here: the widget editor handles its own, and asks before
+    // dropping unsaved edits (#2054).
   ]);
 
   // ── Render ──────────────────────────────────────────────────────────

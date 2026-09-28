@@ -622,3 +622,166 @@ test.describe("Edit Widget on an API-written layout (#1952)", () => {
     }
   });
 });
+
+// #2054: Escape, a click outside, the close button and Cancel closed the
+// editor and dropped everything typed, without asking. With edits since it
+// opened, the editor now asks first.
+test.describe("Unsaved edits in the widget editor (#2054)", () => {
+  let dashboardCleanup: (() => Promise<void>) | undefined;
+  let dashboardId = "";
+
+  test.beforeEach(async ({ authPage, page }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Unsaved edits ${Date.now()}`,
+    );
+    dashboardCleanup = cleanup;
+    dashboardId = id;
+    await page.goto(`/${id}/edit`);
+    await expect(
+      page.getByRole("heading", { name: /^Editing:/ }),
+    ).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await dashboardCleanup?.();
+  });
+
+  test("Escape asks first: Keep editing keeps the query, Discard adds nothing", async ({
+    page,
+  }) => {
+    const query = "MATCH (m:Movie) RETURN m.title AS title LIMIT 3";
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+    await typeInEditor(dialog, page, query);
+    // typeInEditor writes through the CodeMirror API; Escape comes from
+    // inside the editor, as it does when someone has been typing.
+    await dialog.locator(".cm-content").click();
+
+    const confirm = page.getByRole("alertdialog", {
+      name: "Discard unsaved changes?",
+    });
+    await page.keyboard.press("Escape");
+    await expect(confirm).toBeVisible();
+    await expect(dialog).toBeVisible();
+
+    await confirm.getByRole("button", { name: "Keep editing" }).click();
+    await expect(confirm).toBeHidden();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator(".cm-content")).toHaveText(query);
+    // Back where the Escape came from, so typing carries on there.
+    await expect(dialog.locator(".cm-content")).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await confirm.getByRole("button", { name: "Discard" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText("No widgets yet")).toBeVisible();
+    await expect(page.locator("[data-testid='widget-card']")).toHaveCount(0);
+  });
+
+  test("an unchanged editor still closes at once on Escape", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await expect(dialog).toBeVisible();
+    // Let opening settle: what the editor opened with is taken after it.
+    await expect(
+      dialog.locator("[data-testid='codemirror-container']"),
+    ).toHaveAttribute("data-editor-ready", "true", { timeout: 10_000 });
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await expect(page.getByText("No widgets yet")).toBeVisible();
+  });
+
+  test("Escape on an open select closes only the select", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+    await typeInEditor(dialog, page, "MATCH (n) RETURN n LIMIT 1");
+
+    await dialog.getByRole("combobox").nth(1).click();
+    const listbox = page.getByRole("listbox");
+    await expect(listbox).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(listbox).toBeHidden();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+
+    // The next Escape is the editor's, and there are edits to ask about.
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("alertdialog", { name: "Discard unsaved changes?" }),
+    ).toBeVisible();
+  });
+
+  // Radix hears Escape on the document before the suggestion list does, so
+  // the rules step's Parameter Name lost it to the editor.
+  test("Escape on an open suggestion list closes only the list", async ({
+    page,
+  }) => {
+    // A widget reading $param_movie gives the dashboard a parameter to suggest.
+    const seeded = await page.request.put(`/api/dashboards/${dashboardId}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "page-2054",
+              title: "Main",
+              widgets: [
+                {
+                  id: "w-2054",
+                  chartType: "table",
+                  connectionId: "conn-neo4j-001",
+                  query:
+                    "MATCH (m:Movie) WHERE m.title = $param_movie RETURN m.title AS title",
+                  settings: { title: "By movie" },
+                },
+              ],
+              gridLayout: [{ i: "w-2054", x: 0, y: 0, w: 6, h: 4 }],
+            },
+          ],
+        },
+      },
+    });
+    expect(seeded.ok()).toBe(true);
+    await page.reload();
+    // Edit Widget: Add Widget's reset wipes the suggestions (found in passing).
+    const card = page
+      .locator("[data-testid='widget-card']")
+      .filter({ hasText: "By movie" });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.hover();
+    await card.getByRole("button", { name: "Widget actions" }).click();
+    await page.getByRole("menuitem", { name: "Edit Widget" }).click();
+    const dialog = page.getByRole("dialog", { name: "Edit Widget" });
+    await dialog.getByRole("tab", { name: "Advanced" }).click();
+    await dialog.getByLabel("Enable click action").click();
+    await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
+    const rules = page.getByRole("dialog", { name: "Action Rules" });
+    await rules.getByRole("button", { name: "Add Rule" }).click();
+
+    await rules.getByPlaceholder("param_name").click();
+    const suggestions = rules.getByRole("listbox");
+    await expect(
+      suggestions.getByRole("option", { name: "movie" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(suggestions).toBeHidden();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await expect(rules).toBeVisible();
+
+    // The next Escape is the editor's, and a rule was added.
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("alertdialog", { name: "Discard unsaved changes?" }),
+    ).toBeVisible();
+  });
+});

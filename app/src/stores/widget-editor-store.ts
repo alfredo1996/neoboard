@@ -16,6 +16,7 @@ import {
 } from "@/lib/plugin/chart-helpers";
 import { migrateColorThresholds } from "@/lib/dashboard/migrate-color-thresholds";
 import type { Transform } from "@/lib/query/data-transforms";
+import { stableStringify } from "@/lib/stable-stringify";
 
 // ParamUIType/DateSubType are string unions — define locally to avoid importing
 // the React component file (which pulls in @neoboard/components UI barrel).
@@ -238,6 +239,31 @@ function buildLegacyClickAction(
   }
   if (clickableColumns?.length) action.clickableColumns = clickableColumns;
   return action;
+}
+
+/** State the editor derives or shows rather than something the user edited. */
+const NOT_EDITS = new Set([
+  "availableFields",
+  "parameterSuggestions",
+  "queryHistory", // written by the save itself
+  "dialogStep",
+  "connectorChanged",
+]);
+
+/**
+ * Everything the user can edit, as one string: equal strings, equal edits.
+ * The editor compares it with what it opened with to decide whether closing
+ * drops unsaved work (#2054). Every field counts unless listed above, so a
+ * field added later is covered from birth.
+ */
+export function editorSnapshot(s: WidgetEditorState): string {
+  return stableStringify(
+    Object.fromEntries(
+      Object.entries(s).filter(
+        ([k, v]) => typeof v !== "function" && !NOT_EDITS.has(k),
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
