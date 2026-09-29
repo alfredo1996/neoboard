@@ -495,7 +495,7 @@ export function DashboardContainer({
         // Chart"): an untitled widget is "this widget".
         title={removeWidgetDialogTitle(
           interpolateTitle(
-            String(removeTarget?.widget.settings?.title ?? ""),
+            (removeTarget?.widget.settings?.title as string | undefined) ?? "",
             parameters,
           ),
         )}
