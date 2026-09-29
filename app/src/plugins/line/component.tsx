@@ -82,7 +82,5 @@ export const linePlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return 2+ columns: first = x-axis label, rest = numeric series.\n" +
-    "Example: RETURN month, revenue, expenses",
+  queryHint: "Return 2+ columns: first = x-axis label, rest = numeric series.",
 });

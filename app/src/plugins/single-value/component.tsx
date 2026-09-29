@@ -124,7 +124,5 @@ export const singleValuePlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return 1 column with a scalar value (number or string).\n" +
-    "Example: RETURN count(*) AS total",
+  queryHint: "Return 1 column with a scalar value (number or string).",
 });

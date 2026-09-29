@@ -66,5 +66,5 @@ export const sunburstPlugin = defineChartPlugin({
   },
   queryHint:
     "Return hierarchical data — either pre-nested with children, or flat rows\n" +
-    "with name/parent/value columns. Example: RETURN name, parent, value",
+    "with name/parent/value columns.",
 });

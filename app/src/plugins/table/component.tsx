@@ -65,6 +65,5 @@ export const tablePlugin = defineChartPlugin({
     requiresQuery: true,
   },
   queryHint:
-    "Return any tabular data — each column becomes a sortable grid column.\n" +
-    "Example: RETURN name, created_at, status FROM users",
+    "Return any tabular data — each column becomes a sortable grid column.",
 });

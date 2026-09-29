@@ -67,6 +67,5 @@ export const piePlugin = defineChartPlugin({
     requiresQuery: true,
   },
   queryHint:
-    "Return 2 columns: first = slice label (string), second = numeric value.\n" +
-    "Example: RETURN category, count(*) AS total",
+    "Return 2 columns: first = slice label (string), second = numeric value.",
 });

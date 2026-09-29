@@ -63,6 +63,5 @@ export const gaugePlugin = defineChartPlugin({
     requiresQuery: true,
   },
   queryHint:
-    "Return 1-2 columns: first = numeric value, optional second = name/label.\n" +
-    "Example: RETURN progress AS value, 'Completion' AS name",
+    "Return 1-2 columns: first = numeric value, optional second = name/label.",
 });

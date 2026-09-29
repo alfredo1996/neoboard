@@ -62,6 +62,5 @@ export const ganttPlugin = defineChartPlugin({
     requiresQuery: true,
   },
   queryHint:
-    "Return columns: task name, start date, end date. Optional: category/status, progress (0-1).\n" +
-    "Example: SELECT task_name, start_date, end_date, status FROM projects",
+    "Return columns: task name, start date, end date. Optional: category/status, progress (0-1).",
 });

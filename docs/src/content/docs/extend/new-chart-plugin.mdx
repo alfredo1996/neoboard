@@ -45,7 +45,7 @@ export const myChartPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint: "Return label and value columns.\nExample: RETURN name, count",
+  queryHint: "Return 2 columns: first = label (string), second = numeric value.",
   options: [
     {
       key: "showLegend",
@@ -313,7 +313,7 @@ export const heatmapPlugin = defineChartPlugin({
   component: HeatmapPlugin,
   transform: (rows) => rows,
   capabilities: { supportsClickAction: true, isECharts: true, requiresQuery: true, supportsStyling: false },
-  queryHint: "Return 3 columns: x, y, value.\nExample: RETURN day, hour, count",
+  queryHint: "Return 3 columns: x-axis label, y-axis label, numeric value.",
   options: [
     { key: "xField", label: "X Field", type: "text", default: "", category: "Data" },
     { key: "yField", label: "Y Field", type: "text", default: "", category: "Data" },

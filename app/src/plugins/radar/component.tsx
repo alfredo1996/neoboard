@@ -62,5 +62,5 @@ export const radarPlugin = defineChartPlugin({
   },
   queryHint:
     "Return either long-format (indicator, value, [series], [max]) or\n" +
-    "wide-format (one column per indicator). Example: RETURN axis, score, series",
+    "wide-format (one column per indicator).",
 });

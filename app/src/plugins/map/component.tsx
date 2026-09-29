@@ -82,6 +82,5 @@ export const mapPlugin = defineChartPlugin({
     requiresQuery: true,
   },
   queryHint:
-    "Return columns with latitude and longitude (names matching lat/lng/lon).\n" +
-    "Example: RETURN name, latitude, longitude",
+    "Return columns with latitude and longitude (names matching lat/lng/lon).",
 });
