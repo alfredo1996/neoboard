@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { toConnectorError } from "@neoboard/connection";
+import { toConnectorError, type ConnectorError } from "@neoboard/connection";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 import {
@@ -313,6 +313,115 @@ describe("POST /api/query/write", () => {
     const body = await res.json();
     expect(body.error.message).toBe("Write query execution failed");
     expect(body.error.message).not.toMatch(/syntax error/i);
+  });
+
+  it("answers a statement fault 422 QUERY_ERROR, still with only the fallback message (#2053)", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDashboardAndConnection();
+    mockDecryptJson.mockReturnValue({
+      uri: "postgresql://localhost",
+      username: "neoboard",
+      password: "pass",
+    });
+    mockExecuteQuery.mockRejectedValue(
+      toConnectorError(
+        "postgresql",
+        Object.assign(new Error('syntax error at or near "hunter2"'), {
+          code: "42601",
+        }),
+      ),
+    );
+
+    const res = await POST(
+      makeRequest({
+        connectionId: "c1",
+        query: "THIS IS NOT VALID SQL",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+    );
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toEqual({
+      code: "QUERY_ERROR",
+      message: "Write query execution failed",
+    });
+  });
+
+  // #2053: the route's own record follows its response. A 4xx is the
+  // caller's to fix: a warn with no stack and no message, which the query's
+  // own query_failed record carries under the same requestId.
+  describe("logs write_query_failed at the level of its response (#2053)", () => {
+    async function failWith(error: unknown) {
+      mockRequireSession.mockResolvedValue(writerSession);
+      mockDashboardAndConnection();
+      mockDecryptJson.mockReturnValue({ uri: "fixturedb://localhost" });
+      mockExecuteQuery.mockRejectedValue(error);
+      // The route's own logger, from the module graph beforeEach imported.
+      const { apiLogger } = await import("@/lib/logger");
+      const warn = vi
+        .spyOn(apiLogger, "warn")
+        .mockReturnValue(undefined as never);
+      const logError = vi
+        .spyOn(apiLogger, "error")
+        .mockReturnValue(undefined as never);
+      const res = await POST(
+        makeRequest(
+          {
+            connectionId: "c1",
+            query: "INSERT INTO t (a) VALUES ($param_a)",
+            widgetId: "w1",
+            dashboardId: "d1",
+          },
+          { headers: { "x-request-id": "req-2053" } },
+        ),
+      );
+      const records = (spy: typeof warn) =>
+        spy.mock.calls.filter(([, msg]) => msg === "write_query_failed");
+      return { res, warned: records(warn), errored: records(logError) };
+    }
+
+    it.each([
+      ["a statement fault", "42601", 422],
+      ["a NOT NULL violation (#1409)", "23502", 400],
+      ["a unique violation (#1409)", "23505", 409],
+      ["a blocked write", "25006", 403],
+    ])("%s (%s) is a warn with no stack", async (_label, code, status) => {
+      const fault = toConnectorError(
+        "postgresql",
+        Object.assign(new Error('value "hunter2" failed'), { code }),
+      );
+      const { res, warned, errored } = await failWith(fault);
+
+      expect(res.status).toBe(status);
+      // A form's typo is the caller's: it must not page an operator.
+      expect(errored).toHaveLength(0);
+      expect(warned).toEqual([
+        [
+          {
+            event: "write_query_failed",
+            requestId: "req-2053",
+            status,
+            classification: (fault as ConnectorError).classification,
+          },
+          "write_query_failed",
+        ],
+      ]);
+    });
+
+    it("a 5xx is still an error, with the Error for its stack", async () => {
+      const fault = new Error("the metadata database went away");
+      const { res, warned, errored } = await failWith(fault);
+
+      expect(res.status).toBe(500);
+      expect(warned).toHaveLength(0);
+      expect(errored).toEqual([
+        [
+          { event: "write_query_failed", requestId: "req-2053", err: fault },
+          "write_query_failed",
+        ],
+      ]);
+    });
   });
 
   it("surfaces a specific reason for a NOT NULL violation without leaking row data (#1162)", async () => {

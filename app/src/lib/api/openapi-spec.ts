@@ -106,6 +106,7 @@ const R = {
   timeout: { $ref: "#/components/responses/RequestTimeout" },
   busy: { $ref: "#/components/responses/ServiceUnavailable" },
   connectorDown: { $ref: "#/components/responses/ConnectorUnavailable" },
+  queryError: { $ref: "#/components/responses/QueryError" },
 } as const;
 
 /** A new password, as every route that sets one validates it (newPasswordSchema). */
@@ -695,7 +696,8 @@ const SPEC = {
         description:
           "Executes a read-only query against a connected database. Results are capped at the connection's `maxRows`, " +
           `else ${DEFAULT_MAX_ROWS} rows; a request's \`rowLimit\` can only lower that. \`meta.rowLimit\` is the cap applied. ` +
-          "A write that read-only execution stopped answers 500 with `error.details.blockedWrite: true`.\n\n" +
+          "A query the connector judges at fault, such as a syntax error or a missing column, answers 422 `QUERY_ERROR` with the driver's message. " +
+          "A write that read-only execution stopped carries `error.details.blockedWrite: true` on that 422, whatever the connector.\n\n" +
           "**Who may run what.** An admin, the connection's owner, or anyone in the tenant when the connection is shared, runs any query on it. " +
           "Anyone else needs a dashboard that uses the connection. Edit access (the dashboard's owner or an editor share) runs any query, " +
           "while the caller may write and the dashboard's owner can use the connection. View access (a viewer share, a public dashboard, " +
@@ -718,6 +720,7 @@ const SPEC = {
           404: R.notFound,
           408: R.timeout,
           413: R.tooLarge,
+          422: R.queryError,
           500: R.serverError,
           502: R.connectorDown,
           503: R.busy,
@@ -737,6 +740,7 @@ const SPEC = {
           "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
           "foreign-key, check, exclusion, length, format or date/time violation, or a graph constraint violation, answers 400 (a NOT NULL violation names its column in " +
           "`error.details.column`), a unique violation 409, and a read-only connection 403. " +
+          "A statement the connector judges at fault answers 422 `QUERY_ERROR` with only the fallback message, since the driver's would echo the submitted values. " +
           `The rows a write returns are capped like a read's, at the connection's \`maxRows\` or ${DEFAULT_MAX_ROWS}, and \`meta.truncated\` is present, and true, when there were more; the write itself is never cut short.\n\n` +
           "A write always runs at scheduler priority 1; `x-query-priority` is not read. " +
           "A 408 from the queue (`Retry-After: 5`) means the write never started. " +
@@ -759,6 +763,7 @@ const SPEC = {
             $ref: "#/components/schemas/ErrorResponse",
           }),
           413: R.tooLarge,
+          422: R.queryError,
           500: R.serverError,
           502: R.connectorDown,
           503: R.busy,
@@ -1222,6 +1227,14 @@ const SPEC = {
         ),
         headers: { "Retry-After": RETRY_AFTER },
       },
+      QueryError: bodyResponse(
+        "The connector judged the caller's statement itself at fault (`QUERY_ERROR`): a syntax error, a missing column " +
+          "or table, a value of the wrong type; on `/api/query`, a write that read-only execution stopped, with " +
+          "`error.details.blockedWrite: true`. `error.message` is the driver's message, sanitized, except on " +
+          "`/api/query/write`, which answers its fallback message. Retrying fails the same way, so there is no " +
+          "`Retry-After`. An error the connector does not recognise answers 500 instead.",
+        { $ref: "#/components/schemas/ErrorResponse" },
+      ),
       ConnectorUnavailable: bodyResponse(
         "The connector cannot use the connection: `error.details.reason` is `network` (the host cannot be reached: a refused " +
           "port, an unresolved name, an unroutable or timed-out host) or `auth_failed` (the database refused the credentials). " +

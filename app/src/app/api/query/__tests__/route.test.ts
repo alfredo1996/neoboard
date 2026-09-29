@@ -5,6 +5,7 @@ import {
   sqlColumns,
   sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
+import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -293,6 +294,37 @@ describe("POST /api/query", () => {
     // the raw error is logged but never surfaced (avoids leaking schema).
     expect(body.error.code).toBe("INTERNAL_ERROR");
     expect(body.error.message).toBe("Driver error");
+  });
+
+  it("answers the caller's statement at fault 422 QUERY_ERROR with the driver's message (#2053)", async () => {
+    mockRequireSession.mockResolvedValue(defaultSession);
+    mockDb.select.mockReturnValue(
+      drizzleSelectChain([
+        {
+          id: "c1",
+          type: "fixturedb",
+          configEncrypted: "enc",
+          userId: "user-1",
+        },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "fixturedb://localhost" });
+    mockExecuteQuery.mockRejectedValue(
+      new ConnectorError('column "category" does not exist', {
+        type: ConnectorErrorType.QUERY,
+        transient: false,
+        statementFault: true,
+      }),
+    );
+
+    const res = await POST(
+      makeRequest({ connectionId: "c1", query: "SELECT category FROM t" }),
+    );
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toEqual({
+      code: "QUERY_ERROR",
+      message: 'column "category" does not exist',
+    });
   });
 
   // --- Access fallback tests ---

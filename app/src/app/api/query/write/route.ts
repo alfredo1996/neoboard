@@ -25,6 +25,7 @@ import {
 import { apiError, apiSuccess } from "@/lib/api/api-response";
 import { getConnector } from "@neoboard/connection";
 import { describeWriteError } from "@/lib/api/db-error-message";
+import { classificationOf } from "@/lib/connector/connection-error-classifier";
 import { logRoute } from "@/lib/api/log-route";
 import { apiLogger } from "@/lib/logger";
 
@@ -56,11 +57,47 @@ function formParams(
   );
 }
 
+/**
+ * The route's own record of a failed write, at the level of its response
+ * (#2053). A 4xx is the caller's to fix — a statement fault, a constraint
+ * (#1409) — so it is a warn with the classification alone: no stack, and no
+ * message, which would echo the submitted values. The query's own
+ * `query_failed` record, under the same requestId, carries the driver's error.
+ * A 5xx keeps the Error itself, so the logger's error policy — the fields it
+ * keeps (#1934), the values LOG_ANONYMIZE scrubs (#1949) — applies.
+ */
+function logWriteFailure(
+  error: unknown,
+  status: number,
+  requestId: string | undefined,
+): void {
+  if (status >= 500) {
+    apiLogger.error(
+      {
+        event: "write_query_failed",
+        requestId,
+        err: error instanceof Error ? error : String(error),
+      },
+      "write_query_failed",
+    );
+    return;
+  }
+  apiLogger.warn(
+    {
+      event: "write_query_failed",
+      requestId,
+      status,
+      classification: classificationOf(error),
+    },
+    "write_query_failed",
+  );
+}
+
 async function handleWriteQuery(request: Request): Promise<Response> {
+  const requestId = request.headers.get("x-request-id") ?? undefined;
   try {
     const { userId, canWrite, tenantId, role } = await requireSession();
 
-    const requestId = request.headers.get("x-request-id") ?? undefined;
     const body = await readJsonBody(request);
     const validation = validateBody(writeQuerySchema, body);
     if (!validation.success) return validation.response;
@@ -199,15 +236,6 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     // A body the route could not use is the caller's mistake, not a failed
     // write: answer it without an error-level log (#1963).
     if (error instanceof RequestBodyError) return handleRouteError(error);
-    apiLogger.error(
-      {
-        event: "write_query_failed",
-        // The Error itself, so the logger's error policy — the fields it
-        // keeps (#1934), the values LOG_ANONYMIZE scrubs (#1949) — applies.
-        err: error instanceof Error ? error : String(error),
-      },
-      "write_query_failed",
-    );
     // safeMessage: write queries echo user SQL in driver errors — never leak.
     // But surface a specific, sanitized reason (constraint/column) when we can
     // recognise the driver error, so form users see "The field X is required"
@@ -215,15 +243,19 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     // Recognised errors are the user's to fix, so they answer 4xx, with the
     // blank column attached for the form to put on its field (#1409).
     const described = describeWriteError(error);
+    let response: ReturnType<typeof apiError>;
     if (described) {
-      return apiError(
-        described.code,
-        described.message,
-        described.column ? { column: described.column } : undefined,
-      );
+      const details = described.column
+        ? { column: described.column }
+        : undefined;
+      response = apiError(described.code, described.message, details);
+    } else {
+      response = await handleRouteError(error, "Write query execution failed", {
+        safeMessage: true,
+        callerStatement: true,
+      });
     }
-    return handleRouteError(error, "Write query execution failed", {
-      safeMessage: true,
-    });
+    logWriteFailure(error, response.status, requestId);
+    return response;
   }
 }

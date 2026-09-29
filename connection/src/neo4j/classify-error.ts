@@ -44,7 +44,8 @@ export const classifyNeo4jError = createErrorClassifier({
       ],
       type: TIMEOUT,
     },
-    { ...STATEMENT_FAULT, type: QUERY },
+    // The caller's 422, not a 500 (#2053).
+    { ...STATEMENT_FAULT, type: QUERY, statementFault: true },
     // No server code: the driver, the socket, or a message on its own. A bad
     // URI is read before a network failure because it usually causes one; bad
     // credentials before it because they are the first thing to fix.

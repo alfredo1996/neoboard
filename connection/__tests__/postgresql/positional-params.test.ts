@@ -99,9 +99,12 @@ describe("toPositionalParams", () => {
       thrown = e;
     }
     expect(thrown).toBeInstanceOf(ConnectorError);
+    // A statement fault (#2053): answered 422, as the graph connector's
+    // ParameterMissing is, not 500.
     expect(wrapError(thrown, classifyPostgresError).classification).toEqual({
       type: ConnectorErrorType.QUERY,
       transient: false,
+      statementFault: true,
     });
   });
 

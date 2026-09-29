@@ -417,6 +417,8 @@ describe("PostgreSQL Query Execution", () => {
       expect(error.classification).toMatchObject({
         type: "READ_ONLY_VIOLATION",
         blockedWrite: true,
+        // The caller's 422 on every connector (#2053).
+        statementFault: true,
       });
     });
 

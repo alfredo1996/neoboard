@@ -427,6 +427,35 @@ describe("the query operations document what their routes send (#1966)", () => {
     },
   );
 
+  it.each(ops)(
+    "%s documents a statement fault as 422 QUERY_ERROR, not retried (#2053)",
+    (_p, op) => {
+      const unprocessable = response(op.responses["422"]);
+      expect(unprocessable.headers).toBeUndefined();
+      expect(unprocessable.description).toContain("QUERY_ERROR");
+      // An error the connector did not recognise is still the server's.
+      expect(unprocessable.description).toMatch(/500/);
+    },
+  );
+
+  it("says the write's 422 carries only its fallback message", () => {
+    expect(write.description).toMatch(/422[^.]*fallback/);
+    // The response object is what a client generator reads, not the prose.
+    expect(response(write.responses["422"]).description).toMatch(/fallback/);
+  });
+
+  it("says a blocked write answers 422 on every connector, never a 500", () => {
+    expect(read.description).toMatch(/blockedWrite[^.]*422/);
+    expect(read.description).not.toMatch(/blockedWrite[^.]*500/);
+    expect(response(read.responses["422"]).description).toContain(
+      "blockedWrite",
+    );
+  });
+
+  it("claims no 422 for an unknown label: that is a notification, not an error", () => {
+    expect(response(read.responses["422"]).description).not.toMatch(/label/);
+  });
+
   it("states how long a dead connection is answered without dialling", () => {
     expect(response(read.responses["502"]).description).toContain(
       `${DEAD_CONNECTOR_TTL_MS / 1000} seconds`,
@@ -730,6 +759,8 @@ describe("#1981 payloads: connections-test-schema", () => {
       expect(schema.responses).toHaveProperty(status);
     }
     expect(schema.responses).not.toHaveProperty("403");
+    // Introspection runs the connector's statement, never the caller's (#2053).
+    expect(schema.responses).not.toHaveProperty("422");
     expect(schema.description).toMatch(/no longer installed/);
   });
 
