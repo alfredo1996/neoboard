@@ -34,13 +34,16 @@ export function checkDockerRunning(): CheckResult {
   };
 }
 
-export function checkDockerComposeV2(): CheckResult {
+export function checkDockerCompose(): CheckResult {
   const out = runOrNull("docker compose version");
-  const ok = out !== null && out.includes("v2");
+  // Compose went from v2.40 straight to v5 (#2092): accept major version 2 and up.
+  const ok = Number(/(\d+)\.\d+/.exec(out ?? "")?.[1]) >= 2;
   return {
-    name: "Docker Compose v2",
+    name: "Docker Compose",
     status: ok ? "ok" : "fail",
-    message: ok ? "Docker Compose v2 available" : "Docker Compose v2 not found",
+    message: ok
+      ? "Docker Compose available"
+      : "Docker Compose 2 or later not found",
   };
 }
 
@@ -197,7 +200,7 @@ export async function runDoctor(
 
   // Docker checks are warnings (not failures) in local mode
   const dockerCheck = checkDockerRunning();
-  const composeCheck = checkDockerComposeV2();
+  const composeCheck = checkDockerCompose();
   if (mode === "local") {
     if (dockerCheck.status === "fail") dockerCheck.status = "warn";
     if (composeCheck.status === "fail") composeCheck.status = "warn";

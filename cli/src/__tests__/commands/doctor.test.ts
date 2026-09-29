@@ -58,7 +58,7 @@ import { getMode, readProjectConfig } from "../../lib/config.js";
 import {
   checkCredentialDecryption,
   checkDockerRunning,
-  checkDockerComposeV2,
+  checkDockerCompose,
   checkNodeVersion,
   checkPortAvailable,
   checkNodeModulesExist,
@@ -91,15 +91,18 @@ describe("checkDockerRunning", () => {
   });
 });
 
-describe("checkDockerComposeV2", () => {
-  it("returns ok for v2", () => {
-    mockRunOrNull.mockReturnValue("Docker Compose version v2.24.0");
-    expect(checkDockerComposeV2().status).toBe("ok");
-  });
-
-  it("returns fail when not available", () => {
-    mockRunOrNull.mockReturnValue(null);
-    expect(checkDockerComposeV2().status).toBe("fail");
+// Compose went from v2.40 straight to v5 (#2092): any major >= 2 passes.
+describe("checkDockerCompose", () => {
+  it.each([
+    ["Docker Compose version v5.5.1", "ok"],
+    ["Docker Compose version v2.24.0", "ok"],
+    ["Docker Compose version 2.29.1", "ok"],
+    ["Docker Compose version v1.29.2", "fail"],
+    ["Docker Compose version dev", "fail"],
+    [null, "fail"],
+  ])("%s -> %s", (out, status) => {
+    mockRunOrNull.mockReturnValue(out);
+    expect(checkDockerCompose().status).toBe(status);
   });
 });
 
@@ -408,6 +411,13 @@ describe("runDoctor preflight (#2057)", () => {
     const check = byName(await runDoctor(), "Port 7687 (Neo4j Bolt)");
     expect(check?.status).toBe("warn");
     expect(check?.message).toContain("ports.neo4j_bolt 7688");
+  });
+
+  it("passes Docker Compose v5 in Docker mode, so start goes on to Compose (#2092)", async () => {
+    mockRunOrNull.mockReturnValue("Docker Compose version v5.5.1");
+    const results = await runDoctor({ preflight: { full: true } });
+    expect(byName(results, "Docker Compose")?.status).toBe("ok");
+    expect(results.some((r) => r.status === "fail")).toBe(false);
   });
 
   it("leaves local mode alone: the busy ports there are the user's own databases", async () => {
