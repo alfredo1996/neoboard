@@ -308,6 +308,28 @@ describe("FormFieldsEditor", () => {
     expect(remaining[0].id).toBe("f2");
   });
 
+  // The options query runs on every connector, so its placeholder names the
+  // columns in words, not one language's query (#2066).
+  it("the options query placeholder describes the columns with no query", () => {
+    mockFormFields = [
+      {
+        id: "f1",
+        label: "Category",
+        parameterName: "category",
+        parameterType: "select",
+        required: false,
+      },
+    ];
+    render(<FormFieldsEditor />);
+    const placeholder = screen
+      .getByText(/Options Query/)
+      .closest("div")
+      ?.querySelector("textarea")
+      ?.getAttribute("placeholder");
+    expect(placeholder).toMatch(/value and label/);
+    expect(placeholder).not.toMatch(/\b(SELECT|FROM|MATCH|RETURN)\b/);
+  });
+
   it("shows param reference hint in field content", () => {
     mockFormFields = [
       {

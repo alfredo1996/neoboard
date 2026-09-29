@@ -389,7 +389,7 @@ export function ParameterConfigSection({
             onChange={(v) =>
               onChartOptionsChange((prev) => ({ ...prev, seedQuery: v }))
             }
-            placeholder="SELECT DISTINCT value FROM table ORDER BY value"
+            placeholder="A query returning value and label columns"
           />
           <Button
             type="button"

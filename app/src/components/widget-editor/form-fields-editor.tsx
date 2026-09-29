@@ -238,7 +238,7 @@ function SortableFieldItem({
               onChange={(e) =>
                 onUpdate(field.id, { seedQuery: e.target.value })
               }
-              placeholder="SELECT value, label FROM ..."
+              placeholder="A query returning value and label columns"
               rows={3}
               className="text-xs font-mono"
             />

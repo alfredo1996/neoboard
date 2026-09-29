@@ -52,6 +52,11 @@ describe("global plugin registry (bootstrap)", () => {
     }
   });
 
+  // Form fields bind as $param_<name>, as the form fields editor shows.
+  it("the form queryHint names the $param_ syntax form fields bind as", () => {
+    expect(pluginRegistry.get("form")?.queryHint).toMatch(/\$param_/);
+  });
+
   it("unknown chart types return undefined", () => {
     expect(pluginRegistry.get("nonexistent-chart-type")).toBeUndefined();
     expect(pluginRegistry.has("nonexistent-chart-type")).toBe(false);
