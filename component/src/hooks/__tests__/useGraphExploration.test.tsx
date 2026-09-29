@@ -112,11 +112,16 @@ describe("useGraphExploration", () => {
     expect(edgeKeys(result.current.edges)).toEqual(["a->b", "b->c"]);
   });
 
-  // Parallel relationships are distinct edges, told apart by id (#2094).
+  // Parallel relationships are distinct edges, told apart by id (#2094). The
+  // expansion also returns r1, as a real one does for the edge back to an
+  // initial neighbour, and it stays one edge.
   it("keeps every relationship between the same two nodes through expand and collapse", async () => {
     const fetchNeighbors = vi.fn(async () => ({
       nodes: [nodeC],
-      edges: ["r3", "r4"].map((id) => ({ id, source: "b", target: "c" })),
+      edges: [
+        { id: "r1", source: "a", target: "b" },
+        ...["r3", "r4"].map((id) => ({ id, source: "b", target: "c" })),
+      ],
     }));
     const initialEdges = ["r1", "r2"].map((id) => ({
       id,
