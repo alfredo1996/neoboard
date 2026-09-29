@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   getPreview,
+  SEEDED_PG_OPTION,
 } from "./fixtures";
 import type { APIRequestContext } from "@playwright/test";
 
@@ -522,7 +523,7 @@ test.describe("Widget editor preview — blocked write vs syntax error (#1932)",
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
     await typeInEditor(dialog, page, query);
     const run = dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)");
     await expect(run).toBeEnabled({ timeout: 10_000 });

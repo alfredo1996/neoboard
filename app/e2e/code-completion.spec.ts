@@ -6,7 +6,13 @@
  *  - Cypher label completions from Neo4j schema (after ":")
  *  - Schema refresh button: click → fetching state → settled state
  */
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  SEEDED_PG_OPTION,
+} from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
@@ -211,7 +217,7 @@ test.describe("Code completion — Cypher + SQL", () => {
 
     // Select the PostgreSQL connection
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/i }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await waitForEditorReady(dialog, page);
     await waitForSchemaLoaded(dialog, page);
@@ -232,7 +238,7 @@ test.describe("Code completion — Cypher + SQL", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/i }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
     await waitForEditorReady(dialog, page);
     await waitForSchemaLoaded(dialog, page);
 
@@ -263,7 +269,7 @@ test.describe("Code completion — Cypher + SQL", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/i }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await waitForEditorReady(dialog, page);
     await waitForSchemaLoaded(dialog, page);

@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   getPreview,
+  SEEDED_PG_OPTION,
 } from "./fixtures";
 
 test.describe("Widget creation", () => {
@@ -143,7 +144,7 @@ test.describe("Widget creation", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     // Select PG connection first to avoid CM readonly race
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
 

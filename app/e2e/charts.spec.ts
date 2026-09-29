@@ -7,6 +7,7 @@ import {
   typeInEditor,
   getPreview,
   saveDashboard,
+  SEEDED_PG_OPTION,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -315,7 +316,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
 
     // Bar Chart is default — just select PostgreSQL connection
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
       dialog,
@@ -345,7 +346,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Line Chart" }).click();
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
       dialog,
@@ -376,7 +377,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Pie Chart" }).click();
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
       dialog,
@@ -406,7 +407,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Data Table" }).click();
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
       dialog,
@@ -440,7 +441,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Single Value" }).click();
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(dialog, page, "SELECT COUNT(*) AS total FROM movies");
     await expect(
@@ -1289,7 +1290,7 @@ test.describe("Map widget", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Map", exact: true }).click();
     await dialog.getByRole("combobox").nth(0).click();
-    await page.getByRole("option", { name: /PostgreSQL/ }).click();
+    await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
       dialog,
