@@ -219,6 +219,30 @@ describe("ParamMultiSelect — writing the selection back", () => {
   });
 });
 
+// A link carries text; the store must hold what picking the options would (#2097).
+describe("ParamMultiSelect — restored strings take their options' types", () => {
+  const YEARS = [
+    { value: "1999", label: "1999", rawValue: 1999 },
+    { value: "2000", label: "2000", rawValue: 2000 },
+  ];
+
+  it("rewrites stored ['1999','2000'] as the options' rawValues", () => {
+    const actions = makeActions(["1999", "2000"]);
+    renderWidget(actions, makeSeed({ options: YEARS }));
+    expect(actions.set).toHaveBeenCalledExactlyOnceWith([1999, 2000]);
+  });
+
+  it.each([
+    ["already typed values", [1999, 2000], YEARS],
+    ["options still loading", ["1999"], []],
+    ["no matching option", ["1998"], YEARS],
+  ])("leaves the store alone with %s", (_l, value, options) => {
+    const actions = makeActions(value);
+    renderWidget(actions, makeSeed({ options }));
+    expect(actions.set).not.toHaveBeenCalled();
+  });
+});
+
 describe("ParamMultiSelect — prop forwarding", () => {
   it.each([true, false])(
     "forwards seed.serverFiltered=%s (#1411)",

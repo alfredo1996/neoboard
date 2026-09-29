@@ -13,6 +13,7 @@ const PARAM_PREFIX = "param_";
  * Restore parameter values from URL search params, typed by the widget that
  * owns each one (#2097): a multi-select from its repeated keys, a range
  * rebuilt from its companions. Any other `param_` key comes back as text.
+ * A seed with an `undefined` value is a range bound to clear.
  * e.g., ?param_year=1999&param_dept=Sales → year "1999", dept "Sales"
  */
 export function parseUrlParams(
@@ -133,13 +134,12 @@ function widgetSeeds(sp: URLSearchParams, w: ParamWidget): ParamSeed[] {
     const from = get(lo) ?? "";
     const to = get(hi) ?? "";
     if (!from && !to) return [];
-    const companions = [
-      [lo, from],
-      [hi, to],
-    ].filter(([, v]) => v);
+    // The pair is one value: a bound the link left out comes back `undefined`,
+    // which the caller clears rather than keep a restored session's bound.
     return [
       seed(w.name, { from, to }),
-      ...companions.map(([key, v]) => seed(key, v, "date")),
+      seed(lo, from || undefined, "date"),
+      seed(hi, to || undefined, "date"),
     ];
   }
   if (w.type === "number-range") {

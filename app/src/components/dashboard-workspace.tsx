@@ -189,6 +189,10 @@ export function DashboardWorkspace({
     initialUrlParamsApplied.current = true;
     const store = useParameterStore.getState();
     for (const seed of parseUrlParams(searchParams, serverLayout)) {
+      if (seed.value === undefined) {
+        store.clearParameter(seed.name);
+        continue;
+      }
       store.setParameter(
         seed.name,
         seed.value,

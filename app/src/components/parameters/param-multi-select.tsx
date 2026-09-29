@@ -1,7 +1,11 @@
 "use client";
 
 import { ParamMultiSelector } from "@neoboard/components";
-import type { ParamActions } from "./use-param-actions";
+import {
+  rawValueOf,
+  useTypedSelection,
+  type ParamActions,
+} from "./use-param-actions";
 import type { SeedQueryResult } from "./use-seed-query-options";
 import { SeedQueryError } from "./seed-query-error";
 
@@ -25,6 +29,7 @@ export function ParamMultiSelect({
   placeholder,
   className,
 }: ParamMultiSelectProps) {
+  useTypedSelection(actions, seed.options);
   const rawValues = actions.currentEntry?.value;
   const multiValues: string[] = Array.isArray(rawValues)
     ? (rawValues as unknown[]).map(String)
@@ -45,11 +50,7 @@ export function ParamMultiSelect({
           actions.clear();
           return;
         }
-        const rawVals = vals.map((v) => {
-          const opt = seed.options.find((o) => o.value === v);
-          return opt?.rawValue !== undefined ? opt.rawValue : v;
-        });
-        actions.set(rawVals);
+        actions.set(vals.map((v) => rawValueOf(v, seed.options)));
       }}
       placeholder={placeholder}
       loading={seed.loading}

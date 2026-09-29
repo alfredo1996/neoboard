@@ -217,8 +217,12 @@ describe("URL round trip by parameter type", () => {
     ],
     ["number-range", { p: [10, 20], p_min: 10, p_max: 20 }],
     ["multi-select", { p: ["a", "b,c"] }],
+    ["select", { p: "Keanu" }],
+    ["date", { p: "2024-01-01" }],
+    // Its type is what makes the query resolve `p_from`/`p_to` at run time.
+    ["date-relative", { p: "last_7_days" }],
     ["text", { p: "1999" }],
-  ])("a %s value survives the link", (parameterType, values) => {
+  ])("a %s value survives the link, typed", (parameterType, values) => {
     const layout = layoutWith({
       parameterName: "p",
       parameterType,
@@ -229,7 +233,10 @@ describe("URL round trip by parameter type", () => {
     );
     const url = buildParamsUrl("/d", entries, extractSyncParams(layout));
     expect(url).not.toContain("object");
-    expect(parse(url.split("?")[1], layout)).toEqual(values);
+    const qs = new URLSearchParams(url.split("?")[1]);
+    expect(parse(qs.toString(), layout)).toEqual(values);
+    const parent = parseUrlParams(qs, layout).find((s) => s.name === "p");
+    expect(parent?.type).toBe(parameterType);
   });
 
   it.each([

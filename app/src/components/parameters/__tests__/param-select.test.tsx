@@ -209,6 +209,27 @@ describe("ParamSelect — write mapping", () => {
  * no message, no way to tell a dead connector from "no rows", and every
  * widget gated on this parameter stuck on "Waiting for parameters…".
  */
+// A link carries text; the store must hold what picking the option would (#2097).
+describe("ParamSelect — a restored string takes its option's type", () => {
+  it("rewrites a stored '42' as the option's rawValue 42", () => {
+    renderSelect({ currentEntry: entry("42") });
+    expect(actions.set).toHaveBeenCalledExactlyOnceWith(42);
+  });
+
+  it.each([
+    ["an already typed value", entry(42), undefined],
+    ["options still loading", entry("42"), { options: [] }],
+    [
+      "a string option",
+      entry("42"),
+      { options: [{ value: "42", label: "F" }] },
+    ],
+  ])("leaves the store alone with %s", (_l, currentEntry, seed) => {
+    renderSelect({ currentEntry, seed });
+    expect(actions.set).not.toHaveBeenCalled();
+  });
+});
+
 describe("ParamSelect — seed query error (#1678)", () => {
   it("names the connector and shows the classifier hint instead of an empty list", () => {
     renderSelect({
@@ -254,7 +275,10 @@ describe("ParamSelect — prop forwarding", () => {
   it.each([true, false])(
     "forwards seed.serverFiltered=%s (#1411)",
     (serverFiltered) => {
-      const props = renderSelect({ searchable: true, seed: { serverFiltered } });
+      const props = renderSelect({
+        searchable: true,
+        seed: { serverFiltered },
+      });
       expect(props.serverFiltered).toBe(serverFiltered);
     },
   );

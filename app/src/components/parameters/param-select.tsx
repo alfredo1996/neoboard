@@ -1,7 +1,11 @@
 "use client";
 
 import { ParamSelector } from "@neoboard/components";
-import type { ParamActions } from "./use-param-actions";
+import {
+  rawValueOf,
+  useTypedSelection,
+  type ParamActions,
+} from "./use-param-actions";
 import type { SeedQueryResult } from "./use-seed-query-options";
 import { SeedQueryError } from "./seed-query-error";
 
@@ -25,6 +29,7 @@ export function ParamSelect({
   placeholder,
   className,
 }: ParamSelectProps) {
+  useTypedSelection(actions, seed.options);
   const selectValue = actions.currentEntry
     ? String(actions.currentEntry.value ?? "")
     : "";
@@ -41,8 +46,7 @@ export function ParamSelect({
           actions.clear();
           return;
         }
-        const opt = seed.options.find((o) => o.value === v);
-        actions.set(opt?.rawValue !== undefined ? opt.rawValue : v);
+        actions.set(rawValueOf(v, seed.options));
       }}
       placeholder={placeholder}
       loading={seed.loading}
