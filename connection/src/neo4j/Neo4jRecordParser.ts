@@ -90,7 +90,8 @@ function formatOffset(seconds: number): string {
  * June.
  */
 function zonedDateTimeToIso(value: DateTime): string {
-  const withoutZone = value.toString().replace(/\[[^\]]+\]$/, "");
+  // `[` is excluded too, or a zone id full of `[` backtracks quadratically (#2093).
+  const withoutZone = value.toString().replace(/\[[^[\]]+\]$/, "");
 
   // Bolt 5.x: the offset is already there and is exact — but truncate a
   // seconds component off it. A pre-1900 LMT zone renders "+00:19:32", and
