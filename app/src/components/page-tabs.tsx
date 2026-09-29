@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, GripVertical } from "lucide-react";
+import {
+  Plus,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  GripVertical,
+} from "lucide-react";
 import type { DashboardPage } from "@/lib/db/schema";
 import {
   Button,
@@ -10,8 +16,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  ConfirmDialog,
+  focusedMenuTrigger,
 } from "@neoboard/components";
 import { cn } from "@neoboard/components";
+import { pluralWidgets } from "@/lib/widget/plural-widgets";
 
 interface PageTabsProps {
   pages: DashboardPage[];
@@ -37,6 +46,30 @@ export function PageTabs({
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // The page Delete page was asked on (#2055), and the menu button focus goes
+  // back to. Kept after the dialog closes so its fade-out still names the
+  // page; `confirmOpen` alone opens and closes it.
+  const [deleteTarget, setDeleteTarget] = useState<{
+    index: number;
+    page: DashboardPage;
+    returnFocusTo: HTMLElement | null;
+  } | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function requestDelete(index: number) {
+    // An empty page takes nothing with it, so it goes without asking.
+    if (pages[index].widgets.length === 0) {
+      onRemove?.(index);
+      return;
+    }
+    setDeleteTarget({
+      index,
+      page: pages[index],
+      returnFocusTo: focusedMenuTrigger(),
+    });
+    setConfirmOpen(true);
+  }
 
   // Drag-and-drop state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -94,7 +127,10 @@ export function PageTabs({
   }
 
   return (
-    <div role="tablist" className="flex items-center gap-1 px-4 border-b bg-background shrink-0 overflow-x-auto">
+    <div
+      role="tablist"
+      className="flex items-center gap-1 px-4 border-b bg-background shrink-0 overflow-x-auto"
+    >
       {pages.map((page, index) => (
         <div
           key={page.id}
@@ -105,12 +141,10 @@ export function PageTabs({
               dropTargetIndex === index &&
               dragIndex !== null &&
               dragIndex !== index &&
-              "border-l-2 border-primary"
+              "border-l-2 border-primary",
           )}
           draggable={canDrag && renamingIndex !== index}
-          onDragStart={
-            canDrag ? (e) => handleDragStart(e, index) : undefined
-          }
+          onDragStart={canDrag ? (e) => handleDragStart(e, index) : undefined}
           onDragOver={canDrag ? (e) => handleDragOver(e, index) : undefined}
           onDrop={canDrag ? (e) => handleDrop(e, index) : undefined}
           onDragEnd={canDrag ? handleDragEnd : undefined}
@@ -141,7 +175,7 @@ export function PageTabs({
                 "h-9 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                 index === activeIndex
                   ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground",
               )}
             >
               {page.title}
@@ -168,7 +202,7 @@ export function PageTabs({
                 {pages.length > 1 && (
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
-                    onClick={() => onRemove?.(index)}
+                    onClick={() => requestDelete(index)}
                   >
                     <Trash2 className="mr-2 h-3 w-3" />
                     Delete page
@@ -191,6 +225,20 @@ export function PageTabs({
           <Plus className="h-4 w-4" />
         </Button>
       )}
+
+      {/* Portalled to <body>: it adds nothing to the tablist's DOM. */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={`Delete "${deleteTarget?.page.title ?? ""}"?`}
+        description={`This deletes the page and its ${pluralWidgets(deleteTarget?.page.widgets.length ?? 0)}.`}
+        confirmText="Delete"
+        variant="destructive"
+        returnFocusTo={deleteTarget?.returnFocusTo}
+        onConfirm={() => {
+          if (deleteTarget) onRemove?.(deleteTarget.index);
+        }}
+      />
     </div>
   );
 }

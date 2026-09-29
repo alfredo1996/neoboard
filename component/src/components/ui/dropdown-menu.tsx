@@ -187,7 +187,20 @@ const DropdownMenuShortcut = ({
 };
 DropdownMenuShortcut.displayName = "DropdownMenuShortcut";
 
+/**
+ * The button that opened the menu focus is in, or null. A dialog asked from a
+ * menu item outlives the item — the menu closes as the dialog opens — so read
+ * this in the item's handler and hand it to the dialog to return focus to.
+ */
+function focusedMenuTrigger(): HTMLElement | null {
+  const id = document.activeElement
+    ?.closest('[role="menu"]')
+    ?.getAttribute("aria-labelledby");
+  return id ? document.getElementById(id) : null;
+}
+
 export {
+  focusedMenuTrigger,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
