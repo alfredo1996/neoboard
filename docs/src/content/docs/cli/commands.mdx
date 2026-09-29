@@ -58,6 +58,8 @@ neoboard start [--full] [--expose-host]
 
 The mode is read from `.neoboard.local` (set during `init` or `setup`).
 
+In Docker mode, `start` checks its ports before it runs Compose. If another process holds one the stack is about to bind, it stops and names the key to change, for example `neoboard config set ports.neo4j_bolt 7688`. After migrations it checks that `ENCRYPTION_KEY` decrypts the stored credentials.
+
 ```bash
 neoboard start
 ```

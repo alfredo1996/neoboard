@@ -60,6 +60,7 @@ Makes a connector the only place that knows what that connector is. A connector 
 
 ### Fixed
 
+- `neoboard start` and `neoboard demo` stop before Compose when another process holds a port the stack is about to bind, and say which `ports.*` key to change and to what: `Port 7687 (Neo4j Bolt) is in use. Run neoboard config set ports.neo4j_bolt 7688, or stop the other process.` They used to warn, carry on, and fail in Compose with a `port is already allocated` stack trace. A port NeoBoard's own container holds is not a conflict, so `start` then `start --full` still works. The credential-decryption check runs after migrations instead of before the database exists, where it reported "could not read the database". `demo` no longer tells you to create an admin account, or prints the bootstrap token, since it seeds its own users; `start --full` shows both only while the app still has no admin (#2057)
 - A query that references a parameter it was not given, when that parameter's name contains `timeout` (`$param_timeout`), is reported as the bad query it is. It used to be typed a timeout — shown as "timed out" and retried three times — because the error's message was matched for the word (#1903)
 
 ## [1.5.0] — First public release

@@ -30,6 +30,11 @@ vi.mock("../../lib/output.js", () => ({
 vi.mock("../../commands/doctor.js", () => ({
   runDoctor: vi.fn(async () => []),
   printResults: vi.fn(() => false),
+  checkCredentialDecryption: vi.fn(async () => ({
+    name: "Credential decryption",
+    status: "skip",
+    message: "no stored credentials yet",
+  })),
 }));
 
 vi.mock("../../commands/db/migrate.js", () => ({
@@ -48,7 +53,11 @@ import { composeUp } from "../../lib/docker.js";
 import { waitForHealth } from "../../lib/health.js";
 import { getMode } from "../../lib/config.js";
 import { banner, error } from "../../lib/output.js";
-import { printResults } from "../../commands/doctor.js";
+import {
+  printResults,
+  runDoctor,
+  checkCredentialDecryption,
+} from "../../commands/doctor.js";
 import { runDbMigrate } from "../../commands/db/migrate.js";
 import { readDockerEnvSecrets } from "../../lib/docker-env.js";
 import { isBootstrapPending } from "../../lib/bootstrap-status.js";
@@ -67,7 +76,7 @@ const mockError = vi.mocked(error);
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetMode.mockReturnValue("docker");
-  mockPrintResults.mockReturnValue(false);
+  mockPrintResults.mockReset().mockReturnValue(false);
   // Migrations succeed by default; runStart now aborts (no "ready" banner)
   // when they fail. Failure is exercised in its own test.
   mockRunDbMigrate.mockResolvedValue(true);
@@ -347,6 +356,65 @@ describe("runStart", () => {
         full: true,
         exposeHost: true,
       });
+    });
+  });
+
+  // #2057: the preflight runs before the stack exists, so the checks that
+  // need it wait, and the ready box stops guiding a signup `demo` never needs.
+  describe("first-run output (#2057)", () => {
+    const bannerLines = () => mockBanner.mock.calls[0][0];
+    const hasFirstRunLine = () =>
+      bannerLines().some((l) => /create your admin account/i.test(l));
+
+    it("tells doctor it is a preflight, and whether the app is about to bind its port", async () => {
+      await runStart({ full: true });
+      expect(vi.mocked(runDoctor)).toHaveBeenCalledWith({
+        preflight: { full: true },
+      });
+    });
+
+    it("checks credential decryption after migrations, when there is a database to ask", async () => {
+      await runStart({ full: true });
+      expect(vi.mocked(checkCredentialDecryption)).toHaveBeenCalledAfter(
+        mockRunDbMigrate,
+      );
+      expect(mockPrintResults).toHaveBeenLastCalledWith([
+        expect.objectContaining({ name: "Credential decryption" }),
+      ]);
+    });
+
+    it("stops before the ready box when the key does not decrypt the stored credentials", async () => {
+      mockPrintResults.mockReturnValueOnce(false).mockReturnValueOnce(true);
+      await expect(runStart({ full: true })).resolves.toBe(false);
+      expect(mockBanner).not.toHaveBeenCalled();
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("keeps going in local mode, as the preflight always has", async () => {
+      mockGetMode.mockReturnValue("local");
+      mockPrintResults.mockReturnValueOnce(false).mockReturnValueOnce(true);
+      await expect(runStart()).resolves.toBe(true);
+    });
+
+    it("prints no create-admin line and no bootstrap token when the caller seeds its own users", async () => {
+      await runStart({ full: true, seedsUsers: true });
+      expect(hasFirstRunLine()).toBe(false);
+      expect(bannerLines().some((l) => l.includes("tok-abc123"))).toBe(false);
+      // No empty gap where the guidance used to be.
+      const lines = bannerLines();
+      expect(lines.some((l, i) => l === "" && lines[i + 1] === "")).toBe(false);
+      expect(bannerLines().some((l) => l.startsWith("Stop:"))).toBe(true);
+    });
+
+    it("still guides the first signup when start meets an empty database", async () => {
+      await runStart({ full: true });
+      expect(hasFirstRunLine()).toBe(true);
+    });
+
+    it("drops the create-admin line once the running app reports an admin", async () => {
+      mockIsBootstrapPending.mockResolvedValue(false);
+      await runStart({ full: true });
+      expect(hasFirstRunLine()).toBe(false);
     });
   });
 });

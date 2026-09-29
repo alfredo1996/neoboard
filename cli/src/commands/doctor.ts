@@ -3,7 +3,12 @@ import { join } from "node:path";
 import { parse as parseEnv } from "dotenv";
 import { runOrNull } from "../lib/exec.js";
 import { isPortAvailable } from "../lib/ports.js";
-import { paths, readProjectConfig, getMode } from "../lib/config.js";
+import {
+  paths,
+  readProjectConfig,
+  getMode,
+  type ProjectConfig,
+} from "../lib/config.js";
 import { success, warn, info, error as logError } from "../lib/output.js";
 import { probeCredentialDecryption } from "../lib/credential-probe.js";
 import { DOCKER_ENV_PATH } from "../lib/docker-env.js";
@@ -65,6 +70,92 @@ export async function checkPortAvailable(
   };
 }
 
+type Ports = ProjectConfig["ports"];
+type PortKey = keyof Ports;
+
+const PORT_LABELS: Record<PortKey, string> = {
+  postgres: "PostgreSQL",
+  neo4j_http: "Neo4j HTTP",
+  neo4j_bolt: "Neo4j Bolt",
+  app: "App",
+};
+
+/**
+ * Host ports NeoBoard's own running containers publish. A port they hold is
+ * not a conflict: `start` then `start --full` finds the databases already up
+ * on theirs, and compose up leaves them be.
+ */
+function ownPublishedPorts(): Set<number> {
+  const out = runOrNull(
+    'docker ps --filter name=neoboard- --format "{{.Ports}}"',
+  );
+  return new Set(
+    [...(out ?? "").matchAll(/:(\d+)->/g)].map((m) => Number(m[1])),
+  );
+}
+
+/** The next free port above `port` that no other service is configured on. */
+async function suggestFreePort(port: number, ports: Ports): Promise<string> {
+  const taken = Object.values(ports);
+  // ponytail: 20 tries is plenty on a dev machine; past that, the user picks.
+  for (let p = port + 1; p <= Math.min(port + 20, 65535); p++) {
+    if (!taken.includes(p) && (await isPortAvailable(p))) return String(p);
+  }
+  return "<free port>";
+}
+
+/**
+ * A port the Docker stack publishes, with the fix when something else holds
+ * it (#2057). `binding` means Compose is about to bind it: a busy port then
+ * fails here instead of in docker-modem's "port is already allocated" trace.
+ */
+async function checkStackPort(
+  key: PortKey,
+  ports: Ports,
+  own: ReadonlySet<number>,
+  binding: boolean,
+): Promise<CheckResult> {
+  const port = ports[key];
+  const result = await checkPortAvailable(port, PORT_LABELS[key]);
+  if (result.status === "ok") return result;
+  if (own.has(port)) {
+    return {
+      ...result,
+      status: "ok",
+      message: `Port ${port} in use by NeoBoard's own container`,
+    };
+  }
+  const free = await suggestFreePort(port, ports);
+  return {
+    ...result,
+    status: binding ? "fail" : "warn",
+    message:
+      `${result.name} is in use. Run \`neoboard config set ports.${key} ` +
+      `${free}\`, or stop the other process.`,
+  };
+}
+
+async function checkPorts(
+  ports: Ports,
+  preflight: DoctorOptions["preflight"],
+): Promise<CheckResult[]> {
+  const keys = Object.keys(PORT_LABELS) as PortKey[];
+  // Local mode binds nothing: the busy ports there are the user's own
+  // databases, which is what `start` expects to find.
+  if (getMode() === "local") {
+    return Promise.all(
+      keys.map((key) => checkPortAvailable(ports[key], PORT_LABELS[key])),
+    );
+  }
+  const own = ownPublishedPorts();
+  // Only `start` is about to bind, and the app port only with --full.
+  const binding = (key: PortKey) =>
+    preflight !== undefined && (key !== "app" || preflight.full);
+  return Promise.all(
+    keys.map((key) => checkStackPort(key, ports, own, binding(key))),
+  );
+}
+
 export function checkNodeModulesExist(): CheckResult {
   const exists = existsSync(`${paths.appDir}/node_modules`);
   return {
@@ -87,7 +178,18 @@ export function checkEnvFileExists(): CheckResult {
   };
 }
 
-export async function runDoctor(): Promise<CheckResult[]> {
+export interface DoctorOptions {
+  /**
+   * Set by `start` before it brings the stack up (#2057). The ports it is
+   * about to bind must be free, and the credential check waits for a
+   * database, which `start` asks after migrations.
+   */
+  preflight?: { full: boolean };
+}
+
+export async function runDoctor(
+  opts: DoctorOptions = {},
+): Promise<CheckResult[]> {
   const config = readProjectConfig();
   const mode = getMode();
 
@@ -105,17 +207,20 @@ export async function runDoctor(): Promise<CheckResult[]> {
     checkNodeVersion(),
   ];
 
-  const portChecks = await Promise.all([
-    checkPortAvailable(config.ports.postgres, "PostgreSQL"),
-    checkPortAvailable(config.ports.neo4j_http, "Neo4j HTTP"),
-    checkPortAvailable(config.ports.neo4j_bolt, "Neo4j Bolt"),
-    checkPortAvailable(config.ports.app, "App"),
-  ]);
-  results.push(...portChecks);
+  results.push(...(await checkPorts(config.ports, opts.preflight)));
 
   results.push(checkNodeModulesExist());
   results.push(checkEnvFileExists());
-  results.push(await checkCredentialDecryption());
+  results.push(
+    opts.preflight
+      ? {
+          name: "Credential decryption",
+          status: "skip",
+          message:
+            "Credential decryption: checked once the stack is up and migrated",
+        }
+      : await checkCredentialDecryption(),
+  );
 
   return results;
 }
@@ -159,8 +264,10 @@ export async function checkCredentialDecryption(): Promise<CheckResult> {
         name,
         status: "skip",
         message:
-          "Credential decryption: could not read the database — check the " +
-          "PostgreSQL result above first",
+          // No key yet (a DB-only start writes none) or no database up:
+          // either way there is nothing to verify, and no alarm to raise.
+          "Credential decryption: no ENCRYPTION_KEY or no database to read " +
+          "yet — nothing to verify",
       };
   }
 }

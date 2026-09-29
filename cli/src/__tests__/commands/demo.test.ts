@@ -109,7 +109,19 @@ describe("runDemo", () => {
 
   it("passes mode and full=true to setup", async () => {
     await runDemo({ mode: "local" });
-    expect(mockRunSetup).toHaveBeenCalledWith({ mode: "local", full: true });
+    expect(mockRunSetup).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "local", full: true }),
+    );
+  });
+
+  it("tells setup it seeds its own users, so the ready box skips the signup guidance (#2057)", async () => {
+    // The demo seeds admin@, creator@ and reader@ right after the stack is
+    // up. A "create your admin account" line, or the bootstrap token, sends
+    // the user to a setup page that is gone by the time they open it.
+    await runDemo();
+    expect(mockRunSetup).toHaveBeenCalledWith(
+      expect.objectContaining({ seedsUsers: true }),
+    );
   });
 
   it("seeds both neo4j and demo data", async () => {

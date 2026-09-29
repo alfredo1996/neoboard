@@ -37,6 +37,11 @@ describe("runSetup", () => {
     expect(mockRunInit).toHaveBeenCalledWith({ mode: "local" });
   });
 
+  it("passes full and seedsUsers through to start (#2057)", async () => {
+    await runSetup({ full: true, seedsUsers: true });
+    expect(mockRunStart).toHaveBeenCalledWith({ full: true, seedsUsers: true });
+  });
+
   it("returns true and prints 'Setup complete!' when start succeeds", async () => {
     const ok = await runSetup();
     expect(ok).toBe(true);

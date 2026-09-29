@@ -21,7 +21,10 @@ import { runDbSeed } from "./db/seed.js";
 export async function runDemo(opts?: {
   mode?: "docker" | "local";
 }): Promise<void> {
-  const ok = await runSetup({ ...opts, full: true });
+  // seedsUsers: the seed below creates the admin, so the ready box must not
+  // send anyone to a signup page that is gone by the time they open it, nor
+  // print a bootstrap token nobody will use (#2057).
+  const ok = await runSetup({ ...opts, full: true, seedsUsers: true });
   if (!ok) {
     // Setup already printed the failure + remediation hints. Seeding (or
     // advertising login credentials) against a stack that never came up
