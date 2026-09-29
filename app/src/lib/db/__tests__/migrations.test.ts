@@ -435,29 +435,36 @@ describe("Database migrations", () => {
     const ROOT = path.resolve(__dirname, "../../../../..");
 
     function runScript(name: string, env: Record<string, string> = {}) {
-      return new Promise<{ status: number | null; stderr: string }>(
-        (resolve) => {
-          const child = spawn(
-            process.execPath,
-            [path.join(ROOT, "scripts/db-migrate.mjs")],
-            {
-              // Not the root or the app dir: the script finds its migrations.
-              cwd: tmpdir(),
-              env: { ...process.env, DATABASE_URL: urlOf(name), ...env },
-            },
-          );
-          let stderr = "";
-          child.stderr.on("data", (chunk) => (stderr += chunk));
-          child.on("close", (status) => resolve({ status, stderr }));
-        },
-      );
+      return new Promise<{
+        status: number | null;
+        stdout: string;
+        stderr: string;
+      }>((resolve) => {
+        const child = spawn(
+          process.execPath,
+          [path.join(ROOT, "scripts/db-migrate.mjs")],
+          {
+            // Not the root or the app dir: the script finds its migrations.
+            cwd: tmpdir(),
+            env: { ...process.env, DATABASE_URL: urlOf(name), ...env },
+          },
+        );
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk) => (stdout += chunk));
+        child.stderr.on("data", (chunk) => (stderr += chunk));
+        child.on("close", (status) => resolve({ status, stdout, stderr }));
+      });
     }
 
     it("applies every migration and exits 0", async () => {
       const client = await emptyDatabase("script_fresh_2019");
 
-      const { status, stderr } = await runScript("script_fresh_2019");
+      const { status, stdout, stderr } = await runScript("script_fresh_2019");
 
+      // The fresh run meets `DROP CONSTRAINT IF EXISTS` and its NOTICE, which
+      // postgres.js printed to stdout as a raw object (#2058).
+      expect(stdout).toBe("");
       expect(stderr).toBe("");
       expect(status).toBe(0);
       const [{ n }] =

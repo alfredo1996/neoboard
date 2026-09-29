@@ -22,7 +22,15 @@ const {
     },
     { end: mockEnd },
   );
-  const mockPostgres = vi.fn(() => mockClient);
+  const mockPostgres = vi.fn<
+    (
+      url: string,
+      options: {
+        max: number;
+        onnotice?: (notice: { severity: string; message: string }) => void;
+      },
+    ) => typeof mockClient
+  >(() => mockClient);
   const mockDrizzleInstance = { __drizzle: true };
   const mockDrizzle = vi.fn(() => mockDrizzleInstance);
   const mockMigrate = vi.fn(async () => {});
@@ -160,6 +168,58 @@ describe("migrateWithLock's lock timeout (#2019)", () => {
   it("touches no timeout when none is asked for, as at boot", async () => {
     await migrateOnBoot();
     expect(sqlCalls.some((s) => /lock_timeout/i.test(s))).toBe(false);
+  });
+});
+
+// postgres.js console.logs every NoticeResponse as a multi-line object unless
+// the client passes onnotice, which put raw objects in the JSON log (#2058).
+describe("migrateWithLock's notices (#2058)", () => {
+  async function noticeHandler() {
+    await migrateWithLock("postgresql://u:p@localhost:5432/db", "m");
+    const onnotice = mockPostgres.mock.calls[0][1].onnotice;
+    expect(onnotice).toBeTypeOf("function");
+    return onnotice!;
+  }
+
+  function spyOutput() {
+    return {
+      log: vi.spyOn(console, "log").mockImplementation(() => {}),
+      stdout: vi.spyOn(process.stdout, "write").mockImplementation(() => true),
+      stderr: vi.spyOn(process.stderr, "write").mockImplementation(() => true),
+    };
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("drops a NOTICE from idempotent DDL, writing nothing", async () => {
+    const onnotice = await noticeHandler();
+    const out = spyOutput();
+
+    onnotice({
+      severity: "NOTICE",
+      message:
+        'constraint "user_email_normalized" of relation "user" does not exist, skipping',
+    });
+
+    expect(out.log).not.toHaveBeenCalled();
+    expect(out.stdout).not.toHaveBeenCalled();
+    expect(out.stderr).not.toHaveBeenCalled();
+  });
+
+  it("still reports a WARNING, as one line on stderr", async () => {
+    const onnotice = await noticeHandler();
+    const out = spyOutput();
+
+    onnotice({ severity: "WARNING", message: "there is no transaction" });
+
+    expect(out.log).not.toHaveBeenCalled();
+    expect(out.stdout).not.toHaveBeenCalled();
+    expect(out.stderr).toHaveBeenCalledTimes(1);
+    expect(out.stderr).toHaveBeenCalledWith(
+      "migration warning: there is no transaction\n",
+    );
   });
 });
 
