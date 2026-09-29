@@ -3,20 +3,54 @@ import { waitForHealth } from "../lib/health.js";
 import { isPgReady, isNeo4jReady, isAppReady } from "../lib/docker.js";
 import { readProjectConfig, getMode } from "../lib/config.js";
 import { info, success, warn, banner, error } from "../lib/output.js";
-import { runDoctor, printResults } from "./doctor.js";
+import {
+  runDoctor,
+  printResults,
+  checkCredentialDecryption,
+  type CheckResult,
+} from "./doctor.js";
 import { runDbMigrate } from "./db/migrate.js";
 import { readDockerEnvSecrets } from "../lib/docker-env.js";
 import { isBootstrapPending } from "../lib/bootstrap-status.js";
 
 /**
- * Show the bootstrap token only while it is still usable: a token is spent
- * once an admin exists, and printing a live secret nobody needs is gratuitous.
- * Also stays quiet when no token was generated (a docker/.env predating #1312),
- * rather than printing "Token: undefined".
+ * First-run guidance for the ready box, each block ending in a blank line.
+ *
+ * `start` has no users on a fresh database, so the first visit goes through
+ * the bootstrap screen to create the admin (#1038). That needs
+ * ADMIN_BOOTSTRAP_TOKEN, which the CLI generated into docker/.env, so it
+ * shows the token too (#1312); local mode prints its own token in `init`.
+ *
+ * Only while that signup is still ahead (#2057): never for `demo`, which
+ * seeds its own users right after this box, and not once the database has an
+ * admin, when the token is spent and printing a live secret nobody needs is
+ * gratuitous. A docker/.env predating #1312 has no token,
+ * and "Token: undefined" helps no one.
  */
-async function shouldShowBootstrapToken(): Promise<boolean> {
-  if (!readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN) return false;
-  return isBootstrapPending();
+async function firstRunLines(
+  appRunning: boolean,
+  seedsUsers: boolean,
+): Promise<string[]> {
+  if (seedsUsers || !(await isBootstrapPending())) return [];
+  if (!appRunning) {
+    return [
+      "First run:  start the app, then create your admin account in the browser",
+      "",
+    ];
+  }
+  const token = readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN;
+  const tokenLines = token
+    ? [
+        `Token:      ${token}`,
+        "            (bootstrap token, from docker/.env — needed once, at signup)",
+        "",
+      ]
+    : [];
+  return [
+    "First run:  open the App URL to create your admin account",
+    "",
+    ...tokenLines,
+  ];
 }
 
 export interface StartOptions {
@@ -32,6 +66,12 @@ export interface StartOptions {
    * routes from the container out to the host's network.
    */
   exposeHost?: boolean;
+  /**
+   * The caller seeds its own users and connections next (`demo`), so the
+   * ready box has no signup to guide and no bootstrap token to show, and the
+   * credential check is the caller's, after its seed (#2057).
+   */
+  seedsUsers?: boolean;
 }
 
 /**
@@ -61,13 +101,8 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     return false;
   }
 
-  // 1. Prerequisite checks
-  const results = await runDoctor();
-  const hasFailure = printResults(results);
-  if (hasFailure && mode === "docker") {
-    process.exitCode = 1;
-    return false;
-  }
+  // 1. Prerequisite checks, before the stack exists (#2057)
+  if (!passes(await runDoctor({ preflight: { full } }), mode)) return false;
 
   // 2. Start containers (only in Docker mode)
   if (mode === "docker") {
@@ -129,7 +164,15 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     return false;
   }
 
-  // 5. Done
+  // 5. Does the key decrypt what is stored? Only now is there a database to
+  // ask; the preflight ran before it existed (#2057). demo asks after its
+  // seed, which re-encrypts the demo connections with this key: a re-run on
+  // stale volumes is repaired there, not refused here.
+  if (!opts?.seedsUsers && !passes([await checkCredentialDecryption()], mode)) {
+    return false;
+  }
+
+  // 6. Done
   const url = `http://localhost:${config.ports.app}`;
   const appRunning = full && mode === "docker";
   // The "start the app" hint must match the mode: `dev` only works in local
@@ -137,20 +180,6 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   // said `neoboard dev`, which dead-ended Docker users.
   const startAppHint =
     mode === "docker" ? "neoboard start --full" : "neoboard dev";
-
-  // The first admin can only be created by entering ADMIN_BOOTSTRAP_TOKEN on
-  // the signup screen. The CLI generated it into docker/.env moments ago, so
-  // it is the one component that knows both the value and the file — showing
-  // it here removes the "find a secret nobody told you about" dead end
-  // (#1312). Local mode already prints its token when generating .env.local.
-  const bootstrapLines =
-    appRunning && (await shouldShowBootstrapToken())
-      ? [
-          "",
-          `Token:      ${readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN}`,
-          "            (bootstrap token, from docker/.env — needed once, at signup)",
-        ]
-      : [];
 
   banner([
     appRunning ? "NeoBoard is running!" : "Databases are ready!",
@@ -162,15 +191,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     `Neo4j:      http://localhost:${config.ports.neo4j_http}`,
     `PostgreSQL: localhost:${config.ports.postgres}`,
     "",
-    // First-run guidance: unlike `neoboard demo` (which seeds an admin and
-    // prints its credentials), `setup`/`start` has no users yet — the first
-    // visit goes through the bootstrap screen to create the admin account
-    // (#1038). Without this line the banner dead-ends at a login wall.
-    appRunning
-      ? "First run:  open the App URL to create your admin account"
-      : "First run:  start the app, then create your admin account in the browser",
-    ...bootstrapLines,
-    "",
+    ...(await firstRunLines(appRunning, opts?.seedsUsers ?? false)),
     `Stop:       neoboard stop`,
     `Logs:       neoboard logs -f`,
     ...(appRunning ? ["App logs:   docker logs -f neoboard-app"] : []),
@@ -181,6 +202,17 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     success(`Run '${startAppHint}' to start the app`);
   }
   return true;
+}
+
+/**
+ * Print check results. A failure stops Docker mode, which is about to bind
+ * ports and serve the app; local mode reports and carries on, as it always
+ * has.
+ */
+function passes(results: CheckResult[], mode: "docker" | "local"): boolean {
+  if (!printResults(results) || mode !== "docker") return true;
+  process.exitCode = 1;
+  return false;
 }
 
 /**

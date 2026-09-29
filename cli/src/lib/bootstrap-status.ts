@@ -1,35 +1,26 @@
-import { runOrNull } from "./exec.js";
-import { readProjectConfig } from "./config.js";
+import { readOneValue } from "./pg-read.js";
 
 /**
  * Is the instance still waiting for its first admin account? (#1312)
  *
- * `GET /api/auth/bootstrap-status` is public and returns only booleans, so
- * this is safe to call before anyone has logged in — which is precisely the
- * moment it matters.
+ * Asks the database what the app's own bootstrap check asks (`areUsersEmpty`
+ * in app/src/lib/auth/signup.ts): is there any user? Asking the database, not
+ * the running app, answers a databases-only start too, and `start` calls this
+ * only after migrations, when the database is up (#2057).
  *
- * Used to decide whether the ready banner should show the bootstrap token.
- * Once an admin exists the token is spent, and printing a live secret that
- * nobody needs is gratuitous.
+ * Decides whether the ready banner guides the first signup and shows the
+ * bootstrap token. Once an admin exists the token is spent, and printing a
+ * live secret that nobody needs is gratuitous.
  *
- * Fails OPEN (returns true) when the endpoint can't be reached or parsed.
- * The cost of a false positive is showing the operator a secret they already
- * own — they generated it and it sits in a file on their disk. The cost of a
- * false negative is a user stranded at a signup form demanding a token nobody
- * told them about, which is the exact dead end this feature exists to remove.
+ * Fails OPEN (returns true) when the database can't be read. The cost of a
+ * false positive is showing the operator a secret they already own — they
+ * generated it and it sits in a file on their disk. The cost of a false
+ * negative is a user stranded at a signup form demanding a token nobody told
+ * them about, which is the exact dead end this feature exists to remove.
  */
 export async function isBootstrapPending(): Promise<boolean> {
-  const config = readProjectConfig();
-  const out = runOrNull(
-    `curl -s --max-time 5 http://localhost:${config.ports.app}/api/auth/bootstrap-status`,
-  );
-  if (!out) return true;
   try {
-    const parsed = JSON.parse(out) as {
-      data?: { bootstrapRequired?: boolean };
-    };
-    // Only an explicit `false` proves an admin exists.
-    return parsed.data?.bootstrapRequired !== false;
+    return readOneValue('SELECT 1 FROM "user" LIMIT 1') === null;
   } catch {
     return true;
   }

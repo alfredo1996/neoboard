@@ -110,7 +110,7 @@ If you see the dashboard list page after signing in, NeoBoard is running correct
 - `app/node_modules` exists
 - `app/.env.local` exists
 
-Run it *before* installing, or when something won't start. Note the port checks warn when a port is **in use** — so once NeoBoard is running, four port warnings are expected and correct. Use `neoboard status` to ask whether things are healthy.
+Run it *before* installing, or when something won't start. In Docker mode, a port that NeoBoard's own container holds passes as `in use by NeoBoard's own container`, so a running install shows no port warnings. A port another process holds warns and names the key to change, for example `neoboard config set ports.neo4j_bolt 7688`. In local mode the port checks warn when a port is **in use**, so once your databases and the app are running, those warnings are expected. Use `neoboard status` to ask whether things are healthy.
 
 ## When Something Goes Wrong
 

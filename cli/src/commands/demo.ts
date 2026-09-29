@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { run } from "../lib/exec.js";
-import { paths, readProjectConfig } from "../lib/config.js";
+import { paths, readProjectConfig, getMode } from "../lib/config.js";
 import { buildSeedEnv } from "../lib/docker-env.js";
 import {
   success,
@@ -13,6 +13,7 @@ import { confirm } from "../lib/prompt.js";
 import { loadShowcases } from "../lib/showcases.js";
 import { runSetup } from "./setup.js";
 import { runDbSeed } from "./db/seed.js";
+import { checkCredentialDecryption, printResults } from "./doctor.js";
 
 /**
  * Full demo bootstrap: setup + seed Neo4j + seed demo dashboards.
@@ -21,7 +22,10 @@ import { runDbSeed } from "./db/seed.js";
 export async function runDemo(opts?: {
   mode?: "docker" | "local";
 }): Promise<void> {
-  const ok = await runSetup({ ...opts, full: true });
+  // seedsUsers: the seed below creates the admin, so the ready box must not
+  // send anyone to a signup page that is gone by the time they open it, nor
+  // print a bootstrap token nobody will use (#2057).
+  const ok = await runSetup({ ...opts, full: true, seedsUsers: true });
   if (!ok) {
     // Setup already printed the failure + remediation hints. Seeding (or
     // advertising login credentials) against a stack that never came up
@@ -30,6 +34,16 @@ export async function runDemo(opts?: {
     return;
   }
   await runDbSeed({ neo4j: true, demo: true });
+
+  // Asked here, not in start (#2057): the seed has just re-encrypted the demo
+  // connections with the current key, which repairs a re-run on stale
+  // volumes. A mismatch left now is data the seed does not own.
+  const mismatch = printResults([await checkCredentialDecryption()]);
+  if (mismatch && getMode() === "docker") {
+    info("For a fresh demo: neoboard stop --volumes, then neoboard demo");
+    process.exitCode = 1;
+    return;
+  }
 
   banner([
     "Demo environment ready!",

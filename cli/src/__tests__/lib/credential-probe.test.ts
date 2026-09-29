@@ -168,21 +168,30 @@ describe("probeCredentialDecryption (#1274)", () => {
     expect(args.filter((a) => a.includes("FROM connection"))).toHaveLength(1);
   });
 
-  it("refuses a postgres identifier that would reach the shell", async () => {
-    // `config set` does not validate string values, and this builds a psql
-    // command. Mirrors the guard in lib/docker.ts at the same boundary.
-    vi.mocked(readProjectConfig).mockReturnValue({
-      ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
-      postgres: {
-        user: "x; rm -rf ~",
-        password: "p",
-        database: "neoboard",
-      },
-    } as ReturnType<typeof readProjectConfig>);
-    expect(await probeCredentialDecryption(KEY_A)).toEqual({
-      outcome: "no-credentials",
-    });
-    expect(dockerExec).not.toHaveBeenCalled();
-    expect(runOrNull).not.toHaveBeenCalled();
-  });
+  it.each(["user", "database"])(
+    "refuses a postgres %s that would reach the shell",
+    async (field) => {
+      // `config set` does not validate string values, and this builds a psql
+      // command. Mirrors the guard in lib/docker.ts at the same boundary.
+      vi.mocked(readProjectConfig).mockReturnValue({
+        ports: {
+          app: 3000,
+          postgres: 5432,
+          neo4j_http: 7474,
+          neo4j_bolt: 7687,
+        },
+        postgres: {
+          user: "neoboard",
+          password: "p",
+          database: "neoboard",
+          [field]: "x; rm -rf ~",
+        },
+      } as ReturnType<typeof readProjectConfig>);
+      expect(await probeCredentialDecryption(KEY_A)).toEqual({
+        outcome: "no-credentials",
+      });
+      expect(dockerExec).not.toHaveBeenCalled();
+      expect(runOrNull).not.toHaveBeenCalled();
+    },
+  );
 });

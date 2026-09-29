@@ -1,6 +1,5 @@
 import { createDecipheriv } from "node:crypto";
-import { runFileOrNull, dockerExec } from "./exec.js";
-import { readProjectConfig, getMode } from "./config.js";
+import { readOneValue } from "./pg-read.js";
 
 /**
  * Does the configured ENCRYPTION_KEY actually decrypt what is in the database?
@@ -65,45 +64,6 @@ function decrypts(ciphertext: string, keyHex: string): boolean {
   }
 }
 
-/** Read one stored credential. Returns null when unreadable or absent. */
-function readOneCiphertext(): string | null {
-  const config = readProjectConfig();
-  const { user, database } = config.postgres;
-  // Same shell boundary the db commands use; user/database come from the
-  // project config, which `config set` does not validate.
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(user)) return null;
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(database)) return null;
-
-  const sql = `SELECT "configEncrypted" FROM connection LIMIT 1`;
-  const out =
-    getMode() === "docker"
-      ? dockerExec(
-          "neoboard-postgres",
-          `psql -U ${user} -d ${database} -tAc '${sql}'`,
-        )
-      : // argv, not a shell string. The SQL contains a double-quoted
-        // identifier, and interpolating it into a double-quoted command let
-        // the shell strip those quotes AND split the statement across four
-        // argv slots — so Postgres folded `configEncrypted` to lowercase, the
-        // column did not exist, and the resulting null read as
-        // "no-credentials". doctor reported that on every local-mode install.
-        runFileOrNull("psql", [
-          "-h",
-          "localhost",
-          "-p",
-          String(config.ports.postgres),
-          "-U",
-          user,
-          "-d",
-          database,
-          "-tAc",
-          sql,
-        ]);
-
-  const value = out?.trim();
-  return value ? value : null;
-}
-
 export async function probeCredentialDecryption(
   keyHex: string | undefined,
 ): Promise<ProbeResult> {
@@ -114,7 +74,9 @@ export async function probeCredentialDecryption(
 
   let ciphertext: string | null;
   try {
-    ciphertext = readOneCiphertext();
+    ciphertext = readOneValue(
+      `SELECT "configEncrypted" FROM connection LIMIT 1`,
+    );
   } catch {
     return { outcome: "unavailable" };
   }

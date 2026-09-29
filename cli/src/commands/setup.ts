@@ -11,9 +11,14 @@ export async function runSetup(opts?: {
   mode?: "docker" | "local";
   /** Start the full stack (app + DBs) or just DBs? */
   full?: boolean;
+  /** The caller seeds its own users next; see StartOptions.seedsUsers. */
+  seedsUsers?: boolean;
 }): Promise<boolean> {
   await runInit(opts);
-  const started = await runStart({ full: opts?.full });
+  const started = await runStart({
+    full: opts?.full,
+    seedsUsers: opts?.seedsUsers,
+  });
   if (!started) return false;
   success("Setup complete!");
   return true;

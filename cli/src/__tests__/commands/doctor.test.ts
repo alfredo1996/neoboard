@@ -54,8 +54,9 @@ vi.mock("dotenv", () => ({
 import { runOrNull } from "../../lib/exec.js";
 import { isPortAvailable } from "../../lib/ports.js";
 import { existsSync, readFileSync } from "node:fs";
-import { getMode } from "../../lib/config.js";
+import { getMode, readProjectConfig } from "../../lib/config.js";
 import {
+  checkCredentialDecryption,
   checkDockerRunning,
   checkDockerComposeV2,
   checkNodeVersion,
@@ -267,6 +268,169 @@ describe("runDoctor", () => {
       // nothing for a message to accidentally interpolate.
       expect(JSON.stringify(check)).not.toMatch(/[A-Za-z0-9+/]{40,}={0,2}/);
     });
+  });
+});
+
+// `start` and `demo` run doctor BEFORE the stack exists (#2057). Two checks
+// answered the wrong question there: the credential probe read a database
+// that was not up yet, and a busy port warned and carried on into Compose,
+// which then died with docker-modem's "port is already allocated" trace.
+describe("runDoctor preflight (#2057)", () => {
+  const byName = (results: { name: string }[], name: string) =>
+    results.find((r) => r.name === name);
+
+  beforeEach(() => {
+    vi.mocked(getMode).mockReturnValue("docker");
+    mockRunOrNull.mockReturnValue("Docker Compose version v2.24.0");
+    mockIsPortAvailable.mockResolvedValue(true);
+    mockExistsSync.mockReturnValue(true);
+    vi.mocked(probeCredentialDecryption).mockResolvedValue({
+      outcome: "unavailable",
+    });
+  });
+
+  it("reports the credential check as waiting for the stack, not as an unreadable database", async () => {
+    const results = await runDoctor({ preflight: { full: true } });
+    const check = byName(results, "Credential decryption");
+    expect(check?.status).toBe("skip");
+    expect(check?.message).toMatch(/once the stack is up/i);
+    expect(check?.message).not.toMatch(/could not read the database/i);
+    // Nothing to ask yet: no probe of a database that may not exist.
+    expect(vi.mocked(probeCredentialDecryption)).not.toHaveBeenCalled();
+  });
+
+  it("fails a busy port the stack is about to bind, naming its config key and a free port", async () => {
+    mockIsPortAvailable.mockImplementation(async (p) => p !== 7687);
+    const check = byName(
+      await runDoctor({ preflight: { full: true } }),
+      "Port 7687 (Neo4j Bolt)",
+    );
+    expect(check?.status).toBe("fail");
+    expect(check?.message).toBe(
+      "Port 7687 (Neo4j Bolt) is in use. Run `neoboard config set ports.neo4j_bolt 7688`, or stop the other process.",
+    );
+  });
+
+  it("passes a port NeoBoard's own container already holds, so a re-run still starts", async () => {
+    // `start` then `start --full` is the documented path: the databases are
+    // up on their ports, and compose up is a no-op for them.
+    mockRunOrNull.mockImplementation((cmd) =>
+      cmd.startsWith("docker ps")
+        ? "0.0.0.0:7687->7687/tcp, [::]:7687->7687/tcp\n0.0.0.0:5432->5432/tcp"
+        : "Docker Compose version v2.24.0",
+    );
+    mockIsPortAvailable.mockImplementation(
+      async (p) => p !== 7687 && p !== 5432,
+    );
+    const results = await runDoctor({ preflight: { full: true } });
+    expect(byName(results, "Port 7687 (Neo4j Bolt)")?.status).toBe("ok");
+    expect(byName(results, "Port 5432 (PostgreSQL)")?.status).toBe("ok");
+  });
+
+  it("fails a port a foreign container holds, even one with 'neoboard-' in its name", async () => {
+    // Emulate `docker ps --filter name=<regex>`: docker matches the regex
+    // anywhere in the name, so only an anchored filter is exact.
+    const running = [
+      ["my-neoboard-neo4j", "0.0.0.0:7687->7687/tcp"],
+      ["neoboard-neo4j-1", "0.0.0.0:7474->7474/tcp"],
+    ];
+    mockRunOrNull.mockImplementation((cmd) => {
+      const filter = /name=([^"\s]+)/.exec(cmd)?.[1];
+      if (!cmd.startsWith("docker ps") || !filter) {
+        return "Docker Compose version v2.24.0";
+      }
+      return running
+        .filter(([name]) => new RegExp(filter).test(name))
+        .map(([, ports]) => ports)
+        .join("\n");
+    });
+    mockIsPortAvailable.mockImplementation(
+      async (p) => p !== 7687 && p !== 7474,
+    );
+    const results = await runDoctor({ preflight: { full: true } });
+    expect(byName(results, "Port 7687 (Neo4j Bolt)")?.status).toBe("fail");
+    expect(byName(results, "Port 7474 (Neo4j HTTP)")?.status).toBe("fail");
+  });
+
+  it("treats a busy port as foreign when docker cannot list NeoBoard's containers", async () => {
+    mockRunOrNull.mockImplementation((cmd) =>
+      cmd.startsWith("docker ps") ? null : "Docker Compose version v2.24.0",
+    );
+    mockIsPortAvailable.mockImplementation(async (p) => p !== 5432);
+    const check = byName(
+      await runDoctor({ preflight: { full: false } }),
+      "Port 5432 (PostgreSQL)",
+    );
+    expect(check?.status).toBe("fail");
+    expect(check?.message).toContain("ports.postgres 5433");
+  });
+
+  it("only warns about the app port when the app is not being started", async () => {
+    mockIsPortAvailable.mockImplementation(async (p) => p !== 3000);
+    const check = byName(
+      await runDoctor({ preflight: { full: false } }),
+      "Port 3000 (App)",
+    );
+    expect(check?.status).toBe("warn");
+    expect(check?.message).toContain("neoboard config set ports.app 3001");
+  });
+
+  it("does not suggest a port another service is configured on", async () => {
+    vi.mocked(readProjectConfig).mockReturnValueOnce({
+      ports: { app: 3000, postgres: 5432, neo4j_http: 7686, neo4j_bolt: 7687 },
+      postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+      neo4j: { user: "neo4j", password: "neoboard123" },
+      seed: { script: "s", neo4j_cypher: "c" },
+    });
+    mockIsPortAvailable.mockImplementation(async (p) => p !== 7686);
+    const check = byName(
+      await runDoctor({ preflight: { full: true } }),
+      "Port 7686 (Neo4j HTTP)",
+    );
+    expect(check?.message).toContain("ports.neo4j_http 7688");
+  });
+
+  it("falls back to a placeholder when no nearby port is free", async () => {
+    mockIsPortAvailable.mockImplementation(async (p) => p < 7687 || p > 7787);
+    const check = byName(
+      await runDoctor({ preflight: { full: true } }),
+      "Port 7687 (Neo4j Bolt)",
+    );
+    expect(check?.message).toContain(
+      "neoboard config set ports.neo4j_bolt <free port>",
+    );
+  });
+
+  it("keeps plain `neoboard doctor` at a warning for a busy port, with the fix", async () => {
+    // Busy ports are documented as warnings for doctor itself: nothing is
+    // about to bind them.
+    mockIsPortAvailable.mockImplementation(async (p) => p !== 7687);
+    const check = byName(await runDoctor(), "Port 7687 (Neo4j Bolt)");
+    expect(check?.status).toBe("warn");
+    expect(check?.message).toContain("ports.neo4j_bolt 7688");
+  });
+
+  it("leaves local mode alone: the busy ports there are the user's own databases", async () => {
+    vi.mocked(getMode).mockReturnValue("local");
+    mockIsPortAvailable.mockResolvedValue(false);
+    const results = await runDoctor({ preflight: { full: false } });
+    const check = byName(results, "Port 5432 (PostgreSQL)");
+    expect(check?.status).toBe("warn");
+    expect(check?.message).not.toContain("config set");
+    expect(results.some((r) => r.status === "fail")).toBe(false);
+  });
+});
+
+describe("checkCredentialDecryption when the database cannot be read (#2057)", () => {
+  it("does not point at a PostgreSQL result doctor never prints", async () => {
+    vi.mocked(probeCredentialDecryption).mockResolvedValue({
+      outcome: "unavailable",
+    });
+    mockExistsSync.mockReturnValue(true);
+    const check = await checkCredentialDecryption();
+    expect(check.status).toBe("skip");
+    expect(check.message).not.toMatch(/result above/i);
+    expect(check.message).toMatch(/nothing to verify/);
   });
 });
 
