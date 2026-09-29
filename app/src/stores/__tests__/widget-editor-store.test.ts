@@ -632,6 +632,24 @@ describe("widget-editor-store", () => {
       );
       expect(action).toBeUndefined();
     });
+
+    // #2076: the Widget Library edits a template with no dashboard to check
+    // its pages against, and must not drop the page it navigates to.
+    it("keeps the target page when there is no layout to check it against", () => {
+      getState().setClickActionEnabled(true);
+      getState().setClickActionType("navigate-to-page");
+      getState().setTargetPageId("page-2");
+      expect(getState().buildClickAction()).toMatchObject({
+        type: "navigate-to-page",
+        targetPageId: "page-2",
+      });
+    });
+
+    it("still needs a target page when there is no layout", () => {
+      getState().setClickActionEnabled(true);
+      getState().setClickActionType("navigate-to-page");
+      expect(getState().buildClickAction()).toBeUndefined();
+    });
   });
 
   describe("buildClickAction — with clickableColumns", () => {

@@ -14,7 +14,6 @@ import { allReferencedParamsReady } from "@/hooks/use-widget-query";
 import type {
   DashboardWidget,
   DashboardLayoutV2,
-  ClickAction,
   WidgetTemplate,
   StylingConfig,
 } from "@/lib/db/schema";
@@ -114,6 +113,28 @@ export interface WidgetEditorModalProps {
   onSaveAsTemplate?: (widget: DashboardWidget) => void;
 }
 
+/** A template read as the widget it describes, for the store's loadFromWidget. */
+function templateAsWidget(t: WidgetTemplate): DashboardWidget {
+  return {
+    id: t.id,
+    chartType: t.chartType,
+    connectionId: t.connectionId ?? "",
+    query: t.query,
+    settings: t.settings ?? undefined,
+  };
+}
+
+/** The template's own connection when it is offered, else one of its connector. */
+function connectionForTemplate(
+  t: WidgetTemplate,
+  connections: ConnectionListItem[],
+): string {
+  if (t.connectionId && connections.some((c) => c.id === t.connectionId)) {
+    return t.connectionId;
+  }
+  return connections.find((c) => c.type === t.connectorType)?.id ?? "";
+}
+
 export function WidgetEditorModal({
   open,
   onOpenChange,
@@ -188,16 +209,8 @@ export function WidgetEditorModal({
     if (mode === "edit" && widget) {
       store.loadFromWidget(widget);
     } else if (mode === "lab-edit" && templateProp) {
-      // Initialize from template — reset first, then override with template data
-      store.resetForAdd();
-      store.setChartType(templateProp.chartType);
-      store.setConnectionId(templateProp.connectionId ?? "");
-      store.setQuery(templateProp.query ?? "");
-      store.setTitle((templateProp.settings?.title as string) ?? "");
-      store.setChartOptions(
-        (templateProp.settings?.chartOptions as Record<string, unknown>) ??
-          getDefaultChartSettings(templateProp.chartType),
-      );
+      // Every setting the template saved, as Edit Widget loads a widget (#2076).
+      store.loadFromWidget(templateAsWidget(templateProp));
       store.setLabName(templateProp.name);
       store.setLabDescription(templateProp.description ?? "");
       store.setLabTagsInput((templateProp.tags ?? []).join(", "));
@@ -205,19 +218,17 @@ export function WidgetEditorModal({
       // add or lab-create
       store.resetForAdd();
       // "add" mode defaults to bar chart (more useful default than table)
-      if (mode === "add") {
-        store.setChartType("bar");
-        store.setChartOptions(getDefaultChartSettings("bar"));
-      }
+      if (mode === "add") store.setChartType("bar");
+      store.setChartOptions(
+        getDefaultChartSettings(useWidgetEditorStore.getState().chartType),
+      );
       if (mode === "lab-create") {
         store.setLabName("");
         store.setLabDescription("");
         store.setLabTagsInput("");
       }
     }
-    // What the editor opened with, taken once opening has settled: the
-    // chart-type effect below still rewrites the options on the next render,
-    // and that is not an edit (#2054).
+    // What the editor opened with, taken once opening has settled (#2054).
     openedWithRef.current = null;
     const settled = setTimeout(() => {
       openedWithRef.current = editorSnapshot(useWidgetEditorStore.getState());
@@ -257,8 +268,16 @@ export function WidgetEditorModal({
 
   // ── Local-only state (not in store) ────────────────────────────────
 
-  // Build the widget object for saving — shared by handleSave and handleRunAndSave
-  const buildWidgetForSave = useBuildWidgetForSave(widget, layout);
+  // Build the widget object for saving — shared by handleSave, handleRunAndSave
+  // and the lab's save, which builds over the template it edits (#2076).
+  const savedWidget = useMemo(
+    () =>
+      mode === "lab-edit" && templateProp
+        ? templateAsWidget(templateProp)
+        : widget,
+    [mode, templateProp, widget],
+  );
+  const buildWidgetForSave = useBuildWidgetForSave(savedWidget, layout);
 
   // Lab-mode mutations
   const createTemplate = useCreateWidgetTemplate();
@@ -269,10 +288,6 @@ export function WidgetEditorModal({
    *  preference. Read `editorMaximized` below, not this, when laying out. */
   const [editorMaximizedRequested, setEditorMaximizedRequested] =
     useState(false);
-  /** Tracks the initial chartType set when the dialog opens in edit mode.
-   *  Used to skip the chart-options reset on first render (preserving saved options)
-   *  while still resetting when the user explicitly changes the chart type. */
-  const editInitialChartTypeRef = useRef<string | null>(null);
 
   // Parameter name suggestions from the dashboard layout
   const parameterSuggestions = useMemo(
@@ -366,40 +381,22 @@ export function WidgetEditorModal({
       : undefined,
   );
 
-  // Guard against the add-mode chartType reset effect overwriting template settings
-  const applyingTemplateRef = useRef(false);
-
+  // The whole template, styling rules, click action and transforms included
+  // (#2076), on the connection already chosen or one the template can use.
   function applyTemplate(t: WidgetTemplate) {
-    applyingTemplateRef.current = true;
-    const store = useWidgetEditorStore.getState();
-    // API returns dates as ISO strings (JSON serialization), not Date objects
-    useWidgetEditorStore.setState({
+    const current = useWidgetEditorStore.getState();
+    current.loadFromWidget({
+      ...templateAsWidget(t),
+      connectionId:
+        current.connectionId || connectionForTemplate(t, connections),
+      database: current.database,
+      allowWrites: current.allowWrites,
       templateId: t.id,
+      // API returns dates as ISO strings (JSON serialization), not Date objects
       templateSyncedAt: t.updatedAt
         ? String(t.updatedAt)
         : new Date().toISOString(),
     });
-    store.setChartType(t.chartType);
-    store.setQuery(t.query ?? "");
-    store.setTitle((t.settings?.title as string) ?? "");
-    store.setChartOptions(
-      (t.settings?.chartOptions as Record<string, unknown>) ??
-        getDefaultChartSettings(t.chartType),
-    );
-
-    // Auto-populate connector if none selected yet
-    if (!connectionId) {
-      if (t.connectionId && connections.some((c) => c.id === t.connectionId)) {
-        // Prefer the template's bound connection if it exists
-        store.setConnectionId(t.connectionId);
-      } else if (t.connectorType) {
-        // Fall back to first connection of matching type
-        const match = connections.find((c) => c.type === t.connectorType);
-        if (match) store.setConnectionId(match.id);
-      }
-    }
-
-    store.setDialogStep("main");
   }
   // Drive the editor language from the connector's declared queryLanguage
   // (#1120) rather than its type; unknown / no connector → plain text.
@@ -472,8 +469,9 @@ export function WidgetEditorModal({
   const handleChartTypeChange = useCallback(
     (t: string) => {
       setChartType(t);
-      // Chart options reset is handled by the chartType useEffect below
-      // for all modes (add, edit, lab-create).
+      // Here and not in an effect on chartType: loading a widget or template
+      // changes the chart type too, and must keep its saved options (#2076).
+      setChartOptions(getDefaultChartSettings(t));
       // Auto-disable click action when switching to an unsupported type
       if (!chartSupportsClickAction(t)) {
         setClickActionEnabled(false);
@@ -483,16 +481,13 @@ export function WidgetEditorModal({
         setStylingEnabled(false);
       }
     },
-    [setChartType],
+    [setChartType, setChartOptions, setClickActionEnabled, setStylingEnabled],
   );
 
-  // Reset local query execution state and track initial chart type for edit mode.
+  // Reset local query execution state.
   // All field initialization is handled by the store initialization effect above.
   useEffect(() => {
     if (open) {
-      if (mode === "edit" && widget) {
-        editInitialChartTypeRef.current = widget.chartType;
-      }
       seedQueryExecution.reset();
       previewQuery.reset();
     }
@@ -512,38 +507,11 @@ export function WidgetEditorModal({
       // Use setTimeout to ensure the add-mode reset runs first
       setTimeout(() => applyTemplate(initialTemplate), 0);
     }
-    if (!open) {
-      initialTemplateAppliedRef.current = undefined;
-      editInitialChartTypeRef.current = null;
-    }
+    if (!open) initialTemplateAppliedRef.current = undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, initialTemplate]);
 
-  // Re-initialize chart options when chart type changes.
-  // Skip reset when the change comes from applyTemplate to preserve template settings.
-  // In edit mode, skip the first render (initial chart type from saved widget) so we
-  // don't overwrite the user's persisted style options.
-  useEffect(() => {
-    if (applyingTemplateRef.current) {
-      applyingTemplateRef.current = false;
-      return;
-    }
-    // In edit mode, skip the initial chartType set (dialog just opened with saved type)
-    if (editInitialChartTypeRef.current !== null) {
-      editInitialChartTypeRef.current = null;
-      return;
-    }
-    setChartOptions(getDefaultChartSettings(chartType));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs guard the reset; mode is not needed
-  }, [chartType]);
-
-  // Build click action / styling config from the store
-  const buildClickAction = useCallback(
-    (): ClickAction | undefined =>
-      useWidgetEditorStore.getState().buildClickAction(layout),
-    [layout],
-  );
-
+  // Build styling config from the store
   const buildStylingConfig = useCallback(
     (): StylingConfig | undefined =>
       useWidgetEditorStore.getState().buildStylingConfig(),
@@ -647,12 +615,11 @@ export function WidgetEditorModal({
       connectionId: isContentOnly ? undefined : connectionId || undefined,
       query: isContentOnly ? "" : query,
       settings: {
-        title: title || undefined,
-        chartOptions,
-        stylingConfig: buildStylingConfig(),
-        clickAction: buildClickAction(),
-        transforms: transforms.length ? transforms : undefined,
-        conditionalFormatting: colorScales.length ? { colorScales } : undefined,
+        // As Edit Widget saves a widget's: what the lab does not show stays as
+        // saved, and what it shows saves as edited (#2076). A template keeps
+        // no query history of its own.
+        ...buildWidgetForSave().settings,
+        queryHistory: templateProp?.settings?.queryHistory,
       },
     };
 

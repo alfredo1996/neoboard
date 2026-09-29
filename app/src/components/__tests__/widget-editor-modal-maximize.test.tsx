@@ -12,6 +12,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
+import type { WidgetTemplate } from "@/lib/db/schema";
+import type { ConnectionListItem } from "@/hooks/use-connections";
 
 vi.mock("next/dynamic", () => ({
   default: () => {
@@ -29,8 +31,14 @@ vi.mock("next/dynamic", () => ({
 /** The dismiss handlers the modal hands its Dialog and DialogContent (#1952).
  *  Radix closes on Escape and on the close button by calling the Dialog's
  *  `onOpenChange(false)`, so that one stands for both. */
-const { dismiss } = vi.hoisted(() => ({
+const { dismiss, selector, browser, updateTemplate } = vi.hoisted(() => ({
   dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
+  /** The chart-type picker's change handler, as the user reaches it. */
+  selector: {} as { onChartTypeChange?: (type: string) => void },
+  /** From Template's pick, as the user reaches it. */
+  browser: {} as { onApply?: (t: WidgetTemplate) => void },
+  /** Edit Template's save (#2076). */
+  updateTemplate: vi.fn(),
 }));
 
 vi.mock("@neoboard/components", () => {
@@ -195,7 +203,7 @@ vi.mock("@/hooks/use-query-execution", () => ({
 vi.mock("@/hooks/use-widget-templates", () => ({
   useWidgetTemplates: () => ({ data: [], isLoading: false }),
   useCreateWidgetTemplate: () => ({ mutateAsync: vi.fn() }),
-  useUpdateWidgetTemplate: () => ({ mutateAsync: vi.fn() }),
+  useUpdateWidgetTemplate: () => ({ mutateAsync: updateTemplate }),
 }));
 vi.mock("@/hooks/use-connectors", () => ({
   useConnectors: () => ({ data: [] }),
@@ -203,10 +211,6 @@ vi.mock("@/hooks/use-connectors", () => ({
 vi.mock("../widget-editor/use-auto-preview", () => ({
   useAutoPreview: () => ({ handlePreview: vi.fn(), saveStatus: "idle" }),
 }));
-vi.mock("../widget-editor/use-widget-save", () => ({
-  useBuildWidgetForSave: () => () => ({}),
-}));
-
 // Heavy children stubbed — this test is about the modal's layout, not theirs.
 vi.mock("../widget-editor/widget-preview-panel", () => ({
   WidgetPreviewPanel: ({ isLabMode }: { isLabMode?: boolean }) => (
@@ -214,7 +218,14 @@ vi.mock("../widget-editor/widget-preview-panel", () => ({
   ),
 }));
 vi.mock("../widget-editor/chart-type-selector", () => ({
-  ChartTypeSelector: () => <div />,
+  ChartTypeSelector: ({
+    onChartTypeChange,
+  }: {
+    onChartTypeChange: (type: string) => void;
+  }) => {
+    selector.onChartTypeChange = onChartTypeChange;
+    return <div />;
+  },
 }));
 vi.mock("../widget-editor/form-fields-editor", () => ({
   FormFieldsEditor: () => <div />,
@@ -239,7 +250,10 @@ vi.mock("../widget-editor/database-selector", () => ({
   ),
 }));
 vi.mock("../widget-editor/template-browser", () => ({
-  TemplateBrowser: () => <div />,
+  TemplateBrowser: ({ onApply }: { onApply: (t: WidgetTemplate) => void }) => {
+    browser.onApply = onApply;
+    return <div />;
+  },
 }));
 vi.mock("../widget-editor/advanced-caching-section", () => ({
   AdvancedCachingSection: () => <div />,
@@ -488,8 +502,7 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
     useWidgetEditorStore.getState().resetForAdd();
   });
 
-  /** Opening settles over the next render (the chart-options reset runs
-   *  there); the editor takes what it opened with after that. */
+  /** The editor takes what it opened with once opening has settled. */
   async function settle() {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
@@ -594,7 +607,7 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
 
   it("the chart-options reset that opening runs is not an edit", async () => {
     // The last editor left a bar chart in the store; Create Template opens on
-    // a table, and the chart-type effect rewrites the options on the way.
+    // a table, and puts a table's default options in on the way.
     useWidgetEditorStore.getState().setChartType("bar");
     const onOpenChange = await openEditor({ mode: "lab-create" });
     await act(async () => dismiss.onOpenChange?.(false));
@@ -692,4 +705,259 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
 
     await waitFor(() => expect(expand).toHaveFocus());
   });
+});
+
+// #2076: Edit Template loaded the chart type, query, title and chart options
+// alone, and the chart-type effect then put the options back to the type's
+// defaults whenever the store's last chart type was another one; its save
+// wrote all of that over the template. Use in Dashboard dropped the styling
+// rules, click action and transforms too.
+describe("WidgetEditorModal — a template opens as it was saved (#2076)", () => {
+  const SETTINGS = {
+    title: "Sales by region",
+    chartOptions: { saved: true, orientation: "horizontal" },
+    stylingConfig: {
+      enabled: true,
+      rules: [{ id: "s1", operator: ">", value: 10, color: "#dc2626" }],
+    },
+    clickAction: {
+      type: "set-parameter",
+      rules: [
+        {
+          id: "r1",
+          type: "set-parameter",
+          parameterMapping: { parameterName: "region", sourceField: "label" },
+        },
+      ],
+    },
+    transforms: [{ type: "sort", column: "value", direction: "desc" }],
+    conditionalFormatting: {
+      colorScales: [
+        { column: "value", minColor: "#ffffff", maxColor: "#000000" },
+      ],
+    },
+    // Not built by the lab's save, and kept by it all the same.
+    enableCache: false,
+  };
+  const TEMPLATE: WidgetTemplate = {
+    id: "t-2076",
+    name: "Regional sales",
+    description: "Sales per region",
+    tags: ["sales"],
+    chartType: "bar",
+    connectorType: null,
+    connectionId: null,
+    query: "RETURN 'north' AS label, 2 AS value",
+    params: null,
+    settings: SETTINGS,
+    previewImageUrl: null,
+    createdBy: "u1",
+    tenantId: "default",
+    createdAt: null,
+    updatedAt: null,
+  };
+
+  function connection(id: string, type: string): ConnectionListItem {
+    return {
+      id,
+      name: id,
+      type,
+      visibility: "private",
+      isOwner: true,
+      createdAt: "",
+      updatedAt: "",
+    } as ConnectionListItem;
+  }
+
+  async function settle() {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  }
+
+  /** As the Widget Library does: mounted closed, then opened. */
+  async function openEditor(
+    props: Partial<React.ComponentProps<typeof WidgetEditorModal>> = {},
+  ) {
+    const all = {
+      onOpenChange: vi.fn(),
+      mode: "lab-edit" as const,
+      template: TEMPLATE,
+      connections: [],
+      onSave: vi.fn(),
+      ...props,
+    };
+    const { rerender } = render(<WidgetEditorModal {...all} open={false} />);
+    rerender(<WidgetEditorModal {...all} open />);
+    await settle();
+    return all.onOpenChange;
+  }
+
+  function expectTemplateLoaded() {
+    const s = useWidgetEditorStore.getState();
+    expect(s.chartType).toBe("bar");
+    expect(s.chartOptions).toEqual(SETTINGS.chartOptions);
+    expect(s.stylingEnabled).toBe(true);
+    expect(s.stylingRules).toEqual(SETTINGS.stylingConfig.rules);
+    expect(s.clickActionEnabled).toBe(true);
+    expect(s.actionRules).toEqual(SETTINGS.clickAction.rules);
+    expect(s.transforms).toEqual(SETTINGS.transforms);
+    expect(s.colorScales).toEqual(SETTINGS.conditionalFormatting.colorScales);
+  }
+
+  beforeEach(() => {
+    // A fresh Widget Library page: the store is on a table.
+    useWidgetEditorStore.getState().resetForAdd();
+    updateTemplate.mockReset();
+  });
+
+  it("Edit Template keeps its chart options while the store is on another chart type", async () => {
+    expect(useWidgetEditorStore.getState().chartType).toBe("table");
+    await openEditor();
+    expect(useWidgetEditorStore.getState().chartOptions).toEqual(
+      SETTINGS.chartOptions,
+    );
+  });
+
+  it("Edit Template opens with its styling rules, click action, transforms and color scales", async () => {
+    await openEditor();
+    expectTemplateLoaded();
+    const s = useWidgetEditorStore.getState();
+    expect(s.labName).toBe("Regional sales");
+    expect(s.labDescription).toBe("Sales per region");
+    expect(s.labTagsInput).toBe("sales");
+    expect(s.templateId).toBeUndefined();
+  });
+
+  it("an untouched Edit Template saves back the settings it opened with", async () => {
+    await openEditor();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save Template" }),
+    );
+    expect(updateTemplate).toHaveBeenCalledOnce();
+    const [payload] = updateTemplate.mock.calls[0];
+    expect(payload).toMatchObject({ id: "t-2076", chartType: "bar" });
+    // Plus the two defaults it read in for the keys the template lacked.
+    expect(payload.settings).toEqual({
+      ...SETTINGS,
+      cacheTtlMinutes: 5,
+      transformsEnabled: true,
+    });
+  });
+
+  it("an untouched Edit Template keeps a click action whose rules navigate to a page", async () => {
+    // The Widget Library has no dashboard, so no pages to check the rule against.
+    const clickAction = {
+      type: "set-parameter",
+      rules: [
+        ...SETTINGS.clickAction.rules,
+        { id: "r2", type: "navigate-to-page", targetPageId: "page-2" },
+      ],
+    };
+    await openEditor({
+      template: { ...TEMPLATE, settings: { ...SETTINGS, clickAction } },
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save Template" }),
+    );
+    expect(updateTemplate.mock.calls[0][0].settings.clickAction).toEqual(
+      clickAction,
+    );
+  });
+
+  it("Edit Template saves the caching and transforms toggles the user changed", async () => {
+    await openEditor({
+      template: {
+        ...TEMPLATE,
+        settings: { ...SETTINGS, enableCache: false, transformsEnabled: false },
+      },
+    });
+    act(() => {
+      const s = useWidgetEditorStore.getState();
+      s.setEnableCache(true);
+      s.setTransformsEnabled(true);
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save Template" }),
+    );
+    expect(updateTemplate.mock.calls[0][0].settings).toMatchObject({
+      enableCache: true,
+      transformsEnabled: true,
+    });
+  });
+
+  it("an unchanged Edit Template closes without the discard question (#2054)", async () => {
+    const onOpenChange = await openEditor();
+    await act(async () => dismiss.onOpenChange?.(false));
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["add", {}],
+    [
+      "edit",
+      {
+        // On the store's chart type, so opening changes none.
+        widget: {
+          id: "w-2076",
+          chartType: "table",
+          connectionId: "c1",
+          query: "RETURN 1",
+          settings: { chartOptions: { pageSize: 20 } },
+        },
+      },
+    ],
+    ["lab-edit", {}],
+    ["lab-create", {}],
+  ] as const)(
+    "in %s mode a chart-type change resets the options to the new type's defaults",
+    async (mode, props) => {
+      await openEditor({ mode, ...props });
+      act(() => selector.onChartTypeChange?.("line"));
+      expect(useWidgetEditorStore.getState().chartOptions).toEqual({
+        defaultsFor: "line",
+      });
+    },
+  );
+
+  it("Use in Dashboard applies the template's styling rules, click action, transforms and color scales", async () => {
+    await openEditor({
+      mode: "add",
+      template: undefined,
+      initialTemplate: TEMPLATE,
+    });
+    await settle();
+    expectTemplateLoaded();
+    expect(useWidgetEditorStore.getState().templateId).toBe("t-2076");
+  });
+
+  it.each([
+    ["the template's own connection", "", { connectionId: "c2" }, "c2"],
+    ["one of the template's connector", "", { connectorType: "beta" }, "c2"],
+    ["the connection already chosen", "c1", { connectionId: "c2" }, "c1"],
+    ["none without a match", "", { connectionId: "gone" }, ""],
+  ] as const)(
+    "From Template loads the whole template and runs on %s",
+    async (_what, chosen, binding, expected) => {
+      const updatedAt = new Date("2026-09-01T00:00:00Z");
+      await openEditor({
+        mode: "add",
+        template: undefined,
+        connections: [connection("c1", "alpha"), connection("c2", "beta")],
+      });
+      act(() => {
+        const s = useWidgetEditorStore.getState();
+        if (chosen) s.setConnectionId(chosen);
+        s.setDialogStep("templates");
+      });
+      act(() => browser.onApply?.({ ...TEMPLATE, ...binding, updatedAt }));
+      expectTemplateLoaded();
+      const s = useWidgetEditorStore.getState();
+      expect(s.connectionId).toBe(expected);
+      expect(s.dialogStep).toBe("main");
+      expect(s.templateId).toBe("t-2076");
+      expect(s.templateSyncedAt).toBe(String(updatedAt));
+    },
+  );
 });
