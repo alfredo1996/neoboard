@@ -285,6 +285,34 @@ describe("the installed check resolves as the generated import does (#2064)", ()
     );
   });
 
+  // import.meta.resolve returns a URL, not a throw, for a target it cannot
+  // find on disk, so the check must confirm the file exists itself.
+  it("rejects an import-only package whose exports target is not built", () => {
+    const res = runCodegen([{ package: "@neoboard-test/unbuilt-2064" }], {
+      "@neoboard-test/unbuilt-2064": {
+        "package.json": JSON.stringify({
+          name: "@neoboard-test/unbuilt-2064",
+          type: "module",
+          exports: { ".": { import: "./dist/index.js" } },
+        }),
+      },
+    });
+    expect(res.status, res.stdout).toBe(1);
+    expect(res.stderr).toContain(
+      'Package "@neoboard-test/unbuilt-2064" is not installed.',
+    );
+    expect(res.generated).toBeNull();
+  });
+
+  it("rejects a relative entry that points at nothing", () => {
+    const res = runCodegen([{ package: "../neoboard-connector-missing-2064" }]);
+    expect(res.status, res.stdout).toBe(1);
+    expect(res.stderr).toContain(
+      'Package "../neoboard-connector-missing-2064" is not installed.',
+    );
+    expect(res.generated).toBeNull();
+  });
+
   it("rejects a package that is not installed with the install hint", () => {
     const res = runCodegen([{ package: "@neoboard-test/not-installed-2064" }]);
     expect(res.status, res.stdout).toBe(1);
