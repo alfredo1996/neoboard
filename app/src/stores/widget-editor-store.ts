@@ -189,9 +189,15 @@ export interface WidgetEditorState {
 // Helpers (extracted to reduce buildClickAction cognitive complexity)
 // ---------------------------------------------------------------------------
 
+/** A page the click action may go to. Without a layout (the Widget Library
+ *  edits a template, which has no dashboard) any page counts (#2076). */
+function isValidPage(pageId: string, validPageIds?: Set<string>): boolean {
+  return !!pageId && (!validPageIds || validPageIds.has(pageId));
+}
+
 function validateActionRules(
   rules: ClickActionRule[],
-  validPageIds: Set<string>,
+  validPageIds?: Set<string>,
 ): boolean {
   for (const rule of rules) {
     const needsParam =
@@ -202,10 +208,7 @@ function validateActionRules(
     const needsPage =
       rule.type === "navigate-to-page" ||
       rule.type === "set-parameter-and-navigate";
-    if (
-      needsPage &&
-      (!rule.targetPageId || !validPageIds.has(rule.targetPageId))
-    )
+    if (needsPage && !isValidPage(rule.targetPageId ?? "", validPageIds))
       return false;
   }
   return true;
@@ -216,7 +219,7 @@ function buildLegacyClickAction(
     WidgetEditorState,
     "clickActionType" | "parameterName" | "sourceField" | "targetPageId"
   >,
-  validPageIds: Set<string>,
+  validPageIds?: Set<string>,
   clickableColumns?: string[],
 ): ClickAction | undefined {
   const action: ClickAction = { type: s.clickActionType };
@@ -234,7 +237,7 @@ function buildLegacyClickAction(
     s.clickActionType === "navigate-to-page" ||
     s.clickActionType === "set-parameter-and-navigate"
   ) {
-    if (!s.targetPageId || !validPageIds.has(s.targetPageId)) return undefined;
+    if (!isValidPage(s.targetPageId, validPageIds)) return undefined;
     action.targetPageId = s.targetPageId;
   }
   if (clickableColumns?.length) action.clickableColumns = clickableColumns;
@@ -473,7 +476,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
     if (!s.clickActionEnabled || !chartSupportsClickAction(s.chartType))
       return undefined;
 
-    const pageIds = new Set((layout?.pages ?? []).map((p) => p.id));
+    const pageIds = layout && new Set(layout.pages.map((p) => p.id));
     const cols = s.clickableColumns.length > 0 ? s.clickableColumns : undefined;
 
     // Advanced rules mode

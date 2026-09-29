@@ -211,10 +211,6 @@ vi.mock("@/hooks/use-connectors", () => ({
 vi.mock("../widget-editor/use-auto-preview", () => ({
   useAutoPreview: () => ({ handlePreview: vi.fn(), saveStatus: "idle" }),
 }));
-vi.mock("../widget-editor/use-widget-save", () => ({
-  useBuildWidgetForSave: () => () => ({}),
-}));
-
 // Heavy children stubbed — this test is about the modal's layout, not theirs.
 vi.mock("../widget-editor/widget-preview-panel", () => ({
   WidgetPreviewPanel: ({ isLabMode }: { isLabMode?: boolean }) => (
@@ -841,7 +837,53 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     expect(updateTemplate).toHaveBeenCalledOnce();
     const [payload] = updateTemplate.mock.calls[0];
     expect(payload).toMatchObject({ id: "t-2076", chartType: "bar" });
-    expect(payload.settings).toEqual(SETTINGS);
+    // Plus the two defaults it read in for the keys the template lacked.
+    expect(payload.settings).toEqual({
+      ...SETTINGS,
+      cacheTtlMinutes: 5,
+      transformsEnabled: true,
+    });
+  });
+
+  it("an untouched Edit Template keeps a click action whose rules navigate to a page", async () => {
+    // The Widget Library has no dashboard, so no pages to check the rule against.
+    const clickAction = {
+      type: "set-parameter",
+      rules: [
+        ...SETTINGS.clickAction.rules,
+        { id: "r2", type: "navigate-to-page", targetPageId: "page-2" },
+      ],
+    };
+    await openEditor({
+      template: { ...TEMPLATE, settings: { ...SETTINGS, clickAction } },
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save Template" }),
+    );
+    expect(updateTemplate.mock.calls[0][0].settings.clickAction).toEqual(
+      clickAction,
+    );
+  });
+
+  it("Edit Template saves the caching and transforms toggles the user changed", async () => {
+    await openEditor({
+      template: {
+        ...TEMPLATE,
+        settings: { ...SETTINGS, enableCache: false, transformsEnabled: false },
+      },
+    });
+    act(() => {
+      const s = useWidgetEditorStore.getState();
+      s.setEnableCache(true);
+      s.setTransformsEnabled(true);
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save Template" }),
+    );
+    expect(updateTemplate.mock.calls[0][0].settings).toMatchObject({
+      enableCache: true,
+      transformsEnabled: true,
+    });
   });
 
   it("an unchanged Edit Template closes without the discard question (#2054)", async () => {

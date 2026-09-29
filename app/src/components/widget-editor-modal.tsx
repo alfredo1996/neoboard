@@ -14,7 +14,6 @@ import { allReferencedParamsReady } from "@/hooks/use-widget-query";
 import type {
   DashboardWidget,
   DashboardLayoutV2,
-  ClickAction,
   WidgetTemplate,
   StylingConfig,
 } from "@/lib/db/schema";
@@ -269,8 +268,16 @@ export function WidgetEditorModal({
 
   // ── Local-only state (not in store) ────────────────────────────────
 
-  // Build the widget object for saving — shared by handleSave and handleRunAndSave
-  const buildWidgetForSave = useBuildWidgetForSave(widget, layout);
+  // Build the widget object for saving — shared by handleSave, handleRunAndSave
+  // and the lab's save, which builds over the template it edits (#2076).
+  const savedWidget = useMemo(
+    () =>
+      mode === "lab-edit" && templateProp
+        ? templateAsWidget(templateProp)
+        : widget,
+    [mode, templateProp, widget],
+  );
+  const buildWidgetForSave = useBuildWidgetForSave(savedWidget, layout);
 
   // Lab-mode mutations
   const createTemplate = useCreateWidgetTemplate();
@@ -504,13 +511,7 @@ export function WidgetEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, initialTemplate]);
 
-  // Build click action / styling config from the store
-  const buildClickAction = useCallback(
-    (): ClickAction | undefined =>
-      useWidgetEditorStore.getState().buildClickAction(layout),
-    [layout],
-  );
-
+  // Build styling config from the store
   const buildStylingConfig = useCallback(
     (): StylingConfig | undefined =>
       useWidgetEditorStore.getState().buildStylingConfig(),
@@ -614,15 +615,11 @@ export function WidgetEditorModal({
       connectionId: isContentOnly ? undefined : connectionId || undefined,
       query: isContentOnly ? "" : query,
       settings: {
-        // What the lab does not build (caching, form fields…) stays as saved,
-        // as Edit Widget keeps a widget's (#2076).
-        ...templateProp?.settings,
-        title: title || undefined,
-        chartOptions,
-        stylingConfig: buildStylingConfig(),
-        clickAction: buildClickAction(),
-        transforms: transforms.length ? transforms : undefined,
-        conditionalFormatting: colorScales.length ? { colorScales } : undefined,
+        // As Edit Widget saves a widget's: what the lab does not show stays as
+        // saved, and what it shows saves as edited (#2076). A template keeps
+        // no query history of its own.
+        ...buildWidgetForSave().settings,
+        queryHistory: templateProp?.settings?.queryHistory,
       },
     };
 

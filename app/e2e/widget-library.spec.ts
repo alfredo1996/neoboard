@@ -656,15 +656,12 @@ test.describe("Widget Library", () => {
     }) => {
       test.setTimeout(90_000);
 
+      // The seeded one, by id: another worker may add and delete its own.
       const conns = await page.request.get("/api/connections");
       const graph = (
-        (await conns.json()).data as {
-          id: string;
-          name: string;
-          type: string;
-        }[]
-      ).find((c) => c.type === "neo4j");
-      expect(graph, "no Neo4j connection seeded").toBeTruthy();
+        (await conns.json()).data as { id: string; name: string }[]
+      ).find((c) => c.id === "conn-neo4j-001");
+      expect(graph, "the seeded connection is missing").toBeTruthy();
 
       const templateName = `E2E Keeps Settings ${Date.now()}`;
       const rule = {
@@ -749,12 +746,10 @@ test.describe("Widget Library", () => {
           "Kept settings",
           { timeout: 15_000 },
         );
-        await addDialog.getByRole("combobox").nth(0).click();
-        await page
-          .getByRole("option")
-          .filter({ hasText: graph!.name })
-          .first()
-          .click();
+        // On the template's own connection, with no pick of the user's.
+        await expect(addDialog.getByRole("combobox").nth(0)).toContainText(
+          graph!.name,
+        );
         await addDialog.getByRole("button", { name: "Add Widget" }).click();
         await expect(addDialog).not.toBeVisible();
         await saveDashboard(page);
@@ -767,6 +762,7 @@ test.describe("Widget Library", () => {
                 pages: Array<{
                   widgets: Array<{
                     templateId?: string;
+                    connectionId?: string;
                     settings?: {
                       chartOptions?: Record<string, unknown>;
                       stylingConfig?: unknown;
@@ -778,6 +774,7 @@ test.describe("Widget Library", () => {
           }
         ).data.layoutJson.pages[0].widgets[0];
         expect(widget.templateId).toBe(tId);
+        expect(widget.connectionId).toBe(graph!.id);
         expect(widget.settings?.chartOptions).toMatchObject({
           orientation: "horizontal",
         });
