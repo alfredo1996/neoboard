@@ -60,6 +60,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  ConfirmDialog,
+  focusedMenuTrigger,
   type WidgetCardAction,
 } from "@neoboard/components";
 
@@ -91,6 +93,10 @@ interface DashboardContainerProps {
 }
 
 // getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget/widget-utils
+
+function removeWidgetDialogTitle(title: string): string {
+  return title.trim() ? `Remove "${title}"?` : "Remove this widget?";
+}
 
 export function DashboardContainer({
   page,
@@ -154,6 +160,14 @@ export function DashboardContainer({
   }, []);
   const [pendingSyncWidget, setPendingSyncWidget] =
     useState<DashboardWidget | null>(null);
+  // The widget Remove was asked on (#2055), and the menu button focus goes
+  // back to. Kept after the dialog closes so its fade-out still names the
+  // widget; `removeOpen` alone opens and closes it.
+  const [removeTarget, setRemoveTarget] = useState<{
+    widget: DashboardWidget;
+    returnFocusTo: HTMLElement | null;
+  } | null>(null);
+  const [removeOpen, setRemoveOpen] = useState(false);
   const parameters = useParameterStore((s) => s.parameters);
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
@@ -164,6 +178,8 @@ export function DashboardContainer({
     [allEntries],
   );
   const hasParameters = displayEntries.length > 0;
+  const displayTitle = (widget: DashboardWidget) =>
+    interpolateTitle(getWidgetDisplayTitle(widget), parameters);
 
   const scrollToSource = useCallback((sourceWidgetId?: string) => {
     if (!sourceWidgetId) return;
@@ -283,7 +299,10 @@ export function DashboardContainer({
     if (onRemoveWidget) {
       actions.push({
         label: "Remove",
-        onClick: () => onRemoveWidget(widget.id),
+        onClick: () => {
+          setRemoveTarget({ widget, returnFocusTo: focusedMenuTrigger() });
+          setRemoveOpen(true);
+        },
         destructive: true,
       });
     }
@@ -340,10 +359,7 @@ export function DashboardContainer({
                 }
               >
                 <WidgetCard
-                  title={interpolateTitle(
-                    getWidgetDisplayTitle(widget),
-                    parameters,
-                  )}
+                  title={displayTitle(widget)}
                   subtitle={undefined}
                   className="h-full"
                   draggable={editable}
@@ -410,12 +426,7 @@ export function DashboardContainer({
       >
         <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col">
           <DialogTitle className="text-lg font-semibold mb-2">
-            {fullscreenWidget
-              ? interpolateTitle(
-                  getWidgetDisplayTitle(fullscreenWidget),
-                  parameters,
-                )
-              : "Widget"}
+            {fullscreenWidget ? displayTitle(fullscreenWidget) : "Widget"}
           </DialogTitle>
           <DialogDescription className="sr-only">
             This widget is shown at full size. Press Escape to return to the
@@ -476,6 +487,26 @@ export function DashboardContainer({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ConfirmDialog
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
+        // Its own title, not the card header's chart-type fallback ("Bar
+        // Chart"): an untitled widget is "this widget".
+        title={removeWidgetDialogTitle(
+          interpolateTitle(
+            (removeTarget?.widget.settings?.title as string | undefined) ?? "",
+            parameters,
+          ),
+        )}
+        description="This removes the widget from the dashboard."
+        confirmText="Remove"
+        variant="destructive"
+        returnFocusTo={removeTarget?.returnFocusTo}
+        onConfirm={() => {
+          if (removeTarget) onRemoveWidget?.(removeTarget.widget.id);
+        }}
+      />
     </>
   );
 }

@@ -22,6 +22,7 @@ import { apiSuccess } from "@/lib/api/api-response";
 import { formatImportError } from "@/lib/dashboard/format-import-error";
 import { auditRequest } from "@/lib/audit/audit";
 import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
+import { pluralWidgets } from "@/lib/widget/plural-widgets";
 import {
   layoutConnectionIds,
   unusableConnectionIds,
@@ -40,10 +41,6 @@ const importRequestSchema = z.object({
 // pointed at one global graph database; we surface that as a single required
 // mapping.
 const NEODASH_PLACEHOLDER_KEY = "neodash-default";
-
-function pluralWidgets(count: number): string {
-  return count === 1 ? "1 widget" : count + " widgets";
-}
 
 export async function POST(request: Request) {
   try {

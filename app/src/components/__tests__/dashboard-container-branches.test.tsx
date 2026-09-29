@@ -197,6 +197,49 @@ vi.mock("@neoboard/components", () => ({
   AlertDialogTitle: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  ConfirmDialog: ({
+    open,
+    onOpenChange,
+    title,
+    description,
+    confirmText,
+    onConfirm,
+    returnFocusTo,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    title: string;
+    description?: React.ReactNode;
+    confirmText?: string;
+    onConfirm: () => void;
+    returnFocusTo?: HTMLElement | null;
+  }) =>
+    open ? (
+      <div
+        data-testid="confirm-dialog"
+        role="alertdialog"
+        aria-label={title}
+        data-return-focus={returnFocusTo?.id}
+      >
+        <p>{description}</p>
+        <button
+          data-testid="confirm-dialog-cancel"
+          onClick={() => onOpenChange(false)}
+        >
+          Cancel
+        </button>
+        <button
+          data-testid="confirm-dialog-confirm"
+          onClick={() => {
+            onConfirm();
+            onOpenChange(false);
+          }}
+        >
+          {confirmText}
+        </button>
+      </div>
+    ) : null,
+  focusedMenuTrigger: () => mockMenuTrigger,
   buildCsvString: vi.fn((rows: unknown[]) => `CSV(${rows.length})`),
   triggerDownload: vi.fn(),
   buildExportFilename: vi.fn((title: string, ext: string) => `${title}.${ext}`),
@@ -218,9 +261,15 @@ vi.mock("@/lib/widget/card-utils", () => ({
 }));
 
 const mockIsTemplateOutdated = vi.fn();
+// What `focusedMenuTrigger()` finds: the widget's "Widget actions" button.
+const mockMenuTrigger = Object.assign(document.createElement("button"), {
+  id: "widget-actions-trigger",
+});
+const defaultDisplayTitle = (w: DashboardWidget) =>
+  (w.settings?.title as string) || w.chartType;
+const mockGetWidgetDisplayTitle = vi.fn(defaultDisplayTitle);
 vi.mock("@/lib/widget/widget-utils", () => ({
-  getWidgetDisplayTitle: (w: DashboardWidget) =>
-    (w.settings?.title as string) || w.chartType,
+  getWidgetDisplayTitle: (w: DashboardWidget) => mockGetWidgetDisplayTitle(w),
   isWidgetTemplateOutdated: (w: unknown, map: unknown) =>
     mockIsTemplateOutdated(w, map),
 }));
@@ -312,6 +361,7 @@ beforeEach(() => {
   widgetCardProps.length = 0;
   parametersState.parameters = {};
   mockIsDataWidget.mockReturnValue(true);
+  mockGetWidgetDisplayTitle.mockImplementation(defaultDisplayTitle);
   mockIsTemplateOutdated.mockReturnValue(false);
   mockShouldShowRefresh.mockReturnValue(false);
   mockBuildExportData.mockReturnValue([]);
@@ -369,7 +419,8 @@ describe("DashboardContainer — buildActions", () => {
     fireEvent.click(screen.getByTestId("action-remove"));
     expect(onEditWidget).toHaveBeenCalledTimes(1);
     expect(onDuplicateWidget).toHaveBeenCalledWith("w-1");
-    expect(onRemoveWidget).toHaveBeenCalledWith("w-1");
+    // Remove asks first (#2055); the confirm path is covered below.
+    expect(screen.getByTestId("confirm-dialog")).toBeInTheDocument();
   });
 
   it("no longer offers 'Save to Widget Library' in the action menu (#913)", () => {
@@ -421,6 +472,76 @@ describe("DashboardContainer — buildActions", () => {
     );
     const props = widgetCardProps[0];
     expect(props.actions).toBeUndefined();
+  });
+});
+
+describe("DashboardContainer — Remove asks first (#2055)", () => {
+  function renderRemovable(widgets: DashboardWidget[] = [makeWidget()]) {
+    const onRemoveWidget = vi.fn();
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage(widgets)}
+        editable={true}
+        actions={{ onRemoveWidget }}
+      />,
+    );
+    return { onRemoveWidget };
+  }
+
+  it("opens a confirmation naming the widget instead of removing it", () => {
+    const { onRemoveWidget } = renderRemovable();
+
+    fireEvent.click(screen.getByTestId("action-remove"));
+
+    expect(onRemoveWidget).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", {
+      name: 'Remove "Test Widget"?',
+    });
+    // Focus goes back to the menu button Remove was picked from.
+    expect(dialog).toHaveAttribute(
+      "data-return-focus",
+      "widget-actions-trigger",
+    );
+  });
+
+  // Its card header falls back to the chart-type label ("Bar Chart"), but
+  // that is not the widget's title, so the question does not quote it.
+  it('calls an untitled widget "this widget", even one headed by its chart type', () => {
+    mockGetWidgetDisplayTitle.mockImplementation(() => "Bar Chart");
+    renderRemovable([makeWidget({ chartType: "bar", settings: {} })]);
+
+    fireEvent.click(screen.getByTestId("action-remove"));
+
+    expect(
+      screen.getByRole("alertdialog", { name: "Remove this widget?" }),
+    ).toBeInTheDocument();
+  });
+
+  it("cancelling keeps the widget", () => {
+    const { onRemoveWidget } = renderRemovable();
+
+    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
+
+    expect(onRemoveWidget).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("confirm-dialog")).toBeNull();
+  });
+
+  it("confirming removes the widget the menu was opened on", () => {
+    const { onRemoveWidget } = renderRemovable([
+      makeWidget({ id: "w-1", settings: { title: "First" } }),
+      makeWidget({ id: "w-2", settings: { title: "Second" } }),
+    ]);
+
+    fireEvent.click(screen.getAllByTestId("action-remove")[1]);
+    expect(
+      screen.getByRole("alertdialog", { name: 'Remove "Second"?' }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+
+    expect(onRemoveWidget).toHaveBeenCalledTimes(1);
+    expect(onRemoveWidget).toHaveBeenCalledWith("w-2");
+    expect(screen.queryByTestId("confirm-dialog")).toBeNull();
   });
 });
 
@@ -616,16 +737,16 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
       </>,
     );
     await waitFor(() =>
-      expect(screen.getByTestId("probe").textContent).toBe('[{"region":"all"}]'),
+      expect(screen.getByTestId("probe").textContent).toBe(
+        '[{"region":"all"}]',
+      ),
     );
 
     fireEvent.click(screen.getByTestId("action-csv"));
 
-    expect(mockBuildExportData).toHaveBeenCalledWith(
-      [{ region: "all" }],
-      [],
-      { foo: "bar" },
-    );
+    expect(mockBuildExportData).toHaveBeenCalledWith([{ region: "all" }], [], {
+      foo: "bar",
+    });
   });
 
   it("exports the current parameter's rows, not an older cached variant", async () => {
@@ -707,9 +828,7 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
     await new Promise((r) => setTimeout(r, 5));
     rerender(ui(true));
     await waitFor(() =>
-      expect(screen.getByTestId("probe-nocache").textContent).toBe(
-        '[{"n":2}]',
-      ),
+      expect(screen.getByTestId("probe-nocache").textContent).toBe('[{"n":2}]'),
     );
 
     const [exportTtl, exportNocache] = screen.getAllByTestId("action-csv");

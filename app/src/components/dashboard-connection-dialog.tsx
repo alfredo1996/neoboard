@@ -24,6 +24,7 @@ import { useConnectors } from "@/hooks/use-connectors";
 import { connectorLabel } from "@/lib/connector/connector-label";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
+import { pluralWidgets } from "@/lib/widget/plural-widgets";
 
 /** Sentinel for the "widgets with no connection" bucket. */
 export const UNASSIGNED = "";
@@ -70,10 +71,6 @@ export function bucketWidgetsByConnection(
           ? -1
           : a.connectionId.localeCompare(b.connectionId),
     );
-}
-
-function pluralWidgets(count: number): string {
-  return count === 1 ? "1 widget" : `${count} widgets`;
 }
 
 /**

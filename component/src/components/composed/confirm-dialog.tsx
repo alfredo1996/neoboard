@@ -31,6 +31,13 @@ export interface ConfirmDialogProps {
   confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel?: () => void;
+  /**
+   * Where focus goes when the dialog closes. It has no Trigger, so without
+   * this Radix returns focus to nothing and it falls to <body>. Asked from a
+   * menu item, pass `focusedMenuTrigger()` read in the item's handler. Skipped
+   * when the element has left the page (the thing it belonged to was deleted).
+   */
+  returnFocusTo?: HTMLElement | null;
 }
 
 function ConfirmDialog({
@@ -44,20 +51,30 @@ function ConfirmDialog({
   confirmDisabled = false,
   onConfirm,
   onCancel,
-}: ConfirmDialogProps) {
+  returnFocusTo,
+}: Readonly<ConfirmDialogProps>) {
   const handleCancel = () => {
     onCancel?.();
     onOpenChange(false);
   };
 
   const handleConfirm = () => {
+    // Closed but still fading out, the button takes a second click (a
+    // double-click, or Enter twice). Confirm once (#2055).
+    if (!open) return;
     onConfirm();
     onOpenChange(false);
   };
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onCloseAutoFocus={(event) => {
+          if (!returnFocusTo?.isConnected) return;
+          event.preventDefault();
+          returnFocusTo.focus();
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description !== undefined &&

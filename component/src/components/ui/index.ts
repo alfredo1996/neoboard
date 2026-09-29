@@ -92,6 +92,7 @@ export {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuRadioGroup,
+  focusedMenuTrigger,
 } from "./dropdown-menu";
 export {
   Popover,

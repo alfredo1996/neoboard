@@ -87,6 +87,8 @@ vi.mock("@neoboard/components", () => ({
   AlertDialogTitle: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  ConfirmDialog: () => null,
+  focusedMenuTrigger: () => null,
   buildCsvString: () => "",
   triggerDownload: vi.fn(),
   buildExportFilename: () => "export.csv",
