@@ -891,7 +891,9 @@ test.describe("Widget Library", () => {
 
       // Filter to PostgreSQL only — connector select is the second combobox
       await page.locator("button[role='combobox']").nth(1).click();
-      await page.getByRole("option", { name: /PostgreSQL/i }).click();
+      await page
+        .getByRole("option", { name: "PostgreSQL", exact: true })
+        .click();
 
       const pgCard = page
         .locator("[data-testid='template-card']")

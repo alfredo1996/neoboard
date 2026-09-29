@@ -23,6 +23,14 @@ export const TEST_NEO4J_BOLT_URL =
   process.env.TEST_NEO4J_BOLT_URL ?? "bolt://localhost:7687";
 export const TEST_PG_PORT = process.env.TEST_PG_PORT ?? "5432";
 
+/**
+ * The seeded PostgreSQL connection's option in a connection picker, which
+ * labels each option `<name> (<connector label>)`, anchored on its name. A bare
+ * /PostgreSQL/ also matches every PostgreSQL connection another worker created,
+ * and strict mode then fails the click (#2071).
+ */
+export const SEEDED_PG_OPTION = /^Movies DB \(PostgreSQL\)/;
+
 type Fixtures = {
   authPage: AuthPage;
   sidebarPage: SidebarPage;
