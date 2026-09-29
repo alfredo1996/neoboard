@@ -648,6 +648,81 @@ test.describe("Widget Library", () => {
       }
     });
 
+    // #2084: Sync threw because the fetched template's updatedAt is a string.
+    test("Sync with template applies the edited template's query (#2084)", async ({
+      page,
+    }) => {
+      const tRes = await page.request.post("/api/widget-templates", {
+        data: {
+          name: `E2E Sync ${Date.now()}`,
+          chartType: "table",
+          connectorType: "neo4j",
+          query: "RETURN 'before sync' AS state",
+        },
+      });
+      expect(tRes.ok()).toBeTruthy();
+      const tmpl = (await tRes.json()).data;
+      templateId = tmpl.id;
+
+      const { id: dashId, cleanup } = await createTestDashboard(
+        page.request,
+        `Sync Test ${Date.now()}`,
+      );
+      try {
+        const put = await page.request.put(`/api/dashboards/${dashId}`, {
+          data: {
+            layoutJson: {
+              version: 2,
+              pages: [
+                {
+                  id: "p1",
+                  title: "Page 1",
+                  widgets: [
+                    {
+                      id: "w1",
+                      chartType: "table",
+                      connectionId: "conn-neo4j-001",
+                      query: tmpl.query,
+                      templateId: tmpl.id,
+                      templateSyncedAt: tmpl.updatedAt,
+                      settings: {},
+                    },
+                  ],
+                  gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 4 }],
+                },
+              ],
+            },
+          },
+        });
+        expect(put.ok()).toBeTruthy();
+        const edit = await page.request.put(
+          `/api/widget-templates/${tmpl.id}`,
+          { data: { query: "RETURN 'after sync' AS state" } },
+        );
+        expect(edit.ok()).toBeTruthy();
+
+        await page.goto(`/${dashId}/edit`);
+        const card = page.locator("[data-testid='widget-card']");
+        await expect(card.getByText("before sync")).toBeVisible({
+          timeout: 15_000,
+        });
+        await card.getByRole("button", { name: "Widget actions" }).click();
+        await page
+          .getByRole("menuitem", { name: "Sync with template" })
+          .click();
+        await page
+          .getByRole("alertdialog", { name: "Sync with template?" })
+          .getByRole("button", { name: "Sync" })
+          .click();
+
+        await expect(card.getByText("after sync")).toBeVisible({
+          timeout: 15_000,
+        });
+      } finally {
+        await cleanup();
+      }
+    });
+
     // #2076: an untouched Edit Template reset a bar chart's options to the
     // bar defaults and dropped its styling rules, and Use in Dashboard added
     // the widget without them.

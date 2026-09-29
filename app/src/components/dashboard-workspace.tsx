@@ -477,8 +477,8 @@ export function DashboardWorkspace({
           // Never overwrite the widget's connection
           connectionId: widget.settings?.connectionId,
         },
-        templateSyncedAt:
-          tmpl.updatedAt?.toISOString() ?? new Date().toISOString(),
+        // Fetched as JSON, so updatedAt is an ISO string, not a Date (#2084).
+        templateSyncedAt: new Date(tmpl.updatedAt ?? Date.now()).toISOString(),
       });
     },
     [templateMap, updateWidget],
