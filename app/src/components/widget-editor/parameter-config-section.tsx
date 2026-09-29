@@ -398,7 +398,7 @@ export function ParameterConfigSection({
             className="mt-2"
             disabled={
               !connectionId ||
-              !String(chartOptions.seedQuery ?? "").trim() ||
+              !((chartOptions.seedQuery as string | undefined) ?? "").trim() ||
               !!parentHint
             }
             aria-describedby={parentHint ? "seed-parent-hint" : undefined}
