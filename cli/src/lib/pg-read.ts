@@ -15,8 +15,8 @@ export function readOneValue(sql: string): string | null {
   const { user, database } = config.postgres;
   // Same shell boundary the db commands use; user/database come from the
   // project config, which `config set` does not validate.
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(user)) return null;
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(database)) return null;
+  if (!/^[A-Za-z_]\w*$/.test(user)) return null;
+  if (!/^[A-Za-z_]\w*$/.test(database)) return null;
 
   const out =
     getMode() === "docker"
@@ -44,5 +44,5 @@ export function readOneValue(sql: string): string | null {
         ]);
 
   const value = out?.trim();
-  return value ? value : null;
+  return value || null;
 }

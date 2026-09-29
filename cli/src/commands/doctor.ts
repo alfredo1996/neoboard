@@ -209,11 +209,10 @@ export async function runDoctor(
     checkNodeVersion(),
   ];
 
-  results.push(...(await checkPorts(config.ports, opts.preflight)));
-
-  results.push(checkNodeModulesExist());
-  results.push(checkEnvFileExists());
   results.push(
+    ...(await checkPorts(config.ports, opts.preflight)),
+    checkNodeModulesExist(),
+    checkEnvFileExists(),
     opts.preflight
       ? {
           name: "Credential decryption",
@@ -277,9 +276,7 @@ export async function checkCredentialDecryption(): Promise<CheckResult> {
 /** The key as the running app would see it: docker/.env, or app/.env.local. */
 function readEncryptionKey(): string | undefined {
   const file =
-    getMode() === "docker"
-      ? join(paths.root, DOCKER_ENV_PATH)
-      : paths.envFile;
+    getMode() === "docker" ? join(paths.root, DOCKER_ENV_PATH) : paths.envFile;
   if (!existsSync(file)) return undefined;
   try {
     return parseEnv(readFileSync(file, "utf-8")).ENCRYPTION_KEY;
