@@ -390,6 +390,13 @@ describe("runStart", () => {
       expect(process.exitCode).toBe(1);
     });
 
+    it("leaves the credential check to demo, whose seed re-encrypts the connections it owns", async () => {
+      // A demo re-run on stale volumes under a regenerated key: failing here
+      // would stop the seed that repairs it. demo asks after seeding.
+      await runStart({ full: true, seedsUsers: true });
+      expect(vi.mocked(checkCredentialDecryption)).not.toHaveBeenCalled();
+    });
+
     it("keeps going in local mode, as the preflight always has", async () => {
       mockGetMode.mockReturnValue("local");
       mockPrintResults.mockReturnValueOnce(false).mockReturnValueOnce(true);
@@ -411,9 +418,16 @@ describe("runStart", () => {
       expect(hasFirstRunLine()).toBe(true);
     });
 
-    it("drops the create-admin line once the running app reports an admin", async () => {
+    it("drops the create-admin line once the database has an admin", async () => {
       mockIsBootstrapPending.mockResolvedValue(false);
       await runStart({ full: true });
+      expect(hasFirstRunLine()).toBe(false);
+    });
+
+    it("drops it from a databases-only start too, which has no app to ask", async () => {
+      // The database is up and migrated by now, so it can answer.
+      mockIsBootstrapPending.mockResolvedValue(false);
+      await runStart();
       expect(hasFirstRunLine()).toBe(false);
     });
   });

@@ -137,6 +137,8 @@ neoboard doctor
 
 Set up a full demo environment with sample data. Runs `setup`, then seeds Neo4j with the movie graph (skipped if the graph already has nodes) and PostgreSQL with demo `creator` and `reader` users (plus an `admin` user if the database has no users yet), four demo connections, the `neoboard_demo_public` e-commerce schema and the showcase dashboards.
 
+`demo` checks that `ENCRYPTION_KEY` decrypts the stored credentials after seeding rather than after migrations, because the seed re-encrypts the demo connections with the current key. That repairs a re-run on old volumes after `docker/.env` was regenerated. If a credential the seed does not own still fails to decrypt, Docker mode stops before the credentials box; `neoboard stop --volumes` followed by `neoboard demo` gives a fresh demo.
+
 ```bash
 neoboard demo [--mode <docker|local>]
 ```

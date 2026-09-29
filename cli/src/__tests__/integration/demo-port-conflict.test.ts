@@ -33,11 +33,11 @@ function isDockerAvailable(): boolean {
   }
 }
 
-function listen(): Promise<Server> {
+function listen(host = "127.0.0.1"): Promise<Server> {
   return new Promise((resolve, reject) => {
     const server = createServer();
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => resolve(server));
+    server.listen(0, host, () => resolve(server));
   });
 }
 
@@ -52,58 +52,67 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-describe.skipIf(SKIP)("neoboard demo with a busy port (#2057)", () => {
-  let root: string;
-  let busy: Server;
+// 0.0.0.0 is how Docker publishes a port by default. On macOS a probe on
+// 127.0.0.1 alone reads that port as free, and demo walked into Compose.
+describe.skipIf(SKIP).each(["127.0.0.1", "0.0.0.0"])(
+  "neoboard demo with a port busy on %s (#2057)",
+  (host) => {
+    let root: string;
+    let busy: Server;
 
-  beforeAll(async () => {
-    root = mkdtempSync(join(tmpdir(), "neoboard-2057-"));
-    busy = await listen();
-    const config = {
-      ports: {
-        app: await freePort(),
-        postgres: await freePort(),
-        neo4j_http: await freePort(),
-        neo4j_bolt: portOf(busy),
-      },
-      postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
-      neo4j: { user: "neo4j", password: "neoboard123" },
-      seed: {
-        script: "scripts/seed-demo.mjs",
-        neo4j_cypher: "docker/neo4j/init.cypher",
-      },
-    };
-    writeFileSync(join(root, "neoboard.config.json"), JSON.stringify(config));
-    _setRootForTesting(root);
-  });
+    beforeAll(async () => {
+      root = mkdtempSync(join(tmpdir(), "neoboard-2057-"));
+      busy = await listen(host);
+      const config = {
+        ports: {
+          app: await freePort(),
+          postgres: await freePort(),
+          neo4j_http: await freePort(),
+          neo4j_bolt: portOf(busy),
+        },
+        postgres: {
+          user: "neoboard",
+          password: "neoboard",
+          database: "neoboard",
+        },
+        neo4j: { user: "neo4j", password: "neoboard123" },
+        seed: {
+          script: "scripts/seed-demo.mjs",
+          neo4j_cypher: "docker/neo4j/init.cypher",
+        },
+      };
+      writeFileSync(join(root, "neoboard.config.json"), JSON.stringify(config));
+      _setRootForTesting(root);
+    });
 
-  afterAll(async () => {
-    _setRootForTesting(null);
-    await close(busy);
-    rmSync(root, { recursive: true, force: true });
-    process.exitCode = 0;
-  });
+    afterAll(async () => {
+      _setRootForTesting(null);
+      await close(busy);
+      rmSync(root, { recursive: true, force: true });
+      process.exitCode = 0;
+    });
 
-  it("stops before Compose with exit 1, naming the config key to change", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    try {
-      // Resolves: no docker-modem "port is already allocated" throw.
-      await runDemo();
-      const out = log.mock.calls
-        .map((c) => stripVTControlCharacters(String(c[0])))
-        .join("\n");
+    it("stops before Compose with exit 1, naming the config key to change", async () => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        // Resolves: no docker-modem "port is already allocated" throw.
+        await runDemo();
+        const out = log.mock.calls
+          .map((c) => stripVTControlCharacters(String(c[0])))
+          .join("\n");
 
-      expect(process.exitCode).toBe(1);
-      expect(out).toMatch(
-        new RegExp(
-          String.raw`Port ${portOf(busy)} \(Neo4j Bolt\) is in use\. Run ` +
-            String.raw`\`neoboard config set ports\.neo4j_bolt \d+\`, or stop the other process\.`,
-        ),
-      );
-      expect(existsSync(join(root, "docker", ".env"))).toBe(false);
-      expect(out).not.toContain("Demo environment ready!");
-    } finally {
-      log.mockRestore();
-    }
-  });
-});
+        expect(process.exitCode).toBe(1);
+        expect(out).toMatch(
+          new RegExp(
+            String.raw`Port ${portOf(busy)} \(Neo4j Bolt\) is in use\. Run ` +
+              String.raw`\`neoboard config set ports\.neo4j_bolt \d+\`, or stop the other process\.`,
+          ),
+        );
+        expect(existsSync(join(root, "docker", ".env"))).toBe(false);
+        expect(out).not.toContain("Demo environment ready!");
+      } finally {
+        log.mockRestore();
+      }
+    });
+  },
+);

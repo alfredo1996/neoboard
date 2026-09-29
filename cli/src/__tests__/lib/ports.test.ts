@@ -1,49 +1,41 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-const mockServer = {
-  once: vi.fn(),
-  listen: vi.fn(),
-  close: vi.fn(),
-};
-
-vi.mock("node:net", () => ({
-  createServer: vi.fn(() => mockServer),
-}));
-
+import { describe, it, expect } from "vitest";
+import { createServer, type AddressInfo, type Server } from "node:net";
 import { isPortAvailable } from "../../lib/ports.js";
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockServer.once.mockReset();
-  mockServer.listen.mockReset();
-  mockServer.close.mockReset();
-});
+// Real sockets: what matters is how the OS answers a bind, which a mocked
+// `node:net` cannot tell us. On macOS a bind on one address succeeds while
+// another socket holds the same port on a different one (#2057).
+function hold(host: string): Promise<Server> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, host, () => resolve(server));
+  });
+}
+
+const close = (server: Server) =>
+  new Promise<void>((resolve) => server.close(() => resolve()));
 
 describe("isPortAvailable", () => {
-  it("returns true when port is free", async () => {
-    mockServer.once.mockImplementation((event: string, cb: () => void) => {
-      if (event === "listening") {
-        // Simulate successful listen
-        setTimeout(() => cb(), 0);
-      }
-      return mockServer;
-    });
-    mockServer.close.mockImplementation((cb: () => void) => cb());
-
-    const result = await isPortAvailable(3000);
-    expect(result).toBe(true);
-    expect(mockServer.listen).toHaveBeenCalledWith(3000, "127.0.0.1");
+  it("returns true when the port is free", async () => {
+    const server = await hold("127.0.0.1");
+    const { port } = server.address() as AddressInfo;
+    await close(server);
+    expect(await isPortAvailable(port)).toBe(true);
   });
 
-  it("returns false when port is in use", async () => {
-    mockServer.once.mockImplementation((event: string, cb: () => void) => {
-      if (event === "error") {
-        setTimeout(() => cb(), 0);
+  // 0.0.0.0 and :: are how Docker publishes a port by default; 127.0.0.1 is
+  // how a container published on loopback, or a local server, holds one.
+  it.each(["127.0.0.1", "0.0.0.0", "::"])(
+    "returns false when another socket holds the port on %s",
+    async (host) => {
+      const server = await hold(host);
+      const { port } = server.address() as AddressInfo;
+      try {
+        expect(await isPortAvailable(port)).toBe(false);
+      } finally {
+        await close(server);
       }
-      return mockServer;
-    });
-
-    const result = await isPortAvailable(3000);
-    expect(result).toBe(false);
-  });
+    },
+  );
 });

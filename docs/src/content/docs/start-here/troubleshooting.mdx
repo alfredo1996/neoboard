@@ -43,7 +43,13 @@ npm install
 
 ## Docker Compose port conflict
 
-If another process is already on port 3000, 5432, 7474, or 7687, `docker compose up` fails with `bind: address already in use`.
+If another process is already on port 3000, 5432, 7474, or 7687, `neoboard start`, `setup` and `demo` stop before Docker Compose runs and name the key to change:
+
+```
+ERROR: Port 7687 (Neo4j Bolt) is in use. Run `neoboard config set ports.neo4j_bolt 7688`, or stop the other process.
+```
+
+A port that NeoBoard's own container already holds is not a conflict, so `neoboard start --full` after `neoboard start` still works. The app port is checked this way only with `--full`, since a databases-only start does not bind it.
 
 ### Find the offending process
 
@@ -53,7 +59,7 @@ lsof -i :3000   # repeat for 5432, 7474, 7687
 
 ### Either kill it or change NeoBoard's port
 
-Edit `neoboard.config.json` and re-run `neoboard setup`:
+Run the command from the error, which suggests the next free port, then run `neoboard start` again. Or edit `neoboard.config.json` and re-run `neoboard setup`:
 
 ```json
 {

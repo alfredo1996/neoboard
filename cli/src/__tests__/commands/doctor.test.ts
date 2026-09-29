@@ -327,6 +327,31 @@ describe("runDoctor preflight (#2057)", () => {
     expect(byName(results, "Port 5432 (PostgreSQL)")?.status).toBe("ok");
   });
 
+  it("fails a port a foreign container holds, even one with 'neoboard-' in its name", async () => {
+    // Emulate `docker ps --filter name=<regex>`: docker matches the regex
+    // anywhere in the name, so only an anchored filter is exact.
+    const running = [
+      ["my-neoboard-neo4j", "0.0.0.0:7687->7687/tcp"],
+      ["neoboard-neo4j-1", "0.0.0.0:7474->7474/tcp"],
+    ];
+    mockRunOrNull.mockImplementation((cmd) => {
+      const filter = /name=([^"\s]+)/.exec(cmd)?.[1];
+      if (!cmd.startsWith("docker ps") || !filter) {
+        return "Docker Compose version v2.24.0";
+      }
+      return running
+        .filter(([name]) => new RegExp(filter).test(name))
+        .map(([, ports]) => ports)
+        .join("\n");
+    });
+    mockIsPortAvailable.mockImplementation(
+      async (p) => p !== 7687 && p !== 7474,
+    );
+    const results = await runDoctor({ preflight: { full: true } });
+    expect(byName(results, "Port 7687 (Neo4j Bolt)")?.status).toBe("fail");
+    expect(byName(results, "Port 7474 (Neo4j HTTP)")?.status).toBe("fail");
+  });
+
   it("treats a busy port as foreign when docker cannot list NeoBoard's containers", async () => {
     mockRunOrNull.mockImplementation((cmd) =>
       cmd.startsWith("docker ps") ? null : "Docker Compose version v2.24.0",

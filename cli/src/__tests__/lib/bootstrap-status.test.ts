@@ -1,80 +1,48 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../lib/exec.js", () => ({ runOrNull: vi.fn() }));
-vi.mock("../../lib/config.js", () => ({
-  assertCheckout: vi.fn(),
-  readProjectConfig: vi.fn(() => ({ ports: { app: 3000 } })),
-}));
+vi.mock("../../lib/pg-read.js", () => ({ readOneValue: vi.fn() }));
 
-import { runOrNull } from "../../lib/exec.js";
+import { readOneValue } from "../../lib/pg-read.js";
 import { isBootstrapPending } from "../../lib/bootstrap-status.js";
 
-const mockRunOrNull = vi.mocked(runOrNull);
+const mockReadOneValue = vi.mocked(readOneValue);
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => vi.resetAllMocks());
 
 /**
- * Decides whether the ready banner prints the bootstrap token (#1312).
+ * Decides whether the ready banner guides the first signup and prints the
+ * bootstrap token (#1312, #2057).
  *
  * It fails OPEN by design. A false positive shows the operator a secret they
  * already generated and which sits in a file on their disk. A false negative
  * strands a user at a signup form demanding a token nobody told them about —
- * the exact dead end this feature exists to remove. The asymmetry is why every
- * unparseable case below resolves to `true`.
+ * the exact dead end this feature exists to remove.
  */
-describe("isBootstrapPending (#1312)", () => {
-  it("is false only when the API explicitly says an admin exists", async () => {
-    mockRunOrNull.mockReturnValue(
-      JSON.stringify({ data: { bootstrapRequired: false } }),
-    );
+describe("isBootstrapPending (#1312, #2057)", () => {
+  it("is false once the database has a user", async () => {
+    mockReadOneValue.mockReturnValue("1");
     expect(await isBootstrapPending()).toBe(false);
   });
 
-  it("is true when the API says bootstrap is still required", async () => {
-    mockRunOrNull.mockReturnValue(
-      JSON.stringify({ data: { bootstrapRequired: true } }),
-    );
+  it("is true on a database with no users", async () => {
+    mockReadOneValue.mockReturnValue(null);
     expect(await isBootstrapPending()).toBe(true);
   });
 
-  it("fails open when the app is unreachable", async () => {
-    // runOrNull swallows a non-zero curl and returns null — the app may still
-    // be booting when the banner renders.
-    mockRunOrNull.mockReturnValue(null);
+  it("fails open when the database cannot be read", async () => {
+    mockReadOneValue.mockImplementation(() => {
+      throw new Error("docker exec failed");
+    });
     expect(await isBootstrapPending()).toBe(true);
   });
 
-  it("fails open on a malformed response", async () => {
-    mockRunOrNull.mockReturnValue("<html>502 Bad Gateway</html>");
-    expect(await isBootstrapPending()).toBe(true);
-  });
-
-  it("fails open when the payload lacks the field", async () => {
-    mockRunOrNull.mockReturnValue(JSON.stringify({ data: {} }));
-    expect(await isBootstrapPending()).toBe(true);
-  });
-
-  it("fails open when the envelope has no data at all", async () => {
-    mockRunOrNull.mockReturnValue(JSON.stringify({ error: "boom" }));
-    expect(await isBootstrapPending()).toBe(true);
-  });
-
-  it("does not treat a truthy non-boolean as proof an admin exists", async () => {
-    // Only an explicit `false` counts. A string, a 0, or a null must not be
-    // read as "already bootstrapped" and suppress the token.
-    mockRunOrNull.mockReturnValue(
-      JSON.stringify({ data: { bootstrapRequired: null } }),
-    );
-    expect(await isBootstrapPending()).toBe(true);
-  });
-
-  it("queries the configured app port", async () => {
-    mockRunOrNull.mockReturnValue(null);
+  it("asks what the app's own bootstrap check asks: is there any user", async () => {
+    // app/src/lib/auth/signup.ts areUsersEmpty(). Asking the database, not
+    // the app, answers a databases-only start too, where no app is running.
+    mockReadOneValue.mockReturnValue(null);
     await isBootstrapPending();
-    expect(mockRunOrNull).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "http://localhost:3000/api/auth/bootstrap-status",
-      ),
+    expect(mockReadOneValue).toHaveBeenCalledWith(
+      'SELECT 1 FROM "user" LIMIT 1',
     );
   });
 });

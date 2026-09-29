@@ -22,23 +22,22 @@ import { isBootstrapPending } from "../lib/bootstrap-status.js";
  * shows the token too (#1312); local mode prints its own token in `init`.
  *
  * Only while that signup is still ahead (#2057): never for `demo`, which
- * seeds its own users right after this box, and not once the running app
- * says an admin exists, when the token is spent and printing a live secret
- * nobody needs is gratuitous. A docker/.env predating #1312 has no token,
+ * seeds its own users right after this box, and not once the database has an
+ * admin, when the token is spent and printing a live secret nobody needs is
+ * gratuitous. A docker/.env predating #1312 has no token,
  * and "Token: undefined" helps no one.
  */
 async function firstRunLines(
   appRunning: boolean,
   seedsUsers: boolean,
 ): Promise<string[]> {
-  if (seedsUsers) return [];
+  if (seedsUsers || !(await isBootstrapPending())) return [];
   if (!appRunning) {
     return [
       "First run:  start the app, then create your admin account in the browser",
       "",
     ];
   }
-  if (!(await isBootstrapPending())) return [];
   const token = readDockerEnvSecrets().ADMIN_BOOTSTRAP_TOKEN;
   const tokenLines = token
     ? [
@@ -68,8 +67,9 @@ export interface StartOptions {
    */
   exposeHost?: boolean;
   /**
-   * The caller seeds its own users next (`demo`), so the ready box has no
-   * signup to guide and no bootstrap token to show (#2057).
+   * The caller seeds its own users and connections next (`demo`), so the
+   * ready box has no signup to guide and no bootstrap token to show, and the
+   * credential check is the caller's, after its seed (#2057).
    */
   seedsUsers?: boolean;
 }
@@ -165,8 +165,12 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
   }
 
   // 5. Does the key decrypt what is stored? Only now is there a database to
-  // ask; the preflight ran before it existed (#2057).
-  if (!passes([await checkCredentialDecryption()], mode)) return false;
+  // ask; the preflight ran before it existed (#2057). demo asks after its
+  // seed, which re-encrypts the demo connections with this key: a re-run on
+  // stale volumes is repaired there, not refused here.
+  if (!opts?.seedsUsers && !passes([await checkCredentialDecryption()], mode)) {
+    return false;
+  }
 
   // 6. Done
   const url = `http://localhost:${config.ports.app}`;

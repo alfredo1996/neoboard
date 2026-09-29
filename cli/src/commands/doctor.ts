@@ -86,8 +86,10 @@ const PORT_LABELS: Record<PortKey, string> = {
  * on theirs, and compose up leaves them be.
  */
 function ownPublishedPorts(): Set<number> {
+  // Docker matches the name regex anywhere in the name, so it is anchored to
+  // the compose files' container_name values: `my-neoboard-neo4j` is foreign.
   const out = runOrNull(
-    'docker ps --filter name=neoboard- --format "{{.Ports}}"',
+    'docker ps --filter "name=^neoboard-(postgres|neo4j|app)$" --format "{{.Ports}}"',
   );
   return new Set(
     [...(out ?? "").matchAll(/:(\d+)->/g)].map((m) => Number(m[1])),

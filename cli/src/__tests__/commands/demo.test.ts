@@ -8,6 +8,15 @@ vi.mock("../../commands/db/seed.js", () => ({
   runDbSeed: vi.fn(),
 }));
 
+vi.mock("../../commands/doctor.js", () => ({
+  checkCredentialDecryption: vi.fn(async () => ({
+    name: "Credential decryption",
+    status: "ok",
+    message: "stored credentials decrypt",
+  })),
+  printResults: vi.fn(() => false),
+}));
+
 vi.mock("../../lib/output.js", () => ({
   success: vi.fn(),
   banner: vi.fn(),
@@ -76,6 +85,11 @@ vi.mock("../../lib/showcases.js", () => ({
 
 import { runSetup } from "../../commands/setup.js";
 import { runDbSeed } from "../../commands/db/seed.js";
+import {
+  checkCredentialDecryption,
+  printResults,
+} from "../../commands/doctor.js";
+import { getMode } from "../../lib/config.js";
 import { banner, error as logError, info } from "../../lib/output.js";
 import { run as execRun } from "../../lib/exec.js";
 import { confirm } from "../../lib/prompt.js";
@@ -99,6 +113,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.exitCode = 0;
   mockRunSetup.mockResolvedValue(true);
+  vi.mocked(printResults).mockReset().mockReturnValue(false);
+  vi.mocked(getMode).mockReturnValue("local");
 });
 
 describe("runDemo", () => {
@@ -139,6 +155,34 @@ describe("runDemo", () => {
     expect(banner).toHaveBeenCalledWith(
       expect.arrayContaining([expect.stringContaining("admin@neoboard.local")]),
     );
+  });
+
+  // #2057: start leaves this check to demo. The seed re-encrypts the demo
+  // connections with the current key, so a re-run on stale volumes under a
+  // regenerated docker/.env is repaired rather than refused.
+  it("checks credential decryption after the seed, not before it", async () => {
+    await runDemo();
+    expect(vi.mocked(checkCredentialDecryption)).toHaveBeenCalledAfter(
+      mockRunDbSeed,
+    );
+  });
+
+  it("stops before the credentials box when the key still does not decrypt, naming a fresh demo", async () => {
+    vi.mocked(getMode).mockReturnValue("docker");
+    vi.mocked(printResults).mockReturnValue(true);
+    await runDemo();
+    expect(banner).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+    expect(mockInfo).toHaveBeenCalledWith(
+      expect.stringContaining("neoboard stop --volumes"),
+    );
+  });
+
+  it("reports a mismatch and carries on in local mode, as start does", async () => {
+    vi.mocked(printResults).mockReturnValue(true);
+    await runDemo();
+    expect(banner).toHaveBeenCalled();
+    expect(process.exitCode).toBe(0);
   });
 
   it("aborts without seeding or credentials banner when setup fails", async () => {
