@@ -104,6 +104,16 @@ describe("checkDockerCompose", () => {
     mockRunOrNull.mockReturnValue(out);
     expect(checkDockerCompose().status).toBe(status);
   });
+
+  // An unanchored `(\d+)\.` re-scans every digit run from each start: quadratic,
+  // and SonarCloud S8786 flags the shape. Timed in CPU, not wall clock (#1993).
+  it("parses a 20 KB digit run with no dot in linear time", () => {
+    mockRunOrNull.mockReturnValue("1".repeat(20_000));
+    const start = process.cpuUsage();
+    expect(checkDockerCompose().status).toBe("fail");
+    const { user, system } = process.cpuUsage(start);
+    expect((user + system) / 1000).toBeLessThan(100);
+  }, 60_000);
 });
 
 describe("checkNodeVersion", () => {

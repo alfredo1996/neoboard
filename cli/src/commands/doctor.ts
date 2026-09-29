@@ -37,7 +37,8 @@ export function checkDockerRunning(): CheckResult {
 export function checkDockerCompose(): CheckResult {
   const out = runOrNull("docker compose version");
   // Compose went from v2.40 straight to v5 (#2092): accept major version 2 and up.
-  const ok = Number(/(\d+)\.\d+/.exec(out ?? "")?.[1]) >= 2;
+  // Anchored, with disjoint classes, so it runs in linear time (Sonar S8786).
+  const ok = Number(/^\D*(\d+)\./.exec(out ?? "")?.[1]) >= 2;
   return {
     name: "Docker Compose",
     status: ok ? "ok" : "fail",
