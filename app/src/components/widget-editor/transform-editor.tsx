@@ -124,15 +124,15 @@ function MappingInput({
   onChange,
 }: Readonly<{ id: string; mapping: Mapping; onChange: (m: Mapping) => void }>) {
   // Rendering the saved mapping wiped every incomplete pair as it was typed
-  // (#2096). Hold the text, and re-seed it only when another mapping arrives,
-  // e.g. an earlier card was removed and this index-keyed card now holds it.
+  // (#2096). Hold the text, and re-seed it whenever a mapping arrives that is
+  // not the object this input committed, e.g. an earlier card was removed and
+  // this index-keyed card now holds the next one. Compared by identity, since
+  // the store keeps it: equal content from another card must still re-seed.
   const [draft, setDraft] = React.useState(() => formatMapping(mapping));
-  const [prevMapping, setPrevMapping] = React.useState(mapping);
-  if (mapping !== prevMapping) {
-    setPrevMapping(mapping);
-    if (formatMapping(parseMapping(draft)) !== formatMapping(mapping)) {
-      setDraft(formatMapping(mapping));
-    }
+  const [committed, setCommitted] = React.useState(mapping);
+  if (mapping !== committed) {
+    setCommitted(mapping);
+    setDraft(formatMapping(mapping));
   }
   return (
     <Input
@@ -140,11 +140,47 @@ function MappingInput({
       className="h-8 text-xs"
       value={draft}
       onChange={(e) => {
+        const parsed = parseMapping(e.target.value);
         setDraft(e.target.value);
-        onChange(parseMapping(e.target.value));
+        setCommitted(parsed);
+        onChange(parsed);
       }}
       placeholder="e.g. name=Employee, salary=Pay"
     />
+  );
+}
+
+function ColumnSelect({
+  id,
+  label,
+  value,
+  columns,
+  onValueChange,
+}: Readonly<{
+  id: string;
+  label: string;
+  value: string;
+  columns: string[];
+  onValueChange: (v: string) => void;
+}>) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger id={id} className="w-[120px] h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {columns.map((c) => (
+            <SelectItem key={c} value={c}>
+              {c}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -192,29 +228,13 @@ function TransformCard({
       <div className="flex flex-wrap items-end gap-2">
         {transform.type === "filter" && (
           <>
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-column`} className="text-xs">
-                Column
-              </Label>
-              <Select
-                value={transform.column}
-                onValueChange={(v) => onChange({ ...transform, column: v })}
-              >
-                <SelectTrigger
-                  id={`${id}-column`}
-                  className="w-[120px] h-8 text-xs"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ColumnSelect
+              id={`${id}-column`}
+              label="Column"
+              value={transform.column}
+              columns={columns}
+              onValueChange={(v) => onChange({ ...transform, column: v })}
+            />
             <div className="space-y-1">
               <Label htmlFor={`${id}-operator`} className="text-xs">
                 Operator
@@ -268,29 +288,13 @@ function TransformCard({
 
         {transform.type === "sort" && (
           <>
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-column`} className="text-xs">
-                Column
-              </Label>
-              <Select
-                value={transform.column}
-                onValueChange={(v) => onChange({ ...transform, column: v })}
-              >
-                <SelectTrigger
-                  id={`${id}-column`}
-                  className="w-[120px] h-8 text-xs"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ColumnSelect
+              id={`${id}-column`}
+              label="Column"
+              value={transform.column}
+              columns={columns}
+              onValueChange={(v) => onChange({ ...transform, column: v })}
+            />
             <div className="space-y-1">
               <Label htmlFor={`${id}-direction`} className="text-xs">
                 Direction
@@ -318,29 +322,13 @@ function TransformCard({
 
         {transform.type === "groupBy" && (
           <>
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-column`} className="text-xs">
-                Group Column
-              </Label>
-              <Select
-                value={transform.column}
-                onValueChange={(v) => onChange({ ...transform, column: v })}
-              >
-                <SelectTrigger
-                  id={`${id}-column`}
-                  className="w-[120px] h-8 text-xs"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ColumnSelect
+              id={`${id}-column`}
+              label="Group Column"
+              value={transform.column}
+              columns={columns}
+              onValueChange={(v) => onChange({ ...transform, column: v })}
+            />
             <div
               role="group"
               aria-labelledby={`${id}-aggregations`}

@@ -322,6 +322,23 @@ describe("TransformEditor", () => {
     expect(screen.getByLabelText(/mappings/i)).toHaveValue("salary=Pay");
   });
 
+  it("drops a removed card's typed text even when it parses to the next card's mapping (#2096)", async () => {
+    const user = userEvent.setup();
+    render(
+      <StatefulEditor
+        initial={[
+          { type: "renameColumns", mapping: {} },
+          { type: "renameColumns", mapping: {} },
+        ]}
+      />,
+    );
+    const [firstField] = screen.getAllByLabelText(/mappings/i);
+    await user.type(firstField, "name");
+    const [first] = screen.getAllByRole("button", { name: "Remove transform" });
+    await user.click(first);
+    expect(screen.getByLabelText(/mappings/i)).toHaveValue("");
+  });
+
   it("removes only the aggregation row its button names (#2096)", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
