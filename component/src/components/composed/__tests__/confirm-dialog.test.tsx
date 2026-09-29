@@ -1,7 +1,7 @@
 import * as React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { ConfirmDialog } from "../confirm-dialog";
 import {
   DropdownMenu,
@@ -193,6 +193,52 @@ describe("ConfirmDialog — focus on close (#2055)", () => {
     // Radix's close autofocus runs a tick after unmount.
     await new Promise((r) => setTimeout(r, 10));
     expect(focus).not.toHaveBeenCalled();
+  });
+});
+
+// After a confirm the content stays mounted, clickable, for its exit
+// animation. A double-click on Delete, or Enter twice, used to confirm twice;
+// a caller that deletes by index then deleted the next item unasked (#2055).
+describe("ConfirmDialog — confirms once", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("ignores a second click while it fades out", () => {
+    // What tailwindcss-animate does in a browser: closed plays another
+    // animation, so Radix Presence keeps the content until it ends. jsdom
+    // plays none and would unmount it at once.
+    const real = window.getComputedStyle.bind(window);
+    vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
+      const style = real(el, pseudo);
+      return new Proxy(style, {
+        get(target, prop) {
+          if (prop === "animationName")
+            return el.getAttribute("data-state") === "closed" ? "out" : "in";
+          const value: unknown = Reflect.get(target, prop);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    });
+    const onConfirm = vi.fn();
+    function Asked() {
+      const [open, setOpen] = React.useState(true);
+      return (
+        <ConfirmDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="Delete?"
+          confirmText="Delete"
+          onConfirm={onConfirm}
+        />
+      );
+    }
+    render(<Asked />);
+    const confirm = screen.getByRole("button", { name: "Delete" });
+
+    fireEvent.click(confirm);
+    expect(confirm.isConnected).toBe(true); // still there, fading out
+    fireEvent.click(confirm);
+
+    expect(onConfirm).toHaveBeenCalledOnce();
   });
 });
 

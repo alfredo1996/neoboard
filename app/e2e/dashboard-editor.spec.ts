@@ -112,6 +112,7 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
               pageOf("p1", "Main", ["Overview"]),
               pageOf("p2", "Sales", ["Revenue", "Orders"]),
               pageOf("p3", "Blank", []),
+              pageOf("p4", "Ops", ["Uptime"]),
             ],
           },
         },
@@ -148,15 +149,21 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
       await expect(tab("Blank")).toHaveCount(0);
 
       // ── Confirming deletes it, and it stays deleted ─────────────────
+      // Double-clicked: the second click lands while the dialog fades out,
+      // and must not delete Ops, the page that slid into Sales's place. The
+      // suite runs reduced-motion, where there is no fade-out to land in.
+      await page.emulateMedia({ reducedMotion: "no-preference" });
       await options("Sales").click({ force: true });
       await page.getByRole("menuitem", { name: "Delete page" }).click();
-      await ask.getByRole("button", { name: "Delete" }).click();
+      await ask.getByRole("button", { name: "Delete" }).dblclick();
       await expect(ask).toBeHidden();
       await expect(tab("Sales")).toHaveCount(0);
+      await expect(tab("Ops")).toBeVisible();
 
       await saveDashboard(page);
       await page.reload();
       await expect(tab("Main")).toBeVisible({ timeout: 15_000 });
+      await expect(tab("Ops")).toBeVisible();
       await expect(tab("Sales")).toHaveCount(0);
     } finally {
       await cleanup();

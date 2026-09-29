@@ -504,9 +504,11 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
     );
   });
 
-  it('calls an untitled widget "this widget"', () => {
-    mockGetWidgetDisplayTitle.mockImplementation(() => "");
-    renderRemovable([makeWidget({ chartType: "markdown", settings: {} })]);
+  // Its card header falls back to the chart-type label ("Bar Chart"), but
+  // that is not the widget's title, so the question does not quote it.
+  it('calls an untitled widget "this widget", even one headed by its chart type', () => {
+    mockGetWidgetDisplayTitle.mockImplementation(() => "Bar Chart");
+    renderRemovable([makeWidget({ chartType: "bar", settings: {} })]);
 
     fireEvent.click(screen.getByTestId("action-remove"));
 

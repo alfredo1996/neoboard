@@ -491,8 +491,13 @@ export function DashboardContainer({
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
+        // Its own title, not the card header's chart-type fallback ("Bar
+        // Chart"): an untitled widget is "this widget".
         title={removeWidgetDialogTitle(
-          removeTarget ? displayTitle(removeTarget.widget) : "",
+          interpolateTitle(
+            String(removeTarget?.widget.settings?.title ?? ""),
+            parameters,
+          ),
         )}
         description="This removes the widget from the dashboard."
         confirmText="Remove"

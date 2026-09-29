@@ -59,6 +59,9 @@ function ConfirmDialog({
   };
 
   const handleConfirm = () => {
+    // Closed but still fading out, the button takes a second click (a
+    // double-click, or Enter twice). Confirm once (#2055).
+    if (!open) return;
     onConfirm();
     onOpenChange(false);
   };
