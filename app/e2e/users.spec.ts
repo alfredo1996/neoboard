@@ -205,16 +205,19 @@ test.describe("can_write toggle", () => {
     await expect(row.getByRole("switch")).toBeChecked();
   });
 
-  test("admin can toggle can_write off for a creator", async ({ page }) => {
+  test("admin can toggle can_write off for a creator from the keyboard, and focus stays on the switch", async ({
+    page,
+  }) => {
     const email = await createCreator(page, "toggle-off");
     const row = page.getByRole("row").filter({ hasText: email });
+    const toggle = row.getByRole("switch");
 
     // Default: write enabled (switch checked)
-    await expect(row.getByRole("switch")).toBeChecked();
+    await expect(toggle).toBeChecked();
 
-    // Toggle off
-    await row.getByRole("switch").click();
-    await expect(row.getByRole("switch")).not.toBeChecked({ timeout: 5_000 });
+    await toggle.focus();
+    await page.keyboard.press("Space");
+    await expect(toggle).not.toBeChecked({ timeout: 5_000 });
     // The toast names what the permission gates: a form submit does not need
     // it (#1831). Exact, so the aria-live announcement does not match too.
     await expect(
@@ -223,6 +226,8 @@ test.describe("can_write toggle", () => {
         { exact: true },
       ),
     ).toBeVisible({ timeout: 5_000 });
+    // After the refetch and the toast: a remounted cell dropped focus (#2098).
+    await expect(toggle).toBeFocused();
   });
 
   test("admin can toggle can_write back on after disabling", async ({
