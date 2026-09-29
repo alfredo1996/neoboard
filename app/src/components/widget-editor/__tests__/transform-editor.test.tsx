@@ -34,7 +34,18 @@ vi.mock("@neoboard/components", () => ({
     value?: string;
     onValueChange?: (v: string) => void;
   }) => (
-    <select value={value} onChange={(e) => onValueChange?.(e.target.value)}>
+    // The trigger's id lands on the control, as on the real trigger (#2096).
+    <select
+      id={
+        (
+          React.Children.toArray(children)[0] as React.ReactElement<{
+            id?: string;
+          }>
+        ).props.id
+      }
+      value={value}
+      onChange={(e) => onValueChange?.(e.target.value)}
+    >
       {children}
     </select>
   ),
@@ -74,6 +85,7 @@ vi.mock("../value-or-param-input", () => ({
   ValueOrParamInput: (props: Record<string, unknown>) => (
     <input
       data-testid="value-or-param-input"
+      id={props.id as string | undefined}
       value={String(props.value ?? "")}
       placeholder={String(props.placeholder ?? "")}
       onChange={(e) =>
@@ -87,6 +99,24 @@ vi.mock("../value-or-param-input", () => ({
 const { TransformEditor } = await import("../transform-editor");
 
 const columns = ["name", "department", "salary"];
+
+// Feeds each commit back in as the transforms prop, as the widget editor does.
+function StatefulEditor({
+  initial,
+  onChange = vi.fn(),
+}: Readonly<{ initial: Transform[]; onChange?: (t: Transform[]) => void }>) {
+  const [transforms, setTransforms] = React.useState(initial);
+  return (
+    <TransformEditor
+      transforms={transforms}
+      onChange={(next) => {
+        onChange(next);
+        setTransforms(next);
+      }}
+      columns={columns}
+    />
+  );
+}
 
 describe("TransformEditor", () => {
   it("renders empty state when no transforms", () => {
@@ -253,6 +283,108 @@ describe("TransformEditor", () => {
     );
     expect(screen.getByText("1. Rename Columns")).toBeInTheDocument();
   });
+
+  it.each([
+    ["name=Employee, salary=Pay", { name: "Employee", salary: "Pay" }],
+    ["n", {}],
+  ])(
+    "keeps typed %j in the Mappings field and commits its complete pairs (#2096)",
+    async (text, mapping) => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <StatefulEditor
+          initial={[{ type: "renameColumns", mapping: {} }]}
+          onChange={onChange}
+        />,
+      );
+      const field = screen.getByLabelText(/mappings/i);
+      await user.type(field, text);
+      expect(field).toHaveValue(text);
+      expect(onChange).toHaveBeenLastCalledWith([
+        { type: "renameColumns", mapping },
+      ]);
+    },
+  );
+
+  it("re-seeds the Mappings field when its card is handed another mapping (#2096)", async () => {
+    const user = userEvent.setup();
+    render(
+      <StatefulEditor
+        initial={[
+          { type: "renameColumns", mapping: { name: "Employee" } },
+          { type: "renameColumns", mapping: { salary: "Pay" } },
+        ]}
+      />,
+    );
+    const [first] = screen.getAllByRole("button", { name: "Remove transform" });
+    await user.click(first);
+    expect(screen.getByLabelText(/mappings/i)).toHaveValue("salary=Pay");
+  });
+
+  it("removes only the aggregation row its button names (#2096)", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const aggregations = [
+      { column: "salary", fn: "sum" as const },
+      { column: "name", fn: "count" as const },
+    ];
+    render(
+      <TransformEditor
+        transforms={[{ type: "groupBy", column: "department", aggregations }]}
+        onChange={onChange}
+        columns={columns}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Remove aggregation salary_sum" }),
+    );
+    expect(onChange).toHaveBeenCalledWith([
+      {
+        type: "groupBy",
+        column: "department",
+        aggregations: [aggregations[1]],
+      },
+    ]);
+  });
+
+  it.each<{ transform: Transform; labels: (string | RegExp)[] }>([
+    {
+      transform: { type: "filter", column: "name", operator: "==", value: "" },
+      labels: ["Column", "Operator", "Value"],
+    },
+    {
+      transform: { type: "sort", column: "name", direction: "asc" },
+      labels: ["Column", "Direction"],
+    },
+    {
+      transform: {
+        type: "groupBy",
+        column: "name",
+        aggregations: [{ column: "salary", fn: "sum" }],
+      },
+      labels: ["Group Column", /Aggregations/],
+    },
+    {
+      transform: { type: "calculatedColumn", name: "x", expression: "" },
+      labels: ["Column Name", /Expression/],
+    },
+    { transform: { type: "limit", count: 5 }, labels: ["Max Rows"] },
+  ])(
+    "names each field of a $transform.type card by its label (#2096)",
+    ({ transform, labels }) => {
+      render(
+        <TransformEditor
+          transforms={[transform]}
+          onChange={vi.fn()}
+          columns={columns}
+        />,
+      );
+      for (const label of labels) {
+        expect(screen.getByLabelText(label)).toBeInTheDocument();
+      }
+    },
+  );
 
   it("renders a limit transform with count input", () => {
     const transforms: Transform[] = [{ type: "limit", count: 50 }];
