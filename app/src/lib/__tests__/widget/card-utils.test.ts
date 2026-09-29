@@ -110,4 +110,13 @@ describe("buildExportData", () => {
     expect(result[1].name).toBe("Carol");
     expect(result[2].name).toBe("Bob");
   });
+
+  it("exports an expression missing an operand as a null column (#2095)", () => {
+    expect(
+      buildExportData(
+        [{ price: 10 }],
+        [{ type: "calculatedColumn", name: "x", expression: "price -5" }],
+      ),
+    ).toEqual([{ price: 10, x: null }]);
+  });
 });

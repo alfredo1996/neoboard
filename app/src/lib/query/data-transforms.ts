@@ -295,7 +295,9 @@ function safeEvaluateExpression(
     }
   }
 
-  if (tokens.length === 0) return null;
+  // operand (op operand)* has odd length; even means an operator lacks its
+  // operand, as in "price -5" or "price *" (#2095).
+  if (tokens.length % 2 === 0) return null;
 
   function resolveToken(token: string): number | null {
     // Parameter reference ($param_xxx)
