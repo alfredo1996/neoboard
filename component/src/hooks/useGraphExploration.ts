@@ -57,8 +57,10 @@ interface ExpansionEntry {
   sourceDepth: number;
 }
 
-function edgeKey(e: { source: string; target: string }): string {
-  return `${e.source}->${e.target}`;
+// Keyed by relationship, not node pair, so parallel relationships survive
+// (#2094). The fallback matches the graph transform's id for an id-less edge.
+function edgeKey(e: GraphEdge): string {
+  return e.id ?? `${e.source}-${e.label}-${e.target}`;
 }
 
 /**

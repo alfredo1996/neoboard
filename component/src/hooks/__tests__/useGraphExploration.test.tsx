@@ -112,6 +112,29 @@ describe("useGraphExploration", () => {
     expect(edgeKeys(result.current.edges)).toEqual(["a->b", "b->c"]);
   });
 
+  // Parallel relationships are distinct edges, told apart by id (#2094).
+  it("keeps every relationship between the same two nodes through expand and collapse", async () => {
+    const fetchNeighbors = vi.fn(async () => ({
+      nodes: [nodeC],
+      edges: ["r3", "r4"].map((id) => ({ id, source: "b", target: "c" })),
+    }));
+    const initialEdges = ["r1", "r2"].map((id) => ({
+      id,
+      source: "a",
+      target: "b",
+    }));
+    const { result } = renderHook(() =>
+      useGraphExploration(makeOptions({ initialEdges, fetchNeighbors })),
+    );
+    const edgeIds = () => result.current.edges.map((e) => e.id);
+
+    await act(() => result.current.onExpandRequest(nodeB));
+    expect(edgeIds()).toEqual(["r1", "r2", "r3", "r4"]);
+
+    act(() => result.current.collapse("b"));
+    expect(edgeIds()).toEqual(["r1", "r2"]);
+  });
+
   it("does not expand the same node twice", async () => {
     const fetchNeighbors = vi.fn(async () => ({
       nodes: [nodeC],
