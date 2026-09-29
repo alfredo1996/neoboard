@@ -23,7 +23,6 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..");
@@ -223,11 +222,13 @@ export function runGenerator(opts = {}) {
     return { ok: false, errors, wrote: false };
   }
 
-  // Verify that all referenced packages are actually installed
-  const req = createRequire(import.meta.url);
+  // Verify that all referenced packages are actually installed. The generated
+  // file imports them as ES modules, so resolve the way that import does: a
+  // CommonJS resolve misses an exports map with only an `import` condition,
+  // the layout the SDK itself ships (#2064).
   for (const entry of entries) {
     try {
-      req.resolve(entry.package);
+      import.meta.resolve(entry.package);
     } catch {
       errors.push(
         `Package "${entry.package}" is not installed. Run: npm install ${entry.package}`,

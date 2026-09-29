@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -9,13 +10,60 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   validateEntry,
   validateManifest,
   renderSource,
 } from "../generate-connector-imports.mjs";
+
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
+const CODEGEN = "generate-connector-imports.mjs";
+
+/**
+ * Run a copy of the codegen in a temp tree, from connection/ as its prebuild
+ * does, against `connectors` and the fixture `packages` installed in the
+ * tree's own node_modules ({ name: { file: contents } }). A copy keeps the
+ * checkout's generated file untouched.
+ */
+function runCodegen(connectors, packages = {}) {
+  const tmp = mkdtempSync(join(tmpdir(), "codegen-"));
+  try {
+    mkdirSync(join(tmp, "scripts"));
+    mkdirSync(join(tmp, "connection", "src"), { recursive: true });
+    copyFileSync(join(ROOT, "scripts", CODEGEN), join(tmp, "scripts", CODEGEN));
+    for (const [name, files] of Object.entries(packages)) {
+      for (const [file, contents] of Object.entries(files)) {
+        const path = join(tmp, "node_modules", name, file);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, contents);
+      }
+    }
+    writeFileSync(
+      join(tmp, "neoboard-connectors.json"),
+      JSON.stringify({ connectors }),
+    );
+    const res = spawnSync(process.execPath, [`../scripts/${CODEGEN}`], {
+      cwd: join(tmp, "connection"),
+      encoding: "utf8",
+    });
+    const output = join(
+      tmp,
+      "connection",
+      "src",
+      "external-connectors.generated.ts",
+    );
+    return {
+      status: res.status,
+      stdout: res.stdout,
+      stderr: res.stderr,
+      generated: existsSync(output) ? readFileSync(output, "utf8") : null,
+    };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
 
 describe("validateEntry", () => {
   it("accepts a valid entry with package only", () => {
@@ -146,10 +194,8 @@ describe("renderSource", () => {
 // point that builds or serves the app goes through one of those two scripts.
 // The Docker build stage is pinned in build-guards.test.mjs.
 describe("every entry point regenerates the connector list (#2062)", () => {
-  const ROOT = fileURLToPath(new URL("../..", import.meta.url));
   const scripts = (pkg) =>
     JSON.parse(readFileSync(join(ROOT, pkg, "package.json"), "utf8")).scripts;
-  const CODEGEN = "generate-connector-imports.mjs";
   const SDK_BUILD = "npm --prefix ../connector-sdk run build";
   const CONNECTION_BUILD = "npm --prefix ../connection run build";
 
@@ -161,30 +207,9 @@ describe("every entry point regenerates the connector list (#2062)", () => {
     // prebuild starts it from connection/. A cwd-relative lookup finds no
     // manifest there and writes the empty list, exit 0, so the probe is a
     // manifest that must fail: one listing a package that is not installed.
-    // A copy in a temp tree keeps the checkout's generated file untouched.
-    const tmp = mkdtempSync(join(tmpdir(), "codegen-2062-"));
-    try {
-      mkdirSync(join(tmp, "scripts"));
-      mkdirSync(join(tmp, "connection", "src"), { recursive: true });
-      copyFileSync(
-        join(ROOT, "scripts", CODEGEN),
-        join(tmp, "scripts", CODEGEN),
-      );
-      writeFileSync(
-        join(tmp, "neoboard-connectors.json"),
-        JSON.stringify({
-          connectors: [{ package: "@neoboard-test/not-installed-2062" }],
-        }),
-      );
-      const res = spawnSync(process.execPath, [`../scripts/${CODEGEN}`], {
-        cwd: join(tmp, "connection"),
-        encoding: "utf8",
-      });
-      expect(res.status, res.stdout).toBe(1);
-      expect(res.stderr).toContain("is not installed");
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
+    const res = runCodegen([{ package: "@neoboard-test/not-installed-2062" }]);
+    expect(res.status, res.stdout).toBe(1);
+    expect(res.stderr).toContain("is not installed");
   });
 
   it("app's dev and build both compile the SDK, then connection", () => {
@@ -216,5 +241,56 @@ describe("every entry point regenerates the connector list (#2062)", () => {
     const setup = readFileSync(join(ROOT, "app/e2e/global-setup.ts"), "utf8");
     expect(setup).toContain('execSync("npm run build"');
     expect(setup).not.toContain("npx next build");
+  });
+});
+
+// #2064 — the installed check resolved each package with CommonJS. A package
+// whose exports map has only an `import` condition, the layout the SDK itself
+// ships, threw ERR_PACKAGE_PATH_NOT_EXPORTED there and was reported as not
+// installed, failing the build. The generated file is an ES module, so the
+// check resolves the way its `import` does.
+describe("the installed check resolves as the generated import does (#2064)", () => {
+  it("accepts a package whose exports map has only an import condition", () => {
+    const res = runCodegen([{ package: "@neoboard-test/esm-only-2064" }], {
+      "@neoboard-test/esm-only-2064": {
+        "package.json": JSON.stringify({
+          name: "@neoboard-test/esm-only-2064",
+          type: "module",
+          exports: {
+            ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+          },
+        }),
+        "dist/index.js": "export default {};\n",
+      },
+    });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.generated).toContain(
+      'import externalConnector0 from "@neoboard-test/esm-only-2064";',
+    );
+  });
+
+  it("accepts a package with main and no exports map", () => {
+    const res = runCodegen([{ package: "@neoboard-test/main-only-2064" }], {
+      "@neoboard-test/main-only-2064": {
+        "package.json": JSON.stringify({
+          name: "@neoboard-test/main-only-2064",
+          main: "index.js",
+        }),
+        "index.js": "module.exports = {};\n",
+      },
+    });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.generated).toContain(
+      'import externalConnector0 from "@neoboard-test/main-only-2064";',
+    );
+  });
+
+  it("rejects a package that is not installed with the install hint", () => {
+    const res = runCodegen([{ package: "@neoboard-test/not-installed-2064" }]);
+    expect(res.status, res.stdout).toBe(1);
+    expect(res.stderr).toContain(
+      'Package "@neoboard-test/not-installed-2064" is not installed. Run: npm install @neoboard-test/not-installed-2064',
+    );
+    expect(res.generated).toBeNull();
   });
 });
