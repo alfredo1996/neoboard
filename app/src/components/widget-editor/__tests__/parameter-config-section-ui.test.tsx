@@ -428,6 +428,22 @@ describe("ParameterConfigSection", () => {
     ).not.toBeInTheDocument();
   });
 
+  // The seed query runs on every connector, so its placeholder names the
+  // columns in words, not one language's query (#2066).
+  it("the seed query placeholder describes the columns with no query", () => {
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+      />,
+    );
+    const placeholder = screen
+      .getByTestId("seed-query")
+      .getAttribute("placeholder");
+    expect(placeholder).toMatch(/value and label/);
+    expect(placeholder).not.toMatch(/\b(SELECT|FROM|MATCH|RETURN)\b/);
+  });
+
   it("shows multi-select toggle for select type", () => {
     render(
       <ParameterConfigSection

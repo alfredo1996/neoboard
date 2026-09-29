@@ -45,6 +45,6 @@ export const formPlugin = defineChartPlugin({
     requiresQuery: false,
   },
   queryHint:
-    "Write query executed on submit. Use $fieldName parameters to reference\n" +
-    "form fields. Example: CREATE (u:User { name: $name, email: $email })",
+    "Write the query run on submit. Reference each form field as\n" +
+    "$param_<field name>.",
 });

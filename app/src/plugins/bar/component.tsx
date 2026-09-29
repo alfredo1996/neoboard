@@ -71,6 +71,5 @@ export const barPlugin = defineChartPlugin({
     requiresQuery: true,
   },
   queryHint:
-    "Return 2+ columns: first = category label (string), rest = numeric series.\n" +
-    "Example: RETURN genre, count(*) AS films",
+    "Return 2+ columns: first = category label (string), rest = numeric series.",
 });

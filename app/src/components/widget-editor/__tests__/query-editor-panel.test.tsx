@@ -13,6 +13,7 @@ vi.mock("next/dynamic", () => ({
         data-read-only={String(props.readOnly ?? false)}
         data-has-on-run={String(typeof props.onRun === "function")}
         data-class-name={String(props.className ?? "")}
+        data-placeholder={String(props.placeholder ?? "")}
       />
     );
     Stub.displayName = "QueryEditorStub";
@@ -84,6 +85,11 @@ vi.mock("@neoboard/components", () => ({
 
 // Import the component and exported constants after mocks are set up
 const { QueryEditorPanel, QUERY_HINTS } = await import("../query-editor-panel");
+
+// Query syntax in either built-in language, matched in capitals as queries
+// write them, plus the backtick and "Example:" that introduce one (#2051).
+const QUERY_SYNTAX =
+  /\b(SELECT|FROM|GROUP BY|MATCH|RETURN|CREATE)\b|`|Example:/;
 
 describe("QueryEditorPanel", () => {
   beforeEach(() => {
@@ -181,12 +187,17 @@ describe("QueryEditorPanel", () => {
     expect(screen.queryByText("Relationships")).not.toBeInTheDocument();
   });
 
-  it("falls back to sql templates for unknown language", () => {
+  // #2066: a language the editor has no templates for used to get the SQL
+  // ones. It gets none, and so no Templates menu at all.
+  it("offers no templates for a language the editor has no content for", () => {
     useWidgetEditorStore.getState().setConnectionId("conn-1");
-    render(<QueryEditorPanel editorLanguage="unknown-lang" />);
-    // Should fall back to sql templates
-    const items = screen.getAllByTestId("dropdown-item");
-    expect(items.length).toBe(3); // sql has 3 templates
+    render(<QueryEditorPanel editorLanguage="fakeql" />);
+    // The connection toolbar did render; only the Templates menu is absent.
+    expect(
+      screen.getByRole("button", { name: /refresh schema/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Templates")).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("dropdown-item")).toHaveLength(0);
   });
 
   it("sets query in store when a template item is clicked", async () => {
@@ -223,14 +234,72 @@ describe("QueryEditorPanel", () => {
     expect(screen.queryByText(/Return a single row/)).not.toBeInTheDocument();
   });
 
+  // #2066: a hint's words describe the columns and suit every language; an
+  // example is shown only in the language it is written in, never another.
+  it("keeps the cypher example on a cypher hint", () => {
+    useWidgetEditorStore.getState().setChartType("bar");
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(
+      screen.getByText(
+        "Return 2+ columns: first = category label (string), rest = numeric series. Example: RETURN genre, count(*) AS films",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the sql example on a sql hint", () => {
+    useWidgetEditorStore.getState().setChartType("table");
+    render(<QueryEditorPanel editorLanguage="sql" />);
+    expect(
+      screen.getByText(
+        "Return any columns — all are displayed as-is. Example: SELECT * FROM orders LIMIT 100",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("never shows an example written in another language", () => {
+    useWidgetEditorStore.getState().setChartType("bar");
+    const { unmount } = render(<QueryEditorPanel editorLanguage="sql" />);
+    expect(
+      screen.getByText(
+        "Return 2+ columns: first = category label (string), rest = numeric series.",
+      ),
+    ).toBeInTheDocument();
+    unmount();
+
+    useWidgetEditorStore.getState().setChartType("table");
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(
+      screen.getByText("Return any columns — all are displayed as-is."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows only a hint's words for a language the editor has no content for", () => {
+    useWidgetEditorStore.getState().setChartType("bar");
+    render(<QueryEditorPanel editorLanguage="fakeql" />);
+    expect(
+      screen.getByText(
+        "Return 2+ columns: first = category label (string), rest = numeric series.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(QUERY_SYNTAX)).not.toBeInTheDocument();
+  });
+
   // ── Placeholder ──────────────────────────────────────────────────────
 
-  it("uses SQL placeholder when language is sql", () => {
-    render(<QueryEditorPanel editorLanguage="sql" />);
-    const editor = screen.getByTestId("query-editor");
-    expect(editor).toBeInTheDocument();
-    // The placeholder is passed to the query-editor stub — we can verify the
-    // component renders without error with sql language
+  it.each([
+    ["cypher", "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"],
+    ["sql", "SELECT * FROM users LIMIT 10"],
+    // #2066: these two used to get the cypher placeholder.
+    ["fakeql", "Write a fakeql query"],
+    ["", "Write a query"],
+    // An inherited key is not content: this would crash on a plain lookup.
+    ["constructor", "Write a constructor query"],
+  ])("gives the %j language the placeholder %j", (language, placeholder) => {
+    render(<QueryEditorPanel editorLanguage={language} />);
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-placeholder",
+      placeholder,
+    );
   });
 
   // ── Refresh schema button ────────────────────────────────────────────
@@ -354,11 +423,11 @@ describe("QUERY_HINTS", () => {
     }
   });
 
-  it("each hint contains an example", () => {
+  // #2066: a hint shows on every connector, so it names the columns in words.
+  // Examples are kept per language and added only for their own language.
+  it("each hint describes the columns in words, with no query", () => {
     for (const [type, hint] of Object.entries(QUERY_HINTS)) {
-      expect(hint, `Hint for ${type} should contain "Example"`).toContain(
-        "Example",
-      );
+      expect(hint, `Hint for ${type} quotes a query`).not.toMatch(QUERY_SYNTAX);
     }
   });
 });

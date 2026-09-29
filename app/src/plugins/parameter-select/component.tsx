@@ -72,5 +72,5 @@ export const parameterSelectPlugin = defineChartPlugin({
   },
   queryHint:
     "Optional seed query — return a single column of values to populate the\n" +
-    "selector options. Example: RETURN DISTINCT category FROM items",
+    "selector options.",
 });

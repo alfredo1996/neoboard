@@ -61,7 +61,5 @@ export const choroplethPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return 2 columns: country/region name + numeric value.\n" +
-    "Example: SELECT country, population FROM demographics",
+  queryHint: "Return 2 columns: country/region name + numeric value.",
 });

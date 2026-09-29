@@ -62,7 +62,5 @@ export const sankeyPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return 3 columns: source, target, value.\n" +
-    "Example: RETURN fromNode AS source, toNode AS target, flow AS value",
+  queryHint: "Return 3 columns: source, target, value.",
 });

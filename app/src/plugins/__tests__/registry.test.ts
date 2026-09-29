@@ -35,6 +35,28 @@ describe("global plugin registry (bootstrap)", () => {
     expect(mod.pluginRegistry.has("markdown")).toBe(true);
   });
 
+  // A chart runs on every connector, so its hint names the columns in words; a
+  // query in one language is wrong for the others (#2066, as #2051 did for
+  // validation messages). Keywords are matched in capitals, as queries write them.
+  it("no built-in plugin's queryHint quotes a query", () => {
+    const QUERY_SYNTAX =
+      /\b(SELECT|FROM|GROUP BY|MATCH|RETURN|CREATE)\b|`|Example:/;
+    const hints = pluginRegistry
+      .getAll()
+      .filter((p) => p.queryHint !== undefined);
+    expect(hints.length).toBeGreaterThan(0);
+    for (const { type, queryHint } of hints) {
+      expect(queryHint, `${type} queryHint quotes a query`).not.toMatch(
+        QUERY_SYNTAX,
+      );
+    }
+  });
+
+  // Form fields bind as $param_<name>, as the form fields editor shows.
+  it("the form queryHint names the $param_ syntax form fields bind as", () => {
+    expect(pluginRegistry.get("form")?.queryHint).toMatch(/\$param_/);
+  });
+
   it("unknown chart types return undefined", () => {
     expect(pluginRegistry.get("nonexistent-chart-type")).toBeUndefined();
     expect(pluginRegistry.has("nonexistent-chart-type")).toBe(false);

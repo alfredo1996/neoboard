@@ -50,75 +50,107 @@ function formatTimeAgo(iso: string): string {
   return days + "d ago";
 }
 
-/** Per-chart-type hints shown next to the Query label to guide column conventions. */
+/**
+ * Per-chart-type hints shown next to the Query label. They name the columns in
+ * words, so they hold for every query language; an example is added only from
+ * the editor's content for the widget's own language (#2066).
+ */
 export const QUERY_HINTS: Partial<Record<ChartType, string>> = {
-  bar:
-    "Return 2+ columns: first = category label (string), rest = numeric series.\n" +
-    "Example: RETURN genre, count(*) AS films",
-  line:
-    "Return 2+ columns: first = x-axis label, rest = numeric series.\n" +
-    "Example: RETURN month, revenue, expenses",
-  pie:
-    "Return 2 columns: first = slice label (string), second = numeric value.\n" +
-    "Example: RETURN category, count(*) AS total",
+  bar: "Return 2+ columns: first = category label (string), rest = numeric series.",
+  line: "Return 2+ columns: first = x-axis label, rest = numeric series.",
+  pie: "Return 2 columns: first = slice label (string), second = numeric value.",
   "single-value":
     "Return a single row with 1 numeric column.\n" +
-    "For trend mode, return 2 rows (current then previous period).\n" +
-    "Example: RETURN count(n) AS total",
-  graph:
-    "Return nodes, relationships, or paths — not tabular data.\n" +
-    "Example: MATCH (a)-[r]->(b) RETURN a, r, b",
-  map:
-    "Return 3 columns in order: latitude (number), longitude (number), label (string).\n" +
-    "Example: RETURN lat, lng, name",
-  table:
-    "Return any columns — all are displayed as-is.\n" +
-    "Example: SELECT * FROM orders LIMIT 100",
-  json:
-    "Return any data — rendered as a collapsible JSON tree.\n" +
-    "Example: RETURN properties(n) AS data",
-  form:
-    "Write a mutation query with $param_xxx placeholders for each form field.\n" +
-    "Example: CREATE (n:Person {name: $param_name, email: $param_email})",
+    "For trend mode, return 2 rows (current then previous period).",
+  graph: "Return nodes, relationships, or paths — not tabular data.",
+  map: "Return 3 columns in order: latitude (number), longitude (number), label (string).",
+  table: "Return any columns — all are displayed as-is.",
+  json: "Return any data — rendered as a collapsible JSON tree.",
+  form: "Write a mutation query with $param_xxx placeholders for each form field.",
 };
 
-/** Built-in query starter templates by connection language. */
-const QUERY_TEMPLATES: Record<string, { label: string; query: string }[]> = {
-  cypher: [
-    {
-      label: "Top N by count",
-      query:
-        "MATCH (n)\nRETURN labels(n)[0] AS label, count(*) AS count\nORDER BY count DESC\nLIMIT 10",
+interface LanguageContent {
+  placeholder: string;
+  templates: { label: string; query: string }[];
+  /** Hint examples, each written in this language. */
+  examples: Partial<Record<ChartType, string>>;
+}
+
+/**
+ * What the editor offers for a query LANGUAGE, never a connector type (#1900).
+ * A language not listed here gets no templates, no examples and a placeholder
+ * that names it, never another language's content (#2066).
+ */
+const LANGUAGE_CONTENT: Record<string, LanguageContent> = {
+  cypher: {
+    placeholder: "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10",
+    templates: [
+      {
+        label: "Top N by count",
+        query:
+          "MATCH (n)\nRETURN labels(n)[0] AS label, count(*) AS count\nORDER BY count DESC\nLIMIT 10",
+      },
+      {
+        label: "Time series",
+        query:
+          "MATCH (e)\nRETURN e.date AS date, count(*) AS value\nORDER BY date",
+      },
+      { label: "Full scan", query: "MATCH (n)\nRETURN n\nLIMIT 25" },
+      {
+        label: "Relationships",
+        query: "MATCH (a)-[r]->(b)\nRETURN a, r, b\nLIMIT 25",
+      },
+    ],
+    examples: {
+      bar: "RETURN genre, count(*) AS films",
+      line: "RETURN month, revenue, expenses",
+      pie: "RETURN category, count(*) AS total",
+      "single-value": "RETURN count(n) AS total",
+      graph: "MATCH (a)-[r]->(b) RETURN a, r, b",
+      map: "RETURN lat, lng, name",
+      json: "RETURN properties(n) AS data",
+      form: "CREATE (n:Person {name: $param_name, email: $param_email})",
     },
-    {
-      label: "Time series",
-      query:
-        "MATCH (e)\nRETURN e.date AS date, count(*) AS value\nORDER BY date",
-    },
-    { label: "Full scan", query: "MATCH (n)\nRETURN n\nLIMIT 25" },
-    {
-      label: "Relationships",
-      query: "MATCH (a)-[r]->(b)\nRETURN a, r, b\nLIMIT 25",
-    },
-  ],
-  sql: [
-    {
-      label: "Top N by count",
-      query:
-        "SELECT column_name, COUNT(*) AS count\nFROM table_name\nGROUP BY column_name\nORDER BY count DESC\nLIMIT 10",
-    },
-    {
-      label: "Time series",
-      query:
-        "SELECT date_column AS date, COUNT(*) AS value\nFROM table_name\nGROUP BY date_column\nORDER BY date",
-    },
-    { label: "Full scan", query: "SELECT *\nFROM table_name\nLIMIT 25" },
-  ],
+  },
+  sql: {
+    placeholder: "SELECT * FROM users LIMIT 10",
+    templates: [
+      {
+        label: "Top N by count",
+        query:
+          "SELECT column_name, COUNT(*) AS count\nFROM table_name\nGROUP BY column_name\nORDER BY count DESC\nLIMIT 10",
+      },
+      {
+        label: "Time series",
+        query:
+          "SELECT date_column AS date, COUNT(*) AS value\nFROM table_name\nGROUP BY date_column\nORDER BY date",
+      },
+      { label: "Full scan", query: "SELECT *\nFROM table_name\nLIMIT 25" },
+    ],
+    examples: { table: "SELECT * FROM orders LIMIT 100" },
+  },
 };
 
-/** Templates for an editor LANGUAGE; the connector-type arm was dead (#1900). */
-function getTemplates(lang: string) {
-  return QUERY_TEMPLATES[lang] ?? QUERY_TEMPLATES.sql;
+function contentFor(lang: string): LanguageContent | undefined {
+  // Own keys only: a language named "constructor" is not in the table.
+  return Object.hasOwn(LANGUAGE_CONTENT, lang)
+    ? LANGUAGE_CONTENT[lang]
+    : undefined;
+}
+
+function placeholderFor(lang: string, content?: LanguageContent): string {
+  if (content) return content.placeholder;
+  return lang ? `Write a ${lang} query` : "Write a query";
+}
+
+function queryHintFor(
+  chartType: string,
+  content?: LanguageContent,
+): string | undefined {
+  const words = QUERY_HINTS[chartType as ChartType];
+  const example = content?.examples[chartType as ChartType];
+  if (!words || !example) return words;
+  return `${words}\nExample: ${example}`;
 }
 
 export interface QueryEditorPanelProps {
@@ -150,6 +182,9 @@ export function QueryEditorPanel({
   // and also writes to the Zustand store for synchronous reads.
   const { isFetching, refreshSchema } = useConnectionSchema(connectionId);
   const schema = useSchemaStore((s) => s.getSchema(connectionId));
+  const content = contentFor(editorLanguage);
+  const templates = content?.templates ?? [];
+  const hint = queryHintFor(chartType, content);
 
   return (
     <div className="space-y-1.5">
@@ -157,7 +192,7 @@ export function QueryEditorPanel({
         <Label htmlFor="editor-query">
           Query <span className="text-destructive">*</span>
         </Label>
-        {chartType && QUERY_HINTS[chartType as ChartType] && (
+        {hint && (
           <Tooltip>
             {/* #1283: an <svg> is not focusable, so this tooltip's focus
                 handlers could never fire and the query hint was pointer-only.
@@ -175,7 +210,7 @@ export function QueryEditorPanel({
               side="top"
               className="max-w-sm text-xs whitespace-pre-line"
             >
-              {QUERY_HINTS[chartType as ChartType]}
+              {hint}
             </TooltipContent>
           </Tooltip>
         )}
@@ -201,7 +236,7 @@ export function QueryEditorPanel({
                 Refresh schema for autocompletion
               </TooltipContent>
             </Tooltip>
-            {!query && (
+            {!query && templates.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -215,7 +250,7 @@ export function QueryEditorPanel({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
-                  {getTemplates(editorLanguage).map((t) => (
+                  {templates.map((t) => (
                     <DropdownMenuItem
                       key={t.label}
                       onSelect={() => onQueryChange(t.query)}
@@ -318,11 +353,7 @@ export function QueryEditorPanel({
         running={running}
         language={editorLanguage}
         schema={schema}
-        placeholder={
-          editorLanguage === "sql"
-            ? "SELECT * FROM users LIMIT 10"
-            : "MATCH (n) RETURN n.name AS name, n.born AS value LIMIT 10"
-        }
+        placeholder={placeholderFor(editorLanguage, content)}
         // Collapsed, the editor has NO definite height: `.cm-editor { height:
         // 100% }` resolves against an indefinite flex parent, so it computes to
         // `auto` and the column grows with the document (measured 220px empty →

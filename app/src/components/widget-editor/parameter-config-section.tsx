@@ -389,7 +389,7 @@ export function ParameterConfigSection({
             onChange={(v) =>
               onChartOptionsChange((prev) => ({ ...prev, seedQuery: v }))
             }
-            placeholder="SELECT DISTINCT value FROM table ORDER BY value"
+            placeholder="A query returning value and label columns"
           />
           <Button
             type="button"
@@ -398,7 +398,7 @@ export function ParameterConfigSection({
             className="mt-2"
             disabled={
               !connectionId ||
-              !String(chartOptions.seedQuery ?? "").trim() ||
+              !((chartOptions.seedQuery as string | undefined) ?? "").trim() ||
               !!parentHint
             }
             aria-describedby={parentHint ? "seed-parent-hint" : undefined}
