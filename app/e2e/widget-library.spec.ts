@@ -647,6 +647,148 @@ test.describe("Widget Library", () => {
         await cleanup();
       }
     });
+
+    // #2076: an untouched Edit Template reset a bar chart's options to the
+    // bar defaults and dropped its styling rules, and Use in Dashboard added
+    // the widget without them.
+    test("an untouched Edit Template keeps its chart options and styling rule, and Use in Dashboard carries them (#2076)", async ({
+      page,
+    }) => {
+      test.setTimeout(90_000);
+
+      const conns = await page.request.get("/api/connections");
+      const graph = (
+        (await conns.json()).data as {
+          id: string;
+          name: string;
+          type: string;
+        }[]
+      ).find((c) => c.type === "neo4j");
+      expect(graph, "no Neo4j connection seeded").toBeTruthy();
+
+      const templateName = `E2E Keeps Settings ${Date.now()}`;
+      const rule = {
+        id: "r2076",
+        operator: ">",
+        value: 1990,
+        color: "#dc2626",
+      };
+      const createRes = await page.request.post("/api/widget-templates", {
+        data: {
+          name: templateName,
+          chartType: "bar",
+          connectorType: "neo4j",
+          connectionId: graph!.id,
+          query:
+            "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5",
+          settings: {
+            title: "Kept settings",
+            // The bar default is vertical.
+            chartOptions: { orientation: "horizontal" },
+            stylingConfig: { enabled: true, rules: [rule] },
+          },
+        },
+      });
+      expect(createRes.ok()).toBeTruthy();
+      const { id: tId } = (await createRes.json()).data;
+      templateId = tId;
+
+      // Before the Widget Library loads, so its dashboard picker lists it.
+      const dashName = `Keeps Settings Target ${Date.now()}`;
+      const { id: dashId, cleanup } = await createTestDashboard(
+        page.request,
+        dashName,
+      );
+      try {
+        // A fresh Widget Library page: the editor's store is on a table.
+        await page.goto("/widget-library");
+        const card = page
+          .locator("[data-testid='template-card']")
+          .filter({ hasText: templateName });
+        await expect(card).toBeVisible({ timeout: 10_000 });
+        await card.getByRole("button", { name: "Edit template" }).click();
+
+        const editDialog = page.getByRole("dialog", { name: "Edit Template" });
+        await expect(editDialog.locator("#widget-title")).toHaveValue(
+          "Kept settings",
+        );
+        const saved = page.waitForResponse(
+          (r) =>
+            r.url().endsWith(`/api/widget-templates/${tId}`) &&
+            r.request().method() === "PUT",
+        );
+        await editDialog.getByRole("button", { name: "Save Template" }).click();
+        expect((await saved).ok()).toBeTruthy();
+        await expect(editDialog).not.toBeVisible({ timeout: 10_000 });
+
+        const readBack = await page.request.get(`/api/widget-templates/${tId}`);
+        const { settings } = (await readBack.json()).data as {
+          settings: {
+            chartOptions?: Record<string, unknown>;
+            stylingConfig?: { enabled: boolean; rules: unknown[] };
+          };
+        };
+        expect(settings.chartOptions).toMatchObject({
+          orientation: "horizontal",
+        });
+        expect(settings.stylingConfig).toEqual({
+          enabled: true,
+          rules: [rule],
+        });
+
+        // Use in Dashboard: the widget it adds carries the rule.
+        await card.getByRole("button", { name: "Use in Dashboard" }).click();
+        const picker = page.getByRole("dialog", { name: "Choose a Dashboard" });
+        await picker.locator("button").filter({ hasText: dashName }).click();
+        await expect(page).toHaveURL(
+          new RegExp(`/${dashId}/edit\\?templateId=${tId}`),
+        );
+
+        const addDialog = page.getByRole("dialog", { name: "Add Widget" });
+        await expect(addDialog.locator("#widget-title")).toHaveValue(
+          "Kept settings",
+          { timeout: 15_000 },
+        );
+        await addDialog.getByRole("combobox").nth(0).click();
+        await page
+          .getByRole("option")
+          .filter({ hasText: graph!.name })
+          .first()
+          .click();
+        await addDialog.getByRole("button", { name: "Add Widget" }).click();
+        await expect(addDialog).not.toBeVisible();
+        await saveDashboard(page);
+
+        const dashRes = await page.request.get(`/api/dashboards/${dashId}`);
+        const widget = (
+          (await dashRes.json()) as {
+            data: {
+              layoutJson: {
+                pages: Array<{
+                  widgets: Array<{
+                    templateId?: string;
+                    settings?: {
+                      chartOptions?: Record<string, unknown>;
+                      stylingConfig?: unknown;
+                    };
+                  }>;
+                }>;
+              };
+            };
+          }
+        ).data.layoutJson.pages[0].widgets[0];
+        expect(widget.templateId).toBe(tId);
+        expect(widget.settings?.chartOptions).toMatchObject({
+          orientation: "horizontal",
+        });
+        expect(widget.settings?.stylingConfig).toEqual({
+          enabled: true,
+          rules: [rule],
+        });
+      } finally {
+        await cleanup();
+      }
+    });
   });
 
   // #913: "Save to Widget Library" moved from the widget action dropdown into
