@@ -684,7 +684,10 @@ test.describe("Widget Library", () => {
                       connectionId: "conn-neo4j-001",
                       query: tmpl.query,
                       templateId: tmpl.id,
-                      templateSyncedAt: tmpl.updatedAt,
+                      // A fixed past sync, not tmpl.updatedAt: that is the
+                      // DB container's clock, the edit below is the host's,
+                      // and a lead on the DB side hid the Sync action.
+                      templateSyncedAt: new Date(0).toISOString(),
                       settings: {},
                     },
                   ],
