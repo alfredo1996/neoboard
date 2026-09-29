@@ -13,6 +13,20 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 export const MIGRATION_LOCK_ID = 772002001;
 
 /**
+ * Without this, postgres.js console.logs every notice as a multi-line object,
+ * in the middle of the JSON log (#2058). A NOTICE here comes from idempotent
+ * DDL ("does not exist, skipping") and tells an operator nothing, so it is
+ * dropped; a WARNING still reaches stderr, as one line.
+ *
+ * @param {{ severity: string; message: string }} notice
+ */
+function onnotice(notice) {
+  if (notice.severity === "WARNING") {
+    process.stderr.write(`migration warning: ${notice.message}\n`);
+  }
+}
+
+/**
  * Apply pending schema migrations using drizzle's programmatic migrator,
  * serialized across replicas via a Postgres advisory lock.
  *
@@ -29,7 +43,7 @@ export const MIGRATION_LOCK_ID = 772002001;
  */
 export async function migrateWithLock(url, migrationsFolder, options = {}) {
   const { lockTimeoutMs } = options;
-  const client = postgres(url, { max: 1 });
+  const client = postgres(url, { max: 1, onnotice });
   try {
     if (lockTimeoutMs) {
       await client`select set_config('lock_timeout', ${String(lockTimeoutMs)}, false)`;
