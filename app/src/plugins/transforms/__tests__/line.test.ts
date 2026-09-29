@@ -113,6 +113,17 @@ describe("validateLineData", () => {
     expect(err).toBeTruthy();
     expect(err).toContain("Line chart");
   });
+
+  // A widget can sit on any connector, so the message cannot quote a query in
+  // one language (#2051). Keywords are matched in capitals, as queries write them.
+  const QUERY_SYNTAX = /\b(SELECT|FROM|GROUP BY|MATCH|RETURN)\b|`|Example:/;
+
+  it("describes the needed columns without quoting a query (#2051)", () => {
+    const err = validateLineData([{ x: 1 }]) ?? "";
+    expect(err).not.toMatch(QUERY_SYNTAX);
+    expect(err).toContain("x-axis values");
+    expect(err).toContain("numeric series");
+  });
 });
 
 // #1400 — line was the worse of the two: one revenue line drawn across

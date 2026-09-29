@@ -61,6 +61,6 @@ export function validateBarData(
   if (!records.length) return null;
   const cols = collectAllKeys(records).length;
   if (cols < 2)
-    return `Bar chart requires at least 2 columns: first column for category labels (x-axis) and one or more columns for numeric values (y-axis). Your query returned only ${cols} column(s). Example: \`SELECT category, count FROM ...\``;
+    return `Bar chart requires at least 2 columns: first column for category labels (x-axis) and one or more columns for numeric values (y-axis). Your query returned only ${cols} column(s).`;
   return validateNumericValueColumns(records, "Bar chart", mapping);
 }

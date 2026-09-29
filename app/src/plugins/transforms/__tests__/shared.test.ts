@@ -214,4 +214,15 @@ describe("validateNumericValueColumns (#1400)", () => {
   it("returns null for empty data", () => {
     expect(validateNumericValueColumns([], "Bar chart")).toBeNull();
   });
+
+  // A widget can sit on any connector, so the message cannot quote a query in
+  // one language (#2051). Keywords are matched in capitals, as queries write them.
+  const QUERY_SYNTAX = /\b(SELECT|FROM|GROUP BY|MATCH|RETURN)\b|`|Example:/;
+
+  it("describes the wide shape without quoting a query (#2051)", () => {
+    const msg = validateNumericValueColumns(longFormat, "Bar chart") ?? "";
+    expect(msg).not.toMatch(QUERY_SYNTAX);
+    expect(msg).toContain("label column");
+    expect(msg).toContain("one numeric column per series");
+  });
 });
