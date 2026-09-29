@@ -7,29 +7,37 @@ import {
 } from "@/lib/shared/url-params";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
+/** Parsed values by name, as the store will hold them. */
+const parse = (qs: string, layout = layoutWith()) =>
+  Object.fromEntries(
+    parseUrlParams(new URLSearchParams(qs), layout).map((s) => [
+      s.name,
+      s.value,
+    ]),
+  );
+
 describe("parseUrlParams", () => {
   it("extracts param_ prefixed keys and strips prefix", () => {
-    const sp = new URLSearchParams("param_year=1999&param_dept=Sales");
-    expect(parseUrlParams(sp)).toEqual({ year: "1999", dept: "Sales" });
+    expect(parse("param_year=1999&param_dept=Sales")).toEqual({
+      year: "1999",
+      dept: "Sales",
+    });
   });
 
   it("ignores keys without param_ prefix", () => {
-    const sp = new URLSearchParams("param_year=1999&page=1&tab=data");
-    expect(parseUrlParams(sp)).toEqual({ year: "1999" });
+    expect(parse("param_year=1999&page=1&tab=data")).toEqual({ year: "1999" });
   });
 
   it("skips empty values", () => {
-    const sp = new URLSearchParams("param_year=1999&param_dept=");
-    expect(parseUrlParams(sp)).toEqual({ year: "1999" });
+    expect(parse("param_year=1999&param_dept=")).toEqual({ year: "1999" });
   });
 
   it("returns empty object for no params", () => {
-    expect(parseUrlParams(new URLSearchParams())).toEqual({});
+    expect(parse("")).toEqual({});
   });
 
   it("handles URL-encoded values", () => {
-    const sp = new URLSearchParams("param_name=New%20York");
-    expect(parseUrlParams(sp)).toEqual({ name: "New York" });
+    expect(parse("param_name=New%20York")).toEqual({ name: "New York" });
   });
 });
 
@@ -185,15 +193,51 @@ describe("extractSyncParams", () => {
         syncToUrl: true,
       }),
     );
-    expect(sync.has("hired_from")).toBe(true);
-    expect(sync.has("hired_to")).toBe(true);
-    expect(sync.has("hired_min")).toBe(true);
-    expect(sync.has("hired_max")).toBe(true);
+    // The `{from,to}` parent stays out: it is rebuilt from these (#2097).
+    expect(sync).toEqual(new Set(["hired_from", "hired_to"]));
   });
 
   it("ignores widgets that are not parameter selectors", () => {
     const layout = layoutWith({ parameterName: "year", syncToUrl: true });
     layout.pages[0].widgets[0].chartType = "table";
     expect(extractSyncParams(layout)).toEqual(new Set());
+  });
+});
+
+// Each type the Sync to URL toggle is offered for comes back as the store held it (#2097).
+describe("URL round trip by parameter type", () => {
+  it.each([
+    [
+      "date-range",
+      {
+        p: { from: "2024-01-01", to: "2024-01-31" },
+        p_from: "2024-01-01",
+        p_to: "2024-01-31",
+      },
+    ],
+    ["number-range", { p: [10, 20], p_min: 10, p_max: 20 }],
+    ["multi-select", { p: ["a", "b,c"] }],
+    ["text", { p: "1999" }],
+  ])("a %s value survives the link", (parameterType, values) => {
+    const layout = layoutWith({
+      parameterName: "p",
+      parameterType,
+      syncToUrl: true,
+    });
+    const entries = Object.fromEntries(
+      Object.entries(values).map(([k, value]) => [k, { value }]),
+    );
+    const url = buildParamsUrl("/d", entries, extractSyncParams(layout));
+    expect(url).not.toContain("object");
+    expect(parse(url.split("?")[1], layout)).toEqual(values);
+  });
+
+  it.each([
+    ["date-range", "param_p=%5Bobject+Object%5D"], // a link from before #2097
+    ["number-range", "param_p_min=x&param_p_max=20"],
+    ["multi-select", ""],
+  ])("a %s with no usable value in the link restores nothing", (type, qs) => {
+    const layout = layoutWith({ parameterName: "p", parameterType: type });
+    expect(parse(qs, layout)).toEqual({});
   });
 });

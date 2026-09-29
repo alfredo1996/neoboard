@@ -106,18 +106,6 @@ export function DashboardWorkspace({
     };
   }, [id, saveToDashboard, restoreFromDashboard]);
 
-  // URL parameter deep-linking: read URL params on mount (takes precedence)
-  const initialUrlParamsApplied = useRef(false);
-  useEffect(() => {
-    if (initialUrlParamsApplied.current) return;
-    initialUrlParamsApplied.current = true;
-    const urlParams = parseUrlParams(searchParams);
-    const store = useParameterStore.getState();
-    for (const [name, value] of Object.entries(urlParams)) {
-      store.setParameter(name, value, value, "", "text", "url", "");
-    }
-  }, [searchParams]);
-
   // `?page=` is honoured once, on first load, so existing /[id]/edit?page=N
   // links keep working. After that the store owns the index — this rebuild
   // drops `page` from the query string, so re-reading it would reset the page.
@@ -191,6 +179,28 @@ export function DashboardWorkspace({
     [serverLayout],
   );
 
+  // URL parameter deep-linking, applied once. It waits for the layout because
+  // each value is restored under its widget's type (#2097); as text, a list
+  // came back as one "a,b" value. Declared before the defaults effect, which
+  // fires in the same commit, so the URL still wins.
+  const initialUrlParamsApplied = useRef(false);
+  useEffect(() => {
+    if (!serverLayout || initialUrlParamsApplied.current) return;
+    initialUrlParamsApplied.current = true;
+    const store = useParameterStore.getState();
+    for (const seed of parseUrlParams(searchParams, serverLayout)) {
+      store.setParameter(
+        seed.name,
+        seed.value,
+        "URL",
+        seed.name,
+        seed.type,
+        "url",
+        seed.widgetId,
+      );
+    }
+  }, [searchParams, serverLayout]);
+
   // Widget "Default value" settings, applied once per dashboard (#1421).
   //
   // `extractParamDefaults` was written, tested, and never called — so the
@@ -201,9 +211,9 @@ export function DashboardWorkspace({
   //
   // Only fills parameters that are not already set, which is what gives the
   // precedence `URL > restored session > default` without any ordering
-  // machinery: the restore and URL effects above both run before the layout has
-  // loaded, so whatever they put in the store is already there by the time this
-  // can run. The ref guard is what stops a cleared parameter snapping back —
+  // machinery: the restore and URL effects above both run before this one, so
+  // whatever they put in the store is already there by the time this can run.
+  // The ref guard is what stops a cleared parameter snapping back —
   // without it, clearing a knob would be impossible.
   const defaultsAppliedFor = useRef<string | null>(null);
   useEffect(() => {
@@ -243,9 +253,8 @@ export function DashboardWorkspace({
   }
 
   // Sync parameter store changes → URL (shallow replace, no navigation).
-  // Lives here rather than beside the inbound-param effect because it needs
-  // `dashboard`, which is fetched below that point (#1370 moved this body out
-  // of [id]/page.tsx).
+  // Declared after the inbound URL effect, so its first run already sees the
+  // values that link brought in (#1370 moved this body out of [id]/page.tsx).
   useEffect(() => {
     if (!syncParams) return;
     const syncUrl = (state: { parameters: Record<string, ParameterEntry> }) => {
