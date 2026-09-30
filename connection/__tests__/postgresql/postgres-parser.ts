@@ -126,14 +126,26 @@ describe("PostgresRecordParser — numeric promotion and interval (#1307)", () =
 
   it("promotes int8 and numeric text to numbers", () => {
     const [rec] = parser.bulkParse(
-      [{ total: "42", amount: "-12.50" }],
+      [{ total: "42", amount: "-12.50", whole: "100.000" }],
       fields([
         ["total", INT8],
         ["amount", NUMERIC],
+        ["whole", NUMERIC],
       ]),
     );
     expect(rec.total).toBe(42);
     expect(rec.amount).toBe(-12.5);
+    expect(rec.whole).toBe(100);
+  });
+
+  it("keeps a long zero run as a string, in linear time (#2093)", () => {
+    const long = `0.${"0".repeat(16382)}1`;
+    const start = process.cpuUsage();
+    const [rec] = parser.bulkParse([{ n: long }], fields([["n", NUMERIC]]));
+    const { user, system } = process.cpuUsage(start);
+    expect(rec.n).toBe(long);
+    // CPU time, not wall clock (#1993): the quadratic /0+$/ took about 390 ms.
+    expect((user + system) / 1000).toBeLessThan(50);
   });
 
   it("leaves a text column alone even when it looks numeric", () => {

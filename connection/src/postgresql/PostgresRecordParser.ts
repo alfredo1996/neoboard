@@ -254,7 +254,11 @@ function promoteNumericText(value: string): string | number {
 function canonicalNumeric(text: string): string {
   const trimmed = text.trim().replace(/^\+/, "");
   if (!trimmed.includes(".")) return trimmed;
-  return trimmed.replace(/0+$/, "").replace(/\.$/, "");
+  // A walk, not /0+$/: that retries from every zero of a long run (#2093).
+  let end = trimmed.length;
+  while (trimmed[end - 1] === "0") end--;
+  if (trimmed[end - 1] === ".") end--;
+  return trimmed.slice(0, end);
 }
 
 /** Only the NON-ZERO components are set, each signed on its own. */
