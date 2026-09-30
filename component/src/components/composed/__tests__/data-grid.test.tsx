@@ -46,6 +46,15 @@ describe("DataGrid", () => {
     expect(screen.getByText("Charlie")).toBeInTheDocument();
   });
 
+  it("shows an object cell as JSON, not [object Object]", () => {
+    const cols: ColumnDef<{ v: unknown }, unknown>[] = [
+      { accessorKey: "v", header: "V" },
+    ];
+    render(<DataGrid columns={cols} data={[{ v: { a: 1 } }, { v: [1, 2] }]} />);
+    expect(screen.getByText('{"a":1}')).toBeInTheDocument();
+    expect(screen.getByText("[1,2]")).toBeInTheDocument();
+  });
+
   it("gives non-grouped data rows a hover affordance (#1055)", () => {
     render(<DataGrid columns={columns} data={data} />);
     const dataRow = screen.getByText("Alice").closest("tr");

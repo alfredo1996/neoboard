@@ -330,7 +330,8 @@ function DataGrid<TData>({
         if (typeof v === "number" && Number.isFinite(v)) {
           return formatNumber(v, numberFormatConfig);
         }
-        return v === null || v === undefined ? null : String(v);
+        if (v === null || v === undefined) return null;
+        return typeof v === "object" ? JSON.stringify(v) : String(v);
       },
     },
     enableGrouping,

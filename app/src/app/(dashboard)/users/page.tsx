@@ -313,7 +313,7 @@ export default function UsersPage() {
     ],
   );
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setCreateError(null);
     try {
