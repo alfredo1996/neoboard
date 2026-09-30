@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 /**
  * #1395 — a table whose saved `groupBy` is an **array** rendered completely
@@ -22,7 +22,7 @@ test.describe("Table grouping from a saved layout (#1395)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Table grouping ${Date.now()}`,
+      `Table grouping ${uid()}`,
     );
 
     try {

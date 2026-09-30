@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 // Serial: both tests mutate the same seeded "Movie Analytics" dashboard.
 // Running in parallel causes one test to see the other's interval setting.
@@ -112,7 +112,7 @@ test.describe("Manual refresh and disable auto-refresh", () => {
     // Create dashboard with a widget that has showRefreshButton enabled
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Refresh Test ${Date.now()}`,
+      `Refresh Test ${uid()}`,
     );
     try {
       // Update the dashboard with a widget + showRefreshButton
@@ -226,7 +226,7 @@ test.describe("Manual refresh and disable auto-refresh", () => {
     // Create dashboard with showRefreshButton and no auto-refresh
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Manual Only ${Date.now()}`,
+      `Manual Only ${uid()}`,
     );
     try {
       await page.request.put(`/api/dashboards/${id}`, {

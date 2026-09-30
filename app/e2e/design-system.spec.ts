@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   getPreview,
+  uid,
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------
@@ -19,7 +20,7 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Design System ${Date.now()}`,
+      `Design System ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

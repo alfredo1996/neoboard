@@ -8,6 +8,7 @@ import {
   getPreview,
   saveDashboard,
   SEEDED_PG_OPTION,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -120,7 +121,7 @@ test.describe("Neo4j connector → chart visualization", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Neo4j Charts ${Date.now()}`,
+      `Neo4j Charts ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -295,7 +296,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `PG Charts ${Date.now()}`,
+      `PG Charts ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -505,7 +506,7 @@ test.describe("Graph chart visualization", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Graph Viz ${Date.now()}`,
+      `Graph Viz ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -722,7 +723,7 @@ test.describe("Graph chart exploration", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Graph Explore ${Date.now()}`,
+      `Graph Explore ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -1133,7 +1134,7 @@ test.describe("Graph Expand for a dashboard editor (#2061)", () => {
     browser,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = `${uid()}_${Math.random().toString(36).slice(2, 8)}`;
     const email = `graph-editor-${suffix}@example.com`;
     const password = "password123";
     const editorCtx = await browser.newContext();
@@ -1243,7 +1244,7 @@ test.describe("Map widget", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Map Widget ${Date.now()}`,
+      `Map Widget ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -1445,7 +1446,7 @@ test.describe("Column mapping overlay", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Col Mapping ${Date.now()}`,
+      `Col Mapping ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

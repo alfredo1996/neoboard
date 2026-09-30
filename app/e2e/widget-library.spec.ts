@@ -7,6 +7,7 @@ import {
   saveDashboard,
   typeInEditor,
   getPreview,
+  uid,
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------
@@ -88,7 +89,7 @@ test.describe("Widget Library", () => {
     test.beforeEach(async ({ page }) => {
       const { id, cleanup } = await createTestDashboard(
         page.request,
-        `Widget Library Test ${Date.now()}`,
+        `Widget Library Test ${uid()}`,
       );
       dashboardCleanup = cleanup;
       await page.goto(`/${id}/edit`);
@@ -136,7 +137,7 @@ test.describe("Widget Library", () => {
       await expect(saveDialog).toBeVisible();
 
       // Fill in template name
-      const templateName = `E2E Template ${Date.now()}`;
+      const templateName = `E2E Template ${uid()}`;
       await saveDialog.getByLabel("Name").fill(templateName);
       await saveDialog.getByLabel(/description/i).fill("Created by E2E test");
 
@@ -160,7 +161,7 @@ test.describe("Widget Library", () => {
 
     test("can delete a template from Widget Library", async ({ page }) => {
       // First save a template via the API so we don't depend on the UI flow
-      const templateName = `E2E Delete ${Date.now()}`;
+      const templateName = `E2E Delete ${uid()}`;
       const createRes = await page.request.post("/api/widget-templates", {
         data: {
           name: templateName,
@@ -209,10 +210,10 @@ test.describe("Widget Library", () => {
     let templateName: string;
 
     test.beforeEach(async ({ page }) => {
-      templateName = `E2E Tmpl ${Date.now()}`;
+      templateName = `E2E Tmpl ${uid()}`;
       const { id, cleanup } = await createTestDashboard(
         page.request,
-        `Widget Library From Template ${Date.now()}`,
+        `Widget Library From Template ${uid()}`,
       );
       dashboardCleanup = cleanup;
 
@@ -341,7 +342,7 @@ test.describe("Widget Library", () => {
       await expect(dialog).toBeVisible();
 
       // Fill in template metadata
-      const templateName = `E2E Create ${Date.now()}`;
+      const templateName = `E2E Create ${uid()}`;
       await dialog.locator("#lab-template-name").fill(templateName);
       await dialog
         .locator("#lab-template-desc")
@@ -391,7 +392,7 @@ test.describe("Widget Library", () => {
       test.setTimeout(60_000);
 
       // Create a template via API first
-      const origName = `E2E Edit Orig ${Date.now()}`;
+      const origName = `E2E Edit Orig ${uid()}`;
       const createRes = await page.request.post("/api/widget-templates", {
         data: {
           name: origName,
@@ -423,7 +424,7 @@ test.describe("Widget Library", () => {
       await expect(dialog.locator("#lab-template-name")).toHaveValue(origName);
 
       // Change the name
-      const newName = `E2E Edit Updated ${Date.now()}`;
+      const newName = `E2E Edit Updated ${uid()}`;
       await dialog.locator("#lab-template-name").fill(newName);
 
       // Save
@@ -441,7 +442,7 @@ test.describe("Widget Library", () => {
       test.setTimeout(60_000);
 
       // Create a template via API
-      const templateName = `E2E Preview ${Date.now()}`;
+      const templateName = `E2E Preview ${uid()}`;
       const queryText = "MATCH (n) RETURN n LIMIT 10";
 
       const createRes = await page.request.post("/api/widget-templates", {
@@ -477,7 +478,7 @@ test.describe("Widget Library", () => {
       test.setTimeout(90_000);
 
       // Create a template via API
-      const templateName = `E2E UseInDash ${Date.now()}`;
+      const templateName = `E2E UseInDash ${uid()}`;
       const queryText =
         "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5";
       const createRes = await page.request.post("/api/widget-templates", {
@@ -495,7 +496,7 @@ test.describe("Widget Library", () => {
       // Create a dashboard to use as target
       const { id: dashId, cleanup: dashCleanup } = await createTestDashboard(
         page.request,
-        `UseInDash Target ${Date.now()}`,
+        `UseInDash Target ${uid()}`,
       );
 
       try {
@@ -547,7 +548,7 @@ test.describe("Widget Library", () => {
       test.setTimeout(90_000);
 
       // 1. Create a template via API
-      const templateName = `E2E Isolation ${Date.now()}`;
+      const templateName = `E2E Isolation ${uid()}`;
       const origQuery =
         "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5";
       const createRes = await page.request.post("/api/widget-templates", {
@@ -566,7 +567,7 @@ test.describe("Widget Library", () => {
       // 2. Create a dashboard and add a widget from that template
       const { id: dashId, cleanup } = await createTestDashboard(
         page.request,
-        `Isolation Test ${Date.now()}`,
+        `Isolation Test ${uid()}`,
       );
 
       try {
@@ -654,7 +655,7 @@ test.describe("Widget Library", () => {
     }) => {
       const tRes = await page.request.post("/api/widget-templates", {
         data: {
-          name: `E2E Sync ${Date.now()}`,
+          name: `E2E Sync ${uid()}`,
           chartType: "table",
           connectorType: "neo4j",
           query: "RETURN 'before sync' AS state",
@@ -666,7 +667,7 @@ test.describe("Widget Library", () => {
 
       const { id: dashId, cleanup } = await createTestDashboard(
         page.request,
-        `Sync Test ${Date.now()}`,
+        `Sync Test ${uid()}`,
       );
       try {
         const put = await page.request.put(`/api/dashboards/${dashId}`, {
@@ -741,7 +742,7 @@ test.describe("Widget Library", () => {
       ).find((c) => c.id === "conn-neo4j-001");
       expect(graph, "the seeded connection is missing").toBeTruthy();
 
-      const templateName = `E2E Keeps Settings ${Date.now()}`;
+      const templateName = `E2E Keeps Settings ${uid()}`;
       const rule = {
         id: "r2076",
         operator: ">",
@@ -769,7 +770,7 @@ test.describe("Widget Library", () => {
       templateId = tId;
 
       // Before the Widget Library loads, so its dashboard picker lists it.
-      const dashName = `Keeps Settings Target ${Date.now()}`;
+      const dashName = `Keeps Settings Target ${uid()}`;
       const { id: dashId, cleanup } = await createTestDashboard(
         page.request,
         dashName,

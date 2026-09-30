@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 test.describe("Dashboard export error surfacing (issue #835)", () => {
   let dashboardName: string;
@@ -6,7 +6,7 @@ test.describe("Dashboard export error surfacing (issue #835)", () => {
 
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    dashboardName = `Export Failure Test ${Date.now()}`;
+    dashboardName = `Export Failure Test ${uid()}`;
     const { cleanup: c } = await createTestDashboard(
       page.request,
       dashboardName,

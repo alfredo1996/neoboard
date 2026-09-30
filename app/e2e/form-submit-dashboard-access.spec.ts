@@ -6,6 +6,7 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -55,7 +56,7 @@ test.describe("Anyone who can open a dashboard can submit its forms, and only pe
     browser,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = `${uid()}_${Math.random().toString(36).slice(2, 8)}`;
     // Identifiers cannot be bound as parameters; this one is generated here.
     const table = `e2e_form_access_${suffix}`;
     const formQuery = `INSERT INTO ${table} (tag) VALUES ($param_tag)`;

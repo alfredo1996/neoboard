@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -24,7 +25,7 @@ test.describe("Viewer share runs a saved query on its saved database only", () =
   test("the widget's database answers 200, another database 403", async ({
     browser,
   }) => {
-    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
     const aliceCtx = await browser.newContext();
     const alice = await aliceCtx.newPage();
     let userId: string | undefined;

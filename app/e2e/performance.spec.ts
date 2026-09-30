@@ -5,6 +5,7 @@ import {
   ALICE,
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
+  uid,
 } from "./fixtures";
 
 /**
@@ -424,8 +425,7 @@ test.describe("Performance — large dashboard", () => {
           }
         ).memory;
         const nav = performance.getEntriesByType("navigation")[0] as
-          | PerformanceNavigationTiming
-          | undefined;
+          PerformanceNavigationTiming | undefined;
         const fcp =
           performance.getEntriesByName("first-contentful-paint").at(0)
             ?.startTime ?? null;
@@ -518,7 +518,7 @@ test.describe("Performance — 10k-row dataset", () => {
     await authPage.login(ALICE.email, ALICE.password);
 
     const createRes = await page.request.post("/api/dashboards", {
-      data: { name: `10k Rows ${Date.now()}` },
+      data: { name: `10k Rows ${uid()}` },
     });
     const { id: dashboardId } = (await createRes.json()).data;
 

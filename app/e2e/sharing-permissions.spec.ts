@@ -6,6 +6,7 @@ import {
   CAROL,
   DAVE,
   createTestDashboard,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 import type { Browser, Page } from "@playwright/test";
@@ -60,7 +61,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   }) => {
     const { id, cleanup } = await setupAliceDashboard(
       page,
-      `Share Test 1 ${Date.now()}`,
+      `Share Test 1 ${uid()}`,
     );
     try {
       await openSharingPanel(page, id);
@@ -80,7 +81,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   test("2. share dashboard with user as editor", async ({ page }) => {
     const { id, cleanup } = await setupAliceDashboard(
       page,
-      `Share Test 2 ${Date.now()}`,
+      `Share Test 2 ${uid()}`,
     );
     try {
       await openSharingPanel(page, id);
@@ -105,7 +106,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   }) => {
     const { id, cleanup } = await setupAliceDashboard(
       page,
-      `Share Test 3 ${Date.now()}`,
+      `Share Test 3 ${uid()}`,
     );
     try {
       // Seed viewer share via API
@@ -137,7 +138,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   test("4. revoke share removes user from the list", async ({ page }) => {
     const { id, cleanup } = await setupAliceDashboard(
       page,
-      `Share Test 4 ${Date.now()}`,
+      `Share Test 4 ${uid()}`,
     );
     try {
       await page.request.post(`/api/dashboards/${id}/share`, {
@@ -160,7 +161,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   test("5. share with non-existent email shows error", async ({ page }) => {
     const { id, cleanup } = await setupAliceDashboard(
       page,
-      `Share Test 5 ${Date.now()}`,
+      `Share Test 5 ${uid()}`,
     );
     try {
       await openSharingPanel(page, id);
@@ -178,7 +179,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   test("6. share with self shows error", async ({ page }) => {
     const { id, cleanup } = await setupAliceDashboard(
       page,
-      `Share Test 6 ${Date.now()}`,
+      `Share Test 6 ${uid()}`,
     );
     try {
       await openSharingPanel(page, id);
@@ -197,7 +198,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
     page,
     browser,
   }) => {
-    const name = `Share Test 7 ${Date.now()}`;
+    const name = `Share Test 7 ${uid()}`;
     const { id, cleanup } = await setupAliceDashboard(page, name);
     try {
       await page.request.post(`/api/dashboards/${id}/share`, {
@@ -223,7 +224,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   }) => {
     const { id, cleanup } = await setupAliceDashboard(
       page,
-      `Share Test 8 ${Date.now()}`,
+      `Share Test 8 ${uid()}`,
     );
     try {
       await page.request.post(`/api/dashboards/${id}/share`, {
@@ -256,7 +257,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
     page,
     browser,
   }) => {
-    const name = `Share Test 9 ${Date.now()}`;
+    const name = `Share Test 9 ${uid()}`;
     const { id, cleanup } = await setupAliceDashboard(page, name);
     try {
       await page.request.post(`/api/dashboards/${id}/share`, {
@@ -292,7 +293,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
     await new AuthPage(page).login(BOB.email, BOB.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Share Test 10 ${Date.now()}`,
+      `Share Test 10 ${uid()}`,
     );
     try {
       const alice = await loginAs(browser, ALICE.email, ALICE.password);
@@ -321,7 +322,7 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
     await new AuthPage(page).login(BOB.email, BOB.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Share Test 10b ${Date.now()}`,
+      `Share Test 10b ${uid()}`,
     );
     try {
       const alice = await loginAs(browser, ALICE.email, ALICE.password);

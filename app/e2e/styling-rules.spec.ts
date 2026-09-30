@@ -6,6 +6,7 @@ import {
   typeInEditor,
   getPreview,
   saveDashboard,
+  uid,
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------
@@ -19,7 +20,7 @@ test.describe("Styling rules — table widget", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Styling Rules ${Date.now()}`,
+      `Styling Rules ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -274,7 +275,7 @@ test.describe("Styling rules — bar chart", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Styling Bar ${Date.now()}`,
+      `Styling Bar ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

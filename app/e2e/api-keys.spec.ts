@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, uid } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
 test.describe("API Key management", () => {
@@ -57,7 +57,7 @@ test.describe("API Key management", () => {
   });
 
   test("should show the key in the list after creation", async ({ page }) => {
-    const keyName = `E2E Key ${Date.now()}`;
+    const keyName = `E2E Key ${uid()}`;
     await page.getByRole("button", { name: "Create API Key" }).first().click();
 
     const dialog = page.getByRole("dialog");
@@ -78,7 +78,7 @@ test.describe("API Key management", () => {
     page,
     request,
   }) => {
-    const keyName = `API Auth Test ${Date.now()}`;
+    const keyName = `API Auth Test ${uid()}`;
     await page.getByRole("button", { name: "Create API Key" }).first().click();
 
     const dialog = page.getByRole("dialog");
@@ -110,7 +110,7 @@ test.describe("API Key management", () => {
   });
 
   test("should revoke a key and remove it from the list", async ({ page }) => {
-    const keyName = `Revoke Test ${Date.now()}`;
+    const keyName = `Revoke Test ${uid()}`;
     await page.getByRole("button", { name: "Create API Key" }).first().click();
 
     const dialog = page.getByRole("dialog");
@@ -171,7 +171,7 @@ test.describe("API key authentication", () => {
   }) => {
     // Disabling a user blocked their sign-in but not their keys: the key
     // lookup never read users.disabledAt. Real database, real join.
-    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
     const email = `disabled-key-${suffix}@example.com`;
     const password = "password123";
     const adminContext = await browser.newContext();

@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  uid,
 } from "./fixtures";
 import type { APIRequestContext, Page } from "@playwright/test";
 
@@ -38,7 +39,7 @@ const HEALTHY = "SELECT 'healthy' AS status";
 /** Same gate, but the widget itself is on the healthy connection. */
 const HEALTHY_DEPENDENT = "SELECT $param_pick AS picked_elsewhere";
 
-async function createDeadConnection(request: APIRequestContext, stamp: number) {
+async function createDeadConnection(request: APIRequestContext, stamp: string) {
   const res = await request.post("/api/connections", {
     data: {
       name: `Dead PG ${stamp}`,
@@ -57,7 +58,7 @@ async function createDeadConnection(request: APIRequestContext, stamp: number) {
 
 async function createDashboard(
   request: APIRequestContext,
-  stamp: number,
+  stamp: string,
   deadId: string,
 ) {
   const { id, cleanup } = await createTestDashboard(
@@ -161,7 +162,7 @@ test.describe("Dead connector (#1678)", () => {
     test.setTimeout(120_000);
     await authPage.login(ALICE.email, ALICE.password);
 
-    const stamp = Date.now();
+    const stamp = uid();
     const deadId = await createDeadConnection(page.request, stamp);
     const { id, cleanup } = await createDashboard(page.request, stamp, deadId);
     const requestsFor = recordQueryRequests(page);

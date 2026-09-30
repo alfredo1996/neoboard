@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, uid } from "./fixtures";
 
 test.describe("Dashboard metadata — updatedBy display", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -22,7 +22,7 @@ test.describe("Dashboard metadata — updatedBy display", () => {
   test("card footer shows 'by {name}' after creating a dashboard", async ({
     page,
   }) => {
-    const dashboardName = `Metadata E2E Test ${Date.now()}`;
+    const dashboardName = `Metadata E2E Test ${uid()}`;
 
     // Create a new dashboard with a unique name.
     // Wait for the POST to complete before asserting the URL — otherwise

@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 /**
  * #1419 — every page you had ever visited kept auto-refreshing, so query load
@@ -55,7 +55,7 @@ test.describe("Hidden pages do not auto-refresh (#1419)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       pw.request,
-      `Hidden refresh ${Date.now()}`,
+      `Hidden refresh ${uid()}`,
     );
 
     try {

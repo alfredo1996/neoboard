@@ -12,6 +12,7 @@ import {
   ALICE,
   createTestDashboard,
   SEEDED_PG_OPTION,
+  uid,
 } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
@@ -194,7 +195,7 @@ test.describe("Code completion — Cypher + SQL", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Code Completion ${Date.now()}`,
+      `Code Completion ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

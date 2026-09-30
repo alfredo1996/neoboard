@@ -4,6 +4,7 @@ import {
   ALICE,
   createTestDashboard,
   typeInEditor,
+  uid,
 } from "./fixtures";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -42,7 +43,7 @@ test.describe("New chart types — creation flow", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Charts ${Date.now()}`,
+      `Charts ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -456,7 +457,7 @@ test.describe("Widget Showcase seed dashboard", () => {
     expect(pg, "no PostgreSQL connection seeded").toBeTruthy();
 
     const created = await page.request.post("/api/dashboards", {
-      data: { name: `Column-scoped rules ${Date.now()}` },
+      data: { name: `Column-scoped rules ${uid()}` },
     });
     const { id } = (await created.json()).data;
     await page.request.put(`/api/dashboards/${id}`, {

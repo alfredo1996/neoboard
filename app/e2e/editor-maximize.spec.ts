@@ -4,6 +4,7 @@ import {
   ALICE,
   createTestDashboard,
   typeInEditor,
+  uid,
 } from "./fixtures";
 
 /**
@@ -72,7 +73,7 @@ test.describe("Query editor maximize (#1374)", () => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await authPage.login(ALICE.email, ALICE.password);
 
-    const name = `Editor Maximize ${Date.now()}`;
+    const name = `Editor Maximize ${uid()}`;
     const { id, cleanup } = await createTestDashboard(page.request, name);
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

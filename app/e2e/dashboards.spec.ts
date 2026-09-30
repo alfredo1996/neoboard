@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 test.describe("Dashboard CRUD", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -9,7 +9,7 @@ test.describe("Dashboard CRUD", () => {
     // A name only this run knows, removed by id (#1768). A fixed name outlived
     // the test, so every later run matched its card and the dialog's
     // duplicate-name warning at once.
-    const name = `E2E Test Dashboard ${Date.now()}`;
+    const name = `E2E Test Dashboard ${uid()}`;
     let id: string | undefined;
 
     try {
@@ -42,7 +42,7 @@ test.describe("Dashboard CRUD", () => {
   }) => {
     test.setTimeout(120_000);
     // Names only this run knows, deleted by id however the test ends.
-    const run = `List Cap ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const run = `List Cap ${uid()}-${Math.random().toString(36).slice(2, 8)}`;
     const nameOf = (i: number) => `${run} #${String(i).padStart(3, "0")}`;
     const oldest = nameOf(0);
     const newest = nameOf(100);
@@ -107,7 +107,7 @@ test.describe("Dashboard CRUD", () => {
     page,
   }) => {
     // Its own dashboard, deleted by id however the test ends (#1784).
-    const original = `Rename Me ${Date.now()}`;
+    const original = `Rename Me ${uid()}`;
     const renamed = `${original} Renamed`;
     const { cleanup } = await createTestDashboard(page.request, original);
 
@@ -151,7 +151,7 @@ test.describe("Dashboard CRUD", () => {
   test("should delete a dashboard", async ({ page }) => {
     // Its own dashboard under a name only this run knows (#1784). With a fixed
     // name, the card found and deleted could be a parallel repeat's.
-    const name = `To Delete ${Date.now()}`;
+    const name = `To Delete ${uid()}`;
     const { id, cleanup } = await createTestDashboard(page.request, name);
 
     try {
@@ -190,7 +190,7 @@ test.describe("Dashboard CRUD", () => {
   test("deleting a dashboard already deleted elsewhere removes its card (#1750)", async ({
     page,
   }) => {
-    const name = `Deleted Elsewhere ${Date.now()}`;
+    const name = `Deleted Elsewhere ${uid()}`;
     const { id } = await createTestDashboard(page.request, name);
 
     await page.goto("/");
@@ -241,7 +241,7 @@ test.describe("Dashboard CRUD", () => {
     // "Movie Analytics" was visible to every test in the file, and the by-name
     // cleanup that followed each of them deleted it mid-run from the other
     // worker — after which the UI's own delete 404'd over a stale card.
-    const source = `Duplicate Me ${Date.now()}`;
+    const source = `Duplicate Me ${uid()}`;
     const copyName = `${source} (copy)`;
     const { id: sourceId, cleanup } = await createTestDashboard(
       page.request,

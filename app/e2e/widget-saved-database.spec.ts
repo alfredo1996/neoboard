@@ -7,6 +7,7 @@ import {
   createTestDashboard,
   saveDashboard,
   typeInEditor,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -21,10 +22,6 @@ import { AuthPage } from "./pages/auth";
 
 const SELECT_SEED = "SELECT current_database() AS value";
 const FORM_SEED = "SELECT current_database() AS value, 'form field' AS label";
-
-function uniqueSuffix(): string {
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
 
 /** A private PostgreSQL connection of the caller's, defaulting to `database`. */
 async function createConnection(
@@ -80,7 +77,7 @@ test.describe("Widgets run on their saved database (#1824)", () => {
     authPage,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const suffix = uniqueSuffix();
+    const suffix = uid();
     // A table of the same name in both databases. Identifiers cannot be bound
     // as parameters; this one is generated here.
     const table = `e2e_saved_db_${suffix}`;
@@ -225,7 +222,7 @@ test.describe("Widgets run on their saved database (#1824)", () => {
   test("a parameter select saved on neoboard lists neoboard, for its owner and a view-level user", async ({
     browser,
   }) => {
-    const suffix = uniqueSuffix();
+    const suffix = uid();
     const aliceCtx = await browser.newContext();
     const alice = await aliceCtx.newPage();
     let userId: string | undefined;
@@ -376,7 +373,7 @@ test.describe("Widgets run on their saved database (#1824)", () => {
     authPage,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const suffix = uniqueSuffix();
+    const suffix = uid();
     const connectionName = `saved-db-edit-${suffix}`;
     let connectionId: string | undefined;
     let dashboardId: string | undefined;

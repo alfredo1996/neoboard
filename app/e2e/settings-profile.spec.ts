@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, uid } from "./fixtures";
 
 test.describe("Settings — Profile", () => {
   test.beforeEach(async ({ authPage, sidebarPage }) => {
@@ -27,7 +27,7 @@ test.describe("Settings — Profile", () => {
 
     // Save the original name to restore later
     const originalName = await nameInput.inputValue();
-    const newName = `Alice ${Date.now()}`;
+    const newName = `Alice ${uid()}`;
 
     await nameInput.clear();
     await nameInput.fill(newName);
@@ -76,7 +76,7 @@ test.describe("Settings — Profile", () => {
     test.setTimeout(45_000);
     // Use a throwaway signed-up user so the change doesn't invalidate ALICE's
     // password for the rest of the suite.
-    const email = `pwchange-${Date.now()}@example.com`;
+    const email = `pwchange-${uid()}@example.com`;
     const oldPw = "password123";
     const newPw = "newpass123456";
     await authPage.signup("PW Change User", email, oldPw);

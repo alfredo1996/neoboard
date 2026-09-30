@@ -5,6 +5,7 @@ import {
   BOB,
   TEST_NEO4J_BOLT_URL,
   createTestDashboard,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 import * as fs from "node:fs";
@@ -107,7 +108,7 @@ test.describe("Per-dashboard connection reassignment", () => {
     test.setTimeout(120_000);
     await authPage.login(ALICE.email, ALICE.password);
 
-    const stamp = Date.now();
+    const stamp = uid();
     // A second Neo4j connection pointing at the same container, so widgets
     // still resolve after the move and the connector-type guard is satisfied.
     const createConn = await page.request.post("/api/connections", {
@@ -227,7 +228,7 @@ test.describe("Per-dashboard connection reassignment", () => {
     test.setTimeout(120_000);
     await authPage.login(ALICE.email, ALICE.password);
 
-    const stamp = Date.now();
+    const stamp = uid();
     const name = `Skipped Import ${stamp}`;
     const tmpFile = path.join(os.tmpdir(), `neoboard-skip-${stamp}.json`);
     fs.writeFileSync(tmpFile, JSON.stringify(exportPayload(name)));
@@ -316,7 +317,7 @@ test.describe("Per-dashboard connection reassignment", () => {
     test.setTimeout(90_000);
     await authPage.login(ALICE.email, ALICE.password);
 
-    const name = `Viewer Share ${Date.now()}`;
+    const name = `Viewer Share ${uid()}`;
     const { id, cleanup } = await createTestDashboard(page.request, name);
 
     try {

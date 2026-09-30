@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 /**
  * #1421 — a parameter widget's **Default value** was never applied, because
@@ -22,7 +22,7 @@ test.describe("Parameter defaults are applied on load (#1421)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Param defaults ${Date.now()}`,
+      `Param defaults ${uid()}`,
     );
 
     try {

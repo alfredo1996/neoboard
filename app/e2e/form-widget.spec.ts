@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   saveDashboard,
   typeInEditor,
+  uid,
 } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
@@ -27,7 +28,7 @@ test.describe("Form widget", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Form Widget ${Date.now()}`,
+      `Form Widget ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -350,7 +351,7 @@ test.describe("Form widget", () => {
     // The target counts nodes carrying this run's own name, so it reads 0
     // until this submit and exactly 1 after it — nodes other runs leave in
     // the shared Neo4j can't make the refresh assertion pass (#1787).
-    const nodeName = `Refresh ${Date.now()}-${test.info().workerIndex}`;
+    const nodeName = `Refresh ${uid()}-${test.info().workerIndex}`;
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const tableDialog = page.getByRole("dialog", { name: "Add Widget" });
 
@@ -590,7 +591,7 @@ test.describe("Write permission does not gate a form (#1831)", () => {
     await page.waitForURL("/", { timeout: 15_000 });
 
     // Create a creator user (can_write defaults to true)
-    creatorEmail = `no-write-${Date.now()}@example.com`;
+    creatorEmail = `no-write-${uid()}@example.com`;
     await page.goto("/users");
     await expect(page.getByText(ALICE.email)).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Create User" }).first().click();
@@ -611,7 +612,7 @@ test.describe("Write permission does not gate a form (#1831)", () => {
 
     // Create a dashboard (admin-owned) then update to add layout + make public
     const dashRes = await page.request.post("/api/dashboards", {
-      data: { name: `Write-Permission-Test-${Date.now()}` },
+      data: { name: `Write-Permission-Test-${uid()}` },
     });
     const dash = (await dashRes.json()).data;
     dashboardId = dash.id;
@@ -726,7 +727,7 @@ test.describe("Write permission does not gate a form (#1831)", () => {
     const adminAuth = new (await import("./pages/auth")).AuthPage(adminPage);
     await adminAuth.login(ALICE.email, ALICE.password);
 
-    const readerEmail = `form-reader-${Date.now()}@example.com`;
+    const readerEmail = `form-reader-${uid()}@example.com`;
     const createRes = await adminPage.request.post("/api/users", {
       data: {
         name: "Form Reader",
@@ -780,7 +781,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
   async function openForm(page: Page, widget: Record<string, unknown>) {
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Form Labels ${Date.now()}`,
+      `Form Labels ${uid()}`,
     );
     dashboardCleanup = cleanup;
     const res = await page.request.put(`/api/dashboards/${id}`, {
@@ -1105,7 +1106,8 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     await clickHeldAcrossDebounce(
       page,
       form.locator("label", { hasText: /^Note$/ }),
-      () => form.getByRole("textbox", { name: "Name", exact: true }).fill("Ada"),
+      () =>
+        form.getByRole("textbox", { name: "Name", exact: true }).fill("Ada"),
     );
 
     await expect(
@@ -1173,7 +1175,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     await clickHeldAcrossDebounce(page, submit, () =>
       form
         .getByRole("textbox", { name: "Name", exact: true })
-        .fill(`Held Click ${Date.now()}`),
+        .fill(`Held Click ${uid()}`),
     );
 
     await expect(form.getByText("Form submitted successfully")).toBeVisible({

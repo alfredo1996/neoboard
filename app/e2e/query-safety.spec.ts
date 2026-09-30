@@ -6,6 +6,7 @@ import {
   typeInEditor,
   getPreview,
   SEEDED_PG_OPTION,
+  uid,
 } from "./fixtures";
 import type { APIRequestContext } from "@playwright/test";
 
@@ -104,7 +105,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     // statementTimeout option reaches the driver end-to-end.
     const createRes = await page.request.post("/api/connections", {
       data: {
-        name: `e2e-pg-timeout-${Date.now()}`,
+        name: `e2e-pg-timeout-${uid()}`,
         type: "postgresql",
         config: {
           uri: `postgresql://localhost:${process.env.TEST_PG_PORT ?? "5432"}`,
@@ -167,7 +168,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     // is 30s); proves the queryTimeout option reaches Neo4j's tx timeout.
     const createRes = await page.request.post("/api/connections", {
       data: {
-        name: `e2e-neo4j-timeout-${Date.now()}`,
+        name: `e2e-neo4j-timeout-${uid()}`,
         type: "neo4j",
         config: {
           uri: process.env.TEST_NEO4J_BOLT_URL ?? "bolt://localhost:7687",
@@ -238,7 +239,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     // and verify the banner renders with the correct dynamic text.
     const { id, cleanup } = await createSingleTableDashboard(
       page.request,
-      `pg-row-cap ${Date.now()}`,
+      `pg-row-cap ${uid()}`,
       PG_CONNECTION_ID,
       "SELECT generate_series(1, 15000) AS id",
     );
@@ -276,7 +277,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
 
     const { id, cleanup } = await createSingleTableDashboard(
       page.request,
-      `cypher-row-cap ${Date.now()}`,
+      `cypher-row-cap ${uid()}`,
       NEO4J_CONNECTION_ID,
       "UNWIND range(1, 15000) AS x RETURN x AS id",
     );
@@ -306,7 +307,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
     // Create a fresh PG connection with an explicit maxRows cap.
     const createRes = await page.request.post("/api/connections", {
       data: {
-        name: `maxrows-override ${Date.now()}`,
+        name: `maxrows-override ${uid()}`,
         type: "postgresql",
         config: {
           uri: `postgresql://localhost:${process.env.TEST_PG_PORT ?? "5432"}`,
@@ -337,7 +338,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
       // UI-level: banner should render with the override value.
       const { id, cleanup } = await createSingleTableDashboard(
         page.request,
-        `pg-override ${Date.now()}`,
+        `pg-override ${uid()}`,
         connId,
         "SELECT generate_series(1, 5000) AS id",
       );
@@ -362,7 +363,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
   }) => {
     const { id, cleanup } = await createSingleTableDashboard(
       page.request,
-      `empty-result ${Date.now()}`,
+      `empty-result ${uid()}`,
       NEO4J_CONNECTION_ID,
       // A label that provably does not exist in the seeded movies DB.
       "MATCH (n:ThisLabelDoesNotExist) RETURN n",
@@ -503,7 +504,7 @@ test.describe("Widget editor preview — blocked write vs syntax error (#1932)",
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Blocked write ${Date.now()}`,
+      `Blocked write ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

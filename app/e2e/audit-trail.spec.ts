@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, uid } from "./fixtures";
 
 /**
  * End-to-end proof that the audit trail records real activity (#1234).
@@ -18,7 +18,7 @@ test.describe("Audit trail", () => {
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
 
-    const name = `Audited Dashboard ${Date.now()}`;
+    const name = `Audited Dashboard ${uid()}`;
     const created = await page.request.post("/api/dashboards", {
       data: { name },
     });

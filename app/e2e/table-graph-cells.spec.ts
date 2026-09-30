@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 /**
  * #2050 — a Data Table filled a graph cell with the raw canonical shape:
@@ -20,7 +20,7 @@ async function tableDashboard(
 ) {
   const dashboard = await createTestDashboard(
     page.request,
-    `Table graph cells ${Date.now()}`,
+    `Table graph cells ${uid()}`,
   );
   const putRes = await page.request.put(`/api/dashboards/${dashboard.id}`, {
     data: {

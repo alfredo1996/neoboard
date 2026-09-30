@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
+  uid,
 } from "./fixtures";
 
 test.describe("Connection Advanced Settings", () => {
@@ -66,7 +67,7 @@ test.describe("Connection Advanced Settings", () => {
   test("should create Neo4j connection with custom timeout", async ({
     page,
   }) => {
-    const name = `Adv Neo4j ${Date.now()}`;
+    const name = `Adv Neo4j ${uid()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
@@ -91,7 +92,7 @@ test.describe("Connection Advanced Settings", () => {
   test("should create PostgreSQL connection with custom pool settings", async ({
     page,
   }) => {
-    const name = `Adv PG ${Date.now()}`;
+    const name = `Adv PG ${uid()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-postgresql").click();
@@ -125,7 +126,7 @@ test.describe("Connection Advanced Settings", () => {
     await dialog.getByTestId("pick-neo4j").click();
 
     // Fill form
-    await dialog.locator("#conn-name").fill(`Inline Adv ${Date.now()}`);
+    await dialog.locator("#conn-name").fill(`Inline Adv ${uid()}`);
     await dialog.locator("#conn-uri").fill(TEST_NEO4J_BOLT_URL);
     await dialog.locator("#conn-username").fill("neo4j");
     await dialog.locator("#conn-password").fill("neoboard123");
@@ -192,7 +193,7 @@ test.describe("Connection Advanced Settings", () => {
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-postgresql").click();
 
-    await dialog.locator("#conn-name").fill(`Too Big ${Date.now()}`);
+    await dialog.locator("#conn-name").fill(`Too Big ${uid()}`);
     await dialog
       .locator("#conn-uri")
       .fill(`postgresql://localhost:${TEST_PG_PORT}`);
@@ -211,7 +212,7 @@ test.describe("Connection Advanced Settings", () => {
   test("the edit dialog is the same generated form, and a blank password keeps the stored one (#1901)", async ({
     page,
   }) => {
-    const name = `Edit Generated ${Date.now()}`;
+    const name = `Edit Generated ${uid()}`;
     const created = await page.request.post("/api/connections", {
       data: {
         name,
@@ -295,7 +296,7 @@ test.describe("Connection Advanced Settings", () => {
     };
     const rejected = await page.request.post("/api/connections", {
       data: {
-        name: `Rejected ${Date.now()}`,
+        name: `Rejected ${uid()}`,
         type: "postgresql",
         config: { ...base, maxPoolSize: 500, uri: "bolt://localhost:7687" },
       },
@@ -310,7 +311,7 @@ test.describe("Connection Advanced Settings", () => {
 
     const created = await page.request.post("/api/connections", {
       data: {
-        name: `Stripped ${Date.now()}`,
+        name: `Stripped ${uid()}`,
         type: "postgresql",
         // queryTimeout belongs to another connector; nobody declares `note`.
         config: { ...base, queryTimeout: 5000, note: "dropped" },

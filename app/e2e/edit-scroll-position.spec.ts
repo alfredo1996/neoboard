@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 // Entering edit mode must preserve the scroll position (#1163) and must not
 // remount the widget tree (#1370). View and edit are separate route segments
@@ -14,7 +14,7 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Scroll ${Date.now()}`,
+      `Scroll ${uid()}`,
     );
     try {
       // Build a tall page: many stacked markdown widgets so the content
