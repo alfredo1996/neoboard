@@ -44,7 +44,7 @@ export default function SignupPage() {
       .finally(() => setStatusChecked(true));
   }, []);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");

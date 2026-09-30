@@ -325,7 +325,7 @@ function ImportDashboardDialog({
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!parsed) return;
     setSubmitError(null);
@@ -767,7 +767,7 @@ export default function DashboardListPage() {
     search,
   );
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!newName.trim()) {
       setNameError("Name is required");
@@ -786,7 +786,7 @@ export default function DashboardListPage() {
     setRenameError(null);
   }
 
-  async function handleRename(e: React.FormEvent) {
+  async function handleRename(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!renameTarget) return;
     const trimmed = renameValue.trim();
