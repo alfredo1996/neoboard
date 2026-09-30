@@ -421,7 +421,7 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
     // Only load if content has fenced code blocks with a language tag
     if (!content || !content.includes("```")) return;
     let cancelled = false;
-    ensureHighlighter().then((ok) => {
+    void ensureHighlighter().then((ok) => {
       if (!cancelled && ok) setHighlighterReady(true);
     });
     return () => {
