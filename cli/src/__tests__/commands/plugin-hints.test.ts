@@ -50,6 +50,7 @@ vi.mock("../../lib/plugin-validator.js", () => validatorMock);
 // vitest 4's strict mock guard throws on `mod[unknownExport]` access, which
 // would short-circuit the missing-export hint branch we want to cover.
 import { runPluginAdd } from "../../commands/plugin.js";
+import { findProjectRoot } from "../../lib/config.js";
 
 let tmpRoot: string;
 let missingDefaultPkg: string;
@@ -69,6 +70,18 @@ beforeAll(() => {
   // validator is mocked, so the runtime shape doesn't matter beyond being truthy.
   validPkg = join(tmpRoot, "valid.mjs");
   writeFileSync(validPkg, `export default { type: "anything" };\n`);
+
+  // runPluginAdd imports the name npm installed (#2065); list the fixtures as
+  // installed dependencies so each resolves to its own file URL.
+  const dependencies = {
+    [fileUrl(missingDefaultPkg)]: "*",
+    [fileUrl(validPkg)]: "*",
+  };
+  writeFileSync(
+    join(tmpRoot, "package.json"),
+    JSON.stringify({ dependencies }),
+  );
+  vi.mocked(findProjectRoot).mockReturnValue(tmpRoot);
 });
 
 afterAll(() => {

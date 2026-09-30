@@ -237,7 +237,7 @@ plugin
   .description("Show all registered plugins (built-in + external)")
   .action(async () => {
     const { runPluginList } = await import("./commands/plugin.js");
-    runPluginList();
+    await runPluginList();
   });
 
 plugin
@@ -329,8 +329,10 @@ if (isDirectRun) {
   // dump: the message buried under a stack trace rooted in dist/, which reads
   // as a crash rather than as the CLI telling you something (#1315). Commands
   // throw to say "you cannot do that here"; print that and nothing else.
-  program.parseAsync().catch((err: unknown) => {
+  try {
+    await program.parseAsync();
+  } catch (err: unknown) {
     logError(err instanceof Error ? err.message : String(err));
     process.exitCode = 1;
-  });
+  }
 }
