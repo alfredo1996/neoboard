@@ -77,9 +77,21 @@ describe("runStatus", () => {
     expect(info).toHaveBeenCalledWith(expect.stringContaining("0.0.1"));
   });
 
-  it("shows container count", async () => {
+  // #2099: one container read "running (1 containers)".
+  it.each([
+    [0, "no containers"],
+    [1, "running (1 container)"],
+    [2, "running (2 containers)"],
+  ])("%i running reads %s", async (n, text) => {
+    mockComposePs.mockReturnValue(
+      Array.from({ length: n }, () => ({
+        name: "c",
+        state: "running",
+        status: "Up",
+      })),
+    );
     await runStatus();
-    expect(info).toHaveBeenCalledWith(expect.stringContaining("2 containers"));
+    expect(info).toHaveBeenCalledWith(`Docker:      ${text}`);
   });
 
   it("shows healthy services", async () => {
@@ -107,12 +119,6 @@ describe("runStatus", () => {
   it("shows migration status", async () => {
     await runStatus();
     expect(info).toHaveBeenCalledWith(expect.stringContaining("1 applied"));
-  });
-
-  it("shows no containers when none running", async () => {
-    mockComposePs.mockReturnValue([]);
-    await runStatus();
-    expect(info).toHaveBeenCalledWith(expect.stringContaining("no containers"));
   });
 });
 

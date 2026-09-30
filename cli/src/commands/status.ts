@@ -72,13 +72,15 @@ function getVersion(): string {
 export async function runStatus(): Promise<void> {
   const mode = getMode();
   const config = readProjectConfig();
-  const containers = composePs();
+  const count = composePs().length;
+  let docker = "no containers";
+  if (count > 0) {
+    docker = `running (${count} container${count === 1 ? "" : "s"})`;
+  }
 
   info(`Mode:        ${mode}`);
   info(`Version:     ${getVersion()}`);
-  info(
-    `Docker:      ${containers.length > 0 ? `running (${containers.length} containers)` : "no containers"}`,
-  );
+  info(`Docker:      ${docker}`);
   info("");
 
   const pgHealthy = await isPgReady();
