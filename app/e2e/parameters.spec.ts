@@ -805,6 +805,11 @@ test("a numeric select restored from a link filters its widget", async ({
     await expect(page.getByRole("cell", { name: "The Matrix" })).toBeVisible({
       timeout: 15_000,
     });
+    // Typing the value is not a pick: the chip still credits the link.
+    await expect(page.locator('[title="Set by URL"]')).toContainText("1999");
+    await expect(
+      page.locator('[title="Set by Parameter Selector"]'),
+    ).toHaveCount(0);
   } finally {
     await cleanup();
   }

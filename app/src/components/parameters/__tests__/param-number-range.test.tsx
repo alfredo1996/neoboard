@@ -70,6 +70,7 @@ function makeActions(stored?: { value: unknown }): ParamActions & {
     setCompanion:
       vi.fn<(suffix: string, value: unknown, type: ParameterType) => void>(),
     clearCompanion: vi.fn<(suffix: string) => void>(),
+    retype: vi.fn<(value: unknown) => void>(),
     currentEntry,
   };
 }
