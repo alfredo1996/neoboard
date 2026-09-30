@@ -179,6 +179,10 @@ function ApiKeyRow({
   onRevoke: (id: string) => void;
 }>) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Where focus goes back to on close: the dialog has no Trigger (#2086).
+  const [revokeButton, setRevokeButton] = useState<HTMLButtonElement | null>(
+    null,
+  );
 
   return (
     <tr className="border-b last:border-b-0">
@@ -199,6 +203,7 @@ function ApiKeyRow({
       </td>
       <td className="px-4 py-3 text-right">
         <Button
+          ref={setRevokeButton}
           variant="ghost"
           size="icon"
           className="text-destructive hover:text-destructive"
@@ -214,6 +219,7 @@ function ApiKeyRow({
           description={`Are you sure you want to revoke "${apiKey.name}"? This action cannot be undone. Any integrations using this key will stop working immediately.`}
           confirmText="Revoke"
           variant="destructive"
+          returnFocusTo={revokeButton}
           onConfirm={() => {
             onRevoke(apiKey.id);
             setConfirmOpen(false);

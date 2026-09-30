@@ -136,6 +136,7 @@ vi.mock("@neoboard/components", () => {
       description,
       confirmText,
       onConfirm,
+      returnFocusTo,
     }: {
       open: boolean;
       onOpenChange: (open: boolean) => void;
@@ -143,11 +144,19 @@ vi.mock("@neoboard/components", () => {
       description: string;
       confirmText: string;
       onConfirm: () => void;
+      returnFocusTo?: HTMLElement | null;
     }) =>
       open ? (
         <div role="dialog" aria-label={title}>
           <p>{description}</p>
-          <button onClick={() => onOpenChange(false)}>Cancel</button>
+          <button
+            onClick={() => {
+              onOpenChange(false);
+              returnFocusTo?.focus();
+            }}
+          >
+            Cancel
+          </button>
           <button
             onClick={() => {
               onConfirm();
@@ -190,10 +199,14 @@ vi.mock("@neoboard/components", () => {
       );
     },
     useToast: () => ({ toast: mockToast }),
+    focusedMenuTrigger: () => menuTrigger,
   };
 });
 
 import UsersPage from "../page";
+
+// What `focusedMenuTrigger()` finds: the row's "User actions" button.
+const menuTrigger = document.body.appendChild(document.createElement("button"));
 
 const row = (id: string) => within(screen.getByTestId(`row-${id}`));
 
@@ -401,6 +414,21 @@ describe("UsersPage — role and write changes (#2098)", () => {
           description: expect.stringContaining(name),
         });
       }
+    },
+  );
+});
+
+describe("UsersPage — focus after a cancelled question (#2086)", () => {
+  it.each(["Delete", "Disable"])(
+    "%s: Cancel puts focus back on the row's menu button",
+    (item) => {
+      menuTrigger.blur();
+      render(<UsersPage />);
+
+      fireEvent.click(row("u2").getByRole("menuitem", { name: item }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(menuTrigger).toHaveFocus();
     },
   );
 });

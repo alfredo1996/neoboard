@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { maskedKey } from "../masked-key";
 import type { ApiKeyListItem } from "@/hooks/use-api-keys";
@@ -49,7 +49,26 @@ vi.mock("@neoboard/components", () => ({
     <input {...props} />
   ),
   EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
-  ConfirmDialog: () => null,
+  // Cancel closes it and sends focus back, as the real one does.
+  ConfirmDialog: ({
+    open,
+    onOpenChange,
+    returnFocusTo,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    returnFocusTo?: HTMLElement | null;
+  }) =>
+    open ? (
+      <button
+        onClick={() => {
+          onOpenChange(false);
+          returnFocusTo?.focus();
+        }}
+      >
+        Cancel
+      </button>
+    ) : null,
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
     open ? <div>{children}</div> : null,
   DialogContent: ({ children }: { children: React.ReactNode }) => (
@@ -111,5 +130,18 @@ describe("ApiKeysPage Key column (#1038)", () => {
     // specifically (date columns also render "—").
     const legacyRow = screen.getByRole("row", { name: /Legacy Key/i });
     expect(legacyRow).toHaveTextContent("—");
+  });
+});
+
+describe("ApiKeysPage Revoke (#2086)", () => {
+  it("Cancel puts focus back on the row's Revoke button", () => {
+    mockKeys = [makeKey({})];
+    render(<ApiKeysPage />);
+    const revoke = screen.getByRole("button", { name: "Revoke CI Key" });
+
+    fireEvent.click(revoke);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(revoke).toHaveFocus();
   });
 });

@@ -164,14 +164,32 @@ vi.mock("@neoboard/components", () => {
       </>
     ),
     // Renders its description while open, the way Dialog below does — the
-    // delete dialog is where "Re-assign widgets…" lives.
+    // delete dialog is where "Re-assign widgets…" lives. Cancel sends focus
+    // back, as the real one does.
     ConfirmDialog: ({
       open,
       description,
+      onOpenChange,
+      returnFocusTo,
     }: {
       open: boolean;
       description?: React.ReactNode;
-    }) => (open ? <div role="alertdialog">{description}</div> : null),
+      onOpenChange: (open: boolean) => void;
+      returnFocusTo?: HTMLElement | null;
+    }) =>
+      open ? (
+        <div role="alertdialog">
+          {description}
+          <button
+            onClick={() => {
+              onOpenChange(false);
+              returnFocusTo?.focus();
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null,
     Dialog: ({
       open,
       children,
@@ -231,10 +249,14 @@ vi.mock("@neoboard/components", () => {
       </div>
     ),
     useToast: () => ({ toast: mockToast }),
+    focusedMenuTrigger: () => menuTrigger,
   };
 });
 
 import ConnectionsPage from "../page";
+
+// What `focusedMenuTrigger()` finds: the card's "Connection actions" button.
+const menuTrigger = document.body.appendChild(document.createElement("button"));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -707,5 +729,17 @@ describe("ConnectionsPage — re-assign names the connector by its label (#1905)
 
     // Nothing else could name it: the descriptor is gone.
     expect(dialog).toHaveTextContent("No other uninstalled connection");
+  });
+});
+
+describe("ConnectionsPage — focus after a cancelled Delete (#2086)", () => {
+  it("Cancel puts focus back on the card's menu button", () => {
+    mockConnections = rows(1);
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete conn-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(menuTrigger).toHaveFocus();
   });
 });

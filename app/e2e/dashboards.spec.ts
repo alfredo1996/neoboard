@@ -187,6 +187,38 @@ test.describe("Dashboard CRUD", () => {
     }
   });
 
+  test("Escape on Delete puts focus back on the card's menu button (#2086)", async ({
+    page,
+  }) => {
+    const name = `Keep Focus ${Date.now()}`;
+    const { cleanup } = await createTestDashboard(page.request, name);
+
+    try {
+      await page.goto("/");
+      const card = page
+        .locator("div[class*='cursor-pointer']")
+        .filter({ has: page.getByText(name, { exact: true }) })
+        .first();
+      const options = card.getByRole("button", { name: "Dashboard options" });
+      await options.focus();
+      await page.keyboard.press("Enter");
+      await page.keyboard.press("End"); // Delete is the menu's last item
+      await expect(
+        page.getByRole("menuitem", { name: "Delete" }),
+      ).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("alertdialog")).toBeVisible();
+
+      await page.keyboard.press("Escape");
+
+      await expect(page.getByRole("alertdialog")).toBeHidden();
+      await expect(options).toBeFocused();
+      await expect(card).toBeVisible();
+    } finally {
+      await cleanup();
+    }
+  });
+
   test("deleting a dashboard already deleted elsewhere removes its card (#1750)", async ({
     page,
   }) => {

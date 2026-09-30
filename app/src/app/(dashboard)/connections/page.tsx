@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  focusedMenuTrigger,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -84,6 +85,9 @@ export default function ConnectionsPage() {
     total: number;
   } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  // The menu button Delete was picked from (#2086). Kept after the dialog
+  // closes: Radix hands focus back after that render.
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   // Pre-fetch the usage breakdown whenever a delete is pending so the
   // confirm dialog can render the list of affected dashboards + widget
   // count before the user commits. Hook is disabled when deleteTarget is
@@ -287,6 +291,7 @@ export default function ConnectionsPage() {
         }
         confirmDisabled={deleteUsage.isLoading}
         variant="destructive"
+        returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
             const force =
@@ -456,7 +461,12 @@ export default function ConnectionsPage() {
                           : undefined
                       }
                       onDelete={
-                        canManage ? () => setDeleteTarget(c.id) : undefined
+                        canManage
+                          ? () => {
+                              setReturnFocusTo(focusedMenuTrigger());
+                              setDeleteTarget(c.id);
+                            }
+                          : undefined
                       }
                       // The copy opens on the source's type, pre-filled with
                       // its non-secret config (#1042). Secrets never leave the
