@@ -35,9 +35,10 @@ export const SEEDED_PG_OPTION = /^Movies DB \(PostgreSQL\)/;
 /**
  * A unique suffix for a fixture name. Date.now() alone repeats when two
  * parallel workers create the same fixture in one millisecond (#2134).
+ * Lowercase letters, digits and "_" only: specs put it in SQL table names.
  */
 export function uid(): string {
-  return `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+  return `${Date.now().toString(36)}_${randomUUID().slice(0, 8)}`;
 }
 
 type Fixtures = {

@@ -171,7 +171,7 @@ test.describe("API key authentication", () => {
   }) => {
     // Disabling a user blocked their sign-in but not their keys: the key
     // lookup never read users.disabledAt. Real database, real join.
-    const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const email = `disabled-key-${suffix}@example.com`;
     const password = "password123";
     const adminContext = await browser.newContext();

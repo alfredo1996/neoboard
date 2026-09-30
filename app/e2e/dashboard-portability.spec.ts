@@ -50,7 +50,7 @@ test.describe("Dashboard export", () => {
     // The export's connection lookup was scoped to connections the caller
     // OWNS, so a widget on a colleague's shared connection made it 500.
     test.setTimeout(60_000);
-    const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const connectionName = `export-shared-${suffix}`;
     const dashboardName = `Export shared ${suffix}`;
     const email = `export-creator-${suffix}@example.com`;

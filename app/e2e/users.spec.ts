@@ -312,7 +312,7 @@ test.describe("Disable and enable a user (#2049)", () => {
     test.setTimeout(90_000);
     await authPage.login(ALICE.email, ALICE.password);
 
-    const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const name = `Disable Me ${suffix}`;
     const email = `disable-${suffix}@example.com`;
     const password = "password123";

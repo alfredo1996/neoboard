@@ -25,7 +25,7 @@ test.describe("Form submits check dashboard access", () => {
     browser,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const suffix = `${uid()}_${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     // Identifiers cannot be bound as parameters; this one is generated here.
     const table = `e2e_write_access_${suffix}`;
     const tag = `row-${suffix}`;

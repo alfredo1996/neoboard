@@ -45,7 +45,7 @@ test.describe.serial("Connection sharing (#901)", () => {
 
   test.beforeAll(async ({ browser }) => {
     // Unique per describe run: repeats and retries must not collide.
-    const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     connectionName = `sharing-e2e-${suffix}`;
 
     await asAlice(browser, async (page) => {
@@ -246,7 +246,7 @@ test.describe
   }
 
   test.beforeAll(async ({ browser }) => {
-    const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     connectionName = `admin-test-${suffix}`;
     await asUser(browser, ALICE.email, ALICE.password, async (page) => {
       const email = `admin-test-creator-${suffix}@example.com`;

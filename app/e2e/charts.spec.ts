@@ -1134,7 +1134,7 @@ test.describe("Graph Expand for a dashboard editor (#2061)", () => {
     browser,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const suffix = `${uid()}_${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const email = `graph-editor-${suffix}@example.com`;
     const password = "password123";
     const editorCtx = await browser.newContext();

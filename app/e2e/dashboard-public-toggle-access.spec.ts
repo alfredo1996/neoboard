@@ -13,7 +13,7 @@ test.describe("Only a dashboard's owner or an admin can make it public", () => {
     browser,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const suffix = `${uid()}_${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const email = `public-toggle-editor-${suffix}@example.com`;
     const password = "password123";
     let userId = "";

@@ -42,7 +42,7 @@ test.describe("Dashboard CRUD", () => {
   }) => {
     test.setTimeout(120_000);
     // Names only this run knows, deleted by id however the test ends.
-    const run = `List Cap ${uid()}-${Math.random().toString(36).slice(2, 8)}`;
+    const run = `List Cap ${uid()}`;
     const nameOf = (i: number) => `${run} #${String(i).padStart(3, "0")}`;
     const oldest = nameOf(0);
     const newest = nameOf(100);

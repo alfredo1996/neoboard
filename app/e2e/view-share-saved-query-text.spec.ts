@@ -62,7 +62,7 @@ test.describe("Viewer share runs each saved query as its exact saved text", () =
   test("the saved texts load and refresh, and a line-break variant gets 403", async ({
     browser,
   }) => {
-    const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const aliceCtx = await browser.newContext();
     const alice = await aliceCtx.newPage();
     let userId: string | undefined;

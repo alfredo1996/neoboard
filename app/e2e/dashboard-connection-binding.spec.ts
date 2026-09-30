@@ -67,7 +67,7 @@ interface Scene {
 }
 
 async function withScene(browser: Browser, fn: (s: Scene) => Promise<void>) {
-  const suffix = `${uid()}-${Math.random().toString(36).slice(2, 8)}`;
+  const suffix = uid();
   const created: string[] = [];
   const userIds: string[] = [];
   const connectionIds: string[] = [];
