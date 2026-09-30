@@ -331,7 +331,9 @@ function DataGrid<TData>({
           return formatNumber(v, numberFormatConfig);
         }
         if (v === null || v === undefined) return null;
-        return typeof v === "object" ? JSON.stringify(v) : String(v);
+        if (typeof v === "object") return JSON.stringify(v);
+        // Query cells: a primitive once null, undefined and objects are out.
+        return String(v as string | number | boolean | bigint);
       },
     },
     enableGrouping,
