@@ -46,6 +46,15 @@ describe("DataGrid", () => {
     expect(screen.getByText("Charlie")).toBeInTheDocument();
   });
 
+  it("shows an object cell as JSON, not [object Object]", () => {
+    const cols: ColumnDef<{ v: unknown }, unknown>[] = [
+      { accessorKey: "v", header: "V" },
+    ];
+    render(<DataGrid columns={cols} data={[{ v: { a: 1 } }, { v: [1, 2] }]} />);
+    expect(screen.getByText('{"a":1}')).toBeInTheDocument();
+    expect(screen.getByText("[1,2]")).toBeInTheDocument();
+  });
+
   it("gives non-grouped data rows a hover affordance (#1055)", () => {
     render(<DataGrid columns={columns} data={data} />);
     const dataRow = screen.getByText("Alice").closest("tr");
@@ -111,6 +120,19 @@ describe("DataGrid", () => {
       column: "name",
       value: "Alice",
     });
+  });
+
+  it("keeps focus on the same record when a row is inserted above it, given getRowId (#2123)", () => {
+    const zed = { id: 9, name: "Zed", email: "zed@example.com", status: "New" };
+    const props = {
+      columns,
+      onCellClick: vi.fn(),
+      getRowId: (r: TestRow) => String(r.id),
+    };
+    const { rerender } = render(<DataGrid {...props} data={data} />);
+    screen.getByRole("button", { name: "Bob" }).focus();
+    rerender(<DataGrid {...props} data={[zed, ...data]} />);
+    expect(document.activeElement).toHaveTextContent("Bob");
   });
 
   it("enables sorting when enableSorting is true", () => {
