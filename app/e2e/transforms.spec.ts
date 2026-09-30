@@ -179,6 +179,30 @@ test.describe("Data Transforms", () => {
     );
   });
 
+  test("a typed rename mapping keeps its text and renames the column (#2096)", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const dialog = await setupWidgetWithQuery(page, {
+      chartType: "Data Table",
+      query: "UNWIND ['Ann', 'Bob'] AS name RETURN name, 1 AS n",
+    });
+
+    await dialog.getByRole("tab", { name: "Transform" }).click();
+    const panel = dialog.getByRole("tabpanel");
+    await panel.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: /^Rename Columns/ }).click();
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+
+    // Each keystroke used to be wiped, so only a pasted mapping worked.
+    const field = panel.getByLabel("Mappings (old=new, comma-separated)");
+    await field.pressSequentially("name=Employee");
+    await expect(field).toHaveValue("name=Employee");
+    await expect(
+      getPreview(dialog).getByRole("columnheader", { name: "Employee" }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
   test("a groupBy sum and average of money carry no float tail (#1415)", async ({
     page,
   }) => {

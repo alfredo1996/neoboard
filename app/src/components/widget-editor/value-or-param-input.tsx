@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  CreatableCombobox,
-  Input,
-} from "@neoboard/components";
+import { CreatableCombobox, Input } from "@neoboard/components";
 
 interface ValueOrParamInputProps {
   parameterRef: string | undefined;
@@ -13,6 +10,7 @@ interface ValueOrParamInputProps {
   parameterSuggestions: string[];
   inputType?: "text" | "number";
   placeholder?: string;
+  id?: string;
 }
 
 /**
@@ -29,13 +27,16 @@ export function ValueOrParamInput({
   parameterSuggestions,
   inputType = "number",
   placeholder = "0",
+  id,
 }: ValueOrParamInputProps) {
   // When there are parameter suggestions, show a combobox that allows
   // both selecting a parameter and typing a literal value.
   if (parameterSuggestions.length > 0) {
-    const displayValue = parameterRef !== undefined ? parameterRef : String(value);
+    const displayValue =
+      parameterRef !== undefined ? parameterRef : String(value);
     return (
       <CreatableCombobox
+        id={id}
         suggestions={parameterSuggestions}
         value={displayValue}
         onChange={(v) => {
@@ -56,6 +57,7 @@ export function ValueOrParamInput({
   // No parameter suggestions — plain input
   return (
     <Input
+      id={id}
       type={inputType}
       value={parameterRef !== undefined ? parameterRef : value}
       onChange={(e) => {
