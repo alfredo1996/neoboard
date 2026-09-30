@@ -285,6 +285,8 @@ describe("the Docker build regenerates the connector list (#2062)", () => {
     for (const path of [
       "neoboard-connectors.json",
       "scripts/generate-connector-imports.mjs",
+      // The codegen's one non-builtin import (#2087).
+      "scripts/lib/check-installed.mjs",
     ]) {
       expect(
         patterns.filter((p) => toRegex(p).test(path)),
