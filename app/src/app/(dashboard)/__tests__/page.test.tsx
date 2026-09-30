@@ -148,6 +148,22 @@ describe("DashboardListPage duplicate", () => {
   });
 });
 
+describe("DashboardListPage rename", () => {
+  it("submits the trimmed new name for the dashboard picked (#1045)", () => {
+    dashboards = [{ ...DASHBOARD, role: "owner" }];
+    render(<DashboardListPage />);
+    fireEvent.click(screen.getByText("Rename"));
+    fireEvent.change(document.getElementById("dashboard-rename")!, {
+      target: { value: "  Box Office  " },
+    });
+    fireEvent.submit(document.getElementById("dashboard-rename")!);
+    expect(idle.mutateAsync).toHaveBeenCalledWith({
+      id: "d1",
+      name: "Box Office",
+    });
+  });
+});
+
 // #2108: the numeral's margin is not text; readers and copy need a space.
 it.each(["1. Add a connection", "2. Create a dashboard", "3. Add widgets"])(
   "reads the getting-started step as %s",
