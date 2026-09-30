@@ -81,6 +81,14 @@ describe("contrastTextColor", () => {
     expect(contrastTextColor("hsl(265, 55, 48)")).toBe("#000000");
   });
 
+  it("rejects a long malformed hsl() in linear time (#2101)", () => {
+    // CPU time, not wall clock (#1993): the old regex backtracked cubically.
+    const start = process.cpuUsage();
+    expect(contrastTextColor(`hsl(${" ".repeat(5000)}!`)).toBe("#000000");
+    const { user, system } = process.cpuUsage(start);
+    expect((user + system) / 1000).toBeLessThan(250);
+  });
+
   it("rejects malformed hex strings", () => {
     expect(contrastTextColor("#12")).toBe("#000000");
     expect(contrastTextColor("#12345")).toBe("#000000");

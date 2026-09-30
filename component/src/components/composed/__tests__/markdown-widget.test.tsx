@@ -559,6 +559,20 @@ describe("MarkdownWidget", () => {
     // No shiki class — no language means no highlighting
     expect(container.querySelector("pre.shiki")).toBeNull();
   });
+
+  it("strips on* attributes after a long whitespace run in linear time (#2101)", () => {
+    // A run followed by anything but "on" made \s+on backtrack quadratically.
+    const fence = (s: string) =>
+      parseMarkdown(`\`\`\`sql\n${s}x onclick="x"\n\`\`\``);
+    // A CPU ceiling, not growth(): the fixed parse is far under its 0.05 ms
+    // floor, so the ratio would not measure growth. Old regex: about 4 s here.
+    let html = "";
+    const ms = cpuMs(() => {
+      html = fence(" ".repeat(50_000));
+    });
+    expect(html).not.toContain("onclick");
+    expect(ms).toBeLessThan(250);
+  }, 60_000);
   // The inline emphasis passes ran over markup the link/image passes had
   // already emitted, so underscores and asterisks living inside a URL — or
   // inside the generated target="_blank" — were treated as user emphasis and
