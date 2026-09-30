@@ -84,7 +84,7 @@ function FieldInput({
   tenantId,
   localValues,
   textInputRef,
-}: FieldInputProps) {
+}: Readonly<FieldInputProps>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
@@ -343,7 +343,7 @@ export function FormWidgetRenderer({
   widgetId,
   query,
   settings = {},
-}: FormWidgetRendererProps) {
+}: Readonly<FormWidgetRendererProps>) {
   // Plain dependency variables — the React compiler cannot preserve manual
   // memoization keyed on optional-chained member expressions (#975).
   const formFieldsSetting = settings.formFields;
@@ -434,10 +434,11 @@ export function FormWidgetRenderer({
   const allParams = useParameterValues();
   const touchedFields = useRef(new Set<string>());
 
-  // Stable key of external param values for fields in this form
-  const paramSeedKey = fields
-    .map((f) => `${f.parameterName}=${allParams[f.parameterName] ?? ""}`)
-    .join("|");
+  // Stable key of external param values for fields in this form. JSON, not a
+  // template literal: a date range is an object and read "[object Object]" (#2103).
+  const paramSeedKey = JSON.stringify(
+    fields.map((f) => [f.parameterName, allParams[f.parameterName] ?? ""]),
+  );
 
   // Sync local values when fields change OR when matching external params change.
   // number-range fields default to [rangeMin, rangeMax] so buildFormParams always
