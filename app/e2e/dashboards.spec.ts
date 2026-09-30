@@ -195,7 +195,7 @@ test.describe("Dashboard CRUD", () => {
   test("Escape on Delete puts focus back on the card's menu button (#2086)", async ({
     page,
   }) => {
-    const name = `Keep Focus ${Date.now()}`;
+    const name = `Keep Focus ${uid()}`;
     const { cleanup } = await createTestDashboard(page.request, name);
 
     try {
