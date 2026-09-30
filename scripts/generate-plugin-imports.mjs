@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { checkInstalled } from "./lib/check-installed.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..");
@@ -226,17 +226,8 @@ export function runGenerator(opts = {}) {
     return { ok: false, errors, wrote: false };
   }
 
-  // Verify that all referenced packages are actually installed
-  const req = createRequire(import.meta.url);
-  for (const entry of entries) {
-    try {
-      req.resolve(entry.package);
-    } catch {
-      errors.push(
-        `Package "${entry.package}" is not installed. Run: npm install ${entry.package}`,
-      );
-    }
-  }
+  // Verify that all referenced packages are actually installed.
+  errors.push(...checkInstalled(entries, import.meta.resolve));
   if (errors.length > 0) {
     return { ok: false, errors, wrote: false };
   }
