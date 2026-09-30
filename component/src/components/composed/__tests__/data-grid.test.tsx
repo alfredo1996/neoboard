@@ -113,6 +113,19 @@ describe("DataGrid", () => {
     });
   });
 
+  it("keeps focus on the same record when a row is inserted above it, given getRowId (#2123)", () => {
+    const zed = { id: 9, name: "Zed", email: "zed@example.com", status: "New" };
+    const props = {
+      columns,
+      onCellClick: vi.fn(),
+      getRowId: (r: TestRow) => String(r.id),
+    };
+    const { rerender } = render(<DataGrid {...props} data={data} />);
+    screen.getByRole("button", { name: "Bob" }).focus();
+    rerender(<DataGrid {...props} data={[zed, ...data]} />);
+    expect(document.activeElement).toHaveTextContent("Bob");
+  });
+
   it("enables sorting when enableSorting is true", () => {
     // Sorting is enabled via the table model; sort UI comes from DataGridColumnHeader
     render(<DataGrid columns={columns} data={data} enableSorting />);

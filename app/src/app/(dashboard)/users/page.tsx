@@ -582,6 +582,7 @@ export default function UsersPage() {
             <DataGrid
               columns={columns}
               data={users}
+              getRowId={(u) => u.id}
               enableSorting
               // Per-column filters: with many users the list spans pages
               // (client page size 20, newest first) — filtering is how an

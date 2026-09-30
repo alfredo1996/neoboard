@@ -154,6 +154,11 @@ export interface DataGridProps<TData> {
   numberFormat?: NumberFormat;
   /** Table-wide decimal places for numeric cells. See `numberFormat`. */
   decimalPlaces?: number;
+  /**
+   * A stable id per row. Without it rows are keyed by position, so a row
+   * inserted above moves focus and selection onto another record (#2123).
+   */
+  getRowId?: (row: TData, index: number) => string;
 }
 
 function DataGrid<TData>({
@@ -180,6 +185,7 @@ function DataGrid<TData>({
   className,
   numberFormat,
   decimalPlaces,
+  getRowId,
 }: DataGridProps<TData>) {
   // Table cells always want comma formatting (it's tabular data — commas
   // are the universal Excel-like convention). When the caller doesn't
@@ -297,6 +303,7 @@ function DataGrid<TData>({
   const table = useReactTable<TData>({
     data,
     columns: allColumns,
+    getRowId,
     getCoreRowModel: getCoreRowModel(),
     enableSorting,
     enableColumnResizing,
