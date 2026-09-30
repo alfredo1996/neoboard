@@ -11,6 +11,8 @@ import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 
+const interpolateColor = vi.hoisted(() => vi.fn(() => "#000000"));
+
 vi.mock("@neoboard/components", async () => {
   const { DataGrid } = await vi.importActual<
     typeof import("@neoboard/components/composed")
@@ -31,7 +33,7 @@ vi.mock("@neoboard/components", async () => {
     EmptyState: ({ title }: { title?: string }) => <div>{title}</div>,
     parseColorThresholds: () => [],
     resolveThresholdColor: () => undefined,
-    interpolateColor: () => "#000000",
+    interpolateColor,
     contrastTextColor: () => "#ffffff",
   };
 });
@@ -152,5 +154,33 @@ describe("TableRenderer filters and sorts through the grid (#2070)", () => {
     );
     filter("s", "ALI");
     expect(shown(0)).toEqual(["Alice", "Malik"]);
+  });
+});
+
+describe("TableRenderer colour scale (#2105)", () => {
+  it.each([
+    { values: [10, 50, null, "", "  "], bounds: [10, 50] },
+    { values: [-10, 10, null], bounds: [-10, 10] },
+  ])("paints only the numeric cells of $values", ({ values, bounds }) => {
+    interpolateColor.mockClear();
+    render(
+      <TableRenderer
+        data={values.map((v) => ({ v }))}
+        settings={settings}
+        colorScales={[{ column: "v", minColor: "#f00", maxColor: "#0f0" }]}
+      />,
+    );
+    const painted = Array.from(
+      document.querySelectorAll<HTMLElement>("tbody td"),
+    ).map((td) => td.style.backgroundColor !== "");
+    expect(painted).toEqual(values.map((v) => typeof v === "number"));
+    // The grid renders more than once, so compare the distinct calls.
+    expect(new Set(interpolateColor.mock.calls.map(String))).toEqual(
+      new Set(
+        values
+          .filter((v) => typeof v === "number")
+          .map((v) => String([v, ...bounds, "#f00", "#0f0"])),
+      ),
+    );
   });
 });

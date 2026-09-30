@@ -25,6 +25,7 @@ import {
   type GraphPathValue,
   type GraphRelationshipValue,
 } from "@neoboard/components/row-shapes";
+import { toChartNumber } from "@neoboard/components/numeric-cell";
 import { parseGroupByColumns } from "@/lib/widget/table-utils";
 import {
   resolveStylingRuleRowStyle,
@@ -346,19 +347,12 @@ export function TableRenderer({
       let min = Infinity;
       let max = -Infinity;
       for (const row of records) {
-        const raw = (row as Record<string, unknown>)[scale.column];
-        if (
-          raw === null ||
-          raw === undefined ||
-          raw === "" ||
-          (typeof raw === "string" && !raw.trim())
-        )
-          continue;
-        const val = Number(raw);
-        if (!Number.isNaN(val)) {
-          if (val < min) min = val;
-          if (val > max) max = val;
-        }
+        const val = toChartNumber(
+          (row as Record<string, unknown>)[scale.column],
+        );
+        if (val === null) continue;
+        if (val < min) min = val;
+        if (val > max) max = val;
       }
       if (min !== Infinity) result.set(scale.column, { min, max });
     }
@@ -375,8 +369,9 @@ export function TableRenderer({
       if (!scale) return undefined;
       const bounds = columnMinMax.get(columnId);
       if (!bounds) return undefined;
-      const val = Number(row[columnId]);
-      if (Number.isNaN(val)) return undefined;
+      // Number(null) and Number("") are 0, which painted a blank cell (#2105).
+      const val = toChartNumber(row[columnId]);
+      if (val === null) return undefined;
       const bg = interpolateColor(
         val,
         bounds.min,
