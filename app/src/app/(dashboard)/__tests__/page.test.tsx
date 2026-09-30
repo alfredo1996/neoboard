@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
@@ -30,8 +30,6 @@ const DASHBOARD: DashboardListItem = {
 
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
 const mockDelete = vi.fn();
-let dashboards = [DASHBOARD];
-
 let dashboards = [DASHBOARD];
 beforeEach(() => {
   dashboards = [DASHBOARD];
@@ -450,9 +448,6 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
   beforeEach(() => {
     dashboards = [{ ...DASHBOARD, role: "owner" }];
     menuTrigger.blur();
-  });
-  afterEach(() => {
-    dashboards = [DASHBOARD];
   });
 
   it("Cancel puts focus back on the card's menu button", () => {
