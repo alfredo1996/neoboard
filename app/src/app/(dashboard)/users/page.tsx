@@ -77,11 +77,12 @@ export default function UsersPage() {
   const { data: users, isLoading, error } = useUsers();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
-  const updateRole = useUpdateUserRole();
-  const updateCanWrite = useUpdateUserCanWrite();
-
-  const resetPassword = useResetPassword();
-  const setUserDisabled = useSetUserDisabled();
+  // The stable mutateAsync, not the result object TanStack rebuilds every
+  // render: that rebuilt the columns, remounting every cell (#2098).
+  const { mutateAsync: updateRole } = useUpdateUserRole();
+  const { mutateAsync: updateCanWrite } = useUpdateUserCanWrite();
+  const { mutateAsync: resetPassword } = useResetPassword();
+  const { mutateAsync: setUserDisabled } = useSetUserDisabled();
 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<{
@@ -105,48 +106,44 @@ export default function UsersPage() {
     password: string;
   } | null>(null);
 
+  // mutateAsync, not mutate's callbacks: TanStack v5 runs those for the
+  // latest call only, so a second change would swallow the first toast (#1912).
   const handleRoleUpdate = useCallback(
-    (id: string, val: string, displayName: string) => {
-      updateRole.mutate(
-        { id, role: val as UserRole },
-        {
-          onSuccess: () =>
-            toast({
-              title: "Role updated",
-              description: `${displayName} is now a${val === "admin" ? "n" : ""} ${val}.`,
-            }),
-          onError: (err) =>
-            toast({
-              title: "Failed to update role",
-              description:
-                err instanceof Error ? err.message : "Something went wrong.",
-              variant: "destructive",
-            }),
-        },
-      );
+    async (id: string, val: string, displayName: string) => {
+      try {
+        await updateRole({ id, role: val as UserRole });
+        toast({
+          title: "Role updated",
+          description: `${displayName} is now a${val === "admin" ? "n" : ""} ${val}.`,
+        });
+      } catch (err) {
+        toast({
+          title: "Failed to update role",
+          description:
+            err instanceof Error ? err.message : "Something went wrong.",
+          variant: "destructive",
+        });
+      }
     },
     [updateRole, toast],
   );
 
   const handleCanWriteToggle = useCallback(
-    (id: string, checked: boolean, displayName: string) => {
-      updateCanWrite.mutate(
-        { id, canWrite: checked },
-        {
-          onSuccess: () =>
-            toast({
-              title: "Write permission updated",
-              description: `${displayName} can ${checked ? "now" : "no longer"} run their own write queries. Submitting forms doesn't need this permission.`,
-            }),
-          onError: (err) =>
-            toast({
-              title: "Failed to update write permission",
-              description:
-                err instanceof Error ? err.message : "Something went wrong.",
-              variant: "destructive",
-            }),
-        },
-      );
+    async (id: string, checked: boolean, displayName: string) => {
+      try {
+        await updateCanWrite({ id, canWrite: checked });
+        toast({
+          title: "Write permission updated",
+          description: `${displayName} can ${checked ? "now" : "no longer"} run their own write queries. Submitting forms doesn't need this permission.`,
+        });
+      } catch (err) {
+        toast({
+          title: "Failed to update write permission",
+          description:
+            err instanceof Error ? err.message : "Something went wrong.",
+          variant: "destructive",
+        });
+      }
     },
     [updateCanWrite, toast],
   );
@@ -154,7 +151,7 @@ export default function UsersPage() {
   const handleForcePasswordChange = useCallback(
     async (user: UserListItem) => {
       try {
-        const result = await resetPassword.mutateAsync({
+        const result = await resetPassword({
           id: user.id,
           generatePassword: true,
           forcePasswordChange: true,
@@ -181,13 +178,11 @@ export default function UsersPage() {
     [resetPassword, toast],
   );
 
-  // mutateAsync, not mutate's callbacks: TanStack v5 runs those for the
-  // latest call only, so a second click would swallow the first toast (#1912).
   const handleSetDisabled = useCallback(
     async (user: UserListItem, disabled: boolean) => {
       const name = displayNameOf(user);
       try {
-        await setUserDisabled.mutateAsync({ id: user.id, disabled });
+        await setUserDisabled({ id: user.id, disabled });
         toast(
           disabled
             ? {

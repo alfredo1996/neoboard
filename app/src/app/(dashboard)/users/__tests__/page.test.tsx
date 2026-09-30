@@ -17,7 +17,10 @@ import type { UserListItem } from "@/hooks/use-users";
 const ME = "admin-1";
 let mockUsers: UserListItem[] = [];
 const mockSetDisabled = vi.fn();
+const mockUpdateRole = vi.fn();
+const mockUpdateCanWrite = vi.fn();
 const mockToast = vi.fn();
+let gridColumns: unknown;
 
 function user(overrides: Partial<UserListItem>): UserListItem {
   return {
@@ -36,25 +39,40 @@ vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: { user: { id: ME, role: "admin" } } }),
 }));
 
+// As TanStack v5: a new result object per render around stable mutate and
+// mutateAsync (#2098).
 vi.mock("@/hooks/use-users", () => {
-  const idle = () => ({
-    mutate: vi.fn(),
-    mutateAsync: vi.fn(),
+  const noop = vi.fn();
+  const result = (mutateAsync: unknown) => ({
+    mutate: noop,
+    mutateAsync,
     isPending: false,
   });
   return {
     useUsers: () => ({ data: mockUsers, isLoading: false, error: null }),
-    useCreateUser: idle,
-    useDeleteUser: idle,
-    useUpdateUserRole: idle,
-    useUpdateUserCanWrite: idle,
-    useResetPassword: idle,
-    useSetUserDisabled: () => ({ ...idle(), mutateAsync: mockSetDisabled }),
+    useCreateUser: () => result(noop),
+    useDeleteUser: () => result(noop),
+    useUpdateUserRole: () => result(mockUpdateRole),
+    useUpdateUserCanWrite: () => result(mockUpdateCanWrite),
+    useResetPassword: () => result(noop),
+    useSetUserDisabled: () => result(mockSetDisabled),
   };
 });
 
-vi.mock("../role-cell", () => ({ RoleCell: () => null }));
-vi.mock("../can-write-cell", () => ({ CanWriteCell: () => null }));
+vi.mock("../role-cell", () => ({
+  RoleCell: ({ onChange }: { onChange: (role: string) => void }) => (
+    <button onClick={() => onChange("reader")}>Role</button>
+  ),
+}));
+vi.mock("../can-write-cell", () => ({
+  CanWriteCell: ({
+    id,
+    onToggle,
+  }: {
+    id: string;
+    onToggle: (id: string, checked: boolean) => void;
+  }) => <button onClick={() => onToggle(id, false)}>Write</button>,
+}));
 
 vi.mock("@neoboard/components", () => {
   const Box = ({ children }: { children?: React.ReactNode }) => (
@@ -147,27 +165,30 @@ vi.mock("@neoboard/components", () => {
     }: {
       columns: Column[];
       data: UserListItem[];
-    }) => (
-      <table>
-        <tbody>
-          {data.map((row) => (
-            <tr key={row.id} data-testid={`row-${row.id}`}>
-              {columns.map((c, i) => (
-                <td key={i}>
-                  {c.cell
-                    ? c.cell({
-                        row: { original: row },
-                        getValue: () =>
-                          c.accessorKey ? row[c.accessorKey] : undefined,
-                      })
-                    : String(c.accessorKey ? (row[c.accessorKey] ?? "") : "")}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    ),
+    }) => {
+      gridColumns = columns;
+      return (
+        <table>
+          <tbody>
+            {data.map((row) => (
+              <tr key={row.id} data-testid={`row-${row.id}`}>
+                {columns.map((c, i) => (
+                  <td key={i}>
+                    {c.cell
+                      ? c.cell({
+                          row: { original: row },
+                          getValue: () =>
+                            c.accessorKey ? row[c.accessorKey] : undefined,
+                        })
+                      : String(c.accessorKey ? (row[c.accessorKey] ?? "") : "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    },
     useToast: () => ({ toast: mockToast }),
   };
 });
@@ -178,6 +199,8 @@ const row = (id: string) => within(screen.getByTestId(`row-${id}`));
 
 beforeEach(() => {
   mockSetDisabled.mockReset();
+  mockUpdateRole.mockReset();
+  mockUpdateCanWrite.mockReset();
   mockToast.mockReset();
   mockSetDisabled.mockResolvedValue({});
   mockUsers = [
@@ -327,4 +350,57 @@ describe("UsersPage — disable and enable (#2049)", () => {
       ),
     );
   });
+});
+
+describe("UsersPage — role and write changes (#2098)", () => {
+  it("keeps the same columns across a re-render, so no cell remounts and drops focus", () => {
+    const { rerender } = render(<UsersPage />);
+    const first = gridColumns;
+
+    rerender(<UsersPage />);
+
+    expect(gridColumns).toBe(first);
+  });
+
+  it.each([
+    {
+      cell: "Role",
+      mutateAsync: mockUpdateRole,
+      ok: "Role updated",
+      fail: "Failed to update role",
+    },
+    {
+      cell: "Write",
+      mutateAsync: mockUpdateCanWrite,
+      ok: "Write permission updated",
+      fail: "Failed to update write permission",
+    },
+  ])(
+    "$cell: back-to-back changes each get a toast naming the user, a failure too",
+    async ({ cell, mutateAsync, ok, fail }) => {
+      mutateAsync
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(new Error("User not found"));
+      render(<UsersPage />);
+
+      fireEvent.click(row("u2").getByRole("button", { name: cell }));
+      fireEvent.click(row("u3").getByRole("button", { name: cell }));
+      fireEvent.click(row("u2").getByRole("button", { name: cell }));
+
+      await waitFor(() =>
+        expect(mockToast).toHaveBeenCalledWith({
+          title: fail,
+          description: "User not found",
+          variant: "destructive",
+        }),
+      );
+      for (const name of ["Dana", "Eve"]) {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: ok,
+          description: expect.stringContaining(name),
+        });
+      }
+    },
+  );
 });
