@@ -182,7 +182,7 @@ export default function ConnectionsPage() {
   function handleSaved(id: string) {
     if (dialogTarget?.mode === "edit") toast({ title: "Connection updated" });
     setDialogTarget(null);
-    handleTest(id);
+    void handleTest(id);
   }
 
   // #1544: an id with no entry is "unknown" — not checked yet. It used to
@@ -328,10 +328,7 @@ export default function ConnectionsPage() {
                 ? connections?.find((c) => c.id === reassignTarget)
                 : null;
             const compatible = (connections ?? []).filter(
-              (c) =>
-                c.id !== reassignTarget &&
-                sourceConn &&
-                c.type === sourceConn.type,
+              (c) => c.id !== reassignTarget && c.type === sourceConn?.type,
             );
             const connectorName = connectorLabel(connectors, sourceConn?.type);
             return (
