@@ -1,7 +1,7 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Database, Plus, RefreshCw } from "lucide-react";
 import { ConnectorIcon } from "@/components/connector-icon";
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  focusedMenuTrigger,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -84,6 +85,10 @@ export default function ConnectionsPage() {
     total: number;
   } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  // The menu button Delete was picked from (#2086). Kept after the dialog
+  // closes: Radix hands focus back after that render.
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   // Pre-fetch the usage breakdown whenever a delete is pending so the
   // confirm dialog can render the list of affected dashboards + widget
   // count before the user commits. Hook is disabled when deleteTarget is
@@ -177,7 +182,7 @@ export default function ConnectionsPage() {
   function handleSaved(id: string) {
     if (dialogTarget?.mode === "edit") toast({ title: "Connection updated" });
     setDialogTarget(null);
-    handleTest(id);
+    void handleTest(id);
   }
 
   // #1544: an id with no entry is "unknown" — not checked yet. It used to
@@ -191,6 +196,7 @@ export default function ConnectionsPage() {
     <div className="p-6">
       <PageHeader
         title="Connections"
+        titleRef={headingRef}
         description="Manage your database connections"
         actions={
           <div className="flex items-center gap-2">
@@ -287,8 +293,11 @@ export default function ConnectionsPage() {
         }
         confirmDisabled={deleteUsage.isLoading}
         variant="destructive"
+        returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
+            // The card leaves once the list refetches: land on the heading.
+            setReturnFocusTo(headingRef.current);
             const force =
               !!deleteUsage.data && deleteUsage.data.widgetCount > 0;
             deleteConnection.mutate({ id: deleteTarget, force });
@@ -319,10 +328,7 @@ export default function ConnectionsPage() {
                 ? connections?.find((c) => c.id === reassignTarget)
                 : null;
             const compatible = (connections ?? []).filter(
-              (c) =>
-                c.id !== reassignTarget &&
-                sourceConn &&
-                c.type === sourceConn.type,
+              (c) => c.id !== reassignTarget && c.type === sourceConn?.type,
             );
             const connectorName = connectorLabel(connectors, sourceConn?.type);
             return (
@@ -456,7 +462,12 @@ export default function ConnectionsPage() {
                           : undefined
                       }
                       onDelete={
-                        canManage ? () => setDeleteTarget(c.id) : undefined
+                        canManage
+                          ? () => {
+                              setReturnFocusTo(focusedMenuTrigger());
+                              setDeleteTarget(c.id);
+                            }
+                          : undefined
                       }
                       // The copy opens on the source's type, pre-filled with
                       // its non-secret config (#1042). Secrets never leave the

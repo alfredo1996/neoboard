@@ -1,3 +1,4 @@
+import * as React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { PageHeader } from "../page-header";
@@ -44,6 +45,18 @@ describe("PageHeader", () => {
     // The scale stops at text-lg; bold is reserved for metric emphasis.
     expect(title).not.toHaveClass("text-2xl");
     expect(title).not.toHaveClass("font-bold");
+  });
+
+  it("hands the title to titleRef, focusable by script but not a tab stop (#2086)", () => {
+    const titleRef = React.createRef<HTMLHeadingElement>();
+    render(<PageHeader title="Dashboard" titleRef={titleRef} />);
+    const title = screen.getByRole("heading", { level: 1, name: "Dashboard" });
+    expect(titleRef.current).toBe(title);
+
+    titleRef.current?.focus();
+
+    expect(title).toHaveFocus();
+    expect(title).toHaveAttribute("tabindex", "-1");
   });
 
   it("renders the description at text-sm (#1058)", () => {

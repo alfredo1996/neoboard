@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { Plus, Trash2, Copy, Check, Key } from "lucide-react";
 import {
   PageHeader,
@@ -174,11 +174,15 @@ function CreateKeyDialog({
 function ApiKeyRow({
   apiKey,
   onRevoke,
+  heading,
 }: Readonly<{
   apiKey: ApiKeyListItem;
   onRevoke: (id: string) => void;
+  heading: RefObject<HTMLHeadingElement | null>;
 }>) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Where focus goes on close: the dialog has no Trigger (#2086).
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
 
   return (
     <tr className="border-b last:border-b-0">
@@ -202,7 +206,10 @@ function ApiKeyRow({
           variant="ghost"
           size="icon"
           className="text-destructive hover:text-destructive"
-          onClick={() => setConfirmOpen(true)}
+          onClick={(e) => {
+            setReturnFocusTo(e.currentTarget);
+            setConfirmOpen(true);
+          }}
           aria-label={`Revoke ${apiKey.name}`}
         >
           <Trash2 className="h-4 w-4" />
@@ -214,7 +221,10 @@ function ApiKeyRow({
           description={`Are you sure you want to revoke "${apiKey.name}"? This action cannot be undone. Any integrations using this key will stop working immediately.`}
           confirmText="Revoke"
           variant="destructive"
+          returnFocusTo={returnFocusTo}
           onConfirm={() => {
+            // The row leaves once the list refetches: land on the heading.
+            setReturnFocusTo(heading.current);
             onRevoke(apiKey.id);
             setConfirmOpen(false);
           }}
@@ -228,6 +238,7 @@ export default function ApiKeysPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const { data: keys = [], isLoading } = useApiKeys();
   const revokeMutation = useRevokeApiKey();
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const handleRevoke = (id: string) => {
     revokeMutation.mutate(id);
@@ -237,6 +248,7 @@ export default function ApiKeysPage() {
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
         title="API Keys"
+        titleRef={headingRef}
         description="Manage API keys for programmatic access to NeoBoard."
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -291,7 +303,12 @@ export default function ApiKeysPage() {
             </thead>
             <tbody>
               {keys.map((key) => (
-                <ApiKeyRow key={key.id} apiKey={key} onRevoke={handleRevoke} />
+                <ApiKeyRow
+                  key={key.id}
+                  apiKey={key}
+                  onRevoke={handleRevoke}
+                  heading={headingRef}
+                />
               ))}
             </tbody>
           </table>

@@ -58,6 +58,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  focusedMenuTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -743,6 +744,10 @@ export default function DashboardListPage() {
     id: string;
     name: string;
   } | null>(null);
+  // The menu button Delete was picked from (#2086). Kept after the dialog
+  // closes: Radix hands focus back after that render.
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   // Rename dialog state (#1045) — reuses the create dialog's name validation.
   const [renameTarget, setRenameTarget] = useState<{
     id: string;
@@ -813,6 +818,7 @@ export default function DashboardListPage() {
     <div className="p-6">
       <PageHeader
         title="Dashboards"
+        titleRef={headingRef}
         description={dashboardListSubtitle(canCreate)}
         actions={
           canCreate ? (
@@ -978,8 +984,11 @@ export default function DashboardListPage() {
         description="This action cannot be undone. This will permanently delete this dashboard and all its widgets."
         confirmText="Delete"
         variant="destructive"
+        returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
+            // The card leaves once the list refetches: land on the heading.
+            setReturnFocusTo(headingRef.current);
             // Success feedback for a destructive action (#1046) — matches the
             // users-page convention (name-free description: the name in a
             // toast would linger after the card disappears and read as stale).
@@ -1187,12 +1196,15 @@ export default function DashboardListPage() {
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                           className="text-destructive focus:text-destructive"
-                                          onClick={() =>
+                                          onClick={() => {
+                                            setReturnFocusTo(
+                                              focusedMenuTrigger(),
+                                            );
                                             setDeleteTarget({
                                               id: d.id,
                                               name: d.name,
-                                            })
-                                          }
+                                            });
+                                          }}
                                         >
                                           <Trash2 className="mr-2 h-4 w-4" />
                                           Delete

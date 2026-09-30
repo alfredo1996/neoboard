@@ -121,21 +121,32 @@ vi.mock("@neoboard/components", () => {
     Badge: ({ children }: { children?: React.ReactNode }) => (
       <span data-testid="badge">{children}</span>
     ),
-    PageHeader: Nothing,
+    PageHeader: ({
+      title,
+      titleRef,
+    }: {
+      title: string;
+      titleRef?: React.Ref<HTMLHeadingElement>;
+    }) => (
+      <h1 ref={titleRef} tabIndex={-1}>
+        {title}
+      </h1>
+    ),
     EmptyState: Nothing,
     LoadingButton: Nothing,
     LoadingOverlay: Box,
     PasswordInput: Nothing,
     CopyButton: Nothing,
     // As the real one: either button closes the dialog, confirm first runs
-    // onConfirm.
-    ConfirmDialog: ({
+    // onConfirm, and focus goes back after the render that closes it.
+    ConfirmDialog: function ConfirmDialog({
       open,
       onOpenChange,
       title,
       description,
       confirmText,
       onConfirm,
+      returnFocusTo,
     }: {
       open: boolean;
       onOpenChange: (open: boolean) => void;
@@ -143,8 +154,14 @@ vi.mock("@neoboard/components", () => {
       description: string;
       confirmText: string;
       onConfirm: () => void;
-    }) =>
-      open ? (
+      returnFocusTo?: HTMLElement | null;
+    }) {
+      const wasOpen = React.useRef(open);
+      React.useEffect(() => {
+        if (wasOpen.current && !open) returnFocusTo?.focus();
+        wasOpen.current = open;
+      });
+      return open ? (
         <div role="dialog" aria-label={title}>
           <p>{description}</p>
           <button onClick={() => onOpenChange(false)}>Cancel</button>
@@ -157,7 +174,8 @@ vi.mock("@neoboard/components", () => {
             {confirmText}
           </button>
         </div>
-      ) : null,
+      ) : null;
+    },
     // One <tr> per user, each column's cell rendered as TanStack would.
     DataGrid: ({
       columns,
@@ -190,10 +208,14 @@ vi.mock("@neoboard/components", () => {
       );
     },
     useToast: () => ({ toast: mockToast }),
+    focusedMenuTrigger: () => menuTrigger,
   };
 });
 
 import UsersPage from "../page";
+
+// What `focusedMenuTrigger()` finds: the row's "User actions" button.
+const menuTrigger = document.body.appendChild(document.createElement("button"));
 
 const row = (id: string) => within(screen.getByTestId(`row-${id}`));
 
@@ -403,4 +425,33 @@ describe("UsersPage — role and write changes (#2098)", () => {
       }
     },
   );
+});
+
+describe("UsersPage — where focus goes after a question (#2086)", () => {
+  it.each(["Delete", "Disable"])(
+    "%s: Cancel puts focus back on the row's menu button",
+    (item) => {
+      menuTrigger.blur();
+      render(<UsersPage />);
+
+      fireEvent.click(row("u2").getByRole("menuitem", { name: item }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(menuTrigger).toHaveFocus();
+    },
+  );
+
+  it("a confirmed Delete puts focus on the page heading: the row is leaving", () => {
+    render(<UsersPage />);
+
+    fireEvent.click(row("u2").getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Delete User" })).getByRole(
+        "button",
+        { name: "Delete" },
+      ),
+    );
+
+    expect(screen.getByRole("heading", { name: "Users" })).toHaveFocus();
+  });
 });

@@ -181,8 +181,45 @@ test.describe("Dashboard CRUD", () => {
         page.getByText("Dashboard deleted", { exact: true }),
       ).toBeVisible({ timeout: 5_000 });
       await expect(page.getByText(name, { exact: true })).not.toBeVisible();
+      // The card and its menu button are gone; focus is on the heading, not
+      // <body> (#2086).
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Dashboards" }),
+      ).toBeFocused();
     } finally {
       // Deleting by id is idempotent: a 404 after the UI's delete is fine.
+      await cleanup();
+    }
+  });
+
+  test("Escape on Delete puts focus back on the card's menu button (#2086)", async ({
+    page,
+  }) => {
+    const name = `Keep Focus ${uid()}`;
+    const { cleanup } = await createTestDashboard(page.request, name);
+
+    try {
+      await page.goto("/");
+      const card = page
+        .locator("div[class*='cursor-pointer']")
+        .filter({ has: page.getByText(name, { exact: true }) })
+        .first();
+      const options = card.getByRole("button", { name: "Dashboard options" });
+      await options.focus();
+      await page.keyboard.press("Enter");
+      await page.keyboard.press("End"); // Delete is the menu's last item
+      await expect(
+        page.getByRole("menuitem", { name: "Delete" }),
+      ).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("alertdialog")).toBeVisible();
+
+      await page.keyboard.press("Escape");
+
+      await expect(page.getByRole("alertdialog")).toBeHidden();
+      await expect(options).toBeFocused();
+      await expect(card).toBeVisible();
+    } finally {
       await cleanup();
     }
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import {
@@ -45,6 +45,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  focusedMenuTrigger,
 } from "@neoboard/components";
 import {
   PageHeader,
@@ -100,6 +101,10 @@ export default function UsersPage() {
   });
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [disableTarget, setDisableTarget] = useState<UserListItem | null>(null);
+  // The menu button Delete or Disable was picked from (#2086). Kept after the
+  // dialog closes: Radix hands focus back after that render.
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [tempPasswordData, setTempPasswordData] = useState<{
     userName: string;
@@ -285,7 +290,10 @@ export default function UsersPage() {
                 {!isSelf && (
                   <DisableToggleItem
                     user={row.original}
-                    onDisable={setDisableTarget}
+                    onDisable={(user) => {
+                      setReturnFocusTo(focusedMenuTrigger());
+                      setDisableTarget(user);
+                    }}
                     onEnable={(user) => void handleSetDisabled(user, false)}
                   />
                 )}
@@ -293,7 +301,11 @@ export default function UsersPage() {
                 <DropdownMenuItem
                   disabled={isSelf}
                   className="text-destructive focus:text-destructive"
-                  onClick={() => !isSelf && setDeleteTarget(row.original.id)}
+                  onClick={() => {
+                    if (isSelf) return;
+                    setReturnFocusTo(focusedMenuTrigger());
+                    setDeleteTarget(row.original.id);
+                  }}
                 >
                   Delete
                 </DropdownMenuItem>
@@ -341,6 +353,7 @@ export default function UsersPage() {
     <div className="p-6">
       <PageHeader
         title="Users"
+        titleRef={headingRef}
         description="Manage application users"
         actions={
           // Same gate as the table's denial state — non-admins must not see
@@ -468,8 +481,11 @@ export default function UsersPage() {
         description="This will permanently delete this user and all their data."
         confirmText="Delete"
         variant="destructive"
+        returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
+            // The row leaves once the list refetches: land on the heading.
+            setReturnFocusTo(headingRef.current);
             deleteUser.mutate(deleteTarget, {
               onSuccess: () =>
                 toast({
@@ -500,6 +516,7 @@ export default function UsersPage() {
         description={`${displayNameOf(disableTarget)} will not be able to sign in, and their API keys will stop working. You can enable the account again later.`}
         confirmText="Disable"
         variant="destructive"
+        returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (disableTarget) void handleSetDisabled(disableTarget, true);
         }}
