@@ -747,6 +747,7 @@ export default function DashboardListPage() {
   // The menu button Delete was picked from (#2086). Kept after the dialog
   // closes: Radix hands focus back after that render.
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   // Rename dialog state (#1045) — reuses the create dialog's name validation.
   const [renameTarget, setRenameTarget] = useState<{
     id: string;
@@ -817,6 +818,7 @@ export default function DashboardListPage() {
     <div className="p-6">
       <PageHeader
         title="Dashboards"
+        titleRef={headingRef}
         description={dashboardListSubtitle(canCreate)}
         actions={
           canCreate ? (
@@ -985,6 +987,8 @@ export default function DashboardListPage() {
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
+            // The card leaves once the list refetches: land on the heading.
+            setReturnFocusTo(headingRef.current);
             // Success feedback for a destructive action (#1046) — matches the
             // users-page convention (name-free description: the name in a
             // toast would linger after the card disappears and read as stale).

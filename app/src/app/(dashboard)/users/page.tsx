@@ -1,7 +1,7 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import {
@@ -104,6 +104,7 @@ export default function UsersPage() {
   // The menu button Delete or Disable was picked from (#2086). Kept after the
   // dialog closes: Radix hands focus back after that render.
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [tempPasswordData, setTempPasswordData] = useState<{
     userName: string;
@@ -352,6 +353,7 @@ export default function UsersPage() {
     <div className="p-6">
       <PageHeader
         title="Users"
+        titleRef={headingRef}
         description="Manage application users"
         actions={
           // Same gate as the table's denial state — non-admins must not see
@@ -482,6 +484,8 @@ export default function UsersPage() {
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
+            // The row leaves once the list refetches: land on the heading.
+            setReturnFocusTo(headingRef.current);
             deleteUser.mutate(deleteTarget, {
               onSuccess: () =>
                 toast({

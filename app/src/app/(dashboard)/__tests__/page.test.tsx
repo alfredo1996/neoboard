@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
@@ -29,6 +29,8 @@ const DASHBOARD: DashboardListItem = {
 };
 
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
+const mockDelete = vi.fn();
+let dashboards = [DASHBOARD];
 
 let dashboards = [DASHBOARD];
 beforeEach(() => {
@@ -38,7 +40,7 @@ beforeEach(() => {
 vi.mock("@/hooks/use-dashboards", () => ({
   useDashboards: () => ({ data: dashboards, isLoading: false }),
   useCreateDashboard: () => idle,
-  useDeleteDashboard: () => idle,
+  useDeleteDashboard: () => ({ ...idle, mutate: mockDelete }),
   useUpdateDashboard: () => idle,
   useImportDashboard: () => idle,
   // The server refuses the copy (#1816).
@@ -97,7 +99,6 @@ vi.mock("@neoboard/components", () => {
     "CardHeader",
     "CardTitle",
     "Checkbox",
-    "ConfirmDialog",
     "Dialog",
     "DialogContent",
     "DialogDescription",
@@ -113,7 +114,6 @@ vi.mock("@neoboard/components", () => {
     "Label",
     "LoadingButton",
     "LoadingOverlay",
-    "PageHeader",
     "Select",
     "SelectContent",
     "SelectItem",
@@ -128,11 +128,59 @@ vi.mock("@neoboard/components", () => {
     Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
       <input {...props} />
     ),
+    PageHeader: ({
+      title,
+      titleRef,
+    }: {
+      title: string;
+      titleRef?: React.Ref<HTMLHeadingElement>;
+    }) => (
+      <h1 ref={titleRef} tabIndex={-1}>
+        {title}
+      </h1>
+    ),
+    // Hands focus back after the render that closes it, as Radix does.
+    ConfirmDialog: function ConfirmDialog({
+      open,
+      onOpenChange,
+      onConfirm,
+      confirmText,
+      returnFocusTo,
+    }: {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      onConfirm: () => void;
+      confirmText: string;
+      returnFocusTo?: HTMLElement | null;
+    }) {
+      const wasOpen = React.useRef(open);
+      React.useEffect(() => {
+        if (wasOpen.current && !open) returnFocusTo?.focus();
+        wasOpen.current = open;
+      });
+      return open ? (
+        <div role="alertdialog">
+          <button onClick={() => onOpenChange(false)}>Cancel</button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onOpenChange(false);
+            }}
+          >
+            {confirmText}
+          </button>
+        </div>
+      ) : null;
+    },
     useToast: () => ({ toast: mockToast }),
+    focusedMenuTrigger: () => menuTrigger,
   };
 });
 
 import DashboardListPage from "../page";
+
+// What `focusedMenuTrigger()` finds: the card's "Dashboard options" button.
+const menuTrigger = document.body.appendChild(document.createElement("button"));
 
 describe("DashboardListPage duplicate", () => {
   it("shows the server's reason when a duplicate is refused (#1816)", () => {
@@ -395,5 +443,38 @@ describe("DashboardListPage NeoDash import", () => {
     pickNeoDashFile({ ...NEODASH, title: "   " });
 
     expect(await screen.findByText("Imported Dashboard")).toBeTruthy();
+  });
+});
+
+describe("DashboardListPage delete — where focus goes (#2086)", () => {
+  beforeEach(() => {
+    dashboards = [{ ...DASHBOARD, role: "owner" }];
+    menuTrigger.blur();
+  });
+  afterEach(() => {
+    dashboards = [DASHBOARD];
+  });
+
+  it("Cancel puts focus back on the card's menu button", () => {
+    render(<DashboardListPage />);
+
+    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(menuTrigger).toHaveFocus();
+  });
+
+  it("a confirmed Delete puts focus on the page heading: the card is leaving", () => {
+    render(<DashboardListPage />);
+
+    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Delete",
+      }),
+    );
+
+    expect(mockDelete).toHaveBeenCalledWith("d1", expect.anything());
+    expect(screen.getByRole("heading", { name: "Dashboards" })).toHaveFocus();
   });
 });

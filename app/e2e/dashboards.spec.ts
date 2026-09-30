@@ -181,6 +181,11 @@ test.describe("Dashboard CRUD", () => {
         page.getByText("Dashboard deleted", { exact: true }),
       ).toBeVisible({ timeout: 5_000 });
       await expect(page.getByText(name, { exact: true })).not.toBeVisible();
+      // The card and its menu button are gone; focus is on the heading, not
+      // <body> (#2086).
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Dashboards" }),
+      ).toBeFocused();
     } finally {
       // Deleting by id is idempotent: a 404 after the UI's delete is fine.
       await cleanup();

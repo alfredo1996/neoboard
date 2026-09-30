@@ -1,7 +1,7 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Database, Plus, RefreshCw } from "lucide-react";
 import { ConnectorIcon } from "@/components/connector-icon";
@@ -88,6 +88,7 @@ export default function ConnectionsPage() {
   // The menu button Delete was picked from (#2086). Kept after the dialog
   // closes: Radix hands focus back after that render.
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   // Pre-fetch the usage breakdown whenever a delete is pending so the
   // confirm dialog can render the list of affected dashboards + widget
   // count before the user commits. Hook is disabled when deleteTarget is
@@ -195,6 +196,7 @@ export default function ConnectionsPage() {
     <div className="p-6">
       <PageHeader
         title="Connections"
+        titleRef={headingRef}
         description="Manage your database connections"
         actions={
           <div className="flex items-center gap-2">
@@ -294,6 +296,8 @@ export default function ConnectionsPage() {
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
+            // The card leaves once the list refetches: land on the heading.
+            setReturnFocusTo(headingRef.current);
             const force =
               !!deleteUsage.data && deleteUsage.data.widgetCount > 0;
             deleteConnection.mutate({ id: deleteTarget, force });

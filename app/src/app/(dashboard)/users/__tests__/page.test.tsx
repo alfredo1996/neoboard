@@ -121,15 +121,25 @@ vi.mock("@neoboard/components", () => {
     Badge: ({ children }: { children?: React.ReactNode }) => (
       <span data-testid="badge">{children}</span>
     ),
-    PageHeader: Nothing,
+    PageHeader: ({
+      title,
+      titleRef,
+    }: {
+      title: string;
+      titleRef?: React.Ref<HTMLHeadingElement>;
+    }) => (
+      <h1 ref={titleRef} tabIndex={-1}>
+        {title}
+      </h1>
+    ),
     EmptyState: Nothing,
     LoadingButton: Nothing,
     LoadingOverlay: Box,
     PasswordInput: Nothing,
     CopyButton: Nothing,
     // As the real one: either button closes the dialog, confirm first runs
-    // onConfirm.
-    ConfirmDialog: ({
+    // onConfirm, and focus goes back after the render that closes it.
+    ConfirmDialog: function ConfirmDialog({
       open,
       onOpenChange,
       title,
@@ -145,18 +155,16 @@ vi.mock("@neoboard/components", () => {
       confirmText: string;
       onConfirm: () => void;
       returnFocusTo?: HTMLElement | null;
-    }) =>
-      open ? (
+    }) {
+      const wasOpen = React.useRef(open);
+      React.useEffect(() => {
+        if (wasOpen.current && !open) returnFocusTo?.focus();
+        wasOpen.current = open;
+      });
+      return open ? (
         <div role="dialog" aria-label={title}>
           <p>{description}</p>
-          <button
-            onClick={() => {
-              onOpenChange(false);
-              returnFocusTo?.focus();
-            }}
-          >
-            Cancel
-          </button>
+          <button onClick={() => onOpenChange(false)}>Cancel</button>
           <button
             onClick={() => {
               onConfirm();
@@ -166,7 +174,8 @@ vi.mock("@neoboard/components", () => {
             {confirmText}
           </button>
         </div>
-      ) : null,
+      ) : null;
+    },
     // One <tr> per user, each column's cell rendered as TanStack would.
     DataGrid: ({
       columns,
@@ -418,7 +427,7 @@ describe("UsersPage — role and write changes (#2098)", () => {
   );
 });
 
-describe("UsersPage — focus after a cancelled question (#2086)", () => {
+describe("UsersPage — where focus goes after a question (#2086)", () => {
   it.each(["Delete", "Disable"])(
     "%s: Cancel puts focus back on the row's menu button",
     (item) => {
@@ -431,4 +440,18 @@ describe("UsersPage — focus after a cancelled question (#2086)", () => {
       expect(menuTrigger).toHaveFocus();
     },
   );
+
+  it("a confirmed Delete puts focus on the page heading: the row is leaving", () => {
+    render(<UsersPage />);
+
+    fireEvent.click(row("u2").getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Delete User" })).getByRole(
+        "button",
+        { name: "Delete" },
+      ),
+    );
+
+    expect(screen.getByRole("heading", { name: "Users" })).toHaveFocus();
+  });
 });

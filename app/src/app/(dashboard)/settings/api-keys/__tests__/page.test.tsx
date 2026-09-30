@@ -30,12 +30,16 @@ vi.mock("@neoboard/components", () => ({
   PageHeader: ({
     title,
     actions,
+    titleRef,
   }: {
     title: string;
     actions: React.ReactNode;
+    titleRef?: React.Ref<HTMLHeadingElement>;
   }) => (
     <div>
-      <h1>{title}</h1>
+      <h1 ref={titleRef} tabIndex={-1}>
+        {title}
+      </h1>
       {actions}
     </div>
   ),
@@ -49,26 +53,39 @@ vi.mock("@neoboard/components", () => ({
     <input {...props} />
   ),
   EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
-  // Cancel closes it and sends focus back, as the real one does.
-  ConfirmDialog: ({
+  // Hands focus back after the render that closes it, as Radix does.
+  ConfirmDialog: function ConfirmDialog({
     open,
     onOpenChange,
+    onConfirm,
+    confirmText,
     returnFocusTo,
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onConfirm: () => void;
+    confirmText: string;
     returnFocusTo?: HTMLElement | null;
-  }) =>
-    open ? (
-      <button
-        onClick={() => {
-          onOpenChange(false);
-          returnFocusTo?.focus();
-        }}
-      >
-        Cancel
-      </button>
-    ) : null,
+  }) {
+    const wasOpen = React.useRef(open);
+    React.useEffect(() => {
+      if (wasOpen.current && !open) returnFocusTo?.focus();
+      wasOpen.current = open;
+    });
+    return open ? (
+      <>
+        <button onClick={() => onOpenChange(false)}>Cancel</button>
+        <button
+          onClick={() => {
+            onConfirm();
+            onOpenChange(false);
+          }}
+        >
+          {confirmText}
+        </button>
+      </>
+    ) : null;
+  },
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
     open ? <div>{children}</div> : null,
   DialogContent: ({ children }: { children: React.ReactNode }) => (
@@ -143,5 +160,15 @@ describe("ApiKeysPage Revoke (#2086)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(revoke).toHaveFocus();
+  });
+
+  it("a confirmed Revoke puts focus on the page heading: the row is leaving", () => {
+    mockKeys = [makeKey({})];
+    render(<ApiKeysPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Revoke CI Key" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+
+    expect(screen.getByRole("heading", { name: "API Keys" })).toHaveFocus();
   });
 });
