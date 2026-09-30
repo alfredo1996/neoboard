@@ -217,7 +217,7 @@ neoboard config get ports.app
 
 ## config set
 
-Set a configuration value. Port values are automatically parsed as numbers.
+Set a configuration value. A `ports.*` key takes a whole number from 1 to 65535, written as digits only; anything else is rejected and nothing is written.
 
 ```bash
 neoboard config set <key> <value>

@@ -24,25 +24,24 @@ function getNestedValue(obj: ProjectConfig, key: FlatKey): unknown {
   return (obj[section] as Record<string, unknown>)[prop];
 }
 
+// #2100: parseInt read "7688x" as 7688; a port is digits only, 1 to 65535.
+function parsePort(key: FlatKey, value: string): number {
+  const port = Number(value);
+  if (!/^\d+$/.test(value) || port < 1 || port > 65535) {
+    throw new Error(
+      `Invalid port value for ${key}: "${value}" is not a whole number from 1 to 65535`,
+    );
+  }
+  return port;
+}
+
 function setNestedValue(
   obj: ProjectConfig,
   key: FlatKey,
   value: string,
 ): ProjectConfig {
   const [section, prop] = key.split(".") as [keyof ProjectConfig, string];
-  const numericKeys = [
-    "ports.app",
-    "ports.postgres",
-    "ports.neo4j_http",
-    "ports.neo4j_bolt",
-  ];
-  const isNumeric = numericKeys.includes(key);
-  const parsed = isNumeric ? parseInt(value, 10) : value;
-  if (isNumeric && isNaN(parsed as number)) {
-    throw new Error(
-      `Invalid port value for ${key}: "${value}" is not a number`,
-    );
-  }
+  const parsed = section === "ports" ? parsePort(key, value) : value;
   return {
     ...obj,
     [section]: {
@@ -99,7 +98,7 @@ export function runConfigSet(key: string, value: string): void {
   const config = readProjectConfig();
   const updated = setNestedValue(config, key as FlatKey, value);
   writeProjectConfig(updated);
-  success(`Set ${key} = ${value}`);
+  success(`Set ${key} = ${getNestedValue(updated, key as FlatKey)}`);
   // No Docker-mode caveat any more: the compose files read ${NEOBOARD_PORT_*}
   // and composeUp passes them from this config, so the value binds in both
   // modes (#1313). The warning that used to live here (#998) told the user to
