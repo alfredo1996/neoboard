@@ -123,7 +123,7 @@ neoboard status
 
 ## doctor
 
-Check that all prerequisites are met: Docker daemon, Docker Compose v2, Node.js version, port availability, `node_modules`, `.env.local`, and whether `ENCRYPTION_KEY` decrypts the stored credentials. Exits with code 1 if any check fails, in either mode. Checks that can fail: Docker daemon, Docker Compose v2 (Docker mode only; in local mode they are downgraded to warnings), Node.js below 20, and an `ENCRYPTION_KEY` that cannot decrypt a stored credential. Busy ports, a missing `node_modules` and a missing `.env.local` are warnings only. The decryption check is skipped when there are no stored credentials yet, or when the key or database is unavailable.
+Check that all prerequisites are met: Docker daemon, Docker Compose 2 or later, Node.js version, port availability, `node_modules`, `.env.local`, and whether `ENCRYPTION_KEY` decrypts the stored credentials. Exits with code 1 if any check fails, in either mode. Checks that can fail: Docker daemon, Docker Compose (Docker mode only; in local mode they are downgraded to warnings), Node.js below 20, and an `ENCRYPTION_KEY` that cannot decrypt a stored credential. Busy ports, a missing `node_modules` and a missing `.env.local` are warnings only. The decryption check is skipped when there are no stored credentials yet, or when the key or database is unavailable.
 
 ```bash
 neoboard doctor
