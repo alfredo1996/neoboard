@@ -133,11 +133,11 @@ export interface ChartPluginConfig {
 }
 
 /**
- * What a chart can require of a connector. One entry today; the point is that
- * the list is a vocabulary the app owns, and a connector answers it — rather
- * than the app keeping a list of which connectors exist (#1902).
+ * What a chart can require of a connector. The list is a vocabulary the app
+ * owns, and a connector answers it — rather than the app keeping a list of
+ * which connectors exist (#1902).
  */
-export const CHART_REQUIREMENTS = ["graphData"] as const;
+export const CHART_REQUIREMENTS = ["graphData", "writes"] as const;
 export type ChartRequirement = (typeof CHART_REQUIREMENTS)[number];
 
 /** A connector's answers, keyed by requirement. */
@@ -171,7 +171,7 @@ export function defineChartPlugin(config: ChartPluginConfig): ChartPlugin {
     throw new Error("Chart plugin: label is required and cannot be empty");
   }
   if (typeof config.transform !== "function") {
-    throw new Error("Chart plugin: transform must be a function");
+    throw new TypeError("Chart plugin: transform must be a function");
   }
 
   // Validate options shape if provided

@@ -183,6 +183,16 @@ describe("getCompatibleChartTypes", () => {
     expect(types).toContain("graph");
   });
 
+  // #2068: a form submits a write, so only a connector that can write gets it.
+  it.each([
+    [{ type: "rw", supportsWrite: true }, true],
+    [{ type: "ro", supportsWrite: false }, false],
+    [unheardOf, false],
+    [undefined, true],
+  ])("offers the form to %o: %s", (descriptor, offered) => {
+    expect(getCompatibleChartTypes(descriptor).includes("form")).toBe(offered);
+  });
+
   // #1158 — ship fewer, better charts: these are disabled in the picker but
   // their plugins stay registered so existing dashboards keep rendering.
   it("excludes disabled chart types from the pickable list", () => {

@@ -35,6 +35,8 @@ export const formPlugin = defineChartPlugin({
   type: "form",
   label: "Form",
   component: FormPluginComponent,
+  // A form submits a write, so its connector must support one (#2068).
+  requires: ["writes"],
   transform: () => [],
   options: getChartOptions("form"),
   settingsSchema: formSettingsSchema,

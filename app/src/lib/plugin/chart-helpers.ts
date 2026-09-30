@@ -23,10 +23,10 @@ import type {
 // into the browser bundle — the same way `connection-fields.ts` reads it.
 import type { ConnectorDescriptor } from "@neoboard/connection";
 
-/** All a chart needs to know about a connection: what it says it can return. */
+/** All a chart needs to know about a connection: what it says it can do. */
 export type ChartConnector = Pick<
   ConnectorDescriptor,
-  "type" | "supportsGraphData"
+  "type" | "supportsGraphData" | "supportsWrite"
 >;
 import { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
 
@@ -140,6 +140,7 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   {
     type: "form",
     label: "Form",
+    requires: ["writes"],
     capabilities: { supportsStyling: false, requiresQuery: false },
   },
   {
@@ -302,7 +303,7 @@ export function getStylingTargets(
 
 /**
  * The chart types a connection can feed, decided by what its connector says it
- * can return (#1902).
+ * can do: return graph values (#1902), accept a write (#2068).
  *
  * `undefined` means no connection is chosen yet, so every enabled chart is
  * offered. This used to take a connector TYPE and return `[]` for anything
@@ -313,8 +314,11 @@ export function getCompatibleChartTypes(
   descriptor?: ChartConnector | null,
 ): string[] {
   const capabilities: ChartCapabilityFlags = descriptor
-    ? { graphData: descriptor.supportsGraphData === true }
-    : { graphData: true };
+    ? {
+        graphData: descriptor.supportsGraphData === true,
+        writes: descriptor.supportsWrite === true,
+      }
+    : { graphData: true, writes: true };
   return pluginRegistry
     .getCompatibleWith(capabilities)
     .map((p) => p.type)
