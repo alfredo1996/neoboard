@@ -564,8 +564,14 @@ describe("MarkdownWidget", () => {
     // A run followed by anything but "on" made \s+on backtrack quadratically.
     const fence = (s: string) =>
       parseMarkdown(`\`\`\`sql\n${s}x onclick="x"\n\`\`\``);
-    expect(fence(" ".repeat(50_000))).not.toContain("onclick");
-    expect(growth(fence, " ", 6_250).ratio).toBeLessThan(GROWTH_SPLIT);
+    // A CPU ceiling, not growth(): the fixed parse is far under its 0.05 ms
+    // floor, so the ratio would not measure growth. Old regex: about 4 s here.
+    let html = "";
+    const ms = cpuMs(() => {
+      html = fence(" ".repeat(50_000));
+    });
+    expect(html).not.toContain("onclick");
+    expect(ms).toBeLessThan(250);
   }, 60_000);
   // The inline emphasis passes ran over markup the link/image passes had
   // already emitted, so underscores and asterisks living inside a URL — or
