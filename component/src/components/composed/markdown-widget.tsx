@@ -122,10 +122,11 @@ function parseMarkdown(md: string): string {
         if (highlighted) {
           // Shiki output includes <pre><code> — wrap with our spacing classes.
           // Sanitize as defense-in-depth: strip <script>, <style>, and on* attributes.
+          // \son, not \s+on: \s+ backtracked quadratically on a long blank line (#2101).
           const sanitized = highlighted
             .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
             .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
-            .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "");
+            .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
           result.push(
             `<div class="rounded-md overflow-x-auto my-2 text-sm [&_pre]:p-3 [&_pre]:overflow-x-auto">${sanitized}</div>`,
           );

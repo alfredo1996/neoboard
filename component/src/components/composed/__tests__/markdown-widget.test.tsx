@@ -559,6 +559,14 @@ describe("MarkdownWidget", () => {
     // No shiki class — no language means no highlighting
     expect(container.querySelector("pre.shiki")).toBeNull();
   });
+
+  it("strips on* attributes after a long whitespace run in linear time (#2101)", () => {
+    // A run followed by anything but "on" made \s+on backtrack quadratically.
+    const fence = (s: string) =>
+      parseMarkdown(`\`\`\`sql\n${s}x onclick="x"\n\`\`\``);
+    expect(fence(" ".repeat(50_000))).not.toContain("onclick");
+    expect(growth(fence, " ", 6_250).ratio).toBeLessThan(GROWTH_SPLIT);
+  }, 60_000);
   // The inline emphasis passes ran over markup the link/image passes had
   // already emitted, so underscores and asterisks living inside a URL — or
   // inside the generated target="_blank" — were treated as user emphasis and

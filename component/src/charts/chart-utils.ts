@@ -255,9 +255,10 @@ function parsePercent(part: string): number | null {
  * (#1295).
  */
 function parseHslFunctionColor(s: string): [number, number, number] | null {
-  const hsl = /^hsla?\(\s*([^)]+?)\s*\)$/i.exec(s);
+  const hsl = /^hsla?\(([^)]*)\)$/i.exec(s);
   if (!hsl) return null;
-  const parts = hsl[1].split(/\s*[,/]\s*|\s+/).filter(Boolean);
+  // Linear time: \s* around the lazy group backtracked cubically (#2101).
+  const parts = hsl[1].split(/[\s,/]+/).filter(Boolean);
   if (parts.length !== 3 && parts.length !== 4) return null;
   const hue = Number(parts[0].replace(/deg$/i, ""));
   const sat = parsePercent(parts[1]);
