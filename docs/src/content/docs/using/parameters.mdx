@@ -72,7 +72,7 @@ FROM customers
 ORDER BY country;
 ```
 
-Each row becomes a dropdown option. The option's value comes from a column named `value`, or else the first column. The text the user sees comes from a column named `label`, or else the second column, or else the value itself. A single column is enough. To set both, return the value first and the label second, for example `RETURN c.id AS value, c.name AS label`. The editor's Test Seed Query preview reads columns by position, so this order makes the preview match the dashboard.
+Each row becomes a dropdown option. The option's value comes from a column named `value`, or else the first column. The text the user sees comes from a column named `label`, or else the second column, or else the value itself. A single column is enough, and named columns work in either order, for example `RETURN c.name AS label, c.id AS value`. A node becomes its element id, the value a click action sets, and any other object, such as a map or a JSON column, becomes its JSON text. The editor's Test Seed Query preview shows the options exactly as the dashboard will.
 
 ## Where Parameter Values Come From
 

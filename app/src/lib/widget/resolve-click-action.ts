@@ -23,7 +23,9 @@ function isScalar(v: unknown): v is string | number | boolean | null {
  * on, so a parameter set from a node matches what a follow-up query selects by.
  * Every other non-scalar still sets nothing — an untagged object is data.
  */
-function clickScalar(v: unknown): string | number | boolean | null | undefined {
+export function clickScalar(
+  v: unknown,
+): string | number | boolean | null | undefined {
   if (isGraphNode(v)) return v.elementId;
   return isScalar(v) ? v : undefined;
 }

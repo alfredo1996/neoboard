@@ -44,60 +44,19 @@ describe("useSeedQuery", () => {
   });
 
   describe("option mapping logic", () => {
-    it("maps rows with named value/label columns", async () => {
+    // Row variants live in lib/parameter/__tests__/seed-option.test.ts (#2104).
+    it("gives each node row its own option (#2104)", async () => {
       const { useQuery } = await import("@tanstack/react-query");
+      const node = (elementId: string) => ({ $type: "node", elementId });
       vi.mocked(useQuery).mockReturnValue({
-        data: {
-          data: [
-            { value: "id1", label: "Alice" },
-            { value: "id2", label: "Bob" },
-          ],
-        },
+        data: { data: [{ m: node("4:m:1") }, { m: node("4:m:2") }] },
         isLoading: false,
       } as ReturnType<typeof useQuery>);
 
       const { useSeedQuery } = await import("../use-seed-query");
-      const { options } = useSeedQuery(
-        "conn-1",
-        "MATCH (n) RETURN n.id AS value, n.name AS label",
-        true,
-      );
+      const { options } = useSeedQuery("conn-1", "MATCH (m) RETURN m", true);
 
-      expect(options).toEqual([
-        { value: "id1", label: "Alice", rawValue: "id1" },
-        { value: "id2", label: "Bob", rawValue: "id2" },
-      ]);
-    });
-
-    it("falls back to ordinal positions when value/label columns not present", async () => {
-      const { useQuery } = await import("@tanstack/react-query");
-      vi.mocked(useQuery).mockReturnValue({
-        data: {
-          data: [{ id: 42, name: "Carol" }],
-        },
-        isLoading: false,
-      } as ReturnType<typeof useQuery>);
-
-      const { useSeedQuery } = await import("../use-seed-query");
-      const { options } = useSeedQuery("conn-1", "RETURN 1", true);
-
-      expect(options).toEqual([{ value: "42", label: "Carol", rawValue: 42 }]);
-    });
-
-    it("handles primitive rows (non-object)", async () => {
-      const { useQuery } = await import("@tanstack/react-query");
-      vi.mocked(useQuery).mockReturnValue({
-        data: { data: ["alpha", "beta"] },
-        isLoading: false,
-      } as ReturnType<typeof useQuery>);
-
-      const { useSeedQuery } = await import("../use-seed-query");
-      const { options } = useSeedQuery("conn-1", "RETURN 1", true);
-
-      expect(options).toEqual([
-        { value: "alpha", label: "alpha", rawValue: "alpha" },
-        { value: "beta", label: "beta", rawValue: "beta" },
-      ]);
+      expect(options.map((o) => o.value)).toEqual(["4:m:1", "4:m:2"]);
     });
 
     it("returns empty options when data is null", async () => {
