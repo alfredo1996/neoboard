@@ -5,9 +5,11 @@ import { clickScalar } from "@/lib/widget/resolve-click-action";
 /**
  * What an option carries for a cell: a node's `elementId`, as a click sets
  * (#1925), and any other object's JSON text, so no two rows collapse into
- * one "[object Object]" option (#2104).
+ * one "[object Object]" option (#2104). A list stays a list, so it still
+ * binds a list parameter (`IN $param_x`) and shows as "a,b".
  */
-function seedScalar(v: unknown): string | number | boolean | null {
+function seedScalar(v: unknown): unknown {
+  if (Array.isArray(v)) return v;
   return clickScalar(v) ?? normalizeValue(v);
 }
 

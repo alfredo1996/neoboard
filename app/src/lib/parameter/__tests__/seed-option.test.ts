@@ -18,6 +18,14 @@ describe("seedRowToOption", () => {
     ["a single column", { year: 1999 }, "1999", "1999", 1999],
     ["a primitive row", "alpha", "alpha", "alpha", "alpha"],
     ["a node as its elementId", { m: node }, "4:m:1", "4:m:1", "4:m:1"],
+    // A list binds a list parameter (`IN $param_x`), as it did before #2104.
+    [
+      "a list as itself",
+      { genres: ["Action", "Thriller"] },
+      "Action,Thriller",
+      "Action,Thriller",
+      ["Action", "Thriller"],
+    ],
     [
       "a map as its JSON text",
       { m: { a: 1 } },
