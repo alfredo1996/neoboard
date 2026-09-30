@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 /**
  * #1809 — Export CSV looked the widget's result up by a cache key prefix that
@@ -34,7 +34,7 @@ test.describe("Widget Export CSV (#1809)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `CSV export ${Date.now()}`,
+      `CSV export ${uid()}`,
     );
 
     try {

@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 import type { APIRequestContext } from "@playwright/test";
 
 /**
@@ -84,7 +84,7 @@ test.describe("Parameter widget types", () => {
   }) => {
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-text ${Date.now()}`,
+      `param-text ${uid()}`,
       {
         widgets: [
           {
@@ -142,7 +142,7 @@ test.describe("Parameter widget types", () => {
   }) => {
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-numrange ${Date.now()}`,
+      `param-numrange ${uid()}`,
       {
         widgets: [
           {
@@ -208,7 +208,7 @@ test.describe("Parameter widget types", () => {
   }) => {
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-date ${Date.now()}`,
+      `param-date ${uid()}`,
       {
         widgets: [
           {
@@ -278,7 +278,7 @@ test.describe("Parameter widget types", () => {
   }) => {
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-daterange ${Date.now()}`,
+      `param-daterange ${uid()}`,
       {
         widgets: [
           {
@@ -342,7 +342,7 @@ test.describe("Parameter widget types", () => {
   }) => {
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-daterel ${Date.now()}`,
+      `param-daterel ${uid()}`,
       {
         widgets: [
           {
@@ -402,7 +402,7 @@ test.describe("Parameter widget types", () => {
   }) => {
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-multi ${Date.now()}`,
+      `param-multi ${uid()}`,
       {
         widgets: [
           {
@@ -472,7 +472,7 @@ test.describe("Parameter widget types", () => {
   }) => {
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-label-search ${Date.now()}`,
+      `param-label-search ${uid()}`,
       {
         widgets: [
           {
@@ -548,7 +548,7 @@ test.describe("Parameter widget types", () => {
   }) => {
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-cascade ${Date.now()}`,
+      `param-cascade ${uid()}`,
       {
         widgets: [
           {
@@ -675,7 +675,7 @@ test.describe("Parameter widget types", () => {
       "UNWIND ['Carrie-Anne Moss', 'Hugo Weaving', 'Keanu Reeves'] AS value RETURN value";
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-search ${Date.now()}`,
+      `param-search ${uid()}`,
       {
         widgets: [
           {
@@ -763,7 +763,7 @@ test.describe("Parameter widget types", () => {
       "UNWIND ['Carrie-Anne Moss', 'Hugo Weaving', 'Keanu Reeves'] AS value WITH value WHERE value CONTAINS $param_search RETURN value";
     const { id, cleanup } = await createParamDashboard(
       page.request,
-      `param-search-close ${Date.now()}`,
+      `param-search-close ${uid()}`,
       {
         widgets: [
           {

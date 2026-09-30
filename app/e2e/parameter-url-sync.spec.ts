@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, uid } from "./fixtures";
 import type { APIRequestContext } from "@playwright/test";
 
 /**
@@ -40,7 +40,7 @@ test.describe("Parameter URL sync opt-in", () => {
     ],
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `URL sync ${Date.now()}` },
+      data: { name: `URL sync ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;

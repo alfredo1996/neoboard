@@ -6,6 +6,7 @@ import {
   ALICE,
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
+  uid,
 } from "./fixtures";
 import type { Browser, Page, APIRequestContext } from "@playwright/test";
 
@@ -123,7 +124,7 @@ test("chart fixes walkthrough", async ({ authPage, page }) => {
   // ring.
   const hierarchyId = await createDashboard(
     page.request,
-    `Showcase hierarchy ${Date.now()}`,
+    `Showcase hierarchy ${uid()}`,
     [
       {
         id: "sunburst",
@@ -156,7 +157,7 @@ test("chart fixes walkthrough", async ({ authPage, page }) => {
   // ── 2. Zero rows say so, instead of inventing a number (#1586) ───────────
   const emptyId = await createDashboard(
     page.request,
-    `Showcase empty ${Date.now()}`,
+    `Showcase empty ${uid()}`,
     [
       {
         id: "sv",
@@ -206,7 +207,7 @@ test("chart fixes walkthrough", async ({ authPage, page }) => {
   // ── 3. A legend only when it identifies something (#1593) ────────────────
   const legendId = await createDashboard(
     page.request,
-    `Showcase legend ${Date.now()}`,
+    `Showcase legend ${uid()}`,
     [
       {
         id: "one",
@@ -249,7 +250,7 @@ test("chart fixes walkthrough", async ({ authPage, page }) => {
   // ── 4. Decimal places reach the chart (#1582, #1588) ─────────────────────
   const decimalsId = await createDashboard(
     page.request,
-    `Showcase decimals ${Date.now()}`,
+    `Showcase decimals ${uid()}`,
     [
       {
         id: "raw",

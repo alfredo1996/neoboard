@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
 /**
@@ -13,7 +13,7 @@ test.describe("Only a dashboard's owner or an admin can make it public", () => {
     browser,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const email = `public-toggle-editor-${suffix}@example.com`;
     const password = "password123";
     let userId = "";

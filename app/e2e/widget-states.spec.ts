@@ -4,6 +4,7 @@ import {
   ALICE,
   createTestDashboard,
   typeInEditor,
+  uid,
 } from "./fixtures";
 
 test.describe("Widget editor", () => {
@@ -17,7 +18,7 @@ test.describe("Widget editor", () => {
 
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const name = `Widget States ${Date.now()}`;
+    const name = `Widget States ${uid()}`;
     const { id, cleanup } = await createTestDashboard(page.request, name);
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -183,7 +184,7 @@ test.describe("Widget without connection", () => {
     // Create a test dashboard via API
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `No Connection ${Date.now()}`,
+      `No Connection ${uid()}`,
     );
     dashboardCleanup = cleanup;
 
@@ -229,7 +230,7 @@ test.describe("Widget without connection", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Broken Query ${Date.now()}`,
+      `Broken Query ${uid()}`,
     );
     dashboardCleanup = cleanup;
 
@@ -287,7 +288,7 @@ test.describe("Refresh button", () => {
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
     const res = await page.request.post("/api/dashboards", {
-      data: { name: `Refresh ${Date.now()}` },
+      data: { name: `Refresh ${uid()}` },
     });
     const { id } = (await res.json()).data;
     dashboardCleanup = async () => {
@@ -357,7 +358,7 @@ test.describe("Empty result set — No data UX", () => {
     query: string,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `Empty ${chartType} ${Date.now()}` },
+      data: { name: `Empty ${chartType} ${uid()}` },
     });
     const { id } = (await res.json()).data;
     await request.put(`/api/dashboards/${id}`, {
@@ -570,7 +571,7 @@ test.describe("Manual run mode", () => {
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
     const res = await page.request.post("/api/dashboards", {
-      data: { name: `ManualRun ${Date.now()}` },
+      data: { name: `ManualRun ${uid()}` },
     });
     const { id } = (await res.json()).data;
     dashboardCleanup = async () => {
@@ -637,7 +638,7 @@ test.describe("Cache forever mode", () => {
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
     const res = await page.request.post("/api/dashboards", {
-      data: { name: `CacheForever ${Date.now()}` },
+      data: { name: `CacheForever ${uid()}` },
     });
     const { id } = (await res.json()).data;
     dashboardCleanup = async () => {

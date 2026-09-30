@@ -1,4 +1,4 @@
-import { test, expect, ALICE, CAROL } from "./fixtures";
+import { test, expect, ALICE, CAROL, uid } from "./fixtures";
 
 test.describe("Authentication", () => {
   test("should redirect unauthenticated users to login", async ({ page }) => {
@@ -119,7 +119,7 @@ test.describe("Signup", () => {
   });
 
   test("should create account and auto-login", async ({ authPage, page }) => {
-    const email = `signup-${Date.now()}@example.com`;
+    const email = `signup-${uid()}@example.com`;
     await authPage.signup("Signup Test User", email, "password123");
     // Signup should auto-login and redirect to the dashboard
     await expect(page).toHaveURL("/", { timeout: 15_000 });
@@ -134,7 +134,7 @@ test.describe("Signup", () => {
     authPage,
     page,
   }) => {
-    const email = `relogin-${Date.now()}@example.com`;
+    const email = `relogin-${uid()}@example.com`;
     const password = "password123";
     // Sign up
     await authPage.signup("Relogin User", email, password);
@@ -153,7 +153,7 @@ test.describe("Signup", () => {
   test("should show error for mismatched passwords", async ({ page }) => {
     await page.goto("/signup");
     await page.getByLabel("Name").fill("Mismatch User");
-    await page.getByLabel("Email").fill(`mismatch-${Date.now()}@example.com`);
+    await page.getByLabel("Email").fill(`mismatch-${uid()}@example.com`);
     await page.getByLabel("Password", { exact: true }).fill("password123");
     await page.getByLabel("Confirm Password").fill("differentpass");
     await page.getByRole("button", { name: "Create account" }).click();
@@ -186,7 +186,7 @@ test.describe("Signup", () => {
   test("should show error for weak password (too short)", async ({ page }) => {
     await page.goto("/signup");
     await page.getByLabel("Name").fill("Weak Pass User");
-    await page.getByLabel("Email").fill(`weak-${Date.now()}@example.com`);
+    await page.getByLabel("Email").fill(`weak-${uid()}@example.com`);
     // 7 chars passes HTML minLength=6 but fails server-side min=8
     await page.getByLabel("Password", { exact: true }).fill("short1a");
     await page.getByLabel("Confirm Password").fill("short1a");
@@ -200,7 +200,7 @@ test.describe("Signup", () => {
   test("should show error for password without number", async ({ page }) => {
     await page.goto("/signup");
     await page.getByLabel("Name").fill("No Number User");
-    await page.getByLabel("Email").fill(`nonum-${Date.now()}@example.com`);
+    await page.getByLabel("Email").fill(`nonum-${uid()}@example.com`);
     await page.getByLabel("Password", { exact: true }).fill("abcdefgh");
     await page.getByLabel("Confirm Password").fill("abcdefgh");
     await page.getByRole("button", { name: "Create account" }).click();
@@ -229,7 +229,7 @@ test.describe.serial("Force password change", () => {
     await authPage.login(ALICE.email, ALICE.password);
     await page.waitForLoadState("networkidle");
 
-    const timestamp = Date.now();
+    const timestamp = uid();
     const email = `force-pw-${timestamp}@test.com`;
     const password = "oldpass123";
 

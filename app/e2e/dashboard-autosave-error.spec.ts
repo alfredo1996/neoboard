@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 test.describe("Dashboard auto-save error surfacing (issue #836)", () => {
   let dashboardId: string;
@@ -8,7 +8,7 @@ test.describe("Dashboard auto-save error surfacing (issue #836)", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup: c } = await createTestDashboard(
       page.request,
-      `Autosave Error Test ${Date.now()}`,
+      `Autosave Error Test ${uid()}`,
     );
     dashboardId = id;
     cleanup = c;

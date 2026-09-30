@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
+  uid,
 } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
@@ -153,7 +154,7 @@ test.describe("Connections", () => {
   });
 
   test("should create a new Neo4j connection", async ({ page }) => {
-    const name = `Test Neo4j ${Date.now()}`;
+    const name = `Test Neo4j ${uid()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker — choose Neo4j
@@ -169,7 +170,7 @@ test.describe("Connections", () => {
   });
 
   test("should create a PostgreSQL connection", async ({ page }) => {
-    const name = `Test PG ${Date.now()}`;
+    const name = `Test PG ${uid()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker — choose PostgreSQL
@@ -202,7 +203,7 @@ test.describe("Connections", () => {
   test("should test inline connection before creating — success", async ({
     page,
   }) => {
-    const name = `Inline OK ${Date.now()}`;
+    const name = `Inline OK ${uid()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker
@@ -222,7 +223,7 @@ test.describe("Connections", () => {
   test("should test inline connection before creating — failure shows error", async ({
     page,
   }) => {
-    const name = `Inline Fail ${Date.now()}`;
+    const name = `Inline Fail ${uid()}`;
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker
@@ -248,7 +249,7 @@ test.describe("Connections", () => {
   test("should show error status text on failed connection test", async ({
     page,
   }) => {
-    const name = `Bad Creds ${Date.now()}`;
+    const name = `Bad Creds ${uid()}`;
     // Create a connection with bad credentials
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
@@ -306,7 +307,7 @@ test.describe("Connections", () => {
   }) => {
     // Its own connection, pointing at a port nothing listens on. Nothing is in
     // an error state on arrival any more (#1426), so the test asks for one.
-    const name = `Error Card ${Date.now()}`;
+    const name = `Error Card ${uid()}`;
     const created = await page.request.post("/api/connections", {
       data: {
         name,
@@ -372,8 +373,8 @@ test.describe("Connections", () => {
   test("should rename a connection from the edit dialog (#1043)", async ({
     page,
   }) => {
-    const name = `Rename Me ${Date.now()}`;
-    const renamed = `Renamed ${Date.now()}`;
+    const name = `Rename Me ${uid()}`;
+    const renamed = `Renamed ${uid()}`;
     // Create a connection to rename.
     await page.getByRole("button", { name: "Add Connection" }).click();
     let dialog = page.getByRole("dialog");
@@ -427,7 +428,7 @@ test.describe("Connections", () => {
   });
 
   test("should delete a connection with confirmation", async ({ page }) => {
-    const name = `To Delete ${Date.now()}`;
+    const name = `To Delete ${uid()}`;
     // Create one first
     await page.getByRole("button", { name: "Add Connection" }).click();
     const dialog = page.getByRole("dialog");
@@ -477,7 +478,7 @@ test.describe("Connections", () => {
   }) => {
     // 1. Create a fresh PG connection via API so we don't step on the seeded
     //    conn-pg-001 (other tests depend on it).
-    const connName = `inuse-ui-${Date.now()}`;
+    const connName = `inuse-ui-${uid()}`;
     const createRes = await page.request.post("/api/connections", {
       data: {
         name: connName,
@@ -495,7 +496,7 @@ test.describe("Connections", () => {
 
     // 2. Create a dashboard that uses this connection via 2 widgets so we
     //    can assert the usage count isn't 1.
-    const dashName = `inuse-dash ${Date.now()}`;
+    const dashName = `inuse-dash ${uid()}`;
     const dashRes = await page.request.post("/api/dashboards", {
       data: { name: dashName },
     });
@@ -601,7 +602,7 @@ test.describe("Connections", () => {
   test("DELETE /api/connections/{id} returns 409 CONFLICT when in use; ?force=true bypasses the guard", async ({
     page,
   }) => {
-    const connName = `inuse-api-${Date.now()}`;
+    const connName = `inuse-api-${uid()}`;
     const createRes = await page.request.post("/api/connections", {
       data: {
         name: connName,
@@ -618,7 +619,7 @@ test.describe("Connections", () => {
     const connId = (await createRes.json()).data.id as string;
 
     const dashRes = await page.request.post("/api/dashboards", {
-      data: { name: `inuse-api-dash ${Date.now()}` },
+      data: { name: `inuse-api-dash ${uid()}` },
     });
     const dashId = (await dashRes.json()).data.id as string;
     await page.request.put(`/api/dashboards/${dashId}`, {

@@ -1,4 +1,4 @@
-import { test, expect, ALICE, TEST_PG_PORT } from "./fixtures";
+import { test, expect, ALICE, TEST_PG_PORT, uid } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -50,7 +50,7 @@ test.describe("Dashboard export", () => {
     // The export's connection lookup was scoped to connections the caller
     // OWNS, so a widget on a colleague's shared connection made it 500.
     test.setTimeout(60_000);
-    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const connectionName = `export-shared-${suffix}`;
     const dashboardName = `Export shared ${suffix}`;
     const email = `export-creator-${suffix}@example.com`;
@@ -179,7 +179,7 @@ test.describe("Dashboard import", () => {
     // Write to temp file
     const tmpFile = path.join(
       os.tmpdir(),
-      `neoboard-test-import-${Date.now()}.json`,
+      `neoboard-test-import-${uid()}.json`,
     );
     fs.writeFileSync(tmpFile, JSON.stringify(exportPayload));
 
@@ -344,10 +344,7 @@ test.describe("NeoDash legacy import", () => {
       ],
     };
 
-    const tmpFile = path.join(
-      os.tmpdir(),
-      `neodash-unknown-${Date.now()}.json`,
-    );
+    const tmpFile = path.join(os.tmpdir(), `neodash-unknown-${uid()}.json`);
     fs.writeFileSync(tmpFile, JSON.stringify(neodashWithUnknown));
 
     try {

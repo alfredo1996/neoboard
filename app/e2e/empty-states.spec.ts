@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, uid } from "./fixtures";
 
 test.describe("Dashboard list & role badges", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -30,7 +30,7 @@ test.describe("Dashboard list & role badges", () => {
     await expect(aliceRow).toBeVisible();
 
     // Create users with different roles and verify badges
-    const timestamp = Date.now();
+    const timestamp = uid();
 
     // Create a creator
     await page.getByRole("button", { name: "Create User" }).first().click();
@@ -96,7 +96,7 @@ test.describe("Confirm dialog — destructive", () => {
     await authPage.login(ALICE.email, ALICE.password);
 
     // Create a uniquely-named dashboard to avoid collision with retries
-    const dashName = `Delete Test ${Date.now()}`;
+    const dashName = `Delete Test ${uid()}`;
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await createDialog.locator("#dashboard-name").fill(dashName);

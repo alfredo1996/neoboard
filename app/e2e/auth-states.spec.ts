@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, uid } from "./fixtures";
 
 test.describe("Login — uncovered states", () => {
   test("should show error alert for invalid credentials", async ({ page }) => {
@@ -34,7 +34,7 @@ test.describe("Role-based dashboard visibility", () => {
   }) => {
     // Create a reader user via admin
     await authPage.login(ALICE.email, ALICE.password);
-    const timestamp = Date.now();
+    const timestamp = uid();
     const readerEmail = `reader-${timestamp}@example.com`;
 
     await page.goto("/users");
@@ -97,7 +97,7 @@ test.describe("Users page — role enforcement", () => {
   }) => {
     // Create a creator user
     await authPage.login(ALICE.email, ALICE.password);
-    const timestamp = Date.now();
+    const timestamp = uid();
     const creatorEmail = `creator-${timestamp}@example.com`;
 
     await page.goto("/users");

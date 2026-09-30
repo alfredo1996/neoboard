@@ -1,4 +1,4 @@
-import { test, expect, ALICE, CAROL } from "./fixtures";
+import { test, expect, ALICE, CAROL, uid } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
 /**
@@ -48,7 +48,7 @@ test.describe("User management", () => {
     await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
-    const timestamp = Date.now();
+    const timestamp = uid();
     await dialog.locator("#user-name").fill("Test User");
     await dialog.locator("#user-email").fill(`test-${timestamp}@example.com`);
     await dialog.locator("#user-password").fill("password123");
@@ -63,7 +63,7 @@ test.describe("User management", () => {
     // Create a fresh user as "creator"
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
-    const timestamp = Date.now();
+    const timestamp = uid();
     const email = `test-role-${timestamp}@example.com`;
     await dialog.locator("#user-name").fill("Role Test User");
     await dialog.locator("#user-email").fill(email);
@@ -94,7 +94,7 @@ test.describe("User management", () => {
     // Create a user to delete
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
-    const timestamp = Date.now();
+    const timestamp = uid();
     const email = `delete-${timestamp}@example.com`;
     await dialog.locator("#user-name").fill("To Delete");
     await dialog.locator("#user-email").fill(email);
@@ -124,7 +124,7 @@ test.describe("Force password change", () => {
     await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
-    const timestamp = Date.now();
+    const timestamp = uid();
     const email = `force-pw-${timestamp}@example.com`;
     await dialog.locator("#user-name").fill("Force PW User");
     await dialog.locator("#user-email").fill(email);
@@ -143,7 +143,7 @@ test.describe("Force password change", () => {
     await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
-    const timestamp = Date.now();
+    const timestamp = uid();
     const email = `reset-pw-${timestamp}@example.com`;
     await dialog.locator("#user-name").fill("Reset PW User");
     await dialog.locator("#user-email").fill(email);
@@ -178,7 +178,7 @@ test.describe("can_write toggle", () => {
     page: import("@playwright/test").Page,
     label: string,
   ) {
-    const email = `${label}-${Date.now()}@example.com`;
+    const email = `${label}-${uid()}@example.com`;
     await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
@@ -252,7 +252,7 @@ test.describe("can_write toggle", () => {
   });
 
   test("Write switch is disabled for reader-role users", async ({ page }) => {
-    const email = `reader-nowrite-${Date.now()}@example.com`;
+    const email = `reader-nowrite-${uid()}@example.com`;
     await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create User" }).first().click();
     const dialog = page.getByRole("dialog");
@@ -312,7 +312,7 @@ test.describe("Disable and enable a user (#2049)", () => {
     test.setTimeout(90_000);
     await authPage.login(ALICE.email, ALICE.password);
 
-    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const name = `Disable Me ${suffix}`;
     const email = `disable-${suffix}@example.com`;
     const password = "password123";

@@ -6,6 +6,7 @@ import {
   typeInEditor,
   getPreview,
   saveDashboard,
+  uid,
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +24,7 @@ test.describe("Bar chart stack mode (#1684)", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Stack Mode ${Date.now()}`,
+      `Stack Mode ${uid()}`,
     );
     dashboardId = id;
     dashboardCleanup = cleanup;

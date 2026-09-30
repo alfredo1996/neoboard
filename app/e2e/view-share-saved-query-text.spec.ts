@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 import type { Page, Response } from "@playwright/test";
@@ -61,7 +62,7 @@ test.describe("Viewer share runs each saved query as its exact saved text", () =
   test("the saved texts load and refresh, and a line-break variant gets 403", async ({
     browser,
   }) => {
-    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = uid();
     const aliceCtx = await browser.newContext();
     const alice = await aliceCtx.newPage();
     let userId: string | undefined;

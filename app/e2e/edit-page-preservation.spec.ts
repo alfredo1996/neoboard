@@ -1,4 +1,4 @@
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 /** Markdown widget + grid item for a page — no connection needed. */
 function pageWith(index: number) {
@@ -36,7 +36,7 @@ test.describe("Edit mode preserves the active page (#1371)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Pages ${Date.now()}`,
+      `Pages ${uid()}`,
     );
     try {
       await page.request.put(`/api/dashboards/${id}`, {

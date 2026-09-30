@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   saveDashboard,
   typeInEditor,
+  uid,
 } from "./fixtures";
 
 test.describe("Dashboard viewer — uncovered states", () => {
@@ -48,7 +49,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
     page,
   }) => {
     // Its own empty dashboard, deleted by id however the test ends (#1784).
-    const name = `Empty State ${Date.now()}`;
+    const name = `Empty State ${uid()}`;
     const { id, cleanup } = await createTestDashboard(page.request, name);
     try {
       await page.goto(`/${id}/edit`);
@@ -102,7 +103,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
     page,
   }) => {
     // Create a fresh dashboard
-    const name = `Self-Save Test ${Date.now()}`;
+    const name = `Self-Save Test ${uid()}`;
     await page.getByRole("button", { name: /New Dashboard/i }).click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#dashboard-name").fill(name);
@@ -194,7 +195,7 @@ test.describe("Dashboard editor — uncovered states", () => {
 
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    const name = `Editor Test ${Date.now()}`;
+    const name = `Editor Test ${uid()}`;
     const { id, cleanup } = await createTestDashboard(page.request, name);
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

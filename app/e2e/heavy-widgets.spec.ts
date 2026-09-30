@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   getPreview,
+  uid,
 } from "./fixtures";
 
 test.describe("Heavy widget rendering", () => {
@@ -14,7 +15,7 @@ test.describe("Heavy widget rendering", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Heavy Widgets ${Date.now()}`,
+      `Heavy Widgets ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -322,7 +323,7 @@ test.describe("Graph-dense dashboard — WebGL context management (#1052)", () =
 
     const { id, cleanup: c } = await createTestDashboard(
       page.request,
-      `Graph Dense ${Date.now()}`,
+      `Graph Dense ${uid()}`,
     );
     cleanup = c;
 
@@ -405,7 +406,7 @@ test.describe("Graph widget survives a scroll round-trip (#1367)", () => {
 
     const { id, cleanup: c } = await createTestDashboard(
       page.request,
-      `Graph Scroll ${Date.now()}`,
+      `Graph Scroll ${uid()}`,
     );
     cleanup = c;
 

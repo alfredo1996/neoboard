@@ -1,4 +1,11 @@
-import { test, expect, ALICE, createTestDashboard, saveDashboard } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  saveDashboard,
+  uid,
+} from "./fixtures";
 import type { Page } from "@playwright/test";
 
 test.describe("Dashboard grid", () => {
@@ -141,7 +148,7 @@ test.describe("Dashboard grid saves a layout change (#1787)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Grid save ${Date.now()}`,
+      `Grid save ${uid()}`,
     );
     try {
       // Stacked: right under left, columns 6–11 of the top row empty.
@@ -219,7 +226,7 @@ test.describe("Grid layout survives a save on a narrow window (#1375)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Grid parity ${Date.now()}`,
+      `Grid parity ${uid()}`,
     );
     try {
       // Two widgets filling one 12-column row.

@@ -6,6 +6,7 @@ import {
   typeInEditor,
   getPreview,
   SEEDED_PG_OPTION,
+  uid,
 } from "./fixtures";
 
 test.describe("Widget creation", () => {
@@ -15,7 +16,7 @@ test.describe("Widget creation", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Widget Creation ${Date.now()}`,
+      `Widget Creation ${uid()}`,
     );
     dashboardCleanup = cleanup;
     // Navigate to the new dashboard in edit mode
@@ -215,7 +216,7 @@ test.describe("Widget edit – query cache invalidation", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Widget Edit ${Date.now()}`,
+      `Widget Edit ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -302,7 +303,7 @@ test.describe("Widget duplicate", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Widget Dup ${Date.now()}`,
+      `Widget Dup ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -357,7 +358,7 @@ test.describe("Widget editor UX", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Widget Editor UX ${Date.now()}`,
+      `Widget Editor UX ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -541,7 +542,7 @@ test.describe("Edit Widget on an API-written layout (#1952)", () => {
   ) {
     const { id, cleanup } = await createTestDashboard(
       request,
-      `Edit widget ${Date.now()}`,
+      `Edit widget ${uid()}`,
     );
     const res = await request.put(`/api/dashboards/${id}`, {
       data: {
@@ -635,7 +636,7 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Unsaved edits ${Date.now()}`,
+      `Unsaved edits ${uid()}`,
     );
     dashboardCleanup = cleanup;
     dashboardId = id;

@@ -4,6 +4,7 @@ import {
   ALICE,
   createTestDashboard,
   saveDashboard,
+  uid,
 } from "./fixtures";
 
 /** A titled markdown widget: renders with no connection. */
@@ -46,7 +47,7 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
     test.setTimeout(90_000);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Remove widget ${Date.now()}`,
+      `Remove widget ${uid()}`,
     );
     try {
       await page.request.put(`/api/dashboards/${id}`, {
@@ -101,7 +102,7 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
     test.setTimeout(90_000);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Delete page ${Date.now()}`,
+      `Delete page ${uid()}`,
     );
     try {
       await page.request.put(`/api/dashboards/${id}`, {

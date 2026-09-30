@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { test, expect, ALICE, createTestDashboard } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 type SeedPage = {
   id: string;
@@ -19,7 +19,7 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Content Widgets ${Date.now()}`,
+      `Content Widgets ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

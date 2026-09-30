@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_NEO4J_BOLT_URL,
   createTestDashboard,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 import type { Browser, Page, Response } from "@playwright/test";
@@ -26,7 +27,7 @@ async function withViewerShare(
   widgets: (connectionId: string) => Widget[],
   fn: (viewer: Page, dashboardId: string) => Promise<void>,
 ) {
-  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const suffix = uid();
   const aliceCtx = await browser.newContext();
   const alice = await aliceCtx.newPage();
   let userId: string | undefined;

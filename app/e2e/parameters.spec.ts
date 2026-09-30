@@ -6,6 +6,7 @@ import {
   saveDashboard,
   typeInEditor,
   getPreview,
+  uid,
 } from "./fixtures";
 
 /** Cancel on an edited widget asks first (#2054): Discard, and the empty
@@ -30,7 +31,7 @@ test.describe("Parameter selectors", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Params ${Date.now()}`,
+      `Params ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -171,7 +172,7 @@ test.describe("Parameter-to-refresh cycle", () => {
     // Create a fresh dashboard for this test via API
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Param Cycle ${Date.now()}`,
+      `Param Cycle ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -270,7 +271,7 @@ test.describe("Click actions", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `Click Actions ${Date.now()}` },
+      data: { name: `Click Actions ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -440,7 +441,7 @@ test.describe("Click actions", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Click UI ${Date.now()}`,
+      `Click UI ${uid()}`,
     );
 
     try {
@@ -485,7 +486,7 @@ test.describe("Click actions", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Action Rules ${Date.now()}`,
+      `Action Rules ${uid()}`,
     );
 
     try {
@@ -565,7 +566,7 @@ test.describe("Click actions", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Unsupported Click ${Date.now()}`,
+      `Unsupported Click ${uid()}`,
     );
 
     try {
@@ -616,7 +617,7 @@ test.describe("Click actions", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Clickable Cols ${Date.now()}`,
+      `Clickable Cols ${uid()}`,
     );
 
     try {
@@ -691,7 +692,7 @@ async function createInterpolatedTitleDashboard(
   request: import("@playwright/test").APIRequestContext,
 ) {
   const res = await request.post("/api/dashboards", {
-    data: { name: `Interpolation ${Date.now()}` },
+    data: { name: `Interpolation ${uid()}` },
   });
   if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
   const { id } = (await res.json()).data;
@@ -880,7 +881,7 @@ test.describe("Clickable columns restriction", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `Restricted Cols ${Date.now()}` },
+      data: { name: `Restricted Cols ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -980,7 +981,7 @@ test.describe("Multi-rule click actions", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `Multi Rule ${Date.now()}` },
+      data: { name: `Multi Rule ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -1092,7 +1093,7 @@ test.describe("Date parameter widget", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `Date Param ${Date.now()}` },
+      data: { name: `Date Param ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -1205,7 +1206,7 @@ test.describe("Date-range parameter widget", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `DateRange Param ${Date.now()}` },
+      data: { name: `DateRange Param ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -1306,7 +1307,7 @@ test.describe("Date-relative parameter widget", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `DateRelative Param ${Date.now()}` },
+      data: { name: `DateRelative Param ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -1415,7 +1416,7 @@ test.describe("Number-range parameter widget", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `NumRange Param ${Date.now()}` },
+      data: { name: `NumRange Param ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -1510,7 +1511,7 @@ test.describe("Multi-select parameter widget", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `MultiSelect Param ${Date.now()}` },
+      data: { name: `MultiSelect Param ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -1626,7 +1627,7 @@ test.describe("Cascading-select parameter widget", () => {
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `Cascading Param ${Date.now()}` },
+      data: { name: `Cascading Param ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -1865,7 +1866,7 @@ test.describe("Test Seed Query — a seed that filters on $param_search (#2043)"
     request: import("@playwright/test").APIRequestContext,
   ) {
     const res = await request.post("/api/dashboards", {
-      data: { name: `Search Seed ${Date.now()}` },
+      data: { name: `Search Seed ${uid()}` },
     });
     if (!res.ok()) throw new Error(`Create dashboard failed: ${res.status()}`);
     const { id } = (await res.json()).data;
@@ -1959,7 +1960,7 @@ test.describe("Action rules — multi-rule editor", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Multi Action ${Date.now()}`,
+      `Multi Action ${uid()}`,
     );
 
     try {
@@ -2045,7 +2046,7 @@ test.describe("Action rules — multi-rule editor", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Delete Action ${Date.now()}`,
+      `Delete Action ${uid()}`,
     );
 
     try {
@@ -2118,7 +2119,7 @@ test.describe("Action rules — multi-rule editor", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Trigger Col ${Date.now()}`,
+      `Trigger Col ${uid()}`,
     );
 
     try {
@@ -2190,7 +2191,7 @@ test.describe("Preview Run button", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Preview Run ${Date.now()}`,
+      `Preview Run ${uid()}`,
     );
     dashboardCleanup = cleanup;
 
@@ -2239,7 +2240,7 @@ test.describe("Parameter bar filter toggle", () => {
 
     // Create a dashboard via API with a click-action table widget
     const res = await page.request.post("/api/dashboards", {
-      data: { name: `FilterToggle ${Date.now()}` },
+      data: { name: `FilterToggle ${uid()}` },
     });
     const { id } = (await res.json()).data;
     dashboardCleanup = async () => {
@@ -2327,7 +2328,7 @@ test.describe("Param-select searchable default", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Searchable Default ${Date.now()}`,
+      `Searchable Default ${uid()}`,
     );
     dashboardCleanup = cleanup;
 
@@ -2384,7 +2385,7 @@ test.describe("Parameter collision warning", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Collision ${Date.now()}`,
+      `Collision ${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
@@ -2462,7 +2463,7 @@ test.describe("Bar click actions resolve raw query columns", () => {
     }) => {
       await authPage.login(ALICE.email, ALICE.password);
       const res = await page.request.post("/api/dashboards", {
-        data: { name: `Bar click ${Date.now()}` },
+        data: { name: `Bar click ${uid()}` },
       });
       expect(res.ok()).toBe(true);
       const { id } = (await res.json()).data;

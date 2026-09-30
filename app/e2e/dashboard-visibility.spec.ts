@@ -1,4 +1,4 @@
-import { test, expect, ALICE, BOB } from "./fixtures";
+import { test, expect, ALICE, BOB, uid } from "./fixtures";
 
 test.describe("Dashboard visibility — public/private", () => {
   test("new creator user sees public dashboards without explicit sharing", async ({
@@ -6,7 +6,7 @@ test.describe("Dashboard visibility — public/private", () => {
     page,
   }) => {
     // Sign up a fresh user — they have no shares or owned dashboards
-    const email = `visibility-${Date.now()}@example.com`;
+    const email = `visibility-${uid()}@example.com`;
     await authPage.signup("Visibility Test User", email, "password123");
     await expect(page).toHaveURL("/", { timeout: 15_000 });
 
@@ -55,7 +55,7 @@ test.describe("Dashboard visibility — public/private", () => {
     page,
   }) => {
     // Sign up a fresh user with no shares
-    const email = `viewer-${Date.now()}@example.com`;
+    const email = `viewer-${uid()}@example.com`;
     await authPage.signup("Viewer Test User", email, "password123");
     await expect(page).toHaveURL("/", { timeout: 15_000 });
 

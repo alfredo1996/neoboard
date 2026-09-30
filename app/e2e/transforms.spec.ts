@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   getPreview,
+  uid,
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------
@@ -83,7 +84,7 @@ test.describe("Data Transforms", () => {
     await authPage.login(ALICE.email, ALICE.password);
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `transforms-${Date.now()}`,
+      `transforms-${uid()}`,
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);

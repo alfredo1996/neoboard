@@ -1,4 +1,4 @@
-import { test, expect, ALICE, TEST_PG_PORT } from "./fixtures";
+import { test, expect, ALICE, TEST_PG_PORT, uid } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 import type { Browser, Page } from "@playwright/test";
 
@@ -60,7 +60,7 @@ async function createAdHocUser(
   password: string;
   cleanup: () => Promise<void>;
 }> {
-  const timestamp = Date.now();
+  const timestamp = uid();
   const suffix = Math.random().toString(36).slice(2, 8);
   const email = `${role}-${timestamp}-${suffix}@example.com`;
   const password = "password123";
@@ -201,7 +201,7 @@ test.describe("Form widget — write permission enforcement", () => {
         "/api/connections",
         {
           data: {
-            name: `write-perm-test-${Date.now()}`,
+            name: `write-perm-test-${uid()}`,
             type: "postgresql",
             config: {
               uri: `postgresql://localhost:${TEST_PG_PORT}`,
@@ -270,7 +270,7 @@ test.describe("Form widget — write permission enforcement", () => {
         "/api/connections",
         {
           data: {
-            name: `runtime-error-test-${Date.now()}`,
+            name: `runtime-error-test-${uid()}`,
             type: "postgresql",
             config: {
               uri: `postgresql://localhost:${TEST_PG_PORT}`,

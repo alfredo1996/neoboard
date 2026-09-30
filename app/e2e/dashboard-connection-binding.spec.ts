@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_NEO4J_BOLT_URL,
   createTestDashboard,
+  uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 import type {
@@ -66,7 +67,7 @@ interface Scene {
 }
 
 async function withScene(browser: Browser, fn: (s: Scene) => Promise<void>) {
-  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const suffix = uid();
   const created: string[] = [];
   const userIds: string[] = [];
   const connectionIds: string[] = [];
