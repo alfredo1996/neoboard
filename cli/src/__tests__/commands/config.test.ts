@@ -142,10 +142,28 @@ describe("runConfigSet", () => {
     expect(mockWriteProjectConfig).not.toHaveBeenCalled();
   });
 
-  it("throws for non-numeric port value (NaN guard)", () => {
-    expect(() => runConfigSet("ports.app", "notanumber")).toThrow(
-      /not a number/,
-    );
-    expect(mockWriteProjectConfig).not.toHaveBeenCalled();
+  // #2100: parseInt saved "7688x" as 7688 and let 0, -1 and 70000 through.
+  it.each(["notanumber", "7688x", "4000.9", "1e3", "0", "-1", "70000", ""])(
+    "rejects port value %j and writes nothing",
+    (value) => {
+      expect(() => runConfigSet("ports.app", value)).toThrow(
+        "Invalid port value for ports.app",
+      );
+      expect(mockWriteProjectConfig).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["ports.app", "1", 1],
+    ["ports.app", "65535", 65535],
+    ["ports.app", "08080", 8080],
+    ["postgres.user", "7688x", "7688x"],
+  ])("writes %s %j as %j and echoes the stored value", (key, value, stored) => {
+    runConfigSet(key, value);
+    const [section, prop] = key.split(".");
+    const written = mockWriteProjectConfig.mock
+      .calls[0][0] as unknown as Record<string, Record<string, unknown>>;
+    expect(written[section][prop]).toBe(stored);
+    expect(success).toHaveBeenCalledWith(`Set ${key} = ${stored}`);
   });
 });
