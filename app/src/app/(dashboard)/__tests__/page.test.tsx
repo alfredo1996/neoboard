@@ -30,8 +30,13 @@ const DASHBOARD: DashboardListItem = {
 
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
 
+let dashboards = [DASHBOARD];
+beforeEach(() => {
+  dashboards = [DASHBOARD];
+});
+
 vi.mock("@/hooks/use-dashboards", () => ({
-  useDashboards: () => ({ data: [DASHBOARD], isLoading: false }),
+  useDashboards: () => ({ data: dashboards, isLoading: false }),
   useCreateDashboard: () => idle,
   useDeleteDashboard: () => idle,
   useUpdateDashboard: () => idle,
@@ -142,6 +147,16 @@ describe("DashboardListPage duplicate", () => {
     });
   });
 });
+
+// #2108: the numeral's margin is not text; readers and copy need a space.
+it.each(["1. Add a connection", "2. Create a dashboard", "3. Add widgets"])(
+  "reads the getting-started step as %s",
+  (title) => {
+    dashboards = [];
+    render(<DashboardListPage />);
+    expect(screen.getByText((_, el) => el?.textContent === title)).toBeTruthy();
+  },
+);
 
 /**
  * #1900: which connector can run a NeoDash dashboard is decided by the query

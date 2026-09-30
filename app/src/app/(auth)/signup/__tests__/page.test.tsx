@@ -202,6 +202,14 @@ describe("SignupPage", () => {
     expect(screen.getByLabelText("Bootstrap Token")).toBeDefined();
   });
 
+  // #2108: JSX drops a gap that holds a newline, so the dash needs {" "}.
+  it("puts a space before the dash in the bootstrap notice", async () => {
+    mockFetchBootstrapStatus(true, true);
+    render(<SignupPage />);
+    const notice = await screen.findByRole("alert");
+    expect(notice.textContent).toContain("neoboard setup — or read");
+  });
+
   // ----- Normal registration -----
 
   it("shows normal signup form when registration is enabled and bootstrap is not required", async () => {
