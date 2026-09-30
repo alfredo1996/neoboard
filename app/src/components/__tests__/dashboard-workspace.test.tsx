@@ -1313,7 +1313,13 @@ describe("DashboardWorkspace", () => {
   });
 
   // ── Template sync / detach ──────────────────────────────────────────
-  it("syncs a widget from its template", () => {
+  // A fetched template's updatedAt is the JSON string, not a Date (#2084).
+  it.each([
+    ["an ISO string", "2026-02-02T10:00:00.000Z", "2026-02-02T10:00:00.000Z"],
+    ["none", null, "2026-09-29T12:00:00.000Z"],
+  ])("syncs from its template, updatedAt %s", (_, updatedAt, synced) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-09-29T12:00:00.000Z");
     pathname = "/d1/edit";
     const linked = makeDashboard(1);
     linked.layoutJson.pages[0].widgets[0] = {
@@ -1322,23 +1328,17 @@ describe("DashboardWorkspace", () => {
     } as never;
     dashboard = linked;
     mockUseWidgetTemplates.mockReturnValue({
-      data: [
-        {
-          id: "t1",
-          chartType: "line",
-          query: "SELECT 2",
-          settings: { title: "From template" },
-          updatedAt: new Date("2026-02-02"),
-        },
-      ],
+      data: [{ id: "t1", chartType: "line", query: "SELECT 2", updatedAt }],
     });
 
     render(<DashboardWorkspace id="d1" editMode={true} />);
     fireEvent.click(screen.getByTestId("act-sync"));
+    vi.useRealTimers();
 
     const w = useDashboardStore.getState().layout.pages[0].widgets[0];
     expect(w.chartType).toBe("line");
     expect(w.query).toBe("SELECT 2");
+    expect(w.templateSyncedAt).toBe(synced);
   });
 
   it("leaves the widget alone when its template was deleted", () => {

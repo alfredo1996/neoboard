@@ -252,9 +252,7 @@ export function DashboardWorkspace({
   // Seeded from the URL we arrived on, so the first sync is a no-op unless it
   // actually has something to strip.
   const lastSyncedUrlRef = useRef<string | null>(null);
-  if (lastSyncedUrlRef.current === null) {
-    lastSyncedUrlRef.current = `${pathname}${typeof window === "undefined" ? "" : window.location.search}`;
-  }
+  lastSyncedUrlRef.current ??= `${pathname}${typeof window === "undefined" ? "" : window.location.search}`;
 
   // Sync parameter store changes → URL (shallow replace, no navigation).
   // Declared after the inbound URL effect, so its first run already sees the
@@ -302,7 +300,7 @@ export function DashboardWorkspace({
   const hasParameters = hasParameterWidgets || parameterCount > 0;
   // null = auto mode (show when params exist), boolean = user override
   const [barOverride, setBarOverride] = useState<boolean | null>(null);
-  const effectiveShowBar = barOverride !== null ? barOverride : hasParameters;
+  const effectiveShowBar = barOverride ?? hasParameters;
   const toggleParameterBar = useCallback(
     () => setBarOverride((prev) => !(prev ?? effectiveShowBar)),
     [effectiveShowBar],
@@ -477,8 +475,8 @@ export function DashboardWorkspace({
           // Never overwrite the widget's connection
           connectionId: widget.settings?.connectionId,
         },
-        templateSyncedAt:
-          tmpl.updatedAt?.toISOString() ?? new Date().toISOString(),
+        // Fetched as JSON, so updatedAt is an ISO string, not a Date (#2084).
+        templateSyncedAt: new Date(tmpl.updatedAt ?? Date.now()).toISOString(),
       });
     },
     [templateMap, updateWidget],
@@ -647,7 +645,7 @@ export function DashboardWorkspace({
     {
       shortcut: "Cmd+S",
       handler: () => {
-        handleSave();
+        void handleSave();
       },
       disabled: !editMode,
     },
