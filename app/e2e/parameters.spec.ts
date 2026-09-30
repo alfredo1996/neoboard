@@ -792,6 +792,24 @@ test.describe("Parameter interpolation in titles", () => {
   });
 });
 
+// #2114: a link carries "1999"; `released = $param_year` needs the option's 1999.
+test("a numeric select restored from a link filters its widget", async ({
+  authPage,
+  page,
+}) => {
+  await authPage.login(ALICE.email, ALICE.password);
+  const { id, cleanup } = await createInterpolatedTitleDashboard(page.request);
+
+  try {
+    await page.goto(`/${id}?param_year=1999`);
+    await expect(page.getByRole("cell", { name: "The Matrix" })).toBeVisible({
+      timeout: 15_000,
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
 test.describe("Run and save with a parameter (#1912)", () => {
   // The shortcut used to run the query without its parameters, so the server
   // answered "Expected parameter(s): param_year", nothing was added and the
