@@ -329,10 +329,9 @@ function TransformCard({
               columns={columns}
               onValueChange={(v) => onChange({ ...transform, column: v })}
             />
-            <div
-              role="group"
+            <fieldset
               aria-labelledby={`${id}-aggregations`}
-              className="space-y-2 w-full"
+              className="space-y-2 w-full min-w-0"
             >
               <Label id={`${id}-aggregations`} className="text-xs">
                 Aggregations → output: column_fn
@@ -412,7 +411,7 @@ function TransformCard({
               >
                 <Plus className="h-3 w-3 mr-1" /> Add aggregation
               </Button>
-            </div>
+            </fieldset>
           </>
         )}
 
