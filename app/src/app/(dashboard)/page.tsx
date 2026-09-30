@@ -325,7 +325,7 @@ function ImportDashboardDialog({
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!parsed) return;
     setSubmitError(null);
@@ -651,8 +651,8 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
               <Database className="h-4 w-4" />
             </div>
             <CardTitle className="text-base">
-              <span className="mr-2 text-muted-foreground">1.</span>
-              Add a connection
+              <span className="mr-1 text-muted-foreground">1.</span> Add a
+              connection
             </CardTitle>
             <CardDescription>{PRODUCT_CONNECTION_PITCH}</CardDescription>
           </CardHeader>
@@ -673,8 +673,8 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
               <LayoutDashboard className="h-4 w-4" />
             </div>
             <CardTitle className="text-base">
-              <span className="mr-2 text-muted-foreground">2.</span>
-              Create a dashboard
+              <span className="mr-1 text-muted-foreground">2.</span> Create a
+              dashboard
             </CardTitle>
             <CardDescription>
               Give your dashboard a name and pick the layout that fits your
@@ -699,8 +699,7 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
               <BarChart3 className="h-4 w-4" />
             </div>
             <CardTitle className="text-base">
-              <span className="mr-2 text-muted-foreground">3.</span>
-              Add widgets
+              <span className="mr-1 text-muted-foreground">3.</span> Add widgets
             </CardTitle>
             <CardDescription>
               Write a Cypher or SQL query, pick a chart type, and visualize your
@@ -768,7 +767,7 @@ export default function DashboardListPage() {
     search,
   );
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!newName.trim()) {
       setNameError("Name is required");
@@ -787,7 +786,7 @@ export default function DashboardListPage() {
     setRenameError(null);
   }
 
-  async function handleRename(e: React.FormEvent) {
+  async function handleRename(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!renameTarget) return;
     const trimmed = renameValue.trim();
