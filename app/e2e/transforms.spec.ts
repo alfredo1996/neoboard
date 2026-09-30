@@ -203,6 +203,42 @@ test.describe("Data Transforms", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
+  test("a calculated column missing an operand leaves the filter applied (#2095)", async ({
+    page,
+  }) => {
+    // "price -5" is price then the literal -5, with no operator between. It
+    // threw, and the preview fell back to the raw rows.
+    test.setTimeout(120_000);
+    const dialog = await setupWidgetWithQuery(page, {
+      chartType: "Data Table",
+      query: "UNWIND [10, 20, 30] AS price RETURN price",
+    });
+
+    const preview = getPreview(dialog);
+    const prices = preview.locator("tbody tr td:first-child");
+    await expect(prices).toHaveText(["10", "20", "30"]);
+
+    await dialog.getByRole("tab", { name: "Transform" }).click();
+    const panel = dialog.getByRole("tabpanel");
+    const combos = panel.getByRole("combobox");
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.getByText("1. Filter")).toBeVisible();
+    await pickByKey(page, combos.nth(1), ">", ">");
+    await panel.getByPlaceholder("value or param").fill("15");
+    await pickByKey(page, combos.last(), "c", "Calculated Column");
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.getByText("2. Calculated Column")).toBeVisible();
+    await panel
+      .getByPlaceholder("e.g. salary * 0.1 or col + $param_rate")
+      .fill("price -5");
+
+    // The new column proves the calculated column ran; the rows prove the filter did.
+    await expect(
+      preview.locator("th").filter({ hasText: "new_column" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(prices).toHaveText(["20", "30"]);
+  });
+
   test("a groupBy sum and average of money carry no float tail (#1415)", async ({
     page,
   }) => {

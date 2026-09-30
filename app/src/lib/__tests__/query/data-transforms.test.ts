@@ -430,6 +430,25 @@ describe("applyTransforms", () => {
       const result = applyTransforms(data, transforms);
       expect(result[0].half).toBe(250);
     });
+
+    // #2095: an operator with no operand after it used to throw and drop the whole pipeline.
+    it.each([
+      ["price -5", null],
+      ["price 5", null],
+      ["price *", null],
+      ["price + ", null],
+      ["price - 5", 5],
+      ["price - -5", 15],
+    ])("%s gives %s and the filter still applies", (expression, x) => {
+      const result = applyTransforms(
+        [{ price: 10 }, { price: 20 }],
+        [
+          { type: "filter", column: "price", operator: "<", value: 15 },
+          { type: "calculatedColumn", name: "x", expression },
+        ],
+      );
+      expect(result).toEqual([{ price: 10, x }]);
+    });
   });
 
   // #1415 — derived numbers used to carry IEEE-754 noise straight into the
