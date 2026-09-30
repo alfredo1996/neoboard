@@ -1,4 +1,5 @@
 import { compareNumericCells, isNumericCell } from "../lib/numeric-cell";
+import { formatCell } from "../lib/cell-text";
 
 export type StylingOperator =
   | "<="
@@ -208,12 +209,12 @@ export function resolveStylingRuleColor(
       compareValue = rule.value;
     }
 
-    // String operators: coerce both to string
+    // String operators: an object cell reads as its table text (#2102).
     if (STRING_OPS.has(op)) {
       if (cellValue == null) continue;
       const result = evaluateString(
         op,
-        String(cellValue),
+        formatCell(cellValue),
         String(compareValue),
       );
       if (result) return rule.color;
@@ -237,7 +238,7 @@ export function resolveStylingRuleColor(
 
       // For == and !=, fall back to string comparison when not both numeric
       if ((op === "==" || op === "!=") && cellValue != null) {
-        if (evaluateString(op, String(cellValue), String(compareValue)))
+        if (evaluateString(op, formatCell(cellValue), String(compareValue)))
           return rule.color;
       }
       continue;

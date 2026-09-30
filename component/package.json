@@ -21,6 +21,7 @@
     "./hooks": "./src/hooks/index.ts",
     "./row-shapes": "./src/lib/row-shapes.ts",
     "./numeric-cell": "./src/lib/numeric-cell.ts",
+    "./cell-text": "./src/lib/cell-text.ts",
     "./*": "./src/*"
   },
   "sideEffects": false,
