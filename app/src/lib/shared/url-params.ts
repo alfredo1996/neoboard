@@ -4,24 +4,36 @@
  */
 
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
+import type { ParamSeed } from "@/lib/parameter/apply-param-defaults";
+import type { ParameterType } from "@/stores/parameter-store";
 
 const PARAM_PREFIX = "param_";
 
 /**
- * Extract parameter values from URL search params.
- * Only keys prefixed with "param_" are extracted; the prefix is stripped.
- * e.g., ?param_year=1999&param_dept=Sales → { year: "1999", dept: "Sales" }
+ * Restore parameter values from URL search params, typed by the widget that
+ * owns each one (#2097): a multi-select from its repeated keys, a range
+ * rebuilt from its companions. Any other `param_` key comes back as text.
+ * A seed with an `undefined` value is a range bound to clear.
+ * e.g., ?param_year=1999&param_dept=Sales → year "1999", dept "Sales"
  */
 export function parseUrlParams(
   searchParams: URLSearchParams,
-): Record<string, string> {
-  const result: Record<string, string> = {};
+  layout: DashboardLayoutV2,
+): ParamSeed[] {
+  const seeds: ParamSeed[] = [];
+  const owned = new Set<string>();
+  for (const widget of parameterWidgets(layout)) {
+    owned.add(widget.name);
+    urlKeys(widget).forEach((key) => owned.add(key));
+    seeds.push(...widgetSeeds(searchParams, widget));
+  }
   searchParams.forEach((value, key) => {
-    if (key.startsWith(PARAM_PREFIX) && value) {
-      result[key.slice(PARAM_PREFIX.length)] = value;
+    const name = key.slice(PARAM_PREFIX.length);
+    if (key.startsWith(PARAM_PREFIX) && value && !owned.has(name)) {
+      seeds.push({ name, value, type: "text", widgetId: "" });
     }
   });
-  return result;
+  return seeds;
 }
 
 /**
@@ -39,8 +51,11 @@ export function buildUrlParams(
   const sp = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (!syncable.has(key)) continue;
-    if (value !== undefined && value !== null && String(value) !== "") {
-      sp.set(`${PARAM_PREFIX}${key}`, String(value));
+    // A list repeats its key, so a value with a comma survives (#2097).
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (item !== undefined && item !== null && String(item) !== "") {
+        sp.append(`${PARAM_PREFIX}${key}`, String(item));
+      }
     }
   }
   sp.sort();
@@ -66,37 +81,92 @@ export function buildParamsUrl(
   return qs ? `${pathname}?${qs}` : pathname;
 }
 
-/**
- * Suffixes that range widgets append to their parameter name
- * (see `useParamActions.setCompanion`).
- */
-const COMPANION_SUFFIXES = ["from", "to", "min", "max"];
+interface ParamWidget {
+  id: string;
+  name: string;
+  type: ParameterType;
+  sync: boolean;
+}
 
-/**
- * Extract the parameter names allowed in the URL — those whose widget turned
- * "Sync to URL" on. Sync is opt-in: the chart option defaults to false and is
- * absent until the author toggles it, so anything else (an untouched widget, a
- * click-action or form parameter) stays out of the address bar.
- */
-export function extractSyncParams(layout: DashboardLayoutV2): Set<string> {
-  const sync = new Set<string>();
-  for (const page of layout.pages) {
-    for (const widget of page.widgets) {
-      if (widget.chartType !== "parameter-select") continue;
+function parameterWidgets(layout: DashboardLayoutV2): ParamWidget[] {
+  return layout.pages
+    .flatMap((page) => page.widgets)
+    .flatMap((widget) => {
+      if (widget.chartType !== "parameter-select") return [];
       const opts = (widget.settings?.chartOptions ?? {}) as Record<
         string,
         unknown
       >;
-      const paramName = opts.parameterName as string | undefined;
-      if (paramName && opts.syncToUrl === true) {
-        sync.add(paramName);
-        // ponytail: add every companion key regardless of parameterType —
-        // a `select` simply never writes them, so the extra entries are inert.
-        for (const suffix of COMPANION_SUFFIXES) {
-          sync.add(`${paramName}_${suffix}`);
-        }
-      }
-    }
+      const name = opts.parameterName as string | undefined;
+      if (!name) return [];
+      const type =
+        (opts.parameterType as ParameterType | undefined) ?? "select";
+      return [{ id: widget.id, name, type, sync: opts.syncToUrl === true }];
+    });
+}
+
+/** The suffixes a range widget writes (see `useParamActions.setCompanion`). */
+const RANGE_SUFFIXES: Partial<Record<ParameterType, [string, string]>> = {
+  "date-range": ["from", "to"],
+  "number-range": ["min", "max"],
+};
+
+/**
+ * The URL keys a widget's value travels under. A range travels as its two
+ * companions: its `{from,to}` or `[min,max]` parent has no flat form (#2097).
+ */
+function urlKeys({ name, type }: Pick<ParamWidget, "name" | "type">): string[] {
+  return RANGE_SUFFIXES[type]?.map((s) => `${name}_${s}`) ?? [name];
+}
+
+/** One widget's store entries, rebuilt from the URL under its own type. */
+function widgetSeeds(sp: URLSearchParams, w: ParamWidget): ParamSeed[] {
+  const seed = (name: string, value: unknown, type = w.type): ParamSeed => ({
+    name,
+    value,
+    type,
+    widgetId: w.id,
+  });
+  const get = (key: string) => sp.get(`${PARAM_PREFIX}${key}`) || undefined;
+  const [lo, hi] = urlKeys(w);
+
+  if (w.type === "date-range") {
+    const from = get(lo) ?? "";
+    const to = get(hi) ?? "";
+    if (!from && !to) return [];
+    // The pair is one value: a bound the link left out comes back `undefined`,
+    // which the caller clears rather than keep a restored session's bound.
+    return [
+      seed(w.name, { from, to }),
+      seed(lo, from || undefined, "date"),
+      seed(hi, to || undefined, "date"),
+    ];
   }
-  return sync;
+  if (w.type === "number-range") {
+    const min = Number(get(lo));
+    const max = Number(get(hi));
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
+    return [
+      seed(w.name, [min, max]),
+      seed(lo, min, "text"),
+      seed(hi, max, "text"),
+    ];
+  }
+  const values = sp.getAll(`${PARAM_PREFIX}${w.name}`).filter(Boolean);
+  if (values.length === 0) return [];
+  return [seed(w.name, w.type === "multi-select" ? values : values[0])];
+}
+
+/**
+ * Extract the URL keys allowed in the address bar — those of widgets that
+ * turned "Sync to URL" on. Sync is opt-in: the chart option defaults to false
+ * and is absent until the author toggles it, so anything else (an untouched
+ * widget, a click-action or form parameter) stays out of the address bar.
+ */
+export function extractSyncParams(layout: DashboardLayoutV2): Set<string> {
+  return new Set(
+    parameterWidgets(layout)
+      .filter((w) => w.sync)
+      .flatMap(urlKeys),
+  );
 }

@@ -1522,6 +1522,76 @@ describe("DashboardWorkspace", () => {
     expect(useParameterStore.getState().parameters.year?.value).toBe("1999");
   });
 
+  // An inbound link is typed by its widget, not restored as text (#2097).
+  it("restores a linked value under its widget's parameter type", () => {
+    searchParams = new URLSearchParams(
+      "param_tags=a&param_tags=b%2Cc&param_price_min=10&param_price_max=20",
+    );
+    dashboard = makeDashboard(1);
+    for (const [id, parameterName, parameterType] of [
+      ["pt", "tags", "multi-select"],
+      ["pp", "price", "number-range"],
+    ]) {
+      dashboard.layoutJson.pages[0].widgets.push({
+        id,
+        chartType: "parameter-select",
+        connectionId: "c1",
+        query: "",
+        settings: { chartOptions: { parameterName, parameterType } },
+      });
+    }
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+
+    const { tags, price, price_max } = useParameterStore.getState().parameters;
+    expect(tags).toMatchObject({
+      value: ["a", "b,c"],
+      type: "multi-select",
+      field: "tags",
+      sourceWidgetId: "pt",
+    });
+    expect(price?.value).toEqual([10, 20]);
+    expect(price_max?.value).toBe(20);
+  });
+
+  // A range is one value: a link's half-range must not keep the session's
+  // other bound, which the picker would hide but the query would still bind.
+  it("a linked date range with one bound drops the restored session's other bound", () => {
+    const entry = (value: unknown, type: string) => ({
+      value,
+      source: "Parameter Selector",
+      field: "period",
+      type,
+      sourceType: "selector-widget",
+      sourceWidgetId: "pd",
+    });
+    localStorage.setItem(
+      "nb-params:d1",
+      JSON.stringify({
+        period: entry({ from: "2024-01-01", to: "2024-01-31" }, "date-range"),
+        period_from: entry("2024-01-01", "date"),
+        period_to: entry("2024-01-31", "date"),
+      }),
+    );
+    searchParams = new URLSearchParams("param_period_from=2024-02-01");
+    dashboard = makeDashboard(1);
+    dashboard.layoutJson.pages[0].widgets.push({
+      id: "pd",
+      chartType: "parameter-select",
+      connectionId: "c1",
+      query: "",
+      settings: {
+        chartOptions: { parameterName: "period", parameterType: "date-range" },
+      },
+    });
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+
+    const { period, period_from, period_to } =
+      useParameterStore.getState().parameters;
+    expect(period?.value).toEqual({ from: "2024-02-01", to: "" });
+    expect(period_from?.value).toBe("2024-02-01");
+    expect(period_to).toBeUndefined();
+  });
+
   // URL sync is OPT-IN per widget (#1388): only a parameter-select widget that
   // sets `syncToUrl: true` may put its parameter in the address bar. These two
   // cases pin both directions of that contract — without the negative one, an
