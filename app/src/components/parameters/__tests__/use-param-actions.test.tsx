@@ -105,4 +105,35 @@ describe("useParamActions", () => {
     const { result } = renderHook(() => useParamActions("nonexistent", "text"));
     expect(result.current.currentEntry).toBeUndefined();
   });
+
+  // A link restores "1999"; typing it as 1999 must not relabel it as picked (#2114).
+  it("retype() changes only the value; the entry keeps who set it", () => {
+    useParameterStore
+      .getState()
+      .setParameter("year", "1999", "URL", "year", "select", "url", "w-url");
+
+    const { result } = renderHook(() =>
+      useParamActions("year", "select", "w-selector"),
+    );
+    act(() => {
+      result.current.retype(1999);
+    });
+
+    expect(useParameterStore.getState().parameters["year"]).toEqual({
+      value: 1999,
+      source: "URL",
+      field: "year",
+      type: "select",
+      sourceType: "url",
+      sourceWidgetId: "w-url",
+    });
+  });
+
+  it("retype() does nothing when the parameter is not set", () => {
+    const { result } = renderHook(() => useParamActions("year", "select"));
+    act(() => {
+      result.current.retype(1999);
+    });
+    expect(useParameterStore.getState().parameters["year"]).toBeUndefined();
+  });
 });

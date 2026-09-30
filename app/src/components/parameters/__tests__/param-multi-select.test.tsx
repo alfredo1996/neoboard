@@ -60,6 +60,7 @@ function makeActions(value?: unknown, hasEntry = true): ParamActions {
     clear: vi.fn(),
     setCompanion: vi.fn(),
     clearCompanion: vi.fn(),
+    retype: vi.fn(),
     currentEntry,
   };
 }
@@ -226,10 +227,12 @@ describe("ParamMultiSelect — restored strings take their options' types", () =
     { value: "2000", label: "2000", rawValue: 2000 },
   ];
 
+  // `retype`, not `set`: a value restored from a link stays "Set by URL" (#2114).
   it("rewrites stored ['1999','2000'] as the options' rawValues", () => {
     const actions = makeActions(["1999", "2000"]);
     renderWidget(actions, makeSeed({ options: YEARS }));
-    expect(actions.set).toHaveBeenCalledExactlyOnceWith([1999, 2000]);
+    expect(actions.retype).toHaveBeenCalledExactlyOnceWith([1999, 2000]);
+    expect(actions.set).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -239,6 +242,7 @@ describe("ParamMultiSelect — restored strings take their options' types", () =
   ])("leaves the store alone with %s", (_l, value, options) => {
     const actions = makeActions(value);
     renderWidget(actions, makeSeed({ options }));
+    expect(actions.retype).not.toHaveBeenCalled();
     expect(actions.set).not.toHaveBeenCalled();
   });
 });

@@ -52,6 +52,7 @@ function makeActions() {
     clear: vi.fn(),
     setCompanion: vi.fn(),
     clearCompanion: vi.fn(),
+    retype: vi.fn(),
     currentEntry: undefined as ParameterEntry | undefined,
   };
 }

@@ -77,6 +77,7 @@ function makeActions(currentEntry?: Entry): ParamActions {
     setCompanion:
       vi.fn<(suffix: string, value: unknown, type: ParameterType) => void>(),
     clearCompanion: vi.fn<(suffix: string) => void>(),
+    retype: vi.fn<(value: unknown) => void>(),
     currentEntry,
   };
 }
@@ -211,9 +212,11 @@ describe("ParamSelect — write mapping", () => {
  */
 // A link carries text; the store must hold what picking the option would (#2097).
 describe("ParamSelect — a restored string takes its option's type", () => {
+  // `retype`, not `set`: a value restored from a link stays "Set by URL" (#2114).
   it("rewrites a stored '42' as the option's rawValue 42", () => {
     renderSelect({ currentEntry: entry("42") });
-    expect(actions.set).toHaveBeenCalledExactlyOnceWith(42);
+    expect(actions.retype).toHaveBeenCalledExactlyOnceWith(42);
+    expect(actions.set).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -224,8 +227,20 @@ describe("ParamSelect — a restored string takes its option's type", () => {
       entry("42"),
       { options: [{ value: "42", label: "F" }] },
     ],
+    // Known gap (#2114): only the loaded options can type a value. A searchable
+    // seed loads the rows for an empty term, so a value found by searching
+    // stays a string after a link reload.
+    [
+      "a server-filtered page that lacks the value",
+      entry("1234"),
+      {
+        serverFiltered: true,
+        options: [{ value: "1", label: "Ann", rawValue: 1 }],
+      },
+    ],
   ])("leaves the store alone with %s", (_l, currentEntry, seed) => {
     renderSelect({ currentEntry, seed });
+    expect(actions.retype).not.toHaveBeenCalled();
     expect(actions.set).not.toHaveBeenCalled();
   });
 });

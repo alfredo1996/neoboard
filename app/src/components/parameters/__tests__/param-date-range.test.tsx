@@ -56,6 +56,7 @@ function makeActions(currentEntry?: ParameterEntry) {
     clear: vi.fn(),
     setCompanion: vi.fn(),
     clearCompanion: vi.fn(),
+    retype: vi.fn(),
     currentEntry,
   };
 }
