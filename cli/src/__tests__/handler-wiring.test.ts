@@ -231,7 +231,14 @@ describe("every other command forwards its options", () => {
   });
 
   it("plugin add passes the package name and its options", async () => {
-    await run("plugin", "add", "@acme/chart", "--override", "--export", "Widget");
+    await run(
+      "plugin",
+      "add",
+      "@acme/chart",
+      "--override",
+      "--export",
+      "Widget",
+    );
     expect(runPluginAdd).toHaveBeenCalledWith("@acme/chart", {
       override: true,
       export: "Widget",
@@ -271,5 +278,27 @@ describe("every other command forwards its options", () => {
       output: "out.sql",
       dataOnly: true,
     });
+  });
+});
+
+describe("the direct-run entry", () => {
+  it("does not hold the module on a command that never settles", async () => {
+    // A confirm() prompt whose stdin hits EOF never settles. Awaited at the top
+    // level, Node prints "Detected unsettled top-level await" rooted in dist/
+    // and exits 13, the crash-looking output #1315 removed.
+    runEnv.mockReturnValueOnce(new Promise(() => {}));
+    const argv = process.argv;
+    process.argv = ["node", "/cli/dist/index.js", "env", "--regenerate"];
+    try {
+      vi.resetModules();
+      const loaded = await Promise.race([
+        import("../index.js").then(() => "loaded"),
+        new Promise((resolve) => setTimeout(resolve, 1000, "blocked")),
+      ]);
+      expect(loaded).toBe("loaded");
+      await vi.waitFor(() => expect(runEnv).toHaveBeenCalled());
+    } finally {
+      process.argv = argv;
+    }
   });
 });

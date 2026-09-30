@@ -81,7 +81,8 @@ let root: string;
 const npmInstalls = (name?: string) => (_file: string, args: string[]) => {
   if (args[0] === "install") {
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    pkg.dependencies = { ...pkg.dependencies, [name ?? args[1]]: args[1] };
+    const spec = args.at(-1) as string;
+    pkg.dependencies = { ...pkg.dependencies, [name ?? spec]: spec };
     writeFileSync(join(root, "package.json"), JSON.stringify(pkg, null, 2));
     writeFileSync(join(root, "package-lock.json"), "lock-after");
   }
@@ -131,10 +132,13 @@ describe("runPluginAdd", () => {
 
     await runPluginAdd(CHART_PKG);
 
-    // npm install (no-shell, arg array) + codegen invoked
-    expect(mockRunFile).toHaveBeenCalledWith("npm", ["install", CHART_PKG], {
-      cwd: root,
-    });
+    // npm install (no-shell, arg array) + codegen invoked. --save beats a
+    // user's `save=false`, so package.json names what npm installed.
+    expect(mockRunFile).toHaveBeenCalledWith(
+      "npm",
+      ["install", "--save", CHART_PKG],
+      { cwd: root },
+    );
     expect(mockRun).toHaveBeenCalledWith(
       "node scripts/generate-plugin-imports.mjs",
       { cwd: root },
@@ -170,9 +174,11 @@ describe("runPluginAdd", () => {
 
     // The whole string is ONE argv element — a shell never sees it, so the
     // `;` and `|` can't execute anything.
-    expect(mockRunFile).toHaveBeenCalledWith("npm", ["install", EVIL], {
-      cwd: root,
-    });
+    expect(mockRunFile).toHaveBeenCalledWith(
+      "npm",
+      ["install", "--save", EVIL],
+      { cwd: root },
+    );
   });
 
   it("registers a connector plugin under connectors manifest + connector codegen", async () => {
@@ -340,6 +346,35 @@ describe("runPluginAdd", () => {
   });
 
   it.each([
+    ["file:../x", "file:../x"],
+    ["git+https://example.com/x.git", "git+https://example.com/x.git"],
+    ["x@1.2.0", "^1.2.0"],
+    ["@scope/x@1.2.0", "^1.2.0"],
+    ["x", "^1.2.0"],
+  ])(
+    "re-adding %s, which npm leaves package.json unchanged for, registers the dependency it names (#2065)",
+    async (spec, saved) => {
+      const name = spec.startsWith("@scope/") ? "@scope/x" : "x";
+      writeFileSync(
+        join(root, "package.json"),
+        JSON.stringify({ dependencies: { other: "^1.0.0", [name]: saved } }),
+      );
+      mockRunFile.mockReturnValue(""); // npm left package.json as it was
+      vi.doMock(name, () => ({ default: { type: "x" } }));
+      mockValidate.mockReturnValue({
+        valid: true,
+        errors: [],
+        pluginType: "chart",
+      });
+
+      await runPluginAdd(spec);
+
+      expect(mockAddToManifest.mock.calls[0]?.[2]).toEqual({ package: name });
+      expect(process.exitCode).toBe(0);
+    },
+  );
+
+  it.each([
     ["uninstalls a package it added", {}, 1],
     ["keeps a package the checkout already had", { x: "^1.0.0" }, 0],
   ])(
@@ -430,6 +465,8 @@ describe("runPluginList", () => {
       join(dir, "descriptor.ts"),
       'export const d = {\n  type: "fakekv",\n  fields: [{\n    type: "uri",\n  }],\n};\n',
     );
+    // As in the real package: a file beside the connector folders is not one.
+    writeFileSync(join(root, "connection", "src", "index.ts"), "");
     mockReadManifest.mockImplementation((path) =>
       path.includes("neoboard-plugins.json")
         ? [{ package: "ext-chart-pkg" }]

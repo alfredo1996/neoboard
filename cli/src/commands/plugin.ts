@@ -73,7 +73,8 @@ export async function runPluginAdd(
   const spinner = createSpinner("Installing " + spec + "...");
   spinner.start();
   try {
-    runFile("npm", ["install", spec], { cwd: root });
+    // --save beats a user's `save=false`: package.json must name the package.
+    runFile("npm", ["install", "--save", spec], { cwd: root });
     spinner.succeed("Installed " + spec);
   } catch (err) {
     spinner.fail("Failed to install " + spec);
@@ -327,7 +328,7 @@ async function pluginTypeOf(entry: ManifestEntry): Promise<string> {
 function builtInConnectorTypes(root: string): string[] {
   const src = join(root, "connection", "src");
   return readdirSync(src)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .flatMap((dir) => {
       const descriptor = readOrNull(join(src, dir, "descriptor.ts")) ?? "";
       const match = /^ {2}type: "([^"]+)"/m.exec(descriptor);
@@ -366,8 +367,13 @@ function installedName(
   const was = dependencies(before);
   const now = dependencies(after);
   const changed = Object.keys(now).find((name) => now[name] !== was[name]);
-  // npm leaves package.json alone when the spec names a package it already has.
-  return changed ?? (Object.hasOwn(now, spec) ? spec : undefined);
+  if (changed) return changed;
+  // A re-add leaves package.json alone: the spec is then the dependency's name
+  // (`x`, `x@1.2.0`) or, for a path or git spec, the value npm saved verbatim.
+  const name = spec.replace(/(?<=.)@.*/, "");
+  return Object.hasOwn(now, name)
+    ? name
+    : Object.keys(now).find((dep) => now[dep] === spec);
 }
 
 // #2065: uninstall only a package this add introduced, then restore every file
