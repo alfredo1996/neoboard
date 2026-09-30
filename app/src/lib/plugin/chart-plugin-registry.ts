@@ -104,8 +104,6 @@ export interface ChartPluginConfig {
   validate?: (data: unknown, mapping?: any) => string | null;
   /** Chart-specific options shown in the Chart Options panel. */
   options?: ChartOptionDef[];
-  /** Example + column expectations shown to users when they pick this chart. */
-  queryHint?: string;
   /**
    * What this chart needs a connector to be able to return. Omit = nothing in
    * particular, which is every chart but one (#1902).
@@ -215,7 +213,6 @@ export function defineChartPlugin(config: ChartPluginConfig): ChartPlugin {
     transformWithMapping: config.transformWithMapping,
     validate: config.validate,
     options: config.options ?? [],
-    queryHint: config.queryHint,
     requires: config.requires,
     stylingTargets: config.stylingTargets,
     enrichClickEvent: config.enrichClickEvent,

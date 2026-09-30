@@ -33,7 +33,7 @@ function MapPluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const markers = (data ?? []) as MapMarker[];
   const settings = safeParseSettings(mapSettingsSchema, raw, "map");
   return (
@@ -81,6 +81,4 @@ export const mapPlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: true,
   },
-  queryHint:
-    "Return columns with latitude and longitude (names matching lat/lng/lon).",
 });

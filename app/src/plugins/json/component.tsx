@@ -12,7 +12,7 @@ import { type PluginProps } from "../utils";
 import { jsonSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
-function JsonPluginComponent({ data, settings: raw }: PluginProps) {
+function JsonPluginComponent({ data, settings: raw }: Readonly<PluginProps>) {
   const settings = safeParseSettings(jsonSettingsSchema, raw, "json");
   return (
     <div className="h-full overflow-auto">
@@ -35,6 +35,4 @@ export const jsonPlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: true,
   },
-  queryHint:
-    "Returns any query result as a collapsible JSON tree. Any shape works.",
 });

@@ -21,7 +21,7 @@ function ParameterSelectPluginComponent({
   connectionId,
   widgetId,
   database,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const settings = safeParseSettings(
     parameterSelectSettingsSchema,
     raw,
@@ -70,7 +70,4 @@ export const parameterSelectPlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: false,
   },
-  queryHint:
-    "Optional seed query — return a single column of values to populate the\n" +
-    "selector options.",
 });

@@ -26,7 +26,7 @@ function SankeyPluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(sankeySettingsSchema, raw, "sankey");
   const sankeyData = (data as SankeyChartData) ?? { nodes: [], links: [] };
@@ -62,5 +62,4 @@ export const sankeyPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint: "Return 3 columns: source, target, value.",
 });

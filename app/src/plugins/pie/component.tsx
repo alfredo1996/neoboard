@@ -25,7 +25,7 @@ function PiePluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(pieSettingsSchema, raw, "pie");
   return (
@@ -66,6 +66,4 @@ export const piePlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return 2 columns: first = slice label (string), second = numeric value.",
 });

@@ -18,7 +18,7 @@ function FormPluginComponent({
   database,
   widgetId,
   query,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const settings = safeParseSettings(formSettingsSchema, raw, "form");
   return (
     <FormWidgetRenderer
@@ -44,7 +44,4 @@ export const formPlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: false,
   },
-  queryHint:
-    "Write the query run on submit. Reference each form field as\n" +
-    "$param_<field name>.",
 });

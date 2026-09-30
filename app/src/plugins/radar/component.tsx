@@ -24,7 +24,7 @@ function RadarPluginComponent({
   settings: raw,
   stylingRules,
   paramValues,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const radarData = (data as RadarChartData) ?? {
     indicators: [],
     series: [],
@@ -60,7 +60,4 @@ export const radarPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return either long-format (indicator, value, [series], [max]) or\n" +
-    "wide-format (one column per indicator).",
 });

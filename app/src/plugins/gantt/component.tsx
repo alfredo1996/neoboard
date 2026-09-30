@@ -25,7 +25,7 @@ function GanttPluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(ganttSettingsSchema, raw, "gantt");
   return (
@@ -61,6 +61,4 @@ export const ganttPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return columns: task name, start date, end date. Optional: category/status, progress (0-1).",
 });

@@ -28,6 +28,12 @@ const SingleValueChart = dynamic(
   { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
 );
 
+function trendDirection(delta: number): "up" | "down" | "neutral" {
+  if (delta > 0) return "up";
+  if (delta < 0) return "down";
+  return "neutral";
+}
+
 /**
  * Percentage change against the previous period, or undefined when the trend is
  * off or there is nothing to compare. A previous value of 0 yields a direction
@@ -42,7 +48,7 @@ function buildTrend(
     return undefined;
   }
   const delta = value - previous;
-  const direction = delta > 0 ? "up" : delta < 0 ? "down" : "neutral";
+  const direction = trendDirection(delta);
   if (previous === 0) {
     return {
       direction,
@@ -61,7 +67,7 @@ function SingleValuePluginComponent({
   settings: raw,
   stylingRules,
   paramValues,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const settings = safeParseSettings(
     singleValueSettingsSchema,
     raw,
@@ -124,5 +130,4 @@ export const singleValuePlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint: "Return 1 column with a scalar value (number or string).",
 });

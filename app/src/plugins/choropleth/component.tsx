@@ -25,7 +25,7 @@ function ChoroplethPluginComponent({
   data,
   settings: raw,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(
     choroplethSettingsSchema,
@@ -61,5 +61,4 @@ export const choroplethPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint: "Return 2 columns: country/region name + numeric value.",
 });

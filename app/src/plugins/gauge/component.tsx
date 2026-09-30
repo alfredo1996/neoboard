@@ -25,7 +25,7 @@ function GaugePluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(gaugeSettingsSchema, raw, "gauge");
   return (
@@ -62,6 +62,4 @@ export const gaugePlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return 1-2 columns: first = numeric value, optional second = name/label.",
 });
