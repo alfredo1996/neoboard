@@ -866,13 +866,14 @@ test.describe("Graph chart exploration", () => {
   // read off its descriptor, no longer written in app/. View mode, because
   // that is where a dashboard is explored. One node, so the layout's fit puts
   // it under the canvas centre and the right-click lands on it, where the
-  // tests above may miss.
-  test("graph chart — expanding a node in view mode adds its neighbours (#2061)", async ({
+  // tests above may miss. #2094: he DIRECTED, PRODUCED and WROTE Jerry
+  // Maguire, and all three relationships must survive the expand.
+  test("graph chart — expanding a node in view mode adds its neighbours and every relationship (#2061, #2094)", async ({
     page,
   }) => {
     await addGraphWidget(
       page,
-      "MATCH (p:Person {name: 'Keanu Reeves'}) RETURN p",
+      "MATCH (p:Person {name: 'Cameron Crowe'}) RETURN p",
     );
     await saveDashboard(page);
     await page.getByRole("button", { name: "Back" }).click();
@@ -880,6 +881,7 @@ test.describe("Graph chart exploration", () => {
       timeout: 10_000,
     });
     await expandTheOnlyNode(page);
+    await expect(page.getByTestId("graph-edge-count")).toHaveText("3 edges");
   });
 
   test("graph chart — reset clears all expansions", async ({ page }) => {
