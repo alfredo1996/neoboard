@@ -1,5 +1,24 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "fs";
 import { resolve, sep } from "path";
+
+const readJson = (...path: string[]) =>
+  JSON.parse(readFileSync(resolve(import.meta.dirname, ...path), "utf8"));
+
+// Loaded from node_modules, never bundled into the server: drivers with native
+// bindings, dynamic requires or Node built-ins. Each package declares its own
+// as `neoboard.serverExternalPackages`, the app for its metadata database and
+// every connector for its drivers, which the connector codegen collects. A
+// package named here is one more line each new connector must edit (#2067).
+const serverExternalPackages: string[] = [
+  ...readJson("package.json").neoboard.serverExternalPackages,
+  ...readJson(
+    "..",
+    "connection",
+    "src",
+    "server-external-packages.generated.json",
+  ),
+];
 
 // Canonicalise all mobx imports to the single copy installed under component/
 // to prevent the "multiple mobx instances" MobX warning when @neo4j-nvl
@@ -29,12 +48,7 @@ const nextConfig: NextConfig = {
     "@neoboard/connection",
     "@neoboard/connector-sdk",
   ],
-  serverExternalPackages: [
-    "postgres",
-    "pg",
-    "neo4j-driver",
-    "neo4j-driver-core",
-  ],
+  serverExternalPackages,
   async headers() {
     const baseHeaders = [
       { key: "X-Frame-Options", value: "DENY" },
@@ -67,15 +81,13 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     if (isServer) {
       // The instrumentation file is compiled in a separate webpack pass that does
-      // not always honour serverExternalPackages. Explicitly mark postgres as an
-      // external so webpack never tries to bundle its Node.js built-in imports
-      // (net, tls, stream, crypto) in that compilation.
-      const prev = config.externals;
-      config.externals = Array.isArray(prev)
-        ? [...prev, "postgres", "pg"]
-        : prev
-          ? [prev, "postgres", "pg"]
-          : ["postgres", "pg"];
+      // not always honour serverExternalPackages. Mark them external there too,
+      // so webpack never tries to bundle their Node.js built-in imports (net,
+      // tls, stream, crypto) in that compilation.
+      config.externals = [
+        ...[config.externals ?? []].flat(),
+        ...serverExternalPackages,
+      ];
     }
 
     // Enable full source maps for E2E coverage collection.

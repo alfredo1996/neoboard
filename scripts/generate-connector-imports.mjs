@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /**
  * Generate connection/src/external-connectors.generated.ts from
- * neoboard-connectors.json.
+ * neoboard-connectors.json, and beside it server-external-packages.generated.json:
+ * the packages the server loads from node_modules instead of bundling, which
+ * each connector declares as `neoboard.serverExternalPackages` in its
+ * package.json (the built-ins in connection's). next.config.ts reads it (#2067).
  *
  * Mirrors the chart plugin codegen (generate-plugin-imports.mjs) but
  * targets the connection package instead of the app package.
@@ -15,13 +18,14 @@
  *   - manifest unparseable
  *   - entries fail shape validation
  *   - duplicate package+export pairs
+ *   - a serverExternalPackages declaration that is not a list of package names
  *
  * Idempotent: writes the output file only when its contents would
  * change, so downstream tools that watch mtimes don't trigger spuriously.
  */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkInstalled } from "./lib/check-installed.mjs";
 
@@ -34,6 +38,62 @@ const OUTPUT_PATH = resolve(
   "src",
   "external-connectors.generated.ts",
 );
+const EXTERNALS_PATH = resolve(
+  REPO_ROOT,
+  "connection",
+  "src",
+  "server-external-packages.generated.json",
+);
+const CONNECTION_PACKAGE = resolve(REPO_ROOT, "connection", "package.json");
+
+const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
+
+/**
+ * The package.json of an installed connector: the first `node_modules` up
+ * from here holding it, as Node finds a bare specifier, so an exports map that
+ * hides package.json does not matter. {} for anything else.
+ *
+ * @param {string} name
+ */
+function installedPackageJson(name) {
+  for (let dir = __dirname; ; dir = dirname(dir)) {
+    const file = join(dir, "node_modules", name, "package.json");
+    if (existsSync(file)) return readJson(file);
+    if (dir === dirname(dir)) return {};
+  }
+}
+
+/**
+ * Every declared server-external package, once each, in declaration order.
+ *
+ * @param {Array<{ name: string; pkg: { neoboard?: { serverExternalPackages?: unknown } } }>} declarers
+ * @returns {{ errors: string[]; packages: string[] }}
+ */
+function collectServerExternals(declarers) {
+  const errors = [];
+  const packages = new Set();
+  for (const { name, pkg } of declarers) {
+    const list = pkg.neoboard?.serverExternalPackages ?? [];
+    if (
+      Array.isArray(list) &&
+      list.every((p) => typeof p === "string" && /^[^\s"'\\]+$/.test(p))
+    ) {
+      list.forEach((p) => packages.add(p));
+    } else {
+      errors.push(
+        `${name}: neoboard.serverExternalPackages must be an array of package names`,
+      );
+    }
+  }
+  return { errors, packages: [...packages] };
+}
+
+/** Write `source` to `path` unless it already holds it. Returns whether it wrote. */
+function writeIfChanged(path, source) {
+  if (existsSync(path) && readFileSync(path, "utf8") === source) return false;
+  writeFileSync(path, source, "utf8");
+  return true;
+}
 
 /**
  * Validate a manifest entry. Returns an error message or null.
@@ -192,54 +252,51 @@ export function runGenerator(opts = {}) {
   const manifestPath = opts.manifestPath ?? MANIFEST_PATH;
   const outputPath = opts.outputPath ?? OUTPUT_PATH;
 
-  if (!existsSync(manifestPath)) {
-    // No manifest = no external connectors. Generate empty file silently.
-    const source = renderSource([]);
-    const existing = existsSync(outputPath)
-      ? readFileSync(outputPath, "utf8")
-      : null;
-    if (existing === source) {
-      return { ok: true, errors: [], wrote: false };
-    }
-    writeFileSync(outputPath, source, "utf8");
-    return { ok: true, errors: [], wrote: true };
+  const { errors, entries } = readManifest(manifestPath);
+  // Verify that all referenced packages are actually installed.
+  if (errors.length === 0) {
+    errors.push(...checkInstalled(entries, import.meta.resolve));
+  }
+  if (errors.length > 0) {
+    return { ok: false, errors, wrote: false };
   }
 
-  let raw;
+  const externals = collectServerExternals([
+    { name: "connection", pkg: readJson(CONNECTION_PACKAGE) },
+    ...entries.map((e) => ({
+      name: e.package,
+      pkg: installedPackageJson(e.package),
+    })),
+  ]);
+  if (externals.errors.length > 0) {
+    return { ok: false, errors: externals.errors, wrote: false };
+  }
+
+  const wroteImports = writeIfChanged(outputPath, renderSource(entries));
+  const wroteExternals = writeIfChanged(
+    EXTERNALS_PATH,
+    `${JSON.stringify(externals.packages, null, 2)}\n`,
+  );
+  return { ok: true, errors: [], wrote: wroteImports || wroteExternals };
+}
+
+/**
+ * The manifest's validated entries. No manifest means no external connectors.
+ *
+ * @param {string} path
+ */
+function readManifest(path) {
+  if (!existsSync(path)) return { errors: [], entries: [] };
   try {
-    raw = JSON.parse(readFileSync(manifestPath, "utf8"));
+    return validateManifest(readJson(path));
   } catch (err) {
     return {
-      ok: false,
       errors: [
         `Manifest is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
       ],
-      wrote: false,
+      entries: [],
     };
   }
-
-  const { errors, entries } = validateManifest(raw);
-  if (errors.length > 0) {
-    return { ok: false, errors, wrote: false };
-  }
-
-  // Verify that all referenced packages are actually installed.
-  errors.push(...checkInstalled(entries, import.meta.resolve));
-  if (errors.length > 0) {
-    return { ok: false, errors, wrote: false };
-  }
-
-  const source = renderSource(entries);
-
-  const existing = existsSync(outputPath)
-    ? readFileSync(outputPath, "utf8")
-    : null;
-  if (existing === source) {
-    return { ok: true, errors: [], wrote: false };
-  }
-
-  writeFileSync(outputPath, source, "utf8");
-  return { ok: true, errors: [], wrote: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -259,7 +316,7 @@ if (invokedDirectly) {
   }
   if (result.wrote) {
     console.log(
-      `Generated ${OUTPUT_PATH.replace(REPO_ROOT + "/", "")} from manifest`,
+      "Generated connection/src/external-connectors.generated.ts and server-external-packages.generated.json from manifest",
     );
   }
 }

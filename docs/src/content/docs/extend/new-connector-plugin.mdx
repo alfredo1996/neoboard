@@ -570,6 +570,14 @@ External connectors are compiled into the server, not discovered at runtime. The
 
 Each entry may also carry `"export": "<name>"` when the plugin is not the package's default export, and `"overrides": true` to replace a connector with the same `type` — without it, a duplicate `type` throws at startup so a conflict cannot pass silently.
 
+The server build bundles your connector and everything it imports. A driver that must be loaded from `node_modules` instead, one with native bindings, dynamic `require`s or Node built-ins, goes in your package's `package.json`:
+
+```json
+{ "neoboard": { "serverExternalPackages": ["mydb-driver"] } }
+```
+
+The generator collects every connector's list, the built-ins' from `connection/package.json` included, into `connection/src/server-external-packages.generated.json`, and `next.config.ts` keeps each package in it external.
+
 A Docker image built from the checkout installs dependencies with `npm ci` from `package.json` and `package-lock.json` alone, so it can include your connector only once the package is installed from a registry.
 
 `neoboard plugin add` does not work for a connector built on the SDK yet. It is meant to replace steps 1 and 2: it installs a package, imports it to validate the export (`type`, `label`, `category`, `createModule`), adds the manifest entry and runs the generator. But it imports the package in plain Node, and Node cannot load the SDK's build — the SDK compiles to ES modules whose relative imports carry no file extension, which only a bundler resolves — so the import throws and the CLI uninstalls the package again. It also installs and imports the name you give it, so it needs a published package. Use the three steps above until both change (#1697).
