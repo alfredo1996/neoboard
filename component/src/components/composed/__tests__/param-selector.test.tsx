@@ -418,7 +418,9 @@ describe("searchable selectors keep the typed term when options are replaced (#1
       loading: false,
       searchable: true,
     };
-    const { rerender } = render(<ParamSelector {...props} options={idOptions} />);
+    const { rerender } = render(
+      <ParamSelector {...props} options={idOptions} />,
+    );
     await user.click(screen.getByRole("combobox"));
     await user.type(screen.getByPlaceholderText("Search…"), "Keanu");
 
@@ -449,5 +451,28 @@ describe("searchable selectors keep the typed term when options are replaced (#1
     expect(screen.getByPlaceholderText("Search…")).toHaveValue("Keanu");
     expect(screen.getByText("Keanu Reeves")).toBeInTheDocument();
     expect(screen.getByText("Keanu Jr")).toBeInTheDocument();
+  });
+});
+
+// #2159: a value set past the seed's LIMIT has no loaded option.
+describe("selectors show a value that is not among the loaded options (#2159)", () => {
+  const props = {
+    parameterName: "fruit",
+    options: searchOptions,
+    onChange: vi.fn(),
+  };
+  it.each([
+    ["ParamSelector", () => <ParamSelector {...props} value="durian" />],
+    [
+      "ParamSelector (searchable)",
+      () => <ParamSelector {...props} value="durian" searchable />,
+    ],
+    [
+      "ParamMultiSelector",
+      () => <ParamMultiSelector {...props} values={["durian"]} />,
+    ],
+  ])("%s shows it in the trigger", (_, ui) => {
+    render(ui());
+    expect(screen.getByRole("combobox")).toHaveTextContent("durian");
   });
 });
