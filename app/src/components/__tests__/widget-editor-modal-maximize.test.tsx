@@ -944,6 +944,45 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     expect(useWidgetEditorStore.getState().templateId).toBe("t-2076");
   });
 
+  // #2085: the template, fetched after opening, read as the user's edit.
+  // A connection picked while the template is in flight survives the
+  // template, so it is an edit too.
+  const store = () => useWidgetEditorStore.getState();
+  it.each([
+    ["closes at once", false, undefined, undefined],
+    [
+      "asks first after a query change",
+      true,
+      undefined,
+      () => store().setQuery("x"),
+    ],
+    [
+      "asks first after an earlier connection pick",
+      true,
+      () => store().setConnectionId("c1"),
+      undefined,
+    ],
+  ])(
+    "Use in Dashboard with a template that arrives after opening %s",
+    async (_what, edited, editBefore, editAfter) => {
+      const all = {
+        onOpenChange: vi.fn(),
+        mode: "add" as const,
+        connections: [],
+        onSave: vi.fn(),
+      };
+      const { rerender } = render(<WidgetEditorModal {...all} open />);
+      await settle();
+      if (editBefore) act(editBefore);
+      rerender(<WidgetEditorModal {...all} open initialTemplate={TEMPLATE} />);
+      await settle();
+      if (editAfter) act(editAfter);
+      await act(async () => dismiss.onOpenChange?.(false));
+      expect(screen.queryByRole("alertdialog") !== null).toBe(edited);
+      expect(all.onOpenChange).toHaveBeenCalledTimes(edited ? 0 : 1);
+    },
+  );
+
   it.each([
     ["the template's own connection", "", { connectionId: "c2" }, "c2"],
     ["one of the template's connector", "", { connectorType: "beta" }, "c2"],

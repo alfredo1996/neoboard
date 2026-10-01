@@ -536,7 +536,13 @@ test.describe("Widget Library", () => {
         // The query from the template should be pre-filled in the editor
         await expect(
           addDialog.locator("[data-testid='codemirror-container']"),
-        ).toBeVisible({ timeout: 10_000 });
+        ).toContainText("MATCH (m:Movie)", { timeout: 10_000 });
+
+        // Closed untouched, it closes without asking to discard (#2085).
+        await page.keyboard.press("Escape");
+        await expect(addDialog).not.toBeVisible();
+        await expect(page).toHaveURL(new RegExp(`/${dashId}/edit$`));
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
       } finally {
         await dashCleanup();
       }
