@@ -11,7 +11,9 @@
  * registered connector is forbidden from birth with no edit to this file:
  *
  *  1. the name guard — no registered connector's type, label, URI scheme or
- *     driver-option prefix in `app/src` / `component/src` source;
+ *     driver-option prefix in `app/src` / `component/src` source (the tree is
+ *     read for the built-ins; one installed from neoboard-connectors.json is
+ *     matched whole, against planted fixtures only, #2063);
  *  2. the export-surface guard — `connection` and `connector-sdk` export no
  *     identifier that names a connector.
  *
@@ -47,6 +49,7 @@ import {
   type ConnectorField,
   type ConnectorPlugin,
 } from "@neoboard/connection";
+import { isBuiltIn } from "@/__tests__/helpers/built-in-connectors";
 
 const ROOT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -261,6 +264,49 @@ function readTree(root: string, dirs: string[]): SourceFile[] {
     }));
 }
 
+/**
+ * What the tree scan forbids: the built-ins' names alone, as
+ * check-boundaries.sh reads them. A connector installed from
+ * neoboard-connectors.json may be called `api`, `json` or `file`, words app/
+ * uses for itself, and app/ was written without it (#2063).
+ */
+function treeNames(connectors: Named[]): RegExp[] {
+  return forbiddenNames(connectors.filter(isBuiltIn));
+}
+
+/**
+ * What a planted literal is checked against: the tree's names, and an
+ * installed connector's whole type or label in a string — never inside a word
+ * or a URL, so `...rest` and `"/api/query"` do not count (#2063).
+ */
+function guardNames(connectors: Named[]): RegExp[] {
+  const names = treeNames(connectors);
+  const whole = connectors
+    .filter((c) => !isBuiltIn(c))
+    .flatMap((c) => [c.type, c.label].map(escapeRe));
+  if (whole.length === 0) return names;
+  return [...names, new RegExp(`(["'\`])(?:${whole.join("|")})\\1`, "gi")];
+}
+
+/**
+ * Each connector's own type and label, planted, trip the guard in each file.
+ * Which files, not how often: `"<built-in>-cloud"` is a built-in's name and an
+ * installed connector's whole name at once (#2063).
+ */
+function expectFloor(connectors: Named[]) {
+  const names = guardNames(connectors);
+  for (const c of connectors) {
+    const files = [
+      { file: "app/src/x.ts", src: `const a = "${c.type}";` },
+      { file: "component/src/y.tsx", src: `label: "${c.label}"` },
+    ];
+    expect(Object.keys(findOffenders({ names, files })), c.type).toEqual([
+      "app/src/x.ts",
+      "component/src/y.tsx",
+    ]);
+  }
+}
+
 // ─── Export-surface guard ────────────────────────────────────────────
 
 /** Every identifier a module exports, types included (they vanish at runtime). */
@@ -312,7 +358,7 @@ const PUBLIC_ENTRY_POINTS = [
 // ─── Tests ───────────────────────────────────────────────────────────
 
 describe("connector-agnostic guard (#1894)", () => {
-  const names = forbiddenNames(getAllConnectors());
+  const names = guardNames(getAllConnectors());
   const HOW_TO_FIX =
     "take the fact from the registry / descriptor instead of naming the connector";
 
@@ -321,27 +367,20 @@ describe("connector-agnostic guard (#1894)", () => {
     // A floor instead: each connector's own type and label must trip the guard.
     const connectors = getAllConnectors();
     expect(connectors.length).toBeGreaterThan(0);
-    for (const c of connectors) {
-      const files = [
-        { file: "app/src/x.ts", src: `const a = "${c.type}";` },
-        { file: "component/src/y.tsx", src: `// ${c.label}` },
-      ];
-      expect(findOffenders({ names, files }), c.type).toEqual({
-        "app/src/x.ts": 1,
-        "component/src/y.tsx": 1,
-      });
-    }
+    expectFloor(connectors);
   });
 
-  it("forbids every URI scheme a registered connector declares", () => {
+  it("forbids every URI scheme a built-in connector declares", () => {
     // Schemes are how `Postgres…` identifiers are caught (`postgres:`), and
     // they are the part that moved: from `plugin.allowedProtocols` to the
     // `protocols` of the descriptor's `uri` field (#1897). A guard still
     // reading the old place derives no scheme and says nothing — it just
     // reports every `bolt` in the tree as progress. Hence the floor.
-    const protocols = getAllConnectors().flatMap((c) =>
-      c.fields.flatMap((f) => (f.type === "uri" ? (f.protocols ?? []) : [])),
-    );
+    const protocols = getAllConnectors()
+      .filter(isBuiltIn)
+      .flatMap((c) =>
+        c.fields.flatMap((f) => (f.type === "uri" ? (f.protocols ?? []) : [])),
+      );
     expect(protocols.length).toBeGreaterThan(0);
     for (const protocol of protocols) {
       const files = [
@@ -357,7 +396,10 @@ describe("connector-agnostic guard (#1894)", () => {
     const files = readTree(ROOT, ["app/src", "component/src"]);
     // A floor: a walker that finds no files would pass as "no offenders".
     expect(files.length).toBeGreaterThan(300);
-    expect(findOffenders({ names, files }), HOW_TO_FIX).toEqual({});
+    expect(
+      findOffenders({ names: treeNames(getAllConnectors()), files }),
+      HOW_TO_FIX,
+    ).toEqual({});
   });
 
   it("app/ and component/ hold no connector's query text (#2061)", () => {
@@ -485,6 +527,38 @@ describe("the guards themselves", () => {
     } finally {
       unregisterConnector(fixture.type);
     }
+  });
+
+  it("passes today's tree with an installed `api` connector, and matches its name whole (#2063)", () => {
+    // `"api"` is a category and a log module in app/, never a connector there.
+    registerConnector({ ...fixture, type: "api", label: "API", fields: [] });
+    try {
+      const tree = readTree(ROOT, ["app/src", "component/src"]);
+      expect(
+        findOffenders({ names: treeNames(getAllConnectors()), files: tree }),
+      ).toEqual({});
+      const files = [
+        { file: "app/src/a.ts", src: 'if (t === "api") return;' },
+        {
+          file: "app/src/b.ts",
+          src: 'const { id, ...rest } = p; fetch("/api/query"); apiClient();',
+        },
+      ];
+      expect(
+        findOffenders({ names: guardNames(getAllConnectors()), files }),
+      ).toEqual({ "app/src/a.ts": 1 });
+    } finally {
+      unregisterConnector("api");
+    }
+  });
+
+  it("an installed connector named after a built-in trips each planted file once (#2063)", () => {
+    const [builtIn] = getAllConnectors().filter(isBuiltIn);
+    expect(builtIn).toBeDefined();
+    expectFloor([
+      ...getAllConnectors(),
+      { type: `${builtIn.type}-cloud`, label: `${builtIn.label} Cloud` },
+    ]);
   });
 
   it("forbids an option prefix only when it abbreviates the connector's type", () => {

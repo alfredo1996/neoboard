@@ -3,7 +3,9 @@ import { join } from "node:path";
 import {
   resolveQueryTimeout,
   type ConnectorConfig,
+  type ConnectorPlugin,
 } from "@neoboard/connector-sdk";
+import { EXTERNAL_CONNECTORS } from "../src/external-connectors.generated";
 
 // Since #1897 a connector is built from ONE config bag — the connection's
 // stored config, keyed by the descriptor's field keys. These tests pin what
@@ -49,6 +51,11 @@ jest.mock("pg", () => ({
     return mockPoolInstance;
   }),
 }));
+
+// These pin the built-ins, and hold with a connector installed beside them (#2063).
+jest.mock("../src/external-connectors.generated", () =>
+  jest.requireActual("./utils/installed-connector"),
+);
 
 // ---------------------------------------------------------------------------
 // Shared fixtures — the bag as the app stores it: no authType, no prefixes.
@@ -538,15 +545,16 @@ const BLANK: Record<string, Record<string, () => unknown>> = {
 };
 
 const { getAllConnectors } = require("../src/connector-registry");
-const PLACEHOLDERS: [string, string, string][] = getAllConnectors().flatMap(
-  (c: {
-    type: string;
-    fields: { key: string; group?: string; placeholder?: string }[];
-  }) =>
+// The built-ins' defaults: an installed connector's are its own business (#2063).
+const PLACEHOLDERS: [string, string, string][] = getAllConnectors()
+  .filter(
+    (c: ConnectorPlugin) => !EXTERNAL_CONNECTORS.some((e) => e.plugin === c),
+  )
+  .flatMap((c: ConnectorPlugin) =>
     c.fields
       .filter((f) => f.group === "advanced" && f.placeholder)
       .map((f) => [c.type, f.key, f.placeholder!]),
-);
+  );
 
 describe("an advanced placeholder states what a blank field gets (#1920)", () => {
   it.each(PLACEHOLDERS)("%s %s: blank gets %s", (type, key, placeholder) => {

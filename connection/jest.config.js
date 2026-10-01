@@ -1,3 +1,19 @@
+const { existsSync, readFileSync } = require("node:fs");
+const { join } = require("node:path");
+
+// The packages neoboard-connectors.json installs, by name (`@a/b/sub` → `@a/b`):
+// one may ship ESM only, as uuid does (#2063).
+const manifest = join(__dirname, "..", "neoboard-connectors.json");
+const connectorPackages = existsSync(manifest)
+  ? JSON.parse(readFileSync(manifest, "utf8")).connectors.map((c) =>
+      c.package
+        .split("/")
+        .slice(0, c.package.startsWith("@") ? 2 : 1)
+        .join("/")
+        .replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`),
+    )
+  : [];
+
 /** @type {import('ts-jest').JestConfigWithTsJest} **/
 module.exports = {
   testEnvironment: "node",
@@ -10,7 +26,9 @@ module.exports = {
   },
   // uuid v14+ ships ESM only; transform it (and any future ESM-only deps in
   // the testcontainers→dockerode chain) so Jest's CJS runtime can require them.
-  transformIgnorePatterns: ["/node_modules/(?!(uuid)/)"],
+  transformIgnorePatterns: [
+    `/node_modules/(?!(${["uuid", ...connectorPackages].join("|")})/)`,
+  ],
   // Resolve the workspace SDK to its TypeScript source so ts-jest transforms it
   // in-process — its package `exports` only define the ESM `import` condition,
   // which Jest's CJS resolver can't load from dist. (Subpath first.)
