@@ -172,13 +172,6 @@ describe("global connector registry", () => {
     expect(connectorRegistry.has("postgresql")).toBe(true);
   });
 
-  it("getAll() returns both built-in connectors", () => {
-    const { getAllConnectors } = require("../src/connector-registry");
-    const all = getAllConnectors();
-    expect(all).toHaveLength(2);
-    expect(all.map((c: any) => c.type).sort()).toEqual(["neo4j", "postgresql"]);
-  });
-
   it("createConnectionModule() delegates to the correct plugin", () => {
     const { createConnectionModule } = require("../src/connector-registry");
     // This would actually create a real Neo4jConnectionModule — just
@@ -198,6 +191,82 @@ describe("global connector registry", () => {
     expect(() =>
       createConnectionModule("mysql", { uri: "mysql://localhost" }),
     ).toThrow(/Unknown connector type.*mysql/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// External connectors (#2063) — what neoboard-connectors.json installs
+// ---------------------------------------------------------------------------
+
+describe("external connectors", () => {
+  type Entry = { plugin: ConnectorPlugin; overrides: boolean };
+  const entry = (plugin: Partial<ConnectorPlugin>): Entry => ({
+    plugin: makePlugin(plugin),
+    overrides: false,
+  });
+  const loadWith = (entries: Entry[]) => {
+    let registry!: typeof import("../src/connector-registry");
+    jest.isolateModules(() => {
+      jest.doMock("../src/external-connectors.generated", () => ({
+        EXTERNAL_CONNECTORS: entries,
+      }));
+      registry = require("../src/connector-registry");
+    });
+    return registry;
+  };
+
+  it("registers an installed connector after the built-ins", () => {
+    const types = loadWith([entry({})])
+      .getAllConnectors()
+      .map((c) => c.type);
+    expect(types).toEqual(["neo4j", "postgresql", "test-db"]);
+  });
+
+  it("replaces a built-in when the entry sets overrides", () => {
+    const plugin = makePlugin({ type: "neo4j" });
+    expect(loadWith([{ plugin, overrides: true }]).getConnector("neo4j")).toBe(
+      plugin,
+    );
+  });
+
+  it.each([
+    [
+      "a malformed descriptor",
+      [entry({ category: "nope" as ConnectorPlugin["category"] })],
+      /invalid category/,
+    ],
+    [
+      "a built-in's type without overrides",
+      [entry({ type: "neo4j" })],
+      /conflicts with a built-in/,
+    ],
+    [
+      "a second connector of one type",
+      [entry({}), entry({})],
+      /previously-registered external/,
+    ],
+  ])("refuses %s", (_label, entries, error) => {
+    expect(() => loadWith(entries)).toThrow(error);
+  });
+
+  it("has Jest transform an installed connector that ships ESM, as it does uuid", () => {
+    let config!: { transformIgnorePatterns: string[] };
+    jest.isolateModules(() => {
+      jest.doMock("node:fs", () => ({
+        ...jest.requireActual("node:fs"),
+        existsSync: () => true,
+        readFileSync: () =>
+          '{"connectors":[{"package":"@acme/kv/plugin"},{"package":"fake.kv"}]}',
+      }));
+      config = require("../jest.config.js");
+    });
+    const ignored = (file: string) =>
+      new RegExp(config.transformIgnorePatterns[0]).test(file);
+    expect(ignored("/r/node_modules/@acme/kv/dist/index.js")).toBe(false);
+    expect(ignored("/r/node_modules/fake.kv/index.js")).toBe(false);
+    expect(ignored("/r/node_modules/uuid/dist/index.js")).toBe(false);
+    expect(ignored("/r/node_modules/fakeXkv/index.js")).toBe(true);
+    expect(ignored("/r/node_modules/pg/lib/index.js")).toBe(true);
   });
 });
 
