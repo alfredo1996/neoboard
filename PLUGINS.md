@@ -6,26 +6,28 @@ NeoBoard's plugin system lets you extend the platform with custom chart types an
 
 These are the 18 chart plugins NeoBoard registers. The widget picker offers 16 of them: Radar and Choropleth stay registered so dashboards that already use them keep rendering, but the picker does not list them, so they cannot be added to new widgets.
 
-| Chart Type       | Description                                                  | Data Sources      |
-| ---------------- | ------------------------------------------------------------ | ----------------- |
-| Bar              | Vertical/horizontal bars for category comparison             | Neo4j, PostgreSQL |
-| Line             | Trend lines and time series                                  | Neo4j, PostgreSQL |
-| Pie              | Proportional slices (pie/doughnut)                           | Neo4j, PostgreSQL |
-| Table            | Sortable, filterable data grid                               | Neo4j, PostgreSQL |
-| Single Value     | KPI card with optional trend                                 | Neo4j, PostgreSQL |
-| Gauge            | Semicircular dial for thresholds                             | Neo4j, PostgreSQL |
-| Graph            | Interactive node-relationship visualization                  | Neo4j             |
-| Map              | Geographic markers on Leaflet                                | Neo4j, PostgreSQL |
-| Sankey           | Weighted flow diagrams                                       | Neo4j, PostgreSQL |
-| Sunburst         | Multi-level hierarchical drill-down                          | Neo4j, PostgreSQL |
-| Radar            | Multi-dimensional comparison — hidden from the widget picker | Neo4j, PostgreSQL |
-| Gantt            | Timeline bars for scheduling                                 | Neo4j, PostgreSQL |
-| Choropleth       | Geographic heatmap by region — hidden from the widget picker | Neo4j, PostgreSQL |
-| JSON Viewer      | Collapsible JSON tree                                        | Neo4j, PostgreSQL |
-| Form             | Input fields executing write queries                         | Neo4j, PostgreSQL |
-| Markdown         | Static rich text (no query)                                  | N/A               |
-| iFrame           | Embedded external pages                                      | N/A               |
-| Parameter Select | Dropdowns/pickers feeding parameters                         | Neo4j, PostgreSQL |
+A chart is offered on a connection by what its connector declares, never by which connector it is: the Graph chart needs `supportsGraphData`, the Form widget needs `supportsWrite`, and every other chart works on any connector.
+
+| Chart Type       | Description                                                  | Offered on                           |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------ |
+| Bar              | Vertical/horizontal bars for category comparison             | Any connector                        |
+| Line             | Trend lines and time series                                  | Any connector                        |
+| Pie              | Proportional slices (pie/doughnut)                           | Any connector                        |
+| Table            | Sortable, filterable data grid                               | Any connector                        |
+| Single Value     | KPI card with optional trend                                 | Any connector                        |
+| Gauge            | Semicircular dial for thresholds                             | Any connector                        |
+| Graph            | Interactive node-relationship visualization                  | A connector with `supportsGraphData` |
+| Map              | Geographic markers on Leaflet                                | Any connector                        |
+| Sankey           | Weighted flow diagrams                                       | Any connector                        |
+| Sunburst         | Multi-level hierarchical drill-down                          | Any connector                        |
+| Radar            | Multi-dimensional comparison — hidden from the widget picker | Any connector                        |
+| Gantt            | Timeline bars for scheduling                                 | Any connector                        |
+| Choropleth       | Geographic heatmap by region — hidden from the widget picker | Any connector                        |
+| JSON Viewer      | Collapsible JSON tree                                        | Any connector                        |
+| Form             | Input fields executing write queries                         | A connector with `supportsWrite`     |
+| Markdown         | Static rich text (no query)                                  | Any (no query)                       |
+| iFrame           | Embedded external pages                                      | Any (no query)                       |
+| Parameter Select | Dropdowns/pickers feeding parameters                         | Any connector                        |
 
 ## Built-in Connectors
 

@@ -66,7 +66,7 @@ Everything else is the same as a connected install: the required variables (`DAT
 - **Fonts.** Geist Sans and Inter ship inside the app as `woff2` files (`component/fonts/`). Nothing is loaded from Google Fonts.
 - **Chart libraries.** ECharts, Leaflet, the marker-cluster plugin and Neo4j NVL are bundled JavaScript served by the app itself.
 - **Choropleth boundaries.** The world map (`world.geo.json`) is bundled with the [Choropleth chart](/charts/choropleth), not fetched.
-- **Plugins.** External chart and connector plugins are resolved at **build time** from `neoboard-plugins.json` and compiled into the app; the running server never runs `npm install` or fetches a plugin. That also means a plugin has to be in the manifest **when the image is built** — to ship [external plugins](/extend/external-plugins) into an air-gapped site, build the image on a connected machine and mirror that build.
+- **Plugins.** External chart and connector plugins are resolved at **build time** from `neoboard-plugins.json` (charts) and `neoboard-connectors.json` (connectors) and compiled into the app; the running server never runs `npm install` or fetches a plugin. That also means a plugin has to be in the manifest **when the image is built** — to ship [external plugins](/extend/external-plugins) into an air-gapped site, build the image on a connected machine and mirror that build.
 - **Migrations.** The journal is inside the image and applied at boot; `drizzle-kit` is not needed and not shipped.
 
 ## What still needs a network

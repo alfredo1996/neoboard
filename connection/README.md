@@ -24,19 +24,19 @@ one exposes to the query editor.
   parsers run the SDK's pure shape conformance in
   `__tests__/conformance/*-shapes.test.ts`.
 - `connector-registry.ts` — `createConnectionModule(type, config)` plus the registry
-  (`registerConnector`, `getConnector`, `getSchemaManager`). External connector
-  plugins register here; `external-connectors.generated.ts` is the generated
-  import list for the ones a build includes, and
-  `server-external-packages.generated.json` the drivers the server must not
-  bundle, from each connector's `neoboard.serverExternalPackages` (#2067).
+  (`getConnector`, `getAllConnectors`, `getSchemaManager`). It registers the
+  built-ins, then each entry of `external-connectors.generated.ts`, the import
+  list `scripts/generate-connector-imports.mjs` writes from
+  `neoboard-connectors.json` before every build of this package. An external
+  connector is its own package on the SDK and never imports this one.
+  `server-external-packages.generated.json` lists the drivers the server must
+  not bundle, from each connector's `neoboard.serverExternalPackages` (#2067).
 - `schema/` — `Neo4jSchemaManager` and `PostgresSchemaManager`, which introspect
   labels and properties, or tables and columns.
 - `<name>/descriptor.ts` — everything a connector is, as plain data: label,
   category, icon, query language and fields. The app serves these to the browser
   from `GET /api/connectors`, so no client code imports this package for a
   connector fact.
-- `connector-types.ts` — the closed `ConnectorType` union, on its way out
-  (#1900).
 
 The shared contracts — `AuthConfig`, `ConnectionConfig`, `QueryStatus`,
 `ConnectorError`, `SchemaManager`, `DatabaseSchema` — come from

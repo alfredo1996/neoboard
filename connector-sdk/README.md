@@ -4,8 +4,9 @@ Stable contract for building [NeoBoard](https://alfredo1996.github.io/neoboard/)
 
 A connector teaches NeoBoard how to talk to a database or service: how to
 connect, run queries safely, and describe its schema. This package is the
-seam — implement the contract here and register your plugin, and the
-connector works everywhere in NeoBoard without forking the app.
+seam — implement the contract here and list your package in NeoBoard's
+connector manifest, and the connector works everywhere in NeoBoard without
+forking the app.
 
 ## What's in here
 
@@ -90,8 +91,11 @@ const mysqlPlugin: ConnectorPlugin = {
 export default mysqlPlugin;
 ```
 
-NeoBoard loads the package through `neoboard-connectors.json` (`neoboard plugin
-add <package>` from a checkout) and registers the default export at startup.
+Install the package in a NeoBoard checkout and list it in
+`neoboard-connectors.json`; the build compiles it in and the registry registers
+the default export at startup. `neoboard plugin add` is meant to do both steps,
+but it does not work for a connector on this SDK yet (#1697): it imports the
+package in plain Node, which cannot load the SDK's build.
 The full walkthrough — connection module, query-safety invariants, conformance
 harness — is the [connector plugin guide](https://alfredo1996.github.io/neoboard/extend/new-connector-plugin/).
 
