@@ -208,7 +208,24 @@ vi.mock("@neoboard/components", () => {
       open: boolean;
       children: React.ReactNode;
     }) => (open ? <div role="dialog">{children}</div> : null),
-    DialogContent: Box,
+    // Runs onCloseAutoFocus once it closes, as Radix does.
+    DialogContent: function DialogContent({
+      children,
+      onCloseAutoFocus,
+    }: {
+      children?: React.ReactNode;
+      onCloseAutoFocus?: (event: Event) => void;
+    }) {
+      const onClose = React.useRef(onCloseAutoFocus);
+      React.useEffect(() => {
+        onClose.current = onCloseAutoFocus;
+      });
+      React.useEffect(
+        () => () => onClose.current?.(new Event("close", { cancelable: true })),
+        [],
+      );
+      return <div>{children}</div>;
+    },
     DialogHeader: Box,
     DialogTitle: Box,
     DialogDescription: Box,
@@ -744,6 +761,19 @@ describe("ConnectionsPage — re-assign names the connector by its label (#1905)
 
     // Nothing else could name it: the descriptor is gone.
     expect(dialog).toHaveTextContent("No other uninstalled connection");
+  });
+
+  // #2125: no Trigger here either. The card's menu button started the flow.
+  it("Cancel hands focus back to the card's menu button (#2125)", () => {
+    mockConnections = rows(1, { name: "source" });
+    const cancel = within(openReassign()).getByRole("button", {
+      name: "Cancel",
+    });
+    cancel.focus(); // where Radix puts it on open
+
+    fireEvent.click(cancel);
+
+    expect(menuTrigger).toHaveFocus();
   });
 });
 

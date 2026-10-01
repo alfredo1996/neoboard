@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
+import type { ConfirmDialogProps, PageHeaderProps } from "@neoboard/components";
 
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
 
@@ -19,6 +20,7 @@ const BASE_TEMPLATES = [
   {
     id: "t1",
     name: "Budget rows",
+    createdBy: "u1",
     chartType: "table",
     connectorType: "acme-sheets",
     query: "SHEET budget",
@@ -72,7 +74,11 @@ vi.mock("@neoboard/components", () => {
     <div>{children}</div>
   );
   return {
-    PageHeader: Box,
+    PageHeader: ({ title, titleRef }: PageHeaderProps) => (
+      <h1 ref={titleRef} tabIndex={-1}>
+        {title}
+      </h1>
+    ),
     EmptyState: Box,
     LoadingOverlay: Box,
     Badge: Box,
@@ -92,7 +98,23 @@ vi.mock("@neoboard/components", () => {
       </button>
     ),
     Input: () => null,
-    ConfirmDialog: () => null,
+    // Hands focus back after the render that closes it, as Radix does.
+    ConfirmDialog: function ConfirmDialog({
+      open,
+      onOpenChange,
+      onConfirm,
+      returnFocusTo,
+    }: ConfirmDialogProps) {
+      React.useEffect(() => {
+        if (!open) returnFocusTo?.focus();
+      }, [open, returnFocusTo]);
+      return open ? (
+        <>
+          <button onClick={() => onOpenChange(false)}>Cancel</button>
+          <button onClick={onConfirm}>Delete</button>
+        </>
+      ) : null;
+    },
     Tooltip: Box,
     TooltipTrigger: Box,
     TooltipContent: () => null,
@@ -202,4 +224,21 @@ describe("WidgetLibraryPage — connector facts come from the descriptor list (#
       "",
     );
   });
+});
+
+describe("WidgetLibraryPage — where focus goes after Delete template (#2125)", () => {
+  it.each([
+    ["Cancel", () => screen.getByLabelText("Delete template")],
+    ["Delete", () => screen.getByRole("heading", { name: "Widget Library" })],
+  ])(
+    "%s hands focus back: the button, or the heading once the card is gone",
+    (button, target) => {
+      render(<WidgetLibraryPage />);
+
+      fireEvent.click(screen.getByLabelText("Delete template"));
+      fireEvent.click(screen.getByRole("button", { name: button }));
+
+      expect(target()).toHaveFocus();
+    },
+  );
 });

@@ -318,7 +318,12 @@ export default function ConnectionsPage() {
       >
         {/* #1282: describes itself in the paragraph below — point at that
             instead of duplicating the sentence. */}
-        <DialogContent aria-describedby="reassign-widgets-desc">
+        <DialogContent
+          aria-describedby="reassign-widgets-desc"
+          // No Trigger either (#2125): back to the card's menu button, which
+          // stays put — a re-assign moves widgets, not the connection.
+          onCloseAutoFocus={() => returnFocusTo?.focus()}
+        >
           <DialogHeader>
             <DialogTitle>Re-assign widgets</DialogTitle>
           </DialogHeader>

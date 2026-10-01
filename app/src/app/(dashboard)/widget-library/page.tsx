@@ -1,7 +1,7 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, type MouseEventHandler } from "react";
 import { useRouter } from "next/navigation";
 import {
   FlaskConical,
@@ -68,7 +68,7 @@ function TemplateCard({
   readonly canEdit: boolean;
   readonly canDelete: boolean;
   readonly onEdit: () => void;
-  readonly onDelete: () => void;
+  readonly onDelete: MouseEventHandler<HTMLButtonElement>;
   readonly onDuplicate: () => void;
   readonly onTestQuery: () => void;
   readonly testQueryLoading: boolean;
@@ -239,6 +239,9 @@ export default function WidgetLibraryPage() {
   const [filterConnector, setFilterConnector] = useState<string>("all");
   const [filterTag, setFilterTag] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  // The dialog has no Trigger: where focus goes when it closes (#2125).
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [useTarget, setUseTarget] = useState<string | null>(null);
 
   // Editor modal state
@@ -375,6 +378,7 @@ export default function WidgetLibraryPage() {
     <div className="p-6">
       <PageHeader
         title="Widget Library"
+        titleRef={headingRef}
         description="Reusable widget templates you can apply to any dashboard"
         actions={
           <Button onClick={handleCreate} className="gap-2">
@@ -487,7 +491,10 @@ export default function WidgetLibraryPage() {
                   canEdit={canEditOrDelete(template)}
                   canDelete={canEditOrDelete(template)}
                   onEdit={() => handleEdit(template)}
-                  onDelete={() => setDeleteTarget(template.id)}
+                  onDelete={(e) => {
+                    setReturnFocusTo(e.currentTarget);
+                    setDeleteTarget(template.id);
+                  }}
                   onDuplicate={() => handleDuplicate(template)}
                   onTestQuery={() => handleTestQuery(template)}
                   testQueryLoading={testingTemplateId === template.id}
@@ -508,8 +515,11 @@ export default function WidgetLibraryPage() {
         description="This will permanently delete this template. It will not affect existing dashboard widgets."
         confirmText="Delete"
         variant="destructive"
+        returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
+            // The card leaves once the list refetches: land on the heading.
+            setReturnFocusTo(headingRef.current);
             deleteTemplate.mutate(deleteTarget);
             setDeleteTarget(null);
           }
