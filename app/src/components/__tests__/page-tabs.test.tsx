@@ -204,7 +204,55 @@ describe("PageTabs — the tablist holds only the tabs (#2107)", () => {
     }
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
-    expect(screen.getByRole("textbox")).toHaveValue("Sales");
+    // Away from its tab, the field's name says which page it renames.
+    expect(
+      screen.getByRole("textbox", { name: "Rename page Sales" }),
+    ).toHaveValue("Sales");
     holdsOnlyTabs();
+  });
+
+  it("renders an empty layout in edit mode with Add page and no options menu", () => {
+    // The import route accepts a layout with no pages.
+    render(<PageTabs pages={[]} activeIndex={0} editable onSelect={vi.fn()} />);
+
+    expect(
+      screen.getByRole("button", { name: "Add page" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Page options/ })).toBeNull();
+  });
+});
+
+describe("PageTabs — drag to reorder", () => {
+  const pages = [page("p1", "Overview", 1), page("p2", "Sales", 3)];
+
+  function dropOverviewOnSales(editable: boolean) {
+    const onReorder = vi.fn();
+    render(
+      <PageTabs
+        pages={pages}
+        activeIndex={0}
+        editable={editable}
+        onSelect={vi.fn()}
+        onReorder={onReorder}
+      />,
+    );
+    const sales = screen.getByRole("tab", { name: "Sales" });
+    const accepted = !fireEvent.dragOver(sales, {
+      dataTransfer: { dropEffect: "none" },
+    });
+    fireEvent.drop(sales, { dataTransfer: { getData: () => "0" } });
+    return { onReorder, accepted };
+  }
+
+  it("moves a page in edit mode", () => {
+    const { onReorder, accepted } = dropOverviewOnSales(true);
+    expect(accepted).toBe(true);
+    expect(onReorder).toHaveBeenCalledWith(0, 1);
+  });
+
+  it("refuses a drop in view mode", () => {
+    const { onReorder, accepted } = dropOverviewOnSales(false);
+    expect(accepted).toBe(false);
+    expect(onReorder).not.toHaveBeenCalled();
   });
 });

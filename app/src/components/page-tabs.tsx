@@ -94,14 +94,20 @@ export function PageTabs({
   }
 
   const canDrag = editable && !!onReorder;
+  // Absent when an imported layout has no pages.
+  const activePage = pages[activeIndex];
 
+  // Bound on every tab, so each handler checks `canDrag` itself: a view-mode
+  // tab must not accept a drop.
   function handleDragStart(e: React.DragEvent, index: number) {
+    if (!canDrag) return;
     setDragIndex(index);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(index));
   }
 
   function handleDragOver(e: React.DragEvent, index: number) {
+    if (!canDrag) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     if (dragIndex === null || dragIndex === index) {
@@ -112,6 +118,7 @@ export function PageTabs({
   }
 
   function handleDrop(e: React.DragEvent, index: number) {
+    if (!canDrag) return;
     e.preventDefault();
     const from = Number.parseInt(e.dataTransfer.getData("text/plain"), 10);
     if (!Number.isNaN(from) && from !== index) {
@@ -144,10 +151,10 @@ export function PageTabs({
                 "border-l-2 border-primary",
             )}
             draggable={canDrag}
-            onDragStart={canDrag ? (e) => handleDragStart(e, index) : undefined}
-            onDragOver={canDrag ? (e) => handleDragOver(e, index) : undefined}
-            onDrop={canDrag ? (e) => handleDrop(e, index) : undefined}
-            onDragEnd={canDrag ? handleDragEnd : undefined}
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={(e) => handleDrop(e, index)}
+            onDragEnd={handleDragEnd}
           >
             {canDrag && (
               <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab shrink-0" />
@@ -173,6 +180,7 @@ export function PageTabs({
       </div>
 
       {editable &&
+        activePage &&
         (renamingIndex === null ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -180,7 +188,7 @@ export function PageTabs({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 shrink-0"
-                aria-label={`Page options for ${pages[activeIndex].title}`}
+                aria-label={`Page options for ${activePage.title}`}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -204,6 +212,7 @@ export function PageTabs({
         ) : (
           <Input
             ref={inputRef}
+            aria-label={`Rename page ${pages[renamingIndex].title}`}
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onBlur={commitRename}
