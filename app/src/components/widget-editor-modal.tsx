@@ -150,7 +150,7 @@ export function WidgetEditorModal({
   initialPreviewData,
   canWrite = false,
   onSaveAsTemplate,
-}: WidgetEditorModalProps) {
+}: Readonly<WidgetEditorModalProps>) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
 
   // ── Store-backed state (shared with sub-editors) ───────────────────
@@ -496,7 +496,11 @@ export function WidgetEditorModal({
     ) {
       initialTemplateAppliedRef.current = initialTemplate.id;
       // Use setTimeout to ensure the add-mode reset runs first
-      setTimeout(() => applyTemplate(initialTemplate), 0);
+      setTimeout(() => {
+        applyTemplate(initialTemplate);
+        // The template is what the editor opened with, not an edit (#2085).
+        openedWithRef.current = editorSnapshot(useWidgetEditorStore.getState());
+      }, 0);
     }
     if (!open) initialTemplateAppliedRef.current = undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps

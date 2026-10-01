@@ -944,6 +944,30 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     expect(useWidgetEditorStore.getState().templateId).toBe("t-2076");
   });
 
+  // #2085: the template, fetched after opening, read as the user's edit.
+  it.each([
+    ["closes at once", false],
+    ["asks first after a query change", true],
+  ])(
+    "Use in Dashboard with a template that arrives after opening %s",
+    async (_what, edited) => {
+      const all = {
+        onOpenChange: vi.fn(),
+        mode: "add" as const,
+        connections: [],
+        onSave: vi.fn(),
+      };
+      const { rerender } = render(<WidgetEditorModal {...all} open />);
+      await settle();
+      rerender(<WidgetEditorModal {...all} open initialTemplate={TEMPLATE} />);
+      await settle();
+      if (edited) act(() => useWidgetEditorStore.getState().setQuery("x"));
+      await act(async () => dismiss.onOpenChange?.(false));
+      expect(screen.queryByRole("alertdialog") !== null).toBe(edited);
+      expect(all.onOpenChange).toHaveBeenCalledTimes(edited ? 0 : 1);
+    },
+  );
+
   it.each([
     ["the template's own connection", "", { connectionId: "c2" }, "c2"],
     ["one of the template's connector", "", { connectorType: "beta" }, "c2"],
