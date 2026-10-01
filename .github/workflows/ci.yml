@@ -326,6 +326,10 @@ jobs:
           CI: 'true'
           E2E_COVERAGE: '1'
 
+      # NVL and mobx are browser-only: no server bundle may evaluate them (#2059).
+      - name: Check no server bundle holds NVL or mobx
+        run: node scripts/check-server-bundle.mjs
+
       - name: Run E2E tests (shard ${{ matrix.shard }}/5)
         working-directory: app
         run: npx playwright test --shard=${{ matrix.shard }}/5
