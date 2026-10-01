@@ -245,7 +245,7 @@ plugin
   .description("Unregister and uninstall an external plugin")
   .action(async (packageName) => {
     const { runPluginRemove } = await import("./commands/plugin.js");
-    await runPluginRemove(packageName);
+    runPluginRemove(packageName);
   });
 
 // logs command

@@ -180,7 +180,7 @@ export async function runPluginList(): Promise<void> {
 /**
  * Remove an external plugin by package name and uninstall it.
  */
-export async function runPluginRemove(packageName: string): Promise<void> {
+export function runPluginRemove(packageName: string): void {
   assertCheckout("plugin");
   const root = findProjectRoot() as string;
 
@@ -296,8 +296,9 @@ async function printPlugins(
   for (const type of builtIns) {
     console.log("  " + type.padEnd(20) + "built-in");
   }
-  for (const ext of external) {
-    const type = await pluginTypeOf(ext);
+  const types = await Promise.all(external.map(pluginTypeOf));
+  for (const [i, ext] of external.entries()) {
+    const type = types[i];
     console.log(
       "  " +
         type.padEnd(20) +

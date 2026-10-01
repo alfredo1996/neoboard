@@ -497,7 +497,7 @@ describe("runPluginRemove", () => {
     // First call (plugins manifest) removes successfully
     mockRemoveFromManifest.mockReturnValueOnce(true);
 
-    await runPluginRemove(CHART_PKG);
+    runPluginRemove(CHART_PKG);
 
     const [path, key, name] = mockRemoveFromManifest.mock.calls[0];
     expect(path).toContain("neoboard-plugins.json");
@@ -520,7 +520,7 @@ describe("runPluginRemove", () => {
       .mockReturnValueOnce(false) // plugins: miss
       .mockReturnValueOnce(true); // connectors: hit
 
-    await runPluginRemove(CONN_PKG);
+    runPluginRemove(CONN_PKG);
 
     expect(mockRemoveFromManifest).toHaveBeenCalledTimes(2);
     expect(mockRun).toHaveBeenCalledWith(
@@ -533,7 +533,7 @@ describe("runPluginRemove", () => {
   it("errors and exits 1 when the package is not in either manifest", async () => {
     mockRemoveFromManifest.mockReturnValue(false);
 
-    await runPluginRemove("never-installed");
+    runPluginRemove("never-installed");
 
     expect(mockError).toHaveBeenCalledWith(
       expect.stringContaining("not registered as an external plugin"),
@@ -550,7 +550,7 @@ describe("runPluginRemove", () => {
       throw new Error("npm uninstall failed");
     });
 
-    await runPluginRemove(CHART_PKG);
+    runPluginRemove(CHART_PKG);
 
     expect(mockWarn).toHaveBeenCalledWith(
       expect.stringContaining("npm uninstall failed"),
