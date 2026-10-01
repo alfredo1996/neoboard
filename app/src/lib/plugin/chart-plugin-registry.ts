@@ -4,7 +4,9 @@
  * Defines the contract for chart plugins and provides a registry for
  * registering + looking them up at runtime. The goal: adding a new chart
  * type requires defining ONE plugin object — no scattered edits across
- * chart-registry, chart-renderer, chart-options, and query hints.
+ * chart-registry, chart-renderer, and chart-options. The editor's query
+ * hint is not part of the plugin: it lives in QUERY_HINTS, keyed by chart
+ * type, in components/widget-editor/query-editor-panel.tsx.
  *
  * A plugin bundles everything a chart type needs:
  *   - React component to render the chart

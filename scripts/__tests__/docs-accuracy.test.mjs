@@ -674,6 +674,11 @@ it("the chart plugin guide passes defineChartPlugin only fields the config decla
   expect(documented).toContain("transform"); // the regex still matches
   expect(documented.filter((k) => !declared.includes(k))).toEqual([]);
   expect(declared).not.toContain("queryHint");
+  // The registry header the guide links as "Source of truth" must not claim
+  // the plugin carries query hints: the editor's QUERY_HINTS does.
+  expect(
+    src("app/src/lib/plugin/chart-plugin-registry.ts").split("*/")[0],
+  ).not.toMatch(/edits across[^.]*query\s+(?:\*\s+)?hints/i);
 });
 
 describe("the seven-group information architecture (#1681)", () => {
