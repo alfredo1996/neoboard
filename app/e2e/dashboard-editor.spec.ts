@@ -123,12 +123,21 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
       const tab = (name: string) => page.getByRole("tab", { name });
       const options = (name: string) =>
         page.getByRole("button", { name: `Page options for ${name}` });
+      // One options menu, for the active page (#2107): select the tab first.
+      const openOptions = async (name: string) => {
+        await tab(name).click();
+        await options(name).click();
+      };
       const ask = page.getByRole("alertdialog", { name: 'Delete "Sales"?' });
       await expect(tab("Sales")).toBeVisible({ timeout: 15_000 });
 
+      // ── The tablist owns the tabs and nothing else (#2107) ──────────
+      const tablist = page.getByRole("tablist");
+      await expect(tablist.getByRole("tab")).toHaveCount(4);
+      await expect(tablist.getByRole("button")).toHaveCount(0);
+
       // ── A page with widgets asks, naming it and its widget count ────
-      // The options button only shows on hover; force past the opacity.
-      await options("Sales").click({ force: true });
+      await openOptions("Sales");
       await page.getByRole("menuitem", { name: "Delete page" }).click();
       await expect(ask).toBeVisible();
       await expect(ask).toContainText("its 2 widgets");
@@ -138,7 +147,7 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
       await expect(tab("Sales")).toBeVisible();
 
       // ── An empty page takes nothing with it: no question ────────────
-      await options("Blank").click({ force: true });
+      await openOptions("Blank");
       await page.getByRole("menuitem", { name: "Delete page" }).click();
       await expect(tab("Blank")).toHaveCount(0);
       await expect(page.getByRole("alertdialog")).toHaveCount(0);
@@ -154,7 +163,7 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
       // and must not delete Ops, the page that slid into Sales's place. The
       // suite runs reduced-motion, where there is no fade-out to land in.
       await page.emulateMedia({ reducedMotion: "no-preference" });
-      await options("Sales").click({ force: true });
+      await openOptions("Sales");
       await page.getByRole("menuitem", { name: "Delete page" }).click();
       await ask.getByRole("button", { name: "Delete" }).dblclick();
       await expect(ask).toBeHidden();

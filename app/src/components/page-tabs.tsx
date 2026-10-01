@@ -18,8 +18,8 @@ import {
   DropdownMenuItem,
   ConfirmDialog,
   focusedMenuTrigger,
+  cn,
 } from "@neoboard/components";
-import { cn } from "@neoboard/components";
 import { pluralWidgets } from "@/lib/widget/plural-widgets";
 
 interface PageTabsProps {
@@ -42,7 +42,7 @@ export function PageTabs({
   onRemove,
   onRename,
   onReorder,
-}: PageTabsProps) {
+}: Readonly<PageTabsProps>) {
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -113,8 +113,8 @@ export function PageTabs({
 
   function handleDrop(e: React.DragEvent, index: number) {
     e.preventDefault();
-    const from = parseInt(e.dataTransfer.getData("text/plain"), 10);
-    if (!isNaN(from) && from !== index) {
+    const from = Number.parseInt(e.dataTransfer.getData("text/plain"), 10);
+    if (!Number.isNaN(from) && from !== index) {
       onReorder?.(from, index);
     }
     setDragIndex(null);
@@ -127,43 +127,31 @@ export function PageTabs({
   }
 
   return (
-    <div
-      role="tablist"
-      className="flex items-center gap-1 px-4 border-b bg-background shrink-0 overflow-x-auto"
-    >
-      {pages.map((page, index) => (
-        <div
-          key={page.id}
-          className={cn(
-            "group flex items-center shrink-0",
-            canDrag && dragIndex === index && "opacity-50",
-            canDrag &&
-              dropTargetIndex === index &&
-              dragIndex !== null &&
-              dragIndex !== index &&
-              "border-l-2 border-primary",
-          )}
-          draggable={canDrag && renamingIndex !== index}
-          onDragStart={canDrag ? (e) => handleDragStart(e, index) : undefined}
-          onDragOver={canDrag ? (e) => handleDragOver(e, index) : undefined}
-          onDrop={canDrag ? (e) => handleDrop(e, index) : undefined}
-          onDragEnd={canDrag ? handleDragEnd : undefined}
-        >
-          {canDrag && renamingIndex !== index && (
-            <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab shrink-0" />
-          )}
-
-          {renamingIndex === index ? (
-            <Input
-              ref={inputRef}
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={handleRenameKeyDown}
-              className="h-8 w-32 text-sm px-2 my-1"
-              autoFocus
-            />
-          ) : (
+    <div className="flex items-center gap-1 px-4 border-b bg-background shrink-0 overflow-x-auto">
+      {/* A tablist may own only tabs (#2107): page options, the rename field
+          and Add page sit after it, and act on the active page. */}
+      <div role="tablist" className="flex items-center gap-1">
+        {pages.map((page, index) => (
+          <div
+            key={page.id}
+            className={cn(
+              "group flex items-center shrink-0",
+              canDrag && dragIndex === index && "opacity-50",
+              canDrag &&
+                dropTargetIndex === index &&
+                dragIndex !== null &&
+                dragIndex !== index &&
+                "border-l-2 border-primary",
+            )}
+            draggable={canDrag}
+            onDragStart={canDrag ? (e) => handleDragStart(e, index) : undefined}
+            onDragOver={canDrag ? (e) => handleDragOver(e, index) : undefined}
+            onDrop={canDrag ? (e) => handleDrop(e, index) : undefined}
+            onDragEnd={canDrag ? handleDragEnd : undefined}
+          >
+            {canDrag && (
+              <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab shrink-0" />
+            )}
             <button
               type="button"
               role="tab"
@@ -180,39 +168,50 @@ export function PageTabs({
             >
               {page.title}
             </button>
-          )}
+          </div>
+        ))}
+      </div>
 
-          {editable && renamingIndex !== index && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 ml-0.5"
-                  aria-label={`Page options for ${page.title}`}
+      {editable &&
+        (renamingIndex === null ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                aria-label={`Page options for ${pages[activeIndex].title}`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => startRename(activeIndex)}>
+                <Pencil className="mr-2 h-3 w-3" />
+                Rename
+              </DropdownMenuItem>
+              {pages.length > 1 && (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => requestDelete(activeIndex)}
                 >
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => startRename(index)}>
-                  <Pencil className="mr-2 h-3 w-3" />
-                  Rename
+                  <Trash2 className="mr-2 h-3 w-3" />
+                  Delete page
                 </DropdownMenuItem>
-                {pages.length > 1 && (
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => requestDelete(index)}
-                  >
-                    <Trash2 className="mr-2 h-3 w-3" />
-                    Delete page
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      ))}
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Input
+            ref={inputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={handleRenameKeyDown}
+            className="h-8 w-32 text-sm px-2 my-1"
+            autoFocus
+          />
+        ))}
 
       {editable && (
         <Button
@@ -226,7 +225,6 @@ export function PageTabs({
         </Button>
       )}
 
-      {/* Portalled to <body>: it adds nothing to the tablist's DOM. */}
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

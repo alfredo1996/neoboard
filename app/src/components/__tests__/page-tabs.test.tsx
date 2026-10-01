@@ -8,7 +8,7 @@
  */
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import type { DashboardPage, DashboardWidget } from "@/lib/db/schema";
 
 vi.mock("@neoboard/components", () => ({
@@ -75,7 +75,7 @@ vi.mock("@neoboard/components", () => ({
   cn: (...c: unknown[]) => c.filter(Boolean).join(" "),
 }));
 
-// What `focusedMenuTrigger()` finds: the tab's "Page options" button.
+// What `focusedMenuTrigger()` finds: the "Page options" button.
 const menuTrigger = Object.assign(document.createElement("button"), {
   id: "page-options-trigger",
 });
@@ -103,7 +103,7 @@ function renderTabs(pages: DashboardPage[]) {
   render(
     <PageTabs
       pages={pages}
-      activeIndex={0}
+      activeIndex={1}
       editable
       onSelect={vi.fn()}
       onRemove={onRemove}
@@ -112,11 +112,9 @@ function renderTabs(pages: DashboardPage[]) {
   return { onRemove };
 }
 
-/** Each tab renders its own menu; pick the Delete page item of tab `index`. */
-function clickDeletePage(index: number) {
-  fireEvent.click(
-    screen.getAllByRole("menuitem", { name: "Delete page" })[index],
-  );
+/** One options menu, for the active page (#2107): page 1 in `renderTabs`. */
+function clickDeletePage() {
+  fireEvent.click(screen.getByRole("menuitem", { name: "Delete page" }));
 }
 
 describe("PageTabs — Delete page (#2055)", () => {
@@ -126,7 +124,7 @@ describe("PageTabs — Delete page (#2055)", () => {
       page("p2", "Sales", 3),
     ]);
 
-    clickDeletePage(1);
+    clickDeletePage();
 
     expect(onRemove).not.toHaveBeenCalled();
     const dialog = screen.getByRole("alertdialog", {
@@ -140,7 +138,7 @@ describe("PageTabs — Delete page (#2055)", () => {
   it("uses the singular for a page with one widget", () => {
     renderTabs([page("p1", "Overview", 2), page("p2", "Solo", 1)]);
 
-    clickDeletePage(1);
+    clickDeletePage();
 
     expect(
       screen.getByRole("alertdialog", { name: 'Delete "Solo"?' }),
@@ -153,7 +151,7 @@ describe("PageTabs — Delete page (#2055)", () => {
       page("p2", "Sales", 3),
     ]);
 
-    clickDeletePage(1);
+    clickDeletePage();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(onRemove).not.toHaveBeenCalled();
@@ -167,7 +165,7 @@ describe("PageTabs — Delete page (#2055)", () => {
       page("p2", "Sales", 3),
     ]);
 
-    clickDeletePage(1);
+    clickDeletePage();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(onRemove).toHaveBeenCalledTimes(1);
@@ -181,9 +179,32 @@ describe("PageTabs — Delete page (#2055)", () => {
       page("p2", "Blank", 0),
     ]);
 
-    clickDeletePage(1);
+    clickDeletePage();
 
     expect(onRemove).toHaveBeenCalledWith(1);
     expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});
+
+describe("PageTabs — the tablist holds only the tabs (#2107)", () => {
+  it("keeps Page options, Add page and the rename field outside it", () => {
+    renderTabs([page("p1", "Overview", 1), page("p2", "Sales", 3)]);
+    const tablist = screen.getByRole("tablist");
+    const holdsOnlyTabs = () => {
+      expect(within(tablist).getAllByRole("tab")).toHaveLength(2);
+      expect(within(tablist).queryAllByRole("button")).toEqual([]);
+      expect(within(tablist).queryByRole("textbox")).toBeNull();
+    };
+
+    holdsOnlyTabs();
+    for (const name of ["Page options for Sales", "Add page"]) {
+      expect(tablist).not.toContainElement(
+        screen.getByRole("button", { name }),
+      );
+    }
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+    expect(screen.getByRole("textbox")).toHaveValue("Sales");
+    holdsOnlyTabs();
   });
 });
