@@ -205,6 +205,20 @@ describe("expandParamDefaults", () => {
     ]);
   });
 
+  // #2158: a link's marker types a default with no option loaded; unmarked
+  // text stays text, and an imported list is already typed.
+  it("types a marked default and keeps text and lists as they are", () => {
+    const seeds = expandParamDefaults(
+      ["n:1999", "02134", ["s:a"]].map((value) => ({
+        name: "p",
+        value,
+        type: "select" as const,
+        widgetId: "w0",
+      })),
+    );
+    expect(seeds.map((s) => s.value)).toEqual([1999, "02134", ["s:a"]]);
+  });
+
   // The whole of #1517: queries read `_min`/`_max`, and neither was ever set,
   // so every widget gated on one showed nothing until the slider was dragged.
   it("expands a number-range into the tuple plus _min and _max companions", () => {
@@ -230,19 +244,23 @@ describe("expandParamDefaults", () => {
     ]);
   });
 
-  it("treats the configured default as the upper bound", () => {
-    const seeds = expandParamDefaults([
-      {
-        name: "n",
-        value: "12",
-        type: "number-range",
-        widgetId: "w0",
-        rangeMin: 5,
-      },
-    ]);
-    expect(seeds.find((s) => s.name === "n_max")?.value).toBe(12);
-    expect(seeds.find((s) => s.name === "n_min")?.value).toBe(5);
-  });
+  // A range default marked as in a link reads the same (#2158).
+  it.each(["12", "n:12"])(
+    "treats the default %s as the upper bound",
+    (value) => {
+      const seeds = expandParamDefaults([
+        {
+          name: "n",
+          value,
+          type: "number-range",
+          widgetId: "w0",
+          rangeMin: 5,
+        },
+      ]);
+      expect(seeds.find((s) => s.name === "n_max")?.value).toBe(12);
+      expect(seeds.find((s) => s.name === "n_min")?.value).toBe(5);
+    },
+  );
 
   it("uses 0 as the lower bound when rangeMin is absent", () => {
     const seeds = expandParamDefaults([

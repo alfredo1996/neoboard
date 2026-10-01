@@ -282,7 +282,6 @@ export function WidgetEditorModal({
         : widget,
     [mode, templateProp, widget],
   );
-  const buildWidgetForSave = useBuildWidgetForSave(savedWidget, layout);
 
   // Lab-mode mutations
   const createTemplate = useCreateWidgetTemplate();
@@ -348,6 +347,12 @@ export function WidgetEditorModal({
     // The dashboard selector's own mapping, so the preview cannot drift (#2104).
     return Array.isArray(rows) ? rows.map(seedRowToOption) : [];
   }, [seedQueryExecution.data]);
+  // The options also type the saved Default value (#2158).
+  const buildWidgetForSave = useBuildWidgetForSave(
+    savedWidget,
+    layout,
+    seedPreviewOptions,
+  );
 
   const previewQuery = useQueryExecution();
   // A re-run (the debounced auto-preview) blanks `data` until it settles;

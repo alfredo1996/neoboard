@@ -124,16 +124,22 @@ const RANGE_SUFFIXES: Partial<Record<ParameterType, [string, string]>> = {
 /** A value's type marker; text that starts like one is escaped with `s:`. */
 const MARKER = /^[nbs]:/;
 
-/** A number or boolean carries its type in the link (#2124). */
-function encodeItem(item: string | number | boolean | unknown[]): string {
+/**
+ * A number or boolean carries its type in the link (#2124), and in a saved
+ * Default value (#2158).
+ */
+export function encodeItem(item: unknown): string {
   if (typeof item === "number") return `n:${item}`;
   if (typeof item === "boolean") return `b:${item}`;
   const text = String(item);
   return MARKER.test(text) ? `s:${text}` : text;
 }
 
-/** The value `encodeItem` wrote; a malformed number stays text. */
-function decodeItem(text: string): unknown {
+/**
+ * The value `encodeItem` wrote, or a Default value marked the same way
+ * (#2158); a malformed number stays text.
+ */
+export function decodeItem(text: string): unknown {
   if (!MARKER.test(text)) return text;
   const body = text.slice(2);
   if (text.startsWith("s")) return body;
