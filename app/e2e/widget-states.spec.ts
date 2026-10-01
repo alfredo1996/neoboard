@@ -273,6 +273,64 @@ test.describe("Widget without connection", () => {
       page.getByText(/definitely_not_a_table|does not exist|syntax error/i),
     ).toHaveCount(0);
   });
+
+  test("a form or graph on a connection that can't feed it shows as incompatible in view mode (#2137)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Incompatible ${uid()}`,
+    );
+    dashboardCleanup = cleanup;
+    const put = await page.request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "p1",
+              title: "Main",
+              widgets: ["graph", "form"].map((chartType) => ({
+                id: `w-${chartType}`,
+                chartType,
+                connectionId: "conn-pg-001",
+                query: "SELECT 1 AS n",
+                settings: { title: chartType },
+              })),
+              gridLayout: [
+                { i: "w-graph", x: 0, y: 0, w: 6, h: 4 },
+                { i: "w-form", x: 6, y: 0, w: 6, h: 4 },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(put.ok(), await put.text()).toBe(true);
+    // The seeded connector can write; stub the flag the server hands viewers.
+    await page.route(`**/api/dashboards/${id}`, async (route) => {
+      const response = await route.fetch();
+      const json = await response.json();
+      json.data.connectorCapabilities["conn-pg-001"].supportsWrite = false;
+      await route.fulfill({ response, json });
+    });
+
+    await page.goto(`/${id}`);
+
+    // The graph's flag is the server's own answer; the form's is the stub.
+    for (const [widget, missing] of [
+      ["w-graph", "return graph data"],
+      ["w-form", "accept writes"],
+    ]) {
+      const card = page.locator(`[data-widget-id="${widget}"]`);
+      await expect(card.getByText("Incompatible connection")).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(card.getByText(new RegExp(missing))).toBeVisible();
+    }
+  });
 });
 
 test.describe("Refresh button", () => {

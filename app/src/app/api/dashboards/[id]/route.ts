@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -21,9 +21,9 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
-import { sql } from "drizzle-orm";
 import {
   layoutConnectionIds,
+  layoutConnectorCapabilities,
   unusableByOwner,
   unusableConnectionIds,
 } from "@/lib/db/connection-access";
@@ -41,16 +41,15 @@ const gridLayoutItemSchema = z.object({
   h: z.number(),
 });
 
-const widgetSchema = z
-  .object({
-    id: z.string(),
-    chartType: z.string(),
-    connectionId: z.string(),
-    query: z.string(),
-    params: z.record(z.string(), z.unknown()).optional(),
-    settings: z.record(z.string(), z.unknown()).optional(),
-  })
-  .passthrough(); // preserves templateId, templateSyncedAt and any future fields
+// Loose: preserves templateId, templateSyncedAt and any future fields.
+const widgetSchema = z.looseObject({
+  id: z.string(),
+  chartType: z.string(),
+  connectionId: z.string(),
+  query: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+});
 
 const pageSchema = z.object({
   id: z.string(),
@@ -140,6 +139,10 @@ export async function GET(
       ...access.dashboard,
       role: access.role,
       updatedByName: metadata?.updatedByName ?? null,
+      connectorCapabilities: await layoutConnectorCapabilities(
+        access.dashboard.layoutJson,
+        tenantId,
+      ),
     });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboard");

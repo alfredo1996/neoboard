@@ -1089,6 +1089,20 @@ describe("WidgetEditorModal — the Form widget needs a connection that can writ
     expect(selector.compatibleChartTypes?.includes("form")).toBe(offered);
   });
 
+  // #2137: an existing form on a connection that can't write is flagged.
+  it.each([
+    ["c-rw", false],
+    ["c-ro", true],
+  ])(
+    "editing a form on %s warns it is incompatible: %s",
+    (connectionId, warns) => {
+      editWidget("form", connectionId);
+      expect(screen.queryByText(/Incompatible connection/) !== null).toBe(
+        warns,
+      );
+    },
+  );
+
   it("moving a form to a connection that cannot write falls back to Table", () => {
     editWidget("form", "c-rw");
     expect(useWidgetEditorStore.getState().chartType).toBe("form");

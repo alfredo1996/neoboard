@@ -66,13 +66,11 @@ export function bucketWidgetsByConnection(
   // Unassigned last — it is the remedial row, not the common case.
   return [...counts.entries()]
     .map(([connectionId, widgetCount]) => ({ connectionId, widgetCount }))
-    .sort((a, b) =>
-      a.connectionId === UNASSIGNED
-        ? 1
-        : b.connectionId === UNASSIGNED
-          ? -1
-          : a.connectionId.localeCompare(b.connectionId),
-    );
+    .sort((a, b) => {
+      if (a.connectionId === UNASSIGNED) return 1;
+      if (b.connectionId === UNASSIGNED) return -1;
+      return a.connectionId.localeCompare(b.connectionId);
+    });
 }
 
 /**
@@ -256,7 +254,9 @@ export function DashboardConnectionDialog({
             <p className="text-sm text-muted-foreground">
               This will change {pluralWidgets(selectedBucket.widgetCount)} on{" "}
               {dashboardName}. Widget queries are not checked against the target
-              — incompatible queries will show their usual error.
+              — incompatible queries will show their usual error, and a chart
+              the target cannot feed (a form needs writes, a graph needs graph
+              data) shows as an incompatible connection.
             </p>
           )}
 

@@ -65,6 +65,7 @@ import {
   getStylingTargets,
   getCompatibleChartTypes,
   getSelectableChartTypes,
+  connectorMismatch,
   chartRequiresQuery,
   getChartDefaults,
   supportsColumnMapping,
@@ -222,6 +223,28 @@ describe("getCompatibleChartTypes", () => {
     expect(getChartConfig("circle-packing")).toBeUndefined();
     expect(getAllChartTypes()).not.toContain("treemap");
     expect(getAllChartTypes()).not.toContain("circle-packing");
+  });
+});
+
+// #2137: why an existing widget's connection cannot feed it; unknown means it can.
+describe("connectorMismatch", () => {
+  it.each([
+    [
+      "form",
+      { supportsWrite: false },
+      "This connection can't accept writes, which Form widgets need.",
+    ],
+    [
+      "graph",
+      {},
+      "This connection can't return graph data, which Graph widgets need.",
+    ],
+    ["graph", { supportsGraphData: true }, null],
+    ["graph", undefined, null],
+    ["table", {}, null],
+    ["unknown", {}, null],
+  ])("%s on %o: %s", (type, connector, expected) => {
+    expect(connectorMismatch(type, connector)).toBe(expected);
   });
 });
 

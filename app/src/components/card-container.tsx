@@ -4,10 +4,14 @@ import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { useClickAction } from "@/hooks/use-click-action";
 import { resolveWidgetCacheOptions } from "@/lib/query/resolve-cache-options";
 import {
+  connectorMismatch,
   getChartConfig,
   supportsColumnMapping as chartSupportsColumnMapping,
 } from "@/lib/plugin/chart-helpers";
-import type { ColumnMapping } from "@/lib/plugin/chart-helpers";
+import type {
+  ColumnMapping,
+  ConnectorCapabilities,
+} from "@/lib/plugin/chart-helpers";
 import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
 import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
@@ -37,8 +41,6 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from "@neoboard/components";
-import {
   EmptyState,
   ColumnMappingOverlay,
   substituteParams,
@@ -83,6 +85,8 @@ interface CardContainerProps {
   widgetIdSuffix?: string;
   /** Maps parameter names to the widgets that set them (for clickable badges). */
   parameterSourceMap?: ParameterSourceMap;
+  /** What the widget's connection can do (#2137). Unset: nothing ruled out. */
+  connector?: ConnectorCapabilities;
 }
 
 // extractColumnNames imported from @/lib/widget/card-utils
@@ -96,11 +100,11 @@ function MissingParamBadge({
   name,
   parameterSourceMap,
   onNavigateToPage,
-}: {
+}: Readonly<{
   name: string;
   parameterSourceMap?: ParameterSourceMap;
   onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
-}) {
+}>) {
   const sources = parameterSourceMap?.[name];
 
   if (!sources || sources.length === 0) {
@@ -234,7 +238,8 @@ export function CardContainer({
   autoFit,
   widgetIdSuffix,
   parameterSourceMap,
-}: CardContainerProps) {
+  connector,
+}: Readonly<CardContainerProps>) {
   const effectiveWidgetId = widgetIdSuffix
     ? `${widget.id}--${widgetIdSuffix}`
     : widget.id;
@@ -250,6 +255,7 @@ export function CardContainer({
   const isFormWidget = widget.chartType === "form";
   const isContentOnly =
     widget.chartType === "markdown" || widget.chartType === "iframe";
+  const mismatch = connectorMismatch(widget.chartType, connector);
 
   const chartOptions = useMemo(
     () => (ws.chartOptions ?? {}) as Record<string, unknown>,
@@ -284,6 +290,7 @@ export function CardContainer({
   // Parameter-select and form widgets skip query execution entirely.
   const queryInput =
     previewData !== undefined ||
+    mismatch !== null ||
     isParameterWidget ||
     isFormWidget ||
     isContentOnly
@@ -337,7 +344,7 @@ export function CardContainer({
     (newMapping: ColumnMapping) => {
       if (!onWidgetSettingsChange) return;
       onWidgetSettingsChange({
-        ...(widget.settings ?? {}),
+        ...widget.settings,
         columnMapping: newMapping,
       });
     },
@@ -366,6 +373,18 @@ export function CardContainer({
         icon={<AlertCircle className="h-8 w-8" />}
         title="Unknown chart type"
         description={`Chart type "${widget.chartType}" is not supported.`}
+        className="py-6"
+      />
+    );
+  }
+
+  // Not a control that fails on submit or a query that cannot draw (#2137).
+  if (mismatch) {
+    return (
+      <EmptyState
+        icon={<AlertCircle className="h-8 w-8" />}
+        title="Incompatible connection"
+        description={mismatch}
         className="py-6"
       />
     );

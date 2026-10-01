@@ -935,12 +935,33 @@ describe("#1981 payloads: dashboards-crud", () => {
     expect(props.version.type).toBe("integer");
   });
 
-  it("the detail is the row plus role and updatedByName, without widgetCount", () => {
-    const keys = [...ROW, "role", "updatedByName"].sort();
+  it("the detail is the row plus role, updatedByName and connectorCapabilities, without widgetCount", () => {
+    const keys = [
+      ...ROW,
+      "role",
+      "updatedByName",
+      "connectorCapabilities",
+    ].sort();
     expect(flat(data(detail, "200"))).toEqual({
       properties: keys,
       required: keys,
     });
+  });
+
+  // #2137: flags only, keyed by connection id; never a name or config.
+  it("connectorCapabilities maps a connection id to the two capability flags", () => {
+    const caps = deref(data(detail, "200"))
+      .allOf!.map((s) => s.properties?.connectorCapabilities)
+      .find(Boolean)!;
+    const value = caps.additionalProperties as Schema;
+    expect(Object.keys(value.properties!).sort()).toEqual([
+      "supportsGraphData",
+      "supportsWrite",
+    ]);
+    expect(value.required!.sort()).toEqual([
+      "supportsGraphData",
+      "supportsWrite",
+    ]);
   });
 
   it("an update takes expectedVersion, refuses unknown keys and needs a real field", () => {

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { connections, users } from "@/lib/db/schema";
 import type { DashboardLayout, UserRole } from "@/lib/db/schema";
 import { migrateLayout } from "@/lib/dashboard/migrate-layout";
+import { getConnector } from "@neoboard/connection";
 
 /**
  * Who may use a connection directly: its owner, anyone in the tenant once it
@@ -31,6 +32,42 @@ export function layoutConnectionIds(layout: unknown): Set<string> {
     }
   }
   return ids;
+}
+
+/**
+ * What the connector behind each connection a layout names can do, keyed by
+ * connection id (#2137). Capability flags only, never the connection's name or
+ * config, so a viewer who cannot use the connection gets them too. A connector
+ * that is not installed is unknown, not incapable: it is left out, as the
+ * editor finds no descriptor for it, so neither rules anything out.
+ */
+export async function layoutConnectorCapabilities(
+  layout: unknown,
+  tenantId: string,
+) {
+  const ids = [...layoutConnectionIds(layout)];
+  if (ids.length === 0) return {};
+  const rows = await db
+    .select({ id: connections.id, type: connections.type })
+    .from(connections)
+    .where(
+      and(eq(connections.tenantId, tenantId), inArray(connections.id, ids)),
+    );
+  return Object.fromEntries(
+    rows.flatMap(({ id, type }) => {
+      const connector = getConnector(type);
+      if (!connector) return [];
+      return [
+        [
+          id,
+          {
+            supportsGraphData: connector.supportsGraphData === true,
+            supportsWrite: connector.supportsWrite === true,
+          },
+        ],
+      ];
+    }),
+  );
 }
 
 /**

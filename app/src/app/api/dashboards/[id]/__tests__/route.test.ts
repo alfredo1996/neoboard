@@ -47,6 +47,11 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
+vi.mock("@neoboard/connection", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@neoboard/connection")>()),
+  getConnector: (type: string) =>
+    type === "rw-db" ? { supportsWrite: true } : undefined,
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -232,6 +237,41 @@ describe("GET /api/dashboards/[id]", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.role).toBe("admin");
+  });
+
+  // #2137: flags only, per connection, for a viewer who cannot use it too.
+  it("hands a viewer each widget connection's connector capabilities", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const widgets = ["c1", "c2"].map((connectionId) => ({
+      id: connectionId,
+      chartType: "form",
+      connectionId,
+      query: "",
+    }));
+    const layoutJson = {
+      version: 2,
+      pages: [{ id: "p1", title: "Main", widgets, gridLayout: [] }],
+    };
+    const connectionsChain = makeSelectChain([
+      { id: "c1", type: "rw-db", name: "Prod", configEncrypted: "x" },
+      { id: "c2", type: "gone-db" },
+    ]);
+    mockDb.select
+      .mockReturnValueOnce(
+        makeSelectChain([{ ...OWNER_DASHBOARD, isPublic: true, layoutJson }]),
+      )
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]))
+      .mockReturnValueOnce(connectionsChain);
+    const body = await (await GET({} as Request, makeParams("d1"))).json();
+    // c2's connector is not installed: unknown, not incapable, so it is left
+    // out and the card agrees with the editor, which finds no descriptor.
+    expect(body.data.connectorCapabilities).toEqual({
+      c1: { supportsGraphData: false, supportsWrite: true },
+    });
+    expect(sqlValues(connectionsChain.calls.where[0][0])).toEqual(
+      expect.arrayContaining(["tenant-1", "c1", "c2"]),
+    );
   });
 
   it("returns updatedByName when updatedBy is set", async () => {
