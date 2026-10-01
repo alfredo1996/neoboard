@@ -210,7 +210,7 @@ describe("ParamSelect — write mapping", () => {
  * no message, no way to tell a dead connector from "no rows", and every
  * widget gated on this parameter stuck on "Waiting for parameters…".
  */
-// A link carries text; the store must hold what picking the option would (#2097).
+// A default or an unmarked link is text; the store must hold what picking the option would (#2097).
 describe("ParamSelect — a restored string takes its option's type", () => {
   // `retype`, not `set`: a value restored from a link stays "Set by URL" (#2114).
   it("rewrites a stored '42' as the option's rawValue 42", () => {
@@ -227,9 +227,7 @@ describe("ParamSelect — a restored string takes its option's type", () => {
       entry("42"),
       { options: [{ value: "42", label: "F" }] },
     ],
-    // Known gap (#2114): only the loaded options can type a value. A searchable
-    // seed loads the rows for an empty term, so a value found by searching
-    // stays a string after a link reload.
+    // Only the loaded options can type a text value; a marked link needs none (#2124).
     [
       "a server-filtered page that lacks the value",
       entry("1234"),

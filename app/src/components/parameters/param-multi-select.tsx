@@ -50,7 +50,15 @@ export function ParamMultiSelect({
           actions.clear();
           return;
         }
-        actions.set(vals.map((v) => rawValueOf(v, seed.options)));
+        // A stored item keeps its type: its option may not be loaded (#2124).
+        const stored: unknown[] = [rawValues].flat();
+        actions.set(
+          vals.map(
+            (v) =>
+              stored.find((p) => String(p) === v) ??
+              rawValueOf(v, seed.options),
+          ),
+        );
       }}
       placeholder={placeholder}
       loading={seed.loading}

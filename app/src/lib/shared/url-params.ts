@@ -12,9 +12,10 @@ const PARAM_PREFIX = "param_";
 /**
  * Restore parameter values from URL search params, typed by the widget that
  * owns each one (#2097): a multi-select from its repeated keys, a range
- * rebuilt from its companions. Any other `param_` key comes back as text.
+ * rebuilt from its companions. A value's marker restores its own type, so a
+ * select needs no loaded option to get its number back (#2124).
  * A seed with an `undefined` value is a range bound to clear.
- * e.g., ?param_year=1999&param_dept=Sales → year "1999", dept "Sales"
+ * e.g., ?param_year=n:1999&param_dept=Sales → year 1999, dept "Sales"
  */
 export function parseUrlParams(
   searchParams: URLSearchParams,
@@ -30,7 +31,12 @@ export function parseUrlParams(
   searchParams.forEach((value, key) => {
     const name = key.slice(PARAM_PREFIX.length);
     if (key.startsWith(PARAM_PREFIX) && value && !owned.has(name)) {
-      seeds.push({ name, value, type: "text", widgetId: "" });
+      seeds.push({
+        name,
+        value: decodeItem(value),
+        type: "text",
+        widgetId: "",
+      });
     }
   });
   return seeds;
@@ -39,22 +45,26 @@ export function parseUrlParams(
 /**
  * Build URL search params from parameter store values.
  * Only non-empty values of params in `syncable` are included, prefixed with
- * "param_". e.g., { year: "1999", dept: "" } → ?param_year=1999
+ * "param_". e.g., { year: 1999, dept: "" } → ?param_year=n:1999
  *
- * `syncable` is required, not optional: URL sync is opt-in per widget, and an
- * omitted allow-list would silently publish every parameter.
+ * `syncable` maps each key to its widget's type. It is required, not
+ * optional: URL sync is opt-in per widget, and an omitted allow-list would
+ * silently publish every parameter.
  */
 export function buildUrlParams(
   params: Record<string, unknown>,
-  syncable: ReadonlySet<string>,
+  syncable: ReadonlyMap<string, ParameterType>,
 ): URLSearchParams {
   const sp = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (!syncable.has(key)) continue;
+    const type = syncable.get(key);
+    if (!type) continue;
+    // A range bound is rebuilt under its widget's type, so it stays unmarked.
+    const write = RANGE_SUFFIXES[type] ? String : encodeItem;
     // A list repeats its key, so a value with a comma survives (#2097).
     for (const item of Array.isArray(value) ? value : [value]) {
       if (item !== undefined && item !== null && String(item) !== "") {
-        sp.append(`${PARAM_PREFIX}${key}`, String(item));
+        sp.append(`${PARAM_PREFIX}${key}`, write(item));
       }
     }
   }
@@ -69,7 +79,7 @@ export function buildUrlParams(
 export function buildParamsUrl(
   pathname: string,
   parameters: Record<string, { value: unknown } | undefined>,
-  syncable: ReadonlySet<string>,
+  syncable: ReadonlyMap<string, ParameterType>,
 ): string {
   const sp = buildUrlParams(
     Object.fromEntries(
@@ -110,6 +120,31 @@ const RANGE_SUFFIXES: Partial<Record<ParameterType, [string, string]>> = {
   "date-range": ["from", "to"],
   "number-range": ["min", "max"],
 };
+
+/** A value's type marker; text that starts like one is escaped with `s:`. */
+const MARKER = /^[nbs]:/;
+
+/** A number or boolean carries its type in the link (#2124). */
+function encodeItem(item: string | number | boolean | unknown[]): string {
+  if (typeof item === "number") return `n:${item}`;
+  if (typeof item === "boolean") return `b:${item}`;
+  const text = String(item);
+  return MARKER.test(text) ? `s:${text}` : text;
+}
+
+/** The value `encodeItem` wrote; a malformed number stays text. */
+function decodeItem(text: string): unknown {
+  if (!MARKER.test(text)) return text;
+  const body = text.slice(2);
+  if (text.startsWith("s")) return body;
+  if (text.startsWith("b")) {
+    if (body === "true" || body === "false") return body === "true";
+    return text;
+  }
+  // `Number("")` is 0: a blank body is malformed, not zero.
+  const n = body.trim() === "" ? Number.NaN : Number(body);
+  return Number.isNaN(n) ? text : n;
+}
 
 /**
  * The URL keys a widget's value travels under. A range travels as its two
@@ -152,21 +187,27 @@ function widgetSeeds(sp: URLSearchParams, w: ParamWidget): ParamSeed[] {
       seed(hi, max, "text"),
     ];
   }
-  const values = sp.getAll(`${PARAM_PREFIX}${w.name}`).filter(Boolean);
+  const values = sp
+    .getAll(`${PARAM_PREFIX}${w.name}`)
+    .filter(Boolean)
+    .map(decodeItem);
   if (values.length === 0) return [];
   return [seed(w.name, w.type === "multi-select" ? values : values[0])];
 }
 
 /**
- * Extract the URL keys allowed in the address bar — those of widgets that
- * turned "Sync to URL" on. Sync is opt-in: the chart option defaults to false
- * and is absent until the author toggles it, so anything else (an untouched
- * widget, a click-action or form parameter) stays out of the address bar.
+ * Extract the URL keys allowed in the address bar, each with its widget's
+ * type — those of widgets that turned "Sync to URL" on. Sync is opt-in: the
+ * chart option defaults to false and is absent until the author toggles it,
+ * so anything else (an untouched widget, a click-action or form parameter)
+ * stays out of the address bar.
  */
-export function extractSyncParams(layout: DashboardLayoutV2): Set<string> {
-  return new Set(
+export function extractSyncParams(
+  layout: DashboardLayoutV2,
+): Map<string, ParameterType> {
+  return new Map(
     parameterWidgets(layout)
       .filter((w) => w.sync)
-      .flatMap(urlKeys),
+      .flatMap((w) => urlKeys(w).map((key) => [key, w.type] as const)),
   );
 }

@@ -838,6 +838,80 @@ test("a numeric select restored from a link filters its widget", async ({
   }
 });
 
+// #2124: the link types 1999 itself; the seed stops before it, or never runs.
+for (const [where, selectorPage] of [
+  ["past its seed's LIMIT", 0],
+  ["on an unopened page", 1],
+] as const) {
+  test(`a numeric select linked ${where} filters its widget`, async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Typed link ${uid()}`,
+    );
+    const pages: Record<string, unknown>[][] = [
+      [
+        {
+          id: "typed-table",
+          chartType: "table",
+          connectionId: "conn-neo4j-001",
+          query:
+            "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title",
+          settings: { title: "Movies" },
+        },
+      ],
+      [],
+    ];
+    pages[selectorPage].push({
+      id: "typed-param",
+      chartType: "parameter-select",
+      connectionId: "conn-neo4j-001",
+      query: "",
+      settings: {
+        chartOptions: {
+          parameterType: "select",
+          parameterName: "year",
+          syncToUrl: true,
+          seedQuery:
+            "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 3",
+        },
+      },
+    });
+
+    try {
+      const put = await page.request.put(`/api/dashboards/${id}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: pages.map((widgets, n) => ({
+              id: `page-${n}`,
+              title: `Page ${n + 1}`,
+              widgets,
+              gridLayout: widgets.map((w, x) => ({
+                i: w.id,
+                x: x * 6,
+                y: 0,
+                w: 6,
+                h: 5,
+              })),
+            })),
+          },
+        },
+      });
+      expect(put.ok()).toBe(true);
+      await page.goto(`/${id}?param_year=n:1999`);
+      await expect(page.getByRole("cell", { name: "The Matrix" })).toBeVisible({
+        timeout: 15_000,
+      });
+    } finally {
+      await cleanup();
+    }
+  });
+}
+
 test.describe("Run and save with a parameter (#1912)", () => {
   // The shortcut used to run the query without its parameters, so the server
   // answered "Expected parameter(s): param_year", nothing was added and the
