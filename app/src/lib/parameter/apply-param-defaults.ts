@@ -1,4 +1,5 @@
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
+import { decodeItem } from "@/lib/shared/url-params";
 import type { ParameterType } from "@/stores/parameter-store";
 
 /**
@@ -15,8 +16,8 @@ import type { ParameterType } from "@/stores/parameter-store";
 export interface ParamDefault {
   /** Parameter name, without the `param_` prefix. */
   name: string;
-  /** The raw value as configured in the editor. */
-  value: string;
+  /** Editor text (`n:1999` marked as in a link), or what an import wrote. */
+  value: unknown;
   /** The widget's parameter type, used to coerce and to seed companions. */
   type: ParameterType;
   /** The widget that configured it — lets the parameter chip link back. */
@@ -36,7 +37,7 @@ function readWidgetDefault(
   if (widget.chartType !== "parameter-select") return null;
   const opts = (widget.settings?.chartOptions ?? {}) as Record<string, unknown>;
   const name = opts.parameterName as string | undefined;
-  const value = opts.defaultValue as string | undefined;
+  const value = opts.defaultValue;
   if (!name || !value) return null;
 
   const type = (opts.parameterType as ParameterType | undefined) ?? "select";
@@ -95,9 +96,9 @@ export interface ParamSeed {
 export function expandParamDefaults(defaults: ParamDefault[]): ParamSeed[] {
   return defaults.flatMap((d): ParamSeed[] => {
     if (d.type !== "number-range") {
-      return [
-        { name: d.name, value: d.value, type: d.type, widgetId: d.widgetId },
-      ];
+      // A marked default keeps its type with no option loaded (#2158).
+      const value = typeof d.value === "string" ? decodeItem(d.value) : d.value;
+      return [{ name: d.name, value, type: d.type, widgetId: d.widgetId }];
     }
     const min = d.rangeMin ?? 0;
     const max = Number(d.value);

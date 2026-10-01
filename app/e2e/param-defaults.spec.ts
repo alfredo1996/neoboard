@@ -87,4 +87,65 @@ test.describe("Parameter defaults are applied on load (#1421)", () => {
       await cleanup();
     }
   });
+
+  // #2158: the seed stops before 1999, so only the default's marker types it.
+  test("a numeric default past its seed's LIMIT filters its widget", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Typed default ${uid()}`,
+    );
+    try {
+      const put = await page.request.put(`/api/dashboards/${id}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Page 1",
+                widgets: [
+                  {
+                    id: "sel",
+                    chartType: "parameter-select",
+                    connectionId: "conn-neo4j-001",
+                    query: "",
+                    settings: {
+                      chartOptions: {
+                        parameterType: "select",
+                        parameterName: "year",
+                        defaultValue: "n:1999",
+                        seedQuery:
+                          "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 3",
+                      },
+                    },
+                  },
+                  {
+                    id: "tbl",
+                    chartType: "table",
+                    connectionId: "conn-neo4j-001",
+                    query:
+                      "MATCH (m:Movie) WHERE m.released = $param_year RETURN m.title AS title",
+                    settings: { title: "Movies" },
+                  },
+                ],
+                gridLayout: [
+                  { i: "sel", x: 0, y: 0, w: 4, h: 3 },
+                  { i: "tbl", x: 4, y: 0, w: 8, h: 5 },
+                ],
+              },
+            ],
+          },
+        },
+      });
+      expect(put.ok()).toBe(true);
+      await page.goto(`/${id}`);
+      await expect(page.getByRole("cell", { name: "The Matrix" })).toBeVisible({
+        timeout: 15_000,
+      });
+    } finally {
+      await cleanup();
+    }
+  });
 });

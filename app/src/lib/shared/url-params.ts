@@ -132,8 +132,11 @@ function encodeItem(item: string | number | boolean | unknown[]): string {
   return MARKER.test(text) ? `s:${text}` : text;
 }
 
-/** The value `encodeItem` wrote; a malformed number stays text. */
-function decodeItem(text: string): unknown {
+/**
+ * The value `encodeItem` wrote, or a Default value marked the same way
+ * (#2158); a malformed number stays text.
+ */
+export function decodeItem(text: string): unknown {
   if (!MARKER.test(text)) return text;
   const body = text.slice(2);
   if (text.startsWith("s")) return body;
