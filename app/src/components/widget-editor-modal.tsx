@@ -52,6 +52,7 @@ import {
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
+  connectorMismatch,
   getSelectableChartTypes,
   chartSupportsClickAction,
   chartSupportsStyling,
@@ -423,6 +424,13 @@ export function WidgetEditorModal({
         chartType,
       ) as ChartType[],
     [descriptorFor, selectedConnection, chartType],
+  );
+
+  // An existing widget's type its connection cannot feed (#2137). Only a loaded
+  // descriptor can say so: descriptorFor's bare fallback would warn meanwhile.
+  const chartMismatch = connectorMismatch(
+    chartType,
+    connectors?.find((c) => c.type === selectedConnection?.type),
   );
 
   // Unified connection-change handler for both add and edit modes.
@@ -814,6 +822,19 @@ export function WidgetEditorModal({
                           <AlertDescription className="text-xs">
                             Switching connectors may make the existing query
                             invalid. Review the query before saving.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {chartMismatch && (
+                        <Alert variant="default" className="py-2">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertTitle className="text-sm">
+                            Incompatible connection
+                          </AlertTitle>
+                          <AlertDescription className="text-xs">
+                            {chartMismatch} Pick another connection or chart
+                            type.
                           </AlertDescription>
                         </Alert>
                       )}

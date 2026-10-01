@@ -82,6 +82,30 @@ interface DashboardWorkspaceProps {
  * `editable` is a plain prop all the way down to `card-container`, so flipping
  * the mode re-renders but never remounts or re-queries.
  */
+/** An empty page's call to action: add here, or open the editor if allowed. */
+function emptyPageAction(
+  editMode: boolean,
+  canEdit: boolean,
+  onAdd: () => void,
+  onEdit: () => void,
+): React.ReactNode {
+  if (editMode) {
+    return (
+      <Button onClick={onAdd}>
+        <Plus className="mr-2 h-4 w-4" />
+        Add Widget
+      </Button>
+    );
+  }
+  if (!canEdit) return undefined;
+  return (
+    <Button onClick={onEdit}>
+      <Pencil className="mr-2 h-4 w-4" />
+      Add widgets in the editor
+    </Button>
+  );
+}
+
 export function DashboardWorkspace({
   id,
   editMode,
@@ -112,7 +136,7 @@ export function DashboardWorkspace({
   // drops `page` from the query string, so re-reading it would reset the page.
   const [initialPage] = useState(() => {
     const raw = searchParams.get("page");
-    const parsed = raw === null ? 0 : parseInt(raw, 10);
+    const parsed = raw === null ? 0 : Number.parseInt(raw, 10);
     return Number.isFinite(parsed) ? parsed : 0;
   });
 
@@ -854,19 +878,12 @@ export function DashboardWorkspace({
                       ? 'Click "Add Widget" to get started.'
                       : "This page has no widgets."
                   }
-                  action={
-                    editMode ? (
-                      <Button onClick={openAddWidget}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Widget
-                      </Button>
-                    ) : canEdit ? (
-                      <Button onClick={enterEditMode}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Add widgets in the editor
-                      </Button>
-                    ) : undefined
-                  }
+                  action={emptyPageAction(
+                    editMode,
+                    canEdit,
+                    openAddWidget,
+                    enterEditMode,
+                  )}
                 />
               );
             }
@@ -916,6 +933,7 @@ export function DashboardWorkspace({
                   templateMap={editMode ? templateMap : undefined}
                   showParameterBar={effectiveShowBar}
                   parameterSourceMap={parameterSourceMap}
+                  connectorCapabilities={dashboard?.connectorCapabilities}
                 />
               </div>
             );

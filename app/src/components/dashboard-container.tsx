@@ -24,6 +24,7 @@ import {
 } from "@/lib/widget/widget-utils";
 import { isDataWidget } from "@/lib/widget/widget-actions";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
+import type { ConnectorCapabilities } from "@/lib/plugin/chart-helpers";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -91,6 +92,8 @@ interface DashboardContainerProps {
   showParameterBar?: boolean;
   /** Maps parameter names to the widgets that set them (for clickable badges). */
   parameterSourceMap?: ParameterSourceMap;
+  /** What each connection's connector can do, by connection id (#2137). */
+  connectorCapabilities?: Record<string, ConnectorCapabilities>;
 }
 
 // getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget/widget-utils
@@ -107,7 +110,8 @@ export function DashboardContainer({
   templateMap,
   showParameterBar = true,
   parameterSourceMap,
-}: DashboardContainerProps) {
+  connectorCapabilities,
+}: Readonly<DashboardContainerProps>) {
   const {
     onRemoveWidget,
     onEditWidget,
@@ -444,6 +448,7 @@ export function DashboardContainer({
                     refetchInterval={refetchInterval}
                     onNavigateToPage={onNavigateToPage}
                     parameterSourceMap={parameterSourceMap}
+                    connector={connectorCapabilities?.[widget.connectionId]}
                   />
                 </WidgetCard>
               </div>
@@ -470,25 +475,26 @@ export function DashboardContainer({
             dashboard.
           </DialogDescription>
           {fullscreenWidget && (
-            <>
-              <div className="flex-1 min-h-0">
-                {fullscreenReady ? (
-                  <CardContainer
-                    key={`${fullscreenWidget.id}-fullscreen`}
-                    widget={fullscreenWidget}
-                    refetchInterval={refetchInterval}
-                    onNavigateToPage={onNavigateToPage}
-                    parameterSourceMap={parameterSourceMap}
-                    autoFit
-                    widgetIdSuffix="fullscreen"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-                  </div>
-                )}
-              </div>
-            </>
+            <div className="flex-1 min-h-0">
+              {fullscreenReady ? (
+                <CardContainer
+                  key={`${fullscreenWidget.id}-fullscreen`}
+                  widget={fullscreenWidget}
+                  refetchInterval={refetchInterval}
+                  onNavigateToPage={onNavigateToPage}
+                  parameterSourceMap={parameterSourceMap}
+                  connector={
+                    connectorCapabilities?.[fullscreenWidget.connectionId]
+                  }
+                  autoFit
+                  widgetIdSuffix="fullscreen"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                </div>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>

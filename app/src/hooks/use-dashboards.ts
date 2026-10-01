@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrapFullResponse, unwrapResponse } from "@/lib/api/api-client";
 import { SaveError } from "@/lib/dashboard/save-error";
 import type { DashboardLayout, DashboardLayoutV2 } from "@/lib/db/schema";
+import type { ConnectorCapabilities } from "@/lib/plugin/chart-helpers";
 
 export interface ImportDashboardInput {
   payload: unknown;
@@ -50,6 +51,8 @@ export interface DashboardDetail extends DashboardListItem {
   userId: string;
   /** Optimistic lock version — send as `expectedVersion` on PUT. */
   version: number;
+  /** What each widget connection's connector can do, by connection id (#2137). */
+  connectorCapabilities?: Record<string, ConnectorCapabilities>;
 }
 
 export interface DashboardShareItem {

@@ -23,11 +23,15 @@ import type {
 // into the browser bundle — the same way `connection-fields.ts` reads it.
 import type { ConnectorDescriptor } from "@neoboard/connection";
 
-/** All a chart needs to know about a connection: what it says it can do. */
-export type ChartConnector = Pick<
+/** What a connection's connector can do: all a viewer is told of it (#2137). */
+export type ConnectorCapabilities = Pick<
   ConnectorDescriptor,
-  "type" | "supportsGraphData" | "supportsWrite"
+  "supportsGraphData" | "supportsWrite"
 >;
+
+/** All a chart needs to know about a connection: what it says it can do. */
+export type ChartConnector = ConnectorCapabilities &
+  Pick<ConnectorDescriptor, "type">;
 import { DISABLED_CHART_TYPES } from "@/plugins/disabled-chart-types";
 
 // Re-export types for backward compatibility
@@ -313,16 +317,42 @@ export function getStylingTargets(
 export function getCompatibleChartTypes(
   descriptor?: ChartConnector | null,
 ): string[] {
-  const capabilities: ChartCapabilityFlags = descriptor
-    ? {
-        graphData: descriptor.supportsGraphData === true,
-        writes: descriptor.supportsWrite === true,
-      }
-    : { graphData: true, writes: true };
   return pluginRegistry
-    .getCompatibleWith(capabilities)
+    .getCompatibleWith(capabilityFlags(descriptor))
     .map((p) => p.type)
     .filter((t) => !DISABLED_CHART_TYPES.has(t));
+}
+
+/** A connector's answers to the chart requirements; none known allows all. */
+function capabilityFlags(
+  connector?: ConnectorCapabilities | null,
+): ChartCapabilityFlags {
+  if (!connector) return { graphData: true, writes: true };
+  return {
+    graphData: connector.supportsGraphData === true,
+    writes: connector.supportsWrite === true,
+  };
+}
+
+const REQUIREMENT_PHRASES: Record<ChartRequirement, string> = {
+  graphData: "return graph data",
+  writes: "accept writes",
+};
+
+/**
+ * Why a connection cannot feed a chart type, or null when it can (#2137): an
+ * existing widget shows this instead of a control that fails. No connector
+ * known means nothing has said otherwise, so it can.
+ */
+export function connectorMismatch(
+  type: string,
+  connector?: ConnectorCapabilities | null,
+): string | null {
+  const plugin = pluginRegistry.get(type);
+  const flags = capabilityFlags(connector);
+  const missing = plugin?.requires?.find((r) => !flags[r]);
+  if (!plugin || !missing) return null;
+  return `This connection can't ${REQUIREMENT_PHRASES[missing]}, which ${plugin.label} widgets need.`;
 }
 
 /**

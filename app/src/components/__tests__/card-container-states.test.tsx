@@ -616,6 +616,37 @@ describe("CardContainer", () => {
     expect(screen.getByTestId("chart-renderer")).toBeDefined();
   });
 
+  // #2137: a chart its connection can't feed says so, and never runs its query.
+  it.each([
+    ["form", { supportsWrite: false }],
+    ["graph", { supportsGraphData: false }],
+  ])(
+    "shows a %s on a connection that can't feed it as incompatible",
+    (chartType, connector) => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: { data: [{ name: "Alice", value: 10 }], resultId: "r1" },
+        missingParams: [],
+      });
+
+      render(
+        <CardContainer
+          widget={makeWidget({ chartType })}
+          connector={connector}
+        />,
+      );
+
+      expect(screen.getByText("Incompatible connection")).toBeDefined();
+      expect(screen.queryByTestId("chart-renderer")).toBeNull();
+      expect(mockUseWidgetQuery).toHaveBeenLastCalledWith(
+        null,
+        expect.anything(),
+      );
+    },
+  );
+
   // ----- Priority: connectionId check comes before parameter check -----
 
   it("prioritises missing connection message over missing parameters", () => {

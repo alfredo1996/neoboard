@@ -65,6 +65,7 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
     return null;
   },
   supportsColumnMapping: () => false,
+  connectorMismatch: () => null,
 }));
 
 vi.mock("@/lib/query/resolve-cache-options", () => ({

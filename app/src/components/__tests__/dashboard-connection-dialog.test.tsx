@@ -288,6 +288,8 @@ describe("DashboardConnectionDialog — target picker", () => {
     const confirm = screen.getByText(/This will change/i);
     expect(confirm).toHaveTextContent("2 widgets");
     expect(confirm).toHaveTextContent("Sales Overview");
+    // #2137: a chart the target cannot feed is flagged, not hidden.
+    expect(confirm).toHaveTextContent("shows as an incompatible connection");
   });
 });
 
