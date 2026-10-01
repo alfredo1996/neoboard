@@ -6,6 +6,7 @@ import {
   compareNumericCells,
   isNumericCell,
 } from "@neoboard/components/numeric-cell";
+import { formatCell } from "@neoboard/components/cell-text";
 
 type Row = Record<string, unknown>;
 
@@ -67,6 +68,11 @@ export type Transform =
 // Operators
 // ---------------------------------------------------------------------------
 
+/** An object cell as the text its table cell shows (#2102); a primitive as is. */
+function cellValue(v: unknown): unknown {
+  return typeof v === "object" && v !== null ? formatCell(v) : v;
+}
+
 function matchesFilter(
   value: unknown,
   operator: FilterTransform["operator"],
@@ -85,7 +91,8 @@ function matchesFilter(
   }
 
   // Numeric comparison
-  const numLeft = Number(value);
+  const left = cellValue(value);
+  const numLeft = Number(left);
   const numRight = Number(compare);
 
   if (!Number.isNaN(numLeft) && !Number.isNaN(numRight)) {
@@ -106,7 +113,7 @@ function matchesFilter(
   }
 
   // String comparison
-  const strLeft = String(value ?? "").toLowerCase();
+  const strLeft = formatCell(left).toLowerCase();
   const strRight = String(compare).toLowerCase();
 
   switch (operator) {
@@ -204,18 +211,48 @@ function applySort(data: Row[], t: SortTransform): Row[] {
     }
 
     // String sort
-    const sa = String(va ?? "");
-    const sb = String(vb ?? "");
+    const sa = formatCell(va ?? "");
+    const sb = formatCell(vb ?? "");
     const cmp = sa.localeCompare(sb);
     return t.direction === "asc" ? cmp : -cmp;
   });
   return sorted;
 }
 
+/** One aggregation over a group's rows, written to `out` as `<column>_<fn>`. */
+function aggregateInto(out: Row, rows: Row[], agg: Aggregation): void {
+  const values = rows.map((r) => r[agg.column]).filter((v) => v != null);
+  const nums = values.map(Number).filter((n) => !Number.isNaN(n));
+  const outKey = `${agg.column}_${agg.fn}`;
+
+  switch (agg.fn) {
+    case "count":
+      // SQL's COUNT(col), not COUNT(*) — the output key is named for the
+      // column, and every other aggregation here already skips nulls.
+      // Counting rows made `sum / count` disagree with `avg` (#1414).
+      out[outKey] = values.length;
+      break;
+    case "sum":
+      out[outKey] = sumOf(nums);
+      break;
+    case "avg":
+      out[outKey] = nums.length ? settle(sumOf(nums) / nums.length, null) : 0;
+      break;
+    case "min":
+      out[outKey] = nums.length ? Math.min(...nums) : null;
+      break;
+    case "max":
+      out[outKey] = nums.length ? Math.max(...nums) : null;
+      break;
+  }
+}
+
 function applyGroupBy(data: Row[], t: GroupByTransform): Row[] {
+  // Keyed on the shown text: rows cross JSON, so the same node in two rows is
+  // two objects (#2102). The group keeps its first raw value for rendering.
   const groups = new Map<unknown, Row[]>();
   for (const row of data) {
-    const key = row[t.column];
+    const key = cellValue(row[t.column]);
     const group = groups.get(key);
     if (group) {
       group.push(row);
@@ -225,36 +262,9 @@ function applyGroupBy(data: Row[], t: GroupByTransform): Row[] {
   }
 
   const result: Row[] = [];
-  for (const [key, rows] of groups) {
-    const aggregated: Row = { [t.column]: key };
-    for (const agg of t.aggregations) {
-      const values = rows.map((r) => r[agg.column]).filter((v) => v != null);
-      const nums = values.map(Number).filter((n) => !Number.isNaN(n));
-      const outKey = `${agg.column}_${agg.fn}`;
-
-      switch (agg.fn) {
-        case "count":
-          // SQL's COUNT(col), not COUNT(*) — the output key is named for the
-          // column, and every other aggregation here already skips nulls.
-          // Counting rows made `sum / count` disagree with `avg` (#1414).
-          aggregated[outKey] = values.length;
-          break;
-        case "sum":
-          aggregated[outKey] = sumOf(nums);
-          break;
-        case "avg":
-          aggregated[outKey] = nums.length
-            ? settle(sumOf(nums) / nums.length, null)
-            : 0;
-          break;
-        case "min":
-          aggregated[outKey] = nums.length ? Math.min(...nums) : null;
-          break;
-        case "max":
-          aggregated[outKey] = nums.length ? Math.max(...nums) : null;
-          break;
-      }
-    }
+  for (const rows of groups.values()) {
+    const aggregated: Row = { [t.column]: rows[0][t.column] };
+    for (const agg of t.aggregations) aggregateInto(aggregated, rows, agg);
     result.push(aggregated);
   }
   return result;

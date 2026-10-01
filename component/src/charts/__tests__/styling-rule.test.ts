@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { resolveStylingRuleColor } from "../styling-rule";
 import type { StylingRule } from "../styling-rule";
+import { graphNode } from "./fixtures/connector-output";
 
 function rule(overrides: Partial<StylingRule> = {}): StylingRule {
   return {
@@ -358,5 +359,16 @@ describe("resolveStylingRuleColor", () => {
       const rules = [rule({ operator: "<=", value: 50, color: "#a" })];
       expect(resolveStylingRuleColor(NaN, rules)).toBeUndefined();
     });
+  });
+
+  // An object cell reads as the text its table cell shows (#2102).
+  it.each([
+    ["contains a property value", graphNode, "contains", "ada", "#a"],
+    ["never contains 'object'", graphNode, "contains", "object", undefined],
+    ["== on a map", { a: 1 }, "==", "[object Object]", undefined],
+  ] as const)("an object cell %s", (_label, cell, operator, value, color) => {
+    expect(
+      resolveStylingRuleColor(cell, [rule({ operator, value, color: "#a" })]),
+    ).toBe(color);
   });
 });

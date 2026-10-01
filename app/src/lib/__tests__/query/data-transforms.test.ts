@@ -4,6 +4,7 @@ import {
   computeColumnsPerStep,
 } from "@/lib/query/data-transforms";
 import type { Transform } from "@/lib/query/data-transforms";
+import { graphNode, graphNode2 } from "@/__tests__/fixtures/connector-output";
 
 const sampleData = [
   {
@@ -1084,6 +1085,49 @@ describe("applyTransforms", () => {
       const result = applyTransforms(sampleData, transforms);
       expect(result).toHaveLength(2);
       expect(result[0].name).toBe("Eve"); // sorted desc, filter skipped, limit 2
+    });
+  });
+
+  // An object cell reads as the text its table cell shows, not "[object Object]" (#2102).
+  describe("a node column", () => {
+    // Rows cross JSON, so the same node in two rows is two objects.
+    const rows = [
+      { c: graphNode2 },
+      { c: graphNode },
+      { c: structuredClone(graphNode2) },
+    ];
+    const run = (t: Transform) => applyTransforms(rows, [t]);
+
+    it.each([
+      ["contains", "grace", 2],
+      ["contains", "object", 0],
+      ["==", "[object Object]", 0],
+    ] as const)("filters %s %j by the shown text", (operator, value, kept) => {
+      expect(
+        run({ type: "filter", column: "c", operator, value }),
+      ).toHaveLength(kept);
+    });
+
+    it("sorts by the shown text", () => {
+      const sorted = run({ type: "sort", column: "c", direction: "asc" });
+      expect(sorted.map((r) => r.c)).toEqual([
+        graphNode,
+        graphNode2,
+        graphNode2,
+      ]);
+    });
+
+    it("groups the same node in two rows once, keeping its first raw value", () => {
+      const groups = run({
+        type: "groupBy",
+        column: "c",
+        aggregations: [{ column: "c", fn: "count" }],
+      });
+      expect(groups).toEqual([
+        { c: graphNode2, c_count: 2 },
+        { c: graphNode, c_count: 1 },
+      ]);
+      expect(groups[0].c).toBe(rows[0].c);
     });
   });
 });
