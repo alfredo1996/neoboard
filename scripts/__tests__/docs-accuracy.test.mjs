@@ -1252,6 +1252,22 @@ describe("air-gapped install (#1683)", () => {
   });
 });
 
+// Everything a connector author reads: the site, the READMEs, and the
+// registry's header comment (#2069).
+const CONNECTOR_AUTHOR_SURFACES = [
+  ...DOCS,
+  ...["connector-sdk/README.md", "connection/README.md", "cli/README.md"].map(
+    (path) => ({ path, text: readFileSync(join(ROOT, path), "utf8") }),
+  ),
+  {
+    path: "connection/src/connector-registry.ts",
+    text: readFileSync(
+      join(ROOT, "connection/src/connector-registry.ts"),
+      "utf8",
+    ).split("*/")[0],
+  },
+];
+
 describe("the connector-author page compiles against the SDK (#1697)", () => {
   // The page predated @neoboard/connector-sdk: it imported from core-relative
   // paths, told authors to edit connector-registry.ts, and its runQuery
@@ -1405,6 +1421,30 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
         "`neoboard plugin add` does not work for a connector built on the SDK yet",
       );
       expect(saysItFails, load.stderr.slice(0, 400)).toBe(load.status !== 0);
+      // #2069: so does every other page that offers it for a connector.
+      const offers = CONNECTOR_AUTHOR_SURFACES.filter(
+        ({ text }) => /plugin\s+add/.test(text) && /connector/i.test(text),
+      );
+      expect(offers.length).toBeGreaterThan(1); // the filter still matches
+      expect(
+        offers
+          .filter(({ text }) => text.includes("#1697") !== (load.status !== 0))
+          .map(({ path }) => path),
+      ).toEqual([]);
+      // `plugin list` imports each package the same way (#2065), so an SDK
+      // connector lists its type as `?` exactly while that import throws.
+      const listed = CONNECTOR_AUTHOR_SURFACES.flatMap(({ path, text }) =>
+        [...text.matchAll(/^# Connectors \([^)]*\):\n((?:#.*\n)+)/gm)].flatMap(
+          (block) =>
+            [...block[1].matchAll(/^#\s+(\S+)\s+external\s/gm)].map(
+              (row) => `${path}: ${row[1]}`,
+            ),
+        ),
+      );
+      expect(listed.length).toBeGreaterThan(0); // the regex still matches
+      expect(
+        listed.filter((row) => row.endsWith(": ?") !== (load.status !== 0)),
+      ).toEqual([]);
     } finally {
       rmSync(OUT, { recursive: true, force: true });
     }
@@ -1450,6 +1490,54 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
         /plugin add neoboard-connector-mongodb|Example\s*\|/g,
       ) ?? [];
     expect(phantom).toEqual([]);
+  });
+});
+
+describe("the external-connector docs match the 1.6.1 code (#2069)", () => {
+  const read = (path) => readFileSync(join(ROOT, path), "utf8");
+
+  it("tells no author to edit connection/ or call the registry", () => {
+    // A connector is its own package on the SDK, loaded by the manifest.
+    const edits =
+      /registerConnector\(|registry\.register\(|mkdir[^\n]*connection\/src|\b(?:create|edit|add [^\n]*? to)\b[^\n]*`connection\/src\/|npm (?:install|i)\b[^\n]*(?:--workspace[= ]|-w )connection\b/i;
+    // The removed MongoDB guide's own wording: prose, not a command.
+    expect("Create `connection/src/mongodb/plugin.ts`:").toMatch(edits);
+    expect(
+      "Add it to the connector registry in `connection/src/connector-registry.ts`:",
+    ).toMatch(edits);
+    expect(
+      CONNECTOR_AUTHOR_SURFACES.filter(({ text }) => edits.test(text)).map(
+        ({ path }) => path,
+      ),
+    ).toEqual([]);
+  });
+
+  it("names only the editor languages the resolvers have", () => {
+    const languages = [
+      ...read("component/src/lib/language-resolvers.ts").matchAll(
+        /^ {2}(\w+): async/gm,
+      ),
+    ].map((m) => m[1]);
+    expect(languages).toContain("sql"); // the regex still matches
+    const named = CONNECTOR_AUTHOR_SURFACES.flatMap(({ path, text }) =>
+      text
+        .split("\n")
+        .filter((line) => line.includes("queryLanguage"))
+        .flatMap((line) => [...line.matchAll(/"(\w+)"/g)])
+        .filter((m) => !languages.includes(m[1]))
+        .map((m) => `${path}: ${m[1]}`),
+    );
+    expect(named).toEqual([]);
+  });
+
+  it.each([
+    ["docs/src/content/docs/extend/new-connector-plugin.mdx", /schema panel|highlighting of its saved templates|`instanceof`/, "only cypher and sql complete; CodePreview prints the name; errors match by name"],
+    ["docs/src/content/docs/deploy/air-gapped.mdx", /connector plugins are resolved at \*\*build time\*\* from `neoboard-plugins\.json` and/, "connectors come from neoboard-connectors.json"],
+    ["CHANGELOG.md", /not wired into the API routes yet|`\.\/connector-types` stays|query highlighting of saved templates/, "connection-config.ts validates; #1900 deleted connector-types"],
+    ["PLUGINS.md", /\| Neo4j, PostgreSQL \|/, "charts are offered by capability (getCompatibleChartTypes)"],
+    ["connection/README.md", /connector-types\.ts|External connector\s+plugins register here/, "external connectors come from the manifest"],
+  ])("%s no longer claims %s", (path, claim) => {
+    expect(read(path)).not.toMatch(claim);
   });
 });
 
@@ -1599,7 +1687,6 @@ describe("security claims the code does not back (#1790)", () => {
     ["extend/architecture.mdx", /limited to 20 per minute per IP/i, "in-memory per process, keyed on X-Forwarded-For"],
     ["extend/architecture.mdx", /merges parameters into the query/i, "values go into params; query text is unchanged (use-widget-query.ts)"],
     ["extend/new-parameter-type.mdx", /for query substitution|app\/src\/lib\/format-parameter-value\.ts/, "lib/parameter/format-parameter-value.ts formats display text only"],
-    ["extend/mongodb-connector.mdx", /\.limit\(1000\)/, "row limits are config.rowLimit with MAX_ROWS+1, never a fixed limit"],
     ["using/connectors.mdx", /envelope encryption with HKDF/i, "no HKDF, no envelope (crypto.ts)"],
     ["using/connectors.mdx", /Reject Unauthorized[^\n]*\|\s*true\s*\|\s*$/im, "unset by default; follows the URI's sslmode"],
     ["charts/form.mdx", /connector must have `can_write`/i, "no connection-level write flag (schema.ts connection)"],

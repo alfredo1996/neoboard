@@ -232,6 +232,10 @@ neoboard config set postgres.database mydb
 
 Install an external chart or connector plugin from npm, validate it, and register it in the appropriate manifest. The CLI auto-detects whether the package is a chart plugin (has `transform`) or connector plugin (has `createModule`).
 
+:::caution[Connectors: not yet]
+`plugin add` does not work for a connector built on `@neoboard/connector-sdk` yet (#1697). The CLI validates the package with a plain Node `import()`, and Node cannot load the SDK's build, so the import throws and the add is rolled back. Install the package and list it in `neoboard-connectors.json` by hand, as [Creating a Connector Plugin](/extend/new-connector-plugin#8-load-it-into-neoboard) shows.
+:::
+
 `<package>` is anything `npm install` accepts: a name, `name@version`, a `file:` path or a git URL. The CLI imports and registers the package under the name npm installed it as, so the manifest always holds a package name.
 
 ```bash
@@ -250,7 +254,7 @@ The CLI validates the package after installation:
 - If validation or the import codegen fails, the add is rolled back and exits 1. `package.json`, `package-lock.json` and both manifests are put back byte for byte, and the package is uninstalled unless the checkout already depended on it
 
 ```bash
-# Add a connector plugin
+# Add a connector plugin (once #1697 lets Node load the SDK)
 neoboard plugin add @myorg/neoboard-mongodb
 # ✔ Installed @myorg/neoboard-mongodb
 # ✔ Plugin "mongodb" registered as connector in neoboard-connectors.json
@@ -270,7 +274,7 @@ neoboard plugin add some-random-package
 
 ## plugin list
 
-Show all registered plugins — both built-in and external. The built-in connectors are the ones in the checkout's `connection` package. Each external plugin shows its `type`, then its package; the type is `?` when the package cannot be imported.
+Show all registered plugins — both built-in and external. The built-in connectors are the ones in the checkout's `connection` package. Each external plugin shows its `type`, then its package; the type is `?` when the package cannot be imported, which is every connector built on the SDK until Node can load the SDK's build (#1697).
 
 ```bash
 neoboard plugin list
@@ -288,7 +292,7 @@ neoboard plugin list
 # Connectors (2 built-in, 1 external):
 #   neo4j               built-in
 #   postgresql          built-in
-#   mongodb             external  @myorg/mongodb
+#   ?                   external  @myorg/mongodb
 ```
 
 ## plugin remove

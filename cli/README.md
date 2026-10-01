@@ -28,7 +28,7 @@ neoboard --help
 | `neoboard doctor`                     | Diagnose common setup problems with actionable hints                            |
 | `neoboard db migrate`                 | Apply pending database migrations                                               |
 | `neoboard demo`                       | Seed showcase dashboards, one page per chart type the picker offers             |
-| `neoboard plugin add <pkg>`           | Install and register a chart or connector plugin                                |
+| `neoboard plugin add <pkg>`           | Install and register a chart plugin; a connector not yet (#1697)                |
 | `neoboard logs [-f] [-n N] [service]` | Tail container logs                                                             |
 
 Run `neoboard <command> --help` for flags and details on any command.

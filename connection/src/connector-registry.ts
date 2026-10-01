@@ -1,13 +1,13 @@
 /**
- * Global connector registry — singleton that auto-registers built-in
- * connectors (Neo4j, PostgreSQL) on first import.
+ * Global connector registry — singleton that registers the built-in
+ * connectors (Neo4j, PostgreSQL) on first import, then the external ones.
  *
- * To add a new connector:
- *   1. Create a plugin file implementing ConnectorPlugin
- *   2. Import and register it here
+ * A built-in is a plugin under `connection/src/<name>/`, registered here.
  *
- * External/community connectors can call registerConnector() from
- * their own package after importing this module.
+ * An external connector is its own package on `@neoboard/connector-sdk` and
+ * never imports this module: it is listed in `neoboard-connectors.json`, and
+ * `scripts/generate-connector-imports.mjs` writes it into
+ * `external-connectors.generated.ts` before each build of this package.
  */
 
 import {
