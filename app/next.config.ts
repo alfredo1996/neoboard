@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { readFileSync } from "fs";
+import { createRequire } from "module";
 import { resolve, sep } from "path";
 
 const readJson = (...path: string[]) =>
@@ -19,6 +20,29 @@ const serverExternalPackages: string[] = [
     "server-external-packages.generated.json",
   ),
 ];
+
+// A declared package stays external only where the importing file loads the
+// copy the app root does, the check Next applies to serverExternalPackages. A
+// driver npm nested at another version is bundled instead of being required
+// from the root at the wrong version (#2067).
+const nodeRequire = createRequire(import.meta.url);
+const sameCopyExternal = async ({
+  context,
+  request,
+}: {
+  context?: string;
+  request?: string;
+}) => {
+  if (!context || !request || !serverExternalPackages.includes(request)) {
+    return;
+  }
+  const from = (dir: string) => nodeRequire.resolve(request, { paths: [dir] });
+  try {
+    if (from(context) === from(import.meta.dirname)) return request;
+  } catch {
+    // Unresolvable from either side: bundle it, as Next would.
+  }
+};
 
 // Canonicalise all mobx imports to the single copy installed under component/
 // to prevent the "multiple mobx instances" MobX warning when @neo4j-nvl
@@ -84,10 +108,7 @@ const nextConfig: NextConfig = {
       // not always honour serverExternalPackages. Mark them external there too,
       // so webpack never tries to bundle their Node.js built-in imports (net,
       // tls, stream, crypto) in that compilation.
-      config.externals = [
-        ...[config.externals ?? []].flat(),
-        ...serverExternalPackages,
-      ];
+      config.externals = [...[config.externals ?? []].flat(), sameCopyExternal];
     }
 
     // Enable full source maps for E2E coverage collection.

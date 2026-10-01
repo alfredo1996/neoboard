@@ -49,30 +49,37 @@ const CONNECTION_PACKAGE = resolve(REPO_ROOT, "connection", "package.json");
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 
 /**
- * The package.json of an installed connector: the first `node_modules` up
- * from here holding it, as Node finds a bare specifier, so an exports map that
- * hides package.json does not matter. {} for anything else.
+ * The package.json of an installed connector: the nearest one with a name up
+ * from the file its entry resolves to, so a subpath entry or an exports map
+ * that hides package.json does not matter. null when there is none.
  *
- * @param {string} name
+ * @param {string} entry
  */
-function installedPackageJson(name) {
-  for (let dir = __dirname; ; dir = dirname(dir)) {
-    const file = join(dir, "node_modules", name, "package.json");
-    if (existsSync(file)) return readJson(file);
-    if (dir === dirname(dir)) return {};
+function installedPackageJson(entry) {
+  const url = import.meta.resolve(entry);
+  if (!url.startsWith("file:")) return null;
+  for (let dir = dirname(fileURLToPath(url)); ; dir = dirname(dir)) {
+    const file = join(dir, "package.json");
+    const pkg = existsSync(file) ? readJson(file) : {};
+    if (pkg.name) return pkg;
+    if (dir === dirname(dir)) return null;
   }
 }
 
 /**
  * Every declared server-external package, once each, in declaration order.
  *
- * @param {Array<{ name: string; pkg: { neoboard?: { serverExternalPackages?: unknown } } }>} declarers
+ * @param {Array<{ name: string; pkg: { neoboard?: { serverExternalPackages?: unknown } } | null }>} declarers
  * @returns {{ errors: string[]; packages: string[] }}
  */
 function collectServerExternals(declarers) {
   const errors = [];
   const packages = new Set();
   for (const { name, pkg } of declarers) {
+    if (!pkg) {
+      errors.push(`${name}: no package.json found for its installed package`);
+      continue;
+    }
     const list = pkg.neoboard?.serverExternalPackages ?? [];
     if (
       Array.isArray(list) &&

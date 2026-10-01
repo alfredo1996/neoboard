@@ -221,6 +221,33 @@ describe("the codegen collects the connectors' server-external packages (#2067)"
     ]);
   });
 
+  it("reads the declaration of a connector named by a subpath", () => {
+    const res = runCodegen([{ package: "@neoboard-test/kv-2067/plugin" }], {
+      "@neoboard-test/kv-2067": {
+        "package.json": JSON.stringify({
+          name: "@neoboard-test/kv-2067",
+          exports: { "./plugin": "./plugin/index.js" },
+          neoboard: { serverExternalPackages: ["kv-driver-2067"] },
+        }),
+        "plugin/index.js": "module.exports = {};\n",
+      },
+    });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.externals).toContain("kv-driver-2067");
+  });
+
+  it("fails, rather than drop the declaration, when it finds no package.json", () => {
+    // "../scripts" lands the file beside the codegen, where no package is.
+    const res = runCodegen([{ package: "./lone-2067.js" }], {
+      "../scripts": { "lone-2067.js": "export default {};\n" },
+    });
+    expect(res.status, res.stdout).toBe(1);
+    expect(res.stderr).toContain(
+      "./lone-2067.js: no package.json found for its installed package",
+    );
+    expect(res.externals).toBeNull();
+  });
+
   it.each([
     ["a string", "kv-driver-2067"],
     ["a name with a space", ["kv driver"]],

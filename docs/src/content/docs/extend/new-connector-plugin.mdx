@@ -576,7 +576,7 @@ The server build bundles your connector and everything it imports. A driver that
 { "neoboard": { "serverExternalPackages": ["mydb-driver"] } }
 ```
 
-The generator collects every connector's list, the built-ins' from `connection/package.json` included, into `connection/src/server-external-packages.generated.json`, and `next.config.ts` keeps each package in it external.
+The generator collects every connector's list, the built-ins' from `connection/package.json` included, into `connection/src/server-external-packages.generated.json`, and `next.config.ts` keeps each package in it external wherever it resolves to the copy at the root of `node_modules`. A copy npm nests under your package, because the root holds another version, is bundled instead, as Next does for its own list.
 
 A Docker image built from the checkout installs dependencies with `npm ci` from `package.json` and `package-lock.json` alone, so it can include your connector only once the package is installed from a registry.
 
