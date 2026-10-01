@@ -47,13 +47,8 @@ const {
   // update succeeds. Tests that want to exercise the rejection branch
   // override this with mockReturnValueOnce.
   const mockUpdateThen = vi.fn(
-    (
-      successCb: (value: unknown) => void,
-      _errorCb?: (err: unknown) => void,
-    ) => {
-      void _errorCb;
-      successCb(undefined);
-    },
+    (successCb: (value: unknown) => void, _errorCb?: (err: unknown) => void) =>
+      successCb(undefined),
   );
   const loggedEvents: Array<{
     level: string;
@@ -321,6 +316,7 @@ describe("JWT callback", () => {
         role: "reader",
         canWrite: false,
         sid: "s1",
+        authTime: 1,
       };
 
       expect(await callbacks.jwt({ token: { ...token } })).toEqual(token);
@@ -352,6 +348,27 @@ describe("JWT callback", () => {
           { field: "rs.sid", value: "s1" },
         ],
       );
+    },
+  );
+
+  // Auth.js re-stamps iat on every re-sign, so only authTime dates the sign-in (#2160).
+  const changedAt = 1_700_000_000_000;
+  it.each([
+    { authTime: changedAt - 31_000, iat: changedAt / 1000 + 60, kept: false },
+    { authTime: changedAt - 29_000, iat: changedAt / 1000 + 60, kept: true },
+    { authTime: undefined, iat: (changedAt - 31_000) / 1000, kept: false },
+  ])(
+    "a password change keeps a session with authTime $authTime, iat $iat: $kept",
+    async ({ authTime, iat, kept }) => {
+      mockDbRows([
+        { disabledAt: null, passwordChangedAt: new Date(changedAt) },
+      ]);
+
+      const result = await callbacks.jwt({
+        token: { id: "u1", sid: "s1", authTime, iat },
+      });
+
+      expect(result !== null).toBe(kept);
     },
   );
 });

@@ -297,6 +297,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
           }
           // The session's own id, which sign-out revokes (#2138).
           token.sid ??= randomId();
+          // Its sign-in time, kept through every re-sign, which re-stamps iat
+          // (#2160). A token from before #2160 is dated once by its iat.
+          token.authTime ??= token.iat ? token.iat * 1000 : Date.now();
           // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions.
           if (token.id) {
             try {
@@ -330,13 +333,11 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
               if (!dbUser || dbUser.disabledAt || dbUser.revokedSid) {
                 return null;
               }
-              // Invalidate tokens issued before the most recent password change.
-              // 30s grace window prevents racing the issuance of the new token.
+              // A password change ends every session signed in before it; the
+              // 30 s grace keeps the one that made the change (#2160).
               if (
-                token.iat &&
-                dbUser.passwordChangedAt &&
-                dbUser.passwordChangedAt.getTime() >
-                  (token.iat as number) * 1000 + 30_000
+                (dbUser.passwordChangedAt?.getTime() ?? 0) >
+                token.authTime + 30_000
               ) {
                 return null;
               }

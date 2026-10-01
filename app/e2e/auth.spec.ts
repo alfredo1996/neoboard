@@ -155,6 +155,49 @@ test.describe("Authentication", () => {
       await device.close();
     }
   });
+
+  // Every session read re-stamps iat, so a session read within 30 s of a
+  // password change used to survive it (#2160).
+  test("a password change ends a session signed in before it, however recently it was read (#2160)", async ({
+    authPage,
+    page,
+    browser,
+  }) => {
+    test.setTimeout(120_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    const email = `pw-change-${uid()}@example.com`;
+    const password = "password123";
+    const created = await page.request.post("/api/users", {
+      data: { name: "Password change", email, password },
+    });
+    expect(created.status()).toBe(201);
+    const userId: string = (await created.json()).data.id;
+    const other = await browser.newContext();
+    const changer = await browser.newContext();
+    try {
+      await new AuthPage(await other.newPage()).login(email, password);
+      // Past the 30 s grace, which keeps a session signed in just before.
+      await page.waitForTimeout(31_000);
+      await new AuthPage(await changer.newPage()).login(email, password);
+      const read = async () =>
+        (await other.request.get("/api/auth/session")).json();
+      expect((await read()).user.email).toBe(email);
+
+      const change = await changer.request.put("/api/users/me/password", {
+        data: { currentPassword: password, newPassword: "password456" },
+      });
+      expect(change.ok()).toBe(true);
+
+      expect((await read())?.user).toBeUndefined();
+      // The session that made the change signed in within the grace.
+      const own = await changer.request.get("/api/auth/session");
+      expect((await own.json()).user.email).toBe(email);
+    } finally {
+      await page.request.delete(`/api/users/${userId}`);
+      await other.close();
+      await changer.close();
+    }
+  });
 });
 
 test.describe("Signup", () => {
