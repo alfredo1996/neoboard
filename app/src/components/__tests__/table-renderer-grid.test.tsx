@@ -157,6 +157,40 @@ describe("TableRenderer filters and sorts through the grid (#2070)", () => {
   });
 });
 
+describe("TableRenderer across a refresh (#2106)", () => {
+  it("keeps a header's button and its focus when rows of the same shape arrive", () => {
+    const { rerender } = render(
+      <TableRenderer data={[{ n: 1 }]} settings={settings} />,
+    );
+    const button = screen.getByRole("button", { name: "n" });
+    button.focus();
+    rerender(<TableRenderer data={[{ n: 2 }]} settings={settings} />);
+    expect(screen.getByRole("button", { name: "n" })).toBe(button);
+    expect(document.activeElement).toBe(button);
+  });
+
+  it.each([
+    { aggregationFn: "sum", text: "Σ 3" },
+    { aggregationFn: "mean", text: "μ 1.5" },
+  ])("labels a grouped $aggregationFn as $text", ({ aggregationFn, text }) => {
+    render(
+      <TableRenderer
+        data={[
+          { g: "a", n: 1 },
+          { g: "a", n: 2 },
+        ]}
+        settings={{
+          ...settings,
+          enableGrouping: true,
+          groupBy: "g",
+          aggregationFn,
+        }}
+      />,
+    );
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+});
+
 describe("TableRenderer colour scale (#2105)", () => {
   it.each([
     { values: [10, 50, null, "", "  "], bounds: [10, 50] },

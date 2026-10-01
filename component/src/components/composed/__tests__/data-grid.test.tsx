@@ -206,6 +206,20 @@ describe("DataGrid", () => {
     expect(checkboxes).toHaveLength(4);
   });
 
+  it.each(["Select row", "Select all"])(
+    "keeps the %s checkbox and its focus when data of the same shape arrives (#2106)",
+    (name) => {
+      const { rerender } = render(
+        <DataGrid columns={columns} data={data} enableSelection />,
+      );
+      const box = screen.getAllByRole("checkbox", { name })[0];
+      box.focus();
+      rerender(<DataGrid columns={columns} data={[...data]} enableSelection />);
+      expect(screen.getAllByRole("checkbox", { name })[0]).toBe(box);
+      expect(document.activeElement).toBe(box);
+    },
+  );
+
   it("does not render checkboxes when enableSelection is false", () => {
     render(<DataGrid columns={columns} data={data} />);
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();

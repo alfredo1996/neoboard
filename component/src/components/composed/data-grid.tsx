@@ -12,7 +12,10 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import type {
+  CellContext,
+  Column,
   ColumnDef,
+  HeaderContext,
   SortingState,
   VisibilityState,
   RowSelectionState,
@@ -97,6 +100,71 @@ function columnValues<TData>(
     return data.map((row, i) => fn(row, i));
   }
   return undefined;
+}
+
+// Module scope: flexRender mounts a renderer as a component, so a new
+// function per render remounted the checkboxes and dropped focus (#2106).
+function SelectAllHeader<TData>({
+  table,
+}: Readonly<HeaderContext<TData, unknown>>) {
+  return (
+    <>
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+      />
+      {/* The <th> itself needs text, not just the checkbox's label (#1505). */}
+      <span className="sr-only">Select</span>
+    </>
+  );
+}
+
+function SelectRowCell<TData>({ row }: Readonly<CellContext<TData, unknown>>) {
+  return (
+    <Checkbox
+      checked={row.getIsSelected()}
+      onCheckedChange={(value) => row.toggleSelected(!!value)}
+      aria-label="Select row"
+    />
+  );
+}
+
+/** None on a column that cannot sort: "none" announces it as sortable (#1285). */
+function ariaSort<TData>(
+  column: Column<TData, unknown>,
+): React.AriaAttributes["aria-sort"] {
+  if (!column.getCanSort()) return undefined;
+  const sorted = column.getIsSorted();
+  if (sorted === "asc") return "ascending";
+  if (sorted === "desc") return "descending";
+  return "none";
+}
+
+/** Each optional feature's row models, left out while it is off. */
+function optionalRowModels<TData>(on: {
+  sorting: boolean;
+  filtering: boolean;
+  columnFilters: boolean;
+  grouping: boolean;
+}) {
+  return {
+    getSortedRowModel: on.sorting ? getSortedRowModel<TData>() : undefined,
+    getFilteredRowModel: on.filtering
+      ? getFilteredRowModel<TData>()
+      : undefined,
+    getFacetedRowModel: on.columnFilters
+      ? getFacetedRowModel<TData>()
+      : undefined,
+    getFacetedUniqueValues: on.columnFilters
+      ? getFacetedUniqueValues<TData>()
+      : undefined,
+    getGroupedRowModel: on.grouping ? getGroupedRowModel<TData>() : undefined,
+    getExpandedRowModel: on.grouping ? getExpandedRowModel<TData>() : undefined,
+  };
 }
 
 export interface DataGridProps<TData> {
@@ -186,7 +254,7 @@ function DataGrid<TData>({
   numberFormat,
   decimalPlaces,
   getRowId,
-}: DataGridProps<TData>) {
+}: Readonly<DataGridProps<TData>>) {
   // Table cells always want comma formatting (it's tabular data — commas
   // are the universal Excel-like convention). When the caller doesn't
   // override numberFormat, force "comma". For decimalPlaces, defer to
@@ -270,29 +338,8 @@ function DataGrid<TData>({
     if (!enableSelection) return typedColumns;
     const selectColumn: ColumnDef<TData, unknown> = {
       id: "select",
-      header: ({ table }) => (
-        <>
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-          {/* The <th> itself needs text, not just the checkbox's label (#1505). */}
-          <span className="sr-only">Select</span>
-        </>
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
+      header: SelectAllHeader,
+      cell: SelectRowCell,
       enableSorting: false,
       enableHiding: false,
       enableColumnFilter: false,
@@ -337,18 +384,13 @@ function DataGrid<TData>({
       },
     },
     enableGrouping,
-    getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getPaginationRowModel: getPaginationRowModel(),
-    getFilteredRowModel:
-      enableGlobalFilter || enableColumnFilters
-        ? getFilteredRowModel()
-        : undefined,
-    getFacetedRowModel: enableColumnFilters ? getFacetedRowModel() : undefined,
-    getFacetedUniqueValues: enableColumnFilters
-      ? getFacetedUniqueValues()
-      : undefined,
-    getGroupedRowModel: enableGrouping ? getGroupedRowModel() : undefined,
-    getExpandedRowModel: enableGrouping ? getExpandedRowModel() : undefined,
+    ...optionalRowModels<TData>({
+      sorting: enableSorting,
+      filtering: enableGlobalFilter || enableColumnFilters,
+      columnFilters: enableColumnFilters,
+      grouping: enableGrouping,
+    }),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
@@ -428,18 +470,7 @@ function DataGrid<TData>({
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      // #1285: sort state was icon-only. Non-sortable columns
-                      // get no attribute at all — "none" would announce them
-                      // as sortable.
-                      aria-sort={
-                        !header.column.getCanSort()
-                          ? undefined
-                          : header.column.getIsSorted() === "asc"
-                            ? "ascending"
-                            : header.column.getIsSorted() === "desc"
-                              ? "descending"
-                              : "none"
-                      }
+                      aria-sort={ariaSort(header.column)}
                       className="relative group/header"
                       style={
                         enableColumnResizing

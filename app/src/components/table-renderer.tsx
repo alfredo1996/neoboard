@@ -35,6 +35,37 @@ const AGG_SYMBOLS: Record<string, string> = {
 };
 
 type GridRow = { getValue: (columnId: string) => unknown };
+type GridColumn = DataGridColumn<Record<string, unknown>>;
+
+// Module scope: flexRender mounts a renderer as a component, so a new
+// function per refresh remounted every header and cell (#2106).
+const ColumnHeader: GridColumn["header"] = ({ column }) => (
+  <DataGridColumnHeader column={column} title={column.id} />
+);
+
+const ValueCell: GridColumn["cell"] = ({ getValue }) => {
+  const v = getValue();
+  if (v === null || v === undefined)
+    return <span className="text-muted-foreground">null</span>;
+  const display = formatCell(v);
+  return (
+    <span className="block truncate max-w-[240px]" title={display}>
+      {display}
+    </span>
+  );
+};
+
+const AggregatedCell: GridColumn["aggregatedCell"] = ({ column, getValue }) => {
+  const v = getValue();
+  if (v == null) return null;
+  // The columns memo sets a name here, never a function.
+  const symbol = AGG_SYMBOLS[column.columnDef.aggregationFn as string] ?? "Σ";
+  return (
+    <span className="text-muted-foreground text-xs font-medium">
+      {symbol} {typeof v === "number" ? v.toLocaleString() : formatCell(v)}
+    </span>
+  );
+};
 
 /**
  * One collator for every sort. `localeCompare` with options builds a new one
@@ -138,7 +169,6 @@ export function TableRenderer({
 
   const columns = useMemo((): DataGridColumn<Record<string, unknown>>[] => {
     if (!records.length) return [];
-    const aggSymbol = AGG_SYMBOLS[aggregationFn] ?? "Σ";
     return Object.keys(records[0]).map((key) => {
       // Detect numeric columns for automatic aggregation in grouped mode
       const isNumeric = records.some(
@@ -152,33 +182,10 @@ export function TableRenderer({
         ...(holdsObjects ? byDisplayText(key) : {}),
         id: key,
         accessorFn: (row: Record<string, unknown>) => row[key],
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title={key} />
-        ),
-        cell: ({ getValue }) => {
-          const v = getValue();
-          if (v === null || v === undefined)
-            return <span className="text-muted-foreground">null</span>;
-          const display = formatCell(v);
-          return (
-            <span className="block truncate max-w-[240px]" title={display}>
-              {display}
-            </span>
-          );
-        },
+        header: ColumnHeader,
+        cell: ValueCell,
         ...(enableGrouping && isNumeric
-          ? {
-              aggregationFn,
-              aggregatedCell: ({ getValue }: { getValue: () => unknown }) => {
-                const v = getValue();
-                return v != null ? (
-                  <span className="text-muted-foreground text-xs font-medium">
-                    {aggSymbol}{" "}
-                    {typeof v === "number" ? v.toLocaleString() : formatCell(v)}
-                  </span>
-                ) : null;
-              },
-            }
+          ? { aggregationFn, aggregatedCell: AggregatedCell }
           : {}),
       };
     });
@@ -253,8 +260,8 @@ export function TableRenderer({
           (row as Record<string, unknown>)[scale.column],
         );
         if (val === null) continue;
-        if (val < min) min = val;
-        if (val > max) max = val;
+        min = Math.min(min, val);
+        max = Math.max(max, val);
       }
       if (min !== Infinity) result.set(scale.column, { min, max });
     }
