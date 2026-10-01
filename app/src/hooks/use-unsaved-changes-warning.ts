@@ -15,6 +15,12 @@ export function useUnsavedChangesWarning() {
 
   // State for the in-app navigation confirmation dialog
   const [showNavWarning, setShowNavWarning] = useState(false);
+  // It has no Trigger: focus goes back to what asked to leave (#2146).
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const warn = useCallback(() => {
+    setReturnFocusTo(document.activeElement as HTMLElement | null);
+    setShowNavWarning(true);
+  }, []);
   const pendingUrl = useRef<string | null>(null);
   // When true, the user has confirmed "Leave" — skip the native beforeunload dialog
   const navigatingRef = useRef(false);
@@ -36,13 +42,13 @@ export function useUnsavedChangesWarning() {
       if (hasUnsavedChanges()) {
         // Re-push current URL to stay on the page
         window.history.pushState(null, "", window.location.href);
-        setShowNavWarning(true);
+        warn();
         // pendingUrl stays null — confirm will use history.back()
       }
     };
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, warn]);
 
   /**
    * Guard navigation: if unsaved changes exist, show dialog and return false.
@@ -55,12 +61,12 @@ export function useUnsavedChangesWarning() {
     (url: string): boolean => {
       if (hasUnsavedChanges()) {
         pendingUrl.current = url;
-        setShowNavWarning(true);
+        warn();
         return false;
       }
       return true;
     },
-    [hasUnsavedChanges],
+    [hasUnsavedChanges, warn],
   );
 
   // User confirmed: proceed with navigation
@@ -87,6 +93,7 @@ export function useUnsavedChangesWarning() {
   return {
     showNavWarning,
     setShowNavWarning,
+    returnFocusTo,
     confirmNavigation,
     cancelNavigation,
     requestNavigation,

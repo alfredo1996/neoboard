@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
+import {
+  MockClosingDialog,
+  MockDialogContent,
+  MockDialogOpen,
+} from "@/__tests__/helpers/dialog-mocks";
 
 const { mockToast, connectorsQuery } = vi.hoisted(() => ({
   mockToast: vi.fn(),
@@ -59,7 +64,7 @@ vi.mock("@/hooks/use-connectors", () => ({
 }));
 
 vi.mock("@/components/dashboard-connection-dialog", () => ({
-  DashboardConnectionDialog: () => null,
+  DashboardConnectionDialog: MockClosingDialog,
 }));
 
 vi.mock("next-auth/react", () => ({
@@ -90,15 +95,12 @@ vi.mock("@neoboard/components", () => {
     "Alert",
     "AlertDescription",
     "Badge",
-    "Button",
     "Card",
     "CardDescription",
     "CardFooter",
     "CardHeader",
     "CardTitle",
     "Checkbox",
-    "Dialog",
-    "DialogContent",
     "DialogDescription",
     "DialogFooter",
     "DialogHeader",
@@ -121,6 +123,29 @@ vi.mock("@neoboard/components", () => {
   ];
   return {
     ...Object.fromEntries(names.map((name) => [name, Passthrough])),
+    // Focusable, so a closing dialog can hand focus back to it (#2146).
+    Button: ({
+      children,
+      onClick,
+    }: {
+      children?: React.ReactNode;
+      onClick?: () => void;
+    }) => (
+      <div tabIndex={-1} onClick={onClick}>
+        {children}
+      </div>
+    ),
+    // Still always rendered: the import tests pick a file without opening it.
+    Dialog: ({
+      open,
+      children,
+    }: {
+      open: boolean;
+      children?: React.ReactNode;
+    }) => (
+      <MockDialogOpen.Provider value={open}>{children}</MockDialogOpen.Provider>
+    ),
+    DialogContent: MockDialogContent,
     // A real input: the import flow is driven through its change event, so a
     // passthrough div would leave `handleFile` unreachable.
     Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -129,13 +154,18 @@ vi.mock("@neoboard/components", () => {
     PageHeader: ({
       title,
       titleRef,
+      actions,
     }: {
       title: string;
       titleRef?: React.Ref<HTMLHeadingElement>;
+      actions?: React.ReactNode;
     }) => (
-      <h1 ref={titleRef} tabIndex={-1}>
-        {title}
-      </h1>
+      <>
+        <h1 ref={titleRef} tabIndex={-1}>
+          {title}
+        </h1>
+        {actions}
+      </>
     ),
     // Hands focus back after the render that closes it, as Radix does.
     ConfirmDialog: function ConfirmDialog({
@@ -494,3 +524,29 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
     expect(screen.getByRole("heading", { name: "Dashboards" })).toHaveFocus();
   });
 });
+
+// #2146: none of these dialogs has a Trigger either (Rename: dashboards.spec).
+const cancelIn = (id: string) => () =>
+  within(document.getElementById(id)!.closest("form")!).getByText("Cancel");
+it.each([
+  ["New Dashboard", false, cancelIn("dashboard-name")],
+  ["Import", false, cancelIn("import-file")],
+  [
+    "Change connection…",
+    true,
+    () => screen.getByRole("button", { name: "Cancel" }),
+  ],
+])(
+  "closing what %s opened puts focus back on its opener (#2146)",
+  (name, fromMenu, cancel) => {
+    dashboards = [{ ...DASHBOARD, role: "owner" }];
+    menuTrigger.blur();
+    render(<DashboardListPage />);
+    const opener = screen.getAllByText(name)[0];
+
+    fireEvent.click(opener);
+    fireEvent.click(cancel());
+
+    expect(fromMenu ? menuTrigger : opener).toHaveFocus();
+  },
+);

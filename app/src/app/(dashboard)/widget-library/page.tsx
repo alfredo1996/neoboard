@@ -1,6 +1,7 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
+import { returnFocus } from "@/lib/return-focus";
 import { useState, useMemo, useRef, type MouseEventHandler } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -67,12 +68,12 @@ function TemplateCard({
   readonly connectorName: string;
   readonly canEdit: boolean;
   readonly canDelete: boolean;
-  readonly onEdit: () => void;
+  readonly onEdit: MouseEventHandler<HTMLButtonElement>;
   readonly onDelete: MouseEventHandler<HTMLButtonElement>;
   readonly onDuplicate: () => void;
   readonly onTestQuery: () => void;
   readonly testQueryLoading: boolean;
-  readonly onUseInDashboard: () => void;
+  readonly onUseInDashboard: MouseEventHandler<HTMLButtonElement>;
 }) {
   const chartLabel =
     getChartConfig(template.chartType)?.label ?? template.chartType;
@@ -239,7 +240,8 @@ export default function WidgetLibraryPage() {
   const [filterConnector, setFilterConnector] = useState<string>("all");
   const [filterTag, setFilterTag] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  // The dialog has no Trigger: where focus goes when it closes (#2125).
+  // No dialog here has a Trigger: where focus goes when one closes (#2125,
+  // #2146).
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [useTarget, setUseTarget] = useState<string | null>(null);
@@ -290,15 +292,19 @@ export default function WidgetLibraryPage() {
     return role === "admin" || template.createdBy === userId;
   }
 
-  function handleCreate() {
+  const handleCreate: MouseEventHandler<HTMLButtonElement> = (e) => {
+    setReturnFocusTo(e.currentTarget);
     setEditingTemplate(undefined);
     setEditorOpen(true);
-  }
+  };
 
-  function handleEdit(template: WidgetTemplate) {
+  function handleEdit(template: WidgetTemplate, from: HTMLElement) {
+    setReturnFocusTo(from);
     setEditingTemplate(template);
     setEditorOpen(true);
   }
+
+  const focusOpener = () => returnFocus(returnFocusTo, headingRef.current);
 
   function handleDuplicate(template: WidgetTemplate) {
     const baseName = template.name.replace(/\s*\(copy(?:\s\d+)?\)$/, "");
@@ -490,7 +496,7 @@ export default function WidgetLibraryPage() {
                   template={template}
                   canEdit={canEditOrDelete(template)}
                   canDelete={canEditOrDelete(template)}
-                  onEdit={() => handleEdit(template)}
+                  onEdit={(e) => handleEdit(template, e.currentTarget)}
                   onDelete={(e) => {
                     setReturnFocusTo(e.currentTarget);
                     setDeleteTarget(template.id);
@@ -498,7 +504,10 @@ export default function WidgetLibraryPage() {
                   onDuplicate={() => handleDuplicate(template)}
                   onTestQuery={() => handleTestQuery(template)}
                   testQueryLoading={testingTemplateId === template.id}
-                  onUseInDashboard={() => setUseTarget(template.id)}
+                  onUseInDashboard={(e) => {
+                    setReturnFocusTo(e.currentTarget);
+                    setUseTarget(template.id);
+                  }}
                 />
               ))}
             </div>
@@ -536,6 +545,7 @@ export default function WidgetLibraryPage() {
           /* not used in lab mode */
         }}
         onLabSaved={() => setEditorOpen(false)}
+        onCloseAutoFocus={focusOpener}
       />
 
       <DashboardPickerDialog
@@ -546,6 +556,7 @@ export default function WidgetLibraryPage() {
         onSelect={(dashboardId) => {
           router.push(`/${dashboardId}/edit?templateId=${useTarget}`);
         }}
+        onCloseAutoFocus={focusOpener}
       />
     </div>
   );

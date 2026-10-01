@@ -56,6 +56,7 @@ import {
   Button,
   ConfirmDialog,
   EmptyState,
+  focusedMenuTrigger,
   Skeleton,
   useToast,
 } from "@neoboard/components";
@@ -85,7 +86,7 @@ export function DashboardWorkspace({
   id,
   editMode,
   children,
-}: DashboardWorkspaceProps) {
+}: Readonly<DashboardWorkspaceProps>) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -453,6 +454,10 @@ export function DashboardWorkspace({
   const [cachedPreviewData, setCachedPreviewData] = useState<
     { data: unknown; resultId: string } | undefined
   >();
+  // Neither the editor nor Save as template has a Trigger: both hand focus
+  // back to what opened the editor (#2146).
+  const [editorOpener, setEditorOpener] = useState<HTMLElement | null>(null);
+  const focusEditorOpener = () => editorOpener?.focus();
 
   const templateMap = useMemo<Record<string, WidgetTemplate>>(
     () => Object.fromEntries((allTemplates ?? []).map((t) => [t.id, t])),
@@ -499,6 +504,8 @@ export function DashboardWorkspace({
   );
 
   const openAddWidget = useCallback(() => {
+    // A button, or whatever had focus when the shortcut was pressed.
+    setEditorOpener(document.activeElement as HTMLElement | null);
     setEditorMode("add");
     setEditingWidget(undefined);
     setEditorOpen(true);
@@ -520,6 +527,7 @@ export function DashboardWorkspace({
           ? { ...shown, data: shown.data.slice(0, PREVIEW_ROW_LIMIT) }
           : shown,
       );
+      setEditorOpener(focusedMenuTrigger());
       setEditorMode("edit");
       setEditingWidget(widget);
       setEditorOpen(true);
@@ -600,6 +608,7 @@ export function DashboardWorkspace({
   const {
     showNavWarning,
     setShowNavWarning,
+    returnFocusTo: navWarningOpener,
     confirmNavigation,
     cancelNavigation,
     requestNavigation,
@@ -801,6 +810,7 @@ export function DashboardWorkspace({
             canWrite={session?.user?.canWrite !== false}
             // #913: opens SaveTemplateDialog from the modal footer.
             onSaveAsTemplate={(w) => setTemplateWidget(w)}
+            onCloseAutoFocus={focusEditorOpener}
           />
 
           {templateWidget &&
@@ -821,6 +831,8 @@ export function DashboardWorkspace({
                   }}
                   widget={templateWidget}
                   connectorType={connectorType}
+                  // Its own opener left with the editor.
+                  onCloseAutoFocus={focusEditorOpener}
                 />
               );
             })()}
@@ -921,6 +933,7 @@ export function DashboardWorkspace({
         variant="destructive"
         onConfirm={confirmNavigation}
         onCancel={cancelNavigation}
+        returnFocusTo={navWarningOpener}
       />
 
       {children}

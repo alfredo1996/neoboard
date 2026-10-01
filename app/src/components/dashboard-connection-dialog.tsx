@@ -35,6 +35,8 @@ export interface DashboardConnectionDialogProps {
   /** Pass "" while closed so the dashboard query stays disabled. */
   readonly dashboardId: string;
   readonly dashboardName: string;
+  /** It has no Trigger: the opener says where focus goes on close (#2146). */
+  readonly onCloseAutoFocus?: () => void;
 }
 
 interface SourceBucket {
@@ -85,6 +87,7 @@ export function DashboardConnectionDialog({
   onOpenChange,
   dashboardId,
   dashboardName,
+  onCloseAutoFocus,
 }: DashboardConnectionDialogProps) {
   const { data: dashboard, isLoading } = useDashboard(dashboardId);
   const { data: connections = [] } = useConnections();
@@ -155,6 +158,7 @@ export function DashboardConnectionDialog({
       <DialogContent
         className="sm:max-w-lg"
         aria-describedby="change-connection-desc"
+        onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogHeader>
           <DialogTitle>Change connection</DialogTitle>

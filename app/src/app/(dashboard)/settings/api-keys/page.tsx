@@ -1,6 +1,11 @@
 "use client";
 
-import { useRef, useState, type RefObject } from "react";
+import {
+  useRef,
+  useState,
+  type MouseEventHandler,
+  type RefObject,
+} from "react";
 import { Plus, Trash2, Copy, Check, Key } from "lucide-react";
 import {
   PageHeader,
@@ -21,6 +26,7 @@ import {
   useRevokeApiKey,
 } from "@/hooks/use-api-keys";
 import type { ApiKeyListItem, CreatedApiKey } from "@/hooks/use-api-keys";
+import { returnFocus } from "@/lib/return-focus";
 import { maskedKey } from "./masked-key";
 
 function formatDate(dateStr: string | null): string {
@@ -60,9 +66,11 @@ function CopyButton({ value }: Readonly<{ value: string }>) {
 function CreateKeyDialog({
   open,
   onClose,
+  onCloseAutoFocus,
 }: Readonly<{
   open: boolean;
   onClose: () => void;
+  onCloseAutoFocus: () => void;
 }>) {
   const [name, setName] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -93,7 +101,7 @@ function CreateKeyDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent>
+      <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>
             {createdKey ? "API Key Created" : "Create API Key"}
@@ -236,12 +244,19 @@ function ApiKeyRow({
 
 export default function ApiKeysPage() {
   const [createOpen, setCreateOpen] = useState(false);
+  // The dialog has no Trigger: where focus goes when it closes (#2146).
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const { data: keys = [], isLoading } = useApiKeys();
   const revokeMutation = useRevokeApiKey();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const handleRevoke = (id: string) => {
     revokeMutation.mutate(id);
+  };
+
+  const openCreate: MouseEventHandler<HTMLButtonElement> = (e) => {
+    setReturnFocusTo(e.currentTarget);
+    setCreateOpen(true);
   };
 
   return (
@@ -251,7 +266,7 @@ export default function ApiKeysPage() {
         titleRef={headingRef}
         description="Manage API keys for programmatic access to NeoBoard."
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Create API Key
           </Button>
@@ -270,7 +285,7 @@ export default function ApiKeysPage() {
           title="No API keys"
           description="Create an API key to make programmatic requests to NeoBoard."
           action={
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" />
               Create API Key
             </Button>
@@ -315,7 +330,11 @@ export default function ApiKeysPage() {
         </div>
       )}
 
-      <CreateKeyDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreateKeyDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCloseAutoFocus={() => returnFocus(returnFocusTo, headingRef.current)}
+      />
     </div>
   );
 }

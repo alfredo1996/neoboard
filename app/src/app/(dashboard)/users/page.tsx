@@ -1,7 +1,14 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { returnFocus } from "@/lib/return-focus";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  type MouseEventHandler,
+} from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import {
@@ -101,10 +108,15 @@ export default function UsersPage() {
   });
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [disableTarget, setDisableTarget] = useState<UserListItem | null>(null);
-  // The menu button Delete or Disable was picked from (#2086). Kept after the
-  // dialog closes: Radix hands focus back after that render.
+  // What opened the dialog showing (#2086, #2146): none has a Trigger. Kept
+  // after it closes: Radix hands focus back after that render.
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const focusOpener = () => returnFocus(returnFocusTo, headingRef.current);
+  const openCreate: MouseEventHandler<HTMLButtonElement> = (e) => {
+    setReturnFocusTo(e.currentTarget);
+    setShowCreate(true);
+  };
   const [createError, setCreateError] = useState<string | null>(null);
   const [tempPasswordData, setTempPasswordData] = useState<{
     userName: string;
@@ -155,6 +167,8 @@ export default function UsersPage() {
 
   const handleForcePasswordChange = useCallback(
     async (user: UserListItem) => {
+      // Read before the await, while the row's menu still has focus (#2146).
+      setReturnFocusTo(focusedMenuTrigger());
       try {
         const result = await resetPassword({
           id: user.id,
@@ -360,7 +374,7 @@ export default function UsersPage() {
           // admin affordances (#1036). Server-side enforcement already exists;
           // this is the UI half.
           isAdmin ? (
-            <Button onClick={() => setShowCreate(true)}>
+            <Button onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" />
               Create User
             </Button>
@@ -369,7 +383,7 @@ export default function UsersPage() {
       />
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent onCloseAutoFocus={focusOpener}>
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle>Create User</DialogTitle>
@@ -531,7 +545,10 @@ export default function UsersPage() {
         {/* #1282: both paragraphs below already describe this dialog —
             aria-describedby takes a space-separated id list, so link them
             rather than inventing a third copy of the same warning. */}
-        <DialogContent aria-describedby="temp-password-desc temp-password-warning">
+        <DialogContent
+          aria-describedby="temp-password-desc temp-password-warning"
+          onCloseAutoFocus={focusOpener}
+        >
           <DialogHeader>
             <DialogTitle>Temporary Password</DialogTitle>
           </DialogHeader>
@@ -579,7 +596,7 @@ export default function UsersPage() {
               title="No users yet"
               description="Add team members so they can collaborate on dashboards."
               action={
-                <Button onClick={() => setShowCreate(true)}>
+                <Button onClick={openCreate}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create your first user
                 </Button>

@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { maskedKey } from "../masked-key";
 import type { ApiKeyListItem } from "@/hooks/use-api-keys";
+import { MockDialogContent } from "@/__tests__/helpers/dialog-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -88,9 +89,7 @@ vi.mock("@neoboard/components", () => ({
   },
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
     open ? <div>{children}</div> : null,
-  DialogContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  DialogContent: MockDialogContent,
   DialogDescription: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -171,4 +170,16 @@ describe("ApiKeysPage Revoke (#2086)", () => {
 
     expect(screen.getByRole("heading", { name: "API Keys" })).toHaveFocus();
   });
+});
+
+// #2146: Create API Key has no Trigger either.
+it("Cancel on Create API Key puts focus back on its button (#2146)", () => {
+  mockKeys = [makeKey({})];
+  render(<ApiKeysPage />);
+  const create = screen.getByRole("button", { name: "Create API Key" });
+
+  fireEvent.click(create);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+  expect(create).toHaveFocus();
 });

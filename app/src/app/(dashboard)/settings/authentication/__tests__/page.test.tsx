@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import type { ConfirmDialogProps, PageHeaderProps } from "@neoboard/components";
+import { MockDialogContent } from "@/__tests__/helpers/dialog-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -168,12 +169,7 @@ vi.mock("@neoboard/components", () => ({
     open: boolean;
     onOpenChange: (v: boolean) => void;
   }) => (open ? <div data-testid="dialog">{children}</div> : null),
-  DialogContent: ({
-    children,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => <div>{children}</div>,
+  DialogContent: MockDialogContent,
   DialogHeader: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -381,4 +377,31 @@ describe("AuthenticationPage", () => {
       expect(target()).toHaveFocus();
     },
   );
+});
+
+// #2146: Add SSO Provider has no Trigger either.
+it.each([
+  ["the header's button", 0, false],
+  ["the empty state's button", 1, false],
+  ["the heading once a provider has replaced the empty state", 1, true],
+])("closing Add SSO Provider puts focus on %s (#2146)", async (_, i, added) => {
+  mockSsoEnabled = true;
+  mockUseSsoProviders.mockReturnValue({ data: [], isLoading: false });
+  const { default: Page } = await import("../page");
+  const { rerender } = render(<Page />);
+  const add = screen.getAllByRole("button", { name: "Add Provider" })[i];
+
+  fireEvent.click(add);
+  if (added) {
+    mockUseSsoProviders.mockReturnValue({
+      data: [{ id: "sso-1", name: "Okta", issuer: "https://okta.test" }],
+      isLoading: false,
+    });
+    rerender(<Page />);
+  }
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+  expect(
+    added ? screen.getByRole("heading", { name: "Authentication" }) : add,
+  ).toHaveFocus();
 });

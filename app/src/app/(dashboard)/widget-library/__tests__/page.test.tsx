@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import type { ConfirmDialogProps, PageHeaderProps } from "@neoboard/components";
+import { MockClosingDialog } from "@/__tests__/helpers/dialog-mocks";
 
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
 
@@ -63,10 +64,10 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (type: string) => ({ label: type }),
 }));
 vi.mock("@/components/widget-editor-modal", () => ({
-  WidgetEditorModal: () => null,
+  WidgetEditorModal: MockClosingDialog,
 }));
 vi.mock("@/components/dashboard-picker-dialog", () => ({
-  DashboardPickerDialog: () => null,
+  DashboardPickerDialog: MockClosingDialog,
 }));
 
 vi.mock("@neoboard/components", () => {
@@ -74,10 +75,13 @@ vi.mock("@neoboard/components", () => {
     <div>{children}</div>
   );
   return {
-    PageHeader: ({ title, titleRef }: PageHeaderProps) => (
-      <h1 ref={titleRef} tabIndex={-1}>
-        {title}
-      </h1>
+    PageHeader: ({ title, titleRef, actions }: PageHeaderProps) => (
+      <>
+        <h1 ref={titleRef} tabIndex={-1}>
+          {title}
+        </h1>
+        {actions}
+      </>
     ),
     EmptyState: Box,
     LoadingOverlay: Box,
@@ -242,3 +246,17 @@ describe("WidgetLibraryPage — where focus goes after Delete template (#2125)",
     },
   );
 });
+
+// #2146: the editor and Use in Dashboard have no Trigger either.
+it.each(["New Template", "Edit template", "Use in Dashboard"])(
+  "Cancel on what %s opened puts focus back on it (#2146)",
+  (name) => {
+    render(<WidgetLibraryPage />);
+    const opener = screen.getAllByRole("button", { name })[0];
+
+    fireEvent.click(opener);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(opener).toHaveFocus();
+  },
+);

@@ -25,6 +25,8 @@ interface SaveTemplateDialogProps {
   /** Absent when the widget needs no connection — markdown, iframe (#1900). */
   readonly connectorType?: string;
   readonly onSaved?: () => void;
+  /** It has no Trigger: the opener says where focus goes on close (#2146). */
+  readonly onCloseAutoFocus?: () => void;
 }
 
 export function SaveTemplateDialog({
@@ -33,6 +35,7 @@ export function SaveTemplateDialog({
   widget,
   connectorType,
   onSaved,
+  onCloseAutoFocus,
 }: SaveTemplateDialogProps) {
   const defaultName =
     (widget.settings?.title as string) ||
@@ -90,7 +93,10 @@ export function SaveTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent
+        className="sm:max-w-[440px]"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>Save to Widget Library</DialogTitle>
           <DialogDescription>

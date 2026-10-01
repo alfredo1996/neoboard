@@ -12,6 +12,8 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useParameterStore } from "@/stores/parameter-store";
+import type { ConfirmDialogProps } from "@neoboard/components";
+import { useCloseAutoFocus } from "@/__tests__/helpers/dialog-mocks";
 
 /* ---------- probes ---------- */
 
@@ -174,18 +176,23 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 vi.mock("@/components/widget-editor-modal", () => ({
   WidgetEditorModal: ({
     open,
+    onOpenChange,
+    onCloseAutoFocus,
     initialPreviewData,
     widget,
     onSave,
     onSaveAsTemplate,
   }: {
-    open?: boolean;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onCloseAutoFocus?: () => void;
     initialPreviewData?: { data: unknown };
     widget?: unknown;
     onSave?: (w: unknown) => void;
     onSaveAsTemplate?: (w: unknown) => void;
-  }) =>
-    open ? (
+  }) => {
+    useCloseAutoFocus(onCloseAutoFocus, open);
+    return open ? (
       <div
         data-testid="widget-editor-modal"
         data-preview={
@@ -197,8 +204,13 @@ vi.mock("@/components/widget-editor-modal", () => ({
           data-testid="editor-save-as-template"
           onClick={() => onSaveAsTemplate?.(widget)}
         />
+        <button
+          data-testid="editor-cancel"
+          onClick={() => onOpenChange(false)}
+        />
       </div>
-    ) : null,
+    ) : null;
+  },
 }));
 
 vi.mock("@/components/dashboard-assign-panel", () => ({
@@ -217,12 +229,28 @@ vi.mock("@/components/dashboard-assign-panel", () => ({
 }));
 
 vi.mock("@/components/save-template-dialog", () => ({
-  SaveTemplateDialog: ({ connectorType }: { connectorType?: string }) => (
-    <div
-      data-testid="save-template-dialog"
-      data-connector-type={connectorType ?? "none"}
-    />
-  ),
+  SaveTemplateDialog: ({
+    connectorType,
+    onOpenChange,
+    onCloseAutoFocus,
+  }: {
+    connectorType?: string;
+    onOpenChange: (open: boolean) => void;
+    onCloseAutoFocus?: () => void;
+  }) => {
+    useCloseAutoFocus(onCloseAutoFocus);
+    return (
+      <div
+        data-testid="save-template-dialog"
+        data-connector-type={connectorType ?? "none"}
+      >
+        <button
+          data-testid="template-cancel"
+          onClick={() => onOpenChange(false)}
+        />
+      </div>
+    );
+  },
 }));
 
 vi.mock("@/components/page-tabs", () => ({
@@ -376,8 +404,30 @@ vi.mock("@neoboard/components", () => {
         {children}
       </div>
     ),
-    ConfirmDialog: ({ open, title }: { open?: boolean; title?: string }) =>
-      open ? <div role="dialog">{title}</div> : null,
+    ConfirmDialog: ({
+      open,
+      title,
+      cancelText,
+      onCancel,
+      onOpenChange,
+      returnFocusTo,
+    }: ConfirmDialogProps) => {
+      useCloseAutoFocus(() => returnFocusTo?.focus(), open);
+      return open ? (
+        <div role="dialog">
+          {title}
+          <button
+            onClick={() => {
+              onCancel?.();
+              onOpenChange(false);
+            }}
+          >
+            {cancelText}
+          </button>
+        </div>
+      ) : null;
+    },
+    focusedMenuTrigger: () => menuTrigger,
     useToast: () => ({ toast: vi.fn(), dismiss: vi.fn() }),
     cn: (...classes: unknown[]) => classes.filter(Boolean).join(" "),
   };
@@ -386,6 +436,9 @@ vi.mock("@neoboard/components", () => {
 /* ---------- import under test ---------- */
 
 import { DashboardWorkspace } from "../dashboard-workspace";
+
+// What `focusedMenuTrigger()` finds: the widget card's menu button.
+const menuTrigger = document.body.appendChild(document.createElement("button"));
 
 /* ---------- fixtures ---------- */
 
@@ -1776,5 +1829,43 @@ describe("DashboardWorkspace", () => {
 
     expect(sessionStorage.getItem("__nb_dash_ver_d1")).toBe("2");
     expect(screen.queryByText(/Dashboard updated by/)).toBeNull();
+  });
+});
+
+// #2146: the editor, Save as template and the unsaved-changes guard have no
+// Trigger: closing one puts focus back on what opened it.
+describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)", () => {
+  beforeEach(() => {
+    pathname = "/d1/edit";
+    menuTrigger.blur();
+  });
+
+  it("the editor, closed: on Add Widget", async () => {
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+
+    await userEvent.click(screen.getByText("Add Widget"));
+    await userEvent.click(screen.getByTestId("editor-cancel"));
+
+    expect(screen.getByText("Add Widget")).toHaveFocus();
+  });
+
+  it("Save as template, closed: on the menu button Edit Widget came from", () => {
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+
+    fireEvent.click(screen.getByTestId("act-edit"));
+    fireEvent.click(screen.getByTestId("editor-save-as-template"));
+    fireEvent.click(screen.getByTestId("template-cancel"));
+
+    expect(menuTrigger).toHaveFocus();
+  });
+
+  it("Stay on the unsaved-changes guard: on Back", async () => {
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
+
+    await userEvent.click(screen.getByText("Back"));
+    await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+
+    expect(screen.getByText("Back")).toHaveFocus();
   });
 });
