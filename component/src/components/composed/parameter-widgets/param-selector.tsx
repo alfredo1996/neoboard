@@ -107,7 +107,7 @@ function ParamSelector({
   className,
   labelledBy,
   id,
-}: ParamSelectorProps) {
+}: Readonly<ParamSelectorProps>) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-select-label-${parameterName}`;
   const clearId = React.useId();
@@ -196,7 +196,7 @@ function ParamSelector({
     return (
       <div className={cn("space-y-1.5", className)}>
         {label}
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <Popover open={open} onOpenChange={handleOpenChange}>
             <PopoverTrigger asChild>
               <Button
@@ -208,13 +208,20 @@ function ParamSelector({
                 aria-labelledby={labelId}
                 aria-describedby={hintId}
                 disabled={isWaitingForParent}
-                className="flex-1 justify-between"
+                // min-w-0 + truncate: a long label stays inside its card.
+                // basis-24 + the row's flex-wrap: rather than leave the
+                // trigger under 6rem, the clear button wraps below it (#2056).
+                className="min-w-0 flex-1 basis-24 justify-between"
               >
-                {selectedLabel ?? (
-                  <span className="text-muted-foreground font-normal">
-                    {resolvedPlaceholder}
-                  </span>
-                )}
+                <span
+                  className={cn(
+                    "truncate",
+                    selectedLabel === undefined &&
+                      "text-muted-foreground font-normal",
+                  )}
+                >
+                  {selectedLabel ?? resolvedPlaceholder}
+                </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
@@ -263,7 +270,7 @@ function ParamSelector({
   return (
     <div className={cn("space-y-1.5", className)}>
       {label}
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         <Select
           value={value}
           onValueChange={onChange}
@@ -271,7 +278,8 @@ function ParamSelector({
         >
           <SelectTrigger
             id={id}
-            className="flex-1"
+            // Fits its card as the searchable trigger above does (#2056).
+            className="min-w-0 flex-1 basis-24"
             aria-required={required || undefined}
             aria-labelledby={labelId}
             aria-describedby={hintId}

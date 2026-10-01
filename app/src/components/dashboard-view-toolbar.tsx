@@ -75,7 +75,7 @@ export function DashboardViewToolbar({
   isEnteringEdit,
   onBack,
   onEdit,
-}: DashboardViewToolbarProps) {
+}: Readonly<DashboardViewToolbarProps>) {
   const countdown = useCountdown(refetchInterval);
   const [customSeconds, setCustomSeconds] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -88,7 +88,7 @@ export function DashboardViewToolbar({
   );
 
   const handleCustomApply = useCallback(() => {
-    const s = parseInt(customSeconds, 10);
+    const s = Number.parseInt(customSeconds, 10);
     if (!Number.isFinite(s) || s < 5) return; // minimum 5s
     onApplyInterval(s);
     setCustomSeconds("");
@@ -118,10 +118,14 @@ export function DashboardViewToolbar({
           Back
         </Button>
       </ToolbarSection>
-      <ToolbarSection className="flex-1">
-        <h1 className="text-lg font-bold">{name}</h1>
+      {/* basis-48 keeps room for the title: the actions wrap to a second row
+          before they crush it, and the metadata drops under it (#2056). */}
+      <ToolbarSection className="min-w-0 flex-1 basis-48 gap-y-0">
+        <h1 className="truncate text-lg font-bold" title={name}>
+          {name}
+        </h1>
         <Badge variant="secondary">{role}</Badge>
-        <span className="text-xs text-muted-foreground">
+        <span className="truncate text-xs text-muted-foreground">
           · updated <TimeAgo date={updatedAt} showTooltip={false} />
           {updatedByName ? <> by {updatedByName}</> : null}
         </span>

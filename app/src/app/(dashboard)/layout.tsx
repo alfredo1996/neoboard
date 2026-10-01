@@ -47,12 +47,16 @@ function getPreferenceIcon(preference: ThemePreference) {
 
 export default function DashboardLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   const router = useRouter();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  // Below the desktop breakpoint (Tailwind lg) the sidebar starts as its icon
+  // rail, so a tablet keeps its width for content (#2056).
+  const [collapsed, setCollapsed] = useState(
+    () => globalThis.matchMedia?.("(max-width: 1023.98px)").matches ?? false,
+  );
   const { preference, setTheme } = useTheme();
   const { data: session, status } = useSession({
     required: true,

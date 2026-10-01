@@ -64,8 +64,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@neoboard/components";
-import {
   PageHeader,
   EmptyState,
   LoadingButton,
@@ -610,6 +608,36 @@ function ImportDashboardDialog({
   );
 }
 
+// ── CreateNameHint ───────────────────────────────────────────────────
+
+function CreateNameHint({
+  error,
+  duplicate,
+  name,
+}: Readonly<{ error: string | null; duplicate: boolean; name: string }>) {
+  if (error) {
+    return (
+      <p id="dashboard-name-error" className="text-xs text-destructive mt-1">
+        {error}
+      </p>
+    );
+  }
+  if (duplicate) {
+    // Non-blocking warning — duplicate names are allowed (#1048).
+    return (
+      <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+        A dashboard named “{name}” already exists. You can still create another
+        with this name.
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs text-muted-foreground mt-1">
+      Give your dashboard a name to get started.
+    </p>
+  );
+}
+
 // ── GettingStartedGuide ──────────────────────────────────────────────
 
 interface GettingStartedGuideProps {
@@ -772,6 +800,26 @@ export default function DashboardListPage() {
     search,
   );
 
+  const emptyList = canCreate ? (
+    <GettingStartedGuide onCreateDashboard={() => setShowCreate(true)} />
+  ) : (
+    <EmptyState
+      icon={<LayoutDashboard className="h-12 w-12" />}
+      title="No dashboards yet"
+      description="Ask an admin or editor to share one with you."
+      secondaryAction={
+        <a
+          href={DOCS_LINKS.firstDashboard}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          Read the docs
+        </a>
+      }
+    />
+  );
+
   async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!newName.trim()) {
@@ -872,24 +920,14 @@ export default function DashboardListPage() {
                   nameError ? "dashboard-name-error" : undefined
                 }
               />
-              {nameError ? (
-                <p
-                  id="dashboard-name-error"
-                  className="text-xs text-destructive mt-1"
-                >
-                  {nameError}
-                </p>
-              ) : isDuplicateDashboardName(newName, dashboardList ?? []) ? (
-                // Non-blocking warning — duplicate names are allowed (#1048).
-                <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                  A dashboard named “{newName.trim()}” already exists. You can
-                  still create another with this name.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Give your dashboard a name to get started.
-                </p>
-              )}
+              <CreateNameHint
+                error={nameError}
+                duplicate={isDuplicateDashboardName(
+                  newName,
+                  dashboardList ?? [],
+                )}
+                name={newName.trim()}
+              />
             </div>
             <DialogFooter>
               <Button
@@ -1029,27 +1067,7 @@ export default function DashboardListPage() {
       <div className="mt-6">
         <LoadingOverlay loading={isLoading} text="Loading dashboards...">
           {!dashboardList?.length ? (
-            canCreate ? (
-              <GettingStartedGuide
-                onCreateDashboard={() => setShowCreate(true)}
-              />
-            ) : (
-              <EmptyState
-                icon={<LayoutDashboard className="h-12 w-12" />}
-                title="No dashboards yet"
-                description="Ask an admin or editor to share one with you."
-                secondaryAction={
-                  <a
-                    href={DOCS_LINKS.firstDashboard}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline-offset-4 hover:underline"
-                  >
-                    Read the docs
-                  </a>
-                }
-              />
-            )
+            emptyList
           ) : (
             <>
               {/* Name search/filter for the list at scale (#1048). */}
@@ -1085,7 +1103,10 @@ export default function DashboardListPage() {
                       >
                         <CardHeader className="pb-2">
                           <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="text-base truncate">
+                            <CardTitle
+                              className="text-base truncate"
+                              title={d.name}
+                            >
                               {/* #1283: the card's onClick was the ONLY route
                                   into a dashboard — a bare div with no role,
                                   no tab stop, and no "Open" item in the menu,

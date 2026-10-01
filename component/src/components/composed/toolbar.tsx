@@ -7,12 +7,13 @@ export interface ToolbarProps {
   className?: string;
 }
 
-function Toolbar({ children, className }: ToolbarProps) {
+function Toolbar({ children, className }: Readonly<ToolbarProps>) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 border-b px-4 py-2",
-        className
+        // Toolbar and sections wrap rather than run off a narrow viewport (#2056).
+        "flex flex-wrap items-center gap-2 border-b px-4 py-2",
+        className,
       )}
     >
       {children}
@@ -25,9 +26,12 @@ export interface ToolbarSectionProps {
   className?: string;
 }
 
-function ToolbarSection({ children, className }: ToolbarSectionProps) {
+function ToolbarSection({
+  children,
+  className,
+}: Readonly<ToolbarSectionProps>) {
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
       {children}
     </div>
   );

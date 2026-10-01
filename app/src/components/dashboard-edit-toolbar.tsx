@@ -48,7 +48,8 @@ export function DashboardEditToolbar({
   onAddWidget,
   onSave,
   onBack,
-}: DashboardEditToolbarProps) {
+}: Readonly<DashboardEditToolbarProps>) {
+  const heading = `Editing: ${name}`;
   return (
     <Toolbar>
       <ToolbarSection>
@@ -57,8 +58,12 @@ export function DashboardEditToolbar({
           Back
         </Button>
       </ToolbarSection>
-      <ToolbarSection className="flex-1">
-        <h1 className="text-lg font-bold">{`Editing: ${name}`}</h1>
+      {/* basis-48: the actions wrap to a second row before they crush the
+          title (#2056). */}
+      <ToolbarSection className="min-w-0 flex-1 basis-48">
+        <h1 className="truncate text-lg font-bold" title={heading}>
+          {heading}
+        </h1>
       </ToolbarSection>
       <ToolbarSection>
         {isAdmin && (
