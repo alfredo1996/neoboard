@@ -8,7 +8,7 @@
  * 0-height mount, so `display:none` is not an option.
  */
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
@@ -31,7 +31,7 @@ vi.mock("next/dynamic", () => ({
 /** The dismiss handlers the modal hands its Dialog and DialogContent (#1952).
  *  Radix closes on Escape and on the close button by calling the Dialog's
  *  `onOpenChange(false)`, so that one stands for both. */
-const { dismiss, selector, browser, updateTemplate } = vi.hoisted(() => ({
+const { dismiss, selector, browser, updateTemplate, seed } = vi.hoisted(() => ({
   dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
   /** The chart-type picker's change handler, as the user reaches it. */
   selector: {} as { onChartTypeChange?: (type: string) => void },
@@ -39,6 +39,8 @@ const { dismiss, selector, browser, updateTemplate } = vi.hoisted(() => ({
   browser: {} as { onApply?: (t: WidgetTemplate) => void },
   /** Edit Template's save (#2076). */
   updateTemplate: vi.fn(),
+  /** What Test Seed Query returns, and the options the preview is given (#2104). */
+  seed: {} as { data?: unknown; previewOptions?: unknown },
 }));
 
 vi.mock("@neoboard/components", () => {
@@ -197,7 +199,7 @@ vi.mock("@/hooks/use-query-execution", () => ({
     isPending: false,
     isError: false,
     error: null,
-    data: undefined,
+    data: seed.data,
   }),
 }));
 vi.mock("@/hooks/use-widget-templates", () => ({
@@ -213,9 +215,18 @@ vi.mock("../widget-editor/use-auto-preview", () => ({
 }));
 // Heavy children stubbed — this test is about the modal's layout, not theirs.
 vi.mock("../widget-editor/widget-preview-panel", () => ({
-  WidgetPreviewPanel: ({ isLabMode }: { isLabMode?: boolean }) => (
-    <div data-testid="widget-preview" data-lab-mode={String(isLabMode)} />
-  ),
+  WidgetPreviewPanel: ({
+    isLabMode,
+    seedPreviewOptions,
+  }: {
+    isLabMode?: boolean;
+    seedPreviewOptions?: unknown;
+  }) => {
+    seed.previewOptions = seedPreviewOptions;
+    return (
+      <div data-testid="widget-preview" data-lab-mode={String(isLabMode)} />
+    );
+  },
 }));
 vi.mock("../widget-editor/chart-type-selector", () => ({
   ChartTypeSelector: ({
@@ -960,4 +971,22 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
       expect(s.templateSyncedAt).toBe(String(updatedAt));
     },
   );
+});
+
+// #2104: the preview maps seed rows as the dashboard selector does, so a
+// label column that comes first is still the label.
+describe("WidgetEditorModal — Test Seed Query preview (#2104)", () => {
+  afterEach(() => {
+    seed.data = undefined;
+  });
+
+  it("previews the label column when it comes before the value", () => {
+    seed.data = { data: [{ label: "Heat", value: 7 }] };
+    useWidgetEditorStore.getState().resetForAdd();
+    useWidgetEditorStore.getState().setChartType("parameter-select");
+    renderModal();
+    expect(seed.previewOptions).toEqual([
+      { value: "7", label: "Heat", rawValue: 7 },
+    ]);
+  });
 });

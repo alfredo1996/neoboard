@@ -23,6 +23,7 @@ import {
   findParameterCollisions,
   aggregateClickActionParamNames,
 } from "@/lib/parameter/collect-parameter-names";
+import { seedRowToOption } from "@/lib/parameter/seed-option";
 import { AlertTriangle, Info, FlaskConical } from "lucide-react";
 import {
   useWidgetTemplates,
@@ -340,18 +341,8 @@ export function WidgetEditorModal({
   const seedPreviewOptions = useMemo(() => {
     if (!seedQueryExecution.data?.data) return null;
     const rows = seedQueryExecution.data.data;
-    if (!Array.isArray(rows) || rows.length === 0) return [];
-    return rows.map((row) => {
-      const r = row as Record<string, unknown>;
-      const keys = Object.keys(r);
-      return {
-        value: String(r[keys[0]] ?? ""),
-        label:
-          keys.length > 1
-            ? String(r[keys[1]] ?? r[keys[0]] ?? "")
-            : String(r[keys[0]] ?? ""),
-      };
-    });
+    // The dashboard selector's own mapping, so the preview cannot drift (#2104).
+    return Array.isArray(rows) ? rows.map(seedRowToOption) : [];
   }, [seedQueryExecution.data]);
 
   const previewQuery = useQueryExecution();

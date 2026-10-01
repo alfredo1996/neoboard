@@ -72,6 +72,28 @@ test.describe("Parameter selectors", () => {
     await expect(dialog).not.toBeVisible();
   });
 
+  // #2104: the preview reads named columns as the dashboard does, in any order.
+  test("Test Seed Query previews the label column when it comes first (#2104)", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Parameter Selector" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option").first().click();
+    await dialog
+      .locator("#seed-query")
+      .fill("RETURN 'Heat' AS label, 7 AS value");
+
+    await dialog.getByRole("button", { name: "Test Seed Query" }).click();
+    await expect(dialog.getByText("1 option loaded — see preview")).toBeVisible(
+      { timeout: 15_000 },
+    );
+    await getPreview(dialog).getByRole("combobox").click();
+    await expect(page.getByRole("option", { name: "Heat" })).toBeVisible();
+  });
+
   test("should create a widget with click action and verify action rules UI", async ({
     page,
   }) => {

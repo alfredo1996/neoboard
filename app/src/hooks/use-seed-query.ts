@@ -4,6 +4,7 @@ import type { QueryKey } from "@tanstack/react-query";
 import { unwrapFullResponse } from "@/lib/api/api-client";
 import { trackConnectorOutcome } from "@/stores/connection-status-store";
 import type { ParamSelectorOption } from "@neoboard/components";
+import { seedRowToOption } from "@/lib/parameter/seed-option";
 
 interface SeedQueryData {
   data: unknown;
@@ -98,23 +99,7 @@ export function useSeedQuery(
 
   const options = useMemo((): ParamSelectorOption[] => {
     if (!data?.data) return [];
-    const rows = Array.isArray(data.data) ? data.data : [];
-    return rows.map((row: unknown) => {
-      if (row && typeof row === "object") {
-        const r = row as Record<string, unknown>;
-        const keys = Object.keys(r);
-        // Named columns 'value' and 'label' take precedence over ordinal positions.
-        // This lets query authors write: RETURN id AS value, name AS label
-        const valueKey = "value" in r ? "value" : (keys[0] ?? "");
-        const labelKey = "label" in r ? "label" : (keys[1] ?? valueKey);
-        const rawValue = r[valueKey];
-        // Store the raw value for type preservation; display uses String()
-        const value = String(rawValue ?? "");
-        const label = String(r[labelKey] ?? value);
-        return { value, label, rawValue };
-      }
-      return { value: String(row), label: String(row), rawValue: row };
-    });
+    return Array.isArray(data.data) ? data.data.map(seedRowToOption) : [];
   }, [data]);
 
   return { options, loading: isLoading, error: error ?? null, refetch };
