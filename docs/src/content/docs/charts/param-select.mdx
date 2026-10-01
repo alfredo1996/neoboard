@@ -68,5 +68,6 @@ ORDER BY name
 ## Tips
 
 - Enable Sync to URL so users can bookmark or share a dashboard with specific filter values pre-selected.
+- A synced value keeps its type in the link: a number is written `n:1999`, true or false `b:true`, and text that starts with `n:`, `b:` or `s:` is escaped as `s:<text>`. In a link written by hand, mark a number the same way (`?param_year=n:1999`); unmarked, it is text and filters only once the selector has loaded a matching option.
 - Set a Default Value for parameters that should always have a selection on first load.
 - See [Parameters](/using/parameters) for details on parameter substitution, cascading parameters, and advanced usage.

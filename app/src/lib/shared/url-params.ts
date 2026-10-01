@@ -137,8 +137,12 @@ function decodeItem(text: string): unknown {
   if (!MARKER.test(text)) return text;
   const body = text.slice(2);
   if (text.startsWith("s")) return body;
-  if (text.startsWith("b")) return body === "true";
-  const n = Number(body);
+  if (text.startsWith("b")) {
+    if (body === "true" || body === "false") return body === "true";
+    return text;
+  }
+  // `Number("")` is 0: a blank body is malformed, not zero.
+  const n = body.trim() === "" ? Number.NaN : Number(body);
   return Number.isNaN(n) ? text : n;
 }
 

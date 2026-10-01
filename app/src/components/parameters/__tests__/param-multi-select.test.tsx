@@ -211,6 +211,17 @@ describe("ParamMultiSelect — writing the selection back", () => {
     expect(actions.set).toHaveBeenCalledWith(["stale"]);
   });
 
+  // #2124: an item restored typed from a link keeps its type when its option is not loaded.
+  it.each([
+    ["adding an option", [1999], ["1999", "a"], [1999, 1]],
+    ["removing a chip", [1999, true], ["1999"], [1999]],
+  ])("keeps a stored item's type on %s", (_l, stored, picked, expected) => {
+    const actions = makeActions(stored);
+    renderWidget(actions, makeSeed({ options: OPTIONS }));
+    fireChange(picked);
+    expect(actions.set).toHaveBeenCalledWith(expected);
+  });
+
   it("clears the parameter when everything is deselected", () => {
     const actions = makeActions([1, 2]);
     renderWidget(actions, makeSeed({ options: OPTIONS }));

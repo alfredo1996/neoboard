@@ -44,9 +44,19 @@ describe("parseUrlParams", () => {
   it("reads a marked value back into its type", () => {
     expect(
       parse(
-        "param_y=n%3A1999&param_on=b%3Atrue&param_t=s%3An%3A1&param_x=n%3Ax",
+        "param_y=n%3A1999&param_on=b%3Atrue&param_off=b%3Afalse&param_t=s%3An%3A1" +
+          "&param_x=n%3Ax&param_e=n%3A&param_w=n%3A+&param_by=b%3Ayes",
       ),
-    ).toEqual({ y: 1999, on: true, t: "n:1", x: "n:x" });
+    ).toEqual({
+      y: 1999,
+      on: true,
+      off: false,
+      t: "n:1",
+      x: "n:x",
+      e: "n:",
+      w: "n: ",
+      by: "b:yes",
+    });
   });
 });
 
