@@ -78,6 +78,15 @@ test.describe("Responsive — tablet viewport", () => {
   }) => {
     const name = `Tablet floor dashboard with a long name ${uid()}`;
     const widgetTitle = "A widget title far too long for a narrow card";
+    const picked = "Philip Seymour Hoffman";
+    // A long placeholder, then a picked value on both triggers (the
+    // searchable popover button and the plain select), where the clear
+    // button takes room beside the trigger.
+    const selects = [
+      { param: "tablet_pick", searchable: true, picked: false },
+      { param: "tablet_picked", searchable: true, picked: true },
+      { param: "tablet_picked_plain", searchable: false, picked: true },
+    ];
     const { id, cleanup } = await createTestDashboard(page.request, name);
     try {
       await page.request.put(`/api/dashboards/${id}`, {
@@ -88,23 +97,33 @@ test.describe("Responsive — tablet viewport", () => {
               {
                 id: "p1",
                 title: "Page 1",
-                widgets: [
-                  {
-                    id: "sel",
-                    chartType: "parameter-select",
-                    connectionId: "conn-neo4j-001",
-                    query: "",
-                    settings: {
-                      title: widgetTitle,
-                      chartOptions: {
-                        parameterName: "tablet_pick",
-                        parameterType: "select",
-                        placeholder: "Pick a movie from the whole catalogue",
-                      },
+                widgets: selects.map((s, i) => ({
+                  id: s.param,
+                  chartType: "parameter-select",
+                  connectionId: "conn-neo4j-001",
+                  query: "",
+                  settings: {
+                    title: i === 0 ? widgetTitle : s.param,
+                    chartOptions: {
+                      parameterName: s.param,
+                      parameterType: "select",
+                      searchable: s.searchable,
+                      placeholder: "Pick a movie from the whole catalogue",
+                      ...(s.picked && {
+                        seedQuery: 'RETURN "Philip Seymour Hoffman" AS value',
+                        defaultValue: picked,
+                      }),
                     },
                   },
-                ],
-                gridLayout: [{ i: "sel", x: 0, y: 0, w: 3, h: 3 }],
+                })),
+                // w:3 cards: about 85 px of row for each select at 768.
+                gridLayout: selects.map((s, i) => ({
+                  i: s.param,
+                  x: i * 3,
+                  y: 0,
+                  w: 3,
+                  h: 3,
+                })),
               },
             ],
           },
@@ -130,10 +149,44 @@ test.describe("Responsive — tablet viewport", () => {
       await expect(
         page.getByRole("heading", { name: widgetTitle }),
       ).toHaveAttribute("title", widgetTitle);
-      // ratio 1: a select spilling out of its card is clipped by the card.
-      await expect(
-        page.getByRole("combobox", { name: "tablet_pick" }),
-      ).toBeInViewport({ ratio: 1 });
+      // Soft: each select is its own case, so a failure names every one.
+      for (const s of selects) {
+        const combobox = page.getByRole("combobox", {
+          name: s.param,
+          exact: true,
+        });
+        // ratio 1: a select spilling out of its card is clipped by the card.
+        await expect.soft(combobox).toBeInViewport({ ratio: 1 });
+        // Its chevron stays full size and inside its border.
+        const chevron = await combobox.evaluate((el) => {
+          const icon = el
+            .querySelector(":scope > svg")!
+            .getBoundingClientRect();
+          return {
+            width: icon.width,
+            inside: icon.right <= el.getBoundingClientRect().right,
+          };
+        });
+        expect.soft(chevron, `${s.param} chevron`).toEqual({
+          width: 16,
+          inside: true,
+        });
+        if (!s.picked) continue;
+        // The clear button wraps below rather than squeezing the trigger
+        // into an empty box: the value keeps a character and its ellipsis.
+        const value = combobox.getByText(picked);
+        await expect.soft(value).toBeVisible();
+        const width = (await value.boundingBox())?.width ?? 0;
+        expect.soft(width, `${s.param} value width`).toBeGreaterThanOrEqual(16);
+        await expect
+          .soft(
+            page.getByRole("button", {
+              name: `Clear ${s.param}`,
+              exact: true,
+            }),
+          )
+          .toBeInViewport({ ratio: 1 });
+      }
     } finally {
       await cleanup();
     }

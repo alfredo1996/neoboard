@@ -210,6 +210,27 @@ describe("DashboardListPage rename", () => {
   });
 });
 
+describe("DashboardListPage create — the name hint", () => {
+  it("refuses an empty name, then warns without blocking on a taken one (#1048)", () => {
+    render(<DashboardListPage />);
+    const input = document.getElementById("dashboard-name")!;
+
+    fireEvent.submit(input);
+    expect(screen.getByText("Name is required").id).toBe(
+      "dashboard-name-error",
+    );
+    expect(input.getAttribute("aria-describedby")).toBe("dashboard-name-error");
+
+    fireEvent.change(input, { target: { value: "Movie Analytics" } });
+    expect(screen.queryByText("Name is required")).toBeNull();
+    expect(
+      screen.getByText(
+        "A dashboard named “Movie Analytics” already exists. You can still create another with this name.",
+      ),
+    ).toBeTruthy();
+  });
+});
+
 // #2108: the numeral's margin is not text; readers and copy need a space.
 it.each(["1. Add a connection", "2. Create a dashboard", "3. Add widgets"])(
   "reads the getting-started step as %s",
