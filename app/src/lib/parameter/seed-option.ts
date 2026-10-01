@@ -8,7 +8,7 @@ import { clickScalar } from "@/lib/widget/resolve-click-action";
  * one "[object Object]" option (#2104). A list stays a list, so it still
  * binds a list parameter (`IN $param_x`) and shows as "a,b".
  */
-function seedScalar(v: unknown): unknown {
+function seedScalar(v: unknown): string | number | boolean | null | unknown[] {
   if (Array.isArray(v)) return v;
   return clickScalar(v) ?? normalizeValue(v);
 }
