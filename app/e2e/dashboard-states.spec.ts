@@ -249,8 +249,10 @@ test.describe("Dashboard editor — uncovered states", () => {
       .click({ force: true });
     await page.getByText("Rename").click();
 
-    // The inline rename input should appear — fill in new name
-    const renameInput = page.locator("input[class*='text-sm']").last();
+    // The rename field appears, named for the page it renames (#2107)
+    const renameInput = page.getByRole("textbox", {
+      name: "Rename page Page 1",
+    });
     await renameInput.fill("Overview");
     await page.keyboard.press("Enter");
 
