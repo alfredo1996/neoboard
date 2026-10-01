@@ -90,15 +90,22 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                 <span className="sr-only">Drag to reorder</span>
               </button>
               {/* min-w-0 + truncate so a long unbroken title doesn't push the
-                  action buttons off the card / expand the header. (#component-review) */}
+                  action buttons off the card / expand the header. (#component-review)
+                  `title` gives the clipped text back as a tooltip (#2056). */}
               <div className="min-w-0">
                 {title && (
-                  <h3 className="truncate text-sm font-semibold leading-none">
+                  <h3
+                    className="truncate text-sm font-semibold leading-none"
+                    title={title}
+                  >
                     {title}
                   </h3>
                 )}
                 {subtitle ? (
-                  <p className="truncate text-xs text-muted-foreground mt-1">
+                  <p
+                    className="truncate text-xs text-muted-foreground mt-1"
+                    title={subtitle}
+                  >
                     {subtitle}
                   </p>
                 ) : (

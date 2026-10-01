@@ -1,4 +1,4 @@
-import { test, expect, ALICE } from "./fixtures";
+import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 test.describe("Responsive — mobile viewport", () => {
   test.use({ viewport: { width: 375, height: 812 } });
@@ -72,6 +72,72 @@ test.describe("Responsive — tablet viewport", () => {
       page.getByRole("button", { name: "Add Connection" }),
     ).toBeVisible();
   });
+
+  test("the dashboard chrome fits the tablet floor (#2056)", async ({
+    page,
+  }) => {
+    const name = `Tablet floor dashboard with a long name ${uid()}`;
+    const widgetTitle = "A widget title far too long for a narrow card";
+    const { id, cleanup } = await createTestDashboard(page.request, name);
+    try {
+      await page.request.put(`/api/dashboards/${id}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Page 1",
+                widgets: [
+                  {
+                    id: "sel",
+                    chartType: "parameter-select",
+                    connectionId: "conn-neo4j-001",
+                    query: "",
+                    settings: {
+                      title: widgetTitle,
+                      chartOptions: {
+                        parameterName: "tablet_pick",
+                        parameterType: "select",
+                        placeholder: "Pick a movie from the whole catalogue",
+                      },
+                    },
+                  },
+                ],
+                gridLayout: [{ i: "sel", x: 0, y: 0, w: 3, h: 3 }],
+              },
+            ],
+          },
+        },
+      });
+
+      await page.goto("/");
+      await expect(
+        page.getByRole("button", { name: "Expand sidebar" }),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("dashboard-card").getByTitle(name, { exact: true }),
+      ).toBeVisible();
+
+      await page.goto(`/${id}`);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveAttribute(
+        "title",
+        name,
+      );
+      await expect(page.getByTitle("Edit dashboard (Cmd+E)")).toBeInViewport({
+        ratio: 1,
+      });
+      await expect(
+        page.getByRole("heading", { name: widgetTitle }),
+      ).toHaveAttribute("title", widgetTitle);
+      // ratio 1: a select spilling out of its card is clipped by the card.
+      await expect(
+        page.getByRole("combobox", { name: "tablet_pick" }),
+      ).toBeInViewport({ ratio: 1 });
+    } finally {
+      await cleanup();
+    }
+  });
 });
 
 test.describe("Responsive — wide desktop viewport", () => {
@@ -96,5 +162,9 @@ test.describe("Responsive — wide desktop viewport", () => {
     );
     // Wide desktop (1920px) hits lg breakpoint (1024px) → 3 columns
     expect(columns.trim().split(/\s+/).length).toBe(3);
+    // At desktop the sidebar starts expanded; only below lg is it a rail (#2056).
+    await expect(
+      page.getByRole("button", { name: "Collapse sidebar" }),
+    ).toBeVisible();
   });
 });

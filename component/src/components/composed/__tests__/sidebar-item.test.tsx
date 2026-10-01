@@ -46,10 +46,11 @@ describe("SidebarItem", () => {
     ).toBeInTheDocument();
   });
 
-  it("hides label when collapsed", () => {
+  it("hides label when collapsed but keeps it as the name (#2056)", () => {
     render(<SidebarItem label="Dashboard" collapsed />);
     // Label should not be visible in the button directly
     expect(screen.getByRole("button")).not.toHaveTextContent("Dashboard");
+    expect(screen.getByRole("button")).toHaveAccessibleName("Dashboard");
   });
 
   it("wraps button in tooltip when collapsed", () => {

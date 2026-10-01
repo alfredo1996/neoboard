@@ -14,6 +14,17 @@ describe("WidgetCard", () => {
     expect(screen.getByText("Sales")).toBeInTheDocument();
   });
 
+  it("exposes a truncated title and subtitle in full as a tooltip (#2056)", () => {
+    render(
+      <WidgetCard title="Sales" subtitle="Last 30 days">
+        Content
+      </WidgetCard>,
+    );
+    for (const text of ["Sales", "Last 30 days"]) {
+      expect(screen.getByText(text)).toHaveAttribute("title", text);
+    }
+  });
+
   // #1519 relies on this: a content widget with no title passes "" so that no
   // heading renders, while its actions must stay reachable. Asserted here
   // rather than in app/ because this is the contract that fix depends on.

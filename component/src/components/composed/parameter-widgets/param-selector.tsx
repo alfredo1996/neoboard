@@ -107,7 +107,7 @@ function ParamSelector({
   className,
   labelledBy,
   id,
-}: ParamSelectorProps) {
+}: Readonly<ParamSelectorProps>) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-select-label-${parameterName}`;
   const clearId = React.useId();
@@ -208,13 +208,18 @@ function ParamSelector({
                 aria-labelledby={labelId}
                 aria-describedby={hintId}
                 disabled={isWaitingForParent}
-                className="flex-1 justify-between"
+                // min-w-0 + truncate: a long label stays inside its card (#2056).
+                className="min-w-0 flex-1 justify-between"
               >
-                {selectedLabel ?? (
-                  <span className="text-muted-foreground font-normal">
-                    {resolvedPlaceholder}
-                  </span>
-                )}
+                <span
+                  className={cn(
+                    "truncate",
+                    selectedLabel === undefined &&
+                      "text-muted-foreground font-normal",
+                  )}
+                >
+                  {selectedLabel ?? resolvedPlaceholder}
+                </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
@@ -271,7 +276,7 @@ function ParamSelector({
         >
           <SelectTrigger
             id={id}
-            className="flex-1"
+            className="min-w-0 flex-1"
             aria-required={required || undefined}
             aria-labelledby={labelId}
             aria-describedby={hintId}

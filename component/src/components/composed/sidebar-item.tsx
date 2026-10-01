@@ -48,6 +48,8 @@ const SidebarItem = React.forwardRef<HTMLButtonElement, SidebarItemProps>(
         // Expose the active nav item to assistive tech — the border/bg/weight
         // change is visual-only otherwise. (#component-review)
         aria-current={active ? "page" : undefined}
+        // The icon rail hides the label; it stays the button's name (#2056).
+        aria-label={collapsed ? label : undefined}
         className={cn(
           // 2px transparent left border in every state so activation never
           // shifts layout — only the border/background colors change (#826).
