@@ -1,5 +1,7 @@
 // NVL (WebGL, mobx) is browser-only: one static GraphChart import evaluated it
-// in every server bundle that renders a dashboard (#2059).
+// in every server bundle that renders a dashboard (#2059). The source scan
+// below is a fast local hint for the one import shape that did it; the guard
+// is scripts/check-server-bundle.mjs, which CI runs on the real build.
 import { describe, it, expect, vi } from "vitest";
 import { globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
