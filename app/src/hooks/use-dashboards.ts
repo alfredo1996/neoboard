@@ -131,7 +131,7 @@ export function useCreateDashboard() {
       return unwrapResponse<DashboardDetail>(res);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
   });
 }
@@ -199,10 +199,10 @@ export function useUpdateDashboard() {
           );
         }
       }
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ["dashboards", variables.id],
       });
-      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
   });
 }
@@ -220,7 +220,7 @@ export function useDeleteDashboard() {
       return { alreadyDeleted: false };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
   });
 }
@@ -236,7 +236,7 @@ export function useDuplicateDashboard() {
       return unwrapResponse<DashboardDetail>(res);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
   });
 }
@@ -281,8 +281,10 @@ export function useReassignDashboardConnection() {
     onSuccess: (_result, { dashboardId }) => {
       // The layout changed, so the cached dashboard detail is stale — and its
       // `version` moved, which the editor uses as an optimistic lock.
-      queryClient.invalidateQueries({ queryKey: ["dashboards", dashboardId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["dashboards", dashboardId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
   });
 }
@@ -302,7 +304,7 @@ export function useImportDashboard() {
       return unwrapResponse<ImportDashboardResult>(res);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },
   });
 }
@@ -333,7 +335,7 @@ export function useAssignDashboard(dashboardId: string) {
       return unwrapResponse(res);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ["dashboard-shares", dashboardId],
       });
     },
@@ -352,7 +354,7 @@ export function useRemoveDashboardShare(dashboardId: string) {
       return unwrapResponse(res);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ["dashboard-shares", dashboardId],
       });
     },

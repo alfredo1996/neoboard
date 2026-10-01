@@ -41,16 +41,15 @@ const gridLayoutItemSchema = z.object({
   h: z.number(),
 });
 
-const widgetSchema = z
-  .object({
-    id: z.string(),
-    chartType: z.string(),
-    connectionId: z.string(),
-    query: z.string(),
-    params: z.record(z.string(), z.unknown()).optional(),
-    settings: z.record(z.string(), z.unknown()).optional(),
-  })
-  .passthrough(); // preserves templateId, templateSyncedAt and any future fields
+// Loose: preserves templateId, templateSyncedAt and any future fields.
+const widgetSchema = z.looseObject({
+  id: z.string(),
+  chartType: z.string(),
+  connectionId: z.string(),
+  query: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+});
 
 const pageSchema = z.object({
   id: z.string(),
