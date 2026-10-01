@@ -101,13 +101,12 @@ export function rawValueOf(v: unknown, options: SeedOption[]): unknown {
 
 /**
  * Rewrites a stored string as the typed value of the option it names, once
- * the options load. A link carries only text, so a year picked as 1999 came
- * back as "1999" and no longer matched a numeric column (#2097, #2114).
+ * the options load: a configured default, or a link without a type marker, is
+ * text, and "1999" does not match a numeric column (#2097, #2114). A link
+ * written by the app marks the type and needs no options (#2124).
  *
- * ponytail: only the loaded options can type a value. A server-filtered seed
- * loads the rows for an empty search, so a value found by searching stays a
- * string after a link reload; typing it without the options needs the URL
- * to carry the type (#2114 follow-up).
+ * ponytail: only the loaded options can type a text value. A default the
+ * seed's first page lacks stays a string.
  */
 export function useTypedSelection(
   { currentEntry, retype }: ParamActions,

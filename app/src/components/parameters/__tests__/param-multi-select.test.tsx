@@ -220,7 +220,7 @@ describe("ParamMultiSelect — writing the selection back", () => {
   });
 });
 
-// A link carries text; the store must hold what picking the options would (#2097).
+// A default or an unmarked link is text; the store must hold what picking the options would (#2097).
 describe("ParamMultiSelect — restored strings take their options' types", () => {
   const YEARS = [
     { value: "1999", label: "1999", rawValue: 1999 },

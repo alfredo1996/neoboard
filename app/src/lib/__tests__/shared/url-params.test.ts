@@ -39,9 +39,19 @@ describe("parseUrlParams", () => {
   it("handles URL-encoded values", () => {
     expect(parse("param_name=New%20York")).toEqual({ name: "New York" });
   });
+
+  // #2124: a marker types the value; a malformed number stays text.
+  it("reads a marked value back into its type", () => {
+    expect(
+      parse(
+        "param_y=n%3A1999&param_on=b%3Atrue&param_t=s%3An%3A1&param_x=n%3Ax",
+      ),
+    ).toEqual({ y: 1999, on: true, t: "n:1", x: "n:x" });
+  });
 });
 
-const ALL = (...names: string[]) => new Set(names);
+const ALL = (...names: string[]) =>
+  new Map(names.map((n) => [n, "select" as const]));
 
 describe("buildUrlParams", () => {
   it("builds param_ prefixed search params", () => {
@@ -68,9 +78,17 @@ describe("buildUrlParams", () => {
     expect(sp.has("param_dept")).toBe(false);
   });
 
-  it("converts numbers to strings", () => {
+  it("marks a number with its type (#2124)", () => {
     const sp = buildUrlParams({ count: 42 }, ALL("count"));
-    expect(sp.get("param_count")).toBe("42");
+    expect(sp.get("param_count")).toBe("n:42");
+  });
+
+  it("writes a range bound as before, unmarked (#2124)", () => {
+    const sp = buildUrlParams(
+      { p_min: 10 },
+      new Map([["p_min", "number-range" as const]]),
+    );
+    expect(sp.toString()).toBe("param_p_min=10");
   });
 
   it("returns empty params for empty input", () => {
@@ -171,7 +189,7 @@ describe("extractSyncParams", () => {
     // The option's default is false — an absent key means the UI shows the
     // toggle off, so the value must stay out of the URL.
     expect(extractSyncParams(layoutWith({ parameterName: "year" }))).toEqual(
-      new Set(),
+      new Map(),
     );
   });
 
@@ -180,7 +198,7 @@ describe("extractSyncParams", () => {
       extractSyncParams(
         layoutWith({ parameterName: "secret", syncToUrl: false }),
       ),
-    ).toEqual(new Set());
+    ).toEqual(new Map());
   });
 
   it("includes the companion keys an opted-in range parameter writes", () => {
@@ -194,13 +212,13 @@ describe("extractSyncParams", () => {
       }),
     );
     // The `{from,to}` parent stays out: it is rebuilt from these (#2097).
-    expect(sync).toEqual(new Set(["hired_from", "hired_to"]));
+    expect([...sync.keys()]).toEqual(["hired_from", "hired_to"]);
   });
 
   it("ignores widgets that are not parameter selectors", () => {
     const layout = layoutWith({ parameterName: "year", syncToUrl: true });
     layout.pages[0].widgets[0].chartType = "table";
-    expect(extractSyncParams(layout)).toEqual(new Set());
+    expect(extractSyncParams(layout)).toEqual(new Map());
   });
 });
 
@@ -222,6 +240,11 @@ describe("URL round trip by parameter type", () => {
     // Its type is what makes the query resolve `p_from`/`p_to` at run time.
     ["date-relative", { p: "last_7_days" }],
     ["text", { p: "1999" }],
+    // #2124: typed by its marker, so no option needs to be loaded.
+    ["select", { p: 1999 }],
+    ["select", { p: true }],
+    ["multi-select", { p: [1999, "02134"] }],
+    ["text", { p: "n:1999" }],
   ])("a %s value survives the link, typed", (parameterType, values) => {
     const layout = layoutWith({
       parameterName: "p",
