@@ -237,7 +237,7 @@ plugin
   .description("Show all registered plugins (built-in + external)")
   .action(async () => {
     const { runPluginList } = await import("./commands/plugin.js");
-    runPluginList();
+    await runPluginList();
   });
 
 plugin
@@ -245,7 +245,7 @@ plugin
   .description("Unregister and uninstall an external plugin")
   .action(async (packageName) => {
     const { runPluginRemove } = await import("./commands/plugin.js");
-    await runPluginRemove(packageName);
+    runPluginRemove(packageName);
   });
 
 // logs command
@@ -329,8 +329,12 @@ if (isDirectRun) {
   // dump: the message buried under a stack trace rooted in dist/, which reads
   // as a crash rather than as the CLI telling you something (#1315). Commands
   // throw to say "you cannot do that here"; print that and nothing else.
-  program.parseAsync().catch((err: unknown) => {
+  const printError = (err: unknown) => {
     logError(err instanceof Error ? err.message : String(err));
     process.exitCode = 1;
-  });
+  };
+  // Not a top-level await (S7785): a confirm() whose stdin hits EOF never
+  // settles, and Node then reports an unsettled top-level await from dist/ and
+  // exits 13.
+  program.parseAsync().catch(printError); // NOSONAR
 }
