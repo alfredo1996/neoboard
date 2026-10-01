@@ -23,6 +23,7 @@ export const CONNECTOR_CODEGEN = {
   manifest: "neoboard-connectors.json",
   key: "connectors",
   output: "connection/src/external-connectors.generated.ts",
+  externals: "connection/src/server-external-packages.generated.json",
   alias: "externalConnector0",
 };
 
@@ -55,6 +56,13 @@ export function runCodegen(
       join(ROOT, "scripts", codegen.file),
       join(tmp, "scripts", codegen.file),
     );
+    if (codegen.externals) {
+      // The built-ins' declaration, which the connector codegen collects (#2067).
+      copyFileSync(
+        join(ROOT, "connection", "package.json"),
+        join(tmp, "connection", "package.json"),
+      );
+    }
     for (const [name, files] of Object.entries(packages)) {
       for (const [file, contents] of Object.entries(files)) {
         const path = join(tmp, "node_modules", name, file);
@@ -70,12 +78,16 @@ export function runCodegen(
       cwd: join(tmp, codegen.output.split("/")[0]),
       encoding: "utf8",
     });
-    const output = join(tmp, codegen.output);
+    const read = (file) =>
+      file && existsSync(join(tmp, file))
+        ? readFileSync(join(tmp, file), "utf8")
+        : null;
     return {
       status: res.status,
       stdout: res.stdout,
       stderr: res.stderr,
-      generated: existsSync(output) ? readFileSync(output, "utf8") : null,
+      generated: read(codegen.output),
+      externals: JSON.parse(read(codegen.externals) ?? "null"),
     };
   } finally {
     rmSync(tmp, { recursive: true, force: true });

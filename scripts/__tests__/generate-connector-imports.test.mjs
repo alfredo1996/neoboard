@@ -195,6 +195,72 @@ describe("every entry point regenerates the connector list (#2062)", () => {
   });
 });
 
+// #2067 — next.config.ts named the built-ins' drivers, so any other
+// connector's driver was bundled into the server. Each declares its own now.
+describe("the codegen collects the connectors' server-external packages (#2067)", () => {
+  const run = (serverExternalPackages) =>
+    runCodegen([{ package: "@neoboard-test/kv-2067" }], {
+      "@neoboard-test/kv-2067": {
+        "package.json": JSON.stringify({
+          name: "@neoboard-test/kv-2067",
+          main: "index.js",
+          neoboard: { serverExternalPackages },
+        }),
+        "index.js": "module.exports = {};\n",
+      },
+    });
+
+  it("lists the built-ins' packages, then an external connector's, once each", () => {
+    const res = run(["kv-driver-2067", "pg"]);
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.externals).toEqual([
+      "pg",
+      "neo4j-driver",
+      "neo4j-driver-core",
+      "kv-driver-2067",
+    ]);
+  });
+
+  it("reads the declaration of a connector named by a subpath", () => {
+    const res = runCodegen([{ package: "@neoboard-test/kv-2067/plugin" }], {
+      "@neoboard-test/kv-2067": {
+        "package.json": JSON.stringify({
+          name: "@neoboard-test/kv-2067",
+          exports: { "./plugin": "./plugin/index.js" },
+          neoboard: { serverExternalPackages: ["kv-driver-2067"] },
+        }),
+        "plugin/index.js": "module.exports = {};\n",
+      },
+    });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.externals).toContain("kv-driver-2067");
+  });
+
+  it("fails, rather than drop the declaration, when it finds no package.json", () => {
+    // "../scripts" lands the file beside the codegen, where no package is.
+    const res = runCodegen([{ package: "./lone-2067.js" }], {
+      "../scripts": { "lone-2067.js": "export default {};\n" },
+    });
+    expect(res.status, res.stdout).toBe(1);
+    expect(res.stderr).toContain(
+      "./lone-2067.js: no package.json found for its installed package",
+    );
+    expect(res.externals).toBeNull();
+  });
+
+  it.each([
+    ["a string", "kv-driver-2067"],
+    ["a name with a space", ["kv driver"]],
+  ])("rejects a declaration that is %s", (_, declared) => {
+    const res = run(declared);
+    expect(res.status, res.stdout).toBe(1);
+    expect(res.stderr).toContain(
+      "@neoboard-test/kv-2067: neoboard.serverExternalPackages must be an array of package names",
+    );
+    expect(res.externals).toBeNull();
+  });
+});
+
 describeInstalledCheck(CONNECTOR_CODEGEN);
 
 // The shared helper's own edges. Both codegens import it (the guard above, run

@@ -26,7 +26,9 @@ one exposes to the query editor.
 - `connector-registry.ts` — `createConnectionModule(type, config)` plus the registry
   (`registerConnector`, `getConnector`, `getSchemaManager`). External connector
   plugins register here; `external-connectors.generated.ts` is the generated
-  import list for the ones a build includes.
+  import list for the ones a build includes, and
+  `server-external-packages.generated.json` the drivers the server must not
+  bundle, from each connector's `neoboard.serverExternalPackages` (#2067).
 - `schema/` — `Neo4jSchemaManager` and `PostgresSchemaManager`, which introspect
   labels and properties, or tables and columns.
 - `<name>/descriptor.ts` — everything a connector is, as plain data: label,

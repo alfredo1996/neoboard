@@ -16,3 +16,7 @@ component/src/lib/cypher-lang/
 **/.next
 **/storybook-static
 **/coverage
+
+# Written by the connector codegen on every build of connection. Reformatting
+# it here would make the next build rewrite it and dirty the tree (#2067).
+connection/src/server-external-packages.generated.json

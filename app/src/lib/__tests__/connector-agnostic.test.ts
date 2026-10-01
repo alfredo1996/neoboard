@@ -379,6 +379,29 @@ describe("connector-agnostic guard (#1894)", () => {
     );
     expect(actual, HOW_TO_FIX).toEqual({});
   });
+
+  it("next.config.ts keeps the declared packages external and names none (#2067)", async () => {
+    // It named the built-ins' drivers, so any other connector's was bundled.
+    const readJson = (file: string) =>
+      JSON.parse(readFileSync(join(ROOT, file), "utf8"));
+    const app: string[] =
+      readJson("app/package.json").neoboard.serverExternalPackages;
+    const generated: string[] = readJson(
+      "connection/src/server-external-packages.generated.json",
+    );
+    const declared = [...app, ...generated];
+    const { default: config } = await import("../../../next.config");
+    expect(config.serverExternalPackages).toEqual(declared);
+    const src = readFileSync(join(ROOT, "app/next.config.ts"), "utf8");
+    expect(declared.filter((p) => src.includes(`"${p}"`))).toEqual([]);
+    // The app declares only its metadata database's client. A connector's
+    // driver moved there would pass the two checks above unseen.
+    const connectors = [
+      ...Object.keys(readJson("connection/package.json").dependencies),
+      ...generated,
+    ];
+    expect(app.filter((p) => connectors.includes(p))).toEqual([]);
+  });
 });
 
 describe("the guards themselves", () => {

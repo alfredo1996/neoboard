@@ -30,6 +30,13 @@
     "pg": "^8.23.0",
     "pg-cursor": "^2.22.0"
   },
+  "neoboard": {
+    "serverExternalPackages": [
+      "pg",
+      "neo4j-driver",
+      "neo4j-driver-core"
+    ]
+  },
   "devDependencies": {
     "@testcontainers/neo4j": "^12.1.0",
     "@testcontainers/postgresql": "^12.1.0",
