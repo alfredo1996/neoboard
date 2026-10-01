@@ -14,6 +14,7 @@ import userEvent from "@testing-library/user-event";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import type { WidgetTemplate } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
+import type { ChartTypeSelectorProps } from "../widget-editor/chart-type-selector";
 
 vi.mock("next/dynamic", () => ({
   default: () => {
@@ -31,17 +32,21 @@ vi.mock("next/dynamic", () => ({
 /** The dismiss handlers the modal hands its Dialog and DialogContent (#1952).
  *  Radix closes on Escape and on the close button by calling the Dialog's
  *  `onOpenChange(false)`, so that one stands for both. */
-const { dismiss, selector, browser, updateTemplate, seed } = vi.hoisted(() => ({
-  dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
-  /** The chart-type picker's change handler, as the user reaches it. */
-  selector: {} as { onChartTypeChange?: (type: string) => void },
-  /** From Template's pick, as the user reaches it. */
-  browser: {} as { onApply?: (t: WidgetTemplate) => void },
-  /** Edit Template's save (#2076). */
-  updateTemplate: vi.fn(),
-  /** What Test Seed Query returns, and the options the preview is given (#2104). */
-  seed: {} as { data?: unknown; previewOptions?: unknown },
-}));
+const { dismiss, selector, browser, updateTemplate, seed, connectorList } =
+  vi.hoisted(() => ({
+    dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
+    /** The chart-type picker's props, as the user reaches them. */
+    selector: {} as Partial<ChartTypeSelectorProps>,
+    /** From Template's pick, as the user reaches it. */
+    browser: {} as { onApply?: (t: WidgetTemplate) => void },
+    /** Edit Template's save (#2076). */
+    updateTemplate: vi.fn(),
+    /** What Test Seed Query returns, and the options the preview is given (#2104). */
+    seed: {} as { data?: unknown; previewOptions?: unknown },
+    /** What useConnectors answers. One object, so `data` keeps its identity
+     *  across renders as TanStack's does. */
+    connectorList: { data: [] as unknown[] },
+  }));
 
 vi.mock("@neoboard/components", () => {
   const passthrough = ({ children }: React.PropsWithChildren) => (
@@ -208,7 +213,7 @@ vi.mock("@/hooks/use-widget-templates", () => ({
   useUpdateWidgetTemplate: () => ({ mutateAsync: updateTemplate }),
 }));
 vi.mock("@/hooks/use-connectors", () => ({
-  useConnectors: () => ({ data: [] }),
+  useConnectors: () => connectorList,
 }));
 vi.mock("../widget-editor/use-auto-preview", () => ({
   useAutoPreview: () => ({ handlePreview: vi.fn(), saveStatus: "idle" }),
@@ -229,12 +234,8 @@ vi.mock("../widget-editor/widget-preview-panel", () => ({
   },
 }));
 vi.mock("../widget-editor/chart-type-selector", () => ({
-  ChartTypeSelector: ({
-    onChartTypeChange,
-  }: {
-    onChartTypeChange: (type: string) => void;
-  }) => {
-    selector.onChartTypeChange = onChartTypeChange;
+  ChartTypeSelector: (props: ChartTypeSelectorProps) => {
+    Object.assign(selector, props);
     return <div />;
   },
 }));
@@ -988,5 +989,71 @@ describe("WidgetEditorModal — Test Seed Query preview (#2104)", () => {
     expect(seed.previewOptions).toEqual([
       { value: "7", label: "Heat", rawValue: 7 },
     ]);
+  });
+});
+
+// #2068: the modal finds the selected connection's descriptor in useConnectors
+// by type. That lookup is what carries supportsWrite to the picker and to the
+// connection switch, so it is tested here and not only in the helper.
+describe("WidgetEditorModal — the Form widget needs a connection that can write (#2068)", () => {
+  const connections = [
+    { id: "c-rw", type: "rw" },
+    { id: "c-ro", type: "ro" },
+  ].map(
+    ({ id, type }) =>
+      ({
+        id,
+        name: id,
+        type,
+        visibility: "private",
+        isOwner: true,
+        createdAt: "",
+        updatedAt: "",
+      }) as ConnectionListItem,
+  );
+
+  beforeEach(() => {
+    useWidgetEditorStore.getState().resetForAdd();
+    connectorList.data = [
+      { type: "rw", supportsWrite: true },
+      { type: "ro", supportsWrite: false },
+    ];
+  });
+  afterEach(() => {
+    connectorList.data = [];
+  });
+
+  function editWidget(chartType: string, connectionId: string) {
+    render(
+      <WidgetEditorModal
+        open
+        onOpenChange={vi.fn()}
+        mode="edit"
+        widget={{
+          id: "w-2068",
+          chartType,
+          connectionId,
+          query: "",
+          settings: {},
+        }}
+        connections={connections}
+        onSave={vi.fn()}
+      />,
+    );
+  }
+
+  it.each([
+    ["c-rw", true],
+    ["c-ro", false],
+  ])("the picker on %s offers Form: %s", (connectionId, offered) => {
+    editWidget("table", connectionId);
+    expect(selector.compatibleChartTypes?.includes("form")).toBe(offered);
+  });
+
+  it("moving a form to a connection that cannot write falls back to Table", () => {
+    editWidget("form", "c-rw");
+    expect(useWidgetEditorStore.getState().chartType).toBe("form");
+    act(() => selector.onConnectionChange?.("c-ro"));
+    expect(useWidgetEditorStore.getState().chartType).toBe("table");
   });
 });
