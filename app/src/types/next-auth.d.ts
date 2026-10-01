@@ -28,5 +28,7 @@ declare module "next-auth/jwt" {
     forcePasswordChange?: boolean;
     /** The session's own id, which sign-out revokes (#2138). */
     sid?: string;
+    /** Sign-in time (ms), which a password change compares against (#2160). */
+    authTime?: number;
   }
 }
