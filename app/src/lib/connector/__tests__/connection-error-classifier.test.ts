@@ -1,11 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { afterAll, describe, it, expect } from "vitest";
 import {
   ConnectorError,
   ConnectorErrorType,
   getAllConnectors,
+  registerConnector,
   toDescriptor,
+  unregisterConnector,
   type ConnectorDescriptor,
 } from "@neoboard/connection";
+import { isBuiltIn } from "@/__tests__/helpers/built-in-connectors";
 import {
   classificationOf,
   connectionErrorCode,
@@ -13,6 +16,19 @@ import {
   hintForConnectionErrorCode,
   type ConnectionErrorCode,
 } from "../connection-error-classifier";
+
+// One installed beside the built-ins (#2063): no URI field, and named after a
+// word the hints use for themselves ("host.docker.internal").
+registerConnector({
+  type: "docker",
+  label: "Docker",
+  category: "api",
+  fields: [],
+  createModule: () => {
+    throw new Error("never connected");
+  },
+});
+afterAll(() => unregisterConnector("docker"));
 
 /** An error as any connector raises it: classified, its message opaque to the app. */
 const raised = (type: ConnectorErrorType) =>
@@ -129,15 +145,18 @@ describe("hintForConnectionErrorCode", () => {
     );
   });
 
-  // Every name a registered connector goes by: its type, its label, its URI
+  // Every name a built-in connector goes by: its type, its label, its URI
   // schemes. Read off the registry, so connector N+1 is covered from birth.
-  const connectorNames = getAllConnectors().flatMap((c) => [
-    c.type,
-    c.label,
-    ...c.fields
-      .flatMap((f) => f.protocols ?? [])
-      .map((p) => p.split(/[+:]/)[0]),
-  ]);
+  // An installed one was not known when the copy was written (#2063).
+  const connectorNames = getAllConnectors()
+    .filter(isBuiltIn)
+    .flatMap((c) => [
+      c.type,
+      c.label,
+      ...c.fields
+        .flatMap((f) => f.protocols ?? [])
+        .map((p) => p.split(/[+:]/)[0]),
+    ]);
 
   it.each(ALL)("the %s hint names no connector", (code) => {
     const hint = hintForConnectionErrorCode(code).toLowerCase();
@@ -183,15 +202,17 @@ describe("hintForConnectionErrorCode", () => {
       );
     });
 
-    it.each(getAllConnectors().map((c) => [c.type, toDescriptor(c)] as const))(
-      "%s gets its own examples",
-      (_type, descriptor) => {
-        const uri = descriptor.fields.find((f) => f.type === "uri");
-        expect(hintForConnectionErrorCode("bad_uri", descriptor)).toContain(
-          uri!.placeholder,
-        );
-      },
-    );
+    // Every connector that has a URI example to give; one need not (#2063).
+    it.each(
+      getAllConnectors()
+        .map((c) => toDescriptor(c))
+        .flatMap((d) => {
+          const uri = d.fields.find((f) => f.type === "uri")?.placeholder;
+          return uri ? [[d.type, d, uri] as const] : [];
+        }),
+    )("%s gets its own examples", (_type, descriptor, uri) => {
+      expect(hintForConnectionErrorCode("bad_uri", descriptor)).toContain(uri);
+    });
 
     it.each(["network", "container_loopback", "unknown"] as const)(
       "%s needs no example",

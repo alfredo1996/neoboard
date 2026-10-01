@@ -9,8 +9,14 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { AuthType, wrapError } from "@neoboard/connector-sdk";
 import { getAllConnectors } from "../src/connector-registry";
+import { EXTERNAL_CONNECTORS } from "../src/external-connectors.generated";
 import { PostgresAuthenticationModule } from "../src/postgresql/PostgresAuthenticationModule";
 import { Neo4jAuthenticationModule } from "../src/neo4j/Neo4jAuthenticationModule";
+
+// The cases below hold with a connector installed beside the built-ins (#2063).
+jest.mock("../src/external-connectors.generated", () =>
+  jest.requireActual("./utils/installed-connector"),
+);
 
 const SRC = join(__dirname, "..", "src");
 
@@ -145,10 +151,13 @@ describe("a classified error exposes no secret (#1903)", () => {
     "",
   ];
 
+  // The hook is optional: an installed connector without one is not a case (#2063).
   it.each(
-    getAllConnectors().flatMap((connector) =>
-      CODES.map((code) => [connector.type, code] as const),
-    ),
+    getAllConnectors()
+      .filter((connector) => connector.classifyError)
+      .flatMap((connector) =>
+        CODES.map((code) => [connector.type, code] as const),
+      ),
   )("%s, code %j", (type, code) => {
     const classify = getAllConnectors().find(
       (c) => c.type === type,
@@ -164,7 +173,11 @@ describe("a classified error exposes no secret (#1903)", () => {
   });
 
   it("every built-in connector classifies its own errors", () => {
-    for (const connector of getAllConnectors()) {
+    const builtIns = getAllConnectors().filter(
+      (c) => !EXTERNAL_CONNECTORS.some((e) => e.plugin === c),
+    );
+    expect(builtIns.length).toBeGreaterThan(0);
+    for (const connector of builtIns) {
       expect(typeof connector.classifyError).toBe("function");
     }
   });
