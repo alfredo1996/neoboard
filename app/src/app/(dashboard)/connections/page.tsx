@@ -1,6 +1,7 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
+import { returnFocus } from "@/lib/return-focus";
 import { useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Database, Plus, RefreshCw } from "lucide-react";
@@ -85,8 +86,8 @@ export default function ConnectionsPage() {
     total: number;
   } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  // The menu button Delete was picked from (#2086). Kept after the dialog
-  // closes: Radix hands focus back after that render.
+  // What opened Delete (#2086) or the connection dialog (#2146): neither has a
+  // Trigger. Kept after the dialog closes: Radix hands focus back after that.
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Pre-fetch the usage breakdown whenever a delete is pending so the
@@ -178,9 +179,19 @@ export default function ConnectionsPage() {
     if (busy > 0) toastBusy(busy);
   }
 
+  function openDialog(
+    target: ConnectionDialogTarget,
+    from: HTMLElement | null,
+  ) {
+    setReturnFocusTo(from);
+    setDialogTarget(target);
+  }
+
   /** A save closes the dialog and probes that one connection (#1426). */
   function handleSaved(id: string) {
     if (dialogTarget?.mode === "edit") toast({ title: "Connection updated" });
+    // The empty state and its button leave with the refetch, after the close.
+    if (!connections?.length) setReturnFocusTo(headingRef.current);
     setDialogTarget(null);
     void handleTest(id);
   }
@@ -212,7 +223,9 @@ export default function ConnectionsPage() {
                   : "Test all"}
               </Button>
             )}
-            <Button onClick={() => setDialogTarget({ mode: "create" })}>
+            <Button
+              onClick={(e) => openDialog({ mode: "create" }, e.currentTarget)}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Connection
             </Button>
@@ -224,6 +237,7 @@ export default function ConnectionsPage() {
         target={dialogTarget}
         onClose={() => setDialogTarget(null)}
         onSaved={handleSaved}
+        onCloseAutoFocus={() => returnFocus(returnFocusTo, headingRef.current)}
       />
 
       <ConfirmDialog
@@ -458,12 +472,15 @@ export default function ConnectionsPage() {
                       onEdit={
                         canUse
                           ? () =>
-                              setDialogTarget({
-                                mode: "edit",
-                                id: c.id,
-                                name: c.name,
-                                type: c.type,
-                              })
+                              openDialog(
+                                {
+                                  mode: "edit",
+                                  id: c.id,
+                                  name: c.name,
+                                  type: c.type,
+                                },
+                                focusedMenuTrigger(),
+                              )
                           : undefined
                       }
                       onDelete={
@@ -480,11 +497,14 @@ export default function ConnectionsPage() {
                       onDuplicate={
                         canUse
                           ? () =>
-                              setDialogTarget({
-                                mode: "create",
-                                type: c.type,
-                                prefillFrom: { id: c.id, name: c.name },
-                              })
+                              openDialog(
+                                {
+                                  mode: "create",
+                                  type: c.type,
+                                  prefillFrom: { id: c.id, name: c.name },
+                                },
+                                focusedMenuTrigger(),
+                              )
                           : undefined
                       }
                       onToggleVisibility={
@@ -522,7 +542,11 @@ export default function ConnectionsPage() {
               title="No connections yet"
               description="Connect a database to start building dashboards."
               action={
-                <Button onClick={() => setDialogTarget({ mode: "create" })}>
+                <Button
+                  onClick={(e) =>
+                    openDialog({ mode: "create" }, e.currentTarget)
+                  }
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Create your first connection
                 </Button>

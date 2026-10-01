@@ -112,6 +112,8 @@ export interface WidgetEditorModalProps {
    * widget. Only rendered when `mode === "edit"`.
    */
   onSaveAsTemplate?: (widget: DashboardWidget) => void;
+  /** It has no Trigger: the opener says where focus goes on close (#2146). */
+  onCloseAutoFocus?: () => void;
 }
 
 /** A template read as the widget it describes, for the store's loadFromWidget. */
@@ -150,6 +152,7 @@ export function WidgetEditorModal({
   initialPreviewData,
   canWrite = false,
   onSaveAsTemplate,
+  onCloseAutoFocus,
 }: Readonly<WidgetEditorModalProps>) {
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
 
@@ -675,6 +678,7 @@ export function WidgetEditorModal({
       <DialogContent
         size="full"
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
+        onCloseAutoFocus={onCloseAutoFocus}
         // A click outside closes it (#404): nested Select / Popover layers
         // could swallow Radix's own pointer-down-outside. Not *any*
         // interaction outside — focus leaving counts as one, and the card

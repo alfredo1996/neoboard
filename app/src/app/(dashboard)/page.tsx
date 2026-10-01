@@ -1,7 +1,8 @@
 "use client";
 
 import { DOCS_LINKS } from "@/lib/docs-links";
-import { useRef, useState } from "react";
+import { returnFocus } from "@/lib/return-focus";
+import { useRef, useState, type MouseEventHandler } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -142,6 +143,8 @@ interface ImportDashboardDialogProps {
    * mounting a second copy of it here.
    */
   readonly onFixConnections: (dashboard: { id: string; name: string }) => void;
+  /** It has no Trigger: the opener says where focus goes on close (#2146). */
+  readonly onCloseAutoFocus: () => void;
 }
 
 /**
@@ -188,6 +191,7 @@ function ImportDashboardDialog({
   open,
   onOpenChange,
   onFixConnections,
+  onCloseAutoFocus,
 }: ImportDashboardDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -361,7 +365,10 @@ function ImportDashboardDialog({
   if (successState) {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent
+          className="sm:max-w-lg"
+          onCloseAutoFocus={onCloseAutoFocus}
+        >
           <DialogHeader>
             <DialogTitle>Dashboard imported</DialogTitle>
             <DialogDescription>
@@ -452,7 +459,10 @@ function ImportDashboardDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent
+        className="sm:max-w-lg"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Import Dashboard</DialogTitle>
@@ -641,7 +651,7 @@ function CreateNameHint({
 // ── GettingStartedGuide ──────────────────────────────────────────────
 
 interface GettingStartedGuideProps {
-  readonly onCreateDashboard: () => void;
+  readonly onCreateDashboard: MouseEventHandler<HTMLButtonElement>;
 }
 
 function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
@@ -772,10 +782,11 @@ export default function DashboardListPage() {
     id: string;
     name: string;
   } | null>(null);
-  // The menu button Delete was picked from (#2086). Kept after the dialog
-  // closes: Radix hands focus back after that render.
+  // What opened the dialog showing (#2086, #2146): none has a Trigger. Kept
+  // after it closes: Radix hands focus back after that render.
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const focusOpener = () => returnFocus(returnFocusTo, headingRef.current);
   // Rename dialog state (#1045) — reuses the create dialog's name validation.
   const [renameTarget, setRenameTarget] = useState<{
     id: string;
@@ -800,8 +811,26 @@ export default function DashboardListPage() {
     search,
   );
 
+  async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!newName.trim()) {
+      setNameError("Name is required");
+      return;
+    }
+    setNameError(null);
+    const dashboard = await createDashboard.mutateAsync({ name: newName });
+    setNewName("");
+    setShowCreate(false);
+    router.push(`/${dashboard.id}/edit`);
+  }
+
+  const openCreate: MouseEventHandler<HTMLButtonElement> = (e) => {
+    setReturnFocusTo(e.currentTarget);
+    setShowCreate(true);
+  };
+
   const emptyList = canCreate ? (
-    <GettingStartedGuide onCreateDashboard={() => setShowCreate(true)} />
+    <GettingStartedGuide onCreateDashboard={openCreate} />
   ) : (
     <EmptyState
       icon={<LayoutDashboard className="h-12 w-12" />}
@@ -820,20 +849,8 @@ export default function DashboardListPage() {
     />
   );
 
-  async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!newName.trim()) {
-      setNameError("Name is required");
-      return;
-    }
-    setNameError(null);
-    const dashboard = await createDashboard.mutateAsync({ name: newName });
-    setNewName("");
-    setShowCreate(false);
-    router.push(`/${dashboard.id}/edit`);
-  }
-
   function openRename(d: { id: string; name: string }) {
+    setReturnFocusTo(focusedMenuTrigger());
     setRenameTarget(d);
     setRenameValue(d.name);
     setRenameError(null);
@@ -871,11 +888,17 @@ export default function DashboardListPage() {
         actions={
           canCreate ? (
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setShowImport(true)}>
+              <Button
+                variant="outline"
+                onClick={(e) => {
+                  setReturnFocusTo(e.currentTarget);
+                  setShowImport(true);
+                }}
+              >
                 <Upload className="mr-2 h-4 w-4" />
                 Import
               </Button>
-              <Button onClick={() => setShowCreate(true)}>
+              <Button onClick={openCreate}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Dashboard
               </Button>
@@ -894,7 +917,7 @@ export default function DashboardListPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent onCloseAutoFocus={focusOpener}>
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle>Create Dashboard</DialogTitle>
@@ -958,7 +981,7 @@ export default function DashboardListPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent onCloseAutoFocus={focusOpener}>
           <form onSubmit={handleRename}>
             <DialogHeader>
               <DialogTitle>Rename Dashboard</DialogTitle>
@@ -1052,6 +1075,7 @@ export default function DashboardListPage() {
         open={showImport}
         onOpenChange={setShowImport}
         onFixConnections={setConnectionTarget}
+        onCloseAutoFocus={focusOpener}
       />
 
       <DashboardConnectionDialog
@@ -1062,6 +1086,7 @@ export default function DashboardListPage() {
         // "" while closed keeps useDashboard disabled.
         dashboardId={connectionTarget?.id ?? ""}
         dashboardName={connectionTarget?.name ?? ""}
+        onCloseAutoFocus={focusOpener}
       />
 
       <div className="mt-6">
@@ -1185,12 +1210,15 @@ export default function DashboardListPage() {
                                     )}
                                     {canEdit && (
                                       <DropdownMenuItem
-                                        onClick={() =>
+                                        onClick={() => {
+                                          setReturnFocusTo(
+                                            focusedMenuTrigger(),
+                                          );
                                           setConnectionTarget({
                                             id: d.id,
                                             name: d.name,
-                                          })
-                                        }
+                                          });
+                                        }}
                                       >
                                         <Database className="mr-2 h-4 w-4" />
                                         Change connection…

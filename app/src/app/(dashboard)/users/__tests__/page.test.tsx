@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import React from "react";
 import type { UserListItem } from "@/hooks/use-users";
+import { MockDialogContent } from "@/__tests__/helpers/dialog-mocks";
 
 /**
  * #2049 — an admin can disable and re-enable a user from the row menu, and a
@@ -20,6 +21,7 @@ const mockSetDisabled = vi.fn();
 const mockUpdateRole = vi.fn();
 const mockUpdateCanWrite = vi.fn();
 const mockToast = vi.fn();
+const mockResetPassword = vi.fn();
 let gridColumns: unknown;
 
 function user(overrides: Partial<UserListItem>): UserListItem {
@@ -54,7 +56,7 @@ vi.mock("@/hooks/use-users", () => {
     useDeleteUser: () => result(noop),
     useUpdateUserRole: () => result(mockUpdateRole),
     useUpdateUserCanWrite: () => result(mockUpdateCanWrite),
-    useResetPassword: () => result(noop),
+    useResetPassword: () => result(mockResetPassword),
     useSetUserDisabled: () => result(mockSetDisabled),
   };
 });
@@ -84,15 +86,27 @@ vi.mock("@neoboard/components", () => {
     cell?: (ctx: unknown) => React.ReactNode;
   };
   return {
-    Button: Box,
+    Button: ({
+      children,
+      onClick,
+    }: {
+      children?: React.ReactNode;
+      onClick?: () => void;
+    }) => <button onClick={onClick}>{children}</button>,
     Input: Nothing,
     Label: Nothing,
-    Dialog: Nothing,
-    DialogContent: Nothing,
+    Dialog: ({
+      open,
+      children,
+    }: {
+      open: boolean;
+      children?: React.ReactNode;
+    }) => (open ? <div role="dialog">{children}</div> : null),
+    DialogContent: MockDialogContent,
     DialogHeader: Nothing,
     DialogTitle: Nothing,
     DialogDescription: Nothing,
-    DialogFooter: Nothing,
+    DialogFooter: Box,
     Select: Nothing,
     SelectContent: Nothing,
     SelectItem: Nothing,
@@ -124,13 +138,18 @@ vi.mock("@neoboard/components", () => {
     PageHeader: ({
       title,
       titleRef,
+      actions,
     }: {
       title: string;
       titleRef?: React.Ref<HTMLHeadingElement>;
+      actions?: React.ReactNode;
     }) => (
-      <h1 ref={titleRef} tabIndex={-1}>
-        {title}
-      </h1>
+      <>
+        <h1 ref={titleRef} tabIndex={-1}>
+          {title}
+        </h1>
+        {actions}
+      </>
     ),
     EmptyState: Nothing,
     LoadingButton: Nothing,
@@ -455,3 +474,22 @@ describe("UsersPage — where focus goes after a question (#2086)", () => {
     expect(screen.getByRole("heading", { name: "Users" })).toHaveFocus();
   });
 });
+
+// #2146: Create User and Temporary Password have no Trigger either.
+it.each([
+  ["Create User", "Cancel", (opener: HTMLElement) => opener],
+  ["Require Password Change", "Done", () => menuTrigger],
+])(
+  "closing what %s opened puts focus back on its opener (#2146)",
+  async (name, close, target) => {
+    menuTrigger.blur();
+    mockResetPassword.mockResolvedValue({ generatedPassword: "s3cret" });
+    render(<UsersPage />);
+    const opener = screen.getAllByText(name).at(-1)!;
+
+    fireEvent.click(opener);
+    fireEvent.click(await screen.findByRole("button", { name: close }));
+
+    expect(target(opener)).toHaveFocus();
+  },
+);

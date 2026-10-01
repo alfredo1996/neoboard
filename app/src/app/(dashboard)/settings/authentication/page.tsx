@@ -1,6 +1,11 @@
 "use client";
 
-import { useRef, useState, type RefObject } from "react";
+import {
+  useRef,
+  useState,
+  type MouseEventHandler,
+  type RefObject,
+} from "react";
 import {
   Plus,
   Trash2,
@@ -42,6 +47,7 @@ import type {
 } from "@/hooks/use-sso-providers";
 import { FeatureGate } from "@/components/feature-gate";
 import { EnterpriseRequiredEmptyState } from "@/components/enterprise-required-empty-state";
+import { returnFocus } from "@/lib/return-focus";
 
 // ---------------------------------------------------------------------------
 // Add Provider Dialog
@@ -61,9 +67,13 @@ const EMPTY_FORM: CreateSsoProviderInput = {
 function AddProviderDialog({
   open,
   onClose,
+  onCreated,
+  onCloseAutoFocus,
 }: Readonly<{
   open: boolean;
   onClose: () => void;
+  onCreated: () => void;
+  onCloseAutoFocus: () => void;
 }>) {
   const [form, setForm] = useState<CreateSsoProviderInput>(EMPTY_FORM);
   const [claimKey, setClaimKey] = useState("");
@@ -83,6 +93,7 @@ function AddProviderDialog({
       : undefined;
 
     await createMutation.mutateAsync({ ...form, claimMappings });
+    onCreated();
     handleClose();
   };
 
@@ -107,7 +118,10 @@ function AddProviderDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>Add SSO Provider</DialogTitle>
           <DialogDescription>
@@ -416,12 +430,19 @@ export default function AuthenticationPage() {
 
 function AuthenticationPageContent() {
   const [createOpen, setCreateOpen] = useState(false);
+  // The dialog has no Trigger: where focus goes when it closes (#2146).
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const { data: providers = [], isLoading } = useSsoProviders();
   const deleteMutation = useDeleteSsoProvider();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id);
+  };
+
+  const openCreate: MouseEventHandler<HTMLButtonElement> = (e) => {
+    setReturnFocusTo(e.currentTarget);
+    setCreateOpen(true);
   };
 
   return (
@@ -431,7 +452,7 @@ function AuthenticationPageContent() {
         titleRef={headingRef}
         description="Configure single sign-on (SSO) providers for your organization."
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Add Provider
           </Button>
@@ -450,7 +471,7 @@ function AuthenticationPageContent() {
           title="No SSO providers"
           description="Add an OIDC provider to enable single sign-on for your organization."
           action={
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" />
               Add Provider
             </Button>
@@ -498,6 +519,12 @@ function AuthenticationPageContent() {
       <AddProviderDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          // The empty state and its button leave with the refetch, after the
+          // close.
+          if (providers.length === 0) setReturnFocusTo(headingRef.current);
+        }}
+        onCloseAutoFocus={() => returnFocus(returnFocusTo, headingRef.current)}
       />
     </div>
   );

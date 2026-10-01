@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import type { ConfirmDialogProps, PageHeaderProps } from "@neoboard/components";
+import { MockClosingDialog } from "@/__tests__/helpers/dialog-mocks";
 
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
 
@@ -63,10 +64,30 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (type: string) => ({ label: type }),
 }));
 vi.mock("@/components/widget-editor-modal", () => ({
-  WidgetEditorModal: () => null,
+  // A lab save, as the real one: onLabSaved once the create resolves, then
+  // close. The list has not refetched yet.
+  WidgetEditorModal: (
+    props: React.ComponentProps<typeof MockClosingDialog> & {
+      onLabSaved: () => void;
+    },
+  ) => (
+    <>
+      <MockClosingDialog {...props} />
+      {props.open && (
+        <button
+          onClick={() => {
+            props.onLabSaved();
+            props.onOpenChange(false);
+          }}
+        >
+          Save template
+        </button>
+      )}
+    </>
+  ),
 }));
 vi.mock("@/components/dashboard-picker-dialog", () => ({
-  DashboardPickerDialog: () => null,
+  DashboardPickerDialog: MockClosingDialog,
 }));
 
 vi.mock("@neoboard/components", () => {
@@ -74,12 +95,17 @@ vi.mock("@neoboard/components", () => {
     <div>{children}</div>
   );
   return {
-    PageHeader: ({ title, titleRef }: PageHeaderProps) => (
-      <h1 ref={titleRef} tabIndex={-1}>
-        {title}
-      </h1>
+    PageHeader: ({ title, titleRef, actions }: PageHeaderProps) => (
+      <>
+        <h1 ref={titleRef} tabIndex={-1}>
+          {title}
+        </h1>
+        {actions}
+      </>
     ),
-    EmptyState: Box,
+    EmptyState: ({ action }: { action?: React.ReactNode }) => (
+      <div>{action}</div>
+    ),
     LoadingOverlay: Box,
     Badge: Box,
     // Only the two props the page's own row actions need — forwarding the rest
@@ -241,4 +267,32 @@ describe("WidgetLibraryPage — where focus goes after Delete template (#2125)",
       expect(target()).toHaveFocus();
     },
   );
+});
+
+// #2146: the editor and Use in Dashboard have no Trigger either.
+it.each(["New Template", "Edit template", "Use in Dashboard"])(
+  "Cancel on what %s opened puts focus back on it (#2146)",
+  (name) => {
+    render(<WidgetLibraryPage />);
+    const opener = screen.getAllByRole("button", { name })[0];
+
+    fireEvent.click(opener);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(opener).toHaveFocus();
+  },
+);
+
+// #2146: the empty state and its button leave once the list refetches, which
+// is after the editor has closed: focus lands on the heading, not the button.
+it("a template saved from the empty state puts focus on the heading (#2146)", () => {
+  templates = [];
+  render(<WidgetLibraryPage />);
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Create your first template" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save template" }));
+
+  expect(screen.getByRole("heading", { name: "Widget Library" })).toHaveFocus();
 });

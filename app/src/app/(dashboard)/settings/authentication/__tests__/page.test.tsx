@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import type { ConfirmDialogProps, PageHeaderProps } from "@neoboard/components";
+import {
+  MockDialog,
+  MockDialogContent,
+} from "@/__tests__/helpers/dialog-mocks";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -160,20 +164,8 @@ vi.mock("@neoboard/components", () => ({
       </div>
     ) : null;
   },
-  Dialog: ({
-    children,
-    open,
-  }: {
-    children: React.ReactNode;
-    open: boolean;
-    onOpenChange: (v: boolean) => void;
-  }) => (open ? <div data-testid="dialog">{children}</div> : null),
-  DialogContent: ({
-    children,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => <div>{children}</div>,
+  Dialog: MockDialog,
+  DialogContent: MockDialogContent,
   DialogHeader: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -381,4 +373,48 @@ describe("AuthenticationPage", () => {
       expect(target()).toHaveFocus();
     },
   );
+});
+
+// #2146: Add SSO Provider has no Trigger either.
+const cancel = async () =>
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+// The dialog closes as the create resolves, before the list refetches.
+async function create() {
+  for (const [label, value] of [
+    [/Display Name/, "Okta"],
+    [/Issuer URL/, "https://okta.test"],
+    [/Client ID/, "client"],
+    [/Client Secret/, "secret"],
+  ] as const) {
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  }
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Add Provider",
+    }),
+  );
+  await act(async () => {});
+}
+it.each([
+  ["Cancel", "the header's button", 0, cancel],
+  ["Cancel", "the empty state's button", 1, cancel],
+  // The empty state leaves with the refetch, taking that button.
+  ["A create from the empty state", "the heading", 1, create],
+])("%s puts focus on %s (#2146)", async (_, target, i, close) => {
+  mockSsoEnabled = true;
+  mockUseSsoProviders.mockReturnValue({ data: [], isLoading: false });
+  mockCreateMutate.mockResolvedValue({ id: "sso-1" });
+  const { default: Page } = await import("../page");
+  render(<Page />);
+  const add = screen.getAllByRole("button", { name: "Add Provider" })[i];
+
+  fireEvent.click(add);
+  await close();
+
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    target === "the heading"
+      ? screen.getByRole("heading", { name: "Authentication" })
+      : add,
+  ).toHaveFocus();
 });

@@ -52,6 +52,8 @@ interface ConnectionDialogProps {
   readonly onClose: () => void;
   /** The connection was created or updated; the page tests it afterwards. */
   readonly onSaved: (id: string) => void;
+  /** It has no Trigger: the opener says where focus goes on close (#2146). */
+  readonly onCloseAutoFocus?: () => void;
 }
 
 type InlineTestResult = Awaited<
@@ -146,7 +148,7 @@ function FormStep({
     (field) => field.required && config[field.key] === undefined,
   );
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaveError(null);
     const found = connectionFormErrors(connector, form, target.mode);
@@ -391,6 +393,7 @@ export function ConnectionDialog({
   target,
   onClose,
   onSaved,
+  onCloseAutoFocus,
 }: ConnectionDialogProps) {
   // The last target stays rendered while the dialog animates shut; each new
   // opening gets a new key, and with it fresh state.
@@ -406,7 +409,10 @@ export function ConnectionDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="flex flex-col overflow-hidden">
+      <DialogContent
+        className="flex flex-col overflow-hidden"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         {shown.target && (
           <DialogSteps
             key={shown.opening}

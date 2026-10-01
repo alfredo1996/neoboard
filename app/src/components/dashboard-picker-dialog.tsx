@@ -17,12 +17,15 @@ interface DashboardPickerDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSelect: (dashboardId: string) => void;
+  /** It has no Trigger: the opener says where focus goes on close (#2146). */
+  readonly onCloseAutoFocus?: () => void;
 }
 
 export function DashboardPickerDialog({
   open,
   onOpenChange,
   onSelect,
+  onCloseAutoFocus,
 }: DashboardPickerDialogProps) {
   const { data: dashboards, isLoading } = useDashboards();
   const [search, setSearch] = useState("");
@@ -54,7 +57,10 @@ export function DashboardPickerDialog({
         onOpenChange(v);
       }}
     >
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent
+        className="sm:max-w-[440px]"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>Choose a Dashboard</DialogTitle>
           <DialogDescription>
