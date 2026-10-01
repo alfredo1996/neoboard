@@ -39,6 +39,7 @@ vi.mock("@neoboard/components", () => ({
     paramSelectorProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`param-selector-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("ok")}
@@ -51,6 +52,7 @@ vi.mock("@neoboard/components", () => ({
     paramMultiProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`param-multi-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string[]) => void)(["a", "b"])}
@@ -63,6 +65,7 @@ vi.mock("@neoboard/components", () => ({
     datePickerProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`date-picker-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("2026-01-01")}
@@ -75,6 +78,7 @@ vi.mock("@neoboard/components", () => ({
     dateRangeProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`date-range-${p.parameterName}`}
         onClick={() =>
@@ -92,6 +96,7 @@ vi.mock("@neoboard/components", () => ({
     dateRelativeProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`date-relative-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("last_7_days")}
@@ -105,6 +110,7 @@ vi.mock("@neoboard/components", () => ({
     return (
       <div id={p.id as string} data-testid={`number-range-${p.parameterName}`}>
         <button
+          type="button"
           data-testid={`nrs-change-${p.parameterName}`}
           onClick={() =>
             (p.onChange as (v: [number, number]) => void)([10, 20])
