@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import {
   Plus,
   Trash2,
@@ -322,11 +322,15 @@ function AddProviderDialog({
 function ProviderRow({
   provider,
   onDelete,
+  heading,
 }: Readonly<{
   provider: SsoProviderListItem;
   onDelete: (id: string) => void;
+  heading: RefObject<HTMLHeadingElement | null>;
 }>) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // The dialog has no Trigger: where focus goes when it closes (#2125).
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
 
   return (
     <tr className="border-b last:border-b-0">
@@ -359,7 +363,10 @@ function ProviderRow({
           variant="ghost"
           size="icon"
           className="text-destructive hover:text-destructive"
-          onClick={() => setConfirmOpen(true)}
+          onClick={(e) => {
+            setReturnFocusTo(e.currentTarget);
+            setConfirmOpen(true);
+          }}
           aria-label={"Delete " + provider.name}
         >
           <Trash2 className="h-4 w-4" />
@@ -375,7 +382,10 @@ function ProviderRow({
           }
           confirmText="Delete"
           variant="destructive"
+          returnFocusTo={returnFocusTo}
           onConfirm={() => {
+            // The row leaves once the list refetches: land on the heading.
+            setReturnFocusTo(heading.current);
             onDelete(provider.id);
             setConfirmOpen(false);
           }}
@@ -408,6 +418,7 @@ function AuthenticationPageContent() {
   const [createOpen, setCreateOpen] = useState(false);
   const { data: providers = [], isLoading } = useSsoProviders();
   const deleteMutation = useDeleteSsoProvider();
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id);
@@ -417,6 +428,7 @@ function AuthenticationPageContent() {
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
         title="Authentication"
+        titleRef={headingRef}
         description="Configure single sign-on (SSO) providers for your organization."
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -475,6 +487,7 @@ function AuthenticationPageContent() {
                   key={provider.id}
                   provider={provider}
                   onDelete={handleDelete}
+                  heading={headingRef}
                 />
               ))}
             </tbody>

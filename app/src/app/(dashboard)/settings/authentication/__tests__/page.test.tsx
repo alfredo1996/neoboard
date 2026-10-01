@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
+import type { ConfirmDialogProps, PageHeaderProps } from "@neoboard/components";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -56,17 +57,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@neoboard/components", () => ({
-  PageHeader: ({
-    title,
-    description,
-    actions,
-  }: {
-    title: string;
-    description: string;
-    actions: React.ReactNode;
-  }) => (
+  PageHeader: ({ title, description, actions, titleRef }: PageHeaderProps) => (
     <div data-testid="page-header">
-      <h1>{title}</h1>
+      <h1 ref={titleRef} tabIndex={-1}>
+        {title}
+      </h1>
       <p>{description}</p>
       {actions}
     </div>
@@ -146,25 +141,25 @@ vi.mock("@neoboard/components", () => ({
       {action}
     </div>
   ),
-  ConfirmDialog: ({
+  // Hands focus back after the render that closes it, as Radix does.
+  ConfirmDialog: function ConfirmDialog({
     open,
+    onOpenChange,
     onConfirm,
     title,
-  }: {
-    open: boolean;
-    onOpenChange: (v: boolean) => void;
-    title: string;
-    description: string;
-    confirmText: string;
-    variant: string;
-    onConfirm: () => void;
-  }) =>
-    open ? (
+    returnFocusTo,
+  }: ConfirmDialogProps) {
+    React.useEffect(() => {
+      if (!open) returnFocusTo?.focus();
+    }, [open, returnFocusTo]);
+    return open ? (
       <div data-testid="confirm-dialog">
         <p>{title}</p>
+        <button onClick={() => onOpenChange(false)}>Cancel</button>
         <button onClick={onConfirm}>Confirm</button>
       </div>
-    ) : null,
+    ) : null;
+  },
   Dialog: ({
     children,
     open,
@@ -359,4 +354,31 @@ describe("AuthenticationPage", () => {
     expect(screen.getByText("Disabled")).toBeInTheDocument();
     expect(screen.getByText("reader")).toBeInTheDocument();
   });
+
+  it.each([
+    ["Cancel", () => screen.getByLabelText("Delete Okta")],
+    ["Confirm", () => screen.getByRole("heading", { name: "Authentication" })],
+  ])(
+    "%s on Delete SSO Provider hands focus back: the button, or the heading once the row is gone (#2125)",
+    async (button, target) => {
+      mockUseSsoProviders.mockReturnValue({
+        data: [
+          {
+            id: "sso-1",
+            name: "Okta",
+            issuer: "https://okta.test",
+            enabled: true,
+          },
+        ],
+        isLoading: false,
+      });
+      const { default: Page } = await import("../page");
+      render(<Page />);
+
+      fireEvent.click(screen.getByLabelText("Delete Okta"));
+      fireEvent.click(screen.getByRole("button", { name: button }));
+
+      expect(target()).toHaveFocus();
+    },
+  );
 });
