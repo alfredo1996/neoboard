@@ -1,10 +1,11 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import type { JWT } from "next-auth/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { revokedSessions, users } from "@/lib/db/schema";
 import { loginRateLimiter } from "@/lib/crypto/rate-limiter";
 import { getCachedSsoProviders } from "@/lib/auth/sso/provider-cache";
 import { resolveRoleFromClaims } from "@/lib/auth/sso/claim-mapping";
@@ -13,6 +14,7 @@ import { authLogger, logger } from "@/lib/logger";
 import { isTenantIdSet, resolveTenantId } from "@/lib/auth/tenant-id";
 import { emailSchema, normalizeEmail } from "@/lib/auth/email-schema";
 import { tenantScopedAdapter } from "@/lib/auth/tenant-adapter";
+import { randomId } from "@/lib/random-id";
 
 /** Reasons an authorize() call can fail. */
 type SignInFailureReason =
@@ -53,6 +55,39 @@ if (!isTenantIdSet()) {
   );
 }
 
+const sessionMaxAge = Number.parseInt(
+  process.env.SESSION_MAX_AGE || "28800",
+  10,
+);
+
+/**
+ * Ends one session for good (#2138): every session read re-sets the cookie,
+ * so a read in flight at sign-out puts the token back, and the jwt callback
+ * refuses it by this row. Every token carrying the sid was issued by now and
+ * lives at most sessionMaxAge, read with 15 s of clock tolerance; the row
+ * outlives them by a minute.
+ */
+async function revokeSession(token: JWT | null | undefined): Promise<void> {
+  if (!token?.sid || !token.tenantId) return; // issued before #2138
+  await db
+    .insert(revokedSessions)
+    .values({
+      tenantId: token.tenantId,
+      sid: token.sid,
+      expiresAt: new Date(Date.now() + (sessionMaxAge + 60) * 1000),
+    })
+    .onConflictDoNothing();
+  // An expired row refuses nothing: the tokens it names have expired too.
+  await db
+    .delete(revokedSessions)
+    .where(
+      and(
+        eq(revokedSessions.tenantId, token.tenantId),
+        lt(revokedSessions.expiresAt, new Date()),
+      ),
+    );
+}
+
 /**
  * Auth.js config uses lazy initialization so SSO providers can be loaded
  * dynamically from the database on each auth flow. The Credentials provider
@@ -67,7 +102,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
       adapter: tenantScopedAdapter(tenantId),
       session: {
         strategy: "jwt",
-        maxAge: parseInt(process.env.SESSION_MAX_AGE || "28800", 10),
+        maxAge: sessionMaxAge,
       },
       pages: {
         signIn: "/login",
@@ -175,7 +210,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
       callbacks: {
         async signIn({ user, account, profile }) {
           // Only intercept SSO logins (provider id starts with "sso-")
-          if (!account || !account.provider.startsWith("sso-")) {
+          if (!account?.provider.startsWith("sso-")) {
             return true;
           }
 
@@ -260,6 +295,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
             token.tenantId =
               (user as { tenantId?: string }).tenantId ?? resolveTenantId();
           }
+          // The session's own id, which sign-out revokes (#2138).
+          token.sid ??= randomId();
           // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions.
           if (token.id) {
             try {
@@ -272,8 +309,16 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
                   name: users.name,
                   tenantId: users.tenantId,
                   passwordChangedAt: users.passwordChangedAt,
+                  revokedSid: revokedSessions.sid,
                 })
                 .from(users)
+                .leftJoin(
+                  revokedSessions,
+                  and(
+                    eq(revokedSessions.tenantId, token.tenantId as string),
+                    eq(revokedSessions.sid, token.sid),
+                  ),
+                )
                 .where(
                   and(
                     eq(users.id, token.id as string),
@@ -281,8 +326,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
                   ),
                 )
                 .limit(1);
-              if (!dbUser) return null; // User deleted — invalidate token
-              if (dbUser.disabledAt) return null; // User disabled — invalidate token
+              // User deleted, disabled or signed out — invalidate token.
+              if (!dbUser || dbUser.disabledAt || dbUser.revokedSid) {
+                return null;
+              }
               // Invalidate tokens issued before the most recent password change.
               // 30s grace window prevents racing the issuance of the new token.
               if (
@@ -310,7 +357,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
           return token;
         },
 
-        async session({ session, token }) {
+        session({ session, token }) {
           if (session.user && token.id) {
             session.user.id = token.id as string;
             session.user.name = token.name as string;
@@ -332,6 +379,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
           const userId =
             token && typeof token.id === "string" ? token.id : undefined;
           authLogger.info({ event: "sign_out", userId }, "sign_out");
+          await revokeSession(token);
         },
       },
     };
