@@ -3,12 +3,12 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { unwrapFullResponse } from "@/lib/api/api-client";
 import {
-  GraphChart,
   useGraphExploration,
   PropertyPanel,
   Badge,
   toast,
 } from "@neoboard/components";
+import { GraphChart } from "@/components/lazy-graph-chart";
 import type {
   GraphNode,
   GraphEdge,
@@ -53,13 +53,13 @@ function NodeContextMenu({
   onExpand,
   onCollapse,
   onProperties,
-}: {
+}: Readonly<{
   menu: NodeMenu;
   onClose: () => void;
   onExpand?: () => void;
   onCollapse?: () => void;
   onProperties?: () => void;
-}) {
+}>) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -192,7 +192,7 @@ export function GraphExplorationWrapper({
   resultId,
   connectorType,
   autoFit,
-}: GraphExplorationWrapperProps) {
+}: Readonly<GraphExplorationWrapperProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<NodeMenu | null>(null);
   type InspectedElement =

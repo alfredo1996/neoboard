@@ -7,22 +7,16 @@
  * back to the plain GraphChart component.
  */
 
-import dynamic from "next/dynamic";
 import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { GraphNode, GraphEdge, StylingRule } from "@neoboard/components";
 import { GraphExplorationWrapper } from "@/components/graph-exploration-wrapper";
+import { GraphChart } from "@/components/lazy-graph-chart";
 import { LazyVisible } from "@/components/lazy-visible";
 import { defineChartPlugin } from "../registry";
 import { transformToGraphData, validateGraphData } from "./transform";
 import { type PluginProps } from "../utils";
 import { graphSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
-
-// NVL (WebGL) is heavy — lazy load so it's only bundled when a graph widget renders.
-const GraphChart = dynamic(
-  () => import("@neoboard/components").then((m) => ({ default: m.GraphChart })),
-  { ssr: false, loading: () => <Skeleton className="w-full h-full" /> },
-);
 
 function GraphPluginComponent({
   data,
