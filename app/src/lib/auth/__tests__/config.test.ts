@@ -226,7 +226,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 function mockDbRows(rows: Record<string, unknown>[]) {
   const query = {
-    leftJoin: () => query,
+    leftJoin: vi.fn((): unknown => query),
     where: vi.fn().mockReturnValue({
       limit: vi.fn().mockReturnValue({
         then: vi
@@ -238,6 +238,7 @@ function mockDbRows(rows: Record<string, unknown>[]) {
     }),
   };
   mockDbSelect.mockReturnValue({ from: vi.fn().mockReturnValue(query) });
+  return query;
 }
 
 // ---------------------------------------------------------------------------
@@ -333,15 +334,24 @@ describe("JWT callback", () => {
   ])(
     "looks up this session's own sid: revoked $revokedSid → signed in $signedIn",
     async ({ revokedSid, signedIn }) => {
-      mockDbRows([{ role: "admin", disabledAt: null, revokedSid }]);
+      const query = mockDbRows([
+        { role: "admin", disabledAt: null, revokedSid },
+      ]);
 
       const result = await callbacks.jwt({
         token: { id: "u1", tenantId: "t1", sid: "s1" },
       });
 
       expect(result !== null).toBe(signedIn);
-      expect(eq).toHaveBeenCalledWith("rs.sid", "s1");
-      expect(eq).toHaveBeenCalledWith("rs.tenantId", "t1");
+      // In the join's ON clause: moved to WHERE it would drop every
+      // unrevoked session's user row and sign them all out.
+      expect(query.leftJoin).toHaveBeenCalledWith(
+        { tenantId: "rs.tenantId", sid: "rs.sid", expiresAt: "rs.expiresAt" },
+        [
+          { field: "rs.tenantId", value: "t1" },
+          { field: "rs.sid", value: "s1" },
+        ],
+      );
     },
   );
 });

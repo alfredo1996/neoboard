@@ -14,6 +14,7 @@ import { authLogger, logger } from "@/lib/logger";
 import { isTenantIdSet, resolveTenantId } from "@/lib/auth/tenant-id";
 import { emailSchema, normalizeEmail } from "@/lib/auth/email-schema";
 import { tenantScopedAdapter } from "@/lib/auth/tenant-adapter";
+import { randomId } from "@/lib/random-id";
 
 /** Reasons an authorize() call can fail. */
 type SignInFailureReason =
@@ -295,7 +296,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(
               (user as { tenantId?: string }).tenantId ?? resolveTenantId();
           }
           // The session's own id, which sign-out revokes (#2138).
-          token.sid ??= crypto.randomUUID();
+          token.sid ??= randomId();
           // Re-fetch role and canWrite on every token refresh so DB changes propagate to active sessions.
           if (token.id) {
             try {
