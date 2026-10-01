@@ -906,6 +906,12 @@ for (const [where, selectorPage] of [
       await expect(page.getByRole("cell", { name: "The Matrix" })).toBeVisible({
         timeout: 15_000,
       });
+      // #2159: the trigger shows the linked value its seed never loaded.
+      if (selectorPage === 0) {
+        await expect(page.getByRole("combobox", { name: "year" })).toHaveText(
+          "1999",
+        );
+      }
     } finally {
       await cleanup();
     }

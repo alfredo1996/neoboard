@@ -85,7 +85,7 @@ function ParamMultiSelector({
   className,
   labelledBy,
   id,
-}: ParamMultiSelectorProps) {
+}: Readonly<ParamMultiSelectorProps>) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-multi-label-${parameterName}`;
 
@@ -115,7 +115,10 @@ function ParamMultiSelector({
   // the <Label> would embed another control's name in this one's (#1360).
   const hintId = parentParameterName ? `${labelId}-hint` : undefined;
 
-  const selectedOptions = options.filter((opt) => values.includes(opt.value));
+  // A value past the seed's LIMIT has no loaded option: badge it as is (#2159).
+  const selectedOptions = values.map(
+    (v) => options.find((opt) => opt.value === v) ?? { value: v, label: v },
+  );
 
   const handleToggle = (optionValue: string) => {
     const next = values.includes(optionValue)

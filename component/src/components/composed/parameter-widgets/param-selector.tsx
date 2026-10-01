@@ -135,7 +135,9 @@ function ParamSelector({
     return <ParamWidgetSkeleton className={className} />;
   }
 
-  const selectedLabel = options.find((o) => o.value === value)?.label;
+  // A value past the seed's LIMIT has no loaded option: show it as is (#2159).
+  const selectedLabel =
+    options.find((o) => o.value === value)?.label ?? (value || undefined);
 
   const resolvedPlaceholder =
     placeholder ??
@@ -284,7 +286,9 @@ function ParamSelector({
             aria-labelledby={labelId}
             aria-describedby={hintId}
           >
-            <SelectValue placeholder={resolvedPlaceholder} />
+            <SelectValue placeholder={resolvedPlaceholder}>
+              {selectedLabel}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {!loading && options.length === 0 && (
