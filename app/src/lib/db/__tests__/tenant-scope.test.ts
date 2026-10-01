@@ -1076,6 +1076,7 @@ describe("tenant scoping guard (#1226)", () => {
       apiKeys: "api_key",
       ssoProviders: "sso_provider",
       auditLogs: "audit_log",
+      revokedSessions: "revoked_session",
     });
   });
 

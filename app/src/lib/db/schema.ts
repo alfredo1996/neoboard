@@ -108,6 +108,19 @@ export const verificationTokens = pgTable(
   ],
 );
 
+// Sessions ended by sign-out (#2138). Every session read re-sets the cookie,
+// so a read in flight at sign-out puts the token back; the jwt callback
+// refuses a token whose sid is listed here.
+export const revokedSessions = pgTable(
+  "revoked_session",
+  {
+    tenantId: text("tenant_id").notNull(),
+    sid: text("sid").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.sid] })],
+);
+
 // ─── Application tables ──────────────────────────────────────────────
 
 // Connection type is a plain text column (#1121): the accepted set is the

@@ -18,6 +18,8 @@ const {
   authorize,
   mockDbSelect,
   mockUpdateThen,
+  mockInsertValues,
+  mockDeleteWhere,
   loggedEvents,
   captured,
   originalTenantId,
@@ -39,6 +41,8 @@ const {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const authorize = { fn: null as any };
   const mockDbSelect = vi.fn();
+  const mockInsertValues = vi.fn();
+  const mockDeleteWhere = vi.fn();
   // Default: invoke success callback so the fire-and-forget lastLoginAt
   // update succeeds. Tests that want to exercise the rejection branch
   // override this with mockReturnValueOnce.
@@ -62,6 +66,8 @@ const {
     authorize,
     mockDbSelect,
     mockUpdateThen,
+    mockInsertValues,
+    mockDeleteWhere,
     loggedEvents,
     captured: { adapter: null as unknown },
     originalTenantId: orig,
@@ -125,6 +131,12 @@ vi.mock("@/lib/db", () => ({
         }),
       }),
     }),
+    insert: () => ({
+      values: (v: unknown) => ({
+        onConflictDoNothing: () => mockInsertValues(v),
+      }),
+    }),
+    delete: () => ({ where: (w: unknown) => mockDeleteWhere(w) }),
   },
 }));
 
@@ -143,6 +155,11 @@ vi.mock("@/lib/db/schema", () => ({
     lastLoginAt: "lastLoginAt",
     tenantId: "tenantId",
   },
+  revokedSessions: {
+    tenantId: "rs.tenantId",
+    sid: "rs.sid",
+    expiresAt: "rs.expiresAt",
+  },
   accounts: {},
   sessions: {},
   verificationTokens: {},
@@ -155,6 +172,7 @@ vi.mock("@/lib/crypto/rate-limiter", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((a: unknown, b: unknown) => ({ field: a, value: b })),
   and: vi.fn((...args: unknown[]) => args),
+  lt: vi.fn((a: unknown, b: unknown) => ({ lt: a, value: b })),
 }));
 
 vi.mock("bcryptjs", () => ({
@@ -207,19 +225,19 @@ beforeEach(() => {
 // Helper: mock DB select chain returning given rows
 // ---------------------------------------------------------------------------
 function mockDbRows(rows: Record<string, unknown>[]) {
-  mockDbSelect.mockReturnValue({
-    from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        limit: vi.fn().mockReturnValue({
-          then: vi
-            .fn()
-            .mockImplementation(
-              (cb: (rows: Record<string, unknown>[]) => void) => cb(rows),
-            ),
-        }),
+  const query = {
+    leftJoin: () => query,
+    where: vi.fn().mockReturnValue({
+      limit: vi.fn().mockReturnValue({
+        then: vi
+          .fn()
+          .mockImplementation((cb: (rows: Record<string, unknown>[]) => void) =>
+            cb(rows),
+          ),
       }),
     }),
-  });
+  };
+  mockDbSelect.mockReturnValue({ from: vi.fn().mockReturnValue(query) });
 }
 
 // ---------------------------------------------------------------------------
@@ -278,13 +296,13 @@ describe("JWT callback", () => {
   // The lookup is the revocation check: disabled, deleted, password changed.
   describe("when the users lookup fails (#2004)", () => {
     function mockDbDown() {
-      mockDbSelect.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockRejectedValue(new Error("connection refused")),
-          }),
+      const query = {
+        leftJoin: () => query,
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockRejectedValue(new Error("connection refused")),
         }),
-      });
+      };
+      mockDbSelect.mockReturnValue({ from: vi.fn().mockReturnValue(query) });
     }
 
     it("refuses a sign-in, which it could not check", async () => {
@@ -301,11 +319,31 @@ describe("JWT callback", () => {
         name: "Alice",
         role: "reader",
         canWrite: false,
+        sid: "s1",
       };
 
       expect(await callbacks.jwt({ token: { ...token } })).toEqual(token);
     });
   });
+
+  // A session read in flight at sign-out re-sets the cookie (#2138).
+  it.each([
+    { revokedSid: "s1", signedIn: false },
+    { revokedSid: null, signedIn: true },
+  ])(
+    "looks up this session's own sid: revoked $revokedSid → signed in $signedIn",
+    async ({ revokedSid, signedIn }) => {
+      mockDbRows([{ role: "admin", disabledAt: null, revokedSid }]);
+
+      const result = await callbacks.jwt({
+        token: { id: "u1", tenantId: "t1", sid: "s1" },
+      });
+
+      expect(result !== null).toBe(signedIn);
+      expect(eq).toHaveBeenCalledWith("rs.sid", "s1");
+      expect(eq).toHaveBeenCalledWith("rs.tenantId", "t1");
+    },
+  );
 });
 
 describe("session callback", () => {
@@ -578,6 +616,28 @@ describe("Auth event logging", () => {
     it("logs sign_out with undefined userId when token is absent", async () => {
       await events.signOut({ session: { user: {} } });
       expect(loggedEvents[0].obj.userId).toBeUndefined();
+      expect(mockInsertValues).not.toHaveBeenCalled();
+    });
+
+    it("revokes the session until every token carrying its sid has expired, and drops the tenant's expired rows (#2138)", async () => {
+      vi.useFakeTimers({ now: 1_000_000 });
+      try {
+        await events.signOut({
+          token: { id: "u1", tenantId: "t1", sid: "s1" },
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(mockInsertValues).toHaveBeenCalledWith({
+        tenantId: "t1",
+        sid: "s1",
+        expiresAt: new Date(1_000_000 + (28_800 + 60) * 1000),
+      });
+      expect(mockDeleteWhere).toHaveBeenCalledWith([
+        { field: "rs.tenantId", value: "t1" },
+        { lt: "rs.expiresAt", value: new Date(1_000_000) },
+      ]);
     });
   });
 });

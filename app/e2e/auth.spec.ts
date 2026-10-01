@@ -1,4 +1,5 @@
 import { test, expect, ALICE, CAROL, uid } from "./fixtures";
+import { AuthPage } from "./pages/auth";
 
 test.describe("Authentication", () => {
   test("should redirect unauthenticated users to login", async ({ page }) => {
@@ -99,6 +100,60 @@ test.describe("Authentication", () => {
     await page.getByLabel("Password").fill(CAROL.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL("/", { timeout: 15_000 });
+  });
+
+  // Every session read re-sets the cookie, so one in flight at sign-out
+  // used to put the signed-out session back (#2138).
+  test("a session read in flight during sign-out cannot restore the session (#2138)", async ({
+    authPage,
+    page,
+    context,
+    browser,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    const device = await browser.newContext();
+    try {
+      await new AuthPage(await device.newPage()).login(
+        ALICE.email,
+        ALICE.password,
+      );
+
+      // Another tab's session read reaches the server, and its response is
+      // held until this tab has signed out.
+      const tab = await context.newPage();
+      await tab.goto("/api/health");
+      let release = () => {};
+      const signedOut = new Promise<void>((r) => (release = r));
+      let reached = () => {};
+      const atServer = new Promise<void>((r) => (reached = r));
+      await tab.route("**/api/auth/session", async (route) => {
+        const response = await route.fetch();
+        reached();
+        await signedOut;
+        await route.fulfill({ response });
+      });
+      const read = tab.evaluate(() =>
+        fetch("/api/auth/session").then((r) => r.status),
+      );
+      await atServer;
+
+      await authPage.logout();
+      release();
+      expect(await read).toBe(200);
+
+      // The held response put the session cookie back...
+      const names = (await context.cookies()).map((c) => c.name);
+      expect(names).toContain("authjs.session-token");
+      // ...and the server refuses it.
+      const after = await page.request.get("/api/auth/session");
+      expect((await after.json())?.user).toBeUndefined();
+      // Alice's session on the other device is untouched.
+      const other = await device.request.get("/api/auth/session");
+      expect((await other.json()).user.email).toBe(ALICE.email);
+    } finally {
+      await device.close();
+    }
   });
 });
 

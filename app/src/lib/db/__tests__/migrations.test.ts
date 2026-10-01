@@ -156,6 +156,7 @@ describe("Database migrations", () => {
       "api_key",
       "sso_provider",
       "audit_log",
+      "revoked_session",
     ];
 
     const columns = await client`
@@ -186,6 +187,7 @@ describe("Database migrations", () => {
     "api_key",
     "sso_provider",
     "audit_log",
+    "revoked_session",
   ];
 
   it("indexes tenant_id as the LEADING column on every tenant-scoped table (#1646)", async () => {

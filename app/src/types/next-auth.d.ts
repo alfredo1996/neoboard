@@ -26,5 +26,7 @@ declare module "next-auth/jwt" {
     canWrite?: boolean;
     tenantId?: string;
     forcePasswordChange?: boolean;
+    /** The session's own id, which sign-out revokes (#2138). */
+    sid?: string;
   }
 }

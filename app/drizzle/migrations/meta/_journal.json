@@ -29,6 +29,13 @@
       "when": 1790436045439,
       "tag": "0003_windy_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790880667588,
+      "tag": "0004_curly_archangel",
+      "breakpoints": true
     }
   ]
 }
