@@ -497,9 +497,17 @@ export function WidgetEditorModal({
       initialTemplateAppliedRef.current = initialTemplate.id;
       // Use setTimeout to ensure the add-mode reset runs first
       setTimeout(() => {
+        // The template is what the editor opened with, not an edit (#2085),
+        // unless the user already edited: the connection, database and write
+        // switch they picked survive the template, and still count.
+        const untouched =
+          editorSnapshot(useWidgetEditorStore.getState()) ===
+          openedWithRef.current;
         applyTemplate(initialTemplate);
-        // The template is what the editor opened with, not an edit (#2085).
-        openedWithRef.current = editorSnapshot(useWidgetEditorStore.getState());
+        if (untouched)
+          openedWithRef.current = editorSnapshot(
+            useWidgetEditorStore.getState(),
+          );
       }, 0);
     }
     if (!open) initialTemplateAppliedRef.current = undefined;
