@@ -17,7 +17,7 @@ import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
  * renders the MarkdownWidget. The plugin contract passes the full
  * settings object to the component as `settings` prop.
  */
-function MarkdownPluginComponent({ settings: raw }: PluginProps) {
+function MarkdownPluginComponent({ settings: raw }: Readonly<PluginProps>) {
   const settings = safeParseSettings(markdownSettingsSchema, raw, "markdown");
   return <MarkdownWidget content={settings.content} />;
 }
@@ -35,8 +35,5 @@ export const markdownPlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: false,
   },
-  queryHint:
-    "Markdown widgets render static content — no query required. " +
-    "Use the content field to write your text.",
   options: getChartOptions("markdown"),
 });

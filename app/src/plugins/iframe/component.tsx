@@ -10,7 +10,7 @@ import { type PluginProps } from "../utils";
 import { iframeSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
-function IframePluginComponent({ settings: raw }: PluginProps) {
+function IframePluginComponent({ settings: raw }: Readonly<PluginProps>) {
   const settings = safeParseSettings(iframeSettingsSchema, raw, "iframe");
   return (
     <IframeWidget
@@ -34,7 +34,4 @@ export const iframePlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: false,
   },
-  queryHint:
-    "Iframe widgets embed an external URL — no query required. " +
-    "Use the URL field in the widget settings.",
 });

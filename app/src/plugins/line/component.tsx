@@ -25,7 +25,7 @@ function LinePluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(lineSettingsSchema, raw, "line");
   // Parse comma-separated rightAxisSeries string into string array
@@ -82,5 +82,4 @@ export const linePlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint: "Return 2+ columns: first = x-axis label, rest = numeric series.",
 });

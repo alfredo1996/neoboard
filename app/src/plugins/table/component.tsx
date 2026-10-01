@@ -23,7 +23,7 @@ function TablePluginComponent({
   colorScales,
   clickableColumns,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const settings = safeParseSettings(tableSettingsSchema, raw, "table");
   return (
     <TableRenderer
@@ -64,6 +64,4 @@ export const tablePlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: true,
   },
-  queryHint:
-    "Return any tabular data — each column becomes a sortable grid column.",
 });

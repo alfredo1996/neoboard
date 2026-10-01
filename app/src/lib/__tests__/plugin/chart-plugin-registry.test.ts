@@ -90,11 +90,6 @@ describe("defineChartPlugin", () => {
     const plugin = makePlugin({ requires: ["graphData"] });
     expect(plugin.requires).toEqual(["graphData"]);
   });
-
-  it("preserves queryHint", () => {
-    const plugin = makePlugin({ queryHint: "Return label, value" });
-    expect(plugin.queryHint).toBe("Return label, value");
-  });
 });
 
 // ---------------------------------------------------------------------------

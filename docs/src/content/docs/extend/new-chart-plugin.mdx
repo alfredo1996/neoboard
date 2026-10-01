@@ -45,7 +45,6 @@ export const myChartPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint: "Return 2 columns: first = label (string), second = numeric value.",
   options: [
     {
       key: "showLegend",
@@ -87,7 +86,6 @@ defineChartPlugin({
   transformWithMapping?: (data, mapping) => T,  // with column mapping
   validate?: (data) => string | null,           // return error or null
   options?: ChartOptionDef[],                   // chart options panel entries
-  queryHint?: string,                           // shown in query editor
   requires?: ChartRequirement[],                // ["graphData"] — omit unless you need one
   stylingTargets?: { value, label }[],          // enables rule-based styling
   enrichClickEvent?: (event, row) => event,     // customize click payload
@@ -313,7 +311,6 @@ export const heatmapPlugin = defineChartPlugin({
   component: HeatmapPlugin,
   transform: (rows) => rows,
   capabilities: { supportsClickAction: true, isECharts: true, requiresQuery: true, supportsStyling: false },
-  queryHint: "Return 3 columns: x-axis label, y-axis label, numeric value.",
   options: [
     { key: "xField", label: "X Field", type: "text", default: "", category: "Data" },
     { key: "yField", label: "Y Field", type: "text", default: "", category: "Data" },

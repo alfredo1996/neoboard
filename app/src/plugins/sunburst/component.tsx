@@ -29,7 +29,7 @@ function SunburstPluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(sunburstSettingsSchema, raw, "sunburst");
   return (
@@ -64,7 +64,4 @@ export const sunburstPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return hierarchical data — either pre-nested with children, or flat rows\n" +
-    "with name/parent/value columns.",
 });

@@ -36,7 +36,7 @@ function GraphPluginComponent({
   resultId,
   connectorType,
   autoFit,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const settings = safeParseSettings(graphSettingsSchema, raw, "graph");
   const graphData = (data ?? { nodes: [], edges: [] }) as {
     nodes: GraphNode[];
@@ -110,7 +110,4 @@ export const graphPlugin = defineChartPlugin({
     isECharts: false,
     requiresQuery: true,
   },
-  // Shape language, not a query language: any connector that returns graph
-  // values can drive this chart (#1925).
-  queryHint: "Return nodes, relationships, or paths.",
 });

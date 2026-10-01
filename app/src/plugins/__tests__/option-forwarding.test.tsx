@@ -117,6 +117,18 @@ describe("single-value trendEnabled forwarding (#1397)", () => {
     ).toBe("down");
   });
 
+  it("renders a neutral trend with no change when the value held", () => {
+    render(
+      <SingleValueComponent
+        data={transformToValueData([twoRows[0], twoRows[0]])}
+        settings={{ trendEnabled: true }}
+      />,
+    );
+    const el = screen.getByTestId("chart");
+    expect(el.getAttribute("data-trend-direction")).toBe("neutral");
+    expect(el.getAttribute("data-trend-label")).toBe("no change");
+  });
+
   it("renders no trend when the option is off", () => {
     render(
       <SingleValueComponent

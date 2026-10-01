@@ -25,7 +25,7 @@ function BarPluginComponent({
   onChartClick,
   stylingRules,
   paramValues,
-}: PluginProps) {
+}: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(barSettingsSchema, raw, "bar");
 
@@ -70,6 +70,4 @@ export const barPlugin = defineChartPlugin({
     isECharts: true,
     requiresQuery: true,
   },
-  queryHint:
-    "Return 2+ columns: first = category label (string), rest = numeric series.",
 });
