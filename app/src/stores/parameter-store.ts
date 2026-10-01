@@ -142,7 +142,11 @@ function coerceValue(
     case "multi-select": {
       if (Array.isArray(value)) return { ok: true, value };
       // Accept scalar as single-element array
-      if (typeof value === "string" || typeof value === "number")
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      )
         return { ok: true, value: [value] };
       return { ok: false, reason: "multi-select value must be an array" };
     }

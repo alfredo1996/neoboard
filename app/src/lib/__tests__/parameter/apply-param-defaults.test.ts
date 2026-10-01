@@ -244,19 +244,23 @@ describe("expandParamDefaults", () => {
     ]);
   });
 
-  it("treats the configured default as the upper bound", () => {
-    const seeds = expandParamDefaults([
-      {
-        name: "n",
-        value: "12",
-        type: "number-range",
-        widgetId: "w0",
-        rangeMin: 5,
-      },
-    ]);
-    expect(seeds.find((s) => s.name === "n_max")?.value).toBe(12);
-    expect(seeds.find((s) => s.name === "n_min")?.value).toBe(5);
-  });
+  // A range default marked as in a link reads the same (#2158).
+  it.each(["12", "n:12"])(
+    "treats the default %s as the upper bound",
+    (value) => {
+      const seeds = expandParamDefaults([
+        {
+          name: "n",
+          value,
+          type: "number-range",
+          widgetId: "w0",
+          rangeMin: 5,
+        },
+      ]);
+      expect(seeds.find((s) => s.name === "n_max")?.value).toBe(12);
+      expect(seeds.find((s) => s.name === "n_min")?.value).toBe(5);
+    },
+  );
 
   it("uses 0 as the lower bound when rangeMin is absent", () => {
     const seeds = expandParamDefaults([

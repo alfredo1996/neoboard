@@ -988,9 +988,13 @@ describe("seeding a configured Default value (#1517)", () => {
     expect(values.window).toEqual([30, 180]);
   });
 
-  it("coerces a multi-select default to an array, not a bare string", () => {
+  // A marked boolean is a scalar too, and a list of it (#2158).
+  it.each([
+    ["alpha", ["alpha"]],
+    ["b:true", [true]],
+  ])("coerces a multi-select default %s to an array", (value, expected) => {
     const [seed] = expandParamDefaults([
-      { name: "tags", value: "alpha", type: "multi-select", widgetId: "w0" },
+      { name: "tags", value, type: "multi-select", widgetId: "w0" },
     ]);
     useParameterStore
       .getState()
@@ -1004,9 +1008,9 @@ describe("seeding a configured Default value (#1517)", () => {
         seed.widgetId,
       );
 
-    expect(useParameterStore.getState().parameters.tags.value).toEqual([
-      "alpha",
-    ]);
+    expect(useParameterStore.getState().parameters.tags.value).toEqual(
+      expected,
+    );
   });
 
   it("records the parameter name as the chip field, not an empty string", () => {

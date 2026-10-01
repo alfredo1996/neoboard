@@ -6,6 +6,22 @@ import type { DashboardWidget, DashboardLayoutV2 } from "@/lib/db/schema";
 import { resolveInternalParamType } from "./parameter-config-section";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
 import { randomId } from "@/lib/random-id";
+import { encodeItem } from "@/lib/shared/url-params";
+import type { ParamSelectorOption } from "@neoboard/components";
+
+/**
+ * A Default value saved with the type of the Test Seed Query option it names,
+ * so it applies with no option loaded (#2158). Anything else stays as typed.
+ *
+ * ponytail: only an option the author's Test Seed Query loaded can type it.
+ */
+function typedDefault(
+  text: unknown,
+  options: ParamSelectorOption[] | null | undefined,
+): unknown {
+  const raw = options?.find((o) => o.value === text)?.rawValue;
+  return raw === undefined || raw === null ? text : encodeItem(raw);
+}
 
 /**
  * Builds a DashboardWidget object from the current widget editor store state.
@@ -14,6 +30,7 @@ import { randomId } from "@/lib/random-id";
 export function useBuildWidgetForSave(
   existingWidget: DashboardWidget | undefined,
   layout?: DashboardLayoutV2,
+  seedOptions?: ParamSelectorOption[] | null,
 ): () => DashboardWidget {
   const chartType = useWidgetEditorStore((s) => s.chartType);
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
@@ -68,6 +85,10 @@ export function useBuildWidgetForSave(
             paramUIType === "select"
               ? (chartOptions.seedQuery ?? "")
               : undefined,
+          defaultValue:
+            paramUIType === "select"
+              ? typedDefault(chartOptions.defaultValue, seedOptions)
+              : chartOptions.defaultValue,
         }
       : isForm
         ? {
@@ -126,6 +147,7 @@ export function useBuildWidgetForSave(
   }, [
     existingWidget,
     layout,
+    seedOptions,
     chartType,
     connectionId,
     database,

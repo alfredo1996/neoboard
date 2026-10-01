@@ -185,6 +185,52 @@ describe("useBuildWidgetForSave", () => {
       );
     });
 
+    // #2158: a default the Test Seed Query loaded keeps its option's type, so
+    // it applies with no option loaded on the dashboard. Anything else is
+    // saved as typed: text stays text, a marked default stays marked.
+    const savedDefault = (w: DashboardWidget) =>
+      (w.settings?.chartOptions as Record<string, unknown>).defaultValue;
+    const options = [
+      { value: "1999", label: "1999", rawValue: 1999 },
+      { value: "true", label: "yes", rawValue: true },
+      { value: "02134", label: "02134", rawValue: "02134" },
+      { value: "n:5", label: "n:5", rawValue: "n:5" },
+    ];
+    it.each([
+      ["1999", options, "n:1999"],
+      ["true", options, "b:true"],
+      ["02134", options, "02134"],
+      ["n:5", options, "s:n:5"],
+      ["n:2000", options, "n:2000"],
+      ["2000", options, "2000"],
+      ["1999", null, "1999"],
+    ])(
+      "saves the default %s with its seed option's type",
+      (typed, seed, saved) => {
+        setStoreState({
+          chartType: "parameter-select",
+          paramUIType: "select",
+          chartOptions: { defaultValue: typed },
+        });
+        const { result } = renderHook(() =>
+          useBuildWidgetForSave(undefined, undefined, seed),
+        );
+        expect(savedDefault(result.current())).toBe(saved);
+      },
+    );
+
+    it("leaves a non-select default alone even with seed options loaded", () => {
+      setStoreState({
+        chartType: "parameter-select",
+        paramUIType: "freetext",
+        chartOptions: { defaultValue: "1999" },
+      });
+      const { result } = renderHook(() =>
+        useBuildWidgetForSave(undefined, undefined, options),
+      );
+      expect(savedDefault(result.current())).toBe("1999");
+    });
+
     it("clears seedQuery when paramUIType is not select", () => {
       setStoreState({
         chartType: "parameter-select",

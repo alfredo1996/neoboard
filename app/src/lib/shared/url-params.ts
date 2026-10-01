@@ -124,8 +124,11 @@ const RANGE_SUFFIXES: Partial<Record<ParameterType, [string, string]>> = {
 /** A value's type marker; text that starts like one is escaped with `s:`. */
 const MARKER = /^[nbs]:/;
 
-/** A number or boolean carries its type in the link (#2124). */
-function encodeItem(item: string | number | boolean | unknown[]): string {
+/**
+ * A number or boolean carries its type in the link (#2124), and in a saved
+ * Default value (#2158).
+ */
+export function encodeItem(item: unknown): string {
   if (typeof item === "number") return `n:${item}`;
   if (typeof item === "boolean") return `b:${item}`;
   const text = String(item);

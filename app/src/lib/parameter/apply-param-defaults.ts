@@ -95,13 +95,13 @@ export interface ParamSeed {
  */
 export function expandParamDefaults(defaults: ParamDefault[]): ParamSeed[] {
   return defaults.flatMap((d): ParamSeed[] => {
+    // A marked default keeps its type with no option loaded (#2158).
+    const value = typeof d.value === "string" ? decodeItem(d.value) : d.value;
     if (d.type !== "number-range") {
-      // A marked default keeps its type with no option loaded (#2158).
-      const value = typeof d.value === "string" ? decodeItem(d.value) : d.value;
       return [{ name: d.name, value, type: d.type, widgetId: d.widgetId }];
     }
     const min = d.rangeMin ?? 0;
-    const max = Number(d.value);
+    const max = Number(value);
     if (!Number.isFinite(max)) return [];
     return [
       {

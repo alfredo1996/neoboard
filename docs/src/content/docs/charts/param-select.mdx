@@ -69,5 +69,5 @@ ORDER BY name
 
 - Enable Sync to URL so users can bookmark or share a dashboard with specific filter values pre-selected.
 - A synced value keeps its type in the link: a number is written `n:1999`, true or false `b:true`, and text that starts with `n:`, `b:` or `s:` is escaped as `s:<text>`. In a link written by hand, mark a number the same way (`?param_year=n:1999`); unmarked, it is text and filters only once the selector has loaded a matching option.
-- Set a Default Value for parameters that should always have a selection on first load. Mark it as in a link: `n:1999` is the number 1999 before any option loads, while an unmarked `1999` is text until the selector loads a matching option.
+- Set a Default Value for parameters that should always have a selection on first load. On a Select, run **Test Seed Query** before saving: a default that matches a loaded option is saved with that option's type, so `1999` is saved as `n:1999` and applies as a number before any option loads. A default you type in marked form, such as `n:1999`, is kept as written; an unmarked default with no matching option stays text until the selector loads one.
 - See [Parameters](/using/parameters) for details on parameter substitution, cascading parameters, and advanced usage.
