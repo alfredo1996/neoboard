@@ -64,6 +64,7 @@ import {
   focusedMenuTrigger,
   type WidgetCardAction,
 } from "@neoboard/components";
+import { returnFocus } from "@/lib/return-focus";
 
 /** Widget action callbacks — grouped to reduce prop count. */
 export interface WidgetActions {
@@ -158,6 +159,20 @@ export function DashboardContainer({
       }
     };
   }, []);
+  // Who opened the fullscreen or Sync dialog: neither has a Trigger, so focus
+  // goes back here on close (#2148). The fallback is the card's fullscreen
+  // button, for a confirmed sync that removes the update button.
+  const [dialogOpener, setDialogOpener] = useState<{
+    el: HTMLElement | null;
+    fallback: HTMLElement | null;
+  }>({ el: null, fallback: null });
+  const handBackFocus = useCallback(
+    (e: Event) => {
+      e.preventDefault();
+      returnFocus(dialogOpener.el, dialogOpener.fallback);
+    },
+    [dialogOpener],
+  );
   const [pendingSyncWidget, setPendingSyncWidget] =
     useState<DashboardWidget | null>(null);
   // The widget Remove was asked on (#2055), and the menu button focus goes
@@ -286,7 +301,10 @@ export function DashboardContainer({
       if (isWidgetTemplateOutdated(widget, templateMap) && onSyncWidget) {
         actions.push({
           label: "Sync with template",
-          onClick: () => setPendingSyncWidget(widget),
+          onClick: () => {
+            setDialogOpener({ el: focusedMenuTrigger(), fallback: null });
+            setPendingSyncWidget(widget);
+          },
         });
       }
       if (onDetachWidget) {
@@ -383,7 +401,16 @@ export function DashboardContainer({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-amber-500"
-                          onClick={() => setPendingSyncWidget(widget)}
+                          onClick={(e) => {
+                            setDialogOpener({
+                              el: e.currentTarget,
+                              fallback:
+                                e.currentTarget.parentElement?.querySelector<HTMLElement>(
+                                  "[data-widget-fullscreen]",
+                                ) ?? null,
+                            });
+                            setPendingSyncWidget(widget);
+                          }}
                           title="Template update available — click to sync"
                         >
                           <RefreshCw className="h-4 w-4" />
@@ -396,7 +423,14 @@ export function DashboardContainer({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => openFullscreen(widget)}
+                        data-widget-fullscreen
+                        onClick={(e) => {
+                          setDialogOpener({
+                            el: e.currentTarget,
+                            fallback: null,
+                          });
+                          openFullscreen(widget);
+                        }}
                       >
                         <Maximize2 className="h-4 w-4" />
                         <span className="sr-only">Fullscreen</span>
@@ -424,7 +458,10 @@ export function DashboardContainer({
           if (!open) closeFullscreen();
         }}
       >
-        <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col">
+        <DialogContent
+          className="sm:max-w-[90vw] h-[85vh] flex flex-col"
+          onCloseAutoFocus={handBackFocus}
+        >
           <DialogTitle className="text-lg font-semibold mb-2">
             {fullscreenWidget ? displayTitle(fullscreenWidget) : "Widget"}
           </DialogTitle>
@@ -462,7 +499,7 @@ export function DashboardContainer({
           if (!open) setPendingSyncWidget(null);
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={handBackFocus}>
           <AlertDialogHeader>
             <AlertDialogTitle>Sync with template?</AlertDialogTitle>
             <AlertDialogDescription>

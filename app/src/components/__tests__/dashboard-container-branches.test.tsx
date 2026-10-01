@@ -5,6 +5,7 @@
  * on the onDoubleClick handler.
  */
 import React from "react";
+import { useCloseAutoFocus } from "@/__tests__/helpers/dialog-mocks";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   render,
@@ -107,9 +108,16 @@ vi.mock("@neoboard/components", () => ({
         {children}
       </div>
     ) : null,
-  DialogContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  DialogContent: ({
+    children,
+    onCloseAutoFocus,
+  }: {
+    children: React.ReactNode;
+    onCloseAutoFocus?: (e: Event) => void;
+  }) => {
+    useCloseAutoFocus(onCloseAutoFocus);
+    return <div>{children}</div>;
+  },
   DialogTitle: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="fullscreen-title">{children}</div>
   ),
@@ -182,9 +190,16 @@ vi.mock("@neoboard/components", () => ({
   AlertDialogCancel: ({ children }: { children: React.ReactNode }) => (
     <button>{children}</button>
   ),
-  AlertDialogContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  AlertDialogContent: ({
+    children,
+    onCloseAutoFocus,
+  }: {
+    children: React.ReactNode;
+    onCloseAutoFocus?: (e: Event) => void;
+  }) => {
+    useCloseAutoFocus(onCloseAutoFocus);
+    return <div>{children}</div>;
+  },
   AlertDialogDescription: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -472,6 +487,63 @@ describe("DashboardContainer — buildActions", () => {
     );
     const props = widgetCardProps[0];
     expect(props.actions).toBeUndefined();
+  });
+});
+
+// #2148: neither dialog has a Trigger, so on close Radix would focus <body>.
+describe("DashboardContainer — fullscreen and Sync hand focus back (#2148)", () => {
+  beforeEach(() => {
+    mockIsTemplateOutdated.mockReturnValue(true);
+    document.body.append(mockMenuTrigger);
+  });
+  afterEach(() => mockMenuTrigger.remove());
+
+  it.each([
+    ["the fullscreen button", "Fullscreen", "fullscreen-dialog-close"],
+    ["the Sync menu item", "action-sync-with-template", "confirm-sync"],
+    ["the template update button", "Template update available", "confirm-sync"],
+  ])("closing after %s returns focus to it", (_, opener, close) => {
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([makeWidget({ templateId: "tpl-1" })])}
+        editable={true}
+        actions={{ onSyncWidget: vi.fn() }}
+        templateMap={{ "tpl-1": { id: "tpl-1" } as WidgetTemplate }}
+      />,
+    );
+    const button = opener.startsWith("action-")
+      ? screen.getByTestId(opener)
+      : screen.getByRole("button", { name: opener });
+    // A real click lands on the icon: the opener must be the button itself.
+    fireEvent.click(button.querySelector("svg") ?? button);
+    fireEvent.click(screen.getByTestId(close));
+    const expected = opener.startsWith("action-") ? mockMenuTrigger : button;
+    expect(document.activeElement).toBe(expected);
+  });
+
+  it("a confirmed sync that removes the update button lands on the card's fullscreen button", () => {
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([makeWidget({ templateId: "tpl-1" })])}
+        editable={true}
+        actions={{
+          onSyncWidget: vi.fn(() => {
+            mockIsTemplateOutdated.mockReturnValue(false);
+          }),
+        }}
+        templateMap={{ "tpl-1": { id: "tpl-1" } as WidgetTemplate }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Template update available" }),
+    );
+    fireEvent.click(screen.getByTestId("confirm-sync"));
+    expect(
+      screen.queryByRole("button", { name: "Template update available" }),
+    ).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Fullscreen" }),
+    );
   });
 });
 
