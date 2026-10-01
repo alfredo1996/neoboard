@@ -13,6 +13,7 @@ import {
   AlertDescription,
 } from "@neoboard/components";
 import { LoadingButton, PasswordInput } from "@neoboard/components";
+import { signOut } from "next-auth/react";
 
 export default function ChangePasswordPage() {
   const [error, setError] = useState("");
@@ -48,12 +49,13 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      // Password changed — redirect to dashboard (full reload to refresh JWT)
-      // A full reload is the point: router.push() keeps the current JWT, so
-      // the session would still carry forcePasswordChange. New rule in
-      // @next/eslint-plugin-next 16.3 flags this shape generically.
+      // The change ends every session signed in before it, this one too
+      // (#2160), so sign out and let the login page say why, as the profile
+      // page does. A full reload: the client cache must not outlive the
+      // session. @next/eslint-plugin-next 16.3 flags this shape generically.
+      await signOut({ redirect: false });
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = "/";
+      window.location.href = "/login?passwordChanged=1";
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);

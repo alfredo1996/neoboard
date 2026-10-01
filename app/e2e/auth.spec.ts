@@ -403,7 +403,7 @@ test.describe.serial("Force password change", () => {
     await expect(page).toHaveURL(/\/change-password/, { timeout: 15_000 });
   });
 
-  test("after changing password, user is redirected to dashboard", async ({
+  test("after changing password, the user signs in again with it and reaches the dashboard (#2160)", async ({
     authPage,
     page,
   }) => {
@@ -421,7 +421,19 @@ test.describe.serial("Force password change", () => {
     await page.getByLabel("Confirm New Password").fill(newPassword);
     await page.getByRole("button", { name: "Change Password" }).click();
 
-    // After password change, user should be redirected to dashboard
+    // The change ends every earlier session, this one too (#2160): the page
+    // signs out and the login page says why.
+    await expect(page).toHaveURL(/\/login\?passwordChanged=1/, {
+      timeout: 30_000,
+    });
+    await expect(
+      page.getByText(
+        "Password changed. Please sign in with your new password.",
+      ),
+    ).toBeVisible();
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(newPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL("/", { timeout: 30_000 });
   });
 });

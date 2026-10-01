@@ -40,6 +40,9 @@ vi.mock("@neoboard/components", () => {
   };
 });
 
+const mockSignOut = vi.fn();
+vi.mock("next-auth/react", () => ({ signOut: (o: unknown) => mockSignOut(o) }));
+
 import ChangePasswordPage from "../page";
 
 beforeEach(() => {
@@ -73,4 +76,34 @@ describe("ChangePasswordPage (#2011)", () => {
       "Current password is incorrect",
     );
   });
+});
+
+// #2160: the change ends every session signed in before it, this one too, so
+// the page signs out and says so on the login page, as the profile page does.
+it("after a change, signs out and sends the user to sign in again (#2160)", async () => {
+  vi.mocked(global.fetch).mockResolvedValue(
+    new Response(JSON.stringify({ data: {} }), { status: 200 }),
+  );
+  const assign = vi.fn();
+  vi.stubGlobal("location", {
+    set href(v: string) {
+      assign(v);
+    },
+  });
+  render(<ChangePasswordPage />);
+  fireEvent.change(screen.getByLabelText("Current Password"), {
+    target: { value: "oldpass123" },
+  });
+  fireEvent.change(screen.getByLabelText("New Password"), {
+    target: { value: "newSecurePass123" },
+  });
+  fireEvent.change(screen.getByLabelText("Confirm New Password"), {
+    target: { value: "newSecurePass123" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+  await vi.waitFor(() =>
+    expect(assign).toHaveBeenCalledWith("/login?passwordChanged=1"),
+  );
+  expect(mockSignOut).toHaveBeenCalledWith({ redirect: false });
+  vi.unstubAllGlobals();
 });
