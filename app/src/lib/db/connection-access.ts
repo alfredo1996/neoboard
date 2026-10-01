@@ -37,7 +37,9 @@ export function layoutConnectionIds(layout: unknown): Set<string> {
 /**
  * What the connector behind each connection a layout names can do, keyed by
  * connection id (#2137). Capability flags only, never the connection's name or
- * config, so a viewer who cannot use the connection gets them too.
+ * config, so a viewer who cannot use the connection gets them too. A connector
+ * that is not installed is unknown, not incapable: it is left out, as the
+ * editor finds no descriptor for it, so neither rules anything out.
  */
 export async function layoutConnectorCapabilities(
   layout: unknown,
@@ -52,14 +54,17 @@ export async function layoutConnectorCapabilities(
       and(eq(connections.tenantId, tenantId), inArray(connections.id, ids)),
     );
   return Object.fromEntries(
-    rows.map(({ id, type }) => {
+    rows.flatMap(({ id, type }) => {
       const connector = getConnector(type);
+      if (!connector) return [];
       return [
-        id,
-        {
-          supportsGraphData: connector?.supportsGraphData === true,
-          supportsWrite: connector?.supportsWrite === true,
-        },
+        [
+          id,
+          {
+            supportsGraphData: connector.supportsGraphData === true,
+            supportsWrite: connector.supportsWrite === true,
+          },
+        ],
       ];
     }),
   );

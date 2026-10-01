@@ -68,20 +68,6 @@ interface DashboardWorkspaceProps {
   children?: React.ReactNode;
 }
 
-/**
- * The whole dashboard UI — both modes — rendered from `[id]/layout.tsx`.
- *
- * View and edit stay two URLs, but they are no longer two page trees. Next
- * preserves a layout across navigation into a child segment, and `edit` is a
- * child of `[id]`, so ⌘E re-renders only the (empty) page slot: the same DOM
- * nodes, chart instances and in-flight queries survive. Nothing unmounts, so
- * the document never collapses and the browser never clamps the scroll offset
- * (#1370), and the active page index — owned by `dashboard-store` — is not
- * re-initialised on the way back out (#1371).
- *
- * `editable` is a plain prop all the way down to `card-container`, so flipping
- * the mode re-renders but never remounts or re-queries.
- */
 /** An empty page's call to action: add here, or open the editor if allowed. */
 function emptyPageAction(
   editMode: boolean,
@@ -106,6 +92,20 @@ function emptyPageAction(
   );
 }
 
+/**
+ * The whole dashboard UI — both modes — rendered from `[id]/layout.tsx`.
+ *
+ * View and edit stay two URLs, but they are no longer two page trees. Next
+ * preserves a layout across navigation into a child segment, and `edit` is a
+ * child of `[id]`, so ⌘E re-renders only the (empty) page slot: the same DOM
+ * nodes, chart instances and in-flight queries survive. Nothing unmounts, so
+ * the document never collapses and the browser never clamps the scroll offset
+ * (#1370), and the active page index — owned by `dashboard-store` — is not
+ * re-initialised on the way back out (#1371).
+ *
+ * `editable` is a plain prop all the way down to `card-container`, so flipping
+ * the mode re-renders but never remounts or re-queries.
+ */
 export function DashboardWorkspace({
   id,
   editMode,

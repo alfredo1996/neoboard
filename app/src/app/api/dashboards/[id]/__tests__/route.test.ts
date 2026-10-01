@@ -264,9 +264,10 @@ describe("GET /api/dashboards/[id]", () => {
       .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]))
       .mockReturnValueOnce(connectionsChain);
     const body = await (await GET({} as Request, makeParams("d1"))).json();
+    // c2's connector is not installed: unknown, not incapable, so it is left
+    // out and the card agrees with the editor, which finds no descriptor.
     expect(body.data.connectorCapabilities).toEqual({
       c1: { supportsGraphData: false, supportsWrite: true },
-      c2: { supportsGraphData: false, supportsWrite: false },
     });
     expect(sqlValues(connectionsChain.calls.where[0][0])).toEqual(
       expect.arrayContaining(["tenant-1", "c1", "c2"]),
