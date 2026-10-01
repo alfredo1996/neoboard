@@ -39,6 +39,7 @@ vi.mock("@neoboard/components", () => ({
     paramSelectorProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`param-selector-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("ok")}
@@ -51,6 +52,7 @@ vi.mock("@neoboard/components", () => ({
     paramMultiProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`param-multi-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string[]) => void)(["a", "b"])}
@@ -63,6 +65,7 @@ vi.mock("@neoboard/components", () => ({
     datePickerProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`date-picker-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("2026-01-01")}
@@ -75,6 +78,7 @@ vi.mock("@neoboard/components", () => ({
     dateRangeProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`date-range-${p.parameterName}`}
         onClick={() =>
@@ -92,6 +96,7 @@ vi.mock("@neoboard/components", () => ({
     dateRelativeProps.push(p);
     return (
       <button
+        type="button"
         id={p.id as string}
         data-testid={`date-relative-${p.parameterName}`}
         onClick={() => (p.onChange as (v: string) => void)("last_7_days")}
@@ -105,6 +110,7 @@ vi.mock("@neoboard/components", () => ({
     return (
       <div id={p.id as string} data-testid={`number-range-${p.parameterName}`}>
         <button
+          type="button"
           data-testid={`nrs-change-${p.parameterName}`}
           onClick={() =>
             (p.onChange as (v: [number, number]) => void)([10, 20])
@@ -167,8 +173,10 @@ vi.mock("@/components/debounced-text-input", () => ({
   ),
 }));
 
+// The dashboard parameters the form seeds from; a test may swap them (#2103).
+let externalParams: Record<string, unknown> = {};
 vi.mock("@/stores/parameter-store", () => ({
-  useParameterValues: () => ({}),
+  useParameterValues: () => externalParams,
 }));
 
 const mockMutate = vi.fn();
@@ -250,6 +258,7 @@ beforeEach(() => {
   dateRelativeProps.length = 0;
   numberRangeProps.length = 0;
   seedQueryCalls.length = 0;
+  externalParams = {};
   mutateIsPending = false;
   mockUseSession.mockReturnValue(ADMIN_SESSION);
 });
@@ -380,6 +389,32 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     const lastProps = dateRangeProps[dateRangeProps.length - 1];
     expect(lastProps.from).toBe("");
     expect(lastProps.to).toBe("");
+  });
+
+  // #2103: a range is an object, so every one used to read "[object Object]".
+  it("an untouched date-range field follows each external range; an edited one keeps the user's", () => {
+    const settings = {
+      formFields: [
+        makeField({ parameterName: "period", parameterType: "date-range" }),
+      ],
+    };
+    const form = () => (
+      <FormWidgetRenderer connectionId="c" query="q" settings={settings} />
+    );
+    const shown = () => {
+      const p = dateRangeProps[dateRangeProps.length - 1];
+      return [p.from, p.to];
+    };
+    externalParams = { period: { from: "2026-01-01", to: "2026-01-31" } };
+    const { rerender } = render(form());
+    externalParams = { period: { from: "2026-02-01", to: "2026-02-28" } };
+    rerender(form());
+    expect(shown()).toEqual(["2026-02-01", "2026-02-28"]);
+
+    fireEvent.click(screen.getByTestId("date-range-period")); // picks Jan 1-31
+    externalParams = { period: { from: "2026-03-01", to: "2026-03-31" } };
+    rerender(form());
+    expect(shown()).toEqual(["2026-01-01", "2026-01-31"]);
   });
 
   it("renders DateRelativePicker for parameterType='date-relative'", () => {

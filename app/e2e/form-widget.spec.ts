@@ -23,6 +23,7 @@ async function leaveEditMode(page: Page) {
 
 test.describe("Form widget", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
+  let dashboardId = "";
 
   test.beforeEach(async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
@@ -31,6 +32,7 @@ test.describe("Form widget", () => {
       `Form Widget ${uid()}`,
     );
     dashboardCleanup = cleanup;
+    dashboardId = id;
     await page.goto(`/${id}/edit`);
     await expect(
       page.getByRole("heading", { name: /^Editing:/ }),
@@ -533,6 +535,86 @@ test.describe("Form widget", () => {
     // Its accessible name is the author's label, not the parameter name (#1410).
     const formInput = page.getByRole("textbox", { name: "Movie Title" });
     await expect(formInput).not.toHaveValue("", { timeout: 10_000 });
+  });
+
+  // #2103: a range is an object, and the form's re-seed key read every one as
+  // "[object Object]", so the field kept the first range the dashboard picked.
+  test("an untouched form date-range field follows each range the dashboard selector picks (#2103)", async ({
+    page,
+  }) => {
+    const res = await page.request.put(`/api/dashboards/${dashboardId}`, {
+      data: {
+        layoutJson: {
+          version: 2,
+          pages: [
+            {
+              id: "page-1",
+              title: "Page 1",
+              widgets: [
+                {
+                  id: "w-period",
+                  chartType: "parameter-select",
+                  connectionId: "",
+                  query: "",
+                  settings: {
+                    title: "Period selector",
+                    chartOptions: {
+                      parameterType: "date-range",
+                      parameterName: "period",
+                    },
+                  },
+                },
+                {
+                  id: "w-range-form",
+                  chartType: "form",
+                  connectionId: "conn-neo4j-001",
+                  query:
+                    "CREATE (n:FormRangeE2E {from: $param_period_from}) RETURN n.from AS from",
+                  settings: {
+                    title: "Range form",
+                    formFields: [
+                      {
+                        id: "f-period",
+                        label: "Form range",
+                        parameterName: "period",
+                        parameterType: "date-range",
+                      },
+                    ],
+                  },
+                },
+              ],
+              gridLayout: [
+                { i: "w-period", x: 0, y: 0, w: 6, h: 3 },
+                { i: "w-range-form", x: 6, y: 0, w: 6, h: 6 },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(res.ok()).toBeTruthy();
+    await page.goto(`/${dashboardId}`);
+
+    // The selector's button is named by its parameter, the form's by the
+    // author's label (#1410).
+    const selector = page.getByRole("button", { name: "period", exact: true });
+    const formRange = page.getByRole("button", {
+      name: "Form range",
+      exact: true,
+    });
+    await expect(formRange).toHaveText("Pick a date range…", {
+      timeout: 15_000,
+    });
+
+    // Each pick must change the selector, and the form must show that range.
+    let shown = "Pick a date range…";
+    for (const preset of ["Last 7 days", "Last 30 days"]) {
+      await selector.click();
+      await page.getByRole("button", { name: preset, exact: true }).click();
+      await expect(selector).not.toHaveText(shown);
+      shown = (await selector.textContent()) ?? "";
+      await expect(formRange).toHaveText(shown, { timeout: 10_000 });
+    }
   });
 
   test("form widget requires connection and query to save", async ({
