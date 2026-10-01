@@ -274,7 +274,7 @@ neoboard plugin add some-random-package
 
 ## plugin list
 
-Show all registered plugins — both built-in and external. The built-in connectors are the ones in the checkout's `connection` package. Each external plugin shows its `type`, then its package; the type is `?` when the package cannot be imported.
+Show all registered plugins — both built-in and external. The built-in connectors are the ones in the checkout's `connection` package. Each external plugin shows its `type`, then its package; the type is `?` when the package cannot be imported, which is every connector built on the SDK until Node can load the SDK's build (#1697).
 
 ```bash
 neoboard plugin list
@@ -292,7 +292,7 @@ neoboard plugin list
 # Connectors (2 built-in, 1 external):
 #   neo4j               built-in
 #   postgresql          built-in
-#   mongodb             external  @myorg/mongodb
+#   ?                   external  @myorg/mongodb
 ```
 
 ## plugin remove

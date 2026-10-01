@@ -1431,6 +1431,20 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
           .filter(({ text }) => text.includes("#1697") !== (load.status !== 0))
           .map(({ path }) => path),
       ).toEqual([]);
+      // `plugin list` imports each package the same way (#2065), so an SDK
+      // connector lists its type as `?` exactly while that import throws.
+      const listed = CONNECTOR_AUTHOR_SURFACES.flatMap(({ path, text }) =>
+        [...text.matchAll(/^# Connectors \([^)]*\):\n((?:#.*\n)+)/gm)].flatMap(
+          (block) =>
+            [...block[1].matchAll(/^#\s+(\S+)\s+external\s/gm)].map(
+              (row) => `${path}: ${row[1]}`,
+            ),
+        ),
+      );
+      expect(listed.length).toBeGreaterThan(0); // the regex still matches
+      expect(
+        listed.filter((row) => row.endsWith(": ?") !== (load.status !== 0)),
+      ).toEqual([]);
     } finally {
       rmSync(OUT, { recursive: true, force: true });
     }
@@ -1485,7 +1499,12 @@ describe("the external-connector docs match the 1.6.1 code (#2069)", () => {
   it("tells no author to edit connection/ or call the registry", () => {
     // A connector is its own package on the SDK, loaded by the manifest.
     const edits =
-      /registerConnector\(|registry\.register\(|mkdir[^\n]*connection\/src|npm (?:install|i)\b[^\n]*(?:--workspace[= ]|-w )connection\b/;
+      /registerConnector\(|registry\.register\(|mkdir[^\n]*connection\/src|\b(?:create|edit|add [^\n]*? to)\b[^\n]*`connection\/src\/|npm (?:install|i)\b[^\n]*(?:--workspace[= ]|-w )connection\b/i;
+    // The removed MongoDB guide's own wording: prose, not a command.
+    expect("Create `connection/src/mongodb/plugin.ts`:").toMatch(edits);
+    expect(
+      "Add it to the connector registry in `connection/src/connector-registry.ts`:",
+    ).toMatch(edits);
     expect(
       CONNECTOR_AUTHOR_SURFACES.filter(({ text }) => edits.test(text)).map(
         ({ path }) => path,
