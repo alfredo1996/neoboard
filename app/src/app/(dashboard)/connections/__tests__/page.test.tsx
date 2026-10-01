@@ -3,7 +3,10 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import { QueueFullError } from "@/lib/api/api-client";
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
-import { MockDialogContent } from "@/__tests__/helpers/dialog-mocks";
+import {
+  MockDialog,
+  MockDialogContent,
+} from "@/__tests__/helpers/dialog-mocks";
 
 /**
  * #1426 — the Connections page opens no database connection on arrival.
@@ -74,6 +77,7 @@ const mockTest = vi.fn();
 const mockTestInline = vi.fn();
 const mockToast = vi.fn();
 const mockUpdate = vi.fn();
+const mockCreate = vi.fn();
 const mockConnectionConfig = vi.fn();
 
 vi.mock("next-auth/react", () => ({
@@ -94,7 +98,7 @@ vi.mock("@/hooks/use-connections", () => {
       data: mockConnectionConfig(id),
       isLoading: false,
     }),
-    useCreateConnection: idle,
+    useCreateConnection: () => ({ ...idle(), mutateAsync: mockCreate }),
     useUpdateConnection: () => ({ ...idle(), mutateAsync: mockUpdate }),
     useDeleteConnection: idle,
     useReassignConnection: idle,
@@ -202,13 +206,7 @@ vi.mock("@neoboard/components", () => {
         </div>
       ) : null;
     },
-    Dialog: ({
-      open,
-      children,
-    }: {
-      open: boolean;
-      children: React.ReactNode;
-    }) => (open ? <div role="dialog">{children}</div> : null),
+    Dialog: MockDialog,
     DialogContent: MockDialogContent,
     DialogHeader: Box,
     DialogTitle: Box,
@@ -216,7 +214,18 @@ vi.mock("@neoboard/components", () => {
     DialogFooter: Box,
     Alert: Box,
     AlertDescription: Box,
-    EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
+    EmptyState: ({
+      title,
+      action,
+    }: {
+      title: string;
+      action?: React.ReactNode;
+    }) => (
+      <div>
+        {title}
+        {action}
+      </div>
+    ),
     LoadingOverlay: Box,
     PageHeader: ({
       title,
@@ -785,6 +794,27 @@ it.each([
     expect(target()).toHaveFocus();
   },
 );
+
+// #2146: the empty state and its button leave once the list refetches, which
+// is after the dialog has closed: focus lands on the heading, not the button.
+it("a create from the empty state puts focus on the heading (#2146)", async () => {
+  mockCreate.mockResolvedValue({ id: "c9" });
+  mockTest.mockResolvedValue({ success: true });
+  render(<ConnectionsPage />);
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Create your first connection" }),
+  );
+  const dialog = within(screen.getByRole("dialog"));
+  fireEvent.click(dialog.getByTestId("pick-any"));
+  fireEvent.click(dialog.getByTestId("fill-name"));
+  fireEvent.click(dialog.getByRole("button", { name: "Create" }));
+  await flush();
+
+  expect(mockCreate).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("heading", { name: "Connections" })).toHaveFocus();
+});
 
 describe("ConnectionsPage — where focus goes after Delete (#2086)", () => {
   it("Cancel puts focus back on the card's menu button", () => {

@@ -525,12 +525,13 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
   });
 });
 
-// #2146: none of these dialogs has a Trigger either (Rename: dashboards.spec).
+// #2146: none of these dialogs has a Trigger either.
 const cancelIn = (id: string) => () =>
   within(document.getElementById(id)!.closest("form")!).getByText("Cancel");
 it.each([
   ["New Dashboard", false, cancelIn("dashboard-name")],
   ["Import", false, cancelIn("import-file")],
+  ["Rename", true, cancelIn("dashboard-rename")],
   [
     "Change connection…",
     true,

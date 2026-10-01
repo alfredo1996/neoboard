@@ -224,39 +224,6 @@ test.describe("Dashboard CRUD", () => {
     }
   });
 
-  // #2146: a plain Dialog, handed back through onCloseAutoFocus.
-  test("Escape on Rename puts focus back on the card's menu button (#2146)", async ({
-    page,
-  }) => {
-    const name = `Keep Focus ${uid()}`;
-    const { cleanup } = await createTestDashboard(page.request, name);
-
-    try {
-      await page.goto("/");
-      const card = page
-        .locator("div[class*='cursor-pointer']")
-        .filter({ has: page.getByText(name, { exact: true }) })
-        .first();
-      const options = card.getByRole("button", { name: "Dashboard options" });
-      await options.focus();
-      await page.keyboard.press("Enter");
-      await page.keyboard.press("r"); // typeahead: the only item starting with R
-      await expect(
-        page.getByRole("menuitem", { name: "Rename" }),
-      ).toBeFocused();
-      await page.keyboard.press("Enter");
-      const dialog = page.getByRole("dialog", { name: "Rename Dashboard" });
-      await expect(dialog).toBeVisible();
-
-      await page.keyboard.press("Escape");
-
-      await expect(dialog).toBeHidden();
-      await expect(options).toBeFocused();
-    } finally {
-      await cleanup();
-    }
-  });
-
   test("deleting a dashboard already deleted elsewhere removes its card (#1750)", async ({
     page,
   }) => {

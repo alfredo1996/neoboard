@@ -28,6 +28,24 @@ export function useCloseAutoFocus(
   );
 }
 
+/**
+ * A Dialog that keeps its content mounted, hidden while closed, so the close
+ * runs the `onCloseAutoFocus` of the render that closed it, as Radix's
+ * Presence does. One that unmounts at once would run a stale one.
+ */
+export function MockDialog({
+  open,
+  children,
+}: Readonly<{ open: boolean; children?: React.ReactNode }>) {
+  return (
+    <MockDialogOpen.Provider value={open}>
+      <div role="dialog" hidden={!open}>
+        {children}
+      </div>
+    </MockDialogOpen.Provider>
+  );
+}
+
 export function MockDialogContent({
   children,
   onCloseAutoFocus,

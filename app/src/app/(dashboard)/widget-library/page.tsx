@@ -544,7 +544,12 @@ export default function WidgetLibraryPage() {
         onSave={() => {
           /* not used in lab mode */
         }}
-        onLabSaved={() => setEditorOpen(false)}
+        onLabSaved={() => {
+          // The empty state and its button leave with the refetch, after the
+          // close.
+          if (!templates?.length) setReturnFocusTo(headingRef.current);
+          setEditorOpen(false);
+        }}
         onCloseAutoFocus={focusOpener}
       />
 

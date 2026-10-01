@@ -64,7 +64,27 @@ vi.mock("@/lib/plugin/chart-helpers", () => ({
   getChartConfig: (type: string) => ({ label: type }),
 }));
 vi.mock("@/components/widget-editor-modal", () => ({
-  WidgetEditorModal: MockClosingDialog,
+  // A lab save, as the real one: onLabSaved once the create resolves, then
+  // close. The list has not refetched yet.
+  WidgetEditorModal: (
+    props: React.ComponentProps<typeof MockClosingDialog> & {
+      onLabSaved: () => void;
+    },
+  ) => (
+    <>
+      <MockClosingDialog {...props} />
+      {props.open && (
+        <button
+          onClick={() => {
+            props.onLabSaved();
+            props.onOpenChange(false);
+          }}
+        >
+          Save template
+        </button>
+      )}
+    </>
+  ),
 }));
 vi.mock("@/components/dashboard-picker-dialog", () => ({
   DashboardPickerDialog: MockClosingDialog,
@@ -83,7 +103,9 @@ vi.mock("@neoboard/components", () => {
         {actions}
       </>
     ),
-    EmptyState: Box,
+    EmptyState: ({ action }: { action?: React.ReactNode }) => (
+      <div>{action}</div>
+    ),
     LoadingOverlay: Box,
     Badge: Box,
     // Only the two props the page's own row actions need — forwarding the rest
@@ -260,3 +282,17 @@ it.each(["New Template", "Edit template", "Use in Dashboard"])(
     expect(opener).toHaveFocus();
   },
 );
+
+// #2146: the empty state and its button leave once the list refetches, which
+// is after the editor has closed: focus lands on the heading, not the button.
+it("a template saved from the empty state puts focus on the heading (#2146)", () => {
+  templates = [];
+  render(<WidgetLibraryPage />);
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Create your first template" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save template" }));
+
+  expect(screen.getByRole("heading", { name: "Widget Library" })).toHaveFocus();
+});

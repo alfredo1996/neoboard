@@ -190,6 +190,8 @@ export default function ConnectionsPage() {
   /** A save closes the dialog and probes that one connection (#1426). */
   function handleSaved(id: string) {
     if (dialogTarget?.mode === "edit") toast({ title: "Connection updated" });
+    // The empty state and its button leave with the refetch, after the close.
+    if (!connections?.length) setReturnFocusTo(headingRef.current);
     setDialogTarget(null);
     void handleTest(id);
   }

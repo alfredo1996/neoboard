@@ -1868,4 +1868,27 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
 
     expect(screen.getByText("Back")).toHaveFocus();
   });
+
+  // Radix focuses Stay as the question opens; a second ask must not record it.
+  it.each([
+    ["Cmd+E", () => fireEvent.keyDown(document, { key: "e", metaKey: true })],
+    [
+      "the browser's Back",
+      () => act(() => window.dispatchEvent(new PopStateEvent("popstate"))),
+    ],
+  ])(
+    "Stay on the unsaved-changes guard, asked again by %s: on Back",
+    async (_, askAgain) => {
+      render(<DashboardWorkspace id="d1" editMode={true} />);
+      act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
+
+      await userEvent.click(screen.getByText("Back"));
+      const stay = screen.getByRole("button", { name: "Stay" });
+      stay.focus();
+      askAgain();
+      await userEvent.click(stay);
+
+      expect(screen.getByText("Back")).toHaveFocus();
+    },
+  );
 });

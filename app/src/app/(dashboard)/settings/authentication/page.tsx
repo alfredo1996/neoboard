@@ -67,10 +67,12 @@ const EMPTY_FORM: CreateSsoProviderInput = {
 function AddProviderDialog({
   open,
   onClose,
+  onCreated,
   onCloseAutoFocus,
 }: Readonly<{
   open: boolean;
   onClose: () => void;
+  onCreated: () => void;
   onCloseAutoFocus: () => void;
 }>) {
   const [form, setForm] = useState<CreateSsoProviderInput>(EMPTY_FORM);
@@ -91,6 +93,7 @@ function AddProviderDialog({
       : undefined;
 
     await createMutation.mutateAsync({ ...form, claimMappings });
+    onCreated();
     handleClose();
   };
 
@@ -516,6 +519,11 @@ function AuthenticationPageContent() {
       <AddProviderDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          // The empty state and its button leave with the refetch, after the
+          // close.
+          if (providers.length === 0) setReturnFocusTo(headingRef.current);
+        }}
         onCloseAutoFocus={() => returnFocus(returnFocusTo, headingRef.current)}
       />
     </div>

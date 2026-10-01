@@ -18,9 +18,12 @@ export function useUnsavedChangesWarning() {
   // It has no Trigger: focus goes back to what asked to leave (#2146).
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const warn = useCallback(() => {
-    setReturnFocusTo(document.activeElement as HTMLElement | null);
+    // Asked again while open, the focus is the question's own Stay.
+    if (!showNavWarning) {
+      setReturnFocusTo(document.activeElement as HTMLElement | null);
+    }
     setShowNavWarning(true);
-  }, []);
+  }, [showNavWarning]);
   const pendingUrl = useRef<string | null>(null);
   // When true, the user has confirmed "Leave" — skip the native beforeunload dialog
   const navigatingRef = useRef(false);
