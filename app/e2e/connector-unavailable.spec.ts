@@ -272,7 +272,7 @@ test.describe("Dead connector (#1678)", () => {
  * one probe interval instead of waiting it out.
  */
 test.describe("Dead connector recovery (#2167)", () => {
-  /** The server's dead-connector memo TTL, which the probe interval shares. */
+  /** A probe goes out one server memo TTL after the connection last failed. */
   const PROBE_INTERVAL_MS = 30_000;
 
   test("an open dashboard paints again by itself once its connector answers", async ({

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useParameterStore } from "@/stores/parameter-store";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
+import { ConnectorUnavailableError } from "@/lib/api/api-client";
 import {
   useSeedQueryOptions,
   seedFiltersOnServer,
@@ -88,6 +90,64 @@ describe("useSeedQueryOptions — threads the seed query error through (#1678)",
       useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
     );
     expect(result.current.error).toBeNull();
+  });
+});
+
+/**
+ * #2167 — the dashboard's probe re-runs a parked seed, and a seed with no
+ * options goes back to pending while it runs: a skeleton in place of
+ * "Connector unavailable" and its Retry, for the whole connect timeout.
+ */
+describe("useSeedQueryOptions — a re-run on a connection still flagged dead (#2167)", () => {
+  beforeEach(() => {
+    seedQuerySpy.mockReset();
+    useParameterStore.getState().clearAll();
+    useConnectionStatusStore.getState().reset();
+  });
+
+  const seed = (loading: boolean, error: Error | null) => ({
+    options: [],
+    loading,
+    error,
+    refetch: vi.fn(),
+  });
+
+  it("keeps the connector failure, not a skeleton, until the flag clears", () => {
+    const dead = new ConnectorUnavailableError("ECONNREFUSED", "network");
+    useConnectionStatusStore.getState().noteQueryOutcome("conn-1", dead);
+    seedQuerySpy.mockReturnValue(seed(false, dead));
+    const { result, rerender } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+
+    seedQuerySpy.mockReturnValue(seed(true, null));
+    rerender();
+    expect(result.current.error).toBe(dead);
+    expect(result.current.loading).toBe(false);
+
+    act(() =>
+      useConnectionStatusStore.getState().setStatus("conn-1", "connected"),
+    );
+    expect(result.current.error).toBeNull();
+    expect(result.current.loading).toBe(true);
+  });
+
+  it("loads as usual when the last failure was the query's own", () => {
+    useConnectionStatusStore
+      .getState()
+      .noteQueryOutcome(
+        "conn-1",
+        new ConnectorUnavailableError("ECONNREFUSED", "network"),
+      );
+    seedQuerySpy.mockReturnValue(seed(false, new Error("syntax error")));
+    const { result, rerender } = renderHook(() =>
+      useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, false),
+    );
+
+    seedQuerySpy.mockReturnValue(seed(true, null));
+    rerender();
+    expect(result.current.error).toBeNull();
+    expect(result.current.loading).toBe(true);
   });
 });
 
