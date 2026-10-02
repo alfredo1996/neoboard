@@ -15,8 +15,9 @@ import {
   Label,
   Alert,
   AlertDescription,
+  LoadingButton,
+  PasswordInput,
 } from "@neoboard/components";
-import { LoadingButton, PasswordInput } from "@neoboard/components";
 import { PRODUCT_PITCH } from "@/lib/branding";
 
 /** Hydration probe helpers — module scope so the refs stay stable (#1272). */
