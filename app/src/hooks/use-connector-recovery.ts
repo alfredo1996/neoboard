@@ -14,12 +14,12 @@ import { DEAD_CONNECTOR_TTL_MS } from "@/lib/connector/connection-error-classifi
 export const PROBE_CHECK_MS = 1_000;
 
 /** The cache scopes of `useWidgetQuery` and `useSeedQuery`. */
-const SCOPES: readonly unknown[] = ["widget-query", "param-seed"];
+const SCOPES: ReadonlySet<unknown> = new Set(["widget-query", "param-seed"]);
 
 /** A widget or selector query on this connection. */
 function on(connectionId: string) {
   return ({ queryKey }: Query) =>
-    SCOPES.includes(queryKey[0]) && queryKey[1] === connectionId;
+    SCOPES.has(queryKey[0]) && queryKey[1] === connectionId;
 }
 
 /**
@@ -61,7 +61,10 @@ function probeDue(queryClient: QueryClient) {
       (q) => q.isActive() && q.state.status === "error",
     );
     if (probe) {
-      queryClient.refetchQueries({ queryKey: probe.queryKey, exact: true });
+      void queryClient.refetchQueries({
+        queryKey: probe.queryKey,
+        exact: true,
+      });
     }
   }
 }
@@ -98,7 +101,7 @@ export function useConnectorRecovery(): void {
       useConnectionStatusStore.subscribe(({ statuses }, prev) => {
         for (const [id, status] of Object.entries(prev.statuses)) {
           if (status === "error" && statuses[id] === "connected") {
-            queryClient.invalidateQueries({ predicate: parkedOn(id) });
+            void queryClient.invalidateQueries({ predicate: parkedOn(id) });
           }
         }
       }),
