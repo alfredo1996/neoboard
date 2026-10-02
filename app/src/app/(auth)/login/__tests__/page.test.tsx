@@ -14,7 +14,6 @@ vi.mock("next-auth/react", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
-  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("next/link", () => ({
@@ -107,13 +106,9 @@ import LoginPage from "../page";
 
 /* ---------- helpers ---------- */
 
-function mockFetchBootstrapStatus(registrationEnabled: boolean) {
-  global.fetch = vi.fn().mockResolvedValue({
-    json: () =>
-      Promise.resolve({
-        data: { bootstrapRequired: false, registrationEnabled },
-      }),
-  });
+// The page is an async server component (#2169): resolve it, then render.
+async function renderPage(params: Record<string, string> = {}) {
+  return render(await LoginPage({ searchParams: Promise.resolve(params) }));
 }
 
 /* ---------- tests ---------- */
@@ -121,67 +116,36 @@ function mockFetchBootstrapStatus(registrationEnabled: boolean) {
 describe("LoginPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
   });
 
-  it("shows the signup link when registration is enabled", async () => {
-    mockFetchBootstrapStatus(true);
+  it.each([
+    ["true", ["/signup"]],
+    [undefined, []],
+  ])(
+    "decides the Sign up link on the server (REGISTRATION_ENABLED=%s), with no client fetch (#2169)",
+    async (env, hrefs) => {
+      vi.stubEnv("REGISTRATION_ENABLED", env);
+      global.fetch = vi.fn();
 
-    render(<LoginPage />);
+      await renderPage();
 
-    await waitFor(() => {
-      expect(screen.getByText("Sign up")).toBeDefined();
-    });
+      const links = screen.queryAllByRole("link", { name: "Sign up" });
+      expect(links.map((a) => a.getAttribute("href"))).toEqual(hrefs);
+      expect(global.fetch).not.toHaveBeenCalled();
+    },
+  );
 
-    const signupLink = screen.getByText("Sign up");
-    expect(signupLink.closest("a")).toHaveAttribute("href", "/signup");
-  });
-
-  it("hides the signup link when registration is disabled", async () => {
-    mockFetchBootstrapStatus(false);
-
-    render(<LoginPage />);
-
-    await waitFor(() => {
-      expect(screen.queryByText("Sign up")).toBeNull();
-    });
-  });
-
-  it("shows the signup link by default before fetch completes", () => {
-    // Fetch never resolves — default state should show the link
-    global.fetch = vi.fn().mockReturnValue(new Promise(() => {}));
-
-    render(<LoginPage />);
-
-    expect(screen.getByText("Sign up")).toBeDefined();
-  });
-
-  it("keeps the signup link when fetch fails", async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
-
-    render(<LoginPage />);
-
-    // Default state is registrationEnabled=true, fetch error doesn't change it
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalled();
-    });
-
-    expect(screen.getByText("Sign up")).toBeDefined();
-  });
-
-  it("renders the login form with email and password fields", () => {
-    mockFetchBootstrapStatus(true);
-
-    render(<LoginPage />);
+  it("renders the login form with email and password fields", async () => {
+    await renderPage();
 
     expect(screen.getByLabelText("Email")).toBeDefined();
     expect(screen.getByLabelText("Password")).toBeDefined();
     expect(screen.getByText("Sign in")).toBeDefined();
   });
 
-  it("marks the form hydrated so callers can wait for interactivity (#1272)", () => {
-    mockFetchBootstrapStatus(true);
-
-    const { container } = render(<LoginPage />);
+  it("marks the form hydrated so callers can wait for interactivity (#1272)", async () => {
+    const { container } = await renderPage();
 
     // The submit handler only exists after hydration. Before it, a click
     // performs the browser's native GET submit, which puts the password in
@@ -191,10 +155,8 @@ describe("LoginPage", () => {
     expect(form?.getAttribute("data-hydrated")).toBe("true");
   });
 
-  it("keeps the submit button disabled until hydration attaches the handler (#1272)", () => {
-    mockFetchBootstrapStatus(true);
-
-    render(<LoginPage />);
+  it("keeps the submit button disabled until hydration attaches the handler (#1272)", async () => {
+    await renderPage();
 
     // After mount the effect has run, so the button is live. The guarantee
     // this pins is that `disabled` is driven by hydration state at all —
@@ -203,20 +165,17 @@ describe("LoginPage", () => {
     expect(button).not.toBeDisabled();
   });
 
-  it("renders the NeoBoard title", () => {
-    mockFetchBootstrapStatus(true);
-
-    render(<LoginPage />);
+  it("renders the NeoBoard title", async () => {
+    await renderPage();
 
     expect(screen.getByText("NeoBoard")).toBeDefined();
   });
 
   it("shows error message when login fails", async () => {
-    mockFetchBootstrapStatus(true);
     mockSignIn.mockResolvedValue({ error: "CredentialsSignin" });
 
     const user = userEvent.setup();
-    render(<LoginPage />);
+    await renderPage();
 
     const emailInput = screen.getByLabelText("Email");
     const passwordInput = screen.getByLabelText("Password");
@@ -231,12 +190,12 @@ describe("LoginPage", () => {
     });
   });
 
-  it("redirects to callbackUrl on successful login", async () => {
-    mockFetchBootstrapStatus(true);
+  it("takes callbackUrl and passwordChanged from the searchParams (#2169)", async () => {
     mockSignIn.mockResolvedValue({ error: null });
 
     const user = userEvent.setup();
-    render(<LoginPage />);
+    await renderPage({ callbackUrl: "/dashboards/abc", passwordChanged: "1" });
+    expect(screen.getByText(/Password changed/)).toBeDefined();
 
     const emailInput = screen.getByLabelText("Email");
     const passwordInput = screen.getByLabelText("Password");
@@ -247,7 +206,7 @@ describe("LoginPage", () => {
     await user.click(submitButton);
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith("/");
+      expect(mockPush).toHaveBeenCalledWith("/dashboards/abc");
     });
   });
 });

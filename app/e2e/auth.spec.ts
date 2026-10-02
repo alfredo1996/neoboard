@@ -7,6 +7,16 @@ test.describe("Authentication", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
+  test("the server HTML of /login is the final layout (#2169)", async ({
+    request,
+  }) => {
+    const html = await (await request.get("/login")).text();
+    expect(html).toContain('name="email"');
+    expect(html).not.toContain("BAILOUT_TO_CLIENT_SIDE_RENDERING");
+    // global-setup opens registration, so the server renders the footer.
+    expect(html).toContain('href="/signup"');
+  });
+
   test("should log in with existing account", async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
     await expect(page).toHaveURL("/");
