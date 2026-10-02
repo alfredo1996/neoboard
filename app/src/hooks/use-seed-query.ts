@@ -48,7 +48,11 @@ export function useSeedQuery(
   options: ParamSelectorOption[];
   loading: boolean;
   error: Error | null;
-  /** Re-run the seed query — the only recovery path after it fails (#1678). */
+  /**
+   * Re-run the seed query: the immediate way back after it fails (#1678). The
+   * dashboard also re-probes a dead connection every `DEAD_CONNECTOR_TTL_MS`
+   * (#2167).
+   */
   refetch: () => void;
 } {
   const queryKey = [

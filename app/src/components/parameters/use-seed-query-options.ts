@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterType } from "@/stores/parameter-store";
 import { useSeedQuery } from "@/hooks/use-seed-query";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
+import { ConnectorUnavailableError } from "@/lib/api/api-client";
 
 /** Debounce delay (ms) before the typed search term is sent to the seed query. */
 export const SEED_QUERY_SEARCH_DEBOUNCE_MS = 300;
@@ -48,7 +50,10 @@ export interface SeedQueryResult {
    * and every widget gated on the parameter waited for it forever.
    */
   error: Error | null;
-  /** Re-run the seed query; nothing else on the dashboard invalidates it. */
+  /**
+   * Re-run the seed query: the immediate way back. The dashboard also re-probes
+   * a dead connection by itself every `DEAD_CONNECTOR_TTL_MS` (#2167).
+   */
   refetch: () => void;
   setSearchTerm: (term: string) => void;
   parentValue: string | undefined;
@@ -192,10 +197,24 @@ export function useSeedQueryOptions(
     database,
   );
 
+  // The dashboard's probe re-runs a parked seed (#2167), and a seed with no
+  // options goes back to pending while it runs. On a connection still flagged
+  // dead, keep naming the connector, and its Retry, rather than a skeleton for
+  // the whole connect timeout: what a card does for its widget (#1888).
+  const flagged = useConnectionStatusStore(
+    (s) => !!connectionId && s.statuses[connectionId] === "error",
+  );
+  const [lastError, setLastError] = useState(error);
+  if (error && error !== lastError) setLastError(error);
+  const held =
+    loading && flagged && lastError instanceof ConnectorUnavailableError
+      ? lastError
+      : null;
+
   return {
     options,
-    loading,
-    error,
+    loading: loading && !held,
+    error: error ?? held,
     refetch,
     setSearchTerm,
     parentValue,

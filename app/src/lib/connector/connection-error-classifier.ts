@@ -187,3 +187,10 @@ export function connectorUnavailableReason(
   const code = connectionErrorCode(error);
   return code === "network" || code === "auth_failed" ? code : undefined;
 }
+
+/**
+ * How long the server replays a dead connector's failure (#1888). Here, not in
+ * the middleware, so the dashboard's re-probe (#2167) can share it without
+ * pulling the middleware into a client bundle: a probe sooner only replays it.
+ */
+export const DEAD_CONNECTOR_TTL_MS = 30_000;

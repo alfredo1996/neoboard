@@ -14,9 +14,9 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
  * can carry the host; any other failure gets its message, since the seed
  * query is the author's and the message is how they fix it.
  *
- * Retry is the only way back: the seed query has no interval, no auto-retry,
- * and nothing else on the dashboard invalidates it, so without this the
- * select — and everything gated on it — would stay dead until a reload.
+ * Retry is the immediate way back: the seed query has no interval and no
+ * auto-retry. The dashboard also re-probes a dead connection by itself every
+ * `DEAD_CONNECTOR_TTL_MS` and re-runs this seed once it answers (#2167).
  */
 export function SeedQueryError({
   error,

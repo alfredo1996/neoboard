@@ -2,6 +2,7 @@
 
 import { useParams, usePathname } from "next/navigation";
 import { DashboardWorkspace } from "@/components/dashboard-workspace";
+import { useConnectorRecovery } from "@/hooks/use-connector-recovery";
 
 /**
  * The dashboard UI lives here rather than in either page, so that navigating
@@ -14,12 +15,14 @@ import { DashboardWorkspace } from "@/components/dashboard-workspace";
  */
 export default function DashboardIdLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   const { id } = useParams<{ id: string }>();
   const pathname = usePathname();
   const editMode = pathname.endsWith("/edit");
+  // Once per dashboard, not per card: one probe per dead connection (#2167).
+  useConnectorRecovery();
 
   return (
     <DashboardWorkspace key={id} id={id} editMode={editMode}>

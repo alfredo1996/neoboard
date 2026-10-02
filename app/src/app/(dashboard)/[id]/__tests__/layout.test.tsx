@@ -26,6 +26,10 @@ vi.mock("@/components/dashboard-workspace", () => ({
   ),
 }));
 
+vi.mock("@/hooks/use-connector-recovery", () => ({
+  useConnectorRecovery: () => {},
+}));
+
 /* ---------- import under test ---------- */
 
 import DashboardIdLayout from "../layout";

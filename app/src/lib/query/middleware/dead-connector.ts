@@ -1,4 +1,7 @@
-import { connectorUnavailableReason } from "@/lib/connector/connection-error-classifier";
+import {
+  connectorUnavailableReason,
+  DEAD_CONNECTOR_TTL_MS,
+} from "@/lib/connector/connection-error-classifier";
 import type { QueryMiddlewareFn } from "@/lib/query/pipeline-types";
 
 /**
@@ -19,7 +22,7 @@ import type { QueryMiddlewareFn } from "@/lib/query/pipeline-types";
  * failure; move it to a shared store if that ever costs more than one timeout
  * per replica per TTL.
  */
-export const DEAD_CONNECTOR_TTL_MS = 30_000;
+export { DEAD_CONNECTOR_TTL_MS };
 
 type DeadConnectors = Map<string, { error: unknown; until: number }>;
 

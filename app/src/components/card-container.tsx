@@ -689,9 +689,9 @@ export function CardContainer({
   }
 
   if (widgetQuery.isError) {
-    // The connector itself is unreachable (#1678). Never retried
-    // automatically — see shouldRetryWidgetQuery — so the Retry here is the
-    // only re-probe, and it is the user's call.
+    // The connector itself is unreachable (#1678). Never retried by
+    // shouldRetryWidgetQuery: the dashboard re-probes the connection by itself
+    // every DEAD_CONNECTOR_TTL_MS (#2167), and this Retry is the immediate way.
     if (widgetQuery.error instanceof ConnectorUnavailableError) {
       return (
         <ConnectorUnavailable
