@@ -4,11 +4,18 @@
  * flagged in the status store, and no refetch on window focus.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import {
+  QueryClient,
+  QueryClientProvider,
+  focusManager,
+} from "@tanstack/react-query";
 import type { QueryObserverOptions } from "@tanstack/react-query";
 import React from "react";
 import { useWidgetQuery } from "../use-widget-query";
+import { useSeedQuery } from "../use-seed-query";
+import { useConnectorRecovery } from "../use-connector-recovery";
+import { DEAD_CONNECTOR_TTL_MS } from "@/lib/connector/connection-error-classifier";
 import {
   ClientQueueTimeoutError,
   ConnectorUnavailableError,
@@ -186,5 +193,79 @@ describe("useWidgetQuery cancellation (#1888)", () => {
 
     unmount();
     await waitFor(() => expect(signal?.aborted).toBe(true));
+  });
+});
+
+/**
+ * #2167 — nothing re-probed a flagged connection, so a dashboard parked on
+ * "Connector unavailable" stayed there after its database came back.
+ */
+describe("useConnectorRecovery (#2167)", () => {
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+  afterEach(() => {
+    focusManager.setFocused(undefined);
+    vi.useRealTimers();
+  });
+
+  /**
+   * Two widgets and a selector on one dead connection, all parked. Q1 had rows
+   * first: a refetch of a query with data cancels and re-sends one in flight.
+   */
+  async function parkedDashboard() {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(OK_200)
+      .mockResolvedValue(DEAD_502);
+    const { result } = renderHook(
+      () => {
+        useConnectorRecovery();
+        return [
+          useWidgetQuery({ connectionId: "c1", query: "Q1" }),
+          useWidgetQuery({ connectionId: "c1", query: "Q2" }),
+          useSeedQuery("c1", "SEED", true),
+        ] as const;
+      },
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current[2].error).not.toBeNull());
+    await act(() => result.current[0].refetch());
+    await waitFor(() =>
+      expect(result.current.every((q) => q.error)).toBe(true),
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    return { fetchSpy, result };
+  }
+  const tick = () => vi.advanceTimersByTimeAsync(DEAD_CONNECTOR_TTL_MS);
+  const status = () => useConnectionStatusStore.getState().getStatus("c1");
+
+  it("probes once per interval, then re-runs everything parked once one gets through", async () => {
+    const { fetchSpy, result } = await parkedDashboard();
+
+    await tick();
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    expect(status()).toBe("error");
+
+    fetchSpy.mockResolvedValue(OK_200);
+    await tick();
+    await waitFor(() =>
+      expect(result.current.every((q) => q.error === null)).toBe(true),
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(8);
+    expect(status()).toBe("connected");
+
+    await tick();
+    expect(fetchSpy).toHaveBeenCalledTimes(8);
+  });
+
+  it("holds the probe while the tab is hidden", async () => {
+    const { fetchSpy } = await parkedDashboard();
+
+    focusManager.setFocused(false);
+    await tick();
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+
+    focusManager.setFocused(true);
+    await tick();
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
   });
 });

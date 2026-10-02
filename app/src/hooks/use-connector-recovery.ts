@@ -1,0 +1,86 @@
+"use client";
+
+import { useEffect } from "react";
+import {
+  focusManager,
+  useQueryClient,
+  type Query,
+  type QueryClient,
+} from "@tanstack/react-query";
+import { useConnectionStatusStore } from "@/stores/connection-status-store";
+import { DEAD_CONNECTOR_TTL_MS } from "@/lib/connector/connection-error-classifier";
+
+/** The cache scopes of `useWidgetQuery` and `useSeedQuery`. */
+const SCOPES: readonly unknown[] = ["widget-query", "param-seed"];
+
+/**
+ * A widget or selector query on this connection that failed and is not
+ * running. An in-flight one is excluded: it is a probe already, and the query
+ * whose success just cleared the flag is still in flight when that happens.
+ */
+function parkedOn(connectionId: string) {
+  return ({ queryKey, state }: Query) =>
+    SCOPES.includes(queryKey[0]) &&
+    queryKey[1] === connectionId &&
+    state.status === "error" &&
+    state.fetchStatus === "idle";
+}
+
+/**
+ * Re-run ONE parked query per flagged connection: N widgets on a dead
+ * connector must not become N requests per interval (#1888). Skipped while
+ * the tab is hidden, as TanStack's own refetch interval is.
+ */
+function probeFlagged(queryClient: QueryClient) {
+  if (!focusManager.isFocused()) return;
+  const { statuses } = useConnectionStatusStore.getState();
+  for (const [id, status] of Object.entries(statuses)) {
+    if (status !== "error") continue;
+    const [probe] = queryClient
+      .getQueryCache()
+      .findAll({ type: "active", predicate: parkedOn(id) });
+    if (probe) {
+      queryClient.refetchQueries({ queryKey: probe.queryKey, exact: true });
+    }
+  }
+}
+
+/**
+ * An open dashboard heals by itself once a dead connector answers again
+ * (#2167). Nothing retries a `ConnectorUnavailableError` on its own (#1678),
+ * so without this the page stayed "Connector unavailable" until someone
+ * clicked Retry, reloaded, or ran a Test.
+ *
+ * While any connection is flagged, one parked query per flagged connection is
+ * re-run every `DEAD_CONNECTOR_TTL_MS`: sooner only replays the server's memo.
+ * The moment a flag clears, by this probe, a refresh cycle or a Retry, every
+ * parked widget and selector on that connection re-runs. Mount once per
+ * dashboard, never per card.
+ */
+export function useConnectorRecovery(): void {
+  const queryClient = useQueryClient();
+  const anyFlagged = useConnectionStatusStore((s) =>
+    Object.values(s.statuses).includes("error"),
+  );
+
+  useEffect(() => {
+    if (!anyFlagged) return;
+    const timer = setInterval(
+      () => probeFlagged(queryClient),
+      DEAD_CONNECTOR_TTL_MS,
+    );
+    return () => clearInterval(timer);
+  }, [anyFlagged, queryClient]);
+
+  useEffect(
+    () =>
+      useConnectionStatusStore.subscribe(({ statuses }, prev) => {
+        for (const [id, status] of Object.entries(prev.statuses)) {
+          if (status === "error" && statuses[id] === "connected") {
+            queryClient.invalidateQueries({ predicate: parkedOn(id) });
+          }
+        }
+      }),
+    [queryClient],
+  );
+}

@@ -218,9 +218,9 @@ test.describe("Dead connector (#1678)", () => {
       await expect(addWidget).toBeHidden();
 
       // Recovery, still without a reload: repoint the connection at the
-      // healthy host and use the selector's Retry — the seed query has no
-      // interval and nothing else invalidates it. The gated widgets follow
-      // the store back to "waiting".
+      // healthy host and use the selector's Retry, well before the 30 s
+      // re-probe (#2167) would. The gated widgets follow the store back to
+      // "waiting".
       const repoint = await page.request.patch(`/api/connections/${deadId}`, {
         data: {
           config: {
@@ -232,6 +232,7 @@ test.describe("Dead connector (#1678)", () => {
         },
       });
       expect(repoint.ok(), await repoint.text()).toBe(true);
+      const seedsBeforeRetry = requestsFor(DEAD_SEED);
       await page
         .locator('[data-widget-id="p-dead"]')
         .getByRole("button", { name: "Retry" })
@@ -240,9 +241,9 @@ test.describe("Dead connector (#1678)", () => {
         timeout: 15_000,
       });
 
-      // The plain widget recovers through its own Retry: edit mode does not
-      // poll (#1419), so no refresh cycle is coming for it. Waiting on its
-      // row — not on the banner going away — is what keeps this honest: an
+      // The plain widget re-runs once the seed's success clears the flag
+      // (#2167), or through its own Retry: edit mode does not poll (#1419).
+      // Waiting on its row — not on the banner going away — keeps this honest: an
       // attempt still on the dead host shows a skeleton with no banner at all,
       // and that transient passed the old check before its 502 landed (#1748).
       const plain = page.locator('[data-widget-id="w-dead"]');
@@ -254,10 +255,108 @@ test.describe("Dead connector (#1678)", () => {
       if (await plainRetry.isVisible()) await plainRetry.click();
       await expect(plainRow).toBeVisible({ timeout: 15_000 });
       await expect(unavailable).toHaveCount(0);
-      expect(requestsFor(DEAD_SEED)).toBe(2);
+      expect(requestsFor(DEAD_SEED)).toBe(seedsBeforeRetry + 1);
     } finally {
       await cleanup();
       await page.request.delete(`/api/connections/${deadId}`);
+    }
+  });
+});
+
+/**
+ * #2167 — nothing re-probed a flagged connection, so an open dashboard stayed
+ * on "Connector unavailable" after its database came back, until someone
+ * clicked Retry, reloaded, or ran a Test on the Connections page.
+ *
+ * The outage is a request route, not a stopped container, and the clock jumps
+ * one probe interval instead of waiting it out.
+ */
+test.describe("Dead connector recovery (#2167)", () => {
+  /** The server's dead-connector memo TTL, which the probe interval shares. */
+  const PROBE_INTERVAL_MS = 30_000;
+
+  test("an open dashboard paints again by itself once its connector answers", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Recovers ${uid()}`,
+    );
+    try {
+      const put = await page.request.put(`/api/dashboards/${id}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Main",
+                widgets: [
+                  {
+                    id: "p-sel",
+                    chartType: "parameter-select",
+                    connectionId: HEALTHY_PG,
+                    query: "",
+                    settings: {
+                      title: "Pick",
+                      chartOptions: {
+                        parameterType: "select",
+                        parameterName: "pick",
+                        seedQuery: DEAD_SEED,
+                      },
+                    },
+                  },
+                  {
+                    id: "w-ok",
+                    chartType: "table",
+                    connectionId: HEALTHY_PG,
+                    query: HEALTHY,
+                    settings: { title: "Healthy" },
+                  },
+                ],
+                gridLayout: [
+                  { i: "p-sel", x: 0, y: 0, w: 4, h: 3 },
+                  { i: "w-ok", x: 4, y: 0, w: 6, h: 4 },
+                ],
+              },
+            ],
+          },
+        },
+      });
+      expect(put.ok(), await put.text()).toBe(true);
+
+      await page.clock.install();
+      await page.route("**/api/query", (route) =>
+        route.fulfill({
+          status: 502,
+          json: {
+            data: null,
+            error: {
+              code: "CONNECTOR_UNAVAILABLE",
+              message: "connect ECONNREFUSED",
+              details: { reason: "network" },
+            },
+            meta: null,
+          },
+        }),
+      );
+      await page.goto(`/${id}`);
+      const unavailable = page.getByText("Connector unavailable");
+      await expect(unavailable).toHaveCount(2, { timeout: 15_000 });
+
+      // The database is back. Nobody clicks and nobody reloads.
+      await page.unroute("**/api/query");
+      await page.clock.fastForward(PROBE_INTERVAL_MS);
+
+      await expect(
+        page.getByRole("cell", { name: "healthy", exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText("Select a value…")).toBeVisible();
+      await expect(unavailable).toHaveCount(0);
+    } finally {
+      await cleanup();
     }
   });
 });
