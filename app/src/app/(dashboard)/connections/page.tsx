@@ -238,7 +238,7 @@ export default function ConnectionsPage() {
     );
     if (stale.length === 0) return;
     noteAttempts(stale.map((c) => c.id));
-    runTests(stale, true);
+    void runTests(stale, true);
   });
 
   useEffect(() => {
@@ -266,7 +266,7 @@ export default function ConnectionsPage() {
     // The empty state and its button leave with the refetch, after the close.
     if (!connections?.length) setReturnFocusTo(headingRef.current);
     setDialogTarget(null);
-    handleTest(id);
+    void handleTest(id);
   }
 
   // #1544: an id with no entry is "unknown" — not checked yet. It used to
