@@ -30,6 +30,16 @@ interface ConnectionStatusStore {
   errors: Record<string, string>;
   /** When each verdict was reached, in ms (#2168). Progress is not dated. */
   testedAt: Record<string, number>;
+  /**
+   * When the page's own run last tried each connection, verdict or not
+   * (#2168): a try the scheduler turned away waits as long as a verdict does.
+   */
+  attemptedAt: Record<string, number>;
+  /**
+   * The running "Test all" or arrival run's progress; null when none is.
+   * Here, not in the page, because the run outlives a remount (#2168).
+   */
+  run: { done: number; total: number } | null;
   getStatus: (id: string) => ConnectionState;
   getError: (id: string) => string | undefined;
   /**
@@ -57,6 +67,8 @@ interface ConnectionStatusStore {
    * probe to run, not a dashboard's side effect.
    */
   noteQueryOutcome: (id: string, error: unknown) => void;
+  noteAttempts: (ids: string[], at?: number) => void;
+  setRun: (run: { done: number; total: number } | null) => void;
   /** Drop a connection that no longer exists. */
   forget: (id: string) => void;
   reset: () => void;
@@ -67,6 +79,8 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
     statuses: {},
     errors: {},
     testedAt: {},
+    attemptedAt: {},
+    run: null,
 
     getStatus: (id) => get().statuses[id] ?? "unknown",
     getError: (id) => get().errors[id],
@@ -100,6 +114,16 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
       }
     },
 
+    noteAttempts: (ids, at = Date.now()) =>
+      set((prev) => ({
+        attemptedAt: {
+          ...prev.attemptedAt,
+          ...Object.fromEntries(ids.map((id) => [id, at])),
+        },
+      })),
+
+    setRun: (run) => set({ run }),
+
     forget: (id) =>
       set((prev) => {
         const statuses = { ...prev.statuses };
@@ -109,7 +133,14 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
         return { statuses, errors };
       }),
 
-    reset: () => set({ statuses: {}, errors: {}, testedAt: {} }),
+    reset: () =>
+      set({
+        statuses: {},
+        errors: {},
+        testedAt: {},
+        attemptedAt: {},
+        run: null,
+      }),
   }),
 );
 

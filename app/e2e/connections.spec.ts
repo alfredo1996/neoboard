@@ -88,7 +88,8 @@ test.describe("Connections", () => {
   /**
    * #1544 — status lives in a store that outlives the mount, so a result the
    * user asked for is still there when they come back. Since #2168 a revisit
-   * within 5 minutes re-tests nothing either: no "Connecting…" in between.
+   * within 5 minutes re-tests nothing either. A re-test would be silent (a
+   * known badge keeps its verdict while one runs), so the probes are counted.
    *
    * Asserting the badge's final text after navigating back would not catch a
    * regression: Playwright auto-waits, so it would happily observe the settled
@@ -131,6 +132,17 @@ test.describe("Connections", () => {
       snap();
     }, name);
 
+    // The seeded rows only: other workers create connections for this user,
+    // and a remount may rightly test those.
+    const listed = await page.request.get("/api/connections");
+    const seededIds = (
+      (await listed.json()).data as { id: string; name: string }[]
+    )
+      .filter((c) => SEEDED.includes(c.name))
+      .map((c) => c.id);
+    expect(seededIds).toHaveLength(SEEDED.length);
+    const probes = recordProbes(page);
+
     // Client-side navigation, which is what remounts the segment.
     await sidebarPage.navigateTo("Dashboards");
     await sidebarPage.navigateTo("Connections");
@@ -143,6 +155,9 @@ test.describe("Connections", () => {
     expect(log, `status sequence: ${JSON.stringify(log)}`).toEqual([
       "Connected",
     ]);
+    expect(
+      probes.filter((url) => seededIds.some((id) => url.includes(`/${id}/`))),
+    ).toEqual([]);
   });
 
   test("should create a new Neo4j connection", async ({ page }) => {

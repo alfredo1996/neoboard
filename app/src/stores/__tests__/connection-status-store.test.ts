@@ -40,7 +40,8 @@ describe("connection-status-store (#1544)", () => {
     expect(store().getStatus("a")).toBe("connected");
   });
 
-  // Progress shows over a known status: a re-test is news on its own row.
+  // The store shows whatever it is told. A probe the user asked for shows
+  // progress over a known status; the page's own refresh does not (#2168).
   it("shows connecting while a probe runs, even over a known status", () => {
     store().setStatus("a", "connected");
     store().setStatus("a", "connecting");
@@ -64,6 +65,18 @@ describe("connection-status-store (#1544)", () => {
   ] as const)("dates a %s status: %s", (status, dated) => {
     store().setStatus("a", status);
     expect("a" in store().testedAt).toBe(dated);
+  });
+
+  // #2168: a try the server turned away is no verdict, but it is a try.
+  it("dates an attempt apart from any verdict, and reset clears it and the run", () => {
+    store().noteAttempts(["a"], 42);
+    store().setRun({ done: 0, total: 1 });
+    expect(store().attemptedAt).toEqual({ a: 42 });
+    expect(store().testedAt).toEqual({});
+
+    store().reset();
+    expect(store().attemptedAt).toEqual({});
+    expect(store().run).toBeNull();
   });
 
   it("forgets a connection that no longer exists", () => {

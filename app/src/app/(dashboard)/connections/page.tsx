@@ -91,10 +91,9 @@ export default function ConnectionsPage() {
   const statusErrors = useConnectionStatusStore((s) => s.errors);
   const setStatus = useConnectionStatusStore((s) => s.setStatus);
   // #1426: progress of a running "Test all" or arrival run; null when none is.
-  const [testAll, setTestAll] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
+  // In the store: a remount mid-run must still see it (#2168).
+  const testAll = useConnectionStatusStore((s) => s.run);
+  const setRun = useConnectionStatusStore((s) => s.setRun);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   // What opened Delete (#2086) or the connection dialog (#2146): neither has a
   // Trigger. Kept after the dialog closes: Radix hands focus back after that.
@@ -121,13 +120,22 @@ export default function ConnectionsPage() {
    * 408 queue timeout). That probe never reached the database, so it is no
    * verdict: the row goes back to what it showed before — "Not checked" if
    * nothing — and never to "Error".
+   *
+   * `quiet` is a run nobody asked for (#2168): it shows "Connecting…" only
+   * where nothing is known, so a known badge — a live region — and its error
+   * stay put until the new verdict lands (#1544).
    */
-  async function probe(id: string, batch = false): Promise<"done" | "busy"> {
+  async function probe(
+    id: string,
+    batch = false,
+    quiet = false,
+  ): Promise<"done" | "busy"> {
     // Read from the store, not this render's snapshot: "Test all" outlives it.
     const known = useConnectionStatusStore.getState();
     const before = known.getStatus(id);
     const beforeError = known.getError(id);
-    setStatus(id, "connecting");
+    const shows = !quiet || before === "unknown";
+    if (shows) setStatus(id, "connecting");
     try {
       const result = await testConnection.mutateAsync(
         batch ? { id, batch } : { id },
@@ -142,6 +150,7 @@ export default function ConnectionsPage() {
         error instanceof QueueFullError ||
         error instanceof ClientQueueTimeoutError
       ) {
+        if (!shows) return "busy"; // the row never left what it showed
         // "connecting" is another probe's progress, not something known.
         if (before === "connecting") setStatus(id, "unknown");
         else setStatus(id, before, beforeError, known.testedAt[id]);
@@ -176,19 +185,22 @@ export default function ConnectionsPage() {
    * Three at a time, each row updating as its own result lands (#1426).
    * Resolves how many the scheduler turned away.
    */
-  async function runTests(targets: typeof probeable): Promise<number> {
+  async function runTests(
+    targets: typeof probeable,
+    quiet = false,
+  ): Promise<number> {
     const total = targets.length;
     let busy = 0;
-    setTestAll({ done: 0, total });
+    setRun({ done: 0, total });
     await runWindowed(
       targets,
       TEST_ALL_WINDOW,
       async (c) => {
-        if ((await probe(c.id, true)) === "busy") busy++;
+        if ((await probe(c.id, true, quiet)) === "busy") busy++;
       },
-      (_c, done) => setTestAll({ done, total }),
+      (_c, done) => setRun({ done, total }),
     );
-    setTestAll(null);
+    setRun(null);
     return busy;
   }
 
@@ -206,16 +218,27 @@ export default function ConnectionsPage() {
   /**
    * #2168 (owner, 2026-10-02): test what this tab never tested, or tested 5
    * minutes ago, while it is visible. Nobody asked for this run, so a busy
-   * server goes untoasted: each row keeps what it showed.
+   * server goes untoasted: each row keeps what it showed, and is next tried
+   * 5 minutes on, like a verdict.
    */
   const autoTest = useEffectEvent(() => {
     if (document.visibilityState !== "visible") return;
-    const { statuses: live, testedAt } = useConnectionStatusStore.getState();
+    const {
+      statuses: live,
+      testedAt,
+      attemptedAt,
+      run,
+      noteAttempts,
+    } = useConnectionStatusStore.getState();
     // A run, a row's Test or a save's probe is in flight: let it land.
-    if (autoProbeable.some((c) => live[c.id] === "connecting")) return;
+    if (run || autoProbeable.some((c) => live[c.id] === "connecting")) return;
     const cutoff = Date.now() - STALE_AFTER_MS;
-    const stale = autoProbeable.filter((c) => (testedAt[c.id] ?? 0) <= cutoff);
-    if (stale.length > 0) runTests(stale);
+    const stale = autoProbeable.filter(
+      (c) => Math.max(testedAt[c.id] ?? 0, attemptedAt[c.id] ?? 0) <= cutoff,
+    );
+    if (stale.length === 0) return;
+    noteAttempts(stale.map((c) => c.id));
+    runTests(stale, true);
   });
 
   useEffect(() => {

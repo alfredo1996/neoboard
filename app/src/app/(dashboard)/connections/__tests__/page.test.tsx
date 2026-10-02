@@ -370,9 +370,70 @@ describe("ConnectionsPage — arrival (#2168)", () => {
     expect(mockTest.mock.calls.map(([input]) => input)).toEqual(
       ["c1", "c2", "c3"].map((id) => ({ id, batch: true })),
     );
+    // Nothing known yet: progress is all there is to show.
+    expect(statusOf("conn-1")).toBe("connecting");
     await act(async () => settle.get("c1")!({ success: true }));
     expect(mockTest).toHaveBeenCalledTimes(4);
     expect(mockTest).toHaveBeenLastCalledWith({ id: "c4", batch: true });
+  });
+
+  // #1544: a run nobody asked for must not flicker a known badge (a live
+  // region) through "Connecting…", nor hide its error while it runs.
+  it("a refresh keeps each known badge and its error until its result lands, and starts no second run", async () => {
+    vi.useFakeTimers();
+    visibility = "visible";
+    mockConnections = rows(2);
+    const store = useConnectionStatusStore.getState();
+    store.setStatus("c1", "connected", undefined, 0);
+    store.setStatus("c2", "error", "refused", 0);
+    const { settle } = manualProbes();
+    render(<ConnectionsPage />);
+    await flush();
+    // Still in flight 5 minutes on: its rows are stale again, but the run
+    // has not ended, so no second one starts over it.
+    await act(() => vi.advanceTimersByTimeAsync(5 * 60_000));
+
+    expect(mockTest).toHaveBeenCalledTimes(2);
+    expect(statusOf("conn-1")).toBe("connected");
+    expect(statusOf("conn-2")).toBe("error");
+    expect(useConnectionStatusStore.getState().getError("c2")).toBe("refused");
+
+    await act(async () => settle.get("c2")!({ success: true }));
+    expect(statusOf("conn-2")).toBe("connected");
+  });
+
+  it("waits 5 minutes before retrying a connection the server turned away", async () => {
+    vi.useFakeTimers();
+    visibility = "visible";
+    mockConnections = rows(1);
+    mockTest.mockRejectedValue(new QueueFullError("queue full", 2000));
+    render(<ConnectionsPage />);
+    await flush();
+    expect(mockTest).toHaveBeenCalledTimes(1);
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    expect(mockTest).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(4 * 60_000));
+    expect(mockTest).toHaveBeenCalledTimes(2);
+  });
+
+  it("a remount mid-run shows that run's progress, with Test all disabled", async () => {
+    visibility = "visible";
+    mockConnections = rows(2);
+    const { settle } = manualProbes();
+    render(<ConnectionsPage />).unmount();
+    await flush();
+    render(<ConnectionsPage />);
+    await flush();
+
+    expect(mockTest).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("button", { name: /Tested 0 of 2/ }),
+    ).toBeDisabled();
+    await act(async () => {
+      for (const id of ["c1", "c2"]) settle.get(id)!({ success: true });
+    });
+    expect(screen.getByRole("button", { name: "Test all" })).toBeEnabled();
   });
 
   it("re-tests nothing on a revisit, and refreshes once results are 5 minutes old", async () => {
@@ -584,6 +645,18 @@ describe("ConnectionsPage — Test all (#1426)", () => {
     for (const c of mockConnections) {
       expect(statusOf(c.name)).toMatch(/connected|error/);
     }
+  });
+
+  it("shows progress over a known badge: the user asked for this run", async () => {
+    mockConnections = rows(1);
+    useConnectionStatusStore.getState().setStatus("c1", "connected");
+    manualProbes();
+    render(<ConnectionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Test all" }));
+    await flush();
+
+    expect(statusOf("conn-1")).toBe("connecting");
   });
 
   it("reports busy once for the whole run, and leaves those rows unchecked", async () => {
