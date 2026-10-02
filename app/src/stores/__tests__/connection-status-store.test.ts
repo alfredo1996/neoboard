@@ -40,9 +40,7 @@ describe("connection-status-store (#1544)", () => {
     expect(store().getStatus("a")).toBe("connected");
   });
 
-  // #1426: every probe is user-initiated now (a row's Test, "Test all",
-  // post-create, post-edit), so progress is always the feedback that was asked
-  // for. The background probe the on-mount sweep used went with the sweep.
+  // Progress shows over a known status: a re-test is news on its own row.
   it("shows connecting while a probe runs, even over a known status", () => {
     store().setStatus("a", "connected");
     store().setStatus("a", "connecting");
@@ -55,6 +53,17 @@ describe("connection-status-store (#1544)", () => {
 
     store().setStatus("a", "connected");
     expect(store().getError("a")).toBeUndefined();
+  });
+
+  // #2168: the Connections page re-tests a result once it is 5 minutes old.
+  it.each([
+    ["connected", true],
+    ["error", true],
+    ["connecting", false],
+    ["unknown", false],
+  ] as const)("dates a %s status: %s", (status, dated) => {
+    store().setStatus("a", status);
+    expect("a" in store().testedAt).toBe(dated);
   });
 
   it("forgets a connection that no longer exists", () => {

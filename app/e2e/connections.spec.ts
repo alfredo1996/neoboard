@@ -40,6 +40,18 @@ async function testFromMenu(page: Page, card: Locator) {
   await page.getByRole("menuitem", { name: /Test Connection/ }).click();
 }
 
+/** #2168: the run the page starts on arrival has tested the seeded rows and ended. */
+async function arrivalRunOver(page: Page) {
+  for (const name of SEEDED) {
+    await expect(badgeOf(cardFor(page, name))).toHaveText("Connected", {
+      timeout: 60_000,
+    });
+  }
+  await expect(page.getByRole("button", { name: "Test all" })).toBeEnabled({
+    timeout: 60_000,
+  });
+}
+
 test.describe("Connections", () => {
   test.beforeEach(async ({ authPage, sidebarPage }) => {
     await authPage.login(ALICE.email, ALICE.password);
@@ -47,53 +59,36 @@ test.describe("Connections", () => {
   });
 
   /**
-   * #1426 — the page used to test every connection on mount: one live
-   * database connection per row, all at once, because someone opened a
-   * settings page. It now opens none. A connection is "Not checked" until the
-   * user asks.
+   * #2168 (owner, 2026-10-02): the page tests its connections on arrival, the
+   * way "Test all" does. #1426 had left every row "Not checked" until a click.
    */
-  test("opens no connection on arrival: every row is Not checked and the page is ready", async ({
+  test("tests the seeded connections on arrival, without a click", async ({
     page,
   }) => {
-    const probes = recordProbes(page);
-    await page.reload();
-
-    for (const name of SEEDED) {
-      await expect(badgeOf(cardFor(page, name))).toHaveText("Not checked", {
-        timeout: 15_000,
-      });
-    }
-    // Interactive at once — nothing to wait for.
-    await expect(page.getByRole("button", { name: "Test all" })).toBeEnabled();
-    await expect(
-      page.getByRole("button", { name: "Add Connection" }),
-    ).toBeEnabled();
-    // The rows have rendered, so a mount-time sweep would have fired by now.
-    expect(probes).toEqual([]);
+    await arrivalRunOver(page);
   });
 
-  test("Test all brings every seeded connection to a final state", async ({
+  test("Test all re-tests every seeded connection, however fresh its result", async ({
     page,
   }) => {
+    await arrivalRunOver(page);
     const probes = recordProbes(page);
     await page.getByRole("button", { name: "Test all" }).click();
 
-    for (const name of SEEDED) {
-      await expect(badgeOf(cardFor(page, name))).toHaveText("Connected", {
-        timeout: 60_000,
-      });
-    }
     // The run is over: the progress label is gone and the button is back.
     await expect(page.getByRole("button", { name: "Test all" })).toBeEnabled({
       timeout: 60_000,
     });
+    for (const name of SEEDED) {
+      await expect(badgeOf(cardFor(page, name))).toHaveText("Connected");
+    }
     expect(probes.length).toBeGreaterThanOrEqual(SEEDED.length);
   });
 
   /**
    * #1544 — status lives in a store that outlives the mount, so a result the
-   * user asked for is still there when they come back. Since #1426 nothing
-   * re-probes behind it either.
+   * user asked for is still there when they come back. Since #2168 a revisit
+   * within 5 minutes re-tests nothing either: no "Connecting…" in between.
    *
    * Asserting the badge's final text after navigating back would not catch a
    * regression: Playwright auto-waits, so it would happily observe the settled
@@ -107,8 +102,7 @@ test.describe("Connections", () => {
   }) => {
     const name = SEEDED[0];
     const badge = badgeOf(cardFor(page, name));
-    await testFromMenu(page, cardFor(page, name));
-    await expect(badge).toHaveText("Connected", { timeout: 30_000 });
+    await arrivalRunOver(page);
 
     await page.evaluate((cardName) => {
       const w = window as unknown as { __statusLog: string[] };
@@ -138,7 +132,6 @@ test.describe("Connections", () => {
     }, name);
 
     // Client-side navigation, which is what remounts the segment.
-    const probes = recordProbes(page);
     await sidebarPage.navigateTo("Dashboards");
     await sidebarPage.navigateTo("Connections");
     await expect(badge).toHaveText("Connected", { timeout: 15_000 });
@@ -150,7 +143,6 @@ test.describe("Connections", () => {
     expect(log, `status sequence: ${JSON.stringify(log)}`).toEqual([
       "Connected",
     ]);
-    expect(probes).toEqual([]);
   });
 
   test("should create a new Neo4j connection", async ({ page }) => {
@@ -189,15 +181,14 @@ test.describe("Connections", () => {
   });
 
   test("should manually test a connection", async ({ page }) => {
+    await arrivalRunOver(page);
     const probes = recordProbes(page);
     const card = cardFor(page, SEEDED[1]);
-    await expect(badgeOf(card)).toHaveText("Not checked", { timeout: 10_000 });
 
     await testFromMenu(page, card);
-    await expect(badgeOf(card)).toHaveText("Connected", { timeout: 30_000 });
     // That one connection, and nothing else (#1426).
-    expect(probes).toHaveLength(1);
-    await expect(badgeOf(cardFor(page, SEEDED[0]))).toHaveText("Not checked");
+    await expect.poll(() => probes).toHaveLength(1);
+    await expect(badgeOf(card)).toHaveText("Connected", { timeout: 30_000 });
   });
 
   test("should test inline connection before creating — success", async ({
@@ -305,8 +296,7 @@ test.describe("Connections", () => {
   test("clicking an error card shows error details inline", async ({
     page,
   }) => {
-    // Its own connection, pointing at a port nothing listens on. Nothing is in
-    // an error state on arrival any more (#1426), so the test asks for one.
+    // Its own connection, pointing at a port nothing listens on.
     const name = `Error Card ${uid()}`;
     const created = await page.request.post("/api/connections", {
       data: {

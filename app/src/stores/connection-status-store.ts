@@ -17,8 +17,9 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
  * ~85ms of badge churn per visit, on a page where nothing had changed.
  *
  * A module-level store outlives the mount, so a revisit paints the last known
- * status immediately. Nothing revalidates behind it: since #1426 a connection
- * is probed only when the user asks, and is "Not checked" until then.
+ * status immediately. Each verdict is dated (`testedAt`): since #2168 the
+ * Connections page re-tests one once it is 5 minutes old, and a revisit
+ * before then re-tests nothing.
  *
  * Deliberately NOT persisted to storage: a status is only meaningful for as
  * long as the tab has been open. Reading a "connected" badge from last week
@@ -27,10 +28,20 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
 interface ConnectionStatusStore {
   statuses: Record<string, ConnectionState>;
   errors: Record<string, string>;
+  /** When each verdict was reached, in ms (#2168). Progress is not dated. */
+  testedAt: Record<string, number>;
   getStatus: (id: string) => ConnectionState;
   getError: (id: string) => string | undefined;
-  /** Record a definite state. Clears any stored error unless one is given. */
-  setStatus: (id: string, status: ConnectionState, error?: string) => void;
+  /**
+   * Record a definite state. Clears any stored error unless one is given.
+   * A verdict is dated `at`: now, unless a restored one keeps its own.
+   */
+  setStatus: (
+    id: string,
+    status: ConnectionState,
+    error?: string,
+    at?: number,
+  ) => void;
   /**
    * What a dashboard query learned about its connection (#1678).
    *
@@ -55,11 +66,12 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
   (set, get) => ({
     statuses: {},
     errors: {},
+    testedAt: {},
 
     getStatus: (id) => get().statuses[id] ?? "unknown",
     getError: (id) => get().errors[id],
 
-    setStatus: (id, status, error) =>
+    setStatus: (id, status, error, at = Date.now()) =>
       set((prev) => {
         const errors = { ...prev.errors };
         if (error === undefined) {
@@ -67,7 +79,12 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
         } else {
           errors[id] = error;
         }
-        return { statuses: { ...prev.statuses, [id]: status }, errors };
+        const verdict = status !== "connecting" && status !== "unknown";
+        return {
+          statuses: { ...prev.statuses, [id]: status },
+          errors,
+          testedAt: verdict ? { ...prev.testedAt, [id]: at } : prev.testedAt,
+        };
       }),
 
     noteQueryOutcome: (id, error) => {
@@ -92,7 +109,7 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
         return { statuses, errors };
       }),
 
-    reset: () => set({ statuses: {}, errors: {} }),
+    reset: () => set({ statuses: {}, errors: {}, testedAt: {} }),
   }),
 );
 

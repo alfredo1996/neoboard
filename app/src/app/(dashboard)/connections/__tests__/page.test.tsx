@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import { QueueFullError } from "@/lib/api/api-client";
@@ -9,12 +9,9 @@ import {
 } from "@/__tests__/helpers/dialog-mocks";
 
 /**
- * #1426 — the Connections page opens no database connection on arrival.
- *
- * It used to test every connection on mount: N concurrent probes, each
- * decrypting a credential and dialling a real database, because someone
- * opened a settings page. Now a connection is "Not checked" until the user
- * asks, per row or with "Test all", which probes three at a time.
+ * #2168 — the Connections page tests on arrival what this tab has not tested
+ * in 5 minutes, through the same three-at-a-time run as "Test all" (#1426),
+ * and refreshes while it stays visible.
  */
 
 // ---------------------------------------------------------------------------
@@ -30,6 +27,7 @@ interface Row {
 }
 
 let mockRole = "creator";
+let mockSessionStatus = "authenticated";
 let mockConnections: Row[] = [];
 /** What the delete dialog reads to offer "Re-assign widgets…" (#1905). */
 let mockUsage:
@@ -81,7 +79,10 @@ const mockCreate = vi.fn();
 const mockConnectionConfig = vi.fn();
 
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: { user: { role: mockRole } } }),
+  useSession: () => ({
+    data: { user: { role: mockRole } },
+    status: mockSessionStatus,
+  }),
 }));
 
 vi.mock("@/hooks/use-connections", () => {
@@ -325,38 +326,114 @@ const fieldGroups = (dialog: ReturnType<typeof within>) =>
 
 const flush = () => act(async () => {});
 
+// The tab's visibility, which gates the arrival run (#2168).
+let visibility: DocumentVisibilityState = "hidden";
+Object.defineProperty(document, "visibilityState", {
+  configurable: true,
+  get: () => visibility,
+});
+const showTab = () =>
+  act(async () => {
+    visibility = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+
 beforeEach(() => {
   vi.resetAllMocks();
   mockRole = "creator";
+  mockSessionStatus = "authenticated";
   mockConnections = [];
   mockUsage = undefined;
   mockConnectors = { data: INSTALLED, isLoading: false, isError: false };
   useConnectionStatusStore.getState().reset();
+  // A background tab: the rest of the suite probes only what it clicks.
+  visibility = "hidden";
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("ConnectionsPage — arrival (#1426)", () => {
-  it("issues zero test requests on mount, however many connections there are", async () => {
-    mockConnections = rows(12);
+describe("ConnectionsPage — arrival (#2168)", () => {
+  it("tests every probeable connection three at a time, as a batch, and starts no second run", async () => {
+    visibility = "visible";
+    mockConnections = rows(4);
+    const { settle } = manualProbes();
     render(<ConnectionsPage />);
     await flush();
+    await showTab(); // a second trigger while the run is in flight
 
-    expect(mockTest).not.toHaveBeenCalled();
-    for (const c of mockConnections) {
-      expect(statusOf(c.name)).toBe("unknown");
-    }
+    expect(mockTest.mock.calls.map(([input]) => input)).toEqual(
+      ["c1", "c2", "c3"].map((id) => ({ id, batch: true })),
+    );
+    await act(async () => settle.get("c1")!({ success: true }));
+    expect(mockTest).toHaveBeenCalledTimes(4);
+    expect(mockTest).toHaveBeenLastCalledWith({ id: "c4", batch: true });
   });
 
-  it("does not test on a revisit either", async () => {
-    mockConnections = rows(3);
-    const first = render(<ConnectionsPage />);
-    first.unmount();
+  it("re-tests nothing on a revisit, and refreshes once results are 5 minutes old", async () => {
+    vi.useFakeTimers();
+    visibility = "visible";
+    mockConnections = rows(2);
+    mockTest.mockResolvedValue({ success: true });
+    render(<ConnectionsPage />).unmount();
+    await flush();
+    render(<ConnectionsPage />);
+    await flush();
+    expect(mockTest).toHaveBeenCalledTimes(2);
+
+    await act(() => vi.advanceTimersByTimeAsync(5 * 60_000));
+    expect(mockTest).toHaveBeenCalledTimes(4);
+  });
+
+  it.each([
+    ["the connector descriptors", () => (mockConnectors.data = undefined)],
+    ["the role", () => (mockSessionStatus = "loading")],
+  ])("waits for %s before its arrival run", async (_, loading) => {
+    visibility = "visible";
+    mockConnections = rows(1);
+    mockTest.mockResolvedValue({ success: true });
+    loading();
+    const view = render(<ConnectionsPage />);
+    await flush();
+    expect(mockTest).not.toHaveBeenCalled();
+
+    mockConnectors.data = INSTALLED;
+    mockSessionStatus = "authenticated";
+    view.rerender(<ConnectionsPage />);
+    await flush();
+    expect(mockTest).toHaveBeenCalledExactlyOnceWith({ id: "c1", batch: true });
+  });
+
+  it("a hidden tab tests nothing until it is shown", async () => {
+    mockConnections = rows(1);
+    mockTest.mockResolvedValue({ success: true });
     render(<ConnectionsPage />);
     await flush();
     expect(mockTest).not.toHaveBeenCalled();
+
+    await showTab();
+    expect(mockTest).toHaveBeenCalledExactlyOnceWith({ id: "c1", batch: true });
+    expect(statusOf("conn-1")).toBe("connected");
+  });
+
+  it("a busy automatic run keeps each row's badge and its age, and toasts nothing", async () => {
+    visibility = "visible";
+    mockConnections = rows(2);
+    useConnectionStatusStore.getState().setStatus("c2", "error", "refused", 0);
+    mockTest.mockRejectedValue(new QueueFullError("queue full", 2000));
+    render(<ConnectionsPage />);
+    await flush();
+
+    expect(mockTest).toHaveBeenCalledTimes(2);
+    expect(statusOf("conn-1")).toBe("unknown");
+    expect(statusOf("conn-2")).toBe("error");
+    expect(useConnectionStatusStore.getState().testedAt.c2).toBe(0);
+    expect(mockToast).not.toHaveBeenCalled();
   });
 
   it("offers Test all, enabled, without being asked", () => {
