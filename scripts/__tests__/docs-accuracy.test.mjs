@@ -1298,6 +1298,7 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
     page().match(
       new RegExp('```\\w+ title="' + name + '"\\n([\\s\\S]*?)```'),
     )?.[1];
+  // Its callers set 60 s: under load tsc outlives vitest's 5 s default (#2172).
   const tsc = (args) =>
     spawnSync(process.execPath, [TSC, ...args], { encoding: "utf8" });
 
@@ -1378,7 +1379,7 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
     } finally {
       rmSync(OUT, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
   it("says `neoboard plugin add` fails exactly while Node cannot load the SDK's build", () => {
     // The CLI validates a package with a plain Node import() and uninstalls
@@ -1448,7 +1449,7 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
     } finally {
       rmSync(OUT, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
   it("states the chart-type and template gates while the code still has them", () => {
     // A connection of a registry-supplied type can be created and queried,
