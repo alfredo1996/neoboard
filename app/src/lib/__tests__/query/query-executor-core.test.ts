@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -56,6 +56,9 @@ vi.mock("@neoboard/connection", () => ({
     ERROR: 8,
   },
 }));
+
+type Executor = typeof import("@/lib/query/query-executor");
+type Callbacks = { onSuccess: (v: unknown) => void };
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -1096,6 +1099,62 @@ describe("query-executor", () => {
     expect(keys).toHaveLength(1);
     expect(keys[0]).not.toContain("sup3r-s3cret-value");
   });
+
+  // Connections with the same settings share a module: deleting one closed it
+  // under the other's running call, which then hung on the closed pool (#2171).
+  it.each<
+    [
+      string,
+      Mock,
+      (cbs: Callbacks) => unknown,
+      (m: Executor) => Promise<unknown>,
+    ]
+  >([
+    [
+      "query",
+      mockRunQuery,
+      (cbs) => cbs.onSuccess([]),
+      (m) => m.executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" }),
+    ],
+    [
+      "probe",
+      mockCheckConnection,
+      () => true,
+      (m) => m.testConnection("neo4j", neo4jCreds),
+    ],
+    [
+      "database list",
+      mockListDatabases,
+      () => [],
+      (m) => m.listDatabases("neo4j", neo4jCreds),
+    ],
+    [
+      "schema list",
+      mockListSchemas,
+      () => [],
+      (m) => m.listSchemas("neo4j", neo4jCreds),
+    ],
+  ])(
+    "closeConnection closes the module only once a running %s settles",
+    async (_, mock, answer, call) => {
+      let open = () => {};
+      const gate = new Promise<void>((resolve) => (open = resolve));
+      // Once: an implementation outlives clearAllMocks (#1630).
+      mock.mockImplementationOnce((_p: unknown, cbs: Callbacks) =>
+        gate.then(() => answer(cbs)),
+      );
+
+      const running = call(await import("@/lib/query/query-executor"));
+      await vi.waitFor(() => expect(_getCacheSize()).toBe(1));
+      closeConnection("neo4j", neo4jCreds);
+      expect(_getCacheSize()).toBe(0);
+      expect(mockClose).not.toHaveBeenCalled();
+
+      open();
+      await running;
+      expect(mockClose).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("closeConnection is a no-op for unknown keys", () => {
     closeConnection("neo4j", neo4jCreds);
