@@ -17,8 +17,9 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
  * ~85ms of badge churn per visit, on a page where nothing had changed.
  *
  * A module-level store outlives the mount, so a revisit paints the last known
- * status immediately. Nothing revalidates behind it: since #1426 a connection
- * is probed only when the user asks, and is "Not checked" until then.
+ * status immediately. Each verdict is dated (`testedAt`): since #2168 the
+ * Connections page re-tests one once it is 5 minutes old, and a revisit
+ * before then re-tests nothing.
  *
  * Deliberately NOT persisted to storage: a status is only meaningful for as
  * long as the tab has been open. Reading a "connected" badge from last week
@@ -27,10 +28,30 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
 interface ConnectionStatusStore {
   statuses: Record<string, ConnectionState>;
   errors: Record<string, string>;
+  /** When each verdict was reached, in ms (#2168). Progress is not dated. */
+  testedAt: Record<string, number>;
+  /**
+   * When the page's own run last tried each connection, verdict or not
+   * (#2168): a try the scheduler turned away waits as long as a verdict does.
+   */
+  attemptedAt: Record<string, number>;
+  /**
+   * The running "Test all" or arrival run's progress; null when none is.
+   * Here, not in the page, because the run outlives a remount (#2168).
+   */
+  run: { done: number; total: number } | null;
   getStatus: (id: string) => ConnectionState;
   getError: (id: string) => string | undefined;
-  /** Record a definite state. Clears any stored error unless one is given. */
-  setStatus: (id: string, status: ConnectionState, error?: string) => void;
+  /**
+   * Record a definite state. Clears any stored error unless one is given.
+   * A verdict is dated `at`: now, unless a restored one keeps its own.
+   */
+  setStatus: (
+    id: string,
+    status: ConnectionState,
+    error?: string,
+    at?: number,
+  ) => void;
   /**
    * What a dashboard query learned about its connection (#1678).
    *
@@ -46,6 +67,8 @@ interface ConnectionStatusStore {
    * probe to run, not a dashboard's side effect.
    */
   noteQueryOutcome: (id: string, error: unknown) => void;
+  noteAttempts: (ids: string[], at?: number) => void;
+  setRun: (run: { done: number; total: number } | null) => void;
   /** Drop a connection that no longer exists. */
   forget: (id: string) => void;
   reset: () => void;
@@ -55,11 +78,14 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
   (set, get) => ({
     statuses: {},
     errors: {},
+    testedAt: {},
+    attemptedAt: {},
+    run: null,
 
     getStatus: (id) => get().statuses[id] ?? "unknown",
     getError: (id) => get().errors[id],
 
-    setStatus: (id, status, error) =>
+    setStatus: (id, status, error, at = Date.now()) =>
       set((prev) => {
         const errors = { ...prev.errors };
         if (error === undefined) {
@@ -67,7 +93,12 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
         } else {
           errors[id] = error;
         }
-        return { statuses: { ...prev.statuses, [id]: status }, errors };
+        const verdict = status !== "connecting" && status !== "unknown";
+        return {
+          statuses: { ...prev.statuses, [id]: status },
+          errors,
+          testedAt: verdict ? { ...prev.testedAt, [id]: at } : prev.testedAt,
+        };
       }),
 
     noteQueryOutcome: (id, error) => {
@@ -83,6 +114,16 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
       }
     },
 
+    noteAttempts: (ids, at = Date.now()) =>
+      set((prev) => ({
+        attemptedAt: {
+          ...prev.attemptedAt,
+          ...Object.fromEntries(ids.map((id) => [id, at])),
+        },
+      })),
+
+    setRun: (run) => set({ run }),
+
     forget: (id) =>
       set((prev) => {
         const statuses = { ...prev.statuses };
@@ -92,7 +133,14 @@ export const useConnectionStatusStore = create<ConnectionStatusStore>(
         return { statuses, errors };
       }),
 
-    reset: () => set({ statuses: {}, errors: {} }),
+    reset: () =>
+      set({
+        statuses: {},
+        errors: {},
+        testedAt: {},
+        attemptedAt: {},
+        run: null,
+      }),
   }),
 );
 

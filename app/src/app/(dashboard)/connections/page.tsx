@@ -2,7 +2,13 @@
 
 import { DOCS_LINKS } from "@/lib/docs-links";
 import { returnFocus } from "@/lib/return-focus";
-import { useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import { useSession } from "next-auth/react";
 import { Database, Plus, RefreshCw } from "lucide-react";
 import { ConnectorIcon } from "@/components/connector-icon";
@@ -47,11 +53,15 @@ import { connectionsToProbe } from "@/lib/connector/connections-to-probe";
 import { runWindowed } from "@/lib/connector/run-windowed";
 import { ClientQueueTimeoutError, QueueFullError } from "@/lib/api/api-client";
 
-/** How many probes "Test all" keeps in flight (#1426). */
+/** How many probes "Test all", or the arrival run, keeps in flight (#1426). */
 const TEST_ALL_WINDOW = 3;
+/** How old a verdict may grow before the page tests it again (#2168). */
+const STALE_AFTER_MS = 5 * 60_000;
+// ponytail: checked each minute, so a verdict is re-tested 5 to 6 minutes on.
+const RECHECK_MS = 60_000;
 
 export default function ConnectionsPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const { toast } = useToast();
   const isAdmin = session?.user?.role === "admin";
   const { data: connections, isLoading } = useConnections();
@@ -80,11 +90,10 @@ export default function ConnectionsPage() {
   const statuses = useConnectionStatusStore((s) => s.statuses);
   const statusErrors = useConnectionStatusStore((s) => s.errors);
   const setStatus = useConnectionStatusStore((s) => s.setStatus);
-  // #1426: progress of a running "Test all"; null when none is running.
-  const [testAll, setTestAll] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
+  // #1426: progress of a running "Test all" or arrival run; null when none is.
+  // In the store: a remount mid-run must still see it (#2168).
+  const testAll = useConnectionStatusStore((s) => s.run);
+  const setRun = useConnectionStatusStore((s) => s.setRun);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   // What opened Delete (#2086) or the connection dialog (#2146): neither has a
   // Trigger. Kept after the dialog closes: Radix hands focus back after that.
@@ -104,20 +113,29 @@ export default function ConnectionsPage() {
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
 
   /**
-   * Probe one connection — only ever because the user asked (#1426): a row's
-   * Test, "Test all", or a connection they just created or edited.
+   * Probe one connection: a row's Test, "Test all", a connection just created
+   * or edited (#1426), or the arrival run and its refresh (#2168).
    *
    * Resolves "busy" when the scheduler turned the probe away (503 queue full,
    * 408 queue timeout). That probe never reached the database, so it is no
    * verdict: the row goes back to what it showed before — "Not checked" if
    * nothing — and never to "Error".
+   *
+   * `quiet` is a run nobody asked for (#2168): it shows "Connecting…" only
+   * where nothing is known, so a known badge — a live region — and its error
+   * stay put until the new verdict lands (#1544).
    */
-  async function probe(id: string, batch = false): Promise<"done" | "busy"> {
+  async function probe(
+    id: string,
+    batch = false,
+    quiet = false,
+  ): Promise<"done" | "busy"> {
     // Read from the store, not this render's snapshot: "Test all" outlives it.
     const known = useConnectionStatusStore.getState();
     const before = known.getStatus(id);
     const beforeError = known.getError(id);
-    setStatus(id, "connecting");
+    const shows = !quiet || before === "unknown";
+    if (shows) setStatus(id, "connecting");
     try {
       const result = await testConnection.mutateAsync(
         batch ? { id, batch } : { id },
@@ -132,9 +150,10 @@ export default function ConnectionsPage() {
         error instanceof QueueFullError ||
         error instanceof ClientQueueTimeoutError
       ) {
+        if (!shows) return "busy"; // the row never left what it showed
         // "connecting" is another probe's progress, not something known.
         if (before === "connecting") setStatus(id, "unknown");
-        else setStatus(id, before, beforeError);
+        else setStatus(id, before, beforeError, known.testedAt[id]);
         return "busy";
       }
       setStatus(id, "error", "Connection test failed");
@@ -162,22 +181,76 @@ export default function ConnectionsPage() {
     isInstalled(c.type),
   );
 
-  /** Three at a time, each row updating as its own result lands (#1426). */
-  async function handleTestAll() {
-    const total = probeable.length;
+  /**
+   * Three at a time, each row updating as its own result lands (#1426).
+   * Resolves how many the scheduler turned away.
+   */
+  async function runTests(
+    targets: typeof probeable,
+    quiet = false,
+  ): Promise<number> {
+    const total = targets.length;
     let busy = 0;
-    setTestAll({ done: 0, total });
+    setRun({ done: 0, total });
     await runWindowed(
-      probeable,
+      targets,
       TEST_ALL_WINDOW,
       async (c) => {
-        if ((await probe(c.id, true)) === "busy") busy++;
+        if ((await probe(c.id, true, quiet)) === "busy") busy++;
       },
-      (_c, done) => setTestAll({ done, total }),
+      (_c, done) => setRun({ done, total }),
     );
-    setTestAll(null);
+    setRun(null);
+    return busy;
+  }
+
+  async function handleTestAll() {
+    const busy = await runTests(probeable);
     if (busy > 0) toastBusy(busy);
   }
+
+  // #2168: what to test on arrival is known only once the role and the
+  // descriptors are; before that an admin's or an uninstalled row is misjudged.
+  const autoProbeable =
+    connectors && sessionStatus !== "loading" ? probeable : [];
+  const autoKey = autoProbeable.map((c) => c.id).join();
+
+  /**
+   * #2168 (owner, 2026-10-02): test what this tab never tested, or tested 5
+   * minutes ago, while it is visible. Nobody asked for this run, so a busy
+   * server goes untoasted: each row keeps what it showed, and is next tried
+   * 5 minutes on, like a verdict.
+   */
+  const autoTest = useEffectEvent(() => {
+    if (document.visibilityState !== "visible") return;
+    const {
+      statuses: live,
+      testedAt,
+      attemptedAt,
+      run,
+      noteAttempts,
+    } = useConnectionStatusStore.getState();
+    // A run, a row's Test or a save's probe is in flight: let it land.
+    if (run || autoProbeable.some((c) => live[c.id] === "connecting")) return;
+    const cutoff = Date.now() - STALE_AFTER_MS;
+    const stale = autoProbeable.filter(
+      (c) => Math.max(testedAt[c.id] ?? 0, attemptedAt[c.id] ?? 0) <= cutoff,
+    );
+    if (stale.length === 0) return;
+    noteAttempts(stale.map((c) => c.id));
+    void runTests(stale, true);
+  });
+
+  useEffect(() => {
+    const tick = () => autoTest();
+    tick();
+    const timer = setInterval(tick, RECHECK_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [autoKey]);
 
   function openDialog(
     target: ConnectionDialogTarget,
@@ -201,6 +274,66 @@ export default function ConnectionsPage() {
   // for a frame on every visit.
   function getConnectionStatus(id: string): ConnectionState {
     return statuses[id] ?? "unknown";
+  }
+
+  /** What the delete dialog says about the widgets that use the connection. */
+  function deleteDescription(): ReactNode {
+    if (deleteUsage.isLoading) {
+      return "Checking widgets that use this connection…";
+    }
+    if (deleteUsage.isError) {
+      return "Could not verify widget usage. You may proceed, but some widgets may stop working.";
+    }
+    const usage = deleteUsage.data;
+    if (!usage?.widgetCount) {
+      return "This connection is not used by any widget. It will be permanently deleted.";
+    }
+    return (
+      <div className="space-y-3">
+        <p>
+          This connection is used by{" "}
+          <strong>
+            {usage.widgetCount} widget
+            {usage.widgetCount === 1 ? "" : "s"}
+          </strong>{" "}
+          on{" "}
+          <strong>
+            {usage.dashboards.length} dashboard
+            {usage.dashboards.length === 1 ? "" : "s"}
+          </strong>
+          . Deleting it will break them:
+        </p>
+        <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-y-auto">
+          {usage.dashboards.slice(0, 10).map((d) => (
+            <li key={d.id}>
+              <span className="font-medium">{d.name}</span>{" "}
+              <span className="text-muted-foreground text-xs">
+                ({d.widgetCount} widget
+                {d.widgetCount === 1 ? "" : "s"})
+              </span>
+            </li>
+          ))}
+          {usage.dashboards.length > 10 && (
+            <li className="text-muted-foreground italic">
+              +{usage.dashboards.length - 10} more…
+            </li>
+          )}
+        </ul>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (!deleteTarget) return;
+            setReassignTarget(deleteTarget);
+            setReassignChoice("");
+            setReassignError(null);
+            setDeleteTarget(null);
+          }}
+        >
+          Re-assign widgets to another connection…
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -246,60 +379,7 @@ export default function ConnectionsPage() {
           if (!open) setDeleteTarget(null);
         }}
         title="Delete Connection"
-        description={
-          deleteUsage.isLoading ? (
-            "Checking widgets that use this connection…"
-          ) : deleteUsage.isError ? (
-            "Could not verify widget usage. You may proceed, but some widgets may stop working."
-          ) : deleteUsage.data && deleteUsage.data.widgetCount > 0 ? (
-            <div className="space-y-3">
-              <p>
-                This connection is used by{" "}
-                <strong>
-                  {deleteUsage.data.widgetCount} widget
-                  {deleteUsage.data.widgetCount === 1 ? "" : "s"}
-                </strong>{" "}
-                on{" "}
-                <strong>
-                  {deleteUsage.data.dashboards.length} dashboard
-                  {deleteUsage.data.dashboards.length === 1 ? "" : "s"}
-                </strong>
-                . Deleting it will break them:
-              </p>
-              <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-y-auto">
-                {deleteUsage.data.dashboards.slice(0, 10).map((d) => (
-                  <li key={d.id}>
-                    <span className="font-medium">{d.name}</span>{" "}
-                    <span className="text-muted-foreground text-xs">
-                      ({d.widgetCount} widget
-                      {d.widgetCount === 1 ? "" : "s"})
-                    </span>
-                  </li>
-                ))}
-                {deleteUsage.data.dashboards.length > 10 && (
-                  <li className="text-muted-foreground italic">
-                    +{deleteUsage.data.dashboards.length - 10} more…
-                  </li>
-                )}
-              </ul>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (!deleteTarget) return;
-                  setReassignTarget(deleteTarget);
-                  setReassignChoice("");
-                  setReassignError(null);
-                  setDeleteTarget(null);
-                }}
-              >
-                Re-assign widgets to another connection…
-              </Button>
-            </div>
-          ) : (
-            "This connection is not used by any widget. It will be permanently deleted."
-          )
-        }
+        description={deleteDescription()}
         confirmText={
           deleteUsage.data && deleteUsage.data.widgetCount > 0
             ? "Delete anyway"
