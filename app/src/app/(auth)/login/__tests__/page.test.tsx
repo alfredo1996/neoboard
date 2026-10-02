@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
+import { renderToString } from "react-dom/server";
 
 /* ---------- mocks ---------- */
 
@@ -92,7 +93,8 @@ vi.mock("@neoboard/components", () => ({
     loading?: boolean;
     loadingText?: string;
   }) => (
-    <button {...rest} disabled={loading}>
+    // Mirrors the real LoadingButton: `disabled || loading`.
+    <button {...rest} disabled={rest.disabled || loading}>
       {loading ? loadingText : children}
     </button>
   ),
@@ -155,14 +157,27 @@ describe("LoginPage", () => {
     expect(form?.getAttribute("data-hydrated")).toBe("true");
   });
 
-  it("keeps the submit button disabled until hydration attaches the handler (#1272)", async () => {
+  it("keeps the submit button disabled in the server HTML, before hydration attaches the handler (#1272)", async () => {
+    // The server HTML has the form since #2169, so a click before hydration
+    // runs the native GET submit, which puts the password in the URL.
+    const page = await LoginPage({ searchParams: Promise.resolve({}) });
+    const doc = new DOMParser().parseFromString(
+      renderToString(page),
+      "text/html",
+    );
+
+    expect(doc.querySelector("form")?.getAttribute("data-hydrated")).toBe(
+      "false",
+    );
+    expect(
+      doc.querySelector('button[type="submit"]')?.hasAttribute("disabled"),
+    ).toBe(true);
+  });
+
+  it("enables the submit button once hydrated (#1272)", async () => {
     await renderPage();
 
-    // After mount the effect has run, so the button is live. The guarantee
-    // this pins is that `disabled` is driven by hydration state at all —
-    // without it, a pre-hydration click leaks credentials into the URL.
-    const button = screen.getByRole("button", { name: /sign in/i });
-    expect(button).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /sign in/i })).not.toBeDisabled();
   });
 
   it("renders the NeoBoard title", async () => {
