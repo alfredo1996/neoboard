@@ -56,6 +56,10 @@ const EVICTION_INTERVAL_MS = 5 * 60 * 1000; // sweep every 5 minutes
 interface CacheEntry {
   module: unknown;
   lastAccessedAt: number;
+  /** Calls running on the module: it is never closed under one. */
+  users: number;
+  /** Out of the cache, to be closed once its last call settles. */
+  retired: boolean;
 }
 
 const moduleCache = new Map<string, CacheEntry>();
@@ -76,7 +80,7 @@ export function _evictStaleEntries() {
   const now = Date.now();
   for (const [key, entry] of moduleCache) {
     if (now - entry.lastAccessedAt > CACHE_TTL_MS) {
-      closeModuleSilently(entry.module);
+      retire(entry);
       moduleCache.delete(key);
     }
   }
@@ -84,6 +88,17 @@ export function _evictStaleEntries() {
     clearInterval(evictionTimer);
     evictionTimer = null;
   }
+}
+
+/**
+ * Close the module now, or once the last call running on it settles.
+ * Connections with the same settings share one module, so deleting one closed
+ * the driver under another's running query, which then waited on the closed
+ * pool until a timeout (#2171).
+ */
+function retire(entry: CacheEntry) {
+  entry.retired = true;
+  if (entry.users === 0) closeModuleSilently(entry.module);
 }
 
 function closeModuleSilently(mod: unknown) {
@@ -104,7 +119,7 @@ export function closeConnection(
   const key = getCacheKey(type, credentials);
   const entry = moduleCache.get(key);
   if (entry) {
-    closeModuleSilently(entry.module);
+    retire(entry);
     moduleCache.delete(key);
   }
 }
@@ -159,15 +174,15 @@ function getCacheKey(type: DbType, credentials: ConnectionCredentials): string {
   return `${type}|${digest}`;
 }
 
-async function getOrCreateModule(
+async function getOrCreateEntry(
   type: DbType,
   credentials: ConnectionCredentials,
-): Promise<unknown> {
+): Promise<CacheEntry> {
   const key = getCacheKey(type, credentials);
-  const entry = moduleCache.get(key);
-  if (entry) {
-    entry.lastAccessedAt = Date.now();
-    return entry.module;
+  const cached = moduleCache.get(key);
+  if (cached) {
+    cached.lastAccessedAt = Date.now();
+    return cached;
   }
 
   // The decrypted config passes through as ONE bag: the connector builds its
@@ -181,9 +196,31 @@ async function getOrCreateModule(
     type,
     await driverConfig(credentials),
   );
-  moduleCache.set(key, { module: connModule, lastAccessedAt: Date.now() });
+  const entry: CacheEntry = {
+    module: connModule,
+    lastAccessedAt: Date.now(),
+    users: 0,
+    retired: false,
+  };
+  moduleCache.set(key, entry);
   startEvictionTimer();
-  return connModule;
+  return entry;
+}
+
+/** Run `work` on the cached module, which stays open until `work` settles. */
+async function withModule<M, T>(
+  type: DbType,
+  credentials: ConnectionCredentials,
+  work: (module: M) => Promise<T>,
+): Promise<T> {
+  const entry = await getOrCreateEntry(type, credentials);
+  entry.users++;
+  try {
+    return await work(entry.module as M);
+  } finally {
+    entry.users--;
+    if (entry.retired) retire(entry);
+  }
 }
 
 /** Access mode as the connection library's config expects it (uppercase). */
@@ -264,6 +301,21 @@ function armDeadline(ms: number, fail: (error: ConnectorError) => void) {
   );
 }
 
+/** `work`, failed with the same TIMEOUT once `ms` pass. */
+async function withinDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        deadline = armDeadline(ms, reject);
+      }),
+    ]);
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+
 /**
  * A result longer than the cap, cut to it and marked truncated, as a
  * compliant connector reports it (#2060). The query is never touched: this
@@ -280,6 +332,14 @@ function capRows(
   }
   return { data: result, truncated: reported };
 }
+
+type QueryModule = {
+  runQuery: (
+    params: unknown,
+    callbacks: Record<string, unknown>,
+    config: unknown,
+  ) => void;
+};
 
 /**
  * Execute a query against a database connection.
@@ -328,14 +388,6 @@ export async function executeQuery(
   truncated: boolean;
   rowLimit: number;
 }> {
-  const connModule = (await getOrCreateModule(type, credentials)) as {
-    runQuery: (
-      params: unknown,
-      callbacks: Record<string, unknown>,
-      config: unknown,
-    ) => void;
-  };
-
   const maxRows = credentials.maxRows ?? DEFAULT_MAX_ROWS;
   const effectiveRowLimit = Math.min(options?.rowLimit ?? maxRows, maxRows);
 
@@ -354,52 +406,57 @@ export async function executeQuery(
 
   const deadlineMs = queryDeadlineMs(type, credentials, options?.timeout);
 
-  return new Promise((resolve, reject) => {
-    // Armed before runQuery, which may call back synchronously. Once it
-    // fires the promise has settled, so a late callback changes nothing.
-    const deadline = armDeadline(deadlineMs, reject);
-    const settle =
-      <V>(done: (value: V) => void) =>
-      (value: V) => {
-        clearTimeout(deadline);
-        done(value);
-      };
-    const succeed = settle(resolve);
-    const fail = settle(reject);
+  return withModule(
+    type,
+    credentials,
+    (connModule: QueryModule) =>
+      new Promise((resolve, reject) => {
+        // Armed before runQuery, which may call back synchronously. Once it
+        // fires the promise has settled, so a late callback changes nothing.
+        const deadline = armDeadline(deadlineMs, reject);
+        const settle =
+          <V>(done: (value: V) => void) =>
+          (value: V) => {
+            clearTimeout(deadline);
+            done(value);
+          };
+        const succeed = settle(resolve);
+        const fail = settle(reject);
 
-    // Track truncation via setStatus — both connectors call
-    // `callbacks.setStatus(COMPLETE_TRUNCATED)` when they hit the
-    // rowLimit cap. Previously this callback was unimplemented and
-    // the signal was silently dropped.
-    let truncated = false;
-    const inFlight = connModule.runQuery(
-      queryParams,
-      {
-        onSuccess: (result: unknown) =>
-          succeed({
-            ...capRows(result, effectiveRowLimit, truncated),
-            rowLimit: effectiveRowLimit,
-          }),
-        // Classified by the connector that raised it (#1903): the routes
-        // read that verdict and recognise no driver's words themselves. A
-        // no-op for the built-ins, which wrap at the point of failure; it is
-        // what makes a connector that hands over a raw error work the same.
-        onFail: (error: unknown) => fail(toConnectorError(type, error)),
-        setStatus: (status: QueryStatus) => {
-          if (status === QueryStatus.COMPLETE_TRUNCATED) {
-            truncated = true;
-          }
-        },
-      },
-      config,
-    );
-    // runQuery rejects only when the consumer's own onSuccess throws (#1642).
-    // The onSuccess above is a bare resolve() and cannot, so this is a
-    // backstop — but without it a rejection would leave this promise pending
-    // forever and pin a scheduler slot. Promise.resolve() tolerates a stub
-    // that returns nothing.
-    Promise.resolve(inFlight).catch(fail);
-  });
+        // Track truncation via setStatus — both connectors call
+        // `callbacks.setStatus(COMPLETE_TRUNCATED)` when they hit the
+        // rowLimit cap. Previously this callback was unimplemented and
+        // the signal was silently dropped.
+        let truncated = false;
+        const inFlight = connModule.runQuery(
+          queryParams,
+          {
+            onSuccess: (result: unknown) =>
+              succeed({
+                ...capRows(result, effectiveRowLimit, truncated),
+                rowLimit: effectiveRowLimit,
+              }),
+            // Classified by the connector that raised it (#1903): the routes
+            // read that verdict and recognise no driver's words themselves. A
+            // no-op for the built-ins, which wrap at the point of failure; it is
+            // what makes a connector that hands over a raw error work the same.
+            onFail: (error: unknown) => fail(toConnectorError(type, error)),
+            setStatus: (status: QueryStatus) => {
+              if (status === QueryStatus.COMPLETE_TRUNCATED) {
+                truncated = true;
+              }
+            },
+          },
+          config,
+        );
+        // runQuery rejects only when the consumer's own onSuccess throws (#1642).
+        // The onSuccess above is a bare resolve() and cannot, so this is a
+        // backstop — but without it a rejection would leave this promise pending
+        // forever and pin a scheduler slot. Promise.resolve() tolerates a stub
+        // that returns nothing.
+        Promise.resolve(inFlight).catch(fail);
+      }),
+  );
 }
 
 /**
@@ -415,53 +472,61 @@ export async function testConnection(
     ...DEFAULT_CONNECTION_CONFIG,
     database: credentials.database,
   };
-  let deadline: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    const connModule = (await getOrCreateModule(type, credentials)) as {
-      checkConnection: (config: unknown) => Promise<boolean>;
-    };
-    const deadlineMs = queryDeadlineMs(type, credentials);
-    return await Promise.race([
-      connModule.checkConnection(config),
-      new Promise<never>((_, reject) => {
-        deadline = armDeadline(deadlineMs, reject);
-      }),
-    ]);
+    return await withModule(
+      type,
+      credentials,
+      (connModule: {
+        checkConnection: (config: unknown) => Promise<boolean>;
+      }) =>
+        withinDeadline(
+          connModule.checkConnection(config),
+          queryDeadlineMs(type, credentials),
+        ),
+    );
   } catch (error) {
     // Building the module is inside the try: a connector rejects a bad URI in
     // its constructor, and the Test result has to say so (#1903).
     throw toConnectorError(type, error);
-  } finally {
-    clearTimeout(deadline);
   }
 }
 
 /**
- * List available databases on the connection server.
- * Returns an empty array if the operation is unsupported or fails.
+ * List available databases on the connection server. Bounded by the query
+ * deadline like the probe: a list that never settled would hold a deleted
+ * connection's driver open for good (#2171).
  */
 export async function listDatabases(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<string[]> {
-  const connModule = (await getOrCreateModule(type, credentials)) as {
-    listDatabases: () => Promise<string[]>;
-  };
-  return connModule.listDatabases();
+  return withModule(
+    type,
+    credentials,
+    (connModule: { listDatabases: () => Promise<string[]> }) =>
+      withinDeadline(
+        connModule.listDatabases(),
+        queryDeadlineMs(type, credentials),
+      ),
+  );
 }
 
 /**
- * List available schemas in the current database.
- * Returns an empty array if the connector does not support it or it fails.
+ * List available schemas in the current database, under the same deadline.
+ * Returns an empty array if the connector does not support it.
  */
 export async function listSchemas(
   type: DbType,
   credentials: ConnectionCredentials,
 ): Promise<string[]> {
-  const connModule = (await getOrCreateModule(type, credentials)) as {
-    listSchemas?: () => Promise<string[]>;
-  };
-  if (typeof connModule.listSchemas !== "function") return [];
-  return connModule.listSchemas();
+  return withModule(
+    type,
+    credentials,
+    (connModule: { listSchemas?: () => Promise<string[]> }) =>
+      withinDeadline(
+        Promise.resolve(connModule.listSchemas?.() ?? []),
+        queryDeadlineMs(type, credentials),
+      ),
+  );
 }
