@@ -1156,6 +1156,33 @@ describe("query-executor", () => {
     },
   );
 
+  // The idle sweep retires through the same path: an entry idle past the TTL
+  // can still have a long call running on it (#2171).
+  it("_evictStaleEntries closes the module only once a running query settles", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const baseTime = Date.now();
+      let open = () => {};
+      const gate = new Promise<void>((resolve) => (open = resolve));
+      mockRunQuery.mockImplementationOnce((_p: unknown, cbs: Callbacks) =>
+        gate.then(() => cbs.onSuccess([])),
+      );
+
+      const running = executeQuery("neo4j", neo4jCreds, { query: "RETURN 1" });
+      await vi.waitFor(() => expect(mockRunQuery).toHaveBeenCalled());
+      vi.setSystemTime(baseTime + 31 * 60 * 1000);
+      _evictStaleEntries();
+      expect(_getCacheSize()).toBe(0);
+      expect(mockClose).not.toHaveBeenCalled();
+
+      open();
+      await running;
+      expect(mockClose).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("closeConnection is a no-op for unknown keys", () => {
     closeConnection("neo4j", neo4jCreds);
     expect(_getCacheSize()).toBe(0);

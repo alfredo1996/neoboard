@@ -15,6 +15,8 @@ import {
 import {
   closeAllConnections,
   executeQuery,
+  listDatabases,
+  listSchemas,
   QUERY_DEADLINE_GRACE_MS,
   testConnection,
 } from "@/lib/query/query-executor";
@@ -45,6 +47,7 @@ describe("executeQuery backstops a connector that breaks its contract (#2060)", 
     registerConnector(scriptedConnector);
     scripted.script = () => {};
     scripted.check = async () => true;
+    scripted.list = async () => [];
   });
 
   afterEach(async () => {
@@ -307,6 +310,46 @@ describe("executeQuery backstops a connector that breaks its contract (#2060)", 
         });
         expect(vi.getTimerCount()).toBe(0);
       });
+    });
+
+    describe("the database and schema lists", () => {
+      const lists = [
+        { name: "listDatabases", list: listDatabases },
+        { name: "listSchemas", list: listSchemas },
+      ];
+
+      // A deleted connection's driver is closed once its last call settles
+      // (#2171), so a list that never settles would hold it open for good.
+      it.each(lists)(
+        "$name rejects with a TIMEOUT when the connector never answers",
+        async ({ list }) => {
+          const listed = new Promise<void>((called) => {
+            scripted.list = () => {
+              called();
+              return new Promise(() => {});
+            };
+          });
+          const state = outcome(list(SCRIPTED_TYPE, {}));
+          await listed;
+
+          await vi.advanceTimersByTimeAsync(DEFAULT_DEADLINE - 1);
+          expect(state.settled).toBe(false);
+
+          await vi.advanceTimersByTimeAsync(1);
+          expect(state.error).toMatchObject({ type: "TIMEOUT" });
+          expect(vi.getTimerCount()).toBe(0);
+        },
+      );
+
+      it.each(lists)(
+        "$name answers as the connector did and clears its deadline",
+        async ({ list }) => {
+          scripted.list = async () => ["movies"];
+
+          await expect(list(SCRIPTED_TYPE, {})).resolves.toEqual(["movies"]);
+          expect(vi.getTimerCount()).toBe(0);
+        },
+      );
     });
   });
 });

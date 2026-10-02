@@ -301,6 +301,21 @@ function armDeadline(ms: number, fail: (error: ConnectorError) => void) {
   );
 }
 
+/** `work`, failed with the same TIMEOUT once `ms` pass. */
+async function withinDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        deadline = armDeadline(ms, reject);
+      }),
+    ]);
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+
 /**
  * A result longer than the cap, cut to it and marked truncated, as a
  * compliant connector reports it (#2060). The query is never touched: this
@@ -457,35 +472,30 @@ export async function testConnection(
     ...DEFAULT_CONNECTION_CONFIG,
     database: credentials.database,
   };
-  let deadline: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    const deadlineMs = queryDeadlineMs(type, credentials);
     return await withModule(
       type,
       credentials,
       (connModule: {
         checkConnection: (config: unknown) => Promise<boolean>;
       }) =>
-        Promise.race([
+        withinDeadline(
           connModule.checkConnection(config),
-          new Promise<never>((_, reject) => {
-            deadline = armDeadline(deadlineMs, reject);
-          }),
-        ]),
+          queryDeadlineMs(type, credentials),
+        ),
     );
   } catch (error) {
     // Building the module is inside the try: a connector rejects a bad URI in
     // its constructor, and the Test result has to say so (#1903).
     throw toConnectorError(type, error);
-  } finally {
-    clearTimeout(deadline);
   }
 }
 
 /**
- * List available databases on the connection server.
- * Returns an empty array if the operation is unsupported or fails.
+ * List available databases on the connection server. Bounded by the query
+ * deadline like the probe: a list that never settled would hold a deleted
+ * connection's driver open for good (#2171).
  */
 export async function listDatabases(
   type: DbType,
@@ -495,13 +505,16 @@ export async function listDatabases(
     type,
     credentials,
     (connModule: { listDatabases: () => Promise<string[]> }) =>
-      connModule.listDatabases(),
+      withinDeadline(
+        connModule.listDatabases(),
+        queryDeadlineMs(type, credentials),
+      ),
   );
 }
 
 /**
- * List available schemas in the current database.
- * Returns an empty array if the connector does not support it or it fails.
+ * List available schemas in the current database, under the same deadline.
+ * Returns an empty array if the connector does not support it.
  */
 export async function listSchemas(
   type: DbType,
@@ -510,7 +523,10 @@ export async function listSchemas(
   return withModule(
     type,
     credentials,
-    async (connModule: { listSchemas?: () => Promise<string[]> }) =>
-      connModule.listSchemas?.() ?? [],
+    (connModule: { listSchemas?: () => Promise<string[]> }) =>
+      withinDeadline(
+        Promise.resolve(connModule.listSchemas?.() ?? []),
+        queryDeadlineMs(type, credentials),
+      ),
   );
 }
