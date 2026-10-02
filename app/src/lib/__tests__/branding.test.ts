@@ -19,7 +19,7 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const CONSUMERS = [
   "app/layout.tsx",
-  "app/(auth)/login/page.tsx",
+  "app/(auth)/login/login-form.tsx",
   "app/(auth)/signup/page.tsx",
   "app/(dashboard)/page.tsx",
   "lib/api/openapi-spec.ts",

@@ -5,7 +5,7 @@ import { RateLimiter } from "@/lib/crypto/rate-limiter";
  * Per-IP rate limit for public, unauthenticated `/api/auth/*` routes (#819).
  * These hit the DB on every call with no auth, so they're trivially
  * floodable for CPU exhaustion. 60 req/min/IP is generous for legitimate
- * use (bootstrap-status renders once per login-page load) while capping
+ * use (bootstrap-status renders once per signup-page load) while capping
  * abuse. In-memory — sufficient for the single-instance v1 target.
  */
 const isTest = process.env.NODE_ENV === "test" || process.env.CI === "true";

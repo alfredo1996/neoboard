@@ -11,6 +11,7 @@ import { signupRateLimiter } from "@/lib/crypto/rate-limiter";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 import { emailSchema } from "@/lib/auth/email-schema";
 import { resolveTenantId } from "@/lib/auth/tenant-id";
+import { isRegistrationEnabled } from "@/lib/auth/registration";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -51,9 +52,8 @@ export async function signup(formData: FormData): Promise<SignupResult> {
   const { name, email, password } = parsed.data;
 
   // Allow bootstrap (first admin) even when registration is disabled.
-  // Closed by default — operators must explicitly set REGISTRATION_ENABLED=true.
   const isEmpty = await areUsersEmpty();
-  if (!isEmpty && process.env.REGISTRATION_ENABLED?.toLowerCase() !== "true") {
+  if (!isEmpty && !isRegistrationEnabled()) {
     return { success: false, error: "Registration is currently disabled." };
   }
   let role: "admin" | "creator" = "creator";

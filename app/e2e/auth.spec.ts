@@ -7,6 +7,20 @@ test.describe("Authentication", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
+  test("the server HTML of /login is the final layout (#2169)", async ({
+    request,
+  }) => {
+    const html = await (await request.get("/login")).text();
+    expect(html).toContain('name="email"');
+    expect(html).not.toContain("BAILOUT_TO_CLIENT_SIDE_RENDERING");
+    // global-setup opens registration, so the server renders the footer.
+    expect(html).toContain('href="/signup"');
+    // Before hydration a click runs the native GET submit, password in the
+    // URL, so the server HTML must ship the submit button disabled (#1272).
+    expect(html).toContain('data-hydrated="false"');
+    expect(html).toMatch(/<button[^>]*\sdisabled=""[^>]*>Sign in<\/button>/);
+  });
+
   test("should log in with existing account", async ({ authPage, page }) => {
     await authPage.login(ALICE.email, ALICE.password);
     await expect(page).toHaveURL("/");
