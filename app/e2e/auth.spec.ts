@@ -67,16 +67,33 @@ test.describe("Authentication", () => {
     await authPage.login(ALICE.email, ALICE.password);
     await expect(page).toHaveURL("/");
 
-    // Simulate session expiry
+    // Simulate session expiry. Not "/", which is also the fallback (#2170).
     await context.clearCookies();
-    await page.goto("/");
-    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+    await page.goto("/users");
+    await expect(page).toHaveURL(/\/login\?callbackUrl=%2Fusers/, {
+      timeout: 10_000,
+    });
 
-    // Re-login — should land back on / via callbackUrl
+    // Re-login — should land back on /users via callbackUrl
     await page.getByLabel("Email").fill(ALICE.email);
     await page.getByLabel("Password").fill(ALICE.password);
     await page.getByRole("button", { name: "Sign in" }).click();
 
+    await expect(page).toHaveURL("/users", { timeout: 15_000 });
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Users" }),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("an off-site callbackUrl lands on / on the app's origin (#2170)", async ({
+    page,
+  }) => {
+    await page.goto("/login?callbackUrl=https%3A%2F%2Fexample.com%2F");
+    await page.getByLabel("Email").fill(ALICE.email);
+    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    // A string URL resolves against baseURL, so this pins the origin too.
     await expect(page).toHaveURL("/", { timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
       timeout: 10_000,
