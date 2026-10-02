@@ -1,4 +1,5 @@
 import { isRegistrationEnabled } from "@/lib/auth/registration";
+import { safeCallbackPath } from "@/lib/auth/callback-path";
 import { LoginForm } from "./login-form";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -13,7 +14,7 @@ export default async function LoginPage({
   const params = await searchParams;
   return (
     <LoginForm
-      callbackUrl={first(params.callbackUrl) ?? "/"}
+      callbackUrl={safeCallbackPath(first(params.callbackUrl))}
       passwordChanged={first(params.passwordChanged) === "1"}
       registrationEnabled={isRegistrationEnabled()}
     />
