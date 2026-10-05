@@ -32,6 +32,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   neo4j:
     image: neo4j:5.26-community
@@ -52,6 +53,7 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
+    restart: unless-stopped
 
   neoboard:
     build:
