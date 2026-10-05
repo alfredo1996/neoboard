@@ -154,8 +154,8 @@ describe("every agent runs on the model it declares (#2180)", () => {
       .split(/^---\r?$/m)[1]
       .match(/^model:\s*(\S+)\s*$/m)?.[1];
 
-  it.each(agents)("%s declares a model", (file) => {
-    expect(modelOf(file)).toBeTruthy();
+  it.each(agents)("%s declares a model, not inherit", (file) => {
+    expect(["sonnet", "opus", "haiku"]).toContain(modelOf(file));
   });
 
   it.each([

@@ -70,7 +70,7 @@ Rules:
 **Agents and models (#2180):**
 
 - Delegate an issue's implementation to the `implementer` agent (Sonnet) and its pre-merge review to `adversarial-reviewer` (Opus). Every other agent runs on the model its frontmatter declares, and anything that names none defaults to Sonnet (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`).
-- A Workflow `agent()` call always passes `agentType` or `model`; left out, it inherits the main session's model.
+- A Workflow `agent()` call always passes `agentType` or `model`, so no stage runs on whatever default happens to apply; review stages pass `agentType: 'adversarial-reviewer'`.
 
 **Requirements drill (mandatory before new work):**
 
