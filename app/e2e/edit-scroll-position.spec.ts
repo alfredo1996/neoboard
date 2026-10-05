@@ -1,11 +1,11 @@
 import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
-// Entering edit mode must preserve the scroll position (#1163) and must not
-// remount the widget tree (#1370). View and edit are separate route segments
+// Entering edit mode must keep the content where it was on screen (#1163) and
+// must not remount the widget tree (#1370). View and edit are separate route segments
 // under a shared [id] layout that owns the dashboard UI, so toggling the mode
 // re-renders only the (empty) page slot — the same DOM nodes stay put.
 test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
-  test("toggling edit mode keeps the <main> scroll position and the same DOM nodes", async ({
+  test("toggling edit mode keeps a widget where it was on screen and the same DOM nodes", async ({
     authPage,
     page,
   }) => {
@@ -14,7 +14,7 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
 
     const { id, cleanup } = await createTestDashboard(
       page.request,
-      `Scroll ${uid()}`,
+      `Scroll position dashboard with a deliberately long name ${uid()}`,
     );
     try {
       // Build a tall page: many stacked markdown widgets so the content
@@ -36,18 +36,16 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
         });
         gridLayout.push({ i: `w${i}`, x: 0, y: i * 5, w: 12, h: 5 });
       }
+      // The name is long on purpose: in view mode the toolbar's "updated ...
+      // by ..." line then always wraps to a second row, the edit toolbar
+      // stays one row, and the header changes height on every toggle. Chromium
+      // scroll anchoring compensates by moving scrollTop, so scrollTop is not
+      // the invariant. The on-screen position of a widget is.
       await page.request.put(`/api/dashboards/${id}`, {
         data: {
           layoutJson: {
             version: 2,
-            pages: [
-              { id: "p1", title: "Main", widgets, gridLayout },
-              // A second page so PageTabs renders in BOTH modes. Without it,
-              // the tab strip appears only in edit mode and the ~36px it adds
-              // above the viewport lets scroll anchoring nudge scrollTop,
-              // which would make an exact assertion flaky for the wrong reason.
-              { id: "p2", title: "Spare", widgets: [], gridLayout: [] },
-            ],
+            pages: [{ id: "p1", title: "Main", widgets, gridLayout }],
           },
         },
       });
@@ -65,6 +63,12 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
         .first()
         .evaluate((el) => el.setAttribute("data-survivor", "1"));
 
+      const cardTop = () =>
+        page
+          .locator('[data-testid="widget-card"]')
+          .first()
+          .evaluate((el) => el.getBoundingClientRect().top);
+
       // Scroll the <main> container down.
       const before = await page.evaluate(() => {
         const m = document.querySelector("main");
@@ -73,6 +77,7 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
         return m.scrollTop;
       });
       expect(before).toBeGreaterThan(200);
+      const topBefore = await cardTop();
 
       // ── Enter edit mode via the keyboard shortcut ──────────────────
       await page.keyboard.press("Meta+e");
@@ -80,12 +85,10 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
       await page.waitForLoadState("networkidle");
       await page.waitForTimeout(600);
 
-      const after = await page.evaluate(
-        () => document.querySelector("main")?.scrollTop ?? -1,
-      );
+      const topAfter = await cardTop();
       expect(
-        Math.abs(after - before),
-        `scroll moved ${before} -> ${after}`,
+        Math.abs(topAfter - topBefore),
+        `widget moved on screen ${topBefore} -> ${topAfter}`,
       ).toBeLessThanOrEqual(2);
       await expect(page.locator('[data-survivor="1"]')).toHaveCount(1);
 
@@ -97,12 +100,10 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
       await page.waitForLoadState("networkidle");
       await page.waitForTimeout(600);
 
-      const back = await page.evaluate(
-        () => document.querySelector("main")?.scrollTop ?? -1,
-      );
+      const topBack = await cardTop();
       expect(
-        Math.abs(back - before),
-        `scroll moved on exit ${before} -> ${back}`,
+        Math.abs(topBack - topBefore),
+        `widget moved on screen on exit ${topBefore} -> ${topBack}`,
       ).toBeLessThanOrEqual(2);
       await expect(page.locator('[data-survivor="1"]')).toHaveCount(1);
     } finally {
