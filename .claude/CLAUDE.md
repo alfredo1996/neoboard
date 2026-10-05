@@ -67,6 +67,11 @@ Rules:
 - Use `npm`, not `pnpm` or `yarn`.
 - Topic rules live in `.claude/rules/` and load when you open a matching file: testing boundaries for tests, chart rules for charts.
 
+**Agents and models (#2180):**
+
+- Delegate an issue's implementation to the `implementer` agent (Sonnet) and its pre-merge review to `adversarial-reviewer` (Opus). Every other agent runs on the model its frontmatter declares, and anything that names none defaults to Sonnet (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`).
+- A Workflow `agent()` call always passes `agentType` or `model`, so no stage runs on whatever default happens to apply; review stages pass `agentType: 'adversarial-reviewer'`.
+
 **Requirements drill (mandatory before new work):**
 
 - Before creating a branch or starting implementation on any issue, run `/drill <issue-number>`.

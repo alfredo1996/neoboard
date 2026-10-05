@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -129,10 +129,44 @@ describe("agents that never apply CLAUDE.md skip loading it (#1862)", () => {
     expect(frontmatter(agent)).toMatch(/^omitClaudeMd:\s*true\s*$/m);
   });
 
-  it.each(["code-reviewer", "project-architect", "design-reviewer"])(
+  it.each([
+    "code-reviewer",
+    "project-architect",
+    "design-reviewer",
+    "implementer",
+    "adversarial-reviewer",
+  ])(
     "%s keeps CLAUDE.md, since it judges work against the project rules",
     (agent) => {
       expect(frontmatter(agent)).not.toMatch(/omitClaudeMd/);
     },
   );
+});
+
+describe("every agent runs on the model it declares (#2180)", () => {
+  // An agent without `model:` inherited the main session's model: a week of
+  // backlog work ran every subagent on Opus while the definitions said Sonnet.
+  const agents = readdirSync(join(ROOT, ".claude/agents")).filter((f) =>
+    f.endsWith(".md"),
+  );
+  const modelOf = (file) =>
+    read(`.claude/agents/${file}`)
+      .split(/^---\r?$/m)[1]
+      .match(/^model:\s*(\S+)\s*$/m)?.[1];
+
+  it.each(agents)("%s declares a model, not inherit", (file) => {
+    expect(["sonnet", "opus", "haiku"]).toContain(modelOf(file));
+  });
+
+  it.each([
+    ["implementer.md", "sonnet"],
+    ["adversarial-reviewer.md", "opus"],
+  ])("%s runs on %s", (file, model) => {
+    expect(modelOf(file)).toBe(model);
+  });
+
+  it("anything that names no model defaults to sonnet, not the main model", () => {
+    const { env } = JSON.parse(read(".claude/settings.json"));
+    expect(env?.CLAUDE_CODE_SUBAGENT_MODEL).toBe("sonnet");
+  });
 });
