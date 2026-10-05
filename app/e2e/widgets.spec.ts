@@ -616,14 +616,20 @@ test.describe("Edit Widget on an API-written layout (#1952)", () => {
       });
       const dialog = await openEditor(page);
       await expect(dialog).toBeVisible({ timeout: 10_000 });
-      // Radix re-arms the dialog's outside-pointerdown listener in a
-      // setTimeout(0) when the card menu's layer unmounts, a few ms after
-      // the dialog is visible (7 ms measured; ~130 ms at 10x CPU throttle,
-      // where an immediate click was dropped in 14 of 20 runs, #2185). No
-      // person clicks inside that window, so wait for the menu to be gone
-      // and for one timer turn, which runs after Radix's earlier timer.
-      await expect(page.getByRole("menu")).toHaveCount(0);
-      await page.evaluate(() => new Promise<void>((r) => setTimeout(r, 0)));
+      // Once the dialog's layer registers above the closing card menu, its
+      // pointer-events go from none to auto and Radix removes and re-adds the
+      // outside-pointerdown listener in a setTimeout(0). The dialog is visible
+      // before that: 7 ms later at 1x, ~130 ms at 10x CPU throttle, where an
+      // immediate click was dropped in 14 of 30 runs (#2185). No person clicks
+      // inside that window. Wait for the style, then one frame and one timer
+      // turn so React's effect and Radix's timer have run.
+      await expect(dialog).toHaveCSS("pointer-events", "auto");
+      await page.evaluate(
+        () =>
+          new Promise<void>((r) =>
+            requestAnimationFrame(() => setTimeout(r, 0)),
+          ),
+      );
       // The overlay, top-left: the dialog is centred and narrower.
       await page.mouse.click(5, 5);
       await expect(dialog).not.toBeVisible({ timeout: 5_000 });
