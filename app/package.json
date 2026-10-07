@@ -54,9 +54,6 @@
     "zod": "^4.4.2",
     "zustand": "^5.0.15"
   },
-  "optionalDependencies": {
-    "@neoboard/enterprise": "^1.1.0"
-  },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@testcontainers/postgresql": "^12.1.0",
