@@ -83,7 +83,7 @@ The repository does not ship a Keycloak compose file. Point `OIDC_ISSUER` at an 
 
 ## Version pin
 
-`app/package.json` declares no dependency on `@neoboard/enterprise`. The package is private and is linked from the sibling repo with `scripts/setup-enterprise.sh` (`npm link`), so a declared dependency would only make every `npm install` look it up on the public registry, where the name is unclaimed. A guard test (`scripts/__tests__/workspace-deps.test.mjs`) fails if any manifest depends on an `@neoboard/*` package that is not a workspace.
+`app/package.json` declares no dependency on `@neoboard/enterprise`. The package is private and is linked from the sibling repo with `scripts/setup-enterprise.sh` (`npm link`), so a declared dependency would only make every `npm install` look it up on the public registry, where the name is unclaimed. A guard test (`scripts/__tests__/lockfile-workspace-links.test.mjs`) fails if the lockfile resolves any package under our own scope to anything but a workspace link. A later `npm install` or `npm ci` removes the linked package as extraneous, so re-run `scripts/setup-enterprise.sh` after either.
 
 When the enterprise package cuts a major release, check that the public app still loads it; there is no version pin to bump.
 
