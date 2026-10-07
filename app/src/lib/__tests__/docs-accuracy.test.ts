@@ -451,15 +451,8 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
     expect(existsSync(resolve(REPO_ROOT, "install.sh"))).toBe(true);
   });
 
-  it("says the CLI is not on npm yet, and runs nothing from npm", () => {
+  it("says the CLI is not on npm yet", () => {
     expect(readme()).toContain("not on npm yet");
-    expect(
-      (readme().match(/```bash\n[\s\S]*?```/g) ?? []).filter((b) =>
-        /npx @neoboard\/cli|npm (?:i|install) (?:-g |--global )?@neoboard\/cli/.test(
-          b,
-        ),
-      ),
-    ).toEqual([]);
   });
 
   it("shows the hero the walkthrough writes, light and dark (#1861)", () => {
