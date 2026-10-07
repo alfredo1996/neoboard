@@ -2222,3 +2222,45 @@ describe("the repo's own markdown and config comments (#1871)", () => {
     expect(broken).toEqual([]);
   });
 });
+
+describe("no doc tells anyone to install an unpublished @neoboard package (#2191)", () => {
+  // Every install verb, with any flags or other packages before the name.
+  // `import ... from "@neoboard/..."` has no verb and stays legal.
+  const INSTALL =
+    /(npx|npm (i|install|add|exec)|yarn (add|dlx)|pnpm (add|dlx|i|install)|bunx|bun add)\b[^`\n]*@neoboard\//;
+
+  it.each([
+    "npx @neoboard/cli setup",
+    "npx -y @neoboard/cli",
+    "npm install -g @neoboard/cli",
+    "npm i -D @neoboard/connector-sdk",
+    "npm install --save-dev @neoboard/connector-sdk",
+    "npm install typescript @neoboard/connector-sdk",
+    "npm exec @neoboard/cli",
+    "yarn add @neoboard/cli",
+    "pnpm add @neoboard/cli",
+    "pnpm dlx @neoboard/cli",
+    "bunx @neoboard/cli",
+  ])("catches %s", (line) => {
+    expect(INSTALL.test(line)).toBe(true);
+  });
+
+  it("lets an import through", () => {
+    expect(INSTALL.test('} from "@neoboard/connector-sdk";')).toBe(false);
+  });
+
+  it("finds none in a tracked Markdown or MDX file", () => {
+    // The changelog records what was once true.
+    const files = execFileSync("git", ["ls-files", "*.md", "*.mdx"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    })
+      .split("\n")
+      .filter((f) => f && f !== "CHANGELOG.md" && existsSync(join(ROOT, f)));
+    expect(files).toContain("cli/README.md"); // the walk reaches it
+    expect(files).toContain("README.md");
+    expect(
+      files.filter((f) => INSTALL.test(readFileSync(join(ROOT, f), "utf8"))),
+    ).toEqual([]);
+  });
+});
