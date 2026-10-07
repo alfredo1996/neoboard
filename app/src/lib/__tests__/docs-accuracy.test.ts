@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -460,6 +461,25 @@ describe("README.md works verbatim for a first-time reader (#1217)", () => {
         ),
       ),
     ).toEqual([]);
+  });
+
+  it("no tracked Markdown or MDX file tells anyone to install an @neoboard package (#2191)", () => {
+    const files = execFileSync("git", ["ls-files", "*.md", "*.mdx"], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+    })
+      .split("\n")
+      // the changelog records what was once true
+      .filter(
+        (f) => f && f !== "CHANGELOG.md" && existsSync(resolve(REPO_ROOT, f)),
+      );
+    const offenders = files.filter((f) =>
+      /npx @neoboard\/|npm (?:i|install) (?:-g |--global )?@neoboard\//.test(
+        readDoc(f),
+      ),
+    );
+    expect(files).toContain("cli/README.md"); // the walk reaches it
+    expect(offenders).toEqual([]);
   });
 
   it("shows the hero the walkthrough writes, light and dark (#1861)", () => {

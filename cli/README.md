@@ -4,16 +4,13 @@ Install, run, and manage [NeoBoard](https://github.com/alfredo1996/neoboard) —
 
 ## Install
 
-```bash
-npx @neoboard/cli setup       # one-time: init + docker up + migrate
-npx @neoboard/cli demo        # optional: seed showcase dashboards
-# → http://localhost:3000
-```
-
-Or install globally:
+The CLI is not on npm yet, so install from a clone. `install.sh` bootstraps the bundled CLI, starts the databases, and runs migrations:
 
 ```bash
-npm install -g @neoboard/cli
+git clone https://github.com/alfredo1996/neoboard.git
+cd neoboard
+bash install.sh               # → http://localhost:3000
+neoboard demo                 # optional: seed showcase dashboards
 neoboard --help
 ```
 

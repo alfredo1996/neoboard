@@ -566,7 +566,10 @@ describe("the site's chart counts match the registry (#1687, #1782)", () => {
       page("start-here/what-is-neoboard.mdx"),
     );
     expect(m).not.toBeNull(); // the list still has this shape
-    const DISPLAY_TO_TYPE = { "graph-visualization": "graph", "json-viewer": "json" };
+    const DISPLAY_TO_TYPE = {
+      "graph-visualization": "graph",
+      "json-viewer": "json",
+    };
     const listed = m[2]
       .split(/,\s*(?:and\s+)?/)
       .map((name) => name.trim().toLowerCase().replace(/\s+/g, "-"))
@@ -620,33 +623,32 @@ describe("the documented parameter types are the ones the editor offers (#1782)"
     "using/parameters.mdx",
     "charts/param-select.mdx",
     "using/widgets.mdx",
-  ])(
-    "%s lists exactly those types",
-    (p) => {
-      // widgets.mdx titles its section "Parameter Widgets" and its column
-      // "Parameter type", so match either heading and skip the header rows.
-      const table =
-        doc(p).split(/\n## Parameter (?:Types|Widgets)\n/)[1]?.split("\n## ")[0] ??
-        "";
-      const DISPLAY_TO_TYPE = {
-        freetext: "text",
-        "relative-date": "date-relative",
-      };
-      const types = [...table.matchAll(/^\| ([^|]+?)\s+\|/gm)]
-        .slice(1) // the header; `|----|` has no space, so it never matches
-        .map((m) => m[1])
-        .map((cell) => cell.toLowerCase().replace(/\s+/g, "-"))
-        .map((s) => DISPLAY_TO_TYPE[s] ?? s);
-      expect([...types].sort()).toEqual([...offered].sort());
-    },
-  );
+  ])("%s lists exactly those types", (p) => {
+    // widgets.mdx titles its section "Parameter Widgets" and its column
+    // "Parameter type", so match either heading and skip the header rows.
+    const table =
+      doc(p)
+        .split(/\n## Parameter (?:Types|Widgets)\n/)[1]
+        ?.split("\n## ")[0] ?? "";
+    const DISPLAY_TO_TYPE = {
+      freetext: "text",
+      "relative-date": "date-relative",
+    };
+    const types = [...table.matchAll(/^\| ([^|]+?)\s+\|/gm)]
+      .slice(1) // the header; `|----|` has no space, so it never matches
+      .map((m) => m[1])
+      .map((cell) => cell.toLowerCase().replace(/\s+/g, "-"))
+      .map((s) => DISPLAY_TO_TYPE[s] ?? s);
+    expect([...types].sort()).toEqual([...offered].sort());
+  });
 
   it("the contributor guide shows the ParameterType union the store declares", () => {
-    const union = (text) => [
-      ...(/type ParameterType =([^;]+);/.exec(text)?.[1] ?? "").matchAll(
-        /"([\w-]+)"/g,
-      ),
-    ].map((m) => m[1]);
+    const union = (text) =>
+      [
+        ...(/type ParameterType =([^;]+);/.exec(text)?.[1] ?? "").matchAll(
+          /"([\w-]+)"/g,
+        ),
+      ].map((m) => m[1]);
     const store = union(src("app/src/stores/parameter-store.ts"));
     expect(store.length).toBeGreaterThan(0);
     expect(
@@ -828,12 +830,11 @@ describe("the seven-group information architecture (#1681)", () => {
     // domain. The app's "Read the docs", "Widget guide" and "Learn about
     // Enterprise" links and the SDK README's home link all pointed at
     // neoboard.app, which serves none of it. Test fixtures may still spell it.
-    const stale = gitGrep("neoboard\\.app[A-Za-z0-9_./-]*", [
-      ".",
-      ":(exclude)*/__tests__/*",
-    ], { ignoreCase: true }).map(
-      ({ path, line, match }) => `${match} (${path}:${line})`,
-    );
+    const stale = gitGrep(
+      "neoboard\\.app[A-Za-z0-9_./-]*",
+      [".", ":(exclude)*/__tests__/*"],
+      { ignoreCase: true },
+    ).map(({ path, line, match }) => `${match} (${path}:${line})`);
     expect(stale).toEqual([]);
     // ...and the links that replaced them are on the Pages host the landing
     // check above resolves, owner derived from the compose image.
@@ -1339,6 +1340,21 @@ describe("the connector-author page compiles against the SDK (#1697)", () => {
     expect(outside).toEqual([]);
   });
 
+  it("never makes npm fetch the unpublished SDK from the registry (#2191)", () => {
+    const pkg = JSON.parse(titled("package.json"));
+    const registry = ["dependencies", "peerDependencies"].flatMap((field) =>
+      Object.entries(pkg[field] ?? {})
+        .filter(
+          ([name, spec]) =>
+            name.startsWith("@neoboard/") && !/^(file|link):/.test(spec),
+        )
+        .map(([name, spec]) => `${field}.${name}: ${spec}`),
+    );
+    expect(registry).toEqual([]);
+    // the SDK is still reachable, from the checkout
+    expect(pkg.devDependencies[SDK]).toMatch(/^file:/);
+  });
+
   it("typechecks the blocks with the page's own package.json and tsconfig.json", () => {
     // Compiled the way Node loads the package: the page's "type": "module"
     // and NodeNext settings, where an extensionless relative import is
@@ -1532,11 +1548,31 @@ describe("the external-connector docs match the 1.6.1 code (#2069)", () => {
   });
 
   it.each([
-    ["docs/src/content/docs/extend/new-connector-plugin.mdx", /schema panel|highlighting of its saved templates|`instanceof`/, "only cypher and sql complete; CodePreview prints the name; errors match by name"],
-    ["docs/src/content/docs/deploy/air-gapped.mdx", /connector plugins are resolved at \*\*build time\*\* from `neoboard-plugins\.json` and/, "connectors come from neoboard-connectors.json"],
-    ["CHANGELOG.md", /not wired into the API routes yet|`\.\/connector-types` stays|query highlighting of saved templates/, "connection-config.ts validates; #1900 deleted connector-types"],
-    ["PLUGINS.md", /\| Neo4j, PostgreSQL \|/, "charts are offered by capability (getCompatibleChartTypes)"],
-    ["connection/README.md", /connector-types\.ts|External connector\s+plugins register here/, "external connectors come from the manifest"],
+    [
+      "docs/src/content/docs/extend/new-connector-plugin.mdx",
+      /schema panel|highlighting of its saved templates|`instanceof`/,
+      "only cypher and sql complete; CodePreview prints the name; errors match by name",
+    ],
+    [
+      "docs/src/content/docs/deploy/air-gapped.mdx",
+      /connector plugins are resolved at \*\*build time\*\* from `neoboard-plugins\.json` and/,
+      "connectors come from neoboard-connectors.json",
+    ],
+    [
+      "CHANGELOG.md",
+      /not wired into the API routes yet|`\.\/connector-types` stays|query highlighting of saved templates/,
+      "connection-config.ts validates; #1900 deleted connector-types",
+    ],
+    [
+      "PLUGINS.md",
+      /\| Neo4j, PostgreSQL \|/,
+      "charts are offered by capability (getCompatibleChartTypes)",
+    ],
+    [
+      "connection/README.md",
+      /connector-types\.ts|External connector\s+plugins register here/,
+      "external connectors come from the manifest",
+    ],
   ])("%s no longer claims %s", (path, claim) => {
     expect(read(path)).not.toMatch(claim);
   });
@@ -1579,9 +1615,9 @@ describe("Tour NeoBoard with demo data (#1682)", () => {
   it("shows exactly the screenshots the walkthrough writes, committed at 1280x1024", () => {
     const written = [
       ...new Set(
-        [...walkthrough().matchAll(/docsShot\(\s*page,\s*"([\w-]+)"\s*\)/g)].map(
-          (m) => `${m[1]}.png`,
-        ),
+        [
+          ...walkthrough().matchAll(/docsShot\(\s*page,\s*"([\w-]+)"\s*\)/g),
+        ].map((m) => `${m[1]}.png`),
       ),
     ].sort();
     expect(written.length).toBeGreaterThan(0); // the call regex still matches
@@ -1671,64 +1707,272 @@ describe("security claims the code does not back (#1790)", () => {
   // sentence ("no envelope", "not the connecting IP") still passes. A few rows
   // use a negative lookahead: "the line that states X must also say Y".
   const CLAIMS = [
-    ["security/roles.mdx", /New SSO users who don't match any claim mapping get/i, "first SSO account is creator (schema.ts users.role default)"],
-    ["security/roles.mdx", /Manage connections \| Yes \| View only|cannot add, modify, or delete connections/, "only readers are denied (auth/permissions.ts)"],
-    ["security/roles.mdx", /Run read queries \| Yes \| Yes \| No|run custom queries, or access connections/, "POST /api/query has no role check"],
-    ["security/managing-users.mdx", /\| View connections \||cannot add or modify connections/, "creators add and manage their own connections"],
-    ["security/managing-users.mdx", /cannot edit anything or run custom queries|can only view published dashboards/, "readers query tenant-shared connections"],
-    ["security/multi-tenancy.mdx", /includes a tenant filter at the ORM level/i, "per-query filters plus a test-time ratchet (lib/db/index.ts is plain Drizzle)"],
-    ["security/multi-tenancy.mdx", /own dashboards, view connections|View-only access to shared dashboards/, "creators manage own connections; readers see public dashboards and query shared connections"],
-    ["security/query-safety.mdx", /only allowed through \**Form widgets/i, "/api/query/write also runs writes that name no widget, on canWrite and ownership"],
-    ["security/password-login.mdx", /rate-limited by IP address|per minute per IP\b/i, "keyed on the client-supplied X-Forwarded-For"],
-    ["security/api-keys.mdx", /Keys inherit the permissions of the user who created them/i, "keys read the user's current role and write permission on every request (auth/api-key.ts)"],
-    ["security/api-keys.mdx", /disabled user's keys keep working|Keys are checked only for their hash and expiry/i, "a disabled user's keys are refused (auth/api-key.ts, #2003)"],
-    ["extend/architecture.mdx", /AES-256-GCM envelope encryption/i, "ENCRYPTION_KEY is the AES key directly (crypto.ts)"],
-    ["extend/architecture.mdx", /All queries filter by the authenticated user's tenant/, "adapter tables have no tenant_id; allowlisted instance-wide queries"],
-    ["extend/architecture.mdx", /\*\*Public routes\*\*(?![^\n]*`\/api\/health`)(?![^\n]*`\/change-password`)/, "proxy.ts publicExact includes /api/health and /change-password"],
-    ["extend/architecture.mdx", /limited to 20 per minute per IP/i, "in-memory per process, keyed on X-Forwarded-For"],
-    ["extend/architecture.mdx", /merges parameters into the query/i, "values go into params; query text is unchanged (use-widget-query.ts)"],
-    ["extend/new-parameter-type.mdx", /for query substitution|app\/src\/lib\/format-parameter-value\.ts/, "lib/parameter/format-parameter-value.ts formats display text only"],
-    ["using/connectors.mdx", /envelope encryption with HKDF/i, "no HKDF, no envelope (crypto.ts)"],
-    ["using/connectors.mdx", /Reject Unauthorized[^\n]*\|\s*true\s*\|\s*$/im, "unset by default; follows the URI's sslmode"],
-    ["charts/form.mdx", /connector must have `can_write`/i, "no connection-level write flag (schema.ts connection)"],
-    ["using/dashboards.mdx", /\| Reader \| Shared only \|/, "readers also see public dashboards (api/dashboards/route.ts)"],
-    ["charts/iframe.mdx", /Must be an https:\/\/ URL/i, "http:// also embeds (iframe-widget.tsx)"],
-    ["deploy/configuration.mdx", /^\| `FORCE_HTTPS` \|(?![^\n]*private)/m, "private-IP and localhost hosts are never redirected (proxy.ts)"],
-    ["security/password-login.mdx", /If `ADMIN_BOOTSTRAP_TOKEN` is set|SSO buttons appear above the password form/, "first-admin signup requires the token (signup.ts); no SSO buttons"],
-    ["security/password-login.mdx", /A user's role is changed|silently rejects further attempts/, "only a demotion invalidates sessions (users/[id]/route.ts); signup shows its limit error"],
-    ["security/query-safety.mdx", /wall display degrade first|new P3 \(auto-refresh\) work/, "the UI sends no x-query-priority, so auto-refresh is P2 (api/query/route.ts)"],
-    ["security/multi-tenancy.mdx", /Every table in the metadata database has a `tenant_id`|full access within their tenant only|Fallback tenant for single-tenant/, "adapter tables have no tenant_id; key rotation crosses tenants; TENANT_ID is the process's tenant"],
-    ["security/managing-users.mdx", /restricted to read-only queries, regardless of their role/, "the write toggle applies to Creators only (session.ts)"],
-    ["security/roles.mdx", /\| Access settings \| Yes \| No \| No \||\| Admin \| Can write \| Can write \(always\) \|/, "creators and readers open Settings; a user's own writes need ownership"],
-    ["security/credential-encryption.mdx", /credentials_encrypted|The key's own role is what the endpoint checks/, "the column is connection.configEncrypted; the owner's current role is checked (api-key.ts)"],
-    ["start-here/troubleshooting.mdx", /credentials_encrypted/, "the column is connection.configEncrypted (schema.ts)"],
-    ["security/api-keys.mdx", /38 of 45/, "proxy.ts publicExact/publicPrefixes list the exceptions"],
-    ["security/multi-tenancy.mdx", /signs in to the instance belongs to this tenant|query, reassign/, "SSO auto-provisioned users get the column default tenant; reassign repoints widgets, not ownership"],
-    ["security/roles.mdx", /From their next sign-in, they get the role(?![^\n]*TENANT_ID)/, "signIn looks users up by TENANT_ID; SSO users land in tenant default"],
-    ["start-here/troubleshooting.mdx", /reassign orphaned/i, "no endpoint transfers connection ownership; connections cascade with their owner"],
-    ["deploy/monitoring.mdx", /docker compose -f docker\/docker-compose\.prod/, "prod compose files have :? required variables, so --env-file is needed"],
-    ["deploy/production.mdx", /sign-in over HTTPS is broken|only reads `authjs\.session-token`/i, "proxy.ts reads the session cookie under the name Auth.js uses (#1792)"],
-    ["security/credential-encryption.mdx", /only accepted on a plain-HTTP instance|does not read that name yet/, "proxy.ts reads the session cookie under the name Auth.js uses (#1792)"],
-    ["security/roles.mdx", /a write query \(a Form submission\) only runs|stay read-only even for admins/, "anyone who can open a dashboard submits its forms (api/query/write/route.ts, #1831)"],
-    ["security/managing-users.mdx", /^Write queries only run against connections the user owns/m, "form submits need dashboard access, not connection ownership (#1831)"],
-    ["security/query-safety.mdx", /and only on connections the user owns\. In the UI/, "a form runs for anyone who can open its dashboard (#1831)"],
-    ["charts/form.mdx", /and owns the form's connection|cannot submit forms on it/, "form submits need neither write permission nor connection ownership (#1831)"],
-    ["security/multi-tenancy.mdx", /no write access|running write queries through it,? stays? with/, "readers submit forms; adding or changing a form needs access to its connection, not ownership (#1831)"],
-    ["security/query-safety.mdx", /that has forms as Editor only|on connections the dashboard's owner can use/, "adding or changing a form needs the saver's own access to its connection (dashboards/[id]/route.ts, #1831)"],
-    ["security/roles.mdx", /For every role, a write query of the user's own only runs/, "a form writes through any connection its author can use (#1831)"],
-    ["security/managing-users.mdx", /A user's own write queries only run against connections they own/, "a form writes through any connection its author can use (#1831)"],
-    ["charts/form.mdx", /Anyone who can edit the dashboard can change what the form writes/, "changing a form needs access to its connection (#1831)"],
-    ["using/dashboards.mdx", /whoever can edit the dashboard decides what its forms write/i, "changing a form needs access to its connection (#1831)"],
-    ["security/query-safety.mdx", /or change what one writes/, "only a form's query, connection and database are locked; its fields stay editable (dashboards/[id]/route.ts, #1831)"],
-    ["charts/form.mdx", /any signed-in user when the dashboard is public/, "public access is within the tenant (resolveDashboardAccess, #1831)"],
-    ["deploy/production.mdx", /`X-Forwarded-Proto: https`, or `NEXTAUTH_URL`/, "a set NEXTAUTH_URL/AUTH_URL alone decides the cookie name; X-Forwarded-Proto counts only when neither is set (createActionURL, proxy.ts)"],
-    ["security/credential-encryption.mdx", /__Secure-authjs\.session-token=<value>"` on HTTPS/, "the __Secure- name follows NEXTAUTH_URL's scheme when it is set, not the request's (createActionURL, proxy.ts)"],
+    [
+      "security/roles.mdx",
+      /New SSO users who don't match any claim mapping get/i,
+      "first SSO account is creator (schema.ts users.role default)",
+    ],
+    [
+      "security/roles.mdx",
+      /Manage connections \| Yes \| View only|cannot add, modify, or delete connections/,
+      "only readers are denied (auth/permissions.ts)",
+    ],
+    [
+      "security/roles.mdx",
+      /Run read queries \| Yes \| Yes \| No|run custom queries, or access connections/,
+      "POST /api/query has no role check",
+    ],
+    [
+      "security/managing-users.mdx",
+      /\| View connections \||cannot add or modify connections/,
+      "creators add and manage their own connections",
+    ],
+    [
+      "security/managing-users.mdx",
+      /cannot edit anything or run custom queries|can only view published dashboards/,
+      "readers query tenant-shared connections",
+    ],
+    [
+      "security/multi-tenancy.mdx",
+      /includes a tenant filter at the ORM level/i,
+      "per-query filters plus a test-time ratchet (lib/db/index.ts is plain Drizzle)",
+    ],
+    [
+      "security/multi-tenancy.mdx",
+      /own dashboards, view connections|View-only access to shared dashboards/,
+      "creators manage own connections; readers see public dashboards and query shared connections",
+    ],
+    [
+      "security/query-safety.mdx",
+      /only allowed through \**Form widgets/i,
+      "/api/query/write also runs writes that name no widget, on canWrite and ownership",
+    ],
+    [
+      "security/password-login.mdx",
+      /rate-limited by IP address|per minute per IP\b/i,
+      "keyed on the client-supplied X-Forwarded-For",
+    ],
+    [
+      "security/api-keys.mdx",
+      /Keys inherit the permissions of the user who created them/i,
+      "keys read the user's current role and write permission on every request (auth/api-key.ts)",
+    ],
+    [
+      "security/api-keys.mdx",
+      /disabled user's keys keep working|Keys are checked only for their hash and expiry/i,
+      "a disabled user's keys are refused (auth/api-key.ts, #2003)",
+    ],
+    [
+      "extend/architecture.mdx",
+      /AES-256-GCM envelope encryption/i,
+      "ENCRYPTION_KEY is the AES key directly (crypto.ts)",
+    ],
+    [
+      "extend/architecture.mdx",
+      /All queries filter by the authenticated user's tenant/,
+      "adapter tables have no tenant_id; allowlisted instance-wide queries",
+    ],
+    [
+      "extend/architecture.mdx",
+      /\*\*Public routes\*\*(?![^\n]*`\/api\/health`)(?![^\n]*`\/change-password`)/,
+      "proxy.ts publicExact includes /api/health and /change-password",
+    ],
+    [
+      "extend/architecture.mdx",
+      /limited to 20 per minute per IP/i,
+      "in-memory per process, keyed on X-Forwarded-For",
+    ],
+    [
+      "extend/architecture.mdx",
+      /merges parameters into the query/i,
+      "values go into params; query text is unchanged (use-widget-query.ts)",
+    ],
+    [
+      "extend/new-parameter-type.mdx",
+      /for query substitution|app\/src\/lib\/format-parameter-value\.ts/,
+      "lib/parameter/format-parameter-value.ts formats display text only",
+    ],
+    [
+      "using/connectors.mdx",
+      /envelope encryption with HKDF/i,
+      "no HKDF, no envelope (crypto.ts)",
+    ],
+    [
+      "using/connectors.mdx",
+      /Reject Unauthorized[^\n]*\|\s*true\s*\|\s*$/im,
+      "unset by default; follows the URI's sslmode",
+    ],
+    [
+      "charts/form.mdx",
+      /connector must have `can_write`/i,
+      "no connection-level write flag (schema.ts connection)",
+    ],
+    [
+      "using/dashboards.mdx",
+      /\| Reader \| Shared only \|/,
+      "readers also see public dashboards (api/dashboards/route.ts)",
+    ],
+    [
+      "charts/iframe.mdx",
+      /Must be an https:\/\/ URL/i,
+      "http:// also embeds (iframe-widget.tsx)",
+    ],
+    [
+      "deploy/configuration.mdx",
+      /^\| `FORCE_HTTPS` \|(?![^\n]*private)/m,
+      "private-IP and localhost hosts are never redirected (proxy.ts)",
+    ],
+    [
+      "security/password-login.mdx",
+      /If `ADMIN_BOOTSTRAP_TOKEN` is set|SSO buttons appear above the password form/,
+      "first-admin signup requires the token (signup.ts); no SSO buttons",
+    ],
+    [
+      "security/password-login.mdx",
+      /A user's role is changed|silently rejects further attempts/,
+      "only a demotion invalidates sessions (users/[id]/route.ts); signup shows its limit error",
+    ],
+    [
+      "security/query-safety.mdx",
+      /wall display degrade first|new P3 \(auto-refresh\) work/,
+      "the UI sends no x-query-priority, so auto-refresh is P2 (api/query/route.ts)",
+    ],
+    [
+      "security/multi-tenancy.mdx",
+      /Every table in the metadata database has a `tenant_id`|full access within their tenant only|Fallback tenant for single-tenant/,
+      "adapter tables have no tenant_id; key rotation crosses tenants; TENANT_ID is the process's tenant",
+    ],
+    [
+      "security/managing-users.mdx",
+      /restricted to read-only queries, regardless of their role/,
+      "the write toggle applies to Creators only (session.ts)",
+    ],
+    [
+      "security/roles.mdx",
+      /\| Access settings \| Yes \| No \| No \||\| Admin \| Can write \| Can write \(always\) \|/,
+      "creators and readers open Settings; a user's own writes need ownership",
+    ],
+    [
+      "security/credential-encryption.mdx",
+      /credentials_encrypted|The key's own role is what the endpoint checks/,
+      "the column is connection.configEncrypted; the owner's current role is checked (api-key.ts)",
+    ],
+    [
+      "start-here/troubleshooting.mdx",
+      /credentials_encrypted/,
+      "the column is connection.configEncrypted (schema.ts)",
+    ],
+    [
+      "security/api-keys.mdx",
+      /38 of 45/,
+      "proxy.ts publicExact/publicPrefixes list the exceptions",
+    ],
+    [
+      "security/multi-tenancy.mdx",
+      /signs in to the instance belongs to this tenant|query, reassign/,
+      "SSO auto-provisioned users get the column default tenant; reassign repoints widgets, not ownership",
+    ],
+    [
+      "security/roles.mdx",
+      /From their next sign-in, they get the role(?![^\n]*TENANT_ID)/,
+      "signIn looks users up by TENANT_ID; SSO users land in tenant default",
+    ],
+    [
+      "start-here/troubleshooting.mdx",
+      /reassign orphaned/i,
+      "no endpoint transfers connection ownership; connections cascade with their owner",
+    ],
+    [
+      "deploy/monitoring.mdx",
+      /docker compose -f docker\/docker-compose\.prod/,
+      "prod compose files have :? required variables, so --env-file is needed",
+    ],
+    [
+      "deploy/production.mdx",
+      /sign-in over HTTPS is broken|only reads `authjs\.session-token`/i,
+      "proxy.ts reads the session cookie under the name Auth.js uses (#1792)",
+    ],
+    [
+      "security/credential-encryption.mdx",
+      /only accepted on a plain-HTTP instance|does not read that name yet/,
+      "proxy.ts reads the session cookie under the name Auth.js uses (#1792)",
+    ],
+    [
+      "security/roles.mdx",
+      /a write query \(a Form submission\) only runs|stay read-only even for admins/,
+      "anyone who can open a dashboard submits its forms (api/query/write/route.ts, #1831)",
+    ],
+    [
+      "security/managing-users.mdx",
+      /^Write queries only run against connections the user owns/m,
+      "form submits need dashboard access, not connection ownership (#1831)",
+    ],
+    [
+      "security/query-safety.mdx",
+      /and only on connections the user owns\. In the UI/,
+      "a form runs for anyone who can open its dashboard (#1831)",
+    ],
+    [
+      "charts/form.mdx",
+      /and owns the form's connection|cannot submit forms on it/,
+      "form submits need neither write permission nor connection ownership (#1831)",
+    ],
+    [
+      "security/multi-tenancy.mdx",
+      /no write access|running write queries through it,? stays? with/,
+      "readers submit forms; adding or changing a form needs access to its connection, not ownership (#1831)",
+    ],
+    [
+      "security/query-safety.mdx",
+      /that has forms as Editor only|on connections the dashboard's owner can use/,
+      "adding or changing a form needs the saver's own access to its connection (dashboards/[id]/route.ts, #1831)",
+    ],
+    [
+      "security/roles.mdx",
+      /For every role, a write query of the user's own only runs/,
+      "a form writes through any connection its author can use (#1831)",
+    ],
+    [
+      "security/managing-users.mdx",
+      /A user's own write queries only run against connections they own/,
+      "a form writes through any connection its author can use (#1831)",
+    ],
+    [
+      "charts/form.mdx",
+      /Anyone who can edit the dashboard can change what the form writes/,
+      "changing a form needs access to its connection (#1831)",
+    ],
+    [
+      "using/dashboards.mdx",
+      /whoever can edit the dashboard decides what its forms write/i,
+      "changing a form needs access to its connection (#1831)",
+    ],
+    [
+      "security/query-safety.mdx",
+      /or change what one writes/,
+      "only a form's query, connection and database are locked; its fields stay editable (dashboards/[id]/route.ts, #1831)",
+    ],
+    [
+      "charts/form.mdx",
+      /any signed-in user when the dashboard is public/,
+      "public access is within the tenant (resolveDashboardAccess, #1831)",
+    ],
+    [
+      "deploy/production.mdx",
+      /`X-Forwarded-Proto: https`, or `NEXTAUTH_URL`/,
+      "a set NEXTAUTH_URL/AUTH_URL alone decides the cookie name; X-Forwarded-Proto counts only when neither is set (createActionURL, proxy.ts)",
+    ],
+    [
+      "security/credential-encryption.mdx",
+      /__Secure-authjs\.session-token=<value>"` on HTTPS/,
+      "the __Secure- name follows NEXTAUTH_URL's scheme when it is set, not the request's (createActionURL, proxy.ts)",
+    ],
   ];
 
   it.each(CLAIMS)("%s no longer claims %s", (page, claim) => {
     const text =
-      DOCS.find(({ path }) => path === `docs/src/content/docs/${page}`)
-        ?.text ?? "";
+      DOCS.find(({ path }) => path === `docs/src/content/docs/${page}`)?.text ??
+      "";
     expect(text, `${page} is missing`).not.toBe("");
     expect(text).not.toMatch(claim);
   });
@@ -1747,18 +1991,23 @@ describe("the pages that say who can write state both form rules (#1831)", () =>
     "using/dashboards.mdx",
   ])("%s says who can submit a form and who can add or change one", (page) => {
     const text =
-      DOCS.find(({ path }) => path === `docs/src/content/docs/${page}`)
-        ?.text ?? "";
+      DOCS.find(({ path }) => path === `docs/src/content/docs/${page}`)?.text ??
+      "";
     expect(text, `${page} is missing`).not.toBe("");
-    expect(text).toMatch(/anyone who can (open|view) (a|the|that) dashboard can submit/i);
-    expect(text).toMatch(/Adding a form, or changing (a|its) form's query, connection or database, needs access to that connection/);
+    expect(text).toMatch(
+      /anyone who can (open|view) (a|the|that) dashboard can submit/i,
+    );
+    expect(text).toMatch(
+      /Adding a form, or changing (a|its) form's query, connection or database, needs access to that connection/,
+    );
   });
 });
 
 it("query-safety.mdx says a stored non-form widget's saved database needs a per-card database (query/write/route.ts, #1831)", () => {
   const text =
-    DOCS.find(({ path }) => path === "docs/src/content/docs/security/query-safety.mdx")
-      ?.text ?? "";
+    DOCS.find(
+      ({ path }) => path === "docs/src/content/docs/security/query-safety.mdx",
+    )?.text ?? "";
   expect(text).toMatch(
     /other than a form also needs that widget's write mode on, and runs on the widget's saved database when its connection allows a per-card database/,
   );
@@ -1799,11 +2048,14 @@ describe("1.5 ships without the enterprise edition (#1845)", () => {
     "docker/docker-compose.prod-full.yml",
   ];
 
-  it.each(SURFACES)("%s offers no edition switch and no OIDC variable", (path) => {
-    const text = readFileSync(join(ROOT, path), "utf8");
-    expect(text).not.toMatch(/NEOBOARD_EDITION/);
-    expect(text).not.toMatch(/OIDC_/);
-  });
+  it.each(SURFACES)(
+    "%s offers no edition switch and no OIDC variable",
+    (path) => {
+      const text = readFileSync(join(ROOT, path), "utf8");
+      expect(text).not.toMatch(/NEOBOARD_EDITION/);
+      expect(text).not.toMatch(/OIDC_/);
+    },
+  );
 
   it("publishes no SSO setup page", () => {
     expect(existsSync(join(DOCS_ROOT, "security/sso.mdx"))).toBe(false);
@@ -1959,7 +2211,9 @@ describe("the repo's own markdown and config comments (#1871)", () => {
         const target = m[1].replace(/[?#].*$/, "");
         if (!target || /^(https?:|mailto:|data:|\/)/.test(target)) continue;
         const resolved = posix
-          .normalize(posix.join(dirname(file) === "." ? "" : dirname(file), target))
+          .normalize(
+            posix.join(dirname(file) === "." ? "" : dirname(file), target),
+          )
           .replace(/\/$/, "");
         if (!tracked.has(resolved) && !trackedDirs.has(resolved))
           broken.push(`${target} (${file})`);

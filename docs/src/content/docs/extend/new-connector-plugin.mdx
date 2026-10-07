@@ -512,10 +512,8 @@ What NeoBoard does with each field today — read this before relying on one:
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
-  "peerDependencies": {
-    "@neoboard/connector-sdk": "0.1.0"
-  },
   "devDependencies": {
+    "@neoboard/connector-sdk": "file:../neoboard/connector-sdk",
     "@types/node": "^26.2.0",
     "typescript": "~5.9.3",
     "vitest": "^4.1.11"
@@ -523,7 +521,7 @@ What NeoBoard does with each field today — read this before relying on one:
 }
 ```
 
-Name it `neoboard-connector-<name>` so it is findable, and depend on the SDK as a **peer** dependency so your connector runs on the one copy NeoBoard installs instead of bringing its own. Nothing compares classes across that seam: the registry checks the descriptor's shape, and a `ConnectorError` is recognised by its name.
+Name it `neoboard-connector-<name>` so it is findable, and keep the SDK out of `dependencies`, so your connector runs on the copy NeoBoard supplies instead of bringing its own. The `file:` dev dependency is only for building and testing against the SDK in a NeoBoard checkout, because the SDK is not published yet. Once it is, it moves to `peerDependencies` with a version range. Nothing compares classes across that seam: the registry checks the descriptor's shape, and a `ConnectorError` is recognised by its name.
 
 ```json title="tsconfig.json"
 {
@@ -543,7 +541,7 @@ Name it `neoboard-connector-<name>` so it is findable, and depend on the SDK as 
 
 The package is an ES module (`"type": "module"`) compiled with `NodeNext` resolution, which is why every relative import in the blocks above ends in `.js`: Node's module loader does not add extensions, and TypeScript resolves `./auth.js` to `src/auth.ts`. `npm run build` writes `dist/`, where `main` points.
 
-The SDK is versioned with NeoBoard and lives at `connector-sdk/` in the repository. It is not on the npm registry yet, so until it is, install it from a checkout: `npm install --save-dev ../neoboard/connector-sdk` from your package's directory adds a `file:` dev dependency and builds it on install. Keep it out of `dependencies` — NeoBoard supplies the peer, and a `file:` path there would ship inside your package.
+The SDK is versioned with NeoBoard and lives at `connector-sdk/` in the repository. It is not on the npm registry yet, so until it is, install it from a checkout: the `file:` dev dependency above (adjust the path to your clone) builds it on install, or run `npm install --save-dev ../neoboard/connector-sdk` to add it. Never list it under `dependencies` or `peerDependencies` with a version number: npm would look the unpublished name up on the public registry, and a `file:` path in `dependencies` would ship inside your package.
 
 ## 8. Load it into NeoBoard
 
