@@ -33,4 +33,6 @@ model: haiku
 
 - **Account:** use `alfredo1996` for push, label and merge. Check with `gh auth status`.
 - **Labels and milestone:** they work on `gh pr create`. `gh pr edit` and `gh issue edit` fail with a Projects (classic) GraphQL error and set nothing. Use REST: `gh api -X PATCH repos/alfredo1996/neoboard/issues/<N> -F milestone=<n>`, and `gh api -X POST repos/alfredo1996/neoboard/issues/<N>/labels -f 'labels[]=…'`.
-- **Reads:** use `gh issue view <N> --json …` (or `--comments`). A plain `gh issue view` can trip the same GraphQL error.
+- **Reads:** always pass `--json`. With gh 2.62, `gh issue view` and `gh pr view` without it, `--comments` included, exit 1 with the same Projects (classic) error and print nothing. A newer gh may have dropped that request; check before relying on it.
+  - **An issue with its comments:** `gh issue view <N> --repo alfredo1996/neoboard --json title,body,labels,comments --jq '.title, .body, (.comments[] | .author.login + ": " + .body)'`.
+  - **A PR's conversation:** `gh pr view <N> --repo alfredo1996/neoboard --json title,body,comments,reviews`, and `gh api repos/alfredo1996/neoboard/pulls/<N>/comments` for inline review comments.

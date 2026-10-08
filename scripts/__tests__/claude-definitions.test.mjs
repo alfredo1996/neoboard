@@ -53,7 +53,7 @@ describe("one copy of each definition (#1849)", () => {
   it("nothing still points at them", () => {
     const self = "scripts/__tests__/claude-definitions.test.mjs";
     const pointers =
-      /skills\/review\b|skills\/plan\b|agents\/lint-fix|`lint-fix`|skills\/commit\b|skills\/prioritize\b|`\/commit`|`\/prioritize`/;
+      /skills\/review\b|skills\/plan\b|agents\/lint-fix|`lint-fix`|skills\/commit\b|skills\/prioritize\b|`\/commit`|`\/prioritize`|`\/plan`/;
     const offenders = tracked(".claude", "scripts/__tests__", ".github")
       .filter((f) => f !== self)
       .filter((f) => pointers.test(read(f)));
@@ -112,6 +112,21 @@ describe("the skills describe how we work now (#2196)", () => {
 
   it("test finds the active base instead of assuming dev", () => {
     expect(skill("test")).not.toContain("origin/dev");
+  });
+
+  it("reads issues and PRs only with --json, the form that runs here", () => {
+    // Without --json, gh 2.62 asks GraphQL for Projects (classic) cards,
+    // which GitHub rejects on this repo: `gh issue view <N> --comments`
+    // exits 1, so the owner's decisions in the comments go unread.
+    const offenders = [];
+    for (const file of tracked(".claude/skills", ".claude/agents", ".claude/CLAUDE.md")) {
+      for (const line of read(file).split("\n")) {
+        if (/gh (issue|pr) view\b/.test(line) && !line.includes("--json")) {
+          offenders.push(`${file}: ${line.trim()}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   it("CLAUDE.md and drill state the same drill policy", () => {

@@ -9,7 +9,7 @@ color: red
 
 You review the fix for ONE issue of alfredo1996/neoboard. The lead's prompt gives the issue number, the worktree and branch, and the implementer's report — treat that report as claims to verify, not facts. You are READ-ONLY: never edit, commit, checkout, stash or push. You may run tests.
 
-Read the issue with its comments (`gh issue view <N> --repo alfredo1996/neoboard --comments`) and the diff (`git -C <worktree> diff origin/<base>...HEAD`).
+Read the issue with its comments (`gh issue view <N> --repo alfredo1996/neoboard --json title,body,labels,comments`) and the diff (`git -C <worktree> diff origin/<base>...HEAD`).
 
 Try hard to find REAL defects; style nits do not count. Check:
 

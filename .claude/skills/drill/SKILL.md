@@ -18,6 +18,8 @@ A bug with a reproduction gets the minimal drill:
 
 A feature, a UX change, or a change touching auth, tenancy, query safety or credentials gets the full drill below, with the owner, before anyone branches.
 
+Anything else (a chore, a docs, test or tooling change, a refactor, or a bug without a reproduction) gets the minimal drill.
+
 ## Process
 
 ### Step 1: Read the Issue
@@ -25,7 +27,7 @@ A feature, a UX change, or a change touching auth, tenancy, query safety or cred
 If the user provides a GitHub issue number, fetch it:
 
 ```
-gh issue view <number> --repo alfredo1996/neoboard
+gh issue view <number> --repo alfredo1996/neoboard --json title,body,labels,comments
 ```
 
 Read the title, body, labels, and any linked issues. If no issue number is given, ask the user to describe the feature.

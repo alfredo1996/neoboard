@@ -21,8 +21,8 @@ Read `SONAR_TOKEN` from `app/.env.local` (variable name: `SONAR_TOKEN`).
 ```bash
 # Resolve the project key from the SonarCloud check-run details URL
 # (usually visible in gh pr checks output, e.g. https://sonarcloud.io/dashboard?id=<project-key>&pullRequest=N)
-gh pr checks $ARGUMENTS --json name,detailsUrl \
-  --jq '.[] | select(.name | test("sonarcloud"; "i")) | .detailsUrl'
+gh pr checks $ARGUMENTS --json name,link \
+  --jq '.[] | select(.name | test("sonarcloud"; "i")) | .link'
 
 # Query issues for this PR directly from SonarCloud REST API
 # Replace <project-key> with the key resolved above
@@ -36,7 +36,7 @@ curl -s -u "$SONAR_TOKEN:" \
 
 ### CodeRabbit
 
-CodeRabbit does not review this repo by itself. It has fewer than 10 stars, so its green check means "skipped", and the GitHub API returns no CodeRabbit comments. Run it locally on the branch:
+CodeRabbit does not review this repo by itself. It has fewer than 10 stars, so its green check means "skipped", and the GitHub API returns only its skip notice. Run it locally on the branch:
 
 ```bash
 npm run review:local                           # base picked from origin
@@ -47,7 +47,7 @@ There are about 3 reviews per window, then roughly a 35-minute wait. Treat its o
 
 **Filter rules:**
 
-- `sonarcloud[bot]`: use direct API results; extract rule key, severity, component (file path), line
+- `sonarqubecloud[bot]`: use direct API results; extract rule key, severity, component (file path), line
 - CodeRabbit (`review:local` output): keep actionable items only; skip suggestions marked as optional or nitpick
 - Ignore comments from human reviewers in this pass (address separately)
 
@@ -122,9 +122,9 @@ gh api graphql -f query='
 
 Output a markdown table of all issues processed:
 
-| Source            | File             | Line | Rule / Category  | Severity   | Fix Applied              | Thread Resolved |
-| ----------------- | ---------------- | ---- | ---------------- | ---------- | ------------------------ | --------------- |
-| sonarcloud[bot]   | path/to/file.ts  | 42   | typescript:S1234 | MAJOR      | Yes — removed unused var | N/A             |
-| coderabbitai[bot] | path/to/other.ts | 88   | Performance      | suggestion | Yes — applied diff block | Yes             |
+| Source              | File             | Line | Rule / Category  | Severity   | Fix Applied              | Thread Resolved |
+| ------------------- | ---------------- | ---- | ---------------- | ---------- | ------------------------ | --------------- |
+| sonarqubecloud[bot] | path/to/file.ts  | 42   | typescript:S1234 | MAJOR      | Yes — removed unused var | N/A             |
+| coderabbitai[bot]   | path/to/other.ts | 88   | Performance      | suggestion | Yes — applied diff block | Yes             |
 
 End with a count: `Fixed: N issues · Resolved: M threads · Skipped: K (not addressed)`

@@ -48,7 +48,7 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *)
 
 ## Merge bar: all of it, checked live, right before merging
 
-1. **Every check passed, none pending:** `gh pr checks <N>`. Right after a push, GitHub can report CLEAN before any check has registered, so count them; CI registers 15 to 19.
+1. **Every check passed, none pending:** `gh pr checks <N>`. Right after a push, GitHub can report CLEAN before any check has registered, so count them: 16 to 20 when `ci.yml` runs. A PR that touches only prose (docs, CHANGELOG, `.claude/` skills or rules) triggers fewer workflows and gets only their checks.
 2. **The merge state is `CLEAN`:** `gh pr view <N> --json mergeStateStatus`. Never merge on `UNSTABLE`, `BLOCKED` or `UNKNOWN`.
 3. **No E2E test failed its first attempt.** CI runs Playwright with `retries: 1`, so a test that fails and then passes on retry still leaves the job green. That hid a red test for four days (#2184). Scan every shard:
 
@@ -65,6 +65,8 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *)
 5. **SonarCloud:** the PR comment reads **Quality Gate passed**, with 0 new issues, 0 security hotspots, and coverage on new code of at least 80% wherever there is new code in scope. Sonar scans only the package `src` directories. Read the metrics, not just the check.
 6. **Comments:** read every PR comment and inline review comment. CodeRabbit's check is green because it skips this repo (fewer than 10 stars). For a real CodeRabbit pass, run `npm run review:local`.
 7. **The base moved after CI ran:** rebase and push for a fresh run. Skip that only when the two changes touch different files and cannot interact, and say why in the PR.
+
+When `ci.yml` didn't run on the PR (a prose-only change), steps 3 and 5 don't apply: there is no E2E run and no SonarCloud comment. Say so in the PR.
 
 Merge, pinned to the head CI tested:
 

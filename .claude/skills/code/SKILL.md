@@ -13,9 +13,9 @@ allowed-tools: Read, Write, Edit, MultiEdit, Agent, SendMessage, Bash(npm *), Ba
 
 ## Before coding
 
-1. **Issue:** read it with `gh issue view <N> --comments`. Owner decisions live in the comments.
+1. **Issue:** read it with `gh issue view <N> --repo alfredo1996/neoboard --json title,body,labels,comments`. Owner decisions live in the comments. See `github-workflow` for the read forms that work here.
 2. **Drill:** follow the drill policy in CLAUDE.md and `drill`.
-3. **Existing PR:** read it with `gh pr view <N> --comments`.
+3. **Existing PR:** read its conversation with `gh pr view <N> --repo alfredo1996/neoboard --json comments,reviews`, plus its inline comments with `gh api repos/alfredo1996/neoboard/pulls/<N>/comments`.
 4. **Package:** `component/` is UI only, `connection/` is databases only, `app/` orchestrates. Respect the boundaries.
 5. **Context:** read the relevant notes in `~/Desktop/neoboard-vault` (architecture, decisions, security).
 

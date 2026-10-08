@@ -14,14 +14,16 @@ If $ARGUMENTS is a number, use that issue. Otherwise:
 ```bash
 BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); BASE="${BASE:-dev}"
 gh api 'repos/alfredo1996/neoboard/milestones?state=open' --jq '.[] | "\(.number) \(.title) open=\(.open_issues)"'
-gh issue list --repo alfredo1996/neoboard --state open --milestone "<earliest open milestone>" --json number,title,labels
+gh issue list --repo alfredo1996/neoboard --state open --milestone "<the active base's milestone>" --json number,title,labels
 ```
+
+Start from the milestones of the active base: `vX.Y`, and `vX.Y.1` for bugs found during it. Not the earliest open milestone, which can hold only owner work.
 
 Take the first issue that:
 
-- is not labelled `blocked`;
+- is not labelled `blocked`, and isn't owner-only work (labelled `area:launch`, or titled `(owner)`);
 - has its `Depends on #X` issues closed;
-- has no owner decision still open in its comments (`gh issue view <N> --comments`).
+- has no owner decision still open in its comments (`gh issue view <N> --repo alfredo1996/neoboard --json comments`).
 
 Read the relevant notes in `~/Desktop/neoboard-vault` for context.
 

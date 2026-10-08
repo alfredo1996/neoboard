@@ -76,6 +76,7 @@ Rules:
 
 - A bug with a reproduction gets the minimal drill. The justification round (does it need to exist, what already exists, root cause or symptom) is answered in the issue, and the issue's `Fix (default; the owner can override in a comment)` section stands in for question rounds. The implementer records it in the PR's `## Drill (minimal)`.
 - A feature, a UX change, or a change touching auth, tenancy, query safety or credentials gets the full `/drill <issue-number>` with the owner before anyone branches.
+- Anything else (a chore, a docs, test or tooling change, a refactor, or a bug without a reproduction) gets the minimal drill.
 - The drill output is the source of truth for what to build and how to verify it.
 
 **Git & PRs:**
@@ -91,7 +92,7 @@ Rules:
 
 **PR reviews:**
 
-- Read `gh pr view <number> --comments` when resuming work on an existing PR.
+- Read its conversation when resuming work on an existing PR: `gh pr view <number> --json comments,reviews`, plus `gh api repos/alfredo1996/neoboard/pulls/<number>/comments` for inline comments. Without `--json`, `gh … view` fails on this repo.
 - Address all CodeRabbit suggestions or dismiss with justification.
 - SonarCloud quality gate must pass (coverage, duplications, code smells).
 

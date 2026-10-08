@@ -20,7 +20,7 @@ Senior reviewer for NeoBoard. Check staged/unstaged changes against rules, then 
    - `cd app && npx playwright test <affected spec>` for each spec covering the change — E2E is not optional, and CI's five shards run the full suite before merge
    - Run `cd connection && npm test` if connection/ changed (needs Docker).
 5. Check external review feedback:
-   - CodeRabbit: `gh pr view --comments | grep -A10 'coderabbitai'`
+   - CodeRabbit: it does not review this repo by itself (fewer than 10 stars). Run `npm run review:local`, or read the PR's comments with `gh pr view <N> --json comments,reviews`.
    - SonarCloud: `gh pr checks` — verify quality gate passes
    - Flag any unaddressed CRITICAL/MAJOR findings
 6. If any UI files changed (`*.tsx` in pages, components, or settings), recommend running `@feature-reviewer` on the affected feature.
