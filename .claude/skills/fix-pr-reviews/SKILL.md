@@ -21,8 +21,8 @@ Read `SONAR_TOKEN` from `app/.env.local` (variable name: `SONAR_TOKEN`).
 ```bash
 # Resolve the project key from the SonarCloud check-run details URL
 # (usually visible in gh pr checks output, e.g. https://sonarcloud.io/dashboard?id=<project-key>&pullRequest=N)
-gh pr checks $ARGUMENTS --json name,detailsUrl \
-  --jq '.[] | select(.name | test("sonarcloud"; "i")) | .detailsUrl'
+gh pr checks $ARGUMENTS --json name,link \
+  --jq '.[] | select(.name | test("sonarcloud"; "i")) | .link'
 
 # Query issues for this PR directly from SonarCloud REST API
 # Replace <project-key> with the key resolved above
@@ -34,26 +34,21 @@ curl -s -u "$SONAR_TOKEN:" \
 # Map to fix priority: BLOCKER/CRITICAL=security+bugs, MAJOR=perf+smells, MINOR/INFO=nitpicks
 ```
 
-### CodeRabbit (GitHub API)
+### CodeRabbit
+
+CodeRabbit does not review this repo by itself. It has fewer than 10 stars, so its green check means "skipped", and the GitHub API returns only its skip notice. Run it locally on the branch:
 
 ```bash
-# Inline review comments
-gh api repos/{owner}/{repo}/pulls/$ARGUMENTS/comments \
-  --jq '[.[] | select(.user.login == "coderabbitai[bot]")]'
-
-# Top-level PR comments
-gh pr view $ARGUMENTS --comments --json comments \
-  --jq '[.comments[] | select(.author.login == "coderabbitai[bot]")]'
-
-# Review bodies
-gh api repos/{owner}/{repo}/pulls/$ARGUMENTS/reviews \
-  --jq '[.[] | select(.user.login == "coderabbitai[bot]")]'
+npm run review:local                           # base picked from origin
+npm run review:local -- --base-commit <sha>    # for work already merged
 ```
+
+There are about 3 reviews per window, then roughly a 35-minute wait. Treat its output like inline comments.
 
 **Filter rules:**
 
-- `sonarcloud[bot]`: use direct API results; extract rule key, severity, component (file path), line
-- `coderabbitai[bot]`: keep actionable items only; skip already-resolved threads and suggestions explicitly marked as optional/nitpick
+- `sonarqubecloud[bot]`: use direct API results; extract rule key, severity, component (file path), line
+- CodeRabbit (`review:local` output): keep actionable items only; skip suggestions marked as optional or nitpick
 - Ignore comments from human reviewers in this pass (address separately)
 
 ## Phase 2 — Fix
@@ -78,11 +73,7 @@ For SonarCloud issues, fix at the reported file:line per the rule description.
 
 Run all checks after applying fixes. Do NOT skip any step.
 
-```bash
-npx tsc --noEmit
-npm run lint
-cd app && npm test
-```
+Run what the fixes touched (see `test`): the package typecheck, `npm run lint`, and the affected test files.
 
 Run the test skill to see that everything is ok.
 Fix any new errors introduced during the review fixes before proceeding.
@@ -131,9 +122,9 @@ gh api graphql -f query='
 
 Output a markdown table of all issues processed:
 
-| Source            | File             | Line | Rule / Category  | Severity   | Fix Applied              | Thread Resolved |
-| ----------------- | ---------------- | ---- | ---------------- | ---------- | ------------------------ | --------------- |
-| sonarcloud[bot]   | path/to/file.ts  | 42   | typescript:S1234 | MAJOR      | Yes — removed unused var | N/A             |
-| coderabbitai[bot] | path/to/other.ts | 88   | Performance      | suggestion | Yes — applied diff block | Yes             |
+| Source              | File             | Line | Rule / Category  | Severity   | Fix Applied              | Thread Resolved |
+| ------------------- | ---------------- | ---- | ---------------- | ---------- | ------------------------ | --------------- |
+| sonarqubecloud[bot] | path/to/file.ts  | 42   | typescript:S1234 | MAJOR      | Yes — removed unused var | N/A             |
+| coderabbitai[bot]   | path/to/other.ts | 88   | Performance      | suggestion | Yes — applied diff block | Yes             |
 
 End with a count: `Fixed: N issues · Resolved: M threads · Skipped: K (not addressed)`

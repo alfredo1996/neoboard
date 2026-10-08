@@ -1,98 +1,67 @@
 ---
 name: next
-description: Autonomously pick the next issue from the backlog, implement it, test, commit, and open a PR. Zero-input autopilot.
-model: sonnet
+description: Pick the next open NeoBoard issue and take it through drill, implementation, review and PR the way the team works (implementer agent, adversarial-reviewer, merge bar).
 disable-model-invocation: true
-allowed-tools: Read, Write, Edit, MultiEdit, Bash(npm *), Bash(npx *), Bash(git *), Bash(gh *), Bash(cat *), Bash(ls *), Bash(find *), Bash(grep *), Bash(head *), Bash(tail *), Bash(mkdir *)
+allowed-tools: Read, Agent, SendMessage, Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *), Bash(cat *), Bash(ls *), Bash(grep *), Bash(head *), Bash(tail *)
 ---
 
-# Autopilot — Pick next issue, implement, PR
+# Next — NeoBoard
 
-## Step 1 — Find the next issue to work on
+## 1. Pick the issue
 
-```bash
-# Get open issues from the current milestone, sorted by priority
-gh issue list --state open --assignee @me --limit 5 --json number,title,labels,milestone,body
-# If nothing assigned to you, get unassigned issues from the earliest milestone
-gh issue list --state open --limit 10 --json number,title,labels,milestone,body --jq '[.[] | select(.assignees | length == 0)] | sort_by(.milestone.title) | .[0:5]'
-```
-
-Pick the first issue that:
-
-1. Is in the earliest open milestone
-2. Has no unresolved dependencies (check body for 'Depends on #X' — verify those are closed)
-3. Is not labeled `blocked`
-
-If $ARGUMENTS is a number, use that issue instead of picking.
-
-## Step 2 — Assign yourself and create a branch
+If $ARGUMENTS is a number, use that issue. Otherwise:
 
 ```bash
-gh issue edit <number> --add-assignee @me
-
-# Detect the active base branch: release/X.Y if one exists, else dev
-BASE=$(git ls-remote --heads origin 'release/*' 2>/dev/null | sed 's|.*refs/heads/||' | sort -V | tail -1)
-BASE="${BASE:-dev}"
-git fetch origin "$BASE" && git checkout "$BASE" && git pull origin "$BASE"
-git checkout -b <type>/<short-description>
-echo "Branched from: $BASE (target this base in your PR)"
+BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); BASE="${BASE:-dev}"
+gh api 'repos/alfredo1996/neoboard/milestones?state=open' --jq '.[] | "\(.number) \(.title) open=\(.open_issues)"'
+gh issue list --repo alfredo1996/neoboard --state open --milestone "<the active base's milestone>" --json number,title,labels
 ```
 
-Branch prefix from labels: bug → fix/, enhancement → feat/, security → security/, docs → docs/.
+Start from the milestones of the active base: `vX.Y`, and `vX.Y.1` for bugs found during it. Not the earliest open milestone, which can hold only owner work.
 
-PR base = same `$BASE` detected above (release/X.Y when active, else dev).
+Take the first issue that:
 
-## Step 3 — Run /drill
+- is not labelled `blocked`, and isn't owner-only work (labelled `area:launch`, or titled `(owner)`);
+- has its `Depends on #X` issues closed;
+- has no owner decision still open in its comments (`gh issue view <N> --repo alfredo1996/neoboard --json comments`).
 
-Before implementing, run `/drill <number>` to gather requirements, edge cases, and acceptance criteria. This is mandatory per .claude/CLAUDE.md.
+Read the relevant notes in `~/Desktop/neoboard-vault` for context.
 
-## Step 4 — Read the issue and relevant docs
+## 2. Drill
 
-Read the full issue body. Check `~/Desktop/neoboard-vault` for relevant context.
-Identify which package(s) are affected: app/, component/, connection/.
+Follow the drill policy in CLAUDE.md and `drill`.
 
-## Step 5 — Implement
+- **A bug with a reproduction:** the issue's default fix stands in for question rounds.
+- **A feature, a UX change, or anything touching auth, tenancy, query safety or credentials:** run `/drill <N>` with the owner before anyone branches.
 
-Follow all .claude/CLAUDE.md rules. Respect package boundaries.
-If building UI, check existing components first (`find component/src -name '*.tsx'`).
+## 3. Implement
 
-## Step 6 — Test and lint
+Spawn the `implementer` agent with `isolation: "worktree"`. Give it:
 
-```bash
-npm run lint
-npm run build
-cd app && npm test
-cd component && npm test
-cd app && npx playwright test <affected spec>
-```
+- the issue number;
+- the base (`$BASE`);
+- a free E2E port (`TEST_SERVER_PORT=3400` or above, one per concurrent agent);
+- what you already know: the root cause, owner decisions, and constraints such as "don't touch CHANGELOG.md".
 
-Fix any failures. Do not skip.
+It branches inside its own worktree. The main checkout stays on the active release branch, because the hooks and CLAUDE.md run from it. It commits; it does not push.
 
-## Step 7 — Commit
+## 4. Review
 
-Use Conventional Commits: `type(scope): description`
-Reference the issue: `Closes #<number>`
+Spawn `adversarial-reviewer`. Give it the worktree, the branch, the base, and the implementer's report, as claims to verify.
 
-## Step 8 — Push and create PR
+- Send real findings back to the same implementer with `SendMessage`, not to a new agent.
+- Re-review if the fix changed the approach.
 
-```bash
-git push -u origin HEAD
-# Recompute the base: step 2 may have run in a different shell.
-BASE=$(git ls-remote --heads origin 'release/*' 2>/dev/null | sed 's|.*refs/heads/||' | sort -V | tail -1)
-BASE="${BASE:-dev}"
-gh pr create \
-  --title '<conventional commit title>' \
-  --base "$BASE" \
-  --body '## Summary\n...\n\n## Changes\n...\n\n## Testing\n- [x] Unit tests\n- [x] Lint passes\n- [x] Build passes\n\nCloses #<number>' \
-  --label '<labels from the issue>'
-```
+## 5. PR and merge
 
-## Step 9 — Report
+Follow `pr`: push, open with labels and milestone, then merge at the full bar.
 
-Output:
+## 6. Report
 
-- Issue number and title
-- What was implemented
-- Files changed
-- PR link
-- What to review
+Report:
+
+- the issue;
+- what changed;
+- the PR link;
+- the merge commit;
+- anything filed along the way. Bugs found while working go to the patch milestone, see `issue`.

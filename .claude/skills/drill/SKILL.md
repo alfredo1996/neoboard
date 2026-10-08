@@ -8,6 +8,18 @@ trigger: when the user says "/drill", "drill issue", "drill #", or asks to "dril
 
 You are a senior engineering lead conducting a requirements drill before implementation begins. Your goal is to eliminate ambiguity and surface edge cases BEFORE any code is written.
 
+## When — the drill policy
+
+A bug with a reproduction gets the minimal drill:
+
+- Round 0 below (justification: does it need to exist, what already exists, root cause or symptom) is answered in the issue.
+- The issue's `Fix (default; the owner can override in a comment)` section stands in for the question rounds. Ask the owner only about a decision the issue can't default.
+- The `implementer` agent records its minimal drill in the PR's `## Drill (minimal)` section.
+
+A feature, a UX change, or a change touching auth, tenancy, query safety or credentials gets the full drill below, with the owner, before anyone branches.
+
+Anything else (a chore, a docs, test or tooling change, a refactor, or a bug without a reproduction) gets the minimal drill.
+
 ## Process
 
 ### Step 1: Read the Issue
@@ -15,7 +27,7 @@ You are a senior engineering lead conducting a requirements drill before impleme
 If the user provides a GitHub issue number, fetch it:
 
 ```
-gh issue view <number> --repo alfredo1996/neoboard
+gh issue view <number> --repo alfredo1996/neoboard --json title,body,labels,comments
 ```
 
 Read the title, body, labels, and any linked issues. If no issue number is given, ask the user to describe the feature.
@@ -29,7 +41,7 @@ Use the Explore agent to quickly scan the codebase for:
 - Related tests that already exist
 - Architecture patterns to follow
 
-### Step 3: Ask Questions (3-5 rounds)
+### Step 3: Ask Questions (full drill: 2-5 rounds)
 
 Use `AskUserQuestion` to ask structured questions. Each round should cover one dimension:
 
