@@ -1,9 +1,9 @@
 ---
 name: test
-description: Run tests for the affected package(s). Detects which packages changed and runs only relevant test suites.
+description: Run the NeoBoard test suites for what changed, against the active base branch, with the gotchas that make local runs lie.
 model: haiku
 disable-model-invocation: true
-allowed-tools: Bash(npm *), Bash(npx *), Bash(git *), Bash(cd *)
+allowed-tools: Bash(npm *), Bash(npx *), Bash(git *), Bash(cd *), Bash(node *)
 ---
 
 # Test — NeoBoard
@@ -11,62 +11,53 @@ allowed-tools: Bash(npm *), Bash(npx *), Bash(git *), Bash(cd *)
 ## State
 
 - Branch: !`git branch --show-current`
-- Changed files: !`git diff --name-only origin/dev..HEAD 2>/dev/null || git diff --name-only`
+- Base: !`BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); printf '%s\n' "${BASE:-dev}"`
 
-## Instructions
-
-Detect which packages have changes and run the appropriate test suites.
-
-### 1. Detect affected packages
+## 1. What changed
 
 ```bash
-# Check which packages have changes
-CHANGED=$(git diff --name-only origin/dev..HEAD 2>/dev/null || git diff --name-only)
-RUN_APP=false
-RUN_COMPONENT=false
-RUN_CONNECTION=false
-
-echo "$CHANGED" | grep -q '^app/' && RUN_APP=true
-echo "$CHANGED" | grep -q '^component/' && RUN_COMPONENT=true
-echo "$CHANGED" | grep -q '^connection/' && RUN_CONNECTION=true
+BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); BASE="${BASE:-dev}"
+git fetch -q origin "$BASE"
+git diff --name-only "origin/$BASE...HEAD"
 ```
 
-### 2. Run tests per package
+## 2. Before the first run in a fresh worktree
 
-**App tests** (if app/ changed):
+Run `npm ci`, then `npm -w connector-sdk run build && npm -w connection run build`. Without those builds, about 67 app tests fail on module resolution. Never symlink `node_modules` into a worktree.
+
+## 3. Run, per package
+
+| Changed                                                                      | Run                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/`                                                                       | `npm -w app run test`, and `npm -w app exec tsc -- --noEmit`                                                                                                                             |
+| `component/`                                                                 | `npm -w component run test`                                                                                                                                                              |
+| `connection/` or `connector-sdk/`                                            | Rebuild both, then `npm -w connection run test`. It needs Docker, and `npm run verify` does NOT run it.                                                                                  |
+| `cli/`                                                                       | `npm -w cli run test`                                                                                                                                                                    |
+| `scripts/` or `.claude/`                                                     | `npm run test:scripts`. To run one file: `npx vitest run scripts/__tests__/<file> --exclude '**/.claude/**'`, because a path filter also matches the copies inside `.claude/worktrees/`. |
+| UI (`app/src/app`, `app/src/components`, `app/src/plugins`, `component/src`) | the affected E2E spec, below                                                                                                                                                             |
+
+**E2E:** run only the affected spec, with exactly one `cd` per command, or the commit hook's E2E gate can't see the run.
 
 ```bash
-cd app && npm test
+cd app && TEST_SERVER_PORT=<port> npx playwright test e2e/<spec>.spec.ts --workers=2 --retries=0 --reporter=dot
 ```
 
-**App E2E** (if app/ changed — the specs covering the change; CI runs all of them):
+- Use a free port (3400 or above) when another worktree may be running E2E.
+- After a Playwright version bump, run `npx playwright install chromium` once.
+- CI's five shards run everything.
 
-```bash
-cd app && npx playwright test <affected spec>
-```
-
-**Component tests** (if component/ changed):
-
-```bash
-cd component && npm test
-```
-
-**Connection tests** (if connection/ changed — needs Docker):
-
-```bash
-cd connection && npm test
-```
-
-### 3. Always run lint + build
+## 4. Always
 
 ```bash
 npm run lint
-npm run build
 ```
 
-### 4. Report results
+- `npm run build` before a PR that touches `app/`.
+- `npm run verify` is the local CI mirror: typecheck, lint, unit suites and script tests. It does not include the connection suite or E2E.
 
-Output: which suites ran, pass/fail counts, any failures to fix.
+## 5. Report
 
-If $ARGUMENTS contains "coverage", also run `npm run test:coverage` in affected packages.
-If $ARGUMENTS contains "all", run all test suites regardless of changes.
+Report which suites ran and their pass and fail counts, read from both halves of any combined run (`test:scripts` prints Vitest totals, then `node --test` `ℹ fail` totals). Then list any failures to fix.
+
+- `$ARGUMENTS` contains "coverage": also run `npm run test:coverage` in the affected packages.
+- `$ARGUMENTS` contains "all": run every suite regardless of changes.

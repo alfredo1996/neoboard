@@ -37,10 +37,14 @@ describe("one copy of each definition (#1849)", () => {
     // review: the code-reviewer agent, built-in /code-review and CodeRabbit.
     // plan: project-architect, which /drill hands off to.
     // lint-fix: the post-edit hook and `npm run lint -- --fix` (#1844).
+    // commit: CLAUDE.md's commit rules and the PR flow (#2196).
+    // prioritize: ranked by a P0 the label taxonomy never had (#2196).
     for (const path of [
       ".claude/skills/review",
       ".claude/skills/plan",
       ".claude/agents/lint-fix.md",
+      ".claude/skills/commit",
+      ".claude/skills/prioritize",
     ]) {
       expect(existsSync(join(ROOT, path)), `${path} still exists`).toBe(false);
     }
@@ -49,7 +53,7 @@ describe("one copy of each definition (#1849)", () => {
   it("nothing still points at them", () => {
     const self = "scripts/__tests__/claude-definitions.test.mjs";
     const pointers =
-      /skills\/review\b|skills\/plan\b|agents\/lint-fix|`lint-fix`/;
+      /skills\/review\b|skills\/plan\b|agents\/lint-fix|`lint-fix`|skills\/commit\b|skills\/prioritize\b|`\/commit`|`\/prioritize`/;
     const offenders = tracked(".claude", "scripts/__tests__", ".github")
       .filter((f) => f !== self)
       .filter((f) => pointers.test(read(f)));
@@ -58,7 +62,7 @@ describe("one copy of each definition (#1849)", () => {
 });
 
 describe("rare skills are run on purpose, not discovered (#1849)", () => {
-  it.each(["deploy", "release-plan", "harden", "fix-pr-reviews"])(
+  it.each(["deploy", "release-plan", "harden", "fix-pr-reviews", "release"])(
     "%s is hidden from model invocation",
     (skill) => {
       expect(read(`.claude/skills/${skill}/SKILL.md`)).toMatch(
@@ -66,6 +70,55 @@ describe("rare skills are run on purpose, not discovered (#1849)", () => {
       );
     },
   );
+});
+
+describe("the skills describe how we work now (#2196)", () => {
+  // The way the project actually works had moved into the lead session's
+  // private memory: the issue template, the merge bar, the agent routing
+  // of #2180. The skills that carry it must be ones Claude can see.
+  const skill = (name) => read(`.claude/skills/${name}/SKILL.md`);
+  const hidden = /^disable-model-invocation:\s*true\s*$/m;
+
+  it.each(["issue", "pr"])("%s is visible to model invocation", (name) => {
+    expect(skill(name)).not.toMatch(hidden);
+  });
+
+  it("pr carries the whole merge bar", () => {
+    const pr = skill("pr");
+    expect(pr).toContain("mergeStateStatus"); // CLEAN, read live
+    expect(pr).toContain("--match-head-commit"); // the head CI tested
+    // #2184: retries: 1 hides a test that failed its first attempt.
+    expect(pr).toMatch(/grep[^\n]*✘/);
+    expect(pr).toContain("Quality Gate");
+  });
+
+  it("issue carries the issue template", () => {
+    const issue = skill("issue");
+    expect(issue).toContain("## Required tests");
+    expect(issue).toContain("the owner can override in a comment");
+  });
+
+  it.each(["next", "code"])(
+    "%s routes an issue through the agents and switches no branch",
+    (name) => {
+      const text = skill(name);
+      expect(text).toContain("implementer");
+      expect(text).toContain("adversarial-reviewer");
+      // Hooks run from the main checkout's working copy: it stays on the
+      // active release branch.
+      expect(text).not.toMatch(/git checkout/);
+    },
+  );
+
+  it("test finds the active base instead of assuming dev", () => {
+    expect(skill("test")).not.toContain("origin/dev");
+  });
+
+  it("CLAUDE.md and drill state the same drill policy", () => {
+    const policy = "A bug with a reproduction gets the minimal drill";
+    expect(read(".claude/CLAUDE.md")).toContain(policy);
+    expect(skill("drill")).toContain(policy);
+  });
 });
 
 describe("local E2E runs the affected spec; CI runs everything (#1849)", () => {

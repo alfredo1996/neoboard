@@ -72,13 +72,11 @@ Rules:
 - Delegate an issue's implementation to the `implementer` agent (Sonnet) and its pre-merge review to `adversarial-reviewer` (Opus). Every other agent runs on the model its frontmatter declares, and anything that names none defaults to Sonnet (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`).
 - A Workflow `agent()` call always passes `agentType` or `model`, so no stage runs on whatever default happens to apply; review stages pass `agentType: 'adversarial-reviewer'`.
 
-**Requirements drill (mandatory before new work):**
+**Requirements drill (every issue, before branching; the policy is also in the `drill` skill):**
 
-- Before creating a branch or starting implementation on any issue, run `/drill <issue-number>`.
-- The drill gathers scope, UX flow, edge cases, security concerns, and acceptance criteria.
-- Do NOT skip the drill. Do NOT start coding, branching, or planning without it.
-- The drill output becomes the source of truth for what to build and how to verify it.
-- For trivial fixes (typos, one-line changes), a minimal drill (1 round) is sufficient.
+- A bug with a reproduction gets the minimal drill. The justification round (does it need to exist, what already exists, root cause or symptom) is answered in the issue, and the issue's `Fix (default; the owner can override in a comment)` section stands in for question rounds. The implementer records it in the PR's `## Drill (minimal)`.
+- A feature, a UX change, or a change touching auth, tenancy, query safety or credentials gets the full `/drill <issue-number>` with the owner before anyone branches.
+- The drill output is the source of truth for what to build and how to verify it.
 
 **Git & PRs:**
 
@@ -88,7 +86,8 @@ Rules:
 - PRs target `dev` (integration) before merging to `main`.
 - Do not push if tests are failing.
 - PRs need labels: type + package + area. See `/github-workflow` skill.
-- After finishing: PR targeting `dev`, correct milestone/labels, link issue via `Closes #N`.
+- After finishing: PR targeting the same base, correct milestone/labels, link issue via `Closes #N`.
+- File issues with the `issue` skill, and open and merge PRs with the `pr` skill. `pr` carries the merge bar, including the scan for E2E tests that passed only on retry.
 
 **PR reviews:**
 
