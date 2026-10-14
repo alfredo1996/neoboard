@@ -43,7 +43,7 @@ End with a short report:
 - risks;
 - the PR body:
   - first line `Closes #<N>`;
-  - sections `## What was wrong`, `## The fix`, `## Drill (minimal)`, `## Tests`;
+  - sections `## What was wrong`, `## The fix`, `## Drill (minimal)`, `## Merge danger` (door: one-way or two-way; blast radius; anything the owner has not seen), `## Tests`;
   - last line `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 
 When the lead sends review findings, check each is real. Fix the real ones test-first; dismiss the rest with evidence. Re-run what you touched, commit, and report the same way.

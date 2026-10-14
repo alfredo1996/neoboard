@@ -41,9 +41,11 @@ Use the Explore agent to quickly scan the codebase for:
 - Related tests that already exist
 - Architecture patterns to follow
 
-### Step 3: Ask Questions (full drill: 2-5 rounds)
+### Step 3: Ask Questions (full drill)
 
-Use `AskUserQuestion` to ask structured questions. Each round should cover one dimension:
+Round 0 first, on its own. Then work the rest as a design tree: the **frontier** is every question whose prerequisites are settled. Ask the whole frontier in one round, numbered, each with your recommended answer worded so that "yes" accepts it (`AskUserQuestion`, one question per decision, the recommended option first). A question whose answer depends on one still open this round waits for the next round. Each round of answers reshapes the tree: recompute the frontier and ask again. Facts are yours to look up, never the owner's; decisions are the owner's.
+
+The dimensions below are the checklist the tree is built from, not an order to ask in:
 
 **Round 0 — Justification (do this FIRST, and be willing to conclude "don't build it")**
 
@@ -137,7 +139,7 @@ Save this summary to the plan file if in plan mode, or present it for the user t
 ## Rules
 
 - Ask ONLY relevant questions — skip security questions for pure UI changes, skip E2E questions for pure utility functions
-- Adapt the number of rounds based on issue complexity (simple bug = 2 rounds, complex feature = 5 rounds)
+- The drill ends when the frontier is empty and nothing is silently assumed; a simple change takes one round, a feature several
 - If the user says "skip" or "default" to a question, make a reasonable assumption and note it
 - Never start coding during a drill — this is pure requirements gathering
 - Reference existing NeoBoard patterns from the codebase in your questions (e.g., "should this follow the same pattern as the styling rules editor?")
