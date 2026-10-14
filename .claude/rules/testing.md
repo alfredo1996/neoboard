@@ -17,6 +17,10 @@ paths:
 | UI components (app/) | Vitest (jsdom)          | Render tests, branch coverage, error states — `.test.tsx` files                         |
 | Full user flows      | Playwright E2E          | Real rendering, real data, real interactions                                            |
 
+**Before writing a test, agree the seams**: the public boundaries the tests sit at, with what each catches and misses. Tests sit at seams, never against internals.
+
+**Two shapes pass without proving anything.** A **tautological** test recomputes the expected value the way the code does; the expectation must come from an independent source (a known-good literal, a worked example, the spec). An **implementation-coupled** test mocks internal collaborators or checks through a side channel, and breaks on a refactor that changed no behaviour. A test that still passes with the change reverted is one of the two.
+
 **Coverage target: 80% per package** (unit + E2E combined). Track with `npm run test:coverage` in each package.
 
 **Vitest in `app/` uses two project environments:**

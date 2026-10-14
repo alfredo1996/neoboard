@@ -35,6 +35,10 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *)
 
    ## Drill (minimal)
 
+   ## Merge danger
+
+   Door: one-way or two-way (can it be rolled back cleanly?). Blast radius: what it can break. Anything the owner has not seen goes here.
+
    ## Tests
 
    Red-then-green evidence, and what CI covers.

@@ -119,7 +119,11 @@ describe("the skills describe how we work now (#2196)", () => {
     // which GitHub rejects on this repo: `gh issue view <N> --comments`
     // exits 1, so the owner's decisions in the comments go unread.
     const offenders = [];
-    for (const file of tracked(".claude/skills", ".claude/agents", ".claude/CLAUDE.md")) {
+    for (const file of tracked(
+      ".claude/skills",
+      ".claude/agents",
+      ".claude/CLAUDE.md",
+    )) {
       for (const line of read(file).split("\n")) {
         if (/gh (issue|pr) view\b/.test(line) && !line.includes("--json")) {
           offenders.push(`${file}: ${line.trim()}`);
@@ -236,5 +240,40 @@ describe("every agent runs on the model it declares (#2180)", () => {
   it("anything that names no model defaults to sonnet, not the main model", () => {
     const { env } = JSON.parse(read(".claude/settings.json"));
     expect(env?.CLAUDE_CODE_SUBAGENT_MODEL).toBe("sonnet");
+  });
+});
+
+describe("the definitions carry the frontier drill, merge danger and test seams (#2206)", () => {
+  // Borrowed from mattpocock/skills on 2026-10-13: ask the whole frontier per
+  // round with a recommended answer; say what a merge can break; name the
+  // test shapes that pass without proving anything.
+  const skill = (name) => read(`.claude/skills/${name}/SKILL.md`);
+
+  it("drill asks the whole frontier per round, with a recommended answer each", () => {
+    const drill = skill("drill");
+    expect(drill).toMatch(/frontier/i);
+    expect(drill).toContain("recommended answer");
+    // The policy sentence stays; CLAUDE.md and drill are pinned to it above.
+    expect(drill).toContain("A bug with a reproduction gets the minimal drill");
+  });
+
+  it("the PR body states its merge danger, in pr and in the implementer's section list", () => {
+    for (const file of [
+      ".claude/skills/pr/SKILL.md",
+      ".claude/agents/implementer.md",
+    ]) {
+      expect(read(file), file).toContain("## Merge danger");
+    }
+  });
+
+  it("the testing rule asks for agreed seams and names the two empty test shapes", () => {
+    const rule = read(".claude/rules/testing.md");
+    expect(rule).toMatch(/seam/i);
+    expect(rule).toMatch(/tautolog/i);
+    expect(rule).toContain("implementation-coupled");
+  });
+
+  it("CLAUDE.md says where a lesson about the owner goes", () => {
+    expect(read(".claude/CLAUDE.md")).toContain("~/.claude/rules/");
   });
 });
