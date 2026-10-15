@@ -277,3 +277,35 @@ describe("the definitions carry the frontier drill, merge danger and test seams 
     expect(read(".claude/CLAUDE.md")).toContain("~/.claude/rules/");
   });
 });
+
+describe("agents ask the code graph before grepping (#2208)", () => {
+  // graphify builds a tree-sitter graph of the repo with no model. Its exact-
+  // name commands answered "what uses the scheduler" in ~560 tokens where grep
+  // took ~2,500; free-text query flooded. Two of its installers would rewire
+  // this repo's hooks, so the rule names them as never-run.
+  const rule = ".claude/rules/codebase-graph.md";
+
+  it("the graph output is gitignored", () => {
+    expect(read(".gitignore")).toMatch(/^graphify-out\/$/m);
+  });
+
+  it("the rule names the exact-name commands and how to tell the graph is stale", () => {
+    const text = read(rule);
+    for (const command of ["graphify explain", "graphify affected", "graphify path"]) {
+      expect(text, command).toContain(command);
+    }
+    expect(text).toContain("Built from commit");
+    expect(text).toContain("graphify update .");
+  });
+
+  it("the rule forbids the installers that rewire hooks, and the paid triage", () => {
+    const text = read(rule);
+    expect(text).toContain("graphify claude install");
+    expect(text).toContain("graphify hook install");
+    expect(text).toContain("--triage");
+  });
+
+  it("CLAUDE.md points at the rule", () => {
+    expect(read(".claude/CLAUDE.md")).toContain(rule);
+  });
+});

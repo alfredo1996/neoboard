@@ -112,3 +112,6 @@ cli/docker/
 
 # Scratch output of the docs-accuracy typecheck (#1697); removed after each run
 scripts/__tests__/fixtures/docs-ts-blocks/.out/
+
+# graphify code graph, rebuilt locally (.claude/rules/codebase-graph.md)
+graphify-out/
