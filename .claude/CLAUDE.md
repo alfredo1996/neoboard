@@ -31,6 +31,7 @@ npm -w component run test            # Component Vitest unit tests
 npm -w connection run test           # Connection integration tests (needs Docker)
 npm run test:e2e                     # Playwright E2E (requires Docker)
 npm run storybook                    # Component library viewer
+graphify explain "<symbol>"          # Code graph: importers, callers (optional; .claude/rules/codebase-graph.md)
 npm run db:migrate                   # Drizzle migrations
 npm run db:generate                  # Generate migration from schema
 docker compose up                    # Start Neo4j + PostgreSQL dev containers
