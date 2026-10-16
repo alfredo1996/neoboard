@@ -100,6 +100,11 @@ let darkChart: { getOption: () => unknown } | undefined;
 export const DarkMode: Story = {
   args: { data: defaultData, onChartReady: (c) => (darkChart = c) },
   globals: { theme: "dark" },
+  // Clear the previous render's chart, so play waits for this render's
+  // onChartReady instead of reading stale options.
+  beforeEach: () => {
+    darkChart = undefined;
+  },
   // Axe cannot read canvas text, so assert the merged option ECharts will
   // paint: the label takes the dark foreground and has no halo.
   play: async ({ canvasElement }) => {
