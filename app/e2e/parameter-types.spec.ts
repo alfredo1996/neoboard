@@ -119,7 +119,7 @@ test.describe("Parameter widget types", () => {
 
     try {
       await page.goto(`/${id}`);
-      const textInput = page.getByLabel("q");
+      const textInput = page.getByLabel("Q", { exact: true });
       await textInput.waitFor({ state: "visible", timeout: 15_000 });
       await textInput.fill("matrix");
 
@@ -610,8 +610,8 @@ test.describe("Parameter widget types", () => {
 
       // Both widgets are ParamSelector, which puts aria-labelledby on the
       // SelectTrigger itself — so each combobox carries its parameter name.
-      const yearTrigger = page.getByRole("combobox", { name: "year" });
-      const movieTrigger = page.getByRole("combobox", { name: "movie" });
+      const yearTrigger = page.getByRole("combobox", { name: "Year" });
+      const movieTrigger = page.getByRole("combobox", { name: "Movie" });
 
       // 1. Movie must start disabled (waiting for parent)
       await expect(yearTrigger).toBeVisible({ timeout: 15_000 });

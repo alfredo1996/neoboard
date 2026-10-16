@@ -15,6 +15,8 @@ import type {
 import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
 import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
+import { humanizeParamName } from "@neoboard/components/humanize-param-name";
+import { waitingText as waitingTextFor } from "@/lib/widget/waiting-text";
 import { useParameterValues } from "@/stores/parameter-store";
 import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
 import { applyTransforms } from "@/lib/query/data-transforms";
@@ -106,12 +108,13 @@ function MissingParamBadge({
   onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
 }>) {
   const sources = parameterSourceMap?.[name];
+  const label = humanizeParamName(name);
 
   if (!sources || sources.length === 0) {
     return (
-      <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground">
-        $param_{name}
-      </code>
+      <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">
+        {label}
+      </span>
     );
   }
 
@@ -127,9 +130,9 @@ function MissingParamBadge({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground hover:bg-accent cursor-pointer transition-colors"
+          className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground hover:bg-accent cursor-pointer transition-colors"
         >
-          $param_{name}
+          {label}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3" align="center">
@@ -641,12 +644,11 @@ export function CardContainer({
     }
 
     // Genuine unresolved $param_xxx placeholders — show parameter badges.
+    const waitingText = waitingTextFor(missingParams, parameterSourceMap);
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center space-y-2">
-          <p className="text-sm text-muted-foreground">
-            Waiting for parameters&hellip;
-          </p>
+          <p className="text-sm text-muted-foreground">{waitingText}</p>
           {missingParams.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1.5">
               {missingParams.map((name) => (

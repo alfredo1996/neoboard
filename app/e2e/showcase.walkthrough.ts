@@ -379,7 +379,7 @@ async function readmeShots(page: Page, browser: Browser) {
     await expect(cards.getByRole("alert")).toHaveCount(0);
     await expect(
       cards.getByText(
-        /Waiting for parameters|No data|Incompatible data format|No connection configured|No query configured|Unknown chart type/,
+        /Waiting for |to see this\.|No data|Incompatible data format|No connection configured|No query configured|Unknown chart type/,
       ),
     ).toHaveCount(0);
     const box = await films.boundingBox();

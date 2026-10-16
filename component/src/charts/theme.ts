@@ -157,7 +157,12 @@ function axisStyle(line: string, label: string, split: string) {
  * - pies: hairline gap between slices
  * - tooltips: popover-token styling instead of the ECharts white box
  */
-function seriesDefaults(popoverBg: string, border: string, fg: string) {
+function seriesDefaults(
+  popoverBg: string,
+  border: string,
+  fg: string,
+  muted: string,
+) {
   return {
     bar: {
       // Hidden by default; when a widget enables value labels they must read
@@ -168,6 +173,8 @@ function seriesDefaults(popoverBg: string, border: string, fg: string) {
       itemStyle: { borderRadius: [3, 3, 0, 0] },
     },
     line: {
+      // "End label" sits on the canvas: same default-halo problem (#2212).
+      endLabel: { color: fg, textBorderWidth: 0 },
       smooth: true,
       symbolSize: 4,
       lineStyle: { width: 1.5, cap: "round" },
@@ -176,6 +183,24 @@ function seriesDefaults(popoverBg: string, border: string, fg: string) {
       itemStyle: { borderWidth: 2, borderColor: "transparent" },
       // Slice labels: same dark-fill + light-halo ECharts default as bar —
       // unreadable on the dark canvas (#1154). Theme foreground, no halo.
+      label: { color: fg, textBorderWidth: 0 },
+    },
+    radar: {
+      // Radar axisName and value labels don't inherit the global textStyle —
+      // the dim axisName default and the dark-fill + halo value label are
+      // both hard to read on the dark canvas (#1154, #2212).
+      axisName: { color: muted },
+      label: { color: fg, textBorderWidth: 0 },
+    },
+    // Reference lines (bar and line) draw their label with the same halo
+    // default; ECharts merges a component's theme by its main type (#2212).
+    markLine: { label: { color: fg, textBorderWidth: 0 } },
+    sankey: {
+      // Node labels sit beside the nodes, on the canvas: same unreadable
+      // dark-fill + light-halo default as bar/pie in dark mode (#2212).
+      // Not applied to treemap/sunburst/circle packing (labels sit on their
+      // fills, #1095), choropleth, gauge (own colours), the gantt "Today"
+      // label, or graph (NVL canvas, not ECharts).
       label: { color: fg, textBorderWidth: 0 },
     },
     treemap: {
@@ -236,9 +261,8 @@ export function registerNeoboardThemes(
       detail: { color: "#14161a" },
       title: { color: "#666d7a" },
     },
-    // Radar axisName and visualMap text don't inherit the global textStyle —
-    // their dim ECharts defaults are hard to read on the dark canvas (#1154).
-    radar: { axisName: { color: "#666d7a" } },
+    // visualMap text doesn't inherit the global textStyle — its dim ECharts
+    // default is hard to read on the dark canvas (#1154).
     visualMap: { textStyle: { color: "#666d7a" } },
     // --ring 212 90% 42%
     dataZoom: dataZoomStyle(
@@ -248,7 +272,7 @@ export function registerNeoboardThemes(
       "#e5e7eb",
       "#666d7a",
     ),
-    ...seriesDefaults("#ffffff", "#e5e7eb", "#14161a"),
+    ...seriesDefaults("#ffffff", "#e5e7eb", "#14161a", "#666d7a"),
   });
 
   // Dark: border hsl(220 13% 17%) ≈ #262931, muted-fg hsl(220 9% 62%) ≈ #959ba7
@@ -270,8 +294,7 @@ export function registerNeoboardThemes(
       detail: { color: "#f3f4f6" },
       title: { color: "#959ba7" },
     },
-    // See the light theme note — radar/visualMap text needs explicit color.
-    radar: { axisName: { color: "#959ba7" } },
+    // See the light theme note — visualMap text needs explicit color.
     visualMap: { textStyle: { color: "#959ba7" } },
     // --ring 212 90% 62%
     dataZoom: dataZoomStyle(
@@ -281,6 +304,6 @@ export function registerNeoboardThemes(
       "#262931",
       "#959ba7",
     ),
-    ...seriesDefaults("#181b20", "#262931", "#f3f4f6"),
+    ...seriesDefaults("#181b20", "#262931", "#f3f4f6", "#959ba7"),
   });
 }

@@ -90,7 +90,7 @@ describe("ParamSelector — parent gating", () => {
 
     const trigger = screen.getByRole("combobox", { name: /city/i });
     expect(trigger).toBeDisabled();
-    expect(screen.getByText("Select country first…")).toBeInTheDocument();
+    expect(screen.getByText("Select Country first…")).toBeInTheDocument();
   });
 
   it("enables the trigger once parentValue is set", () => {
@@ -107,7 +107,7 @@ describe("ParamSelector — parent gating", () => {
     );
 
     expect(screen.getByRole("combobox", { name: /city/i })).toBeEnabled();
-    expect(screen.queryByText("Select country first…")).toBeNull();
+    expect(screen.queryByText("Select Country first…")).toBeNull();
   });
 
   it("annotates the label with the parent it depends on", () => {
@@ -122,7 +122,7 @@ describe("ParamSelector — parent gating", () => {
       />,
     );
 
-    expect(screen.getByText("(depends on country)")).toBeInTheDocument();
+    expect(screen.getByText("(depends on Country)")).toBeInTheDocument();
   });
 
   it("leaves an explicit placeholder in charge even while waiting for the parent", () => {
@@ -139,7 +139,7 @@ describe("ParamSelector — parent gating", () => {
     );
 
     expect(screen.getByText("Pick a city")).toBeInTheDocument();
-    expect(screen.queryByText("Select country first…")).toBeNull();
+    expect(screen.queryByText("Select Country first…")).toBeNull();
   });
 
   // The editor's parent-name Input writes "" when the user clears it, so an
@@ -190,7 +190,7 @@ describe("ParamSelector — parent gating", () => {
     );
 
     expect(screen.getByRole("combobox", { name: /city/i })).toBeDisabled();
-    expect(screen.getByText("Select country first…")).toBeInTheDocument();
+    expect(screen.getByText("Select Country first…")).toBeInTheDocument();
   });
 
   it("typing into a gated control does nothing — no search field is reachable", () => {
