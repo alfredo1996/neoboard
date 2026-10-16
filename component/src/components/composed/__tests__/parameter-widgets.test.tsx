@@ -1910,13 +1910,13 @@ describe("parameter widgets with an external label (#1410)", () => {
       />,
     );
     expect(
-      screen.getByRole("spinbutton", { name: "Rf 1 score minimum" }),
+      screen.getByRole("spinbutton", { name: "Rf1 score minimum" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("spinbutton", { name: "Rf 1 score maximum" }),
+      screen.getByRole("spinbutton", { name: "Rf1 score maximum" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Clear Rf 1 score" }),
+      screen.getByRole("button", { name: "Clear Rf1 score" }),
     ).toBeInTheDocument();
   });
 
