@@ -57,6 +57,31 @@ test.describe("Theme toggle", () => {
     await page.getByRole("menuitemradio", { name: "System" }).click();
   });
 
+  test("dialog scrim is dark in dark mode (#2211)", async ({ page }) => {
+    await page.getByRole("button", { name: "Theme" }).click();
+    await page.getByRole("menuitemradio", { name: "Dark" }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+
+    await page.goto("/connections");
+    await page.getByRole("button", { name: "Add Connection" }).click();
+    const overlay = page.locator("[data-state='open'].fixed.inset-0.z-50");
+    await expect(overlay).toBeVisible();
+    // Poll: the fade-in animates the colour towards its final value.
+    await expect
+      .poll(async () => {
+        const bg = await overlay.evaluate(
+          (el) => getComputedStyle(el).backgroundColor,
+        );
+        const c = (bg.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        return c.length === 3 && c.every((n) => n < 60);
+      })
+      .toBe(true);
+
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Theme" }).click();
+    await page.getByRole("menuitemradio", { name: "System" }).click();
+  });
+
   test("theme applies on dashboard view page", async ({ page }) => {
     // Navigate to a dashboard
     await page.getByText("Movie Analytics", { exact: true }).click();
