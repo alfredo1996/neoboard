@@ -5,13 +5,13 @@ export { Label } from "./label";
 export { FieldError, type FieldErrorProps } from "./field-error";
 export { controlSizes, textareaSizes, type ControlSize } from "./control-sizes";
 export {
-  Card,
-  CardHeader,
-  CardFooter,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "./card";
+  Panel,
+  PanelHeader,
+  PanelFooter,
+  PanelTitle,
+  PanelDescription,
+  PanelContent,
+} from "./panel";
 export { Badge, badgeVariants } from "./badge";
 export { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 export { Separator } from "./separator";

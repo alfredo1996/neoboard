@@ -848,6 +848,18 @@ describe("DashboardWorkspace", () => {
     expect(screen.queryByTestId("dashboard-container")).toBeNull();
   });
 
+  it("paints the loading skeleton on the ground, so the page doesn't flash to it (#2219)", () => {
+    mockUseDashboard.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isFetching: true,
+    });
+    const { container } = render(
+      <DashboardWorkspace id="d1" editMode={false} />,
+    );
+    expect(container.firstChild).toHaveClass("bg-ground");
+  });
+
   it("renders a not-found state when the dashboard is missing", () => {
     mockUseDashboard.mockReturnValue({
       data: undefined,

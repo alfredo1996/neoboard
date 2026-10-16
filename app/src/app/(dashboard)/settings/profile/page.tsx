@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  Panel,
+  PanelContent,
+  PanelDescription,
+  PanelHeader,
+  PanelTitle,
   Input,
   Label,
   Badge,
@@ -45,7 +45,7 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
-    fetch("/api/users/me")
+    void fetch("/api/users/me")
       .then((r) => r.json())
       .then((body) => {
         if (body.data) {
@@ -149,12 +149,12 @@ export default function ProfilePage() {
   return (
     <div className="flex flex-col gap-6 p-6 max-w-2xl">
       {/* Account Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Account</CardTitle>
-          <CardDescription>Your account details</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Panel>
+        <PanelHeader>
+          <PanelTitle>Account</PanelTitle>
+          <PanelDescription>Your account details</PanelDescription>
+        </PanelHeader>
+        <PanelContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-muted-foreground">Email</span>
@@ -194,18 +194,18 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </PanelContent>
+      </Panel>
 
       {/* Name */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Display Name</CardTitle>
-          <CardDescription>
+      <Panel>
+        <PanelHeader>
+          <PanelTitle>Display Name</PanelTitle>
+          <PanelDescription>
             This is how your name appears across NeoBoard.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </PanelDescription>
+        </PanelHeader>
+        <PanelContent>
           <form onSubmit={handleSaveName} className="flex items-end gap-3">
             <div className="flex-1 space-y-2">
               <Label htmlFor="profile-name">Name</Label>
@@ -225,18 +225,18 @@ export default function ProfilePage() {
               Save
             </LoadingButton>
           </form>
-        </CardContent>
-      </Card>
+        </PanelContent>
+      </Panel>
 
       {/* Password */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Change Password</CardTitle>
-          <CardDescription>
+      <Panel>
+        <PanelHeader>
+          <PanelTitle>Change Password</PanelTitle>
+          <PanelDescription>
             Update your password. You will need your current password.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </PanelDescription>
+        </PanelHeader>
+        <PanelContent>
           <form
             onSubmit={handleChangePassword}
             className="space-y-4"
@@ -290,8 +290,8 @@ export default function ProfilePage() {
               Change Password
             </LoadingButton>
           </form>
-        </CardContent>
-      </Card>
+        </PanelContent>
+      </Panel>
     </div>
   );
 }

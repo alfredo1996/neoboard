@@ -15,17 +15,17 @@ vi.mock("next-auth/react", () => ({
 }));
 
 vi.mock("@neoboard/components", () => ({
-  Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  CardContent: ({ children }: { children: React.ReactNode }) => (
+  Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PanelContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  CardDescription: ({ children }: { children: React.ReactNode }) => (
+  PanelDescription: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  CardHeader: ({ children }: { children: React.ReactNode }) => (
+  PanelHeader: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  CardTitle: ({ children }: { children: React.ReactNode }) => (
+  PanelTitle: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
   Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (

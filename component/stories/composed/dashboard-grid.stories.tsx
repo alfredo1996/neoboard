@@ -1,15 +1,15 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { DashboardGrid } from '@/components/composed/dashboard-grid';
-import { WidgetCard } from '@/components/composed/widget-card';
-import { LineChart } from '@/charts/line-chart';
-import { BarChart } from '@/charts/bar-chart';
-import { PieChart } from '@/charts/pie-chart';
+import type { Meta, StoryObj } from "@storybook/react";
+import { DashboardGrid } from "@/components/composed/dashboard-grid";
+import { WidgetCard } from "@/components/composed/widget-card";
+import { LineChart } from "@/charts/line-chart";
+import { BarChart } from "@/charts/bar-chart";
+import { PieChart } from "@/charts/pie-chart";
 
 const meta = {
-  title: 'Composed/DashboardGrid',
+  title: "Composed/DashboardGrid",
   component: DashboardGrid,
-  parameters: { layout: 'fullscreen' },
-  tags: ['autodocs'],
+  parameters: { layout: "fullscreen" },
+  tags: ["autodocs"],
 } satisfies Meta<typeof DashboardGrid>;
 
 export default meta;
@@ -46,9 +46,9 @@ const trafficData = [
 ];
 
 const simpleLayout = [
-  { i: 'revenue', x: 0, y: 0, w: 6, h: 3 },
-  { i: 'users', x: 6, y: 0, w: 6, h: 3 },
-  { i: 'orders', x: 0, y: 3, w: 12, h: 3 },
+  { i: "revenue", x: 0, y: 0, w: 6, h: 3 },
+  { i: "users", x: 6, y: 0, w: 6, h: 3 },
+  { i: "orders", x: 0, y: 3, w: 12, h: 3 },
 ];
 
 export const Default: Story = {
@@ -60,14 +60,14 @@ export const Default: Story = {
     <div style={{ padding: 16 }}>
       <DashboardGrid {...args} layout={simpleLayout}>
         <div key="revenue">
-          <WidgetCard title="Revenue" subtitle="Last 30 days">
+          <WidgetCard title="Revenue" source="Last 30 days">
             <div className="flex items-center justify-center h-full text-2xl font-bold">
               $45,231
             </div>
           </WidgetCard>
         </div>
         <div key="users">
-          <WidgetCard title="Active Users" subtitle="This week">
+          <WidgetCard title="Active Users" source="This week">
             <div className="flex items-center justify-center h-full text-2xl font-bold">
               2,350
             </div>
@@ -86,13 +86,13 @@ export const Default: Story = {
 };
 
 const chartsLayout = [
-  { i: 'stat-revenue', x: 0, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-  { i: 'stat-users', x: 3, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-  { i: 'stat-orders', x: 6, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-  { i: 'stat-conversion', x: 9, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-  { i: 'line-chart', x: 0, y: 2, w: 8, h: 4, minW: 4, minH: 3 },
-  { i: 'pie-chart', x: 8, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
-  { i: 'bar-chart', x: 0, y: 6, w: 12, h: 4, minW: 3, minH: 3 },
+  { i: "stat-revenue", x: 0, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+  { i: "stat-users", x: 3, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+  { i: "stat-orders", x: 6, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+  { i: "stat-conversion", x: 9, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+  { i: "line-chart", x: 0, y: 2, w: 8, h: 4, minW: 4, minH: 3 },
+  { i: "pie-chart", x: 8, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
+  { i: "bar-chart", x: 0, y: 6, w: 12, h: 4, minW: 3, minH: 3 },
 ];
 
 export const WithCharts: Story = {
@@ -130,7 +130,7 @@ export const WithCharts: Story = {
         <div key="line-chart">
           <WidgetCard
             title="Revenue Over Time"
-            subtitle="Monthly trend"
+            source="Monthly trend"
             actions={[
               { label: "Export CSV", onClick: () => {} },
               { label: "Remove", onClick: () => {}, destructive: true },
@@ -147,7 +147,7 @@ export const WithCharts: Story = {
         <div key="bar-chart">
           <WidgetCard
             title="Sales by Category"
-            subtitle="Current quarter"
+            source="Current quarter"
             draggable
           >
             <BarChart data={categoryData} showValues />
@@ -159,10 +159,10 @@ export const WithCharts: Story = {
 };
 
 const handleLayout = [
-  { i: 'revenue', x: 0, y: 0, w: 4, h: 3 },
-  { i: 'users', x: 4, y: 0, w: 4, h: 3 },
-  { i: 'orders', x: 8, y: 0, w: 4, h: 3 },
-  { i: 'chart', x: 0, y: 3, w: 12, h: 4, minH: 3 },
+  { i: "revenue", x: 0, y: 0, w: 4, h: 3 },
+  { i: "users", x: 4, y: 0, w: 4, h: 3 },
+  { i: "orders", x: 8, y: 0, w: 4, h: 3 },
+  { i: "chart", x: 0, y: 3, w: 12, h: 4, minH: 3 },
 ];
 
 export const WithDragHandle: Story = {
@@ -170,32 +170,54 @@ export const WithDragHandle: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
       <p className="mb-3 text-sm text-muted-foreground">
-        Only the <strong>grip icon</strong> in each card header triggers dragging — clicking anywhere else on the card does not move it.
+        Only the <strong>grip icon</strong> in each card header triggers
+        dragging — clicking anywhere else on the card does not move it.
       </p>
       <DashboardGrid layout={handleLayout}>
         <div key="revenue">
-          <WidgetCard title="Revenue" subtitle="Last 30 days" draggable actions={[{ label: 'Edit', onClick: () => {} }]}>
-            <div className="flex items-center justify-center h-full text-2xl font-bold">$45,231</div>
+          <WidgetCard
+            title="Revenue"
+            source="Last 30 days"
+            draggable
+            actions={[{ label: "Edit", onClick: () => {} }]}
+          >
+            <div className="flex items-center justify-center h-full text-2xl font-bold">
+              $45,231
+            </div>
           </WidgetCard>
         </div>
         <div key="users">
-          <WidgetCard title="Active Users" subtitle="This week" draggable actions={[{ label: 'Edit', onClick: () => {} }]}>
-            <div className="flex items-center justify-center h-full text-2xl font-bold">2,350</div>
+          <WidgetCard
+            title="Active Users"
+            source="This week"
+            draggable
+            actions={[{ label: "Edit", onClick: () => {} }]}
+          >
+            <div className="flex items-center justify-center h-full text-2xl font-bold">
+              2,350
+            </div>
           </WidgetCard>
         </div>
         <div key="orders">
-          <WidgetCard title="Orders" subtitle="Pending" draggable actions={[{ label: 'Edit', onClick: () => {} }]}>
-            <div className="flex items-center justify-center h-full text-2xl font-bold">128</div>
+          <WidgetCard
+            title="Orders"
+            source="Pending"
+            draggable
+            actions={[{ label: "Edit", onClick: () => {} }]}
+          >
+            <div className="flex items-center justify-center h-full text-2xl font-bold">
+              128
+            </div>
           </WidgetCard>
         </div>
         <div key="chart">
           <WidgetCard
             title="Revenue Over Time"
-            subtitle="Monthly trend"
+            source="Monthly trend"
             draggable
             actions={[
-              { label: 'Export CSV', onClick: () => {} },
-              { label: 'Remove', onClick: () => {}, destructive: true },
+              { label: "Export CSV", onClick: () => {} },
+              { label: "Remove", onClick: () => {}, destructive: true },
             ]}
           >
             <LineChart data={revenueData} smooth area />
@@ -215,10 +237,16 @@ export const StaticLayout: Story = {
   },
   render: () => (
     <div style={{ padding: 16 }}>
-      <DashboardGrid layout={simpleLayout} isDraggable={false} isResizable={false}>
+      <DashboardGrid
+        layout={simpleLayout}
+        isDraggable={false}
+        isResizable={false}
+      >
         <div key="revenue">
           <WidgetCard title="Revenue">
-            <div className="flex items-center justify-center h-full">$45,231</div>
+            <div className="flex items-center justify-center h-full">
+              $45,231
+            </div>
           </WidgetCard>
         </div>
         <div key="users">

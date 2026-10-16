@@ -1,5 +1,5 @@
-import * as React from 'react';
-import type { Meta, StoryObj } from '@storybook/react';
+import * as React from "react";
+import type { Meta, StoryObj } from "@storybook/react";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -8,44 +8,44 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
-} from '@/components/ui/navigation-menu';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/navigation-menu";
+import { cn } from "@/lib/utils";
 
 const components: { title: string; href: string; description: string }[] = [
   {
-    title: 'Alert Dialog',
-    href: '#',
+    title: "Alert Dialog",
+    href: "#",
     description:
-      'A modal dialog that interrupts the user with important content and expects a response.',
+      "A modal dialog that interrupts the user with important content and expects a response.",
   },
   {
-    title: 'Hover Card',
-    href: '#',
+    title: "Hover Card",
+    href: "#",
     description:
-      'For sighted users to preview content available behind a link.',
+      "For sighted users to preview content available behind a link.",
   },
   {
-    title: 'Progress',
-    href: '#',
+    title: "Progress",
+    href: "#",
     description:
-      'Displays an indicator showing the completion progress of a task, typically displayed as a progress bar.',
+      "Displays an indicator showing the completion progress of a task, typically displayed as a progress bar.",
   },
   {
-    title: 'Scroll-area',
-    href: '#',
-    description: 'Visually or semantically separates content.',
+    title: "Scroll-area",
+    href: "#",
+    description: "Visually or semantically separates content.",
   },
   {
-    title: 'Tabs',
-    href: '#',
+    title: "Tabs",
+    href: "#",
     description:
-      'A set of layered sections of content—known as tab panels—that are displayed one at a time.',
+      "A set of layered sections of content—known as tab panels—that are displayed one at a time.",
   },
   {
-    title: 'Tooltip',
-    href: '#',
+    title: "Tooltip",
+    href: "#",
     description:
-      'A popup that displays information related to an element when the element receives keyboard focus or the mouse hovers over it.',
+      "A popup that displays information related to an element when the element receives keyboard focus or the mouse hovers over it.",
   },
 ];
 
@@ -55,14 +55,14 @@ function ListItem({
   children,
   href,
   ...props
-}: React.ComponentPropsWithoutRef<'a'> & { title: string }) {
+}: React.ComponentPropsWithoutRef<"a"> & { title: string }) {
   return (
     <li>
       <NavigationMenuLink asChild>
         <a
           className={cn(
-            'block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground',
-            className
+            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+            className,
           )}
           href={href}
           {...props}
@@ -78,19 +78,19 @@ function ListItem({
 }
 
 const meta = {
-  title: 'UI/NavigationMenu',
+  title: "UI/NavigationMenu",
   component: NavigationMenu,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     className: {
-      control: 'text',
-      description: 'Additional CSS classes for the navigation menu',
+      control: "text",
+      description: "Additional CSS classes for the navigation menu",
     },
     orientation: {
-      control: 'radio',
-      options: ['horizontal', 'vertical'],
-      description: 'The orientation of the navigation menu',
+      control: "radio",
+      options: ["horizontal", "vertical"],
+      description: "The orientation of the navigation menu",
     },
   },
 } satisfies Meta<typeof NavigationMenu>;

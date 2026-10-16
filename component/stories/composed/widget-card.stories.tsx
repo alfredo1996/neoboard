@@ -1,15 +1,15 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { WidgetCard } from '@/components/composed/widget-card';
+import type { Meta, StoryObj } from "@storybook/react";
+import { WidgetCard } from "@/components/composed/widget-card";
 
 const meta = {
-  title: 'Composed/WidgetCard',
+  title: "Composed/WidgetCard",
   component: WidgetCard,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
-    title: { control: 'text' },
-    subtitle: { control: 'text' },
-    draggable: { control: 'boolean' },
+    title: { control: "text" },
+    source: { control: "text" },
+    draggable: { control: "boolean" },
   },
 } satisfies Meta<typeof WidgetCard>;
 
@@ -18,8 +18,8 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
-    title: 'Revenue Chart',
-    subtitle: 'Monthly revenue breakdown',
+    title: "Revenue Chart",
+    source: "Monthly revenue breakdown",
     children: (
       <div className="flex items-center justify-center h-48 text-muted-foreground">
         Chart content goes here
@@ -30,12 +30,12 @@ export const Default: Story = {
 
 export const WithActions: Story = {
   args: {
-    title: 'Active Users',
-    subtitle: 'Real-time user activity',
+    title: "Active Users",
+    source: "Real-time user activity",
     actions: [
-      { label: 'Edit', onClick: () => {} },
-      { label: 'Duplicate', onClick: () => {} },
-      { label: 'Delete', onClick: () => {}, destructive: true },
+      { label: "Edit", onClick: () => {} },
+      { label: "Duplicate", onClick: () => {} },
+      { label: "Delete", onClick: () => {}, destructive: true },
     ],
     children: (
       <div className="flex items-center justify-center h-48 text-muted-foreground">
@@ -47,11 +47,11 @@ export const WithActions: Story = {
 
 export const Draggable: Story = {
   args: {
-    title: 'Draggable Widget',
+    title: "Draggable Widget",
     draggable: true,
     actions: [
-      { label: 'Configure', onClick: () => {} },
-      { label: 'Remove', onClick: () => {}, destructive: true },
+      { label: "Configure", onClick: () => {} },
+      { label: "Remove", onClick: () => {}, destructive: true },
     ],
     children: (
       <div className="flex items-center justify-center h-48 text-muted-foreground">
@@ -67,8 +67,8 @@ export const DashboardLayout: Story = {
     <div className="grid gap-4 md:grid-cols-2 w-[700px]">
       <WidgetCard
         title="Revenue"
-        subtitle="Last 30 days"
-        actions={[{ label: 'Edit', onClick: () => {} }]}
+        source="Last 30 days"
+        actions={[{ label: "Edit", onClick: () => {} }]}
       >
         <div className="flex items-center justify-center h-32 text-muted-foreground">
           $45,231
@@ -76,8 +76,8 @@ export const DashboardLayout: Story = {
       </WidgetCard>
       <WidgetCard
         title="Users"
-        subtitle="Active this week"
-        actions={[{ label: 'Edit', onClick: () => {} }]}
+        source="Active this week"
+        actions={[{ label: "Edit", onClick: () => {} }]}
       >
         <div className="flex items-center justify-center h-32 text-muted-foreground">
           2,350

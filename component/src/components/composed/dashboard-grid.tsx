@@ -53,13 +53,21 @@ function colsForEveryBreakpoint(cols: number) {
   return { lg: cols, md: cols, sm: cols, xs: cols };
 }
 
+// Gap between panels, px. The same in view and edit, so entering edit mode
+// moves nothing (#2219). Saved layouts are in grid units, so it never shifts them.
+const GAP = 12;
+
 function getCompactorByType(type: "vertical" | "horizontal" | null) {
   if (type === "horizontal") return horizontalCompactor;
   if (type === null) return noCompactor;
   return verticalCompactor;
 }
 
-/** Skeleton grid shown while the container width is being measured. */
+/**
+ * Skeleton grid shown while the container width is being measured. Tiles sit
+ * where react-grid-layout will put them (same column and gap formula), so the
+ * mount does not jump.
+ */
 function GridSkeleton({
   layout,
   cols,
@@ -70,9 +78,9 @@ function GridSkeleton({
   rowHeight: number;
 }) {
   if (layout.length === 0) return null;
-  const colPercent = 100 / cols;
+  const col = `(100% - ${(cols - 1) * GAP}px) / ${cols}`;
   const maxBottom = layout.reduce(
-    (max, item) => Math.max(max, (item.y + item.h) * rowHeight),
+    (max, item) => Math.max(max, (item.y + item.h) * (rowHeight + GAP) - GAP),
     0,
   );
   return (
@@ -80,15 +88,16 @@ function GridSkeleton({
       {layout.map((item) => (
         <div
           key={item.i}
-          className="absolute p-1"
+          data-skeleton-tile
+          className="absolute"
           style={{
-            left: `${item.x * colPercent}%`,
-            top: item.y * rowHeight,
-            width: `${item.w * colPercent}%`,
-            height: item.h * rowHeight,
+            left: `calc(${col} * ${item.x} + ${item.x * GAP}px)`,
+            top: item.y * (rowHeight + GAP),
+            width: `calc(${col} * ${item.w} + ${(item.w - 1) * GAP}px)`,
+            height: item.h * rowHeight + (item.h - 1) * GAP,
           }}
         >
-          <Skeleton className="h-full w-full rounded-xl" />
+          <Skeleton className="h-full w-full rounded-md" />
         </div>
       ))}
     </div>
@@ -135,6 +144,8 @@ function DashboardGrid({
           breakpoints={defaultBreakpoints}
           cols={colsForEveryBreakpoint(cols)}
           rowHeight={rowHeight}
+          margin={[GAP, GAP]}
+          containerPadding={[0, 0]}
           dragConfig={{
             enabled: isDraggable,
             bounded: false,

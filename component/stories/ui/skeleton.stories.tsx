@@ -1,19 +1,20 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Skeleton } from '@/components/ui/skeleton';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const meta = {
-  title: 'UI/Skeleton',
+  title: "UI/Skeleton",
   component: Skeleton,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     className: {
-      control: 'text',
-      description: 'CSS classes to control size and shape (e.g., w-[100px] h-[20px] rounded-full)',
+      control: "text",
+      description:
+        "CSS classes to control size and shape (e.g., w-[100px] h-[20px] rounded-full)",
     },
   },
   args: {
-    className: 'w-[100px] h-[20px] rounded-full',
+    className: "w-[100px] h-[20px] rounded-full",
   },
 } satisfies Meta<typeof Skeleton>;
 
@@ -22,7 +23,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-export const Card: Story = {
+export const Panel: Story = {
   render: () => (
     <div className="flex flex-col space-y-3">
       <Skeleton className="h-[125px] w-[250px] rounded-xl" />

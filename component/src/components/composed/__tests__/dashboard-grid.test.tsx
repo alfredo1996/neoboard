@@ -6,13 +6,14 @@ import { DashboardGrid } from "../dashboard-grid";
 // passes to ResponsiveGridLayout, without rendering the real (heavy,
 // ResizeObserver-driven) grid.
 let mockWidth = 1300;
+let mockMounted = true;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- captured RGL props
 let capturedProps: any = {};
 
 vi.mock("react-grid-layout", () => ({
   useContainerWidth: () => ({
     width: mockWidth,
-    mounted: true,
+    mounted: mockMounted,
     containerRef: { current: null },
   }),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test stub
@@ -32,6 +33,7 @@ const layout = [
 
 beforeEach(() => {
   mockWidth = 1300;
+  mockMounted = true;
   capturedProps = {};
 });
 
@@ -190,5 +192,51 @@ describe("DashboardGrid — breakpoint column parity (#1375)", () => {
     for (const bp of ["lg", "md", "sm", "xs"]) {
       expect(layouts[bp]).toBe(layout);
     }
+  });
+
+  it("keeps the same 12 px gap in view and edit, so positions never shift", () => {
+    for (const isDraggable of [false, true]) {
+      render(
+        <DashboardGrid layout={layout} isDraggable={isDraggable}>
+          <div key="a">A</div>
+        </DashboardGrid>,
+      );
+      expect(capturedProps.margin).toEqual([12, 12]);
+      expect(capturedProps.containerPadding).toEqual([0, 0]);
+    }
+  });
+
+  it("draws no frame of its own: each panel carries its own border", () => {
+    const { container } = render(
+      <DashboardGrid layout={layout}>
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    expect(container.firstChild).not.toHaveClass("border");
+    expect(container.firstChild).not.toHaveClass("overflow-hidden");
+  });
+
+  it("places skeleton tiles where the grid will put them, so mount does not jump", () => {
+    mockMounted = false;
+    render(
+      <DashboardGrid
+        layout={[{ i: "a", x: 6, y: 2, w: 6, h: 3 }]}
+        rowHeight={80}
+      >
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    // Worked example, 12 columns, 12 px gap, 80 px rows:
+    //   column width = (W - 11 * 12) / 12
+    //   left   = x * (column + 12)       = 6 * column + 72
+    //   width  = w * column + (w-1) * 12 = 6 * column + 60
+    // (jsdom serialises 6 of 12 columns as 0.5 * (W - 132))
+    //   top    = y * (80 + 12)           = 184
+    //   height = h * 80 + (h-1) * 12     = 264
+    const tile = document.querySelector<HTMLElement>("[data-skeleton-tile]")!;
+    expect(tile.style.top).toBe("184px");
+    expect(tile.style.height).toBe("264px");
+    expect(tile.style.left).toBe("calc(72px + 0.5 * (100% - 132px))");
+    expect(tile.style.width).toBe("calc(60px + 0.5 * (100% - 132px))");
   });
 });

@@ -32,6 +32,7 @@ vi.mock("@neoboard/components", () => ({
     title,
     actions,
     onRefresh,
+    onFullscreen,
     headerExtra,
   }: {
     children: React.ReactNode;
@@ -42,6 +43,7 @@ vi.mock("@neoboard/components", () => ({
       children?: Array<{ label: string; onClick?: () => void }>;
     }>;
     onRefresh?: () => void;
+    onFullscreen?: (opener: HTMLElement | null) => void;
     headerExtra?: React.ReactNode;
   }) => {
     widgetCardProps.push({ title, actions, onRefresh });
@@ -54,7 +56,26 @@ vi.mock("@neoboard/components", () => ({
     );
     return (
       <div data-testid="widget-card-inner" data-title={title}>
-        <div data-testid="widget-header-extra">{headerExtra}</div>
+        <div data-testid="widget-header-extra">
+          {headerExtra}
+          {onFullscreen && (
+            <button
+              data-widget-fullscreen
+              onClick={(e) => onFullscreen(e.currentTarget)}
+            >
+              <span>Fullscreen</span>
+            </button>
+          )}
+          {onFullscreen && (
+            // Touch: Fullscreen is a menu item, so there is no opener button.
+            <button
+              data-testid="fullscreen-from-menu"
+              onClick={() => onFullscreen(null)}
+            >
+              menu fullscreen
+            </button>
+          )}
+        </div>
         {onRefresh && (
           <button data-testid="widget-refresh" onClick={onRefresh}>
             refresh
@@ -519,6 +540,15 @@ describe("DashboardContainer — fullscreen and Sync hand focus back (#2148)", (
     fireEvent.click(screen.getByTestId(close));
     const expected = opener.startsWith("action-") ? mockMenuTrigger : button;
     expect(document.activeElement).toBe(expected);
+  });
+
+  it("closing after Fullscreen chosen from the menu (touch) returns focus to the menu trigger", () => {
+    renderWithProviders(
+      <DashboardContainer page={makePage([makeWidget()])} editable={false} />,
+    );
+    fireEvent.click(screen.getByTestId("fullscreen-from-menu"));
+    fireEvent.click(screen.getByTestId("fullscreen-dialog-close"));
+    expect(document.activeElement).toBe(mockMenuTrigger);
   });
 
   it("a confirmed sync that removes the update button lands on the card's fullscreen button", () => {

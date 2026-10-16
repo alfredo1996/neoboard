@@ -34,34 +34,34 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@neoboard/components", () => ({
-  Card: ({
+  Panel: ({
     children,
     className,
   }: {
     children: React.ReactNode;
     className?: string;
   }) => <div className={className}>{children}</div>,
-  CardContent: ({ children }: { children: React.ReactNode }) => (
+  PanelContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  CardDescription: ({ children }: { children: React.ReactNode }) => (
+  PanelDescription: ({ children }: { children: React.ReactNode }) => (
     <p>{children}</p>
   ),
-  CardFooter: ({
+  PanelFooter: ({
     children,
     className,
   }: {
     children: React.ReactNode;
     className?: string;
   }) => <div className={className}>{children}</div>,
-  CardHeader: ({
+  PanelHeader: ({
     children,
     className,
   }: {
     children: React.ReactNode;
     className?: string;
   }) => <div className={className}>{children}</div>,
-  CardTitle: ({
+  PanelTitle: ({
     children,
     className,
   }: {

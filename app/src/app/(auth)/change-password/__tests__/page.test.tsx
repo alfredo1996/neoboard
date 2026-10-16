@@ -7,11 +7,11 @@ vi.mock("@neoboard/components", () => {
     <div>{children}</div>
   );
   return {
-    Card: div,
-    CardContent: div,
-    CardDescription: div,
-    CardHeader: div,
-    CardTitle: div,
+    Panel: div,
+    PanelContent: div,
+    PanelDescription: div,
+    PanelHeader: div,
+    PanelTitle: div,
     Alert: ({ children }: { children: React.ReactNode }) => (
       <div role="alert">{children}</div>
     ),

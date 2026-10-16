@@ -64,6 +64,37 @@ describe("SingleValueChart", () => {
     expect(screen.getByTestId("single-value-chart")).toHaveClass("custom");
   });
 
+  it("sits straight on the widget's panel, in no box of its own (#2219)", () => {
+    render(<SingleValueChart value={42} />);
+    expect(screen.getByTestId("single-value-chart").className).not.toMatch(
+      /\b(border|rounded|shadow|bg-card)/,
+    );
+  });
+
+  it("fills the content area, with padding, when a background rule applies", () => {
+    render(
+      <SingleValueChart
+        value={50}
+        stylingRules={[
+          {
+            id: "r1",
+            operator: ">",
+            value: 10,
+            color: "#3b82f6",
+            target: "backgroundColor",
+          },
+        ]}
+      />,
+    );
+    const root = screen.getByTestId("single-value-chart");
+    expect(root).toHaveClass("h-full", "rounded-sm", "p-4");
+  });
+
+  it("adds no padding box when no background rule applies", () => {
+    render(<SingleValueChart value={50} />);
+    expect(screen.getByTestId("single-value-chart")).not.toHaveClass("p-4");
+  });
+
   // --- New options: fontSize ---
 
   it("applies text-xl class for fontSize sm", () => {

@@ -25,7 +25,7 @@ import { WidgetCard } from "@/components/composed/widget-card";
 import { LineChart } from "@/charts/line-chart";
 import { BarChart } from "@/charts/bar-chart";
 import { Button } from "@/components/ui/button";
-import { Card, CardKpi } from "@/components/ui/card";
+import { Panel } from "@/components/ui/panel";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const meta = {
@@ -211,27 +211,36 @@ export const FullDashboard: Story = {
               orphans, compact left-aligned KPIs from #825. */}
           <div className="space-y-4 p-6">
             <div className="grid grid-cols-4 gap-4">
-              <Card density="compact" interactive>
-                <CardKpi
-                  label="Revenue"
-                  value="$45,231"
-                  trend={12.4}
-                  trendLabel="vs last month"
-                />
-              </Card>
-              <Card density="compact" interactive>
-                <CardKpi label="Users" value="2,350" trend={4.1} />
-              </Card>
-              <Card density="compact" interactive>
-                <CardKpi label="Orders" value="1,247" trend={-1.8} />
-              </Card>
-              <Card density="compact" interactive>
-                <CardKpi label="Conversion" value="3.2%" trend={0.4} />
-              </Card>
+              <Panel className="flex flex-col gap-1.5 p-4">
+                <span className="text-meta text-muted-foreground">Revenue</span>
+                <span className="text-2xl font-semibold tabular-nums">
+                  $45,231
+                </span>
+              </Panel>
+              <Panel className="flex flex-col gap-1.5 p-4">
+                <span className="text-meta text-muted-foreground">Users</span>
+                <span className="text-2xl font-semibold tabular-nums">
+                  2,350
+                </span>
+              </Panel>
+              <Panel className="flex flex-col gap-1.5 p-4">
+                <span className="text-meta text-muted-foreground">Orders</span>
+                <span className="text-2xl font-semibold tabular-nums">
+                  1,247
+                </span>
+              </Panel>
+              <Panel className="flex flex-col gap-1.5 p-4">
+                <span className="text-meta text-muted-foreground">
+                  Conversion
+                </span>
+                <span className="text-2xl font-semibold tabular-nums">
+                  3.2%
+                </span>
+              </Panel>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-2 h-[320px]">
-                <WidgetCard title="Revenue Over Time" subtitle="Monthly trend">
+                <WidgetCard title="Revenue Over Time" source="Monthly trend">
                   <LineChart data={revenueData} smooth area />
                 </WidgetCard>
               </div>

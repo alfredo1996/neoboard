@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signup } from "@/lib/auth/signup";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  Panel,
+  PanelContent,
+  PanelDescription,
+  PanelFooter,
+  PanelHeader,
+  PanelTitle,
   Input,
   Label,
   Alert,
@@ -93,47 +93,47 @@ export default function SignupPage() {
   if (!registrationEnabled && !bootstrapRequired) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">
+        <Panel className="w-full max-w-sm">
+          <PanelHeader className="text-center">
+            <PanelTitle className="text-2xl">
               <h1>NeoBoard</h1>
-            </CardTitle>
-            <CardDescription>Registration Disabled</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Plain text, not a nested Alert box — the Card is already the
+            </PanelTitle>
+            <PanelDescription>Registration Disabled</PanelDescription>
+          </PanelHeader>
+          <PanelContent>
+            {/* Plain text, not a nested Alert box — the Panel is already the
                 container, so a bordered box-in-box reads as card-in-card
                 (#1038). */}
             <p className="text-sm text-muted-foreground">
               Self-registration is disabled. Contact your administrator for an
               account.
             </p>
-          </CardContent>
-          <CardFooter className="justify-center">
+          </PanelContent>
+          <PanelFooter className="justify-center">
             <p className="text-sm text-muted-foreground">
               <Link href="/login" className="text-primary underline">
                 Back to sign in
               </Link>
             </p>
-          </CardFooter>
-        </Card>
+          </PanelFooter>
+        </Panel>
       </div>
     );
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
+      <Panel className="w-full max-w-sm">
+        <PanelHeader className="text-center">
+          <PanelTitle className="text-2xl">
             <h1>NeoBoard</h1>
-          </CardTitle>
+          </PanelTitle>
           <p className="text-sm text-muted-foreground">{PRODUCT_PITCH}</p>
-          <CardDescription>
+          <PanelDescription>
             {bootstrapRequired ? "First Admin Setup" : "Create your account"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </PanelDescription>
+        </PanelHeader>
+        <PanelContent>
           {bootstrapRequired && (
             <Alert className="mb-4">
               <AlertDescription>
@@ -217,16 +217,16 @@ export default function SignupPage() {
               {bootstrapRequired ? "Create Admin Account" : "Create account"}
             </LoadingButton>
           </form>
-        </CardContent>
-        <CardFooter className="justify-center">
+        </PanelContent>
+        <PanelFooter className="justify-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/login" className="text-primary underline">
               Sign in
             </Link>
           </p>
-        </CardFooter>
-      </Card>
+        </PanelFooter>
+      </Panel>
     </div>
   );
 }
