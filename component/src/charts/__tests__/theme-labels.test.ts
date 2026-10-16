@@ -42,17 +42,38 @@ registerNeoboardThemes(echarts.registerTheme);
 const FOREGROUND = { "neoboard-light": "#14161a", "neoboard-dark": "#f3f4f6" };
 
 const xy = { xAxis: { type: "category", data: ["a", "b"] }, yAxis: {} };
-const cases: Array<[string, Record<string, unknown>]> = [
+// [name, marker text the label renders, option]
+const cases: Array<[string, string, Record<string, unknown>]> = [
   [
     "bar values",
-    { ...xy, series: [{ type: "bar", data: [1, 2], label: { show: true } }] },
+    "BARV",
+    {
+      ...xy,
+      series: [
+        {
+          type: "bar",
+          data: [1, 2],
+          label: { show: true, formatter: "BARV" },
+        },
+      ],
+    },
   ],
   [
     "pie slices",
-    { series: [{ type: "pie", data: [{ name: "a", value: 1 }] }] },
+    "PIEV",
+    {
+      series: [
+        {
+          type: "pie",
+          data: [{ name: "a", value: 1 }],
+          label: { formatter: "PIEV" },
+        },
+      ],
+    },
   ],
   [
     "sankey nodes",
+    "SANK_A",
     {
       series: [
         {
@@ -65,6 +86,7 @@ const cases: Array<[string, Record<string, unknown>]> = [
   ],
   [
     "radar values",
+    "RADV",
     {
       radar: {
         indicator: [
@@ -74,12 +96,18 @@ const cases: Array<[string, Record<string, unknown>]> = [
         ],
       },
       series: [
-        { type: "radar", data: [{ value: [1, 2, 3], label: { show: true } }] },
+        {
+          type: "radar",
+          data: [
+            { value: [1, 2, 3], label: { show: true, formatter: "RADV" } },
+          ],
+        },
       ],
     },
   ],
   [
     "line endLabel",
+    "ENDLBL",
     {
       ...xy,
       series: [
@@ -93,6 +121,7 @@ const cases: Array<[string, Record<string, unknown>]> = [
   ],
   [
     "markLine label",
+    "REFLBL",
     {
       ...xy,
       series: [
@@ -109,7 +138,7 @@ const cases: Array<[string, Record<string, unknown>]> = [
 describe.each(Object.entries(FOREGROUND))(
   "%s label defaults (#2212)",
   (theme, fg) => {
-    it.each(cases)("%s: foreground fill, no halo", (_name, option) => {
+    it.each(cases)("%s: foreground fill, no halo", (_name, marker, option) => {
       const chart = echarts.init(null, theme, {
         renderer: "svg",
         ssr: true,
@@ -119,17 +148,12 @@ describe.each(Object.entries(FOREGROUND))(
       chart.setOption({ animation: false, ...option });
       const svg = chart.renderToSVGString();
       chart.dispose();
-      // Axis ticks are not labels under test: look only at non-axis text that
-      // is drawn with a series/label fill, i.e. any <text> carrying a stroke
-      // or a fill other than the theme's.
-      const texts = svg.match(/<text [^>]*>/g) ?? [];
-      expect(texts.length).toBeGreaterThan(0);
-      const wrong = texts.filter(
-        (t) => t.includes("stroke=") || !t.includes(`fill="${fg}"`),
-      );
-      // Axis labels are muted-foreground by design; only they may differ.
-      const muted = theme === "neoboard-dark" ? "#959ba7" : "#666d7a";
-      expect(wrong.filter((t) => !t.includes(`fill="${muted}"`))).toEqual([]);
+      // The label under test is the <text> that renders the marker. Absent,
+      // muted or haloed labels all fail here; axis ticks cannot satisfy it.
+      const tag = new RegExp(`<text [^>]*>${marker}<`).exec(svg)?.[0];
+      expect(tag).toBeDefined();
+      expect(tag).toContain(`fill="${fg}"`);
+      expect(tag).not.toContain("stroke=");
     });
   },
 );
