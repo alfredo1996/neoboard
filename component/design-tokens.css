@@ -169,7 +169,7 @@
   /* Modal backdrop (#2211). Full hsl(... / a) form like --accent-soft: the
      alpha is part of the token. Ink at 40%. Never derive a scrim from
      --foreground, which is near-white in dark mode. */
-  --scrim: hsl(220 13% 9% / 0.4);
+  --scrim: hsl(223 14% 10% / 0.4);
   /* Brand mark accent — the warm citrine square in the wordmark. Brand and
      charts stay citrine; interaction is azure (#1553). */
   --brand: 38 95% 55%;
