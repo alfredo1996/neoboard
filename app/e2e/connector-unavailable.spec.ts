@@ -186,7 +186,7 @@ test.describe("Dead connector (#1678)", () => {
       await expect(unavailable).toHaveCount(4, {
         timeout: CONNECT_TIMEOUT_MS + 5_000,
       });
-      await expect(page.getByText(/Waiting for parameters/)).toHaveCount(0);
+      await expect(page.getByText(/Waiting for |to see this\./)).toHaveCount(0);
       await expect(page.getByText("Server timed out")).toHaveCount(0);
       const settledAt = Date.now();
 

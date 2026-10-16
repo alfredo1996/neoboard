@@ -259,7 +259,8 @@ test.describe("Parameter-to-refresh cycle", () => {
     await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The parameter-select widget should render a dropdown with "year" label
-    await expect(page.getByText("Year", { exact: true })).toBeVisible({
+    // (a combobox, not the text: the waiting widget's badge says "Year" too, #2214)
+    await expect(page.getByRole("combobox", { name: "Year" })).toBeVisible({
       timeout: 15_000,
     });
 
@@ -787,10 +788,17 @@ test.describe("Parameter interpolation in titles", () => {
     try {
       await page.goto(`/${id}`);
 
-      // Initially, the title should show the raw token because param is not set
-      await expect(page.getByText("Movies from $param_year")).toBeVisible({
+      // Initially the title names the parameter in words, and the card says
+      // what to do instead of showing the raw token (#2214).
+      await expect(page.getByText("Movies from [Year]")).toBeVisible({
         timeout: 15_000,
       });
+      const card = page.locator('[data-widget-id="interp-table"]');
+      await expect(
+        card.getByText("Choose a value for Year to see this."),
+      ).toBeVisible();
+      await expect(card.getByRole("button", { name: "Year" })).toBeVisible();
+      await expect(card.getByText(/\$param_/)).toHaveCount(0);
 
       // Select a year from the parameter dropdown
       const paramTrigger = page.getByText("Select a value…");
@@ -800,9 +808,9 @@ test.describe("Parameter interpolation in titles", () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
 
-      // After selecting a value, the raw token should no longer be visible
+      // After selecting a value, the placeholder should no longer be visible
       // and the title should contain "Movies from" followed by a year number
-      await expect(page.getByText("Movies from $param_year")).not.toBeVisible({
+      await expect(page.getByText("Movies from [Year]")).not.toBeVisible({
         timeout: 5_000,
       });
       // The widget card should show the interpolated title
@@ -1268,6 +1276,8 @@ test.describe("Date parameter widget", () => {
       await expect(page.getByText("Pick a date…")).toBeVisible({
         timeout: 15_000,
       });
+      // Until a date is picked the title names the parameter in words (#2214)
+      await expect(page.getByText("Movies (date: [Test date])")).toBeVisible();
 
       // Open the calendar popover
       await page.getByText("Pick a date…").click();
@@ -1293,7 +1303,7 @@ test.describe("Date parameter widget", () => {
 
       // The title should interpolate the parameter value
       await expect(
-        page.getByText("Movies (date: $param_test_date)"),
+        page.getByText("Movies (date: [Test date])"),
       ).not.toBeVisible({
         timeout: 5_000,
       });
