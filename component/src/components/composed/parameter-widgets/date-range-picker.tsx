@@ -11,7 +11,8 @@ import {
 } from "date-fns";
 import { Calendar as CalendarIcon, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
-import { Label } from "@/components/ui/label";
+import { ParamLabel } from "./param-label";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -108,14 +109,7 @@ function DateRangeParameter({
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      {!labelledBy && (
-        <Label
-          id={labelId}
-          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-        >
-          {parameterName}
-        </Label>
-      )}
+      {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
       <div className="flex items-center gap-1">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
@@ -180,7 +174,7 @@ function DateRangeParameter({
             {...qualifiedName(
               labelledBy,
               clearId,
-              `Clear ${parameterName}`,
+              `Clear ${humanizeParamName(parameterName)}`,
               true,
             )}
           >

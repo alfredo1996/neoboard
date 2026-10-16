@@ -35,25 +35,42 @@ describe("interpolateTitle", () => {
     );
   });
 
-  it("preserves raw token when parameter is not set", () => {
+  it("names an unset parameter in words, in brackets", () => {
     const params: Record<string, ParameterEntry> = {};
     expect(interpolateTitle("Movies by $param_genre", params)).toBe(
-      "Movies by $param_genre",
+      "Movies by [Genre]",
     );
   });
 
-  it("preserves raw token when parameter value is null", () => {
+  it("names a null-valued parameter in words", () => {
     const params: Record<string, ParameterEntry> = { genre: entry(null) };
     expect(interpolateTitle("Movies by $param_genre", params)).toBe(
-      "Movies by $param_genre",
+      "Movies by [Genre]",
     );
   });
 
-  it("preserves raw token when parameter value is undefined", () => {
+  it("names an undefined-valued parameter in words", () => {
     const params: Record<string, ParameterEntry> = { genre: entry(undefined) };
     expect(interpolateTitle("Movies by $param_genre", params)).toBe(
-      "Movies by $param_genre",
+      "Movies by [Genre]",
     );
+  });
+
+  it("handles one set and one unset token in the same title", () => {
+    const params: Record<string, ParameterEntry> = { year: entry(2024) };
+    expect(
+      interpolateTitle("Revenue in $param_gallery_region, $param_year", params),
+    ).toBe("Revenue in [Gallery region], 2024");
+  });
+
+  it.each<[string, unknown, string]>([
+    ["an empty string", "", "Movies by [Genre]"],
+    ["an empty array", [], "Movies by [Genre]"],
+    ["zero", 0, "Movies by 0"],
+  ])("treats %s as the body does (#2214)", (_n, value, expected) => {
+    expect(
+      interpolateTitle("Movies by $param_genre", { genre: entry(value) }),
+    ).toBe(expected);
   });
 
   it("formats numeric parameter values", () => {
@@ -91,7 +108,7 @@ describe("interpolateTitle", () => {
 
   it("handles empty parameters object", () => {
     expect(interpolateTitle("Movies by $param_genre", {})).toBe(
-      "Movies by $param_genre",
+      "Movies by [Genre]",
     );
   });
 

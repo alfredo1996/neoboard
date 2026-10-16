@@ -83,9 +83,24 @@ test.describe("Responsive — tablet viewport", () => {
     // searchable popover button and the plain select), where the clear
     // button takes room beside the trigger.
     const selects = [
-      { param: "tablet_pick", searchable: true, picked: false },
-      { param: "tablet_picked", searchable: true, picked: true },
-      { param: "tablet_picked_plain", searchable: false, picked: true },
+      {
+        param: "tablet_pick",
+        label: "Tablet pick",
+        searchable: true,
+        picked: false,
+      },
+      {
+        param: "tablet_picked",
+        label: "Tablet picked",
+        searchable: true,
+        picked: true,
+      },
+      {
+        param: "tablet_picked_plain",
+        label: "Tablet picked plain",
+        searchable: false,
+        picked: true,
+      },
     ];
     const { id, cleanup } = await createTestDashboard(page.request, name);
     try {
@@ -152,7 +167,7 @@ test.describe("Responsive — tablet viewport", () => {
       // Soft: each select is its own case, so a failure names every one.
       for (const s of selects) {
         const combobox = page.getByRole("combobox", {
-          name: s.param,
+          name: s.label,
           exact: true,
         });
         // ratio 1: a select spilling out of its card is clipped by the card.
@@ -181,7 +196,7 @@ test.describe("Responsive — tablet viewport", () => {
         await expect
           .soft(
             page.getByRole("button", {
-              name: `Clear ${s.param}`,
+              name: `Clear ${s.label}`,
               exact: true,
             }),
           )

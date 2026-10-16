@@ -12,12 +12,11 @@ allowed-tools: Read, Agent, SendMessage, Bash(gh *), Bash(git *), Bash(npm *), B
 If $ARGUMENTS is a number, use that issue. Otherwise:
 
 ```bash
-BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); BASE="${BASE:-dev}"
 gh api 'repos/alfredo1996/neoboard/milestones?state=open' --jq '.[] | "\(.number) \(.title) open=\(.open_issues)"'
-gh issue list --repo alfredo1996/neoboard --state open --milestone "<the active base's milestone>" --json number,title,labels
+gh issue list --repo alfredo1996/neoboard --state open --milestone "<a release branch's milestone>" --json number,title,labels
 ```
 
-Start from the milestones of the active base: `vX.Y`, and `vX.Y.1` for bugs found during it. Not the earliest open milestone, which can hold only owner work.
+Start from the milestones that have a release branch on origin: `vX.Y`, and `vX.Y.1` for bugs found during it. Not the earliest open milestone, which can hold only owner work.
 
 Take the first issue that:
 
@@ -39,7 +38,7 @@ Follow the drill policy in CLAUDE.md and `drill`.
 Spawn the `implementer` agent with `isolation: "worktree"`. Give it:
 
 - the issue number;
-- the base (`$BASE`);
+- the base: `npm run -s base -- <N>`, from the issue's milestone;
 - a free E2E port (`TEST_SERVER_PORT=3400` or above, one per concurrent agent);
 - what you already know: the root cause, owner decisions, and constraints such as "don't touch CHANGELOG.md".
 

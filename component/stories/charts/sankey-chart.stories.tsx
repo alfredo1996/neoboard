@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 import { SankeyChart } from "@/charts/sankey-chart";
 
 const meta = {
@@ -89,6 +89,35 @@ export const Default: Story = {
     });
     await expect(canvasElement.querySelector("canvas")).toBeInTheDocument();
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
+  },
+};
+
+/**
+ * #2212 — node labels sit on the canvas; ECharts' default dark fill with a
+ * light halo was unreadable here. The theme now paints them in the foreground.
+ */
+let darkChart: { getOption: () => unknown } | undefined;
+export const DarkMode: Story = {
+  args: { data: defaultData, onChartReady: (c) => (darkChart = c) },
+  globals: { theme: "dark" },
+  // Clear the previous render's chart, so play waits for this render's
+  // onChartReady instead of reading stale options.
+  beforeEach: () => {
+    darkChart = undefined;
+  },
+  // Axe cannot read canvas text, so assert the merged option ECharts will
+  // paint: the label takes the dark foreground and has no halo.
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    await waitFor(() => {
+      const series = (
+        darkChart?.getOption() as {
+          series: Array<{ label: Record<string, unknown> }>;
+        }
+      ).series[0];
+      expect(series.label.color).toBe("#f3f4f6");
+      expect(series.label.textBorderWidth).toBe(0);
+    });
   },
 };
 

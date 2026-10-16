@@ -84,7 +84,7 @@ Rules:
 
 - Conventional Commits: `type(scope): description`.
 - Branch from `dev`: `feat/issue-<N>-<slug>`, `fix/issue-<N>-<slug>`, `chore/`, etc.
-- **Exception**: when a `release/X.Y` branch is active, branch from and target it instead of `dev`.
+- **Exception**: when a `release/X.Y` branch is active, branch from and target the one the issue's milestone names instead of `dev` (`npm run -s base -- <N>`, #2234).
 - PRs target `dev` (integration) before merging to `main`.
 - Do not push if tests are failing.
 - PRs need labels: type + package + area. See `/github-workflow` skill.

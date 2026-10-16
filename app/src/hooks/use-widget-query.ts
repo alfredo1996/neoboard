@@ -1,5 +1,6 @@
 "use client";
 
+import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import { useMemo } from "react";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import {
@@ -62,12 +63,7 @@ export function allReferencedParamsReady(
   while ((match = regex.exec(query)) !== null) {
     const name = match[1];
     const val = allParams[name];
-    if (
-      val === undefined ||
-      val === null ||
-      val === "" ||
-      (Array.isArray(val) && val.length === 0)
-    ) {
+    if (isParamUnset(val)) {
       return false;
     }
   }
@@ -94,12 +90,7 @@ export function getMissingParamNames(
     if (seen.has(name)) continue;
     seen.add(name);
     const val = allParams[name];
-    if (
-      val === undefined ||
-      val === null ||
-      val === "" ||
-      (Array.isArray(val) && val.length === 0)
-    ) {
+    if (isParamUnset(val)) {
       missing.push(name);
     }
   }
