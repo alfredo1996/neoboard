@@ -135,9 +135,12 @@ describe("compact containers keep category identification (#1247)", () => {
 
   it("bar chart truncates rather than dropping labels", () => {
     const axis = categoryAxis(axesOf(<BarChart data={barData} />));
-    const formatter = axis.axisLabel?.formatter as (v: string) => string;
-    expect(formatter("Electronics & Media")).toBe("Electroni…");
-    expect(formatter("Home")).toBe("Home");
+    // Cut to its band by ECharts, not dropped and not skipped (#2226).
+    expect(axis.axisLabel).toMatchObject({
+      overflow: "truncate",
+      ellipsis: "…",
+      interval: 0,
+    });
   });
 
   it("bar chart still drops the value numbers", () => {
@@ -156,8 +159,10 @@ describe("compact containers keep category identification (#1247)", () => {
         />,
       ),
     );
-    const formatter = axis.axisLabel?.formatter as (v: string) => string;
-    expect(formatter("Electronics & Media")).toBe("Electroni\u2026");
+    expect(axis.axisLabel).toMatchObject({
+      overflow: "truncate",
+      interval: 0,
+    });
   });
 
   it("line chart still labels its x axis", () => {

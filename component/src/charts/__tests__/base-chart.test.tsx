@@ -366,6 +366,27 @@ describe("BaseChart", () => {
       expect(mockSetOption).toHaveBeenCalledTimes(1);
     });
 
+    it("draws after 1.5s when the face request stalls", async () => {
+      vi.useFakeTimers();
+      try {
+        Object.defineProperty(document, "fonts", {
+          configurable: true,
+          value: { load: vi.fn(() => new Promise<void>(() => {})) },
+        });
+        render(<BaseChart options={{}} />);
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1400);
+        });
+        expect(mockSetOption).not.toHaveBeenCalled();
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(200);
+        });
+        expect(mockSetOption).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("still draws when the face fails to load", async () => {
       Object.defineProperty(document, "fonts", {
         configurable: true,

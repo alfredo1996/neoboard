@@ -85,6 +85,7 @@ function BarChart({
   stylingRules,
   paramValues,
   highlighted,
+  enableDataZoom,
   ariaDescription,
   ...rest
 }: BarChartProps) {
@@ -94,10 +95,10 @@ function BarChart({
   const isPercent = stackMode === "percent";
   const isStacked = stackMode === "stacked" || isPercent;
   const dark = useDarkMode();
-  const selectedNames = useMemo(
-    () => (highlighted ?? []).map(String),
-    [highlighted],
-  );
+  // Same marks, same identity: the app builds a fresh array per render.
+  const selectedKey = JSON.stringify(highlighted ?? []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedKey is the value
+  const selectedNames = useMemo(() => highlighted ?? [], [selectedKey]);
 
   const options = useMemo((): EChartsOption => {
     // ponytail: no empty-data branch here. BarChart renders a DOM empty state
@@ -136,6 +137,8 @@ function BarChart({
       rotateOverride: axisLabelRotation,
       containerWidth: width,
       categoryAxis: isHorizontal ? "y" : "x",
+      compact,
+      zoom: enableDataZoom,
     });
 
     const categoryAxis = {
@@ -221,7 +224,7 @@ function BarChart({
             // Highlight (#2226): the clicked category keeps its colour, the
             // others drop to grey. Keyed by the category label.
             const point = {
-              name: String(d.label),
+              name: d.label,
               value: displayValue,
               ...(color ? { itemStyle: { color } } : {}),
             };
@@ -265,6 +268,7 @@ function BarChart({
     paramValues,
     selectedNames,
     dark,
+    enableDataZoom,
     compact,
     hideLegend,
     // #1546: `width` is read via buildCategoryAxisLabel. Omitting it latched
@@ -297,6 +301,7 @@ function BarChart({
         <BaseChart
           options={options}
           {...rest}
+          enableDataZoom={enableDataZoom}
           ariaDescription={effectiveAria}
         />
       )}

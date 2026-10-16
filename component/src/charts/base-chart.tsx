@@ -170,6 +170,8 @@ function useDarkMode(): boolean {
  * without the Font Loading API, or a face that fails to load, must not leave
  * the chart blank: both count as ready.
  */
+const FONT_WAIT_MS = 1500;
+
 function useChartFontReady(): boolean {
   const [ready, setReady] = useState(
     () => typeof document === "undefined" || !document.fonts,
@@ -181,8 +183,11 @@ function useChartFontReady(): boolean {
       if (live) setReady(true);
     };
     document.fonts.load(`11px ${CHART_FONT_FAMILY}`).then(done, done);
+    // A stalled font request must not leave the chart blank.
+    const timer = setTimeout(done, FONT_WAIT_MS);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [ready]);
   return ready;

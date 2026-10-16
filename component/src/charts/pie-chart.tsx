@@ -86,6 +86,9 @@ function PieChart({
   // text / emphasis shadow don't freeze at their mount-time (often invisible)
   // dark color. (#chart-review)
   const dark = useDarkMode();
+  const hlKey = JSON.stringify(highlighted ?? []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- hlKey is the value
+  const selected = useMemo(() => highlighted, [hlKey]);
 
   // EChartsOption from modular imports may not include 'graphic' —
   // we use GraphicComponent which extends the option type at runtime.
@@ -105,7 +108,7 @@ function PieChart({
         const color = resolveItemColor(d.value, stylingRules, paramValues);
         return color ? { ...d, itemStyle: { color } } : d;
       }),
-      highlighted,
+      selected,
       dark,
     );
 
@@ -241,7 +244,7 @@ function PieChart({
     donutCenterText,
     stylingRules,
     paramValues,
-    highlighted,
+    selected,
     compact,
     hideLegend,
     dark,

@@ -361,6 +361,7 @@ function LineChart({
             nameGap: 30,
             axisLabel: buildCategoryAxisLabel(xValues.length, {
               containerWidth: width,
+              compact,
             }),
           },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,

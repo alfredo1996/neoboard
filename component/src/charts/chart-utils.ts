@@ -105,6 +105,42 @@ function formatContextDefault(
   }
 }
 
+/** `compact` and `percent` round by intent, so they go through a double. */
+function formatRounded(
+  asDouble: number,
+  numberFormat: NumberFormat,
+  decimalPlaces: number | undefined,
+  maxPercentDecimals: number,
+): string {
+  const fixed =
+    decimalPlaces === undefined
+      ? undefined
+      : {
+          minimumFractionDigits: decimalPlaces,
+          maximumFractionDigits: decimalPlaces,
+        };
+  if (numberFormat === "compact") {
+    return Intl.NumberFormat("en", {
+      notation: "compact",
+      ...fixed,
+    }).format(asDouble);
+  }
+  if (numberFormat === "percent") {
+    // Takes a RATIO and scales it — 0.2005 → "20.05%" — matching Intl's own
+    // `style: "percent"` and every spreadsheet. It used to append a bare "%"
+    // and scale nothing, which meant a genuine share rendered 100x too small
+    // with nothing in the UI to distinguish it from a real value (#1396).
+    // With no explicit decimalPlaces, cap the precision rather than take
+    // Intl's default of 0 — rounding 20.05% to "20%" is the same class of
+    // silent precision loss this fix exists to remove.
+    return Intl.NumberFormat("en-US", {
+      style: "percent",
+      ...(fixed ?? { maximumFractionDigits: maxPercentDecimals }),
+    }).format(asDouble);
+  }
+  return String(asDouble);
+}
+
 export function formatNumber(
   value: number | string | null | undefined,
   config: NumberFormatConfig = {},
@@ -141,43 +177,14 @@ export function formatNumber(
     });
   }
 
-  const asDouble = Number(value);
-  let formatted: string;
-
-  switch (numberFormat) {
-    case "compact":
-      formatted = Intl.NumberFormat("en", {
-        notation: "compact",
-        ...(decimalPlaces !== undefined
-          ? {
-              minimumFractionDigits: decimalPlaces,
-              maximumFractionDigits: decimalPlaces,
-            }
-          : {}),
-      }).format(asDouble);
-      break;
-    case "percent":
-      // Takes a RATIO and scales it — 0.2005 → "20.05%" — matching Intl's own
-      // `style: "percent"` and every spreadsheet. It used to append a bare "%"
-      // and scale nothing, which meant a genuine share rendered 100x too small
-      // with nothing in the UI to distinguish it from a real value (#1396).
-      // With no explicit decimalPlaces, cap at 2 rather than take Intl's
-      // default of 0 — rounding 20.05% to "20%" is the same class of silent
-      // precision loss this fix exists to remove.
-      formatted = Intl.NumberFormat("en-US", {
-        style: "percent",
-        ...(decimalPlaces !== undefined
-          ? {
-              minimumFractionDigits: decimalPlaces,
-              maximumFractionDigits: decimalPlaces,
-            }
-          : { maximumFractionDigits: config.context ? 1 : 2 }),
-      }).format(asDouble);
-      break;
-    default:
-      formatted = String(asDouble);
-      break;
-  }
+  const formatted = formatRounded(
+    Number(value),
+    numberFormat,
+    decimalPlaces,
+    // No explicit precision: percent reads to one decimal in a context (#2226),
+    // two otherwise.
+    config.context ? 1 : 2,
+  );
 
   return `${prefix}${formatted}${suffix}`;
 }
@@ -449,22 +456,41 @@ export interface CategoryAxisLabelOptions {
    * budgeted against the width instead of a fixed length (#1420).
    */
   categoryAxis?: "x" | "y";
+  /** The chart is in compact mode (8px grid margins, no value-axis labels). */
+  compact?: boolean;
+  /** A data zoom is on: the visible span is not the whole axis, keep ECharts' auto interval. */
+  zoom?: boolean;
 }
 
 export interface CategoryAxisLabelConfig {
   show: boolean;
   rotate: number;
   formatter?: (value: string) => string;
+  /** Cut each label to its own band with "…" (auto mode). */
+  width?: number;
+  overflow?: "truncate";
+  ellipsis?: string;
+  /** 0 shows every label; unset lets ECharts skip. */
+  interval?: 0;
   /** Skip the labels that would collide instead of rotating them. */
   hideOverlap: boolean;
   tooltip: { show: boolean };
 }
 
+/** Below this band width even a cut label is unreadable, so labels skip. */
+const MIN_LABEL_BAND = 28;
+
 /**
  * Compute axis label rotation and truncation based on category count.
  * - Automatic never rotates (#2226); an explicit `rotateOverride` does
  * - A crowded axis skips labels that would overlap
- * - Labels longer than maxLabelLength are truncated with ellipsis (U+2026)
+ * - Auto mode cuts each label to its own band with "…" and shows every label
+ *   (`interval: 0`: left on auto, ECharts measures the uncut text and still
+ *   skips). Only when even the shortest cut cannot fit (a band under
+ *   MIN_LABEL_BAND) does it fall back to skipping, and with a data zoom on
+ *   it keeps ECharts' auto interval. Horizontal bars cut to the left gutter.
+ * - Where a character cut applies (explicit angle, unknown width, zoom, too
+ *   narrow) labels longer than maxLabelLength are truncated with "…" (U+2026)
  * - ECharts axisPointer tooltip shows the full text on hover
  * - Category labels are never hidden: a compact container drops the value
  *   axis, since a chart with no category names identifies nothing (#1247)
@@ -476,7 +502,13 @@ export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
 ): CategoryAxisLabelConfig {
-  const { maxLabelLength = 15, containerWidth, categoryAxis = "x" } = options;
+  const {
+    maxLabelLength = 15,
+    containerWidth,
+    categoryAxis = "x",
+    compact = false,
+    zoom = false,
+  } = options;
   // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
   // default auto-rotation instead of receiving an invalid rotate: -1.
   const rotateOverride =
@@ -486,6 +518,31 @@ export function buildCategoryAxisLabel(
   // crowded axis skips labels (hideOverlap below). Only an angle the author
   // picked rotates.
   const rotate = rotateOverride ?? 0;
+
+  // Width the labels can use: the gutter for a y axis, else the plot's band
+  // per category (card width less the grid margins and the value-axis labels).
+  const sides = compact ? 16 : 32;
+  const valueGutter = compact ? 0 : 40;
+  let room: number | undefined;
+  if (containerWidth && rotateOverride === undefined && !zoom) {
+    room =
+      categoryAxis === "y"
+        ? Math.floor(containerWidth / 3) - 6
+        : (containerWidth - sides - valueGutter) / Math.max(categoryCount, 1) -
+          6;
+  }
+  if (room !== undefined && room >= MIN_LABEL_BAND - 6) {
+    return {
+      show: true,
+      rotate,
+      width: Math.floor(room),
+      overflow: "truncate",
+      ellipsis: "\u2026",
+      interval: 0,
+      hideOverlap: false,
+      tooltip: { show: true },
+    };
+  }
 
   // Width-aware truncation: tighter limit in narrow containers. A compact
   // container is by definition under 400px, so it already gets the tight
@@ -757,6 +814,11 @@ export function legendIsolateAction(
   return on === entries.length - 1 ? "legendInverseSelect" : null;
 }
 
+/** A mark's name or a selected value, compared as text: 7 and "7" are one mark. */
+function markKey(v: unknown): string {
+  return typeof v === "string" || typeof v === "number" ? String(v) : "";
+}
+
 export interface HighlightDatum {
   name?: unknown;
   itemStyle?: { color?: string };
@@ -774,11 +836,11 @@ export function highlight<T extends HighlightDatum>(
   dark: boolean,
 ): T[] {
   if (!selected?.length) return series;
-  const keep = new Set(selected);
+  const keep = new Set(selected.map(markKey));
   const soft = dark ? HIGHLIGHT_SOFT.dark : HIGHLIGHT_SOFT.light;
   return series.map(
     (d) =>
-      keep.has(d.name)
+      keep.has(markKey(d.name))
         ? d
         : { ...d, itemStyle: { ...d.itemStyle, color: soft } },
     // ponytail: the spread keeps every other field of T, so the cast is safe

@@ -31,16 +31,19 @@ vi.mock("@/hooks/use-widget-query", () => ({
   }),
 }));
 
+let hasClickAction = false;
+let paramValuesNow: Record<string, unknown> = {};
+
 vi.mock("@/hooks/use-click-action", () => ({
   useClickAction: () => ({
     handleChartClick: undefined,
-    hasClickAction: false,
+    hasClickAction,
     clickableColumns: [],
   }),
 }));
 
 vi.mock("@/stores/parameter-store", () => ({
-  useParameterValues: () => ({}),
+  useParameterValues: () => paramValuesNow,
 }));
 
 vi.mock("@/lib/plugin/chart-helpers", () => ({
@@ -155,7 +158,51 @@ describe("CardContainer", () => {
   beforeEach(() => {
     capturedChartProps = {};
     widgetQueryData = null;
+    hasClickAction = false;
+    paramValuesNow = {};
     vi.clearAllMocks();
+  });
+
+  describe("highlight (#2226)", () => {
+    // The saved shape: the action beside chartOptions, not inside them.
+    const barWidget = () =>
+      createWidget({
+        chartType: "bar",
+        settings: {
+          chartOptions: { orientation: "vertical" },
+          clickAction: {
+            type: "set-parameter",
+            parameterMapping: {
+              parameterName: "category",
+              sourceField: "label",
+            },
+          },
+        },
+      });
+    const rows = [
+      { label: "Home", value: 1 },
+      { label: "Outdoors", value: 2 },
+    ];
+    const highlighted = () =>
+      (capturedChartProps.interaction as { highlighted?: unknown[] })
+        ?.highlighted;
+
+    it("hands the chart the marks its click action selected", () => {
+      hasClickAction = true;
+      paramValuesNow = { category: "Home" };
+      renderWithProviders(
+        <CardContainer widget={barWidget()} previewData={rows} />,
+      );
+      expect(highlighted()).toEqual(["Home"]);
+    });
+
+    it("hands nothing over while the parameter is unset", () => {
+      hasClickAction = true;
+      renderWithProviders(
+        <CardContainer widget={barWidget()} previewData={rows} />,
+      );
+      expect(highlighted()).toBeUndefined();
+    });
   });
 
   describe("widgetIdSuffix prop", () => {

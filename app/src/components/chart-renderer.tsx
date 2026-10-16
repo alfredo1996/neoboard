@@ -18,6 +18,8 @@ export interface ChartStylingProps {
 export interface ChartInteractionProps {
   onChartClick?: (point: Record<string, unknown>) => void;
   clickableColumns?: string[];
+  /** Mark names the widget's own click action has selected (#2226). */
+  highlighted?: unknown[];
 }
 
 /** Widget metadata props grouped together. */
@@ -66,7 +68,7 @@ function ChartRendererInner({
   meta,
 }: ChartRendererProps) {
   const { rules: stylingRules, paramValues, colorScales } = styling ?? {};
-  const { onChartClick, clickableColumns } = interaction ?? {};
+  const { onChartClick, clickableColumns, highlighted } = interaction ?? {};
   const {
     connectionId,
     database,
@@ -106,6 +108,7 @@ function ChartRendererInner({
         query={query}
         autoFit={autoFit}
         clickableColumns={clickableColumns}
+        highlighted={highlighted}
         colorThresholds={colorThresholds}
       />
     );

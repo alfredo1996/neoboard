@@ -10,11 +10,7 @@ import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { PieChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
 import { transformToPieData, validatePieData } from "./transform";
-import {
-  useEChartsClick,
-  useSelectedByClickAction,
-  type PluginProps,
-} from "../utils";
+import { useEChartsClick, type PluginProps } from "../utils";
 import { pieSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
@@ -29,9 +25,9 @@ function PiePluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
+  highlighted,
 }: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
-  const highlighted = useSelectedByClickAction(raw, paramValues);
   const settings = safeParseSettings(pieSettingsSchema, raw, "pie");
   return (
     <PieChart

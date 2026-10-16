@@ -293,32 +293,18 @@ describe("options advertised by the editor reach the chart (#1472)", () => {
 });
 
 describe("highlight forwarding (#2226)", () => {
-  const clickAction = {
-    type: "set-parameter",
-    parameterMapping: { parameterName: "category", sourceField: "label" },
-  };
-
   it.each([
     ["bar", BarComponent],
     ["pie", PieComponent],
-  ])(
-    "%s hands the value its click action set to the chart",
-    (_name, Component) => {
-      render(
-        <Component
-          data={[]}
-          settings={{ clickAction }}
-          paramValues={{ category: "Home" }}
-        />,
-      );
-      expect(screen.getByTestId("chart").getAttribute("data-highlighted")).toBe(
-        '["Home"]',
-      );
-    },
-  );
+  ])("%s hands the selected marks to the chart", (_name, Component) => {
+    render(<Component data={[]} settings={{}} highlighted={["Home"]} />);
+    expect(screen.getByTestId("chart").getAttribute("data-highlighted")).toBe(
+      '["Home"]',
+    );
+  });
 
-  it("hands nothing over while the parameter is unset", () => {
-    render(<BarComponent data={[]} settings={{ clickAction }} />);
+  it("hands nothing over when nothing is selected", () => {
+    render(<BarComponent data={[]} settings={{}} />);
     expect(screen.getByTestId("chart").getAttribute("data-highlighted")).toBe(
       "null",
     );

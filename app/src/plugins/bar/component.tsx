@@ -10,11 +10,7 @@ import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { BarChartDataPoint, StylingRule } from "@neoboard/components";
 import { defineChartPlugin } from "../registry";
 import { transformToBarData, validateBarData } from "./transform";
-import {
-  useEChartsClick,
-  useSelectedByClickAction,
-  type PluginProps,
-} from "../utils";
+import { useEChartsClick, type PluginProps } from "../utils";
 import { barSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
@@ -29,9 +25,9 @@ function BarPluginComponent({
   onChartClick,
   stylingRules,
   paramValues,
+  highlighted,
 }: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
-  const highlighted = useSelectedByClickAction(raw, paramValues);
   const settings = safeParseSettings(barSettingsSchema, raw, "bar");
 
   return (

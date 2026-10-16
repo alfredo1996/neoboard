@@ -15,6 +15,7 @@ import {
   formatNumber,
   resolveShowLegend,
   buildCategoryAxisLabel,
+  buildCompactGrid,
   legendIsolateAction,
   highlight,
 } from "../chart-utils";
@@ -229,11 +230,68 @@ describe("category axis labels", () => {
         .rotate,
     ).toBe(45);
   });
+});
 
-  it("a crowded axis skips labels instead of overlapping", () => {
-    expect(buildCategoryAxisLabel(30, { containerWidth: 300 })).toMatchObject({
-      hideOverlap: true,
+/**
+ * The rendered result, through ECharts' own layout (SSR SVG): auto labels are
+ * cut to their band with "…", not dropped, until even a cut cannot fit.
+ */
+describe("category axis labels, rendered (#2226)", () => {
+  const TITLES = [
+    "The Matrix Revolutions",
+    "Something's Gotta Give",
+    "A League of Their Own",
+    "Charlie Wilson's War",
+    "As Good as It Gets",
+    "The Devil's Advocate",
+    "Jerry Maguire",
+    "A Few Good Men",
+    "Cast Away",
+    "Speed Racer",
+  ];
+
+  function renderedLabels(width: number): string[] {
+    const chart = echarts.init(null, THEME_LIGHT, {
+      renderer: "svg",
+      ssr: true,
+      width,
+      height: 300,
     });
+    chart.setOption({
+      animation: false,
+      grid: buildCompactGrid(false, false),
+      xAxis: {
+        type: "category",
+        data: TITLES,
+        axisLabel: buildCategoryAxisLabel(TITLES.length, {
+          containerWidth: width,
+        }),
+      },
+      yAxis: {},
+      series: [{ type: "bar", data: TITLES.map((_, i) => i + 1) }],
+    });
+    const svg = chart.renderToSVGString();
+    chart.dispose();
+    return [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)]
+      .map((m) => m[1].replaceAll("&#39;", "'"))
+      .filter((t) => Number.isNaN(Number(t)));
+  }
+
+  const isCutOrFull = (t: string) =>
+    TITLES.includes(t) ||
+    (t.endsWith("…") && TITLES.some((f) => f.startsWith(t.slice(0, -1))));
+
+  it.each([570, 400])("at %ipx all ten names show, each whole or cut", (w) => {
+    const labels = renderedLabels(w);
+    expect(labels).toHaveLength(10);
+    expect(labels.every(isCutOrFull)).toBe(true);
+  });
+
+  it("at 250px it may skip names, but never prints an uncut fragment", () => {
+    const labels = renderedLabels(250);
+    expect(labels.length).toBeLessThan(10);
+    expect(labels.length).toBeGreaterThan(0);
+    expect(labels.every(isCutOrFull)).toBe(true);
   });
 });
 
@@ -259,6 +317,18 @@ describe("highlight", () => {
   it("nothing selected means nothing greyed", () => {
     expect(highlight(data, [], false)).toEqual(data);
     expect(highlight(data, undefined, false)).toEqual(data);
+  });
+
+  it("matches a numeric selection against a string name and back", () => {
+    const rows: Array<{
+      name: string | number;
+      itemStyle?: { color?: string };
+    }> = [{ name: "7" }, { name: 9 }];
+    const a = highlight(rows, [7], false);
+    expect(a[0]).toEqual({ name: "7" });
+    expect(a[1].itemStyle?.color).toBe("#C3C9D2");
+    const b = highlight(rows, ["9"], false);
+    expect(b[1]).toEqual({ name: 9 });
   });
 
   it("does not mutate its input", () => {

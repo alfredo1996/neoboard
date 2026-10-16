@@ -166,9 +166,9 @@ describe("BarChart horizontal category labels (#1420)", () => {
     render(<BarChart data={actors} orientation="horizontal" />);
     const { axisLabel, nameGap } = latestOptions().yAxis;
     expect(axisLabel.rotate).toBe(0);
-    expect(axisLabel.formatter("Laurence Fishburne")).toBe(
-      "Laurence Fishburne",
-    );
+    // Cut to the left gutter by ECharts, with no character cut of its own.
+    expect(axisLabel).toMatchObject({ overflow: "truncate", interval: 0 });
+    expect(axisLabel.formatter).toBeUndefined();
     expect(nameGap).toBe(30);
   });
 
