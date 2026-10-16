@@ -5,13 +5,6 @@ import { DataGrid } from "../data-grid";
 import { DataGridColumnHeader } from "../data-grid-column-header";
 import type { ColumnDef } from "@tanstack/react-table";
 
-// Same CI-oversubscription flake as data-grid-grouping.test.tsx (#1240/#1459):
-// it failed at 5113ms in CI while its sibling passed at 1437ms. ci.yml now runs
-// one package at a time, so this headroom is a leftover.
-// ponytail: revert to the default once CI shows no starvation flake on the
-// bounded fan-out (#1240's 5 clean runs); kept until then, not shown unneeded.
-const SLOW_UI_TIMEOUT_MS = 15000;
-
 /**
  * #1285 — sortable headers exposed sort state only as an unlabelled icon.
  *
@@ -68,38 +61,32 @@ describe("#1285 — aria-sort on sortable headers", () => {
     );
   });
 
-  it(
-    "reflects ascending and descending sort state",
-    async () => {
-      const user = userEvent.setup();
-      render(<DataGrid columns={sortableColumns} data={data} enableSorting />);
+  it("reflects ascending and descending sort state", async () => {
+    const user = userEvent.setup();
+    render(<DataGrid columns={sortableColumns} data={data} enableSorting />);
 
-      await sort(user, "Asc");
-      expect(
-        screen.getByRole("columnheader", { name: /name/i }),
-      ).toHaveAttribute("aria-sort", "ascending");
+    await sort(user, "Asc");
+    expect(screen.getByRole("columnheader", { name: /name/i })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
 
-      await sort(user, "Desc");
-      expect(
-        screen.getByRole("columnheader", { name: /name/i }),
-      ).toHaveAttribute("aria-sort", "descending");
-    },
-    SLOW_UI_TIMEOUT_MS,
-  );
+    await sort(user, "Desc");
+    expect(screen.getByRole("columnheader", { name: /name/i })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+  });
 
-  it(
-    "leaves the other columns 'none' when one column is sorted",
-    async () => {
-      const user = userEvent.setup();
-      render(<DataGrid columns={sortableColumns} data={data} enableSorting />);
+  it("leaves the other columns 'none' when one column is sorted", async () => {
+    const user = userEvent.setup();
+    render(<DataGrid columns={sortableColumns} data={data} enableSorting />);
 
-      await sort(user, "Asc");
-      expect(
-        screen.getByRole("columnheader", { name: /email/i }),
-      ).toHaveAttribute("aria-sort", "none");
-    },
-    SLOW_UI_TIMEOUT_MS,
-  );
+    await sort(user, "Asc");
+    expect(
+      screen.getByRole("columnheader", { name: /email/i }),
+    ).toHaveAttribute("aria-sort", "none");
+  });
 
   it("omits aria-sort entirely on a non-sortable column", () => {
     // Not "none": announcing a non-sortable column as sortable is the defect

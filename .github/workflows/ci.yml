@@ -136,7 +136,7 @@ jobs:
         run: npm run test:scripts
 
   # ── Job 1: Unit & integration tests with coverage ──────────────────────────
-  # The packages run one after another within a single job (see the test step).
+  # The packages run in two phases within a single job (see the test step).
   # Connection integration tests use GitHub service containers.
   unit-tests:
     name: Unit & Integration Tests
@@ -188,19 +188,28 @@ jobs:
       - name: Build connector-sdk + connection packages
         run: npm -w connector-sdk run build && npm -w connection run build
 
-      # One package at a time, never all at once (#1240). Five suites started
-      # together put ~13 workers (plus the Postgres/Neo4j containers and
-      # connection's Testcontainers) on this runner's 4 vCPUs, and a plain
-      # render-and-assert test then timed out at 5s. Measured on a 10-core box,
-      # the same oversubscription took the app suite from 28s to 889s with 96
-      # failures and 9 files never collected. Each package still sizes its own
-      # workers (app and component cap at 50% of the cores), now against an idle
-      # runner. A failing package does not stop the next: every log is wanted.
-      - name: Run all tests, one package at a time
+      # Bounded fan-out (#1240). Five suites started at once put ~13 workers
+      # (plus the Postgres/Neo4j containers and connection's Testcontainers) on
+      # this runner's 4 vCPUs, and a plain render-and-assert test then timed out
+      # at 5s. For scale, the owner measured the app suite alone on 10 cores:
+      # 889s with 96 failures and 9 files never collected at the default worker
+      # count, 28s at 4 workers.
+      #
+      # So: app and component run together, because each resolves its
+      # maxWorkers "50%" to 2 on 4 vCPU, 4 workers in all, which fills the
+      # runner without exceeding it. connection, cli and connector-sdk run
+      # after them, not alongside: they are uncapped (jest/vitest defaults,
+      # ~3 workers each) and connection adds its own containers, which is what
+      # tipped the runner over. No CLI --maxWorkers: the Vitest projects use
+      # `extends: true` and silently ignore it. A failing package does not stop
+      # the next: every log is wanted.
+      - name: Run unit tests, app and component together, then the rest
         run: |
           FAIL=0
-          (cd app && NODE_ENV=test npm run test:coverage) || FAIL=1
-          (cd component && npm run test:coverage) || FAIL=1
+          (cd app && NODE_ENV=test npm run test:coverage) & APP=$!
+          (cd component && npm run test:coverage) & COMP=$!
+          wait $APP || FAIL=1
+          wait $COMP || FAIL=1
           (cd connection && npm run test:coverage) || FAIL=1
           (cd cli && npm run test:coverage) || FAIL=1
           (cd connector-sdk && npm run test:coverage) || FAIL=1
