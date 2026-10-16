@@ -200,8 +200,8 @@ jobs:
       # runner without exceeding it. connection, cli and connector-sdk run
       # after them, not alongside: they are uncapped (jest/vitest defaults,
       # ~3 workers each) and connection adds its own containers, which is what
-      # tipped the runner over. No CLI --maxWorkers: the Vitest projects use
-      # `extends: true` and silently ignore it. A failing package does not stop
+      # tipped the runner over. No CLI --maxWorkers: measured, both packages
+      # silently ignore it (VITEST_MAX_WORKERS is honoured). A failing package does not stop
       # the next: every log is wanted.
       - name: Run unit tests, app and component together, then the rest
         run: |
