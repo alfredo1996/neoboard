@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
@@ -298,4 +298,45 @@ describe("semantic colours meet WCAG AA in both themes (#1505)", () => {
       expect(contrast(mf, accent)).toBeGreaterThanOrEqual(AA);
     });
   }
+});
+
+describe("modal scrim (#2211)", () => {
+  // --scrim bakes its alpha (hsl(H S% L% / a)), like --accent-soft.
+  const lightness = (v: string | undefined) =>
+    Number(v?.match(/hsl\(\s*[\d.]+\s+[\d.]+%\s+([\d.]+)%/)?.[1] ?? NaN);
+
+  it.each([
+    ["light", light],
+    ["dark", dark],
+  ])("%s --scrim is a dark colour, never the foreground", (_name, theme) => {
+    expect(lightness(tokenValue(theme, "--scrim"))).toBeLessThanOrEqual(10);
+  });
+
+  // Scoped to backdrop class strings (the full-viewport `fixed inset-0`
+  // layer), so a non-overlay control may still use bg-foreground.
+  it("no ui backdrop is painted from --foreground", () => {
+    const dir = resolve(__dirname, "../../components/ui");
+    const offenders = readdirSync(dir)
+      .filter((f) => f.endsWith(".tsx"))
+      .filter((f) =>
+        readFileSync(resolve(dir, f), "utf8")
+          .split("\n")
+          .filter((line) => line.includes("fixed inset-0"))
+          .some((line) =>
+            /bg-(\[hsl\(var\(--foreground\)|foreground\b)/.test(line),
+          ),
+      );
+    expect(offenders).toEqual([]);
+  });
+
+  it.each(["dialog.tsx", "alert-dialog.tsx", "sheet.tsx"])(
+    "%s paints its backdrop from --scrim",
+    (f) => {
+      const src = readFileSync(
+        resolve(__dirname, "../../components/ui", f),
+        "utf8",
+      );
+      expect(src).toContain("bg-[var(--scrim)]");
+    },
+  );
 });
