@@ -694,13 +694,16 @@ export function DashboardWorkspace({
   // ── Render ──────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-4 w-96" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-          <Skeleton className="h-[200px]" />
-          <Skeleton className="h-[200px]" />
-          <Skeleton className="h-[200px]" />
+      // On the ground from the first paint, so the page doesn't flash to it.
+      <div className="flex-1 bg-ground">
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-96" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+            <Skeleton className="h-[200px]" />
+            <Skeleton className="h-[200px]" />
+            <Skeleton className="h-[200px]" />
+          </div>
         </div>
       </div>
     );

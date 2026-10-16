@@ -558,6 +558,29 @@ describe("WidgetCard", () => {
   });
 
   describe("flat panel (#2219)", () => {
+    // Controls that stay in view (edit mode) are overlaid by the absolute bar,
+    // so the title row reserves room: each control is a 28 px button plus a
+    // 2 px gap, and the bar sits 8 px from the edge.
+    it.each([
+      [2, 2 * (28 + 2) + 8],
+      [4, 4 * (28 + 2) + 8],
+    ])("reserves room for %i controls in edit mode (%ipx)", (n, px) => {
+      render(
+        <WidgetCard
+          draggable
+          title="Sales"
+          onRefresh={() => {}}
+          onFullscreen={() => {}}
+          headerExtra={n === 4 ? <button>Badge</button> : undefined}
+          actions={n === 4 ? [{ label: "Edit", onClick: vi.fn() }] : undefined}
+        >
+          x
+        </WidgetCard>,
+      );
+      const title = screen.getByRole("heading", { name: "Sales" });
+      expect(title.parentElement).toHaveStyle({ paddingRight: `${px}px` });
+    });
+
     it("positions the controls absolutely in view and edit, so toggling edit keeps scroll anchoring", () => {
       for (const draggable of [false, true]) {
         const { unmount } = render(

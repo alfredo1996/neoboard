@@ -151,7 +151,7 @@
      that stays one surface with --card (#2215). --panel-hover is a panel
      under the pointer: lighter than the ground, with an azure cast. */
   --ground: 220 16% 95%;
-  --panel-hover: 212 45% 97%;
+  --panel-hover: 212 80% 97.5%;
   --surface: 240 20% 99%;
   --surface-2: 220 14% 95%;
   --card: 240 20% 99%;

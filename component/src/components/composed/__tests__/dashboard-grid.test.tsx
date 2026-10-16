@@ -212,7 +212,8 @@ describe("DashboardGrid — breakpoint column parity (#1375)", () => {
         <div key="a">A</div>
       </DashboardGrid>,
     );
-    expect(container.firstChild).not.toHaveClass("border", "overflow-hidden");
+    expect(container.firstChild).not.toHaveClass("border");
+    expect(container.firstChild).not.toHaveClass("overflow-hidden");
   });
 
   it("places skeleton tiles where the grid will put them, so mount does not jump", () => {

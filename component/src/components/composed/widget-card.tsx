@@ -65,6 +65,16 @@ export interface WidgetCardProps {
   refreshDisabled?: boolean;
 }
 
+// The bar's metrics, in px and as the Tailwind classes that draw them. The
+// title row reserves room from the px values when the controls stay in view,
+// so change both together (a unit test pins the arithmetic).
+const BUTTON_PX = 28;
+const BUTTON_SIZE_CLASS = "h-7 w-7";
+const BAR_GAP_PX = 2;
+const BAR_GAP_CLASS = "gap-0.5";
+const BAR_EDGE_PX = 8;
+const BAR_EDGE_CLASS = "right-2";
+
 function ActionItems({ actions }: { readonly actions: WidgetCardAction[] }) {
   return actions.map((action, index) => (
     <React.Fragment key={`${action.label}-${index}`}>
@@ -141,7 +151,8 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
     // The bar sits on the panel's own tint: it follows the hover fill instead
     // of painting a rectangle of its own.
     const iconButton = cn(
-      "h-7 w-7 rounded-sm text-foreground-2",
+      BUTTON_SIZE_CLASS,
+      "rounded-sm text-foreground-2",
       overlay && "border border-rule-strong bg-inherit",
     );
     const controls =
@@ -149,8 +160,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       Number(Boolean(onFullscreen && !folded)) +
       Number(Boolean(headerExtra)) +
       Number(hasMenu);
-    // 28 px buttons, 2 px gaps, 8 px from the edge.
-    const reserved = controls * 30 + 8;
+    const reserved = controls * (BUTTON_PX + BAR_GAP_PX) + BAR_EDGE_PX;
     const hasHeader =
       title || hasMenu || headerExtra || onRefresh || onFullscreen;
     return (
@@ -218,7 +228,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                   // Absolute in every mode: a bar that flips between static and
                   // absolute on the edit toggle suppresses Chromium's scroll
                   // anchoring, and the page jumps (#1163).
-                  "absolute right-2 top-1 z-10 flex items-center gap-0.5",
+                  `absolute ${BAR_EDGE_CLASS} top-1 z-10 flex items-center ${BAR_GAP_CLASS}`,
                   overlay &&
                     "[@media(any-pointer:coarse)]:pointer-events-none rounded-sm bg-card opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-focus-within/panel:pointer-events-auto group-focus-within/panel:bg-panel-hover group-focus-within/panel:opacity-100 group-hover/panel:pointer-events-auto group-hover/panel:bg-panel-hover group-hover/panel:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
                 )}

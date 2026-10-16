@@ -191,9 +191,29 @@ describe("ruled-sheet palette (#2215)", () => {
     ["--rule", "220 12% 91%", "218 13% 17%"],
     ["--field", "0 0% 100%", "218 13% 12%"], // #FFFFFF / #1B1E23
     ["--input", "219 8% 56%", "218 9% 43%"], // field border, 3:1 on page and side
+    ["--ground", "220 16% 95%", "220 13% 6%"], // dashboard ground (#2219)
+    ["--panel-hover", "212 80% 97.5%", "218 14% 13%"], // hovered panel (#2219)
   ])("%s", (token, l, d) => {
     expect(tokenValue(light, token)).toBe(l);
     expect(tokenValue(dark, token)).toBe(d);
+  });
+
+  it("orders ground, hovered panel and panel so the hover never drifts onto the ground (#2219)", () => {
+    const lightness = (mode: string, token: string) =>
+      Number(tokenValue(mode, token)!.split(/\s+/)[2].replace("%", ""));
+    const [lg, lh, lc] = ["--ground", "--panel-hover", "--card"].map((t) =>
+      lightness(light, t),
+    );
+    expect(lg, "light: ground darker than the hover").toBeLessThan(lh);
+    expect(lh, "light: hover darker than the panel").toBeLessThan(lc);
+    const [dg, dc, dh] = ["--ground", "--card", "--panel-hover"].map((t) =>
+      lightness(dark, t),
+    );
+    expect(dg, "dark: ground darker than the panel").toBeLessThan(dc);
+    expect(dc, "dark: panel darker than the hover").toBeLessThan(dh);
+    // The hover must stay a visible step from the ground (>= 2.5 points of L).
+    expect(lh - lg).toBeGreaterThanOrEqual(2.5);
+    expect(dh - dg).toBeGreaterThanOrEqual(2.5);
   });
 
   it("--rule-strong is defined in both modes", () => {
