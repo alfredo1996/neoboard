@@ -160,7 +160,7 @@ describe("ParamSelector", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /clear dbType/i }),
+      screen.getByRole("button", { name: /clear db type/i }),
     ).toBeInTheDocument();
   });
 
@@ -478,7 +478,7 @@ describe("DatePickerParameter", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /clear eventDate/i }),
+      screen.getByRole("button", { name: /clear event date/i }),
     ).toBeInTheDocument();
   });
 
@@ -1299,7 +1299,7 @@ describe("ParamSelector — cascading props (migrated from CascadingSelector)", 
       />,
     );
     expect(
-      screen.getByRole("button", { name: /clear subCategory/i }),
+      screen.getByRole("button", { name: /clear sub category/i }),
     ).toBeInTheDocument();
   });
 
@@ -1471,7 +1471,7 @@ describe("ParamMultiSelector — cascading props", () => {
       />,
     );
     expect(screen.getByRole("combobox")).toBeDisabled();
-    expect(screen.getByText("Select country first…")).toBeInTheDocument();
+    expect(screen.getByText("Select Country first…")).toBeInTheDocument();
   });
 
   it("enables the trigger once parentValue arrives", () => {
@@ -1486,7 +1486,7 @@ describe("ParamMultiSelector — cascading props", () => {
       />,
     );
     expect(screen.getByRole("combobox")).not.toBeDisabled();
-    expect(screen.queryByText("Select country first…")).toBeNull();
+    expect(screen.queryByText("Select Country first…")).toBeNull();
   });
 
   it("treats an empty parentParameterName as no parent", () => {
@@ -1517,7 +1517,7 @@ describe("ParamMultiSelector — cascading props", () => {
       />,
     );
     expect(screen.getByText("Pick cities…")).toBeInTheDocument();
-    expect(screen.queryByText("Select country first…")).toBeNull();
+    expect(screen.queryByText("Select Country first…")).toBeNull();
   });
 
   it("stays enabled and unannotated with no parent props at all", () => {
@@ -1645,21 +1645,89 @@ describe("parameter widgets with an external label (#1410)", () => {
     ],
   ];
 
-  it.each(cases)("%s renders its own label by default", (_name, make) => {
-    const { container } = render(make({} as typeof external));
-    expect(container.querySelectorAll("label")).toHaveLength(1);
-    expect(screen.getByText("Gallery region")).toBeInTheDocument();
-  });
-
-  it.each(cases)(
-    "%s labels itself in sentence case, not the raw key in capitals (#2213)",
-    (_name, make) => {
+  // The control's own accessible name, per widget: a label that dropped its
+  // id/htmlFor would still print the words but name nothing (#2213).
+  it.each([
+    ["TextInputParameter", "textbox", "Gallery region"],
+    ["ParamSelector", "combobox", "Gallery region"],
+    ["ParamSelector (searchable)", "combobox", "Gallery region"],
+    ["ParamMultiSelector", "combobox", "Gallery region"],
+    ["DatePickerParameter", "button", "Gallery region"],
+    ["DateRangeParameter", "button", "Gallery region"],
+    ["DateRelativePicker", "group", "Gallery region"],
+    ["NumberRangeSlider", "slider", "Gallery region minimum"],
+  ])(
+    "%s labels itself in sentence case and names its %s %j",
+    (name, role, accessibleName) => {
+      const make = cases.find(([n]) => n === name)![1];
       const { container } = render(make({} as typeof external));
-      const label = container.querySelector("label")!;
-      expect(label).toHaveTextContent(/^Gallery region$/);
-      expect(label.className).not.toContain("uppercase");
+      const labels = container.querySelectorAll("label");
+      expect(labels).toHaveLength(1);
+      expect(labels[0]).toHaveTextContent(/^Gallery region$/);
+      expect(labels[0].className).not.toContain("uppercase");
+      expect(
+        screen.getByRole(role, { name: new RegExp(`^${accessibleName}$`) }),
+      ).toBeInTheDocument();
     },
   );
+
+  it.each([
+    [
+      "TextInputParameter",
+      <TextInputParameter
+        key="a"
+        parameterName="gallery_region"
+        value="x"
+        onChange={noop}
+      />,
+    ],
+    [
+      "ParamSelector",
+      <ParamSelector
+        key="b"
+        parameterName="gallery_region"
+        options={[{ label: "x", value: "x" }]}
+        value="x"
+        onChange={noop}
+      />,
+    ],
+    [
+      "DatePickerParameter",
+      <DatePickerParameter
+        key="c"
+        parameterName="gallery_region"
+        value="2024-01-02"
+        onChange={noop}
+      />,
+    ],
+    [
+      "DateRangeParameter",
+      <DateRangeParameter
+        key="d"
+        parameterName="gallery_region"
+        from="2024-01-02"
+        to="2024-01-03"
+        onChange={noop}
+      />,
+    ],
+    [
+      "NumberRangeSlider",
+      <NumberRangeSlider
+        key="e"
+        parameterName="gallery_region"
+        min={1}
+        max={5}
+        value={[2, 4]}
+        onChange={noop}
+        onClear={noop}
+      />,
+    ],
+  ])("%s names its Clear button in words (#2213)", (_name, element) => {
+    render(element);
+    expect(
+      screen.getByRole("button", { name: "Clear Gallery region" }),
+    ).toBeInTheDocument();
+  });
 
   it.each(cases)(
     "%s renders no label and no parameter name when labelled externally",
@@ -1842,10 +1910,13 @@ describe("parameter widgets with an external label (#1410)", () => {
       />,
     );
     expect(
-      screen.getByRole("spinbutton", { name: "rf1_score minimum" }),
+      screen.getByRole("spinbutton", { name: "Rf 1 score minimum" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Clear rf1_score" }),
+      screen.getByRole("spinbutton", { name: "Rf 1 score maximum" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear Rf 1 score" }),
     ).toBeInTheDocument();
   });
 

@@ -12,6 +12,7 @@ import {
 import { Calendar as CalendarIcon, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { ParamLabel } from "./param-label";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -173,7 +174,7 @@ function DateRangeParameter({
             {...qualifiedName(
               labelledBy,
               clearId,
-              `Clear ${parameterName}`,
+              `Clear ${humanizeParamName(parameterName)}`,
               true,
             )}
           >

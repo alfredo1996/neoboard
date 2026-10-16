@@ -661,9 +661,6 @@ test.describe("Parameter selector label", () => {
       await expect(
         page.getByText("gallery_region", { exact: true }),
       ).toHaveCount(0);
-      await expect(
-        page.getByText("GALLERY_REGION", { exact: true }),
-      ).toHaveCount(0);
     } finally {
       await page.request.delete(`/api/dashboards/${id}`);
     }

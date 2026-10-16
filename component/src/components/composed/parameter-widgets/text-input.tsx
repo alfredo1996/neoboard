@@ -4,6 +4,7 @@ import { useId } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ParamLabel } from "./param-label";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { qualifiedName, type ExternalLabelProps } from "./external-label";
@@ -60,7 +61,7 @@ function TextInputParameter({
             {...qualifiedName(
               labelledBy,
               clearId,
-              `Clear ${parameterName}`,
+              `Clear ${humanizeParamName(parameterName)}`,
               true,
             )}
           >

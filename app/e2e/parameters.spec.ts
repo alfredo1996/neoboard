@@ -1389,7 +1389,7 @@ test.describe("Date-range parameter widget", () => {
 
       // Clear button should appear
       const clearBtn = page.getByRole("button", {
-        name: "Clear test_daterange",
+        name: "Clear Test daterange",
       });
       await expect(clearBtn).toBeVisible();
 
@@ -1577,8 +1577,8 @@ test.describe("Number-range parameter widget", () => {
       await page.goto(`/${id}`);
 
       // Wait for the number-range widget to render — min/max inputs
-      const minInput = page.getByLabel("test_numrange minimum");
-      const maxInput = page.getByLabel("test_numrange maximum");
+      const minInput = page.getByLabel("Test numrange minimum");
+      const maxInput = page.getByLabel("Test numrange maximum");
       await expect(minInput).toBeVisible({ timeout: 15_000 });
       await expect(maxInput).toBeVisible();
 
@@ -1823,8 +1823,8 @@ test.describe("Cascading-select parameter widget", () => {
         timeout: 15_000,
       });
 
-      // The cascading child should show "Select test_director first…"
-      await expect(page.getByText("Select test_director first…")).toBeVisible();
+      // The cascading child should show "Select Test director first…"
+      await expect(page.getByText("Select Test director first…")).toBeVisible();
 
       // The "depends on" label should be visible
       await expect(page.getByText("depends on Test director")).toBeVisible();
@@ -1836,10 +1836,10 @@ test.describe("Cascading-select parameter widget", () => {
       }).toPass({ timeout: 15_000 });
 
       // After selecting the parent, the child should no longer show the
-      // "Select test_director first…" placeholder — it should either show
+      // "Select Test director first…" placeholder — it should either show
       // "Select a value…" (options loaded) or be loading
       await expect(
-        page.getByText("Select test_director first…"),
+        page.getByText("Select Test director first…"),
       ).not.toBeVisible({
         timeout: 10_000,
       });
@@ -1889,7 +1889,7 @@ test.describe("Cascading-select parameter widget", () => {
       await expect(
         page.getByRole("heading", { name: /^Editing:/ }),
       ).toBeVisible();
-      await expect(page.getByText("Select test_director first…")).toBeVisible({
+      await expect(page.getByText("Select Test director first…")).toBeVisible({
         timeout: 15_000,
       });
 
@@ -1904,7 +1904,7 @@ test.describe("Cascading-select parameter widget", () => {
       await expect(
         dialog
           .getByTestId("param-preview")
-          .getByText("Select test_director first…"),
+          .getByText("Select Test director first…"),
       ).toBeVisible();
     } finally {
       await cleanup();
@@ -1921,7 +1921,7 @@ test.describe("Cascading-select parameter widget", () => {
     try {
       await page.goto(`/${id}`);
       const child = page.locator("[data-widget-id='cascade-child']");
-      await expect(child.getByText("Select test_director first…")).toBeVisible({
+      await expect(child.getByText("Select Test director first…")).toBeVisible({
         timeout: 15_000,
       });
 

@@ -11,6 +11,12 @@ describe("humanizeParamName (#2213)", () => {
     ["__a__b", "A b"],
     ["", ""],
     ["already spaced Words", "Already spaced Words"],
+    ["HTTPStatus", "Http status"],
+    ["APIKey", "Api key"],
+    ["___", "___"],
+    ["n4j_label", "N4j label"],
+    ["top10Items", "Top10 items"],
+    ["cittàScelta", "Città scelta"],
   ])("%j -> %j", (input, expected) => {
     expect(humanizeParamName(input)).toBe(expected);
   });

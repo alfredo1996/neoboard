@@ -109,7 +109,7 @@ function ParamMultiSelector({
   const resolvedPlaceholder =
     placeholder ??
     (isWaitingForParent
-      ? `Select ${parentParameterName} first…`
+      ? `Select ${humanizeParamName(parentParameterName)} first…`
       : "Select values…");
 
   // The dependency hint is a DESCRIPTION, not part of the name — putting it in

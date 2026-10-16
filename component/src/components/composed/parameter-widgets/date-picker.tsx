@@ -4,6 +4,7 @@ import * as React from "react";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, X } from "lucide-react";
 import { ParamLabel } from "./param-label";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -85,7 +86,7 @@ function DatePickerParameter({
             {...qualifiedName(
               labelledBy,
               clearId,
-              `Clear ${parameterName}`,
+              `Clear ${humanizeParamName(parameterName)}`,
               true,
             )}
           >

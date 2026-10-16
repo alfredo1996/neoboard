@@ -196,7 +196,7 @@ test.describe("Responsive — tablet viewport", () => {
         await expect
           .soft(
             page.getByRole("button", {
-              name: `Clear ${s.param}`,
+              name: `Clear ${s.label}`,
               exact: true,
             }),
           )

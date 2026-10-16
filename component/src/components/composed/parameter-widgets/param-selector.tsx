@@ -143,7 +143,7 @@ function ParamSelector({
   const resolvedPlaceholder =
     placeholder ??
     (isWaitingForParent
-      ? `Select ${parentParameterName} first…`
+      ? `Select ${humanizeParamName(parentParameterName)} first…`
       : "Select a value…");
 
   // The dependency hint is a DESCRIPTION, not part of the name. Putting it
@@ -175,7 +175,12 @@ function ParamSelector({
         size="icon"
         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
         onClick={() => onChange("")}
-        {...qualifiedName(labelledBy, clearId, `Clear ${parameterName}`, true)}
+        {...qualifiedName(
+          labelledBy,
+          clearId,
+          `Clear ${humanizeParamName(parameterName)}`,
+          true,
+        )}
       >
         <X className="h-4 w-4" />
       </Button>

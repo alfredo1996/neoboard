@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { X } from "lucide-react";
 import { ParamLabel } from "./param-label";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -87,7 +88,7 @@ function NumberRangeSlider({
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-clear`,
-              `Clear ${parameterName}`,
+              `Clear ${humanizeParamName(parameterName)}`,
               true,
             )}
           >
@@ -124,7 +125,7 @@ function NumberRangeSlider({
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-min`,
-              `${parameterName} minimum`,
+              `${humanizeParamName(parameterName)} minimum`,
             )}
           />
           <span className="text-xs text-muted-foreground flex-shrink-0">
@@ -141,7 +142,7 @@ function NumberRangeSlider({
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-max`,
-              `${parameterName} maximum`,
+              `${humanizeParamName(parameterName)} maximum`,
             )}
           />
         </div>
