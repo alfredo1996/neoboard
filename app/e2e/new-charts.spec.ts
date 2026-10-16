@@ -661,6 +661,10 @@ test.describe("Parameter selector label", () => {
       await expect(
         page.getByText("gallery_region", { exact: true }),
       ).toHaveCount(0);
+      // #2214: a widget waiting on it names it in words, never as a token
+      await expect(page.getByText(/\[Gallery region\]/).first()).toBeVisible();
+      // (the gallery's own markdown legitimately mentions `$param_<name>`)
+      await expect(page.getByText(/\$param_gallery_region/)).toHaveCount(0);
     } finally {
       await page.request.delete(`/api/dashboards/${id}`);
     }

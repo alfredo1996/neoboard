@@ -221,8 +221,8 @@ describe("CardContainer — connector unavailable (#1678)", () => {
 
     render(<CardContainer widget={paramWidget()} />);
 
-    expect(screen.getByText(/Waiting for parameters/)).toBeDefined();
-    expect(screen.getByText("$param_region")).toBeDefined();
+    expect(screen.getByText("Waiting for Region")).toBeDefined();
+    expect(screen.getByText("Region")).toBeDefined();
     expect(screen.queryByText("Connector unavailable")).toBeNull();
   });
 
@@ -232,7 +232,7 @@ describe("CardContainer — connector unavailable (#1678)", () => {
 
     render(<CardContainer widget={paramWidget()} />);
 
-    expect(screen.getByText(/Waiting for parameters/)).toBeDefined();
+    expect(screen.getByText("Waiting for Region")).toBeDefined();
   });
 
   // The parameter's source can live on a connection other than the
@@ -270,7 +270,7 @@ describe("CardContainer — connector unavailable (#1678)", () => {
       />,
     );
 
-    expect(screen.getByText(/Waiting for parameters/)).toBeDefined();
+    expect(screen.getByText("Pick a region above to see this.")).toBeDefined();
     expect(screen.queryByText("Connector unavailable")).toBeNull();
   });
 
@@ -483,9 +483,69 @@ describe("CardContainer", () => {
       />,
     );
 
-    expect(screen.getByText(/Waiting for parameters/)).toBeDefined();
-    // Parameter badge should be rendered
-    expect(screen.getByText("$param_region")).toBeDefined();
+    expect(screen.getByText("Waiting for Region")).toBeDefined();
+    // Parameter badge shows the name in words, never the raw token (#2214)
+    expect(screen.getByText("Region")).toBeDefined();
+    expect(document.body.textContent).not.toContain("$param_");
+  });
+
+  it("tells the reader to pick the one missing parameter a dashboard widget sets (#2214)", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      data: undefined,
+      missingParams: ["gallery_region"],
+    });
+
+    const { container } = render(
+      <CardContainer
+        widget={makeWidget({
+          connectionId: "conn-1",
+          query: "MATCH (n) WHERE n.r = $param_gallery_region RETURN n",
+        })}
+        parameterSourceMap={{
+          gallery_region: [
+            {
+              widgetId: "sel",
+              widgetTitle: "Region",
+              pageId: "p1",
+              pageTitle: "Main",
+              connectionId: "conn-a",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Pick a gallery region above to see this."),
+    ).toBeDefined();
+    expect(container.textContent).not.toContain("$param_");
+  });
+
+  it("names several missing parameters neutrally (#2214)", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      data: undefined,
+      missingParams: ["gallery_region", "year"],
+    });
+
+    const { container } = render(
+      <CardContainer
+        widget={makeWidget({
+          connectionId: "conn-1",
+          query: "RETURN $param_gallery_region, $param_year",
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Waiting for Gallery region and Year"),
+    ).toBeDefined();
+    expect(container.textContent).not.toContain("$param_");
   });
 
   // ----- Loading state (query actively fetching) -----
