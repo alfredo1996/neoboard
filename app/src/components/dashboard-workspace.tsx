@@ -864,80 +864,83 @@ export function DashboardWorkspace({
       )}
 
       <DashboardErrorBoundary>
-        <div className="flex-1 p-6 relative max-w-[1600px] mx-auto w-full">
-          {activeLayout.pages.map((page, index) => {
-            const isActive = index === safeIndex;
-            if (page.widgets.length === 0 && isActive) {
+        {/* The ground behind the panels, full-bleed under the tabs (#2219). */}
+        <div className="flex-1 bg-ground" data-testid="dashboard-ground">
+          <div className="relative mx-auto w-full max-w-[1600px] p-6">
+            {activeLayout.pages.map((page, index) => {
+              const isActive = index === safeIndex;
+              if (page.widgets.length === 0 && isActive) {
+                return (
+                  <EmptyState
+                    key={page.id}
+                    icon={<LayoutDashboard className="h-12 w-12" />}
+                    title="No widgets yet"
+                    description={
+                      editMode
+                        ? 'Click "Add Widget" to get started.'
+                        : "This page has no widgets."
+                    }
+                    action={emptyPageAction(
+                      editMode,
+                      canEdit,
+                      openAddWidget,
+                      enterEditMode,
+                    )}
+                  />
+                );
+              }
+              if (page.widgets.length === 0) return null;
+              if (!isActive && !visitedPages.has(index)) return null;
               return (
-                <EmptyState
+                <div
                   key={page.id}
-                  icon={<LayoutDashboard className="h-12 w-12" />}
-                  title="No widgets yet"
-                  description={
-                    editMode
-                      ? 'Click "Add Widget" to get started.'
-                      : "This page has no widgets."
-                  }
-                  action={emptyPageAction(
-                    editMode,
-                    canEdit,
-                    openAddWidget,
-                    enterEditMode,
-                  )}
-                />
+                  className={isActive ? undefined : "hidden"}
+                  aria-hidden={!isActive}
+                >
+                  <DashboardContainer
+                    page={page}
+                    editable={editMode}
+                    // Only the visible page polls. Visited pages stay mounted so
+                    // tab switches are instant and don't re-query — but keeping
+                    // them *polling* made query load scale with browsing history
+                    // instead of with what is on screen: 4.81x the /api/query
+                    // volume for the same 18 visible widgets after touring six
+                    // pages, all of it refresh-tier work against the customer's
+                    // database for nobody's benefit (#1419).
+                    refetchInterval={
+                      editMode || !isActive ? false : viewRefetchInterval
+                    }
+                    actions={
+                      editMode
+                        ? {
+                            onRemoveWidget: removeWidget,
+                            onEditWidget: openEditWidget,
+                            onDuplicateWidget: duplicateWidget,
+                            onLayoutChange: isActive
+                              ? updateGridLayout
+                              : undefined,
+                            onWidgetSettingsChange: (widgetId, settings) => {
+                              const target = page.widgets.find(
+                                (w) => w.id === widgetId,
+                              );
+                              if (target)
+                                updateWidget(widgetId, { ...target, settings });
+                            },
+                            onNavigateToPage: handleNavigateToPage,
+                            onSyncWidget: handleSyncWidget,
+                            onDetachWidget: handleDetachWidget,
+                          }
+                        : { onNavigateToPage: handleNavigateToPage }
+                    }
+                    templateMap={editMode ? templateMap : undefined}
+                    showParameterBar={effectiveShowBar}
+                    parameterSourceMap={parameterSourceMap}
+                    connectorCapabilities={dashboard?.connectorCapabilities}
+                  />
+                </div>
               );
-            }
-            if (page.widgets.length === 0) return null;
-            if (!isActive && !visitedPages.has(index)) return null;
-            return (
-              <div
-                key={page.id}
-                className={isActive ? undefined : "hidden"}
-                aria-hidden={!isActive}
-              >
-                <DashboardContainer
-                  page={page}
-                  editable={editMode}
-                  // Only the visible page polls. Visited pages stay mounted so
-                  // tab switches are instant and don't re-query — but keeping
-                  // them *polling* made query load scale with browsing history
-                  // instead of with what is on screen: 4.81x the /api/query
-                  // volume for the same 18 visible widgets after touring six
-                  // pages, all of it refresh-tier work against the customer's
-                  // database for nobody's benefit (#1419).
-                  refetchInterval={
-                    editMode || !isActive ? false : viewRefetchInterval
-                  }
-                  actions={
-                    editMode
-                      ? {
-                          onRemoveWidget: removeWidget,
-                          onEditWidget: openEditWidget,
-                          onDuplicateWidget: duplicateWidget,
-                          onLayoutChange: isActive
-                            ? updateGridLayout
-                            : undefined,
-                          onWidgetSettingsChange: (widgetId, settings) => {
-                            const target = page.widgets.find(
-                              (w) => w.id === widgetId,
-                            );
-                            if (target)
-                              updateWidget(widgetId, { ...target, settings });
-                          },
-                          onNavigateToPage: handleNavigateToPage,
-                          onSyncWidget: handleSyncWidget,
-                          onDetachWidget: handleDetachWidget,
-                        }
-                      : { onNavigateToPage: handleNavigateToPage }
-                  }
-                  templateMap={editMode ? templateMap : undefined}
-                  showParameterBar={effectiveShowBar}
-                  parameterSourceMap={parameterSourceMap}
-                  connectorCapabilities={dashboard?.connectorCapabilities}
-                />
-              </div>
-            );
-          })}
+            })}
+          </div>
         </div>
       </DashboardErrorBoundary>
 

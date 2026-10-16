@@ -449,7 +449,7 @@ describe("WidgetCard", () => {
       );
       const refresh = screen.getByRole("button", { name: "Refresh" });
       const bar = refresh.parentElement!;
-      expect(bar).toHaveClass("group-hover/panel:bg-side");
+      expect(bar).toHaveClass("group-hover/panel:bg-panel-hover");
       expect(refresh).toHaveClass("bg-inherit");
       expect(refresh).not.toHaveClass("bg-card");
     });
@@ -581,14 +581,18 @@ describe("WidgetCard", () => {
 
     it("tints the hovered panel in view mode only", () => {
       const view = render(<WidgetCard title="Sales">x</WidgetCard>);
-      expect(view.container.firstElementChild).toHaveClass("hover:bg-side");
+      expect(view.container.firstElementChild).toHaveClass(
+        "hover:bg-panel-hover",
+      );
       view.unmount();
       const edit = render(
         <WidgetCard draggable title="Sales">
           x
         </WidgetCard>,
       );
-      expect(edit.container.firstElementChild).not.toHaveClass("hover:bg-side");
+      expect(edit.container.firstElementChild).not.toHaveClass(
+        "hover:bg-panel-hover",
+      );
     });
 
     it("puts handle, title and controls in one 36 px row, with the source line below it", () => {

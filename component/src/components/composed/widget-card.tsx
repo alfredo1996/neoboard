@@ -162,7 +162,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
           // as its own. Edit mode keeps every control visible: no tint.
           draggable
             ? "border-rule-strong"
-            : "hover:bg-side focus-within:bg-side",
+            : "hover:bg-panel-hover focus-within:bg-panel-hover",
           className,
         )}
       >
@@ -220,7 +220,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                   // anchoring, and the page jumps (#1163).
                   "absolute right-2 top-1 z-10 flex items-center gap-0.5",
                   overlay &&
-                    "[@media(any-pointer:coarse)]:pointer-events-none rounded-sm bg-card opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-focus-within/panel:pointer-events-auto group-focus-within/panel:bg-side group-focus-within/panel:opacity-100 group-hover/panel:pointer-events-auto group-hover/panel:bg-side group-hover/panel:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
+                    "[@media(any-pointer:coarse)]:pointer-events-none rounded-sm bg-card opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-focus-within/panel:pointer-events-auto group-focus-within/panel:bg-panel-hover group-focus-within/panel:opacity-100 group-hover/panel:pointer-events-auto group-hover/panel:bg-panel-hover group-hover/panel:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
                 )}
               >
                 {onRefresh && !folded && (

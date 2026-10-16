@@ -71,6 +71,8 @@ module.exports = {
           strong: "hsl(var(--rule-strong))",
         },
         side: "hsl(var(--side))",
+        ground: "hsl(var(--ground))",
+        "panel-hover": "hsl(var(--panel-hover))",
         field: "hsl(var(--field))",
         popover: {
           DEFAULT: "hsl(var(--popover))",

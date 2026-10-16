@@ -155,4 +155,41 @@ test.describe("Flat panels", () => {
     expect(await gap()).toBe(gapView);
     expect(Math.abs((await top()) - topView)).toBeLessThan(80);
   });
+
+  for (const scheme of ["light", "dark"] as const) {
+    test(`the ground behind the panels differs from a panel and from a hovered panel (${scheme})`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await expect(page.locator("html")).toHaveClass(
+        scheme === "dark" ? /dark/ : /^((?!dark).)*$/,
+      );
+      const bg = (sel: string) =>
+        page
+          .locator(sel)
+          .first()
+          .evaluate((el) => getComputedStyle(el).backgroundColor);
+      const panel = "[data-widget-id='k1'] > div";
+      await page.mouse.move(0, 0);
+      const [ground, rest] = [
+        await bg("[data-testid='dashboard-ground']"),
+        await bg(panel),
+      ];
+      await page.locator("[data-widget-id='k1']").hover();
+      await expect(page.locator(panel).first()).not.toHaveCSS(
+        "background-color",
+        rest,
+      );
+      const hovered = await bg(panel);
+      expect(ground, "ground vs panel").not.toBe(rest);
+      expect(ground, "ground vs hovered panel").not.toBe(hovered);
+      const lum = (c: string) => {
+        const [r, g, b] = c.match(/\d+(\.\d+)?/g)!.map(Number);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      expect(lum(ground), "the ground is the darker surface").toBeLessThan(
+        lum(rest),
+      );
+    });
+  }
 });
