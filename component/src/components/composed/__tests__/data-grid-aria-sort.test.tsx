@@ -6,12 +6,10 @@ import { DataGridColumnHeader } from "../data-grid-column-header";
 import type { ColumnDef } from "@tanstack/react-table";
 
 // Same CI-oversubscription flake as data-grid-grouping.test.tsx (#1240/#1459):
-// the four packages' coverage suites run in parallel, starving the macrotasks
-// each userEvent dispatch yields on, so a sort-and-assert test creeps past the
-// default 5s testTimeout. It failed at 5113ms in CI while its sibling in the
-// same file passed at 1437ms. Give the userEvent-driven cases headroom.
-// ponytail: this tolerates the oversubscription; the root cause is the parallel
-// fan-out in ci.yml.
+// it failed at 5113ms in CI while its sibling passed at 1437ms. ci.yml now runs
+// one package at a time, so this headroom is a leftover.
+// ponytail: revert to the default once CI shows no starvation flake on the
+// bounded fan-out (#1240's 5 clean runs); kept until then, not shown unneeded.
 const SLOW_UI_TIMEOUT_MS = 15000;
 
 /**

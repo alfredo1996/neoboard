@@ -136,7 +136,7 @@ jobs:
         run: npm run test:scripts
 
   # ── Job 1: Unit & integration tests with coverage ──────────────────────────
-  # All three packages run in parallel within a single job.
+  # The packages run one after another within a single job (see the test step).
   # Connection integration tests use GitHub service containers.
   unit-tests:
     name: Unit & Integration Tests
@@ -188,25 +188,22 @@ jobs:
       - name: Build connector-sdk + connection packages
         run: npm -w connector-sdk run build && npm -w connection run build
 
-      - name: Run all tests in parallel
+      # One package at a time, never all at once (#1240). Five suites started
+      # together put ~13 workers (plus the Postgres/Neo4j containers and
+      # connection's Testcontainers) on this runner's 4 vCPUs, and a plain
+      # render-and-assert test then timed out at 5s. Measured on a 10-core box,
+      # the same oversubscription took the app suite from 28s to 889s with 96
+      # failures and 9 files never collected. Each package still sizes its own
+      # workers (app and component cap at 50% of the cores), now against an idle
+      # runner. A failing package does not stop the next: every log is wanted.
+      - name: Run all tests, one package at a time
         run: |
-          cd app && NODE_ENV=test npm run test:coverage &
-          APP_PID=$!
-          cd component && npm run test:coverage &
-          COMP_PID=$!
-          cd connection && npm run test:coverage &
-          CONN_PID=$!
-          cd cli && npm run test:coverage &
-          CLI_PID=$!
-          cd connector-sdk && npm run test:coverage &
-          SDK_PID=$!
-
           FAIL=0
-          wait $APP_PID  || FAIL=1
-          wait $COMP_PID || FAIL=1
-          wait $CONN_PID || FAIL=1
-          wait $CLI_PID  || FAIL=1
-          wait $SDK_PID  || FAIL=1
+          (cd app && NODE_ENV=test npm run test:coverage) || FAIL=1
+          (cd component && npm run test:coverage) || FAIL=1
+          (cd connection && npm run test:coverage) || FAIL=1
+          (cd cli && npm run test:coverage) || FAIL=1
+          (cd connector-sdk && npm run test:coverage) || FAIL=1
           exit $FAIL
         env:
           POSTGRES_HOST: localhost

@@ -65,12 +65,12 @@ const data: SalesRow[] = [
   },
 ];
 
-// userEvent-driven tests dispatch ~8 events, each yielding a macrotask. In CI the
-// 4 packages' coverage suites run in parallel (see .github/workflows/ci.yml),
-// oversubscribing the runner and starving those macrotasks so these tests creep
-// toward the default 5s testTimeout and flake. Give them headroom here.
-// ponytail: raising the timeout tolerates the oversubscription; the real root cause
-// is that parallel fan-out — bound it in ci.yml if this flakiness spreads.
+// userEvent-driven tests dispatch ~8 events, each yielding a macrotask. They
+// crept toward the default 5s testTimeout when ci.yml ran every package's
+// coverage suite at once (#1240). ci.yml now runs one package at a time, so this
+// headroom is a leftover.
+// ponytail: revert to the default once CI shows no starvation flake on the
+// bounded fan-out (#1240's 5 clean runs); kept until then, not shown unneeded.
 const SLOW_UI_TIMEOUT_MS = 15000;
 
 describe("DataGrid grouping", () => {
