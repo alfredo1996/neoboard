@@ -64,6 +64,14 @@ module.exports = {
           2: "hsl(var(--surface-2))",
         },
         "border-strong": "hsl(var(--border-strong))",
+        // Ruled-sheet tokens (#2215).
+        "foreground-2": "hsl(var(--foreground-2))",
+        rule: {
+          DEFAULT: "hsl(var(--rule))",
+          strong: "hsl(var(--rule-strong))",
+        },
+        side: "hsl(var(--side))",
+        field: "hsl(var(--field))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -88,9 +96,12 @@ module.exports = {
       fontFamily: {
         display: "var(--font-display)",
         body: "var(--font-body)",
+        // Page titles and the wordmark only (#2215).
+        serif: "var(--font-serif)",
+        mono: "var(--font-mono)",
       },
       // Heading scale (#830): size, leading, and tracking travel together.
-      // Pair with `font-display` for the Geist Sans family.
+      // Pair with `font-display` (IBM Plex Sans since #2215).
       fontSize: {
         display: [
           "2.25rem",

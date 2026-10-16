@@ -21,24 +21,109 @@
  */
 
 /*
- * Self-hosted variable fonts (#830) — Geist Sans for display/headings,
- * Inter for body. font-display: swap keeps text visible with the system
- * fallback while the woff2 loads (graceful, no invisible text).
+ * Self-hosted faces (#830, #2215): Source Serif 4 for page titles and the
+ * wordmark only, IBM Plex Sans for everything else, IBM Plex Mono for code.
+ * Fontsource subsets, OFL-1.1 (see fonts/LICENSE-FONTS.md). Nothing loads
+ * from a network URL: air-gapped installs must work (#1683). Each family is
+ * split into latin and latin-ext files; unicode-range makes the browser fetch
+ * latin-ext only when a page uses those characters. The sans and serif files
+ * are variable on weight; the mono ones are static 400 and 500.
+ * font-display: swap keeps text visible in the fallback while the woff2 loads.
  */
 @font-face {
-  font-family: "Geist Sans";
-  src: url("./fonts/geist-sans-variable.woff2") format("woff2");
-  font-weight: 100 900;
+  font-family: "Source Serif 4";
+  src: url("./fonts/source-serif-4-latin-wght.woff2") format("woff2");
+  font-weight: 200 900;
   font-style: normal;
   font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: "Inter";
-  src: url("./fonts/inter-variable.woff2") format("woff2");
-  font-weight: 100 900;
+  font-family: "Source Serif 4";
+  src: url("./fonts/source-serif-4-latin-ext-wght.woff2") format("woff2");
+  font-weight: 200 900;
   font-style: normal;
   font-display: swap;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("./fonts/ibm-plex-sans-latin-wght.woff2") format("woff2");
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("./fonts/ibm-plex-sans-latin-ext-wght.woff2") format("woff2");
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("./fonts/ibm-plex-mono-latin-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("./fonts/ibm-plex-mono-latin-ext-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("./fonts/ibm-plex-mono-latin-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("./fonts/ibm-plex-mono-latin-ext-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 /*
@@ -54,21 +139,29 @@
  * charts = citrine.
  */
 :root {
-  --background: 220 14% 98%;
-  --foreground: 220 13% 9%;
-  /* Cards float white above the tinted page background. */
-  --surface: 0 0% 100%;
+  /* Ruled sheet (#2215): one page colour, surfaces are the page and are
+     separated by hairline rules, not by white-above-grey elevation.
+     page #FCFCFD, side #F4F5F7, ink #16181D, ink 2 #525866, ink 3 #686E7A. */
+  --background: 240 20% 99%;
+  --foreground: 223 14% 10%;
+  --foreground-2: 222 11% 36%;
+  --side: 220 16% 96%;
+  --surface: 240 20% 99%;
   --surface-2: 220 14% 95%;
-  --card: 0 0% 100%;
-  --card-foreground: 220 13% 9%;
+  --card: 240 20% 99%;
+  --card-foreground: 223 14% 10%;
+  /* Overlays sit on the field colour so they lift off the page. */
   --popover: 0 0% 100%;
-  --popover-foreground: 220 13% 9%;
-  --muted: 220 14% 94%;
-  --muted-foreground: 220 9% 42%;
+  --popover-foreground: 223 14% 10%;
+  --field: 0 0% 100%;
+  --muted: 220 16% 96%;
+  --muted-foreground: 220 8% 44%;
   /* Azure-tinted hover/selected fill (#1553). Deliberately pale: the menu
      highlight is carried by the inset --ring stroke (#1559), not by this fill,
-     which at 94% L is ~1.2:1 against a white popover for ANY hue. */
-  --accent: 212 100% 94%;
+     which at 95% L is ~1.2:1 against a white popover for ANY hue. Lightness
+     moved 94 -> 95 (light) and 24 -> 21 (dark) in #2215 so --muted-foreground
+     (ink 3) keeps 4.5:1 on it; the hue is untouched. */
+  --accent: 212 100% 95%;
   --accent-foreground: 220 13% 9%;
   /* Low-alpha azure tint for hover/active fills on arbitrary surfaces —
      same hue as --ring so fills and the active rail read as one family. */
@@ -89,16 +182,25 @@
   --success-foreground: 0 0% 100%;
   --warning: 28 92% 32%;
   --warning-foreground: 0 0% 100%;
-  --border: 220 13% 91%;
-  /* Stronger border for inputs and emphasized dividers. */
-  --border-strong: 220 13% 84%;
-  --input: 220 13% 84%;
+  /* Hairline rules (#E4E6EA) and the stronger divider (#CDD1D7). */
+  --rule: 220 12% 91%;
+  --rule-strong: 216 11% 82%;
+  --border: 220 12% 91%;
+  --border-strong: 216 11% 82%;
+  /* Field border (#8C929D): 3.08:1 on the page, WCAG 1.4.11. The canvas's
+     #CDD1D7 measured 1.5:1, which is why --rule-strong is not used here.
+     token-contrast.test.ts holds this to 3:1. */
+  --input: 219 8% 58%;
   /* Selection/focus accent — azure at 42% L: 5.38:1 against the near-white
      page and 5.63:1 on a white card (WCAG 1.4.11 needs 3.0). The citrine it
      replaced measured 3.41 (#1553). */
   --ring: 212 90% 42%;
-  --font-display: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Display stays sans so nothing turns serif by accident; --font-serif is
+     for page titles and the wordmark only (#2215). */
+  --font-display: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   /* Radius scale (#831): precise small controls, softer large containers. */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -136,20 +238,24 @@
 }
 
 .dark {
-  --background: 220 13% 8%;
-  --foreground: 220 14% 96%;
-  --surface: 220 13% 11%;
+  /* page #14161A, side #181B20, ink #ECEEF1, ink 2 #AEB4BE, ink 3 #959BA6. */
+  --background: 220 13% 9%;
+  --foreground: 216 15% 94%;
+  --foreground-2: 217 11% 71%;
+  --side: 218 14% 11%;
+  --surface: 220 13% 9%;
   --surface-2: 220 13% 14%;
-  --card: 220 13% 11%;
-  --card-foreground: 220 14% 96%;
-  --popover: 220 13% 11%;
-  --popover-foreground: 220 14% 96%;
+  --card: 220 13% 9%;
+  --card-foreground: 216 15% 94%;
+  --popover: 218 13% 12%;
+  --popover-foreground: 216 15% 94%;
+  --field: 218 13% 12%;
   --muted: 220 13% 15%;
-  --muted-foreground: 220 9% 65%;
+  --muted-foreground: 219 9% 62%;
   /* Slate hover fill; pale azure-white text (9.2:1). A cool hue at 45%
      chroma over charcoal reads as slate — the amber at the same recipe read
      as olive, which is what #1553 was about. */
-  --accent: 212 45% 24%;
+  --accent: 212 45% 21%;
   --accent-foreground: 212 100% 92%;
   /* Neutral, not tinted (#1244). A hue at low alpha over charcoal reads as a
      dull smear rather than a deliberate state; dark selection is neutral
@@ -168,9 +274,12 @@
   --success-foreground: 220 13% 9%;
   --warning: 28 92% 58%;
   --warning-foreground: 220 13% 9%;
-  --border: 220 13% 17%;
-  --border-strong: 220 13% 25%;
-  --input: 220 13% 25%;
+  --rule: 218 13% 17%;
+  --rule-strong: 219 11% 25%;
+  --border: 218 13% 17%;
+  --border-strong: 219 11% 25%;
+  /* Field border (#646B77): 3.38:1 on the page. */
+  --input: 218 9% 43%;
   /* Lifted azure focus/selection ring: 6.22:1 against the charcoal page.
      Honest disclosure — the citrine it replaced measured 10.17 here; both
      are well past the 3.0 threshold, and azure is the hue that also clears
@@ -196,6 +305,12 @@
   --chart-8: 15 75% 62%;
   --chart-9: 172 60% 44%;
   --chart-10: 150 50% 68%;
+}
+
+/* Tabular figures everywhere (#2215): numbers in tables, stats and axes line
+   up without a per-component tabular-nums class. */
+html {
+  font-variant-numeric: tabular-nums;
 }
 
 /**

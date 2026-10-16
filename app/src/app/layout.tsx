@@ -44,9 +44,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      {/* No font className here — the design system's self-hosted Inter is
+      {/* No font className here — the design system's self-hosted IBM Plex Sans is
           applied to `body` via the `font-body` token in globals.css, so we
-          don't pull a second copy of Inter from Google Fonts (#1059). */}
+          don't pull a second copy of the font from Google Fonts (#1059). */}
       <body>
         <Providers>{children}</Providers>
       </body>

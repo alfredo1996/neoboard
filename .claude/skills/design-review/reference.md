@@ -1,6 +1,6 @@
 # Design review — full reference
 
-Extracted from the actual codebase. Not aspirational — this IS the system.
+The ruled-sheet system (epic #2210). Tokens landed in #2215; components are restyled in the issues after it, so a component may still carry the old look until its issue merges.
 
 ## When to Use
 
@@ -10,13 +10,14 @@ Extracted from the actual codebase. Not aspirational — this IS the system.
 
 ## 1. Visual Hierarchy
 
-### Elevation Stack (low to high)
+### One surface, not an elevation stack
 
-1. **Page background**: `bg-background` (white / `hsl(0 0% 100%)`)
-2. **Cards**: `bg-card` + `shadow` + `rounded-lg border` — cards float above page
-3. **Overlays**: `bg-background/80 backdrop-blur-sm` + `shadow-md` — semi-transparent blur
-4. **Dialogs**: `bg-background` + `shadow-lg` on overlay `bg-black/80` — highest z-level
-5. **Tooltips**: `bg-primary text-primary-foreground` — inverted colors, no explicit shadow
+1. **Page**: `bg-background`. `--card` and `--surface` are the same colour, so a card no longer floats above the page.
+2. **Rules**: areas are separated by a 1px hairline (`border-border` = `--rule`; `--rule-strong` for an emphasised divider). Whitespace first, a rule second, a container last.
+3. **Side**: `--side` for the sidebar and rails.
+4. **Field**: `--field` fills inputs and overlays (white in light, a step lighter than the page in dark).
+5. **Overlays**: popovers, dropdowns, dialogs and toasts are the only things with a shadow (`shadow-md` menus, `shadow-lg` dialogs).
+6. **Tooltips**: `bg-primary text-primary-foreground` — inverted colours.
 
 ### Z-Index Layers
 
@@ -38,10 +39,10 @@ Extracted from the actual codebase. Not aspirational — this IS the system.
 
 ### The Rules
 
-- **Page root padding**: `p-6` — ALWAYS. Every `(dashboard)` page uses this.
+- **Page root padding**: `p-6`, every `(dashboard)` page.
 - **Section gaps**: `space-y-4` between major sections, `gap-4` in grids.
 - **Form field gaps**: `space-y-2` between label+input groups.
-- **Card padding**: `p-6` is the standard (CardHeader, CardContent, CardFooter).
+- **No `p-6` card around a section.** A block is set off by whitespace and a hairline rule. A bordered container is for a widget, which the user moves and resizes.
 - **Inline element gaps**: `gap-2` between buttons, badges, icons.
 
 ### Known Deviations (Intentional)
@@ -60,23 +61,26 @@ Extracted from the actual codebase. Not aspirational — this IS the system.
 
 ## 3. Color Usage
 
-### Semantic Color Map (CSS Variables, HSL)
+### Semantic Color Map (CSS variables, bare HSL channels)
 
-| Token                | Light                       | Usage                                                                                   |
-| -------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
-| `--background`       | `220 14% 98%` (off-white)   | Page backgrounds                                                                        |
-| `--foreground`       | `220 13% 9%` (graphite)     | Body text                                                                               |
-| `--card`             | `0 0% 100%` (white)         | Card surfaces                                                                           |
-| `--muted`            | `220 14% 94%` (light gray)  | Disabled bgs, secondary surfaces                                                        |
-| `--muted-foreground` | `220 9% 42%` (medium gray)  | Captions, metadata, descriptions                                                        |
-| `--primary`          | `220 13% 9%` (graphite)     | Buttons, active states                                                                  |
-| `--secondary`        | `220 14% 94%` (light gray)  | Secondary buttons                                                                       |
-| `--destructive`      | `0 72% 45%` (red)           | Delete buttons, error states                                                            |
-| `--border`           | `220 13% 91%` (light gray)  | All borders                                                                             |
-| `--input`            | `220 13% 84%` (light gray)  | Input borders                                                                           |
-| `--ring`             | `212 90% 42%` (azure)       | Focus rings, active rail, tab underline, selection accent (#1553)                       |
-| `--accent`           | `212 100% 94%` (azure tint) | Hover/selected fill; the menu highlight is carried by the inset `--ring` stroke (#1559) |
-| `--brand`            | `38 95% 55%` (citrine)      | Wordmark mark                                                                           |
+| Token                               | Light                       | Dark                    | Usage                                                                        |
+| ----------------------------------- | --------------------------- | ----------------------- | ---------------------------------------------------------------------------- |
+| `--background`                      | `240 20% 99%` (#FCFCFD)     | `220 13% 9%` (#14161A)  | Page; `--card` and `--surface` equal it                                      |
+| `--side`                            | `220 16% 96%` (#F4F5F7)     | `218 14% 11%` (#181B20) | Sidebar, rails; `--muted` equals it in light                                 |
+| `--foreground`                      | `223 14% 10%` (#16181D)     | `216 15% 94%` (#ECEEF1) | Ink: body text, titles                                                       |
+| `--foreground-2`                    | `222 11% 36%` (#525866)     | `217 11% 71%` (#AEB4BE) | Ink 2: secondary text                                                        |
+| `--muted-foreground`                | `220 8% 44%` (#686E7A)      | `219 9% 62%` (#959BA6)  | Ink 3: captions, metadata                                                    |
+| `--rule` / `--border`               | `220 12% 91%` (#E4E6EA)     | `218 13% 17%` (#262A31) | Hairline rules, all default borders                                          |
+| `--rule-strong` / `--border-strong` | `216 11% 82%` (#CDD1D7)     | `219 11% 25%`           | Emphasised dividers (about 1.5:1: decoration, never a control edge)          |
+| `--field`                           | `0 0% 100%`                 | `218 13% 12%` (#1B1E23) | Input and overlay fill                                                       |
+| `--input`                           | `219 8% 58%` (#8C929D)      | `218 9% 43%` (#646B77)  | Field border: 3.08:1 light, 3.38:1 dark on the page (WCAG 1.4.11)            |
+| `--primary`                         | `220 13% 9%` (graphite)     | near-white              | Buttons, active states                                                       |
+| `--destructive`                     | `0 72% 45%` (red)           | lifted red              | Delete buttons, error states                                                 |
+| `--ring`                            | `212 90% 42%` (azure)       | `212 90% 62%`           | Focus rings, active rail, selection (#1553)                                  |
+| `--accent`                          | `212 100% 95%` (azure tint) | `212 45% 21%`           | Hover/selected fill; the menu highlight is the inset `--ring` stroke (#1559) |
+| `--brand`                           | `38 95% 55%` (citrine)      | `38 95% 58%`            | Wordmark mark                                                                |
+
+`token-contrast.test.ts` computes the ratios: ink, ink 2 and ink 3 hold 4.5:1 on the page and on `--side`; the ring and the field border hold 3:1 on the page, in both themes.
 
 ### Chart Colors (10-color "Graphite & Citrine" default palette — colorblind-safe)
 
@@ -162,50 +166,57 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 
 ## 5. Typography Scale
 
-### The Actual Scale Used
+### Faces
 
-| Class       | Size | Weight          | Where Used                                                               |
-| ----------- | ---- | --------------- | ------------------------------------------------------------------------ |
-| `text-xs`   | 12px | `font-medium`   | Labels, badges, captions, metadata timestamps                            |
-| `text-sm`   | 14px | `font-medium`   | **DOMINANT** — body text, form labels, descriptions, buttons, menu items |
-| `text-base` | 16px | normal          | Input text (rendered content)                                            |
-| `text-lg`   | 18px | `font-semibold` | Page titles, dialog headers, card titles                                 |
+| Token / class                                                 | Face                     | Used for                                        |
+| ------------------------------------------------------------- | ------------------------ | ----------------------------------------------- |
+| `--font-serif` / `font-serif`                                 | Source Serif 4           | Page titles and the wordmark only               |
+| `--font-body`, `--font-display` / `font-body`, `font-display` | IBM Plex Sans            | Everything else, tabular figures on at the root |
+| `--font-mono` / `font-mono`                                   | IBM Plex Mono (400, 500) | Code, query text, keyboard hints                |
 
-### Weight Rules
+All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads from a network URL (#1683).
 
-- `font-medium` (500): Default for interactive elements (buttons, links, nav items) — 38 occurrences.
-- `font-semibold` (600): Section headings, card titles, emphasis — 13 occurrences.
-- `font-bold` (700): Rare. Only metric values and strong emphasis — 4 occurrences.
-- Default (400): Body text, descriptions, form help text.
+### The scale
 
-### Typography Anti-Patterns
+| Role         | Size / weight | Face  |
+| ------------ | ------------- | ----- |
+| Page title   | 36 / 600      | serif |
+| Stat         | 36 / 600      | sans  |
+| Section      | 15 / 600      | sans  |
+| Body         | 14            | sans  |
+| Widget title | 13 / 600      | sans  |
+| Meta         | 12            | sans  |
 
-- DO NOT use `text-2xl` or `text-3xl` — nothing in the codebase uses them. The scale stops at `text-lg`.
-- DO NOT use `font-bold` for headings — use `font-semibold`. Bold is reserved for metric emphasis.
-- Card titles: `font-semibold leading-none tracking-tight` (from CardTitle). Match this exactly.
-- Descriptions always: `text-sm text-muted-foreground` (from CardDescription).
+### Weight rules
+
+- `font-medium` (500): interactive elements (buttons, links, nav items).
+- `font-semibold` (600): titles and section headings.
+- Default (400): body text, descriptions, help text.
+- Never `font-bold`.
+
+### Typography anti-patterns
+
+- Serif outside a page title or the wordmark.
+- A size between the scale's steps, or a second heading style.
+- Inter, Geist or any face other than the three above.
+- A description that restates the title next to it.
+- Monospace as "technical" styling: use it only for real code and query text.
 
 ---
 
 ## 6. Border & Radius Patterns
 
-### Border Radius Hierarchy
+### Radius
 
-| Class          | Computed                 | Where Used                                          |
-| -------------- | ------------------------ | --------------------------------------------------- |
-| `rounded-lg`   | 12px (`--radius-lg`)     | Card base, dialogs (`sm:rounded-lg`), popovers      |
-| `rounded-md`   | 8px (`--radius-md`)      | **DOMINANT** — buttons, inputs, selects, menu items |
-| `rounded-sm`   | 6px (`--radius-sm`)      | Compact elements, close buttons, tiny controls      |
-| `rounded-full` | 9999px (`--radius-pill`) | Avatars, status dots, toggle switches, badges       |
+| Role                                            | Radius         |
+| ----------------------------------------------- | -------------- |
+| Controls (buttons, inputs, selects, menu items) | 6px            |
+| Sheet (widget container, panels)                | 8px            |
+| Overlays (popovers, dialogs, toasts)            | 10px           |
+| Checkbox                                        | 4px            |
+| Pills, avatars, status dots                     | `rounded-full` |
 
-`--radius` is a backward-compatible alias of `--radius-md` (8px). The authoritative
-values live in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`, which
-pins them as a ratchet — check there before quoting a number here.
-
-These radii are the _result of a decision_, not scaffold defaults: buttons are
-`rounded-md` (8px) and cards `rounded-lg` (12px) so the main floating surface reads
-softer than the controls inside it. Do not "correct" them toward sharper corners
-without superseding that decision knowingly.
+The radius tokens in `design-tokens.css` (`--radius-sm/md/lg`, pinned in `graphite-citrine-tokens.test.ts`) still hold the pre-redesign values until the component issues (#2219 and after) move each component onto the roles above. Judge new code against this table, and check the test before quoting a token value.
 
 ### Border Rules
 
@@ -215,14 +226,9 @@ without superseding that decision knowingly.
 - Separators: `border-t` for horizontal dividers between sections.
 - NEVER use `border-4` — only 1 occurrence exists and it's anomalous.
 
-### Shadow Scale
+### Shadows
 
-| Class       | Where Used                                                           |
-| ----------- | -------------------------------------------------------------------- |
-| `shadow-sm` | Buttons (outline, secondary, destructive), inputs — subtle elevation |
-| `shadow`    | Card base, default button — standard card elevation                  |
-| `shadow-md` | Floating menus, graph overlay — mid-elevation                        |
-| `shadow-lg` | Popovers, dropdowns — high elevation overlays                        |
+Only overlays carry a shadow: `shadow-md` for menus and popovers, `shadow-lg` for dialogs. Cards, buttons, inputs and the sheet have none; hairline rules do that job. A shadow on anything else is a red flag.
 
 ---
 
@@ -242,7 +248,7 @@ Widget editor uses: `sm:max-w-md` (step 1) → `sm:max-w-6xl` (step 2).
 
 ### Button Usage Patterns
 
-- Primary actions (Save, Create): `variant="default"` (black bg)
+- Primary actions (Save, Create): `variant="default"` (graphite bg)
 - Cancel/Close: `variant="outline"`
 - Destructive (Delete): `variant="destructive"` (red bg)
 - Toolbar actions: `variant="ghost" size="icon"` or `variant="ghost" size="sm"`
@@ -254,7 +260,7 @@ Widget editor uses: `sm:max-w-md` (step 1) → `sm:max-w-6xl` (step 2).
 Always use the `EmptyState` component from component lib:
 
 - Icon (optional): Lucide icon, muted color
-- Title: `text-lg font-semibold`
+- Title: section size (15/600)
 - Description: `text-sm text-muted-foreground`
 - Action button (optional): Primary variant
 
@@ -305,18 +311,17 @@ grid grid-cols-2 gap-4     // Type picker: always 2-col
 Before submitting any UI PR, verify:
 
 - [ ] Page root uses `p-6`
-- [ ] Cards use standard `p-6` padding (or `p-4` only for compact widget/connection cards)
-- [ ] Text hierarchy: `text-lg` for titles, `text-sm` for body, `text-xs` for metadata
-- [ ] Descriptions use `text-sm text-muted-foreground`
+- [ ] One surface with hairline rules; no `p-6` card around a section; shadows only on overlays
+- [ ] Type from the scale; serif only for the page title and wordmark
+- [ ] Descriptions use `text-sm text-muted-foreground` and say something the title does not
 - [ ] Interactive elements have `text-sm font-medium`
 - [ ] Buttons use correct variant (default=primary, outline=cancel, destructive=delete, ghost=toolbar)
-- [ ] Form fields use `space-y-2` internal spacing
-- [ ] Section gaps use `space-y-4`
-- [ ] Colors reference CSS variable tokens, never raw values
+- [ ] Form fields use `space-y-2` internal spacing; section gaps use `space-y-4`
+- [ ] Colours reference CSS variable tokens, never raw values; field borders use `--input`
 - [ ] Charts use `resolveChartColors()`, never inline colors
-- [ ] Border radius matches component type (lg=cards, md=buttons/inputs, full=circles)
-- [ ] Empty states use the `EmptyState` component
-- [ ] Loading states use `LoadingButton` or `LoadingOverlay`
+- [ ] Radius matches the role: controls 6, sheet 8, overlays 10, checkbox 4
+- [ ] Empty states use `EmptyState`; loading states use `LoadingButton` or `LoadingOverlay`
+- [ ] Checked in light and dark
 
 ---
 
@@ -327,6 +332,7 @@ These are the fingerprints of careless or AI-generated UI work. Flag immediately
 ### Layout Anti-Patterns
 
 - **Nested cards**: Cards inside cards create visual noise — flatten the hierarchy
+- **Shadows off overlays**: a shadow on a card, button or input; white surfaces floating above a grey page
 - **Everything in cards**: Not every element needs a container — use whitespace and grouping instead
 - **Identical card grids**: Same-sized cards with icon + heading + text, repeated endlessly — vary the layout
 - **Everything centered**: Left-aligned text with asymmetric layouts feels more intentional
@@ -343,7 +349,7 @@ These are the fingerprints of careless or AI-generated UI work. Flag immediately
 
 ### Typography Anti-Patterns
 
-- **Overused fonts**: Inter, Roboto, Arial as conscious choices (NeoBoard uses system font stack via shadcn — don't override it)
+- **Wrong face**: Inter, Geist, Roboto, Arial, or serif anywhere except a page title and the wordmark (the three faces are IBM Plex Sans, Source Serif 4, IBM Plex Mono)
 - **Monospace as "technical" vibes**: Lazy shorthand — use it only for actual code/query content
 - **Big icons above headings**: Rounded-corner icons above every section title — rarely adds value, looks templated
 
@@ -355,7 +361,7 @@ These are the fingerprints of careless or AI-generated UI work. Flag immediately
 
 ### Copy Anti-Patterns
 
-- **Redundant headers**: Title that restates the page name, description that repeats the heading
+- **Redundant headers**: Title that restates the page name, description that repeats the heading, a subtitle that restates the title
 - **Every button is primary**: Use ghost, outline, secondary — hierarchy matters
 - **Generic error messages**: "Error occurred" — say what happened and how to fix it
 
