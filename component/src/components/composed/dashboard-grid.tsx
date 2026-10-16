@@ -21,6 +21,11 @@ export interface DashboardGridProps {
   rowHeight?: number;
   isDraggable?: boolean;
   isResizable?: boolean;
+  /**
+   * "view": panels share one ruled sheet, 1 px apart. "edit": 8 px gaps and
+   * outlined tiles, so dragging and resizing have room (#2219).
+   */
+  mode?: "view" | "edit";
   compactType?: "vertical" | "horizontal" | null;
   className?: string;
   children: React.ReactNode;
@@ -53,6 +58,9 @@ function colsForEveryBreakpoint(cols: number) {
   return { lg: cols, md: cols, sm: cols, xs: cols };
 }
 
+// Gutters in px. Saved layouts are in grid units, so changing these moves nothing.
+const GUTTER = { view: 1, edit: 8 } as const;
+
 function getCompactorByType(type: "vertical" | "horizontal" | null) {
   if (type === "horizontal") return horizontalCompactor;
   if (type === null) return noCompactor;
@@ -64,10 +72,12 @@ function GridSkeleton({
   layout,
   cols,
   rowHeight,
+  mode,
 }: {
   layout: LayoutItem[];
   cols: number;
   rowHeight: number;
+  mode: "view" | "edit";
 }) {
   if (layout.length === 0) return null;
   const colPercent = 100 / cols;
@@ -80,7 +90,7 @@ function GridSkeleton({
       {layout.map((item) => (
         <div
           key={item.i}
-          className="absolute p-1"
+          className={cn("absolute", mode === "edit" && "p-1")}
           style={{
             left: `${item.x * colPercent}%`,
             top: item.y * rowHeight,
@@ -88,7 +98,12 @@ function GridSkeleton({
             height: item.h * rowHeight,
           }}
         >
-          <Skeleton className="h-full w-full rounded-xl" />
+          <Skeleton
+            className={cn(
+              "h-full w-full",
+              mode === "edit" ? "rounded-sm" : "rounded-none",
+            )}
+          />
         </div>
       ))}
     </div>
@@ -102,6 +117,7 @@ function DashboardGrid({
   rowHeight = 80,
   isDraggable = true,
   isResizable = true,
+  mode = "view",
   compactType = "vertical",
   className,
   children,
@@ -124,9 +140,24 @@ function DashboardGrid({
   };
 
   return (
-    <div ref={containerRef} className={cn("w-full", className)}>
+    <div
+      ref={containerRef}
+      className={cn(
+        "w-full",
+        // The sheet: its rule and 8 px radius are the only outer edge. Holes in
+        // a layout read as blank paper inside it (#2219).
+        mode === "view" &&
+          "overflow-hidden rounded-md border border-rule bg-card",
+        className,
+      )}
+    >
       {!mounted && (
-        <GridSkeleton layout={layout} cols={cols} rowHeight={rowHeight} />
+        <GridSkeleton
+          layout={layout}
+          cols={cols}
+          rowHeight={rowHeight}
+          mode={mode}
+        />
       )}
       {mounted && (
         <ResponsiveGridLayout
@@ -135,6 +166,8 @@ function DashboardGrid({
           breakpoints={defaultBreakpoints}
           cols={colsForEveryBreakpoint(cols)}
           rowHeight={rowHeight}
+          margin={[GUTTER[mode], GUTTER[mode]]}
+          containerPadding={[0, 0]}
           dragConfig={{
             enabled: isDraggable,
             bounded: false,

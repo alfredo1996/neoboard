@@ -64,6 +64,13 @@ describe("SingleValueChart", () => {
     expect(screen.getByTestId("single-value-chart")).toHaveClass("custom");
   });
 
+  it("sits straight on the widget's panel, in no box of its own (#2219)", () => {
+    render(<SingleValueChart value={42} />);
+    expect(screen.getByTestId("single-value-chart").className).not.toMatch(
+      /\b(border|rounded|shadow|bg-card)/,
+    );
+  });
+
   // --- New options: fontSize ---
 
   it("applies text-xl class for fontSize sm", () => {

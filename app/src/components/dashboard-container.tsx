@@ -41,7 +41,7 @@ import {
   filterParentParams,
 } from "@/lib/parameter/format-parameter-value";
 import { shouldShowRefreshButton } from "@/lib/query/resolve-cache-options";
-import { LayoutDashboard, Maximize2, RefreshCw } from "lucide-react";
+import { LayoutDashboard, RefreshCw } from "lucide-react";
 import {
   WidgetCard,
   EmptyState,
@@ -359,6 +359,7 @@ export function DashboardContainer({
           }
           isDraggable={editable}
           isResizable={editable}
+          mode={editable ? "edit" : "view"}
         >
           {page.widgets.map((widget) => {
             const outdated =
@@ -382,7 +383,7 @@ export function DashboardContainer({
               >
                 <WidgetCard
                   title={displayTitle(widget)}
-                  subtitle={undefined}
+                  source={undefined}
                   className="h-full"
                   draggable={editable}
                   actions={buildActions(widget)}
@@ -398,48 +399,39 @@ export function DashboardContainer({
                         }
                       : undefined
                   }
+                  onFullscreen={(opener) => {
+                    // From the menu (touch) there is no icon button to return
+                    // focus to: the menu trigger that was just used is.
+                    setDialogOpener({
+                      el: opener ?? focusedMenuTrigger(),
+                      fallback: null,
+                    });
+                    openFullscreen(widget);
+                  }}
                   headerExtra={
-                    <>
-                      {outdated && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-amber-500"
-                          onClick={(e) => {
-                            setDialogOpener({
-                              el: e.currentTarget,
-                              fallback:
-                                e.currentTarget.parentElement?.querySelector<HTMLElement>(
-                                  "[data-widget-fullscreen]",
-                                ) ?? null,
-                            });
-                            setPendingSyncWidget(widget);
-                          }}
-                          title="Template update available — click to sync"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          <span className="sr-only">
-                            Template update available
-                          </span>
-                        </Button>
-                      )}
+                    outdated ? (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
-                        data-widget-fullscreen
+                        className="h-7 w-7 text-amber-500"
                         onClick={(e) => {
                           setDialogOpener({
                             el: e.currentTarget,
-                            fallback: null,
+                            fallback:
+                              e.currentTarget.parentElement?.querySelector<HTMLElement>(
+                                "[data-widget-fullscreen]",
+                              ) ?? null,
                           });
-                          openFullscreen(widget);
+                          setPendingSyncWidget(widget);
                         }}
+                        title="Template update available — click to sync"
                       >
-                        <Maximize2 className="h-4 w-4" />
-                        <span className="sr-only">Fullscreen</span>
+                        <RefreshCw className="h-4 w-4" />
+                        <span className="sr-only">
+                          Template update available
+                        </span>
                       </Button>
-                    </>
+                    ) : undefined
                   }
                 >
                   <CardContainer

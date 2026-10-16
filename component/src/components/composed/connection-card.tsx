@@ -8,7 +8,7 @@ import {
   Copy,
   Users,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Panel, PanelContent } from "@/components/ui/panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,7 +67,7 @@ function ConnectionCard({
   className,
 }: ConnectionCardProps) {
   return (
-    <Card
+    <Panel
       className={cn(
         "transition-colors",
         active && "border-primary",
@@ -75,7 +75,7 @@ function ConnectionCard({
         className,
       )}
     >
-      <CardContent className="flex items-center gap-3 p-4">
+      <PanelContent className="flex items-center gap-3 p-4">
         {/* #1283: the whole card used to be a click target on a bare <div>
             — no role, no tab stop, no key handler — so the error detail it
             reveals was unreachable for exactly the users who need it.
@@ -184,8 +184,8 @@ function ConnectionCard({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </CardContent>
-    </Card>
+      </PanelContent>
+    </Panel>
   );
 }
 

@@ -1,5 +1,4 @@
 import { TriangleAlert } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
@@ -74,17 +73,20 @@ function SingleValueChart({
 }: SingleValueChartProps) {
   if (error) {
     return (
-      <Card className={cn(className)}>
-        <CardContent className="flex min-h-[120px] flex-col items-center justify-center gap-2">
-          <TriangleAlert
-            className="h-6 w-6 text-destructive opacity-80"
-            aria-hidden
-          />
-          <span className="text-sm text-destructive" role="alert">
-            {error.message}
-          </span>
-        </CardContent>
-      </Card>
+      <div
+        className={cn(
+          "flex min-h-[120px] flex-col items-center justify-center gap-2",
+          className,
+        )}
+      >
+        <TriangleAlert
+          className="h-6 w-6 text-destructive opacity-80"
+          aria-hidden
+        />
+        <span className="text-sm text-destructive" role="alert">
+          {error.message}
+        </span>
+      </div>
     );
   }
 
@@ -143,26 +145,25 @@ function SingleValueChart({
     bgColor && !textColor ? contrastTextColor(bgColor) : undefined;
 
   return (
-    <Card
-      className={cn(className)}
+    // The number sits straight on the widget's panel, in no box of its own (#2219).
+    <div
+      className={cn("flex flex-col gap-2", className)}
       data-testid="single-value-chart"
       style={
         bgColor ? { backgroundColor: bgColor, color: autoContrast } : undefined
       }
     >
       {title && (
-        <CardHeader className="pb-2">
-          <CardTitle
-            className="text-sm font-medium"
-            style={
-              autoContrast ? { color: autoContrast, opacity: 0.7 } : undefined
-            }
-          >
-            {title}
-          </CardTitle>
-        </CardHeader>
+        <div
+          className="text-widget-title"
+          style={
+            autoContrast ? { color: autoContrast, opacity: 0.7 } : undefined
+          }
+        >
+          {title}
+        </div>
       )}
-      <CardContent className={cn(!title && "pt-6")}>
+      <div>
         {loading ? (
           <div className="h-9 w-24 animate-pulse rounded bg-muted" />
         ) : (
@@ -196,8 +197,8 @@ function SingleValueChart({
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

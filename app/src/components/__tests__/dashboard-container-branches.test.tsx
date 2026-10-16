@@ -32,6 +32,7 @@ vi.mock("@neoboard/components", () => ({
     title,
     actions,
     onRefresh,
+    onFullscreen,
     headerExtra,
   }: {
     children: React.ReactNode;
@@ -42,6 +43,7 @@ vi.mock("@neoboard/components", () => ({
       children?: Array<{ label: string; onClick?: () => void }>;
     }>;
     onRefresh?: () => void;
+    onFullscreen?: (opener: HTMLElement | null) => void;
     headerExtra?: React.ReactNode;
   }) => {
     widgetCardProps.push({ title, actions, onRefresh });
@@ -54,7 +56,17 @@ vi.mock("@neoboard/components", () => ({
     );
     return (
       <div data-testid="widget-card-inner" data-title={title}>
-        <div data-testid="widget-header-extra">{headerExtra}</div>
+        <div data-testid="widget-header-extra">
+          {headerExtra}
+          {onFullscreen && (
+            <button
+              data-widget-fullscreen
+              onClick={(e) => onFullscreen(e.currentTarget)}
+            >
+              <span>Fullscreen</span>
+            </button>
+          )}
+        </div>
         {onRefresh && (
           <button data-testid="widget-refresh" onClick={onRefresh}>
             refresh
@@ -85,8 +97,16 @@ vi.mock("@neoboard/components", () => ({
       {description && <span>{description}</span>}
     </div>
   ),
-  DashboardGrid: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="dashboard-grid">{children}</div>
+  DashboardGrid: ({
+    children,
+    mode,
+  }: {
+    children: React.ReactNode;
+    mode?: string;
+  }) => (
+    <div data-testid="dashboard-grid" data-mode={mode}>
+      {children}
+    </div>
   ),
   Dialog: ({
     children,
@@ -399,6 +419,19 @@ describe("DashboardContainer — buildActions", () => {
       <DashboardContainer page={makePage()} editable={false} />,
     );
     expect(screen.getByTestId("action-csv")).toBeDefined();
+  });
+
+  it.each([
+    [false, "view"],
+    [true, "edit"],
+  ])("lays the grid out in %s -> %s mode (#2219)", (editable, mode) => {
+    renderWithProviders(
+      <DashboardContainer page={makePage()} editable={editable} />,
+    );
+    expect(screen.getByTestId("dashboard-grid")).toHaveAttribute(
+      "data-mode",
+      mode,
+    );
   });
 
   it("omits Edit/Duplicate/Remove when editable=false", () => {

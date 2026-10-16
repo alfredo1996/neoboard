@@ -1,18 +1,23 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { LoadingOverlay } from '@/components/composed/loading-overlay';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Meta, StoryObj } from "@storybook/react";
+import { LoadingOverlay } from "@/components/composed/loading-overlay";
+import {
+  Panel,
+  PanelContent,
+  PanelHeader,
+  PanelTitle,
+} from "@/components/ui/panel";
 
 const meta = {
-  title: 'Composed/LoadingOverlay',
+  title: "Composed/LoadingOverlay",
   component: LoadingOverlay,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     loading: {
-      control: 'boolean',
+      control: "boolean",
     },
     text: {
-      control: 'text',
+      control: "text",
     },
   },
   args: {
@@ -39,7 +44,7 @@ export const Default: Story = {
 export const WithText: Story = {
   args: {
     loading: true,
-    text: 'Loading data...',
+    text: "Loading data...",
   },
   render: (args) => (
     <LoadingOverlay {...args} className="w-[300px] h-[200px] border rounded-lg">
@@ -56,20 +61,20 @@ export const WithText: Story = {
 export const OnCard: Story = {
   args: {
     loading: true,
-    text: 'Fetching metrics...',
+    text: "Fetching metrics...",
   },
   render: (args) => (
     <LoadingOverlay {...args}>
-      <Card className="w-[350px]">
-        <CardHeader>
-          <CardTitle>Revenue Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Panel className="w-[350px]">
+        <PanelHeader>
+          <PanelTitle>Revenue Overview</PanelTitle>
+        </PanelHeader>
+        <PanelContent>
           <div className="h-[200px] flex items-center justify-center">
             Chart placeholder
           </div>
-        </CardContent>
-      </Card>
+        </PanelContent>
+      </Panel>
     </LoadingOverlay>
   ),
 };
@@ -80,16 +85,16 @@ export const NotLoading: Story = {
   },
   render: (args) => (
     <LoadingOverlay {...args}>
-      <Card className="w-[350px]">
-        <CardHeader>
-          <CardTitle>Loaded Content</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Panel className="w-[350px]">
+        <PanelHeader>
+          <PanelTitle>Loaded Content</PanelTitle>
+        </PanelHeader>
+        <PanelContent>
           <p className="text-sm text-muted-foreground">
             The overlay is hidden when loading is false.
           </p>
-        </CardContent>
-      </Card>
+        </PanelContent>
+      </Panel>
     </LoadingOverlay>
   ),
 };

@@ -5,12 +5,12 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  Panel,
+  PanelContent,
+  PanelDescription,
+  PanelFooter,
+  PanelHeader,
+  PanelTitle,
   Input,
   Label,
   Alert,
@@ -90,15 +90,15 @@ export function LoginForm({
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
+      <Panel className="w-full max-w-sm">
+        <PanelHeader className="text-center">
+          <PanelTitle className="text-2xl">
             <h1>NeoBoard</h1>
-          </CardTitle>
+          </PanelTitle>
           <p className="text-sm text-muted-foreground">{PRODUCT_PITCH}</p>
-          <CardDescription>Sign in to your account</CardDescription>
-        </CardHeader>
-        <CardContent>
+          <PanelDescription>Sign in to your account</PanelDescription>
+        </PanelHeader>
+        <PanelContent>
           <form
             onSubmit={handleSubmit}
             className="space-y-4"
@@ -150,18 +150,18 @@ export function LoginForm({
               Sign in
             </LoadingButton>
           </form>
-        </CardContent>
+        </PanelContent>
         {registrationEnabled && (
-          <CardFooter className="justify-center">
+          <PanelFooter className="justify-center">
             <p className="text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Link href="/signup" className="text-primary underline">
                 Sign up
               </Link>
             </p>
-          </CardFooter>
+          </PanelFooter>
         )}
-      </Card>
+      </Panel>
     </div>
   );
 }

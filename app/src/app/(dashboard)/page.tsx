@@ -41,11 +41,11 @@ import {
   Button,
   Input,
   Badge,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
+  Panel,
+  PanelHeader,
+  PanelTitle,
+  PanelDescription,
+  PanelFooter,
   Checkbox,
   Dialog,
   DialogContent,
@@ -684,18 +684,18 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
+        <Panel>
+          <PanelHeader>
             <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Database className="h-4 w-4" />
             </div>
-            <CardTitle className="text-base">
+            <PanelTitle className="text-base">
               <span className="mr-1 text-muted-foreground">1.</span> Add a
               connection
-            </CardTitle>
-            <CardDescription>{PRODUCT_CONNECTION_PITCH}</CardDescription>
-          </CardHeader>
-          <CardFooter>
+            </PanelTitle>
+            <PanelDescription>{PRODUCT_CONNECTION_PITCH}</PanelDescription>
+          </PanelHeader>
+          <PanelFooter>
             <Link
               href="/connections"
               className="inline-flex items-center text-sm font-medium text-primary hover:underline"
@@ -703,24 +703,24 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
               Go to Connections
               <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Link>
-          </CardFooter>
-        </Card>
+          </PanelFooter>
+        </Panel>
 
-        <Card>
-          <CardHeader>
+        <Panel>
+          <PanelHeader>
             <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
               <LayoutDashboard className="h-4 w-4" />
             </div>
-            <CardTitle className="text-base">
+            <PanelTitle className="text-base">
               <span className="mr-1 text-muted-foreground">2.</span> Create a
               dashboard
-            </CardTitle>
-            <CardDescription>
+            </PanelTitle>
+            <PanelDescription>
               Give your dashboard a name and pick the layout that fits your
               story.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter>
+            </PanelDescription>
+          </PanelHeader>
+          <PanelFooter>
             <button
               type="button"
               onClick={onCreateDashboard}
@@ -729,23 +729,23 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
               Start now
               <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </button>
-          </CardFooter>
-        </Card>
+          </PanelFooter>
+        </Panel>
 
-        <Card>
-          <CardHeader>
+        <Panel>
+          <PanelHeader>
             <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
               <BarChart3 className="h-4 w-4" />
             </div>
-            <CardTitle className="text-base">
+            <PanelTitle className="text-base">
               <span className="mr-1 text-muted-foreground">3.</span> Add widgets
-            </CardTitle>
-            <CardDescription>
+            </PanelTitle>
+            <PanelDescription>
               Write a Cypher or SQL query, pick a chart type, and visualize your
               results.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter>
+            </PanelDescription>
+          </PanelHeader>
+          <PanelFooter>
             <a
               href={DOCS_LINKS.widgets}
               target="_blank"
@@ -755,8 +755,8 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
               Widget guide
               <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </a>
-          </CardFooter>
-        </Card>
+          </PanelFooter>
+        </Panel>
       </div>
     </div>
   );
@@ -1120,15 +1120,15 @@ export default function DashboardListPage() {
                     const canDuplicate = systemRole !== "reader";
 
                     return (
-                      <Card
+                      <Panel
                         key={d.id}
                         data-testid="dashboard-card"
                         className="flex flex-col cursor-pointer transition-colors hover:bg-accent/50"
                         onClick={() => router.push(`/${d.id}`)}
                       >
-                        <CardHeader className="pb-2">
+                        <PanelHeader className="pb-2">
                           <div className="flex items-start justify-between gap-2">
-                            <CardTitle
+                            <PanelTitle
                               className="text-base truncate"
                               title={d.name}
                             >
@@ -1146,7 +1146,7 @@ export default function DashboardListPage() {
                               >
                                 {d.name}
                               </Link>
-                            </CardTitle>
+                            </PanelTitle>
                             <div className="flex items-center gap-1 shrink-0">
                               {(canEdit || canDuplicate || canDelete) && (
                                 <DropdownMenu>
@@ -1273,12 +1273,12 @@ export default function DashboardListPage() {
                             </div>
                           </div>
                           {d.description && (
-                            <CardDescription className="line-clamp-2">
+                            <PanelDescription className="line-clamp-2">
                               {d.description}
-                            </CardDescription>
+                            </PanelDescription>
                           )}
-                        </CardHeader>
-                        <CardFooter className="pt-2 text-xs text-muted-foreground justify-between">
+                        </PanelHeader>
+                        <PanelFooter className="pt-2 text-xs text-muted-foreground justify-between">
                           <span className="flex items-center gap-1 truncate">
                             <TimeAgo date={d.updatedAt} />
                             {d.updatedByName && (
@@ -1292,8 +1292,8 @@ export default function DashboardListPage() {
                             {d.widgetCount ?? 0} widget
                             {(d.widgetCount ?? 0) !== 1 ? "s" : ""}
                           </span>
-                        </CardFooter>
-                      </Card>
+                        </PanelFooter>
+                      </Panel>
                     );
                   })}
                 </div>

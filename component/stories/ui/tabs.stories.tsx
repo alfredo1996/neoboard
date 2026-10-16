@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Panel,
+  PanelContent,
+  PanelDescription,
+  PanelFooter,
+  PanelHeader,
+  PanelTitle,
+} from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,14 +76,14 @@ export const WithCards: Story = {
         <TabsTrigger value="password">Password</TabsTrigger>
       </TabsList>
       <TabsContent value="account">
-        <Card>
-          <CardHeader>
-            <CardTitle>Account</CardTitle>
-            <CardDescription>
+        <Panel>
+          <PanelHeader>
+            <PanelTitle>Account</PanelTitle>
+            <PanelDescription>
               Make changes to your account here. Click save when you're done.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
+            </PanelDescription>
+          </PanelHeader>
+          <PanelContent className="space-y-2">
             <div className="space-y-1">
               <Label htmlFor="name">Name</Label>
               <Input id="name" defaultValue="Pedro Duarte" />
@@ -92,21 +92,21 @@ export const WithCards: Story = {
               <Label htmlFor="username">Username</Label>
               <Input id="username" defaultValue="@peduarte" />
             </div>
-          </CardContent>
-          <CardFooter>
+          </PanelContent>
+          <PanelFooter>
             <Button>Save changes</Button>
-          </CardFooter>
-        </Card>
+          </PanelFooter>
+        </Panel>
       </TabsContent>
       <TabsContent value="password">
-        <Card>
-          <CardHeader>
-            <CardTitle>Password</CardTitle>
-            <CardDescription>
+        <Panel>
+          <PanelHeader>
+            <PanelTitle>Password</PanelTitle>
+            <PanelDescription>
               Change your password here. After saving, you'll be logged out.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
+            </PanelDescription>
+          </PanelHeader>
+          <PanelContent className="space-y-2">
             <div className="space-y-1">
               <Label htmlFor="current">Current password</Label>
               <Input id="current" type="password" />
@@ -115,11 +115,11 @@ export const WithCards: Story = {
               <Label htmlFor="new">New password</Label>
               <Input id="new" type="password" />
             </div>
-          </CardContent>
-          <CardFooter>
+          </PanelContent>
+          <PanelFooter>
             <Button>Save password</Button>
-          </CardFooter>
-        </Card>
+          </PanelFooter>
+        </Panel>
       </TabsContent>
     </Tabs>
   ),

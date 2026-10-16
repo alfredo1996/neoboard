@@ -191,4 +191,39 @@ describe("DashboardGrid — breakpoint column parity (#1375)", () => {
       expect(layouts[bp]).toBe(layout);
     }
   });
+
+  it("view mode packs panels 1 px apart so the rules are hairlines (#2219)", () => {
+    render(
+      <DashboardGrid layout={layout}>
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    expect(capturedProps.margin).toEqual([1, 1]);
+    expect(capturedProps.containerPadding).toEqual([0, 0]);
+  });
+
+  it("edit mode leaves 8 px between panels for dragging and resizing", () => {
+    render(
+      <DashboardGrid layout={layout} mode="edit">
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    expect(capturedProps.margin).toEqual([8, 8]);
+    expect(capturedProps.containerPadding).toEqual([0, 0]);
+  });
+
+  it("only view mode draws the sheet's outer rule", () => {
+    const { container, rerender } = render(
+      <DashboardGrid layout={layout}>
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    expect(container.firstChild).toHaveClass("border-rule", "rounded-md");
+    rerender(
+      <DashboardGrid layout={layout} mode="edit">
+        <div key="a">A</div>
+      </DashboardGrid>,
+    );
+    expect(container.firstChild).not.toHaveClass("border-rule");
+  });
 });

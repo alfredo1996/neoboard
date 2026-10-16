@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  Panel,
+  PanelContent,
+  PanelDescription,
+  PanelHeader,
+  PanelTitle,
   Input,
   Label,
   Alert,
@@ -64,19 +64,19 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
-            {/* CardTitle renders a div; the page's main title must be a real
+      <Panel className="w-full max-w-sm">
+        <PanelHeader className="text-center">
+          <PanelTitle className="text-2xl">
+            {/* PanelTitle renders a div; the page's main title must be a real
                 heading for assistive tech (Tailwind preflight keeps the h1
-                visually inheriting CardTitle's styles). */}
+                visually inheriting PanelTitle's styles). */}
             <h1>Change Password</h1>
-          </CardTitle>
-          <CardDescription>
+          </PanelTitle>
+          <PanelDescription>
             You must change your password before continuing.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </PanelDescription>
+        </PanelHeader>
+        <PanelContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -124,8 +124,8 @@ export default function ChangePasswordPage() {
               Change Password
             </LoadingButton>
           </form>
-        </CardContent>
-      </Card>
+        </PanelContent>
+      </Panel>
     </div>
   );
 }
