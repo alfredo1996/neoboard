@@ -63,24 +63,24 @@ The ruled-sheet system (epic #2210). Tokens landed in #2215; components are rest
 
 ### Semantic Color Map (CSS variables, bare HSL channels)
 
-| Token                               | Light                       | Dark                    | Usage                                                                        |
-| ----------------------------------- | --------------------------- | ----------------------- | ---------------------------------------------------------------------------- |
-| `--background`                      | `240 20% 99%` (#FCFCFD)     | `220 13% 9%` (#14161A)  | Page; `--card` and `--surface` equal it                                      |
-| `--side`                            | `220 16% 96%` (#F4F5F7)     | `218 14% 11%` (#181B20) | Sidebar, rails; `--muted` equals it in light                                 |
-| `--foreground`                      | `223 14% 10%` (#16181D)     | `216 15% 94%` (#ECEEF1) | Ink: body text, titles                                                       |
-| `--foreground-2`                    | `222 11% 36%` (#525866)     | `217 11% 71%` (#AEB4BE) | Ink 2: secondary text                                                        |
-| `--muted-foreground`                | `220 8% 44%` (#686E7A)      | `219 9% 62%` (#959BA6)  | Ink 3: captions, metadata                                                    |
-| `--rule` / `--border`               | `220 12% 91%` (#E4E6EA)     | `218 13% 17%` (#262A31) | Hairline rules, all default borders                                          |
-| `--rule-strong` / `--border-strong` | `216 11% 82%` (#CDD1D7)     | `219 11% 25%`           | Emphasised dividers (about 1.5:1: decoration, never a control edge)          |
-| `--field`                           | `0 0% 100%`                 | `218 13% 12%` (#1B1E23) | Input and overlay fill                                                       |
-| `--input`                           | `219 8% 58%` (#8C929D)      | `218 9% 43%` (#646B77)  | Field border: 3.08:1 light, 3.38:1 dark on the page (WCAG 1.4.11)            |
-| `--primary`                         | `220 13% 9%` (graphite)     | near-white              | Buttons, active states                                                       |
-| `--destructive`                     | `0 72% 45%` (red)           | lifted red              | Delete buttons, error states                                                 |
-| `--ring`                            | `212 90% 42%` (azure)       | `212 90% 62%`           | Focus rings, active rail, selection (#1553)                                  |
-| `--accent`                          | `212 100% 95%` (azure tint) | `212 45% 21%`           | Hover/selected fill; the menu highlight is the inset `--ring` stroke (#1559) |
-| `--brand`                           | `38 95% 55%` (citrine)      | `38 95% 58%`            | Wordmark mark                                                                |
+| Token                               | Light                       | Dark                    | Usage                                                                                               |
+| ----------------------------------- | --------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `--background`                      | `240 20% 99%` (#FCFCFD)     | `220 13% 9%` (#14161A)  | Page; `--card` and `--surface` equal it                                                             |
+| `--side`                            | `220 16% 96%` (#F3F4F6)     | `218 14% 11%` (#181B20) | Sidebar, rails; `--muted` equals it in light                                                        |
+| `--foreground`                      | `223 14% 10%` (#16181D)     | `216 15% 94%` (#EDEFF2) | Ink: body text, titles                                                                              |
+| `--foreground-2`                    | `222 11% 36%` (#525866)     | `217 11% 71%` (#ADB3BD) | Ink 2: secondary text                                                                               |
+| `--muted-foreground`                | `220 8% 44%` (#676D79)      | `219 9% 62%` (#959BA7)  | Ink 3: captions, metadata                                                                           |
+| `--rule` / `--border`               | `220 12% 91%` (#E5E7EB)     | `218 13% 17%` (#262A31) | Hairline rules, all default borders                                                                 |
+| `--rule-strong` / `--border-strong` | `216 11% 82%` (#CCD0D6)     | `219 11% 25%`           | Emphasised dividers (about 1.5:1: decoration, never a control edge)                                 |
+| `--field`                           | `0 0% 100%`                 | `218 13% 12%` (#1B1E23) | Input and overlay fill                                                                              |
+| `--input`                           | `219 8% 56%` (#868C98)      | `218 9% 43%` (#646B78)  | Field border: 3.29:1 light, 3.38:1 dark on the page, and at least 3:1 on `--side` too (WCAG 1.4.11) |
+| `--primary`                         | `220 13% 9%` (graphite)     | near-white              | Buttons, active states                                                                              |
+| `--destructive`                     | `0 72% 45%` (red)           | lifted red              | Delete buttons, error states                                                                        |
+| `--ring`                            | `212 90% 42%` (azure)       | `212 90% 62%`           | Focus rings, active rail, selection (#1553)                                                         |
+| `--accent`                          | `212 100% 95%` (azure tint) | `212 45% 21%`           | Hover/selected fill; the menu highlight is the inset `--ring` stroke (#1559)                        |
+| `--brand`                           | `38 95% 55%` (citrine)      | `38 95% 58%`            | Wordmark mark                                                                                       |
 
-`token-contrast.test.ts` computes the ratios: ink, ink 2 and ink 3 hold 4.5:1 on the page and on `--side`; the ring and the field border hold 3:1 on the page, in both themes.
+`graphite-citrine-tokens.test.ts` computes the ratios: ink, ink 2 and ink 3 hold 4.5:1 on the page and on `--side`; the ring and the field border hold 3:1 on both, in both themes.
 
 ### Chart Colors (10-color "Graphite & Citrine" default palette — colorblind-safe)
 
@@ -208,15 +208,19 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 
 ### Radius
 
-| Role                                            | Radius         |
-| ----------------------------------------------- | -------------- |
-| Controls (buttons, inputs, selects, menu items) | 6px            |
-| Sheet (widget container, panels)                | 8px            |
-| Overlays (popovers, dialogs, toasts)            | 10px           |
-| Checkbox                                        | 4px            |
-| Pills, avatars, status dots                     | `rounded-full` |
+| Role                                            | Radius                    | Class              |
+| ----------------------------------------------- | ------------------------- | ------------------ |
+| Controls (buttons, inputs, selects, menu items) | 6px (`--radius-sm`)       | `rounded-sm`       |
+| Sheet (widget container, panels)                | 8px (`--radius-md`)       | `rounded-md`       |
+| Overlays (popovers, dialogs, toasts)            | 10px (`--radius-overlay`) | `rounded-overlay`  |
+| Checkbox                                        | 4px (`--radius-checkbox`) | `rounded-checkbox` |
+| Pills, avatars, status dots                     | 9999px (`--radius-pill`)  | `rounded-full`     |
 
-The radius tokens in `design-tokens.css` (`--radius-sm/md/lg`, pinned in `graphite-citrine-tokens.test.ts`) still hold the pre-redesign values until the component issues (#2219 and after) move each component onto the roles above. Judge new code against this table, and check the test before quoting a token value.
+`--radius-lg` (12px) is the pre-redesign card radius and stays until #2219 moves cards onto the sheet role. All values are pinned in `graphite-citrine-tokens.test.ts`; check there before quoting a number.
+
+### Type scale utilities
+
+`text-title` (36/1.1/600, add `font-serif`), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (13/600) and `text-meta` (12) are in the Tailwind preset. `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
 
 ### Border Rules
 

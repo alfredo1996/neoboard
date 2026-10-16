@@ -103,10 +103,14 @@ module.exports = {
       // Heading scale (#830): size, leading, and tracking travel together.
       // Pair with `font-display` (IBM Plex Sans since #2215).
       fontSize: {
-        display: [
-          "2.25rem",
-          { lineHeight: "2.5rem", letterSpacing: "-0.025em", fontWeight: "600" },
-        ],
+        // Ruled-sheet type scale (#2215). The face comes from font-serif
+        // (title) or font-body where used, not from here.
+        title: ["2.25rem", { lineHeight: "1.1", fontWeight: "600" }],
+        stat: ["2.25rem", { lineHeight: "1", fontWeight: "600" }],
+        section: ["0.9375rem", { fontWeight: "600" }],
+        body: "0.875rem",
+        "widget-title": ["0.8125rem", { fontWeight: "600" }],
+        meta: "0.75rem",
         h1: [
           "1.875rem",
           { lineHeight: "2.25rem", letterSpacing: "-0.02em", fontWeight: "600" },
@@ -125,6 +129,9 @@ module.exports = {
         sm: "var(--radius-sm)",
         md: "var(--radius-md)",
         lg: "var(--radius-lg)",
+        // Ruled-sheet roles (#2215): controls sm (6), sheet md (8).
+        overlay: "var(--radius-overlay)",
+        checkbox: "var(--radius-checkbox)",
       },
       // Elevation scale (#823): shadow-sm/md/lg utilities emit the
       // warm-tinted token values so all existing class usage upgrades

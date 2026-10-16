@@ -132,7 +132,7 @@ export interface WordmarkProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 /**
- * NeoBoard text wordmark (#834): Geist Sans, dual weight (Neo medium /
+ * NeoBoard text wordmark (#834): IBM Plex Sans, dual weight (Neo medium /
  * Board semibold), tight tracking, anchored by a citrine square. The
  * collapsed form keeps just the mark + "N".
  */

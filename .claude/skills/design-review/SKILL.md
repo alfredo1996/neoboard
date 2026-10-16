@@ -21,22 +21,22 @@ The redesign system (epic #2210, tokens from #2215). Components are migrated to 
 ## Colour
 
 - Semantic tokens only (`--background`, `--foreground`, `--foreground-2`, `--muted-foreground`, `--rule`, `--side`, `--field`, `--ring`…). Never raw hex or hsl in a component.
-- Ink has three steps: `text-foreground`, `text-foreground-2`, `text-muted-foreground`. All three hold 4.5:1 on the page and on `--side` (pinned by `token-contrast.test.ts`).
+- Ink has three steps: `text-foreground`, `text-foreground-2`, `text-muted-foreground`. All three hold 4.5:1 on the page and on `--side` (pinned by `graphite-citrine-tokens.test.ts`).
 - A field border uses `--input`, not `--border`: it must reach 3:1 on the page (WCAG 1.4.11). `--rule` and `--rule-strong` are decoration and are not enough for a control edge.
 - Interaction is azure (`--ring`, #1553). Citrine (`--brand`) is the wordmark and the lead chart series only.
 
 ## Typography
 
 - Faces: Source Serif 4 (`font-serif`) for page titles and the wordmark only; IBM Plex Sans (`font-body`, `font-display`) for everything else; IBM Plex Mono (`font-mono`) for code and query text only. Tabular figures are on at the root.
-- Scale: page title 36/600 (serif), stat 36/600, section 15/600, body 14, widget title 13/600, meta 12. No other sizes, and no `text-2xl`-style in-between steps.
+- Scale (Tailwind utilities): `text-title` 36/600 (with `font-serif`), `text-stat` 36/600, `text-section` 15/600, `text-body` 14, `text-widget-title` 13/600, `text-meta` 12. No other sizes. `text-h1` to `text-h3` survive only until the card stat and markdown headings migrate.
 - `font-medium` for interactive elements, `font-semibold` for titles, `font-bold` never.
 - No subtitle that restates the title: a description earns its line by saying something the title does not.
 
 ## Radius, borders
 
-- Controls 6px, sheet 8px, overlays 10px, checkbox 4px. `rounded-full` for pills and dots only.
+- Controls 6px (`rounded-sm`), sheet 8px (`rounded-md`), overlays 10px (`rounded-overlay`), checkbox 4px (`rounded-checkbox`). `rounded-full` for pills and dots only. `--radius-lg` (12) is the old card radius and goes with #2219.
 - 1px `border-border` by default; `border-input` on fields; `border-2 border-primary` for a selected item; never `border-4`.
-- The authoritative radius values are pinned in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`.
+- Radius and type-scale values are pinned in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`.
 
 ## Charts
 
