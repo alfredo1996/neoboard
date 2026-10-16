@@ -136,7 +136,7 @@ jobs:
         run: npm run test:scripts
 
   # ── Job 1: Unit & integration tests with coverage ──────────────────────────
-  # All three packages run in parallel within a single job.
+  # The packages run in two phases within a single job (see the test step).
   # Connection integration tests use GitHub service containers.
   unit-tests:
     name: Unit & Integration Tests
@@ -188,25 +188,31 @@ jobs:
       - name: Build connector-sdk + connection packages
         run: npm -w connector-sdk run build && npm -w connection run build
 
-      - name: Run all tests in parallel
+      # Bounded fan-out (#1240). Five suites started at once put ~13 workers
+      # (plus the Postgres/Neo4j containers and connection's Testcontainers) on
+      # this runner's 4 vCPUs, and a plain render-and-assert test then timed out
+      # at 5s. For scale, the owner measured the app suite alone on 10 cores:
+      # 889s with 96 failures and 9 files never collected at the default worker
+      # count, 28s at 4 workers.
+      #
+      # So: app and component run together, because each resolves its
+      # maxWorkers "50%" to 2 on 4 vCPU, 4 workers in all, which fills the
+      # runner without exceeding it. connection, cli and connector-sdk run
+      # after them, not alongside: they are uncapped (jest/vitest defaults,
+      # ~3 workers each) and connection adds its own containers, which is what
+      # tipped the runner over. No CLI --maxWorkers: measured, both packages
+      # silently ignore it (VITEST_MAX_WORKERS is honoured). A failing package does not stop
+      # the next: every log is wanted.
+      - name: Run unit tests, app and component together, then the rest
         run: |
-          cd app && NODE_ENV=test npm run test:coverage &
-          APP_PID=$!
-          cd component && npm run test:coverage &
-          COMP_PID=$!
-          cd connection && npm run test:coverage &
-          CONN_PID=$!
-          cd cli && npm run test:coverage &
-          CLI_PID=$!
-          cd connector-sdk && npm run test:coverage &
-          SDK_PID=$!
-
           FAIL=0
-          wait $APP_PID  || FAIL=1
-          wait $COMP_PID || FAIL=1
-          wait $CONN_PID || FAIL=1
-          wait $CLI_PID  || FAIL=1
-          wait $SDK_PID  || FAIL=1
+          (cd app && NODE_ENV=test npm run test:coverage) & APP=$!
+          (cd component && npm run test:coverage) & COMP=$!
+          wait $APP || FAIL=1
+          wait $COMP || FAIL=1
+          (cd connection && npm run test:coverage) || FAIL=1
+          (cd cli && npm run test:coverage) || FAIL=1
+          (cd connector-sdk && npm run test:coverage) || FAIL=1
           exit $FAIL
         env:
           POSTGRES_HOST: localhost
