@@ -79,14 +79,13 @@ test.describe("Parameter defaults are applied on load (#1421)", () => {
 
       await page.goto(`/${id}`);
 
-      // The symptom: the consuming widget stalls, naming the token it lacks.
+      // The symptom: the consuming widget stalls on its waiting state.
       await expect(page.getByText(/Waiting for |to see this\./)).toHaveCount(
         0,
         {
           timeout: 20_000,
         },
       );
-      await expect(page.getByText("$param_title_filter")).toHaveCount(0);
 
       // And the chart actually renders, which only happens once the parameter
       // resolves and the query runs.

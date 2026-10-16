@@ -259,8 +259,8 @@ test.describe("Parameter-to-refresh cycle", () => {
     await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The parameter-select widget should render a dropdown with "year" label
-    // (.first(): the waiting widget's badge names it "Year" too, #2214)
-    await expect(page.getByText("Year", { exact: true }).first()).toBeVisible({
+    // (a combobox, not the text: the waiting widget's badge says "Year" too, #2214)
+    await expect(page.getByRole("combobox", { name: "Year" })).toBeVisible({
       timeout: 15_000,
     });
 
