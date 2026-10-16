@@ -21,6 +21,7 @@ describe("humanizeParamName (#2213)", () => {
     ["q1_2024", "Q1 2024"],
     ["page_2", "Page 2"],
     ["x_y_z9", "X y z 9"],
+    ["XMLHttpRequest", "Xml http request"],
   ])("%j -> %j", (input, expected) => {
     expect(humanizeParamName(input)).toBe(expected);
   });

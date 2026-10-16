@@ -11,7 +11,9 @@ export function humanizeParamName(name: string): string {
   const words = /\s/.test(name)
     ? name
     : name
-        .replaceAll(/(\p{Lu}+)(\p{Lu}\p{Ll})/gu, "$1 $2")
+        // Lookahead, not (\p{Lu}+)(\p{Lu}\p{Ll}): the greedy run backtracks
+        // super-linearly on long capital runs (Sonar S8786).
+        .replaceAll(/(\p{Lu})(?=\p{Lu}\p{Ll})/gu, "$1 ")
         .replaceAll(/([\p{Ll}\d])(\p{Lu})/gu, "$1 $2")
         .replaceAll(/(\p{L})(\d+)$/gu, "$1 $2")
         .replaceAll(/_+/g, " ")
