@@ -7,7 +7,7 @@ model: haiku
 # Branches
 
 - **Prefixes:** `feat/`, `fix/`, `chore/`, `docs/`, `test/`, `refactor/`, `security/`, as `<prefix>issue-<N>-<slug>`.
-- **Base:** the active `release/X.Y` when one exists (branch from it, and PR into it), otherwise `dev`. Never `main`: `dev` → `main` is the owner's.
+- **Base:** `npm run -s base -- <N>` (branch from it, and PR into it): the release branch the issue's milestone names (`vX.Y.Z` → `release/X.Y.Z` or `release/X.Y`; `vX.Y` → `release/X.Y`), otherwise the newest release branch, otherwise `dev`. Never `main`: `dev` → `main` is the owner's.
 - **Worktrees:** work in `.claude/worktrees/<name>`. The main checkout stays on the active release branch, because hooks and CLAUDE.md run from it.
 
 # Commits and titles

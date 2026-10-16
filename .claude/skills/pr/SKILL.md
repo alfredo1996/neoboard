@@ -9,11 +9,11 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *)
 ## State
 
 - Branch: !`git branch --show-current`
-- PR base: !`BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); printf '%s\n' "${BASE:-dev}"`
+- PR base: !`npm run -s base`
 
 ## Open
 
-1. **Base:** the active `release/X.Y` (the latest by version) when one exists, otherwise `dev`. Never `main`.
+1. **Base:** `npm run -s base -- <N>` prints it: the release branch the issue's milestone names (`vX.Y.Z` → `release/X.Y.Z` or `release/X.Y`; `vX.Y` → `release/X.Y`), otherwise the newest release branch, otherwise `dev`. Never `main`.
 2. **Pre-flight on the branch:** run `git fetch origin && git rebase origin/<base>`, then the checks for what changed (see `test`).
 3. **Push:** `git push -u origin HEAD`, as the `alfredo1996` gh account.
 4. **Create:** pass labels and milestone at creation. They work there; `gh pr edit` does not on this repo.
@@ -84,6 +84,7 @@ Then:
 - Confirm the issue closed. The close-referenced-issues Action can lag; close it by hand if needed.
 - Remove the worktree and the local branch.
 - If `.claude/` changed, pull the main checkout: hooks and CLAUDE.md run from its working copy.
+- **Patch fixes carry forward** in one PR from the patch branch into the newer release branch (`release/1.6.1` → `release/1.7`), which merges only with the owner's ok.
 
 **Who decides:** merge only with the owner's go for this base. Their standing permission covers green fixes into the active release branch. A PR that changes a public contract, or does something the owner hasn't seen, goes to them first. `dev` and `main` are the owner's.
 

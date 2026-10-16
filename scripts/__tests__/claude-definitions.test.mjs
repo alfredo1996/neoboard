@@ -114,6 +114,20 @@ describe("the skills describe how we work now (#2196)", () => {
     expect(skill("test")).not.toContain("origin/dev");
   });
 
+  it("the base comes from the issue's milestone, not the newest release branch (#2234)", () => {
+    // `sort -V | tail -1` sent every v1.6.1 fix to release/1.7 once both
+    // were open. The rule lives in scripts/lib/active-base.mjs, tested there.
+    expect(
+      tracked(".claude").filter((f) => read(f).includes("sort -V")),
+    ).toEqual([]);
+    expect(JSON.parse(read("package.json")).scripts.base).toBe(
+      "node scripts/base.mjs",
+    );
+    for (const name of ["code", "pr", "test", "next"]) {
+      expect(skill(name)).toContain("npm run -s base");
+    }
+  });
+
   it("reads issues and PRs only with --json, the form that runs here", () => {
     // Without --json, gh 2.62 asks GraphQL for Projects (classic) cards,
     // which GitHub rejects on this repo: `gh issue view <N> --comments`

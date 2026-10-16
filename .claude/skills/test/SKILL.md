@@ -11,12 +11,12 @@ allowed-tools: Bash(npm *), Bash(npx *), Bash(git *), Bash(cd *), Bash(node *)
 ## State
 
 - Branch: !`git branch --show-current`
-- Base: !`BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); printf '%s\n' "${BASE:-dev}"`
+- Base: !`npm run -s base`
 
 ## 1. What changed
 
 ```bash
-BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); BASE="${BASE:-dev}"
+BASE=$(npm run -s base)
 git fetch -q origin "$BASE"
 git diff --name-only "origin/$BASE...HEAD"
 ```

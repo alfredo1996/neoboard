@@ -28,7 +28,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Agent, SendMessage, Bash(npm *), Ba
 - **A small change with no issue:** do it yourself in a worktree, never on the main checkout's branch, because the hooks run from that working copy:
 
   ```bash
-  BASE=$(git ls-remote --heads origin 'release/*' | sed 's|.*refs/heads/||' | sort -V | tail -1); BASE="${BASE:-dev}"
+  BASE=$(npm run -s base)
   git worktree add .claude/worktrees/<name> -b <type>/<slug> "origin/$BASE"
   ```
 
@@ -56,6 +56,6 @@ Run what you touched (see `test`): the specific test files, the package typechec
 
 ## Base branch
 
-The base is the active `release/X.Y` when one exists, otherwise `dev`. Never `main`.
+`npm run -s base -- <N>` prints it: the release branch the issue's milestone names (`vX.Y.Z` → `release/X.Y.Z` or `release/X.Y`; `vX.Y` → `release/X.Y`), otherwise the newest release branch, otherwise `dev`. Never `main`.
 
 $ARGUMENTS = an issue number or a task description.
