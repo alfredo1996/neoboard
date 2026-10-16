@@ -6,7 +6,7 @@ export function waitingText(
   missingParams: string[],
   sourceMap?: ParameterSourceMap,
 ): string {
-  const labels = missingParams.map(humanizeParamName);
+  const labels = missingParams.map((name) => humanizeParamName(name));
   if (labels.length === 0) return "Waiting for parameters…";
   if (labels.length === 1 && (sourceMap?.[missingParams[0]]?.length ?? 0) > 0) {
     return `Choose a value for ${labels[0]} to see this.`;
