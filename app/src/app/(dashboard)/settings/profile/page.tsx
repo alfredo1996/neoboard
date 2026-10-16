@@ -45,7 +45,7 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
-    fetch("/api/users/me")
+    void fetch("/api/users/me")
       .then((r) => r.json())
       .then((body) => {
         if (body.data) {
