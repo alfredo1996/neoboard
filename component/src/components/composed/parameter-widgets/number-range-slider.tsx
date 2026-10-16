@@ -2,7 +2,8 @@
 
 import { useId } from "react";
 import { X } from "lucide-react";
-import { Label } from "@/components/ui/label";
+import { ParamLabel } from "./param-label";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -75,12 +76,7 @@ function NumberRangeSlider({
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between">
         {!labelledBy && (
-          <Label
-            id={labelId}
-            className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-          >
-            {parameterName}
-          </Label>
+          <ParamLabel parameterName={parameterName} id={labelId} />
         )}
         {hasValue && (
           <Button
@@ -92,7 +88,7 @@ function NumberRangeSlider({
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-clear`,
-              `Clear ${parameterName}`,
+              `Clear ${humanizeParamName(parameterName)}`,
               true,
             )}
           >
@@ -129,7 +125,7 @@ function NumberRangeSlider({
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-min`,
-              `${parameterName} minimum`,
+              `${humanizeParamName(parameterName)} minimum`,
             )}
           />
           <span className="text-xs text-muted-foreground flex-shrink-0">
@@ -146,7 +142,7 @@ function NumberRangeSlider({
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-max`,
-              `${parameterName} maximum`,
+              `${humanizeParamName(parameterName)} maximum`,
             )}
           />
         </div>

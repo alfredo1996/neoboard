@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { X, Check, ChevronsUpDown } from "lucide-react";
-import { Label } from "@/components/ui/label";
+import { ParamLabel } from "./param-label";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -142,7 +143,7 @@ function ParamSelector({
   const resolvedPlaceholder =
     placeholder ??
     (isWaitingForParent
-      ? `Select ${parentParameterName} first…`
+      ? `Select ${humanizeParamName(parentParameterName)} first…`
       : "Select a value…");
 
   // The dependency hint is a DESCRIPTION, not part of the name. Putting it
@@ -154,20 +155,13 @@ function ParamSelector({
   const hintId = parentParameterName ? `${labelId}-hint` : undefined;
   const label = (
     <>
-      {!labelledBy && (
-        <Label
-          id={labelId}
-          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-        >
-          {parameterName}
-        </Label>
-      )}
+      {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
       {parentParameterName && (
         <span
           id={hintId}
           className="ml-1 text-[10px] normal-case font-normal text-muted-foreground"
         >
-          (depends on {parentParameterName})
+          (depends on {humanizeParamName(parentParameterName)})
         </span>
       )}
     </>
@@ -181,7 +175,12 @@ function ParamSelector({
         size="icon"
         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
         onClick={() => onChange("")}
-        {...qualifiedName(labelledBy, clearId, `Clear ${parameterName}`, true)}
+        {...qualifiedName(
+          labelledBy,
+          clearId,
+          `Clear ${humanizeParamName(parameterName)}`,
+          true,
+        )}
       >
         <X className="h-4 w-4" />
       </Button>

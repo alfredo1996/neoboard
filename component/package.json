@@ -22,6 +22,7 @@
     "./row-shapes": "./src/lib/row-shapes.ts",
     "./numeric-cell": "./src/lib/numeric-cell.ts",
     "./cell-text": "./src/lib/cell-text.ts",
+    "./humanize-param-name": "./src/lib/humanize-param-name.ts",
     "./*": "./src/*"
   },
   "sideEffects": false,

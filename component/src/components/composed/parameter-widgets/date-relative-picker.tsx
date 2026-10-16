@@ -1,6 +1,6 @@
 "use client";
 
-import { Label } from "@/components/ui/label";
+import { ParamLabel } from "./param-label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ExternalLabelProps } from "./external-label";
@@ -57,14 +57,7 @@ function DateRelativePicker({
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      {!labelledBy && (
-        <Label
-          id={labelId}
-          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-        >
-          {parameterName}
-        </Label>
-      )}
+      {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
       <fieldset
         id={id}
         className="flex min-w-0 flex-wrap gap-1.5"
