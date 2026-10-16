@@ -60,6 +60,8 @@ const run = (cmd, args) =>
  * @returns {string}
  */
 export function resolveBase({ issue, override } = {}) {
+  if (override && override.trim()) return override.trim();
+
   let refs = "";
   try {
     refs = run("git", ["ls-remote", "--heads", "origin", "release/*"]);
@@ -94,5 +96,5 @@ export function resolveBase({ issue, override } = {}) {
     }
   }
 
-  return activeBase(refs, override, milestone);
+  return activeBase(refs, undefined, milestone);
 }

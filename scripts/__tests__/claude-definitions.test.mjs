@@ -124,8 +124,25 @@ describe("the skills describe how we work now (#2196)", () => {
       "node scripts/base.mjs",
     );
     for (const name of ["code", "pr", "test", "next"]) {
-      expect(skill(name)).toContain("npm run -s base");
+      expect(skill(name)).toContain("run -s base");
     }
+    // From app/, `npm run` finds app's package.json and prints nothing, and
+    // the test skill's own E2E step leaves the shell there.
+    const runs = tracked(".claude/skills").flatMap((f) =>
+      read(f)
+        .split("\n")
+        .filter((l) => /BASE=\$\(npm|!`npm/.test(l))
+        .map((l) => `${f}: ${l.trim()}`),
+    );
+    expect(runs.length).toBeGreaterThanOrEqual(4);
+    expect(
+      runs.filter(
+        (l) =>
+          !l.includes(
+            'npm --prefix "$(git rev-parse --show-toplevel)" run -s base',
+          ),
+      ),
+    ).toEqual([]);
   });
 
   it("reads issues and PRs only with --json, the form that runs here", () => {

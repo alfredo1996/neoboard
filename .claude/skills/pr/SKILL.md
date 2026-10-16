@@ -9,7 +9,7 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *)
 ## State
 
 - Branch: !`git branch --show-current`
-- PR base: !`npm run -s base`
+- PR base: !`npm --prefix "$(git rev-parse --show-toplevel)" run -s base`
 
 ## Open
 

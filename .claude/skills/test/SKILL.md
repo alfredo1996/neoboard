@@ -11,12 +11,12 @@ allowed-tools: Bash(npm *), Bash(npx *), Bash(git *), Bash(cd *), Bash(node *)
 ## State
 
 - Branch: !`git branch --show-current`
-- Base: !`npm run -s base`
+- Base: !`npm --prefix "$(git rev-parse --show-toplevel)" run -s base`
 
 ## 1. What changed
 
 ```bash
-BASE=$(npm run -s base)
+BASE=$(npm --prefix "$(git rev-parse --show-toplevel)" run -s base)
 git fetch -q origin "$BASE"
 git diff --name-only "origin/$BASE...HEAD"
 ```

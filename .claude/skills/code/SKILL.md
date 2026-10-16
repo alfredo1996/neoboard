@@ -28,7 +28,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Agent, SendMessage, Bash(npm *), Ba
 - **A small change with no issue:** do it yourself in a worktree, never on the main checkout's branch, because the hooks run from that working copy:
 
   ```bash
-  BASE=$(npm run -s base)
+  BASE=$(npm --prefix "$(git rev-parse --show-toplevel)" run -s base)
   git worktree add .claude/worktrees/<name> -b <type>/<slug> "origin/$BASE"
   ```
 

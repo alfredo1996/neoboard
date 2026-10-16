@@ -166,6 +166,13 @@ describe("resolveBase (#2234)", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("#2234"));
   });
 
+  it("an override wins without asking git or GitHub", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    answer({});
+    expect(resolveBase({ override: " dev " })).toBe("dev");
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
   it("falls back to dev when origin cannot be listed", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     answer({
