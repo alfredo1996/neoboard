@@ -1,6 +1,6 @@
 # Design review — full reference
 
-The ruled-sheet system (epic #2210). Tokens landed in #2215; components are restyled in the issues after it, so a component may still carry the old look until its issue merges.
+The flat-panel system (epic #2210; widget panels from #2219). Tokens landed in #2215; components are restyled in the issues after it, so a component may still carry the old look until its issue merges.
 
 ## When to Use
 
@@ -12,12 +12,13 @@ The ruled-sheet system (epic #2210). Tokens landed in #2215; components are rest
 
 ### One surface, not an elevation stack
 
-1. **Page**: `bg-background`. `--card` and `--surface` are the same colour, so a card no longer floats above the page.
-2. **Rules**: areas are separated by a 1px hairline (`border-border` = `--rule`; `--rule-strong` for an emphasised divider). Whitespace first, a rule second, a container last.
-3. **Side**: `--side` for the sidebar and rails.
-4. **Field**: `--field` fills inputs and overlays (white in light, a step lighter than the page in dark).
-5. **Overlays**: popovers, dropdowns, dialogs and toasts are the only things with a shadow (`shadow-md` menus, `shadow-lg` dialogs).
-6. **Tooltips**: `bg-primary text-primary-foreground` — inverted colours.
+1. **Page**: `bg-background`. `--card` and `--surface` are the same colour, so outside the dashboard nothing floats above the page.
+2. **Dashboard**: widgets are flat panels (`--card` fill, 1px `--rule` border, 8px radius, no shadow), 12px apart in view and edit, on `--ground`. A hovered or focused panel tints to `--panel-hover` (#2219). Panels touching with shared 1px gutters (the ruled sheet) were rejected: they read as one giant table.
+3. **Rules**: areas are separated by a 1px hairline (`border-border` = `--rule`; `--rule-strong` for an emphasised divider). Whitespace first, a rule second, a container last.
+4. **Side**: `--side` for the sidebar and rails.
+5. **Field**: `--field` fills inputs and overlays (white in light, a step lighter than the page in dark).
+6. **Overlays**: popovers, dropdowns, dialogs and toasts are the only things with a shadow (`shadow-md` menus, `shadow-lg` dialogs).
+7. **Tooltips**: `bg-primary text-primary-foreground` — inverted colours.
 
 ### Z-Index Layers
 
@@ -67,6 +68,8 @@ The ruled-sheet system (epic #2210). Tokens landed in #2215; components are rest
 | ----------------------------------- | --------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
 | `--background`                      | `240 20% 99%` (#FCFCFD)     | `220 13% 9%` (#14161A)  | Page; `--card` and `--surface` equal it                                                             |
 | `--side`                            | `220 16% 96%` (#F3F4F6)     | `218 14% 11%` (#181B20) | Sidebar, rails; `--muted` equals it in light                                                        |
+| `--ground`                          | `220 16% 95%`               | `220 13% 6%`            | Dashboard area behind the panels (#2219)                                                            |
+| `--panel-hover`                     | `212 80% 97.5%`             | `218 14% 13%`           | Hovered or focused panel; stays visibly off the ground (#2219)                                      |
 | `--foreground`                      | `223 14% 10%` (#16181D)     | `216 15% 94%` (#EDEFF2) | Ink: body text, titles                                                                              |
 | `--foreground-2`                    | `222 11% 36%` (#525866)     | `217 11% 71%` (#ADB3BD) | Ink 2: secondary text                                                                               |
 | `--muted-foreground`                | `220 8% 44%` (#676D79)      | `219 9% 62%` (#959BA7)  | Ink 3: captions, metadata                                                                           |
@@ -211,12 +214,12 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 | Role                                            | Radius                    | Class              |
 | ----------------------------------------------- | ------------------------- | ------------------ |
 | Controls (buttons, inputs, selects, menu items) | 6px (`--radius-sm`)       | `rounded-sm`       |
-| Sheet (widget container, panels)                | 8px (`--radius-md`)       | `rounded-md`       |
+| Panels (widgets)                                | 8px (`--radius-md`)       | `rounded-md`       |
 | Overlays (popovers, dialogs, toasts)            | 10px (`--radius-overlay`) | `rounded-overlay`  |
 | Checkbox                                        | 4px (`--radius-checkbox`) | `rounded-checkbox` |
 | Pills, avatars, status dots                     | 9999px (`--radius-pill`)  | `rounded-full`     |
 
-`--radius-lg` (12px) is the pre-redesign card radius and stays until #2219 moves cards onto the sheet role. All values are pinned in `graphite-citrine-tokens.test.ts`; check there before quoting a number.
+`--radius-lg` (12px) is the pre-redesign card radius. Widget panels left it in #2219; it goes when its last user migrates. All values are pinned in `graphite-citrine-tokens.test.ts`; check there before quoting a number.
 
 ### Type scale utilities
 
@@ -232,7 +235,7 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 
 ### Shadows
 
-Only overlays carry a shadow: `shadow-md` for menus and popovers, `shadow-lg` for dialogs. Cards, buttons, inputs and the sheet have none; hairline rules do that job. A shadow on anything else is a red flag.
+Only overlays carry a shadow: `shadow-md` for menus and popovers, `shadow-lg` for dialogs. Panels, buttons and inputs have none; a border and the gap between panels do that job. A shadow on anything else is a red flag.
 
 ---
 
@@ -315,7 +318,7 @@ grid grid-cols-2 gap-4     // Type picker: always 2-col
 Before submitting any UI PR, verify:
 
 - [ ] Page root uses `p-6`
-- [ ] One surface with hairline rules; no `p-6` card around a section; shadows only on overlays
+- [ ] Widgets are flat panels 12px apart on `--ground`; elsewhere one surface with hairline rules; no `p-6` card around a section; shadows only on overlays
 - [ ] Type from the scale; serif only for the page title and wordmark
 - [ ] Descriptions use `text-sm text-muted-foreground` and say something the title does not
 - [ ] Interactive elements have `text-sm font-medium`
@@ -323,7 +326,7 @@ Before submitting any UI PR, verify:
 - [ ] Form fields use `space-y-2` internal spacing; section gaps use `space-y-4`
 - [ ] Colours reference CSS variable tokens, never raw values; field borders use `--input`
 - [ ] Charts use `resolveChartColors()`, never inline colors
-- [ ] Radius matches the role: controls 6, sheet 8, overlays 10, checkbox 4
+- [ ] Radius matches the role: controls 6, panels 8, overlays 10, checkbox 4
 - [ ] Empty states use `EmptyState`; loading states use `LoadingButton` or `LoadingOverlay`
 - [ ] Checked in light and dark
 
@@ -336,7 +339,8 @@ These are the fingerprints of careless or AI-generated UI work. Flag immediately
 ### Layout Anti-Patterns
 
 - **Nested cards**: Cards inside cards create visual noise — flatten the hierarchy
-- **Shadows off overlays**: a shadow on a card, button or input; white surfaces floating above a grey page
+- **Shadows off overlays**: a shadow on a panel, button or input
+- **Panels with no gap**: widgets sharing 1px gutters read as one giant table; the owner rejected that ruled sheet in #2219
 - **Everything in cards**: Not every element needs a container — use whitespace and grouping instead
 - **Identical card grids**: Same-sized cards with icon + heading + text, repeated endlessly — vary the layout
 - **Everything centered**: Left-aligned text with asymmetric layouts feels more intentional
