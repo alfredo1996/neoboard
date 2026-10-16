@@ -147,7 +147,11 @@ function SingleValueChart({
   return (
     // The number sits straight on the widget's panel, in no box of its own (#2219).
     <div
-      className={cn("flex flex-col gap-2", className)}
+      className={cn(
+        "flex flex-col gap-2",
+        bgColor && "h-full rounded-sm p-4",
+        className,
+      )}
       data-testid="single-value-chart"
       style={
         bgColor ? { backgroundColor: bgColor, color: autoContrast } : undefined

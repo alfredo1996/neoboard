@@ -66,6 +66,15 @@ vi.mock("@neoboard/components", () => ({
               <span>Fullscreen</span>
             </button>
           )}
+          {onFullscreen && (
+            // Touch: Fullscreen is a menu item, so there is no opener button.
+            <button
+              data-testid="fullscreen-from-menu"
+              onClick={() => onFullscreen(null)}
+            >
+              menu fullscreen
+            </button>
+          )}
         </div>
         {onRefresh && (
           <button data-testid="widget-refresh" onClick={onRefresh}>
@@ -97,16 +106,8 @@ vi.mock("@neoboard/components", () => ({
       {description && <span>{description}</span>}
     </div>
   ),
-  DashboardGrid: ({
-    children,
-    mode,
-  }: {
-    children: React.ReactNode;
-    mode?: string;
-  }) => (
-    <div data-testid="dashboard-grid" data-mode={mode}>
-      {children}
-    </div>
+  DashboardGrid: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="dashboard-grid">{children}</div>
   ),
   Dialog: ({
     children,
@@ -421,19 +422,6 @@ describe("DashboardContainer — buildActions", () => {
     expect(screen.getByTestId("action-csv")).toBeDefined();
   });
 
-  it.each([
-    [false, "view"],
-    [true, "edit"],
-  ])("lays the grid out in %s -> %s mode (#2219)", (editable, mode) => {
-    renderWithProviders(
-      <DashboardContainer page={makePage()} editable={editable} />,
-    );
-    expect(screen.getByTestId("dashboard-grid")).toHaveAttribute(
-      "data-mode",
-      mode,
-    );
-  });
-
   it("omits Edit/Duplicate/Remove when editable=false", () => {
     renderWithProviders(
       <DashboardContainer
@@ -552,6 +540,15 @@ describe("DashboardContainer — fullscreen and Sync hand focus back (#2148)", (
     fireEvent.click(screen.getByTestId(close));
     const expected = opener.startsWith("action-") ? mockMenuTrigger : button;
     expect(document.activeElement).toBe(expected);
+  });
+
+  it("closing after Fullscreen chosen from the menu (touch) returns focus to the menu trigger", () => {
+    renderWithProviders(
+      <DashboardContainer page={makePage([makeWidget()])} editable={false} />,
+    );
+    fireEvent.click(screen.getByTestId("fullscreen-from-menu"));
+    fireEvent.click(screen.getByTestId("fullscreen-dialog-close"));
+    expect(document.activeElement).toBe(mockMenuTrigger);
   });
 
   it("a confirmed sync that removes the update button lands on the card's fullscreen button", () => {

@@ -173,7 +173,7 @@ export const WithDragHandle: Story = {
         Only the <strong>grip icon</strong> in each card header triggers
         dragging — clicking anywhere else on the card does not move it.
       </p>
-      <DashboardGrid layout={handleLayout} mode="edit">
+      <DashboardGrid layout={handleLayout}>
         <div key="revenue">
           <WidgetCard
             title="Revenue"

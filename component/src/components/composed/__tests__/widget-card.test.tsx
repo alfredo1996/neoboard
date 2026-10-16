@@ -126,8 +126,10 @@ describe("WidgetCard", () => {
 
   it("does not render header when no title, actions, or draggable", () => {
     const { container } = render(<WidgetCard>Content only</WidgetCard>);
-    //
-    expect(container.querySelector("[class*='pb-2']")).not.toBeInTheDocument();
+    // The header slot must not be present at all.
+    expect(
+      container.querySelector("[data-widget-header]"),
+    ).not.toBeInTheDocument();
   });
 
   it("applies custom className", () => {
@@ -418,6 +420,40 @@ describe("WidgetCard", () => {
       expect(bar).not.toHaveAttribute("aria-hidden");
     });
 
+    it("cannot be hit while invisible, only once hovered, focused or open", () => {
+      // jsdom has no layout, so the class contract stands in for
+      // elementFromPoint: an invisible Refresh must not take a tap.
+      render(
+        <WidgetCard title="Sales" onRefresh={() => {}}>
+          Content
+        </WidgetCard>,
+      );
+      const bar = screen.getByRole("button", {
+        name: "Refresh",
+      }).parentElement!;
+      for (const cls of [
+        "[@media(any-pointer:coarse)]:pointer-events-none",
+        "group-hover/panel:pointer-events-auto",
+        "group-focus-within/panel:pointer-events-auto",
+        "has-[[data-state=open]]:pointer-events-auto",
+      ]) {
+        expect(bar).toHaveClass(cls);
+      }
+    });
+
+    it("follow the hover tint instead of painting their own rectangle", () => {
+      render(
+        <WidgetCard title="Sales" onRefresh={() => {}}>
+          Content
+        </WidgetCard>,
+      );
+      const refresh = screen.getByRole("button", { name: "Refresh" });
+      const bar = refresh.parentElement!;
+      expect(bar).toHaveClass("group-hover/panel:bg-side");
+      expect(refresh).toHaveClass("bg-inherit");
+      expect(refresh).not.toHaveClass("bg-card");
+    });
+
     it("call onFullscreen with the button that was pressed", async () => {
       const user = userEvent.setup();
       const onFullscreen = vi.fn();
@@ -518,6 +554,64 @@ describe("WidgetCard", () => {
       const refresh = screen.getByRole("button", { name: "Refresh" });
       expect(screen.getByRole("button", { name: "Fullscreen" })).toBeVisible();
       expect(refresh.parentElement).not.toHaveClass("opacity-0");
+    });
+  });
+
+  describe("flat panel (#2219)", () => {
+    it("positions the controls absolutely in view and edit, so toggling edit keeps scroll anchoring", () => {
+      for (const draggable of [false, true]) {
+        const { unmount } = render(
+          <WidgetCard title="Sales" draggable={draggable} onRefresh={() => {}}>
+            x
+          </WidgetCard>,
+        );
+        expect(
+          screen.getByRole("button", { name: "Refresh" }).parentElement,
+        ).toHaveClass("absolute");
+        unmount();
+      }
+    });
+
+    it("keeps the panel's own border and radius in view mode, with no outline trick", () => {
+      const { container } = render(<WidgetCard title="Sales">x</WidgetCard>);
+      const panel = container.firstElementChild!;
+      expect(panel).toHaveClass("rounded-md", "border-rule");
+      expect(panel.className).not.toMatch(/outline|border-0|rounded-none/);
+    });
+
+    it("tints the hovered panel in view mode only", () => {
+      const view = render(<WidgetCard title="Sales">x</WidgetCard>);
+      expect(view.container.firstElementChild).toHaveClass("hover:bg-side");
+      view.unmount();
+      const edit = render(
+        <WidgetCard draggable title="Sales">
+          x
+        </WidgetCard>,
+      );
+      expect(edit.container.firstElementChild).not.toHaveClass("hover:bg-side");
+    });
+
+    it("puts handle, title and controls in one 36 px row, with the source line below it", () => {
+      render(
+        <WidgetCard
+          draggable
+          title="Sales"
+          source="Neo4j Movies"
+          onRefresh={() => {}}
+        >
+          x
+        </WidgetCard>,
+      );
+      const row = screen
+        .getByRole("heading", { name: "Sales" })
+        .closest("[data-widget-row]")!;
+      expect(row).toHaveClass("h-9", "items-center");
+      expect(row).toContainElement(screen.getByText("Drag to reorder"));
+      expect(row).toContainElement(
+        screen.getByRole("button", { name: "Refresh" }),
+      );
+      // The source line (#1246) is reserved below the row, outside it.
+      expect(row).not.toContainElement(screen.getByText("Neo4j Movies"));
     });
   });
 });

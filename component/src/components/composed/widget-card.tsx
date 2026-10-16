@@ -138,143 +138,169 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
     const hasActions = Boolean(actions?.length);
     const hasFolded = folded && Boolean(onRefresh || onFullscreen);
     const hasMenu = hasActions || hasFolded;
+    // The bar sits on the panel's own tint: it follows the hover fill instead
+    // of painting a rectangle of its own.
     const iconButton = cn(
       "h-7 w-7 rounded-sm text-foreground-2",
-      overlay && "border border-rule-strong bg-card",
+      overlay && "border border-rule-strong bg-inherit",
     );
+    const controls =
+      Number(Boolean(onRefresh && !folded)) +
+      Number(Boolean(onFullscreen && !folded)) +
+      Number(Boolean(headerExtra)) +
+      Number(hasMenu);
+    // 28 px buttons, 2 px gaps, 8 px from the edge.
+    const reserved = controls * 30 + 8;
+    const hasHeader =
+      title || hasMenu || headerExtra || onRefresh || onFullscreen;
     return (
       <Panel
         ref={ref}
         className={cn(
           "group/panel flex h-full flex-col",
-          // View mode has no border of its own: its outline fills the 1 px
-          // gutter, and the neighbour's outline lands on the same pixel (#2219).
+          // View mode tints the hovered panel, so the revealed actions read
+          // as its own. Edit mode keeps every control visible: no tint.
           draggable
-            ? "rounded-sm border-rule-strong"
-            : "rounded-none border-0 outline-1 outline-rule [outline-style:solid]",
+            ? "border-rule-strong"
+            : "hover:bg-side focus-within:bg-side",
           className,
         )}
       >
-        {(title || hasMenu || headerExtra || onRefresh || onFullscreen) && (
+        {hasHeader && (
           <PanelHeader
             data-widget-header
             className={cn(
-              "relative flex flex-row items-start justify-between space-y-0 px-4 pb-0 pt-3.5",
+              "relative block space-y-0 px-4 pb-0 pt-0",
               headerClassName,
             )}
           >
-            <div className="flex min-w-0 flex-1 items-start gap-2">
-              {draggable && (
-                <button
-                  type="button"
-                  className="shrink-0 drag-handle cursor-grab active:cursor-grabbing touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  onMouseDown={onDragHandleMouseDown}
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <span className="sr-only">Drag to reorder</span>
-                </button>
-              )}
-              {/* min-w-0 + truncate so a long unbroken title doesn't push the
-                  action buttons off the card / expand the header. (#component-review)
-                  `title` gives the clipped text back as a tooltip (#2056). */}
-              <div className="min-w-0">
+            {/* One fixed 36 px row: handle, title and controls share a centre
+                line (#2219). The source line is reserved below it (#1246). */}
+            <div
+              data-widget-row
+              className="flex h-9 items-center justify-between gap-2"
+            >
+              <div
+                className="flex min-w-0 flex-1 items-center gap-2"
+                // Room for controls that stay in view (edit mode, touch).
+                style={{ paddingRight: overlay ? undefined : reserved }}
+              >
+                {draggable && (
+                  <button
+                    type="button"
+                    className="shrink-0 drag-handle cursor-grab active:cursor-grabbing touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    onMouseDown={onDragHandleMouseDown}
+                  >
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    <span className="sr-only">Drag to reorder</span>
+                  </button>
+                )}
+                {/* min-w-0 + truncate so a long unbroken title doesn't push the
+                    action buttons off the card. `title` gives the clipped text
+                    back as a tooltip (#2056). */}
                 {title && (
                   <h3
-                    className="truncate text-widget-title leading-4"
+                    className="min-w-0 truncate text-widget-title"
                     title={title}
                   >
                     {title}
                   </h3>
                 )}
-                {source ? (
-                  <p
-                    className="mt-1.5 truncate text-meta leading-4 text-muted-foreground"
-                    title={source}
+              </div>
+              {/* Hidden at rest with opacity only, never display or
+                  visibility, so Tab and the accessibility tree still reach the
+                  controls. Where any input is coarse (a touchscreen laptop that
+                  reports hover), an invisible button takes no tap until the
+                  panel is hovered or focused; a fine pointer stays clickable
+                  at rest so scripted clicks reach it. */}
+              <div
+                className={cn(
+                  // Absolute in every mode: a bar that flips between static and
+                  // absolute on the edit toggle suppresses Chromium's scroll
+                  // anchoring, and the page jumps (#1163).
+                  "absolute right-2 top-1 z-10 flex items-center gap-0.5",
+                  overlay &&
+                    "[@media(any-pointer:coarse)]:pointer-events-none rounded-sm bg-card opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-focus-within/panel:pointer-events-auto group-focus-within/panel:bg-side group-focus-within/panel:opacity-100 group-hover/panel:pointer-events-auto group-hover/panel:bg-side group-hover/panel:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
+                )}
+              >
+                {onRefresh && !folded && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={iconButton}
+                    onClick={onRefresh}
+                    disabled={refreshDisabled}
                   >
-                    {source}
-                  </p>
-                ) : (
-                  title && (
-                    /* Reserve the source line so titled cards in the same row
-                       start their content at the same height — otherwise a card
-                       with a source pushes its chart down relative to its
-                       neighbour and the row visibly fails to align (#1246).
-                       h-4 matches the line-height; empty + aria-hidden
-                       because the space carries no meaning. */
-                    <p
-                      data-source-placeholder
-                      aria-hidden="true"
-                      className="mt-1.5 h-4"
-                    />
-                  )
+                    <RefreshCcw className="h-4 w-4" />
+                    <span className="sr-only">Refresh</span>
+                  </Button>
+                )}
+                {onFullscreen && !folded && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={iconButton}
+                    data-widget-fullscreen
+                    onClick={(e) => onFullscreen(e.currentTarget)}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                    <span className="sr-only">Fullscreen</span>
+                  </Button>
+                )}
+                {headerExtra}
+                {hasMenu && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={iconButton}
+                      >
+                        <Ellipsis className="h-4 w-4" />
+                        <span className="sr-only">Widget actions</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {folded && onRefresh && (
+                        <DropdownMenuItem
+                          onClick={onRefresh}
+                          disabled={refreshDisabled}
+                        >
+                          Refresh
+                        </DropdownMenuItem>
+                      )}
+                      {folded && onFullscreen && (
+                        <DropdownMenuItem onClick={() => onFullscreen(null)}>
+                          Fullscreen
+                        </DropdownMenuItem>
+                      )}
+                      {hasFolded && hasActions && <DropdownMenuSeparator />}
+                      <ActionItems actions={actions ?? []} />
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
             </div>
-            {/* Hidden at rest with opacity only, never display or visibility,
-                so Tab and the accessibility tree still reach the controls. */}
-            <div
-              className={cn(
-                "flex items-center gap-0.5",
-                overlay
-                  ? "absolute right-2 top-2 z-10 rounded-sm bg-card opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-focus-within/panel:opacity-100 group-hover/panel:opacity-100 has-[[data-state=open]]:opacity-100 [@media(hover:none)]:opacity-100"
-                  : "shrink-0",
-              )}
-            >
-              {onRefresh && !folded && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={iconButton}
-                  onClick={onRefresh}
-                  disabled={refreshDisabled}
-                >
-                  <RefreshCcw className="h-4 w-4" />
-                  <span className="sr-only">Refresh</span>
-                </Button>
-              )}
-              {onFullscreen && !folded && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={iconButton}
-                  data-widget-fullscreen
-                  onClick={(e) => onFullscreen(e.currentTarget)}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                  <span className="sr-only">Fullscreen</span>
-                </Button>
-              )}
-              {headerExtra}
-              {hasMenu && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className={iconButton}>
-                      <Ellipsis className="h-4 w-4" />
-                      <span className="sr-only">Widget actions</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {folded && onRefresh && (
-                      <DropdownMenuItem
-                        onClick={onRefresh}
-                        disabled={refreshDisabled}
-                      >
-                        Refresh
-                      </DropdownMenuItem>
-                    )}
-                    {folded && onFullscreen && (
-                      <DropdownMenuItem onClick={() => onFullscreen(null)}>
-                        Fullscreen
-                      </DropdownMenuItem>
-                    )}
-                    {hasFolded && hasActions && <DropdownMenuSeparator />}
-                    <ActionItems actions={actions ?? []} />
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
+            {source ? (
+              <p
+                className="truncate text-meta leading-4 text-muted-foreground"
+                title={source}
+              >
+                {source}
+              </p>
+            ) : (
+              title && (
+                /* Reserve the source line so titled cards in the same row
+                   start their content at the same height — otherwise a card
+                   with a source pushes its chart down relative to its
+                   neighbour and the row visibly fails to align (#1246).
+                   h-4 matches the line-height; empty + aria-hidden
+                   because the space carries no meaning. */
+                <p data-source-placeholder aria-hidden="true" className="h-4" />
+              )
+            )}
           </PanelHeader>
         )}
         <PanelContent

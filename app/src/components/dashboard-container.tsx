@@ -359,7 +359,6 @@ export function DashboardContainer({
           }
           isDraggable={editable}
           isResizable={editable}
-          mode={editable ? "edit" : "view"}
         >
           {page.widgets.map((widget) => {
             const outdated =

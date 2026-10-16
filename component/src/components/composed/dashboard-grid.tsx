@@ -21,11 +21,6 @@ export interface DashboardGridProps {
   rowHeight?: number;
   isDraggable?: boolean;
   isResizable?: boolean;
-  /**
-   * "view": panels share one ruled sheet, 1 px apart. "edit": 8 px gaps and
-   * outlined tiles, so dragging and resizing have room (#2219).
-   */
-  mode?: "view" | "edit";
   compactType?: "vertical" | "horizontal" | null;
   className?: string;
   children: React.ReactNode;
@@ -58,8 +53,9 @@ function colsForEveryBreakpoint(cols: number) {
   return { lg: cols, md: cols, sm: cols, xs: cols };
 }
 
-// Gutters in px. Saved layouts are in grid units, so changing these moves nothing.
-const GUTTER = { view: 1, edit: 8 } as const;
+// Gap between panels, px. The same in view and edit, so entering edit mode
+// moves nothing (#2219). Saved layouts are in grid units, so it never shifts them.
+const GAP = 12;
 
 function getCompactorByType(type: "vertical" | "horizontal" | null) {
   if (type === "horizontal") return horizontalCompactor;
@@ -67,22 +63,24 @@ function getCompactorByType(type: "vertical" | "horizontal" | null) {
   return verticalCompactor;
 }
 
-/** Skeleton grid shown while the container width is being measured. */
+/**
+ * Skeleton grid shown while the container width is being measured. Tiles sit
+ * where react-grid-layout will put them (same column and gap formula), so the
+ * mount does not jump.
+ */
 function GridSkeleton({
   layout,
   cols,
   rowHeight,
-  mode,
 }: {
   layout: LayoutItem[];
   cols: number;
   rowHeight: number;
-  mode: "view" | "edit";
 }) {
   if (layout.length === 0) return null;
-  const colPercent = 100 / cols;
+  const col = `(100% - ${(cols - 1) * GAP}px) / ${cols}`;
   const maxBottom = layout.reduce(
-    (max, item) => Math.max(max, (item.y + item.h) * rowHeight),
+    (max, item) => Math.max(max, (item.y + item.h) * (rowHeight + GAP) - GAP),
     0,
   );
   return (
@@ -90,20 +88,16 @@ function GridSkeleton({
       {layout.map((item) => (
         <div
           key={item.i}
-          className={cn("absolute", mode === "edit" && "p-1")}
+          data-skeleton-tile
+          className="absolute"
           style={{
-            left: `${item.x * colPercent}%`,
-            top: item.y * rowHeight,
-            width: `${item.w * colPercent}%`,
-            height: item.h * rowHeight,
+            left: `calc(${col} * ${item.x} + ${item.x * GAP}px)`,
+            top: item.y * (rowHeight + GAP),
+            width: `calc(${col} * ${item.w} + ${(item.w - 1) * GAP}px)`,
+            height: item.h * rowHeight + (item.h - 1) * GAP,
           }}
         >
-          <Skeleton
-            className={cn(
-              "h-full w-full",
-              mode === "edit" ? "rounded-sm" : "rounded-none",
-            )}
-          />
+          <Skeleton className="h-full w-full rounded-md" />
         </div>
       ))}
     </div>
@@ -117,7 +111,6 @@ function DashboardGrid({
   rowHeight = 80,
   isDraggable = true,
   isResizable = true,
-  mode = "view",
   compactType = "vertical",
   className,
   children,
@@ -140,24 +133,9 @@ function DashboardGrid({
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "w-full",
-        // The sheet: its rule and 8 px radius are the only outer edge. Holes in
-        // a layout read as blank paper inside it (#2219).
-        mode === "view" &&
-          "overflow-hidden rounded-md border border-rule bg-card",
-        className,
-      )}
-    >
+    <div ref={containerRef} className={cn("w-full", className)}>
       {!mounted && (
-        <GridSkeleton
-          layout={layout}
-          cols={cols}
-          rowHeight={rowHeight}
-          mode={mode}
-        />
+        <GridSkeleton layout={layout} cols={cols} rowHeight={rowHeight} />
       )}
       {mounted && (
         <ResponsiveGridLayout
@@ -166,7 +144,7 @@ function DashboardGrid({
           breakpoints={defaultBreakpoints}
           cols={colsForEveryBreakpoint(cols)}
           rowHeight={rowHeight}
-          margin={[GUTTER[mode], GUTTER[mode]]}
+          margin={[GAP, GAP]}
           containerPadding={[0, 0]}
           dragConfig={{
             enabled: isDraggable,

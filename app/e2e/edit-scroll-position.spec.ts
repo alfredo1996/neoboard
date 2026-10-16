@@ -4,11 +4,6 @@ import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 // must not remount the widget tree (#1370). View and edit are separate route segments
 // under a shared [id] layout that owns the dashboard UI, so toggling the mode
 // re-renders only the (empty) page slot — the same DOM nodes stay put.
-// The view sheet packs panels 1 px apart and edit mode 8 px (#2219), so rows
-// above the viewport move the content by 7 px each: 16 rows here. A lost scroll
-// position (#1163) would move it by the whole 600 px.
-const GUTTER_SHIFT = 16 * 7;
-
 test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
   test("toggling edit mode keeps a widget where it was on screen and the same DOM nodes", async ({
     authPage,
@@ -94,7 +89,7 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
       expect(
         Math.abs(topAfter - topBefore),
         `widget moved on screen ${topBefore} -> ${topAfter}`,
-      ).toBeLessThanOrEqual(GUTTER_SHIFT);
+      ).toBeLessThanOrEqual(2);
       await expect(page.locator('[data-survivor="1"]')).toHaveCount(1);
 
       // ── Leave edit mode again ──────────────────────────────────────
