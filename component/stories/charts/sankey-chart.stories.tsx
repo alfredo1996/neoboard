@@ -92,6 +92,16 @@ export const Default: Story = {
   },
 };
 
+/**
+ * #2212 — node labels sit on the canvas; ECharts' default dark fill with a
+ * light halo was unreadable here. The theme now paints them in the foreground.
+ */
+export const DarkMode: Story = {
+  args: { data: defaultData },
+  globals: { theme: "dark" },
+  play: Default.play,
+};
+
 export const MultiLevel: Story = {
   args: {
     data: multiLevelData,

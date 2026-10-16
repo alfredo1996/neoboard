@@ -178,6 +178,14 @@ function seriesDefaults(popoverBg: string, border: string, fg: string) {
       // unreadable on the dark canvas (#1154). Theme foreground, no halo.
       label: { color: fg, textBorderWidth: 0 },
     },
+    sankey: {
+      // Node labels sit beside the nodes, on the canvas: same unreadable
+      // dark-fill + light-halo default as bar/pie in dark mode (#2212).
+      // Not applied to treemap/sunburst/circle packing (labels sit on their
+      // fills, #1095), radar (axisName handled below), gauge (own colours) or
+      // graph (NVL canvas, not ECharts).
+      label: { color: fg, textBorderWidth: 0 },
+    },
     treemap: {
       // ECharts ships the breadcrumb in its own light greys (#e8ebf0 chip,
       // #54555a text), which reads as a stray pale box on the dark canvas

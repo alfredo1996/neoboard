@@ -84,6 +84,16 @@ describe.each(["neoboard-light", "neoboard-dark"])(
       expect(label.textBorderWidth).toBe(0);
     });
 
+    it.each(["sankey"])(
+      "%s labels on the canvas use the theme foreground with no halo (#2212)",
+      (type) => {
+        const series = theme[type] as Record<string, Record<string, unknown>>;
+        const fg = (theme.textStyle as Record<string, unknown>).color;
+        expect(series.label.color).toBe(fg);
+        expect(series.label.textBorderWidth).toBe(0);
+      },
+    );
+
     it("radar indicator labels use a readable theme color (#1154)", () => {
       // ECharts radar axisName does NOT inherit the global textStyle — its
       // dim default gray is hard to read on the dark canvas.
