@@ -64,6 +64,14 @@ module.exports = {
           2: "hsl(var(--surface-2))",
         },
         "border-strong": "hsl(var(--border-strong))",
+        // Ruled-sheet tokens (#2215).
+        "foreground-2": "hsl(var(--foreground-2))",
+        rule: {
+          DEFAULT: "hsl(var(--rule))",
+          strong: "hsl(var(--rule-strong))",
+        },
+        side: "hsl(var(--side))",
+        field: "hsl(var(--field))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -88,14 +96,21 @@ module.exports = {
       fontFamily: {
         display: "var(--font-display)",
         body: "var(--font-body)",
+        // Page titles and the wordmark only (#2215).
+        serif: "var(--font-serif)",
+        mono: "var(--font-mono)",
       },
       // Heading scale (#830): size, leading, and tracking travel together.
-      // Pair with `font-display` for the Geist Sans family.
+      // Pair with `font-display` (IBM Plex Sans since #2215).
       fontSize: {
-        display: [
-          "2.25rem",
-          { lineHeight: "2.5rem", letterSpacing: "-0.025em", fontWeight: "600" },
-        ],
+        // Ruled-sheet type scale (#2215). The face comes from font-serif
+        // (title) or font-body where used, not from here.
+        title: ["2.25rem", { lineHeight: "1.1", fontWeight: "600" }],
+        stat: ["2.25rem", { lineHeight: "1", fontWeight: "600" }],
+        section: ["0.9375rem", { fontWeight: "600" }],
+        body: "0.875rem",
+        "widget-title": ["0.8125rem", { fontWeight: "600" }],
+        meta: "0.75rem",
         h1: [
           "1.875rem",
           { lineHeight: "2.25rem", letterSpacing: "-0.02em", fontWeight: "600" },
@@ -114,6 +129,9 @@ module.exports = {
         sm: "var(--radius-sm)",
         md: "var(--radius-md)",
         lg: "var(--radius-lg)",
+        // Ruled-sheet roles (#2215): controls sm (6), sheet md (8).
+        overlay: "var(--radius-overlay)",
+        checkbox: "var(--radius-checkbox)",
       },
       // Elevation scale (#823): shadow-sm/md/lg utilities emit the
       // warm-tinted token values so all existing class usage upgrades

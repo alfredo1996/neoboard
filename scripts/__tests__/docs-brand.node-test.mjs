@@ -192,17 +192,17 @@ describe("docs brand (#1319)", () => {
     assert.equal(button.get("color"), "var(--sl-color-black)");
   });
 
-  it("self-hosts Geist Sans from the component package, with no remote font", () => {
+  it("self-hosts IBM Plex Sans from the component package, with no remote font", () => {
     assert.doesNotMatch(BRAND, /url\(\s*["']?(https?:)?\/\//, "remote url()");
     assert.doesNotMatch(BRAND, /@import/, "@import pulls in a stylesheet");
     const face = stripComments(BRAND).match(/@font-face\s*\{([^}]*)\}/);
     assert.ok(face, "no @font-face");
-    assert.match(face[1], /font-family:\s*"Geist Sans"/);
+    assert.match(face[1], /font-family:\s*"IBM Plex Sans"/);
     const src = face[1].match(/url\(["']?([^"')]+)["']?\)/)[1];
     const file = resolve(ROOT, dirname(BRAND_PATH), src);
-    assert.equal(file, join(ROOT, "component/fonts/geist-sans-variable.woff2"));
+    assert.equal(file, join(ROOT, "component/fonts/ibm-plex-sans-latin-wght.woff2"));
     assert.ok(existsSync(file), `${src} does not resolve`);
-    assert.match(brand().dark.get("--sl-font") ?? "", /^"Geist Sans"/);
+    assert.match(brand().dark.get("--sl-font") ?? "", /^"IBM Plex Sans"/);
   });
 
   it("uses the wordmark's citrine mark as logo and favicon", () => {
@@ -310,12 +310,12 @@ describe(
 
     it("ships the self-hosted font, the favicon, the logo and both hero variants", () => {
       const assets = readdirSync(join(DIST, "_astro"));
-      assert.ok(assets.some((f) => /^geist-sans-variable\..+\.woff2$/.test(f)));
+      assert.ok(assets.some((f) => /^ibm-plex-sans-latin-wght\..+\.woff2$/.test(f)));
       const css = assets
         .filter((f) => f.endsWith(".css"))
         .map((f) => readFileSync(join(DIST, "_astro", f), "utf8"))
         .join("\n");
-      assert.match(css, /Geist Sans/);
+      assert.match(css, /IBM Plex Sans/);
       assert.ok(existsSync(join(DIST, "favicon.svg")));
       const html = readFileSync(join(DIST, "index.html"), "utf8");
       assert.match(

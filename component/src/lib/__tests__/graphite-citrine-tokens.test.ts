@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
 /**
@@ -26,16 +27,19 @@ function tokenValue(blockCss: string, token: string): string | undefined {
   return m?.[1].trim();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- CommonJS preset, untyped
+const preset: any = createRequire(__filename)("../../../tailwind-preset.cjs");
+
 const light = block(":root");
 const dark = block(".dark");
 
 describe("Graphite & Citrine locked palette values (#820)", () => {
   it("light background is the locked cool off-white", () => {
-    expect(tokenValue(light, "--background")).toBe("220 14% 98%");
+    expect(tokenValue(light, "--background")).toBe("240 20% 99%"); // #FCFCFD (#2215)
   });
 
   it("dark background is the locked dense charcoal", () => {
-    expect(tokenValue(dark, "--background")).toBe("220 13% 8%");
+    expect(tokenValue(dark, "--background")).toBe("220 13% 9%"); // #14161A (#2215)
   });
 
   it("primary is the locked near-black graphite (light mode)", () => {
@@ -125,7 +129,7 @@ describe("new token surface (#820)", () => {
     const bg = lightness(tokenValue(dark, "--background"));
     const s1 = lightness(tokenValue(dark, "--surface"));
     const s2 = lightness(tokenValue(dark, "--surface-2"));
-    expect(s1).toBeGreaterThan(bg);
+    expect(s1).toBeGreaterThanOrEqual(bg); // surface is the page since #2215
     expect(s2).toBeGreaterThan(s1);
   });
 });
@@ -159,21 +163,50 @@ describe("elevation scale (#823)", () => {
   });
 });
 
-describe("typography tokens (#830)", () => {
-  it("defines display and body font custom properties", () => {
-    expect(tokenValue(light, "--font-display")).toMatch(/^"Geist Sans"/);
-    expect(tokenValue(light, "--font-body")).toMatch(/^"Inter"/);
-    expect(tokenValue(light, "--font-display")).toMatch(/system-ui/);
+describe("typography tokens (#830, #2215)", () => {
+  it("body and display are IBM Plex Sans, serif is Source Serif 4, mono is IBM Plex Mono", () => {
+    expect(tokenValue(light, "--font-body")).toMatch(/^"IBM Plex Sans"/);
+    expect(tokenValue(light, "--font-display")).toMatch(/^"IBM Plex Sans"/);
+    expect(tokenValue(light, "--font-serif")).toMatch(/^"Source Serif 4"/);
+    expect(tokenValue(light, "--font-mono")).toMatch(/^"IBM Plex Mono"/);
+    expect(tokenValue(light, "--font-serif")).toMatch(/serif$/);
+    expect(tokenValue(light, "--font-mono")).toMatch(/monospace$/);
   });
 
-  it("self-hosts both variable fonts via @font-face", () => {
-    expect(css).toMatch(
-      /@font-face[\s\S]*?Geist Sans[\s\S]*?geist-sans-variable\.woff2/,
-    );
-    expect(css).toMatch(/@font-face[\s\S]*?Inter[\s\S]*?inter-variable\.woff2/);
-    // variable fonts: full weight range, graceful fallback
-    expect(css).toMatch(/font-weight:\s*100 900/);
+  it("turns tabular figures on at the root", () => {
+    expect(css).toMatch(/html\s*\{[^}]*font-variant-numeric:\s*tabular-nums/);
+  });
+
+  it("swaps text fallback in while the self-hosted faces load", () => {
     expect(css).toMatch(/font-display:\s*swap/);
+  });
+});
+
+describe("ruled-sheet palette (#2215)", () => {
+  it.each([
+    ["--side", "220 16% 96%", "218 14% 11%"], // #F3F4F6 / #181B20
+    ["--foreground", "223 14% 10%", "216 15% 94%"], // ink
+    ["--foreground-2", "222 11% 36%", "217 11% 71%"], // ink 2
+    ["--muted-foreground", "220 8% 44%", "219 9% 62%"], // ink 3
+    ["--rule", "220 12% 91%", "218 13% 17%"],
+    ["--field", "0 0% 100%", "218 13% 12%"], // #FFFFFF / #1B1E23
+    ["--input", "219 8% 56%", "218 9% 43%"], // field border, 3:1 on page and side
+  ])("%s", (token, l, d) => {
+    expect(tokenValue(light, token)).toBe(l);
+    expect(tokenValue(dark, token)).toBe(d);
+  });
+
+  it("--rule-strong is defined in both modes", () => {
+    expect(tokenValue(light, "--rule-strong")).toBeTruthy();
+    expect(tokenValue(dark, "--rule-strong")).toBeTruthy();
+  });
+
+  it("cards and surfaces are the page colour, not white above grey", () => {
+    for (const mode of [light, dark]) {
+      const page = tokenValue(mode, "--background");
+      expect(tokenValue(mode, "--card")).toBe(page);
+      expect(tokenValue(mode, "--surface")).toBe(page);
+    }
   });
 });
 
@@ -189,6 +222,46 @@ describe("radius scale (#831)", () => {
 
   it("keeps --radius as a backward-compatible alias of --radius-md", () => {
     expect(tokenValue(light, "--radius")).toBe("var(--radius-md)");
+  });
+});
+
+describe("radius roles (#2215)", () => {
+  it.each([
+    ["--radius-overlay", "0.625rem"],
+    ["--radius-checkbox", "0.25rem"],
+  ])("%s = %s", (token, value) => {
+    expect(tokenValue(light, token)).toBe(value);
+  });
+
+  it("the preset exposes them as rounded-overlay and rounded-checkbox", () => {
+    expect(preset.theme.extend.borderRadius.overlay).toBe(
+      "var(--radius-overlay)",
+    );
+    expect(preset.theme.extend.borderRadius.checkbox).toBe(
+      "var(--radius-checkbox)",
+    );
+  });
+});
+
+describe("type scale (#2215)", () => {
+  it.each([
+    ["title", "2.25rem", "1.1", "600"],
+    ["stat", "2.25rem", "1", "600"],
+    ["section", "0.9375rem", undefined, "600"],
+    ["body", "0.875rem", undefined, undefined],
+    ["widget-title", "0.8125rem", undefined, "600"],
+    ["meta", "0.75rem", undefined, undefined],
+  ])("text-%s is %s", (name, size, lineHeight, weight) => {
+    const entry = preset.theme.extend.fontSize[name] as
+      string | [string, { lineHeight?: string; fontWeight?: string }];
+    const [fs, opts] = Array.isArray(entry) ? entry : [entry, undefined];
+    expect(fs).toBe(size);
+    expect(opts?.lineHeight).toBe(lineHeight);
+    expect(opts?.fontWeight).toBe(weight);
+  });
+
+  it("drops the unused text-display step", () => {
+    expect(preset.theme.extend.fontSize.display).toBeUndefined();
   });
 });
 
@@ -292,6 +365,22 @@ describe("semantic colours meet WCAG AA in both themes (#1505)", () => {
         expect(contrast(solidText, fg)).toBeGreaterThanOrEqual(AA);
       });
     }
+    // Ruled-sheet ink steps and control edges (#2215).
+    const side = tok("--side");
+    it.each(["--foreground", "--foreground-2", "--muted-foreground"])(
+      `${theme} %s on the page and on --side reaches AA`,
+      (name) => {
+        expect(contrast(tok(name), page)).toBeGreaterThanOrEqual(AA);
+        expect(contrast(tok(name), side)).toBeGreaterThanOrEqual(AA);
+      },
+    );
+    it.each(["--ring", "--input"])(
+      `${theme} %s on the page and on --side reaches 3:1 (WCAG 1.4.11)`,
+      (name) => {
+        expect(contrast(tok(name), page)).toBeGreaterThanOrEqual(3);
+        expect(contrast(tok(name), side)).toBeGreaterThanOrEqual(3);
+      },
+    );
     it(`${theme} --muted-foreground on the page and on the accent tint`, () => {
       const mf = tok("--muted-foreground");
       expect(contrast(mf, page)).toBeGreaterThanOrEqual(AA);
