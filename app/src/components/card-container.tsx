@@ -16,6 +16,7 @@ import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
 import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
 import { humanizeParamName } from "@neoboard/components/humanize-param-name";
+import { waitingText as waitingTextFor } from "@/lib/widget/waiting-text";
 import { useParameterValues } from "@/stores/parameter-store";
 import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
 import { applyTransforms } from "@/lib/query/data-transforms";
@@ -643,16 +644,7 @@ export function CardContainer({
     }
 
     // Genuine unresolved $param_xxx placeholders — show parameter badges.
-    const labels = missingParams.map(humanizeParamName);
-    const pickable =
-      missingParams.length === 1 &&
-      (parameterSourceMap?.[missingParams[0]]?.length ?? 0) > 0;
-    let waitingText = "Waiting for parameters\u2026";
-    if (pickable) {
-      waitingText = `Pick a ${labels[0].toLowerCase()} above to see this.`;
-    } else if (labels.length > 0) {
-      waitingText = `Waiting for ${labels.slice(0, -1).join(", ")}${labels.length > 1 ? " and " : ""}${labels.at(-1)}`;
-    }
+    const waitingText = waitingTextFor(missingParams, parameterSourceMap);
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center space-y-2">

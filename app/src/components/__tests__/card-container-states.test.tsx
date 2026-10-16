@@ -213,7 +213,7 @@ describe("CardContainer — connector unavailable (#1678)", () => {
     expect(
       screen.getByText(hintForConnectionErrorCode("network")),
     ).toBeDefined();
-    expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
+    expect(screen.queryByText(/Waiting for |to see this\./)).toBeNull();
   });
 
   it("still renders the waiting state for a genuinely unset parameter", () => {
@@ -256,7 +256,7 @@ describe("CardContainer — connector unavailable (#1678)", () => {
     expect(
       screen.getByText(hintForConnectionErrorCode("auth_failed")),
     ).toBeDefined();
-    expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
+    expect(screen.queryByText(/Waiting for |to see this\./)).toBeNull();
   });
 
   it("still waits when the flagged connection is neither its own nor the parameter's source", () => {
@@ -270,7 +270,9 @@ describe("CardContainer — connector unavailable (#1678)", () => {
       />,
     );
 
-    expect(screen.getByText("Pick a region above to see this.")).toBeDefined();
+    expect(
+      screen.getByText("Choose a value for Region to see this."),
+    ).toBeDefined();
     expect(screen.queryByText("Connector unavailable")).toBeNull();
   });
 
@@ -436,7 +438,7 @@ describe("CardContainer", () => {
       ),
     ).toBeDefined();
     // Should NOT show "Waiting for parameters"
-    expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
+    expect(screen.queryByText(/Waiting for |to see this\./)).toBeNull();
   });
 
   // ----- Missing query -----
@@ -460,12 +462,12 @@ describe("CardContainer", () => {
     expect(
       screen.getByText("Add a query in the widget settings."),
     ).toBeDefined();
-    expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
+    expect(screen.queryByText(/Waiting for |to see this\./)).toBeNull();
   });
 
   // ----- Missing parameters -----
 
-  it('shows "Waiting for parameters" only when connectionId and query are set but params are unresolved', () => {
+  it("names the unresolved parameter, not a raw token, when connectionId and query are set (#2214)", () => {
     mockUseWidgetQuery.mockReturnValue({
       isPending: true,
       fetchStatus: "idle",
@@ -519,7 +521,7 @@ describe("CardContainer", () => {
     );
 
     expect(
-      screen.getByText("Pick a gallery region above to see this."),
+      screen.getByText("Choose a value for Gallery region to see this."),
     ).toBeDefined();
     expect(container.textContent).not.toContain("$param_");
   });
@@ -729,7 +731,7 @@ describe("CardContainer", () => {
 
     // Connection message should win over parameter message
     expect(screen.getByText("No connection configured")).toBeDefined();
-    expect(screen.queryByText(/Waiting for parameters/)).toBeNull();
+    expect(screen.queryByText(/Waiting for |to see this\./)).toBeNull();
   });
 
   // ----- Manual run overlay -----

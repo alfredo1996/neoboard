@@ -1,5 +1,6 @@
 import type { ParameterEntry } from "@/stores/parameter-store";
 import { humanizeParamName } from "@neoboard/components/humanize-param-name";
+import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import { formatParameterValue } from "@/lib/parameter/format-parameter-value";
 
 const PARAM_REGEX = /\$param_(\w+)/g;
@@ -16,7 +17,7 @@ export function interpolateTitle(
   if (!title) return title;
   return title.replace(PARAM_REGEX, (_match, name: string) => {
     const entry = parameters[name];
-    if (!entry || entry.value === null || entry.value === undefined)
+    if (!entry || isParamUnset(entry.value))
       return `[${humanizeParamName(name)}]`;
     return formatParameterValue(entry.value);
   });

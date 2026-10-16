@@ -63,6 +63,16 @@ describe("interpolateTitle", () => {
     ).toBe("Revenue in [Gallery region], 2024");
   });
 
+  it.each<[string, unknown, string]>([
+    ["an empty string", "", "Movies by [Genre]"],
+    ["an empty array", [], "Movies by [Genre]"],
+    ["zero", 0, "Movies by 0"],
+  ])("treats %s as the body does (#2214)", (_n, value, expected) => {
+    expect(
+      interpolateTitle("Movies by $param_genre", { genre: entry(value) }),
+    ).toBe(expected);
+  });
+
   it("formats numeric parameter values", () => {
     const params: Record<string, ParameterEntry> = { count: entry(42) };
     expect(interpolateTitle("Total: $param_count", params)).toBe("Total: 42");
