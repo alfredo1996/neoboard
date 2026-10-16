@@ -66,14 +66,15 @@ test.describe("Theme toggle", () => {
     await page.getByRole("button", { name: "Add Connection" }).click();
     const overlay = page.locator("[data-state='open'].fixed.inset-0.z-50");
     await expect(overlay).toBeVisible();
-    // Poll: the fade-in animates the colour towards its final value.
+    // Poll: the overlay may still be mounting. Alpha is checked too: a
+    // transparent overlay computes to rgba(0, 0, 0, 0), whose channels are dark.
     await expect
       .poll(async () => {
         const bg = await overlay.evaluate(
           (el) => getComputedStyle(el).backgroundColor,
         );
-        const c = (bg.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
-        return c.length === 3 && c.every((n) => n < 60);
+        const [r, g, b, a = 1] = (bg.match(/[\d.]+/g) ?? []).map(Number);
+        return [r, g, b].every((n) => n < 60) && a >= 0.3;
       })
       .toBe(true);
 

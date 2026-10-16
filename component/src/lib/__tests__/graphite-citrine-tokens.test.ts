@@ -317,10 +317,21 @@ describe("modal scrim (#2211)", () => {
     const offenders = readdirSync(dir)
       .filter((f) => f.endsWith(".tsx"))
       .filter((f) =>
-        /bg-\[hsl\(var\(--foreground\)/.test(
+        /bg-(\[hsl\(var\(--foreground\)|foreground\b)/.test(
           readFileSync(resolve(dir, f), "utf8"),
         ),
       );
     expect(offenders).toEqual([]);
   });
+
+  it.each(["dialog.tsx", "alert-dialog.tsx", "sheet.tsx"])(
+    "%s paints its backdrop from --scrim",
+    (f) => {
+      const src = readFileSync(
+        resolve(__dirname, "../../components/ui", f),
+        "utf8",
+      );
+      expect(src).toContain("bg-[var(--scrim)]");
+    },
+  );
 });
