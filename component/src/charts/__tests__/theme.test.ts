@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import {
   CITRINE_LIGHT,
   CITRINE_DARK,
+  HASTINGS_LIGHT,
+  HASTINGS_DARK,
   THEME_LIGHT,
   THEME_DARK,
   registerNeoboardThemes,
@@ -52,11 +54,11 @@ describe("chart theme", () => {
       expect(mockRegister).toHaveBeenCalledTimes(2);
       expect(mockRegister).toHaveBeenCalledWith(
         THEME_LIGHT,
-        expect.objectContaining({ color: CITRINE_LIGHT }),
+        expect.objectContaining({ color: HASTINGS_LIGHT }),
       );
       expect(mockRegister).toHaveBeenCalledWith(
         THEME_DARK,
-        expect.objectContaining({ color: CITRINE_DARK }),
+        expect.objectContaining({ color: HASTINGS_DARK }),
       );
     });
 

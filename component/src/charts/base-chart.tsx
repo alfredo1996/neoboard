@@ -26,8 +26,12 @@ import {
   THEME_LIGHT,
   THEME_DARK,
   CITRINE_LIGHT,
+  HASTINGS_LIGHT,
+  HASTINGS_DARK,
+  CHART_FONT_FAMILY,
 } from "./theme";
 import { getPaletteColors } from "./palettes";
+import { legendIsolateAction } from "./chart-utils";
 
 echarts.use([
   EBarChart,
@@ -74,11 +78,15 @@ function hslToComma(hslValues: string): string {
  * than reimplementing it (#1405).
  */
 export function resolveSeriesPalette(colorPalette?: string): string[] {
-  const paletteColors =
-    colorPalette && colorPalette !== "citrine"
+  // Citrine stays selectable and keeps the CSS-variable path (dark values).
+  if (colorPalette === "citrine") return resolveChartColors();
+  // Hastings (#2226) is the default: a widget that chose nothing, or an id no
+  // palette answers to, gets the hastings hues for the current theme.
+  const chosen =
+    colorPalette && colorPalette !== "hastings"
       ? getPaletteColors(colorPalette)
       : undefined;
-  return paletteColors ?? resolveChartColors();
+  return chosen ?? (isDarkMode() ? HASTINGS_DARK : HASTINGS_LIGHT);
 }
 
 function resolveChartColors(): string[] {
@@ -157,6 +165,30 @@ function useDarkMode(): boolean {
 }
 
 /**
+ * True once the chart face has loaded (#2226). Canvas text drawn before that
+ * paints in the fallback font and stays there, so the chart waits. A browser
+ * without the Font Loading API, or a face that fails to load, must not leave
+ * the chart blank: both count as ready.
+ */
+function useChartFontReady(): boolean {
+  const [ready, setReady] = useState(
+    () => typeof document === "undefined" || !document.fonts,
+  );
+  useEffect(() => {
+    if (ready) return;
+    let live = true;
+    const done = () => {
+      if (live) setReady(true);
+    };
+    document.fonts.load(`11px ${CHART_FONT_FAMILY}`).then(done, done);
+    return () => {
+      live = false;
+    };
+  }, [ready]);
+  return ready;
+}
+
+/**
  * Base chart wrapper that initializes ECharts, handles resizing,
  * theming, loading/error states, and event forwarding.
  */
@@ -176,6 +208,7 @@ function BaseChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const dark = useDarkMode();
+  const fontReady = useChartFontReady();
   // Surfaced when setOption() throws on malformed data (see the update effect).
   const [renderError, setRenderError] = useState<Error | null>(null);
 
@@ -208,7 +241,7 @@ function BaseChart({
   // Update options
   useEffect(() => {
     const instance = chartRef.current;
-    if (!instance || !options) return;
+    if (!instance || !options || !fontReady) return;
 
     // Resolve chart colors: a chosen palette is a static, light-only array, so
     // only non-default palettes take it — see resolveSeriesPalette.
@@ -219,6 +252,10 @@ function BaseChart({
     const merged: EChartsOption = {
       color: resolvedColors,
       ...options,
+      // The 200ms fade on first render is CSS on the wrapper below (#2226);
+      // ECharts' own grow-in and update tweens are off, so a refresh never
+      // animates.
+      animation: false,
       ...(enableDataZoom
         ? {
             dataZoom: [
@@ -260,6 +297,7 @@ function BaseChart({
     colorPalette,
     dark,
     ariaDescription,
+    fontReady,
   ]);
 
   // Loading state
@@ -290,10 +328,20 @@ function BaseChart({
     if (onDataZoom) {
       instance.on("dataZoom", onDataZoom);
     }
+    // Clicking a legend entry isolates it; clicking it again restores all.
+    instance.on("legendselectchanged", (params: unknown) => {
+      const { name, selected } = params as {
+        name: string;
+        selected: Record<string, boolean>;
+      };
+      const type = legendIsolateAction(selected, name);
+      if (type) instance.dispatchAction({ type });
+    });
 
     return () => {
       instance.off("click");
       instance.off("dataZoom");
+      instance.off("legendselectchanged");
     };
   }, [onClick, onDataZoom, dark]);
 
@@ -318,6 +366,9 @@ function BaseChart({
       <div
         ref={containerRef}
         className={cn(
+          // One 200ms fade when the chart mounts; the container outlives
+          // refreshes and theme re-inits, so they never replay it (#2226).
+          "animate-in fade-in-0 duration-200 motion-reduce:animate-none",
           "h-full w-full rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           className,
         )}

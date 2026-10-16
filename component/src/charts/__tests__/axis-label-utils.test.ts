@@ -8,14 +8,9 @@ describe("buildCategoryAxisLabel", () => {
     expect(result.formatter).toBeUndefined();
   });
 
-  it("rotates labels at 30° when categories >= 8", () => {
-    const result = buildCategoryAxisLabel(8);
-    expect(result.rotate).toBe(30);
-  });
-
-  it("rotates labels at 45° when categories >= 15", () => {
-    const result = buildCategoryAxisLabel(15);
-    expect(result.rotate).toBe(45);
+  it("never rotates on its own, however many categories (#2226)", () => {
+    expect(buildCategoryAxisLabel(8).rotate).toBe(0);
+    expect(buildCategoryAxisLabel(15).rotate).toBe(0);
   });
 
   it("truncates labels longer than 15 chars with ellipsis", () => {
@@ -67,16 +62,11 @@ describe("buildCategoryAxisLabel", () => {
   });
 
   it("normalizes -1 sentinel to automatic rotation", () => {
-    // -1 is the "automatic" sentinel from the UI; it should fall through
-    // to the category-count heuristic, not produce rotate: -1
-    const few = buildCategoryAxisLabel(5, { rotateOverride: -1 });
-    expect(few.rotate).toBe(0);
-
-    const medium = buildCategoryAxisLabel(10, { rotateOverride: -1 });
-    expect(medium.rotate).toBe(30);
-
-    const many = buildCategoryAxisLabel(20, { rotateOverride: -1 });
-    expect(many.rotate).toBe(45);
+    // -1 is the "automatic" sentinel from the UI; automatic no longer
+    // rotates (#2226), and it must not produce rotate: -1
+    for (const n of [5, 10, 20]) {
+      expect(buildCategoryAxisLabel(n, { rotateOverride: -1 }).rotate).toBe(0);
+    }
   });
 
   // #1420: a horizontal bar chart stacks its categories vertically, so the
@@ -126,7 +116,9 @@ describe("buildCategoryAxisLabel", () => {
     it("falls back to the default length before the width is measured", () => {
       const fmt = buildCategoryAxisLabel(10, { categoryAxis: "y" })
         .formatter as (value: string) => string;
-      expect(fmt("This is a very long label text")).toBe("This is a very\u2026");
+      expect(fmt("This is a very long label text")).toBe(
+        "This is a very\u2026",
+      );
     });
 
     it("leaves fewer than 8 names whole where they were whole before", () => {

@@ -163,7 +163,7 @@ export const appearanceOptions: ChartOptionDef[] = [
     // Must be a COLOR_PALETTES key: `options` below is built from it, and a
     // default that matches no item leaves the control empty on every chart
     // (#1520, when this still said `deep-ocean`).
-    default: "citrine",
+    default: "hastings",
     category: "Appearance",
     description: "Color scheme for chart series and data points.",
     options: Object.entries(COLOR_PALETTES).map(([k, v]) => ({

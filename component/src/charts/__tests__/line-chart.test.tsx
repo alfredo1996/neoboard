@@ -69,11 +69,11 @@ describe("LineChart", () => {
     expect(optionsCall.series[1].name).toBe("cost");
   });
 
-  it("defaults to smooth, fine 1.5px lines with a subtle area fill (#822)", () => {
+  it("defaults to unsmoothed, 2px lines with a subtle area fill (#822, #2226)", () => {
     render(<LineChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].smooth).toBe(true);
-    expect(optionsCall.series[0].lineStyle.width).toBe(1.5);
+    expect(optionsCall.series[0].smooth).toBe(false);
+    expect(optionsCall.series[0].lineStyle.width).toBe(2);
     expect(optionsCall.series[0].areaStyle).toBeDefined();
     expect(optionsCall.series[0].areaStyle.opacity).toBeLessThanOrEqual(0.15);
   });
@@ -192,9 +192,9 @@ describe("LineChart", () => {
       render(<LineChart data={[]} />);
       const colorOf = (i: number) =>
         mockSetOption.mock.calls[i][0].title.textStyle.color;
-      expect(colorOf(0)).toBe("#666d7a");
+      expect(colorOf(0)).toBe("#686E7A");
       toggleTo("dark");
-      expect(colorOf(mockSetOption.mock.calls.length - 1)).toBe("#959ba7");
+      expect(colorOf(mockSetOption.mock.calls.length - 1)).toBe("#959BA6");
     });
 
     it("still draws the line itself in dark mode", () => {
@@ -204,7 +204,7 @@ describe("LineChart", () => {
       render(<LineChart data={sampleData} area />);
       const series = mockSetOption.mock.calls[0][0].series[0];
       expect(series.type).toBe("line");
-      expect(series.lineStyle.width).toBe(1.5);
+      expect(series.lineStyle.width).toBe(2);
     });
   });
 
@@ -262,10 +262,10 @@ describe("LineChart", () => {
     expect(optionsCall.series[0].lineStyle.width).toBe(4);
   });
 
-  it("defaults line width to 1.5 (#822)", () => {
+  it("defaults line width to 2 (#2226)", () => {
     render(<LineChart data={sampleData} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].lineStyle.width).toBe(1.5);
+    expect(optionsCall.series[0].lineStyle.width).toBe(2);
   });
 
   it("shows grid lines by default", () => {
@@ -559,7 +559,7 @@ describe("LineChart", () => {
         <LineChart data={[{ x: "Jan", y: 1234.567 }]} decimalPlaces={-1} />,
       );
       const option = mockSetOption.mock.calls[0][0];
-      expect(option.tooltip.formatter(param)).toContain("1,234.567");
+      expect(option.tooltip.formatter(param)).toContain("1,234.57");
     });
   });
 });

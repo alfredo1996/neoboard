@@ -48,15 +48,24 @@ vi.mock("echarts/core", () => {
   return { use, init, registerTheme, default: { use, init, registerTheme } };
 });
 
+// Under 400px the label budget is 10 characters; with the width unknown (0) it
+// is 15. Rotation no longer depends on width (#2226), so the cut is the witness.
 const CONTAINER_WIDTH = 561;
-const WIDTH_BASED_ROTATION = 45; // 561 / 10 = 56.1 px per label
+const NARROW_WIDTH = 300;
+const WIDTH_BASED_CUT = "Category …";
 
-/** 10 categories — enough to make the two heuristics disagree. */
+/** 10 categories with labels past both budgets, so the two cuts disagree. */
 function makeData() {
   return Array.from({ length: 10 }, (_, i) => ({
-    label: `Category ${i}`,
+    label: `Category number ${i}`,
     value: (i + 1) * 10,
+    other: i,
   }));
+}
+
+/** What the settled axis does to the first label. */
+function cutFirstLabel() {
+  return latestOptions().xAxis.axisLabel.formatter("Category number 0");
 }
 
 /** The option handed to ECharts most recently — i.e. the settled state. */
@@ -99,21 +108,28 @@ afterAll(() => {
 });
 
 describe("BarChart container width (#1546)", () => {
-  it("settles on the width-based rotation, not the category-count fallback", () => {
-    render(<BarChart data={makeData()} />);
-    expect(latestOptions().xAxis.axisLabel.rotate).toBe(WIDTH_BASED_ROTATION);
+  beforeEach(() => {
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+      configurable: true,
+      value: NARROW_WIDTH,
+    });
   });
 
-  it("does not change the axis rotation when only the data identity changes", () => {
+  it("settles on the width-based label cut, not the unknown-width fallback", () => {
+    render(<BarChart data={makeData()} />);
+    expect(cutFirstLabel()).toBe(WIDTH_BASED_CUT);
+  });
+
+  it("does not change the axis labels when only the data identity changes", () => {
     const { rerender } = render(<BarChart data={makeData()} />);
-    const settled = latestOptions().xAxis.axisLabel.rotate;
+    const settled = cutFirstLabel();
 
     // Same content, new array identity — what every keystroke in the widget
     // editor produces upstream. Nothing the user can see has changed, so
     // nothing about the axis may change either.
     rerender(<BarChart data={makeData()} />);
 
-    expect(latestOptions().xAxis.axisLabel.rotate).toBe(settled);
+    expect(cutFirstLabel()).toBe(settled);
   });
 
   // The same latch, on another memo-read prop. legendPosition was the original
@@ -180,10 +196,10 @@ describe("BarChart horizontal category labels (#1420)", () => {
     expect(latestOptions().grid.outerBoundsContain).toBeUndefined();
   });
 
-  it("keeps the width-based rotation for the same data vertical (#337)", () => {
+  it("leaves the same data vertical unrotated too (#337, #2226)", () => {
     render(<BarChart data={actors} />);
-    expect(latestOptions().xAxis.axisLabel.rotate).toBe(WIDTH_BASED_ROTATION);
-    expect(latestOptions().xAxis.nameGap).toBe(50);
+    expect(latestOptions().xAxis.axisLabel.rotate).toBe(0);
+    expect(latestOptions().xAxis.nameGap).toBe(30);
   });
 
   it.each(["vertical", "horizontal"] as const)(

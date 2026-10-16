@@ -12,7 +12,7 @@ import {
   resolveItemColor,
   parseGaugeThresholdZones,
 } from "./chart-utils";
-import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
+import { HASTINGS_LIGHT, HASTINGS_DARK } from "./theme";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([EGaugeChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -107,11 +107,11 @@ function GaugeChart({
       hasCustomZones && normalizedValue !== undefined
         ? thresholdZones.find(([stop]) => normalizedValue <= stop)?.[1]
         : undefined;
-    // Default to the brand citrine accent (chart-1), not the stock ECharts blue.
+    // Default to the Hastings citrine (#2226), not the stock ECharts blue.
     const progressColor =
       resolvedColor ??
       thresholdColor ??
-      (dark ? CITRINE_DARK[0] : CITRINE_LIGHT[0]);
+      (dark ? HASTINGS_DARK[0] : HASTINGS_LIGHT[0]);
 
     // Track color — light gray that works in both themes
     const trackColor = hasCustomZones

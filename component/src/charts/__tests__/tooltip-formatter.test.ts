@@ -105,6 +105,7 @@ describe("buildTooltipFormatter", () => {
     expect(buildTooltipFormatter({ decimalPlaces: 2 })(param)).toContain(
       "<b>1,234.57</b>",
     );
-    expect(buildTooltipFormatter()(param)).toContain("<b>1,234.567</b>");
+    // Unset: up to 2 decimals (owner, 2026-10-16; #2226).
+    expect(buildTooltipFormatter()(param)).toContain("<b>1,234.57</b>");
   });
 });

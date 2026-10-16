@@ -319,8 +319,8 @@ describe("BarChart", () => {
         option.tooltip.formatter([
           { name: "a", seriesName: "v", value: 1234.567 },
         ]),
-      ).toContain("1,234.567");
-      expect(labelFormatter(option)?.({ value: 1234.567 })).toBe("1,234.567");
+      ).toContain("1,234.57"); // tooltip: up to 2 decimals (#2226)
+      expect(labelFormatter(option)?.({ value: 1234.567 })).toBe("1.23K"); // label: three figures
     });
 
     it("leaves a non-numeric label value alone instead of printing NaN", () => {
@@ -376,12 +376,12 @@ describe("BarChart", () => {
       expect(option.legend).toEqual({ type: "scroll", bottom: 0 });
     });
 
-    it("lets an explicit tick force a legend on for one series", () => {
+    it("keeps the legend hidden for one series even when ticked (#2226)", () => {
       const option = renderBarOptions({
         data: [{ label: "a", v: 1 }],
         showLegend: true,
       });
-      expect(option.legend).toEqual({ type: "scroll", bottom: 0 });
+      expect(option.legend).toBeUndefined();
     });
 
     it("reclaims the bottom grid room when no legend is drawn", () => {
@@ -466,5 +466,44 @@ describe("BarChart — raw-row passthrough (#1598)", () => {
     expect(opts.series.map((s: { name: string }) => s.name)).toEqual([
       "properties",
     ]);
+  });
+});
+
+describe("BarChart highlight and stacked tooltip (#2226)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("greys the bars of every category that is not highlighted", () => {
+    const opts = renderBarOptions({
+      data: sampleData,
+      highlighted: ["Product B"],
+    });
+    const [a, b, c] = opts.series[0].data;
+    expect(a.itemStyle.color).toBe("#C3C9D2");
+    expect(c.itemStyle.color).toBe("#C3C9D2");
+    // The highlighted bar keeps the palette colour (no override) and its value.
+    expect(b).toEqual({ name: "Product B", value: 200 });
+  });
+
+  it("leaves the bars alone when nothing is highlighted", () => {
+    const opts = renderBarOptions({ data: sampleData });
+    expect(opts.series[0].data).toEqual([100, 200, 150]);
+  });
+
+  it("adds a total row to a stacked tooltip, and not to a grouped one", () => {
+    const params = [
+      { name: "Q1", seriesName: "sales", value: 100 },
+      { name: "Q1", seriesName: "returns", value: 20 },
+    ];
+    const stacked = renderBarOptions({
+      data: stackedData,
+      stackMode: "stacked",
+    });
+    expect(stacked.tooltip.formatter(params)).toContain("Total: ");
+    expect(stacked.tooltip.formatter(params)).toContain("<b>120</b>");
+    vi.clearAllMocks();
+    const grouped = renderBarOptions({ data: stackedData });
+    expect(grouped.tooltip.formatter(params)).not.toContain("Total");
   });
 });

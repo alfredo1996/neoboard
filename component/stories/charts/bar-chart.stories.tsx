@@ -188,3 +188,18 @@ export const WithPalette: Story = {
     colorPalette: "tableau",
   },
 };
+
+/** The Hastings default (#2226): one series, so no legend even when ticked. */
+export const SingleSeriesLegendTicked: Story = {
+  args: { data: productData, showLegend: true },
+};
+
+/** The clicked category keeps its colour; the rest drop to soft grey. */
+export const Highlighted: Story = {
+  args: { data: productData, highlighted: ["Widget C"] },
+};
+
+/** A stacked tooltip gets a total row; a long category is cut, never rotated. */
+export const StackedHastings: Story = {
+  args: { data: stackedData, stackMode: "stacked" },
+};

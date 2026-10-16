@@ -169,14 +169,15 @@ function LineChart({
   data,
   xAxisLabel,
   yAxisLabel,
-  // v1.1 defaults (#822): smooth fine lines with a subtle area fill make
-  // charts look deliberately styled out of the box. Both opt-outable.
-  smooth = true,
+  // v1.1 defaults (#822): a subtle area fill makes
+  // charts look deliberately styled out of the box. Lines are unsmoothed
+  // unless the author asks (#2226).
+  smooth = false,
   area = true,
   showLegend,
   decimalPlaces,
   showPoints = false,
-  lineWidth = 1.5,
+  lineWidth = 2,
   showGridLines = true,
   stepped = false,
   connectNulls = false,

@@ -11,6 +11,7 @@ import {
   formatNumber,
   normalizeDecimalPlaces,
   escapeHtml,
+  highlight,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
@@ -48,6 +49,8 @@ export interface PieChartProps extends Omit<BaseChartProps, "options"> {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
+  /** Slice names kept in colour while the rest drop to grey (#2226). */
+  highlighted?: unknown[];
 }
 
 /**
@@ -72,6 +75,7 @@ function PieChart({
   donutCenterText,
   stylingRules,
   paramValues,
+  highlighted,
   ariaDescription,
   ...rest
 }: PieChartProps) {
@@ -96,10 +100,14 @@ function PieChart({
       : data;
     const sortedData = groupTopN(sorted, topN);
 
-    const coloredData = sortedData.map((d) => {
-      const color = resolveItemColor(d.value, stylingRules, paramValues);
-      return color ? { ...d, itemStyle: { color } } : d;
-    });
+    const coloredData = highlight(
+      sortedData.map((d) => {
+        const color = resolveItemColor(d.value, stylingRules, paramValues);
+        return color ? { ...d, itemStyle: { color } } : d;
+      }),
+      highlighted,
+      dark,
+    );
 
     // Numeric output goes through the shared formatter so the same value reads
     // identically in a chart label and a KPI card (#1248). ECharts' own {c}/{d}
@@ -110,9 +118,11 @@ function PieChart({
     // (#1581), so integers stay clean ("2,751") instead of gaining the
     // helper's 2dp default ("2,751.00").
     const dp = normalizeDecimalPlaces(decimalPlaces);
-    const fmtValue = (v: unknown) =>
+    // Slice labels read to three figures, the tooltip and the donut total in
+    // full (#2226); a chosen decimalPlaces wins in both.
+    const fmtValue = (v: unknown, context: "label" | "tooltip" = "tooltip") =>
       typeof v === "number"
-        ? formatNumber(v, { numberFormat: "comma", decimalPlaces: dp })
+        ? formatNumber(v, { context, decimalPlaces: dp })
         : "";
     const fmtPercent = (p: unknown) =>
       `${(typeof p === "number" ? p : 0).toFixed(1)}%`;
@@ -120,7 +130,7 @@ function PieChart({
     const labelFormatter = (p: PieLabelParams) =>
       showPercentage
         ? `${p.name}: ${fmtPercent(p.percent)}`
-        : `${p.name}: ${fmtValue(p.value)}`;
+        : `${p.name}: ${fmtValue(p.value, "label")}`;
 
     return {
       tooltip: {
@@ -231,6 +241,7 @@ function PieChart({
     donutCenterText,
     stylingRules,
     paramValues,
+    highlighted,
     compact,
     hideLegend,
     dark,

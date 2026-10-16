@@ -14,6 +14,7 @@ const mockOff = vi.fn();
 const mockShowLoading = vi.fn();
 const mockHideLoading = vi.fn();
 const mockClear = vi.fn();
+const mockDispatch = vi.fn();
 
 vi.mock("../palettes", async (importOriginal) => {
   const mod = await importOriginal<typeof import("../palettes")>();
@@ -32,6 +33,7 @@ vi.mock("echarts/core", () => {
     showLoading: mockShowLoading,
     hideLoading: mockHideLoading,
     clear: mockClear,
+    dispatchAction: mockDispatch,
   }));
   return { use, init, registerTheme, default: { use, init, registerTheme } };
 });
@@ -47,6 +49,18 @@ vi.mock("echarts/components", () => ({
   MarkLineComponent: vi.fn(),
   GraphicComponent: vi.fn(),
 }));
+
+// Hexes from the issue's "Chart theme" table, not from the code.
+const HASTINGS_LIGHT_HEXES = [
+  "#C47C08",
+  "#5B7290",
+  "#5E8C6A",
+  "#B4674A",
+  "#8A6A8F",
+  "#4E8A8C",
+  "#A89060",
+  "#8A93A3",
+];
 
 describe("BaseChart", () => {
   beforeEach(() => {
@@ -140,7 +154,7 @@ describe("BaseChart", () => {
     render(<BaseChart options={{ title: { text: "Test" } }} />);
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
+        color: HASTINGS_LIGHT_HEXES,
       }),
       { notMerge: true },
     );
@@ -183,10 +197,10 @@ describe("BaseChart", () => {
 
   it("uses default palette colors when no colorPalette is specified", () => {
     render(<BaseChart options={{ title: { text: "Test" } }} />);
-    // Default uses resolveChartColors() which falls back to CITRINE_LIGHT
+    // The default is the hastings palette (#2226), in order
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
+        color: HASTINGS_LIGHT_HEXES,
       }),
       { notMerge: true },
     );
@@ -194,7 +208,7 @@ describe("BaseChart", () => {
 
   it("falls back to the theme colours for a palette id it does not know", () => {
     // No alias layer any more (#1684): a pre-#821 id like "deep-ocean" is
-    // simply unknown, and unknown ids land on the CSS-variable path.
+    // simply unknown, and unknown ids land on the default palette.
     render(
       <BaseChart
         options={{ title: { text: "Test" } }}
@@ -205,7 +219,7 @@ describe("BaseChart", () => {
     expect(vi.mocked(getPaletteColors)).toHaveReturnedWith(undefined);
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
+        color: HASTINGS_LIGHT_HEXES,
       }),
       { notMerge: true },
     );
@@ -252,10 +266,10 @@ describe("BaseChart", () => {
 
   it("falls back to default colors when an unknown colorPalette is provided", () => {
     render(<BaseChart options={{}} colorPalette="does-not-exist" />);
-    // getPaletteColors returns undefined for unknown IDs → falls back to resolveChartColors
+    // getPaletteColors returns undefined for unknown IDs → falls back to hastings
     expect(mockSetOption).toHaveBeenCalledWith(
       expect.objectContaining({
-        color: expect.arrayContaining(["hsl(38, 95%, 55%)"]),
+        color: HASTINGS_LIGHT_HEXES,
       }),
       { notMerge: true },
     );
@@ -329,6 +343,65 @@ describe("BaseChart", () => {
       });
 
       expect(themeOf(init.mock.calls.at(-1))).toBe("neoboard-dark");
+    });
+  });
+
+  describe("hastings behaviour (#2226)", () => {
+    afterEach(() => {
+      Reflect.deleteProperty(document, "fonts");
+    });
+
+    it("draws nothing until IBM Plex Sans has loaded, then draws", async () => {
+      let loaded!: () => void;
+      Object.defineProperty(document, "fonts", {
+        configurable: true,
+        value: {
+          load: vi.fn(() => new Promise<void>((r) => (loaded = r))),
+        },
+      });
+      render(<BaseChart options={{ title: { text: "x" } }} />);
+      expect(mockSetOption).not.toHaveBeenCalled();
+
+      await act(async () => loaded());
+      expect(mockSetOption).toHaveBeenCalledTimes(1);
+    });
+
+    it("still draws when the face fails to load", async () => {
+      Object.defineProperty(document, "fonts", {
+        configurable: true,
+        value: { load: vi.fn(() => Promise.reject(new Error("no face"))) },
+      });
+      render(<BaseChart options={{}} />);
+      await act(async () => {});
+      expect(mockSetOption).toHaveBeenCalledTimes(1);
+    });
+
+    it("turns ECharts' own animation off so a refresh never animates", () => {
+      render(<BaseChart options={{ animation: true }} />);
+      expect(mockSetOption.mock.calls[0][0].animation).toBe(false);
+    });
+
+    it("fades the container in once, and not under reduced motion", () => {
+      render(<BaseChart options={{}} />);
+      const cls = screen.getByTestId("base-chart").className;
+      expect(cls).toContain("fade-in-0");
+      expect(cls).toContain("duration-200");
+      expect(cls).toContain("motion-reduce:animate-none");
+    });
+
+    it("clicking a legend entry isolates it, and again restores all", () => {
+      render(<BaseChart options={{}} />);
+      const handler = mockOn.mock.calls.find(
+        (c) => c[0] === "legendselectchanged",
+      )![1];
+      handler({ name: "a", selected: { a: false, b: true, c: true } });
+      expect(mockDispatch).toHaveBeenLastCalledWith({
+        type: "legendInverseSelect",
+      });
+      handler({ name: "a", selected: { a: false, b: false, c: false } });
+      expect(mockDispatch).toHaveBeenLastCalledWith({
+        type: "legendAllSelect",
+      });
     });
   });
 });

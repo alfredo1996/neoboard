@@ -264,7 +264,7 @@ describe("TreemapChart", () => {
     it("formats the value on the tile when showValues is on", () => {
       const series = renderSeries({ data: sampleData, showValues: true });
       expect(series.label.formatter({ name: "A", value: 1234.5 })).toBe(
-        "A: 1,234.5",
+        "A: 1.23K",
       );
     });
 

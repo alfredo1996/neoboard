@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { EChartsOption } from "echarts";
-import { BaseChart } from "./base-chart";
+import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps, BarChartDataPoint } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
@@ -17,6 +17,7 @@ import {
   normalizeDecimalPlaces,
   buildCategoryAxisLabel,
   parseReferenceLines,
+  highlight,
   buildMarkLineFromRefs,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
@@ -54,6 +55,8 @@ export interface BarChartProps extends Omit<BaseChartProps, "options"> {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
+  /** Category labels kept in colour while the rest drop to grey (#2226). */
+  highlighted?: unknown[];
 }
 
 /**
@@ -81,6 +84,7 @@ function BarChart({
   referenceLines: referenceLinesJson,
   stylingRules,
   paramValues,
+  highlighted,
   ariaDescription,
   ...rest
 }: BarChartProps) {
@@ -89,6 +93,11 @@ function BarChart({
 
   const isPercent = stackMode === "percent";
   const isStacked = stackMode === "stacked" || isPercent;
+  const dark = useDarkMode();
+  const selectedNames = useMemo(
+    () => (highlighted ?? []).map(String),
+    [highlighted],
+  );
 
   const options = useMemo((): EChartsOption => {
     // ponytail: no empty-data branch here. BarChart renders a DOM empty state
@@ -160,7 +169,7 @@ function BarChart({
       if (typeof p.value !== "number") return String(p.value ?? "");
       return isPercent
         ? p.value.toFixed(1)
-        : formatNumber(p.value, { numberFormat: "comma", decimalPlaces: dp });
+        : formatNumber(p.value, { context: "label", decimalPlaces: dp });
     };
 
     return {
@@ -169,7 +178,7 @@ function BarChart({
         axisPointer: { type: "shadow" as const },
         formatter: isPercent
           ? buildPercentTooltipFormatter(seriesKeys, data)
-          : buildTooltipFormatter({ decimalPlaces: dp }),
+          : buildTooltipFormatter({ decimalPlaces: dp }, { total: isStacked }),
       },
       legend: buildLegend(effectiveShowLegend),
       grid: isHorizontal
@@ -208,6 +217,16 @@ function BarChart({
           // coercing here handed the rule engine a zero for every missing
           // cell and `is_null` could never fire (#1655).
           const color = resolveItemColor(rawValue, stylingRules, paramValues);
+          if (selectedNames.length) {
+            // Highlight (#2226): the clicked category keeps its colour, the
+            // others drop to grey. Keyed by the category label.
+            const point = {
+              name: String(d.label),
+              value: displayValue,
+              ...(color ? { itemStyle: { color } } : {}),
+            };
+            return highlight([point], selectedNames, dark)[0];
+          }
           return color
             ? { value: displayValue, itemStyle: { color } }
             : displayValue;
@@ -244,6 +263,8 @@ function BarChart({
     referenceLinesJson,
     stylingRules,
     paramValues,
+    selectedNames,
+    dark,
     compact,
     hideLegend,
     // #1546: `width` is read via buildCategoryAxisLabel. Omitting it latched

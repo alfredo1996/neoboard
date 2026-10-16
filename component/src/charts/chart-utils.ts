@@ -3,6 +3,7 @@ import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import type { PieChartDataPoint } from "./types";
 import { formatNumericCell, isNumericCell } from "../lib/numeric-cell";
+import { formatAxisCompact, HIGHLIGHT_SOFT } from "./theme";
 
 // ---------------------------------------------------------------------------
 // Number formatting
@@ -10,7 +11,16 @@ import { formatNumericCell, isNumericCell } from "../lib/numeric-cell";
 
 export type NumberFormat = "plain" | "comma" | "compact" | "percent";
 
+/**
+ * Where a number is read (#2226). With no author format, each context has its
+ * own default: axis compact ("879K"), tooltip in full up to 2 decimals
+ * ("879,282.72"), label compact to three figures. No context keeps the #911
+ * default (comma, 2 decimals), which tables and KPI cards rely on.
+ */
+export type NumberContext = "axis" | "tooltip" | "label";
+
 export interface NumberFormatConfig {
+  context?: NumberContext;
   numberFormat?: NumberFormat;
   decimalPlaces?: number;
   prefix?: string;
@@ -68,17 +78,52 @@ export function formatDateTime(ms: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function formatNumber(
+/** "1,500.00" -> "1,500", "1,500.10" -> "1,500.1". Plain grouped decimals only. */
+function dropTrailingZeros(formatted: string): string {
+  return /^-?[\d,]+\.\d+$/.test(formatted)
+    ? formatted.replace(/\.?0+$/, "")
+    : formatted;
+}
+
+/** The number a context shows when the author set no format. */
+function formatContextDefault(
   value: number | string,
+  context: NumberContext,
+): string {
+  switch (context) {
+    case "axis":
+      return formatAxisCompact(Number(value));
+    case "label":
+      return Intl.NumberFormat("en", {
+        notation: "compact",
+        maximumSignificantDigits: 3,
+      }).format(Number(value));
+    default:
+      return dropTrailingZeros(
+        formatNumericCell(value, { numberFormat: "comma", decimalPlaces: 2 }),
+      );
+  }
+}
+
+export function formatNumber(
+  value: number | string | null | undefined,
   config: NumberFormatConfig = {},
 ): string {
+  if (value === null || value === undefined) return "—";
   if (!isNumericCell(value)) return String(value);
 
   const bothUnset =
     config.numberFormat === undefined && config.decimalPlaces === undefined;
 
+  if (config.context && bothUnset) {
+    const { prefix = "", suffix = "" } = config;
+    return `${prefix}${formatContextDefault(value, config.context)}${suffix}`;
+  }
+
   const {
-    numberFormat = bothUnset ? "comma" : "plain",
+    // In a context an author's precision keeps the separators; with no
+    // context it stays the #911 plain number.
+    numberFormat = bothUnset || config.context ? "comma" : "plain",
     decimalPlaces = bothUnset ? 2 : undefined,
     prefix = "",
     suffix = "",
@@ -126,7 +171,7 @@ export function formatNumber(
               minimumFractionDigits: decimalPlaces,
               maximumFractionDigits: decimalPlaces,
             }
-          : { maximumFractionDigits: 2 }),
+          : { maximumFractionDigits: config.context ? 1 : 2 }),
       }).format(asDouble);
       break;
     default:
@@ -318,20 +363,23 @@ export interface TooltipParam {
  */
 export function buildTooltipFormatter(
   config: NumberFormatConfig = {},
+  options: { total?: boolean } = {},
 ): (params: unknown) => string {
-  // Tooltip always uses comma format for readability unless explicitly set
-  const tooltipConfig: NumberFormatConfig = {
-    numberFormat: "comma",
-    ...config,
-  };
+  // Full figures with separators (#2226); the author's format, if any, wins.
+  const tooltipConfig: NumberFormatConfig = { context: "tooltip", ...config };
+  // Values sit flush right so a column of figures lines up.
+  const row = (left: string, val: string) =>
+    `${left}<span style="float:right;margin-left:16px"><b>${val}</b></span>`;
 
   return (params: unknown) => {
     const items = Array.isArray(params)
       ? (params as TooltipParam[])
       : [params as TooltipParam];
     const header = escapeHtml(String(items[0]?.name ?? ""));
+    let total = 0;
     const lines = items.map((p) => {
       const raw = Array.isArray(p.value) ? p.value[1] : p.value;
+      if (typeof raw === "number" && Number.isFinite(raw)) total += raw;
       const val =
         typeof raw === "number"
           ? escapeHtml(formatNumber(raw, tooltipConfig))
@@ -339,8 +387,13 @@ export function buildTooltipFormatter(
       const label = p.seriesName ? `${escapeHtml(p.seriesName)}: ` : "";
       // marker is ECharts-generated HTML (colored dot) — safe to pass through
       const marker = typeof p.marker === "string" ? p.marker : "";
-      return `${marker} ${label}<b>${val}</b>`;
+      return row(`${marker} ${label}`, val);
     });
+    if (options.total && items.length > 1) {
+      lines.push(
+        row("Total: ", escapeHtml(formatNumber(total, tooltipConfig))),
+      );
+    }
     return header
       ? `${header}<br/>${lines.join("<br/>")}`
       : lines.join("<br/>");
@@ -402,13 +455,15 @@ export interface CategoryAxisLabelConfig {
   show: boolean;
   rotate: number;
   formatter?: (value: string) => string;
+  /** Skip the labels that would collide instead of rotating them. */
+  hideOverlap: boolean;
   tooltip: { show: boolean };
 }
 
 /**
  * Compute axis label rotation and truncation based on category count.
- * - 8+ categories: rotate 30°
- * - 15+ categories: rotate 45°
+ * - Automatic never rotates (#2226); an explicit `rotateOverride` does
+ * - A crowded axis skips labels that would overlap
  * - Labels longer than maxLabelLength are truncated with ellipsis (U+2026)
  * - ECharts axisPointer tooltip shows the full text on hover
  * - Category labels are never hidden: a compact container drops the value
@@ -427,31 +482,10 @@ export function buildCategoryAxisLabel(
   const rotateOverride =
     options.rotateOverride === -1 ? undefined : options.rotateOverride;
 
-  let rotate: number;
-  if (rotateOverride !== undefined) {
-    rotate = rotateOverride;
-  } else if (categoryAxis === "y") {
-    rotate = 0;
-  } else if (containerWidth && categoryCount > 0) {
-    // Width-aware rotation: compute available space per label.
-    // Rough budget: label width ≈ maxLabelLength * 7px at 12px font.
-    const pixelsPerLabel = containerWidth / categoryCount;
-    if (pixelsPerLabel < 40) {
-      rotate = 60;
-    } else if (pixelsPerLabel < 70) {
-      rotate = 45;
-    } else if (pixelsPerLabel < 100) {
-      rotate = 30;
-    } else {
-      rotate = 0;
-    }
-  } else if (categoryCount >= 15) {
-    rotate = 45;
-  } else if (categoryCount >= 8) {
-    rotate = 30;
-  } else {
-    rotate = 0;
-  }
+  // Automatic never rotates (#2226): a long category is cut with "…" and a
+  // crowded axis skips labels (hideOverlap below). Only an angle the author
+  // picked rotates.
+  const rotate = rotateOverride ?? 0;
 
   // Width-aware truncation: tighter limit in narrow containers. A compact
   // container is by definition under 400px, so it already gets the tight
@@ -484,6 +518,7 @@ export function buildCategoryAxisLabel(
     show: true,
     rotate,
     formatter,
+    hideOverlap: true,
     tooltip: { show: true },
   };
 }
@@ -601,7 +636,7 @@ export function fadeToTransparent(color: string): string {
  * Build the "No data" option with a theme-aware text color.
  *
  * Matches the exact --muted-foreground hex the registered ECharts themes use
- * for axis/legend text (#666d7a light, #959ba7 dark) so the empty message
+ * for axis/legend text (#686E7A light, #959BA6 dark) so the empty message
  * reads as the same muted tone as the rest of the chart, not an ad-hoc gray.
  *
  * `dark` is a required argument, not a DOM read. This used to call an isDark()
@@ -616,7 +651,7 @@ export function buildEmptyDataOption(dark: boolean): EChartsOption {
       text: "No data",
       left: "center",
       top: "center",
-      textStyle: { color: dark ? "#959ba7" : "#666d7a", fontSize: 14 },
+      textStyle: { color: dark ? "#959BA6" : "#686E7A", fontSize: 14 },
     },
   };
 }
@@ -700,8 +735,54 @@ export function resolveShowLegend(
   seriesCount: number,
   hideLegend: boolean,
 ): boolean {
-  const autoShow = showLegend ?? seriesCount > 1;
+  // A single series has nothing to tell apart, so the legend stays hidden even
+  // when the author switched it on (owner, 2026-10-15; #2226).
+  const autoShow = (showLegend ?? true) && seriesCount > 1;
   return hideLegend ? false : autoShow;
+}
+
+/**
+ * Clicking a legend entry isolates it; clicking it again restores all
+ * (#2226). `selected` is the map ECharts sends with `legendselectchanged`,
+ * after it has toggled `name`. Returns the action to dispatch next, if any.
+ */
+export function legendIsolateAction(
+  selected: Record<string, boolean>,
+  name: string,
+): "legendInverseSelect" | "legendAllSelect" | null {
+  if (selected[name] !== false) return null;
+  const entries = Object.values(selected);
+  const on = entries.filter(Boolean).length;
+  if (on === 0) return "legendAllSelect";
+  return on === entries.length - 1 ? "legendInverseSelect" : null;
+}
+
+export interface HighlightDatum {
+  name?: unknown;
+  itemStyle?: { color?: string };
+}
+
+/**
+ * Highlight rule (#2226): a clicked or filtered value keeps its colour, the
+ * rest drop to soft grey. A datum with no `itemStyle.color` of its own keeps
+ * the palette colour, which is what "untouched" means for the selected one.
+ * Nothing selected leaves the data as it is. Returns new objects.
+ */
+export function highlight<T extends HighlightDatum>(
+  series: T[],
+  selected: unknown[] | undefined,
+  dark: boolean,
+): T[] {
+  if (!selected?.length) return series;
+  const keep = new Set(selected);
+  const soft = dark ? HIGHLIGHT_SOFT.dark : HIGHLIGHT_SOFT.light;
+  return series.map(
+    (d) =>
+      keep.has(d.name)
+        ? d
+        : { ...d, itemStyle: { ...d.itemStyle, color: soft } },
+    // ponytail: the spread keeps every other field of T, so the cast is safe
+  );
 }
 
 /**

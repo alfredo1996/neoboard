@@ -29,6 +29,46 @@ export interface PluginProps {
 }
 
 /**
+ * The values this widget's own click action has set on its parameter, so the
+ * chart can keep them in colour and grey the rest (#2226); undefined when it
+ * has no such action or the parameter is unset. Only the widget's own action
+ * is read: a filter set from another widget is not a selection here.
+ */
+export function selectedByClickAction(
+  settings: Record<string, unknown>,
+  paramValues: Record<string, unknown> | undefined,
+): unknown[] | undefined {
+  const action = settings.clickAction as
+    | {
+        type?: string;
+        parameterMapping?: { parameterName?: string };
+      }
+    | undefined;
+  if (
+    action?.type !== "set-parameter" &&
+    action?.type !== "set-parameter-and-navigate"
+  )
+    return undefined;
+  const name = action.parameterMapping?.parameterName;
+  const value = name ? paramValues?.[name] : undefined;
+  const values = (Array.isArray(value) ? value : [value]).filter(
+    (v) => v !== undefined && v !== null && v !== "",
+  );
+  return values.length ? values : undefined;
+}
+
+/** `selectedByClickAction` with a stable identity while the values are equal. */
+export function useSelectedByClickAction(
+  settings: Record<string, unknown>,
+  paramValues: Record<string, unknown> | undefined,
+): unknown[] | undefined {
+  const selected = selectedByClickAction(settings, paramValues);
+  const key = JSON.stringify(selected ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the value
+  return useMemo(() => selected, [key]);
+}
+
+/**
  * Creates an ECharts-compatible onClick handler from the plugin's
  * raw `onChartClick` callback. Enriches the ECharts event with the
  * original data row so column-name source fields resolve correctly.
