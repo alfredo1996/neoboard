@@ -312,14 +312,19 @@ describe("modal scrim (#2211)", () => {
     expect(lightness(tokenValue(theme, "--scrim"))).toBeLessThanOrEqual(10);
   });
 
-  it("no ui component paints a backdrop from --foreground", () => {
+  // Scoped to backdrop class strings (the full-viewport `fixed inset-0`
+  // layer), so a non-overlay control may still use bg-foreground.
+  it("no ui backdrop is painted from --foreground", () => {
     const dir = resolve(__dirname, "../../components/ui");
     const offenders = readdirSync(dir)
       .filter((f) => f.endsWith(".tsx"))
       .filter((f) =>
-        /bg-(\[hsl\(var\(--foreground\)|foreground\b)/.test(
-          readFileSync(resolve(dir, f), "utf8"),
-        ),
+        readFileSync(resolve(dir, f), "utf8")
+          .split("\n")
+          .filter((line) => line.includes("fixed inset-0"))
+          .some((line) =>
+            /bg-(\[hsl\(var\(--foreground\)|foreground\b)/.test(line),
+          ),
       );
     expect(offenders).toEqual([]);
   });
