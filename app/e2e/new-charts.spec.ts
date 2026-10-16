@@ -624,3 +624,48 @@ test.describe("Demo showcases hide radar", () => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Parameter labels read as words, not the raw key in capitals (#2213)
+// ---------------------------------------------------------------------------
+
+test.describe("Parameter selector label", () => {
+  test("Chart Gallery shows 'Gallery region', not the raw key", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const payload = JSON.parse(
+      fs.readFileSync(
+        path.resolve(__dirname, "../../scripts/demo/chart-gallery.json"),
+        "utf-8",
+      ),
+    );
+    const res = await page.request.post("/api/dashboards/import", {
+      data: {
+        payload,
+        skippedConnections: Object.keys(payload.connections),
+      },
+    });
+    expect(res.status()).toBe(201);
+    const id = (await res.json()).data.id as string;
+
+    try {
+      await page.goto(`/${id}`);
+      await page.getByRole("tab", { name: "10. Parameter Select" }).click();
+      await expect(
+        page.getByText("Gallery region", { exact: true }).first(),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByText("gallery_region", { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByText("GALLERY_REGION", { exact: true }),
+      ).toHaveCount(0);
+    } finally {
+      await page.request.delete(`/api/dashboards/${id}`);
+    }
+  });
+});

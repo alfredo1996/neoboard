@@ -259,7 +259,7 @@ test.describe("Parameter-to-refresh cycle", () => {
     await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The parameter-select widget should render a dropdown with "year" label
-    await expect(page.getByText("year", { exact: true })).toBeVisible({
+    await expect(page.getByText("Year", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
 
@@ -908,7 +908,7 @@ for (const [where, selectorPage] of [
       });
       // #2159: the trigger shows the linked value its seed never loaded.
       if (selectorPage === 0) {
-        await expect(page.getByRole("combobox", { name: "year" })).toHaveText(
+        await expect(page.getByRole("combobox", { name: "Year" })).toHaveText(
           "1999",
         );
       }
@@ -1827,7 +1827,7 @@ test.describe("Cascading-select parameter widget", () => {
       await expect(page.getByText("Select test_director first…")).toBeVisible();
 
       // The "depends on" label should be visible
-      await expect(page.getByText("depends on test_director")).toBeVisible();
+      await expect(page.getByText("depends on Test director")).toBeVisible();
 
       // Select a director from the parent dropdown
       await page.getByText("Select a value…").first().click();

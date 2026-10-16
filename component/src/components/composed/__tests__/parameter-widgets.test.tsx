@@ -27,7 +27,7 @@ describe("TextInputParameter", () => {
     render(
       <TextInputParameter parameterName="city" value="" onChange={vi.fn()} />,
     );
-    expect(screen.getByText("city")).toBeInTheDocument();
+    expect(screen.getByText("City")).toBeInTheDocument();
   });
 
   it("renders the current value in the input", () => {
@@ -128,7 +128,7 @@ describe("ParamSelector", () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByText("dbType")).toBeInTheDocument();
+    expect(screen.getByText("Db type")).toBeInTheDocument();
   });
 
   it("shows loading skeletons when loading=true", () => {
@@ -273,7 +273,7 @@ describe("ParamMultiSelector", () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByText("tags")).toBeInTheDocument();
+    expect(screen.getByText("Tags")).toBeInTheDocument();
   });
 
   it("shows placeholder when no values selected", () => {
@@ -444,7 +444,7 @@ describe("DatePickerParameter", () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByText("eventDate")).toBeInTheDocument();
+    expect(screen.getByText("Event date")).toBeInTheDocument();
   });
 
   it("shows placeholder when no date selected", () => {
@@ -527,7 +527,7 @@ describe("DatePickerParameter", () => {
       />,
     );
     // The Radix Popover trigger is labeled by aria-labelledby → "eventDate" label
-    const triggerBtn = screen.getByRole("button", { name: "eventDate" });
+    const triggerBtn = screen.getByRole("button", { name: "Event date" });
     fireEvent.click(triggerBtn);
     // After opening, a calendar grid should appear
     expect(screen.getByRole("grid")).toBeInTheDocument();
@@ -543,7 +543,7 @@ describe("DatePickerParameter", () => {
       />,
     );
     // Open the calendar
-    fireEvent.click(screen.getByRole("button", { name: "eventDate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Event date" }));
 
     // react-day-picker renders day buttons with a data-day attribute (date string).
     // The shadcn CalendarDayButton sets data-day={day.date.toLocaleDateString()}.
@@ -571,7 +571,7 @@ describe("DateRangeParameter", () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByText("period")).toBeInTheDocument();
+    expect(screen.getByText("Period")).toBeInTheDocument();
   });
 
   it("shows placeholder when no range is selected", () => {
@@ -688,7 +688,7 @@ describe("DateRangeParameter", () => {
       />,
     );
     // Radix Popover trigger is labeled by aria-labelledby → "period" label
-    const triggerBtn = screen.getByRole("button", { name: "period" });
+    const triggerBtn = screen.getByRole("button", { name: "Period" });
     fireEvent.click(triggerBtn);
     expect(screen.getByText("Today")).toBeInTheDocument();
     expect(screen.getByText("Last 7 days")).toBeInTheDocument();
@@ -709,7 +709,7 @@ describe("DateRangeParameter", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "period" }));
+    fireEvent.click(screen.getByRole("button", { name: "Period" }));
     fireEvent.click(screen.getByText("Today"));
     expect(onChange).toHaveBeenCalledWith("2024-06-15", "2024-06-15");
     vi.useRealTimers();
@@ -727,7 +727,7 @@ describe("DateRangeParameter", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "period" }));
+    fireEvent.click(screen.getByRole("button", { name: "Period" }));
     fireEvent.click(screen.getByText("Last 7 days"));
     expect(onChange).toHaveBeenCalledWith("2024-06-09", "2024-06-15");
     vi.useRealTimers();
@@ -745,7 +745,7 @@ describe("DateRangeParameter", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "period" }));
+    fireEvent.click(screen.getByRole("button", { name: "Period" }));
     fireEvent.click(screen.getByText("Last 30 days"));
     expect(onChange).toHaveBeenCalledWith("2024-05-17", "2024-06-15");
     vi.useRealTimers();
@@ -763,7 +763,7 @@ describe("DateRangeParameter", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "period" }));
+    fireEvent.click(screen.getByRole("button", { name: "Period" }));
     fireEvent.click(screen.getByText("This month"));
     expect(onChange).toHaveBeenCalledWith("2024-06-01", "2024-06-30");
     vi.useRealTimers();
@@ -781,7 +781,7 @@ describe("DateRangeParameter", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "period" }));
+    fireEvent.click(screen.getByRole("button", { name: "Period" }));
     fireEvent.click(screen.getByText("This year"));
     expect(onChange).toHaveBeenCalledWith("2024-01-01", "2024-12-31");
     vi.useRealTimers();
@@ -795,7 +795,7 @@ describe("DateRelativePicker", () => {
     render(
       <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />,
     );
-    expect(screen.getByText("window")).toBeInTheDocument();
+    expect(screen.getByText("Window")).toBeInTheDocument();
   });
 
   it("renders all preset buttons", () => {
@@ -980,7 +980,7 @@ describe("NumberRangeSlider", () => {
         onClear={vi.fn()}
       />,
     );
-    expect(screen.getByText("price")).toBeInTheDocument();
+    expect(screen.getByText("Price")).toBeInTheDocument();
   });
 
   it("displays the min and max bounds as tick labels", () => {
@@ -1242,7 +1242,7 @@ describe("ParamSelector — cascading props (migrated from CascadingSelector)", 
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByText("subCategory")).toBeInTheDocument();
+    expect(screen.getByText("Sub category")).toBeInTheDocument();
   });
 
   it("shows dependency hint when parentParameterName is provided", () => {
@@ -1456,7 +1456,7 @@ describe("ParamMultiSelector — cascading props", () => {
     );
     // The hint must not leak into the accessible name, or "cities" and a
     // sibling "country" control stop being distinguishable by name.
-    const trigger = screen.getByRole("combobox", { name: "cities" });
+    const trigger = screen.getByRole("combobox", { name: "Cities" });
     expect(trigger).toHaveAccessibleDescription(/depends on country/i);
   });
 
@@ -1551,7 +1551,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "TextInputParameter",
       (p) => (
         <TextInputParameter
-          parameterName="rf1_category"
+          parameterName="gallery_region"
           value=""
           onChange={noop}
           {...p}
@@ -1562,7 +1562,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "ParamSelector",
       (p) => (
         <ParamSelector
-          parameterName="rf1_category"
+          parameterName="gallery_region"
           options={[]}
           value=""
           onChange={noop}
@@ -1574,7 +1574,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "ParamSelector (searchable)",
       (p) => (
         <ParamSelector
-          parameterName="rf1_category"
+          parameterName="gallery_region"
           options={[]}
           value=""
           onChange={noop}
@@ -1587,7 +1587,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "ParamMultiSelector",
       (p) => (
         <ParamMultiSelector
-          parameterName="rf1_category"
+          parameterName="gallery_region"
           options={[]}
           values={[]}
           onChange={noop}
@@ -1599,7 +1599,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "DatePickerParameter",
       (p) => (
         <DatePickerParameter
-          parameterName="rf1_category"
+          parameterName="gallery_region"
           value=""
           onChange={noop}
           {...p}
@@ -1610,7 +1610,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "DateRangeParameter",
       (p) => (
         <DateRangeParameter
-          parameterName="rf1_category"
+          parameterName="gallery_region"
           from=""
           to=""
           onChange={noop}
@@ -1622,7 +1622,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "DateRelativePicker",
       (p) => (
         <DateRelativePicker
-          parameterName="rf1_category"
+          parameterName="gallery_region"
           value=""
           onChange={noop}
           {...p}
@@ -1633,7 +1633,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "NumberRangeSlider",
       (p) => (
         <NumberRangeSlider
-          parameterName="rf1_category"
+          parameterName="gallery_region"
           min={1}
           max={5}
           value={null}
@@ -1648,15 +1648,25 @@ describe("parameter widgets with an external label (#1410)", () => {
   it.each(cases)("%s renders its own label by default", (_name, make) => {
     const { container } = render(make({} as typeof external));
     expect(container.querySelectorAll("label")).toHaveLength(1);
-    expect(screen.getByText("rf1_category")).toBeInTheDocument();
+    expect(screen.getByText("Gallery region")).toBeInTheDocument();
   });
+
+  it.each(cases)(
+    "%s labels itself in sentence case, not the raw key in capitals (#2213)",
+    (_name, make) => {
+      const { container } = render(make({} as typeof external));
+      const label = container.querySelector("label")!;
+      expect(label).toHaveTextContent(/^Gallery region$/);
+      expect(label.className).not.toContain("uppercase");
+    },
+  );
 
   it.each(cases)(
     "%s renders no label and no parameter name when labelled externally",
     (_name, make) => {
       const { container } = render(make(external));
       expect(container.querySelectorAll("label")).toHaveLength(0);
-      expect(screen.queryByText("rf1_category")).toBeNull();
+      expect(screen.queryByText("Gallery region")).toBeNull();
     },
   );
 
@@ -1725,7 +1735,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "TextInputParameter",
       <TextInputParameter
         key="t"
-        parameterName="rf1_category"
+        parameterName="gallery_region"
         value="x"
         onChange={noop}
         {...external}
@@ -1735,7 +1745,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "ParamSelector",
       <ParamSelector
         key="s"
-        parameterName="rf1_category"
+        parameterName="gallery_region"
         options={[{ value: "a", label: "a" }]}
         value="a"
         onChange={noop}
@@ -1746,7 +1756,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "DatePickerParameter",
       <DatePickerParameter
         key="d"
-        parameterName="rf1_category"
+        parameterName="gallery_region"
         value="2026-01-01"
         onChange={noop}
         {...external}
@@ -1756,7 +1766,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "DateRangeParameter",
       <DateRangeParameter
         key="r"
-        parameterName="rf1_category"
+        parameterName="gallery_region"
         from="2026-01-01"
         to="2026-01-02"
         onChange={noop}
@@ -1767,7 +1777,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       "NumberRangeSlider",
       <NumberRangeSlider
         key="n"
-        parameterName="rf1_category"
+        parameterName="gallery_region"
         min={1}
         max={5}
         value={[2, 4]}
@@ -1790,7 +1800,7 @@ describe("parameter widgets with an external label (#1410)", () => {
       const names = [...container.querySelectorAll("[aria-label]")].map((el) =>
         el.getAttribute("aria-label"),
       );
-      expect(names.filter((n) => n!.includes("rf1_category"))).toEqual([]);
+      expect(names.filter((n) => n!.includes("gallery_region"))).toEqual([]);
       const clear = screen
         .getAllByRole("button")
         .filter((b) => labelledText(b) === "Clear Category");

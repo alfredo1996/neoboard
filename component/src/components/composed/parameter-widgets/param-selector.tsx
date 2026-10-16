@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { X, Check, ChevronsUpDown } from "lucide-react";
-import { Label } from "@/components/ui/label";
+import { ParamLabel } from "./param-label";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -154,20 +155,13 @@ function ParamSelector({
   const hintId = parentParameterName ? `${labelId}-hint` : undefined;
   const label = (
     <>
-      {!labelledBy && (
-        <Label
-          id={labelId}
-          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-        >
-          {parameterName}
-        </Label>
-      )}
+      {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
       {parentParameterName && (
         <span
           id={hintId}
           className="ml-1 text-[10px] normal-case font-normal text-muted-foreground"
         >
-          (depends on {parentParameterName})
+          (depends on {humanizeParamName(parentParameterName)})
         </span>
       )}
     </>

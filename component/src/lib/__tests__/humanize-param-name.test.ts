@@ -1,0 +1,17 @@
+import { describe, it, expect } from "vitest";
+import { humanizeParamName } from "../humanize-param-name";
+
+describe("humanizeParamName (#2213)", () => {
+  it.each([
+    ["gallery_region", "Gallery region"],
+    ["ref_region_d", "Ref region d"],
+    ["startDate", "Start date"],
+    ["year2", "Year 2"],
+    ["actor", "Actor"],
+    ["__a__b", "A b"],
+    ["", ""],
+    ["already spaced Words", "Already spaced Words"],
+  ])("%j -> %j", (input, expected) => {
+    expect(humanizeParamName(input)).toBe(expected);
+  });
+});

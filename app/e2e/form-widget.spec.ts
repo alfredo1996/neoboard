@@ -597,7 +597,7 @@ test.describe("Form widget", () => {
 
     // The selector's button is named by its parameter, the form's by the
     // author's label (#1410).
-    const selector = page.getByRole("button", { name: "period", exact: true });
+    const selector = page.getByRole("button", { name: "Period", exact: true });
     const formRange = page.getByRole("button", {
       name: "Form range",
       exact: true,

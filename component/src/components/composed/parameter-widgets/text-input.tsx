@@ -3,7 +3,7 @@
 import { useId } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ParamLabel } from "./param-label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { qualifiedName, type ExternalLabelProps } from "./external-label";
@@ -38,12 +38,7 @@ function TextInputParameter({
   return (
     <div className={cn("space-y-1.5", className)}>
       {!labelledBy && (
-        <Label
-          htmlFor={inputId}
-          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-        >
-          {parameterName}
-        </Label>
+        <ParamLabel parameterName={parameterName} htmlFor={inputId} />
       )}
       <div className="relative flex items-center">
         <Input

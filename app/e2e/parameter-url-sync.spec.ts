@@ -158,12 +158,12 @@ test.describe("Parameter URL sync opt-in", () => {
 
     try {
       await page.goto(`/${id}`);
-      const actors = page.getByRole("combobox", { name: "actors" });
+      const actors = page.getByRole("combobox", { name: "Actors" });
       await actors.click({ timeout: 15_000 });
       await page.getByRole("option", { name: "Hugo, Jr." }).click();
       await page.getByRole("option", { name: "Keanu" }).click();
       await page.keyboard.press("Escape");
-      const period = page.getByRole("button", { name: "period", exact: true });
+      const period = page.getByRole("button", { name: "Period", exact: true });
       await period.click();
       await page.getByRole("button", { name: /last 7 days/i }).click();
 
