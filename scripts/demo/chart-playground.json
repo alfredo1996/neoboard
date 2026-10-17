@@ -163,7 +163,7 @@
                 "orientation": "vertical",
                 "showValues": true,
                 "showLegend": false,
-                "colorPalette": "citrine",
+                "colorPalette": "hastings",
                 "rules": [
                   {
                     "id": "cat-rule-hi",
@@ -187,7 +187,7 @@
                 "orientation": "horizontal",
                 "showValues": true,
                 "showLegend": false,
-                "colorPalette": "citrine"
+                "colorPalette": "hastings"
               }
             }
           },

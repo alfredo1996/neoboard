@@ -460,6 +460,12 @@ export interface CategoryAxisLabelOptions {
   compact?: boolean;
   /** A data zoom is on: the visible span is not the whole axis, keep ECharts' auto interval. */
   zoom?: boolean;
+  /**
+   * Horizontal pixels the chart's grid takes from the card: both margins plus
+   * the value-axis labels. Default 72 (16 + 16 + 40), 16 when compact; a chart
+   * with a wider grid passes its own.
+   */
+  insets?: number;
 }
 
 export interface CategoryAxisLabelConfig {
@@ -498,6 +504,37 @@ const MIN_LABEL_BAND = 28;
  * A `rotateOverride` of -1 is the "automatic" sentinel from the UI and is
  * normalized to undefined so the category-count heuristic applies.
  */
+/**
+ * Auto mode: cut each label to its own band with "…" and show every label
+ * (`interval: 0` on x; `hideOverlap` stays on as a safety net for a grid wider
+ * than assumed). A y axis stacks its labels by row height, which the width
+ * says nothing about, so it keeps ECharts' interval and lets it skip by height.
+ * Undefined when even the shortest cut cannot fit (a band under MIN_LABEL_BAND).
+ */
+function bandLabel(
+  categoryCount: number,
+  containerWidth: number,
+  categoryAxis: "x" | "y",
+  { compact, insets }: { compact: boolean; insets?: number },
+): CategoryAxisLabelConfig | undefined {
+  const isY = categoryAxis === "y";
+  const gridInsets = insets ?? (compact ? 16 : 72);
+  const room = isY
+    ? Math.floor(containerWidth / 3) - 6
+    : (containerWidth - gridInsets) / Math.max(categoryCount, 1) - 6;
+  if (room < MIN_LABEL_BAND - 6) return undefined;
+  return {
+    show: true,
+    rotate: 0,
+    width: Math.floor(room),
+    overflow: "truncate",
+    ellipsis: "\u2026",
+    ...(isY ? {} : { interval: 0 as const }),
+    hideOverlap: true,
+    tooltip: { show: true },
+  };
+}
+
 export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
@@ -519,29 +556,12 @@ export function buildCategoryAxisLabel(
   // picked rotates.
   const rotate = rotateOverride ?? 0;
 
-  // Width the labels can use: the gutter for a y axis, else the plot's band
-  // per category (card width less the grid margins and the value-axis labels).
-  const sides = compact ? 16 : 32;
-  const valueGutter = compact ? 0 : 40;
-  let room: number | undefined;
   if (containerWidth && rotateOverride === undefined && !zoom) {
-    room =
-      categoryAxis === "y"
-        ? Math.floor(containerWidth / 3) - 6
-        : (containerWidth - sides - valueGutter) / Math.max(categoryCount, 1) -
-          6;
-  }
-  if (room !== undefined && room >= MIN_LABEL_BAND - 6) {
-    return {
-      show: true,
-      rotate,
-      width: Math.floor(room),
-      overflow: "truncate",
-      ellipsis: "\u2026",
-      interval: 0,
-      hideOverlap: false,
-      tooltip: { show: true },
-    };
+    const band = bandLabel(categoryCount, containerWidth, categoryAxis, {
+      compact,
+      insets: options.insets,
+    });
+    if (band) return band;
   }
 
   // Width-aware truncation: tighter limit in narrow containers. A compact

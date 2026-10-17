@@ -228,7 +228,7 @@
             "settings": {
               "title": "Top actors by film count · Neo4j (click a bar)",
               "chartOptions": {
-                "colorPalette": "citrine",
+                "colorPalette": "hastings",
                 "showValues": true,
                 "showLegend": false,
                 "orientation": "horizontal"
@@ -259,7 +259,7 @@
                 "smooth": true,
                 "area": true,
                 "showLegend": false,
-                "colorPalette": "citrine"
+                "colorPalette": "hastings"
               }
             }
           },

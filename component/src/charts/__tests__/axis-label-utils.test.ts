@@ -54,7 +54,7 @@ describe("buildCategoryAxisLabel", () => {
       overflow: "truncate",
       ellipsis: "…",
       interval: 0,
-      hideOverlap: false,
+      hideOverlap: true,
     });
     expect(result.formatter).toBeUndefined();
   });
@@ -64,6 +64,14 @@ describe("buildCategoryAxisLabel", () => {
     expect(
       buildCategoryAxisLabel(4, { containerWidth: 280, compact: true }).width,
     ).toBe(60);
+  });
+
+  it("budgets a caller's own grid insets (the line chart's wider gutter)", () => {
+    // (570 - 104) / 10 - 6 = 40.6px, against 43.8px with the default 72px.
+    expect(
+      buildCategoryAxisLabel(10, { containerWidth: 570, insets: 104 }).width,
+    ).toBe(40);
+    expect(buildCategoryAxisLabel(10, { containerWidth: 570 }).width).toBe(43);
   });
 
   it("keeps ECharts' auto interval when a data zoom is on", () => {
@@ -141,8 +149,9 @@ describe("buildCategoryAxisLabel", () => {
       expect(label).toMatchObject({
         width: 170,
         overflow: "truncate",
-        interval: 0,
+        hideOverlap: true,
       });
+      expect(label.interval).toBeUndefined(); // ECharts skips by row height
       expect(label.formatter).toBeUndefined();
     });
 

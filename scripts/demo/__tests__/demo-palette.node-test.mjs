@@ -1,0 +1,45 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+/**
+ * #2226 — the demo widgets stored `colorPalette: "citrine"` only because the
+ * old editor wrote every default into new widgets. The default is Hastings now,
+ * so no demo dashboard may pin the old one by accident.
+ */
+const DEMO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Every value stored under a `colorPalette` key, wherever it sits. */
+function palettes(node, found = []) {
+  if (Array.isArray(node)) node.forEach((n) => palettes(n, found));
+  else if (node && typeof node === "object") {
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "colorPalette") found.push(value);
+      else palettes(value, found);
+    }
+  }
+  return found;
+}
+
+test("no demo widget stores the old default palette", () => {
+  const files = readdirSync(DEMO_DIR).filter((f) => f.endsWith(".json"));
+  assert.ok(files.length > 0);
+  for (const file of files) {
+    const json = JSON.parse(readFileSync(path.join(DEMO_DIR, file), "utf8"));
+    assert.ok(
+      !palettes(json).includes("citrine"),
+      `${file} still stores colorPalette "citrine"`,
+    );
+  }
+});
+
+test("the demo still stores the hastings default where it stored one", () => {
+  const all = readdirSync(DEMO_DIR)
+    .filter((f) => f.endsWith(".json"))
+    .flatMap((f) =>
+      palettes(JSON.parse(readFileSync(path.join(DEMO_DIR, f), "utf8"))),
+    );
+  assert.equal(all.filter((p) => p === "hastings").length, 8);
+});

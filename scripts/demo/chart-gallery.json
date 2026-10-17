@@ -46,7 +46,7 @@
             "settings": {
               "title": "Revenue by top-level category",
               "chartOptions": {
-                "colorPalette": "citrine",
+                "colorPalette": "hastings",
                 "showValues": true,
                 "showLegend": false,
                 "orientation": "vertical"

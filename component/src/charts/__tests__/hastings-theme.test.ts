@@ -287,6 +287,52 @@ describe("category axis labels, rendered (#2226)", () => {
     expect(labels.every(isCutOrFull)).toBe(true);
   });
 
+  it("horizontal bars with 60 names skip by row height, never pile up", () => {
+    const names = Array.from(
+      { length: 60 },
+      (_, i) => `${TITLES[i % 10]} ${i}`,
+    );
+    const chart = echarts.init(null, THEME_LIGHT, {
+      renderer: "svg",
+      ssr: true,
+      width: 570,
+      height: 300,
+    });
+    chart.setOption({
+      animation: false,
+      grid: {
+        ...buildCompactGrid(false, false),
+        containLabel: false,
+        outerBoundsMode: "same",
+        outerBoundsContain: "all",
+      },
+      xAxis: { type: "value" },
+      yAxis: {
+        type: "category",
+        data: names,
+        axisLabel: buildCategoryAxisLabel(names.length, {
+          containerWidth: 570,
+          categoryAxis: "y",
+        }),
+      },
+      series: [{ type: "bar", data: names.map((_, i) => i + 1) }],
+    });
+    const svg = chart.renderToSVGString();
+    chart.dispose();
+    const labels = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)]
+      .map((m) => m[1])
+      .filter((t) => Number.isNaN(Number(t)));
+    expect(labels.length).toBeLessThan(60);
+    expect(labels.length).toBeGreaterThan(5);
+    expect(
+      labels.every(
+        (t) =>
+          names.includes(t.replaceAll("&#39;", "'")) ||
+          (t.endsWith("…") && names.some((n) => n.startsWith(t.slice(0, -1)))),
+      ),
+    ).toBe(true);
+  });
+
   it("at 250px it may skip names, but never prints an uncut fragment", () => {
     const labels = renderedLabels(250);
     expect(labels.length).toBeLessThan(10);

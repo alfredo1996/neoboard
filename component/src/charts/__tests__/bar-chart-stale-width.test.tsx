@@ -167,7 +167,11 @@ describe("BarChart horizontal category labels (#1420)", () => {
     const { axisLabel, nameGap } = latestOptions().yAxis;
     expect(axisLabel.rotate).toBe(0);
     // Cut to the left gutter by ECharts, with no character cut of its own.
-    expect(axisLabel).toMatchObject({ overflow: "truncate", interval: 0 });
+    expect(axisLabel).toMatchObject({
+      overflow: "truncate",
+      hideOverlap: true,
+    });
+    expect(axisLabel.interval).toBeUndefined();
     expect(axisLabel.formatter).toBeUndefined();
     expect(nameGap).toBe(30);
   });

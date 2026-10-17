@@ -191,6 +191,7 @@ function LineChart({
   colorPalette,
   samplingThreshold = 1000,
   samplingMethod = "lttb",
+  enableDataZoom,
   ...rest
 }: LineChartProps & { samplingThreshold?: number; samplingMethod?: string }) {
   const { width, height, containerRef } = useContainerSize();
@@ -362,6 +363,9 @@ function LineChart({
             axisLabel: buildCategoryAxisLabel(xValues.length, {
               containerWidth: width,
               compact,
+              zoom: enableDataZoom,
+              // grid.left 48 + right (56 with a second axis, else 16)
+              insets: compact ? 16 : 48 + (useDualAxis ? 56 : 16),
             }),
           },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
@@ -393,6 +397,7 @@ function LineChart({
     dark,
     decimalPlaces,
     colorPalette,
+    enableDataZoom,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the
@@ -409,6 +414,7 @@ function LineChart({
         options={options}
         colorPalette={colorPalette}
         {...rest}
+        enableDataZoom={enableDataZoom}
         ariaDescription={effectiveAria}
       />
     </div>
