@@ -1,6 +1,6 @@
 ---
 name: design-review
-description: NeoBoard's design system (#2210) — a calm page with BI cards for widgets (white card, edge, light shadow, header rule), the type scale, radii, colour tokens, chart rules and the anti-patterns to flag. Use when writing or reviewing UI code; the full tables, grids and critique format live in reference.md.
+description: NeoBoard's design system (#2210) — a calm page with BI cards for widgets (white card, edge, light shadow, header rule), the page kit (header, filter line, list row, settings section, stat, sidebar and rail), the type scale, radii, colour tokens, chart rules and the anti-patterns to flag. Use when writing or reviewing UI code; the full tables, grids and critique format live in reference.md.
 user-invocable: false
 paths:
   - "**/*.tsx"
@@ -16,9 +16,11 @@ The redesign system (epic #2210, tokens from #2215). Code you read may still car
 - The page and its sections are one surface, set off by whitespace and hairline rules (`border-border`, `--rule`). No `p-6` card around every block. `--surface` is the page colour; `--side` is the sidebar; `--field` fills inputs and overlays.
 - A widget is a BI card (#2247), the one thing that floats: a white `--card` (`#FFFFFF` light, `#181B20` dark), a 1 px `--card-edge` (`#DDE1E6` / `#2C3038`), an 8 px radius and the two-layer `--card-shadow` (`shadow-card`), on `--page-ground` (`#EEF0F3` / `#0D0F12`). Cards sit 12 px apart. `Panel` is that card; use it, never rebuild it.
 - Inside the card: a header (12/16/10: sans title 14/600, a 12 px ink-3 source line, a 1 px `--rule` under it) and a body (12/16/16). Hover or focus darkens the edge to `--card-edge-hover`; the fill never tints. Actions show by opacity only (so Tab reaches them); on touch only the menu shows.
-- Edit mode: a dashed `--rule-strong` edge, no shadow, handle and actions always visible.
-- Every look is a `WidgetCard` prop with a Storybook control: `titleFont` (`sans`, `serif`), `headerRule` (on), `elevation` (on), `mode` (`view`, `edit`). The app uses the defaults; the KPI follows the title face. Details in `reference.md`.
 - Shadows elsewhere only on overlays (popover, dropdown, dialog, toast). Never on a button, input or section.
+
+## The page kit (#2225)
+
+`component/src/components/kit/`: `PageHeader`, `FilterLine`, `List`/`ListRow`, `SettingsSection`, `Stat`, `Sidebar` (rail under 1024 px, hand toggle on wide screens), `AppShell`, `Wordmark` (name from `PRODUCT_NAME`). Use them, never rebuild one; all sit on the card treatment and carry no serif. Page titles are sans 24/600. Look, behaviour and a11y rules: `reference.md`.
 
 ## Colour
 
@@ -29,15 +31,14 @@ The redesign system (epic #2210, tokens from #2215). Code you read may still car
 
 ## Typography
 
-- Faces: Source Serif 4 (`font-serif`) for page titles and the wordmark only; IBM Plex Sans (`font-body`, `font-display`) for everything else; IBM Plex Mono (`font-mono`) for code and query text only. Tabular figures are on at the root.
-- Scale (Tailwind utilities): `text-title` 36/600 (with `font-serif`), `text-stat` 36/600, `text-section` 15/600, `text-body` 14, `text-widget-title` 14/600, `text-meta` 12. No other sizes. `text-h1` to `text-h3` survive only until the card stat and markdown headings migrate.
+- Faces: IBM Plex Sans (`font-body`, `font-display`) for everything, titles and wordmark included; Source Serif 4 only as a widget card's optional `titleFont="serif"` and on pages not yet on the kit; IBM Plex Mono (`font-mono`) for code and query text only.
+- Scale: page title 24/600 (`PageHeader`), `text-stat` 36/600, `text-section` 15/600, `text-body` 14, `text-widget-title` 14/600, `text-meta` 12. No other sizes. `text-h1` to `text-h3` survive only until the card stat and markdown headings migrate.
 - `font-medium` for interactive elements, `font-semibold` for titles, `font-bold` never.
 
 ## Radius, borders
 
 - Controls 6px (`rounded-sm`), widget card 8px (`rounded-md`), overlays 10px (`rounded-overlay`), checkbox 4px (`rounded-checkbox`). `rounded-full` for pills and dots only. `--radius-lg` (12) is the old card radius and is not used on widgets.
 - 1px `border-border` by default; `border-input` on fields; `border-2 border-primary` for a selected item; never `border-4`.
-- Radius and type-scale values are pinned in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`.
 
 ## Charts
 
@@ -47,25 +48,23 @@ The redesign system (epic #2210, tokens from #2215). Code you read may still car
 
 ## Components
 
-- Empty states use `EmptyState`; loading uses `LoadingButton` or `LoadingOverlay`.
-- Buttons: `default` for the primary action, `outline` to cancel, `destructive` to delete, `ghost` in toolbars.
+- `EmptyState`, `LoadingButton`, `LoadingOverlay`. Buttons: `default` primary, `outline` cancel, `destructive` delete, `ghost` in toolbars.
 
 ## Red flags to call out
 
 - Nested cards, everything in cards, identical card grids, everything centred.
 - The three looks the owner rejected: a heavy shadowed floating card ("AI-made"), a ruled sheet with no card at all ("a giant table"), and a flat panel with a faint edge on a barely-grey page ("a post-it"). The card is white, edged, lightly shadowed, on a clearly grey page.
 - A shadow on anything that is not a widget card or an overlay; a hover tint on the card fill; a card with no edge.
-- Serif anywhere except a page title or the wordmark; Inter or Geist; monospace as "technical" styling.
+- Serif in the kit, a page title or the wordmark; Inter or Geist; monospace as "technical" styling.
 - A subtitle that restates the title; headers that restate the page.
 - Grey text on coloured fills, pure `#000` or `#fff`, neon accents on dark, gradient text on metrics.
 - A field edge lighter than 3:1; a big icon above every heading.
-- Bounce easing, animating width, height or padding, glassmorphism as decoration.
-- Every button primary, "Error occurred".
+- Bounce easing, animating width, height or padding, glassmorphism; every button primary.
 
 ## Checklist before a UI PR
 
 - [ ] Sections set off by whitespace and rules, no `p-6` card wrapping a section; widgets are `Panel`/`WidgetCard` cards; shadows only on cards and overlays
-- [ ] Type from the scale; serif only for the page title and wordmark
+- [ ] Type from the scale; no serif in the kit, the page title or the wordmark; page chrome from the kit, not rebuilt
 - [ ] Tokens, never raw colours; charts through `resolveChartColors()`
 - [ ] Radius matches the component: controls 6, widget card 8, overlays 10, checkbox 4
 - [ ] Field borders use `--input` (3:1)

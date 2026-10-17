@@ -10,11 +10,27 @@ The redesign system (epic #2210): a calm page, and BI cards for widgets (#2247).
 
 ## 1. Visual Hierarchy
 
+### The page kit (#2225)
+
+Built in `component/src/components/kit/`, drawn from the approved page-kit mock. Every surface uses the card treatment (`Panel`: `--card`, `--card-edge`, `--card-shadow`, 8 px radius); none carries a serif.
+
+| Piece             | Look                                                                                                                                                                      | Behaviour                                                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PageHeader`      | `bg-background`, 1 px `--rule` under; padding 14/28/12 (16 px side under 768); title 24/600 sans, -0.01em; meta 13 ink-3; breadcrumb 12 ink-3 with "/" separators         | breadcrumb is a `nav` with the last item `aria-current="page"`; the h1 takes focus by script (`titleRef`); `tabs` sits on the bottom rule                                       |
+| `FilterLine`      | pill chips, `--card` fill, `--card-edge`, 13 px; Reset is an underlined link                                                                                              | chip reads "label is **value**"; remove button named "Remove <label> filter"; renders nothing without filters                                                                   |
+| `List`, `ListRow` | one `Panel` with a 36 px header row; rows min 58 px, 1 px `--rule` between, `bg-active` on hover; meta 13 ink-2 tabular                                                   | stretched link (`after:absolute after:inset-0`) opens the item; the menu cell is `relative z-10` and never inside the link; header and meta columns hide under 768 px           |
+| `SettingsSection` | `Panel`, 20/22 padding, label column 260 px (title 15/600, one line 13 ink-3, max 34ch), fields at most 440 px                                                            | `region` named by its title; `footer` right-aligned under the fields; one column under 768 px                                                                                   |
+| `Stat`            | `Panel`, 14/16 padding, label 12 ink-3, number 24/600 tabular                                                                                                             | `dl` with `dt` label and `dd` value                                                                                                                                             |
+| `Sidebar`         | 240 px, `--side`, 1 px `--rule` right edge; items 7/10 padding, 6 px radius, ink-2, `font-medium`; active `bg-active text-foreground`; group label 12 ink-3 sentence case | under 1024 px a 56 px rail on its own; wide screens toggle it by hand (remembered); rail items carry `aria-label` and a tooltip; account menu: Theme submenu, Profile, Sign out |
+| `Wordmark`        | 12 px citrine square (`--brand`, 3 px radius) and the name 18/600                                                                                                         | the rail shows the square alone; name from `PRODUCT_NAME`                                                                                                                       |
+
+Not in the kit on purpose: the old `Toolbar` (still used by the dashboard view toolbar) and the old composed `PageHeader` (still used by the app pages) stay until the page issues move them.
+
 ### A calm page, and cards for widgets
 
 1. **Page**: `bg-background`; `--surface` is the same colour. Sections are not cards.
 2. **Rules**: areas are separated by a 1px hairline (`border-border` = `--rule`; `--rule-strong` for an emphasised divider). Whitespace first, a rule second, a container last.
-3. **Side**: `--side` for the sidebar and rails.
+3. **Side**: `--side` for the sidebar and rails. `--active` (`#E9ECF0` / `#22262D`) is the neutral fill of the active sidebar item and of a hovered list row (#2225).
 4. **Field**: `--field` fills inputs and overlays (white in light, a step lighter than the page in dark).
 5. **Widget card** (#2247): the dashboard sits on `--page-ground` (`bg-page-ground`); each widget is a `Panel`/`WidgetCard`: `--card` fill, `--card-edge` 1px edge, 8px radius, `shadow-card`. See the widget card section below.
 6. **Overlays**: popovers, dropdowns, dialogs and toasts have the heavier shadows (`shadow-md` menus, `shadow-lg` dialogs).
@@ -50,7 +66,7 @@ Tailwind: `bg-card`, `border-card-edge` (`hover:border-card-edge-hover`), `shado
 
 ### Active/Selected States
 
-- Sidebar active: `border-l-2 border-[hsl(var(--ring))] bg-accent-soft text-foreground` — the rail is the signal, the fill is neutral in dark (#1244)
+- Sidebar active: `bg-active text-foreground`, a neutral fill with no left border (#2225)
 - Tab active: `border-b-2 border-primary text-foreground` (bottom border emphasis)
 - Connection card active: `border-primary` ring
 - Selection in lists: `bg-accent/50`
@@ -190,24 +206,24 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 
 ### Faces
 
-| Token / class                                                 | Face                     | Used for                                        |
-| ------------------------------------------------------------- | ------------------------ | ----------------------------------------------- |
-| `--font-serif` / `font-serif`                                 | Source Serif 4           | Page titles and the wordmark only               |
-| `--font-body`, `--font-display` / `font-body`, `font-display` | IBM Plex Sans            | Everything else, tabular figures on at the root |
-| `--font-mono` / `font-mono`                                   | IBM Plex Mono (400, 500) | Code, query text, keyboard hints                |
+| Token / class                                                 | Face                     | Used for                                                     |
+| ------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------ |
+| `--font-serif` / `font-serif`                                 | Source Serif 4           | The widget card's optional serif title only; none in the kit |
+| `--font-body`, `--font-display` / `font-body`, `font-display` | IBM Plex Sans            | Everything else, tabular figures on at the root              |
+| `--font-mono` / `font-mono`                                   | IBM Plex Mono (400, 500) | Code, query text, keyboard hints                             |
 
 All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads from a network URL (#1683).
 
 ### The scale
 
-| Role         | Size / weight | Face  |
-| ------------ | ------------- | ----- |
-| Page title   | 36 / 600      | serif |
-| Stat         | 36 / 600      | sans  |
-| Section      | 15 / 600      | sans  |
-| Body         | 14            | sans  |
-| Widget title | 13 / 600      | sans  |
-| Meta         | 12            | sans  |
+| Role         | Size / weight | Face |
+| ------------ | ------------- | ---- |
+| Page title   | 24 / 600      | sans |
+| Stat         | 36 / 600      | sans |
+| Section      | 15 / 600      | sans |
+| Body         | 14            | sans |
+| Widget title | 13 / 600      | sans |
+| Meta         | 12            | sans |
 
 ### Weight rules
 
@@ -218,7 +234,7 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 
 ### Typography anti-patterns
 
-- Serif outside a page title or the wordmark.
+- Serif in the kit, a page title or the wordmark.
 - A size between the scale's steps, or a second heading style.
 - Inter, Geist or any face other than the three above.
 - A description that restates the title next to it.
@@ -242,7 +258,7 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 
 ### Type scale utilities
 
-`text-title` (36/1.1/600, add `font-serif`), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (14/1.3/600) and `text-meta` (12) are in the Tailwind preset. `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
+`text-title` (36/1.1/600, legacy, with `font-serif` on pages not yet moved to the kit), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (14/1.3/600) and `text-meta` (12) are in the Tailwind preset. `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
 
 ### Border Rules
 
@@ -338,7 +354,7 @@ Before submitting any UI PR, verify:
 
 - [ ] Page root uses `p-6`
 - [ ] Sections set off by whitespace and rules, no `p-6` card around a section; widgets are `Panel`/`WidgetCard` cards; shadows only on cards and overlays
-- [ ] Type from the scale; serif only for the page title and wordmark
+- [ ] Type from the scale; no serif in the kit, the page title or the wordmark
 - [ ] Descriptions use `text-sm text-muted-foreground` and say something the title does not
 - [ ] Interactive elements have `text-sm font-medium`
 - [ ] Buttons use correct variant (default=primary, outline=cancel, destructive=delete, ghost=toolbar)
@@ -375,7 +391,7 @@ These are the fingerprints of careless or AI-generated UI work. Flag immediately
 
 ### Typography Anti-Patterns
 
-- **Wrong face**: Inter, Geist, Roboto, Arial, or serif anywhere except a page title and the wordmark (the three faces are IBM Plex Sans, Source Serif 4, IBM Plex Mono)
+- **Wrong face**: Inter, Geist, Roboto, Arial, or serif in the kit, a page title or the wordmark (the three faces are IBM Plex Sans, Source Serif 4, IBM Plex Mono)
 - **Monospace as "technical" vibes**: Lazy shorthand — use it only for actual code/query content
 - **Big icons above headings**: Rounded-corner icons above every section title — rarely adds value, looks templated
 

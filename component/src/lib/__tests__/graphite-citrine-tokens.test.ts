@@ -195,6 +195,7 @@ describe("ruled-sheet palette (#2215)", () => {
     ["--card-edge", "213 15.3% 88.4%", "220 12% 19.6%"], // #DDE1E6 / #2C3038
     ["--card-edge-hover", "217 13.7% 81.4%", "219 10.8% 25.5%"], // #C9CED6 / #3A3F48
     ["--page-ground", "216 17.2% 94.3%", "216 16.1% 6.1%"], // #EEF0F3 / #0D0F12
+    ["--active", "214 18.6% 92.7%", "218 13.9% 15.5%"], // #E9ECF0 / #22262D (#2225)
   ])("%s", (token, l, d) => {
     expect(tokenValue(light, token)).toBe(l);
     expect(tokenValue(dark, token)).toBe(d);

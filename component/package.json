@@ -15,6 +15,7 @@
     ".": "./src/index.ts",
     "./ui": "./src/components/ui/index.ts",
     "./composed": "./src/components/composed/index.ts",
+    "./kit": "./src/components/kit/index.ts",
     "./charts": "./src/charts/index.ts",
     "./charts/palettes": "./src/charts/palettes.ts",
     "./charts/choropleth-ramp": "./src/charts/choropleth-ramp.ts",

@@ -146,9 +146,21 @@ test.describe("Responsive — tablet viewport", () => {
       });
 
       await page.goto("/");
+      // Under 1024 px the sidebar is the 56 px rail by itself, with no toggle
+      // (#2225); its items keep their names.
       await expect(
-        page.getByRole("button", { name: "Expand sidebar" }),
+        page.getByRole("button", { name: "Dashboards" }),
       ).toBeVisible();
+      await expect(page.getByRole("button", { name: /sidebar$/ })).toHaveCount(
+        0,
+      );
+      expect(
+        (
+          await page
+            .getByRole("complementary", { name: "Sidebar" })
+            .boundingBox()
+        )?.width,
+      ).toBe(56);
       await expect(
         page.getByTestId("dashboard-card").getByTitle(name, { exact: true }),
       ).toBeVisible();

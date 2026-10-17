@@ -256,7 +256,7 @@ test.describe("Signup", () => {
     await expect(page.getByRole("button", { name: "Dashboards" })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Account:/ })).toBeVisible();
   });
 
   test("should be able to login with newly created account", async ({

@@ -71,6 +71,7 @@ module.exports = {
           strong: "hsl(var(--rule-strong))",
         },
         side: "hsl(var(--side))",
+        active: "hsl(var(--active))",
         "page-ground": "hsl(var(--page-ground))",
         "card-edge": {
           DEFAULT: "hsl(var(--card-edge))",

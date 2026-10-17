@@ -150,6 +150,8 @@
      a clearly grey page. --page-ground is the grey behind the cards; the edge
      darkens on hover instead of the card tinting. */
   --page-ground: 216 17.2% 94.3%; /* #EEF0F3 */
+  /* Neutral fill of the active sidebar item and of a hovered list row (#2225). */
+  --active: 214 18.6% 92.7%; /* #E9ECF0 */
   --card-edge: 213 15.3% 88.4%; /* #DDE1E6 */
   --card-edge-hover: 217 13.7% 81.4%; /* #C9CED6 */
   --card-shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
@@ -259,6 +261,7 @@
   --foreground-2: 217 11% 71%;
   --side: 218 14% 11%;
   --page-ground: 216 16.1% 6.1%; /* #0D0F12 */
+  --active: 218 13.9% 15.5%; /* #22262D */
   --card-edge: 220 12% 19.6%; /* #2C3038 */
   --card-edge-hover: 219 10.8% 25.5%; /* #3A3F48 */
   --card-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.35);
