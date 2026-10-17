@@ -23,6 +23,18 @@ describe("SettingsSection", () => {
   });
 });
 
+describe("SettingsSection classes", () => {
+  it("keeps the body size and the no-hover-darken override as separate classes", () => {
+    render(<SettingsSection title="T">x</SettingsSection>);
+    const tokens = screen
+      .getByRole("region", { name: "T" })
+      .className.split(/\s+/);
+    expect(tokens).toEqual(
+      expect.arrayContaining(["text-sm", "hover:border-card-edge"]),
+    );
+  });
+});
+
 describe("Stat", () => {
   it("pairs a label with its value", () => {
     render(<Stat label="Dashboards" value={8} />);

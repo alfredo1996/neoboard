@@ -43,3 +43,4 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const NoFooter: Story = { args: { withFooter: false } };
+export const Dark: Story = { globals: { theme: "dark" } };

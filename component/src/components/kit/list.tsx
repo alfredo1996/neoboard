@@ -106,14 +106,13 @@ function ListRow({
           {title}
         </a>
         {description && (
-          <small className="block truncate text-xs text-muted-foreground">
+          <small className="block truncate text-xs text-foreground-2">
             {description}
           </small>
         )}
       </span>
-      {meta?.map((cell, i) => (
+      {React.Children.map(meta, (cell) => (
         <span
-          key={i}
           role="cell"
           className="hidden truncate text-[13px] tabular-nums text-foreground-2 md:block"
         >

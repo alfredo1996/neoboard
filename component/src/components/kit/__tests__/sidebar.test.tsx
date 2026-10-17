@@ -119,6 +119,56 @@ describe("Sidebar", () => {
     expect(account!.theme!.onChange).toHaveBeenCalledWith("dark");
   });
 
+  it("shows the account avatar as a round chip with a fill that reads", () => {
+    render(<Sidebar groups={groups} account={account} />);
+    const avatar = screen
+      .getByRole("button", { name: "Account: Alice Demo" })
+      .querySelector("span[aria-hidden]")!;
+    const tokens = avatar.className.split(/\s+/);
+    expect(tokens).toEqual(
+      expect.arrayContaining([
+        "rounded-full",
+        "justify-center",
+        "bg-card-edge",
+      ]),
+    );
+    expect(tokens).not.toContain("bg-secondary");
+  });
+
+  it("keeps the account detail line at 4.5:1 on the active fill", () => {
+    render(<Sidebar groups={groups} account={account} />);
+    const detail = screen.getByText("Admin", { selector: "small" });
+    expect(detail.className).toContain("text-foreground-2");
+  });
+
+  it("does not animate the width on first paint, only after a toggle", () => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, "true");
+    render(<Sidebar groups={groups} />);
+    const aside = screen.getByRole("complementary", { name: "Sidebar" });
+    expect(aside.className).not.toContain("transition-[width]");
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(aside.className).toContain("transition-[width]");
+  });
+
+  it("takes its starting state from defaultCollapsed over storage", () => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, "true");
+    render(<Sidebar groups={groups} defaultCollapsed={false} />);
+    expect(
+      screen.getByRole("button", { name: "Collapse sidebar" }),
+    ).toBeInTheDocument();
+  });
+
+  it("starts expanded when reading storage throws", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(<Sidebar groups={groups} />);
+    expect(
+      screen.getByRole("button", { name: "Collapse sidebar" }),
+    ).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
   describe("rail", () => {
     it("names every rail item and keeps the account menu reachable", async () => {
       const user = userEvent.setup();

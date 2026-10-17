@@ -78,3 +78,4 @@ export const TitleOnly: Story = {
     meta: "",
   },
 };
+export const Dark: Story = { globals: { theme: "dark" } };

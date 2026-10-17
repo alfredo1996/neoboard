@@ -64,6 +64,8 @@ export interface SidebarAccount {
 export interface SidebarProps {
   groups: readonly SidebarGroup[];
   account?: SidebarAccount;
+  /** Starting state; when set, it wins over the remembered choice (stories, tests). */
+  defaultCollapsed?: boolean;
   className?: string;
 }
 
@@ -125,7 +127,7 @@ function AccountMenu({
         >
           <span
             aria-hidden
-            className="flex h-[26px] w-[26px] shrink-0 items-center justify-centerrounded-full bg-secondary text-[11px] font-semibold"
+            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-card-edge text-[11px] font-semibold"
           >
             {initials(account.name)}
           </span>
@@ -133,7 +135,7 @@ function AccountMenu({
             <span className="flex min-w-0 flex-col leading-tight">
               <b className="truncate text-sm font-medium">{account.name}</b>
               {account.detail && (
-                <small className="truncate text-xs capitalize text-muted-foreground">
+                <small className="truncate text-xs capitalize text-foreground-2">
                   {account.detail}
                 </small>
               )}
@@ -151,7 +153,7 @@ function AccountMenu({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 Theme
-                <span className="ml-auto text-muted-foreground">
+                <span className="ml-auto text-foreground-2">
                   {theme.options.find((o) => o.value === theme.value)?.label}
                 </span>
               </DropdownMenuSubTrigger>
@@ -186,14 +188,22 @@ function AccountMenu({
  * The app sidebar. Under 1024 px it is a 56 px icon rail; on a wide screen a
  * toggle collapses it by hand, and the choice is remembered in this browser.
  */
-function Sidebar({ groups, account, className }: Readonly<SidebarProps>) {
+function Sidebar({
+  groups,
+  account,
+  defaultCollapsed,
+  className,
+}: Readonly<SidebarProps>) {
   const narrow = React.useSyncExternalStore(
     subscribeNarrow,
     narrowNow,
     () => false,
   );
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(defaultCollapsed ?? false);
+  // A remembered collapse must not animate 240 -> 56 px on load.
+  const [animate, setAnimate] = React.useState(false);
   React.useEffect(() => {
+    if (defaultCollapsed !== undefined) return;
     try {
       if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true") {
         // Read after mount so server and first client render agree.
@@ -203,9 +213,10 @@ function Sidebar({ groups, account, className }: Readonly<SidebarProps>) {
     } catch {
       // Storage blocked: the sidebar just starts expanded.
     }
-  }, []);
+  }, [defaultCollapsed]);
   const toggle = () => {
     const next = !collapsed;
+    setAnimate(true);
     setCollapsed(next);
     try {
       localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
@@ -220,7 +231,9 @@ function Sidebar({ groups, account, className }: Readonly<SidebarProps>) {
       <aside
         aria-label="Sidebar"
         className={cn(
-          "flex h-full shrink-0 flex-col gap-[18px] border-r border-rule bg-side px-2.5 py-3.5 transition-[width] duration-200 motion-reduce:transition-none",
+          "flex h-full shrink-0 flex-col gap-[18px] border-r border-rule bg-side px-2.5 py-3.5",
+          animate &&
+            "transition-[width] duration-200 motion-reduce:transition-none",
           railed ? "w-14 items-center px-2" : "w-60",
           className,
         )}

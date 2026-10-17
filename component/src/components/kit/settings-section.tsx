@@ -27,7 +27,7 @@ function SettingsSection({
       role="region"
       aria-labelledby={id}
       className={cn(
-        "grid gap-6 px-[22px] py-5 text-smhover:border-card-edge focus-within:border-card-edge md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]",
+        "grid gap-6 px-[22px] py-5 text-sm hover:border-card-edge focus-within:border-card-edge md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]",
         className,
       )}
     >

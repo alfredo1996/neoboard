@@ -39,4 +39,16 @@ describe("FilterLine", () => {
     );
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("draws the remove button as a round chip", () => {
+    render(
+      <FilterLine filters={filters} onRemove={() => {}} onReset={() => {}} />,
+    );
+    const tokens = screen
+      .getByRole("button", { name: "Remove Decade filter" })
+      .className.split(/\s+/);
+    expect(tokens).toEqual(
+      expect.arrayContaining(["rounded-full", "justify-center"]),
+    );
+  });
 });

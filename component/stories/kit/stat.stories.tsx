@@ -24,3 +24,7 @@ export const Row: Story = {
     </div>
   ),
 };
+export const RowDark: Story = {
+  ...Row,
+  globals: { theme: "dark" },
+};

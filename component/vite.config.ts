@@ -104,6 +104,9 @@ export default defineConfig({
             enabled: true,
             headless: true,
             provider: playwright({}),
+            // Desktop width: at the 414 px default the sidebar stories render
+            // their rail, so axe never saw the expanded sidebar (#2225).
+            viewport: { width: 1280, height: 800 },
             instances: [
               {
                 browser: "chromium",

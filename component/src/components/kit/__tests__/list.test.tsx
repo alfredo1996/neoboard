@@ -48,6 +48,13 @@ describe("ListRow", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  it("reads the description at 4.5:1 on the hovered row fill", () => {
+    setup();
+    expect(screen.getByText("The movie graph").className).toContain(
+      "text-foreground-2",
+    );
+  });
+
   it("labels the list and its column headers", () => {
     setup();
     expect(

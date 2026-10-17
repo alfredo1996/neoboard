@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
+import { expect, within } from "storybook/test";
 import {
   Database,
   LayoutDashboard,
@@ -10,7 +11,7 @@ import {
 import { AppShell } from "@/components/kit/app-shell";
 import { FilterLine } from "@/components/kit/filter-line";
 import { PageHeader } from "@/components/kit/page-header";
-import { SIDEBAR_COLLAPSED_KEY, Sidebar } from "@/components/kit/sidebar";
+import { Sidebar } from "@/components/kit/sidebar";
 import { Stat } from "@/components/kit/stat";
 
 type Args = {
@@ -24,12 +25,6 @@ const icon = (I: typeof Users) => <I className="h-4 w-4" />;
 
 function Demo({ rail, showAdminGroup, withAccount, activeItem }: Args) {
   const [theme, setTheme] = useState("system");
-  // Seed the remembered collapse so the story opens as a rail or expanded.
-  try {
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(rail));
-  } catch {
-    // Storage blocked: the story opens expanded.
-  }
   const select = () => {};
   return (
     <div className="h-[560px]" key={String(rail)}>
@@ -37,6 +32,7 @@ function Demo({ rail, showAdminGroup, withAccount, activeItem }: Args) {
         className="h-full"
         sidebar={
           <Sidebar
+            defaultCollapsed={rail}
             groups={[
               {
                 label: "Workspace",
@@ -158,5 +154,18 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Expanded: Story = {};
+// The play functions pin the width: at a phone-width viewport the "expanded"
+// story would silently render the rail and axe would never see the labels.
+export const Expanded: Story = {
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("button", { name: "Collapse sidebar" }),
+    ).toBeInTheDocument();
+  },
+};
 export const Rail: Story = { args: { rail: true } };
+export const ExpandedDark: Story = { globals: { theme: "dark" } };
+export const RailDark: Story = {
+  args: { rail: true },
+  globals: { theme: "dark" },
+};

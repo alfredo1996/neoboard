@@ -33,7 +33,7 @@ const only = flag("id", null);
  * because it is the closest thing to the real app in one frame.
  */
 const SHOTS = [
-  { id: "composed-appshell--full-dashboard", name: "appshell", h: 700 },
+  { id: "kit-sidebar--expanded", name: "appshell", h: 700 },
   { id: "composed-datagrid--with-pagination", name: "datagrid", h: 420 },
   { id: "charts-barchart--default", name: "barchart", h: 420 },
   { id: "charts-linechart--area", name: "linechart-area", h: 420 },

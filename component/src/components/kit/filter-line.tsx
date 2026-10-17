@@ -48,7 +48,7 @@ function FilterLine({
             type="button"
             aria-label={`Remove ${f.label} filter`}
             onClick={() => onRemove(f.id)}
-            className="inline-flex h-5 w-5 items-center justify-centerrounded-full text-muted-foreground hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="h-3 w-3" aria-hidden />
           </button>

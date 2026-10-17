@@ -42,3 +42,4 @@ export const OneFilter: Story = {
     filters: [{ id: "owner", label: "Owner", value: "you" }],
   },
 };
+export const Dark: Story = { globals: { theme: "dark" } };
