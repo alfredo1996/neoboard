@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { MoreHorizontal } from "lucide-react";
+import { expect, within } from "storybook/test";
 import { List, ListRow } from "@/components/kit/list";
 
 type Args = {
@@ -86,3 +87,27 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const NoDescriptions: Story = { args: { showDescription: false } };
 export const Dark: Story = { globals: { theme: "dark" } };
+
+// The row is a <tr>; its name link's ::after stretches over it. Hit-testing a
+// point in a meta cell must land on the link, and one on the "⋯" on the button.
+export const WholeRowOpens: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const link = canvas.getByRole("link", { name: "Movie highlights" });
+    const row = link.closest("tr")!;
+    const owner = within(row).getByText("Alice Demo").getBoundingClientRect();
+    await expect(
+      document.elementFromPoint(
+        owner.left + owner.width / 2,
+        owner.top + owner.height / 2,
+      ),
+    ).toBe(link);
+    const menu = within(row).getByRole("button");
+    const m = menu.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      m.left + m.width / 2,
+      m.top + m.height / 2,
+    );
+    await expect(menu.contains(hit)).toBe(true);
+  },
+};

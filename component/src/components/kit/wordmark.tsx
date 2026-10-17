@@ -8,7 +8,11 @@ export interface WordmarkProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 /** The citrine square beside the product name, in the sans face. */
-function Wordmark({ collapsed = false, className, ...rest }: WordmarkProps) {
+function Wordmark({
+  collapsed = false,
+  className,
+  ...rest
+}: Readonly<WordmarkProps>) {
   return (
     <span
       className={cn(

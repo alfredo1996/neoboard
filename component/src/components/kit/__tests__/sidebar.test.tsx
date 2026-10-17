@@ -101,7 +101,7 @@ describe("Sidebar", () => {
     const menu = await screen.findByRole("menu");
     expect(
       within(menu).getByRole("menuitem", { name: /Theme/ }),
-    ).toHaveTextContent("System");
+    ).toHaveTextContent("Theme System");
     await user.click(within(menu).getByRole("menuitem", { name: "Sign out" }));
     expect(account!.onSignOut).toHaveBeenCalledTimes(1);
   });

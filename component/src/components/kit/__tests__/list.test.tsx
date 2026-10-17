@@ -72,6 +72,18 @@ describe("ListRow", () => {
     expect(cells[2]).toHaveTextContent("12");
   });
 
+  it("is a native table: th scope=col headers, tr rows, td cells", () => {
+    setup();
+    const table = screen.getByRole("table", { name: "Dashboards" });
+    expect(table.tagName).toBe("TABLE");
+    for (const h of screen.getAllByRole("columnheader")) {
+      expect(h.tagName).toBe("TH");
+      expect(h).toHaveAttribute("scope", "col");
+    }
+    for (const r of screen.getAllByRole("row")) expect(r.tagName).toBe("TR");
+    for (const c of screen.getAllByRole("cell")) expect(c.tagName).toBe("TD");
+  });
+
   it("labels the list and its column headers", () => {
     setup();
     expect(

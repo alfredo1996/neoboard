@@ -33,6 +33,17 @@ describe("FilterLine", () => {
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
+  it("puts the chips in a fieldset named Active filters", () => {
+    render(
+      <FilterLine filters={filters} onRemove={() => {}} onReset={() => {}} />,
+    );
+    const group = screen.getByRole("group", { name: "Active filters" });
+    expect(group.tagName).toBe("FIELDSET");
+    expect(group).toContainElement(
+      screen.getByRole("button", { name: "Remove Decade filter" }),
+    );
+  });
+
   it("renders nothing when no filter is active", () => {
     const { container } = render(
       <FilterLine filters={[]} onRemove={() => {}} onReset={() => {}} />,

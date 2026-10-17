@@ -152,7 +152,7 @@ function AccountMenu({
           <>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                Theme
+                Theme{" "}
                 <span className="ml-auto text-foreground-2">
                   {theme.options.find((o) => o.value === theme.value)?.label}
                 </span>

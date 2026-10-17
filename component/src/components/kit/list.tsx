@@ -11,17 +11,14 @@ export interface ListProps {
   className?: string;
 }
 
-/** The first column takes 2.4 parts, the rest one part each, the menu 40 px. */
-function template(columns: readonly string[]) {
-  return [
-    "minmax(0,2.4fr)",
-    ...columns.slice(1).map(() => "minmax(0,1fr)"),
-    "40px",
-  ].join(" ");
+/** Column widths: the name column 2.4 parts, the rest one part each, of 100% less the 40 px menu. */
+function widths(columns: readonly string[]) {
+  const total = 2.4 + Math.max(columns.length - 1, 0);
+  return columns.map(
+    (_, i) =>
+      `calc((100% - 40px) * ${((i === 0 ? 2.4 : 1) / total).toFixed(4)})`,
+  );
 }
-
-const ROW_GRID =
-  "grid items-center gap-3 px-4 grid-cols-[minmax(0,1fr)_40px] md:grid-cols-[var(--list-cols)]";
 
 // The columns, so a row keys its meta cells by the column they sit in.
 const ColumnsContext = React.createContext<readonly string[]>([]);
@@ -30,33 +27,47 @@ const ColumnsContext = React.createContext<readonly string[]>([]);
 function List({ label, columns, children, className }: Readonly<ListProps>) {
   return (
     <Panel
-      role="table"
-      aria-label={label}
-      style={{ "--list-cols": template(columns) } as React.CSSProperties}
       className={cn(
         "overflow-hidden text-sm hover:border-card-edge focus-within:border-card-edge",
         className,
       )}
     >
-      <div
-        role="row"
-        className={cn(
-          ROW_GRID,
-          "hidden h-9 border-b border-rule text-xs text-muted-foreground md:grid",
-        )}
+      <table
+        aria-label={label}
+        className="w-full table-fixed border-collapse text-left"
       >
-        {columns.map((c) => (
-          <span key={c} role="columnheader">
-            {c}
-          </span>
-        ))}
-        <span role="columnheader">
-          <span className="sr-only">Actions</span>
-        </span>
-      </div>
-      <ColumnsContext.Provider value={columns}>
-        {children}
-      </ColumnsContext.Provider>
+        <colgroup>
+          {widths(columns).map((w, i) => (
+            <col
+              key={columns[i]}
+              style={{ width: w }}
+              className={i === 0 ? undefined : "hidden md:table-column"}
+            />
+          ))}
+          <col style={{ width: "40px" }} />
+        </colgroup>
+        <thead className="hidden md:table-header-group">
+          <tr className="h-9 border-b border-rule text-xs text-muted-foreground">
+            {columns.map((c, i) => (
+              <th
+                key={c}
+                scope="col"
+                className={cn("font-normal", i === 0 ? "pl-4" : "pl-3")}
+              >
+                {c}
+              </th>
+            ))}
+            <th scope="col" className="pr-4">
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <ColumnsContext.Provider value={columns}>
+            {children}
+          </ColumnsContext.Provider>
+        </tbody>
+      </table>
     </Panel>
   );
 }
@@ -90,15 +101,13 @@ function ListRow({
 }: Readonly<ListRowProps>) {
   const columns = React.useContext(ColumnsContext);
   return (
-    <div
-      role="row"
+    <tr
       className={cn(
-        ROW_GRID,
-        "relative min-h-[58px] border-b border-rule py-2.5 last:border-b-0 hover:bg-active md:py-0",
+        "relative h-[58px] border-b border-rule last:border-b-0 hover:bg-active",
         className,
       )}
     >
-      <span role="cell" className="min-w-0">
+      <td className="min-w-0 overflow-hidden py-2.5 pl-4 md:py-0">
         <a
           href={href}
           onClick={(e) => {
@@ -116,20 +125,19 @@ function ListRow({
             {description}
           </small>
         )}
-      </span>
+      </td>
       {meta?.map((cell, i) => (
-        <span
+        <td
           key={columns[i + 1] ?? `extra-${columns.length + i}`}
-          role="cell"
-          className="hidden truncate text-caption tabular-nums text-foreground-2 md:block"
+          className="hidden truncate pl-3 text-caption tabular-nums text-foreground-2 md:table-cell"
         >
           {cell}
-        </span>
+        </td>
       ))}
-      <span role="cell" className="relative z-10 justify-self-end">
-        {menu}
-      </span>
-    </div>
+      <td className="pr-4">
+        <div className="relative z-10 flex justify-end">{menu}</div>
+      </td>
+    </tr>
   );
 }
 
