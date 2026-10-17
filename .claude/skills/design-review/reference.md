@@ -1,6 +1,6 @@
 # Design review — full reference
 
-The ruled-sheet system (epic #2210). Tokens landed in #2215; components are restyled in the issues after it, so a component may still carry the old look until its issue merges.
+The redesign system (epic #2210): a calm page, and BI cards for widgets (#2247). Tokens landed in #2215; components are restyled in the issues after it, so a component may still carry the old look until its issue merges.
 
 ## When to Use
 
@@ -10,14 +10,36 @@ The ruled-sheet system (epic #2210). Tokens landed in #2215; components are rest
 
 ## 1. Visual Hierarchy
 
-### One surface, not an elevation stack
+### A calm page, and cards for widgets
 
-1. **Page**: `bg-background`. `--card` and `--surface` are the same colour, so a card no longer floats above the page.
+1. **Page**: `bg-background`; `--surface` is the same colour. Sections are not cards.
 2. **Rules**: areas are separated by a 1px hairline (`border-border` = `--rule`; `--rule-strong` for an emphasised divider). Whitespace first, a rule second, a container last.
 3. **Side**: `--side` for the sidebar and rails.
 4. **Field**: `--field` fills inputs and overlays (white in light, a step lighter than the page in dark).
-5. **Overlays**: popovers, dropdowns, dialogs and toasts are the only things with a shadow (`shadow-md` menus, `shadow-lg` dialogs).
-6. **Tooltips**: `bg-primary text-primary-foreground` — inverted colours.
+5. **Widget card** (#2247): the dashboard sits on `--page-ground` (`bg-page-ground`); each widget is a `Panel`/`WidgetCard`: `--card` fill, `--card-edge` 1px edge, 8px radius, `shadow-card`. See the widget card section below.
+6. **Overlays**: popovers, dropdowns, dialogs and toasts have the heavier shadows (`shadow-md` menus, `shadow-lg` dialogs).
+7. **Tooltips**: `bg-primary text-primary-foreground` — inverted colours.
+
+### The widget card (#2247)
+
+Approved from the "Widget Card Design" mock on 2026-10-16, after three rejected looks (shadowed floating cards: "AI-made"; a ruled sheet: "a giant table"; flat panels: "a post-it"). The owner's brief: "a card like any other BI tool".
+
+| Token               | Light                                                          | Dark                                                     |
+| ------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| `--card`            | `#FFFFFF`                                                      | `#181B20`                                                |
+| `--card-edge`       | `#DDE1E6`                                                      | `#2C3038`                                                |
+| `--card-edge-hover` | `#C9CED6`                                                      | `#3A3F48`                                                |
+| `--page-ground`     | `#EEF0F3`                                                      | `#0D0F12`                                                |
+| `--card-shadow`     | `0 1px 2px rgb(16 24 40 / .06), 0 1px 3px rgb(16 24 40 / .08)` | `0 1px 2px rgb(0 0 0 / .45), 0 1px 3px rgb(0 0 0 / .35)` |
+
+Tailwind: `bg-card`, `border-card-edge` (`hover:border-card-edge-hover`), `shadow-card`, `bg-page-ground`. `--ground` and `--panel-hover` (#2219) are gone.
+
+- **Header**: padding 12/16/10; title sans 14/600 (`text-widget-title font-body`), serif 16/600 only through the `titleFont="serif"` option; under it a 12 px `text-meta text-muted-foreground` source line, "Movies graph · 5 rows · 2 min ago" (connection name, rows, time since the query last succeeded; a KPI drops the rows; markdown, iframe, form and selector widgets have no line); a 1 px `--rule` under the header.
+- **Body**: padding 12/16/16.
+- **Hover and focus**: the edge goes to `--card-edge-hover`; the fill does not change. Actions sit over the header's right end (28 px buttons, 2 px gap, 10 px from the edge), hidden at rest by opacity only and absolutely positioned in every mode (keeps scroll anchoring, #1163). On touch only the "…" menu shows, with Refresh and Fullscreen inside.
+- **Edit mode**: same 12 px gap; dashed `--rule-strong` edge, no shadow; drag handle and actions always visible; one fixed 36 px title row.
+- **Options** (props on `WidgetCard`, each with a Storybook control, approved values the default): `titleFont` `sans`|`serif`, `headerRule` on|off, `elevation` on|off, `mode` `view`|`edit`. Both themes come from the tokens. The KPI number follows the title face.
+- **Red flags**: a heavy or coloured shadow, a card with no edge, a barely-grey ground, a hover tint on the fill, serif titles by default, a ruled sheet with no card.
 
 ### Z-Index Layers
 
@@ -65,7 +87,7 @@ The ruled-sheet system (epic #2210). Tokens landed in #2215; components are rest
 
 | Token                               | Light                       | Dark                    | Usage                                                                                               |
 | ----------------------------------- | --------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `--background`                      | `240 20% 99%` (#FCFCFD)     | `220 13% 9%` (#14161A)  | Page; `--card` and `--surface` equal it                                                             |
+| `--background`                      | `240 20% 99%` (#FCFCFD)     | `220 13% 9%` (#14161A)  | Page; `--surface` equals it (`--card` does not)                                                     |
 | `--side`                            | `220 16% 96%` (#F3F4F6)     | `218 14% 11%` (#181B20) | Sidebar, rails; `--muted` equals it in light                                                        |
 | `--foreground`                      | `223 14% 10%` (#16181D)     | `216 15% 94%` (#EDEFF2) | Ink: body text, titles                                                                              |
 | `--foreground-2`                    | `222 11% 36%` (#525866)     | `217 11% 71%` (#ADB3BD) | Ink 2: secondary text                                                                               |
@@ -211,16 +233,16 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 | Role                                            | Radius                    | Class              |
 | ----------------------------------------------- | ------------------------- | ------------------ |
 | Controls (buttons, inputs, selects, menu items) | 6px (`--radius-sm`)       | `rounded-sm`       |
-| Sheet (widget container, panels)                | 8px (`--radius-md`)       | `rounded-md`       |
+| Widget card (`Panel`, `WidgetCard`)             | 8px (`--radius-md`)       | `rounded-md`       |
 | Overlays (popovers, dialogs, toasts)            | 10px (`--radius-overlay`) | `rounded-overlay`  |
 | Checkbox                                        | 4px (`--radius-checkbox`) | `rounded-checkbox` |
 | Pills, avatars, status dots                     | 9999px (`--radius-pill`)  | `rounded-full`     |
 
-`--radius-lg` (12px) is the pre-redesign card radius and stays until #2219 moves cards onto the sheet role. All values are pinned in `graphite-citrine-tokens.test.ts`; check there before quoting a number.
+`--radius-lg` (12px) is the pre-redesign card radius; widgets use the 8px card role. All values are pinned in `graphite-citrine-tokens.test.ts`; check there before quoting a number.
 
 ### Type scale utilities
 
-`text-title` (36/1.1/600, add `font-serif`), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (13/600) and `text-meta` (12) are in the Tailwind preset. `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
+`text-title` (36/1.1/600, add `font-serif`), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (14/1.3/600) and `text-meta` (12) are in the Tailwind preset. `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
 
 ### Border Rules
 
@@ -232,7 +254,7 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 
 ### Shadows
 
-Only overlays carry a shadow: `shadow-md` for menus and popovers, `shadow-lg` for dialogs. Cards, buttons, inputs and the sheet have none; hairline rules do that job. A shadow on anything else is a red flag.
+Overlays carry the heavier shadows: `shadow-md` for menus and popovers, `shadow-lg` for dialogs. The widget card carries the light two-layer `shadow-card` (none in edit mode, or with `elevation={false}`). Buttons, inputs and page sections have none. A shadow on anything else is a red flag.
 
 ---
 
@@ -315,7 +337,7 @@ grid grid-cols-2 gap-4     // Type picker: always 2-col
 Before submitting any UI PR, verify:
 
 - [ ] Page root uses `p-6`
-- [ ] One surface with hairline rules; no `p-6` card around a section; shadows only on overlays
+- [ ] Sections set off by whitespace and rules, no `p-6` card around a section; widgets are `Panel`/`WidgetCard` cards; shadows only on cards and overlays
 - [ ] Type from the scale; serif only for the page title and wordmark
 - [ ] Descriptions use `text-sm text-muted-foreground` and say something the title does not
 - [ ] Interactive elements have `text-sm font-medium`
@@ -323,7 +345,7 @@ Before submitting any UI PR, verify:
 - [ ] Form fields use `space-y-2` internal spacing; section gaps use `space-y-4`
 - [ ] Colours reference CSS variable tokens, never raw values; field borders use `--input`
 - [ ] Charts use `resolveChartColors()`, never inline colors
-- [ ] Radius matches the role: controls 6, sheet 8, overlays 10, checkbox 4
+- [ ] Radius matches the role: controls 6, widget card 8, overlays 10, checkbox 4
 - [ ] Empty states use `EmptyState`; loading states use `LoadingButton` or `LoadingOverlay`
 - [ ] Checked in light and dark
 
@@ -336,7 +358,7 @@ These are the fingerprints of careless or AI-generated UI work. Flag immediately
 ### Layout Anti-Patterns
 
 - **Nested cards**: Cards inside cards create visual noise — flatten the hierarchy
-- **Shadows off overlays**: a shadow on a card, button or input; white surfaces floating above a grey page
+- **Shadows off cards and overlays**: a shadow on a button, input or page section; a heavy or coloured card shadow; a hover tint on the card fill
 - **Everything in cards**: Not every element needs a container — use whitespace and grouping instead
 - **Identical card grids**: Same-sized cards with icon + heading + text, repeated endlessly — vary the layout
 - **Everything centered**: Left-aligned text with asymmetric layouts feels more intentional

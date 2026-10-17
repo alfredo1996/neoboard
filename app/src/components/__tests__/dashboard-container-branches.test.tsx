@@ -34,9 +34,11 @@ vi.mock("@neoboard/components", () => ({
     onRefresh,
     onFullscreen,
     headerExtra,
+    source,
   }: {
     children: React.ReactNode;
     title: string;
+    source?: string;
     actions?: Array<{
       label: string;
       onClick?: () => void;
@@ -55,7 +57,11 @@ vi.mock("@neoboard/components", () => ({
       a.children && a.children.length > 0 ? a.children : [a],
     );
     return (
-      <div data-testid="widget-card-inner" data-title={title}>
+      <div
+        data-testid="widget-card-inner"
+        data-title={title}
+        data-source={source}
+      >
         <div data-testid="widget-header-extra">
           {headerExtra}
           {onFullscreen && (
@@ -343,9 +349,17 @@ vi.mock("@/lib/query/resolve-cache-options", async (importOriginal) => ({
   shouldShowRefreshButton: (opts: unknown) => mockShouldShowRefresh(opts),
 }));
 
+const mockConnections = vi.hoisted(() => ({
+  data: undefined as { id: string; name: string }[] | undefined,
+}));
+vi.mock("@/hooks/use-connections", () => ({
+  useConnections: () => mockConnections,
+}));
+
 /* ---------- import under test ---------- */
 const { DashboardContainer } = await import("../dashboard-container");
-const { useWidgetQuery } = await import("@/hooks/use-widget-query");
+const { useWidgetQuery, widgetQueryKey } =
+  await import("@/hooks/use-widget-query");
 const {
   buildCsvString: mockBuildCsv,
   triggerDownload: mockTriggerDownload,
@@ -401,6 +415,7 @@ beforeEach(() => {
   mockIsTemplateOutdated.mockReturnValue(false);
   mockShouldShowRefresh.mockReturnValue(false);
   mockBuildExportData.mockReturnValue([]);
+  mockConnections.data = undefined;
 });
 
 /* ---------- tests ---------- */
@@ -1166,5 +1181,32 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     expect(screen.getByTestId("sync-dialog")).toBeDefined();
     // Confirm — must not throw and must close
     fireEvent.click(screen.getByTestId("confirm-sync"));
+  });
+});
+
+describe("DashboardContainer — the source line under a title (#2247)", () => {
+  it("names the connection the widget runs on, with its rows and age", () => {
+    mockConnections.data = [
+      { id: "conn-9", name: "Other" },
+      { id: "conn-1", name: "Movies graph" },
+    ];
+    const widget = makeWidget();
+    const { queryClient } = renderWithProviders(
+      <DashboardContainer page={makePage([widget])} />,
+    );
+    expect(screen.getByTestId("widget-card-inner")).not.toHaveAttribute(
+      "data-source",
+    );
+    act(() => {
+      queryClient.setQueryData(
+        widgetQueryKey({ ...widget, params: {} }),
+        { data: [1, 2, 3], resultId: "r" },
+        { updatedAt: Date.now() },
+      );
+    });
+    expect(screen.getByTestId("widget-card-inner")).toHaveAttribute(
+      "data-source",
+      "Movies graph · 3 rows · just now",
+    );
   });
 });

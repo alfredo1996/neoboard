@@ -857,7 +857,7 @@ describe("DashboardWorkspace", () => {
     const { container } = render(
       <DashboardWorkspace id="d1" editMode={false} />,
     );
-    expect(container.firstChild).toHaveClass("bg-ground");
+    expect(container.firstChild).toHaveClass("bg-page-ground");
   });
 
   it("renders a not-found state when the dashboard is missing", () => {

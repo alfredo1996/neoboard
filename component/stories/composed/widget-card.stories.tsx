@@ -9,7 +9,31 @@ const meta = {
   argTypes: {
     title: { control: "text" },
     source: { control: "text" },
-    draggable: { control: "boolean" },
+    mode: {
+      control: "inline-radio",
+      options: ["view", "edit"],
+      description:
+        "View fades the actions in; edit shows the handle and a dashed edge.",
+    },
+    titleFont: {
+      control: "inline-radio",
+      options: ["sans", "serif"],
+      description: "The title face. The KPI number follows it.",
+    },
+    headerRule: {
+      control: "boolean",
+      description: "The hairline between header and body.",
+    },
+    elevation: {
+      control: "boolean",
+      description: "The card's light shadow. Edit mode never has one.",
+    },
+  },
+  args: {
+    mode: "view",
+    titleFont: "sans",
+    headerRule: true,
+    elevation: true,
   },
 } satisfies Meta<typeof WidgetCard>;
 
@@ -26,6 +50,46 @@ export const Default: Story = {
       </div>
     ),
   },
+};
+
+const body = (
+  <div className="flex h-32 items-center justify-center text-muted-foreground">
+    Chart content goes here
+  </div>
+);
+
+/** The approved BI card, with a control for every look option (#2247). */
+export const Playground: Story = {
+  args: {
+    title: "Movies by decade",
+    source: "Movies graph · 5 rows · 2 min ago",
+    onFullscreen: () => {},
+    onRefresh: () => {},
+    actions: [{ label: "Edit", onClick: () => {} }],
+    children: body,
+  },
+};
+
+export const PlaygroundDark: Story = {
+  ...Playground,
+  globals: { theme: "dark" },
+};
+
+export const SerifTitle: Story = {
+  args: { ...Playground.args, titleFont: "serif" },
+};
+
+export const NoHeaderRule: Story = {
+  args: { ...Playground.args, headerRule: false },
+};
+
+export const Flat: Story = {
+  args: { ...Playground.args, elevation: false },
+};
+
+export const EditDark: Story = {
+  args: { ...Playground.args, mode: "edit" },
+  globals: { theme: "dark" },
 };
 
 export const WithActions: Story = {
@@ -48,7 +112,7 @@ export const WithActions: Story = {
 export const Draggable: Story = {
   args: {
     title: "Draggable Widget",
-    draggable: true,
+    mode: "edit",
     actions: [
       { label: "Configure", onClick: () => {} },
       { label: "Remove", onClick: () => {}, destructive: true },

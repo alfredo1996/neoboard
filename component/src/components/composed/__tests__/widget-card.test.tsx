@@ -86,7 +86,7 @@ describe("WidgetCard", () => {
 
   it("shows drag handle when draggable", () => {
     render(
-      <WidgetCard draggable title="Sales">
+      <WidgetCard mode="edit" title="Sales">
         Content
       </WidgetCard>,
     );
@@ -116,7 +116,7 @@ describe("WidgetCard", () => {
   it("calls onDragHandleMouseDown when drag handle is pressed", () => {
     const onMouseDown = vi.fn();
     render(
-      <WidgetCard draggable title="Sales" onDragHandleMouseDown={onMouseDown}>
+      <WidgetCard mode="edit" title="Sales" onDragHandleMouseDown={onMouseDown}>
         Content
       </WidgetCard>,
     );
@@ -441,19 +441,6 @@ describe("WidgetCard", () => {
       }
     });
 
-    it("follow the hover tint instead of painting their own rectangle", () => {
-      render(
-        <WidgetCard title="Sales" onRefresh={() => {}}>
-          Content
-        </WidgetCard>,
-      );
-      const refresh = screen.getByRole("button", { name: "Refresh" });
-      const bar = refresh.parentElement!;
-      expect(bar).toHaveClass("group-hover/panel:bg-panel-hover");
-      expect(refresh).toHaveClass("bg-inherit");
-      expect(refresh).not.toHaveClass("bg-card");
-    });
-
     it("call onFullscreen with the button that was pressed", async () => {
       const user = userEvent.setup();
       const onFullscreen = vi.fn();
@@ -542,7 +529,7 @@ describe("WidgetCard", () => {
       stubTouch(true);
       render(
         <WidgetCard
-          draggable
+          mode="edit"
           title="Sales"
           onRefresh={() => {}}
           onFullscreen={() => {}}
@@ -557,17 +544,17 @@ describe("WidgetCard", () => {
     });
   });
 
-  describe("flat panel (#2219)", () => {
+  describe("title row (#2219)", () => {
     // Controls that stay in view (edit mode) are overlaid by the absolute bar,
     // so the title row reserves room: each control is a 28 px button plus a
-    // 2 px gap, and the bar sits 8 px from the edge.
+    // 2 px gap, and the bar sits 10 px from the edge.
     it.each([
-      [2, 2 * (28 + 2) + 8],
-      [4, 4 * (28 + 2) + 8],
+      [2, 2 * (28 + 2) + 10],
+      [4, 4 * (28 + 2) + 10],
     ])("reserves room for %i controls in edit mode (%ipx)", (n, px) => {
       render(
         <WidgetCard
-          draggable
+          mode="edit"
           title="Sales"
           onRefresh={() => {}}
           onFullscreen={() => {}}
@@ -582,9 +569,9 @@ describe("WidgetCard", () => {
     });
 
     it("positions the controls absolutely in view and edit, so toggling edit keeps scroll anchoring", () => {
-      for (const draggable of [false, true]) {
+      for (const mode of ["view", "edit"] as const) {
         const { unmount } = render(
-          <WidgetCard title="Sales" draggable={draggable} onRefresh={() => {}}>
+          <WidgetCard title="Sales" mode={mode} onRefresh={() => {}}>
             x
           </WidgetCard>,
         );
@@ -595,33 +582,17 @@ describe("WidgetCard", () => {
       }
     });
 
-    it("keeps the panel's own border and radius in view mode, with no outline trick", () => {
+    it("sits on the card edge and radius in view mode, with no outline trick", () => {
       const { container } = render(<WidgetCard title="Sales">x</WidgetCard>);
       const panel = container.firstElementChild!;
-      expect(panel).toHaveClass("rounded-md", "border-rule");
+      expect(panel).toHaveClass("rounded-md", "border-card-edge");
       expect(panel.className).not.toMatch(/outline|border-0|rounded-none/);
-    });
-
-    it("tints the hovered panel in view mode only", () => {
-      const view = render(<WidgetCard title="Sales">x</WidgetCard>);
-      expect(view.container.firstElementChild).toHaveClass(
-        "hover:bg-panel-hover",
-      );
-      view.unmount();
-      const edit = render(
-        <WidgetCard draggable title="Sales">
-          x
-        </WidgetCard>,
-      );
-      expect(edit.container.firstElementChild).not.toHaveClass(
-        "hover:bg-panel-hover",
-      );
     });
 
     it("puts handle, title and controls in one 36 px row, with the source line below it", () => {
       render(
         <WidgetCard
-          draggable
+          mode="edit"
           title="Sales"
           source="Neo4j Movies"
           onRefresh={() => {}}
@@ -639,6 +610,93 @@ describe("WidgetCard", () => {
       );
       // The source line (#1246) is reserved below the row, outside it.
       expect(row).not.toContainElement(screen.getByText("Neo4j Movies"));
+    });
+  });
+
+  describe("BI card (#2247)", () => {
+    const panelOf = (c: HTMLElement) => c.firstElementChild!;
+    const headerOf = (c: HTMLElement) =>
+      c.querySelector("[data-widget-header]")!;
+
+    it("defaults to the approved look: edge, shadow, sans (body face) title, header rule", () => {
+      const { container } = render(<WidgetCard title="Sales">x</WidgetCard>);
+      expect(panelOf(container)).toHaveClass(
+        "bg-card",
+        "border-card-edge",
+        "shadow-card",
+        "hover:border-card-edge-hover",
+        "focus-within:border-card-edge-hover",
+      );
+      expect(screen.getByRole("heading")).toHaveClass("font-body");
+      expect(headerOf(container)).toHaveClass("border-b", "border-rule");
+    });
+
+    it("titleFont sets the title face and marks the panel for the KPI number", () => {
+      const { container } = render(
+        <WidgetCard title="Sales" titleFont="serif">
+          x
+        </WidgetCard>,
+      );
+      expect(panelOf(container)).toHaveAttribute("data-title-font", "serif");
+      const h = screen.getByRole("heading");
+      expect(h).toHaveClass("font-serif");
+      expect(h).not.toHaveClass("font-body");
+    });
+
+    it("headerRule off keeps the border's room but makes it transparent", () => {
+      const { container } = render(
+        <WidgetCard title="Sales" headerRule={false}>
+          x
+        </WidgetCard>,
+      );
+      expect(headerOf(container)).toHaveClass("border-b", "border-transparent");
+      expect(headerOf(container)).not.toHaveClass("border-rule");
+    });
+
+    it("elevation off drops the shadow", () => {
+      const { container } = render(
+        <WidgetCard title="Sales" elevation={false}>
+          x
+        </WidgetCard>,
+      );
+      expect(panelOf(container)).toHaveClass("shadow-none");
+      expect(panelOf(container)).not.toHaveClass("shadow-card");
+    });
+
+    it("edit mode is a dashed strong edge with no shadow, and all chrome visible", () => {
+      const { container } = render(
+        <WidgetCard mode="edit" title="Sales" onRefresh={() => {}}>
+          x
+        </WidgetCard>,
+      );
+      expect(panelOf(container)).toHaveClass(
+        "border-dashed",
+        "border-rule-strong",
+        "shadow-none",
+      );
+      expect(panelOf(container)).not.toHaveClass("shadow-card");
+      expect(screen.getByText("Drag to reorder")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Refresh" }).parentElement,
+      ).not.toHaveClass("opacity-0");
+    });
+
+    it("lays the header out as 12/16/10 and the body as 12/16/16", () => {
+      const { container } = render(<WidgetCard title="Sales">x</WidgetCard>);
+      expect(headerOf(container)).toHaveClass("px-4", "pt-3", "pb-2.5");
+      expect(screen.getByText("x")).toHaveClass("px-4", "pt-3", "pb-4");
+    });
+
+    it("sets the source line at 12 px in ink 3", () => {
+      render(
+        <WidgetCard title="Sales" source="Movies · 5 rows · 2 min ago">
+          x
+        </WidgetCard>,
+      );
+      expect(screen.getByText("Movies · 5 rows · 2 min ago")).toHaveClass(
+        "text-meta",
+        "text-muted-foreground",
+      );
     });
   });
 });

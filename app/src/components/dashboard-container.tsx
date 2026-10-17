@@ -12,6 +12,8 @@ import {
   exportChartToSvg,
   exportChartToPng,
 } from "@neoboard/components";
+import { useConnections } from "@/hooks/use-connections";
+import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { buildExportData } from "@/lib/widget/card-utils";
 import {
@@ -64,6 +66,7 @@ import {
   ConfirmDialog,
   focusedMenuTrigger,
   type WidgetCardAction,
+  type WidgetCardProps,
 } from "@neoboard/components";
 import { returnFocus } from "@/lib/return-focus";
 
@@ -81,6 +84,22 @@ export interface WidgetActions {
   onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
   onSyncWidget?: (widget: DashboardWidget) => void;
   onDetachWidget?: (widgetId: string) => void;
+}
+
+/** A WidgetCard whose source line is read off the widget's own query (#2247). */
+function SourcedWidgetCard({
+  widget,
+  connectionName,
+  ...props
+}: Readonly<
+  WidgetCardProps & { widget: DashboardWidget; connectionName?: string }
+>) {
+  return (
+    <WidgetCard
+      {...props}
+      source={useWidgetSourceLine(widget, connectionName)}
+    />
+  );
 }
 
 interface DashboardContainerProps {
@@ -122,6 +141,11 @@ export function DashboardContainer({
     onDetachWidget,
   } = actions ?? {};
   const queryClient = useQueryClient();
+  const { data: connections } = useConnections();
+  const connectionNames = useMemo(
+    () => new Map((connections ?? []).map((c) => [c.id, c.name])),
+    [connections],
+  );
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
   // Defer fullscreen content render until the dialog animation (200ms zoom-in-95)
@@ -380,11 +404,12 @@ export function DashboardContainer({
                     : undefined
                 }
               >
-                <WidgetCard
+                <SourcedWidgetCard
+                  widget={widget}
+                  connectionName={connectionNames.get(widget.connectionId)}
                   title={displayTitle(widget)}
-                  source={undefined}
                   className="h-full"
-                  draggable={editable}
+                  mode={editable ? "edit" : "view"}
                   actions={buildActions(widget)}
                   onRefresh={
                     showRefresh
@@ -441,7 +466,7 @@ export function DashboardContainer({
                     parameterSourceMap={parameterSourceMap}
                     connector={connectorCapabilities?.[widget.connectionId]}
                   />
-                </WidgetCard>
+                </SourcedWidgetCard>
               </div>
             );
           })}

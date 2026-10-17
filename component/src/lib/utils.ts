@@ -22,7 +22,7 @@ export const CUSTOM_TEXT_SIZES = [
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: { "font-size": [{ text: CUSTOM_TEXT_SIZES }] },
-    theme: { radius: ["overlay", "checkbox"] },
+    theme: { radius: ["overlay", "checkbox"], shadow: ["card"] },
   },
 });
 

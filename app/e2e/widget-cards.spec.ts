@@ -1,7 +1,8 @@
 import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
-// #2219: widgets are flat panels 12 px apart; their actions fade in over the
-// header on hover or focus. Built from a purpose-made dashboard so the tile
+// #2247: widgets are BI cards 12 px apart (a white card, a visible edge, a
+// light shadow and a header rule, on a grey page); their actions fade in over
+// the header on hover or focus. Built from a purpose-made dashboard so the tile
 // size and titles are known (two KPI tiles at 3 of 12 columns, like the demo's
 // "Movies" and "Actors").
 const KPIS = [
@@ -9,7 +10,7 @@ const KPIS = [
   { id: "k2", title: "Active actors", x: 3 },
 ];
 
-test.describe("Flat panels", () => {
+test.describe("Widget cards", () => {
   test.use({ viewport: { width: 834, height: 1112 } });
 
   let dashboardId = "";
@@ -73,7 +74,7 @@ test.describe("Flat panels", () => {
     await expect(bar).toHaveCSS("opacity", "0");
   });
 
-  test("panels are separate: 12 px apart, each with its own 1 px border and 8 px radius", async ({
+  test("cards are separate: 12 px apart, each with a 1 px edge, an 8 px radius and a shadow", async ({
     page,
   }) => {
     const a = page.locator("[data-widget-id='k1']");
@@ -82,20 +83,32 @@ test.describe("Flat panels", () => {
     expect(boxB.x - (boxA.x + boxA.width)).toBe(12);
     const style = await a.evaluate((el) => {
       const cs = getComputedStyle(el.firstElementChild as Element);
+      const hd = getComputedStyle(
+        el.querySelector("[data-widget-header]") as Element,
+      );
       return {
         border: `${cs.borderTopStyle} ${cs.borderTopWidth}`,
         radius: cs.borderTopLeftRadius,
-        shadow: cs.boxShadow,
+        shadowLayers: (cs.boxShadow.match(/rgba?\((?!0, 0, 0, 0\))/g) ?? [])
+          .length,
+        rule: `${hd.borderBottomStyle} ${hd.borderBottomWidth}`,
+        titleFont: getComputedStyle(
+          el.querySelector("h3") as Element,
+        ).fontFamily.toLowerCase(),
       };
     });
-    expect(style).toEqual({
+    expect(style).toMatchObject({
       border: "solid 1px",
       radius: "8px",
-      shadow: "none",
+      shadowLayers: 2,
+      rule: "solid 1px",
     });
+    // Titles are sans (IBM Plex Sans), not the serif.
+    expect(style.titleFont).toContain("plex sans");
+    expect(style.titleFont).not.toContain("source serif");
   });
 
-  test("hover or focus reveals the actions on the panel's tint, and are hit once shown", async ({
+  test("hover or focus reveals the actions and darkens the edge; the fill stays", async ({
     page,
   }) => {
     const card = page.locator("[data-widget-id='k1']");
@@ -111,27 +124,27 @@ test.describe("Flat panels", () => {
         );
         return el.contains(hit);
       });
+    const look = () =>
+      panel.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { fill: cs.backgroundColor, edge: cs.borderTopColor };
+      });
 
     await page.mouse.move(0, 0);
     await expect(bar).toHaveCSS("opacity", "0");
-    const restBg = await panel.evaluate(
-      (el) => getComputedStyle(el).backgroundColor,
-    );
+    const rest = await look();
 
     await card.hover();
     await expect(bar).toHaveCSS("opacity", "1");
     expect(await hitsButton()).toBe(true);
-    // The panel tints, and the bar follows it instead of drawing a rectangle.
-    await expect(panel).not.toHaveCSS("background-color", restBg);
-    const tint = await panel.evaluate(
-      (el) => getComputedStyle(el).backgroundColor,
-    );
-    await expect(bar).toHaveCSS("background-color", tint);
+    await expect(panel).not.toHaveCSS("border-top-color", rest.edge);
+    expect((await look()).fill).toBe(rest.fill);
 
     await page.mouse.move(0, 0);
     await expect(bar).toHaveCSS("opacity", "0");
     await fullscreen.focus();
     await expect(bar).toHaveCSS("opacity", "1");
+    await expect(panel).not.toHaveCSS("border-top-color", rest.edge);
   });
 
   test("edit mode keeps the same gap, so entering it moves nothing", async ({
@@ -157,39 +170,61 @@ test.describe("Flat panels", () => {
   });
 
   for (const scheme of ["light", "dark"] as const) {
-    test(`the ground behind the panels differs from a panel and from a hovered panel (${scheme})`, async ({
+    test(`the card reads against the page ground: fill, edge and shadow (${scheme})`, async ({
       page,
     }) => {
       await page.emulateMedia({ colorScheme: scheme });
       await expect(page.locator("html")).toHaveClass(
         scheme === "dark" ? /dark/ : /^((?!dark).)*$/,
       );
-      const bg = (sel: string) =>
+      const read = (sel: string, prop: "backgroundColor" | "borderTopColor") =>
         page
           .locator(sel)
           .first()
-          .evaluate((el) => getComputedStyle(el).backgroundColor);
+          .evaluate((el, p) => getComputedStyle(el)[p], prop);
       const panel = "[data-widget-id='k1'] > div";
       await page.mouse.move(0, 0);
-      const [ground, rest] = [
-        await bg("[data-testid='dashboard-ground']"),
-        await bg(panel),
-      ];
-      await page.locator("[data-widget-id='k1']").hover();
-      await expect(page.locator(panel).first()).not.toHaveCSS(
-        "background-color",
-        rest,
+      const ground = await read(
+        "[data-testid='dashboard-ground']",
+        "backgroundColor",
       );
-      const hovered = await bg(panel);
-      expect(ground, "ground vs panel").not.toBe(rest);
-      expect(ground, "ground vs hovered panel").not.toBe(hovered);
-      const lum = (c: string) => {
-        const [r, g, b] = c.match(/\d+(\.\d+)?/g)!.map(Number);
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      };
-      expect(lum(ground), "the ground is the darker surface").toBeLessThan(
-        lum(rest),
+      const fill = await read(panel, "backgroundColor");
+      const edge = await read(panel, "borderTopColor");
+      expect(ground, "ground vs card").not.toBe(fill);
+      expect(edge, "edge vs ground").not.toBe(ground);
+      expect(edge, "edge vs card").not.toBe(fill);
+      expect(fill).toBe(
+        scheme === "dark" ? "rgb(24, 27, 32)" : "rgb(255, 255, 255)",
       );
+      expect(ground).toBe(
+        scheme === "dark" ? "rgb(13, 15, 18)" : "rgb(238, 240, 243)",
+      );
+      const shadow = await page
+        .locator(panel)
+        .first()
+        .evaluate((el) => getComputedStyle(el).boxShadow);
+      expect(shadow).not.toBe("none");
     });
   }
+
+  test("edit mode: a dashed edge, no shadow, the handle and actions in view", async ({
+    page,
+  }) => {
+    await page.goto(`/${dashboardId}/edit`);
+    await expect(
+      page.getByRole("button", { name: "Drag to reorder" }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    const card = page.locator("[data-widget-id='k1']");
+    const panel = card.locator("> div").first();
+    await expect(panel).toHaveCSS("border-top-style", "dashed");
+    // Tailwind's ring layers stay in the list, fully transparent.
+    const shadow = await panel.evaluate((el) => getComputedStyle(el).boxShadow);
+    expect(shadow.replaceAll("rgba(0, 0, 0, 0) 0px 0px 0px 0px", "")).toMatch(
+      /^[\s,]*$|^none$/,
+    );
+    await page.mouse.move(0, 0);
+    await expect(
+      card.getByRole("button", { name: "Fullscreen" }).locator(".."),
+    ).toHaveCSS("opacity", "1");
+  });
 });

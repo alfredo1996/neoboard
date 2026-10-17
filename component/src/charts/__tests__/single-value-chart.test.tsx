@@ -8,6 +8,17 @@ describe("SingleValueChart", () => {
     expect(screen.getByText("42")).toBeInTheDocument();
   });
 
+  // #2247: the number takes the face of the card's title. WidgetCard marks the
+  // panel with data-title-font; the variant below reads it.
+  it("switches the number to serif when the card's titles are serif", () => {
+    render(<SingleValueChart value={42} />);
+    const number = screen.getByText("42");
+    expect(number).toHaveClass("font-display");
+    expect(number).toHaveClass(
+      "group-data-[title-font=serif]/panel:font-serif",
+    );
+  });
+
   it("renders title", () => {
     render(<SingleValueChart value={42} title="Users Online" />);
     expect(screen.getByText("Users Online")).toBeInTheDocument();

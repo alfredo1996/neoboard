@@ -42,10 +42,17 @@ export interface WidgetCardProps {
   source?: string;
   actions?: WidgetCardAction[];
   /**
-   * Edit mode: shows the drag handle and keeps every control visible. In view
-   * mode the controls fade in on hover or focus (#2219).
+   * "edit" shows the drag handle, keeps every control visible and draws a
+   * dashed, shadowless edge. In "view" the controls fade in on hover or focus
+   * (#2219, #2247).
    */
-  draggable?: boolean;
+  mode?: "view" | "edit";
+  /** The title face. Sans is the approved look (#2247). */
+  titleFont?: "sans" | "serif";
+  /** The hairline between header and body. */
+  headerRule?: boolean;
+  /** The card's shadow. Edit mode never has one. */
+  elevation?: boolean;
   className?: string;
   headerClassName?: string;
   contentClassName?: string;
@@ -72,8 +79,8 @@ const BUTTON_PX = 28;
 const BUTTON_SIZE_CLASS = "h-7 w-7";
 const BAR_GAP_PX = 2;
 const BAR_GAP_CLASS = "gap-0.5";
-const BAR_EDGE_PX = 8;
-const BAR_EDGE_CLASS = "right-2";
+const BAR_EDGE_PX = 10;
+const BAR_EDGE_CLASS = "right-2.5";
 
 function ActionItems({ actions }: { readonly actions: WidgetCardAction[] }) {
   return actions.map((action, index) => (
@@ -126,7 +133,10 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       title,
       source,
       actions,
-      draggable = false,
+      mode = "view",
+      titleFont = "sans",
+      headerRule = true,
+      elevation = true,
       className,
       headerClassName,
       contentClassName,
@@ -140,6 +150,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
     ref,
   ) => {
     const touch = useHoverNone();
+    const draggable = mode === "edit";
     // Touch folds Refresh and Fullscreen into the menu; edit mode never folds.
     const folded = touch && !draggable;
     // Edit mode and touch keep the controls in the row. Otherwise they overlay
@@ -148,12 +159,10 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
     const hasActions = Boolean(actions?.length);
     const hasFolded = folded && Boolean(onRefresh || onFullscreen);
     const hasMenu = hasActions || hasFolded;
-    // The bar sits on the panel's own tint: it follows the hover fill instead
-    // of painting a rectangle of its own.
     const iconButton = cn(
       BUTTON_SIZE_CLASS,
       "rounded-sm text-foreground-2",
-      overlay && "border border-rule-strong bg-inherit",
+      overlay && "border border-rule-strong",
     );
     const controls =
       Number(Boolean(onRefresh && !folded)) +
@@ -166,13 +175,13 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
     return (
       <Panel
         ref={ref}
+        data-title-font={titleFont}
         className={cn(
           "group/panel flex h-full flex-col",
-          // View mode tints the hovered panel, so the revealed actions read
-          // as its own. Edit mode keeps every control visible: no tint.
+          // Edit mode: a dashed strong edge, no shadow, no hover darkening.
           draggable
-            ? "border-rule-strong"
-            : "hover:bg-panel-hover focus-within:bg-panel-hover",
+            ? "border-dashed border-rule-strong shadow-none hover:border-rule-strong focus-within:border-rule-strong"
+            : !elevation && "shadow-none",
           className,
         )}
       >
@@ -180,15 +189,20 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
           <PanelHeader
             data-widget-header
             className={cn(
-              "relative block space-y-0 px-4 pb-0 pt-0",
+              "relative block space-y-0 border-b px-4 pb-2.5 pt-3",
+              headerRule ? "border-rule" : "border-transparent",
               headerClassName,
             )}
           >
-            {/* One fixed 36 px row: handle, title and controls share a centre
-                line (#2219). The source line is reserved below it (#1246). */}
+            {/* Edit mode: one fixed 36 px row, so handle, title and controls
+                share a centre line (#2219). View mode: the title's own line.
+                The source line is reserved below it (#1246). */}
             <div
               data-widget-row
-              className="flex h-9 items-center justify-between gap-2"
+              className={cn(
+                "flex items-center justify-between gap-2",
+                draggable && "h-9",
+              )}
             >
               <div
                 className="flex min-w-0 flex-1 items-center gap-2"
@@ -210,7 +224,12 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                     back as a tooltip (#2056). */}
                 {title && (
                   <h3
-                    className="min-w-0 truncate text-widget-title"
+                    className={cn(
+                      "min-w-0 truncate text-widget-title",
+                      titleFont === "serif"
+                        ? "font-serif text-base leading-[1.3]"
+                        : "font-body",
+                    )}
                     title={title}
                   >
                     {title}
@@ -228,9 +247,9 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                   // Absolute in every mode: a bar that flips between static and
                   // absolute on the edit toggle suppresses Chromium's scroll
                   // anchoring, and the page jumps (#1163).
-                  `absolute ${BAR_EDGE_CLASS} top-1 z-10 flex items-center ${BAR_GAP_CLASS}`,
+                  `absolute ${BAR_EDGE_CLASS} ${draggable ? "top-3.5" : "top-2.5"} z-10 flex items-center ${BAR_GAP_CLASS}`,
                   overlay &&
-                    "[@media(any-pointer:coarse)]:pointer-events-none rounded-sm bg-card opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-focus-within/panel:pointer-events-auto group-focus-within/panel:bg-panel-hover group-focus-within/panel:opacity-100 group-hover/panel:pointer-events-auto group-hover/panel:bg-panel-hover group-hover/panel:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
+                    "[@media(any-pointer:coarse)]:pointer-events-none rounded-sm bg-card opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-focus-within/panel:pointer-events-auto group-focus-within/panel:opacity-100 group-hover/panel:pointer-events-auto group-hover/panel:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
                 )}
               >
                 {onRefresh && !folded && (
@@ -295,7 +314,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
             </div>
             {source ? (
               <p
-                className="truncate text-meta leading-4 text-muted-foreground"
+                className="mt-[3px] truncate text-meta leading-4 text-muted-foreground"
                 title={source}
               >
                 {source}
@@ -308,14 +327,18 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                    neighbour and the row visibly fails to align (#1246).
                    h-4 matches the line-height; empty + aria-hidden
                    because the space carries no meaning. */
-                <p data-source-placeholder aria-hidden="true" className="h-4" />
+                <p
+                  data-source-placeholder
+                  aria-hidden="true"
+                  className="mt-[3px] h-4"
+                />
               )
             )}
           </PanelHeader>
         )}
         <PanelContent
           className={cn(
-            "flex-1 min-h-0 overflow-hidden px-4 pb-4 pt-2",
+            "flex-1 min-h-0 overflow-hidden px-4 pb-4 pt-3",
             contentClassName,
           )}
         >

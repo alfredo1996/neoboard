@@ -17,7 +17,7 @@ const RING = "focus-visible:ring-2";
 describe("focus ring coverage (#1128 D2)", () => {
   it("WidgetCard drag handle carries the standard focus ring", () => {
     render(
-      <WidgetCard title="W" draggable>
+      <WidgetCard title="W" mode="edit">
         <div>body</div>
       </WidgetCard>,
     );

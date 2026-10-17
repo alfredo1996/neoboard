@@ -3,9 +3,9 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * A panel is a region on the page colour, set off by a hairline rule. It has
- * no shadow and does not lift on hover (#2219): surfaces are separated by
- * rules, not by elevation.
+ * A panel is the BI card (#2247): a white surface with a visible 1 px edge, a
+ * light two-layer shadow, on a grey page. Hover and focus darken the edge; the
+ * fill never changes.
  */
 const Panel = React.forwardRef<
   HTMLDivElement,
@@ -14,7 +14,7 @@ const Panel = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-md border border-rule bg-card text-card-foreground",
+      "rounded-md border border-card-edge bg-card text-card-foreground shadow-card transition-colors hover:border-card-edge-hover focus-within:border-card-edge-hover motion-reduce:transition-none",
       className,
     )}
     {...props}
