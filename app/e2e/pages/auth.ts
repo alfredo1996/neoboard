@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { openAccountMenu } from "./sidebar";
 
 export class AuthPage {
   constructor(private page: Page) {}
@@ -77,7 +78,8 @@ export class AuthPage {
    * the previous user's session.
    */
   async logout() {
-    await this.page.getByRole("button", { name: "Sign out" }).click();
+    await openAccountMenu(this.page);
+    await this.page.getByRole("menuitem", { name: "Sign out" }).click();
     await this.page.waitForURL(/\/login/, { timeout: 15_000 });
     await expect.poll(() => this.sessionEmail()).toBeUndefined();
   }

@@ -12,19 +12,20 @@ test.describe("Sidebar — uncovered states", () => {
     // On dashboards page, the Dashboards button should be active
     const dashboardsBtn = sidebarPage.getSidebarItem("Dashboards");
     await expect(dashboardsBtn).toBeVisible();
-    // Active sidebar items get font-medium class
-    await expect(dashboardsBtn).toHaveClass(/font-medium/);
+    await expect(dashboardsBtn).toHaveAttribute("aria-current", "page");
 
     // Navigate to Connections — it should become active
     await sidebarPage.navigateTo("Connections");
     await expect(page).toHaveURL("/connections");
     const connectionsBtn = sidebarPage.getSidebarItem("Connections");
-    await expect(connectionsBtn).toHaveClass(/font-medium/);
+    await expect(connectionsBtn).toHaveAttribute("aria-current", "page");
+    await expect(dashboardsBtn).not.toHaveAttribute("aria-current");
 
     // Navigate to Users — it should become active
     await sidebarPage.navigateTo("Users");
     await expect(page).toHaveURL("/users");
     const usersBtn = sidebarPage.getSidebarItem("Users");
-    await expect(usersBtn).toHaveClass(/font-medium/);
+    await expect(usersBtn).toHaveAttribute("aria-current", "page");
+    await expect(connectionsBtn).not.toHaveAttribute("aria-current");
   });
 });

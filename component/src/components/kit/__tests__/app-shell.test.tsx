@@ -20,12 +20,9 @@ describe("AppShell", () => {
 
   it("renders all sections together", () => {
     render(
-      <AppShell
-        sidebar={<nav>Sidebar</nav>}
-        header={<div>Header</div>}
-      >
+      <AppShell sidebar={<nav>Sidebar</nav>} header={<div>Header</div>}>
         Main content
-      </AppShell>
+      </AppShell>,
     );
     expect(screen.getByText("Sidebar")).toBeInTheDocument();
     expect(screen.getByText("Header")).toBeInTheDocument();
@@ -33,7 +30,9 @@ describe("AppShell", () => {
   });
 
   it("applies custom className", () => {
-    const { container } = render(<AppShell className="my-shell">Main</AppShell>);
+    const { container } = render(
+      <AppShell className="my-shell">Main</AppShell>,
+    );
     expect(container.firstChild).toHaveClass("my-shell");
   });
 

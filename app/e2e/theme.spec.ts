@@ -1,4 +1,5 @@
 import { test, expect, ALICE } from "./fixtures";
+import { openThemeMenu } from "./pages/sidebar";
 
 test.describe("Theme toggle", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -6,7 +7,7 @@ test.describe("Theme toggle", () => {
   });
 
   test("switch to dark mode adds .dark class to html", async ({ page }) => {
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "Dark" }).click();
 
     await expect(page.locator("html")).toHaveClass(/dark/);
@@ -14,11 +15,11 @@ test.describe("Theme toggle", () => {
 
   test("switch to light mode removes .dark class", async ({ page }) => {
     // Set dark first, then switch to light
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "Dark" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
 
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "Light" }).click();
     await expect(page.locator("html")).not.toHaveClass(/dark/);
   });
@@ -27,7 +28,7 @@ test.describe("Theme toggle", () => {
     // Emulate dark color scheme
     await page.emulateMedia({ colorScheme: "dark" });
 
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "System" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
 
@@ -39,7 +40,7 @@ test.describe("Theme toggle", () => {
   });
 
   test("theme preference persists after reload", async ({ page }) => {
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "Dark" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
 
@@ -53,12 +54,12 @@ test.describe("Theme toggle", () => {
     });
 
     // Clean up — restore to system default
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "System" }).click();
   });
 
   test("dialog scrim is dark in dark mode (#2211)", async ({ page }) => {
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "Dark" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
 
@@ -79,7 +80,7 @@ test.describe("Theme toggle", () => {
       .toBe(true);
 
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "System" }).click();
   });
 
@@ -88,7 +89,7 @@ test.describe("Theme toggle", () => {
     await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "Dark" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
 
@@ -105,7 +106,7 @@ test.describe("Theme toggle", () => {
     expect(r + g + b).toBeLessThan(200);
 
     // Clean up
-    await page.getByRole("button", { name: "Theme" }).click();
+    await openThemeMenu(page);
     await page.getByRole("menuitemradio", { name: "System" }).click();
   });
 });

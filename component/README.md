@@ -11,7 +11,8 @@ component/
 ├── src/
 │   ├── components/
 │   │   ├── ui/              # Tier 1 — primitives (see tier rule below)
-│   │   └── composed/        # Tier 2 — orchestrations of 2+ primitives
+│   │   ├── composed/        # Tier 2 — orchestrations of 2+ primitives
+│   │   └── kit/             # Page kit (#2225): header, filter line, list, settings section, stat, sidebar, shell
 │   ├── charts/              # ECharts / NVL / Leaflet visualizations
 │   ├── hooks/               # UI-only hooks (useContainerSize, …)
 │   └── lib/                 # cn(), design tokens, pure UI utilities
@@ -45,15 +46,15 @@ and shares variants via context, not by composing other components.
 
 Every public component ships with:
 
-1. the component (`src/components/{ui,composed}/<name>.tsx`) with a JSDoc
+1. the component (`src/components/{ui,composed,kit}/<name>.tsx`) with a JSDoc
    block — one-line purpose + when to use / when not to (rendered by
    Storybook autodocs and IDE hovers),
-2. a Storybook story (`stories/{ui,composed}/<name>.stories.tsx`) covering
+2. a Storybook story (`stories/{ui,composed,kit}/<name>.stories.tsx`) covering
    each declared variant,
 3. a jsdom test (`src/components/*/__tests__/<name>.test.tsx`),
 4. an export from the package root (`@neoboard/components`).
 
-Internal satellites (e.g. the `data-grid-*` subcomponents, `sidebar-item`,
+Internal satellites (e.g. the `data-grid-*` subcomponents,
 `field-error`, the `Toaster` mount point) are demonstrated inside their
 parent's story rather than getting standalone stories.
 

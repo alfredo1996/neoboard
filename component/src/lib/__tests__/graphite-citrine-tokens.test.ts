@@ -195,6 +195,7 @@ describe("ruled-sheet palette (#2215)", () => {
     ["--card-edge", "213 15.3% 88.4%", "220 12% 19.6%"], // #DDE1E6 / #2C3038
     ["--card-edge-hover", "217 13.7% 81.4%", "219 10.8% 25.5%"], // #C9CED6 / #3A3F48
     ["--page-ground", "216 17.2% 94.3%", "216 16.1% 6.1%"], // #EEF0F3 / #0D0F12
+    ["--active", "214 18.6% 92.7%", "218 13.9% 15.5%"], // #E9ECF0 / #22262D (#2225)
   ])("%s", (token, l, d) => {
     expect(tokenValue(light, token)).toBe(l);
     expect(tokenValue(dark, token)).toBe(d);
@@ -294,6 +295,10 @@ describe("type scale (#2215)", () => {
     ["body", "0.875rem", undefined, undefined],
     ["widget-title", "0.875rem", "1.3", "600"],
     ["meta", "0.75rem", undefined, undefined],
+    // The page kit's steps (#2225).
+    ["caption", "0.8125rem", "1.4", undefined],
+    ["figure", "1.5rem", "1.2", "600"],
+    ["wordmark", "1.125rem", "1.2", "600"],
   ])("text-%s is %s", (name, size, lineHeight, weight) => {
     const entry = preset.theme.extend.fontSize[name] as
       string | [string, { lineHeight?: string; fontWeight?: string }];

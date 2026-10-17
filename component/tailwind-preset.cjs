@@ -71,6 +71,7 @@ module.exports = {
           strong: "hsl(var(--rule-strong))",
         },
         side: "hsl(var(--side))",
+        active: "hsl(var(--active))",
         "page-ground": "hsl(var(--page-ground))",
         "card-edge": {
           DEFAULT: "hsl(var(--card-edge))",
@@ -116,6 +117,10 @@ module.exports = {
         body: "0.875rem",
         "widget-title": ["0.875rem", { lineHeight: "1.3", fontWeight: "600" }],
         meta: "0.75rem",
+        // Page kit steps (#2225): meta lines, the Stat number, the wordmark.
+        caption: ["0.8125rem", { lineHeight: "1.4" }],
+        figure: ["1.5rem", { lineHeight: "1.2", fontWeight: "600" }],
+        wordmark: ["1.125rem", { lineHeight: "1.2", fontWeight: "600" }],
         h1: [
           "1.875rem",
           {
