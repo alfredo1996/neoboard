@@ -11,6 +11,7 @@ const { mockSelect } = vi.hoisted(() => ({ mockSelect: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: { select: mockSelect } }));
 
 import {
+  layoutConnectionFacts,
   layoutConnectionIds,
   unusableByOwner,
   unusableConnectionIds,
@@ -78,6 +79,72 @@ describe("usableConnection", () => {
 
   it("puts no restriction on an admin", () => {
     expect(usableConnection("admin-1", "admin")).toBeUndefined();
+  });
+});
+
+describe("layoutConnectionFacts (#2247)", () => {
+  // The only path that hands a private connection's name to any dashboard
+  // viewer: pin the session-tenant filter, the layout's ids and the columns.
+  const layout = (...ids: string[]) => ({
+    version: 2,
+    pages: [
+      {
+        id: "p",
+        title: "x",
+        gridLayout: [],
+        widgets: ids.map((connectionId, i) => ({
+          id: `w${i}`,
+          chartType: "bar",
+          connectionId,
+          query: "q",
+        })),
+      },
+    ],
+  });
+
+  beforeEach(() => {
+    mockSelect.mockReset();
+  });
+
+  it("asks only for the layout's connections in the session tenant, and selects id, type and name", async () => {
+    const lookup = makeSelectChain([
+      { id: "c-a", type: "no-such-connector", name: "Sales warehouse" },
+    ]);
+    mockSelect.mockReturnValueOnce(lookup);
+
+    const facts = await layoutConnectionFacts(
+      layout("c-a", "c-b", "c-a"),
+      "t1",
+    );
+
+    expect(Object.keys(mockSelect.mock.calls[0][0]).sort()).toEqual([
+      "id",
+      "name",
+      "type",
+    ]);
+    const [expr] = lookup.calls.where[0] as [SQL];
+    expect(sqlColumns(expr)).toEqual(
+      expect.arrayContaining(["tenant_id", "id"]),
+    );
+    expect(sqlValues(expr)).toEqual(["t1", "c-a", "c-b"]);
+    // The name only, and for an unknown connector type too.
+    expect(facts.connectionNames).toEqual({ "c-a": "Sales warehouse" });
+  });
+
+  it("resolves no name for an id outside the tenant", async () => {
+    mockSelect.mockReturnValueOnce(makeSelectChain([]));
+    expect(await layoutConnectionFacts(layout("other-tenant"), "t1")).toEqual({
+      connectorCapabilities: {},
+      connectionNames: {},
+    });
+  });
+
+  it("asks nothing for a layout with no connection", async () => {
+    expect(await layoutConnectionFacts(layout(), "t1")).toEqual({
+      connectorCapabilities: {},
+      connectionNames: {},
+    });
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 });
 

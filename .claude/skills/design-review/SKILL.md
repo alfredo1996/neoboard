@@ -1,6 +1,6 @@
 ---
 name: design-review
-description: NeoBoard's design system, the ruled sheet (#2210) — one surface with hairline rules, the type scale, radii, colour tokens, chart rules and the anti-patterns to flag. Use when writing or reviewing UI code; the full tables, grids and critique format live in reference.md.
+description: NeoBoard's design system (#2210) — a calm page with BI cards for widgets (white card, edge, light shadow, header rule), the type scale, radii, colour tokens, chart rules and the anti-patterns to flag. Use when writing or reviewing UI code; the full tables, grids and critique format live in reference.md.
 user-invocable: false
 paths:
   - "**/*.tsx"
@@ -9,32 +9,33 @@ paths:
 
 # Design review — the core rules
 
-The redesign system (epic #2210, tokens from #2215). Components are migrated to it issue by issue, so code you read may still carry the old look: judge a change against this file, not against the neighbouring code. `reference.md` in this directory has the token tables, chart palettes, dialog and grid sizes, and a general critique format. `design-reviewer` reports in its own format.
+The redesign system (epic #2210, tokens from #2215). Code you read may still carry the old look: judge a change against this file, not the neighbouring code. `reference.md` in this directory has the token tables, chart palettes, dialog and grid sizes, and a general critique format. `design-reviewer` reports in its own format.
 
-## One surface, hairline rules
+## The page, and the widget card
 
-- The page is one sheet. `--card` and `--surface` are the page colour; areas are separated by a hairline rule (`border-border`, `--rule`), not by a white card floating above grey.
-- No `p-6` card around every block. Group with whitespace and rules; a card is for a thing the user can pick up and move (a widget), not for a section.
-- `--side` is the sidebar and rail; `--field` is the fill of inputs and overlays.
-- Shadows only on overlays (popover, dropdown, dialog, toast). Never on a card, button or input.
+- The page and its sections are one surface, set off by whitespace and hairline rules (`border-border`, `--rule`). No `p-6` card around every block. `--surface` is the page colour; `--side` is the sidebar; `--field` fills inputs and overlays.
+- A widget is a BI card (#2247), the one thing that floats: a white `--card` (`#FFFFFF` light, `#181B20` dark), a 1 px `--card-edge` (`#DDE1E6` / `#2C3038`), an 8 px radius and the two-layer `--card-shadow` (`shadow-card`), on `--page-ground` (`#EEF0F3` / `#0D0F12`). Cards sit 12 px apart. `Panel` is that card; use it, never rebuild it.
+- Inside the card: a header (12/16/10: sans title 14/600, a 12 px ink-3 source line, a 1 px `--rule` under it) and a body (12/16/16). Hover or focus darkens the edge to `--card-edge-hover`; the fill never tints. Actions show by opacity only (so Tab reaches them); on touch only the menu shows.
+- Edit mode: a dashed `--rule-strong` edge, no shadow, handle and actions always visible.
+- Every look is a `WidgetCard` prop with a Storybook control: `titleFont` (`sans`, `serif`), `headerRule` (on), `elevation` (on), `mode` (`view`, `edit`). The app uses the defaults; the KPI follows the title face. Details in `reference.md`.
+- Shadows elsewhere only on overlays (popover, dropdown, dialog, toast). Never on a button, input or section.
 
 ## Colour
 
 - Semantic tokens only (`--background`, `--foreground`, `--foreground-2`, `--muted-foreground`, `--rule`, `--side`, `--field`, `--ring`…). Never raw hex or hsl in a component.
 - Ink has three steps: `text-foreground`, `text-foreground-2`, `text-muted-foreground`. All three hold 4.5:1 on the page and on `--side` (pinned by `graphite-citrine-tokens.test.ts`).
 - A field border uses `--input`, not `--border`: it must reach 3:1 on the page (WCAG 1.4.11). `--rule` and `--rule-strong` are decoration and are not enough for a control edge.
-- Interaction is azure (`--ring`, #1553). Citrine (`--brand`) is the wordmark and the lead chart series only.
+- Interaction is azure (`--ring`). Citrine (`--brand`) is the wordmark and the lead chart series only.
 
 ## Typography
 
 - Faces: Source Serif 4 (`font-serif`) for page titles and the wordmark only; IBM Plex Sans (`font-body`, `font-display`) for everything else; IBM Plex Mono (`font-mono`) for code and query text only. Tabular figures are on at the root.
-- Scale (Tailwind utilities): `text-title` 36/600 (with `font-serif`), `text-stat` 36/600, `text-section` 15/600, `text-body` 14, `text-widget-title` 13/600, `text-meta` 12. No other sizes. `text-h1` to `text-h3` survive only until the card stat and markdown headings migrate.
+- Scale (Tailwind utilities): `text-title` 36/600 (with `font-serif`), `text-stat` 36/600, `text-section` 15/600, `text-body` 14, `text-widget-title` 14/600, `text-meta` 12. No other sizes. `text-h1` to `text-h3` survive only until the card stat and markdown headings migrate.
 - `font-medium` for interactive elements, `font-semibold` for titles, `font-bold` never.
-- No subtitle that restates the title: a description earns its line by saying something the title does not.
 
 ## Radius, borders
 
-- Controls 6px (`rounded-sm`), sheet 8px (`rounded-md`), overlays 10px (`rounded-overlay`), checkbox 4px (`rounded-checkbox`). `rounded-full` for pills and dots only. `--radius-lg` (12) is the old card radius and goes with #2219.
+- Controls 6px (`rounded-sm`), widget card 8px (`rounded-md`), overlays 10px (`rounded-overlay`), checkbox 4px (`rounded-checkbox`). `rounded-full` for pills and dots only. `--radius-lg` (12) is the old card radius and is not used on widgets.
 - 1px `border-border` by default; `border-input` on fields; `border-2 border-primary` for a selected item; never `border-4`.
 - Radius and type-scale values are pinned in `component/src/lib/__tests__/graphite-citrine-tokens.test.ts`.
 
@@ -52,7 +53,8 @@ The redesign system (epic #2210, tokens from #2215). Components are migrated to 
 ## Red flags to call out
 
 - Nested cards, everything in cards, identical card grids, everything centred.
-- A shadow on anything that is not an overlay; white surfaces floating above a grey page.
+- The three looks the owner rejected: a heavy shadowed floating card ("AI-made"), a ruled sheet with no card at all ("a giant table"), and a flat panel with a faint edge on a barely-grey page ("a post-it"). The card is white, edged, lightly shadowed, on a clearly grey page.
+- A shadow on anything that is not a widget card or an overlay; a hover tint on the card fill; a card with no edge.
 - Serif anywhere except a page title or the wordmark; Inter or Geist; monospace as "technical" styling.
 - A subtitle that restates the title; headers that restate the page.
 - Grey text on coloured fills, pure `#000` or `#fff`, neon accents on dark, gradient text on metrics.
@@ -62,10 +64,10 @@ The redesign system (epic #2210, tokens from #2215). Components are migrated to 
 
 ## Checklist before a UI PR
 
-- [ ] One surface with hairline rules; no `p-6` card wrapping a section; shadows only on overlays
+- [ ] Sections set off by whitespace and rules, no `p-6` card wrapping a section; widgets are `Panel`/`WidgetCard` cards; shadows only on cards and overlays
 - [ ] Type from the scale; serif only for the page title and wordmark
 - [ ] Tokens, never raw colours; charts through `resolveChartColors()`
-- [ ] Radius matches the component: controls 6, sheet 8, overlays 10, checkbox 4
+- [ ] Radius matches the component: controls 6, widget card 8, overlays 10, checkbox 4
 - [ ] Field borders use `--input` (3:1)
 - [ ] `EmptyState`, `LoadingButton` and `LoadingOverlay` where they apply
 - [ ] Checked in both light and dark

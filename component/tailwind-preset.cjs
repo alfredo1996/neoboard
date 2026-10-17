@@ -71,8 +71,11 @@ module.exports = {
           strong: "hsl(var(--rule-strong))",
         },
         side: "hsl(var(--side))",
-        ground: "hsl(var(--ground))",
-        "panel-hover": "hsl(var(--panel-hover))",
+        "page-ground": "hsl(var(--page-ground))",
+        "card-edge": {
+          DEFAULT: "hsl(var(--card-edge))",
+          hover: "hsl(var(--card-edge-hover))",
+        },
         field: "hsl(var(--field))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -111,11 +114,15 @@ module.exports = {
         stat: ["2.25rem", { lineHeight: "1", fontWeight: "600" }],
         section: ["0.9375rem", { fontWeight: "600" }],
         body: "0.875rem",
-        "widget-title": ["0.8125rem", { fontWeight: "600" }],
+        "widget-title": ["0.875rem", { lineHeight: "1.3", fontWeight: "600" }],
         meta: "0.75rem",
         h1: [
           "1.875rem",
-          { lineHeight: "2.25rem", letterSpacing: "-0.02em", fontWeight: "600" },
+          {
+            lineHeight: "2.25rem",
+            letterSpacing: "-0.02em",
+            fontWeight: "600",
+          },
         ],
         h2: [
           "1.5rem",
@@ -123,7 +130,11 @@ module.exports = {
         ],
         h3: [
           "1.25rem",
-          { lineHeight: "1.75rem", letterSpacing: "-0.01em", fontWeight: "600" },
+          {
+            lineHeight: "1.75rem",
+            letterSpacing: "-0.01em",
+            fontWeight: "600",
+          },
         ],
       },
       // Radius scale (#831): rounded-sm/md/lg map 1:1 to the tokens.
@@ -142,6 +153,7 @@ module.exports = {
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
+        card: "var(--card-shadow)",
       },
       // Motion vocabulary (#833): the standard ease becomes the default
       // timing function for every transition-* utility.

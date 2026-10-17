@@ -175,7 +175,7 @@ function SingleValueChart({
             <div
               className={cn(
                 valueSizeClass,
-                "font-display font-bold tracking-tight tabular-nums",
+                "font-display font-semibold tracking-tight tabular-nums group-data-[title-font=serif]/panel:font-serif",
               )}
               style={{ color: thresholdColor ?? autoContrast ?? undefined }}
             >

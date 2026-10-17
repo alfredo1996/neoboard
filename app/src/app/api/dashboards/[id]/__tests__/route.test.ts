@@ -274,6 +274,52 @@ describe("GET /api/dashboards/[id]", () => {
     );
   });
 
+  // #2247: the source line under a widget title names its connection, for a
+  // viewer who cannot use it too. Name only: never the config, host or user.
+  it("hands a viewer each widget connection's name, and nothing else about it", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const ids = Array.from({ length: 120 }, (_, i) => `c${i}`);
+    const layoutJson = {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Main",
+          widgets: ids.map((connectionId) => ({
+            id: connectionId,
+            chartType: "bar",
+            connectionId,
+            query: "RETURN 1",
+          })),
+          gridLayout: [],
+        },
+      ],
+    };
+    const rows = ids.map((id) => ({
+      id,
+      type: "gone-db",
+      name: `Name ${id}`,
+      configEncrypted: "SECRET-CONFIG",
+      visibility: "private",
+      userId: "someone-else",
+    }));
+    mockDb.select
+      .mockReturnValueOnce(
+        makeSelectChain([{ ...OWNER_DASHBOARD, isPublic: true, layoutJson }]),
+      )
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]))
+      .mockReturnValueOnce(makeSelectChain(rows));
+    const res = await GET({} as Request, makeParams("d1"));
+    const text = JSON.stringify(await res.json());
+    const body = JSON.parse(text);
+    // Past the connections list's limit of 100, and for a private connection.
+    expect(Object.keys(body.data.connectionNames)).toHaveLength(120);
+    expect(body.data.connectionNames.c119).toBe("Name c119");
+    expect(text).not.toContain("SECRET-CONFIG");
+    expect(text).not.toContain("someone-else");
+  });
+
   it("returns updatedByName when updatedBy is set", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const dashWithUpdater = { ...OWNER_DASHBOARD, updatedBy: "user-1" };

@@ -1123,7 +1123,7 @@ export default function DashboardListPage() {
                       <Panel
                         key={d.id}
                         data-testid="dashboard-card"
-                        className="flex flex-col cursor-pointer transition-colors hover:bg-accent/50"
+                        className="flex flex-col cursor-pointer"
                         onClick={() => router.push(`/${d.id}`)}
                       >
                         <PanelHeader className="pb-2">

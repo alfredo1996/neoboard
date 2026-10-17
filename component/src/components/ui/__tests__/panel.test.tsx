@@ -27,11 +27,15 @@ describe("Panel composition", () => {
     expect(screen.getByText("Foot")).toBeInTheDocument();
   });
 
-  it("is set off by a rule, with no shadow and no hover lift (#2219)", () => {
+  it("is a card: an edge, a light shadow, an edge that darkens on hover, no lift (#2247)", () => {
     render(<Panel data-testid="panel">x</Panel>);
-    const cls = screen.getByTestId("panel").className;
-    expect(cls).toContain("border-rule");
-    expect(cls).not.toMatch(/shadow|translate/);
+    const el = screen.getByTestId("panel");
+    expect(el).toHaveClass(
+      "border-card-edge",
+      "shadow-card",
+      "hover:border-card-edge-hover",
+    );
+    expect(el.className).not.toMatch(/translate|hover:bg-/);
   });
 
   it("lets the caller override its classes", () => {

@@ -23,7 +23,7 @@ import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
 import {
   layoutConnectionIds,
-  layoutConnectorCapabilities,
+  layoutConnectionFacts,
   unusableByOwner,
   unusableConnectionIds,
 } from "@/lib/db/connection-access";
@@ -139,10 +139,7 @@ export async function GET(
       ...access.dashboard,
       role: access.role,
       updatedByName: metadata?.updatedByName ?? null,
-      connectorCapabilities: await layoutConnectorCapabilities(
-        access.dashboard.layoutJson,
-        tenantId,
-      ),
+      ...(await layoutConnectionFacts(access.dashboard.layoutJson, tenantId)),
     });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboard");

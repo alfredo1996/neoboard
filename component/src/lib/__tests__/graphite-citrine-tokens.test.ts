@@ -191,29 +191,52 @@ describe("ruled-sheet palette (#2215)", () => {
     ["--rule", "220 12% 91%", "218 13% 17%"],
     ["--field", "0 0% 100%", "218 13% 12%"], // #FFFFFF / #1B1E23
     ["--input", "219 8% 56%", "218 9% 43%"], // field border, 3:1 on page and side
-    ["--ground", "220 16% 95%", "220 13% 6%"], // dashboard ground (#2219)
-    ["--panel-hover", "212 80% 97.5%", "218 14% 13%"], // hovered panel (#2219)
+    ["--card", "0 0% 100%", "218 14.3% 11%"], // #FFFFFF / #181B20 (#2247)
+    ["--card-edge", "213 15.3% 88.4%", "220 12% 19.6%"], // #DDE1E6 / #2C3038
+    ["--card-edge-hover", "217 13.7% 81.4%", "219 10.8% 25.5%"], // #C9CED6 / #3A3F48
+    ["--page-ground", "216 17.2% 94.3%", "216 16.1% 6.1%"], // #EEF0F3 / #0D0F12
   ])("%s", (token, l, d) => {
     expect(tokenValue(light, token)).toBe(l);
     expect(tokenValue(dark, token)).toBe(d);
   });
 
-  it("orders ground, hovered panel and panel so the hover never drifts onto the ground (#2219)", () => {
+  it("pins the card shadow in both themes (#2247)", () => {
+    expect(tokenValue(light, "--card-shadow")).toBe(
+      "0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08)",
+    );
+    expect(tokenValue(dark, "--card-shadow")).toBe(
+      "0 1px 2px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.35)",
+    );
+  });
+
+  it("the card reads against the ground in both themes (#2247)", () => {
     const lightness = (mode: string, token: string) =>
       Number(tokenValue(mode, token)!.split(/\s+/)[2].replace("%", ""));
-    const [lg, lh, lc] = ["--ground", "--panel-hover", "--card"].map((t) =>
-      lightness(light, t),
+    for (const mode of [light, dark]) {
+      const ground = lightness(mode, "--page-ground");
+      expect(
+        Math.abs(lightness(mode, "--card") - ground),
+        "card vs ground",
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        Math.abs(lightness(mode, "--card-edge") - ground),
+        "edge vs ground",
+      ).toBeGreaterThanOrEqual(5);
+      expect(tokenValue(mode, "--card-edge")).not.toBe(
+        tokenValue(mode, "--page-ground"),
+      );
+    }
+    expect(lightness(light, "--card-edge-hover")).toBeLessThan(
+      lightness(light, "--card-edge"),
     );
-    expect(lg, "light: ground darker than the hover").toBeLessThan(lh);
-    expect(lh, "light: hover darker than the panel").toBeLessThan(lc);
-    const [dg, dc, dh] = ["--ground", "--card", "--panel-hover"].map((t) =>
-      lightness(dark, t),
+    expect(lightness(dark, "--card-edge-hover")).toBeGreaterThan(
+      lightness(dark, "--card-edge"),
     );
-    expect(dg, "dark: ground darker than the panel").toBeLessThan(dc);
-    expect(dc, "dark: panel darker than the hover").toBeLessThan(dh);
-    // The hover must stay a visible step from the ground (>= 2.5 points of L).
-    expect(lh - lg).toBeGreaterThanOrEqual(2.5);
-    expect(dh - dg).toBeGreaterThanOrEqual(2.5);
+  });
+
+  it("the old ground and hover tokens are gone (#2247)", () => {
+    expect(css).not.toMatch(/--ground:|--panel-hover:/);
+    expect(JSON.stringify(preset)).not.toMatch(/--ground|--panel-hover/);
   });
 
   it("--rule-strong is defined in both modes", () => {
@@ -221,11 +244,11 @@ describe("ruled-sheet palette (#2215)", () => {
     expect(tokenValue(dark, "--rule-strong")).toBeTruthy();
   });
 
-  it("cards and surfaces are the page colour, not white above grey", () => {
+  it("surfaces are the page colour; only the widget card is a step off it (#2247)", () => {
     for (const mode of [light, dark]) {
-      const page = tokenValue(mode, "--background");
-      expect(tokenValue(mode, "--card")).toBe(page);
-      expect(tokenValue(mode, "--surface")).toBe(page);
+      expect(tokenValue(mode, "--surface")).toBe(
+        tokenValue(mode, "--background"),
+      );
     }
   });
 });
@@ -269,7 +292,7 @@ describe("type scale (#2215)", () => {
     ["stat", "2.25rem", "1", "600"],
     ["section", "0.9375rem", undefined, "600"],
     ["body", "0.875rem", undefined, undefined],
-    ["widget-title", "0.8125rem", undefined, "600"],
+    ["widget-title", "0.875rem", "1.3", "600"],
     ["meta", "0.75rem", undefined, undefined],
   ])("text-%s is %s", (name, size, lineHeight, weight) => {
     const entry = preset.theme.extend.fontSize[name] as

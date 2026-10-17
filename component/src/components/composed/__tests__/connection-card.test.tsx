@@ -45,9 +45,20 @@ describe("ConnectionCard", () => {
     expect(screen.getByTestId("neo4j-logo")).toBeInTheDocument();
   });
 
-  it("applies active border when active", () => {
-    const { container } = render(<ConnectionCard {...defaultProps} active />);
-    expect(container.firstChild).toHaveClass("border-primary");
+  it("keeps the active border through hover and focus, and tints no fill (#2247)", () => {
+    const { container } = render(
+      <ConnectionCard {...defaultProps} active onClick={() => {}} />,
+    );
+    const card = container.firstChild as HTMLElement;
+    // The card's edge-darkening hover must not override the active edge.
+    expect(card).toHaveClass(
+      "border-primary",
+      "hover:border-primary",
+      "focus-within:border-primary",
+    );
+    expect(card.className).not.toMatch(/hover:bg-/);
+    expect(card.className).not.toContain("hover:border-card-edge-hover");
+    expect(card.className).not.toContain("focus-within:border-card-edge-hover");
   });
 
   it("applies cursor-pointer when onClick is provided", () => {

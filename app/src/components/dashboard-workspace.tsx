@@ -695,7 +695,7 @@ export function DashboardWorkspace({
   if (isLoading) {
     return (
       // On the ground from the first paint, so the page doesn't flash to it.
-      <div className="flex-1 bg-ground">
+      <div className="flex-1 bg-page-ground">
         <div className="p-6 space-y-4">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-4 w-96" />
@@ -868,7 +868,7 @@ export function DashboardWorkspace({
 
       <DashboardErrorBoundary>
         {/* The ground behind the panels, full-bleed under the tabs (#2219). */}
-        <div className="flex-1 bg-ground" data-testid="dashboard-ground">
+        <div className="flex-1 bg-page-ground" data-testid="dashboard-ground">
           <div className="relative mx-auto w-full max-w-[1600px] p-6">
             {activeLayout.pages.map((page, index) => {
               const isActive = index === safeIndex;
@@ -939,6 +939,7 @@ export function DashboardWorkspace({
                     showParameterBar={effectiveShowBar}
                     parameterSourceMap={parameterSourceMap}
                     connectorCapabilities={dashboard?.connectorCapabilities}
+                    connectionNames={dashboard?.connectionNames}
                   />
                 </div>
               );

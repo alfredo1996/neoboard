@@ -14,7 +14,11 @@ import {
   act,
   waitFor,
 } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  QueryObserver,
+} from "@tanstack/react-query";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -34,9 +38,11 @@ vi.mock("@neoboard/components", () => ({
     onRefresh,
     onFullscreen,
     headerExtra,
+    source,
   }: {
     children: React.ReactNode;
     title: string;
+    source?: string;
     actions?: Array<{
       label: string;
       onClick?: () => void;
@@ -55,7 +61,11 @@ vi.mock("@neoboard/components", () => ({
       a.children && a.children.length > 0 ? a.children : [a],
     );
     return (
-      <div data-testid="widget-card-inner" data-title={title}>
+      <div
+        data-testid="widget-card-inner"
+        data-title={title}
+        data-source={source}
+      >
         <div data-testid="widget-header-extra">
           {headerExtra}
           {onFullscreen && (
@@ -345,7 +355,8 @@ vi.mock("@/lib/query/resolve-cache-options", async (importOriginal) => ({
 
 /* ---------- import under test ---------- */
 const { DashboardContainer } = await import("../dashboard-container");
-const { useWidgetQuery } = await import("@/hooks/use-widget-query");
+const { useWidgetQuery, widgetQueryKey } =
+  await import("@/hooks/use-widget-query");
 const {
   buildCsvString: mockBuildCsv,
   triggerDownload: mockTriggerDownload,
@@ -1166,5 +1177,40 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     expect(screen.getByTestId("sync-dialog")).toBeDefined();
     // Confirm — must not throw and must close
     fireEvent.click(screen.getByTestId("confirm-sync"));
+  });
+});
+
+describe("DashboardContainer — the source line under a title (#2247)", () => {
+  it("names the connection the widget runs on, with its rows and age", () => {
+    const widget = makeWidget();
+    // From the dashboard response, so a viewer who cannot list the
+    // connection sees its name too.
+    const { queryClient } = renderWithProviders(
+      <DashboardContainer
+        page={makePage([widget])}
+        connectionNames={{ "conn-9": "Other", "conn-1": "Movies graph" }}
+      />,
+    );
+    expect(screen.getByTestId("widget-card-inner")).not.toHaveAttribute(
+      "data-source",
+    );
+    const key = widgetQueryKey({ ...widget, params: {} });
+    act(() => {
+      queryClient.setQueryData(
+        key,
+        { data: [1, 2, 3], resultId: "r" },
+        { updatedAt: Date.now() },
+      );
+      // The card (mocked here) observes its query; the line reads only that.
+      new QueryObserver(queryClient, {
+        queryKey: key,
+        queryFn: async () => ({ data: [], resultId: "r" }),
+        staleTime: Infinity,
+      }).subscribe(() => {});
+    });
+    expect(screen.getByTestId("widget-card-inner")).toHaveAttribute(
+      "data-source",
+      "Movies graph · 3 rows · just now",
+    );
   });
 });

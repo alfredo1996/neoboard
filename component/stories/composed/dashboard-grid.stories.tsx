@@ -148,7 +148,7 @@ export const WithCharts: Story = {
           <WidgetCard
             title="Sales by Category"
             source="Current quarter"
-            draggable
+            mode="edit"
           >
             <BarChart data={categoryData} showValues />
           </WidgetCard>
@@ -178,7 +178,7 @@ export const WithDragHandle: Story = {
           <WidgetCard
             title="Revenue"
             source="Last 30 days"
-            draggable
+            mode="edit"
             actions={[{ label: "Edit", onClick: () => {} }]}
           >
             <div className="flex items-center justify-center h-full text-2xl font-bold">
@@ -190,7 +190,7 @@ export const WithDragHandle: Story = {
           <WidgetCard
             title="Active Users"
             source="This week"
-            draggable
+            mode="edit"
             actions={[{ label: "Edit", onClick: () => {} }]}
           >
             <div className="flex items-center justify-center h-full text-2xl font-bold">
@@ -202,7 +202,7 @@ export const WithDragHandle: Story = {
           <WidgetCard
             title="Orders"
             source="Pending"
-            draggable
+            mode="edit"
             actions={[{ label: "Edit", onClick: () => {} }]}
           >
             <div className="flex items-center justify-center h-full text-2xl font-bold">
@@ -214,7 +214,7 @@ export const WithDragHandle: Story = {
           <WidgetCard
             title="Revenue Over Time"
             source="Monthly trend"
-            draggable
+            mode="edit"
             actions={[
               { label: "Export CSV", onClick: () => {} },
               { label: "Remove", onClick: () => {}, destructive: true },

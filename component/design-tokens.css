@@ -146,15 +146,16 @@
   --foreground: 223 14% 10%;
   --foreground-2: 222 11% 36%;
   --side: 220 16% 96%;
-  /* Dashboard ground (#2219): the area behind the widget panels, a step
-     darker than a panel (#FCFCFD) so the panels stand out. Not --background:
-     that stays one surface with --card (#2215). --panel-hover is a panel
-     under the pointer: lighter than the ground, with an azure cast. */
-  --ground: 220 16% 95%;
-  --panel-hover: 212 80% 97.5%;
+  /* BI card (#2247): a white card with a visible edge and a light shadow on
+     a clearly grey page. --page-ground is the grey behind the cards; the edge
+     darkens on hover instead of the card tinting. */
+  --page-ground: 216 17.2% 94.3%; /* #EEF0F3 */
+  --card-edge: 213 15.3% 88.4%; /* #DDE1E6 */
+  --card-edge-hover: 217 13.7% 81.4%; /* #C9CED6 */
+  --card-shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
   --surface: 240 20% 99%;
   --surface-2: 220 14% 95%;
-  --card: 240 20% 99%;
+  --card: 0 0% 100%;
   --card-foreground: 223 14% 10%;
   /* Overlays sit on the field colour so they lift off the page. */
   --popover: 0 0% 100%;
@@ -257,12 +258,13 @@
   --foreground: 216 15% 94%;
   --foreground-2: 217 11% 71%;
   --side: 218 14% 11%;
-  /* Darker than the panels (#14161A); the hover is a step lighter than them. */
-  --ground: 220 13% 6%;
-  --panel-hover: 218 14% 13%;
+  --page-ground: 216 16.1% 6.1%; /* #0D0F12 */
+  --card-edge: 220 12% 19.6%; /* #2C3038 */
+  --card-edge-hover: 219 10.8% 25.5%; /* #3A3F48 */
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.35);
   --surface: 220 13% 9%;
   --surface-2: 220 13% 14%;
-  --card: 220 13% 9%;
+  --card: 218 14.3% 11%; /* #181B20 */
   --card-foreground: 216 15% 94%;
   --popover: 218 13% 12%;
   --popover-foreground: 216 15% 94%;
