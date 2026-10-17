@@ -483,27 +483,24 @@ export interface CategoryAxisLabelConfig {
   tooltip: { show: boolean };
 }
 
+/**
+ * Horizontal pixels the line chart's grid takes (`left: 48`, `right: 56` with a
+ * second axis else 16). Its value labels (about 40px each) are contained inside
+ * the grid, so they come on top of the margins.
+ */
+export function lineAxisInsets(compact: boolean, dualAxis: boolean): number {
+  return compact ? 16 : 48 + 40 + (dualAxis ? 56 + 40 : 16);
+}
+
+/** A label formatter that cuts to `maxLength` characters, ending in "…". */
+function cutTo(maxLength: number) {
+  return (value: string) =>
+    value.length > maxLength ? value.slice(0, maxLength - 1) + "\u2026" : value;
+}
+
 /** Below this band width even a cut label is unreadable, so labels skip. */
 const MIN_LABEL_BAND = 28;
 
-/**
- * Compute axis label rotation and truncation based on category count.
- * - Automatic never rotates (#2226); an explicit `rotateOverride` does
- * - A crowded axis skips labels that would overlap
- * - Auto mode cuts each label to its own band with "…" and shows every label
- *   (`interval: 0`: left on auto, ECharts measures the uncut text and still
- *   skips). Only when even the shortest cut cannot fit (a band under
- *   MIN_LABEL_BAND) does it fall back to skipping, and with a data zoom on
- *   it keeps ECharts' auto interval. Horizontal bars cut to the left gutter.
- * - Where a character cut applies (explicit angle, unknown width, zoom, too
- *   narrow) labels longer than maxLabelLength are truncated with "…" (U+2026)
- * - ECharts axisPointer tooltip shows the full text on hover
- * - Category labels are never hidden: a compact container drops the value
- *   axis, since a chart with no category names identifies nothing (#1247)
- *
- * A `rotateOverride` of -1 is the "automatic" sentinel from the UI and is
- * normalized to undefined so the category-count heuristic applies.
- */
 /**
  * Auto mode: cut each label to its own band with "…" and show every label
  * (`interval: 0` on x; `hideOverlap` stays on as a safety net for a grid wider
@@ -535,6 +532,24 @@ function bandLabel(
   };
 }
 
+/**
+ * Compute axis label rotation and truncation based on category count.
+ * - Automatic never rotates (#2226); an explicit `rotateOverride` does
+ * - A crowded axis skips labels that would overlap
+ * - Auto mode cuts each label to its own band with "…" and shows every label
+ *   (`interval: 0`: left on auto, ECharts measures the uncut text and still
+ *   skips). Only when even the shortest cut cannot fit (a band under
+ *   MIN_LABEL_BAND) does it fall back to skipping, and with a data zoom on
+ *   it keeps ECharts' auto interval. Horizontal bars cut to the left gutter.
+ * - Where a character cut applies (explicit angle, unknown width, zoom, too
+ *   narrow) labels longer than maxLabelLength are truncated with "…" (U+2026)
+ * - ECharts axisPointer tooltip shows the full text on hover
+ * - Category labels are never hidden: a compact container drops the value
+ *   axis, since a chart with no category names identifies nothing (#1247)
+ *
+ * A `rotateOverride` of -1 is the "automatic" sentinel from the UI and is
+ * normalized to undefined so the category-count heuristic applies.
+ */
 export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
@@ -584,12 +599,7 @@ export function buildCategoryAxisLabel(
     categoryAxis === "y" && containerWidth
       ? Math.max(10, Math.floor(containerWidth / 3 / 7))
       : effectiveMaxLength;
-  const formatter = needsTruncation
-    ? (value: string) =>
-        value.length > maxLength
-          ? value.slice(0, maxLength - 1) + "\u2026"
-          : value
-    : undefined;
+  const formatter = needsTruncation ? cutTo(maxLength) : undefined;
 
   return {
     show: true,

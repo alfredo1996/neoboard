@@ -20,6 +20,7 @@ import {
   buildMarkLineFromRefs,
   isTimeSeriesData,
   buildCategoryAxisLabel,
+  lineAxisInsets,
   fadeToTransparent,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
@@ -365,7 +366,7 @@ function LineChart({
               compact,
               zoom: enableDataZoom,
               // grid.left 48 + right (56 with a second axis, else 16)
-              insets: compact ? 16 : 48 + (useDualAxis ? 56 : 16),
+              insets: lineAxisInsets(compact, useDualAxis),
             }),
           },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,

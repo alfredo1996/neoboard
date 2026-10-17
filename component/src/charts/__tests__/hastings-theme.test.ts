@@ -2,8 +2,9 @@
 import { describe, it, expect, vi } from "vitest";
 import * as echarts from "echarts/core";
 import { SVGRenderer } from "echarts/renderers";
-import { BarChart } from "echarts/charts";
+import { BarChart, LineChart } from "echarts/charts";
 import { GridComponent } from "echarts/components";
+import { LegacyGridContainLabel } from "echarts/features";
 // vitest.setup.ts stubs these modules for every test; the seam needs the real ones.
 vi.unmock("echarts/charts");
 vi.unmock("echarts/components");
@@ -16,11 +17,19 @@ import {
   resolveShowLegend,
   buildCategoryAxisLabel,
   buildCompactGrid,
+  lineAxisInsets,
   legendIsolateAction,
   highlight,
 } from "../chart-utils";
 
-echarts.use([SVGRenderer, BarChart, GridComponent]);
+echarts.use([
+  SVGRenderer,
+  BarChart,
+  LineChart,
+  GridComponent,
+  // the charts' grids use containLabel
+  LegacyGridContainLabel,
+]);
 registerNeoboardThemes(echarts.registerTheme);
 
 // Hexes copied from the issue's "Chart theme" table, not from the code.
@@ -286,6 +295,54 @@ describe("category axis labels, rendered (#2226)", () => {
     expect(labels).toHaveLength(10);
     expect(labels.every(isCutOrFull)).toBe(true);
   });
+
+  it.each([
+    ["a line", 1200, false],
+    ["a dual-axis line", 570, true],
+    ["a dual-axis line", 1200, true],
+  ])(
+    "%s at %ipx shows all ten names (value labels sit inside the grid)",
+    (_n, width, dual) => {
+      // LineChart's own grid and insets: left 48, right 56 with a second axis,
+      // containLabel on, and a 1.2M-wide value axis.
+      const chart = echarts.init(null, THEME_LIGHT, {
+        renderer: "svg",
+        ssr: true,
+        width,
+        height: 300,
+      });
+      const big = TITLES.map((_, i) => 1_234_567 - i * 1000);
+      // Long enough that every cut label fills its band.
+      const names = TITLES.map((t) => `${t} and Its Sequel`);
+      chart.setOption({
+        animation: false,
+        grid: {
+          ...buildCompactGrid(false, false),
+          left: 48,
+          right: dual ? 56 : undefined,
+        },
+        xAxis: {
+          type: "category",
+          data: names,
+          axisLabel: buildCategoryAxisLabel(names.length, {
+            containerWidth: width,
+            insets: lineAxisInsets(false, dual),
+          }),
+        },
+        yAxis: dual ? [{}, {}] : {},
+        series: [
+          { type: "line", data: big },
+          ...(dual ? [{ type: "line", yAxisIndex: 1, data: big }] : []),
+        ],
+      });
+      const svg = chart.renderToSVGString();
+      chart.dispose();
+      const labels = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)]
+        .map((m) => m[1].replaceAll("&#39;", "'"))
+        .filter((t) => Number.isNaN(Number(t)) && !/^[\d.]+[KM]?$/.test(t));
+      expect(labels).toHaveLength(10);
+    },
+  );
 
   it("horizontal bars with 60 names skip by row height, never pile up", () => {
     const names = Array.from(
