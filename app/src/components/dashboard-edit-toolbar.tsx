@@ -1,21 +1,13 @@
 "use client";
 
 import React from "react";
-import { Plus, Save, Users } from "lucide-react";
+import { FilePlus, Plus, Save } from "lucide-react";
 import { ShortcutHint } from "@/components/shortcut-hint";
-import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
-import { DashboardFiltersButton } from "@/components/dashboard-filters-button";
 import { DashboardMeta } from "@/components/dashboard-meta";
+import { DashboardShareSheet } from "@/components/dashboard-share-sheet";
+import { crumbClick } from "@/lib/crumb-click";
 import { PageHeader } from "@neoboard/components/kit";
-import {
-  Button,
-  LoadingButton,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@neoboard/components";
+import { Button, LoadingButton } from "@neoboard/components";
 
 interface DashboardEditToolbarProps {
   dashboardId: string;
@@ -23,12 +15,10 @@ interface DashboardEditToolbarProps {
   updatedAt: string | Date;
   updatedByName?: string | null;
   widgetCount: number;
-  /** The page tabs, under the title. */
+  /** The page tabs, under the title: only when there are 2+ pages. */
   tabs?: React.ReactNode;
-  hasParameters: boolean;
-  parameterCount: number;
-  showParameterBar: boolean;
-  onToggleParameterBar: () => void;
+  /** Given while the dashboard has one page and so no tabs row. */
+  onAddPage?: () => void;
   /** Admins get the sharing sheet. */
   isAdmin: boolean;
   isPublic: boolean;
@@ -42,7 +32,11 @@ interface DashboardEditToolbarProps {
   onLeave: () => void;
 }
 
-/** Edit-mode page header: breadcrumb, title, meta, sharing, Add Widget, Save. */
+/**
+ * Edit-mode page header: breadcrumb, name, meta, sharing, Add Widget, Save.
+ * Its height matches the view header's: the name stays on one line and the
+ * "Editing" crumb says the mode.
+ */
 export function DashboardEditToolbar({
   dashboardId,
   name,
@@ -50,10 +44,7 @@ export function DashboardEditToolbar({
   updatedByName,
   widgetCount,
   tabs,
-  hasParameters,
-  parameterCount,
-  showParameterBar,
-  onToggleParameterBar,
+  onAddPage,
   isAdmin,
   isPublic,
   onTogglePublic,
@@ -69,22 +60,16 @@ export function DashboardEditToolbar({
         {
           label: "Dashboards",
           href: "/",
-          onClick: (e) => {
-            e.preventDefault();
-            onDashboards();
-          },
+          onClick: crumbClick(onDashboards),
         },
         {
           label: name,
           href: `/${dashboardId}`,
-          onClick: (e) => {
-            e.preventDefault();
-            onLeave();
-          },
+          onClick: crumbClick(onLeave),
         },
         { label: "Editing" },
       ]}
-      title={`Editing: ${name}`}
+      title={name}
       meta={
         <DashboardMeta
           updatedAt={updatedAt}
@@ -97,33 +82,19 @@ export function DashboardEditToolbar({
       actions={
         <>
           {isAdmin && (
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Users className="mr-2 h-4 w-4" />
-                  Sharing
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>Sharing</SheetTitle>
-                </SheetHeader>
-                <div className="mt-4">
-                  <DashboardAssignPanel
-                    dashboardId={dashboardId}
-                    isPublic={isPublic}
-                    onTogglePublic={onTogglePublic}
-                  />
-                </div>
-              </SheetContent>
-            </Sheet>
+            <DashboardShareSheet
+              dashboardId={dashboardId}
+              isPublic={isPublic}
+              onTogglePublic={onTogglePublic}
+              label="Sharing"
+            />
           )}
-          <DashboardFiltersButton
-            hasParameters={hasParameters}
-            parameterCount={parameterCount}
-            showParameterBar={showParameterBar}
-            onToggleParameterBar={onToggleParameterBar}
-          />
+          {onAddPage && (
+            <Button variant="outline" size="sm" onClick={onAddPage}>
+              <FilePlus className="mr-2 h-4 w-4" />
+              Add page
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -132,7 +103,10 @@ export function DashboardEditToolbar({
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Widget
-            <ShortcutHint combo="Cmd+Shift+N" />
+            {/* The hint is for wide headers: at tablet width the actions must not wrap it taller. */}
+            <span className="hidden lg:contents">
+              <ShortcutHint combo="Cmd+Shift+N" />
+            </span>
           </Button>
           <LoadingButton
             size="sm"
@@ -143,7 +117,10 @@ export function DashboardEditToolbar({
           >
             <Save className="mr-2 h-4 w-4" />
             Save
-            <ShortcutHint combo="Cmd+S" />
+            {/* The hint is for wide headers: at tablet width the actions must not wrap it taller. */}
+            <span className="hidden lg:contents">
+              <ShortcutHint combo="Cmd+S" />
+            </span>
           </LoadingButton>
         </>
       }

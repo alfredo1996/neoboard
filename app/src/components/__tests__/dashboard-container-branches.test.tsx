@@ -643,6 +643,16 @@ describe("DashboardContainer — filter line", () => {
     ).toHaveLength(2);
   });
 
+  it("shows the line whenever a filter is active, with no toggle to hide it", () => {
+    parametersState.parameters = {
+      status: { field: "status", value: "active" },
+    };
+    renderWithProviders(<DashboardContainer page={makePage()} />);
+    expect(
+      screen.getByRole("group", { name: "Active filters" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders no line when no parameter is active", () => {
     renderWithProviders(<DashboardContainer page={makePage()} />);
     expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
@@ -657,6 +667,44 @@ describe("DashboardContainer — filter line", () => {
       screen.getByRole("button", { name: "Remove Status filter" }),
     );
     expect(parametersState.clearParameter).toHaveBeenCalledWith("status");
+  });
+
+  it("scrolls to and highlights the widget that set a filter when its sentence is clicked", () => {
+    vi.useFakeTimers();
+    parametersState.parameters = {
+      status: {
+        field: "status",
+        value: "active",
+        source: "Widget A",
+        sourceWidgetId: "src-1",
+      },
+      other: { field: "other", value: "x" },
+    };
+    const scrollIntoView = vi.fn();
+    const el = document.createElement("div");
+    el.scrollIntoView = scrollIntoView;
+    const origQuerySelector = document.querySelector.bind(document);
+    const spy = vi
+      .spyOn(document, "querySelector")
+      .mockImplementation((sel: string) =>
+        sel.includes("src-1") ? el : origQuerySelector(sel),
+      );
+    renderWithProviders(<DashboardContainer page={makePage()} />);
+
+    // A filter nothing set has no source to jump to.
+    expect(screen.queryByRole("button", { name: "Other is x" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Status is active" }));
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "center",
+    });
+    expect(el.classList.contains("ring-2")).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(el.classList.contains("ring-2")).toBe(false);
+    spy.mockRestore();
+    vi.useRealTimers();
   });
 
   it("clears all parameters on Reset", () => {

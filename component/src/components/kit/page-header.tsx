@@ -72,19 +72,22 @@ function PageHeader({
         </Breadcrumb>
       )}
       <div className="flex flex-wrap items-end gap-4">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-48">
           <h1
             ref={titleRef}
             tabIndex={-1}
-            className="m-0 text-2xl font-semibold leading-tight tracking-[-0.01em] outline-none"
+            title={title}
+            className="m-0 truncate text-2xl font-semibold leading-tight tracking-[-0.01em] outline-none"
           >
             {title}
           </h1>
           {meta && (
-            <p className="mt-1 text-caption text-muted-foreground">{meta}</p>
+            <p className="mt-1 truncate text-caption text-muted-foreground">
+              {meta}
+            </p>
           )}
         </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+        {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
       </div>
       {tabs && <div className="-mb-3 mt-3">{tabs}</div>}
     </header>

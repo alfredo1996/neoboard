@@ -74,6 +74,28 @@ export function getPreview(dialog: import("@playwright/test").Locator) {
 }
 
 /**
+ * The "Editing" crumb in the page header: it names the mode, and is the
+ * current page (`aria-current`) only in edit mode.
+ */
+export function editingCrumb(page: import("@playwright/test").Page) {
+  return page
+    .getByRole("navigation", { name: "breadcrumb" })
+    .getByText("Editing", { exact: true });
+}
+
+/**
+ * The open dashboard's own crumb in the page header. In edit mode it is the
+ * way back to view mode. Found by the dashboard's address, which is its id,
+ * so it needs neither the name nor the crumb's position.
+ */
+export function dashboardCrumb(page: import("@playwright/test").Page) {
+  const viewPath = new URL(page.url()).pathname.replace(/\/edit$/, "");
+  return page
+    .getByRole("navigation", { name: "breadcrumb" })
+    .locator(`a[href="${viewPath}"]`);
+}
+
+/**
  * Click Save on the dashboard editor and wait for the save to actually land.
  *
  * The long-standing `await expect(Save).toBeEnabled()` idiom is not a wait at

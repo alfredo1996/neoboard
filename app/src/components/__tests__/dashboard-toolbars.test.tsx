@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DashboardViewToolbar } from "@/components/dashboard-view-toolbar";
 import { DashboardEditToolbar } from "@/components/dashboard-edit-toolbar";
@@ -10,16 +10,15 @@ vi.mock("@/components/dashboard-assign-panel", () => ({
 }));
 
 const viewProps = {
+  dashboardId: "d1",
   name: "Movie Analytics",
   updatedAt: new Date(Date.now() - 3 * 60_000),
   updatedByName: "Alice Demo",
   widgetCount: 12,
   isPublic: false,
+  isAdmin: true,
+  onTogglePublic: vi.fn(),
   canEdit: true,
-  hasParameters: true,
-  parameterCount: 2,
-  showParameterBar: true,
-  onToggleParameterBar: vi.fn(),
   isFetching: false,
   refetchInterval: false as const,
   onApplyInterval: vi.fn(),
@@ -34,10 +33,6 @@ const editProps = {
   updatedAt: new Date(Date.now() - 3 * 60_000),
   updatedByName: "Alice Demo",
   widgetCount: 1,
-  hasParameters: true,
-  parameterCount: 2,
-  showParameterBar: true,
-  onToggleParameterBar: vi.fn(),
   isAdmin: true,
   isPublic: true,
   onTogglePublic: vi.fn(),
@@ -47,6 +42,8 @@ const editProps = {
   onLeave: vi.fn(),
   onDashboards: vi.fn(),
 };
+
+const crumbs = () => screen.getByRole("navigation", { name: "breadcrumb" });
 
 describe("DashboardViewToolbar", () => {
   it("shows breadcrumb, title, meta and the view actions in the kit header", async () => {
@@ -59,11 +56,10 @@ describe("DashboardViewToolbar", () => {
       />,
     );
 
-    const crumbs = screen.getByRole("navigation", { name: "breadcrumb" });
     expect(
-      within(crumbs).getByRole("link", { name: "Dashboards" }),
+      within(crumbs()).getByRole("link", { name: "Dashboards" }),
     ).toHaveAttribute("href", "/");
-    expect(crumbs).toHaveTextContent("Movie Analytics");
+    expect(crumbs()).toHaveTextContent("Movie Analytics");
     expect(
       screen.getByRole("heading", { level: 1, name: "Movie Analytics" }),
     ).toBeInTheDocument();
@@ -73,23 +69,10 @@ describe("DashboardViewToolbar", () => {
     expect(screen.getByTestId("auto-refresh-trigger")).toBeInTheDocument();
     expect(screen.getByTestId("tabs")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Back/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Filters/ })).toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: /Edit/ }));
     expect(onEdit).toHaveBeenCalledOnce();
-  });
-
-  it("keeps the Filters toggle, with the active count, beside the actions", async () => {
-    const onToggleParameterBar = vi.fn();
-    render(
-      <DashboardViewToolbar
-        {...viewProps}
-        onToggleParameterBar={onToggleParameterBar}
-      />,
-    );
-    const toggle = screen.getByRole("button", { name: "Hide parameters" });
-    expect(toggle).toHaveTextContent("Filters2");
-    await userEvent.click(toggle);
-    expect(onToggleParameterBar).toHaveBeenCalledOnce();
   });
 
   it("says Public in the meta when the dashboard is public", () => {
@@ -102,10 +85,41 @@ describe("DashboardViewToolbar", () => {
     expect(screen.queryByTestId("auto-refresh-trigger")).toBeNull();
     expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull();
   });
+
+  it("opens the sharing sheet from view mode, for admins only", async () => {
+    const { unmount } = render(<DashboardViewToolbar {...viewProps} />);
+    await userEvent.click(screen.getByRole("button", { name: "Share" }));
+    expect(await screen.findByTestId("assign-panel")).toBeInTheDocument();
+    unmount();
+
+    render(<DashboardViewToolbar {...viewProps} isAdmin={false} />);
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+  });
+
+  it.each([
+    ["Cmd", { metaKey: true }],
+    ["Ctrl", { ctrlKey: true }],
+    ["Shift", { shiftKey: true }],
+    ["middle", { button: 1 }],
+  ])(
+    "%s-click on the Dashboards crumb keeps the browser's own link",
+    (_, init) => {
+      const onDashboards = vi.fn();
+      render(
+        <DashboardViewToolbar {...viewProps} onDashboards={onDashboards} />,
+      );
+      const notPrevented = fireEvent.click(
+        screen.getByRole("link", { name: "Dashboards" }),
+        init,
+      );
+      expect(notPrevented).toBe(true);
+      expect(onDashboards).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("DashboardEditToolbar", () => {
-  it("shows breadcrumb, Editing title, meta and the edit actions", async () => {
+  it("shows the name as the title, the Editing crumb, meta and the edit actions", async () => {
     const onSave = vi.fn();
     const onAddWidget = vi.fn();
     render(
@@ -118,15 +132,15 @@ describe("DashboardEditToolbar", () => {
     );
 
     expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: "Editing: Movie Analytics",
-      }),
+      screen.getByRole("heading", { level: 1, name: "Movie Analytics" }),
     ).toBeInTheDocument();
+    const current = crumbs().querySelector('[aria-current="page"]');
+    expect(current).toHaveTextContent("Editing");
     expect(screen.getByText(/Updated/)).toHaveTextContent("· 1 widget");
     expect(screen.getByRole("button", { name: /Sharing/ })).toBeInTheDocument();
     expect(screen.getByTestId("tabs")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Back/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Filters/ })).toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: /Add Widget/ }));
     await userEvent.click(screen.getByRole("button", { name: /Save/ }));
@@ -134,23 +148,49 @@ describe("DashboardEditToolbar", () => {
     expect(onSave).toHaveBeenCalledOnce();
   });
 
+  it("offers Add page only when the page has no tabs row of its own", async () => {
+    const onAddPage = vi.fn();
+    const { rerender } = render(<DashboardEditToolbar {...editProps} />);
+    expect(screen.queryByRole("button", { name: /Add page/ })).toBeNull();
+
+    rerender(<DashboardEditToolbar {...editProps} onAddPage={onAddPage} />);
+    await userEvent.click(screen.getByRole("button", { name: /Add page/ }));
+    expect(onAddPage).toHaveBeenCalledOnce();
+  });
+
   it("leaves edit mode through the dashboard's crumb", async () => {
     const onLeave = vi.fn();
     render(<DashboardEditToolbar {...editProps} onLeave={onLeave} />);
 
-    const crumbs = screen.getByRole("navigation", { name: "breadcrumb" });
     await userEvent.click(
-      within(crumbs).getByRole("link", { name: "Movie Analytics" }),
+      within(crumbs()).getByRole("link", { name: "Movie Analytics" }),
     );
     expect(onLeave).toHaveBeenCalledOnce();
   });
 
-  it("asks before leaving for the list: the Dashboards crumb calls onDashboards", async () => {
+  it("calls onDashboards from the Dashboards crumb, for the caller to ask first", async () => {
     const onDashboards = vi.fn();
     render(<DashboardEditToolbar {...editProps} onDashboards={onDashboards} />);
     await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
     expect(onDashboards).toHaveBeenCalledOnce();
   });
+
+  it.each([
+    ["Dashboards", "onDashboards"],
+    ["Movie Analytics", "onLeave"],
+  ] as const)(
+    "Cmd-click on the %s crumb keeps the browser's own link",
+    (name, handler) => {
+      const fn = vi.fn();
+      render(<DashboardEditToolbar {...editProps} {...{ [handler]: fn }} />);
+      const notPrevented = fireEvent.click(
+        within(crumbs()).getByRole("link", { name }),
+        { metaKey: true },
+      );
+      expect(notPrevented).toBe(true);
+      expect(fn).not.toHaveBeenCalled();
+    },
+  );
 
   it("hides Sharing from non-admins", () => {
     render(<DashboardEditToolbar {...editProps} isAdmin={false} />);

@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   uid,
+  editingCrumb,
 } from "./fixtures";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -47,9 +48,7 @@ test.describe("New chart types — creation flow", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -394,7 +393,7 @@ test.describe("New chart types — creation flow", () => {
       page.getByText("Dashboard saved", { exact: true }),
     ).toBeVisible({ timeout: 10_000 });
     await page.reload();
-    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeVisible({
+    await expect(editingCrumb(page)).toBeVisible({
       timeout: 15_000,
     });
 

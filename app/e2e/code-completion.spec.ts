@@ -13,6 +13,7 @@ import {
   createTestDashboard,
   SEEDED_PG_OPTION,
   uid,
+  editingCrumb,
 } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
@@ -199,9 +200,7 @@ test.describe("Code completion — Cypher + SQL", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

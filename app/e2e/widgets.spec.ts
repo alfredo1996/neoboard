@@ -7,6 +7,7 @@ import {
   getPreview,
   SEEDED_PG_OPTION,
   uid,
+  editingCrumb,
 } from "./fixtures";
 
 test.describe("Widget creation", () => {
@@ -21,9 +22,7 @@ test.describe("Widget creation", () => {
     dashboardCleanup = cleanup;
     // Navigate to the new dashboard in edit mode
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -220,9 +219,7 @@ test.describe("Widget edit – query cache invalidation", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -307,9 +304,7 @@ test.describe("Widget duplicate", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -362,9 +357,7 @@ test.describe("Widget editor UX", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -655,9 +648,7 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
     dashboardCleanup = cleanup;
     dashboardId = id;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

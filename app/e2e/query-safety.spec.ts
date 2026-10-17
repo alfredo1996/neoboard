@@ -7,6 +7,7 @@ import {
   getPreview,
   SEEDED_PG_OPTION,
   uid,
+  editingCrumb,
 } from "./fixtures";
 import type { APIRequestContext } from "@playwright/test";
 
@@ -508,9 +509,7 @@ test.describe("Widget editor preview — blocked write vs syntax error (#1932)",
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

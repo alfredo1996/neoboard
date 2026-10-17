@@ -1,4 +1,11 @@
-import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  uid,
+  editingCrumb,
+} from "./fixtures";
 
 test.describe("Dashboard CRUD", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -29,9 +36,7 @@ test.describe("Dashboard CRUD", () => {
 
       // The app lands on the new dashboard's edit page.
       await page.waitForURL((url) => url.pathname === `/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
-      ).toBeVisible({ timeout: 10_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
     } finally {
       if (id) await page.request.delete(`/api/dashboards/${id}`);
     }
@@ -94,9 +99,7 @@ test.describe("Dashboard CRUD", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10000 });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.waitForURL(/\/edit/, { timeout: 15_000 });
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Add Widget" }),
     ).toBeVisible();

@@ -78,6 +78,25 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
     }
   });
 
+  test("1b. the Share button in the view header opens the same sheet, without entering edit mode", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await setupAliceDashboard(
+      page,
+      `Share From View ${uid()}`,
+    );
+    try {
+      await page.goto(`/${id}`);
+      await page.getByRole("button", { name: "Share", exact: true }).click();
+      await expect(page.locator("#assign-email")).toBeVisible({
+        timeout: 10_000,
+      });
+      expect(new URL(page.url()).pathname).toBe(`/${id}`);
+    } finally {
+      await cleanup();
+    }
+  });
+
   test("2. share dashboard with user as editor", async ({ page }) => {
     const { id, cleanup } = await setupAliceDashboard(
       page,

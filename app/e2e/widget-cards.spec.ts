@@ -150,8 +150,15 @@ test.describe("Widget cards", () => {
   test("edit mode keeps the same gap, so entering it moves nothing", async ({
     page,
   }) => {
-    const top = async () =>
-      (await page.locator("[data-widget-id='k1']").boundingBox())!.y;
+    // The grid's top against the header's bottom edge: the header is the same
+    // height in both modes (#2252), so this does not move at all.
+    const belowHeader = async () => {
+      const [header, card] = [
+        (await page.locator("main header").boundingBox())!,
+        (await page.locator("[data-widget-id='k1']").boundingBox())!,
+      ];
+      return card.y - (header.y + header.height);
+    };
     const gap = async () => {
       const [a, b] = [
         (await page.locator("[data-widget-id='k1']").boundingBox())!,
@@ -159,16 +166,13 @@ test.describe("Widget cards", () => {
       ];
       return b.x - (a.x + a.width);
     };
-    const [topView, gapView] = [await top(), await gap()];
+    const [belowView, gapView] = [await belowHeader(), await gap()];
     await page.goto(`/${dashboardId}/edit`);
     await expect(
       page.getByRole("button", { name: "Drag to reorder" }).first(),
     ).toBeVisible({ timeout: 15_000 });
-    // Only the grid's own position math is compared: the header may differ.
-    // Edit mode adds the tabs row (49px) and, at tablet width, wraps the title
-    // (30px) and the meta line (18px), so the bound is their sum plus a margin.
     expect(await gap()).toBe(gapView);
-    expect(Math.abs((await top()) - topView)).toBeLessThan(100);
+    expect(await belowHeader()).toBeCloseTo(belowView, 1);
   });
 
   for (const scheme of ["light", "dark"] as const) {

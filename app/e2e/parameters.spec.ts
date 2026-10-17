@@ -7,6 +7,8 @@ import {
   typeInEditor,
   getPreview,
   uid,
+  editingCrumb,
+  dashboardCrumb,
 } from "./fixtures";
 
 /** Cancel on an edited widget asks first (#2054): Discard, and the empty
@@ -35,9 +37,7 @@ test.describe("Parameter selectors", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -198,9 +198,7 @@ test.describe("Parameter-to-refresh cycle", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
 
     // --- Widget 1: Parameter-select (year dropdown) ---
     // Use .first() because a fresh dashboard shows both a toolbar and an empty-state "Add Widget" button
@@ -255,11 +253,7 @@ test.describe("Parameter-to-refresh cycle", () => {
     await saveDashboard(page);
 
     // Navigate to view mode via the dashboard crumb
-    await page
-      .getByRole("navigation", { name: "breadcrumb" })
-      .getByRole("link")
-      .nth(1)
-      .click();
+    await dashboardCrumb(page).click();
     await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The parameter-select widget should render a dropdown with "year" label
@@ -473,9 +467,7 @@ test.describe("Click actions", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible();
+      await expect(editingCrumb(page)).toBeVisible();
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -518,9 +510,7 @@ test.describe("Click actions", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -598,9 +588,7 @@ test.describe("Click actions", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible();
+      await expect(editingCrumb(page)).toBeVisible();
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -649,9 +637,7 @@ test.describe("Click actions", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -947,9 +933,7 @@ test.describe("Run and save with a parameter (#1912)", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible();
+      await expect(editingCrumb(page)).toBeVisible();
 
       await page.getByText("Select a value…").click();
       await expect(async () => {
@@ -1282,6 +1266,107 @@ test.describe("Filter line chips (#2252)", () => {
       await expect(dependent).toContainText(/Waiting for |to see this\./, {
         timeout: 10_000,
       });
+    } finally {
+      await page.request.delete(`/api/dashboards/${id}`);
+    }
+  });
+
+  test("clicking a chip's sentence scrolls to and rings the widget that set it", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const res = await page.request.post("/api/dashboards", {
+      data: { name: `Chip jump ${uid()}` },
+    });
+    expect(res.ok()).toBe(true);
+    const { id } = (await res.json()).data;
+    const layout = {
+      version: 2 as const,
+      pages: [
+        {
+          id: "page-jump",
+          title: "Main",
+          widgets: [
+            {
+              id: "jump-spacer",
+              chartType: "markdown",
+              connectionId: "",
+              query: "",
+              settings: {
+                title: "Spacer",
+                chartOptions: { content: "## Far above" },
+              },
+            },
+            {
+              id: "jump-src",
+              chartType: "table",
+              connectionId: "conn-neo4j-001",
+              query:
+                "MATCH (m:Movie) RETURN m.title AS title ORDER BY m.title LIMIT 20",
+              settings: {
+                title: "Far below",
+                clickAction: {
+                  type: "set-parameter",
+                  rules: [
+                    {
+                      id: "rule-title",
+                      triggerColumn: "title",
+                      type: "set-parameter",
+                      parameterMapping: {
+                        parameterName: "movie",
+                        sourceField: "title",
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          gridLayout: [
+            { i: "jump-spacer", x: 0, y: 0, w: 12, h: 16 },
+            { i: "jump-src", x: 0, y: 16, w: 12, h: 6 },
+          ],
+        },
+      ],
+    };
+    const putRes = await page.request.put(`/api/dashboards/${id}`, {
+      data: { layoutJson: layout },
+    });
+    expect(putRes.ok()).toBe(true);
+
+    try {
+      await page.goto(`/${id}`);
+      const source = page.locator('[data-widget-id="jump-src"]');
+      const cell = source.locator("td").filter({ hasText: "Apollo 13" });
+      await cell.first().scrollIntoViewIfNeeded();
+      await cell.first().click();
+      const line = page.getByRole("group", { name: "Active filters" });
+      await expect(line).toContainText("Movie is Apollo 13", {
+        timeout: 10_000,
+      });
+
+      // Back at the top the source is off screen.
+      await page.evaluate(() => {
+        const m = document.querySelector("main");
+        if (m) m.scrollTop = 0;
+      });
+      const viewportHeight = page.viewportSize()!.height;
+      await expect
+        .poll(async () => (await source.boundingBox())!.y)
+        .toBeGreaterThan(viewportHeight);
+
+      await line.getByRole("button", { name: "Movie is Apollo 13" }).click();
+      await expect
+        .poll(
+          async () => {
+            const box = await source.boundingBox();
+            return box !== null && box.y >= 0 && box.y < viewportHeight;
+          },
+          { timeout: 10_000 },
+        )
+        .toBe(true);
+      await expect(source).toHaveClass(/ring-2/);
     } finally {
       await page.request.delete(`/api/dashboards/${id}`);
     }
@@ -1990,9 +2075,7 @@ test.describe("Cascading-select parameter widget", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible();
+      await expect(editingCrumb(page)).toBeVisible();
       await expect(page.getByText("Select Test director first…")).toBeVisible({
         timeout: 15_000,
       });
@@ -2041,9 +2124,7 @@ test.describe("Cascading-select parameter widget", () => {
 
       // Into edit mode in-app, so the dashboard's values stay in the store.
       await page.getByRole("button", { name: "Edit", exact: true }).click();
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible({ timeout: 10_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
 
       const dialog = await openChildEditor(page);
       const testSeed = dialog.getByRole("button", { name: "Test Seed Query" });
@@ -2130,9 +2211,7 @@ test.describe("Test Seed Query — a seed that filters on $param_search (#2043)"
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
 
       const card = page.locator("[data-widget-id='search-select']");
       await card.hover();
@@ -2171,9 +2250,7 @@ test.describe("Action rules — multi-rule editor", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
 
       // Add a second page for navigate-to-page
       await page.getByRole("button", { name: "Add page" }).click();
@@ -2257,9 +2334,7 @@ test.describe("Action rules — multi-rule editor", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -2330,9 +2405,7 @@ test.describe("Action rules — multi-rule editor", () => {
 
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -2402,9 +2475,7 @@ test.describe("Preview Run button", () => {
     dashboardCleanup = cleanup;
 
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -2431,14 +2502,14 @@ test.describe("Preview Run button", () => {
   });
 });
 
-test.describe("Parameter bar filter toggle", () => {
+test.describe("Filter line appears with the first filter and leaves with the last", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
 
   test.afterEach(async () => {
     await dashboardCleanup?.();
   });
 
-  test("filter button in toolbar toggles parameter bar visibility", async ({
+  test("a filter shows the line, removing it hides the line", async ({
     authPage,
     page,
   }) => {
@@ -2495,28 +2566,16 @@ test.describe("Parameter bar filter toggle", () => {
     await expect(firstCell).toBeVisible({ timeout: 15_000 });
     await firstCell.click();
 
-    // Parameter bar auto-shows when first parameter is set
-    await expect(page.getByRole("button", { name: "Reset" })).toBeVisible({
-      timeout: 10_000,
-    });
+    // The filter line appears with the first filter and has no toggle...
+    const line = page.getByRole("group", { name: "Active filters" });
+    await expect(line).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("button", { name: /Hide parameters|Show parameters/ }),
+    ).toHaveCount(0);
 
-    // Filter button should say "Hide parameters" (bar is visible)
-    const hideBtn = page.getByRole("button", { name: "Hide parameters" });
-    await expect(hideBtn).toBeVisible();
-
-    // Click to hide the parameter bar
-    await hideBtn.click();
-
-    // Parameter bar "Reset" button should be hidden
-    await expect(page.getByRole("button", { name: "Reset" })).not.toBeVisible();
-
-    // Filter button should now say "Show parameters"
-    const showBtn = page.getByRole("button", { name: "Show parameters" });
-    await expect(showBtn).toBeVisible();
-
-    // Click to show again
-    await showBtn.click();
-    await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
+    // ...and leaves with the last one.
+    await line.getByRole("button", { name: /^Remove .* filter$/ }).click();
+    await expect(line).toHaveCount(0);
   });
 });
 
@@ -2539,9 +2598,7 @@ test.describe("Param-select searchable default", () => {
     dashboardCleanup = cleanup;
 
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
@@ -2595,9 +2652,7 @@ test.describe("Parameter collision warning", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

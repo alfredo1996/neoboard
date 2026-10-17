@@ -2,7 +2,8 @@
 
 import React, { useCallback, useState } from "react";
 import { Pencil, RefreshCw } from "lucide-react";
-import { DashboardFiltersButton } from "@/components/dashboard-filters-button";
+import { DashboardShareSheet } from "@/components/dashboard-share-sheet";
+import { crumbClick } from "@/lib/crumb-click";
 import { DashboardMeta } from "@/components/dashboard-meta";
 import { ShortcutHint } from "@/components/shortcut-hint";
 import { useCountdown } from "@/hooks/use-countdown";
@@ -40,10 +41,10 @@ interface DashboardViewToolbarProps {
   isPublic: boolean;
   /** The page tabs, under the title. */
   tabs?: React.ReactNode;
-  hasParameters: boolean;
-  parameterCount: number;
-  showParameterBar: boolean;
-  onToggleParameterBar: () => void;
+  dashboardId: string;
+  /** Admins get the sharing sheet. */
+  isAdmin: boolean;
+  onTogglePublic: (value: boolean) => void;
   canEdit: boolean;
   isFetching: boolean;
   /** Effective auto-refresh interval in ms, or false when off. */
@@ -68,10 +69,9 @@ export function DashboardViewToolbar({
   widgetCount,
   isPublic,
   tabs,
-  hasParameters,
-  parameterCount,
-  showParameterBar,
-  onToggleParameterBar,
+  dashboardId,
+  isAdmin,
+  onTogglePublic,
   canEdit,
   isFetching,
   refetchInterval,
@@ -120,10 +120,7 @@ export function DashboardViewToolbar({
         {
           label: "Dashboards",
           href: "/",
-          onClick: (e) => {
-            e.preventDefault();
-            onDashboards();
-          },
+          onClick: crumbClick(onDashboards),
         },
         { label: name },
       ]}
@@ -139,12 +136,14 @@ export function DashboardViewToolbar({
       tabs={tabs}
       actions={
         <>
-          <DashboardFiltersButton
-            hasParameters={hasParameters}
-            parameterCount={parameterCount}
-            showParameterBar={showParameterBar}
-            onToggleParameterBar={onToggleParameterBar}
-          />
+          {isAdmin && (
+            <DashboardShareSheet
+              dashboardId={dashboardId}
+              isPublic={isPublic}
+              onTogglePublic={onTogglePublic}
+              label="Share"
+            />
+          )}
           {canEdit && (
             <>
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
@@ -225,7 +224,10 @@ export function DashboardViewToolbar({
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
-                <ShortcutHint combo="Cmd+E" />
+                {/* The hint is for wide headers: at tablet width the actions must not wrap it taller. */}
+                <span className="hidden lg:contents">
+                  <ShortcutHint combo="Cmd+E" />
+                </span>
               </LoadingButton>
             </>
           )}

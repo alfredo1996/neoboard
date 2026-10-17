@@ -6,6 +6,8 @@ import {
   saveDashboard,
   typeInEditor,
   uid,
+  editingCrumb,
+  dashboardCrumb,
 } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
@@ -17,11 +19,7 @@ import type { Locator, Page } from "@playwright/test";
  * used to lose the widgets they had just added (#1767).
  */
 async function leaveEditMode(page: Page) {
-  await page
-    .getByRole("navigation", { name: "breadcrumb" })
-    .getByRole("link")
-    .nth(1)
-    .click();
+  await dashboardCrumb(page).click();
   await expect(page).not.toHaveURL(/\/edit$/, { timeout: 15_000 });
 }
 
@@ -38,9 +36,7 @@ test.describe("Form widget", () => {
     dashboardCleanup = cleanup;
     dashboardId = id;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

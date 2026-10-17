@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   uid,
+  editingCrumb,
 } from "./fixtures";
 
 test.describe("Widget editor", () => {
@@ -22,9 +23,7 @@ test.describe("Widget editor", () => {
     const { id, cleanup } = await createTestDashboard(page.request, name);
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
   });
 
   test.describe("uncovered states", () => {

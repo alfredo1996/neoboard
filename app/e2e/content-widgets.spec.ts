@@ -1,6 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
+import {
+  test,
+  expect,
+  ALICE,
+  createTestDashboard,
+  uid,
+  editingCrumb,
+} from "./fixtures";
 
 type SeedPage = {
   id: string;
@@ -23,9 +30,7 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

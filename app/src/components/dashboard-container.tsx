@@ -107,7 +107,6 @@ interface DashboardContainerProps {
   actions?: WidgetActions;
   refetchInterval?: number | false;
   templateMap?: Record<string, WidgetTemplate>;
-  showParameterBar?: boolean;
   /** Maps parameter names to the widgets that set them (for clickable badges). */
   parameterSourceMap?: ParameterSourceMap;
   /** What each connection's connector can do, by connection id (#2137). */
@@ -128,7 +127,6 @@ export function DashboardContainer({
   actions,
   refetchInterval,
   templateMap,
-  showParameterBar = true,
   parameterSourceMap,
   connectorCapabilities,
   connectionNames,
@@ -218,6 +216,17 @@ export function DashboardContainer({
     [allEntries],
   );
   const hasParameters = displayEntries.length > 0;
+  /** Bring the widget that set a filter into view and ring it briefly. */
+  const scrollToSource = (widgetId: string) => {
+    const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary", "rounded-lg");
+    setTimeout(
+      () => el.classList.remove("ring-2", "ring-primary", "rounded-lg"),
+      1500,
+    );
+  };
   const displayTitle = (widget: DashboardWidget) =>
     interpolateTitle(getWidgetDisplayTitle(widget), parameters);
 
@@ -347,15 +356,19 @@ export function DashboardContainer({
 
   return (
     <>
-      {hasParameters && showParameterBar && (
+      {hasParameters && (
         <div className="pb-3">
           <FilterLine
-            filters={displayEntries.map(([name, entry]) => ({
-              id: name,
-              label: humanizeParamName(name),
-              value: formatParameterValue(entry.value),
-              title: entry.source ? `Set by ${entry.source}` : undefined,
-            }))}
+            filters={displayEntries.map(([name, entry]) => {
+              const sourceId = entry.sourceWidgetId;
+              return {
+                id: name,
+                label: humanizeParamName(name),
+                value: formatParameterValue(entry.value),
+                title: entry.source ? `Set by ${entry.source}` : undefined,
+                onSelect: sourceId ? () => scrollToSource(sourceId) : undefined,
+              };
+            })}
             onRemove={clearParameter}
             onReset={clearAll}
           />

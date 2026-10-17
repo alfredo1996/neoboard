@@ -47,4 +47,13 @@ describe("PageHeader", () => {
     render(<PageHeader title="T" />);
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
+
+  it("keeps a long title on one line, with the full text on hover", () => {
+    const name = "A very long dashboard name ".repeat(6).trim();
+    render(<PageHeader title={name} meta="12 widgets" />);
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1).toHaveAttribute("title", name);
+    expect(h1.className).toMatch(/\btruncate\b/);
+    expect(screen.getByText("12 widgets").className).toMatch(/\btruncate\b/);
+  });
 });

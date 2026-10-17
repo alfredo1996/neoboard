@@ -42,7 +42,6 @@ import { DashboardContainer } from "@/components/dashboard-container";
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
 import { DashboardViewToolbar } from "@/components/dashboard-view-toolbar";
 import { DashboardEditToolbar } from "@/components/dashboard-edit-toolbar";
-import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
@@ -310,29 +309,6 @@ export function DashboardWorkspace({
   );
 
   // ── Parameters ──────────────────────────────────────────────────────
-  const parameters = useParameterStore((s) => s.parameters);
-  const parameterCount = useMemo(
-    () => filterParentParams(Object.entries(parameters)).length,
-    [parameters],
-  );
-  // The button stays enabled whenever the dashboard has parameter widgets,
-  // even before the store has populated their values (e.g. on initial load).
-  const hasParameterWidgets = useMemo(
-    () =>
-      activeLayout.pages.some((p) =>
-        p.widgets.some((w) => w.chartType === "parameter-select"),
-      ),
-    [activeLayout],
-  );
-  const hasParameters = hasParameterWidgets || parameterCount > 0;
-  // null = auto mode (show when params exist), boolean = user override
-  const [barOverride, setBarOverride] = useState<boolean | null>(null);
-  const effectiveShowBar = barOverride ?? hasParameters;
-  const toggleParameterBar = useCallback(
-    () => setBarOverride((prev) => !(prev ?? effectiveShowBar)),
-    [effectiveShowBar],
-  );
-
   const parameterSourceMap = useMemo(
     () => buildParameterSourceMap(activeLayout),
     [activeLayout],
@@ -697,8 +673,10 @@ export function DashboardWorkspace({
     (n, p) => n + p.widgets.length,
     0,
   );
+  // The tabs row is the same in view and edit, so the header is too: it shows
+  // with 2+ pages. A one-page dashboard adds its second from an edit action.
   const pageTabs =
-    editMode || activeLayout.pages.length > 1 ? (
+    activeLayout.pages.length > 1 ? (
       <PageTabs
         pages={activeLayout.pages}
         activeIndex={safeIndex}
@@ -757,10 +735,7 @@ export function DashboardWorkspace({
           updatedByName={dashboard.updatedByName}
           widgetCount={widgetCount}
           tabs={pageTabs}
-          hasParameters={hasParameters}
-          parameterCount={parameterCount}
-          showParameterBar={effectiveShowBar}
-          onToggleParameterBar={toggleParameterBar}
+          onAddPage={activeLayout.pages.length === 1 ? addPage : undefined}
           isAdmin={isAdmin}
           isPublic={dashboard.isPublic ?? false}
           onTogglePublic={(value) =>
@@ -782,10 +757,11 @@ export function DashboardWorkspace({
           widgetCount={widgetCount}
           isPublic={dashboard.isPublic ?? false}
           tabs={pageTabs}
-          hasParameters={hasParameters}
-          parameterCount={parameterCount}
-          showParameterBar={effectiveShowBar}
-          onToggleParameterBar={toggleParameterBar}
+          dashboardId={id}
+          isAdmin={isAdmin}
+          onTogglePublic={(value) =>
+            updateDashboard.mutate({ id, isPublic: value })
+          }
           canEdit={canEdit}
           isFetching={isFetching}
           refetchInterval={viewRefetchInterval}
@@ -918,7 +894,6 @@ export function DashboardWorkspace({
                 >
                   <DashboardContainer
                     page={page}
-                    showParameterBar={effectiveShowBar}
                     editable={editMode}
                     // Only the visible page polls. Visited pages stay mounted so
                     // tab switches are instant and don't re-query — but keeping

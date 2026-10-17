@@ -8,6 +8,7 @@ import {
   saveDashboard,
   typeInEditor,
   uid,
+  editingCrumb,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -393,9 +394,7 @@ test.describe("Widgets run on their saved database (#1824)", () => {
         `saved-db-edit-${suffix}`,
       ));
       await page.goto(`/${dashboardId}/edit`);
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible();
+      await expect(editingCrumb(page)).toBeVisible();
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });

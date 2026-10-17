@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   uid,
+  editingCrumb,
 } from "./fixtures";
 
 /**
@@ -77,9 +78,7 @@ test.describe("Query editor maximize (#1374)", () => {
     const { id, cleanup } = await createTestDashboard(page.request, name);
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
