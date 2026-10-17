@@ -12,7 +12,6 @@ import {
   exportChartToSvg,
   exportChartToPng,
 } from "@neoboard/components";
-import { useConnections } from "@/hooks/use-connections";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { buildExportData } from "@/lib/widget/card-utils";
@@ -113,6 +112,8 @@ interface DashboardContainerProps {
   parameterSourceMap?: ParameterSourceMap;
   /** What each connection's connector can do, by connection id (#2137). */
   connectorCapabilities?: Record<string, ConnectorCapabilities>;
+  /** Each widget connection's own name, by id, for the source line (#2247). */
+  connectionNames?: Record<string, string>;
 }
 
 // getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget/widget-utils
@@ -130,6 +131,7 @@ export function DashboardContainer({
   showParameterBar = true,
   parameterSourceMap,
   connectorCapabilities,
+  connectionNames,
 }: Readonly<DashboardContainerProps>) {
   const {
     onRemoveWidget,
@@ -141,11 +143,6 @@ export function DashboardContainer({
     onDetachWidget,
   } = actions ?? {};
   const queryClient = useQueryClient();
-  const { data: connections } = useConnections();
-  const connectionNames = useMemo(
-    () => new Map((connections ?? []).map((c) => [c.id, c.name])),
-    [connections],
-  );
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
   // Defer fullscreen content render until the dialog animation (200ms zoom-in-95)
@@ -406,7 +403,7 @@ export function DashboardContainer({
               >
                 <SourcedWidgetCard
                   widget={widget}
-                  connectionName={connectionNames.get(widget.connectionId)}
+                  connectionName={connectionNames?.[widget.connectionId]}
                   title={displayTitle(widget)}
                   className="h-full"
                   mode={editable ? "edit" : "view"}

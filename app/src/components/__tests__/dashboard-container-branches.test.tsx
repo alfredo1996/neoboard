@@ -14,7 +14,11 @@ import {
   act,
   waitFor,
 } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  QueryObserver,
+} from "@tanstack/react-query";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -349,13 +353,6 @@ vi.mock("@/lib/query/resolve-cache-options", async (importOriginal) => ({
   shouldShowRefreshButton: (opts: unknown) => mockShouldShowRefresh(opts),
 }));
 
-const mockConnections = vi.hoisted(() => ({
-  data: undefined as { id: string; name: string }[] | undefined,
-}));
-vi.mock("@/hooks/use-connections", () => ({
-  useConnections: () => mockConnections,
-}));
-
 /* ---------- import under test ---------- */
 const { DashboardContainer } = await import("../dashboard-container");
 const { useWidgetQuery, widgetQueryKey } =
@@ -415,7 +412,6 @@ beforeEach(() => {
   mockIsTemplateOutdated.mockReturnValue(false);
   mockShouldShowRefresh.mockReturnValue(false);
   mockBuildExportData.mockReturnValue([]);
-  mockConnections.data = undefined;
 });
 
 /* ---------- tests ---------- */
@@ -1186,23 +1182,31 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
 
 describe("DashboardContainer — the source line under a title (#2247)", () => {
   it("names the connection the widget runs on, with its rows and age", () => {
-    mockConnections.data = [
-      { id: "conn-9", name: "Other" },
-      { id: "conn-1", name: "Movies graph" },
-    ];
     const widget = makeWidget();
+    // From the dashboard response, so a viewer who cannot list the
+    // connection sees its name too.
     const { queryClient } = renderWithProviders(
-      <DashboardContainer page={makePage([widget])} />,
+      <DashboardContainer
+        page={makePage([widget])}
+        connectionNames={{ "conn-9": "Other", "conn-1": "Movies graph" }}
+      />,
     );
     expect(screen.getByTestId("widget-card-inner")).not.toHaveAttribute(
       "data-source",
     );
+    const key = widgetQueryKey({ ...widget, params: {} });
     act(() => {
       queryClient.setQueryData(
-        widgetQueryKey({ ...widget, params: {} }),
+        key,
         { data: [1, 2, 3], resultId: "r" },
         { updatedAt: Date.now() },
       );
+      // The card (mocked here) observes its query; the line reads only that.
+      new QueryObserver(queryClient, {
+        queryKey: key,
+        queryFn: async () => ({ data: [], resultId: "r" }),
+        staleTime: Infinity,
+      }).subscribe(() => {});
     });
     expect(screen.getByTestId("widget-card-inner")).toHaveAttribute(
       "data-source",

@@ -35,39 +35,47 @@ export function layoutConnectionIds(layout: unknown): Set<string> {
 }
 
 /**
- * What the connector behind each connection a layout names can do, keyed by
- * connection id (#2137). Capability flags only, never the connection's name or
- * config, so a viewer who cannot use the connection gets them too. A connector
- * that is not installed is unknown, not incapable: it is left out, as the
- * editor finds no descriptor for it, so neither rules anything out.
+ * What a viewer may know about the connections a layout names, keyed by
+ * connection id: what the connector behind each can do (#2137) and the
+ * connection's own name (#2247, for the line under a widget title). Never the
+ * config, host or user, so a viewer who cannot use the connection gets them
+ * too. A connector that is not installed is unknown, not incapable: it is left
+ * out of the capabilities, as the editor finds no descriptor for it, so
+ * neither rules anything out; its name is still sent.
  */
-export async function layoutConnectorCapabilities(
-  layout: unknown,
-  tenantId: string,
-) {
+export async function layoutConnectionFacts(layout: unknown, tenantId: string) {
   const ids = [...layoutConnectionIds(layout)];
-  if (ids.length === 0) return {};
+  if (ids.length === 0) {
+    return { connectorCapabilities: {}, connectionNames: {} };
+  }
   const rows = await db
-    .select({ id: connections.id, type: connections.type })
+    .select({
+      id: connections.id,
+      type: connections.type,
+      name: connections.name,
+    })
     .from(connections)
     .where(
       and(eq(connections.tenantId, tenantId), inArray(connections.id, ids)),
     );
-  return Object.fromEntries(
-    rows.flatMap(({ id, type }) => {
-      const connector = getConnector(type);
-      if (!connector) return [];
-      return [
-        [
-          id,
-          {
-            supportsGraphData: connector.supportsGraphData === true,
-            supportsWrite: connector.supportsWrite === true,
-          },
-        ],
-      ];
-    }),
-  );
+  return {
+    connectorCapabilities: Object.fromEntries(
+      rows.flatMap(({ id, type }) => {
+        const connector = getConnector(type);
+        if (!connector) return [];
+        return [
+          [
+            id,
+            {
+              supportsGraphData: connector.supportsGraphData === true,
+              supportsWrite: connector.supportsWrite === true,
+            },
+          ],
+        ];
+      }),
+    ),
+    connectionNames: Object.fromEntries(rows.map((r) => [r.id, r.name])),
+  };
 }
 
 /**

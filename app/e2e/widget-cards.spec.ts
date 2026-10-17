@@ -203,7 +203,8 @@ test.describe("Widget cards", () => {
         .locator(panel)
         .first()
         .evaluate((el) => getComputedStyle(el).boxShadow);
-      expect(shadow).not.toBe("none");
+      // Two visible layers; the transparent ring layers do not count.
+      expect((shadow.match(/rgba?\((?!0, 0, 0, 0\))/g) ?? []).length).toBe(2);
     });
   }
 

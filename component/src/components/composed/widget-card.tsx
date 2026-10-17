@@ -227,7 +227,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                     className={cn(
                       "min-w-0 truncate text-widget-title",
                       titleFont === "serif"
-                        ? "font-serif text-base leading-[1.3]"
+                        ? "font-serif text-base font-semibold leading-[1.3]"
                         : "font-body",
                     )}
                     title={title}

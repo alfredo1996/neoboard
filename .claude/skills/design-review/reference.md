@@ -34,7 +34,7 @@ Approved from the "Widget Card Design" mock on 2026-10-16, after three rejected 
 
 Tailwind: `bg-card`, `border-card-edge` (`hover:border-card-edge-hover`), `shadow-card`, `bg-page-ground`. `--ground` and `--panel-hover` (#2219) are gone.
 
-- **Header**: padding 12/16/10; title sans 14/600 (`text-widget-title font-body`), serif 16/600 only through the `titleFont="serif"` option; under it a 12 px `text-meta text-muted-foreground` source line, "Movies graph · 5 rows · 2 min ago" (connection name, rows, time since the query last succeeded; a KPI drops the rows; markdown, iframe, form and selector widgets have no line); a 1 px `--rule` under the header.
+- **Header**: padding 12/16/10; title sans 14/600 (`text-widget-title font-body`), serif 16/600 (semibold) only through the `titleFont="serif"` option; under it a 12 px `text-meta text-muted-foreground` source line, "Movies graph · 5 rows · 2 min ago" (connection name, rows, time since the query last succeeded; a KPI or gauge drops the rows; markdown, iframe, form and selector widgets have no line); a 1 px `--rule` under the header.
 - **Body**: padding 12/16/16.
 - **Hover and focus**: the edge goes to `--card-edge-hover`; the fill does not change. Actions sit over the header's right end (28 px buttons, 2 px gap, 10 px from the edge), hidden at rest by opacity only and absolutely positioned in every mode (keeps scroll anchoring, #1163). On touch only the "…" menu shows, with Refresh and Fullscreen inside.
 - **Edit mode**: same 12 px gap; dashed `--rule-strong` edge, no shadow; drag handle and actions always visible; one fixed 36 px title row.

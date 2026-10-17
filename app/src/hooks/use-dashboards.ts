@@ -53,6 +53,8 @@ export interface DashboardDetail extends DashboardListItem {
   version: number;
   /** What each widget connection's connector can do, by connection id (#2137). */
   connectorCapabilities?: Record<string, ConnectorCapabilities>;
+  /** Each widget connection's own name, by connection id (#2247). Name only. */
+  connectionNames?: Record<string, string>;
 }
 
 export interface DashboardShareItem {

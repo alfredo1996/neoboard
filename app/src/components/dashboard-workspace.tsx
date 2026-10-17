@@ -939,6 +939,7 @@ export function DashboardWorkspace({
                     showParameterBar={effectiveShowBar}
                     parameterSourceMap={parameterSourceMap}
                     connectorCapabilities={dashboard?.connectorCapabilities}
+                    connectionNames={dashboard?.connectionNames}
                   />
                 </div>
               );

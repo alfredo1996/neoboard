@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { matchQuery, useQueryClient } from "@tanstack/react-query";
 import { isDataWidget } from "@/lib/widget/widget-actions";
 import { widgetQueryKeyPrefix } from "./use-widget-query";
 
 const TICK_MS = 30_000;
+/** One row that is the number itself: no row count (owner, #2247). */
+const SINGLE_VALUE_TYPES = new Set(["single-value", "gauge"]);
 
 /** "just now", "2 min ago", "3 h ago", "4 d ago". */
 export function formatAgo(ms: number): string {
@@ -25,20 +27,25 @@ interface SourceWidget {
 }
 
 /**
- * The newest cached result of this widget's query, as "updatedAt|rows" (rows
- * empty when the result is not a row list). A string, so the snapshot is stable
- * by value and the store only wakes the card when the line would change.
+ * The newest result among the queries the card observes, as "updatedAt|rows"
+ * (rows empty when the result is not a row list). Only observed queries count:
+ * another parameter variant left in the cache, or a query a cleared parameter
+ * disabled, is not what the card's body shows. A string, so the snapshot is
+ * stable by value.
  */
 function useCachedResult(widget: SourceWidget): string {
   const client = useQueryClient();
   const cache = client.getQueryCache();
   const prefix = widgetQueryKeyPrefix(widget);
   return useSyncExternalStore(
-    (notify) => cache.subscribe(notify),
+    (notify) =>
+      cache.subscribe((event) => {
+        if (matchQuery({ queryKey: prefix }, event.query)) notify();
+      }),
     () => {
       let latest = "";
       let at = 0;
-      for (const q of cache.findAll({ queryKey: prefix })) {
+      for (const q of cache.findAll({ queryKey: prefix, type: "active" })) {
         if (q.state.status !== "success" || q.state.dataUpdatedAt <= at) {
           continue;
         }
@@ -75,7 +82,7 @@ export function useWidgetSourceLine(
   const count = Number(rows);
   return [
     connectionName,
-    rows !== "" && widget.chartType !== "single-value"
+    rows !== "" && !SINGLE_VALUE_TYPES.has(widget.chartType)
       ? `${count} ${count === 1 ? "row" : "rows"}`
       : undefined,
     formatAgo(Math.max(0, now - Number(at))),

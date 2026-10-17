@@ -1722,7 +1722,12 @@ const SPEC = {
           { $ref: "#/components/schemas/Dashboard" },
           {
             type: "object",
-            required: ["role", "updatedByName", "connectorCapabilities"],
+            required: [
+              "role",
+              "updatedByName",
+              "connectorCapabilities",
+              "connectionNames",
+            ],
             properties: {
               role: {
                 type: "string",
@@ -1732,11 +1737,18 @@ const SPEC = {
                   "a public dashboard a non-admin neither owns nor is shared on is `viewer`.",
               },
               updatedByName: { type: "string", nullable: true },
+              connectionNames: {
+                type: "object",
+                description:
+                  "The name of each connection the layout names, keyed by connection id, for the line under a widget title. " +
+                  "The name only, never its config, host or user, so it is sent to anyone who can open the dashboard.",
+                additionalProperties: { type: "string" },
+              },
               connectorCapabilities: {
                 type: "object",
                 description:
                   "What the connector behind each connection the layout names can do, keyed by connection id. " +
-                  "Capability flags only, never the connection's name or config, so it is sent to anyone who can open the dashboard. " +
+                  "Capability flags only, never the connection's config, so it is sent to anyone who can open the dashboard. " +
                   "A connection that is deleted, or whose connector is not installed, is left out.",
                 additionalProperties: {
                   type: "object",

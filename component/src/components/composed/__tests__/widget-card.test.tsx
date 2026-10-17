@@ -639,7 +639,7 @@ describe("WidgetCard", () => {
       );
       expect(panelOf(container)).toHaveAttribute("data-title-font", "serif");
       const h = screen.getByRole("heading");
-      expect(h).toHaveClass("font-serif");
+      expect(h).toHaveClass("font-serif", "font-semibold");
       expect(h).not.toHaveClass("font-body");
     });
 

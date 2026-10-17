@@ -69,9 +69,10 @@ function ConnectionCard({
   return (
     <Panel
       className={cn(
-        "transition-colors",
-        active && "border-primary",
-        onClick && "cursor-pointer hover:bg-accent/50",
+        // The Panel darkens its edge on hover; an active card keeps its own.
+        active &&
+          "border-primary hover:border-primary focus-within:border-primary",
+        onClick && "cursor-pointer",
         className,
       )}
     >

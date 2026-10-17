@@ -7,7 +7,11 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { useWidgetSourceLine } from "../use-widget-source-line";
 import { widgetQueryKey } from "../use-widget-query";
 
@@ -34,9 +38,19 @@ function setup(
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  const hook = renderHook(() => useWidgetSourceLine(widget, connectionName), {
-    wrapper,
-  });
+  // The card keeps its own query observed; the line reads only what it observes.
+  const hook = renderHook(
+    () => {
+      useQuery({
+        queryKey: widgetQueryKey({ ...widget, params: {} }),
+        queryFn: async () => seed?.rows,
+        staleTime: Infinity,
+        enabled: seed !== undefined,
+      });
+      return useWidgetSourceLine(widget, connectionName);
+    },
+    { wrapper },
+  );
   return { client, ...hook };
 }
 
@@ -66,13 +80,72 @@ describe("useWidgetSourceLine", () => {
     expect(line.current).toBe("Movies graph · 1 row · just now");
   });
 
-  it("drops the row count on a KPI", () => {
+  // Owner, #2247: a single value (a KPI or a gauge) has one row, which is
+  // the number itself, so it never gets a row count.
+  it.each(["single-value", "gauge"])("drops the row count on a %s", (type) => {
     const { result: line } = setup(
-      { ...base, chartType: "single-value" },
+      { ...base, chartType: type },
       "Movies graph",
       { rows: result([1]), at: T0 - 120_000 },
     );
     expect(line.current).toBe("Movies graph · 2 min ago");
+  });
+
+  it("counts the rows of the variant the card shows, not the newest cached one", () => {
+    // Back on parameter A (5 rows, a minute old, still cached) after B (3 rows,
+    // just now): the body shows A, so the header must too.
+    const { result: line, client } = setup(base, "Movies graph", {
+      rows: result([1, 2, 3, 4, 5]),
+      at: T0 - 60_000,
+    });
+    act(() => {
+      client.setQueryData(
+        widgetQueryKey({ ...base, params: { p: "B" } }),
+        result([1, 2, 3]),
+        { updatedAt: T0 },
+      );
+    });
+    expect(line.current).toBe("Movies graph · 5 rows · 1 min ago");
+  });
+
+  it("drops the line when the card's query is disabled, though an old result is cached", () => {
+    // A cleared parameter disables the query; the body says it is waiting.
+    const client = new QueryClient({
+      defaultOptions: { queries: { gcTime: Infinity } },
+    });
+    client.setQueryData(
+      widgetQueryKey({ ...base, params: {} }),
+      result([1, 2]),
+      { updatedAt: T0 - 120_000 },
+    );
+    const { result: line } = renderHook(
+      () => {
+        useQuery({
+          queryKey: widgetQueryKey({ ...base, params: {} }),
+          queryFn: async () => result([]),
+          enabled: false,
+        });
+        return useWidgetSourceLine(base, "Movies graph");
+      },
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    expect(line.current).toBeUndefined();
+  });
+
+  it("ignores cache events of other queries", () => {
+    const { client } = setup(base, "Movies graph", {
+      rows: result([1]),
+      at: T0,
+    });
+    const findAll = vi.spyOn(client.getQueryCache(), "findAll");
+    act(() => {
+      client.setQueryData(["something", "else"], 1);
+    });
+    expect(findAll).not.toHaveBeenCalled();
   });
 
   it("leaves out the connection until its name is known", () => {

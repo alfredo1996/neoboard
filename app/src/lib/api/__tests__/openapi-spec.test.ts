@@ -935,12 +935,13 @@ describe("#1981 payloads: dashboards-crud", () => {
     expect(props.version.type).toBe("integer");
   });
 
-  it("the detail is the row plus role, updatedByName and connectorCapabilities, without widgetCount", () => {
+  it("the detail is the row plus role, updatedByName, connectorCapabilities and connectionNames, without widgetCount", () => {
     const keys = [
       ...ROW,
       "role",
       "updatedByName",
       "connectorCapabilities",
+      "connectionNames",
     ].sort();
     expect(flat(data(detail, "200"))).toEqual({
       properties: keys,
