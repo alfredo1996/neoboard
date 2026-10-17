@@ -298,9 +298,6 @@ vi.mock("@/components/page-tabs", () => ({
 
 vi.mock("@neoboard/components", () => {
   const passthrough = [
-    "Toolbar",
-    "ToolbarSection",
-    "ToolbarSeparator",
     "Badge",
     "Skeleton",
     "Alert",
@@ -702,7 +699,7 @@ describe("DashboardWorkspace", () => {
     expect(screen.getByText("Edit")).toBeInTheDocument();
     expect(screen.queryByText("Add Widget")).toBeNull();
     expect(screen.queryByText("Save")).toBeNull();
-    expect(screen.getByText("Sales")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sales" })).toBeInTheDocument();
     expect(screen.getByTestId("page-tabs")).toHaveAttribute(
       "data-editable",
       "false",
@@ -1824,9 +1821,9 @@ describe("DashboardWorkspace", () => {
     expect(screen.queryByTestId("assign-panel")).toBeNull();
   });
 
-  it("Back returns to the dashboard list from view mode", async () => {
+  it("the Dashboards crumb returns to the list from view mode", async () => {
     render(<DashboardWorkspace id="d1" editMode={false} />);
-    await userEvent.click(screen.getByText("Back"));
+    await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
     expect(mockPush).toHaveBeenCalledWith("/");
   });
 
@@ -1871,14 +1868,14 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
     expect(menuTrigger).toHaveFocus();
   });
 
-  it("Stay on the unsaved-changes guard: on Back", async () => {
+  it("Stay on the unsaved-changes guard: on the dashboard crumb", async () => {
     render(<DashboardWorkspace id="d1" editMode={true} />);
     act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
-    await userEvent.click(screen.getByText("Back"));
+    await userEvent.click(screen.getByRole("link", { name: "Sales" }));
     await userEvent.click(screen.getByRole("button", { name: "Stay" }));
 
-    expect(screen.getByText("Back")).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Sales" })).toHaveFocus();
   });
 
   // Radix focuses Stay as the question opens; a second ask must not record it.
@@ -1889,18 +1886,18 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
       () => act(() => window.dispatchEvent(new PopStateEvent("popstate"))),
     ],
   ])(
-    "Stay on the unsaved-changes guard, asked again by %s: on Back",
+    "Stay on the unsaved-changes guard, asked again by %s: on the dashboard crumb",
     async (_, askAgain) => {
       render(<DashboardWorkspace id="d1" editMode={true} />);
       act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
-      await userEvent.click(screen.getByText("Back"));
+      await userEvent.click(screen.getByRole("link", { name: "Sales" }));
       const stay = screen.getByRole("button", { name: "Stay" });
       stay.focus();
       askAgain();
       await userEvent.click(stay);
 
-      expect(screen.getByText("Back")).toHaveFocus();
+      expect(screen.getByRole("link", { name: "Sales" })).toHaveFocus();
     },
   );
 });

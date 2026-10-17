@@ -6,6 +6,8 @@ export interface FilterLineFilter {
   /** The parameter's label, e.g. "Decade". */
   label: string;
   value: string;
+  /** Hover text on the chip, e.g. where the value came from. */
+  title?: string;
 }
 
 export interface FilterLineProps {
@@ -39,6 +41,7 @@ function FilterLine({
         {filters.map((f) => (
           <span
             key={f.id}
+            title={f.title}
             className="inline-flex items-center gap-1.5 rounded-full border border-card-edge bg-card py-[3px] pl-3 pr-1.5 text-foreground"
           >
             <span>

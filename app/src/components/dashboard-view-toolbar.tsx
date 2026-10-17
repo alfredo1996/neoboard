@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { ArrowLeft, Filter, Pencil, RefreshCw } from "lucide-react";
+import { Pencil, RefreshCw } from "lucide-react";
+import { DashboardFiltersButton } from "@/components/dashboard-filters-button";
+import { DashboardMeta } from "@/components/dashboard-meta";
 import { ShortcutHint } from "@/components/shortcut-hint";
 import { useCountdown } from "@/hooks/use-countdown";
+import { PageHeader } from "@neoboard/components/kit";
 import {
-  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +18,6 @@ import {
   DropdownMenuTrigger,
   Input,
   LoadingButton,
-  TimeAgo,
-  Toolbar,
-  ToolbarSection,
-  ToolbarSeparator,
 } from "@neoboard/components";
 
 function formatInterval(seconds: number): string {
@@ -36,44 +34,50 @@ function formatCountdown(seconds: number): string {
 
 interface DashboardViewToolbarProps {
   name: string;
-  role?: string;
   updatedAt: string | Date;
   updatedByName?: string | null;
+  widgetCount: number;
+  isPublic: boolean;
+  /** The page tabs, under the title. */
+  tabs?: React.ReactNode;
+  hasParameters: boolean;
+  parameterCount: number;
+  showParameterBar: boolean;
+  onToggleParameterBar: () => void;
   canEdit: boolean;
   isFetching: boolean;
   /** Effective auto-refresh interval in ms, or false when off. */
   refetchInterval: number | false;
   onApplyInterval: (seconds: number | "off") => void;
-  hasParameters: boolean;
-  parameterCount: number;
-  showParameterBar: boolean;
-  onToggleParameterBar: () => void;
   isEnteringEdit: boolean;
-  onBack: () => void;
+  /** The "Dashboards" crumb. */
+  onDashboards: () => void;
   onEdit: () => void;
 }
 
 /**
- * View-mode chrome: title, auto-refresh menu, parameter toggle, Edit.
+ * View-mode page header: breadcrumb, title, meta, auto-refresh menu, Edit.
  *
  * The auto-refresh countdown lives here rather than in DashboardWorkspace so
- * its 1Hz tick re-renders the toolbar alone and never the widget tree.
+ * its 1Hz tick re-renders the header alone and never the widget tree.
  */
 export function DashboardViewToolbar({
   name,
-  role,
   updatedAt,
   updatedByName,
-  canEdit,
-  isFetching,
-  refetchInterval,
-  onApplyInterval,
+  widgetCount,
+  isPublic,
+  tabs,
   hasParameters,
   parameterCount,
   showParameterBar,
   onToggleParameterBar,
+  canEdit,
+  isFetching,
+  refetchInterval,
+  onApplyInterval,
   isEnteringEdit,
-  onBack,
+  onDashboards,
   onEdit,
 }: Readonly<DashboardViewToolbarProps>) {
   const countdown = useCountdown(refetchInterval);
@@ -104,133 +108,129 @@ export function DashboardViewToolbar({
       : "Auto-refresh";
   const dropdownValue =
     effectiveSeconds !== null ? String(effectiveSeconds) : "off";
-  // Toolbar button label: show interval + live countdown when active
+  // Header button label: show interval + live countdown when active
   const buttonLabel =
     countdown !== null
       ? `${intervalLabel} · ${formatCountdown(countdown)}`
       : intervalLabel;
 
   return (
-    <Toolbar>
-      <ToolbarSection>
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-      </ToolbarSection>
-      {/* basis-48 keeps room for the title: the actions wrap to a second row
-          before they crush it, and the metadata drops under it (#2056). */}
-      <ToolbarSection className="min-w-0 flex-1 basis-48 gap-y-0">
-        <h1 className="truncate text-lg font-bold" title={name}>
-          {name}
-        </h1>
-        <Badge variant="secondary">{role}</Badge>
-        <span className="truncate text-xs text-muted-foreground">
-          · updated <TimeAgo date={updatedAt} showTooltip={false} />
-          {updatedByName ? <> by {updatedByName}</> : null}
-        </span>
-      </ToolbarSection>
-      <ToolbarSection>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!hasParameters}
-          onClick={onToggleParameterBar}
-          aria-label={showParameterBar ? "Hide parameters" : "Show parameters"}
-        >
-          <Filter className="mr-2 h-4 w-4" />
-          Filters
-          {hasParameters && parameterCount > 0 && (
-            <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-              {parameterCount}
-            </span>
-          )}
-        </Button>
-        {canEdit && (
-          <>
-            <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  data-testid="auto-refresh-trigger"
-                >
-                  <RefreshCw
-                    className={`mr-2 h-4 w-4${isFetching ? " animate-spin" : ""}`}
-                  />
-                  {buttonLabel}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel>Auto-refresh</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup
-                  value={dropdownValue}
-                  onValueChange={handleIntervalChange}
-                >
-                  <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="30">
-                    30 seconds
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="60">
-                    1 minute
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="300">
-                    5 minutes
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="600">
-                    10 minutes
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5 space-y-1.5">
-                  <p className="text-xs text-muted-foreground">
-                    Custom (seconds)
-                  </p>
-                  <div className="flex gap-1.5">
-                    <Input
-                      type="number"
-                      min={5}
-                      placeholder="e.g. 5"
-                      value={customSeconds}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setCustomSeconds(e.target.value)
-                      }
-                      onKeyDown={(e: React.KeyboardEvent) => {
-                        if (e.key === "Enter") handleCustomApply();
-                      }}
-                      className="h-7 text-xs"
-                      data-testid="custom-interval-input"
+    <PageHeader
+      breadcrumb={[
+        {
+          label: "Dashboards",
+          href: "/",
+          onClick: (e) => {
+            e.preventDefault();
+            onDashboards();
+          },
+        },
+        { label: name },
+      ]}
+      title={name}
+      meta={
+        <DashboardMeta
+          updatedAt={updatedAt}
+          updatedByName={updatedByName}
+          widgetCount={widgetCount}
+          isPublic={isPublic}
+        />
+      }
+      tabs={tabs}
+      actions={
+        <>
+          <DashboardFiltersButton
+            hasParameters={hasParameters}
+            parameterCount={parameterCount}
+            showParameterBar={showParameterBar}
+            onToggleParameterBar={onToggleParameterBar}
+          />
+          {canEdit && (
+            <>
+              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-testid="auto-refresh-trigger"
+                  >
+                    <RefreshCw
+                      className={`mr-2 h-4 w-4${isFetching ? " animate-spin" : ""}`}
                     />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2 text-xs"
-                      onClick={handleCustomApply}
-                      data-testid="custom-interval-apply"
-                    >
-                      Set
-                    </Button>
+                    {buttonLabel}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel>Auto-refresh</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={dropdownValue}
+                    onValueChange={handleIntervalChange}
+                  >
+                    <DropdownMenuRadioItem value="off">
+                      Off
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="30">
+                      30 seconds
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="60">
+                      1 minute
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="300">
+                      5 minutes
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="600">
+                      10 minutes
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 space-y-1.5">
+                    <p className="text-xs text-muted-foreground">
+                      Custom (seconds)
+                    </p>
+                    <div className="flex gap-1.5">
+                      <Input
+                        type="number"
+                        min={5}
+                        placeholder="e.g. 5"
+                        value={customSeconds}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setCustomSeconds(e.target.value)
+                        }
+                        onKeyDown={(e: React.KeyboardEvent) => {
+                          if (e.key === "Enter") handleCustomApply();
+                        }}
+                        className="h-7 text-xs"
+                        data-testid="custom-interval-input"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={handleCustomApply}
+                        data-testid="custom-interval-apply"
+                      >
+                        Set
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <ToolbarSeparator />
-            <LoadingButton
-              size="sm"
-              loading={isEnteringEdit}
-              loadingText="Opening editor..."
-              title="Edit dashboard (Cmd+E)"
-              onClick={onEdit}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-              <ShortcutHint combo="Cmd+E" />
-            </LoadingButton>
-          </>
-        )}
-      </ToolbarSection>
-    </Toolbar>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <LoadingButton
+                size="sm"
+                loading={isEnteringEdit}
+                loadingText="Opening editor..."
+                title="Edit dashboard (Cmd+E)"
+                onClick={onEdit}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+                <ShortcutHint combo="Cmd+E" />
+              </LoadingButton>
+            </>
+          )}
+        </>
+      }
+    />
   );
 }

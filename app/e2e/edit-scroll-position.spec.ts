@@ -69,11 +69,20 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
           .first()
           .evaluate((el) => el.getBoundingClientRect().top);
 
-      // Scroll the <main> container down.
+      // Scroll the <main> container down, until its top edge sits in the gap
+      // under the first card. Edit mode grows each card's own header by 18px,
+      // so an edge inside a card body would anchor to content that moves
+      // within its card, and the header's height would decide whether this
+      // test passes. The gap anchors to nothing that moves.
       const before = await page.evaluate(() => {
         const m = document.querySelector("main");
-        if (!m) return -1;
-        m.scrollTop = 600;
+        const card = document.querySelector('[data-testid="widget-card"]');
+        if (!m || !card) return -1;
+        m.scrollTop =
+          card.getBoundingClientRect().bottom -
+          m.getBoundingClientRect().top +
+          m.scrollTop +
+          4;
         return m.scrollTop;
       });
       expect(before).toBeGreaterThan(200);

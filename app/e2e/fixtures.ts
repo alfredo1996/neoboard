@@ -79,7 +79,7 @@ export function getPreview(dialog: import("@playwright/test").Locator) {
  * The long-standing `await expect(Save).toBeEnabled()` idiom is not a wait at
  * all: the button is enabled both before and after the mutation, so the
  * assertion passes on its first poll and the test races on while the store is
- * still dirty. Clicking "Back" then trips the unsaved-changes guard, whose
+ * still dirty. Clicking the dashboard crumb then trips the unsaved-changes guard, whose
  * AlertDialog overlay swallows pointer events — which is what
  * `parameters.spec.ts` and `form-widget.spec.ts` were each working around
  * locally by clicking "Leave" if it happened to appear.

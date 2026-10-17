@@ -165,8 +165,10 @@ test.describe("Widget cards", () => {
       page.getByRole("button", { name: "Drag to reorder" }).first(),
     ).toBeVisible({ timeout: 15_000 });
     // Only the grid's own position math is compared: the header may differ.
+    // Edit mode adds the tabs row (49px) and, at tablet width, wraps the title
+    // (30px) and the meta line (18px), so the bound is their sum plus a margin.
     expect(await gap()).toBe(gapView);
-    expect(Math.abs((await top()) - topView)).toBeLessThan(80);
+    expect(Math.abs((await top()) - topView)).toBeLessThan(100);
   });
 
   for (const scheme of ["light", "dark"] as const) {

@@ -254,8 +254,12 @@ test.describe("Parameter-to-refresh cycle", () => {
     // save is in flight opens the unsaved-changes guard (#1767).
     await saveDashboard(page);
 
-    // Navigate to view mode via the "Back" button
-    await page.getByRole("button", { name: "Back" }).click();
+    // Navigate to view mode via the dashboard crumb
+    await page
+      .getByRole("navigation", { name: "breadcrumb" })
+      .getByRole("link")
+      .nth(1)
+      .click();
     await expect(page).not.toHaveURL(/\/edit$/, { timeout: 10_000 });
 
     // The parameter-select widget should render a dropdown with "year" label
@@ -1190,6 +1194,96 @@ test.describe("Multi-rule click actions", () => {
       await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
     } finally {
       await cleanup();
+    }
+  });
+});
+
+test.describe("Filter line chips (#2252)", () => {
+  test("removing a chip clears that parameter and the widget that needs it waits again", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const res = await page.request.post("/api/dashboards", {
+      data: { name: `Chip ${uid()}` },
+    });
+    expect(res.ok()).toBe(true);
+    const { id } = (await res.json()).data;
+    const layout = {
+      version: 2 as const,
+      pages: [
+        {
+          id: "page-chip",
+          title: "Main",
+          widgets: [
+            {
+              id: "chip-src",
+              chartType: "table",
+              connectionId: "conn-neo4j-001",
+              query:
+                "MATCH (m:Movie) RETURN m.title AS title ORDER BY m.title LIMIT 20",
+              settings: {
+                title: "Pick a movie",
+                clickAction: {
+                  type: "set-parameter",
+                  rules: [
+                    {
+                      id: "rule-title",
+                      triggerColumn: "title",
+                      type: "set-parameter",
+                      parameterMapping: {
+                        parameterName: "movie",
+                        sourceField: "title",
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              id: "chip-dep",
+              chartType: "table",
+              connectionId: "conn-neo4j-001",
+              query:
+                "MATCH (m:Movie) WHERE m.title = $param_movie RETURN m.released AS released",
+              settings: { title: "Needs a movie" },
+            },
+          ],
+          gridLayout: [
+            { i: "chip-src", x: 0, y: 0, w: 6, h: 6 },
+            { i: "chip-dep", x: 6, y: 0, w: 6, h: 6 },
+          ],
+        },
+      ],
+    };
+    const putRes = await page.request.put(`/api/dashboards/${id}`, {
+      data: { layoutJson: layout },
+    });
+    expect(putRes.ok()).toBe(true);
+
+    try {
+      await page.goto(`/${id}`);
+      const dependent = page.locator('[data-widget-id="chip-dep"]');
+      await expect(dependent).toContainText(/Waiting for |to see this\./, {
+        timeout: 15_000,
+      });
+
+      await page.locator("td").filter({ hasText: "Apollo 13" }).first().click();
+      const line = page.getByRole("group", { name: "Active filters" });
+      await expect(line).toContainText("Movie is Apollo 13", {
+        timeout: 10_000,
+      });
+      await expect(dependent.getByRole("cell", { name: "1995" })).toBeVisible({
+        timeout: 15_000,
+      });
+
+      await line.getByRole("button", { name: "Remove Movie filter" }).click();
+      await expect(line).toHaveCount(0);
+      await expect(dependent).toContainText(/Waiting for |to see this\./, {
+        timeout: 10_000,
+      });
+    } finally {
+      await page.request.delete(`/api/dashboards/${id}`);
     }
   });
 });

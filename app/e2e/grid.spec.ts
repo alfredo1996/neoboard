@@ -49,9 +49,13 @@ test.describe("Dashboard grid", () => {
     await page.setViewportSize({ width: 700, height: 1024 });
     await page.setViewportSize({ width: 1280, height: 1024 });
 
-    // Because a reflow is not a user edit, leaving via Back must navigate
+    // Because a reflow is not a user edit, leaving via the crumb must navigate
     // straight to view mode — no unsaved-changes confirmation dialog.
-    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "breadcrumb" })
+      .getByRole("link")
+      .nth(1)
+      .click();
     await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeHidden({
       timeout: 10000,
     });

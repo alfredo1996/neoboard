@@ -877,7 +877,11 @@ test.describe("Graph chart exploration", () => {
       "MATCH (p:Person {name: 'Cameron Crowe'}) RETURN p",
     );
     await saveDashboard(page);
-    await page.getByRole("button", { name: "Back" }).click();
+    await page
+      .getByRole("navigation", { name: "breadcrumb" })
+      .getByRole("link")
+      .nth(1)
+      .click();
     await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
       timeout: 10_000,
     });
@@ -941,7 +945,11 @@ test.describe("Graph chart exploration", () => {
 
     // Save and navigate to view mode
     await saveDashboard(page);
-    await page.getByRole("button", { name: "Back" }).click();
+    await page
+      .getByRole("navigation", { name: "breadcrumb" })
+      .getByRole("link")
+      .nth(1)
+      .click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // Wait for graph exploration to render
@@ -1014,7 +1022,11 @@ test.describe("Graph chart exploration", () => {
     // waitForURL(/\/[\w-]+$/) would match /${id}/edit too (the word "edit" matches \w+),
     // so we explicitly wait for a URL that does NOT end with /edit.
     await saveDashboard(page);
-    await page.getByRole("button", { name: "Back" }).click();
+    await page
+      .getByRole("navigation", { name: "breadcrumb" })
+      .getByRole("link")
+      .nth(1)
+      .click();
     await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
       timeout: 10_000,
     });

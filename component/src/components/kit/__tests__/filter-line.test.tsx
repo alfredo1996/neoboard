@@ -19,6 +19,20 @@ describe("FilterLine", () => {
     ).toBeInTheDocument();
   });
 
+  it("carries a filter's title on its chip, for where it came from", () => {
+    render(
+      <FilterLine
+        filters={[{ ...filters[0], title: "Set by URL" }, filters[1]]}
+        onRemove={() => {}}
+        onReset={() => {}}
+      />,
+    );
+    expect(screen.getByTitle("Set by URL")).toHaveTextContent(
+      "Decade is 1990s",
+    );
+    expect(screen.getAllByTitle(/.*/)).toHaveLength(1);
+  });
+
   it("removes one filter by id and resets all", () => {
     const onRemove = vi.fn();
     const onReset = vi.fn();

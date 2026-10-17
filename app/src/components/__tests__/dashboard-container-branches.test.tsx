@@ -161,43 +161,6 @@ vi.mock("@neoboard/components", () => ({
   }: React.PropsWithChildren<Record<string, unknown>>) => (
     <button {...props}>{children}</button>
   ),
-  ParameterBar: ({
-    children,
-    onReset,
-  }: {
-    children: React.ReactNode;
-    onReset: () => void;
-  }) => (
-    <div data-testid="parameter-bar">
-      <button data-testid="reset-all" onClick={onReset}>
-        reset
-      </button>
-      {children}
-    </div>
-  ),
-  CrossFilterTag: ({
-    field,
-    value,
-    onRemove,
-    onClick,
-    tooltip,
-  }: {
-    field: string;
-    value: string;
-    onRemove: () => void;
-    onClick?: () => void;
-    tooltip?: string;
-  }) => (
-    <div data-testid={`filter-tag-${field}`} title={tooltip}>
-      <span>{value}</span>
-      <button data-testid={`tag-click-${field}`} onClick={onClick}>
-        click
-      </button>
-      <button data-testid={`tag-remove-${field}`} onClick={onRemove}>
-        x
-      </button>
-    </div>
-  ),
   AlertDialog: ({
     children,
     open,
@@ -658,76 +621,51 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
   });
 });
 
-describe("DashboardContainer — parameter bar", () => {
-  it("renders ParameterBar when parameters exist and showParameterBar=true", () => {
+describe("DashboardContainer — filter line", () => {
+  it("renders one sentence chip per active parameter, labelled and formatted", () => {
     parametersState.parameters = {
-      status: { field: "status", value: "active" },
-    };
-    renderWithProviders(
-      <DashboardContainer page={makePage()} showParameterBar={true} />,
-    );
-    expect(screen.getByTestId("parameter-bar")).toBeDefined();
-    expect(screen.getByTestId("filter-tag-status")).toBeDefined();
-  });
-
-  it("does NOT render ParameterBar when showParameterBar=false", () => {
-    parametersState.parameters = {
-      status: { field: "status", value: "active" },
-    };
-    renderWithProviders(
-      <DashboardContainer page={makePage()} showParameterBar={false} />,
-    );
-    expect(screen.queryByTestId("parameter-bar")).toBeNull();
-  });
-
-  it("does NOT render ParameterBar when no parameters exist", () => {
-    renderWithProviders(<DashboardContainer page={makePage()} />);
-    expect(screen.queryByTestId("parameter-bar")).toBeNull();
-  });
-
-  it("calls clearParameter when a tag's remove button is clicked", () => {
-    parametersState.parameters = {
-      status: { field: "status", value: "active" },
+      gallery_region: {
+        field: "gallery_region",
+        value: "EU",
+        source: "URL",
+      },
+      decade: { field: "decade", value: "1990s" },
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
-    fireEvent.click(screen.getByTestId("tag-remove-status"));
+    const line = screen.getByRole("group", { name: "Active filters" });
+    expect(line).toHaveTextContent("Gallery region is EU");
+    expect(line).toHaveTextContent("Decade is 1990s");
+    expect(screen.getByTitle("Set by URL")).toHaveTextContent(
+      "Gallery region is EU",
+    );
+    expect(
+      screen.getAllByRole("button", { name: /^Remove .* filter$/ }),
+    ).toHaveLength(2);
+  });
+
+  it("renders no line when no parameter is active", () => {
+    renderWithProviders(<DashboardContainer page={makePage()} />);
+    expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
+  });
+
+  it("clears one parameter when its chip's × is clicked", () => {
+    parametersState.parameters = {
+      status: { field: "status", value: "active" },
+    };
+    renderWithProviders(<DashboardContainer page={makePage()} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Status filter" }),
+    );
     expect(parametersState.clearParameter).toHaveBeenCalledWith("status");
   });
 
-  it("calls clearAll when the ParameterBar reset is clicked", () => {
+  it("clears all parameters on Reset", () => {
     parametersState.parameters = {
       status: { field: "status", value: "active" },
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
-    fireEvent.click(screen.getByTestId("reset-all"));
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(parametersState.clearAll).toHaveBeenCalled();
-  });
-
-  it("tag click scrolls to source widget when sourceWidgetId is set", () => {
-    parametersState.parameters = {
-      status: {
-        field: "status",
-        value: "active",
-        source: "Widget A",
-        sourceWidgetId: "src-1",
-      },
-    };
-    const scrollIntoView = vi.fn();
-    const origQuerySelector = document.querySelector.bind(document);
-    const spy = vi
-      .spyOn(document, "querySelector")
-      .mockImplementation((sel: string) => {
-        if (sel.includes("src-1"))
-          return { scrollIntoView } as unknown as Element;
-        return origQuerySelector(sel);
-      });
-    renderWithProviders(<DashboardContainer page={makePage()} />);
-    fireEvent.click(screen.getByTestId("tag-click-status"));
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      behavior: "smooth",
-      block: "center",
-    });
-    spy.mockRestore();
   });
 });
 

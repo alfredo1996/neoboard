@@ -119,7 +119,6 @@ export {
 } from "./dynamic-connection-fields";
 
 // Interactivity
-export { ParameterBar, type ParameterBarProps } from "./parameter-bar";
 export { CrossFilterTag, type CrossFilterTagProps } from "./cross-filter-tag";
 
 // Parameter Widgets (pure UI — no store access, no API calls)

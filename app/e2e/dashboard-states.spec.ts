@@ -60,7 +60,11 @@ test.describe("Dashboard viewer — uncovered states", () => {
       await saveDashboard(page);
       // Go to view mode. /\/[\w-]+$/ also matched /<id>/edit, and "No widgets
       // yet" shows in edit mode too, so assert view-only chrome (#1787).
-      await page.getByRole("button", { name: /Back/ }).click();
+      await page
+        .getByRole("navigation", { name: "breadcrumb" })
+        .getByRole("link")
+        .nth(1)
+        .click();
       await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
         timeout: 10_000,
       });
@@ -78,7 +82,9 @@ test.describe("Dashboard viewer — uncovered states", () => {
   test("should navigate to dashboard and display content", async ({ page }) => {
     await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    await expect(page.getByText("Movie Analytics")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Movie Analytics" }),
+    ).toBeVisible();
   });
 
   test("search filters the dashboards list and shows an empty state (#1048)", async ({
@@ -159,7 +165,11 @@ test.describe("Dashboard viewer — uncovered states", () => {
       const savedVersion = String((await saved.json()).data.version);
 
       // Leave edit → view mode (the route where the version-bump effect runs)
-      await page.getByRole("button", { name: /Back/ }).click();
+      await page
+        .getByRole("navigation", { name: "breadcrumb" })
+        .getByRole("link")
+        .nth(1)
+        .click();
       // Back goes to /<id>, not /dashboards. /\/[\w-]+$/ also matched
       // /<id>/edit, so wait for view mode and its chrome (#1787).
       await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {

@@ -1,8 +1,12 @@
 "use client";
 
-import { ArrowLeft, Filter, Plus, Save, Users } from "lucide-react";
+import React from "react";
+import { Plus, Save, Users } from "lucide-react";
 import { ShortcutHint } from "@/components/shortcut-hint";
 import { DashboardAssignPanel } from "@/components/dashboard-assign-panel";
+import { DashboardFiltersButton } from "@/components/dashboard-filters-button";
+import { DashboardMeta } from "@/components/dashboard-meta";
+import { PageHeader } from "@neoboard/components/kit";
 import {
   Button,
   LoadingButton,
@@ -11,63 +15,88 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  Toolbar,
-  ToolbarSection,
-  ToolbarSeparator,
 } from "@neoboard/components";
 
 interface DashboardEditToolbarProps {
   dashboardId: string;
   name: string;
-  /** Admins get the sharing sheet. */
-  isAdmin: boolean;
-  isPublic: boolean;
-  onTogglePublic: (value: boolean) => void;
+  updatedAt: string | Date;
+  updatedByName?: string | null;
+  widgetCount: number;
+  /** The page tabs, under the title. */
+  tabs?: React.ReactNode;
   hasParameters: boolean;
   parameterCount: number;
   showParameterBar: boolean;
   onToggleParameterBar: () => void;
+  /** Admins get the sharing sheet. */
+  isAdmin: boolean;
+  isPublic: boolean;
+  onTogglePublic: (value: boolean) => void;
   isSaving: boolean;
   onAddWidget: () => void;
   onSave: () => void;
-  onBack: () => void;
+  /** The "Dashboards" crumb. */
+  onDashboards: () => void;
+  /** The dashboard's own crumb: back to view mode. */
+  onLeave: () => void;
 }
 
-/** Edit-mode chrome: sharing, parameter toggle, Add Widget, Save. */
+/** Edit-mode page header: breadcrumb, title, meta, sharing, Add Widget, Save. */
 export function DashboardEditToolbar({
   dashboardId,
   name,
-  isAdmin,
-  isPublic,
-  onTogglePublic,
+  updatedAt,
+  updatedByName,
+  widgetCount,
+  tabs,
   hasParameters,
   parameterCount,
   showParameterBar,
   onToggleParameterBar,
+  isAdmin,
+  isPublic,
+  onTogglePublic,
   isSaving,
   onAddWidget,
   onSave,
-  onBack,
+  onDashboards,
+  onLeave,
 }: Readonly<DashboardEditToolbarProps>) {
-  const heading = `Editing: ${name}`;
   return (
-    <Toolbar>
-      <ToolbarSection>
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-      </ToolbarSection>
-      {/* basis-48: the actions wrap to a second row before they crush the
-          title (#2056). */}
-      <ToolbarSection className="min-w-0 flex-1 basis-48">
-        <h1 className="truncate text-lg font-bold" title={heading}>
-          {heading}
-        </h1>
-      </ToolbarSection>
-      <ToolbarSection>
-        {isAdmin && (
-          <>
+    <PageHeader
+      breadcrumb={[
+        {
+          label: "Dashboards",
+          href: "/",
+          onClick: (e) => {
+            e.preventDefault();
+            onDashboards();
+          },
+        },
+        {
+          label: name,
+          href: `/${dashboardId}`,
+          onClick: (e) => {
+            e.preventDefault();
+            onLeave();
+          },
+        },
+        { label: "Editing" },
+      ]}
+      title={`Editing: ${name}`}
+      meta={
+        <DashboardMeta
+          updatedAt={updatedAt}
+          updatedByName={updatedByName}
+          widgetCount={widgetCount}
+          isPublic={isPublic}
+        />
+      }
+      tabs={tabs}
+      actions={
+        <>
+          {isAdmin && (
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -88,49 +117,36 @@ export function DashboardEditToolbar({
                 </div>
               </SheetContent>
             </Sheet>
-            <ToolbarSeparator />
-          </>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!hasParameters}
-          onClick={onToggleParameterBar}
-          aria-label={showParameterBar ? "Hide parameters" : "Show parameters"}
-        >
-          <Filter className="mr-2 h-4 w-4" />
-          Filters
-          {hasParameters && parameterCount > 0 && (
-            <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-              {parameterCount}
-            </span>
           )}
-        </Button>
-        <ToolbarSeparator />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAddWidget}
-          title="Add widget (Cmd+Shift+N)"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Widget
-          <ShortcutHint combo="Cmd+Shift+N" />
-        </Button>
-        <ToolbarSeparator />
-        <LoadingButton
-          size="sm"
-          loading={isSaving}
-          loadingText="Saving..."
-          onClick={onSave}
-          title="Save dashboard (Cmd+S)"
-        >
-          <Save className="mr-2 h-4 w-4" />
-          Save
-          <ShortcutHint combo="Cmd+S" />
-        </LoadingButton>
-      </ToolbarSection>
-    </Toolbar>
+          <DashboardFiltersButton
+            hasParameters={hasParameters}
+            parameterCount={parameterCount}
+            showParameterBar={showParameterBar}
+            onToggleParameterBar={onToggleParameterBar}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAddWidget}
+            title="Add widget (Cmd+Shift+N)"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Widget
+            <ShortcutHint combo="Cmd+Shift+N" />
+          </Button>
+          <LoadingButton
+            size="sm"
+            loading={isSaving}
+            loadingText="Saving..."
+            onClick={onSave}
+            title="Save dashboard (Cmd+S)"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save
+            <ShortcutHint combo="Cmd+S" />
+          </LoadingButton>
+        </>
+      }
+    />
   );
 }

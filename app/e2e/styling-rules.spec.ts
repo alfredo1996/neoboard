@@ -226,7 +226,11 @@ test.describe("Styling rules — table widget", () => {
     await saveDashboard(page);
 
     // Navigate to view mode
-    await page.getByRole("button", { name: "Back" }).click();
+    await page
+      .getByRole("navigation", { name: "breadcrumb" })
+      .getByRole("link")
+      .nth(1)
+      .click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The rule is `released <= 1999 -> #ef4444`. Asserting that SOME row has

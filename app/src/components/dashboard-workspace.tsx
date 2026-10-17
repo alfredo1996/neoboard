@@ -19,10 +19,11 @@ import { useConnections } from "@/hooks/use-connections";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
-import { useParameterStore } from "@/stores/parameter-store";
-import type { ParameterEntry } from "@/stores/parameter-store";
+import {
+  useParameterStore,
+  type ParameterEntry,
+} from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
-import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import {
@@ -41,6 +42,7 @@ import { DashboardContainer } from "@/components/dashboard-container";
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
 import { DashboardViewToolbar } from "@/components/dashboard-view-toolbar";
 import { DashboardEditToolbar } from "@/components/dashboard-edit-toolbar";
+import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { PageTabs } from "@/components/page-tabs";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import { SaveTemplateDialog } from "@/components/save-template-dialog";
@@ -691,6 +693,24 @@ export function DashboardWorkspace({
     // dropping unsaved edits (#2054).
   ]);
 
+  const widgetCount = activeLayout.pages.reduce(
+    (n, p) => n + p.widgets.length,
+    0,
+  );
+  const pageTabs =
+    editMode || activeLayout.pages.length > 1 ? (
+      <PageTabs
+        pages={activeLayout.pages}
+        activeIndex={safeIndex}
+        editable={editMode}
+        onSelect={handleSelectPage}
+        onAdd={editMode ? addPage : undefined}
+        onRemove={editMode ? removePage : undefined}
+        onRename={editMode ? renamePage : undefined}
+        onReorder={editMode ? handleReorderPages : undefined}
+      />
+    ) : undefined;
+
   // ── Render ──────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -733,36 +753,45 @@ export function DashboardWorkspace({
         <DashboardEditToolbar
           dashboardId={id}
           name={dashboard.name}
+          updatedAt={dashboard.updatedAt}
+          updatedByName={dashboard.updatedByName}
+          widgetCount={widgetCount}
+          tabs={pageTabs}
+          hasParameters={hasParameters}
+          parameterCount={parameterCount}
+          showParameterBar={effectiveShowBar}
+          onToggleParameterBar={toggleParameterBar}
           isAdmin={isAdmin}
           isPublic={dashboard.isPublic ?? false}
           onTogglePublic={(value) =>
             updateDashboard.mutate({ id, isPublic: value })
           }
-          hasParameters={hasParameters}
-          parameterCount={parameterCount}
-          showParameterBar={effectiveShowBar}
-          onToggleParameterBar={toggleParameterBar}
           isSaving={updateDashboard.isPending}
           onAddWidget={openAddWidget}
           onSave={handleSave}
-          onBack={leaveEditMode}
+          onDashboards={() => {
+            if (requestNavigation("/")) router.push("/");
+          }}
+          onLeave={leaveEditMode}
         />
       ) : (
         <DashboardViewToolbar
           name={dashboard.name}
-          role={dashboard.role}
           updatedAt={dashboard.updatedAt}
           updatedByName={dashboard.updatedByName}
-          canEdit={canEdit}
-          isFetching={isFetching}
-          refetchInterval={viewRefetchInterval}
-          onApplyInterval={applyInterval}
+          widgetCount={widgetCount}
+          isPublic={dashboard.isPublic ?? false}
+          tabs={pageTabs}
           hasParameters={hasParameters}
           parameterCount={parameterCount}
           showParameterBar={effectiveShowBar}
           onToggleParameterBar={toggleParameterBar}
+          canEdit={canEdit}
+          isFetching={isFetching}
+          refetchInterval={viewRefetchInterval}
+          onApplyInterval={applyInterval}
           isEnteringEdit={isPending}
-          onBack={() => router.push("/")}
+          onDashboards={() => router.push("/")}
           onEdit={() => startTransition(enterEditMode)}
         />
       )}
@@ -796,19 +825,6 @@ export function DashboardWorkspace({
             <AlertDescription>{saveError}</AlertDescription>
           </Alert>
         </div>
-      )}
-
-      {(editMode || activeLayout.pages.length > 1) && (
-        <PageTabs
-          pages={activeLayout.pages}
-          activeIndex={safeIndex}
-          editable={editMode}
-          onSelect={handleSelectPage}
-          onAdd={editMode ? addPage : undefined}
-          onRemove={editMode ? removePage : undefined}
-          onRename={editMode ? renamePage : undefined}
-          onReorder={editMode ? handleReorderPages : undefined}
-        />
       )}
 
       {editMode && (
@@ -902,6 +918,7 @@ export function DashboardWorkspace({
                 >
                   <DashboardContainer
                     page={page}
+                    showParameterBar={effectiveShowBar}
                     editable={editMode}
                     // Only the visible page polls. Visited pages stay mounted so
                     // tab switches are instant and don't re-query — but keeping
@@ -936,7 +953,6 @@ export function DashboardWorkspace({
                         : { onNavigateToPage: handleNavigateToPage }
                     }
                     templateMap={editMode ? templateMap : undefined}
-                    showParameterBar={effectiveShowBar}
                     parameterSourceMap={parameterSourceMap}
                     connectorCapabilities={dashboard?.connectorCapabilities}
                     connectionNames={dashboard?.connectionNames}
