@@ -81,7 +81,7 @@ function PageHeader({
             {title}
           </h1>
           {meta && (
-            <p className="mt-1 text-[13px] text-muted-foreground">{meta}</p>
+            <p className="mt-1 text-caption text-muted-foreground">{meta}</p>
           )}
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}

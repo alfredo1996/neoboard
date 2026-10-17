@@ -23,6 +23,9 @@ function template(columns: readonly string[]) {
 const ROW_GRID =
   "grid items-center gap-3 px-4 grid-cols-[minmax(0,1fr)_40px] md:grid-cols-[var(--list-cols)]";
 
+// The columns, so a row keys its meta cells by the column they sit in.
+const ColumnsContext = React.createContext<readonly string[]>([]);
+
 /** Rows in one card with a header row. */
 function List({ label, columns, children, className }: Readonly<ListProps>) {
   return (
@@ -51,7 +54,9 @@ function List({ label, columns, children, className }: Readonly<ListProps>) {
           <span className="sr-only">Actions</span>
         </span>
       </div>
-      {children}
+      <ColumnsContext.Provider value={columns}>
+        {children}
+      </ColumnsContext.Provider>
     </Panel>
   );
 }
@@ -83,6 +88,7 @@ function ListRow({
   menu,
   className,
 }: Readonly<ListRowProps>) {
+  const columns = React.useContext(ColumnsContext);
   return (
     <div
       role="row"
@@ -111,10 +117,11 @@ function ListRow({
           </small>
         )}
       </span>
-      {React.Children.map(meta, (cell) => (
+      {meta?.map((cell, i) => (
         <span
+          key={columns[i + 1] ?? `extra-${columns.length + i}`}
           role="cell"
-          className="hidden truncate text-[13px] tabular-nums text-foreground-2 md:block"
+          className="hidden truncate text-caption tabular-nums text-foreground-2 md:block"
         >
           {cell}
         </span>

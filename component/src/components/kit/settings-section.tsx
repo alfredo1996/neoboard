@@ -32,11 +32,11 @@ function SettingsSection({
       )}
     >
       <div>
-        <h3 id={id} className="m-0 text-[15px] font-semibold">
+        <h3 id={id} className="m-0 text-section">
           {title}
         </h3>
         {description && (
-          <p className="mt-1 max-w-[34ch] text-[13px] text-muted-foreground">
+          <p className="mt-1 max-w-[34ch] text-caption text-muted-foreground">
             {description}
           </p>
         )}

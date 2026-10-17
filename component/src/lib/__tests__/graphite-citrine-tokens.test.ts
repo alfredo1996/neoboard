@@ -295,6 +295,10 @@ describe("type scale (#2215)", () => {
     ["body", "0.875rem", undefined, undefined],
     ["widget-title", "0.875rem", "1.3", "600"],
     ["meta", "0.75rem", undefined, undefined],
+    // The page kit's steps (#2225).
+    ["caption", "0.8125rem", "1.4", undefined],
+    ["figure", "1.5rem", "1.2", "600"],
+    ["wordmark", "1.125rem", "1.2", "600"],
   ])("text-%s is %s", (name, size, lineHeight, weight) => {
     const entry = preset.theme.extend.fontSize[name] as
       string | [string, { lineHeight?: string; fontWeight?: string }];

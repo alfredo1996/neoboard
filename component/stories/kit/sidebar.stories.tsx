@@ -164,6 +164,29 @@ export const Expanded: Story = {
   },
 };
 export const Rail: Story = { args: { rail: true } };
+// Under 1024 px the sidebar is a rail on its own, with no toggle. The storybook
+// project runs at 1280 px, so this story narrows the viewport to check it.
+export const AutomaticRail: Story = {
+  parameters: {
+    viewport: {
+      options: {
+        narrow: {
+          name: "900 px",
+          styles: { width: "900px", height: "800px" },
+          type: "tablet",
+        },
+      },
+    },
+  },
+  globals: { viewport: { value: "narrow", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "Dashboards" }),
+    ).toHaveAttribute("aria-label", "Dashboards");
+    await expect(canvas.queryByRole("button", { name: /sidebar$/ })).toBeNull();
+  },
+};
 export const ExpandedDark: Story = { globals: { theme: "dark" } };
 export const RailDark: Story = {
   args: { rail: true },

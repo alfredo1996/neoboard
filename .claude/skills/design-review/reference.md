@@ -222,8 +222,11 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 | Stat         | 36 / 600      | sans |
 | Section      | 15 / 600      | sans |
 | Body         | 14            | sans |
-| Widget title | 13 / 600      | sans |
+| Widget title | 14 / 600      | sans |
 | Meta         | 12            | sans |
+| Caption      | 13 / 1.4      | sans |
+| Figure       | 24 / 600      | sans |
+| Wordmark     | 18 / 600      | sans |
 
 ### Weight rules
 
@@ -258,7 +261,7 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 
 ### Type scale utilities
 
-`text-title` (36/1.1/600, legacy, with `font-serif` on pages not yet moved to the kit), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (14/1.3/600) and `text-meta` (12) are in the Tailwind preset. `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
+`text-title` (36/1.1/600, legacy, with `font-serif` on pages not yet moved to the kit), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (14/1.3/600) `text-meta` (12) and the kit steps `text-caption` (13/1.4, meta lines), `text-figure` (24/1.2/600, the `Stat` number) and `text-wordmark` (18/1.2/600) are in the Tailwind preset (and in `cn()`'s `CUSTOM_TEXT_SIZES`). `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
 
 ### Border Rules
 

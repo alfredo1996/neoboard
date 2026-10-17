@@ -12,7 +12,7 @@ function Wordmark({ collapsed = false, className, ...rest }: WordmarkProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2.5 text-lg font-semibold",
+        "inline-flex items-center gap-2.5 text-wordmark",
         className,
       )}
       {...rest}

@@ -89,7 +89,7 @@ function NavButton({
       // The rail hides the label; it stays the button's name.
       aria-label={railed ? item.label : undefined}
       className={cn(
-        "flex w-full items-center gap-2.5 whitespace-nowrap rounded-md px-2.5 py-[7px] text-sm font-medium text-foreground-2 transition-colors hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "flex w-full items-center gap-2.5 whitespace-nowrap rounded-sm px-2.5 py-[7px] text-sm font-medium text-foreground-2 transition-colors hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         item.active && "bg-active text-foreground",
         railed && "justify-center p-[9px]",
       )}
@@ -121,13 +121,13 @@ function AccountMenu({
           type="button"
           aria-label={`Account: ${account.name}`}
           className={cn(
-            "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-active",
+            "flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left transition-colors hover:bg-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-active",
             railed && "justify-center p-2",
           )}
         >
           <span
             aria-hidden
-            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-card-edge text-[11px] font-semibold"
+            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-card-edge text-meta font-semibold"
           >
             {initials(account.name)}
           </span>
@@ -262,7 +262,7 @@ function Sidebar({
               type="button"
               onClick={toggle}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="flex h-8 w-full items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-8 w-full items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {collapsed ? (
                 <ChevronsRight className="h-4 w-4" aria-hidden />

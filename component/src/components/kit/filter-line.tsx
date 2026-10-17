@@ -31,7 +31,7 @@ function FilterLine({
       role="group"
       aria-label="Active filters"
       className={cn(
-        "flex flex-wrap items-center gap-2 text-[13px] text-foreground-2",
+        "flex flex-wrap items-center gap-2 text-caption text-foreground-2",
         className,
       )}
     >

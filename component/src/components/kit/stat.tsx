@@ -19,9 +19,7 @@ function Stat({ label, value, className }: Readonly<StatProps>) {
     >
       <dl className="m-0">
         <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="m-0 mt-1 text-2xl font-semibold tabular-nums">
-          {value}
-        </dd>
+        <dd className="m-0 mt-1 text-figure tabular-nums">{value}</dd>
       </dl>
     </Panel>
   );

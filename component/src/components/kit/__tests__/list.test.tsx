@@ -55,6 +55,23 @@ describe("ListRow", () => {
     );
   });
 
+  it("keeps a cell passed as an array in one column", () => {
+    render(
+      <List label="L" columns={["Name", "Owner", "Widgets"]}>
+        <ListRow
+          title="Row"
+          href="/r"
+          meta={[["Alice", <i key="t">Shared</i>], 12]}
+        />
+      </List>,
+    );
+    const cells = screen.getAllByRole("cell");
+    // title, two meta cells, menu
+    expect(cells).toHaveLength(4);
+    expect(cells[1]).toHaveTextContent("AliceShared");
+    expect(cells[2]).toHaveTextContent("12");
+  });
+
   it("labels the list and its column headers", () => {
     setup();
     expect(
