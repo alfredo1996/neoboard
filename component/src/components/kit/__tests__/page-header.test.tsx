@@ -56,4 +56,12 @@ describe("PageHeader", () => {
     expect(h1.className).toMatch(/\btruncate\b/);
     expect(screen.getByText("12 widgets").className).toMatch(/\btruncate\b/);
   });
+
+  it("lets actions wrap below sm and keeps them on one line from sm up", () => {
+    render(<PageHeader title="T" actions={<button>Edit</button>} />);
+    const actions = screen.getByRole("button", { name: "Edit" }).parentElement!;
+    expect(actions.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["flex-wrap", "sm:shrink-0", "sm:flex-nowrap"]),
+    );
+  });
 });

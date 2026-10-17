@@ -1770,6 +1770,15 @@ describe("DashboardWorkspace", () => {
     expect(screen.queryByRole("button", { name: "Add page" })).toBeNull();
   });
 
+  it("offers Add page on a layout with no pages, so the user is not stuck", () => {
+    pathname = "/d1/edit";
+    dashboard = makeDashboard(0);
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(screen.queryByTestId("page-tabs")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add page" }));
+    expect(useDashboardStore.getState().layout.pages).toHaveLength(1);
+  });
+
   it("toggles public sharing from the edit toolbar", async () => {
     pathname = "/d1/edit";
     render(<DashboardWorkspace id="d1" editMode={true} />);

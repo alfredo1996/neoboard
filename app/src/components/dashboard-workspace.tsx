@@ -735,7 +735,7 @@ export function DashboardWorkspace({
           updatedByName={dashboard.updatedByName}
           widgetCount={widgetCount}
           tabs={pageTabs}
-          onAddPage={activeLayout.pages.length === 1 ? addPage : undefined}
+          onAddPage={activeLayout.pages.length < 2 ? addPage : undefined}
           isAdmin={isAdmin}
           isPublic={dashboard.isPublic ?? false}
           onTogglePublic={(value) =>

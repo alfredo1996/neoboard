@@ -87,7 +87,11 @@ function PageHeader({
             </p>
           )}
         </div>
-        {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap gap-2 sm:shrink-0 sm:flex-nowrap">
+            {actions}
+          </div>
+        )}
       </div>
       {tabs && <div className="-mb-3 mt-3">{tabs}</div>}
     </header>

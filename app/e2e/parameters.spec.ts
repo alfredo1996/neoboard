@@ -2559,7 +2559,9 @@ test.describe("Filter line appears with the first filter and leaves with the las
 
     // Navigate to view mode
     await page.goto(`/${id}`);
-    await expect(page.getByText("Movies")).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByRole("heading", { name: "Movies", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
 
     // Wait for table data to load and click a cell to set a parameter
     const firstCell = page.locator("td").first();
