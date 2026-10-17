@@ -117,10 +117,7 @@ test.describe("Confirm dialog — destructive", () => {
     });
 
     // Open the dashboard options dropdown (Delete is inside a DropdownMenu)
-    const card = page
-      .locator("[class*='cursor-pointer']")
-      .filter({ hasText: dashName })
-      .first();
+    const card = page.getByRole("row").filter({ hasText: dashName }).first();
     await card.getByRole("button", { name: "Dashboard options" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 

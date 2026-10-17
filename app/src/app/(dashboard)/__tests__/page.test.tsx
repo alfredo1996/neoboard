@@ -54,8 +54,9 @@ vi.mock("@/hooks/use-dashboards", () => ({
   }),
 }));
 
+let connections: unknown[] = [];
 vi.mock("@/hooks/use-connections", () => ({
-  useConnections: () => ({ data: [] }),
+  useConnections: () => ({ data: connections }),
 }));
 
 // The NeoDash import asks the registry which connector speaks Cypher (#1900).
@@ -150,22 +151,6 @@ vi.mock("@neoboard/components", () => {
     // passthrough div would leave `handleFile` unreachable.
     Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
       <input {...props} />
-    ),
-    PageHeader: ({
-      title,
-      titleRef,
-      actions,
-    }: {
-      title: string;
-      titleRef?: React.Ref<HTMLHeadingElement>;
-      actions?: React.ReactNode;
-    }) => (
-      <>
-        <h1 ref={titleRef} tabIndex={-1}>
-          {title}
-        </h1>
-        {actions}
-      </>
     ),
     // Hands focus back after the render that closes it, as Radix does.
     ConfirmDialog: function ConfirmDialog({
@@ -551,3 +536,90 @@ it.each([
     expect(fromMenu ? menuTrigger : opener).toHaveFocus();
   },
 );
+
+describe("DashboardListPage rows (#2253)", () => {
+  const OWNED = { ...DASHBOARD, id: "d1", role: "owner" as const };
+  const SHARED = {
+    ...DASHBOARD,
+    id: "d2",
+    name: "Chart gallery",
+    description: "One page per chart type",
+    role: "viewer" as const,
+    isPublic: true,
+    widgetCount: 5,
+  };
+  beforeEach(() => {
+    dashboards = [OWNED, SHARED];
+    connections = [{ id: "c1" }, { id: "c2" }];
+  });
+
+  it("renders each dashboard as a row whose link opens it", () => {
+    render(<DashboardListPage />);
+    const row = screen.getByRole("row", { name: /Chart gallery/ });
+    expect(
+      within(row).getByRole("link", { name: "Chart gallery" }),
+    ).toHaveAttribute("href", "/d2");
+    expect(within(row).getByText("One page per chart type")).toBeVisible();
+  });
+
+  it("tags a public dashboard and nothing else", () => {
+    render(<DashboardListPage />);
+    expect(
+      within(screen.getByRole("row", { name: /Chart gallery/ })).getByText(
+        "Public",
+      ),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole("row", { name: /Movie Analytics/ })).queryByText(
+        "Public",
+      ),
+    ).toBeNull();
+  });
+
+  it("holds exactly today's actions in the row menu of an owner", () => {
+    dashboards = [OWNED];
+    render(<DashboardListPage />);
+    const row = screen.getByRole("row", { name: /Movie Analytics/ });
+    expect(
+      [
+        "Edit",
+        "Rename",
+        "Duplicate",
+        "Change connection…",
+        "Export",
+        "Delete",
+      ].filter((n) => within(row).queryByText(n) === null),
+    ).toEqual([]);
+  });
+
+  it("counts dashboards, widgets and connections, and the ones shared with you", () => {
+    render(<DashboardListPage />);
+    const stat = (label: string) =>
+      screen.getByText(label, { selector: "dt" }).nextElementSibling;
+    expect(stat("Dashboards")).toHaveTextContent("2");
+    expect(stat("Widgets")).toHaveTextContent("8");
+    expect(stat("Connections")).toHaveTextContent("2");
+    expect(screen.getByText("2 dashboards · 1 shared with you")).toBeVisible();
+  });
+
+  it("filters by name and shows a chip that clears the search", () => {
+    render(<DashboardListPage />);
+    fireEvent.change(screen.getByLabelText("Search dashboards"), {
+      target: { value: "gallery" },
+    });
+    expect(screen.queryByRole("row", { name: /Movie Analytics/ })).toBeNull();
+    expect(screen.getByText("Name contains", { exact: false })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Name filter" }));
+
+    expect(screen.getByRole("row", { name: /Movie Analytics/ })).toBeVisible();
+    expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
+  });
+
+  it("still shows the empty state with no dashboards", () => {
+    dashboards = [];
+    render(<DashboardListPage />);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText(/dashboard/i, { selector: "h1" })).toBeVisible();
+  });
+});

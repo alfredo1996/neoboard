@@ -31,9 +31,7 @@ test.describe("Dashboard export error surfacing (issue #835)", () => {
     await page.goto("/dashboards");
 
     // Find the dashboard card by its name, then open its options menu
-    const card = page
-      .locator("[data-testid='dashboard-card']")
-      .filter({ hasText: dashboardName });
+    const card = page.getByRole("row").filter({ hasText: dashboardName });
     await expect(card).toBeVisible({ timeout: 10_000 });
     await card.getByRole("button", { name: "Dashboard options" }).click();
     await page.getByRole("menuitem", { name: "Export" }).click();

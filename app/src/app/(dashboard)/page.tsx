@@ -9,13 +9,11 @@ import Link from "next/link";
 import {
   Plus,
   LayoutDashboard,
-  MoreVertical,
+  MoreHorizontal,
   Pencil,
   TextCursorInput,
   Copy,
   Trash2,
-  Grid2X2,
-  Globe,
   Upload,
   Download,
   Database,
@@ -65,7 +63,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  PageHeader,
   EmptyState,
   LoadingButton,
   LoadingOverlay,
@@ -83,7 +80,17 @@ import {
   neoDashDashboardName,
 } from "@/lib/dashboard/neodash-converter";
 import { ExportError, classifyExportError } from "@/lib/dashboard/export-error";
-import { dashboardListSubtitle } from "./dashboard-list-subtitle";
+import {
+  FilterLine,
+  List,
+  ListRow,
+  PageHeader,
+  Stat,
+} from "@neoboard/components/kit";
+import {
+  dashboardListMeta,
+  dashboardListSubtitle,
+} from "./dashboard-list-subtitle";
 import { deleteDashboardToast } from "./delete-dashboard-toast";
 import {
   filterDashboardsByName,
@@ -803,6 +810,15 @@ export default function DashboardListPage() {
   } | null>(null);
   const [search, setSearch] = useState("");
 
+  const { data: connections } = useConnections();
+  const sharedCount = (dashboardList ?? []).filter(
+    (d) => d.role !== "owner",
+  ).length;
+  const widgetTotal = (dashboardList ?? []).reduce(
+    (n, d) => n + (d.widgetCount ?? 0),
+    0,
+  );
+
   const canCreate = systemRole === "admin" || systemRole === "creator";
 
   // Client-side name filter for the list (#1048).
@@ -884,10 +900,14 @@ export default function DashboardListPage() {
       <PageHeader
         title="Dashboards"
         titleRef={headingRef}
-        description={dashboardListSubtitle(canCreate)}
+        meta={
+          dashboardList?.length
+            ? dashboardListMeta(dashboardList.length, sharedCount)
+            : dashboardListSubtitle(canCreate)
+        }
         actions={
           canCreate ? (
-            <div className="flex items-center gap-2">
+            <>
               <Button
                 variant="outline"
                 onClick={(e) => {
@@ -902,7 +922,7 @@ export default function DashboardListPage() {
                 <Plus className="mr-2 h-4 w-4" />
                 New Dashboard
               </Button>
-            </div>
+            </>
           ) : undefined
         }
       />
@@ -1089,14 +1109,21 @@ export default function DashboardListPage() {
         onCloseAutoFocus={focusOpener}
       />
 
-      <div className="mt-6">
+      <div className="space-y-4 p-4 md:p-7">
         <LoadingOverlay loading={isLoading} text="Loading dashboards...">
           {!dashboardList?.length ? (
             emptyList
           ) : (
-            <>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <Stat label="Dashboards" value={dashboardList.length} />
+                <Stat label="Widgets" value={widgetTotal} />
+                {connections && (
+                  <Stat label="Connections" value={connections.length} />
+                )}
+              </div>
               {/* Name search/filter for the list at scale (#1048). */}
-              <div className="mb-4 max-w-sm">
+              <div className="max-w-sm">
                 <Input
                   type="search"
                   placeholder="Search dashboards…"
@@ -1105,12 +1132,32 @@ export default function DashboardListPage() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
+              <FilterLine
+                prefix="Showing dashboards where"
+                filters={
+                  search.trim()
+                    ? [
+                        {
+                          id: "name",
+                          label: "Name",
+                          operator: "contains",
+                          value: search.trim(),
+                        },
+                      ]
+                    : []
+                }
+                onRemove={() => setSearch("")}
+                onReset={() => setSearch("")}
+              />
               {filteredDashboards.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
                   No dashboards match “{search.trim()}”.
                 </p>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <List
+                  label="Dashboards"
+                  columns={["Name", "Access", "Widgets", "Updated"]}
+                >
                   {filteredDashboards.map((d) => {
                     const canEdit =
                       d.role === "owner" ||
@@ -1120,185 +1167,138 @@ export default function DashboardListPage() {
                     const canDuplicate = systemRole !== "reader";
 
                     return (
-                      <Panel
+                      <ListRow
                         key={d.id}
-                        data-testid="dashboard-card"
-                        className="flex flex-col cursor-pointer"
-                        onClick={() => router.push(`/${d.id}`)}
-                      >
-                        <PanelHeader className="pb-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <PanelTitle
-                              className="text-base truncate"
-                              title={d.name}
-                            >
-                              {/* #1283: the card's onClick was the ONLY route
-                                  into a dashboard — a bare div with no role,
-                                  no tab stop, and no "Open" item in the menu,
-                                  so a keyboard-only reader could not open any
-                                  dashboard at all. The title is now a real
-                                  link (keyboard, middle-click, new tab); the
-                                  card onClick stays as a pointer convenience. */}
-                              <Link
-                                href={`/${d.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                              >
-                                {d.name}
-                              </Link>
-                            </PanelTitle>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {(canEdit || canDuplicate || canDelete) && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <MoreVertical className="h-4 w-4" />
-                                      <span className="sr-only">
-                                        Dashboard options
-                                      </span>
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent
-                                    align="end"
-                                    onClick={(e) => e.stopPropagation()}
+                        title={d.name}
+                        description={d.description ?? undefined}
+                        href={`/${d.id}`}
+                        onOpen={() => router.push(`/${d.id}`)}
+                        meta={[
+                          <span key="a" className="flex items-center gap-2">
+                            <span className="capitalize">{d.role}</span>
+                            {d.isPublic && (
+                              <Badge variant="secondary">Public</Badge>
+                            )}
+                          </span>,
+                          d.widgetCount ?? 0,
+                          <span key="u">
+                            <TimeAgo date={d.updatedAt} />
+                            {d.updatedByName && ` · ${d.updatedByName}`}
+                          </span>,
+                        ]}
+                        menu={
+                          (canEdit || canDuplicate || canDelete) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">
+                                    Dashboard options
+                                  </span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canEdit && (
+                                  <DropdownMenuItem
+                                    onClick={() => router.push(`/${d.id}/edit`)}
                                   >
-                                    {canEdit && (
-                                      <DropdownMenuItem
-                                        onClick={() =>
-                                          router.push(`/${d.id}/edit`)
-                                        }
-                                      >
-                                        <Pencil className="mr-2 h-4 w-4" />
-                                        Edit
-                                      </DropdownMenuItem>
-                                    )}
-                                    {canEdit && (
-                                      <DropdownMenuItem
-                                        onClick={() =>
-                                          openRename({ id: d.id, name: d.name })
-                                        }
-                                      >
-                                        <TextCursorInput className="mr-2 h-4 w-4" />
-                                        Rename
-                                      </DropdownMenuItem>
-                                    )}
-                                    {canDuplicate && (
-                                      <DropdownMenuItem
-                                        onClick={() =>
-                                          duplicateDashboard.mutate(d.id, {
-                                            // A refusal must not look like a
-                                            // click that did nothing (#1816).
-                                            onError: (err) =>
-                                              toast({
-                                                title:
-                                                  "Failed to duplicate dashboard",
-                                                description: err.message,
-                                                variant: "destructive",
-                                              }),
-                                          })
-                                        }
-                                        disabled={duplicateDashboard.isPending}
-                                      >
-                                        <Copy className="mr-2 h-4 w-4" />
-                                        Duplicate
-                                      </DropdownMenuItem>
-                                    )}
-                                    {canEdit && (
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          setReturnFocusTo(
-                                            focusedMenuTrigger(),
-                                          );
-                                          setConnectionTarget({
-                                            id: d.id,
-                                            name: d.name,
-                                          });
-                                        }}
-                                      >
-                                        <Database className="mr-2 h-4 w-4" />
-                                        Change connection…
-                                      </DropdownMenuItem>
-                                    )}
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+                                {canEdit && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      openRename({ id: d.id, name: d.name })
+                                    }
+                                  >
+                                    <TextCursorInput className="mr-2 h-4 w-4" />
+                                    Rename
+                                  </DropdownMenuItem>
+                                )}
+                                {canDuplicate && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      duplicateDashboard.mutate(d.id, {
+                                        // A refusal must not look like a
+                                        // click that did nothing (#1816).
+                                        onError: (err) =>
+                                          toast({
+                                            title:
+                                              "Failed to duplicate dashboard",
+                                            description: err.message,
+                                            variant: "destructive",
+                                          }),
+                                      })
+                                    }
+                                    disabled={duplicateDashboard.isPending}
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Duplicate
+                                  </DropdownMenuItem>
+                                )}
+                                {canEdit && (
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setReturnFocusTo(focusedMenuTrigger());
+                                      setConnectionTarget({
+                                        id: d.id,
+                                        name: d.name,
+                                      });
+                                    }}
+                                  >
+                                    <Database className="mr-2 h-4 w-4" />
+                                    Change connection…
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    void triggerExport(d.id, d.name).catch(
+                                      (err) => {
+                                        console.error("Export failed", err);
+                                        toast({
+                                          ...classifyExportError(err),
+                                          variant: "destructive",
+                                        });
+                                      },
+                                    );
+                                  }}
+                                >
+                                  <Download className="mr-2 h-4 w-4" />
+                                  Export
+                                </DropdownMenuItem>
+                                {canDelete && (
+                                  <>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
                                       onClick={() => {
-                                        void triggerExport(d.id, d.name).catch(
-                                          (err) => {
-                                            console.error("Export failed", err);
-                                            toast({
-                                              ...classifyExportError(err),
-                                              variant: "destructive",
-                                            });
-                                          },
-                                        );
+                                        setReturnFocusTo(focusedMenuTrigger());
+                                        setDeleteTarget({
+                                          id: d.id,
+                                          name: d.name,
+                                        });
                                       }}
                                     >
-                                      <Download className="mr-2 h-4 w-4" />
-                                      Export
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete
                                     </DropdownMenuItem>
-                                    {canDelete && (
-                                      <>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          className="text-destructive focus:text-destructive"
-                                          onClick={() => {
-                                            setReturnFocusTo(
-                                              focusedMenuTrigger(),
-                                            );
-                                            setDeleteTarget({
-                                              id: d.id,
-                                              name: d.name,
-                                            });
-                                          }}
-                                        >
-                                          <Trash2 className="mr-2 h-4 w-4" />
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </>
-                                    )}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
-                              {d.isPublic && (
-                                <Globe
-                                  className="h-3.5 w-3.5 text-muted-foreground"
-                                  aria-label="Public"
-                                />
-                              )}
-                              <Badge variant="secondary">{d.role}</Badge>
-                            </div>
-                          </div>
-                          {d.description && (
-                            <PanelDescription className="line-clamp-2">
-                              {d.description}
-                            </PanelDescription>
-                          )}
-                        </PanelHeader>
-                        <PanelFooter className="pt-2 text-xs text-muted-foreground justify-between">
-                          <span className="flex items-center gap-1 truncate">
-                            <TimeAgo date={d.updatedAt} />
-                            {d.updatedByName && (
-                              <span className="truncate">
-                                by {d.updatedByName}
-                              </span>
-                            )}
-                          </span>
-                          <span className="flex items-center gap-1 shrink-0">
-                            <Grid2X2 className="h-3 w-3" />
-                            {d.widgetCount ?? 0} widget
-                            {(d.widgetCount ?? 0) !== 1 ? "s" : ""}
-                          </span>
-                        </PanelFooter>
-                      </Panel>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )
+                        }
+                      />
                     );
                   })}
-                </div>
+                </List>
               )}
-            </>
+            </div>
           )}
         </LoadingOverlay>
       </div>

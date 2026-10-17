@@ -57,6 +57,21 @@ describe("FilterLine", () => {
     ).toBeNull();
   });
 
+  it("says the operator a filter names instead of 'is'", () => {
+    render(
+      <FilterLine
+        filters={[
+          { id: "q", label: "Name", operator: "contains", value: "mov" },
+        ]}
+        onRemove={() => {}}
+        onReset={() => {}}
+      />,
+    );
+    expect(screen.getByText("mov").parentElement).toHaveTextContent(
+      "Name contains mov",
+    );
+  });
+
   it("removes one filter by id and resets all", () => {
     const onRemove = vi.fn();
     const onReset = vi.fn();
