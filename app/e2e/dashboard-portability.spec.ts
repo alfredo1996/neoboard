@@ -183,6 +183,7 @@ test.describe("Dashboard import", () => {
     );
     fs.writeFileSync(tmpFile, JSON.stringify(exportPayload));
 
+    let importedId: string | undefined;
     try {
       // Click the "Import" button on the dashboard list page
       await page.getByRole("button", { name: "Import" }).click();
@@ -222,19 +223,19 @@ test.describe("Dashboard import", () => {
         .getByRole("button", { name: "View dashboard" })
         .click({ timeout: 15_000 });
       await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
+      importedId = page.url().split("/").pop();
 
-      // The dashboard should render content
-      await expect(page.getByText(/Movie Analytics/)).toBeVisible({
-        timeout: 15_000,
-      });
-
-      // Clean up imported dashboard to avoid polluting other tests
-      const url = page.url();
-      const importedId = url.split("/").pop();
+      // The dashboard should render content. The heading, not any text: the
+      // breadcrumb's current crumb repeats the name (#2252).
+      await expect(
+        page.getByRole("heading", { level: 1, name: /Movie Analytics/ }),
+      ).toBeVisible({ timeout: 15_000 });
+    } finally {
+      // Clean up even when an assertion failed, so a retry or a later spec in
+      // the shard never sees a leftover "Movie Analytics (imported)".
       if (importedId) {
         await page.request.delete(`/api/dashboards/${importedId}`);
       }
-    } finally {
       // Clean up temp file
       try {
         fs.unlinkSync(tmpFile);

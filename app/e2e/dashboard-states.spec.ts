@@ -87,13 +87,18 @@ test.describe("Dashboard viewer — uncovered states", () => {
     page,
   }) => {
     const search = page.getByRole("searchbox", { name: "Search dashboards" });
-    await expect(page.getByText("Movie Analytics")).toBeVisible({
+    // Exact: an imported copy ("Movie Analytics (imported)") must not match.
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible({
       timeout: 10_000,
     });
 
     // Narrowing the search keeps the matching card visible.
     await search.fill("Movie");
-    await expect(page.getByText("Movie Analytics")).toBeVisible();
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible();
 
     // A query that matches nothing shows the empty-result message.
     await search.fill("zzz-no-such-dashboard");
