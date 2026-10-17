@@ -93,7 +93,7 @@ function registerStubPlugin(
 }
 
 /**
- * The 13-prop bridge from ChartRenderer to every plugin (#1629).
+ * The 14-prop bridge from ChartRenderer to every plugin (#1629).
  *
  * Every rule-based colour, every dashboard parameter substitution and every
  * click action reaches a chart through this one JSX block. It executes on
@@ -118,6 +118,7 @@ describe("ChartRenderer plugin props", () => {
     const colorScales = [{ column: "a", minColor: "#000", maxColor: "#fff" }];
     const onChartClick = () => {};
     const clickableColumns = ["a"];
+    const highlighted = ["Home"];
     const data = [{ a: 1 }];
     const settings = {
       title: "T",
@@ -130,7 +131,7 @@ describe("ChartRenderer plugin props", () => {
         data={data}
         settings={settings}
         styling={{ rules, paramValues, colorScales } as never}
-        interaction={{ onChartClick, clickableColumns }}
+        interaction={{ onChartClick, clickableColumns, highlighted }}
         meta={{
           connectionId: "conn-1",
           widgetId: "w-1",
@@ -151,6 +152,7 @@ describe("ChartRenderer plugin props", () => {
       colorScales,
       onChartClick,
       clickableColumns,
+      highlighted,
       connectionId: "conn-1",
       widgetId: "w-1",
       resultId: "res-1",

@@ -25,6 +25,7 @@ function BarPluginComponent({
   onChartClick,
   stylingRules,
   paramValues,
+  highlighted,
 }: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(barSettingsSchema, raw, "bar");
@@ -47,6 +48,7 @@ function BarPluginComponent({
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
+      highlighted={highlighted}
       enableDataZoom={settings.enableDataZoom}
       colorPalette={settings.colorPalette}
       colorblindMode={settings.colorblindMode}

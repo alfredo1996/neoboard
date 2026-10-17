@@ -40,6 +40,7 @@ vi.mock("next/dynamic", () => ({
         data-invert-tiles={String(props.invertTilesInDarkMode ?? "")}
         data-show-rel-labels={String(props.showRelationshipLabels ?? "")}
         data-enable-data-zoom={String(props.enableDataZoom ?? "")}
+        data-highlighted={JSON.stringify(props.highlighted ?? null)}
       />
     );
     Stub.displayName = "ChartStub";
@@ -288,5 +289,24 @@ describe("options advertised by the editor reach the chart (#1472)", () => {
     const GanttComponent = ganttPlugin.component;
     render(<GanttComponent data={[]} settings={{ enableDataZoom: false }} />);
     expect(attr("data-enable-data-zoom")).toBe("false");
+  });
+});
+
+describe("highlight forwarding (#2226)", () => {
+  it.each([
+    ["bar", BarComponent],
+    ["pie", PieComponent],
+  ])("%s hands the selected marks to the chart", (_name, Component) => {
+    render(<Component data={[]} settings={{}} highlighted={["Home"]} />);
+    expect(screen.getByTestId("chart").getAttribute("data-highlighted")).toBe(
+      '["Home"]',
+    );
+  });
+
+  it("hands nothing over when nothing is selected", () => {
+    render(<BarComponent data={[]} settings={{}} />);
+    expect(screen.getByTestId("chart").getAttribute("data-highlighted")).toBe(
+      "null",
+    );
   });
 });

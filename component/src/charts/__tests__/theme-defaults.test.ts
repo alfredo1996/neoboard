@@ -59,7 +59,7 @@ describe.each(["neoboard-light", "neoboard-dark"])(
       const bar = theme.bar as Record<string, Record<string, unknown>>;
       expect((bar.label as Record<string, unknown>).show).toBe(false);
       expect((bar.itemStyle as Record<string, unknown>).borderRadius).toEqual([
-        3, 3, 0, 0,
+        2, 2, 0, 0,
       ]);
     });
 
@@ -81,11 +81,11 @@ describe.each(["neoboard-light", "neoboard-dark"])(
       );
     });
 
-    it("lines: 1.5px stroke, round caps, smooth by default", () => {
+    it("lines: 2px stroke, round caps, unsmoothed by default (#2226)", () => {
       const line = theme.line as Record<string, Record<string, unknown>>;
-      expect((line.lineStyle as Record<string, unknown>).width).toBe(1.5);
+      expect((line.lineStyle as Record<string, unknown>).width).toBe(2);
       expect((line.lineStyle as Record<string, unknown>).cap).toBe("round");
-      expect(line.smooth).toBe(true);
+      expect(line.smooth).toBe(false);
       expect((line.symbolSize as unknown as number) ?? 4).toBeLessThanOrEqual(
         6,
       );

@@ -20,6 +20,7 @@ import {
   buildMarkLineFromRefs,
   isTimeSeriesData,
   buildCategoryAxisLabel,
+  lineAxisInsets,
   fadeToTransparent,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
@@ -169,14 +170,15 @@ function LineChart({
   data,
   xAxisLabel,
   yAxisLabel,
-  // v1.1 defaults (#822): smooth fine lines with a subtle area fill make
-  // charts look deliberately styled out of the box. Both opt-outable.
-  smooth = true,
+  // v1.1 defaults (#822): a subtle area fill makes
+  // charts look deliberately styled out of the box. Lines are unsmoothed
+  // unless the author asks (#2226).
+  smooth = false,
   area = true,
   showLegend,
   decimalPlaces,
   showPoints = false,
-  lineWidth = 1.5,
+  lineWidth = 2,
   showGridLines = true,
   stepped = false,
   connectNulls = false,
@@ -190,6 +192,7 @@ function LineChart({
   colorPalette,
   samplingThreshold = 1000,
   samplingMethod = "lttb",
+  enableDataZoom,
   ...rest
 }: LineChartProps & { samplingThreshold?: number; samplingMethod?: string }) {
   const { width, height, containerRef } = useContainerSize();
@@ -360,6 +363,10 @@ function LineChart({
             nameGap: 30,
             axisLabel: buildCategoryAxisLabel(xValues.length, {
               containerWidth: width,
+              compact,
+              zoom: enableDataZoom,
+              // grid.left 48 + right (56 with a second axis, else 16)
+              insets: lineAxisInsets(compact, useDualAxis),
             }),
           },
       yAxis: useDualAxis ? [leftYAxis, rightYAxis] : leftYAxis,
@@ -391,6 +398,7 @@ function LineChart({
     dark,
     decimalPlaces,
     colorPalette,
+    enableDataZoom,
   ]);
 
   // Auto-derive a screen-reader description from the data shape so the
@@ -407,6 +415,7 @@ function LineChart({
         options={options}
         colorPalette={colorPalette}
         {...rest}
+        enableDataZoom={enableDataZoom}
         ariaDescription={effectiveAria}
       />
     </div>

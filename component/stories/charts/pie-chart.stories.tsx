@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 import { PieChart } from "@/charts/pie-chart";
 
 const meta = {
@@ -37,7 +37,11 @@ export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await canvas.findByRole("img", { name: "Pie chart with 5 segments" });
-    await expect(canvasElement.querySelector("canvas")).toBeInTheDocument();
+    // The chart draws once IBM Plex Sans has loaded (#2226), so the canvas
+    // appears a moment after mount.
+    await waitFor(() =>
+      expect(canvasElement.querySelector("canvas")).toBeInTheDocument(),
+    );
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };

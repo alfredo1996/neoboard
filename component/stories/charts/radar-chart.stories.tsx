@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 import { RadarChart } from "@/charts/radar-chart";
 
 const meta = {
@@ -63,7 +63,11 @@ export const Default: Story = {
     await canvas.findByRole("img", {
       name: "Radar chart comparing 1 series across 5 axes",
     });
-    await expect(canvasElement.querySelector("canvas")).toBeInTheDocument();
+    // The chart draws once IBM Plex Sans has loaded (#2226), so the canvas
+    // appears a moment after mount.
+    await waitFor(() =>
+      expect(canvasElement.querySelector("canvas")).toBeInTheDocument(),
+    );
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };

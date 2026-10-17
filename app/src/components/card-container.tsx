@@ -49,6 +49,7 @@ import {
   substituteParamsInUrl,
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
+import { highlightedNames } from "@/lib/widget/highlighted-names";
 
 /** Chart types that support column mapping overlays. */
 function supportsColumnMapping(type: string): boolean {
@@ -475,7 +476,15 @@ export function CardContainer({
             }}
             interaction={
               hasClickAction
-                ? { onChartClick: handleChartClick, clickableColumns }
+                ? {
+                    onChartClick: handleChartClick,
+                    clickableColumns,
+                    highlighted: highlightedNames(
+                      transformedData,
+                      ws,
+                      allParamValues,
+                    ),
+                  }
                 : undefined
             }
             meta={{
@@ -862,7 +871,15 @@ export function CardContainer({
           }}
           interaction={
             hasClickAction
-              ? { onChartClick: handleChartClick, clickableColumns }
+              ? {
+                  onChartClick: handleChartClick,
+                  clickableColumns,
+                  highlighted: highlightedNames(
+                    transformedData,
+                    ws,
+                    allParamValues,
+                  ),
+                }
               : undefined
           }
           meta={{

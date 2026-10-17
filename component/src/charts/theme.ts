@@ -46,6 +46,43 @@ export const CITRINE_DARK = [
 ];
 
 /**
+ * The Hastings categorical palette (#2226): eight muted hues, citrine first,
+ * neighbours differing in lightness as well as hue. The default for every
+ * chart that has not chosen a palette. Hexes from the "Chart theme" board.
+ */
+export const HASTINGS_LIGHT = [
+  "#C47C08", // Citrine
+  "#5B7290", // Slate
+  "#5E8C6A", // Sage
+  "#B4674A", // Clay
+  "#8A6A8F", // Plum
+  "#4E8A8C", // Teal
+  "#A89060", // Sand
+  "#8A93A3", // Steel
+];
+
+export const HASTINGS_DARK = [
+  "#F2A93B",
+  "#8AA3C2",
+  "#8DBB98",
+  "#D99277",
+  "#B497B9",
+  "#7FB8BA",
+  "#CDB487",
+  "#A7AFBD",
+];
+
+/** Chart text. Canvas cannot read a CSS variable, so the face is named. */
+export const CHART_FONT_FAMILY =
+  '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+
+/** Soft grey a value drops to when another one is highlighted. */
+export const HIGHLIGHT_SOFT = {
+  light: "#C3C9D2",
+  dark: "#4A515C",
+} as const;
+
+/**
  * Compact axis number formatting (#822): 8000 → "8K", 45200 → "45.2K",
  * 1200000 → "1.2M". Non-numeric category labels pass through untouched.
  */
@@ -74,8 +111,8 @@ export function formatAxisCompact(value: number | string): string {
  * different tools. Enforced by cartesian-axis-defaults.test.tsx.
  */
 export const GRID_LINE_COLOR = {
-  light: "#f0f2f4",
-  dark: "#1d2025",
+  light: "#E4E6EA",
+  dark: "#262A31",
 } as const;
 
 /**
@@ -104,8 +141,8 @@ export const MUTED_FILL = {
  * Muted-foreground mirrors: present without competing with the bars.
  */
 export const TODAY_LINE_COLOR = {
-  light: "#666d7a",
-  dark: "#959ba7",
+  light: "#686E7A",
+  dark: "#959BA6",
 } as const;
 
 /**
@@ -141,11 +178,59 @@ function dataZoomStyle(
   };
 }
 
-function axisStyle(line: string, label: string, split: string) {
+interface AxisInk {
+  /** Baseline under the categories ("rule 2"). */
+  baseline: string;
+  /** Labels (ink 3). */
+  label: string;
+  /** Gridlines (rule). */
+  grid: string;
+}
+
+/**
+ * Axes for every cartesian chart (#2226): the value axis has no line and no
+ * ticks, the grid is a 1px hairline, and the category axis draws the one
+ * baseline. Labels are 11px ink 3 in the chart face.
+ */
+function axisStyles({ baseline, label, grid }: AxisInk) {
+  const axisLabel = {
+    color: label,
+    fontSize: 11,
+    fontFamily: CHART_FONT_FAMILY,
+  };
+  const splitLine = { lineStyle: { color: grid, width: 1 } };
+  const categoryAxis = {
+    axisLine: { show: true, lineStyle: { color: baseline } },
+    axisTick: { show: false },
+    axisLabel,
+    splitLine,
+  };
   return {
-    axisLine: { lineStyle: { color: line } },
-    axisLabel: { color: label },
-    splitLine: { lineStyle: { color: split } },
+    categoryAxis,
+    // A time axis is a cartesian axis too — without this entry the gantt and
+    // any date-based line chart draw ECharts' un-themed grid (#1247).
+    timeAxis: categoryAxis,
+    valueAxis: {
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { ...axisLabel, formatter: formatAxisCompact },
+      splitLine,
+    },
+  };
+}
+
+/** Legend (#2226): 8px squares, left-aligned under the chart. */
+function legendStyle(label: string) {
+  return {
+    icon: "rect",
+    itemWidth: 8,
+    itemHeight: 8,
+    left: 0,
+    textStyle: { color: label, fontSize: 11, fontFamily: CHART_FONT_FAMILY },
+    // The scroll legend's paging arrows default to a stock blue.
+    pageIconColor: label,
+    pageIconInactiveColor: label,
+    pageTextStyle: { color: label, fontSize: 11 },
   };
 }
 
@@ -153,7 +238,7 @@ function axisStyle(line: string, label: string, split: string) {
  * Shared opinionated series/tooltip defaults (#822) — charts should look
  * deliberately styled out of the box:
  * - bars: no floating value labels, subtle top radius
- * - lines: fine 1.5px stroke, round caps, smooth curves
+ * - lines: 2px stroke, round caps, unsmoothed, points on hover
  * - pies: hairline gap between slices
  * - tooltips: popover-token styling instead of the ECharts white box
  */
@@ -170,14 +255,18 @@ function seriesDefaults(
       // fill with a light stroke halo — invisible in dark mode (#1154). Force
       // the theme foreground and drop the halo.
       label: { show: false, color: fg, textBorderWidth: 0 },
-      itemStyle: { borderRadius: [3, 3, 0, 0] },
+      itemStyle: { borderRadius: [2, 2, 0, 0] },
     },
     line: {
       // "End label" sits on the canvas: same default-halo problem (#2212).
       endLabel: { color: fg, textBorderWidth: 0 },
-      smooth: true,
+      smooth: false,
       symbolSize: 4,
-      lineStyle: { width: 1.5, cap: "round" },
+      // Points only on hover (#2226); a chart that asks for them overrides.
+      showSymbol: false,
+      lineStyle: { width: 2, cap: "round" },
+      // Flat area fill at 10%, no gradient.
+      areaStyle: { opacity: 0.1 },
     },
     pie: {
       itemStyle: { borderWidth: 2, borderColor: "transparent" },
@@ -237,73 +326,68 @@ function seriesDefaults(
 export function registerNeoboardThemes(
   registerTheme: (name: string, theme: Record<string, unknown>) => void,
 ) {
-  // Light: border hsl(220 13% 91%) ≈ #e5e7eb, muted-fg hsl(220 9% 44%) ≈ #666d7a
-  const lightAxis = {
-    ...axisStyle("#e5e7eb", "#666d7a", GRID_LINE_COLOR.light),
-  };
+  // Light: ink 3 #686E7A, rule #E4E6EA, rule 2 #CDD1D7, field #FFFFFF.
+  const lightAxes = axisStyles({
+    baseline: "#CDD1D7",
+    label: "#686E7A",
+    grid: GRID_LINE_COLOR.light,
+  });
   registerTheme(THEME_LIGHT, {
-    color: CITRINE_LIGHT,
+    color: HASTINGS_LIGHT,
     backgroundColor: "transparent",
-    textStyle: { color: "#14161a" }, // foreground hsl(220 13% 9%)
+    // foreground hsl(220 13% 9%)
+    textStyle: { color: "#14161a", fontFamily: CHART_FONT_FAMILY },
     title: { textStyle: { color: "#14161a" } },
-    categoryAxis: lightAxis,
-    // A time axis is a cartesian axis too — without this entry the gantt and
-    // any date-based line chart draw ECharts' un-themed grid (#1247).
-    timeAxis: lightAxis,
-    valueAxis: {
-      ...lightAxis,
-      axisLabel: { color: "#666d7a", formatter: formatAxisCompact },
-    },
-    legend: { textStyle: { color: "#666d7a" } }, // muted-foreground
+    ...lightAxes,
+    legend: legendStyle("#686E7A"),
     // Gauge series ignores textStyle for `detail` (the big center number)
     // — it defaults to `'auto'` which picks up axis colors. Force foreground.
     gauge: {
       detail: { color: "#14161a" },
-      title: { color: "#666d7a" },
+      title: { color: "#686E7A" },
     },
     // visualMap text doesn't inherit the global textStyle — its dim ECharts
     // default is hard to read on the dark canvas (#1154).
-    visualMap: { textStyle: { color: "#666d7a" } },
+    visualMap: { textStyle: { color: "#686E7A" } },
     // --ring 212 90% 42%
     dataZoom: dataZoomStyle(
       "#0b65cb",
       "rgba(11, 101, 203, 0.18)",
       MUTED_FILL.light,
       "#e5e7eb",
-      "#666d7a",
+      "#686E7A",
     ),
-    ...seriesDefaults("#ffffff", "#e5e7eb", "#14161a", "#666d7a"),
+    ...seriesDefaults("#FFFFFF", "#E4E6EA", "#14161a", "#686E7A"),
   });
 
-  // Dark: border hsl(220 13% 17%) ≈ #262931, muted-fg hsl(220 9% 62%) ≈ #959ba7
-  const darkAxis = axisStyle("#262931", "#959ba7", GRID_LINE_COLOR.dark);
+  // Dark: ink 3 #959BA6, rule #262A31, rule 2 #383D46, field #1B1E23.
+  const darkAxes = axisStyles({
+    baseline: "#383D46",
+    label: "#959BA6",
+    grid: GRID_LINE_COLOR.dark,
+  });
   registerTheme(THEME_DARK, {
-    color: CITRINE_DARK,
+    color: HASTINGS_DARK,
     backgroundColor: "transparent",
-    textStyle: { color: "#f3f4f6" }, // foreground hsl(220 14% 96%)
+    // foreground hsl(220 14% 96%)
+    textStyle: { color: "#f3f4f6", fontFamily: CHART_FONT_FAMILY },
     title: { textStyle: { color: "#f3f4f6" } },
-    categoryAxis: darkAxis,
-    // See the light theme note — time axes need the entry too (#1247).
-    timeAxis: darkAxis,
-    valueAxis: {
-      ...darkAxis,
-      axisLabel: { color: "#959ba7", formatter: formatAxisCompact },
-    },
-    legend: { textStyle: { color: "#959ba7" } }, // muted-foreground
+    ...darkAxes,
+    legend: legendStyle("#959BA6"),
     gauge: {
       detail: { color: "#f3f4f6" },
-      title: { color: "#959ba7" },
+      title: { color: "#959BA6" },
     },
     // See the light theme note — visualMap text needs explicit color.
-    visualMap: { textStyle: { color: "#959ba7" } },
+    visualMap: { textStyle: { color: "#959BA6" } },
     // --ring 212 90% 62%
     dataZoom: dataZoomStyle(
       "#4798f5",
       "rgba(71, 152, 245, 0.22)",
       MUTED_FILL.dark,
       "#262931",
-      "#959ba7",
+      "#959BA6",
     ),
-    ...seriesDefaults("#181b20", "#262931", "#f3f4f6", "#959ba7"),
+    ...seriesDefaults("#1B1E23", "#262A31", "#f3f4f6", "#959BA6"),
   });
 }

@@ -52,9 +52,10 @@ describe("resolveShowLegend", () => {
     expect(resolveShowLegend(undefined, 2, false)).toBe(true);
   });
 
-  it("lets an explicit choice win over the auto rule", () => {
-    expect(resolveShowLegend(true, 1, false)).toBe(true);
+  it("lets an explicit off win over the auto rule, but never shows one series' legend", () => {
+    expect(resolveShowLegend(true, 1, false)).toBe(false);
     expect(resolveShowLegend(false, 5, false)).toBe(false);
+    expect(resolveShowLegend(true, 2, false)).toBe(true);
   });
 
   it("still hides the legend in a short container whatever the setting", () => {

@@ -3,6 +3,7 @@ import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import type { PieChartDataPoint } from "./types";
 import { formatNumericCell, isNumericCell } from "../lib/numeric-cell";
+import { formatAxisCompact, HIGHLIGHT_SOFT } from "./theme";
 
 // ---------------------------------------------------------------------------
 // Number formatting
@@ -10,7 +11,16 @@ import { formatNumericCell, isNumericCell } from "../lib/numeric-cell";
 
 export type NumberFormat = "plain" | "comma" | "compact" | "percent";
 
+/**
+ * Where a number is read (#2226). With no author format, each context has its
+ * own default: axis compact ("879K"), tooltip in full up to 2 decimals
+ * ("879,282.72"), label compact to three figures. No context keeps the #911
+ * default (comma, 2 decimals), which tables and KPI cards rely on.
+ */
+export type NumberContext = "axis" | "tooltip" | "label";
+
 export interface NumberFormatConfig {
+  context?: NumberContext;
   numberFormat?: NumberFormat;
   decimalPlaces?: number;
   prefix?: string;
@@ -68,17 +78,91 @@ export function formatDateTime(ms: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function formatNumber(
+/** "1,500.00" -> "1,500", "1,500.10" -> "1,500.1". Plain grouped decimals only. */
+function dropTrailingZeros(formatted: string): string {
+  if (!/^-?[\d,]+\.\d+$/.test(formatted)) return formatted;
+  // A scan, not /\.?0+$/: that regex backtracks super-linearly (Sonar S8786).
+  let end = formatted.length;
+  while (formatted[end - 1] === "0") end--;
+  if (formatted[end - 1] === ".") end--;
+  return formatted.slice(0, end);
+}
+
+/** The number a context shows when the author set no format. */
+function formatContextDefault(
   value: number | string,
+  context: NumberContext,
+): string {
+  switch (context) {
+    case "axis":
+      return formatAxisCompact(Number(value));
+    case "label":
+      return Intl.NumberFormat("en", {
+        notation: "compact",
+        maximumSignificantDigits: 3,
+      }).format(Number(value));
+    default:
+      return dropTrailingZeros(
+        formatNumericCell(value, { numberFormat: "comma", decimalPlaces: 2 }),
+      );
+  }
+}
+
+/** `compact` and `percent` round by intent, so they go through a double. */
+function formatRounded(
+  asDouble: number,
+  numberFormat: NumberFormat,
+  decimalPlaces: number | undefined,
+  maxPercentDecimals: number,
+): string {
+  const fixed =
+    decimalPlaces === undefined
+      ? undefined
+      : {
+          minimumFractionDigits: decimalPlaces,
+          maximumFractionDigits: decimalPlaces,
+        };
+  if (numberFormat === "compact") {
+    return Intl.NumberFormat("en", {
+      notation: "compact",
+      ...fixed,
+    }).format(asDouble);
+  }
+  if (numberFormat === "percent") {
+    // Takes a RATIO and scales it — 0.2005 → "20.05%" — matching Intl's own
+    // `style: "percent"` and every spreadsheet. It used to append a bare "%"
+    // and scale nothing, which meant a genuine share rendered 100x too small
+    // with nothing in the UI to distinguish it from a real value (#1396).
+    // With no explicit decimalPlaces, cap the precision rather than take
+    // Intl's default of 0 — rounding 20.05% to "20%" is the same class of
+    // silent precision loss this fix exists to remove.
+    return Intl.NumberFormat("en-US", {
+      style: "percent",
+      ...(fixed ?? { maximumFractionDigits: maxPercentDecimals }),
+    }).format(asDouble);
+  }
+  return String(asDouble);
+}
+
+export function formatNumber(
+  value: number | string | null | undefined,
   config: NumberFormatConfig = {},
 ): string {
+  if (value === null || value === undefined) return "—";
   if (!isNumericCell(value)) return String(value);
 
   const bothUnset =
     config.numberFormat === undefined && config.decimalPlaces === undefined;
 
+  if (config.context && bothUnset) {
+    const { prefix = "", suffix = "" } = config;
+    return `${prefix}${formatContextDefault(value, config.context)}${suffix}`;
+  }
+
   const {
-    numberFormat = bothUnset ? "comma" : "plain",
+    // In a context an author's precision keeps the separators; with no
+    // context it stays the #911 plain number.
+    numberFormat = bothUnset || config.context ? "comma" : "plain",
     decimalPlaces = bothUnset ? 2 : undefined,
     prefix = "",
     suffix = "",
@@ -96,43 +180,14 @@ export function formatNumber(
     });
   }
 
-  const asDouble = Number(value);
-  let formatted: string;
-
-  switch (numberFormat) {
-    case "compact":
-      formatted = Intl.NumberFormat("en", {
-        notation: "compact",
-        ...(decimalPlaces !== undefined
-          ? {
-              minimumFractionDigits: decimalPlaces,
-              maximumFractionDigits: decimalPlaces,
-            }
-          : {}),
-      }).format(asDouble);
-      break;
-    case "percent":
-      // Takes a RATIO and scales it — 0.2005 → "20.05%" — matching Intl's own
-      // `style: "percent"` and every spreadsheet. It used to append a bare "%"
-      // and scale nothing, which meant a genuine share rendered 100x too small
-      // with nothing in the UI to distinguish it from a real value (#1396).
-      // With no explicit decimalPlaces, cap at 2 rather than take Intl's
-      // default of 0 — rounding 20.05% to "20%" is the same class of silent
-      // precision loss this fix exists to remove.
-      formatted = Intl.NumberFormat("en-US", {
-        style: "percent",
-        ...(decimalPlaces !== undefined
-          ? {
-              minimumFractionDigits: decimalPlaces,
-              maximumFractionDigits: decimalPlaces,
-            }
-          : { maximumFractionDigits: 2 }),
-      }).format(asDouble);
-      break;
-    default:
-      formatted = String(asDouble);
-      break;
-  }
+  const formatted = formatRounded(
+    Number(value),
+    numberFormat,
+    decimalPlaces,
+    // No explicit precision: percent reads to one decimal in a context (#2226),
+    // two otherwise.
+    config.context ? 1 : 2,
+  );
 
   return `${prefix}${formatted}${suffix}`;
 }
@@ -318,20 +373,23 @@ export interface TooltipParam {
  */
 export function buildTooltipFormatter(
   config: NumberFormatConfig = {},
+  options: { total?: boolean } = {},
 ): (params: unknown) => string {
-  // Tooltip always uses comma format for readability unless explicitly set
-  const tooltipConfig: NumberFormatConfig = {
-    numberFormat: "comma",
-    ...config,
-  };
+  // Full figures with separators (#2226); the author's format, if any, wins.
+  const tooltipConfig: NumberFormatConfig = { context: "tooltip", ...config };
+  // Values sit flush right so a column of figures lines up.
+  const row = (left: string, val: string) =>
+    `${left}<span style="float:right;margin-left:16px"><b>${val}</b></span>`;
 
   return (params: unknown) => {
     const items = Array.isArray(params)
       ? (params as TooltipParam[])
       : [params as TooltipParam];
     const header = escapeHtml(String(items[0]?.name ?? ""));
+    let total = 0;
     const lines = items.map((p) => {
       const raw = Array.isArray(p.value) ? p.value[1] : p.value;
+      if (typeof raw === "number" && Number.isFinite(raw)) total += raw;
       const val =
         typeof raw === "number"
           ? escapeHtml(formatNumber(raw, tooltipConfig))
@@ -339,8 +397,13 @@ export function buildTooltipFormatter(
       const label = p.seriesName ? `${escapeHtml(p.seriesName)}: ` : "";
       // marker is ECharts-generated HTML (colored dot) — safe to pass through
       const marker = typeof p.marker === "string" ? p.marker : "";
-      return `${marker} ${label}<b>${val}</b>`;
+      return row(`${marker} ${label}`, val);
     });
+    if (options.total && items.length > 1) {
+      lines.push(
+        row("Total: ", escapeHtml(formatNumber(total, tooltipConfig))),
+      );
+    }
     return header
       ? `${header}<br/>${lines.join("<br/>")}`
       : lines.join("<br/>");
@@ -396,20 +459,95 @@ export interface CategoryAxisLabelOptions {
    * budgeted against the width instead of a fixed length (#1420).
    */
   categoryAxis?: "x" | "y";
+  /** The chart is in compact mode (8px grid margins, no value-axis labels). */
+  compact?: boolean;
+  /** A data zoom is on: the visible span is not the whole axis, keep ECharts' auto interval. */
+  zoom?: boolean;
+  /**
+   * Horizontal pixels the chart's grid takes from the card: both margins plus
+   * the value-axis labels. Default 72 (16 + 16 + 40), 16 when compact; a chart
+   * with a wider grid passes its own.
+   */
+  insets?: number;
 }
 
 export interface CategoryAxisLabelConfig {
   show: boolean;
   rotate: number;
   formatter?: (value: string) => string;
+  /** Cut each label to its own band with "…" (auto mode). */
+  width?: number;
+  overflow?: "truncate";
+  ellipsis?: string;
+  /** 0 shows every label; unset lets ECharts skip. */
+  interval?: 0;
+  /** Skip the labels that would collide instead of rotating them. */
+  hideOverlap: boolean;
   tooltip: { show: boolean };
 }
 
 /**
+ * Horizontal pixels the line chart's grid takes (`left: 48`, `right: 56` with a
+ * second axis else 16). Its value labels (about 40px each) are contained inside
+ * the grid, so they come on top of the margins.
+ */
+export function lineAxisInsets(compact: boolean, dualAxis: boolean): number {
+  if (compact) return 16;
+  const right = dualAxis ? 56 + 40 : 16;
+  return 48 + 40 + right;
+}
+
+/** A label formatter that cuts to `maxLength` characters, ending in "…". */
+function cutTo(maxLength: number) {
+  return (value: string) =>
+    value.length > maxLength ? value.slice(0, maxLength - 1) + "\u2026" : value;
+}
+
+/** Below this band width even a cut label is unreadable, so labels skip. */
+const MIN_LABEL_BAND = 28;
+
+/**
+ * Auto mode: cut each label to its own band with "…" and show every label
+ * (`interval: 0` on x; `hideOverlap` stays on as a safety net for a grid wider
+ * than assumed). A y axis stacks its labels by row height, which the width
+ * says nothing about, so it keeps ECharts' interval and lets it skip by height.
+ * Undefined when even the shortest cut cannot fit (a band under MIN_LABEL_BAND).
+ */
+function bandLabel(
+  categoryCount: number,
+  containerWidth: number,
+  categoryAxis: "x" | "y",
+  { compact, insets }: { compact: boolean; insets?: number },
+): CategoryAxisLabelConfig | undefined {
+  const isY = categoryAxis === "y";
+  const gridInsets = insets ?? (compact ? 16 : 72);
+  const room = isY
+    ? Math.floor(containerWidth / 3) - 6
+    : (containerWidth - gridInsets) / Math.max(categoryCount, 1) - 6;
+  if (room < MIN_LABEL_BAND - 6) return undefined;
+  return {
+    show: true,
+    rotate: 0,
+    width: Math.floor(room),
+    overflow: "truncate",
+    ellipsis: "\u2026",
+    ...(isY ? {} : { interval: 0 as const }),
+    hideOverlap: true,
+    tooltip: { show: true },
+  };
+}
+
+/**
  * Compute axis label rotation and truncation based on category count.
- * - 8+ categories: rotate 30°
- * - 15+ categories: rotate 45°
- * - Labels longer than maxLabelLength are truncated with ellipsis (U+2026)
+ * - Automatic never rotates (#2226); an explicit `rotateOverride` does
+ * - A crowded axis skips labels that would overlap
+ * - Auto mode cuts each label to its own band with "…" and shows every label
+ *   (`interval: 0`: left on auto, ECharts measures the uncut text and still
+ *   skips). Only when even the shortest cut cannot fit (a band under
+ *   MIN_LABEL_BAND) does it fall back to skipping, and with a data zoom on
+ *   it keeps ECharts' auto interval. Horizontal bars cut to the left gutter.
+ * - Where a character cut applies (explicit angle, unknown width, zoom, too
+ *   narrow) labels longer than maxLabelLength are truncated with "…" (U+2026)
  * - ECharts axisPointer tooltip shows the full text on hover
  * - Category labels are never hidden: a compact container drops the value
  *   axis, since a chart with no category names identifies nothing (#1247)
@@ -421,36 +559,29 @@ export function buildCategoryAxisLabel(
   categoryCount: number,
   options: CategoryAxisLabelOptions = {},
 ): CategoryAxisLabelConfig {
-  const { maxLabelLength = 15, containerWidth, categoryAxis = "x" } = options;
+  const {
+    maxLabelLength = 15,
+    containerWidth,
+    categoryAxis = "x",
+    compact = false,
+    zoom = false,
+  } = options;
   // Normalize -1 sentinel (automatic mode) to undefined so ECharts uses its
   // default auto-rotation instead of receiving an invalid rotate: -1.
   const rotateOverride =
     options.rotateOverride === -1 ? undefined : options.rotateOverride;
 
-  let rotate: number;
-  if (rotateOverride !== undefined) {
-    rotate = rotateOverride;
-  } else if (categoryAxis === "y") {
-    rotate = 0;
-  } else if (containerWidth && categoryCount > 0) {
-    // Width-aware rotation: compute available space per label.
-    // Rough budget: label width ≈ maxLabelLength * 7px at 12px font.
-    const pixelsPerLabel = containerWidth / categoryCount;
-    if (pixelsPerLabel < 40) {
-      rotate = 60;
-    } else if (pixelsPerLabel < 70) {
-      rotate = 45;
-    } else if (pixelsPerLabel < 100) {
-      rotate = 30;
-    } else {
-      rotate = 0;
-    }
-  } else if (categoryCount >= 15) {
-    rotate = 45;
-  } else if (categoryCount >= 8) {
-    rotate = 30;
-  } else {
-    rotate = 0;
+  // Automatic never rotates (#2226): a long category is cut with "…" and a
+  // crowded axis skips labels (hideOverlap below). Only an angle the author
+  // picked rotates.
+  const rotate = rotateOverride ?? 0;
+
+  if (containerWidth && rotateOverride === undefined && !zoom) {
+    const band = bandLabel(categoryCount, containerWidth, categoryAxis, {
+      compact,
+      insets: options.insets,
+    });
+    if (band) return band;
   }
 
   // Width-aware truncation: tighter limit in narrow containers. A compact
@@ -473,17 +604,13 @@ export function buildCategoryAxisLabel(
     categoryAxis === "y" && containerWidth
       ? Math.max(10, Math.floor(containerWidth / 3 / 7))
       : effectiveMaxLength;
-  const formatter = needsTruncation
-    ? (value: string) =>
-        value.length > maxLength
-          ? value.slice(0, maxLength - 1) + "\u2026"
-          : value
-    : undefined;
+  const formatter = needsTruncation ? cutTo(maxLength) : undefined;
 
   return {
     show: true,
     rotate,
     formatter,
+    hideOverlap: true,
     tooltip: { show: true },
   };
 }
@@ -601,7 +728,7 @@ export function fadeToTransparent(color: string): string {
  * Build the "No data" option with a theme-aware text color.
  *
  * Matches the exact --muted-foreground hex the registered ECharts themes use
- * for axis/legend text (#666d7a light, #959ba7 dark) so the empty message
+ * for axis/legend text (#686E7A light, #959BA6 dark) so the empty message
  * reads as the same muted tone as the rest of the chart, not an ad-hoc gray.
  *
  * `dark` is a required argument, not a DOM read. This used to call an isDark()
@@ -616,7 +743,7 @@ export function buildEmptyDataOption(dark: boolean): EChartsOption {
       text: "No data",
       left: "center",
       top: "center",
-      textStyle: { color: dark ? "#959ba7" : "#666d7a", fontSize: 14 },
+      textStyle: { color: dark ? "#959BA6" : "#686E7A", fontSize: 14 },
     },
   };
 }
@@ -700,8 +827,59 @@ export function resolveShowLegend(
   seriesCount: number,
   hideLegend: boolean,
 ): boolean {
-  const autoShow = showLegend ?? seriesCount > 1;
+  // A single series has nothing to tell apart, so the legend stays hidden even
+  // when the author switched it on (owner, 2026-10-15; #2226).
+  const autoShow = (showLegend ?? true) && seriesCount > 1;
   return hideLegend ? false : autoShow;
+}
+
+/**
+ * Clicking a legend entry isolates it; clicking it again restores all
+ * (#2226). `selected` is the map ECharts sends with `legendselectchanged`,
+ * after it has toggled `name`. Returns the action to dispatch next, if any.
+ */
+export function legendIsolateAction(
+  selected: Record<string, boolean>,
+  name: string,
+): "legendInverseSelect" | "legendAllSelect" | null {
+  if (selected[name] !== false) return null;
+  const entries = Object.values(selected);
+  const on = entries.filter(Boolean).length;
+  if (on === 0) return "legendAllSelect";
+  return on === entries.length - 1 ? "legendInverseSelect" : null;
+}
+
+/** A mark's name or a selected value, compared as text: 7 and "7" are one mark. */
+function markKey(v: unknown): string {
+  return typeof v === "string" || typeof v === "number" ? String(v) : "";
+}
+
+export interface HighlightDatum {
+  name?: unknown;
+  itemStyle?: { color?: string };
+}
+
+/**
+ * Highlight rule (#2226): a clicked or filtered value keeps its colour, the
+ * rest drop to soft grey. A datum with no `itemStyle.color` of its own keeps
+ * the palette colour, which is what "untouched" means for the selected one.
+ * Nothing selected leaves the data as it is. Returns new objects.
+ */
+export function highlight<T extends HighlightDatum>(
+  series: T[],
+  selected: unknown[] | undefined,
+  dark: boolean,
+): T[] {
+  if (!selected?.length) return series;
+  const keep = new Set(selected.map(markKey));
+  const soft = dark ? HIGHLIGHT_SOFT.dark : HIGHLIGHT_SOFT.light;
+  return series.map(
+    (d) =>
+      keep.has(markKey(d.name))
+        ? d
+        : { ...d, itemStyle: { ...d.itemStyle, color: soft } },
+    // ponytail: the spread keeps every other field of T, so the cast is safe
+  );
 }
 
 /**

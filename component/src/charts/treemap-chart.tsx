@@ -126,7 +126,7 @@ function TreemapChart({
       ? (p: { name?: string; value?: unknown }) => {
           const v =
             typeof p.value === "number"
-              ? formatNumber(p.value, { numberFormat: "comma" })
+              ? formatNumber(p.value, { context: "label" })
               : String(p.value ?? "");
           return `${p.name ?? ""}: ${v}`;
         }
@@ -150,7 +150,7 @@ function TreemapChart({
             : echarts.format.encodeHTML(p.name);
           const value =
             typeof p.value === "number"
-              ? formatNumber(p.value, { numberFormat: "comma" })
+              ? formatNumber(p.value, { context: "tooltip" })
               : String(p.value ?? "");
           return `<b>${echarts.format.encodeHTML(value)}</b><br/>${path}`;
         },

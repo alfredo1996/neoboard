@@ -87,7 +87,11 @@ export const Default: Story = {
     await canvas.findByRole("img", {
       name: "Sankey diagram with 7 nodes and 7 links",
     });
-    await expect(canvasElement.querySelector("canvas")).toBeInTheDocument();
+    // The chart draws once IBM Plex Sans has loaded (#2226), so the canvas
+    // appears a moment after mount.
+    await waitFor(() =>
+      expect(canvasElement.querySelector("canvas")).toBeInTheDocument(),
+    );
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };
@@ -184,7 +188,11 @@ export const DuplicateNodeNames: Story = {
     await canvas.findByRole("img", {
       name: "Sankey diagram with 2 nodes and 1 links",
     });
-    await expect(canvasElement.querySelector("canvas")).toBeInTheDocument();
+    // The chart draws once IBM Plex Sans has loaded (#2226), so the canvas
+    // appears a moment after mount.
+    await waitFor(() =>
+      expect(canvasElement.querySelector("canvas")).toBeInTheDocument(),
+    );
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };
@@ -201,7 +209,11 @@ export const EmptyState: Story = {
     await canvas.findByRole("img", {
       name: "Sankey diagram with 0 nodes and 0 links",
     });
-    await expect(canvasElement.querySelector("canvas")).toBeInTheDocument();
+    // The chart draws once IBM Plex Sans has loaded (#2226), so the canvas
+    // appears a moment after mount.
+    await waitFor(() =>
+      expect(canvasElement.querySelector("canvas")).toBeInTheDocument(),
+    );
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };

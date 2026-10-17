@@ -1,4 +1,4 @@
-import { CITRINE_LIGHT } from "./theme";
+import { CITRINE_LIGHT, HASTINGS_LIGHT } from "./theme";
 
 export interface ColorPalette {
   label: string;
@@ -20,8 +20,12 @@ export interface ColorPalette {
  * - Monochrome: neutral grey scale for professional contexts
  */
 export const COLOR_PALETTES: Record<string, ColorPalette> = {
+  hastings: {
+    label: "Hastings (Default)",
+    colors: HASTINGS_LIGHT,
+  },
   citrine: {
-    label: "Citrine (Default)",
+    label: "Citrine",
     colors: CITRINE_LIGHT,
   },
   tableau: {

@@ -413,11 +413,11 @@ describe("colorPalette option", () => {
   // #1520: was 'deep-ocean', which is not a COLOR_PALETTES key — so it
   // matched none of the select's own items and the control rendered empty on
   // every chart.
-  it("colorPalette defaults to the canonical 'citrine'", () => {
+  it("colorPalette defaults to the canonical 'hastings' (#2226)", () => {
     for (const type of echartsTypes) {
       const defaults = getDefaultChartSettings(type);
       expect(defaults.colorPalette, `${type} default colorPalette`).toBe(
-        "citrine",
+        "hastings",
       );
     }
   });

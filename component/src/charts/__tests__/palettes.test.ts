@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { COLOR_PALETTES, getPaletteColors, type ColorPalette } from "../palettes";
+import {
+  COLOR_PALETTES,
+  getPaletteColors,
+  type ColorPalette,
+} from "../palettes";
 
 describe("COLOR_PALETTES", () => {
   it("contains at least 5 predefined palettes", () => {
@@ -17,12 +21,10 @@ describe("COLOR_PALETTES", () => {
     }
   });
 
-  it("every palette has exactly 10 colors", () => {
+  it("every palette has exactly 10 colors, except hastings' eight hues (#2226)", () => {
     for (const [id, palette] of Object.entries(COLOR_PALETTES)) {
-      expect(
-        palette.colors,
-        `palette "${id}" should have 10 colors`,
-      ).toHaveLength(10);
+      const want = id === "hastings" ? 8 : 10;
+      expect(palette.colors, `palette "${id}"`).toHaveLength(want);
     }
   });
 
@@ -35,13 +37,13 @@ describe("COLOR_PALETTES", () => {
     }
   });
 
-  it("'citrine' palette label contains 'Default'", () => {
-    expect(COLOR_PALETTES["citrine"].label).toContain("Default");
+  it("'hastings' palette label contains 'Default'", () => {
+    expect(COLOR_PALETTES["hastings"].label).toContain("Default");
   });
 
-  it("no palette except citrine claims to be the default", () => {
+  it("no palette except hastings claims to be the default", () => {
     for (const [id, palette] of Object.entries(COLOR_PALETTES)) {
-      if (id === "citrine") continue;
+      if (id === "hastings") continue;
       expect(palette.label, id).not.toContain("Default");
     }
   });
@@ -78,7 +80,6 @@ describe("COLOR_PALETTES", () => {
     const citrine = COLOR_PALETTES["citrine"];
     expect(citrine.colors[0]).toBe("hsl(38, 95%, 55%)"); // Citrine amber anchor
   });
-
 });
 
 describe("getPaletteColors", () => {
@@ -96,7 +97,7 @@ describe("getPaletteColors", () => {
         colors,
         `getPaletteColors("${id}") should return colors`,
       ).toBeDefined();
-      expect(colors!.length).toBe(10);
+      expect(colors!).toHaveLength(id === "hastings" ? 8 : 10);
     }
   });
 

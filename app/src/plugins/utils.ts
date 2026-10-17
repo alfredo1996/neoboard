@@ -26,6 +26,8 @@ export interface PluginProps {
   query?: string;
   autoFit?: boolean;
   clickableColumns?: string[];
+  /** Mark names the widget's own click action has selected (#2226). */
+  highlighted?: unknown[];
 }
 
 /**

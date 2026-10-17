@@ -6,8 +6,8 @@ describe("buildEmptyDataOption", () => {
   // useMemo body is what froze the label at mount-time theme (#1286) — a pure
   // function cannot make that mistake, and the caller is forced to subscribe.
   it.each([
-    [false, "#666d7a"],
-    [true, "#959ba7"],
+    [false, "#686E7A"],
+    [true, "#959BA6"],
   ])("uses the muted-foreground tone for dark=%s", (dark, color) => {
     const opt = buildEmptyDataOption(dark) as {
       title: { text: string; textStyle: { color: string } };

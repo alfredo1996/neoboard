@@ -325,14 +325,14 @@ describe("PieChart number formatting (#1248)", () => {
     expect(label).toBe("Desktop: 38.1%");
   });
 
-  it("formats label values with thousands separators when not showing percent", () => {
+  it("formats label values to three figures when not showing percent (#2226)", () => {
     render(<PieChart data={bigData} showPercentage={false} />);
     const label = option().series[0].label.formatter({
       name: "Desktop",
       value: 1048,
       percent: 38.0952,
     });
-    expect(label).toBe("Desktop: 1,048");
+    expect(label).toBe("Desktop: 1.05K");
   });
 
   it("formats the tooltip value and percentage consistently with the labels", () => {
@@ -460,7 +460,7 @@ describe("PieChart formatter edge cases (#1248)", () => {
       const option = mockSetOption.mock.calls[0][0];
       expect(
         option.series[0].label.formatter({ name: "a", value: 1234.567 }),
-      ).toBe("a: 1,234.567");
+      ).toBe("a: 1.23K");
     });
   });
 
@@ -498,5 +498,15 @@ describe("PieChart formatter edge cases (#1248)", () => {
         expect(slice.properties).toEqual(row.properties);
       }
     });
+  });
+});
+
+describe("PieChart highlight (#2226)", () => {
+  it("greys the slices that are not highlighted", () => {
+    mockSetOption.mockClear();
+    render(<PieChart data={sampleData} highlighted={["Desktop"]} />);
+    const data = mockSetOption.mock.calls[0][0].series[0].data;
+    expect(data[0]).toEqual(sampleData[0]);
+    expect(data[1].itemStyle.color).toBe("#C3C9D2");
   });
 });

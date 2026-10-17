@@ -25,6 +25,7 @@ function PiePluginComponent({
   stylingRules,
   paramValues,
   onChartClick,
+  highlighted,
 }: Readonly<PluginProps>) {
   const onClick = useEChartsClick(onChartClick, data);
   const settings = safeParseSettings(pieSettingsSchema, raw, "pie");
@@ -44,6 +45,7 @@ function PiePluginComponent({
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       onClick={onClick}
+      highlighted={highlighted}
       colorPalette={settings.colorPalette}
       colorblindMode={settings.colorblindMode}
     />
