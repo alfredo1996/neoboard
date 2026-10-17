@@ -380,7 +380,10 @@ test.describe("Refresh button", () => {
     });
 
     await page.goto(`/${id}`);
-    await expect(page.getByText("Movies")).toBeVisible({ timeout: 15_000 });
+    // The heading, not a substring: "Movies Graph …" in the source line would match too.
+    await expect(
+      page.getByRole("heading", { name: "Movies", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
 
     // Refresh button should be visible in the widget card header
     const widgetCard = page.getByTestId("widget-card").first();
