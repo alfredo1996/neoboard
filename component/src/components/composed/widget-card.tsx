@@ -82,6 +82,42 @@ const BAR_GAP_CLASS = "gap-0.5";
 const BAR_EDGE_PX = 10;
 const BAR_EDGE_CLASS = "right-2.5";
 
+/** What the header shows and where: from the mode, the pointer and the controls given. */
+function headerLayout(p: {
+  readonly mode: "view" | "edit";
+  readonly touch: boolean;
+  readonly hasActions: boolean;
+  readonly title?: string;
+  readonly headerExtra?: React.ReactNode;
+  readonly onRefresh?: unknown;
+  readonly onFullscreen?: unknown;
+}) {
+  const draggable = p.mode === "edit";
+  // Touch folds Refresh and Fullscreen into the menu; edit mode never folds.
+  const folded = p.touch && !draggable;
+  // Edit mode and touch keep the controls in the row. Otherwise they overlay
+  // the header's right end, so a title gets the full width at rest.
+  const overlay = !draggable && !p.touch;
+  const hasFolded = folded && Boolean(p.onRefresh || p.onFullscreen);
+  const hasMenu = p.hasActions || hasFolded;
+  const controls =
+    Number(Boolean(p.onRefresh && !folded)) +
+    Number(Boolean(p.onFullscreen && !folded)) +
+    Number(Boolean(p.headerExtra)) +
+    Number(hasMenu);
+  return {
+    draggable,
+    folded,
+    overlay,
+    hasFolded,
+    hasMenu,
+    reserved: controls * (BUTTON_PX + BAR_GAP_PX) + BAR_EDGE_PX,
+    hasHeader: Boolean(
+      p.title || hasMenu || p.headerExtra || p.onRefresh || p.onFullscreen,
+    ),
+  };
+}
+
 function ActionItems({ actions }: { readonly actions: WidgetCardAction[] }) {
   return actions.map((action, index) => (
     <React.Fragment key={`${action.label}-${index}`}>
@@ -150,28 +186,29 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
     ref,
   ) => {
     const touch = useHoverNone();
-    const draggable = mode === "edit";
-    // Touch folds Refresh and Fullscreen into the menu; edit mode never folds.
-    const folded = touch && !draggable;
-    // Edit mode and touch keep the controls in the row. Otherwise they overlay
-    // the header's right end, so a title gets the full width at rest.
-    const overlay = !draggable && !touch;
     const hasActions = Boolean(actions?.length);
-    const hasFolded = folded && Boolean(onRefresh || onFullscreen);
-    const hasMenu = hasActions || hasFolded;
+    const {
+      draggable,
+      folded,
+      overlay,
+      hasFolded,
+      hasMenu,
+      reserved,
+      hasHeader,
+    } = headerLayout({
+      mode,
+      touch,
+      hasActions,
+      title,
+      headerExtra,
+      onRefresh,
+      onFullscreen,
+    });
     const iconButton = cn(
       BUTTON_SIZE_CLASS,
       "rounded-sm text-foreground-2",
       overlay && "border border-rule-strong",
     );
-    const controls =
-      Number(Boolean(onRefresh && !folded)) +
-      Number(Boolean(onFullscreen && !folded)) +
-      Number(Boolean(headerExtra)) +
-      Number(hasMenu);
-    const reserved = controls * (BUTTON_PX + BAR_GAP_PX) + BAR_EDGE_PX;
-    const hasHeader =
-      title || hasMenu || headerExtra || onRefresh || onFullscreen;
     return (
       <Panel
         ref={ref}

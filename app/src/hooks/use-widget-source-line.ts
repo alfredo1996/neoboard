@@ -80,11 +80,11 @@ export function useWidgetSourceLine(
   if (!show) return undefined;
   const [at, rows] = cached.split("|");
   const count = Number(rows);
+  const showRows = rows !== "" && !SINGLE_VALUE_TYPES.has(widget.chartType);
+  const unit = count === 1 ? "row" : "rows";
   return [
     connectionName,
-    rows !== "" && !SINGLE_VALUE_TYPES.has(widget.chartType)
-      ? `${count} ${count === 1 ? "row" : "rows"}`
-      : undefined,
+    showRows ? `${count} ${unit}` : undefined,
     formatAgo(Math.max(0, now - Number(at))),
   ]
     .filter(Boolean)
