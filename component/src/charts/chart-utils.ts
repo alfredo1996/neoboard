@@ -80,9 +80,12 @@ export function formatDateTime(ms: number): string {
 
 /** "1,500.00" -> "1,500", "1,500.10" -> "1,500.1". Plain grouped decimals only. */
 function dropTrailingZeros(formatted: string): string {
-  return /^-?[\d,]+\.\d+$/.test(formatted)
-    ? formatted.replace(/\.?0+$/, "")
-    : formatted;
+  if (!/^-?[\d,]+\.\d+$/.test(formatted)) return formatted;
+  // A scan, not /\.?0+$/: that regex backtracks super-linearly (Sonar S8786).
+  let end = formatted.length;
+  while (formatted[end - 1] === "0") end--;
+  if (formatted[end - 1] === ".") end--;
+  return formatted.slice(0, end);
 }
 
 /** The number a context shows when the author set no format. */
@@ -489,7 +492,9 @@ export interface CategoryAxisLabelConfig {
  * the grid, so they come on top of the margins.
  */
 export function lineAxisInsets(compact: boolean, dualAxis: boolean): number {
-  return compact ? 16 : 48 + 40 + (dualAxis ? 56 + 40 : 16);
+  if (compact) return 16;
+  const right = dualAxis ? 56 + 40 : 16;
+  return 48 + 40 + right;
 }
 
 /** A label formatter that cuts to `maxLength` characters, ending in "…". */

@@ -97,7 +97,7 @@ describe("getPaletteColors", () => {
         colors,
         `getPaletteColors("${id}") should return colors`,
       ).toBeDefined();
-      expect(colors!.length).toBe(id === "hastings" ? 8 : 10);
+      expect(colors!).toHaveLength(id === "hastings" ? 8 : 10);
     }
   });
 

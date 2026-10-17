@@ -45,10 +45,14 @@ function columnOf(row: Record<string, unknown>, column: string): unknown {
 function valuesOf(v: unknown): Set<string> {
   const list = Array.isArray(v) ? v : [v];
   return new Set(
-    list
-      .filter((x) => x !== undefined && x !== null && x !== "")
-      .map((x) => String(x)),
+    list.filter((x) => x !== undefined && x !== null && x !== "").map(String),
   );
+}
+
+/** A cell a parameter value can equal; an object or array never matches. */
+function isScalar(v: unknown): v is string | number | boolean | bigint {
+  const t = typeof v;
+  return t === "string" || t === "number" || t === "boolean" || t === "bigint";
 }
 
 export function highlightedNames(
@@ -73,9 +77,7 @@ export function highlightedNames(
         typeof row === "object" &&
         wanted.some(({ sourceField, values }) => {
           const cell = columnOf(row, sourceField);
-          return (
-            cell !== undefined && cell !== null && values.has(String(cell))
-          );
+          return isScalar(cell) && values.has(String(cell));
         }),
     )
     .map((row) => row.label ?? row.name);

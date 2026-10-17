@@ -34,6 +34,17 @@ describe("highlightedNames (#2226)", () => {
     ).toEqual(["Outdoors"]);
   });
 
+  it("never matches an object cell, even against its stringified form", () => {
+    const rows = [
+      { label: "Nested", value: 1, properties: { meta: { a: 1 } } },
+    ];
+    expect(
+      highlightedNames(rows, settings(set("p", "meta")), {
+        p: "[object Object]",
+      }),
+    ).toBeUndefined();
+  });
+
   it("matches a numeric parameter against a string column and back", () => {
     expect(
       highlightedNames(bars, settings(set("p", "cat_id")), { p: "7" }),
