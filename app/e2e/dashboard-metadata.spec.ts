@@ -13,8 +13,7 @@ test.describe("Dashboard metadata — updatedBy display", () => {
       .first();
     await expect(card).toBeVisible({ timeout: 10_000 });
 
-    // The row names the owner, and who updated it last, in the Updated cell.
-    await expect(card).toContainText("Alice Demo");
+    // The Updated cell says who changed it last.
     await expect(card).toContainText(/· Alice Demo/);
   });
 

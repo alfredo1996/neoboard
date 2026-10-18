@@ -878,6 +878,7 @@ describe("#1981 payloads: dashboards-crud", () => {
       "updatedAt",
       "updatedByName",
       "ownerName",
+      "shared",
       "role",
       "widgetCount",
     ].sort();
@@ -893,6 +894,7 @@ describe("#1981 payloads: dashboards-crud", () => {
     ]) {
       expect(props[k].nullable, k).toBe(true);
     }
+    expect(props.shared.type).toBe("boolean");
     expect(props.role.enum).toEqual(["owner", "editor", "viewer", "admin"]);
   });
 

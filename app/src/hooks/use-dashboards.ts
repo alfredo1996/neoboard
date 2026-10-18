@@ -43,6 +43,8 @@ export interface DashboardListItem {
   updatedByName: string | null;
   /** The owner's display name; the list endpoint only, so absent on a detail. */
   ownerName?: string | null;
+  /** True when a share names the caller; a public dashboard nobody shared is false. List endpoint only. */
+  shared?: boolean;
   role: "owner" | "viewer" | "editor" | "admin";
   widgetCount: number;
 }

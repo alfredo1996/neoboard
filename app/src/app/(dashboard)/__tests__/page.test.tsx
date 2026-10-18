@@ -101,7 +101,6 @@ vi.mock("@neoboard/components", () => {
     "PanelFooter",
     "PanelHeader",
     "PanelTitle",
-    "Checkbox",
     "DialogDescription",
     "DialogFooter",
     "DialogHeader",
@@ -128,11 +127,13 @@ vi.mock("@neoboard/components", () => {
     Button: ({
       children,
       onClick,
+      "aria-label": label,
     }: {
       children?: React.ReactNode;
       onClick?: () => void;
+      "aria-label"?: string;
     }) => (
-      <div tabIndex={-1} onClick={onClick}>
+      <div tabIndex={-1} onClick={onClick} aria-label={label}>
         {children}
       </div>
     ),
@@ -147,6 +148,21 @@ vi.mock("@neoboard/components", () => {
       <MockDialogOpen.Provider value={open}>{children}</MockDialogOpen.Provider>
     ),
     DialogContent: MockDialogContent,
+    Checkbox: ({
+      checked,
+      onCheckedChange,
+      ...rest
+    }: {
+      checked?: boolean;
+      onCheckedChange?: (v: boolean) => void;
+    } & React.InputHTMLAttributes<HTMLInputElement>) => (
+      <input
+        type="checkbox"
+        aria-label={rest["aria-label"]}
+        checked={!!checked}
+        onChange={(e) => onCheckedChange?.(e.target.checked)}
+      />
+    ),
     // A real input: the import flow is driven through its change event, so a
     // passthrough div would leave `handleFile` unreachable.
     Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -551,6 +567,7 @@ describe("DashboardListPage rows (#2253)", () => {
     description: "One page per chart type",
     role: "viewer" as const,
     ownerName: "Bo Builder",
+    shared: true,
     isPublic: true,
     widgetCount: 5,
   };
@@ -585,14 +602,56 @@ describe("DashboardListPage rows (#2253)", () => {
     ).toBeVisible();
   });
 
-  it("does not count a dashboard an admin sees only as admin as shared with them", () => {
+  it("counts a dashboard as shared only when a share names you, whatever the role", () => {
+    const pub = { ...SHARED, shared: false, role: "viewer" as const };
     dashboards = [
       OWNED,
-      { ...SHARED, id: "d3", name: "Not mine", role: "admin" as const },
-      { ...SHARED, id: "d4", name: "Editable", role: "editor" as const },
+      { ...pub, id: "d3", name: "Public, never shared" },
+      { ...pub, id: "d6", name: "Another public" },
+      { ...pub, id: "d4", name: "Admin sees it", role: "admin" as const },
+      {
+        ...pub,
+        id: "d5",
+        name: "Admin was shared it",
+        role: "admin" as const,
+        shared: true,
+      },
     ];
     render(<DashboardListPage />);
-    expect(screen.getByText("3 dashboards · 1 shared with you")).toBeVisible();
+    expect(screen.getByText("5 dashboards · 1 shared with you")).toBeVisible();
+  });
+
+  it("filters to the dashboards you own, with a chip that clears it, and combines with the search", () => {
+    dashboards = [OWNED, SHARED, { ...OWNED, id: "d3", name: "Mine too" }];
+    render(<DashboardListPage />);
+    const mine = screen.getByRole("checkbox", { name: "Only mine" });
+
+    fireEvent.click(mine);
+    expect(screen.queryByRole("row", { name: /Chart gallery/ })).toBeNull();
+    expect(screen.getByRole("row", { name: /Mine too/ })).toBeVisible();
+    expect(screen.getByText("Owner is", { exact: false })).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText("Search dashboards"), {
+      target: { value: "too" },
+    });
+    expect(screen.queryByRole("row", { name: /Movie Analytics/ })).toBeNull();
+
+    // Reset clears both; the chip's × clears only its own.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Owner filter" }),
+    );
+    expect(screen.getByRole("row", { name: /Mine too/ })).toBeVisible();
+    expect(screen.queryByRole("row", { name: /Movie Analytics/ })).toBeNull();
+    fireEvent.click(mine);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(screen.getAllByRole("row")).toHaveLength(4); // header + 3
+  });
+
+  it("names each row's menu button after its dashboard", () => {
+    render(<DashboardListPage />);
+    expect(
+      screen.getByLabelText("Dashboard options for Chart gallery"),
+    ).toBeInTheDocument();
   });
 
   it("tags a public dashboard and nothing else", () => {
@@ -609,20 +668,24 @@ describe("DashboardListPage rows (#2253)", () => {
     ).toBeNull();
   });
 
-  it("holds exactly today's actions in the row menu of an owner", () => {
-    dashboards = [OWNED];
+  const MENU = [
+    "Edit",
+    "Rename",
+    "Duplicate",
+    "Change connection…",
+    "Export",
+    "Delete",
+  ];
+  const menuOf = (name: RegExp) => {
+    const row = screen.getByRole("row", { name });
+    return MENU.filter((n) => within(row).queryByText(n) !== null);
+  };
+
+  it("holds exactly today's actions in the row menu: all six for an owner, Duplicate and Export for a viewer", () => {
+    dashboards = [OWNED, SHARED];
     render(<DashboardListPage />);
-    const row = screen.getByRole("row", { name: /Movie Analytics/ });
-    expect(
-      [
-        "Edit",
-        "Rename",
-        "Duplicate",
-        "Change connection…",
-        "Export",
-        "Delete",
-      ].filter((n) => within(row).queryByText(n) === null),
-    ).toEqual([]);
+    expect(menuOf(/Movie Analytics/)).toEqual(MENU);
+    expect(menuOf(/Chart gallery/)).toEqual(["Duplicate", "Export"]);
   });
 
   it("counts dashboards, widgets and connections, and the ones shared with you", () => {
@@ -653,6 +716,7 @@ describe("DashboardListPage rows (#2253)", () => {
     dashboards = [];
     render(<DashboardListPage />);
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.getByText(/dashboard/i, { selector: "h1" })).toBeVisible();
+    expect(screen.getByText("Welcome to NeoBoard")).toBeVisible();
+    expect(screen.getByText("Create your first dashboard")).toBeVisible();
   });
 });

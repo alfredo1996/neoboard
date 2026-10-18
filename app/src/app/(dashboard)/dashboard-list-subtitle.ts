@@ -9,7 +9,7 @@ export function dashboardListSubtitle(canCreate: boolean): string {
     : "Browse the dashboards shared with you";
 }
 
-/** "N dashboards · M shared with you": shared is every one that is not yours. */
+/** "N dashboards · M shared with you": M counts the dashboards a share names you on (the API's `shared`), not public ones nobody shared. */
 export function dashboardListMeta(total: number, shared: number): string {
   const base = `${total} ${total === 1 ? "dashboard" : "dashboards"}`;
   return shared > 0 ? `${base} · ${shared} shared with you` : base;

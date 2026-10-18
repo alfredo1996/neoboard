@@ -256,8 +256,71 @@ describe("GET /api/dashboards", () => {
     const ownerJoins = rowsChain.calls.leftJoin.filter(([, on]) =>
       sqlValues(on as SQL).includes("tenant-x"),
     );
-    expect(ownerJoins).toHaveLength(1);
+    // The owner join and the caller's own share join each carry the tenant.
+    expect(ownerJoins).toHaveLength(2);
   });
+
+  it.each([
+    ["creator", "user-1"],
+    ["reader", "user-1"],
+    ["admin", "admin-1"],
+  ])(
+    "says whether a share row exists for the caller, not what the role is (%s)",
+    async (role, userId) => {
+      mockRequireSession.mockResolvedValue({
+        userId,
+        role,
+        canWrite: true,
+        tenantId: "tenant-x",
+      });
+      const base = {
+        description: null,
+        isPublic: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ownerId: "someone-else",
+        ownerName: "Bo",
+      };
+      // A public dashboard nobody shared with the caller, and one they were.
+      const rows = [
+        {
+          ...base,
+          id: "pub",
+          name: "Public only",
+          shareRole: null,
+          shareId: null,
+        },
+        {
+          ...base,
+          id: "shr",
+          name: "Shared",
+          shareRole: "viewer",
+          shareId: "s1",
+        },
+      ];
+      const chain = makeSelectChain(rows);
+      if (role === "admin") {
+        mockDb.select
+          .mockReturnValueOnce(makeSelectChain([{ count: 2 }]))
+          .mockReturnValueOnce(chain);
+      } else {
+        mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
+        mockDb.selectDistinctOn.mockReturnValueOnce(chain);
+      }
+
+      const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
+      const body = await res.json();
+
+      expect(
+        body.data.map((d: { id: string; shared: boolean }) => [d.id, d.shared]),
+      ).toEqual([
+        ["pub", false],
+        ["shr", true],
+      ]);
+      // The share row's id is an internal detail, like ownerId.
+      expect(body.data.every((d: object) => !("shareId" in d))).toBe(true);
+    },
+  );
 
   it("scopes the owner join by tenant for a creator too (#2253)", async () => {
     mockRequireSession.mockResolvedValue({

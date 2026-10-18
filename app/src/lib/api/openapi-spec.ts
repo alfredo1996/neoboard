@@ -1697,6 +1697,7 @@ const SPEC = {
           "updatedAt",
           "updatedByName",
           "ownerName",
+          "shared",
           "role",
           "widgetCount",
         ],
@@ -1709,6 +1710,12 @@ const SPEC = {
           updatedAt: { type: "string", format: "date-time", nullable: true },
           updatedByName: { type: "string", nullable: true },
           ownerName: { type: "string", nullable: true },
+          shared: {
+            type: "boolean",
+            description:
+              "True when a share names the caller. A public dashboard nobody shared with them is false, " +
+              "whatever the role says.",
+          },
           role: {
             type: "string",
             enum: ["owner", "editor", "viewer", "admin"],

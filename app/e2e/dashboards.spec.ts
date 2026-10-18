@@ -42,6 +42,24 @@ test.describe("Dashboard CRUD", () => {
     }
   });
 
+  test("Only mine narrows the list to the dashboards you own, and its chip clears it (#2253)", async ({
+    page,
+  }) => {
+    // Alice, an admin, sees Bob's "Actor Network" too.
+    const link = (name: string) =>
+      page.getByRole("link", { name, exact: true });
+    await expect(link("Actor Network")).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("checkbox", { name: "Only mine" }).click();
+    const chip = page.getByRole("button", { name: "Remove Owner filter" });
+    await expect(chip).toBeVisible();
+    await expect(link("Movie Analytics")).toBeVisible();
+    await expect(link("Actor Network")).toHaveCount(0);
+
+    await chip.click();
+    await expect(link("Actor Network")).toBeVisible();
+  });
+
   test("lists and finds dashboards past the first 100 (#1789)", async ({
     page,
   }) => {

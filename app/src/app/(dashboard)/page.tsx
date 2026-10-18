@@ -809,12 +809,14 @@ export default function DashboardListPage() {
     name: string;
   } | null>(null);
   const [search, setSearch] = useState("");
+  const [onlyMine, setOnlyMine] = useState(false);
 
+  // ponytail: page 1 of the connections list (100); the stat reads low past
+  // that. Read `meta.total` (unwrapResponseWithMeta) if a tenant gets there.
   const { data: connections } = useConnections();
-  const sharedCount = (dashboardList ?? []).filter(
-    // An admin sees every dashboard; only a share makes one "shared with you".
-    (d) => d.role === "editor" || d.role === "viewer",
-  ).length;
+  // The API says it: the role cannot (a public dashboard nobody shared reads
+  // "viewer", and an admin's share reads "admin").
+  const sharedCount = (dashboardList ?? []).filter((d) => d.shared).length;
   const widgetTotal = (dashboardList ?? []).reduce(
     (n, d) => n + (d.widgetCount ?? 0),
     0,
@@ -826,7 +828,20 @@ export default function DashboardListPage() {
   const filteredDashboards = filterDashboardsByName(
     dashboardList ?? [],
     search,
-  );
+  ).filter((d) => !onlyMine || d.role === "owner");
+  const activeFilters = [
+    ...(search.trim()
+      ? [
+          {
+            id: "name",
+            label: "Name",
+            operator: "contains",
+            value: search.trim(),
+          },
+        ]
+      : []),
+    ...(onlyMine ? [{ id: "owner", label: "Owner", value: "you" }] : []),
+  ];
 
   async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1125,35 +1140,40 @@ export default function DashboardListPage() {
                 )}
               </div>
               {/* Name search/filter for the list at scale (#1048). */}
-              <div className="max-w-sm">
-                <Input
-                  type="search"
-                  placeholder="Search dashboards…"
-                  aria-label="Search dashboards"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                <div className="w-full max-w-sm">
+                  <Input
+                    type="search"
+                    placeholder="Search dashboards…"
+                    aria-label="Search dashboards"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    aria-label="Only mine"
+                    checked={onlyMine}
+                    onCheckedChange={(v) => setOnlyMine(v === true)}
+                  />
+                  Only mine
+                </label>
               </div>
               <FilterLine
                 prefix="Showing dashboards where"
-                filters={
-                  search.trim()
-                    ? [
-                        {
-                          id: "name",
-                          label: "Name",
-                          operator: "contains",
-                          value: search.trim(),
-                        },
-                      ]
-                    : []
+                filters={activeFilters}
+                onRemove={(id) =>
+                  id === "owner" ? setOnlyMine(false) : setSearch("")
                 }
-                onRemove={() => setSearch("")}
-                onReset={() => setSearch("")}
+                onReset={() => {
+                  setSearch("");
+                  setOnlyMine(false);
+                }}
               />
               {filteredDashboards.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
-                  No dashboards match “{search.trim()}”.
+                  No dashboards match{" "}
+                  {search.trim() ? `“${search.trim()}”` : "these filters"}.
                 </p>
               ) : (
                 <List
@@ -1198,11 +1218,9 @@ export default function DashboardListPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-7 w-7"
+                                  aria-label={`Dashboard options for ${d.name}`}
                                 >
                                   <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">
-                                    Dashboard options
-                                  </span>
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">

@@ -108,7 +108,7 @@ test.describe("Dashboard visibility — public/private", () => {
     await expect(page.getByText("People")).toBeVisible();
   });
 
-  test("bob (creator) sees public dashboard with viewer role badge", async ({
+  test("bob (creator) sees the public dashboard shared with him, and his own", async ({
     authPage,
     page,
   }) => {

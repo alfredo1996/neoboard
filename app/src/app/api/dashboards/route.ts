@@ -32,6 +32,14 @@ const owners = alias(users, "owners");
 const ownerJoin = (tenantId: string) =>
   and(eq(owners.id, dashboards.userId), eq(owners.tenantId, tenantId));
 
+// The caller's own share of a dashboard, if any: the same ON on every path.
+const shareJoin = (userId: string, tenantId: string) =>
+  and(
+    eq(dashboardShares.dashboardId, dashboards.id),
+    eq(dashboardShares.userId, userId),
+    eq(dashboardShares.tenantId, tenantId),
+  );
+
 export async function GET(request: Request) {
   try {
     const { userId, role, tenantId } = await requireSession();
@@ -57,19 +65,22 @@ export async function GET(request: Request) {
           layoutJson: dashboards.layoutJson,
           updatedByName: users.name,
           ownerName: owners.name,
+          shareId: dashboardShares.id,
         })
         .from(dashboards)
         .leftJoin(users, eq(dashboards.updatedBy, users.id))
         .leftJoin(owners, ownerJoin(tenantId))
+        .leftJoin(dashboardShares, shareJoin(userId, tenantId))
         .where(eq(dashboards.tenantId, tenantId))
         .orderBy(...NEWEST_FIRST)
         .limit(limit)
         .offset(offset);
 
       const mapped = rows.map((d) => {
-        const { layoutJson, ownerId, ...rest } = d;
+        const { layoutJson, ownerId, shareId, ...rest } = d;
         return {
           ...rest,
+          shared: shareId != null,
           role: ownerId === userId ? ("owner" as const) : ("admin" as const),
           widgetCount: countWidgets(layoutJson),
         };
@@ -120,16 +131,10 @@ export async function GET(request: Request) {
         layoutJson: dashboards.layoutJson,
         updatedByName: users.name,
         ownerName: owners.name,
+        shareId: dashboardShares.id,
       })
       .from(dashboards)
-      .leftJoin(
-        dashboardShares,
-        and(
-          eq(dashboardShares.dashboardId, dashboards.id),
-          eq(dashboardShares.userId, userId),
-          eq(dashboardShares.tenantId, tenantId),
-        ),
-      )
+      .leftJoin(dashboardShares, shareJoin(userId, tenantId))
       .leftJoin(users, eq(dashboards.updatedBy, users.id))
       .leftJoin(owners, ownerJoin(tenantId))
       .where(and(eq(dashboards.tenantId, tenantId), accessFilter))
@@ -138,13 +143,16 @@ export async function GET(request: Request) {
       .offset(offset);
 
     const mapped = rows.map((d) => {
-      const { layoutJson, ownerId, shareRole, ...rest } = d;
+      const { layoutJson, ownerId, shareRole, shareId, ...rest } = d;
       const dashRole =
         ownerId === userId
           ? ("owner" as const)
           : (shareRole ?? ("viewer" as const));
       return {
         ...rest,
+        // Whether a share row names the caller. The role cannot say: a public
+        // dashboard nobody shared reads `viewer` too (#2253).
+        shared: shareId != null,
         role: dashRole,
         widgetCount: countWidgets(layoutJson),
       };
