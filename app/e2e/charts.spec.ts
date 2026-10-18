@@ -9,6 +9,8 @@ import {
   saveDashboard,
   SEEDED_PG_OPTION,
   uid,
+  editingCrumb,
+  dashboardCrumb,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -125,9 +127,7 @@ test.describe("Neo4j connector → chart visualization", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -300,9 +300,7 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -510,9 +508,7 @@ test.describe("Graph chart visualization", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -727,9 +723,7 @@ test.describe("Graph chart exploration", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -877,7 +871,7 @@ test.describe("Graph chart exploration", () => {
       "MATCH (p:Person {name: 'Cameron Crowe'}) RETURN p",
     );
     await saveDashboard(page);
-    await page.getByRole("button", { name: "Back" }).click();
+    await dashboardCrumb(page).click();
     await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
       timeout: 10_000,
     });
@@ -941,7 +935,7 @@ test.describe("Graph chart exploration", () => {
 
     // Save and navigate to view mode
     await saveDashboard(page);
-    await page.getByRole("button", { name: "Back" }).click();
+    await dashboardCrumb(page).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // Wait for graph exploration to render
@@ -1014,7 +1008,7 @@ test.describe("Graph chart exploration", () => {
     // waitForURL(/\/[\w-]+$/) would match /${id}/edit too (the word "edit" matches \w+),
     // so we explicitly wait for a URL that does NOT end with /edit.
     await saveDashboard(page);
-    await page.getByRole("button", { name: "Back" }).click();
+    await dashboardCrumb(page).click();
     await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
       timeout: 10_000,
     });
@@ -1248,9 +1242,7 @@ test.describe("Map widget", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -1450,9 +1442,7 @@ test.describe("Column mapping overlay", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

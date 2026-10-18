@@ -298,9 +298,6 @@ vi.mock("@/components/page-tabs", () => ({
 
 vi.mock("@neoboard/components", () => {
   const passthrough = [
-    "Toolbar",
-    "ToolbarSection",
-    "ToolbarSeparator",
     "Badge",
     "Skeleton",
     "Alert",
@@ -484,16 +481,6 @@ function makeContentOnlyDashboard() {
   return d;
 }
 
-/** A dashboard whose only widget sets a parameter — enables the Filters button. */
-function makeParameterDashboard() {
-  const d = makeDashboard(1);
-  d.layoutJson.pages[0].widgets[0] = {
-    ...d.layoutJson.pages[0].widgets[0],
-    chartType: "parameter-select",
-  };
-  return d;
-}
-
 /** A stable dashboard object, as a real query cache would hand back. */
 let dashboard = makeDashboard();
 
@@ -671,7 +658,12 @@ describe("DashboardWorkspace", () => {
 
     expect(screen.getByText("Add Widget")).toBeInTheDocument();
     expect(screen.getByText("Save")).toBeInTheDocument();
-    expect(screen.getByText(/Editing:/)).toBeInTheDocument();
+    expect(
+      screen
+        .getByRole("navigation", { name: "breadcrumb" })
+        .querySelector('[aria-current="page"]'),
+    ).toHaveTextContent("Editing");
+    expect(screen.getByRole("heading", { name: "Sales" })).toBeInTheDocument();
     expect(screen.queryByText("Edit")).toBeNull();
     expect(screen.getByTestId("page-tabs")).toHaveAttribute(
       "data-editable",
@@ -702,7 +694,7 @@ describe("DashboardWorkspace", () => {
     expect(screen.getByText("Edit")).toBeInTheDocument();
     expect(screen.queryByText("Add Widget")).toBeNull();
     expect(screen.queryByText("Save")).toBeNull();
-    expect(screen.getByText("Sales")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sales" })).toBeInTheDocument();
     expect(screen.getByTestId("page-tabs")).toHaveAttribute(
       "data-editable",
       "false",
@@ -1762,48 +1754,29 @@ describe("DashboardWorkspace", () => {
   });
 
   // ── Toolbar odds and ends ───────────────────────────────────────────
-  it("toggles the parameter bar", async () => {
-    // The Filters button is disabled until the dashboard has a parameter
-    // widget, and the bar auto-shows once one exists — so it starts as "Hide".
-    dashboard = makeParameterDashboard();
-    render(<DashboardWorkspace id="d1" editMode={false} />);
-
-    await userEvent.click(screen.getByLabelText("Hide parameters"));
-    expect(screen.getByLabelText("Show parameters")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByLabelText("Show parameters"));
-    expect(screen.getByLabelText("Hide parameters")).toBeInTheDocument();
-  });
-
-  it("keeps the parameter toggle disabled with no parameter widgets", () => {
-    render(<DashboardWorkspace id="d1" editMode={false} />);
-    expect(screen.getByLabelText("Show parameters")).toBeDisabled();
-  });
-
-  it("badges the active parameter count in both toolbars", () => {
-    dashboard = makeParameterDashboard();
-    const { rerender } = render(
-      <DashboardWorkspace id="d1" editMode={false} />,
-    );
-
-    // Must be set after mount: restoreFromDashboard() clears the store first.
-    useParameterStore
-      .getState()
-      .setParameter(
-        "dept",
-        "Sales",
-        "Sales",
-        "dept",
-        "text",
-        "selector-widget",
-        "w1",
-      );
-    rerender(<DashboardWorkspace id="d1" editMode={false} />);
-    expect(screen.getByLabelText("Hide parameters")).toHaveTextContent("1");
-
+  it("shows the tabs row only with 2+ pages, and a header Add page action below that", () => {
     pathname = "/d1/edit";
-    rerender(<DashboardWorkspace id="d1" editMode={true} />);
-    expect(screen.getByLabelText("Hide parameters")).toHaveTextContent("1");
+    dashboard = makeDashboard(1);
+    const { unmount } = render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(screen.queryByTestId("page-tabs")).toBeNull();
+    expect(useDashboardStore.getState().layout.pages).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Add page" }));
+    expect(useDashboardStore.getState().layout.pages).toHaveLength(2);
+    unmount();
+
+    dashboard = makeDashboard(3);
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(screen.getByTestId("page-tabs")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add page" })).toBeNull();
+  });
+
+  it("offers Add page on a layout with no pages, so the user is not stuck", () => {
+    pathname = "/d1/edit";
+    dashboard = makeDashboard(0);
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(screen.queryByTestId("page-tabs")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add page" }));
+    expect(useDashboardStore.getState().layout.pages).toHaveLength(1);
   });
 
   it("toggles public sharing from the edit toolbar", async () => {
@@ -1824,9 +1797,9 @@ describe("DashboardWorkspace", () => {
     expect(screen.queryByTestId("assign-panel")).toBeNull();
   });
 
-  it("Back returns to the dashboard list from view mode", async () => {
+  it("the Dashboards crumb returns to the list from view mode", async () => {
     render(<DashboardWorkspace id="d1" editMode={false} />);
-    await userEvent.click(screen.getByText("Back"));
+    await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
     expect(mockPush).toHaveBeenCalledWith("/");
   });
 
@@ -1871,14 +1844,14 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
     expect(menuTrigger).toHaveFocus();
   });
 
-  it("Stay on the unsaved-changes guard: on Back", async () => {
+  it("Stay on the unsaved-changes guard: on the dashboard crumb", async () => {
     render(<DashboardWorkspace id="d1" editMode={true} />);
     act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
-    await userEvent.click(screen.getByText("Back"));
+    await userEvent.click(screen.getByRole("link", { name: "Sales" }));
     await userEvent.click(screen.getByRole("button", { name: "Stay" }));
 
-    expect(screen.getByText("Back")).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Sales" })).toHaveFocus();
   });
 
   // Radix focuses Stay as the question opens; a second ask must not record it.
@@ -1889,18 +1862,42 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
       () => act(() => window.dispatchEvent(new PopStateEvent("popstate"))),
     ],
   ])(
-    "Stay on the unsaved-changes guard, asked again by %s: on Back",
+    "Stay on the unsaved-changes guard, asked again by %s: on the dashboard crumb",
     async (_, askAgain) => {
       render(<DashboardWorkspace id="d1" editMode={true} />);
       act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
-      await userEvent.click(screen.getByText("Back"));
+      await userEvent.click(screen.getByRole("link", { name: "Sales" }));
       const stay = screen.getByRole("button", { name: "Stay" });
       stay.focus();
       askAgain();
       await userEvent.click(stay);
 
-      expect(screen.getByText("Back")).toHaveFocus();
+      expect(screen.getByRole("link", { name: "Sales" })).toHaveFocus();
     },
   );
+});
+
+describe("DashboardWorkspace — the Dashboards crumb in edit mode", () => {
+  beforeEach(() => {
+    pathname = "/d1/edit";
+    mockPush.mockClear();
+  });
+
+  it("goes to the list at once when nothing is unsaved", async () => {
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
+    expect(mockPush).toHaveBeenCalledWith("/");
+  });
+
+  it("asks first (Stay) when edits are unsaved, and does not go yet", async () => {
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
+
+    await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stay" })).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
 });

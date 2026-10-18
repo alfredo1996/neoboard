@@ -5,6 +5,7 @@ import {
   TEST_PG_PORT,
   createTestDashboard,
   uid,
+  editingCrumb,
 } from "./fixtures";
 import type { APIRequestContext, Page } from "@playwright/test";
 
@@ -207,9 +208,7 @@ test.describe("Dead connector (#1678)", () => {
       // Still interactive, no reload: edit mode and the widget editor open.
       await page.getByRole("button", { name: "Edit", exact: true }).click();
       await page.waitForURL(/\/edit/, { timeout: 15_000 });
-      await expect(
-        page.getByRole("heading", { name: /^Editing:/ }),
-      ).toBeVisible();
+      await expect(editingCrumb(page)).toBeVisible();
       await expect(unavailable.first()).toBeVisible();
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const addWidget = page.getByRole("dialog", { name: "Add Widget" });

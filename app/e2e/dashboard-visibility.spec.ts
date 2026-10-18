@@ -27,7 +27,7 @@ test.describe("Dashboard visibility — public/private", () => {
     // "Movie Analytics" is public — its card should have a globe icon
     const publicCard = page
       .locator("[class*='cursor-pointer']")
-      .filter({ hasText: "Movie Analytics" })
+      .filter({ has: page.getByText("Movie Analytics", { exact: true }) })
       .first();
     await expect(publicCard).toBeVisible({ timeout: 10_000 });
     await expect(publicCard.locator("[aria-label='Public']")).toBeVisible();
@@ -114,7 +114,7 @@ test.describe("Dashboard visibility — public/private", () => {
     // Bob should see "Movie Analytics" — shared with him as viewer AND it's public
     const publicCard = page
       .locator("[class*='cursor-pointer']")
-      .filter({ hasText: "Movie Analytics" })
+      .filter({ has: page.getByText("Movie Analytics", { exact: true }) })
       .first();
     await expect(publicCard).toBeVisible({ timeout: 10_000 });
 

@@ -5,6 +5,7 @@ import {
   createTestDashboard,
   typeInEditor,
   uid,
+  editingCrumb,
 } from "./fixtures";
 
 test.describe("Widget editor", () => {
@@ -22,9 +23,7 @@ test.describe("Widget editor", () => {
     const { id, cleanup } = await createTestDashboard(page.request, name);
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
   });
 
   test.describe("uncovered states", () => {
@@ -381,7 +380,10 @@ test.describe("Refresh button", () => {
     });
 
     await page.goto(`/${id}`);
-    await expect(page.getByText("Movies")).toBeVisible({ timeout: 15_000 });
+    // The heading, not a substring: "Movies Graph …" in the source line would match too.
+    await expect(
+      page.getByRole("heading", { name: "Movies", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
 
     // Refresh button should be visible in the widget card header
     const widgetCard = page.getByTestId("widget-card").first();

@@ -1030,8 +1030,9 @@ describe("seeding a configured Default value (#1517)", () => {
       );
 
     const entry = useParameterStore.getState().parameters.dept;
-    // Rendered by CrossFilterTag as `{field} = {value}` — an empty field gave
-    // the user a chip reading "= Sales" with no way to tell what it filtered.
+    // The field names the parameter in the filter line, which reads "<label> is
+    // <value>" — an empty field once gave a chip reading "= Sales" with no way
+    // to tell what it filtered.
     expect(entry.field).toBe("dept");
     expect(entry.source).toBe("Default value");
     expect(entry.sourceWidgetId).toBe("widget-3");

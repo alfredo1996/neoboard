@@ -7,6 +7,7 @@ import {
   getPreview,
   saveDashboard,
   uid,
+  editingCrumb,
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------
@@ -29,9 +30,7 @@ test.describe("Bar chart stack mode (#1684)", () => {
     dashboardId = id;
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

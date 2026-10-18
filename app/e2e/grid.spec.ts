@@ -5,6 +5,8 @@ import {
   createTestDashboard,
   saveDashboard,
   uid,
+  editingCrumb,
+  dashboardCrumb,
 } from "./fixtures";
 import type { Page } from "@playwright/test";
 
@@ -23,9 +25,7 @@ test.describe("Dashboard grid", () => {
 
   test("edit mode should allow drag and resize", async ({ page }) => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
 
     // In edit mode, grid items should have draggable class
     const gridItem = page.locator(".react-grid-item").first();
@@ -40,7 +40,7 @@ test.describe("Dashboard grid", () => {
     page,
   }) => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeVisible({
+    await expect(editingCrumb(page)).toBeVisible({
       timeout: 10000,
     });
 
@@ -49,10 +49,10 @@ test.describe("Dashboard grid", () => {
     await page.setViewportSize({ width: 700, height: 1024 });
     await page.setViewportSize({ width: 1280, height: 1024 });
 
-    // Because a reflow is not a user edit, leaving via Back must navigate
+    // Because a reflow is not a user edit, leaving via the crumb must navigate
     // straight to view mode — no unsaved-changes confirmation dialog.
-    await page.getByRole("button", { name: "Back", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /^Editing:/ })).toBeHidden({
+    await dashboardCrumb(page).click();
+    await expect(editingCrumb(page)).toBeHidden({
       timeout: 10000,
     });
     await expect(

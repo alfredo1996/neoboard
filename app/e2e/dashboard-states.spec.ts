@@ -6,6 +6,8 @@ import {
   saveDashboard,
   typeInEditor,
   uid,
+  editingCrumb,
+  dashboardCrumb,
 } from "./fixtures";
 
 test.describe("Dashboard viewer — uncovered states", () => {
@@ -53,14 +55,12 @@ test.describe("Dashboard viewer — uncovered states", () => {
     const { id, cleanup } = await createTestDashboard(page.request, name);
     try {
       await page.goto(`/${id}/edit`);
-      await expect(
-        page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
-      ).toBeVisible({ timeout: 10_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
       // Save the empty dashboard, and wait for it to land before leaving (#1767)
       await saveDashboard(page);
       // Go to view mode. /\/[\w-]+$/ also matched /<id>/edit, and "No widgets
       // yet" shows in edit mode too, so assert view-only chrome (#1787).
-      await page.getByRole("button", { name: /Back/ }).click();
+      await dashboardCrumb(page).click();
       await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
         timeout: 10_000,
       });
@@ -78,20 +78,27 @@ test.describe("Dashboard viewer — uncovered states", () => {
   test("should navigate to dashboard and display content", async ({ page }) => {
     await page.getByText("Movie Analytics", { exact: true }).click();
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
-    await expect(page.getByText("Movie Analytics")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Movie Analytics" }),
+    ).toBeVisible();
   });
 
   test("search filters the dashboards list and shows an empty state (#1048)", async ({
     page,
   }) => {
     const search = page.getByRole("searchbox", { name: "Search dashboards" });
-    await expect(page.getByText("Movie Analytics")).toBeVisible({
+    // Exact: an imported copy ("Movie Analytics (imported)") must not match.
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible({
       timeout: 10_000,
     });
 
     // Narrowing the search keeps the matching card visible.
     await search.fill("Movie");
-    await expect(page.getByText("Movie Analytics")).toBeVisible();
+    await expect(
+      page.getByText("Movie Analytics", { exact: true }),
+    ).toBeVisible();
 
     // A query that matches nothing shows the empty-result message.
     await search.fill("zzz-no-such-dashboard");
@@ -139,9 +146,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
         versionKey,
       );
       await editButton.click();
-      await expect(
-        page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
 
       // Save — bumps the version server-side. With #904's fix, the hook's
       // onSuccess writes the new version to sessionStorage so the subsequent
@@ -159,7 +164,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
       const savedVersion = String((await saved.json()).data.version);
 
       // Leave edit → view mode (the route where the version-bump effect runs)
-      await page.getByRole("button", { name: /Back/ }).click();
+      await dashboardCrumb(page).click();
       // Back goes to /<id>, not /dashboards. /\/[\w-]+$/ also matched
       // /<id>/edit, so wait for view mode and its chrome (#1787).
       await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
@@ -199,9 +204,7 @@ test.describe("Dashboard editor — uncovered states", () => {
     const { id, cleanup } = await createTestDashboard(page.request, name);
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: `Editing: ${name}`, exact: true }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
   });
 
   test("should show empty state in editor with Add Widget CTA", async ({
@@ -218,9 +221,11 @@ test.describe("Dashboard editor — uncovered states", () => {
   });
 
   test("should manage pages — add page", async ({ page }) => {
-    await expect(page.getByText("Page 1")).toBeVisible();
+    // One page has no tabs row; Add page is a header action (#2252).
+    await expect(page.getByRole("tablist")).toHaveCount(0);
     await page.getByRole("button", { name: "Add page" }).click();
     await expect(page.getByText("Page 2")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Page 1")).toBeVisible();
   });
 
   test("admin should see Sharing button in editor toolbar", async ({
@@ -242,8 +247,11 @@ test.describe("Dashboard editor — uncovered states", () => {
   });
 
   test("should rename a page via inline input", async ({ page }) => {
-    await expect(page.getByText("Page 1")).toBeVisible();
-    // Hover over the Page 1 tab and open options
+    // Pages are renamed from the tabs row, which two pages bring.
+    await page.getByRole("button", { name: "Add page" }).click();
+    await expect(page.getByText("Page 2")).toBeVisible({ timeout: 5_000 });
+    // The options button belongs to the active tab: make it Page 1.
+    await page.getByRole("tab", { name: "Page 1" }).click();
     await page
       .getByRole("button", { name: "Page options for Page 1" })
       .click({ force: true });
@@ -262,7 +270,6 @@ test.describe("Dashboard editor — uncovered states", () => {
   });
 
   test("should delete a page when multiple pages exist", async ({ page }) => {
-    await expect(page.getByText("Page 1")).toBeVisible();
     // Add a second page
     await page.getByRole("button", { name: "Add page" }).click();
     await expect(page.getByText("Page 2")).toBeVisible({ timeout: 5_000 });
@@ -273,9 +280,10 @@ test.describe("Dashboard editor — uncovered states", () => {
       .click({ force: true });
     await page.getByText("Delete page").click();
 
-    // Page 2 should be gone, Page 1 still visible
+    // Page 2 is gone, and with one page left the tabs row goes too.
     await expect(page.getByText("Page 2")).not.toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("Page 1")).toBeVisible();
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add page" })).toBeVisible();
   });
 
   test("should navigate between pages in view mode", async ({ page }) => {

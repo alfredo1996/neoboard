@@ -3,15 +3,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
-import {
-  buildCsvString,
-  triggerDownload,
-  triggerSvgDownload,
-  triggerPngDownload,
-  buildExportFilename,
-  exportChartToSvg,
-  exportChartToPng,
-} from "@neoboard/components";
+import { FilterLine } from "@neoboard/components/kit";
+import { humanizeParamName } from "@neoboard/components/humanize-param-name";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { buildExportData } from "@/lib/widget/card-utils";
@@ -24,8 +17,10 @@ import {
   isWidgetTemplateOutdated,
 } from "@/lib/widget/widget-utils";
 import { isDataWidget } from "@/lib/widget/widget-actions";
-import { getChartConfig } from "@/lib/plugin/chart-helpers";
-import type { ConnectorCapabilities } from "@/lib/plugin/chart-helpers";
+import {
+  getChartConfig,
+  type ConnectorCapabilities,
+} from "@/lib/plugin/chart-helpers";
 import type {
   DashboardPage,
   DashboardWidget,
@@ -44,6 +39,13 @@ import {
 import { shouldShowRefreshButton } from "@/lib/query/resolve-cache-options";
 import { LayoutDashboard, RefreshCw } from "lucide-react";
 import {
+  buildCsvString,
+  triggerDownload,
+  triggerSvgDownload,
+  triggerPngDownload,
+  buildExportFilename,
+  exportChartToSvg,
+  exportChartToPng,
   WidgetCard,
   EmptyState,
   DashboardGrid,
@@ -52,8 +54,6 @@ import {
   DialogTitle,
   DialogDescription,
   Button,
-  ParameterBar,
-  CrossFilterTag,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -107,7 +107,6 @@ interface DashboardContainerProps {
   actions?: WidgetActions;
   refetchInterval?: number | false;
   templateMap?: Record<string, WidgetTemplate>;
-  showParameterBar?: boolean;
   /** Maps parameter names to the widgets that set them (for clickable badges). */
   parameterSourceMap?: ParameterSourceMap;
   /** What each connection's connector can do, by connection id (#2137). */
@@ -128,7 +127,6 @@ export function DashboardContainer({
   actions,
   refetchInterval,
   templateMap,
-  showParameterBar = true,
   parameterSourceMap,
   connectorCapabilities,
   connectionNames,
@@ -218,15 +216,19 @@ export function DashboardContainer({
     [allEntries],
   );
   const hasParameters = displayEntries.length > 0;
+  /** Bring the widget that set a filter into view and ring it briefly. */
+  const scrollToSource = (widgetId: string) => {
+    const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary", "rounded-lg");
+    setTimeout(
+      () => el.classList.remove("ring-2", "ring-primary", "rounded-lg"),
+      1500,
+    );
+  };
   const displayTitle = (widget: DashboardWidget) =>
     interpolateTitle(getWidgetDisplayTitle(widget), parameters);
-
-  const scrollToSource = useCallback((sourceWidgetId?: string) => {
-    if (!sourceWidgetId) return;
-    document
-      .querySelector(`[data-widget-id="${sourceWidgetId}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, []);
 
   if (page.widgets.length === 0) {
     return (
@@ -354,23 +356,23 @@ export function DashboardContainer({
 
   return (
     <>
-      {hasParameters && showParameterBar && (
-        <ParameterBar onReset={clearAll}>
-          {displayEntries.map(([name, entry]) => (
-            <CrossFilterTag
-              key={name}
-              field={entry.field}
-              value={formatParameterValue(entry.value)}
-              onRemove={() => clearParameter(name)}
-              onClick={
-                entry.sourceWidgetId
-                  ? () => scrollToSource(entry.sourceWidgetId)
-                  : undefined
-              }
-              tooltip={entry.source ? `Set by ${entry.source}` : undefined}
-            />
-          ))}
-        </ParameterBar>
+      {hasParameters && (
+        <div className="pb-3">
+          <FilterLine
+            filters={displayEntries.map(([name, entry]) => {
+              const sourceId = entry.sourceWidgetId;
+              return {
+                id: name,
+                label: humanizeParamName(name),
+                value: formatParameterValue(entry.value),
+                title: entry.source ? `Set by ${entry.source}` : undefined,
+                onSelect: sourceId ? () => scrollToSource(sourceId) : undefined,
+              };
+            })}
+            onRemove={clearParameter}
+            onReset={clearAll}
+          />
+        </div>
       )}
       <div className="w-full min-w-0">
         <DashboardGrid

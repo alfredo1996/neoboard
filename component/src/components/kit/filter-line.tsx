@@ -6,6 +6,10 @@ export interface FilterLineFilter {
   /** The parameter's label, e.g. "Decade". */
   label: string;
   value: string;
+  /** Hover text on the chip, e.g. where the value came from. */
+  title?: string;
+  /** Makes the sentence a button, e.g. to jump to what set the filter. */
+  onSelect?: () => void;
 }
 
 export interface FilterLineProps {
@@ -39,11 +43,22 @@ function FilterLine({
         {filters.map((f) => (
           <span
             key={f.id}
+            title={f.title}
             className="inline-flex items-center gap-1.5 rounded-full border border-card-edge bg-card py-[3px] pl-3 pr-1.5 text-foreground"
           >
-            <span>
-              {f.label} is <b className="font-medium">{f.value}</b>
-            </span>
+            {f.onSelect ? (
+              <button
+                type="button"
+                onClick={f.onSelect}
+                className="rounded-full hover:underline underline-offset-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {f.label} is <b className="font-medium">{f.value}</b>
+              </button>
+            ) : (
+              <span>
+                {f.label} is <b className="font-medium">{f.value}</b>
+              </span>
+            )}
             <button
               type="button"
               aria-label={`Remove ${f.label} filter`}

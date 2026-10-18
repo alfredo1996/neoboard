@@ -59,10 +59,6 @@ vi.mock("@neoboard/components", () => ({
   }: React.PropsWithChildren<Record<string, unknown>>) => (
     <button {...props}>{children}</button>
   ),
-  ParameterBar: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CrossFilterTag: () => <div />,
   AlertDialog: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),

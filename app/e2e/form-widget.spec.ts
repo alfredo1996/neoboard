@@ -6,18 +6,20 @@ import {
   saveDashboard,
   typeInEditor,
   uid,
+  editingCrumb,
+  dashboardCrumb,
 } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
 /**
- * Click Back to leave edit mode and wait for the URL to drop the /edit
+ * Click the dashboard crumb to leave edit mode and wait for the URL to drop the /edit
  * suffix. Call it only after `saveDashboard(page)`: the store is clean by
  * then, so the unsaved-changes guard never opens. Clicking its "Leave" would
  * reload the page and abort a save still in flight, which is how these tests
  * used to lose the widgets they had just added (#1767).
  */
 async function leaveEditMode(page: Page) {
-  await page.getByRole("button", { name: "Back" }).click();
+  await dashboardCrumb(page).click();
   await expect(page).not.toHaveURL(/\/edit$/, { timeout: 15_000 });
 }
 
@@ -34,9 +36,7 @@ test.describe("Form widget", () => {
     dashboardCleanup = cleanup;
     dashboardId = id;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {

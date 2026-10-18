@@ -36,11 +36,11 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
         });
         gridLayout.push({ i: `w${i}`, x: 0, y: i * 5, w: 12, h: 5 });
       }
-      // The name is long on purpose: in view mode the toolbar's "updated ...
-      // by ..." line then always wraps to a second row, the edit toolbar
-      // stays one row, and the header changes height on every toggle. Chromium
-      // scroll anchoring compensates by moving scrollTop, so scrollTop is not
-      // the invariant. The on-screen position of a widget is.
+      // The name is long on purpose: the header keeps its height from view to
+      // edit however long it is (the title truncates, #2252), and this keeps
+      // that true while scrolled. What can still move content is inside the
+      // cards (edit mode grows each card's own header), which is why the
+      // position of a widget on screen, not scrollTop, is the invariant.
       await page.request.put(`/api/dashboards/${id}`, {
         data: {
           layoutJson: {
@@ -69,11 +69,20 @@ test.describe("Edit mode preserves scroll position (#1163, #1370)", () => {
           .first()
           .evaluate((el) => el.getBoundingClientRect().top);
 
-      // Scroll the <main> container down.
+      // Scroll the <main> container down, until its top edge sits in the gap
+      // under the first card. Edit mode grows each card's own header by 18px,
+      // so an edge inside a card body would anchor to content that moves
+      // within its card, and the header's height would decide whether this
+      // test passes. The gap anchors to nothing that moves.
       const before = await page.evaluate(() => {
         const m = document.querySelector("main");
-        if (!m) return -1;
-        m.scrollTop = 600;
+        const card = document.querySelector('[data-testid="widget-card"]');
+        if (!m || !card) return -1;
+        m.scrollTop =
+          card.getBoundingClientRect().bottom -
+          m.getBoundingClientRect().top +
+          m.scrollTop +
+          4;
         return m.scrollTop;
       });
       expect(before).toBeGreaterThan(200);

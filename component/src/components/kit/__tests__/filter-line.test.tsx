@@ -19,6 +19,44 @@ describe("FilterLine", () => {
     ).toBeInTheDocument();
   });
 
+  it("carries a filter's title on its chip, for where it came from", () => {
+    render(
+      <FilterLine
+        filters={[{ ...filters[0], title: "Set by URL" }, filters[1]]}
+        onRemove={() => {}}
+        onReset={() => {}}
+      />,
+    );
+    expect(screen.getByTitle("Set by URL")).toHaveTextContent(
+      "Decade is 1990s",
+    );
+    expect(screen.getAllByTitle(/.*/)).toHaveLength(1);
+  });
+
+  it("selects a filter from its sentence, a button beside the remove button", () => {
+    const onSelect = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <FilterLine
+        filters={[{ ...filters[0], onSelect }, filters[1]]}
+        onRemove={onRemove}
+        onReset={() => {}}
+      />,
+    );
+    const sentence = screen.getByRole("button", { name: "Decade is 1990s" });
+    const remove = screen.getByRole("button", { name: "Remove Decade filter" });
+    expect(sentence.contains(remove)).toBe(false);
+    fireEvent.click(remove);
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.click(sentence);
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onRemove).toHaveBeenCalledWith("decade");
+    // A filter with no onSelect stays plain text.
+    expect(
+      screen.queryByRole("button", { name: "Actor is Tom Hanks" }),
+    ).toBeNull();
+  });
+
   it("removes one filter by id and resets all", () => {
     const onRemove = vi.fn();
     const onReset = vi.fn();

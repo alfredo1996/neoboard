@@ -134,7 +134,7 @@ export function PageTabs({
   }
 
   return (
-    <div className="flex items-center gap-1 px-4 border-b bg-background shrink-0 overflow-x-auto">
+    <div className="flex items-center gap-1 shrink-0 overflow-x-auto">
       {/* A tablist may own only tabs (#2107): page options, the rename field
           and Add page sit after it, and act on the active page. */}
       <div role="tablist" className="flex items-center gap-1">

@@ -19,10 +19,11 @@ import { useConnections } from "@/hooks/use-connections";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
-import { useParameterStore } from "@/stores/parameter-store";
-import type { ParameterEntry } from "@/stores/parameter-store";
+import {
+  useParameterStore,
+  type ParameterEntry,
+} from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
-import { filterParentParams } from "@/lib/parameter/format-parameter-value";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import {
@@ -308,29 +309,6 @@ export function DashboardWorkspace({
   );
 
   // ── Parameters ──────────────────────────────────────────────────────
-  const parameters = useParameterStore((s) => s.parameters);
-  const parameterCount = useMemo(
-    () => filterParentParams(Object.entries(parameters)).length,
-    [parameters],
-  );
-  // The button stays enabled whenever the dashboard has parameter widgets,
-  // even before the store has populated their values (e.g. on initial load).
-  const hasParameterWidgets = useMemo(
-    () =>
-      activeLayout.pages.some((p) =>
-        p.widgets.some((w) => w.chartType === "parameter-select"),
-      ),
-    [activeLayout],
-  );
-  const hasParameters = hasParameterWidgets || parameterCount > 0;
-  // null = auto mode (show when params exist), boolean = user override
-  const [barOverride, setBarOverride] = useState<boolean | null>(null);
-  const effectiveShowBar = barOverride ?? hasParameters;
-  const toggleParameterBar = useCallback(
-    () => setBarOverride((prev) => !(prev ?? effectiveShowBar)),
-    [effectiveShowBar],
-  );
-
   const parameterSourceMap = useMemo(
     () => buildParameterSourceMap(activeLayout),
     [activeLayout],
@@ -691,6 +669,26 @@ export function DashboardWorkspace({
     // dropping unsaved edits (#2054).
   ]);
 
+  const widgetCount = activeLayout.pages.reduce(
+    (n, p) => n + p.widgets.length,
+    0,
+  );
+  // The tabs row is the same in view and edit, so the header is too: it shows
+  // with 2+ pages. A one-page dashboard adds its second from an edit action.
+  const pageTabs =
+    activeLayout.pages.length > 1 ? (
+      <PageTabs
+        pages={activeLayout.pages}
+        activeIndex={safeIndex}
+        editable={editMode}
+        onSelect={handleSelectPage}
+        onAdd={editMode ? addPage : undefined}
+        onRemove={editMode ? removePage : undefined}
+        onRename={editMode ? renamePage : undefined}
+        onReorder={editMode ? handleReorderPages : undefined}
+      />
+    ) : undefined;
+
   // ── Render ──────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -733,36 +731,43 @@ export function DashboardWorkspace({
         <DashboardEditToolbar
           dashboardId={id}
           name={dashboard.name}
+          updatedAt={dashboard.updatedAt}
+          updatedByName={dashboard.updatedByName}
+          widgetCount={widgetCount}
+          tabs={pageTabs}
+          onAddPage={activeLayout.pages.length < 2 ? addPage : undefined}
           isAdmin={isAdmin}
           isPublic={dashboard.isPublic ?? false}
           onTogglePublic={(value) =>
             updateDashboard.mutate({ id, isPublic: value })
           }
-          hasParameters={hasParameters}
-          parameterCount={parameterCount}
-          showParameterBar={effectiveShowBar}
-          onToggleParameterBar={toggleParameterBar}
           isSaving={updateDashboard.isPending}
           onAddWidget={openAddWidget}
           onSave={handleSave}
-          onBack={leaveEditMode}
+          onDashboards={() => {
+            if (requestNavigation("/")) router.push("/");
+          }}
+          onLeave={leaveEditMode}
         />
       ) : (
         <DashboardViewToolbar
           name={dashboard.name}
-          role={dashboard.role}
           updatedAt={dashboard.updatedAt}
           updatedByName={dashboard.updatedByName}
+          widgetCount={widgetCount}
+          isPublic={dashboard.isPublic ?? false}
+          tabs={pageTabs}
+          dashboardId={id}
+          isAdmin={isAdmin}
+          onTogglePublic={(value) =>
+            updateDashboard.mutate({ id, isPublic: value })
+          }
           canEdit={canEdit}
           isFetching={isFetching}
           refetchInterval={viewRefetchInterval}
           onApplyInterval={applyInterval}
-          hasParameters={hasParameters}
-          parameterCount={parameterCount}
-          showParameterBar={effectiveShowBar}
-          onToggleParameterBar={toggleParameterBar}
           isEnteringEdit={isPending}
-          onBack={() => router.push("/")}
+          onDashboards={() => router.push("/")}
           onEdit={() => startTransition(enterEditMode)}
         />
       )}
@@ -796,19 +801,6 @@ export function DashboardWorkspace({
             <AlertDescription>{saveError}</AlertDescription>
           </Alert>
         </div>
-      )}
-
-      {(editMode || activeLayout.pages.length > 1) && (
-        <PageTabs
-          pages={activeLayout.pages}
-          activeIndex={safeIndex}
-          editable={editMode}
-          onSelect={handleSelectPage}
-          onAdd={editMode ? addPage : undefined}
-          onRemove={editMode ? removePage : undefined}
-          onRename={editMode ? renamePage : undefined}
-          onReorder={editMode ? handleReorderPages : undefined}
-        />
       )}
 
       {editMode && (
@@ -936,7 +928,6 @@ export function DashboardWorkspace({
                         : { onNavigateToPage: handleNavigateToPage }
                     }
                     templateMap={editMode ? templateMap : undefined}
-                    showParameterBar={effectiveShowBar}
                     parameterSourceMap={parameterSourceMap}
                     connectorCapabilities={dashboard?.connectorCapabilities}
                     connectionNames={dashboard?.connectionNames}

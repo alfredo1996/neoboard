@@ -6,6 +6,7 @@ import {
   typeInEditor,
   getPreview,
   uid,
+  editingCrumb,
 } from "./fixtures";
 
 test.describe("Heavy widget rendering", () => {
@@ -19,9 +20,7 @@ test.describe("Heavy widget rendering", () => {
     );
     dashboardCleanup = cleanup;
     await page.goto(`/${id}/edit`);
-    await expect(
-      page.getByRole("heading", { name: /^Editing:/ }),
-    ).toBeVisible();
+    await expect(editingCrumb(page)).toBeVisible();
   });
 
   test.afterEach(async () => {
