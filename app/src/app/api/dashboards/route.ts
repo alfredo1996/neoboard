@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { and, count, countDistinct, desc, eq, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
@@ -26,6 +27,11 @@ const createDashboardSchema = z.object({
   description: z.string().optional(),
 });
 
+// The owner's display name, by a second join to users; the name only (#2253).
+const owners = alias(users, "owners");
+const ownerJoin = (tenantId: string) =>
+  and(eq(owners.id, dashboards.userId), eq(owners.tenantId, tenantId));
+
 export async function GET(request: Request) {
   try {
     const { userId, role, tenantId } = await requireSession();
@@ -50,9 +56,11 @@ export async function GET(request: Request) {
           ownerId: dashboards.userId,
           layoutJson: dashboards.layoutJson,
           updatedByName: users.name,
+          ownerName: owners.name,
         })
         .from(dashboards)
         .leftJoin(users, eq(dashboards.updatedBy, users.id))
+        .leftJoin(owners, ownerJoin(tenantId))
         .where(eq(dashboards.tenantId, tenantId))
         .orderBy(...NEWEST_FIRST)
         .limit(limit)
@@ -111,6 +119,7 @@ export async function GET(request: Request) {
         shareRole: dashboardShares.role,
         layoutJson: dashboards.layoutJson,
         updatedByName: users.name,
+        ownerName: owners.name,
       })
       .from(dashboards)
       .leftJoin(
@@ -122,6 +131,7 @@ export async function GET(request: Request) {
         ),
       )
       .leftJoin(users, eq(dashboards.updatedBy, users.id))
+      .leftJoin(owners, ownerJoin(tenantId))
       .where(and(eq(dashboards.tenantId, tenantId), accessFilter))
       .orderBy(...NEWEST_FIRST)
       .limit(limit)

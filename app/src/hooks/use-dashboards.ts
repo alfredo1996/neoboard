@@ -41,6 +41,8 @@ export interface DashboardListItem {
   createdAt: string;
   updatedAt: string;
   updatedByName: string | null;
+  /** The owner's display name; the list endpoint only, so absent on a detail. */
+  ownerName?: string | null;
   role: "owner" | "viewer" | "editor" | "admin";
   widgetCount: number;
 }

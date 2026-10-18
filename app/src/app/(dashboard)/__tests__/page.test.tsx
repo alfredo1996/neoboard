@@ -538,13 +538,19 @@ it.each([
 );
 
 describe("DashboardListPage rows (#2253)", () => {
-  const OWNED = { ...DASHBOARD, id: "d1", role: "owner" as const };
+  const OWNED = {
+    ...DASHBOARD,
+    id: "d1",
+    role: "owner" as const,
+    ownerName: "Ada Owner",
+  };
   const SHARED = {
     ...DASHBOARD,
     id: "d2",
     name: "Chart gallery",
     description: "One page per chart type",
     role: "viewer" as const,
+    ownerName: "Bo Builder",
     isPublic: true,
     widgetCount: 5,
   };
@@ -560,6 +566,33 @@ describe("DashboardListPage rows (#2253)", () => {
       within(row).getByRole("link", { name: "Chart gallery" }),
     ).toHaveAttribute("href", "/d2");
     expect(within(row).getByText("One page per chart type")).toBeVisible();
+  });
+
+  it("names the owner in the Owner column, whoever you are", () => {
+    render(<DashboardListPage />);
+    expect(
+      screen.getByRole("columnheader", { name: "Owner" }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("row", { name: /Chart gallery/ })).getByText(
+        "Bo Builder",
+      ),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole("row", { name: /Movie Analytics/ })).getByText(
+        "Ada Owner",
+      ),
+    ).toBeVisible();
+  });
+
+  it("does not count a dashboard an admin sees only as admin as shared with them", () => {
+    dashboards = [
+      OWNED,
+      { ...SHARED, id: "d3", name: "Not mine", role: "admin" as const },
+      { ...SHARED, id: "d4", name: "Editable", role: "editor" as const },
+    ];
+    render(<DashboardListPage />);
+    expect(screen.getByText("3 dashboards · 1 shared with you")).toBeVisible();
   });
 
   it("tags a public dashboard and nothing else", () => {

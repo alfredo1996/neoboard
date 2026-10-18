@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { sql, type SQLChunk } from "drizzle-orm";
+import { sql, type SQL, type SQLChunk } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
   makeSelectChain,
@@ -218,6 +218,68 @@ describe("GET /api/dashboards", () => {
     ).toBe(true);
   });
 
+  it("names each dashboard's owner, from a tenant-scoped join (#2253)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "admin-1",
+      role: "admin",
+      canWrite: true,
+      tenantId: "tenant-x",
+    });
+    const base = {
+      description: null,
+      isPublic: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const rowsChain = makeSelectChain([
+      { ...base, id: "d1", name: "Mine", ownerId: "admin-1", ownerName: "Ada" },
+      { ...base, id: "d2", name: "Theirs", ownerId: "u2", ownerName: "Bo" },
+    ]);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ count: 2 }]))
+      .mockReturnValueOnce(rowsChain);
+
+    const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
+    const body = await res.json();
+
+    expect(
+      body.data.map((d: { id: string; ownerName: string }) => [
+        d.id,
+        d.ownerName,
+      ]),
+    ).toEqual([
+      ["d1", "Ada"],
+      ["d2", "Bo"],
+    ]);
+    // Selected from the owner's row, as a name only.
+    expect(Object.keys(mockDb.select.mock.calls[1][0])).toContain("ownerName");
+    const ownerJoins = rowsChain.calls.leftJoin.filter(([, on]) =>
+      sqlValues(on as SQL).includes("tenant-x"),
+    );
+    expect(ownerJoins).toHaveLength(1);
+  });
+
+  it("scopes the owner join by tenant for a creator too (#2253)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "user-1",
+      role: "creator",
+      canWrite: true,
+      tenantId: "tenant-x",
+    });
+    const rowsChain = makeSelectChain([]);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 0 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(rowsChain);
+
+    await GET(makeRequest({}, "http://localhost/api/dashboards"));
+
+    // The share join and the owner join each carry the session tenant.
+    expect(
+      rowsChain.calls.leftJoin.filter(([, on]) =>
+        sqlValues(on as SQL).includes("tenant-x"),
+      ),
+    ).toHaveLength(2);
+  });
+
   it("returns only assigned dashboards for reader role", async () => {
     mockRequireSession.mockResolvedValue({
       userId: "user-1",
@@ -359,8 +421,7 @@ describe("GET /api/dashboards", () => {
 
 /** Render recorded ORDER BY / DISTINCT ON arguments as the SQL Postgres sees. */
 function renderSql(parts: unknown[]): string {
-  return new PgDialect().sqlToQuery(sql.join(parts as SQLChunk[], sql`, `))
-    .sql;
+  return new PgDialect().sqlToQuery(sql.join(parts as SQLChunk[], sql`, `)).sql;
 }
 
 describe("GET /api/dashboards — order and pagination (#1789)", () => {

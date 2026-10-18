@@ -13,8 +13,9 @@ test.describe("Dashboard metadata — updatedBy display", () => {
       .first();
     await expect(card).toBeVisible({ timeout: 10_000 });
 
-    // Card should contain "by Alice Demo" in the footer area
-    await expect(card.getByText("Alice Demo")).toBeVisible();
+    // The row names the owner, and who updated it last, in the Updated cell.
+    await expect(card).toContainText("Alice Demo");
+    await expect(card).toContainText(/· Alice Demo/);
   });
 
   test("row shows who updated a dashboard after creating it", async ({
@@ -48,8 +49,8 @@ test.describe("Dashboard metadata — updatedBy display", () => {
       .first();
     await expect(card).toBeVisible({ timeout: 10_000 });
 
-    // Card should show "by Alice Demo" since Alice created it
-    await expect(card.getByText("Alice Demo")).toBeVisible();
+    // Alice created it: she is the owner and the last to update it.
+    await expect(card).toContainText(/· Alice Demo/);
 
     // Clean up
     await card.getByRole("button", { name: "Dashboard options" }).click();

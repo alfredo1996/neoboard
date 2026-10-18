@@ -812,7 +812,8 @@ export default function DashboardListPage() {
 
   const { data: connections } = useConnections();
   const sharedCount = (dashboardList ?? []).filter(
-    (d) => d.role !== "owner",
+    // An admin sees every dashboard; only a share makes one "shared with you".
+    (d) => d.role === "editor" || d.role === "viewer",
   ).length;
   const widgetTotal = (dashboardList ?? []).reduce(
     (n, d) => n + (d.widgetCount ?? 0),
@@ -896,7 +897,7 @@ export default function DashboardListPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="flex min-h-full flex-col">
       <PageHeader
         title="Dashboards"
         titleRef={headingRef}
@@ -1109,7 +1110,8 @@ export default function DashboardListPage() {
         onCloseAutoFocus={focusOpener}
       />
 
-      <div className="space-y-4 p-4 md:p-7">
+      {/* The ground behind the panels, as on the dashboard page (#2219). */}
+      <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
         <LoadingOverlay loading={isLoading} text="Loading dashboards...">
           {!dashboardList?.length ? (
             emptyList
@@ -1156,7 +1158,7 @@ export default function DashboardListPage() {
               ) : (
                 <List
                   label="Dashboards"
-                  columns={["Name", "Access", "Widgets", "Updated"]}
+                  columns={["Name", "Owner", "Widgets", "Updated"]}
                 >
                   {filteredDashboards.map((d) => {
                     const canEdit =
@@ -1175,7 +1177,9 @@ export default function DashboardListPage() {
                         onOpen={() => router.push(`/${d.id}`)}
                         meta={[
                           <span key="a" className="flex items-center gap-2">
-                            <span className="capitalize">{d.role}</span>
+                            <span className="truncate">
+                              {d.ownerName ?? "—"}
+                            </span>
                             {d.isPublic && (
                               <Badge variant="secondary">Public</Badge>
                             )}
