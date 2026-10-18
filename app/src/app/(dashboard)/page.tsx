@@ -88,8 +88,10 @@ import {
   Stat,
 } from "@neoboard/components/kit";
 import {
+  dashboardListFilters,
   dashboardListMeta,
   dashboardListSubtitle,
+  dashboardListTotals,
 } from "./dashboard-list-subtitle";
 import { deleteDashboardToast } from "./delete-dashboard-toast";
 import {
@@ -816,11 +818,7 @@ export default function DashboardListPage() {
   const { data: connections } = useConnections();
   // The API says it: the role cannot (a public dashboard nobody shared reads
   // "viewer", and an admin's share reads "admin").
-  const sharedCount = (dashboardList ?? []).filter((d) => d.shared).length;
-  const widgetTotal = (dashboardList ?? []).reduce(
-    (n, d) => n + (d.widgetCount ?? 0),
-    0,
-  );
+  const { sharedCount, widgetTotal } = dashboardListTotals(dashboardList);
 
   const canCreate = systemRole === "admin" || systemRole === "creator";
 
@@ -829,19 +827,7 @@ export default function DashboardListPage() {
     dashboardList ?? [],
     search,
   ).filter((d) => !onlyMine || d.role === "owner");
-  const activeFilters = [
-    ...(search.trim()
-      ? [
-          {
-            id: "name",
-            label: "Name",
-            operator: "contains",
-            value: search.trim(),
-          },
-        ]
-      : []),
-    ...(onlyMine ? [{ id: "owner", label: "Owner", value: "you" }] : []),
-  ];
+  const activeFilters = dashboardListFilters(search, onlyMine);
 
   async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
