@@ -29,12 +29,8 @@
       "Bash(rm -rf /)",
       "Bash(rm -rf ~)",
       "Edit(.env*)",
-      "Write(.env*)",
-      "Write(*.pem)",
       "Edit(*.pem)",
-      "Write(*.key)",
       "Edit(*.key)",
-      "Write(*credentials*)",
       "Edit(*credentials*)"
     ]
   },

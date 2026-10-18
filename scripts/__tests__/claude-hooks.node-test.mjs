@@ -552,6 +552,18 @@ describe("E2E commit gate (#1843)", () => {
     }
   });
 
+  test("the block asks for one cd, since a second one hides the run from the gate", () => {
+    // target_dir() gives up on more than one `cd`, so `cd wt && cd app && npx
+    // playwright test` ran the suite and still left the commit blocked.
+    const { stderr } = run(
+      "enforce-e2e.sh",
+      ["check-commit"],
+      { tool_input: { command: "git commit -m x" } },
+      { CLAUDE_PROJECT_DIR: project({ marker: true }) },
+    );
+    assert.match(stderr, /one `cd`/);
+  });
+
   test("allows commands that only mention a commit", () => {
     const dir = project({ marker: true });
     for (const command of [

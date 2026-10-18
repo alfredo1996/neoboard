@@ -288,7 +288,7 @@ case "$1" in
     [ -z "$FILES" ] && exit 0
     COUNT=$(echo "$FILES" | wc -l | tr -d ' ')
     echo "BLOCKED: $COUNT UI file(s) were edited and Playwright E2E has not run since." >&2
-    echo "Run first: cd app && npx playwright test <affected spec>" >&2
+    echo "Run first, with one \`cd\` in the command: cd <checkout>/app && npx playwright test <affected spec>. A second cd hides which checkout ran it, and the run does not count." >&2
     echo "If the run saw what is on disk but a different version is staged, git add it so the commit carries what was tested." >&2
     if [ -n "$UNRESOLVED" ]; then
       echo "" >&2
@@ -344,7 +344,7 @@ case "$1" in
       grep -qxF "$TOP/$f" "$MARKER" || echo "$TOP/$f" >> "$MARKER"
     done
     COUNT=$(echo "$FILES" | wc -l | tr -d ' ')
-    jq -n --arg r "The commit just made carries $COUNT UI file(s) that no Playwright run has seen: $(echo "$FILES" | paste -sd, - | sed 's/,/, /g'). They were written in the same Bash call as the commit, after the E2E gate had checked. Run cd app && npx playwright test <affected spec>, then git commit --amend. The next commit is blocked until a run." \
+    jq -n --arg r "The commit just made carries $COUNT UI file(s) that no Playwright run has seen: $(echo "$FILES" | paste -sd, - | sed 's/,/, /g'). They were written in the same Bash call as the commit, after the E2E gate had checked. Run cd <checkout>/app && npx playwright test <affected spec> (one cd in the command, or the run does not count), then git commit --amend. The next commit is blocked until a run." \
       '{decision: "block", reason: $r}'
     ;;
 

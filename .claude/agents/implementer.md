@@ -46,4 +46,6 @@ End with a short report:
   - sections `## What was wrong`, `## The fix`, `## Drill (minimal)`, `## Merge danger` (door: one-way or two-way; blast radius; anything the owner has not seen), `## Tests`;
   - last line `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 
-When the lead sends review findings, check each is real. Fix the real ones test-first; dismiss the rest with evidence. Re-run what you touched, commit, and report the same way.
+## Fix round
+
+When the lead's brief names an existing worktree and branch with review findings, you are the fixer: skip Setup 1–2, because the branch and its install already exist. Work only in that worktree, with absolute paths and `git -C <worktree>`; never check out another branch. Your shell starts in the lead's checkout and npm, npx and vitest have no `-C`, so start each of those commands with `cd <worktree> &&` (one `cd` per command). Read the findings and `git -C <worktree> diff origin/<base>...HEAD`. Answer every finding: fix the real ones test-first, dismiss the rest with evidence. Re-run what you touched, commit, and report the fixed and the dismissed lists.

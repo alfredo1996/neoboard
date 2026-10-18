@@ -23,7 +23,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Agent, SendMessage, Bash(npm *), Ba
 
 - **An issue:** delegate it, as CLAUDE.md requires (#2180).
   - The `implementer` agent works in its own worktree (`isolation: "worktree"`) and commits without pushing.
-  - Then `adversarial-reviewer` reviews it, and its real findings go back to the same implementer.
+  - Then `adversarial-reviewer` reviews it, and every finding goes to a fresh `implementer`, spawned without `isolation` and given the worktree path, the branch, the findings and the diff; it dismisses what is not real, with evidence (CLAUDE.md, #2180).
   - Then `pr` opens the PR and merges it at the bar.
 - **A small change with no issue:** do it yourself in a worktree, never on the main checkout's branch, because the hooks run from that working copy:
 
