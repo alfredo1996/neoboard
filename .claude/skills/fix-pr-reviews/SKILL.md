@@ -48,7 +48,7 @@ There are about 3 reviews per window, then roughly a 35-minute wait. Treat its o
 **Filter rules:**
 
 - `sonarqubecloud[bot]`: use direct API results; extract rule key, severity, component (file path), line
-- CodeRabbit (`review:local` output): keep actionable items only; skip suggestions marked as optional or nitpick
+- CodeRabbit (`review:local` output): every item goes to the fixer, nitpicks included; it fixes them or dismisses each with a one-line reason (owner decision on #2180, 2026-10-18)
 - Ignore comments from human reviewers in this pass (address separately)
 
 ## Phase 2 — Fix

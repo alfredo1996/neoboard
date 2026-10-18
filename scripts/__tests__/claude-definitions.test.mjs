@@ -307,6 +307,12 @@ describe("review findings go to a fresh implementer (#2180, 2026-10-18)", () => 
     },
   );
 
+  it("fix-pr-reviews hands CodeRabbit's nitpicks to the fixer too (owner, 2026-10-18)", () => {
+    const skill = read(".claude/skills/fix-pr-reviews/SKILL.md");
+    expect(skill).not.toMatch(/skip suggestions marked as optional or nitpick/);
+    expect(skill).toContain("nitpicks included");
+  });
+
   it("the implementer knows a fix round skips setup and stays on the branch", () => {
     const implementer = read(".claude/agents/implementer.md");
     const fixRound = implementer.slice(implementer.indexOf("## Fix round"));
