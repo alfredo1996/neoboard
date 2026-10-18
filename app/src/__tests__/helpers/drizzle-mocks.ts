@@ -21,6 +21,7 @@ export interface ChainCalls {
   orderBy: unknown[][];
   limit: unknown[][];
   offset: unknown[][];
+  leftJoin: unknown[][];
 }
 
 function newCalls(): ChainCalls {
@@ -32,6 +33,7 @@ function newCalls(): ChainCalls {
     orderBy: [],
     limit: [],
     offset: [],
+    leftJoin: [],
   };
 }
 
@@ -86,7 +88,7 @@ export function makeSelectChain(rows: unknown[]) {
     from: (...a: unknown[]) => (calls.from.push(a), c),
     where: (...a: unknown[]) => (calls.where.push(a), c),
     innerJoin: () => c,
-    leftJoin: () => c,
+    leftJoin: (...a: unknown[]) => (calls.leftJoin.push(a), c),
     limit: (...a: unknown[]) => (calls.limit.push(a), c),
     orderBy: (...a: unknown[]) => (calls.orderBy.push(a), c),
     offset: (...a: unknown[]) => (calls.offset.push(a), c),

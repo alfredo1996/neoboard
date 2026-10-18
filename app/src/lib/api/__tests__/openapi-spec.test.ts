@@ -867,7 +867,7 @@ describe("#1981 payloads: dashboards-crud", () => {
   const remove = paths["/api/dashboards/{id}"].delete;
   const duplicate = paths["/api/dashboards/{id}/duplicate"].post;
 
-  it("a list item carries updatedByName, role and widgetCount, never owner, tenant, layout or version", () => {
+  it("a list item carries updatedByName, ownerName, role and widgetCount, never an owner id, tenant, layout or version", () => {
     const item = deref(data(list, "200")).items!;
     const keys = [
       "id",
@@ -877,6 +877,8 @@ describe("#1981 payloads: dashboards-crud", () => {
       "createdAt",
       "updatedAt",
       "updatedByName",
+      "ownerName",
+      "shared",
       "role",
       "widgetCount",
     ].sort();
@@ -888,9 +890,11 @@ describe("#1981 payloads: dashboards-crud", () => {
       "createdAt",
       "updatedAt",
       "updatedByName",
+      "ownerName",
     ]) {
       expect(props[k].nullable, k).toBe(true);
     }
+    expect(props.shared.type).toBe("boolean");
     expect(props.role.enum).toEqual(["owner", "editor", "viewer", "admin"]);
   });
 

@@ -54,8 +54,9 @@ vi.mock("@/hooks/use-dashboards", () => ({
   }),
 }));
 
+let connections: unknown[] = [];
 vi.mock("@/hooks/use-connections", () => ({
-  useConnections: () => ({ data: [] }),
+  useConnections: () => ({ data: connections }),
 }));
 
 // The NeoDash import asks the registry which connector speaks Cypher (#1900).
@@ -100,7 +101,6 @@ vi.mock("@neoboard/components", () => {
     "PanelFooter",
     "PanelHeader",
     "PanelTitle",
-    "Checkbox",
     "DialogDescription",
     "DialogFooter",
     "DialogHeader",
@@ -127,11 +127,13 @@ vi.mock("@neoboard/components", () => {
     Button: ({
       children,
       onClick,
+      "aria-label": label,
     }: {
       children?: React.ReactNode;
       onClick?: () => void;
+      "aria-label"?: string;
     }) => (
-      <div tabIndex={-1} onClick={onClick}>
+      <div tabIndex={-1} onClick={onClick} aria-label={label}>
         {children}
       </div>
     ),
@@ -146,26 +148,25 @@ vi.mock("@neoboard/components", () => {
       <MockDialogOpen.Provider value={open}>{children}</MockDialogOpen.Provider>
     ),
     DialogContent: MockDialogContent,
+    Checkbox: ({
+      checked,
+      onCheckedChange,
+      ...rest
+    }: {
+      checked?: boolean;
+      onCheckedChange?: (v: boolean) => void;
+    } & React.InputHTMLAttributes<HTMLInputElement>) => (
+      <input
+        type="checkbox"
+        aria-label={rest["aria-label"]}
+        checked={!!checked}
+        onChange={(e) => onCheckedChange?.(e.target.checked)}
+      />
+    ),
     // A real input: the import flow is driven through its change event, so a
     // passthrough div would leave `handleFile` unreachable.
     Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
       <input {...props} />
-    ),
-    PageHeader: ({
-      title,
-      titleRef,
-      actions,
-    }: {
-      title: string;
-      titleRef?: React.Ref<HTMLHeadingElement>;
-      actions?: React.ReactNode;
-    }) => (
-      <>
-        <h1 ref={titleRef} tabIndex={-1}>
-          {title}
-        </h1>
-        {actions}
-      </>
     ),
     // Hands focus back after the render that closes it, as Radix does.
     ConfirmDialog: function ConfirmDialog({
@@ -551,3 +552,181 @@ it.each([
     expect(fromMenu ? menuTrigger : opener).toHaveFocus();
   },
 );
+
+describe("DashboardListPage rows (#2253)", () => {
+  const OWNED = {
+    ...DASHBOARD,
+    id: "d1",
+    role: "owner" as const,
+    ownerName: "Ada Owner",
+  };
+  const SHARED = {
+    ...DASHBOARD,
+    id: "d2",
+    name: "Chart gallery",
+    description: "One page per chart type",
+    role: "viewer" as const,
+    ownerName: "Bo Builder",
+    shared: true,
+    isPublic: true,
+    widgetCount: 5,
+  };
+  beforeEach(() => {
+    dashboards = [OWNED, SHARED];
+    connections = [{ id: "c1" }, { id: "c2" }];
+  });
+
+  it("renders each dashboard as a row whose link opens it", () => {
+    render(<DashboardListPage />);
+    const row = screen.getByRole("row", { name: /Chart gallery/ });
+    expect(
+      within(row).getByRole("link", { name: "Chart gallery" }),
+    ).toHaveAttribute("href", "/d2");
+    expect(within(row).getByText("One page per chart type")).toBeVisible();
+  });
+
+  it("names the owner in the Owner column, whoever you are", () => {
+    render(<DashboardListPage />);
+    expect(
+      screen.getByRole("columnheader", { name: "Owner" }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("row", { name: /Chart gallery/ })).getByText(
+        "Bo Builder",
+      ),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole("row", { name: /Movie Analytics/ })).getByText(
+        "Ada Owner",
+      ),
+    ).toBeVisible();
+  });
+
+  it("counts a dashboard as shared only when a share names you, whatever the role", () => {
+    const pub = { ...SHARED, shared: false, role: "viewer" as const };
+    dashboards = [
+      OWNED,
+      { ...pub, id: "d3", name: "Public, never shared" },
+      { ...pub, id: "d6", name: "Another public" },
+      { ...pub, id: "d4", name: "Admin sees it", role: "admin" as const },
+      {
+        ...pub,
+        id: "d5",
+        name: "Admin was shared it",
+        role: "admin" as const,
+        shared: true,
+      },
+    ];
+    render(<DashboardListPage />);
+    expect(screen.getByText("5 dashboards · 1 shared with you")).toBeVisible();
+  });
+
+  it("filters to the dashboards you own, with a chip that clears it, and combines with the search", () => {
+    dashboards = [OWNED, SHARED, { ...OWNED, id: "d3", name: "Mine too" }];
+    render(<DashboardListPage />);
+    const mine = screen.getByRole("checkbox", { name: "Only mine" });
+
+    fireEvent.click(mine);
+    expect(screen.queryByRole("row", { name: /Chart gallery/ })).toBeNull();
+    expect(screen.getByRole("row", { name: /Mine too/ })).toBeVisible();
+    expect(screen.getByText("Owner is", { exact: false })).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText("Search dashboards"), {
+      target: { value: "too" },
+    });
+    expect(screen.queryByRole("row", { name: /Movie Analytics/ })).toBeNull();
+
+    // Reset clears both; the chip's × clears only its own.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Owner filter" }),
+    );
+    expect(screen.getByRole("row", { name: /Mine too/ })).toBeVisible();
+    expect(screen.queryByRole("row", { name: /Movie Analytics/ })).toBeNull();
+    fireEvent.click(mine);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(screen.getAllByRole("row")).toHaveLength(4); // header + 3
+  });
+
+  it("says no dashboard matches the filters when Only mine leaves nothing", () => {
+    dashboards = [SHARED];
+    render(<DashboardListPage />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Only mine" }));
+    expect(
+      screen.getByText("No dashboards match these filters."),
+    ).toBeVisible();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("names each row's menu button after its dashboard", () => {
+    render(<DashboardListPage />);
+    expect(
+      screen.getByLabelText("Dashboard options for Chart gallery"),
+    ).toBeInTheDocument();
+  });
+
+  it("tags a public dashboard and nothing else", () => {
+    render(<DashboardListPage />);
+    expect(
+      within(screen.getByRole("row", { name: /Chart gallery/ })).getByText(
+        "Public",
+      ),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole("row", { name: /Movie Analytics/ })).queryByText(
+        "Public",
+      ),
+    ).toBeNull();
+  });
+
+  const MENU = [
+    "Edit",
+    "Rename",
+    "Duplicate",
+    "Change connection…",
+    "Export",
+    "Delete",
+  ];
+  const menuOf = (name: RegExp) => {
+    const row = screen.getByRole("row", { name });
+    return MENU.filter((n) => within(row).queryByText(n) !== null);
+  };
+
+  it("holds exactly today's actions in the row menu: all six for an owner, Duplicate and Export for a viewer", () => {
+    dashboards = [OWNED, SHARED];
+    render(<DashboardListPage />);
+    expect(menuOf(/Movie Analytics/)).toEqual(MENU);
+    expect(menuOf(/Chart gallery/)).toEqual(["Duplicate", "Export"]);
+  });
+
+  it("counts dashboards, widgets and connections, and the ones shared with you", () => {
+    render(<DashboardListPage />);
+    const stat = (label: string) =>
+      screen.getByText(label, { selector: "dt" }).nextElementSibling;
+    expect(stat("Dashboards")).toHaveTextContent("2");
+    expect(stat("Widgets")).toHaveTextContent("8");
+    expect(stat("Connections")).toHaveTextContent("2");
+    expect(screen.getByText("2 dashboards · 1 shared with you")).toBeVisible();
+  });
+
+  it("filters by name and shows a chip that clears the search", () => {
+    render(<DashboardListPage />);
+    fireEvent.change(screen.getByLabelText("Search dashboards"), {
+      target: { value: "gallery" },
+    });
+    expect(screen.queryByRole("row", { name: /Movie Analytics/ })).toBeNull();
+    expect(screen.getByText("Name contains", { exact: false })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Name filter" }));
+
+    expect(screen.getByRole("row", { name: /Movie Analytics/ })).toBeVisible();
+    expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
+  });
+
+  it("still shows the empty state with no dashboards", () => {
+    dashboards = [];
+    render(<DashboardListPage />);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText("Welcome to NeoBoard")).toBeVisible();
+    expect(screen.getByText("Create your first dashboard")).toBeVisible();
+  });
+});

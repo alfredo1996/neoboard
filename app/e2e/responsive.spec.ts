@@ -15,14 +15,11 @@ test.describe("Responsive — mobile viewport", () => {
     ).toBeVisible({
       timeout: 15_000,
     });
-    // Verify grid renders single column at mobile width
-    const grid = page.locator(".grid").first();
-    await expect(grid).toBeVisible();
-    const columns = await grid.evaluate(
-      (el) => getComputedStyle(el).gridTemplateColumns,
-    );
-    // Single column = one value (no spaces)
-    expect(columns.trim().split(/\s+/).length).toBe(1);
+    // At mobile width the list shows names only: no column headers.
+    await expect(page.getByRole("table", { name: "Dashboards" })).toBeVisible();
+    await expect(
+      page.getByRole("columnheader", { name: "Widgets" }),
+    ).toBeHidden();
   });
 });
 
@@ -51,13 +48,10 @@ test.describe("Responsive — tablet viewport", () => {
     ).toBeVisible({
       timeout: 15_000,
     });
-    const grid = page.locator(".grid").first();
-    await expect(grid).toBeVisible();
-    const columns = await grid.evaluate(
-      (el) => getComputedStyle(el).gridTemplateColumns,
-    );
-    // Tablet (768px) hits sm breakpoint (640px) → 2 columns
-    expect(columns.trim().split(/\s+/).length).toBe(2);
+    // Tablet (768px) hits the md breakpoint: the meta columns show.
+    await expect(
+      page.getByRole("columnheader", { name: "Widgets" }),
+    ).toBeVisible();
   });
 
   test("connections page should render on tablet", async ({
@@ -162,7 +156,7 @@ test.describe("Responsive — tablet viewport", () => {
         )?.width,
       ).toBe(56);
       await expect(
-        page.getByTestId("dashboard-card").getByTitle(name, { exact: true }),
+        page.getByRole("row").getByRole("link", { name, exact: true }),
       ).toBeVisible();
 
       await page.goto(`/${id}`);
@@ -227,7 +221,7 @@ test.describe("Responsive — wide desktop viewport", () => {
     await authPage.login(ALICE.email, ALICE.password);
   });
 
-  test("dashboard list should render in three columns on wide desktop", async ({
+  test("dashboard list should render its columns on wide desktop", async ({
     page,
   }) => {
     await expect(
@@ -235,13 +229,9 @@ test.describe("Responsive — wide desktop viewport", () => {
     ).toBeVisible({
       timeout: 15_000,
     });
-    const grid = page.locator(".grid").first();
-    await expect(grid).toBeVisible();
-    const columns = await grid.evaluate(
-      (el) => getComputedStyle(el).gridTemplateColumns,
-    );
-    // Wide desktop (1920px) hits lg breakpoint (1024px) → 3 columns
-    expect(columns.trim().split(/\s+/).length).toBe(3);
+    await expect(
+      page.getByRole("columnheader", { name: "Widgets" }),
+    ).toBeVisible();
     // At desktop the sidebar starts expanded; only below lg is it a rail (#2056).
     await expect(
       page.getByRole("button", { name: "Collapse sidebar" }),

@@ -88,10 +88,7 @@ const openCardMenu = async (
   page: any,
   name: string,
 ) => {
-  const card = page
-    .locator('[data-testid="dashboard-card"]')
-    .filter({ hasText: name })
-    .first();
+  const card = page.getByRole("row").filter({ hasText: name }).first();
   await expect(card).toBeVisible({ timeout: 15_000 });
   await card.getByRole("button", { name: "Dashboard options" }).click();
 };

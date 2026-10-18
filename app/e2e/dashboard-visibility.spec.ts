@@ -21,32 +21,35 @@ test.describe("Dashboard visibility — public/private", () => {
     await expect(page.getByText("Actor Network")).not.toBeVisible();
   });
 
-  test("public dashboard card shows globe icon", async ({ authPage, page }) => {
-    await authPage.login(ALICE.email, ALICE.password);
-
-    // "Movie Analytics" is public — its card should have a globe icon
-    const publicCard = page
-      .locator("[class*='cursor-pointer']")
-      .filter({ has: page.getByText("Movie Analytics", { exact: true }) })
-      .first();
-    await expect(publicCard).toBeVisible({ timeout: 10_000 });
-    await expect(publicCard.locator("[aria-label='Public']")).toBeVisible();
-  });
-
-  test("private dashboard card has no globe icon", async ({
+  test("public dashboard row carries a Public tag", async ({
     authPage,
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
 
-    // "Actor Network" is private — no globe icon
+    // "Movie Analytics" is public — its row should carry a Public tag
+    const publicCard = page
+      .getByRole("row")
+      .filter({ has: page.getByText("Movie Analytics", { exact: true }) })
+      .first();
+    await expect(publicCard).toBeVisible({ timeout: 10_000 });
+    await expect(publicCard.getByText("Public", { exact: true })).toBeVisible();
+  });
+
+  test("private dashboard row has no Public tag", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+
+    // "Actor Network" is private — no Public tag
     const privateCard = page
-      .locator("[class*='cursor-pointer']")
+      .getByRole("row")
       .filter({ hasText: "Actor Network" })
       .first();
     await expect(privateCard).toBeVisible({ timeout: 10_000 });
     await expect(
-      privateCard.locator("[aria-label='Public']"),
+      privateCard.getByText("Public", { exact: true }),
     ).not.toBeVisible();
   });
 
@@ -105,7 +108,7 @@ test.describe("Dashboard visibility — public/private", () => {
     await expect(page.getByText("People")).toBeVisible();
   });
 
-  test("bob (creator) sees public dashboard with viewer role badge", async ({
+  test("bob (creator) sees the public dashboard shared with him, and his own", async ({
     authPage,
     page,
   }) => {
@@ -113,7 +116,7 @@ test.describe("Dashboard visibility — public/private", () => {
 
     // Bob should see "Movie Analytics" — shared with him as viewer AND it's public
     const publicCard = page
-      .locator("[class*='cursor-pointer']")
+      .getByRole("row")
       .filter({ has: page.getByText("Movie Analytics", { exact: true }) })
       .first();
     await expect(publicCard).toBeVisible({ timeout: 10_000 });

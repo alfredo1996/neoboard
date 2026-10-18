@@ -57,6 +57,42 @@ describe("FilterLine", () => {
     ).toBeNull();
   });
 
+  it("says the operator a filter names instead of 'is'", () => {
+    render(
+      <FilterLine
+        filters={[
+          { id: "q", label: "Name", operator: "contains", value: "mov" },
+        ]}
+        onRemove={() => {}}
+        onReset={() => {}}
+      />,
+    );
+    expect(screen.getByText("mov").parentElement).toHaveTextContent(
+      "Name contains mov",
+    );
+  });
+
+  it("says the operator on a selectable sentence too", () => {
+    render(
+      <FilterLine
+        filters={[
+          {
+            id: "q",
+            label: "Name",
+            operator: "contains",
+            value: "mov",
+            onSelect: () => {},
+          },
+        ]}
+        onRemove={() => {}}
+        onReset={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Name contains mov" }),
+    ).toBeInTheDocument();
+  });
+
   it("removes one filter by id and resets all", () => {
     const onRemove = vi.fn();
     const onReset = vi.fn();

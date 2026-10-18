@@ -17,7 +17,7 @@ test.describe("Dashboard export", () => {
 
     // Find the "Movie Analytics" card and open its dropdown
     const dashCard = page
-      .locator("div[class*='cursor-pointer']")
+      .getByRole("row")
       .filter({ hasText: "Movie Analytics" })
       .first();
     await expect(dashCard).toBeVisible({ timeout: 10_000 });
@@ -123,7 +123,7 @@ test.describe("Dashboard export", () => {
 
       await creator.goto("/");
       const card = creator
-        .locator("div[class*='cursor-pointer']")
+        .getByRole("row")
         .filter({ hasText: dashboardName })
         .first();
       await expect(card).toBeVisible({ timeout: 10_000 });

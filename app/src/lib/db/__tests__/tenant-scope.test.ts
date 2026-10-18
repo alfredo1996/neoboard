@@ -333,9 +333,9 @@ function trustedReturn(
  * `x.tenantId` is a value: `session.tenantId` is the canonical right-hand
  * side, and `row.tenantId` reads one off a row already fetched.
  */
-function tenantColumnOf(n: ts.Node): string | undefined {
+function tenantColumnOf(n: ts.Node, s?: Src): string | undefined {
   return ts.isPropertyAccessExpression(n) && n.name.text === "tenantId"
-    ? tableOf(n.expression)
+    ? tableOf(n.expression, s)
     : undefined;
 }
 
@@ -344,13 +344,22 @@ function tenantColumnOf(n: ts.Node): string | undefined {
  * The namespace form produced no Hit at all before #1626, and
  * lib/dev/verify-connection-hosts.ts queries through exactly that.
  */
-function tableOf(n: ts.Node | undefined): string | undefined {
+function tableOf(n: ts.Node | undefined, s?: Src): string | undefined {
   const id =
     n && ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression)
       ? n.name
       : n;
-  return id && ts.isIdentifier(id) && Object.hasOwn(TENANT_TABLES, id.text)
-    ? id.text
+  if (!id || !ts.isIdentifier(id)) return undefined;
+  if (Object.hasOwn(TENANT_TABLES, id.text)) return id.text;
+  // `const owners = alias(users, "owners")` is `users` under another name
+  // (#2253): without this a join through it produced no Hit at all.
+  const init = s && initializerOf(id, s);
+  const call = init && unwrap(init);
+  return call &&
+    ts.isCallExpression(call) &&
+    ts.isIdentifier(call.expression) &&
+    call.expression.text === "alias"
+    ? tableOf(call.arguments[0])
     : undefined;
 }
 
@@ -402,8 +411,8 @@ function constrainsTenant(
   if (name === "eq") {
     if (e.arguments.length !== 2) return false;
     const [a, b] = e.arguments;
-    const colA = tenantColumnOf(a);
-    const colB = tenantColumnOf(b);
+    const colA = tenantColumnOf(a, s);
+    const colB = tenantColumnOf(b, s);
     // Two columns is a tautology, not a filter.
     if (colA !== undefined && colB !== undefined) return false;
     if ((colA ?? colB) !== table) return false;
@@ -915,7 +924,7 @@ export function scanSource(file: string, src: string): Hit[] {
       ts.isPropertyAccessExpression(node.expression) &&
       BUILDERS.has(node.expression.name.text) &&
       node.arguments.length === 1
-        ? tableOf(node.arguments[0])
+        ? tableOf(node.arguments[0], s)
         : undefined;
     if (table !== undefined) {
       const kind = (
@@ -955,7 +964,7 @@ export function scanSource(file: string, src: string): Hit[] {
           // surface. These produced no Hit at all before #1626 — not an
           // unscoped Hit, none — so 8 live joins were invisible to the guard.
           const joined = JOINS.has(method)
-            ? tableOf(n.arguments[0])
+            ? tableOf(n.arguments[0], s)
             : undefined;
           if (joined !== undefined) {
             joins.push({
@@ -1347,6 +1356,32 @@ describe("scanSource", () => {
       );
       expect(hits.find((h) => h.table === "users")?.scoped, join).toBe(scoped);
     }
+  });
+
+  it("sees a join through an alias of a tenant table, and judges its on-clause", () => {
+    // `const owners = alias(users, "owners")` is the same table under another
+    // name: dropping its tenant clause must fail the guard (#2253).
+    const run = (on: string) =>
+      scanSource(
+        "f.ts",
+        `import { db } from "@/lib/db";
+         import { alias } from "drizzle-orm/pg-core";
+         import { dashboards, users } from "@/lib/db/schema";
+         ${SESSION}
+         const owners = alias(users, "owners");
+         const r = await db.select().from(dashboards)
+           .leftJoin(owners, ${on})
+           .where(eq(dashboards.tenantId, tenantId));`,
+      ).find((h) => h.kind === "join");
+    const scoped = run(
+      "and(eq(owners.id, dashboards.userId), eq(owners.tenantId, tenantId))",
+    );
+    expect(scoped?.table).toBe("users");
+    expect(scoped?.scoped).toBe(true);
+    // The negative control: the same join without the tenant clause.
+    const unscoped = run("eq(owners.id, dashboards.userId)");
+    expect(unscoped?.table).toBe("users");
+    expect(unscoped?.scoped).toBe(false);
   });
 
   it("flags raw SQL against a tenant table with no tenant_id predicate", () => {

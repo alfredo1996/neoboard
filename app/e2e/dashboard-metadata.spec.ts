@@ -5,21 +5,19 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     await authPage.login(ALICE.email, ALICE.password);
   });
 
-  test("card footer shows 'by {name}' for seeded dashboard", async ({
-    page,
-  }) => {
+  test("row shows who updated the seeded dashboard", async ({ page }) => {
     // The seeded "Movie Analytics" dashboard has updated_by = user-alice-001
     const card = page
-      .locator("div[class*='cursor-pointer']")
+      .getByRole("row")
       .filter({ hasText: "Movie Analytics" })
       .first();
     await expect(card).toBeVisible({ timeout: 10_000 });
 
-    // Card should contain "by Alice Demo" in the footer area
-    await expect(card.getByText("by Alice Demo")).toBeVisible();
+    // The Updated cell says who changed it last.
+    await expect(card).toContainText(/· Alice Demo/);
   });
 
-  test("card footer shows 'by {name}' after creating a dashboard", async ({
+  test("row shows who updated a dashboard after creating it", async ({
     page,
   }) => {
     const dashboardName = `Metadata E2E Test ${uid()}`;
@@ -45,13 +43,13 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     // Go back to list
     await page.goto("/");
     const card = page
-      .locator("div[class*='cursor-pointer']")
+      .getByRole("row")
       .filter({ hasText: dashboardName })
       .first();
     await expect(card).toBeVisible({ timeout: 10_000 });
 
-    // Card should show "by Alice Demo" since Alice created it
-    await expect(card.getByText("by Alice Demo")).toBeVisible();
+    // Alice created it: she is the owner and the last to update it.
+    await expect(card).toContainText(/· Alice Demo/);
 
     // Clean up
     await card.getByRole("button", { name: "Dashboard options" }).click();

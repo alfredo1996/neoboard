@@ -62,31 +62,30 @@ test.describe("Role-based dashboard visibility", () => {
       page.getByRole("button", { name: /New Dashboard/i }),
     ).not.toBeVisible();
 
-    // Reader inherits read-only access to Public dashboards seeded by Alice.
-    // Assert they can see at least one Public dashboard and that it carries
-    // the "viewer" role badge — confirming read-only access propagation.
-    await expect(page.getByText("Movie Analytics")).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(page.getByText("viewer").first()).toBeVisible({
-      timeout: 5_000,
-    });
+    // Reader inherits read-only access to Public dashboards seeded by Alice:
+    // the row is there, tagged Public, with no menu to change anything.
+    const row = page
+      .getByRole("row")
+      .filter({ has: page.getByText("Movie Analytics", { exact: true }) });
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await expect(row.getByText("Public", { exact: true })).toBeVisible();
+    await expect(
+      row.getByRole("button", { name: "Dashboard options" }),
+    ).toHaveCount(0);
   });
 
-  test("admin should see role badge on dashboard cards", async ({
+  test("admin should be offered Delete in a dashboard row's menu", async ({
     authPage,
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
     await expect(page).toHaveURL("/");
-    // Movie Analytics should be visible with a role badge
-    await expect(page.getByText("Movie Analytics")).toBeVisible({
-      timeout: 10_000,
-    });
-    // Admin should see at least one role badge (admin/owner) on dashboard cards
-    await expect(page.getByText(/admin|owner/).first()).toBeVisible({
-      timeout: 5_000,
-    });
+    const row = page
+      .getByRole("row")
+      .filter({ has: page.getByText("Movie Analytics", { exact: true }) });
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await row.getByRole("button", { name: "Dashboard options" }).click();
+    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
   });
 });
 

@@ -5,6 +5,8 @@ export interface FilterLineFilter {
   id: string;
   /** The parameter's label, e.g. "Decade". */
   label: string;
+  /** What joins label and value; "is" when left out. */
+  operator?: string;
   value: string;
   /** Hover text on the chip, e.g. where the value came from. */
   title?: string;
@@ -52,11 +54,13 @@ function FilterLine({
                 onClick={f.onSelect}
                 className="rounded-full hover:underline underline-offset-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {f.label} is <b className="font-medium">{f.value}</b>
+                {f.label} {f.operator ?? "is"}{" "}
+                <b className="font-medium">{f.value}</b>
               </button>
             ) : (
               <span>
-                {f.label} is <b className="font-medium">{f.value}</b>
+                {f.label} {f.operator ?? "is"}{" "}
+                <b className="font-medium">{f.value}</b>
               </span>
             )}
             <button

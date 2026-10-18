@@ -42,6 +42,24 @@ test.describe("Dashboard CRUD", () => {
     }
   });
 
+  test("Only mine narrows the list to the dashboards you own, and its chip clears it (#2253)", async ({
+    page,
+  }) => {
+    // Alice, an admin, sees Bob's "Actor Network" too.
+    const link = (name: string) =>
+      page.getByRole("link", { name, exact: true });
+    await expect(link("Actor Network")).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("checkbox", { name: "Only mine" }).click();
+    const chip = page.getByRole("button", { name: "Remove Owner filter" });
+    await expect(chip).toBeVisible();
+    await expect(link("Movie Analytics")).toBeVisible();
+    await expect(link("Actor Network")).toHaveCount(0);
+
+    await chip.click();
+    await expect(link("Actor Network")).toBeVisible();
+  });
+
   test("lists and finds dashboards past the first 100 (#1789)", async ({
     page,
   }) => {
@@ -72,9 +90,13 @@ test.describe("Dashboard CRUD", () => {
       const search = page.getByRole("searchbox", { name: "Search dashboards" });
       for (const name of [oldest, newest]) {
         await search.fill(name);
-        await expect(page.getByText(name, { exact: true })).toBeVisible();
-        // The search narrowed the 101 down to this one.
-        await expect(page.getByText(run)).toHaveCount(1);
+        await expect(
+          page.getByRole("link", { name, exact: true }),
+        ).toBeVisible();
+        // The search narrowed the 101 down to this one row.
+        await expect(
+          page.getByRole("row").filter({ hasText: run }),
+        ).toHaveCount(1);
       }
     } finally {
       await Promise.all(
@@ -117,7 +139,7 @@ test.describe("Dashboard CRUD", () => {
     try {
       await page.goto("/");
       const card = page
-        .locator("div[class*='cursor-pointer']")
+        .getByRole("row")
         .filter({ has: page.getByText(original, { exact: true }) })
         .first();
       await expect(card).toBeVisible({ timeout: 10_000 });
@@ -160,7 +182,7 @@ test.describe("Dashboard CRUD", () => {
     try {
       await page.goto("/");
       const card = page
-        .locator("div[class*='cursor-pointer']")
+        .getByRole("row")
         .filter({ has: page.getByText(name, { exact: true }) })
         .first();
       await expect(card).toBeVisible({ timeout: 10_000 });
@@ -204,7 +226,7 @@ test.describe("Dashboard CRUD", () => {
     try {
       await page.goto("/");
       const card = page
-        .locator("div[class*='cursor-pointer']")
+        .getByRole("row")
         .filter({ has: page.getByText(name, { exact: true }) })
         .first();
       const options = card.getByRole("button", { name: "Dashboard options" });
@@ -235,7 +257,7 @@ test.describe("Dashboard CRUD", () => {
 
     await page.goto("/");
     const card = page
-      .locator("div[class*='cursor-pointer']")
+      .getByRole("row")
       .filter({ has: page.getByText(name, { exact: true }) })
       .first();
     await expect(card).toBeVisible({ timeout: 10_000 });
@@ -292,7 +314,7 @@ test.describe("Dashboard CRUD", () => {
     try {
       await page.goto("/");
       const sourceCard = page
-        .locator("div[class*='cursor-pointer']")
+        .getByRole("row")
         .filter({ has: page.getByText(source, { exact: true }) })
         .first();
       await sourceCard
@@ -317,7 +339,7 @@ test.describe("Dashboard CRUD", () => {
 
       // Delete the copy through its card, and wait for the server to agree.
       const copyCard = page
-        .locator("div[class*='cursor-pointer']")
+        .getByRole("row")
         .filter({ has: page.getByText(copyName, { exact: true }) })
         .first();
       await copyCard.getByRole("button", { name: "Dashboard options" }).click();

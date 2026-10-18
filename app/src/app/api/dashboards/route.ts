@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { and, count, countDistinct, desc, eq, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { dashboards, dashboardShares, users } from "@/lib/db/schema";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
@@ -26,6 +27,19 @@ const createDashboardSchema = z.object({
   description: z.string().optional(),
 });
 
+// The owner's display name, by a second join to users; the name only (#2253).
+const owners = alias(users, "owners");
+const ownerJoin = (tenantId: string) =>
+  and(eq(owners.id, dashboards.userId), eq(owners.tenantId, tenantId));
+
+// The caller's own share of a dashboard, if any: the same ON on every path.
+const shareJoin = (userId: string, tenantId: string) =>
+  and(
+    eq(dashboardShares.dashboardId, dashboards.id),
+    eq(dashboardShares.userId, userId),
+    eq(dashboardShares.tenantId, tenantId),
+  );
+
 export async function GET(request: Request) {
   try {
     const { userId, role, tenantId } = await requireSession();
@@ -39,8 +53,11 @@ export async function GET(request: Request) {
         .from(dashboards)
         .where(eq(dashboards.tenantId, tenantId));
 
+      // DISTINCT ON (updatedAt, id), as the non-admin path below: nothing keeps
+      // a share unique per (dashboard, user), and a second row would repeat a
+      // dashboard while `total` still says N (#1789).
       const rows = await db
-        .select({
+        .selectDistinctOn([dashboards.updatedAt, dashboards.id], {
           id: dashboards.id,
           name: dashboards.name,
           description: dashboards.description,
@@ -50,18 +67,23 @@ export async function GET(request: Request) {
           ownerId: dashboards.userId,
           layoutJson: dashboards.layoutJson,
           updatedByName: users.name,
+          ownerName: owners.name,
+          shareId: dashboardShares.id,
         })
         .from(dashboards)
         .leftJoin(users, eq(dashboards.updatedBy, users.id))
+        .leftJoin(owners, ownerJoin(tenantId))
+        .leftJoin(dashboardShares, shareJoin(userId, tenantId))
         .where(eq(dashboards.tenantId, tenantId))
         .orderBy(...NEWEST_FIRST)
         .limit(limit)
         .offset(offset);
 
       const mapped = rows.map((d) => {
-        const { layoutJson, ownerId, ...rest } = d;
+        const { layoutJson, ownerId, shareId, ...rest } = d;
         return {
           ...rest,
+          shared: shareId != null,
           role: ownerId === userId ? ("owner" as const) : ("admin" as const),
           widgetCount: countWidgets(layoutJson),
         };
@@ -111,30 +133,29 @@ export async function GET(request: Request) {
         shareRole: dashboardShares.role,
         layoutJson: dashboards.layoutJson,
         updatedByName: users.name,
+        ownerName: owners.name,
+        shareId: dashboardShares.id,
       })
       .from(dashboards)
-      .leftJoin(
-        dashboardShares,
-        and(
-          eq(dashboardShares.dashboardId, dashboards.id),
-          eq(dashboardShares.userId, userId),
-          eq(dashboardShares.tenantId, tenantId),
-        ),
-      )
+      .leftJoin(dashboardShares, shareJoin(userId, tenantId))
       .leftJoin(users, eq(dashboards.updatedBy, users.id))
+      .leftJoin(owners, ownerJoin(tenantId))
       .where(and(eq(dashboards.tenantId, tenantId), accessFilter))
       .orderBy(...NEWEST_FIRST)
       .limit(limit)
       .offset(offset);
 
     const mapped = rows.map((d) => {
-      const { layoutJson, ownerId, shareRole, ...rest } = d;
+      const { layoutJson, ownerId, shareRole, shareId, ...rest } = d;
       const dashRole =
         ownerId === userId
           ? ("owner" as const)
           : (shareRole ?? ("viewer" as const));
       return {
         ...rest,
+        // Whether a share row names the caller. The role cannot say: a public
+        // dashboard nobody shared reads `viewer` too (#2253).
+        shared: shareId != null,
         role: dashRole,
         widgetCount: countWidgets(layoutJson),
       };

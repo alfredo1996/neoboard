@@ -1687,7 +1687,7 @@ const SPEC = {
       DashboardSummary: {
         type: "object",
         description:
-          "A GET /api/dashboards item. It carries no owner, tenant, layout or version.",
+          "A GET /api/dashboards item. It carries the owner's display name, never an owner id, tenant, layout or version.",
         required: [
           "id",
           "name",
@@ -1696,6 +1696,8 @@ const SPEC = {
           "createdAt",
           "updatedAt",
           "updatedByName",
+          "ownerName",
+          "shared",
           "role",
           "widgetCount",
         ],
@@ -1707,6 +1709,13 @@ const SPEC = {
           createdAt: { type: "string", format: "date-time", nullable: true },
           updatedAt: { type: "string", format: "date-time", nullable: true },
           updatedByName: { type: "string", nullable: true },
+          ownerName: { type: "string", nullable: true },
+          shared: {
+            type: "boolean",
+            description:
+              "True when a share names the caller. A public dashboard nobody shared with them is false, " +
+              "whatever the role says.",
+          },
           role: {
             type: "string",
             enum: ["owner", "editor", "viewer", "admin"],
