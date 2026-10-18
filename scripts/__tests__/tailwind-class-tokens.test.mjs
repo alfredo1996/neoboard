@@ -5,20 +5,26 @@ import { join, relative } from "node:path";
 // A missing space between two Tailwind classes fuses them into one that
 // matches nothing ("text-smhover:border-card-edge"): the page looks wrong and
 // no type check or lint sees it (#2225 review). The first guard covered only
-// kit/; this one reads every .tsx in component/ and app/.
+// kit/; this one reads component/ and app/.
 //
 // ponytail: a grammar check, not Tailwind itself. It reads only string
 // literals made entirely of class-shaped tokens (so URLs, "{HH}:{mm}" and
-// "node:fs" are skipped) and flags a token whose variant part is no Tailwind
-// variant. Upgrade path: eslint-plugin-tailwindcss's no-custom-classname,
+// import specifiers are skipped) and flags a token whose variant part is no
+// Tailwind variant. A lone "widget:resize"-style key in a .tsx would be flagged:
+// rename it or split the literal. Upgrade path: eslint-plugin-tailwindcss's no-custom-classname,
 // which knows every utility but is a new dependency.
 const ROOT = new URL("../..", import.meta.url).pathname;
-const PACKAGES = ["component/src", "app/src"];
+// component/ keeps class lists in .ts too (control-sizes, design-tokens); app/'s
+// .ts files are server code full of ids like "core:scheduler", so only .tsx.
+const PACKAGES = [
+  ["component/src", /\.tsx?$/],
+  ["app/src", /\.tsx$/],
+];
 // Tests assert ids like "4:p:1" and render nothing; cypher-lang is vendored.
 const SKIP_DIRS = new Set(["node_modules", "__tests__", "cypher-lang"]);
 
 const TOKEN =
-  /^(?:[a-z0-9@[\]()/&=_.,#%>*+-]+:)*!?-?(?:[a-z0-9][a-z0-9-]*(?:-?\[\S+\])?(?:\/[\w.[\]]+)?|\[[a-z-]+:\S+\])$/;
+  /^(?:[a-z0-9@[\]()/&=_.,#%>~*+-]+:)*!?-?(?:[a-z0-9][a-z0-9.-]*(?:-?\[\S+\])?(?:\/[\w.[\]]+)?|\[[a-z-]+:\S+\])$/;
 const VARIANT = new RegExp(
   "^(?:" +
     [
@@ -56,7 +62,13 @@ function variantsOf(token) {
 /** Tokens in a source file's class lists whose variants Tailwind does not know. */
 function fusedTokens(source) {
   const bad = [];
-  for (const [, literal] of source.matchAll(/["'`]([^"'`\n$]+)["'`]/g)) {
+  // Import specifiers ("node:fs") are shaped like variant:utility; drop them.
+  const code = source.replaceAll(
+    /\b(?:from|import)\s*\(?\s*(["'])[^"'\n]*\1/g,
+    "",
+  );
+  // Pair each quote with its own kind, so content-[''] stays inside its list.
+  for (const [, , literal] of code.matchAll(/(["'`])((?:(?!\1)[^\n$])+)\1/g)) {
     const tokens = literal.trim().split(/\s+/);
     if (!tokens.some((t) => t.includes(":"))) continue;
     if (!tokens.every((t) => TOKEN.test(t) && !t.includes("//"))) continue; // prose, not classes
@@ -67,12 +79,12 @@ function fusedTokens(source) {
   return bad;
 }
 
-function tsxFiles(dir, out = []) {
+function sourceFiles(dir, ext, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) tsxFiles(path, out);
-    } else if (entry.name.endsWith(".tsx")) out.push(path);
+      if (!SKIP_DIRS.has(entry.name)) sourceFiles(path, ext, out);
+    } else if (ext.test(entry.name)) out.push(path);
   }
   return out;
 }
@@ -83,6 +95,28 @@ describe("Tailwind class strings (#2225)", () => {
     expect(fusedTokens(`cn("text-smhover:border-card-edge")`)).toEqual([
       "text-smhover:border-card-edge",
     ]);
+  });
+
+  it.each([
+    // A decimal utility, a ~ combinator or an inner quote once made the whole
+    // list look like prose, so it was skipped unchecked (#2261 review).
+    [
+      `"px-4 py-3.5 text-smhover:border-card-edge"`,
+      "text-smhover:border-card-edge",
+    ],
+    [
+      `"rounded px-1 py-0.5 text-foreground-2focus-visible:outline-none"`,
+      "text-foreground-2focus-visible:outline-none",
+    ],
+    [`"block after:content-[''] text-smhover:bg-x"`, "text-smhover:bg-x"],
+    [`"flex [&>svg~*]:pl-7 text-smhover:bg-x"`, "text-smhover:bg-x"],
+  ])("still reads a class list holding %s", (source, token) => {
+    expect(fusedTokens(source)).toEqual([token]);
+  });
+
+  it("skips import specifiers, which look like variant:utility", () => {
+    expect(fusedTokens(`import { readFileSync } from "node:fs";`)).toEqual([]);
+    expect(fusedTokens(`const fs = await import("node:fs");`)).toEqual([]);
   });
 
   it("reads Tailwind's variant grammar and skips strings that are not class lists", () => {
@@ -97,8 +131,8 @@ describe("Tailwind class strings (#2225)", () => {
     for (const source of fine) expect(fusedTokens(source), source).toEqual([]);
   });
 
-  it.each(PACKAGES)("%s has no fused class tokens", (pkg) => {
-    const bad = tsxFiles(join(ROOT, pkg)).flatMap((file) =>
+  it.each(PACKAGES)("%s has no fused class tokens", (pkg, ext) => {
+    const bad = sourceFiles(join(ROOT, pkg), ext).flatMap((file) =>
       fusedTokens(readFileSync(file, "utf8")).map(
         (t) => `${relative(ROOT, file)}: ${t}`,
       ),

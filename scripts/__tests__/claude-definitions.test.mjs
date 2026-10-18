@@ -289,8 +289,29 @@ describe("review findings go to a fresh implementer (#2180, 2026-10-18)", () => 
       const skill = read(`.claude/skills/${name}/SKILL.md`);
       expect(skill).not.toMatch(/same `?implementer/);
       expect(skill).toContain("fresh `implementer`");
+      // Every finding goes to the fixer, which dismisses with evidence: a lead
+      // that filtered to "real" ones dropped real bugs (~/.claude/rules/workflows.md).
+      expect(skill).not.toMatch(/real findings/);
+      expect(skill).toContain("every finding");
     },
   );
+
+  it.each(["code", "next"])(
+    "the %s skill spawns the fixer in the branch's worktree, not a new one",
+    (name) => {
+      // isolation: "worktree" cuts a new branch from the base, without the
+      // commits under review (#2261 review).
+      expect(read(`.claude/skills/${name}/SKILL.md`)).toContain(
+        "without `isolation`",
+      );
+    },
+  );
+
+  it("the implementer knows a fix round skips setup and stays on the branch", () => {
+    const implementer = read(".claude/agents/implementer.md");
+    expect(implementer).toContain("## Fix round");
+    expect(implementer).toMatch(/skip Setup/i);
+  });
 });
 
 describe("settings.json permissions", () => {

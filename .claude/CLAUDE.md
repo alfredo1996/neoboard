@@ -71,7 +71,7 @@ Rules:
 **Agents and models (#2180):**
 
 - Delegate an issue's implementation to the `implementer` agent (Sonnet) and its pre-merge review to `adversarial-reviewer` (Opus). Every other agent runs on the model its frontmatter declares, and anything that names none defaults to Sonnet (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`).
-- Review findings go to a **fresh** `implementer` in the same worktree, briefed with the findings and the branch diff, not the original implementer resumed: its 300–450k-token context is re-read every turn. Resume the original only when a finding needs its reasoning (owner decision on #2180, 2026-10-18).
+- Review findings go to a **fresh** `implementer` in the same worktree (spawned without `isolation`, given its path), briefed with the findings and the branch diff, not the original implementer resumed: its 300–450k-token context is re-read every turn. Resume the original only when a finding needs its reasoning (owner decision on #2180, 2026-10-18).
 - A Workflow `agent()` call always passes `agentType` or `model`, so no stage runs on whatever default happens to apply; review stages pass `agentType: 'adversarial-reviewer'`.
 
 **Requirements drill (every issue, before branching; the policy is also in the `drill` skill):**
