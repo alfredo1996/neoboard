@@ -647,6 +647,16 @@ describe("DashboardListPage rows (#2253)", () => {
     expect(screen.getAllByRole("row")).toHaveLength(4); // header + 3
   });
 
+  it("says no dashboard matches the filters when Only mine leaves nothing", () => {
+    dashboards = [SHARED];
+    render(<DashboardListPage />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Only mine" }));
+    expect(
+      screen.getByText("No dashboards match these filters."),
+    ).toBeVisible();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
   it("names each row's menu button after its dashboard", () => {
     render(<DashboardListPage />);
     expect(

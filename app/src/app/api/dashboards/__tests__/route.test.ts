@@ -189,9 +189,8 @@ describe("GET /api/dashboards", () => {
     // Admin path: 1) count query, 2) paginated select
     const countChain = makeSelectChain([{ count: 2 }]);
     const rowsChain = makeSelectChain([ownedRow, otherRow]);
-    mockDb.select
-      .mockReturnValueOnce(countChain)
-      .mockReturnValueOnce(rowsChain);
+    mockDb.select.mockReturnValueOnce(countChain);
+    mockDb.selectDistinctOn.mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -235,9 +234,8 @@ describe("GET /api/dashboards", () => {
       { ...base, id: "d1", name: "Mine", ownerId: "admin-1", ownerName: "Ada" },
       { ...base, id: "d2", name: "Theirs", ownerId: "u2", ownerName: "Bo" },
     ]);
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([{ count: 2 }]))
-      .mockReturnValueOnce(rowsChain);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(rowsChain);
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     const body = await res.json();
@@ -252,7 +250,9 @@ describe("GET /api/dashboards", () => {
       ["d2", "Bo"],
     ]);
     // Selected from the owner's row, as a name only.
-    expect(Object.keys(mockDb.select.mock.calls[1][0])).toContain("ownerName");
+    expect(Object.keys(mockDb.selectDistinctOn.mock.calls[0][1])).toContain(
+      "ownerName",
+    );
     const ownerJoins = rowsChain.calls.leftJoin.filter(([, on]) =>
       sqlValues(on as SQL).includes("tenant-x"),
     );
@@ -299,14 +299,8 @@ describe("GET /api/dashboards", () => {
         },
       ];
       const chain = makeSelectChain(rows);
-      if (role === "admin") {
-        mockDb.select
-          .mockReturnValueOnce(makeSelectChain([{ count: 2 }]))
-          .mockReturnValueOnce(chain);
-      } else {
-        mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
-        mockDb.selectDistinctOn.mockReturnValueOnce(chain);
-      }
+      mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
+      mockDb.selectDistinctOn.mockReturnValueOnce(chain);
 
       const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
       const body = await res.json();
@@ -321,6 +315,25 @@ describe("GET /api/dashboards", () => {
       expect(body.data.every((d: object) => !("shareId" in d))).toBe(true);
     },
   );
+
+  it("pages the admin list DISTINCT on (updatedAt, id), so a duplicate share row cannot repeat a dashboard (#1789)", async () => {
+    mockRequireSession.mockResolvedValue({
+      userId: "admin-1",
+      role: "admin",
+      canWrite: true,
+      tenantId: "tenant-x",
+    });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 0 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([]));
+
+    await GET(makeRequest({}, "http://localhost/api/dashboards"));
+
+    const [keys] = mockDb.selectDistinctOn.mock.calls[0];
+    expect(keys.map((c: { name: string }) => c.name)).toEqual([
+      "updatedAt",
+      "id",
+    ]);
+  });
 
   it("scopes the owner join by tenant for a creator too (#2253)", async () => {
     mockRequireSession.mockResolvedValue({
@@ -507,9 +520,8 @@ describe("GET /api/dashboards — order and pagination (#1789)", () => {
     });
     const countChain = makeSelectChain([{ count: 250 }]);
     const rowsChain = makeSelectChain([]);
-    mockDb.select
-      .mockReturnValueOnce(countChain)
-      .mockReturnValueOnce(rowsChain);
+    mockDb.select.mockReturnValueOnce(countChain);
+    mockDb.selectDistinctOn.mockReturnValueOnce(rowsChain);
 
     const res = await GET(
       makeRequest({}, "http://localhost/api/dashboards?limit=100&offset=200"),
@@ -688,9 +700,8 @@ describe("GET /api/dashboards — updatedByName", () => {
       ownerId: "admin-1",
       updatedByName: "Alice",
     };
-    mockDb.select
-      .mockReturnValueOnce(makeSelectChain([{ count: 1 }]))
-      .mockReturnValueOnce(makeSelectChain([row]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([row]));
 
     const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
     expect(res.status).toBe(200);

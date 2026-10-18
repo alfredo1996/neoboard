@@ -53,8 +53,11 @@ export async function GET(request: Request) {
         .from(dashboards)
         .where(eq(dashboards.tenantId, tenantId));
 
+      // DISTINCT ON (updatedAt, id), as the non-admin path below: nothing keeps
+      // a share unique per (dashboard, user), and a second row would repeat a
+      // dashboard while `total` still says N (#1789).
       const rows = await db
-        .select({
+        .selectDistinctOn([dashboards.updatedAt, dashboards.id], {
           id: dashboards.id,
           name: dashboards.name,
           description: dashboards.description,
