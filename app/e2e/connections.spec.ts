@@ -14,7 +14,7 @@ const SEEDED = ["Movies Graph (Neo4j)", "Movies DB (PostgreSQL)"];
 /** The one card element for a connection (bare div filters match every ancestor). */
 function cardFor(page: Page, name: string): Locator {
   return page
-    .locator("div[class*='border']")
+    .getByRole("row")
     .filter({ hasText: name })
     .filter({ has: page.getByRole("button", { name: "Connection actions" }) });
 }
@@ -269,14 +269,10 @@ test.describe("Connections", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(dialog).not.toBeVisible();
 
-    // Wait for auto-test to complete — should show "Error" badge on the card
+    // Wait for auto-test to complete: the row reads "Can't connect"
     await expect(page.getByText(name).first()).toBeVisible();
-    // Use the card heading to locate the specific card, then find "Error" badge within it
-    const card = page
-      .locator("div")
-      .filter({ has: page.getByText(name, { exact: true }) })
-      .first();
-    await expect(card.getByText("Error").first()).toBeVisible({
+    const card = cardFor(page, name);
+    await expect(card.getByText("Can't connect")).toBeVisible({
       timeout: 30_000,
     });
   });
@@ -327,21 +323,26 @@ test.describe("Connections", () => {
       await page.reload();
       const card = cardFor(page, name);
       await testFromMenu(page, card);
-      await expect(badgeOf(card)).toHaveText("Error", { timeout: 30_000 });
+      await expect(badgeOf(card)).toContainText("Can't connect", {
+        timeout: 30_000,
+      });
 
-      // Click the card — should expand an inline alert with the error message.
-      // An error card's name and host are its button (#1283).
-      const toggle = card.getByRole("button", { name: new RegExp(name) });
+      // Click the status — it expands an alert with the error message under
+      // the list. A failed row's status is a button (#1283).
+      const toggle = card.getByRole("button", { name: "Can't connect" });
       await toggle.click();
-      // The alert is rendered as a sibling inside the same wrapper div
-      const wrapper = card.locator("..");
-      await expect(wrapper.locator('[role="alert"]')).toBeVisible({
+      const wrapper = page;
+      await expect(
+        wrapper.getByRole("alert").filter({ hasText: name }),
+      ).toBeVisible({
         timeout: 5_000,
       });
 
       // Click again to collapse
       await toggle.click();
-      await expect(wrapper.locator('[role="alert"]')).toBeHidden();
+      await expect(
+        wrapper.getByRole("alert").filter({ hasText: name }),
+      ).toBeHidden();
     } finally {
       await page.request.delete(`/api/connections/${id}?force=true`);
     }
@@ -394,10 +395,11 @@ test.describe("Connections", () => {
     // Open its edit dialog and change the Name field. Scope to the smallest
     // card div that holds both this connection's name and its actions button.
     const card = page
-      .locator("div")
+      .getByRole("row")
       .filter({ has: page.getByText(name, { exact: true }) })
-      .filter({ has: page.getByRole("button", { name: "Connection actions" }) })
-      .last();
+      .filter({
+        has: page.getByRole("button", { name: "Connection actions" }),
+      });
     await card.getByRole("button", { name: "Connection actions" }).click();
     await page.getByRole("menuitem", { name: /Edit/ }).click();
     dialog = page.getByRole("dialog");
@@ -449,7 +451,7 @@ test.describe("Connections", () => {
 
     // Open the card's dropdown and click Delete
     const card = page
-      .locator("div[class*='border']")
+      .getByRole("row")
       .filter({ hasText: name })
       .filter({
         has: page.getByRole("button", { name: "Connection actions" }),
@@ -557,7 +559,7 @@ test.describe("Connections", () => {
       // 4. Navigate to the connections page and locate the card.
       await page.reload();
       const card = page
-        .locator("div[class*='border']")
+        .getByRole("row")
         .filter({ hasText: connName })
         .filter({
           has: page.getByRole("button", { name: "Connection actions" }),

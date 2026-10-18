@@ -14,16 +14,23 @@ async function waitForUsersTable(page: import("@playwright/test").Page) {
 }
 
 /**
- * Narrow the users table to a single user via the Email column filter, and
- * return their row. Works no matter which page the row would otherwise be on.
+ * Find a user's row, paging forward until it shows: the list holds 20 users to
+ * a page and concurrent specs create newer ones (#1004, #2254).
  */
 async function filterToUser(
   page: import("@playwright/test").Page,
   email: string,
 ) {
   await waitForUsersTable(page);
-  await page.getByLabel("Filter Email").fill(email);
   const row = page.getByRole("row").filter({ hasText: email });
+  const next = page.getByRole("button", { name: "Next page" });
+  while (
+    (await row.count()) === 0 &&
+    (await next.count()) > 0 &&
+    (await next.isEnabled())
+  ) {
+    await next.click();
+  }
   await expect(row).toBeVisible({ timeout: 10_000 });
   return row;
 }

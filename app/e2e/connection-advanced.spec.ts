@@ -234,7 +234,7 @@ test.describe("Connection Advanced Settings", () => {
     try {
       await page.reload();
       const card = page
-        .locator("div[class*='border']")
+        .getByRole("row")
         .filter({ hasText: name })
         .filter({
           has: page.getByRole("button", { name: "Connection actions" }),

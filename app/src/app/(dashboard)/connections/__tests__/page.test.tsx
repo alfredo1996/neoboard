@@ -24,6 +24,7 @@ interface Row {
   type: string;
   visibility: "private" | "shared";
   isOwner: boolean;
+  widgetCount?: number;
 }
 
 let mockRole = "creator";
@@ -228,51 +229,23 @@ vi.mock("@neoboard/components", () => {
       </div>
     ),
     LoadingOverlay: Box,
-    PageHeader: ({
-      title,
-      actions,
-      titleRef,
+    Badge: Box,
+    // The menu's items render in place: jsdom cannot open a Radix menu.
+    DropdownMenu: Box,
+    DropdownMenuTrigger: ({ children }: { children?: React.ReactNode }) =>
+      children,
+    DropdownMenuContent: Box,
+    DropdownMenuSeparator: () => <hr />,
+    DropdownMenuItem: ({
+      children,
+      onClick,
     }: {
-      title: string;
-      actions: React.ReactNode;
-      titleRef?: React.Ref<HTMLHeadingElement>;
+      children?: React.ReactNode;
+      onClick?: () => void;
     }) => (
-      <header>
-        <h1 ref={titleRef} tabIndex={-1}>
-          {title}
-        </h1>
-        {actions}
-      </header>
-    ),
-    ConnectionCard: ({
-      name,
-      host,
-      icon,
-      status,
-      onTest,
-      onEdit,
-      onDuplicate,
-      onDelete,
-    }: {
-      name: string;
-      host: string;
-      icon: React.ReactNode;
-      status: string;
-      onTest?: () => void;
-      onEdit?: () => void;
-      onDuplicate?: () => void;
-      onDelete?: () => void;
-    }) => (
-      <div data-testid={`card-${name}`}>
-        <span data-testid="icon">{icon}</span>
-        <span>{name}</span>
-        <span data-testid="host">{host}</span>
-        <span data-testid="status">{status}</span>
-        {onTest && <button onClick={onTest}>Test {name}</button>}
-        {onEdit && <button onClick={onEdit}>Edit {name}</button>}
-        {onDuplicate && <button onClick={onDuplicate}>Duplicate {name}</button>}
-        {onDelete && <button onClick={onDelete}>Delete {name}</button>}
-      </div>
+      <button role="menuitem" onClick={onClick}>
+        {children}
+      </button>
     ),
     useToast: () => ({ toast: mockToast }),
     focusedMenuTrigger: () => menuTrigger,
@@ -295,6 +268,7 @@ function rows(count: number, over: Partial<Row> = {}): Row[] {
     type: "any",
     visibility: "private" as const,
     isOwner: true,
+    widgetCount: 0,
     ...over,
   }));
 }
@@ -313,8 +287,28 @@ function manualProbes() {
   return { settle, fail };
 }
 
+/** A connection's row: the kit's `<tr>` that holds its name. */
+const rowOf = (name: string) =>
+  within(screen.getByText(name).closest("tr") as HTMLElement);
+
+/** Clicks one of a row's "⋯" menu actions. */
+const pick = (
+  name: string,
+  action: "Test" | "Edit" | "Duplicate" | "Delete",
+) => {
+  const label = action === "Test" ? "Test Connection" : action;
+  fireEvent.click(rowOf(name).getByRole("menuitem", { name: label }));
+};
+
+const STATES: Record<string, string> = {
+  Connected: "connected",
+  "Can't connect": "error",
+  "Connecting…": "connecting",
+  "Not checked": "unknown",
+};
+/** The state a row's status cell shows, read off its words. */
 const statusOf = (name: string) =>
-  within(screen.getByTestId(`card-${name}`)).getByTestId("status").textContent;
+  STATES[rowOf(name).getByRole("status").textContent ?? ""];
 
 /** The labels of every field the dialog renders, in order. */
 const fieldGroups = (dialog: ReturnType<typeof within>) =>
@@ -516,7 +510,7 @@ describe("ConnectionsPage — single Test (#1426)", () => {
     mockTest.mockResolvedValue({ success: true });
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Test conn-2" }));
+    pick("conn-2", "Test");
     await flush();
 
     expect(mockTest).toHaveBeenCalledExactlyOnceWith({ id: "c2" });
@@ -529,7 +523,7 @@ describe("ConnectionsPage — single Test (#1426)", () => {
     mockTest.mockRejectedValue(new QueueFullError("queue full", 2000));
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Test conn-1" }));
+    pick("conn-1", "Test");
     await flush();
 
     expect(statusOf("conn-1")).toBe("unknown");
@@ -544,7 +538,7 @@ describe("ConnectionsPage — single Test (#1426)", () => {
     mockTest.mockRejectedValue(new QueueFullError("queue full", 2000));
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Test conn-1" }));
+    pick("conn-1", "Test");
     await flush();
 
     // A busy server is no information: it must not erase what was known.
@@ -557,7 +551,7 @@ describe("ConnectionsPage — single Test (#1426)", () => {
     mockTest.mockRejectedValue(new Error("Not found"));
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Test conn-1" }));
+    pick("conn-1", "Test");
     await flush();
 
     expect(statusOf("conn-1")).toBe("error");
@@ -684,44 +678,17 @@ describe("ConnectionsPage — Test all (#1426)", () => {
 });
 
 describe("ConnectionsPage — connector facts come from the descriptors (#1899)", () => {
-  const card = (name: string) => within(screen.getByTestId(`card-${name}`));
-
-  it("draws each card's icon from its connector's descriptor", () => {
-    mockConnections = [
-      ...rows(1, { name: "sheets", type: "acme-sheets" }),
-      { ...rows(1)[0], id: "c2", name: "plain" },
-    ];
-    render(<ConnectionsPage />);
-    expect(
-      card("sheets").getByTestId("icon").querySelector("img"),
-    ).toHaveAttribute(
-      "src",
-      "data:image/svg+xml;utf8," + encodeURIComponent(ICON),
-    );
-    // No iconSvg: the generic glyph of its category.
-    const plain = card("plain").getByTestId("icon");
-    expect(plain.querySelector("img")).toBeNull();
-    expect(plain.querySelector("svg.lucide")).not.toBeNull();
-  });
-
   it("a connection whose connector is not installed says so, and can only be deleted", () => {
     mockConnections = rows(1, { name: "orphan", type: "uninstalled" });
     render(<ConnectionsPage />);
 
-    expect(card("orphan").getByTestId("host")).toHaveTextContent(
-      "uninstalled — connector not installed",
-    );
+    const row = rowOf("orphan");
     expect(
-      card("orphan").getByTestId("icon").querySelector("svg.lucide"),
-    ).not.toBeNull();
-    expect(card("orphan").queryByRole("button", { name: /^Test/ })).toBeNull();
-    expect(card("orphan").queryByRole("button", { name: /^Edit/ })).toBeNull();
-    expect(
-      card("orphan").queryByRole("button", { name: /^Duplicate/ }),
-    ).toBeNull();
-    expect(
-      card("orphan").getByRole("button", { name: "Delete orphan" }),
-    ).toBeEnabled();
+      row.getByText("uninstalled — connector not installed"),
+    ).toBeInTheDocument();
+    expect(row.getAllByRole("menuitem").map((i) => i.textContent)).toEqual([
+      "Delete",
+    ]);
   });
 
   it("leaves a not-installed connection out of Test all", async () => {
@@ -743,11 +710,9 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     mockConnectors = { data: undefined, isLoading: false, isError: true };
     render(<ConnectionsPage />);
 
-    expect(card("conn-1").getByTestId("host")).toHaveTextContent(
-      /^uninstalled$/,
-    );
+    expect(rowOf("conn-1").getByText("uninstalled")).toBeInTheDocument();
     expect(
-      card("conn-1").getByRole("button", { name: "Test conn-1" }),
+      rowOf("conn-1").getByRole("menuitem", { name: "Test Connection" }),
     ).toBeEnabled();
   });
 
@@ -809,7 +774,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     mockConnections = rows(1, { name: "sheets", type: "acme-sheets" });
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit sheets" }));
+    pick("sheets", "Edit");
 
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByText("Edit sheets")).toBeInTheDocument();
@@ -828,7 +793,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     mockConnections = rows(1, { name: "sheets", type: "acme-sheets" });
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Duplicate sheets" }));
+    pick("sheets", "Duplicate");
 
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByText("New Acme Sheets Connection")).toBeInTheDocument();
@@ -841,7 +806,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     mockTest.mockResolvedValue({ success: true });
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit sheets" }));
+    pick("sheets", "Edit");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await flush();
 
@@ -867,7 +832,7 @@ describe("ConnectionsPage — re-assign names the connector by its label (#1905)
       dashboards: [{ id: "d1", name: "Budget", widgetCount: 2 }],
     };
     render(<ConnectionsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "Delete source" }));
+    pick("source", "Delete");
     fireEvent.click(
       screen.getByRole("button", {
         name: "Re-assign widgets to another connection…",
@@ -936,7 +901,8 @@ it.each([
     mockConnections = rows(1, { name: "sheets", type: "acme-sheets" });
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: opener }));
+    if (picks) fireEvent.click(screen.getByRole("button", { name: opener }));
+    else pick("sheets", opener.split(" ")[0] as "Edit" | "Duplicate");
     const dialog = within(screen.getByRole("dialog"));
     if (picks) fireEvent.click(dialog.getByTestId("pick-acme-sheets"));
     fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
@@ -971,7 +937,7 @@ describe("ConnectionsPage — where focus goes after Delete (#2086)", () => {
     mockConnections = rows(1);
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete conn-1" }));
+    pick("conn-1", "Delete");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(menuTrigger).toHaveFocus();
@@ -981,9 +947,69 @@ describe("ConnectionsPage — where focus goes after Delete (#2086)", () => {
     mockConnections = rows(1);
     render(<ConnectionsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete conn-1" }));
+    pick("conn-1", "Delete");
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(screen.getByRole("heading", { name: "Connections" })).toHaveFocus();
+  });
+});
+
+describe("ConnectionsPage — kit rows (#2254)", () => {
+  it("lists each connection with its connector, status, visibility and widgets", () => {
+    mockConnections = [
+      ...rows(1, { name: "Movies", type: "acme-sheets", widgetCount: 14 }),
+      ...rows(1, {
+        id: "c2",
+        name: "Sales",
+        visibility: "shared",
+        widgetCount: 0,
+      }),
+    ];
+    useConnectionStatusStore.getState().setStatus("c1", "connected");
+    useConnectionStatusStore.getState().setStatus("c2", "error", "refused");
+    render(<ConnectionsPage />);
+
+    // Name and connector, status, visibility, widgets; the menu cell last.
+    const cells = (name: string) =>
+      rowOf(name)
+        .getAllByRole("cell")
+        .slice(0, 4)
+        .map((c) => c.textContent);
+    expect(cells("Movies")).toEqual([
+      "MoviesAcme Sheets",
+      "Connected",
+      "Private",
+      "14",
+    ]);
+    expect(cells("Sales")).toEqual([
+      "SalesAny",
+      "Can't connect",
+      "Shared",
+      "0",
+    ]);
+  });
+
+  it("subtitles the page with the count and how many are shared", () => {
+    mockConnections = [
+      ...rows(1, { visibility: "shared" }),
+      ...rows(1, { id: "c2", name: "other" }),
+    ];
+    render(<ConnectionsPage />);
+    expect(
+      screen.getByText("2 connections · 1 shared with the workspace"),
+    ).toBeInTheDocument();
+  });
+
+  it("has no search box", () => {
+    mockConnections = rows(2);
+    render(<ConnectionsPage />);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("searchbox")).toBeNull();
+  });
+
+  it("gives a connection the user cannot manage no menu actions", () => {
+    mockConnections = rows(1, { isOwner: false, visibility: "shared" });
+    render(<ConnectionsPage />);
+    expect(rowOf("conn-1").queryAllByRole("menuitem")).toHaveLength(0);
   });
 });

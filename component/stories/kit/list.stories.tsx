@@ -88,6 +88,34 @@ export const Default: Story = {};
 export const NoDescriptions: Story = { args: { showDescription: false } };
 export const Dark: Story = { globals: { theme: "dark" } };
 
+// The caller owns the sort: List renders the header buttons and aria-sort.
+export const Sortable: Story = {
+  render: () => (
+    <List
+      label="Users"
+      columns={["Name", "Role", "Created"]}
+      sort={{ column: "Name", direction: "ascending" }}
+      onSort={() => {}}
+    >
+      <ListRow
+        title="Alice Demo"
+        description="alice@example.com"
+        meta={["Admin", "Oct 2"]}
+      />
+      <ListRow
+        title="Bob Creator"
+        description="bob@example.com"
+        meta={["Creator", "Oct 4"]}
+      />
+    </List>
+  ),
+  play: async ({ canvasElement }) => {
+    const headers = within(canvasElement).getAllByRole("columnheader");
+    await expect(headers[0]).toHaveAttribute("aria-sort", "ascending");
+    await expect(headers[1]).toHaveAttribute("aria-sort", "none");
+  },
+};
+
 // The row is a <tr>; its name link's ::after stretches over it. Hit-testing a
 // point in a meta cell must land on the link, and one on the "⋯" on the button.
 export const WholeRowOpens: Story = {

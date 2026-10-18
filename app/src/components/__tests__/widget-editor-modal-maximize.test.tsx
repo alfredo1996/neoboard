@@ -423,6 +423,7 @@ describe("WidgetEditorModal — a parameter selector's database (#1824)", () => 
             allowPerCardDb: true,
             visibility: "private",
             isOwner: true,
+            widgetCount: 0,
             createdAt: "",
             updatedAt: "",
           },

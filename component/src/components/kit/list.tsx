@@ -9,6 +9,10 @@ export interface ListProps {
   columns: readonly string[];
   children: React.ReactNode;
   className?: string;
+  /** Which column the rows are sorted by, and which way. The caller owns the sorting. */
+  sort?: { column: string; direction: "ascending" | "descending" };
+  /** Makes each column header a sort button; called with the column's name. */
+  onSort?: (column: string) => void;
 }
 
 /** Column widths: the name column 2.4 parts, the rest one part each, of 100% less the 40 px menu. */
@@ -24,7 +28,14 @@ function widths(columns: readonly string[]) {
 const ColumnsContext = React.createContext<readonly string[]>([]);
 
 /** Rows in one card with a header row. */
-function List({ label, columns, children, className }: Readonly<ListProps>) {
+function List({
+  label,
+  columns,
+  children,
+  className,
+  sort,
+  onSort,
+}: Readonly<ListProps>) {
   return (
     <Panel
       className={cn(
@@ -48,15 +59,34 @@ function List({ label, columns, children, className }: Readonly<ListProps>) {
         </colgroup>
         <thead className="hidden md:table-header-group">
           <tr className="h-9 border-b border-rule text-xs text-muted-foreground">
-            {columns.map((c, i) => (
-              <th
-                key={c}
-                scope="col"
-                className={cn("font-normal", i === 0 ? "pl-4" : "pl-3")}
-              >
-                {c}
-              </th>
-            ))}
+            {columns.map((c, i) => {
+              const direction = sort?.column === c ? sort.direction : "none";
+              return (
+                <th
+                  key={c}
+                  scope="col"
+                  aria-sort={onSort ? direction : undefined}
+                  className={cn("font-normal", i === 0 ? "pl-4" : "pl-3")}
+                >
+                  {onSort ? (
+                    <button
+                      type="button"
+                      onClick={() => onSort(c)}
+                      className="rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {c}
+                      {direction !== "none" && (
+                        <span aria-hidden>
+                          {direction === "ascending" ? " ↑" : " ↓"}
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    c
+                  )}
+                </th>
+              );
+            })}
             <th scope="col" className="pr-4">
               <span className="sr-only">Actions</span>
             </th>
@@ -75,8 +105,11 @@ function List({ label, columns, children, className }: Readonly<ListProps>) {
 export interface ListRowProps {
   title: string;
   description?: string;
-  /** Where the item lives: the stretched link's target. */
-  href: string;
+  /**
+   * Where the item lives: the stretched link's target. Without it the title is
+   * a stretched button when `onOpen` is set, and plain text when it is not.
+   */
+  href?: string;
   /** Opens the item in the app (router push); the plain click is then not a page load. */
   onOpen?: () => void;
   /** One node per meta column; hidden below 768 px. */
@@ -88,6 +121,44 @@ export interface ListRowProps {
 
 const PLAIN_LEFT_CLICK = (e: React.MouseEvent) =>
   e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+
+const TITLE_CLASS =
+  "block truncate font-medium text-inherit no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring";
+
+function RowTitle({
+  title,
+  href,
+  onOpen,
+}: Readonly<Pick<ListRowProps, "title" | "href" | "onOpen">>) {
+  if (href) {
+    return (
+      <a
+        href={href}
+        onClick={(e) => {
+          if (onOpen && PLAIN_LEFT_CLICK(e)) {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        className={TITLE_CLASS}
+      >
+        {title}
+      </a>
+    );
+  }
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={cn(TITLE_CLASS, "w-full text-left")}
+      >
+        {title}
+      </button>
+    );
+  }
+  return <span className="block truncate font-medium">{title}</span>;
+}
 
 /** A row that opens its item wherever it is clicked. */
 function ListRow({
@@ -108,18 +179,7 @@ function ListRow({
       )}
     >
       <td className="min-w-0 overflow-hidden py-2.5 pl-4 md:py-0">
-        <a
-          href={href}
-          onClick={(e) => {
-            if (onOpen && PLAIN_LEFT_CLICK(e)) {
-              e.preventDefault();
-              onOpen();
-            }
-          }}
-          className="block truncate font-medium text-inherit no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
-        >
-          {title}
-        </a>
+        <RowTitle title={title} href={href} onOpen={onOpen} />
         {description && (
           <small className="block truncate text-xs text-foreground-2">
             {description}

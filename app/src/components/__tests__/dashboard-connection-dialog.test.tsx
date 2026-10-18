@@ -109,6 +109,7 @@ const NEO: ConnectionListItem = {
   allowPerCardDb: false,
   visibility: "private",
   isOwner: true,
+  widgetCount: 0,
   createdAt: "",
   updatedAt: "",
 };

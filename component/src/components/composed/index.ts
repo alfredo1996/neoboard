@@ -111,7 +111,6 @@ export {
   type ConnectionStatusProps,
   type ConnectionState,
 } from "./connection-status";
-export { ConnectionCard, type ConnectionCardProps } from "./connection-card";
 export {
   DynamicConnectionFields,
   type DynamicConnectionField,

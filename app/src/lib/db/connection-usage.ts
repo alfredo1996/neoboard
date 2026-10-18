@@ -115,3 +115,67 @@ export async function getConnectionUsage(
 
   return { widgetCount, dashboards };
 }
+
+/**
+ * How many widgets use each of `connectionIds`, in ONE tenant-scoped pass (the
+ * connections list, #2254). Same scoping as `getConnectionUsage`: an admin
+ * counts every dashboard of the tenant, anyone else only those they own, are
+ * shared on, or that are public. A connection no widget uses reads 0.
+ */
+export async function getConnectionWidgetCounts(
+  connectionIds: string[],
+  userId: string,
+  isAdmin: boolean,
+  tenantId: string,
+): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  for (const id of connectionIds) counts[id] = 0;
+  if (connectionIds.length === 0) return counts;
+
+  const ids = sql.join(
+    connectionIds.map((id) => sql`${id}`),
+    sql`, `,
+  );
+  const rows = await db.execute<{
+    connection_id: string;
+    widget_count: number;
+  }>(
+    isAdmin
+      ? sql`
+          SELECT widget->>'connectionId' AS connection_id, COUNT(*)::int AS widget_count
+          FROM "dashboard" d,
+               jsonb_array_elements(d."layoutJson"->'pages') AS page,
+               jsonb_array_elements(page->'widgets') AS widget
+          WHERE d.tenant_id = ${tenantId}
+            AND widget->>'connectionId' IN (${ids})
+          GROUP BY 1
+        `
+      : sql`
+          SELECT widget->>'connectionId' AS connection_id, COUNT(*)::int AS widget_count
+          FROM "dashboard" d,
+               jsonb_array_elements(d."layoutJson"->'pages') AS page,
+               jsonb_array_elements(page->'widgets') AS widget
+          WHERE d.tenant_id = ${tenantId}
+            AND (
+              d."userId" = ${userId}
+              OR EXISTS (
+                SELECT 1 FROM "dashboard_share" s
+                WHERE s."dashboardId" = d.id
+                  AND s."userId" = ${userId}
+                  AND s.tenant_id = ${tenantId}
+              )
+              OR d."isPublic" = true
+            )
+            AND widget->>'connectionId' IN (${ids})
+          GROUP BY 1
+        `,
+  );
+
+  for (const r of rows as unknown as Array<{
+    connection_id: string;
+    widget_count: number;
+  }>) {
+    counts[r.connection_id] = Number(r.widget_count ?? 0);
+  }
+  return counts;
+}

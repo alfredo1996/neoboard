@@ -5,7 +5,10 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { db } from "@/lib/db";
-import { getConnectionUsage } from "../connection-usage";
+import {
+  getConnectionUsage,
+  getConnectionWidgetCounts,
+} from "../connection-usage";
 
 const mockExecute = db.execute as unknown as ReturnType<typeof vi.fn>;
 
@@ -83,5 +86,57 @@ describe("getConnectionUsage", () => {
 
     expect(result.widgetCount).toBe(5);
     expect(result.dashboards[0].widgetCount).toBe(5);
+  });
+});
+
+describe("getConnectionWidgetCounts", () => {
+  beforeEach(() => {
+    mockExecute.mockReset();
+  });
+
+  it("makes no query for an empty list", async () => {
+    expect(await getConnectionWidgetCounts([], "u1", false, "t-1")).toEqual({});
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it("counts every listed connection in one query, 0 for a connection no widget uses", async () => {
+    mockExecute.mockResolvedValue([
+      { connection_id: "c1", widget_count: 14 },
+      { connection_id: "c2", widget_count: "6" as unknown as number },
+    ]);
+
+    const counts = await getConnectionWidgetCounts(
+      ["c1", "c2", "c3"],
+      "u1",
+      false,
+      "t-1",
+    );
+
+    expect(counts).toEqual({ c1: 14, c2: 6, c3: 0 });
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["an admin", true],
+    ["anyone else", false],
+  ])("scopes %s to the tenant and the listed ids", async (_who, isAdmin) => {
+    mockExecute.mockResolvedValue([]);
+    await getConnectionWidgetCounts(["c1", "c2"], "u1", isAdmin, "t-1");
+    const rendered = JSON.stringify(mockExecute.mock.calls[0][0]);
+    expect(rendered).toMatch(/tenant_id/);
+    for (const v of ["t-1", "c1", "c2"]) expect(rendered).toContain(v);
+  });
+
+  it("counts only the dashboards a non-admin can open, all of the tenant's for an admin", async () => {
+    mockExecute.mockResolvedValue([]);
+    await getConnectionWidgetCounts(["c1"], "u1", true, "t-1");
+    await getConnectionWidgetCounts(["c1"], "u1", false, "t-1");
+    const [admin, other] = mockExecute.mock.calls.map((c) =>
+      JSON.stringify(c[0]),
+    );
+    expect(admin).not.toMatch(/dashboard_share|isPublic|"userId"/);
+    expect(other).toMatch(/dashboard_share/);
+    expect(other).toMatch(/isPublic/);
+    expect(other).toContain("u1");
   });
 });

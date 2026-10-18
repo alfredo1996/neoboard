@@ -77,7 +77,7 @@ test.describe("Widget Library", () => {
       page
         .getByText("No templates yet")
         .or(page.getByText("No templates match your filters"))
-        .or(page.locator(".grid > div").first()),
+        .or(page.getByRole("table", { name: "Templates" })),
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -180,10 +180,9 @@ test.describe("Widget Library", () => {
       });
 
       // Use data-testid for reliable card selection instead of .grid > div
-      const card = page
-        .getByTestId("template-card")
-        .filter({ hasText: templateName });
-      await card.getByRole("button", { name: "Delete template" }).click();
+      const card = page.getByRole("row").filter({ hasText: templateName });
+      await card.getByRole("button", { name: "Template actions" }).click();
+      await page.getByRole("menuitem", { name: "Delete" }).click();
 
       // Confirm the deletion
       const confirmDialog = page.getByRole("alertdialog", {
@@ -408,10 +407,9 @@ test.describe("Widget Library", () => {
       await page.goto("/widget-library");
       await expect(page.getByText(origName)).toBeVisible({ timeout: 10_000 });
 
-      const card = page
-        .locator("[data-testid='template-card']")
-        .filter({ hasText: origName });
-      await card.getByRole("button", { name: "Edit template" }).click();
+      const card = page.getByRole("row").filter({ hasText: origName });
+      await card.getByRole("button", { name: "Template actions" }).click();
+      await page.getByRole("menuitem", { name: "Edit" }).click();
 
       // Edit Template dialog should open
       const dialog = page.getByRole("dialog", { name: "Edit Template" });
@@ -433,7 +431,7 @@ test.describe("Widget Library", () => {
       await expect(page.getByText(origName)).not.toBeVisible();
     });
 
-    test("template cards show code preview with query text", async ({
+    test("template rows show their chart and the connector level they run on (#2254)", async ({
       page,
     }) => {
       test.setTimeout(60_000);
@@ -460,13 +458,11 @@ test.describe("Widget Library", () => {
         timeout: 10_000,
       });
 
-      // The template card should show a code preview containing the query
-      const card = page
-        .locator("[data-testid='template-card']")
-        .filter({ hasText: templateName });
-      const codePreview = card.locator("[data-testid='code-preview']");
-      await expect(codePreview).toBeVisible();
-      await expect(codePreview).toContainText(queryText);
+      // Unbound to a connection: the column names the connector
+      const row = page.getByRole("row").filter({ hasText: templateName });
+      await expect(
+        row.getByRole("cell", { name: "Any Neo4j connection", exact: true }),
+      ).toBeVisible();
     });
 
     test("Use in Dashboard opens picker dialog and navigates to dashboard editor", async ({
@@ -504,10 +500,9 @@ test.describe("Widget Library", () => {
         });
 
         // Click "Use in Dashboard" on the template card
-        const card = page
-          .locator("[data-testid='template-card']")
-          .filter({ hasText: templateName });
-        await card.getByRole("button", { name: "Use in Dashboard" }).click();
+        const card = page.getByRole("row").filter({ hasText: templateName });
+        await card.getByRole("button", { name: "Template actions" }).click();
+        await page.getByRole("menuitem", { name: "Use in Dashboard" }).click();
 
         // Dashboard picker dialog should appear
         const pickerDialog = page.getByRole("dialog", {
@@ -616,10 +611,9 @@ test.describe("Widget Library", () => {
           timeout: 10_000,
         });
 
-        const card = page
-          .locator("[data-testid='template-card']")
-          .filter({ hasText: templateName });
-        await card.getByRole("button", { name: "Edit template" }).click();
+        const card = page.getByRole("row").filter({ hasText: templateName });
+        await card.getByRole("button", { name: "Template actions" }).click();
+        await page.getByRole("menuitem", { name: "Edit" }).click();
 
         const editDialog = page.getByRole("dialog", { name: "Edit Template" });
         await expect(editDialog).toBeVisible();
@@ -779,11 +773,10 @@ test.describe("Widget Library", () => {
       try {
         // A fresh Widget Library page: the editor's store is on a table.
         await page.goto("/widget-library");
-        const card = page
-          .locator("[data-testid='template-card']")
-          .filter({ hasText: templateName });
+        const card = page.getByRole("row").filter({ hasText: templateName });
         await expect(card).toBeVisible({ timeout: 10_000 });
-        await card.getByRole("button", { name: "Edit template" }).click();
+        await card.getByRole("button", { name: "Template actions" }).click();
+        await page.getByRole("menuitem", { name: "Edit" }).click();
 
         const editDialog = page.getByRole("dialog", { name: "Edit Template" });
         await expect(editDialog.locator("#widget-title")).toHaveValue(
@@ -814,7 +807,8 @@ test.describe("Widget Library", () => {
         });
 
         // Use in Dashboard: the widget it adds carries the rule.
-        await card.getByRole("button", { name: "Use in Dashboard" }).click();
+        await card.getByRole("button", { name: "Template actions" }).click();
+        await page.getByRole("menuitem", { name: "Use in Dashboard" }).click();
         const picker = page.getByRole("dialog", { name: "Choose a Dashboard" });
         await picker.locator("button").filter({ hasText: dashName }).click();
         await expect(page).toHaveURL(
@@ -918,12 +912,14 @@ test.describe("Widget Library", () => {
     test("can duplicate a template", async ({ page }) => {
       await page.goto("/widget-library");
       const card = page
-        .locator("[data-testid='template-card']")
+        .getByRole("row")
         .filter({ hasText: "Neo4j Bar Template" })
         .first();
       await expect(card).toBeVisible({ timeout: 10_000 });
 
-      await card.getByLabel("Duplicate").click();
+      await card.getByRole("button", { name: "Template actions" }).click();
+
+      await page.getByRole("menuitem", { name: "Duplicate" }).click();
 
       // Duplicate should appear with "(copy)" suffix
       await expect(
@@ -943,11 +939,11 @@ test.describe("Widget Library", () => {
     test("can filter templates by chart type", async ({ page }) => {
       await page.goto("/widget-library");
       const neo4jCard = page
-        .locator("[data-testid='template-card']")
+        .getByRole("row")
         .filter({ hasText: "Neo4j Bar Template" })
         .first();
       const pgCard = page
-        .locator("[data-testid='template-card']")
+        .getByRole("row")
         .filter({ hasText: "PostgreSQL Table Template" })
         .first();
       await expect(neo4jCard).toBeVisible({ timeout: 10_000 });
@@ -964,7 +960,7 @@ test.describe("Widget Library", () => {
     test("can filter templates by connector type", async ({ page }) => {
       await page.goto("/widget-library");
       const neo4jCard = page
-        .locator("[data-testid='template-card']")
+        .getByRole("row")
         .filter({ hasText: "Neo4j Bar Template" })
         .first();
       await expect(neo4jCard).toBeVisible({ timeout: 10_000 });
@@ -976,7 +972,7 @@ test.describe("Widget Library", () => {
         .click();
 
       const pgCard = page
-        .locator("[data-testid='template-card']")
+        .getByRole("row")
         .filter({ hasText: "PostgreSQL Table Template" })
         .first();
       await expect(pgCard).toBeVisible();

@@ -11,6 +11,7 @@ import {
   Plus,
   LayoutDashboard,
   Copy,
+  MoreHorizontal,
   Play,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -24,7 +25,6 @@ import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
 import { DashboardPickerDialog } from "@/components/dashboard-picker-dialog";
 import {
-  PageHeader,
   EmptyState,
   LoadingOverlay,
   Badge,
@@ -36,188 +36,29 @@ import {
   SelectTrigger,
   SelectValue,
   ConfirmDialog,
-  CodePreview,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  focusedMenuTrigger,
   useToast,
 } from "@neoboard/components";
+import {
+  FilterLine,
+  List,
+  ListRow,
+  PageHeader,
+} from "@neoboard/components/kit";
 import type { WidgetTemplate } from "@/lib/db/schema";
-import { editorLanguageForConnector } from "@/lib/connector/editor-language";
 import { useConnectors } from "@/hooks/use-connectors";
 import { connectorLabel } from "@/lib/connector/connector-label";
 import { WidgetEditorModal } from "@/components/widget-editor-modal";
-
-function TemplateCard({
-  template,
-  language,
-  connectorName,
-  canEdit,
-  canDelete,
-  onEdit,
-  onDelete,
-  onDuplicate,
-  onTestQuery,
-  testQueryLoading,
-  onUseInDashboard,
-}: {
-  readonly template: WidgetTemplate;
-  /** Editor language of the template's connector; "" is plain text. */
-  readonly language: string;
-  /** What to call the template's connector — its descriptor label (#1905). */
-  readonly connectorName: string;
-  readonly canEdit: boolean;
-  readonly canDelete: boolean;
-  readonly onEdit: MouseEventHandler<HTMLButtonElement>;
-  readonly onDelete: MouseEventHandler<HTMLButtonElement>;
-  readonly onDuplicate: () => void;
-  readonly onTestQuery: () => void;
-  readonly testQueryLoading: boolean;
-  readonly onUseInDashboard: MouseEventHandler<HTMLButtonElement>;
-}) {
-  const chartLabel =
-    getChartConfig(template.chartType)?.label ?? template.chartType;
-
-  return (
-    <div
-      className="rounded-lg border bg-card flex flex-col overflow-hidden"
-      data-testid="template-card"
-    >
-      <div className="p-3 flex flex-col gap-2.5">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            {/* title reveals the full name when truncated (#1053). */}
-            <p className="font-medium truncate" title={template.name}>
-              {template.name}
-            </p>
-            {template.description && (
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                {template.description}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-1 shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  onClick={onUseInDashboard}
-                  aria-label="Use in Dashboard"
-                >
-                  <LayoutDashboard className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Use in Dashboard</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  onClick={onDuplicate}
-                  aria-label="Duplicate"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Duplicate</TooltipContent>
-            </Tooltip>
-            {template.query && template.connectionId && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    onClick={onTestQuery}
-                    disabled={testQueryLoading}
-                    aria-label="Test query"
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Test query</TooltipContent>
-              </Tooltip>
-            )}
-            {canEdit && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    onClick={onEdit}
-                    aria-label="Edit template"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Edit</TooltipContent>
-              </Tooltip>
-            )}
-            {canDelete && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={onDelete}
-                    aria-label="Delete template"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Delete</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-
-        {/* Content-only templates (markdown/iframe) have no query or connector,
-            so show a neutral label instead of "No query" + a connector tag they
-            don't use (#1053). */}
-        {isContentOnlyChartType(template.chartType) ? (
-          <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            Content widget — no query
-          </p>
-        ) : (
-          <CodePreview value={template.query} language={language} />
-        )}
-
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant="secondary" className="text-xs">
-              {chartLabel}
-            </Badge>
-            {!isContentOnlyChartType(template.chartType) && (
-              <Badge variant="outline" className="text-xs">
-                {connectorName}
-              </Badge>
-            )}
-            {(template.tags ?? []).map((tag) => (
-              <Badge
-                key={tag}
-                variant="outline"
-                className="text-[10px] font-normal"
-              >
-                {tag}
-              </Badge>
-            ))}
-          </div>
-          {template.createdAt && (
-            <span className="text-[10px] text-muted-foreground shrink-0">
-              {new Date(template.createdAt).toLocaleDateString()}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+import {
+  templateConnectionLabel,
+  templateFilters,
+  templateListMeta,
+} from "./template-list";
 
 export default function WidgetLibraryPage() {
   const router = useRouter();
@@ -288,6 +129,19 @@ export default function WidgetLibraryPage() {
     });
   }, [templates, search, filterChartType, filterConnector, filterTag]);
 
+  const filters = templateFilters(
+    {
+      search,
+      chartType: filterChartType,
+      connector: filterConnector,
+      tag: filterTag,
+    },
+    {
+      chartType: getChartConfig(filterChartType)?.label ?? filterChartType,
+      connector: connectorLabel(connectors, filterConnector),
+    },
+  );
+
   function canEditOrDelete(template: WidgetTemplate) {
     return role === "admin" || template.createdBy === userId;
   }
@@ -298,7 +152,7 @@ export default function WidgetLibraryPage() {
     setEditorOpen(true);
   };
 
-  function handleEdit(template: WidgetTemplate, from: HTMLElement) {
+  function handleEdit(template: WidgetTemplate, from: HTMLElement | null) {
     setReturnFocusTo(from);
     setEditingTemplate(template);
     setEditorOpen(true);
@@ -381,11 +235,15 @@ export default function WidgetLibraryPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="flex min-h-full flex-col">
       <PageHeader
         title="Widget Library"
         titleRef={headingRef}
-        description="Reusable widget templates you can apply to any dashboard"
+        meta={
+          templates?.length
+            ? templateListMeta(templates.length)
+            : "Reusable widget templates you can apply to any dashboard"
+        }
         actions={
           <Button onClick={handleCreate} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -394,7 +252,8 @@ export default function WidgetLibraryPage() {
         }
       />
 
-      <div className="mt-6 flex flex-col gap-4">
+      {/* The ground behind the panels, as on the dashboards page (#2219). */}
+      <div className="flex flex-1 flex-col gap-4 bg-page-ground p-4 md:p-7">
         <div className="flex flex-wrap gap-3">
           <Input
             placeholder="Search templates..."
@@ -448,6 +307,23 @@ export default function WidgetLibraryPage() {
           )}
         </div>
 
+        <FilterLine
+          prefix="Showing templates where"
+          filters={filters}
+          onRemove={(id) => {
+            if (id === "search") setSearch("");
+            else if (id === "chartType") setFilterChartType("all");
+            else if (id === "connector") setFilterConnector("all");
+            else setFilterTag("all");
+          }}
+          onReset={() => {
+            setSearch("");
+            setFilterChartType("all");
+            setFilterConnector("all");
+            setFilterTag("all");
+          }}
+        />
+
         <LoadingOverlay loading={isLoading} text="Loading templates...">
           {!isLoading &&
             filtered.length === 0 &&
@@ -481,36 +357,110 @@ export default function WidgetLibraryPage() {
               />
             ))}
           {!isLoading && filtered.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {filtered.map((template) => (
-                <TemplateCard
-                  language={editorLanguageForConnector(
-                    connectors,
-                    template.connectorType,
-                  )}
-                  connectorName={connectorLabel(
-                    connectors,
-                    template.connectorType,
-                  )}
-                  key={template.id}
-                  template={template}
-                  canEdit={canEditOrDelete(template)}
-                  canDelete={canEditOrDelete(template)}
-                  onEdit={(e) => handleEdit(template, e.currentTarget)}
-                  onDelete={(e) => {
-                    setReturnFocusTo(e.currentTarget);
-                    setDeleteTarget(template.id);
-                  }}
-                  onDuplicate={() => handleDuplicate(template)}
-                  onTestQuery={() => handleTestQuery(template)}
-                  testQueryLoading={testingTemplateId === template.id}
-                  onUseInDashboard={(e) => {
-                    setReturnFocusTo(e.currentTarget);
-                    setUseTarget(template.id);
-                  }}
-                />
-              ))}
-            </div>
+            <List
+              label="Templates"
+              columns={["Name", "Chart", "Connection", "Tags"]}
+            >
+              {filtered.map((template) => {
+                const canChange = canEditOrDelete(template);
+                const contentOnly = isContentOnlyChartType(template.chartType);
+                return (
+                  <ListRow
+                    key={template.id}
+                    title={template.name}
+                    description={template.description ?? undefined}
+                    meta={[
+                      getChartConfig(template.chartType)?.label ??
+                        template.chartType,
+                      // A content widget (markdown, iframe) has no connection.
+                      contentOnly
+                        ? "—"
+                        : templateConnectionLabel(
+                            template,
+                            connections,
+                            connectors,
+                          ),
+                      <span key="t" className="flex gap-1.5">
+                        {(template.tags ?? []).map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="text-[10px] font-normal"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      </span>,
+                    ]}
+                    menu={
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            aria-label={`Template actions for ${template.name}`}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setReturnFocusTo(focusedMenuTrigger());
+                              setUseTarget(template.id);
+                            }}
+                          >
+                            <LayoutDashboard className="mr-2 h-4 w-4" />
+                            Use in Dashboard
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDuplicate(template)}
+                          >
+                            <Copy className="mr-2 h-4 w-4" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          {template.query && template.connectionId && (
+                            <DropdownMenuItem
+                              disabled={testingTemplateId === template.id}
+                              onClick={() => handleTestQuery(template)}
+                            >
+                              <Play className="mr-2 h-4 w-4" />
+                              Test query
+                            </DropdownMenuItem>
+                          )}
+                          {canChange && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleEdit(template, focusedMenuTrigger())
+                              }
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                          {canChange && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => {
+                                  setReturnFocusTo(focusedMenuTrigger());
+                                  setDeleteTarget(template.id);
+                                }}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    }
+                  />
+                );
+              })}
+            </List>
           )}
         </LoadingOverlay>
       </div>

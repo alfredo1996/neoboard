@@ -25,6 +25,16 @@ const mockPrefetchSchema = vi.fn();
 
 const mockAuditRequest = vi.fn();
 
+const mockWidgetCounts =
+  vi.fn<
+    (
+      ids: string[],
+      userId: string,
+      isAdmin: boolean,
+      tenantId: string,
+    ) => Promise<Record<string, number>>
+  >();
+
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
@@ -43,6 +53,9 @@ class ForbiddenError extends Error {
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
+vi.mock("@/lib/db/connection-usage", () => ({
+  getConnectionWidgetCounts: mockWidgetCounts,
+}));
 // Audit is mocked so route assertions aren't polluted by its own db.insert.
 vi.mock("@/lib/audit/audit", () => ({
   auditRequest: mockAuditRequest,
@@ -87,6 +100,7 @@ describe("GET /api/connections", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    mockWidgetCounts.mockResolvedValue({});
     const mod = await import("../route");
     GET = mod.GET;
   });
@@ -138,6 +152,46 @@ describe("GET /api/connections", () => {
         expect.arrayContaining(["t1", "user-1", "shared"]),
       );
     }
+  });
+
+  it("lists how many widgets use each connection, counted for the caller's own scope (#2254)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockWidgetCounts.mockResolvedValue({ c1: 14 });
+    const row = (id: string) => ({
+      id,
+      name: id,
+      type: "postgresql",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      visibility: "private",
+      ownerId: "user-1",
+    });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 2 }]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([row("c1"), row("c2")]));
+
+    const res = await GET(makeRequest({}, "http://localhost/api/connections"));
+    const body = await res.json();
+
+    expect(
+      body.data.map((c: { widgetCount: number }) => c.widgetCount),
+    ).toEqual([14, 0]);
+    // One pass for the whole page, with the session's tenant and role.
+    expect(mockWidgetCounts).toHaveBeenCalledTimes(1);
+    expect(mockWidgetCounts).toHaveBeenCalledWith(
+      ["c1", "c2"],
+      "user-1",
+      false,
+      "t1",
+    );
+  });
+
+  it("counts for the whole tenant when the caller is an admin (#2254)", async () => {
+    mockRequireSession.mockResolvedValue(ADMIN_SESSION);
+    mockWidgetCounts.mockResolvedValue({});
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 0 }]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    await GET(makeRequest({}, "http://localhost/api/connections"));
+    expect(mockWidgetCounts).toHaveBeenCalledWith([], "admin-1", true, "t1");
   });
 
   it("marks tenant-shared connections not owned by the caller (#901)", async () => {

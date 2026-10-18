@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
-import type { ConfirmDialogProps, PageHeaderProps } from "@neoboard/components";
+import type { ConfirmDialogProps } from "@neoboard/components";
 import { MockClosingDialog } from "@/__tests__/helpers/dialog-mocks";
 
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
@@ -37,13 +37,19 @@ const BASE_TEMPLATES = [
   },
 ];
 
-let templates: (typeof BASE_TEMPLATES)[number][] = BASE_TEMPLATES;
+type Template = Omit<(typeof BASE_TEMPLATES)[number], "tags"> & {
+  tags: string[];
+  description?: string;
+  connectionId?: string;
+};
+let templates: Template[] = BASE_TEMPLATES;
+let connections: { id: string; name: string }[] = [];
 
 vi.mock("@/hooks/use-connectors", () => ({
   useConnectors: () => ({ data: connectors }),
 }));
 vi.mock("@/hooks/use-connections", () => ({
-  useConnections: () => ({ data: [] }),
+  useConnections: () => ({ data: connections }),
 }));
 vi.mock("@/hooks/use-widget-templates", () => {
   const idle = () => ({ mutate: vi.fn(), mutateAsync: vi.fn() });
@@ -95,14 +101,6 @@ vi.mock("@neoboard/components", () => {
     <div>{children}</div>
   );
   return {
-    PageHeader: ({ title, titleRef, actions }: PageHeaderProps) => (
-      <>
-        <h1 ref={titleRef} tabIndex={-1}>
-          {title}
-        </h1>
-        {actions}
-      </>
-    ),
     EmptyState: ({ action }: { action?: React.ReactNode }) => (
       <div>{action}</div>
     ),
@@ -141,9 +139,23 @@ vi.mock("@neoboard/components", () => {
         </>
       ) : null;
     },
-    Tooltip: Box,
-    TooltipTrigger: Box,
-    TooltipContent: () => null,
+    // The menu's items render in place: jsdom cannot open a Radix menu.
+    DropdownMenu: Box,
+    DropdownMenuTrigger: ({ children }: { children?: React.ReactNode }) =>
+      children,
+    DropdownMenuContent: Box,
+    DropdownMenuSeparator: () => <hr />,
+    DropdownMenuItem: ({
+      children,
+      onClick,
+    }: {
+      children?: React.ReactNode;
+      onClick?: () => void;
+    }) => (
+      <button role="menuitem" onClick={onClick}>
+        {children}
+      </button>
+    ),
     Select: Box,
     SelectTrigger: ({ children }: { children?: React.ReactNode }) => (
       <div data-testid="select-trigger">{children}</div>
@@ -159,17 +171,23 @@ vi.mock("@neoboard/components", () => {
       value: string;
       children?: React.ReactNode;
     }) => <option value={value}>{children}</option>,
-    CodePreview: ({ value, language }: { value: string; language: string }) => (
-      <pre data-language={language}>{value}</pre>
-    ),
+    focusedMenuTrigger: () => menuTrigger,
     useToast: () => ({ toast: vi.fn() }),
   };
 });
 
 import WidgetLibraryPage from "../page";
 
+// What `focusedMenuTrigger()` finds: the row's "⋯" button.
+const menuTrigger = document.body.appendChild(document.createElement("button"));
+
+/** A template's kit row, found by its name. */
+const rowOf = (name: string) =>
+  screen.getByText(name).closest("tr") as HTMLElement;
+
 beforeEach(() => {
   templates = BASE_TEMPLATES;
+  connections = [];
   mockCreate.mockClear();
 });
 
@@ -191,7 +209,7 @@ describe("WidgetLibraryPage duplicate", () => {
     ];
     render(<WidgetLibraryPage />);
 
-    fireEvent.click(screen.getByLabelText("Duplicate"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const payload = mockCreate.mock.calls[0][0] as Record<string, unknown>;
@@ -203,7 +221,7 @@ describe("WidgetLibraryPage duplicate", () => {
   it("keeps the connector when the template has one", () => {
     render(<WidgetLibraryPage />);
 
-    fireEvent.click(screen.getAllByLabelText("Duplicate")[0]);
+    fireEvent.click(screen.getAllByRole("menuitem", { name: "Duplicate" })[0]);
 
     expect(mockCreate.mock.calls[0][0]).toMatchObject({
       connectorType: "acme-sheets",
@@ -226,42 +244,79 @@ describe("WidgetLibraryPage — connector facts come from the descriptor list (#
     ]);
   });
 
-  // #1905: the card's connector badge printed the raw `connectorType`.
-  it("badges each card with its connector's label, the type when it is gone", () => {
+  // #1905: the connector was printed as the raw `connectorType`.
+  it("names an unbound template's connection by its connector's label, the type when it is gone", () => {
     render(<WidgetLibraryPage />);
-    const badges = screen
-      .getAllByText(/^(Acme Sheets|acme-sheets|uninstalled)$/)
-      .map((b) => b.textContent);
-    // "Acme Sheets" also appears once as a filter <option>; the card badge is
-    // the other one.
-    expect(badges.filter((t) => t === "Acme Sheets")).toHaveLength(2);
-    expect(badges).not.toContain("acme-sheets");
-    expect(badges).toContain("uninstalled");
+    expect(
+      within(rowOf("Budget rows")).getByText("Any Acme Sheets connection"),
+    ).toBeInTheDocument();
+    expect(
+      within(rowOf("Orphaned")).getByText("Any uninstalled connection"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("WidgetLibraryPage — kit rows (#2254)", () => {
+  it("shows a bound template's connection by name, the chart by label and the tags", () => {
+    connections = [{ id: "c1", name: "Movies graph" }];
+    templates = [
+      {
+        ...BASE_TEMPLATES[0],
+        connectionId: "c1",
+        description: "Ranked bar",
+        tags: ["movies", "kpi"],
+      },
+    ];
+    render(<WidgetLibraryPage />);
+
+    const cells = within(rowOf("Budget rows"))
+      .getAllByRole("cell")
+      .slice(0, 4)
+      .map((c) => c.textContent);
+    expect(cells).toEqual([
+      "Budget rowsRanked bar",
+      "table",
+      "Movies graph",
+      "movieskpi",
+    ]);
   });
 
-  it("highlights a template's query in its connector's language, plain text when the connector is gone", () => {
+  it("subtitles the page with the template count", () => {
     render(<WidgetLibraryPage />);
-    expect(screen.getByText("SHEET budget")).toHaveAttribute(
-      "data-language",
-      "acmeql",
-    );
-    expect(screen.getByText("whatever this was")).toHaveAttribute(
-      "data-language",
-      "",
-    );
+    expect(
+      screen.getByText(
+        "Reusable widgets you can drop into any dashboard · 2 templates",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("offers every current action on a template the user owns, and only Use and Duplicate on another's", () => {
+    render(<WidgetLibraryPage />);
+    const items = (name: string) =>
+      within(rowOf(name))
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent);
+    expect(items("Budget rows")).toEqual([
+      "Use in Dashboard",
+      "Duplicate",
+      "Edit",
+      "Delete",
+    ]);
+    expect(items("Orphaned")).toEqual(["Use in Dashboard", "Duplicate"]);
   });
 });
 
 describe("WidgetLibraryPage — where focus goes after Delete template (#2125)", () => {
   it.each([
-    ["Cancel", () => screen.getByLabelText("Delete template")],
+    ["Cancel", () => menuTrigger],
     ["Delete", () => screen.getByRole("heading", { name: "Widget Library" })],
   ])(
-    "%s hands focus back: the button, or the heading once the card is gone",
+    "%s hands focus back: the button, or the heading once the row is gone",
     (button, target) => {
+      menuTrigger.blur();
       render(<WidgetLibraryPage />);
 
-      fireEvent.click(screen.getByLabelText("Delete template"));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
       fireEvent.click(screen.getByRole("button", { name: button }));
 
       expect(target()).toHaveFocus();
@@ -270,16 +325,22 @@ describe("WidgetLibraryPage — where focus goes after Delete template (#2125)",
 });
 
 // #2146: the editor and Use in Dashboard have no Trigger either.
-it.each(["New Template", "Edit template", "Use in Dashboard"])(
-  "Cancel on what %s opened puts focus back on it (#2146)",
-  (name) => {
+it.each([
+  ["New Template", "button"],
+  ["Edit", "menuitem"],
+  ["Use in Dashboard", "menuitem"],
+] as const)(
+  "Cancel on what %s opened puts focus back on its opener (#2146)",
+  (name, role) => {
+    menuTrigger.blur();
     render(<WidgetLibraryPage />);
-    const opener = screen.getAllByRole("button", { name })[0];
+    const opener = screen.getAllByRole(role, { name })[0];
 
     fireEvent.click(opener);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(opener).toHaveFocus();
+    // A menu item has no focus of its own: the row's "⋯" button gets it back.
+    expect(role === "button" ? opener : menuTrigger).toHaveFocus();
   },
 );
 

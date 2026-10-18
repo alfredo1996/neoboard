@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/api-utils";
 import { apiSuccess, apiList, parsePagination } from "@/lib/api/api-response";
 import { auditRequest } from "@/lib/audit/audit";
+import { getConnectionWidgetCounts } from "@/lib/db/connection-usage";
 
 export async function GET(request: Request) {
   try {
@@ -57,9 +58,17 @@ export async function GET(request: Request) {
 
     // Expose ownership as a boolean — the UI gates edit/delete on it (#901).
     // Never leak the raw owner id to non-admins.
+    // The widgets using each one (#2254): one pass for the whole page.
+    const widgetCounts = await getConnectionWidgetCounts(
+      rows.map((r) => r.id),
+      userId,
+      isAdmin,
+      tenantId,
+    );
     const shaped = rows.map(({ ownerId, ...rest }) => ({
       ...rest,
       isOwner: ownerId === userId,
+      widgetCount: widgetCounts[rest.id] ?? 0,
     }));
 
     return apiList(shaped, { total: Number(total), limit, offset });
