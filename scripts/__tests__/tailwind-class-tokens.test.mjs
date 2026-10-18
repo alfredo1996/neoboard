@@ -24,7 +24,7 @@ const PACKAGES = [
 const SKIP_DIRS = new Set(["node_modules", "__tests__", "cypher-lang"]);
 
 const TOKEN =
-  /^(?:[a-z0-9@[\]()/&=_.,#%>~*+-]+:)*!?-?(?:[a-z0-9][a-z0-9.-]*(?:-?\[\S+\])?(?:\/[\w.[\]]+)?|\[[a-z-]+:\S+\])$/;
+  /^(?:[a-zA-Z0-9@[\]()/&=_.,#%>~*+^|$-]+:)*!?-?(?:[a-z0-9][a-z0-9.-]*(?:-?\[\S+\])?(?:\/[\w.[\]]+)?|\[[a-z-]+:\S+\])$/;
 const VARIANT = new RegExp(
   "^(?:" +
     [
@@ -64,7 +64,7 @@ function fusedTokens(source) {
   const bad = [];
   // Import specifiers ("node:fs") are shaped like variant:utility; drop them.
   const code = source.replaceAll(
-    /\b(?:from|import)\s*\(?\s*(["'])[^"'\n]*\1/g,
+    /\bfrom\s+(["'])[^"'\n]*\1|\bimport\s*\(\s*(["'])[^"'\n]*\2/g,
     "",
   );
   // Pair each quote with its own kind, so content-[''] stays inside its list.
@@ -110,6 +110,19 @@ describe("Tailwind class strings (#2225)", () => {
     ],
     [`"block after:content-[''] text-smhover:bg-x"`, "text-smhover:bg-x"],
     [`"flex [&>svg~*]:pl-7 text-smhover:bg-x"`, "text-smhover:bg-x"],
+    [
+      `"w-full data-[motion^=from-]:animate-in [&_.CodeMirror]:h-full text-smhover:bg-x"`,
+      "text-smhover:bg-x",
+    ],
+    // A string ending in "from" or "import" is not an import specifier.
+    [
+      `<Button aria-label="Paste a file to import" className="p-2 text-smhover:bg-x" />`,
+      "text-smhover:bg-x",
+    ],
+    [
+      `<X title="Copy from" className="p-2 text-smhover:bg-x" />`,
+      "text-smhover:bg-x",
+    ],
   ])("still reads a class list holding %s", (source, token) => {
     expect(fusedTokens(source)).toEqual([token]);
   });

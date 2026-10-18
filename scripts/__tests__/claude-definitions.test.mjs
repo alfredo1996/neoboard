@@ -296,7 +296,7 @@ describe("review findings go to a fresh implementer (#2180, 2026-10-18)", () => 
     },
   );
 
-  it.each(["code", "next"])(
+  it.each(["code", "next", "pr"])(
     "the %s skill spawns the fixer in the branch's worktree, not a new one",
     (name) => {
       // isolation: "worktree" cuts a new branch from the base, without the
@@ -309,8 +309,12 @@ describe("review findings go to a fresh implementer (#2180, 2026-10-18)", () => 
 
   it("the implementer knows a fix round skips setup and stays on the branch", () => {
     const implementer = read(".claude/agents/implementer.md");
+    const fixRound = implementer.slice(implementer.indexOf("## Fix round"));
     expect(implementer).toContain("## Fix round");
-    expect(implementer).toMatch(/skip Setup/i);
+    expect(fixRound).toContain("skip Setup 1–2");
+    expect(fixRound).toContain("never check out another branch");
+    // Its shell starts in the lead's checkout: npm and npx have no -C.
+    expect(fixRound).toContain("`cd <worktree> &&`");
   });
 });
 
