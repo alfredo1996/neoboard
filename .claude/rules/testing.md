@@ -30,4 +30,6 @@ paths:
 
 Playwright E2E with **server-side coverage collection** (`collectServer: true` in nextcov config) complements jsdom tests for full user flows. It works because the server is spawned as `node --inspect=<port>` (not `npx`, whose wrapper would bind the inspector port first) with `NODE_V8_COVERAGE` set, and because coverage is finalized **before** the teardown kills the server. The teardown fails the run if `collectServer` is on and no API route file reaches the report — the original defect was silent (#1606). UI component tests in `component/` package remain isolated (no business logic).
 
+**E2E selectors match exactly.** Use `getByRole(role, { name, exact: true })` or a test id; a regex or substring `getByText` also matches the next piece of UI text that contains it, and strict mode then fails on two elements. Four specs broke this way when the v1.7 pages added breadcrumbs and subtitles (#2252, #2253).
+
 **Vendored code** (e.g., `component/src/lib/cypher-lang/`) is excluded from SonarCloud coverage requirements but should have basic smoke tests to catch regressions from local modifications.

@@ -48,7 +48,7 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *)
 
    Get the body right first time. A body edited after creation may not close its issue on a release branch; if that happens, close the issue by hand with a comment naming the merge commit.
 
-5. **Review:** run `adversarial-reviewer` on the branch before merging (CLAUDE.md, #2180). Send its real findings back to the same `implementer`, to be fixed test-first.
+5. **Review:** run `adversarial-reviewer` on the branch before merging (CLAUDE.md, #2180). Send its real findings to a fresh `implementer` in the same worktree, briefed with the findings and the diff, to be fixed test-first.
 
 ## Merge bar: all of it, checked live, right before merging
 

@@ -48,7 +48,7 @@ It branches inside its own worktree. The main checkout stays on the active relea
 
 Spawn `adversarial-reviewer`. Give it the worktree, the branch, the base, and the implementer's report, as claims to verify.
 
-- Send real findings back to the same implementer with `SendMessage`, not to a new agent.
+- Send real findings to a fresh `implementer` in the same worktree, briefed with the findings and the branch diff. Resume the original with `SendMessage` only when a finding needs its reasoning (#2180).
 - Re-review if the fix changed the approach.
 
 ## 5. PR and merge

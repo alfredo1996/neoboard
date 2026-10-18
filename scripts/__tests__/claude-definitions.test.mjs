@@ -274,6 +274,42 @@ describe("every agent runs on the model it declares (#2180)", () => {
   });
 });
 
+describe("review findings go to a fresh implementer (#2180, 2026-10-18)", () => {
+  // Resuming the original implementer re-read 300–450k tokens of context per
+  // turn for one-line findings; the owner moved fix rounds to a fresh agent.
+  it("CLAUDE.md says so", () => {
+    expect(read(".claude/CLAUDE.md")).toContain(
+      "Review findings go to a **fresh** `implementer`",
+    );
+  });
+
+  it.each(["code", "next", "pr"])(
+    "the %s skill no longer sends them to the same implementer",
+    (name) => {
+      const skill = read(`.claude/skills/${name}/SKILL.md`);
+      expect(skill).not.toMatch(/same `?implementer/);
+      expect(skill).toContain("fresh `implementer`");
+    },
+  );
+});
+
+describe("settings.json permissions", () => {
+  it("deny rules for paths use Edit(), which covers every file tool", () => {
+    // Claude Code matches path rules only as Edit(path): Write(.env*) denied
+    // nothing and printed a warning on every headless run (retro 2026-10-18).
+    const { deny } = JSON.parse(read(".claude/settings.json")).permissions;
+    expect(deny.filter((rule) => /^Write\(/.test(rule))).toEqual([]);
+    expect(deny).toEqual(
+      expect.arrayContaining([
+        "Edit(.env*)",
+        "Edit(*.pem)",
+        "Edit(*.key)",
+        "Edit(*credentials*)",
+      ]),
+    );
+  });
+});
+
 describe("the definitions carry the frontier drill, merge danger and test seams (#2206)", () => {
   // Borrowed from mattpocock/skills on 2026-10-13: ask the whole frontier per
   // round with a recommended answer; say what a merge can break; name the
@@ -322,7 +358,11 @@ describe("agents ask the code graph before grepping (#2208)", () => {
 
   it("the rule names the exact-name commands and how to tell the graph is stale", () => {
     const text = read(rule);
-    for (const command of ["graphify explain", "graphify affected", "graphify path"]) {
+    for (const command of [
+      "graphify explain",
+      "graphify affected",
+      "graphify path",
+    ]) {
       expect(text, command).toContain(command);
     }
     expect(text).toContain("Built from commit");
