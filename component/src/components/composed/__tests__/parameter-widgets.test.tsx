@@ -2063,9 +2063,12 @@ describe("parameter widgets under a real Field", () => {
     }
   });
 
-  it("keeps the plain label out of composed names while the Field label says optional", () => {
+  it.each([
+    [true, "f-label f-optional"],
+    [false, "f-label"],
+  ])("composed names stay plain (optional=%s)", (optional, labelledBy) => {
     render(
-      <Field id="f" label="Score" optional>
+      <Field id="f" label="Score" optional={optional}>
         <NumberRangeSlider
           parameterName="p"
           min={0}
@@ -2074,10 +2077,13 @@ describe("parameter widgets under a real Field", () => {
           onChange={noop}
           onClear={noop}
           id="f"
-          labelledBy="f-label"
+          labelledBy={labelledBy}
         />
       </Field>,
     );
+    expect(
+      screen.getByRole("slider", { name: /^Score minimum$/ }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("spinbutton", { name: /^Score minimum$/ }),
     ).toBeInTheDocument();
@@ -2085,4 +2091,30 @@ describe("parameter widgets under a real Field", () => {
       screen.getByRole("button", { name: /^Clear Score$/ }),
     ).toBeInTheDocument();
   });
+
+  it.each([
+    [true, "f-label f-optional", "Score (optional)"],
+    [false, "f-label", "Score"],
+  ])(
+    "names a text input (optional=%s), and its Clear button plainly",
+    (optional, labelledBy, ownName) => {
+      render(
+        <Field id="f" label="Score" optional={optional}>
+          <TextInputParameter
+            parameterName="p"
+            value="x"
+            onChange={noop}
+            id="f"
+            labelledBy={labelledBy}
+          />
+        </Field>,
+      );
+      expect(
+        screen.getByRole("textbox", { name: ownName }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Clear Score" }),
+      ).toBeInTheDocument();
+    },
+  );
 });

@@ -55,7 +55,7 @@ export interface FieldProps {
   optional?: boolean;
   /** False when the control is not labelable (a fieldset of buttons): no `for`, name it by `aria-labelledby`. Default true. */
   labelsControl?: boolean;
-  /** Stable id for the control and label; generated when omitted. The label's own id is `<id>-label`, for a control named by `aria-labelledby`. */
+  /** Stable id for the control and label; generated when omitted. The label's own id is `<id>-label` and the "(optional)" marker's is `<id>-optional`, for a control named by `aria-labelledby`. */
   id?: string;
   className?: string;
   children: React.ReactNode;
@@ -95,15 +95,18 @@ function Field({
 
   return (
     <div className={cn("grid content-start gap-1.5", className)}>
-      {/* The id sits on the plain label only: a control named from it by
-          aria-labelledby, or a name composed from it ("Score minimum"), must
-          not pick up "(optional)". */}
+      {/* The label id sits on the plain label and the marker has its own: the
+          field's own control lists both ("Score (optional)"), a composed name
+          ("Score minimum") lists only the label. */}
       <Label htmlFor={labelsControl ? controlId : undefined}>
         <span id={`${controlId}-label`}>{label}</span>
         {optional && (
           <>
             {" "}
-            <span className="font-normal text-muted-foreground">
+            <span
+              id={`${controlId}-optional`}
+              className="font-normal text-muted-foreground"
+            >
               (optional)
             </span>
           </>

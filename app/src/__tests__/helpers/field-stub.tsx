@@ -35,7 +35,12 @@ export function FieldStub({
     <div className={className}>
       <label htmlFor={labelsControl ? controlId : undefined}>
         <span id={`${controlId}-label`}>{label}</span>
-        {optional && " (optional)"}
+        {optional && (
+          <>
+            {" "}
+            <span id={`${controlId}-optional`}>(optional)</span>
+          </>
+        )}
       </label>
       {React.Children.map(children, (child) => {
         if (!React.isValidElement<Record<string, unknown>>(child)) return child;

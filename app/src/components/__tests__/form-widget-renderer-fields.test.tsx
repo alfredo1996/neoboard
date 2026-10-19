@@ -957,8 +957,10 @@ describe("FormWidgetRenderer — one label per field (#1410)", () => {
     const label = container.querySelector("label")!;
     const input = screen.getByTestId("input-rf1_comment");
     expect(label.control).toBe(input);
+    // An optional field is named by its label and the "(optional)" marker.
+    const [labelSpan, optionalSpan] = label.querySelectorAll("span");
     expect(input.getAttribute("aria-labelledby")).toBe(
-      label.querySelector("span")!.id,
+      `${labelSpan.id} ${optionalSpan.id}`,
     );
   });
 

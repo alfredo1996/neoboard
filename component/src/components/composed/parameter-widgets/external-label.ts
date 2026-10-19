@@ -8,7 +8,8 @@
  */
 export interface ExternalLabelProps {
   /**
-   * Id of the caller's label. The widget then renders no label of its own and
+   * Id of the caller's label, optionally followed by space-separated ids that
+   * only the control's own name includes (such as "(optional)"). The widget then renders no label of its own and
    * names its control from this one.
    */
   labelledBy?: string;
@@ -25,6 +26,11 @@ export function joinIds(...ids: (string | undefined)[]): string | undefined {
   return ids.filter(Boolean).join(" ") || undefined;
 }
 
+/** The label's own id out of a `labelledBy` list, without the extra ids after it. */
+export function labelIdOf(labelledBy: string): string {
+  return labelledBy.split(" ")[0];
+}
+
 /**
  * Names a secondary control — a clear button, a range's min input — after the
  * caller's label plus a qualifier word, so it is never named after the
@@ -38,9 +44,12 @@ export function qualifiedName(
   qualifierFirst = false,
 ): { "aria-label": string } | { "aria-labelledby": string } {
   if (!labelledBy) return { "aria-label": fallback };
+  // `labelledBy` may list more ids after the label's own (the "(optional)"
+  // marker, #2217); a composed name takes the label alone.
+  const labelId = labelIdOf(labelledBy);
   return {
     "aria-labelledby": qualifierFirst
-      ? `${qualifierId} ${labelledBy}`
-      : `${labelledBy} ${qualifierId}`,
+      ? `${qualifierId} ${labelId}`
+      : `${labelId} ${qualifierId}`,
   };
 }

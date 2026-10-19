@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { qualifiedName, type ExternalLabelProps } from "./external-label";
+import {
+  labelIdOf,
+  qualifiedName,
+  type ExternalLabelProps,
+} from "./external-label";
 
 export interface NumberRangeSliderProps extends ExternalLabelProps {
   parameterName: string;
@@ -160,7 +164,7 @@ function NumberRangeSlider({
         step={step}
         value={current}
         onValueChange={handleSliderChange}
-        aria-labelledby={labelId}
+        aria-labelledby={labelIdOf(labelId)}
         className="w-full"
       />
 

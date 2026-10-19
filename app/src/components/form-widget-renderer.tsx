@@ -674,7 +674,9 @@ export function FormWidgetRenderer({
                     field={field}
                     label={{
                       id: controlId,
-                      labelledBy: `${controlId}-label`,
+                      labelledBy: field.required
+                        ? `${controlId}-label`
+                        : `${controlId}-label ${controlId}-optional`,
                       describedBy: error ? `${controlId}-error` : undefined,
                       invalid: Boolean(error),
                     }}
