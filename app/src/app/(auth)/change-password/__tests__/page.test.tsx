@@ -12,6 +12,7 @@ vi.mock("@neoboard/components", () => {
     PanelDescription: div,
     PanelHeader: div,
     PanelTitle: div,
+    Wordmark: () => <span>NeoBoard</span>,
     Alert: ({ children }: { children: React.ReactNode }) => (
       <div role="alert">{children}</div>
     ),
@@ -50,6 +51,17 @@ beforeEach(() => {
 });
 
 describe("ChangePasswordPage (#2011)", () => {
+  it("shows the wordmark, a heading and the real password rule (#2256)", () => {
+    render(<ChangePasswordPage />);
+    expect(screen.getByText("NeoBoard")).toBeDefined();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Change password" }),
+    ).toBeDefined();
+    expect(
+      screen.getByText("At least 8 characters, with a letter and a number."),
+    ).toBeDefined();
+  });
+
   it("shows the message from the API's error envelope", async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
@@ -61,16 +73,16 @@ describe("ChangePasswordPage (#2011)", () => {
       }),
     } as Response);
     render(<ChangePasswordPage />);
-    fireEvent.change(screen.getByLabelText("Current Password"), {
+    fireEvent.change(screen.getByLabelText("Current password"), {
       target: { value: "wrongpass1" },
     });
-    fireEvent.change(screen.getByLabelText("New Password"), {
+    fireEvent.change(screen.getByLabelText("New password", { exact: true }), {
       target: { value: "newpass123" },
     });
-    fireEvent.change(screen.getByLabelText("Confirm New Password"), {
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
       target: { value: "newpass123" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Current password is incorrect",
@@ -91,16 +103,16 @@ it("after a change, signs out and sends the user to sign in again (#2160)", asyn
     },
   });
   render(<ChangePasswordPage />);
-  fireEvent.change(screen.getByLabelText("Current Password"), {
+  fireEvent.change(screen.getByLabelText("Current password"), {
     target: { value: "oldpass123" },
   });
-  fireEvent.change(screen.getByLabelText("New Password"), {
+  fireEvent.change(screen.getByLabelText("New password", { exact: true }), {
     target: { value: "newSecurePass123" },
   });
-  fireEvent.change(screen.getByLabelText("Confirm New Password"), {
+  fireEvent.change(screen.getByLabelText("Confirm new password"), {
     target: { value: "newSecurePass123" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+  fireEvent.click(screen.getByRole("button", { name: "Change password" }));
   await vi.waitFor(() =>
     expect(assign).toHaveBeenCalledWith("/login?passwordChanged=1"),
   );

@@ -38,6 +38,7 @@ vi.mock("@/lib/auth/signup", () => ({
 }));
 
 vi.mock("@neoboard/components", () => ({
+  Wordmark: () => <span>NeoBoard</span>,
   Panel: ({
     children,
     className,
@@ -145,7 +146,7 @@ describe("SignupPage", () => {
     render(<SignupPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Registration Disabled")).toBeDefined();
+      expect(screen.getByText("Registration is disabled")).toBeDefined();
     });
 
     expect(
@@ -166,7 +167,7 @@ describe("SignupPage", () => {
     render(<SignupPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Registration Disabled")).toBeDefined();
+      expect(screen.getByText("Registration is disabled")).toBeDefined();
     });
 
     // Form fields should not be present
@@ -182,12 +183,12 @@ describe("SignupPage", () => {
     render(<SignupPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("First Admin Setup")).toBeDefined();
+      expect(screen.getByText("Set up the first admin")).toBeDefined();
     });
 
     expect(screen.getByText(/No users exist yet/)).toBeDefined();
-    expect(screen.getByLabelText("Bootstrap Token")).toBeDefined();
-    expect(screen.getByText("Create Admin Account")).toBeDefined();
+    expect(screen.getByLabelText("Bootstrap token")).toBeDefined();
+    expect(screen.getByText("Create admin account")).toBeDefined();
   });
 
   it("shows bootstrap token field when bootstrapRequired is true", async () => {
@@ -196,10 +197,10 @@ describe("SignupPage", () => {
     render(<SignupPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("First Admin Setup")).toBeDefined();
+      expect(screen.getByText("Set up the first admin")).toBeDefined();
     });
 
-    expect(screen.getByLabelText("Bootstrap Token")).toBeDefined();
+    expect(screen.getByLabelText("Bootstrap token")).toBeDefined();
   });
 
   // #2108: JSX drops a gap that holds a newline, so the dash needs {" "}.
@@ -224,8 +225,8 @@ describe("SignupPage", () => {
     expect(screen.getByLabelText("Name")).toBeDefined();
     expect(screen.getByLabelText("Email")).toBeDefined();
     expect(screen.getByLabelText("Password")).toBeDefined();
-    expect(screen.getByLabelText("Confirm Password")).toBeDefined();
-    expect(screen.queryByLabelText("Bootstrap Token")).toBeNull();
+    expect(screen.getByLabelText("Confirm password")).toBeDefined();
+    expect(screen.queryByLabelText("Bootstrap token")).toBeNull();
     expect(screen.getByText("Create account")).toBeDefined();
   });
 
@@ -259,7 +260,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText("Name"), "Test User");
     await user.type(screen.getByLabelText("Email"), "test@example.com");
     await user.type(screen.getByLabelText("Password"), "password123");
-    await user.type(screen.getByLabelText("Confirm Password"), "different456");
+    await user.type(screen.getByLabelText("Confirm password"), "different456");
     await user.click(screen.getByText("Create account"));
 
     // findByRole("alert") with a generous timeout: the error renders inside
@@ -286,7 +287,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText("Name"), "Test User");
     await user.type(screen.getByLabelText("Email"), "test@example.com");
     await user.type(screen.getByLabelText("Password"), "password123");
-    await user.type(screen.getByLabelText("Confirm Password"), "password123");
+    await user.type(screen.getByLabelText("Confirm password"), "password123");
     await user.click(screen.getByText("Create account"));
 
     await waitFor(() => {
@@ -309,7 +310,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText("Name"), "Test User");
     await user.type(screen.getByLabelText("Email"), "test@example.com");
     await user.type(screen.getByLabelText("Password"), "password123");
-    await user.type(screen.getByLabelText("Confirm Password"), "password123");
+    await user.type(screen.getByLabelText("Confirm password"), "password123");
     await user.click(screen.getByText("Create account"));
 
     await waitFor(() => {
@@ -332,7 +333,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText("Name"), "Test User");
     await user.type(screen.getByLabelText("Email"), "test@example.com");
     await user.type(screen.getByLabelText("Password"), "password123");
-    await user.type(screen.getByLabelText("Confirm Password"), "password123");
+    await user.type(screen.getByLabelText("Confirm password"), "password123");
     await user.click(screen.getByText("Create account"));
 
     await waitFor(() => {
@@ -341,6 +342,17 @@ describe("SignupPage", () => {
   }, 15_000);
 
   // ----- Default state -----
+
+  it("states the real password rule (#2256)", async () => {
+    mockFetchBootstrapStatus(false, true);
+    render(<SignupPage />);
+
+    expect(
+      await screen.findByText(
+        "At least 8 characters, with a letter and a number.",
+      ),
+    ).toBeDefined();
+  });
 
   it("shows a loading state until the status fetch settles, then the title", async () => {
     // Pending fetch → the page holds a loading spinner instead of flashing the

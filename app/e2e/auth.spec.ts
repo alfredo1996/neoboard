@@ -240,7 +240,7 @@ test.describe("Signup", () => {
     await expect(page.getByLabel("Name")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Confirm Password")).toBeVisible();
+    await expect(page.getByLabel("Confirm password")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Create account" }),
     ).toBeVisible();
@@ -284,7 +284,7 @@ test.describe("Signup", () => {
     await page.getByLabel("Name").fill("Mismatch User");
     await page.getByLabel("Email").fill(`mismatch-${uid()}@example.com`);
     await page.getByLabel("Password", { exact: true }).fill("password123");
-    await page.getByLabel("Confirm Password").fill("differentpass");
+    await page.getByLabel("Confirm password").fill("differentpass");
     await page.getByRole("button", { name: "Create account" }).click();
     await expect(page.getByText("Passwords do not match")).toBeVisible();
     // Should stay on signup page
@@ -297,7 +297,7 @@ test.describe("Signup", () => {
     await page.getByLabel("Name").fill("Duplicate User");
     await page.getByLabel("Email").fill(ALICE.email);
     await page.getByLabel("Password", { exact: true }).fill("password123");
-    await page.getByLabel("Confirm Password").fill("password123");
+    await page.getByLabel("Confirm password").fill("password123");
     await page.getByRole("button", { name: "Create account" }).click();
     await expect(
       page.getByText("An account with this email already exists"),
@@ -318,7 +318,7 @@ test.describe("Signup", () => {
     await page.getByLabel("Email").fill(`weak-${uid()}@example.com`);
     // 7 chars passes HTML minLength=6 but fails server-side min=8
     await page.getByLabel("Password", { exact: true }).fill("short1a");
-    await page.getByLabel("Confirm Password").fill("short1a");
+    await page.getByLabel("Confirm password").fill("short1a");
     await page.getByRole("button", { name: "Create account" }).click();
     await expect(
       page.getByText("Password must be at least 8 characters"),
@@ -331,7 +331,7 @@ test.describe("Signup", () => {
     await page.getByLabel("Name").fill("No Number User");
     await page.getByLabel("Email").fill(`nonum-${uid()}@example.com`);
     await page.getByLabel("Password", { exact: true }).fill("abcdefgh");
-    await page.getByLabel("Confirm Password").fill("abcdefgh");
+    await page.getByLabel("Confirm password").fill("abcdefgh");
     await page.getByRole("button", { name: "Create account" }).click();
     await expect(
       page.getByText("Password must contain at least one number"),
@@ -413,7 +413,7 @@ test.describe.serial("Force password change", () => {
 
     await expect(page).toHaveURL(/\/change-password/, { timeout: 15_000 });
     await expect(
-      page.getByRole("heading", { name: "Change Password" }),
+      page.getByRole("heading", { name: "Change password" }),
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -445,12 +445,12 @@ test.describe.serial("Force password change", () => {
 
     // Fill the change password form
     const newPassword = "newSecurePass123";
-    await page.getByLabel("Current Password").fill(password);
-    // exact: true — bare "New Password" also substring-matches the
-    // "Confirm New Password" label and trips strict mode.
-    await page.getByLabel("New Password", { exact: true }).fill(newPassword);
-    await page.getByLabel("Confirm New Password").fill(newPassword);
-    await page.getByRole("button", { name: "Change Password" }).click();
+    await page.getByLabel("Current password").fill(password);
+    // exact: true — bare "New password" also substring-matches the
+    // "Confirm new password" label and trips strict mode.
+    await page.getByLabel("New password", { exact: true }).fill(newPassword);
+    await page.getByLabel("Confirm new password").fill(newPassword);
+    await page.getByRole("button", { name: "Change password" }).click();
 
     // The change ends every earlier session, this one too (#2160): the page
     // signs out and the login page says why.

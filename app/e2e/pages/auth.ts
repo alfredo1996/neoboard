@@ -67,7 +67,7 @@ export class AuthPage {
     await this.page.getByLabel("Name").fill(name);
     await this.page.getByLabel("Email").fill(email);
     await this.page.getByLabel("Password", { exact: true }).fill(password);
-    await this.page.getByLabel("Confirm Password").fill(password);
+    await this.page.getByLabel("Confirm password").fill(password);
     await this.page.getByRole("button", { name: "Create account" }).click();
   }
 

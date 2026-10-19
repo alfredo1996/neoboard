@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@neoboard/components/ui";
 
 /**
  * App-wide branded 404. Catches unmatched routes (e.g. /dashboards/<bad-id>)
@@ -10,22 +11,18 @@ import Link from "next/link";
  */
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="text-center space-y-4 max-w-md">
-        <p className="text-sm font-medium text-muted-foreground">404</p>
-        <h2 className="text-2xl font-semibold">Page not found</h2>
-        <p className="text-muted-foreground">
-          This page doesn&apos;t exist, or you don&apos;t have access to it.
+    <main className="flex min-h-screen items-center justify-center bg-page-ground px-4 py-10">
+      <div className="max-w-[420px] text-center">
+        <p className="text-[13px] font-medium text-muted-foreground">404</p>
+        <h1 className="mb-2 mt-1.5 text-2xl font-semibold">Page not found</h1>
+        <p className="mb-[18px] text-muted-foreground">
+          The page you were looking for isn&apos;t here, or you don&apos;t have
+          access to it.
         </p>
-        <div className="flex justify-center">
-          <Link
-            href="/dashboards"
-            className="px-4 py-2 border rounded-md text-sm hover:bg-accent"
-          >
-            Go to dashboards
-          </Link>
-        </div>
+        <Button asChild>
+          <Link href="/">Back to dashboards</Link>
+        </Button>
       </div>
-    </div>
+    </main>
   );
 }

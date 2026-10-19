@@ -79,7 +79,7 @@ No internet access on the target hosts? [Air-gapped install](/deploy/air-gapped)
 ## First-Time Setup
 
 1. Go to `http://localhost:3000/signup`
-2. Fill in the form and enter the bootstrap token in the **Bootstrap Token** field. That is the `ADMIN_BOOTSTRAP_TOKEN` value: `install.sh` / `neoboard setup` print it in the ready banner and store it in `docker/.env`; `neoboard init --mode local` prints it and writes it to `app/.env.local`.
+2. Fill in the form and enter the bootstrap token in the **Bootstrap token** field. That is the `ADMIN_BOOTSTRAP_TOKEN` value: `install.sh` / `neoboard setup` print it in the ready banner and store it in `docker/.env`; `neoboard init --mode local` prints it and writes it to `app/.env.local`.
 3. The first account created with a valid token gets the **admin** role. Without a matching token, or if `ADMIN_BOOTSTRAP_TOKEN` is not set on the server, the first signup is refused. (For dev or demo only, you can instead set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` before first boot, and the admin is created automatically.)
 
 ## Verify Installation

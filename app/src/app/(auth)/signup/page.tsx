@@ -6,19 +6,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signup } from "@/lib/auth/signup";
 import {
-  Panel,
-  PanelContent,
-  PanelDescription,
-  PanelFooter,
-  PanelHeader,
-  PanelTitle,
   Input,
   Label,
   Alert,
   AlertDescription,
+  LoadingButton,
+  PasswordInput,
+  Spinner,
 } from "@neoboard/components";
-import { LoadingButton, PasswordInput, Spinner } from "@neoboard/components";
-import { PRODUCT_PITCH } from "@/lib/branding";
+import { AuthCard } from "../auth-card";
+
+/** The rule `newPasswordSchema` enforces (app/src/lib/auth/password-schema.ts). */
+const PASSWORD_HINT = "At least 8 characters, with a letter and a number.";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -84,149 +83,139 @@ export default function SignupPage() {
   // Hold the initial paint until we know the real registration status.
   if (!statusChecked) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-page-ground">
         <Spinner size="lg" />
       </div>
     );
   }
 
+  const backToSignIn = (
+    <Link href="/login" className="text-foreground underline">
+      Back to sign in
+    </Link>
+  );
+
   if (!registrationEnabled && !bootstrapRequired) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Panel className="w-full max-w-sm">
-          <PanelHeader className="text-center">
-            <PanelTitle className="text-2xl">
-              <h1>NeoBoard</h1>
-            </PanelTitle>
-            <PanelDescription>Registration Disabled</PanelDescription>
-          </PanelHeader>
-          <PanelContent>
-            {/* Plain text, not a nested Alert box — the Panel is already the
-                container, so a bordered box-in-box reads as card-in-card
-                (#1038). */}
-            <p className="text-sm text-muted-foreground">
-              Self-registration is disabled. Contact your administrator for an
-              account.
-            </p>
-          </PanelContent>
-          <PanelFooter className="justify-center">
-            <p className="text-sm text-muted-foreground">
-              <Link href="/login" className="text-primary underline">
-                Back to sign in
-              </Link>
-            </p>
-          </PanelFooter>
-        </Panel>
-      </div>
+      <AuthCard
+        title="Sign up"
+        lead="Registration is disabled"
+        footer={backToSignIn}
+      >
+        {/* Plain text, not a nested Alert box — the card is already the
+            container, so a bordered box-in-box reads as card-in-card
+            (#1038). */}
+        <p className="text-center text-sm text-muted-foreground">
+          Self-registration is disabled. Contact your administrator for an
+          account.
+        </p>
+      </AuthCard>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Panel className="w-full max-w-sm">
-        <PanelHeader className="text-center">
-          <PanelTitle className="text-2xl">
-            <h1>NeoBoard</h1>
-          </PanelTitle>
-          <p className="text-sm text-muted-foreground">{PRODUCT_PITCH}</p>
-          <PanelDescription>
-            {bootstrapRequired ? "First Admin Setup" : "Create your account"}
-          </PanelDescription>
-        </PanelHeader>
-        <PanelContent>
-          {bootstrapRequired && (
-            <Alert className="mb-4">
-              <AlertDescription>
-                No users exist yet. You are setting up the first admin account.
-                Enter the bootstrap token printed by <code>neoboard setup</code>{" "}
-                — or read <code>ADMIN_BOOTSTRAP_TOKEN</code> from{" "}
-                <code>docker/.env</code> (Docker) or <code>app/.env.local</code>{" "}
-                (local).
-              </AlertDescription>
-            </Alert>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+    <AuthCard
+      title="Sign up"
+      lead={
+        bootstrapRequired ? "Set up the first admin" : "Create your account"
+      }
+      footer={
+        <>
+          Already have an account?{" "}
+          <Link href="/login" className="text-foreground underline">
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      {bootstrapRequired && (
+        <Alert>
+          <AlertDescription>
+            No users exist yet. You are setting up the first admin account.
+            Enter the bootstrap token printed by <code>neoboard setup</code> —
+            or read <code>ADMIN_BOOTSTRAP_TOKEN</code> from{" "}
+            <code>docker/.env</code> (Docker) or <code>app/.env.local</code>{" "}
+            (local).
+          </AlertDescription>
+        </Alert>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                name="name"
-                type="text"
-                required
-                placeholder="Your name"
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="name">Name</Label>
+          <Input
+            id="name"
+            name="name"
+            type="text"
+            autoComplete="name"
+            required
+            placeholder="Your name"
+          />
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                placeholder="you@example.com"
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="you@example.com"
+          />
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <PasswordInput
-                id="password"
-                name="password"
-                required
-                minLength={6}
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <PasswordInput
+            id="password"
+            name="password"
+            autoComplete="new-password"
+            required
+            minLength={6}
+          />
+          <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <PasswordInput
-                id="confirmPassword"
-                name="confirmPassword"
-                required
-                minLength={6}
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm password</Label>
+          <PasswordInput
+            id="confirmPassword"
+            name="confirmPassword"
+            autoComplete="new-password"
+            required
+            minLength={6}
+          />
+        </div>
 
-            {bootstrapRequired && (
-              <div className="space-y-2">
-                <Label htmlFor="bootstrapToken">Bootstrap Token</Label>
-                <PasswordInput
-                  id="bootstrapToken"
-                  name="bootstrapToken"
-                  required
-                  placeholder="Enter ADMIN_BOOTSTRAP_TOKEN from .env"
-                />
-              </div>
-            )}
+        {bootstrapRequired && (
+          <div className="space-y-2">
+            <Label htmlFor="bootstrapToken">Bootstrap token</Label>
+            <PasswordInput
+              id="bootstrapToken"
+              name="bootstrapToken"
+              required
+              placeholder="Enter ADMIN_BOOTSTRAP_TOKEN from .env"
+            />
+          </div>
+        )}
 
-            <LoadingButton
-              type="submit"
-              loading={loading}
-              loadingText={
-                bootstrapRequired ? "Creating admin..." : "Creating account..."
-              }
-              className="w-full"
-            >
-              {bootstrapRequired ? "Create Admin Account" : "Create account"}
-            </LoadingButton>
-          </form>
-        </PanelContent>
-        <PanelFooter className="justify-center">
-          <p className="text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary underline">
-              Sign in
-            </Link>
-          </p>
-        </PanelFooter>
-      </Panel>
-    </div>
+        <LoadingButton
+          type="submit"
+          loading={loading}
+          loadingText={
+            bootstrapRequired ? "Creating admin..." : "Creating account..."
+          }
+          className="w-full"
+        >
+          {bootstrapRequired ? "Create admin account" : "Create account"}
+        </LoadingButton>
+      </form>
+    </AuthCard>
   );
 }
