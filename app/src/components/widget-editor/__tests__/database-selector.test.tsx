@@ -110,6 +110,17 @@ describe("DatabaseSelector", () => {
     expect(screen.getByText("No databases available")).toBeInTheDocument();
   });
 
+  it("marks the database optional: empty means the connection default (#2217)", () => {
+    mockUseConnectionDatabases.mockReturnValue({
+      data: { databases: ["mydb"] },
+      isLoading: false,
+    });
+    render(<DatabaseSelector {...defaultProps} />);
+    expect(screen.getByText("Database").closest("label")).toHaveTextContent(
+      "Database (optional)",
+    );
+  });
+
   it("renders Select dropdown with database items", () => {
     mockUseConnectionDatabases.mockReturnValue({
       data: { databases: ["mydb", "otherdb"] },

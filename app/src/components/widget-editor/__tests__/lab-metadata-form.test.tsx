@@ -73,6 +73,14 @@ describe("LabMetadataForm", () => {
     );
   });
 
+  it("marks the tags optional in the label, with the format as help (#2217)", () => {
+    render(<LabMetadataForm />);
+    expect(screen.getByLabelText("Tags (optional)")).toBe(
+      screen.getByTestId("lab-template-tags"),
+    );
+    expect(screen.getByText("Comma-separated.")).toBeInTheDocument();
+  });
+
   it("calls setLabName on name input change", () => {
     render(<LabMetadataForm />);
     fireEvent.change(screen.getByTestId("lab-template-name"), {

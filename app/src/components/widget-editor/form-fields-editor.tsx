@@ -62,6 +62,7 @@ interface LabeledInputProps {
   placeholder?: string;
   type?: string;
   help?: React.ReactNode;
+  optional?: boolean;
 }
 
 function LabeledInput({
@@ -71,9 +72,10 @@ function LabeledInput({
   placeholder,
   type = "text",
   help,
+  optional,
 }: LabeledInputProps) {
   return (
-    <Field label={label} help={help}>
+    <Field label={label} help={help} optional={optional}>
       <Input
         type={type}
         value={value}
@@ -161,6 +163,7 @@ function SortableFieldItem({
         {/* Label */}
         <LabeledInput
           label="Label"
+          optional
           value={field.label}
           onChange={(v) => onUpdate(field.id, { label: v })}
           placeholder="e.g. Movie Title"
@@ -218,7 +221,9 @@ function SortableFieldItem({
         {/* Static options (for select only) */}
         {field.parameterType === "select" && (
           <LabeledInput
-            label="Static Options (comma-separated)"
+            label="Static Options"
+            optional
+            help="Comma-separated. Used instead of the options query."
             value={field.staticOptions ?? ""}
             onChange={(v) => onUpdate(field.id, { staticOptions: v })}
             placeholder="e.g. low,medium,high"
@@ -228,12 +233,12 @@ function SortableFieldItem({
         {/* Seed query (for select/multi-select/cascading-select) */}
         {needsSeedQuery(field.parameterType) && (
           <Field
-            label={
-              <>
-                Options Query{" "}
-                {field.parameterType === "select" &&
-                  "(ignored if static options set)"}
-              </>
+            label="Options Query"
+            optional
+            help={
+              field.parameterType === "select"
+                ? "Ignored if static options are set."
+                : undefined
             }
           >
             <Textarea
@@ -288,9 +293,10 @@ function SortableFieldItem({
         ) && (
           <LabeledInput
             label="Placeholder"
+            optional
             value={field.placeholder ?? ""}
             onChange={(v) => onUpdate(field.id, { placeholder: v })}
-            placeholder="Optional placeholder text"
+            placeholder="Text shown while empty"
           />
         )}
 

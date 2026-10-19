@@ -124,14 +124,9 @@ export function SaveTemplateDialog({
           </Field>
 
           <Field
-            label={
-              <>
-                Tags{" "}
-                <span className="text-muted-foreground text-xs">
-                  (optional, comma-separated)
-                </span>
-              </>
-            }
+            label="Tags"
+            optional
+            help="Comma-separated."
             id="template-tags"
           >
             <Input

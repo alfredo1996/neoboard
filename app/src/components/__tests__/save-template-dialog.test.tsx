@@ -91,6 +91,12 @@ describe("SaveTemplateDialog", () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
+  it("marks the tags optional in the label, with the format as help (#2217)", () => {
+    renderDialog();
+    expect(screen.getByLabelText("Tags (optional)")).toBeInTheDocument();
+    expect(screen.getByText("Comma-separated.")).toBeInTheDocument();
+  });
+
   it("splits comma-separated tags and drops blanks", async () => {
     const user = userEvent.setup();
     renderDialog();

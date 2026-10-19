@@ -170,7 +170,7 @@ function AddProviderDialog({
             </Field>
           </div>
 
-          <Field label="Scopes" id="sso-scopes">
+          <Field label="Scopes" optional id="sso-scopes">
             <Input
               placeholder="openid profile email"
               value={form.scopes ?? "openid profile email"}
@@ -186,7 +186,7 @@ function AddProviderDialog({
               role for all SSO users.
             </p>
 
-            <Field label="IdP Claim Key" id="sso-claim-key">
+            <Field label="IdP Claim Key" optional id="sso-claim-key">
               <Input
                 placeholder='e.g. "groups" or "realm_access.roles"'
                 value={claimKey}
@@ -196,7 +196,7 @@ function AddProviderDialog({
 
             {claimKey.trim() && (
               <div className="grid grid-cols-3 gap-3">
-                <Field label="Admin" id="sso-admin-value">
+                <Field label="Admin" optional id="sso-admin-value">
                   <Input
                     placeholder="neoboard-admins"
                     value={adminValue}
@@ -204,7 +204,7 @@ function AddProviderDialog({
                     className="text-sm"
                   />
                 </Field>
-                <Field label="Creator" id="sso-creator-value">
+                <Field label="Creator" optional id="sso-creator-value">
                   <Input
                     placeholder="neoboard-editors"
                     value={creatorValue}
@@ -212,7 +212,7 @@ function AddProviderDialog({
                     className="text-sm"
                   />
                 </Field>
-                <Field label="Reader" id="sso-reader-value">
+                <Field label="Reader" optional id="sso-reader-value">
                   <Input
                     placeholder="neoboard-viewers"
                     value={readerValue}

@@ -159,7 +159,7 @@ function SortableRuleItem({
       <AccordionContent className="px-4 pb-4 space-y-3">
         {/* Column — per-rule column selector for tables */}
         {isTable && (
-          <Field label="Column">
+          <Field label="Column" optional>
             <FieldSelectorInput
               value={rule.column ?? ""}
               onChange={(v) => onUpdate(rule.id, { column: v || undefined })}

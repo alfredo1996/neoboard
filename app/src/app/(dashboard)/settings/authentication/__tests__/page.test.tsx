@@ -284,6 +284,25 @@ describe("AuthenticationPage", () => {
     expect(screen.getByText("creator")).toBeInTheDocument();
   });
 
+  it("marks the fields the form accepts empty as optional (#2217)", async () => {
+    mockUseSsoProviders.mockReturnValue({ data: [], isLoading: false });
+    const { default: Page } = await import("../page");
+    render(<Page />);
+    const user = userEvent.setup();
+    await user.click(screen.getAllByText("Add Provider")[0]);
+    await user.type(screen.getByLabelText(/IdP Claim Key/), "groups");
+    for (const name of [
+      "Scopes",
+      "IdP Claim Key",
+      "Admin",
+      "Creator",
+      "Reader",
+    ]) {
+      expect(screen.getByLabelText(`${name} (optional)`)).toBeInTheDocument();
+    }
+    expect(screen.getByLabelText("Client ID")).toBeInTheDocument();
+  });
+
   it("opens add dialog when Add Provider is clicked", async () => {
     mockUseSsoProviders.mockReturnValue({ data: [], isLoading: false });
 

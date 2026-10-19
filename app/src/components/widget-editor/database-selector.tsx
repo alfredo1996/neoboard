@@ -44,7 +44,7 @@ export function DatabaseSelector({
   }
 
   return (
-    <Field label="Database" id="card-database">
+    <Field label="Database" optional id="card-database">
       <Select
         value={database || "__default__"}
         onValueChange={(v) => onDatabaseChange(v === "__default__" ? "" : v)}

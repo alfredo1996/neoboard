@@ -778,11 +778,16 @@ export function WidgetEditorModal({
                 {isLabMode && <LabMetadataForm />}
 
                 {/* Widget title — always visible above tabs */}
-                <Field label="Widget Title" id="widget-title" className="mb-4">
+                <Field
+                  label="Widget Title"
+                  optional
+                  id="widget-title"
+                  className="mb-4"
+                >
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Optional custom title"
+                    placeholder="Custom title"
                   />
                 </Field>
 

@@ -28,14 +28,9 @@ export function LabMetadataForm() {
         />
       </Field>
       <Field
-        label={
-          <>
-            Tags{" "}
-            <span className="text-muted-foreground text-xs">
-              (comma-separated)
-            </span>
-          </>
-        }
+        label="Tags"
+        optional
+        help="Comma-separated."
         id="lab-template-tags"
       >
         <Input

@@ -320,6 +320,12 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     useWidgetEditorStore.getState().resetForAdd();
   });
 
+  it("marks the widget title optional, once, in the label (#2217)", () => {
+    renderModal();
+    const title = screen.getByLabelText("Widget Title (optional)");
+    expect(title).toHaveAttribute("placeholder", "Custom title");
+  });
+
   it("starts collapsed: two columns, preview mounted, editor at min height", () => {
     renderModal();
     expect(gridColumns()).toBe("minmax(0, 1fr) minmax(0, 1fr)");
