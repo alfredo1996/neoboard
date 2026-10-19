@@ -530,7 +530,7 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
 const cancelIn = (id: string) => () =>
   within(document.getElementById(id)!.closest("form")!).getByText("Cancel");
 it.each([
-  ["New Dashboard", false, cancelIn("dashboard-name")],
+  ["New dashboard", false, cancelIn("dashboard-name")],
   ["Import", false, cancelIn("import-file")],
   ["Rename", true, cancelIn("dashboard-rename")],
   [

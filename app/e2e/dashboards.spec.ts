@@ -20,7 +20,9 @@ test.describe("Dashboard CRUD", () => {
     let id: string | undefined;
 
     try {
-      await page.getByRole("button", { name: /New Dashboard/i }).click();
+      await page
+        .getByRole("button", { name: "New dashboard", exact: true })
+        .click();
       const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
       await dialog.locator("#dashboard-name").fill(name);
       const [created] = await Promise.all([

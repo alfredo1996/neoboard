@@ -111,7 +111,9 @@ test.describe("Dashboard viewer — uncovered states", () => {
   }) => {
     // Create a fresh dashboard
     const name = `Self-Save Test ${uid()}`;
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
+    await page
+      .getByRole("button", { name: "New dashboard", exact: true })
+      .click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#dashboard-name").fill(name);
     const [created] = await Promise.all([
