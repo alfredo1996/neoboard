@@ -19,37 +19,50 @@ test.describe("API Key management", () => {
   });
 
   test("should create an API key and display it once", async ({ page }) => {
-    await page.getByRole("button", { name: "Create API key" }).first().click();
+    const keyName = `Test CI Key ${uid()}`;
+    try {
+      await page
+        .getByRole("button", { name: "Create API key" })
+        .first()
+        .click();
 
-    const dialog = page.getByRole("dialog");
-    await dialog.locator("#key-name").fill("Test CI Key");
-    await dialog.getByRole("button", { name: "Generate key" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.locator("#key-name").fill(keyName);
+      await dialog.getByRole("button", { name: "Generate key" }).click();
 
-    // After generation: dialog title changes to "API key created"
-    await expect(
-      dialog.getByRole("heading", { name: "API key created" }),
-    ).toBeVisible({ timeout: 10000 });
+      // After generation: dialog title changes to "API key created"
+      await expect(
+        dialog.getByRole("heading", { name: "API key created" }),
+      ).toBeVisible({ timeout: 10000 });
 
-    // Key should start with nb_ — use the data-testid for reliable targeting
-    const keyDisplay = dialog.getByTestId("api-key-display");
-    const keyText = await keyDisplay.locator("span").first().textContent();
-    expect(keyText).toMatch(/^nb_[0-9a-f]{64}$/);
+      // Key should start with nb_ — use the data-testid for reliable targeting
+      const keyDisplay = dialog.getByTestId("api-key-display");
+      const keyText = await keyDisplay.locator("span").first().textContent();
+      expect(keyText).toMatch(/^nb_[0-9a-f]{64}$/);
 
-    // The secret must stay on a single line (no break-all wrapping) (#1038).
-    await expect(keyDisplay.locator("span").first()).toHaveClass(
-      /whitespace-nowrap/,
-    );
+      // The secret must stay on a single line (no break-all wrapping) (#1038).
+      await expect(keyDisplay.locator("span").first()).toHaveClass(
+        /whitespace-nowrap/,
+      );
 
-    await dialog.getByRole("button", { name: "Done" }).click();
+      await dialog.getByRole("button", { name: "Done" }).click();
 
-    // Key should now appear in the table — exact: the name only, not the row's other text
-    await expect(page.getByText("Test CI Key", { exact: true })).toBeVisible();
+      // Key should now appear in the table — exact: the name only, not the row's other text
+      await expect(page.getByText(keyName, { exact: true })).toBeVisible();
 
-    // The list shows a masked, non-secret prefix of the key (#1038): the
-    // first 11 chars of the token followed by an ellipsis + mask. Never the
-    // full 64-hex secret.
-    const maskedPrefix = `${keyText!.slice(0, 11)}…****`;
-    await expect(page.getByText(maskedPrefix, { exact: true })).toBeVisible();
+      // The list shows a masked, non-secret prefix of the key (#1038): the
+      // first 11 chars of the token followed by an ellipsis + mask. Never the
+      // full 64-hex secret.
+      const maskedPrefix = `${keyText!.slice(0, 11)}…****`;
+      await expect(page.getByText(maskedPrefix, { exact: true })).toBeVisible();
+    } finally {
+      // Clean up by id: the UI never shows it, so look it up from the list.
+      const list = await page.request.get("/api/keys");
+      const created = (await list.json()).data.find(
+        (k: { id: string; name: string }) => k.name === keyName,
+      );
+      if (created) await page.request.delete(`/api/keys/${created.id}`);
+    }
   });
 
   test("should show the key in the list after creation", async ({ page }) => {

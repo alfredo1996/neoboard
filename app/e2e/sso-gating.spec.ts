@@ -40,6 +40,13 @@ test.describe("SSO gating — community edition", () => {
     await expect(
       page.getByRole("button", { name: /Add Provider/i }),
     ).toHaveCount(0);
+    // The fallback keeps the page chrome: header and settings tabs (#2255)
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Authentication" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Settings" }),
+    ).toBeVisible();
   });
 
   test("/api/sso-providers returns 402 ENTERPRISE_REQUIRED", async ({

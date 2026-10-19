@@ -37,6 +37,7 @@ import {
 } from "@neoboard/components";
 import { PageHeader } from "@neoboard/components/kit";
 import { SettingsTabs } from "../settings-tabs";
+import { useSettingsCrumb } from "../settings-crumb";
 import {
   useSsoProviders,
   useCreateSsoProvider,
@@ -419,13 +420,30 @@ export default function AuthenticationPage() {
     <FeatureGate
       feature="sso"
       fallback={
-        <div className="p-6">
+        <AuthenticationPageShell>
           <EnterpriseRequiredEmptyState feature="sso" />
-        </div>
+        </AuthenticationPageShell>
       }
     >
       <AuthenticationPageContent />
     </FeatureGate>
+  );
+}
+
+/** Header and tabs around the page body, so the fallback keeps the chrome. */
+function AuthenticationPageShell({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  const settingsCrumb = useSettingsCrumb();
+  return (
+    <div className="flex min-h-full flex-col">
+      <PageHeader
+        breadcrumb={[settingsCrumb, { label: "Authentication" }]}
+        title="Authentication"
+        tabs={<SettingsTabs />}
+      />
+      <div className="flex-1 bg-page-ground p-4 md:p-7">{children}</div>
+    </div>
   );
 }
 
@@ -436,6 +454,7 @@ function AuthenticationPageContent() {
   const { data: providers = [], isLoading } = useSsoProviders();
   const deleteMutation = useDeleteSsoProvider();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const settingsCrumb = useSettingsCrumb();
 
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id);
@@ -449,10 +468,7 @@ function AuthenticationPageContent() {
   return (
     <div className="flex min-h-full flex-col">
       <PageHeader
-        breadcrumb={[
-          { label: "Settings", href: "/settings/profile" },
-          { label: "Authentication" },
-        ]}
+        breadcrumb={[settingsCrumb, { label: "Authentication" }]}
         title="Authentication"
         titleRef={headingRef}
         meta="Configure single sign-on (SSO) providers for your organization."

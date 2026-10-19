@@ -68,7 +68,9 @@ const PROFILE = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
-vi.mock("../../settings-tabs", () => ({ SettingsTabs: () => null }));
+vi.mock("../../settings-tabs", () => ({
+  SettingsTabs: () => <nav aria-label="Settings" />,
+}));
 
 import ProfilePage from "../page";
 
@@ -98,6 +100,28 @@ function failNextFetch(status: number, code: string, message: string) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("ProfilePage chrome (#2255)", () => {
+  it("keeps the header and tabs while the profile loads", () => {
+    global.fetch = vi.fn(
+      () => new Promise(() => {}),
+    ) as unknown as typeof fetch;
+    render(<ProfilePage />);
+    expect(
+      screen.getByRole("heading", { name: "Profile" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Settings" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the role as plain text, not a badge", async () => {
+    await renderLoaded();
+    const dd = screen.getByText("Role").closest("div")!.querySelector("dd")!;
+    expect(dd).toHaveTextContent(/^Admin$/);
+    expect(dd.children).toHaveLength(0);
+  });
 });
 
 describe("ProfilePage password form (#1038)", () => {

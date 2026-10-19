@@ -35,6 +35,7 @@ import type { ApiKeyListItem, CreatedApiKey } from "@/hooks/use-api-keys";
 import { returnFocus } from "@/lib/return-focus";
 import { formatShortDate } from "../../users/user-list";
 import { SettingsTabs } from "../settings-tabs";
+import { useSettingsCrumb } from "../settings-crumb";
 import { maskedKey } from "./masked-key";
 
 const COLUMNS = ["Name", "Key", "Created", "Expires"];
@@ -199,11 +200,7 @@ function ApiKeyRow({
       description={
         apiKey.lastUsedAt ? (
           <>
-            Last used{" "}
-            <TimeAgo
-              date={apiKey.lastUsedAt}
-              className="text-xs text-foreground-2"
-            />
+            Last used <TimeAgo date={apiKey.lastUsedAt} className="text-xs" />
           </>
         ) : (
           "Never used"
@@ -286,18 +283,14 @@ export default function ApiKeysPage() {
     </Button>
   );
   const base = "Programmatic access to this workspace";
-  const meta =
-    keys.length > 0
-      ? `${base} · ${keys.length} ${keys.length === 1 ? "key" : "keys"}`
-      : base;
+  const count = `${keys.length} ${keys.length === 1 ? "key" : "keys"}`;
+  const meta = keys.length > 0 ? `${base} · ${count}` : base;
+  const settingsCrumb = useSettingsCrumb();
 
   return (
     <div className="flex min-h-full flex-col">
       <PageHeader
-        breadcrumb={[
-          { label: "Settings", href: "/settings/profile" },
-          { label: "API keys" },
-        ]}
+        breadcrumb={[settingsCrumb, { label: "API keys" }]}
         title="API keys"
         titleRef={headingRef}
         meta={meta}

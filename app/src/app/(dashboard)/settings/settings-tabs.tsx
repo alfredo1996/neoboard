@@ -19,7 +19,7 @@ const tabs: Tab[] = [
   { href: "/settings/api-keys", label: "API keys", icon: KeyRound },
   // Swagger UI lives at an API route, not a settings page — link out so the
   // OpenAPI docs are discoverable from the app (#1056).
-  { href: "/api/docs", label: "API Docs", icon: BookOpen, external: true },
+  { href: "/api/docs", label: "API docs", icon: BookOpen, external: true },
   {
     href: "/settings/authentication",
     label: "Authentication",

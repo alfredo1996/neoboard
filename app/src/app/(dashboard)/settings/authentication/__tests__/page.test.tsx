@@ -62,8 +62,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@neoboard/components/kit", () => ({
-  PageHeader: ({ title, meta, actions, titleRef }: PageHeaderProps) => (
+  PageHeader: ({ title, meta, actions, titleRef, tabs }: PageHeaderProps) => (
     <div data-testid="page-header">
+      {tabs}
       <h1 ref={titleRef} tabIndex={-1}>
         {title}
       </h1>
@@ -73,7 +74,9 @@ vi.mock("@neoboard/components/kit", () => ({
   ),
 }));
 
-vi.mock("../../settings-tabs", () => ({ SettingsTabs: () => null }));
+vi.mock("../../settings-tabs", () => ({
+  SettingsTabs: () => <nav aria-label="Settings" />,
+}));
 
 vi.mock("@neoboard/components", () => ({
   Button: ({
@@ -209,6 +212,11 @@ describe("AuthenticationPage", () => {
     const { default: Page } = await import("../page");
     render(<Page />);
 
+    // Header and tabs stay, so the user can leave the page (#2255).
+    expect(screen.getByTestId("page-header")).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Settings" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("enterprise-required")).toBeInTheDocument();
     expect(screen.getByTestId("enterprise-required")).toHaveAttribute(
       "data-feature",

@@ -2,16 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import {
-  Input,
-  Label,
-  Badge,
-  Alert,
-  AlertDescription,
-} from "@neoboard/components";
+import { Input, Label, Alert, AlertDescription } from "@neoboard/components";
 import { LoadingButton, PasswordInput } from "@neoboard/components";
 import { useToast } from "@neoboard/components";
 import { PageHeader, SettingsSection } from "@neoboard/components/kit";
+import type { UserRole } from "@/lib/db/schema";
+import { roleLabel } from "../../users/user-list";
 import { SettingsTabs } from "../settings-tabs";
 
 interface UserProfile {
@@ -137,23 +133,26 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="flex min-h-full flex-col">
+        <PageHeader
+          breadcrumb={[{ label: "Settings" }, { label: "Profile" }]}
+          title="Profile"
+          tabs={<SettingsTabs />}
+        />
+        <div className="flex flex-1 items-start justify-center bg-page-ground py-12">
+          <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
       </div>
     );
   }
-
-  const roleVariants: Record<string, "destructive" | "secondary"> = {
-    admin: "destructive",
-    reader: "secondary",
-  };
-  const roleVariant = roleVariants[profile?.role ?? ""] ?? "default";
 
   return (
     <div className="flex min-h-full flex-col">
       <PageHeader
         breadcrumb={[
-          { label: "Settings", href: "/settings/profile" },
+          // This page is the Settings landing: the crumb is a label, not a
+          // link to itself.
+          { label: "Settings" },
           { label: "Profile" },
         ]}
         title="Profile"
@@ -169,10 +168,8 @@ export default function ProfilePage() {
             </div>
             <div>
               <dt className="text-muted-foreground">Role</dt>
-              <dd className="m-0 mt-1">
-                <Badge variant={roleVariant} className="capitalize">
-                  {profile?.role}
-                </Badge>
+              <dd className="m-0 font-medium">
+                {profile ? roleLabel(profile.role as UserRole) : "—"}
               </dd>
             </div>
             <div>

@@ -65,7 +65,7 @@ vi.mock("@neoboard/components", () => ({
   ),
   // What the real one finds: the row's "Key actions" button.
   focusedMenuTrigger: () => menuTrigger,
-  TimeAgo: () => <span>2h ago</span>,
+  TimeAgo: ({ date }: { date: string }) => <span>{date}</span>,
   // Hands focus back after the render that closes it, as Radix does.
   ConfirmDialog: function ConfirmDialog({
     open,
@@ -116,7 +116,12 @@ vi.mock("@neoboard/components", () => ({
   ),
 }));
 
-vi.mock("../../settings-tabs", () => ({ SettingsTabs: () => null }));
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+
+vi.mock("../../settings-tabs", () => ({
+  SettingsTabs: () => <nav aria-label="Settings" />,
+}));
 
 import ApiKeysPage from "../page";
 
@@ -178,7 +183,8 @@ describe("ApiKeysPage rows", () => {
     render(<ApiKeysPage />);
     const used = screen.getByRole("row", { name: /Used Key/ });
     const fresh = screen.getByRole("row", { name: /Fresh Key/ });
-    expect(used).toHaveTextContent("Last used 2h ago");
+    // The row shows lastUsedAt, not createdAt (2026-01-01).
+    expect(used).toHaveTextContent("Last used 2026-01-02T00:00:00.000Z");
     expect(fresh).toHaveTextContent("Never used");
   });
 
@@ -187,7 +193,8 @@ describe("ApiKeysPage rows", () => {
       makeKey({
         id: "k1",
         name: "Expiring",
-        expiresAt: "2099-03-04T12:00:00.000Z",
+        // Local time (no Z): the short date is the same in every timezone.
+        expiresAt: "2099-03-04T12:00:00",
       }),
       makeKey({ id: "k2", name: "Forever", expiresAt: null }),
     ];
@@ -195,9 +202,31 @@ describe("ApiKeysPage rows", () => {
     expect(screen.getByRole("row", { name: /Expiring/ })).toHaveTextContent(
       "Mar 4, 2099",
     );
-    expect(screen.getByRole("row", { name: /Forever/ })).not.toHaveTextContent(
-      "2099",
-    );
+    expect(screen.getByRole("row", { name: /Forever/ })).toHaveTextContent("—");
+  });
+
+  it("the Settings crumb navigates client-side instead of reloading", () => {
+    mockKeys = [];
+    render(<ApiKeysPage />);
+    fireEvent.click(screen.getByRole("link", { name: "Settings" }));
+    expect(mockPush).toHaveBeenCalledWith("/settings/profile");
+  });
+
+  it("renders the settings tabs", () => {
+    mockKeys = [];
+    render(<ApiKeysPage />);
+    expect(
+      screen.getByRole("navigation", { name: "Settings" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the empty state and a meta without a count when there are no keys", () => {
+    mockKeys = [];
+    render(<ApiKeysPage />);
+    expect(screen.getByText("No API keys")).toBeInTheDocument();
+    expect(
+      screen.getByText("Programmatic access to this workspace"),
+    ).toBeInTheDocument();
   });
 
   it("counts the keys in the page meta", () => {
