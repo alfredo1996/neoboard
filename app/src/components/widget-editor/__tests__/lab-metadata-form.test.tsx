@@ -62,9 +62,15 @@ describe("LabMetadataForm", () => {
     expect(screen.getByText("Tags")).toBeInTheDocument();
   });
 
-  it("shows required indicator on template name", () => {
+  it("marks the optional description in words and the required name not at all", () => {
     render(<LabMetadataForm />);
-    expect(screen.getByText("*")).toBeInTheDocument();
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Template Name").closest("label"),
+    ).toHaveTextContent(/^Template Name$/);
+    expect(screen.getByText("Description").closest("label")).toHaveTextContent(
+      "Description (optional)",
+    );
   });
 
   it("calls setLabName on name input change", () => {

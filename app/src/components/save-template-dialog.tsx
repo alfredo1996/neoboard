@@ -114,17 +114,7 @@ export function SaveTemplateDialog({
             />
           </Field>
 
-          <Field
-            label={
-              <>
-                Description{" "}
-                <span className="text-muted-foreground text-xs">
-                  (optional)
-                </span>
-              </>
-            }
-            id="template-description"
-          >
+          <Field label="Description" optional id="template-description">
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}

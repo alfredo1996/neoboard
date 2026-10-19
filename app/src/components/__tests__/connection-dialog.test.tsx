@@ -84,7 +84,7 @@ describe("ConnectionDialog — create", () => {
     );
     expect(byId("conn-endpoint-error")).toHaveTextContent(/acme:/);
     expect(byId("conn-api-token-error")).toHaveTextContent(
-      "Enter the API Token.",
+      "Enter the API token.",
     );
     expect(createMutate).not.toHaveBeenCalled();
   });

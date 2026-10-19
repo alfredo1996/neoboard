@@ -667,6 +667,7 @@ export function FormWidgetRenderer({
                   id={controlId}
                   label={field.label || field.parameterName}
                   optional={!field.required}
+                  labelsControl={field.parameterType !== "date-relative"}
                   error={error}
                 >
                   <FieldInput

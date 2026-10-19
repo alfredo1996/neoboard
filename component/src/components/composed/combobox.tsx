@@ -162,6 +162,7 @@ function Combobox({
                   >
                     <HighlightMatch text={option.label} query={search} />
                   </span>
+                  {option.hint && " "}
                   {option.hint && (
                     <span className="ml-auto pl-2 text-xs text-muted-foreground">
                       {option.hint}

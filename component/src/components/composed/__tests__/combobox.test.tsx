@@ -161,6 +161,8 @@ describe("Combobox — filters on the visible label (#1411)", () => {
     await user.click(screen.getByRole("combobox"));
     const hint = screen.getByText("Store A");
     expect(hint).toHaveClass("ml-auto", "text-muted-foreground");
-    expect(screen.getByRole("option")).toHaveTextContent("Movies GraphStore A");
+    expect(screen.getByRole("option")).toHaveTextContent(
+      "Movies Graph Store A",
+    );
   });
 });

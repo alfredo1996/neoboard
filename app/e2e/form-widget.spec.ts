@@ -192,7 +192,7 @@ test.describe("Form widget", () => {
     await leaveEditMode(page);
 
     // Wait for the form to render — the label "Name" should be visible
-    // (fields default to required, so label renders as "Name*")
+    // (fields default to required, so the label is plain "Name")
     await expect(page.getByText(/^Name/)).toBeVisible({
       timeout: 15_000,
     });
@@ -599,7 +599,7 @@ test.describe("Form widget", () => {
     // author's label (#1410).
     const selector = page.getByRole("button", { name: "Period", exact: true });
     const formRange = page.getByRole("button", {
-      name: "Form range (optional)",
+      name: "Form range",
       exact: true,
     });
     await expect(formRange).toHaveText("Pick a date range…", {
@@ -959,32 +959,29 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     await expect(fullName).toBeVisible();
     await expect(fullName).toHaveAttribute("aria-required", "true");
     const priority = form.getByRole("combobox", {
-      name: "Priority (optional)",
+      name: "Priority",
       exact: true,
     });
     await expect(priority).toBeVisible();
     await expect(priority).not.toHaveAttribute("aria-required");
     await expect(
       form.getByRole("slider", {
-        name: "Score (optional) minimum",
+        name: "Score minimum",
         exact: true,
       }),
     ).toBeVisible();
     // The range's typed inputs and its Reset button too — aria-label text is
     // invisible to getByText, so check the names themselves.
-    for (const name of [
-      "Score (optional) minimum",
-      "Score (optional) maximum",
-    ]) {
+    for (const name of ["Score minimum", "Score maximum"]) {
       await expect(
         form.getByRole("spinbutton", { name, exact: true }),
       ).toBeVisible();
     }
     await expect(
-      form.getByRole("button", { name: "Clear Score (optional)", exact: true }),
+      form.getByRole("button", { name: "Clear Score", exact: true }),
     ).toBeVisible();
     const due = form.getByRole("button", {
-      name: "Due (optional)",
+      name: "Due",
       exact: true,
     });
     await expect(due).toBeVisible();
@@ -996,16 +993,16 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     // then lands on Full Name's field and the label never forwards it.
     // A trigger may open on the label's click instead of only taking focus;
     // either proves the label reaches the control. An open Select aria-hides
-    // the rest of the page, so pin the label by id before clicking and read
+    // the rest of the page, so pin the label by `for` before clicking and read
     // the control through `label.control`.
     for (const [text, trigger] of [
       ["Priority", priority],
       ["Due", due],
     ] as const) {
-      const labelId = await form
+      const labelFor = await form
         .locator("label", { hasText: text })
-        .getAttribute("id");
-      const label = page.locator(`label[id="${labelId}"]`);
+        .getAttribute("for");
+      const label = page.locator(`label[for="${labelFor}"]`);
       await expect(trigger).toHaveAttribute(
         "id",
         (await label.getAttribute("for")) ?? "",
@@ -1130,7 +1127,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     // under the pointer between mousedown and mouseup.
     await form.locator("label", { hasText: /^Note \(optional\)$/ }).click();
     await expect(
-      form.getByRole("textbox", { name: "Note (optional)", exact: true }),
+      form.getByRole("textbox", { name: "Note", exact: true }),
     ).toBeFocused();
     expect(
       await page.evaluate(
@@ -1204,7 +1201,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     );
 
     await expect(
-      form.getByRole("textbox", { name: "Note (optional)", exact: true }),
+      form.getByRole("textbox", { name: "Note", exact: true }),
     ).toBeFocused();
   });
 
@@ -1270,7 +1267,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
 
     await clickHeldAcrossDebounce(page, submit, () =>
       form
-        .getByRole("textbox", { name: "Name (optional)", exact: true })
+        .getByRole("textbox", { name: "Name", exact: true })
         .fill(`Held Click ${uid()}`),
     );
 

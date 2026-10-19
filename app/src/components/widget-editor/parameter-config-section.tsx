@@ -376,9 +376,7 @@ export function ParameterConfigSection({
       {/* Seed Query (select only — the sole option-backed type) */}
       {paramUIType === "select" && (
         <div className="space-y-1.5">
-          <Label htmlFor="seed-query">
-            Seed Query <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="seed-query">Seed Query</Label>
           <p className="text-xs text-muted-foreground">
             Use columns named{" "}
             <code className="bg-muted px-1 rounded">value</code> and{" "}
@@ -451,11 +449,7 @@ export function ParameterConfigSection({
 
       {/* Parameter Name */}
       <Field
-        label={
-          <>
-            Parameter Name <span className="text-destructive">*</span>
-          </>
-        }
+        label="Parameter Name"
         id="param-widget-name"
         help="Used to reference this parameter in widget queries"
       >

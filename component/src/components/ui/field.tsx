@@ -28,8 +28,14 @@ export function useFieldControl<
   const field = React.useContext(FieldContext);
   if (!field) return props;
   const describedBy =
-    [props["aria-describedby"], field.describedBy].filter(Boolean).join(" ") ||
-    undefined;
+    [
+      ...new Set(
+        [props["aria-describedby"], field.describedBy]
+          .join(" ")
+          .split(/\s+/)
+          .filter(Boolean),
+      ),
+    ].join(" ") || undefined;
   return {
     ...props,
     id: props.id ?? field.id,
@@ -47,6 +53,8 @@ export interface FieldProps {
   error?: React.ReactNode;
   /** Adds "(optional)" to the label; required is the default. */
   optional?: boolean;
+  /** False when the control is not labelable (a fieldset of buttons): no `for`, name it by `aria-labelledby`. Default true. */
+  labelsControl?: boolean;
   /** Stable id for the control and label; generated when omitted. The label's own id is `<id>-label`, for a control named by `aria-labelledby`. */
   id?: string;
   className?: string;
@@ -67,6 +75,7 @@ function Field({
   help,
   error,
   optional,
+  labelsControl = true,
   id,
   className,
   children,
@@ -86,8 +95,11 @@ function Field({
 
   return (
     <div className={cn("grid content-start gap-1.5", className)}>
-      <Label id={`${controlId}-label`} htmlFor={controlId}>
-        {label}
+      {/* The id sits on the plain label only: a control named from it by
+          aria-labelledby, or a name composed from it ("Score minimum"), must
+          not pick up "(optional)". */}
+      <Label htmlFor={labelsControl ? controlId : undefined}>
+        <span id={`${controlId}-label`}>{label}</span>
         {optional && (
           <>
             {" "}

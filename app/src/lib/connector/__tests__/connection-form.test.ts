@@ -179,7 +179,7 @@ describe("connectionFormErrors", () => {
       },
       config: {
         endpoint: expect.stringContaining("acme:"),
-        apiToken: "Enter the API Token.",
+        apiToken: "Enter the API token.",
         pageSize: "Page Size must be at most 500",
       },
     });
@@ -210,9 +210,45 @@ describe("connectionFormErrors", () => {
       { ...valid, config: { ...valid.config, endpoint: "not a uri" } },
       "create",
     );
-    expect(errors.config.endpoint).toBe(
-      "Enter a URI like scheme://host:port/database.",
+    expect(errors.config.endpoint).toBe("Enter a URI like acme://host/book.");
+  });
+
+  // Only plain Title-case words drop to lower case; acronyms and brand
+  // spellings in a connector's labels stay as written (#2217).
+  it.each([
+    ["Username", "Enter the username."],
+    ["API Token", "Enter the API token."],
+    ["Connection URI", "Enter the connection URI."],
+    ["OAuth Client ID", "Enter the OAuth client ID."],
+    ["Neo4j Host", "Enter the Neo4j host."],
+  ])("asks for %j as %j", (label, expected) => {
+    const descriptor = {
+      ...fixtureDescriptor,
+      fields: fixtureDescriptor.fields.map((f) =>
+        f.key === "apiToken" ? { ...f, label } : f,
+      ),
+    };
+    const errors = connectionFormErrors(
+      descriptor,
+      { ...valid, config: { endpoint: "acme://host/book" } },
+      "create",
     );
+    expect(errors.config.apiToken).toBe(expected);
+  });
+
+  it("falls back to a generic URI example when the field has no placeholder", () => {
+    const descriptor = {
+      ...fixtureDescriptor,
+      fields: fixtureDescriptor.fields.map((f) =>
+        f.key === "endpoint" ? { ...f, placeholder: undefined } : f,
+      ),
+    };
+    const errors = connectionFormErrors(
+      descriptor,
+      { ...valid, config: { ...valid.config, endpoint: "not a uri" } },
+      "create",
+    );
+    expect(errors.config.endpoint).toBe("Enter a URI like scheme://host:port.");
   });
 
   it("starts from an empty form", () => {

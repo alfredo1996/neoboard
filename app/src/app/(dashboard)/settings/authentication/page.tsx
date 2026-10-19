@@ -133,14 +133,7 @@ function AddProviderDialog({
 
         <div className="space-y-4">
           {/* Provider Details */}
-          <Field
-            label={
-              <>
-                Display Name <span className="text-destructive">*</span>
-              </>
-            }
-            id="sso-name"
-          >
+          <Field label="Display Name" id="sso-name">
             <Input
               placeholder='e.g. "Company SSO" or "Okta"'
               value={form.name}
@@ -149,11 +142,7 @@ function AddProviderDialog({
           </Field>
 
           <Field
-            label={
-              <>
-                Issuer URL <span className="text-destructive">*</span>
-              </>
-            }
+            label="Issuer URL"
             id="sso-issuer"
             help="The OIDC discovery endpoint will be resolved from this URL."
           >
@@ -165,28 +154,14 @@ function AddProviderDialog({
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field
-              label={
-                <>
-                  Client ID <span className="text-destructive">*</span>
-                </>
-              }
-              id="sso-client-id"
-            >
+            <Field label="Client ID" id="sso-client-id">
               <Input
                 placeholder="client-id"
                 value={form.clientId}
                 onChange={(e) => update("clientId", e.target.value)}
               />
             </Field>
-            <Field
-              label={
-                <>
-                  Client Secret <span className="text-destructive">*</span>
-                </>
-              }
-              id="sso-client-secret"
-            >
+            <Field label="Client Secret" id="sso-client-secret">
               <PasswordInput
                 placeholder="client-secret"
                 value={form.clientSecret}

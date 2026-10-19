@@ -33,7 +33,7 @@ vi.mock("@neoboard/components", async () => ({
       <option value="">{placeholder}</option>
       {options.map((o) => (
         <option key={o.value} value={o.value}>
-          {o.hint ? `${o.label} (${o.hint})` : o.label}
+          {o.hint ? `${o.label} ${o.hint}` : o.label}
         </option>
       ))}
     </select>
@@ -175,10 +175,10 @@ describe("ChartTypeSelector", () => {
     ).map((o) => o.textContent);
     expect(labels).toEqual([
       "Select a connection...",
-      "Neo4j Local (Graph Store)",
-      "Postgres Prod (Relational Store)",
+      "Neo4j Local Graph Store",
+      "Postgres Prod Relational Store",
       // No descriptor to ask: its type is the only name left.
-      "Legacy (uninstalled)",
+      "Legacy uninstalled",
     ]);
   });
 

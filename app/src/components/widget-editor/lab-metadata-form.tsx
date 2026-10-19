@@ -13,29 +13,14 @@ export function LabMetadataForm() {
 
   return (
     <div className="space-y-3 mb-4 pb-4 border-b">
-      <Field
-        label={
-          <>
-            Template Name <span className="text-destructive">*</span>
-          </>
-        }
-        id="lab-template-name"
-      >
+      <Field label="Template Name" id="lab-template-name">
         <Input
           value={labName}
           onChange={(e) => setLabName(e.target.value)}
           placeholder="My chart template"
         />
       </Field>
-      <Field
-        label={
-          <>
-            Description{" "}
-            <span className="text-muted-foreground text-xs">(optional)</span>
-          </>
-        }
-        id="lab-template-desc"
-      >
+      <Field label="Description" optional id="lab-template-desc">
         <Input
           value={labDescription}
           onChange={(e) => setLabDescription(e.target.value)}

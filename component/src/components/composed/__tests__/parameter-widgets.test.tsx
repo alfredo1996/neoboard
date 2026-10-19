@@ -18,6 +18,7 @@ import {
   NumberRangeSlider,
   RELATIVE_DATE_PRESETS,
 } from "../parameter-widgets";
+import { Field } from "../../ui/field";
 import { PARAM_SELECTOR_EMPTY_SENTINEL } from "../parameter-widgets/param-selector";
 
 // ─── TextInputParameter ───────────────────────────────────────────────────────
@@ -2000,5 +2001,88 @@ describe("parameter widgets with an external label (#1410)", () => {
     unmount();
     render(React.cloneElement(element, { required: undefined }));
     expect(screen.getByRole(role)).not.toHaveAttribute("aria-required");
+  });
+});
+
+// A form widget sits under a real <Field> AND is handed the same ids as props.
+// Each id must still appear once and the error be announced once (#2217).
+describe("parameter widgets under a real Field", () => {
+  const noop = vi.fn();
+  const ext = {
+    id: "f",
+    labelledBy: "f-label",
+    describedBy: "f-error",
+    invalid: true,
+  };
+  it.each([
+    [
+      "TextInputParameter",
+      <TextInputParameter
+        key="t"
+        parameterName="p"
+        value=""
+        onChange={noop}
+        {...ext}
+      />,
+    ],
+    [
+      "ParamSelector",
+      <ParamSelector
+        key="s"
+        parameterName="p"
+        options={[{ label: "a", value: "a" }]}
+        value=""
+        onChange={noop}
+        {...ext}
+      />,
+    ],
+    [
+      "NumberRangeSlider",
+      <NumberRangeSlider
+        key="n"
+        parameterName="p"
+        min={0}
+        max={9}
+        value={null}
+        onChange={noop}
+        onClear={noop}
+        {...ext}
+      />,
+    ],
+  ])("%s has one #f and one description", (_name, widget) => {
+    const { container } = render(
+      <Field id="f" label="Score" error="Enter a score.">
+        {widget}
+      </Field>,
+    );
+    const ids = Array.from(container.querySelectorAll("[id]")).map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const el of container.querySelectorAll("[aria-describedby]")) {
+      const tokens = el.getAttribute("aria-describedby")!.split(" ");
+      expect(new Set(tokens).size).toBe(tokens.length);
+    }
+  });
+
+  it("keeps the plain label out of composed names while the Field label says optional", () => {
+    render(
+      <Field id="f" label="Score" optional>
+        <NumberRangeSlider
+          parameterName="p"
+          min={0}
+          max={9}
+          value={[1, 2]}
+          onChange={noop}
+          onClear={noop}
+          id="f"
+          labelledBy="f-label"
+        />
+      </Field>,
+    );
+    expect(
+      screen.getByRole("spinbutton", { name: /^Score minimum$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Clear Score$/ }),
+    ).toBeInTheDocument();
   });
 });

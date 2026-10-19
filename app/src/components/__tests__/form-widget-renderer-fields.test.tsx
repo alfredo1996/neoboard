@@ -306,7 +306,9 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
         required: false,
       }),
     ]);
-    expect(screen.getByText("Name (optional)")).toBeInTheDocument();
+    expect(screen.getByText("Name").closest("label")).toHaveTextContent(
+      "Name (optional)",
+    );
   });
 
   it("falls back to parameterName when label is empty", () => {
@@ -603,7 +605,9 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
       }),
     ]);
     // The label renders, but no known test-id widget is produced.
-    expect(screen.getByText("Field (optional)")).toBeDefined();
+    expect(screen.getByText("Field").closest("label")).toHaveTextContent(
+      "Field (optional)",
+    );
     expect(screen.queryByTestId("input-weird")).toBeNull();
     expect(screen.queryByTestId("param-selector-weird")).toBeNull();
   });
@@ -934,13 +938,15 @@ describe("FormWidgetRenderer — one label per field (#1410)", () => {
       const label = labels[0];
       expect(label.textContent).toBe("Category");
       const props = captured().at(-1) as { id: string; labelledBy: string };
-      expect(props.labelledBy).toBe(label.id);
+      expect(props.labelledBy).toBe(label.querySelector("span")!.id);
       expect(props.id).toBeTruthy();
       // The widget puts `id` on a labelable control (the component tests
       // check `label.control` on the real widgets). Date-relative's id sits on
       // a group of buttons, which no label can point at, so there the
       // aria-labelledby above is what names it.
-      expect(label.getAttribute("for")).toBe(props.id);
+      expect(label.getAttribute("for")).toBe(
+        parameterType === "date-relative" ? null : props.id,
+      );
     },
   );
 
@@ -951,7 +957,9 @@ describe("FormWidgetRenderer — one label per field (#1410)", () => {
     const label = container.querySelector("label")!;
     const input = screen.getByTestId("input-rf1_comment");
     expect(label.control).toBe(input);
-    expect(input.getAttribute("aria-labelledby")).toBe(label.id);
+    expect(input.getAttribute("aria-labelledby")).toBe(
+      label.querySelector("span")!.id,
+    );
   });
 
   it("gives every field its own ids, even two forms with the same field", () => {
@@ -971,7 +979,7 @@ describe("FormWidgetRenderer — one label per field (#1410)", () => {
       </>,
     );
     const ids = [...container.querySelectorAll("label")].flatMap((l) => [
-      l.id,
+      l.querySelector("span")!.id,
       l.htmlFor,
     ]);
     expect(ids).toHaveLength(6);

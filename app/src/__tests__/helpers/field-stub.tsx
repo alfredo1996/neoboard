@@ -12,6 +12,7 @@ export function FieldStub({
   help,
   error,
   optional,
+  labelsControl = true,
   id,
   className,
   children,
@@ -20,6 +21,7 @@ export function FieldStub({
   help?: React.ReactNode;
   error?: React.ReactNode;
   optional?: boolean;
+  labelsControl?: boolean;
   id?: string;
   className?: string;
   children: React.ReactNode;
@@ -31,8 +33,8 @@ export function FieldStub({
   else if (help) describedBy = `${controlId}-help`;
   return (
     <div className={className}>
-      <label id={`${controlId}-label`} htmlFor={controlId}>
-        {label}
+      <label htmlFor={labelsControl ? controlId : undefined}>
+        <span id={`${controlId}-label`}>{label}</span>
         {optional && " (optional)"}
       </label>
       {React.Children.map(children, (child) => {

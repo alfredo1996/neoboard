@@ -191,10 +191,15 @@ function maxRowsError(form: ConnectionFormState): string | undefined {
  */
 function inFormWords(field: ConnectorField | undefined, message: string) {
   if (field && message === `${field.label} is required`) {
-    return `Enter the ${field.label}.`;
+    // Plain Title-case words drop to lower case; acronyms and mixed-case brand spellings stay.
+    const words = field.label
+      .split(" ")
+      .map((w) => (/^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w));
+    return `Enter the ${words.join(" ")}.`;
   }
   if (message.startsWith("Invalid URI format")) {
-    return "Enter a URI like scheme://host:port/database.";
+    // The placeholder is connector data (an example URI), not a name.
+    return `Enter a URI like ${field?.placeholder || "scheme://host:port"}.`;
   }
   return message;
 }

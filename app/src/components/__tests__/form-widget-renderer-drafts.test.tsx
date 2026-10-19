@@ -199,7 +199,7 @@ describe("FormWidgetRenderer — text draft inside the debounce window (#1771)",
     fireEvent.click(submitButton());
     fireEvent.change(input("name"), { target: { value: "Ada" } });
 
-    fireEvent.pointerDown(screen.getByText("note (optional)"));
+    fireEvent.pointerDown(screen.getByText("note"));
     fireEvent.blur(input("name"));
     expect(screen.getByText(REQUIRED)).toBeInTheDocument();
 

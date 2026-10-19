@@ -136,6 +136,8 @@ function NumberRangeSlider({
             to
           </span>
           <Input
+            // Explicit, or a surrounding <Field> hands it the min input's id.
+            id={`${qualifierId}-max-input`}
             type="number"
             value={current[1]}
             onChange={(e) => handleMaxInput(e.target.value)}

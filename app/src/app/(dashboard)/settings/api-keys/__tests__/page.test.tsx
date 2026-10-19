@@ -284,6 +284,8 @@ it("names its two inputs and marks only the expiry as optional (#2217)", () => {
     "id",
     "key-expires",
   );
-  expect(screen.getByText("Expires at (optional)")).toBeInTheDocument();
+  expect(screen.getByText("Expires at").closest("label")).toHaveTextContent(
+    "Expires at (optional)",
+  );
   expect(screen.queryByText("*")).not.toBeInTheDocument();
 });
