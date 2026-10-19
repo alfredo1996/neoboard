@@ -53,6 +53,7 @@ function OptionLabel({ option }: { option: ChartOptionDef }) {
   );
 }
 
+// No Field here carries "(optional)": the chart-options panel is exempt (owner, #2217, 2026-10-19).
 function OptionField({
   option,
   value,
@@ -106,12 +107,7 @@ function OptionField({
       // Fall back to text input when columns are not yet available (no preview query)
       if (!columns?.length) {
         return (
-          <Field
-            id={option.key}
-            label={option.label}
-            optional
-            help={option.description}
-          >
+          <Field id={option.key} label={option.label} help={option.description}>
             <Input
               value={String(value ?? option.default ?? "")}
               onChange={(e) => onChange(option.key, e.target.value)}
@@ -129,12 +125,7 @@ function OptionField({
         : [];
       const multiOptions = columns.map((col) => ({ value: col, label: col }));
       return (
-        <Field
-          id={option.key}
-          label={option.label}
-          optional
-          help={option.description}
-        >
+        <Field id={option.key} label={option.label} help={option.description}>
           <MultiSelect
             options={multiOptions}
             value={selected}
@@ -150,12 +141,7 @@ function OptionField({
       // Multiline string options (e.g. markdown content) — a single-line
       // Input strips newlines (#1049).
       return (
-        <Field
-          id={option.key}
-          label={option.label}
-          optional
-          help={option.description}
-        >
+        <Field id={option.key} label={option.label} help={option.description}>
           <Textarea
             value={String(value ?? option.default ?? "")}
             onChange={(e) => onChange(option.key, e.target.value)}
@@ -184,7 +170,6 @@ function OptionField({
         <Field
           id={option.key}
           label={option.label}
-          optional
           help={help || option.description}
           error={isError ? validation.message : undefined}
         >

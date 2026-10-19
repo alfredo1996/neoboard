@@ -76,7 +76,7 @@ describe("ChartOptionsPanel", () => {
       />,
     );
     expandAllCategories();
-    const input = screen.getByLabelText("X-Axis Label (optional)");
+    const input = screen.getByLabelText("X-Axis Label");
     fireEvent.change(input, { target: { value: "Time" } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ xAxisLabel: "Time" }),
@@ -118,7 +118,7 @@ describe("ChartOptionsPanel", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("marks a textarea option optional, since it has a default and can be left empty (#2217)", () => {
+  it("leaves the panel's labels unmarked: the chart-options panel is exempt from (optional) (#2217)", () => {
     render(
       <ChartOptionsPanel
         chartType="markdown"
@@ -126,9 +126,8 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expect(
-      screen.getByLabelText("Markdown Content (optional)"),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Markdown Content")).toBeInTheDocument();
+    expect(screen.queryByText(/\(optional\)/)).not.toBeInTheDocument();
   });
 
   it("groups options by category", () => {
@@ -195,14 +194,12 @@ describe("ChartOptionsPanel", () => {
       />,
     );
     // A three-entry select could not take a self-hosted template.
-    const tile = screen.getByLabelText("Tile Layer (optional)");
+    const tile = screen.getByLabelText("Tile Layer");
     expect(tile.tagName).toBe("INPUT");
     expect(tile).toHaveValue(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     );
-    expect(screen.getByLabelText("Attribution (optional)").tagName).toBe(
-      "INPUT",
-    );
+    expect(screen.getByLabelText("Attribution").tagName).toBe("INPUT");
   });
 
   it("flags a tile template with a placeholder Leaflet cannot fill (#1685)", () => {
@@ -221,7 +218,7 @@ describe("ChartOptionsPanel", () => {
     );
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("{apikey}");
-    expect(screen.getByLabelText("Tile Layer (optional)")).toHaveAttribute(
+    expect(screen.getByLabelText("Tile Layer")).toHaveAttribute(
       "aria-invalid",
       "true",
     );
@@ -246,7 +243,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expect(screen.getByLabelText("Placeholder (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
     expect(screen.getByText("Search-as-you-type")).toBeInTheDocument();
     // Should NOT show the old primary fields
     expect(screen.queryByText("Parameter Name")).not.toBeInTheDocument();
@@ -411,7 +408,7 @@ describe("ChartOptionsPanel", () => {
     screen
       .queryAllByRole("button", { expanded: false })
       .forEach((btn) => fireEvent.click(btn));
-    const field = screen.getByLabelText("Markdown Content (optional)");
+    const field = screen.getByLabelText("Markdown Content");
     expect(field.tagName).toBe("TEXTAREA");
 
     const multiline = "# Heading\n- item one\n- item two";
