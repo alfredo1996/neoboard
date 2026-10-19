@@ -74,6 +74,9 @@ export default function WidgetLibraryPage() {
   const { data: loadedConnections, isError: connectionsFailed } =
     useConnections();
   const connections = loadedConnections ?? [];
+  // Loading stays undefined; a failed request is "none", so the label stops
+  // at "not available".
+  const labelConnections = connectionsFailed ? [] : loadedConnections;
   const { data: connectors = [] } = useConnectors();
   const [testingTemplateId, setTestingTemplateId] = useState<string | null>(
     null,
@@ -374,9 +377,7 @@ export default function WidgetLibraryPage() {
                         ? "—"
                         : templateConnectionLabel(
                             template,
-                            // Loading stays undefined; a failed request is
-                            // "none", so the label stops at "not available".
-                            connectionsFailed ? [] : loadedConnections,
+                            labelConnections,
                             connectors,
                           ),
                       <span key="t" className="flex gap-1.5">

@@ -27,7 +27,7 @@ function cardFor(page: Page, name: string): Locator {
 
 /** A card's status badge — not the toast region, which is also role=status. */
 function badgeOf(card: Locator): Locator {
-  return card.locator('[role="status"][aria-label^="Connection status"]');
+  return card.locator('output[aria-label^="Connection status"]');
 }
 
 /** Every POST to a connection's test route from here on. */
@@ -117,7 +117,7 @@ test.describe("Connections", () => {
       const snap = () => {
         const mine = [
           ...document.querySelectorAll(
-            '[role="status"][aria-label^="Connection status"]',
+            'output[aria-label^="Connection status"]',
           ),
         ].find((e) =>
           // From the parent: the badge is itself a bordered div.

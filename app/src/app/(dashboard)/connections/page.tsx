@@ -749,7 +749,7 @@ function StatusCell({
   const suffix = error ? `: ${error}` : "";
   return (
     // The error text is in the name, not behind a hover (#1283).
-    <span role="status" aria-label={`Connection status: ${text}${suffix}`}>
+    <output aria-label={`Connection status: ${text}${suffix}`}>
       {error ? (
         <button
           type="button"
@@ -763,6 +763,6 @@ function StatusCell({
       ) : (
         label
       )}
-    </span>
+    </output>
   );
 }

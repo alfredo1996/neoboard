@@ -299,7 +299,7 @@ test.describe
     await page.getByRole("menuitem", { name: /Test Connection/ }).click();
     // The positive end state, not the absence of an error (#1748).
     await expect(
-      card.locator('[role="status"][aria-label^="Connection status"]'),
+      card.locator('output[aria-label^="Connection status"]'),
     ).toHaveText("Connected", { timeout: 30_000 });
   });
 });
