@@ -30,9 +30,9 @@ describe("shared control size scale (#1127 C1)", () => {
     const { rerender } = render(<Input data-testid="i" size="sm" />);
     expect(screen.getByTestId("i").className).toContain("h-8");
     rerender(<Input data-testid="i" />);
-    expect(screen.getByTestId("i").className).toContain("h-10");
+    expect(screen.getByTestId("i").className).toContain("h-9");
     rerender(<Input data-testid="i" size="lg" />);
-    expect(screen.getByTestId("i").className).toContain("h-12");
+    expect(screen.getByTestId("i").className).toContain("h-10");
   });
 
   it("SelectTrigger: sm/lg map to the shared heights", () => {
@@ -41,11 +41,11 @@ describe("shared control size scale (#1127 C1)", () => {
 
   it("Textarea: sizes scale min-height", () => {
     const { rerender } = render(<Textarea data-testid="t" size="sm" />);
-    expect(screen.getByTestId("t").className).toContain("min-h-[48px]");
+    expect(screen.getByTestId("t").className).toContain("min-h-[56px]");
     rerender(<Textarea data-testid="t" />);
-    expect(screen.getByTestId("t").className).toContain("min-h-[60px]");
+    expect(screen.getByTestId("t").className).toContain("min-h-[72px]");
     rerender(<Textarea data-testid="t" size="lg" />);
-    expect(screen.getByTestId("t").className).toContain("min-h-[80px]");
+    expect(screen.getByTestId("t").className).toContain("min-h-[88px]");
   });
 });
 

@@ -14,6 +14,7 @@ import {
   LoadingButton,
   RadioGroup,
   RadioGroupItem,
+  Field,
 } from "@neoboard/components";
 import {
   useDashboard,
@@ -223,8 +224,7 @@ export function DashboardConnectionDialog({
           )}
 
           {source !== null && (
-            <div className="space-y-2">
-              <Label htmlFor="reassign-dashboard-target">To</Label>
+            <Field label="To" id="reassign-dashboard-target">
               {targets.length === 0 ? (
                 <Alert>
                   <AlertDescription>
@@ -247,7 +247,7 @@ export function DashboardConnectionDialog({
                   ))}
                 </select>
               )}
-            </div>
+            </Field>
           )}
 
           {selectedBucket && target && (

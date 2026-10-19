@@ -3,7 +3,9 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useFieldControl } from "./field";
 import {
+  fieldBaseClasses,
   controlSizes,
   invalidControlClasses,
   type ControlSize,
@@ -25,23 +27,27 @@ export interface SelectTriggerProps extends React.ComponentPropsWithoutRef<
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
   SelectTriggerProps
->(({ className, children, size = "default", ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "flex w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent py-2 text-sm shadow-sm ring-offset-background transition-[color,background-color,border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] hover:border-[hsl(var(--border-strong))] data-[placeholder]:text-muted-foreground focus:outline-none focus-visible:border-[hsl(var(--ring))] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
-      invalidControlClasses,
-      controlSizes[size],
-      className,
-    )}
-    {...props}
-  >
-    {children}
-    <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-    </SelectPrimitive.Icon>
-  </SelectPrimitive.Trigger>
-));
+>(({ className, children, size = "default", ...rawProps }, ref) => {
+  const props = useFieldControl(rawProps);
+  return (
+    <SelectPrimitive.Trigger
+      ref={ref}
+      className={cn(
+        "flex items-center justify-between whitespace-nowrap py-2 [&>span]:line-clamp-1 data-[placeholder]:text-muted-foreground focus:outline-none",
+        fieldBaseClasses,
+        invalidControlClasses,
+        controlSizes[size],
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <SelectPrimitive.Icon asChild>
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  );
+});
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
 const SelectScrollUpButton = React.forwardRef<
@@ -130,14 +136,14 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-2 pr-8 text-sm outline-none transition-[color,background-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] focus:bg-accent focus:text-accent-foreground focus:ring-1 focus:ring-inset focus:ring-ring data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex h-8 w-full cursor-default select-none items-center rounded-sm pl-8 pr-2 text-[13px] outline-none transition-[color,background-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] focus:bg-active focus:text-foreground data-[state=checked]:font-semibold data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     {...props}
   >
-    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
+        <Check className="h-3.5 w-3.5" />
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

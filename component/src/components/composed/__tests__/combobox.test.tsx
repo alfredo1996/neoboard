@@ -81,7 +81,7 @@ describe("Combobox — filters on the visible label (#1411)", () => {
     render(<Combobox options={options} />);
     await user.click(screen.getByRole("combobox"));
     await user.type(screen.getByPlaceholderText("Search..."), "Char");
-    expect(screen.getByText("Charlie")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Charlie" })).toBeInTheDocument();
     expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
   });
 
@@ -130,9 +130,7 @@ describe("Combobox — filters on the visible label (#1411)", () => {
     );
     await user.click(screen.getByRole("combobox"));
     await user.type(screen.getByPlaceholderText("Search..."), "none");
-    expect(
-      screen.getByRole("option", { name: "(none)" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "(none)" })).toBeInTheDocument();
   });
 
   it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {

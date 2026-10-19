@@ -15,7 +15,8 @@ vi.mock("@/hooks/use-connection-databases", () => ({
 // Track Select onValueChange so we can simulate user selection
 let capturedOnValueChange: ((v: string) => void) | undefined;
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Label: ({
     children,
     ...props

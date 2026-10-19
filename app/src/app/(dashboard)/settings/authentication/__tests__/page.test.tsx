@@ -78,7 +78,8 @@ vi.mock("../../settings-tabs", () => ({
   SettingsTabs: () => <nav aria-label="Settings" />,
 }));
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Button: ({
     children,
     onClick,

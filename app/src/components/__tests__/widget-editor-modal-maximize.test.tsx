@@ -48,7 +48,8 @@ const { dismiss, selector, browser, updateTemplate, seed, connectorList } =
     connectorList: { data: [] as unknown[] },
   }));
 
-vi.mock("@neoboard/components", () => {
+vi.mock("@neoboard/components", async () => {
+  const { FieldStub } = await import("@/__tests__/helpers/field-stub");
   const passthrough = ({ children }: React.PropsWithChildren) => (
     <>{children}</>
   );
@@ -56,6 +57,7 @@ vi.mock("@neoboard/components", () => {
   // goes when it closes — so a sibling of the content outlives it (#2054).
   const OpenContext = React.createContext(false);
   return {
+    Field: FieldStub,
     Dialog: ({
       open,
       onOpenChange,

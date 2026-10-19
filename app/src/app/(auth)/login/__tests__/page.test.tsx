@@ -33,7 +33,8 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Wordmark: () => <span>NeoBoard</span>,
   Panel: ({
     children,

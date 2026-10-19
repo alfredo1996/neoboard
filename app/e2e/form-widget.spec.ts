@@ -330,7 +330,7 @@ test.describe("Form widget", () => {
       await page.getByRole("button", { name: "Submit" }).click();
       // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1_000);
-      await expect(page.getByText("This field is required")).toBeVisible();
+      await expect(page.getByText("Enter a value.")).toBeVisible();
     }).toPass({ timeout: 10_000 });
 
     // Fill the required field and press Enter at once, inside the 200 ms
@@ -342,7 +342,7 @@ test.describe("Form widget", () => {
     await expect(page.getByText("Form submitted successfully")).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText("This field is required")).toHaveCount(0);
+    await expect(page.getByText("Enter a value.")).toHaveCount(0);
   });
 
   test("form widget refreshes another widget on submit when configured", async ({
@@ -982,7 +982,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
 
     // htmlFor resolves: clicking a label reaches the named control. The fields
     // below Full Name go first. Full Name is required and empty, so leaving it
-    // shows "This field is required", which pushes every later field down
+    // shows "Enter a value.", which pushes every later field down
     // between the mousedown and mouseup of the next label click; the click
     // then lands on Full Name's field and the label never forwards it.
     // A trigger may open on the label's click instead of only taking focus;
@@ -1058,7 +1058,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
 
     // The error sits in the Name field, not at the bottom of the form.
     const field = form.locator("label", { hasText: /^Name$/ }).locator("..");
-    await expect(field.getByText("This field is required")).toBeVisible();
+    await expect(field.getByText("Enter a value.")).toBeVisible();
     await expect(form.getByText('The field "name" is required.')).toHaveCount(
       0,
     );
@@ -1107,7 +1107,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
       const w = window as unknown as { sawRequired?: boolean };
       w.sawRequired = false;
       new MutationObserver(() => {
-        if (el.textContent?.includes("This field is required")) {
+        if (el.textContent?.includes("Enter a value.")) {
           w.sawRequired = true;
         }
       }).observe(el, { childList: true, subtree: true, characterData: true });
@@ -1156,7 +1156,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     const form = await openForm(page, draftForm("w-draft-click"));
     const submit = form.getByRole("button", { name: "Submit" });
     await submit.click();
-    await expect(form.getByText("This field is required")).toBeVisible();
+    await expect(form.getByText("Enter a value.")).toBeVisible();
 
     await clickHeldAcrossDebounce(page, submit, () =>
       form.getByRole("textbox", { name: "Name", exact: true }).fill("Ada"),
@@ -1182,7 +1182,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
       ]),
     );
     await form.getByRole("button", { name: "Submit" }).click();
-    await expect(form.getByText("This field is required")).toBeVisible();
+    await expect(form.getByText("Enter a value.")).toBeVisible();
 
     // The press blurs Name, whose flushed draft clears the error above Note.
     await clickHeldAcrossDebounce(
@@ -1250,7 +1250,7 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     });
     const submit = form.getByRole("button", { name: "Submit" });
     await submit.click();
-    await expect(form.getByText("This field is required")).toBeVisible({
+    await expect(form.getByText("Enter a value.")).toBeVisible({
       timeout: 15_000,
     });
 

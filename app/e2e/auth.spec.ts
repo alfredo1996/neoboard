@@ -288,7 +288,9 @@ test.describe("Signup", () => {
     await page.getByLabel("Password", { exact: true }).fill("password123");
     await page.getByLabel("Confirm password").fill("differentpass");
     await page.getByRole("button", { name: "Create account" }).click();
-    await expect(page.getByText("Passwords do not match")).toBeVisible();
+    await expect(
+      page.getByText("Enter the same password in both fields."),
+    ).toBeVisible();
     // Should stay on signup page
     await expect(page).toHaveURL(/\/signup/);
   });

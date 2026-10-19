@@ -49,6 +49,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  Field,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -777,15 +778,13 @@ export function WidgetEditorModal({
                 {isLabMode && <LabMetadataForm />}
 
                 {/* Widget title — always visible above tabs */}
-                <div className="space-y-1.5 mb-4">
-                  <Label htmlFor="widget-title">Widget Title</Label>
+                <Field label="Widget Title" id="widget-title" className="mb-4">
                   <Input
-                    id="widget-title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Optional custom title"
                   />
-                </div>
+                </Field>
 
                 <ChartSettingsPanel
                   resetKey={chartType}

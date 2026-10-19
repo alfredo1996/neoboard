@@ -26,6 +26,7 @@ import {
   SelectValue,
   Checkbox,
   Textarea,
+  Field,
 } from "@neoboard/components";
 
 // ── Parameter type mapping helpers ──────────────────────────────────
@@ -449,20 +450,21 @@ export function ParameterConfigSection({
       )}
 
       {/* Parameter Name */}
-      <div className="space-y-1.5">
-        <Label htmlFor="param-widget-name">
-          Parameter Name <span className="text-destructive">*</span>
-        </Label>
+      <Field
+        label={
+          <>
+            Parameter Name <span className="text-destructive">*</span>
+          </>
+        }
+        id="param-widget-name"
+        help="Used to reference this parameter in widget queries"
+      >
         <Input
-          id="param-widget-name"
           value={paramWidgetName}
           onChange={(e) => onParamWidgetNameChange(e.target.value)}
           placeholder="e.g. country"
         />
-        <p className="text-xs text-muted-foreground">
-          Used to reference this parameter in widget queries
-        </p>
-      </div>
+      </Field>
 
       {/* Reference hint */}
       {paramWidgetName && (

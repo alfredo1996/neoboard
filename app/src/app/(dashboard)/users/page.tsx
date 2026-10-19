@@ -59,6 +59,7 @@ import {
   PasswordInput,
   CopyButton,
   useToast,
+  Field,
 } from "@neoboard/components";
 import {
   FilterLine,
@@ -417,21 +418,17 @@ export default function UsersPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="user-name">Name</Label>
+              <Field label="Name" id="user-name">
                 <Input
-                  id="user-name"
                   value={form.name}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, name: e.target.value }))
                   }
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="user-email">Email</Label>
+              </Field>
+              <Field label="Email" id="user-email">
                 <Input
-                  id="user-email"
                   type="email"
                   value={form.email}
                   onChange={(e) =>
@@ -439,28 +436,25 @@ export default function UsersPage() {
                   }
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="user-password">Password</Label>
+              </Field>
+              <Field label="Password" id="user-password">
                 <PasswordInput
-                  id="user-password"
                   value={form.password}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, password: e.target.value }))
                   }
                   required
                 />
-              </div>
+              </Field>
               {isAdmin && (
-                <div className="space-y-2">
-                  <Label htmlFor="user-role">Role</Label>
+                <Field label="Role" id="user-role">
                   <Select
                     value={form.role}
                     onValueChange={(v) =>
                       setForm((f) => ({ ...f, role: v as UserRole }))
                     }
                   >
-                    <SelectTrigger id="user-role">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -469,7 +463,7 @@ export default function UsersPage() {
                       <SelectItem value="reader">Reader</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </Field>
               )}
               <div className="flex items-center space-x-2">
                 <Checkbox

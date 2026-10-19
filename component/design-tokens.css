@@ -204,6 +204,9 @@
      1.4.11. The canvas's #CDD1D7 measured 1.5:1, which is why --rule-strong
      is not used here. graphite-citrine-tokens.test.ts holds this to 3:1. */
   --input: 219 8% 56%;
+  /* Field border on hover (#5C6370): more contrast than --input, never the lighter
+     --border-strong (#2217). */
+  --input-hover: 218 9% 41%;
   /* Selection/focus accent — azure at 42% L: 5.38:1 against the near-white
      page and 5.63:1 on a white card (WCAG 1.4.11 needs 3.0). The citrine it
      replaced measured 3.41 (#1553). */
@@ -304,6 +307,7 @@
   --border-strong: 219 11% 25%;
   /* Field border (#646B78): 3.38:1 on the page. */
   --input: 218 9% 43%;
+  --input-hover: 218 9% 62%; /* #8E95A1: lighter than --input in the dark theme */
   /* Lifted azure focus/selection ring: 6.22:1 against the charcoal page.
      Honest disclosure — the citrine it replaced measured 10.17 here; both
      are well past the 3.0 threshold, and azure is the hue that also clears

@@ -67,6 +67,6 @@ The redesign system (epic #2210, tokens from #2215). Code you read may still car
 - [ ] Type from the scale; no serif in the kit, the page title or the wordmark; page chrome from the kit, not rebuilt
 - [ ] Tokens, never raw colours; charts through `resolveChartColors()`
 - [ ] Radius matches the component: controls 6, widget card 8, overlays 10, checkbox 4
-- [ ] Field borders use `--input` (3:1)
+- [ ] Field borders use `--input` (3:1), hover `--input-hover`; labelled controls sit in `<Field>` (36 px, 14 px text, 16 px on coarse pointers)
 - [ ] `EmptyState`, `LoadingButton` and `LoadingOverlay` where they apply
 - [ ] Checked in both light and dark

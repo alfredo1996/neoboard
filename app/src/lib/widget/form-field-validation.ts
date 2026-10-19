@@ -6,7 +6,7 @@ import type { FormFieldDef } from "./form-field-def";
  */
 const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
-export const REQUIRED_MESSAGE = "This field is required";
+export const REQUIRED_MESSAGE = "Enter a value.";
 
 /** Determine whether a field's current value should be treated as "empty". */
 function isEmptyValue(field: FormFieldDef, value: unknown): boolean {
@@ -49,17 +49,17 @@ export function validateFieldValue(
     case "number": {
       if (stringValue.trim() === "") return null;
       return Number.isNaN(Number(stringValue))
-        ? "Must be a valid number"
+        ? "Enter a number, like 42."
         : null;
     }
     case "email": {
       return EMAIL_REGEX.test(stringValue)
         ? null
-        : "Must be a valid email address";
+        : "Enter an email address, like name@example.com.";
     }
     case "date": {
       return Number.isNaN(Date.parse(stringValue))
-        ? "Must be a valid date"
+        ? "Enter a date, like 2026-10-19."
         : null;
     }
     default:

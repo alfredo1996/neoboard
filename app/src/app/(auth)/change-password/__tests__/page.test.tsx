@@ -3,11 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
 
-vi.mock("@neoboard/components", () => {
+vi.mock("@neoboard/components", async () => {
+  const { FieldStub } = await import("@/__tests__/helpers/field-stub");
   const div = ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   );
   return {
+    Field: FieldStub,
     Panel: div,
     PanelContent: div,
     PanelDescription: div,

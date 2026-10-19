@@ -71,7 +71,9 @@ test.describe("Settings — Profile", () => {
     await page.locator("#new-password").fill("newpass123");
     await page.locator("#confirm-password").fill("different123");
     await page.getByRole("button", { name: "Change password" }).click();
-    await expect(page.getByText("New passwords do not match")).toBeVisible();
+    await expect(
+      page.getByText("Enter the same new password in both fields."),
+    ).toBeVisible();
   });
 
   test("successful password change signs out and redirects to login (#1035)", async ({

@@ -1,6 +1,6 @@
 import React from "react";
 import { Input } from "../ui/input";
-import { Label } from "../ui/label";
+import { Field } from "../ui/field";
 import { Button } from "../ui/button";
 import { successTextColor } from "../../lib/design-tokens";
 
@@ -41,15 +41,17 @@ export function FormWidget({
   return (
     <form onSubmit={handleSubmit} className="space-y-4 p-4">
       {fields.map((field) => (
-        <div key={field.name} className="space-y-1.5">
-          <Label htmlFor={`form-field-${field.name}`}>{field.label}</Label>
+        <Field
+          key={field.name}
+          id={`form-field-${field.name}`}
+          label={field.label}
+        >
           <Input
-            id={`form-field-${field.name}`}
             type={field.type}
             value={values[field.name] ?? ""}
             onChange={(e) => onFieldChange(field.name, e.target.value)}
           />
-        </div>
+        </Field>
       ))}
 
       {successMessage && (

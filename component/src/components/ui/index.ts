@@ -3,6 +3,7 @@ export { Button, buttonVariants } from "./button";
 export { Input, type InputProps } from "./input";
 export { Label } from "./label";
 export { FieldError, type FieldErrorProps } from "./field-error";
+export { Field, useFieldControl, type FieldProps } from "./field";
 export { controlSizes, textareaSizes, type ControlSize } from "./control-sizes";
 export {
   Panel,
@@ -22,15 +23,6 @@ export { Toggle, toggleVariants } from "./toggle";
 export { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 
 // Phase 2: Form Components
-export {
-  Form,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormDescription,
-  FormMessage,
-  FormField,
-} from "./form";
 export {
   Select,
   SelectGroup,

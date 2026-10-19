@@ -64,6 +64,7 @@ module.exports = {
           2: "hsl(var(--surface-2))",
         },
         "border-strong": "hsl(var(--border-strong))",
+        "input-hover": "hsl(var(--input-hover))",
         // Ruled-sheet tokens (#2215).
         "foreground-2": "hsl(var(--foreground-2))",
         rule: {

@@ -14,7 +14,8 @@ vi.mock("next-auth/react", () => ({
   signOut: (...args: unknown[]) => mockSignOut(...args),
 }));
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   PanelContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
@@ -162,9 +163,9 @@ describe("ProfilePage password form (#1038)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Change password" }));
 
-    expect(
-      await screen.findByText("New password must be at least 8 characters"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Use at least 8 characters, with a letter and a number.",
+    );
     // It validated client-side and never hit the password endpoint.
     expect(global.fetch).not.toHaveBeenCalledWith(
       "/api/users/me/password",
@@ -236,6 +237,10 @@ describe("ProfilePage sections (#2255)", () => {
 
   it("states the real password policy", async () => {
     await renderLoaded();
-    expect(screen.getByText("At least 8 characters")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Use at least 8 characters, with a letter and a number.",
+      ),
+    ).toBeInTheDocument();
   });
 });

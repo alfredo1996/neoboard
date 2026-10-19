@@ -25,17 +25,19 @@ function renderIframe(sandbox: string) {
 describe("#1413 — the Sandbox Policy field says what it discards", () => {
   it("shows a warning, linked to the field, when allow-same-origin is configured", () => {
     renderIframe("allow-scripts allow-same-origin");
-    const warning = document.getElementById("sandbox-validation");
+    const warning = document.getElementById("sandbox-help");
     expect(warning).not.toBeNull();
     expect(warning).toHaveTextContent(/"allow-same-origin" is refused/);
     expect(
       document.getElementById("sandbox")?.getAttribute("aria-describedby"),
-    ).toContain("sandbox-validation");
+    ).toContain("sandbox-help");
   });
 
   it("shows nothing when every token is applied", () => {
     renderIframe("allow-scripts");
     expect(document.getElementById("sandbox")).not.toBeNull();
-    expect(document.getElementById("sandbox-validation")).toBeNull();
+    expect(document.getElementById("sandbox-help")).not.toHaveTextContent(
+      /is refused/,
+    );
   });
 });

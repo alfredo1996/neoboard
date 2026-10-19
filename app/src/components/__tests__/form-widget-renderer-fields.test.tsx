@@ -1021,14 +1021,10 @@ describe("FormWidgetRenderer — server field errors (#1409)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(
-      within(fieldOf(container, "Category")).getByText(
-        "This field is required",
-      ),
+      within(fieldOf(container, "Category")).getByText("Enter a value."),
     ).toBeInTheDocument();
     expect(
-      within(fieldOf(container, "Comment")).queryByText(
-        "This field is required",
-      ),
+      within(fieldOf(container, "Comment")).queryByText("Enter a value."),
     ).toBeNull();
     // On the field instead of at the bottom of the form, not as well as.
     expect(screen.queryByText('The field "category" is required.')).toBeNull();
@@ -1040,9 +1036,7 @@ describe("FormWidgetRenderer — server field errors (#1409)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     fireEvent.blur(screen.getByTestId("input-rf1_category"));
     expect(
-      within(fieldOf(container, "Category")).getByText(
-        "This field is required",
-      ),
+      within(fieldOf(container, "Category")).getByText("Enter a value."),
     ).toBeInTheDocument();
   });
 
@@ -1061,7 +1055,7 @@ describe("FormWidgetRenderer — server field errors (#1409)", () => {
     expect(
       screen.getByText('The field "category" is required.'),
     ).toBeInTheDocument();
-    expect(within(container).queryByText("This field is required")).toBeNull();
+    expect(within(container).queryByText("Enter a value.")).toBeNull();
     expect(
       (screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement)
         .disabled,
@@ -1075,7 +1069,7 @@ describe("FormWidgetRenderer — server field errors (#1409)", () => {
     fireEvent.change(screen.getByTestId("input-rf1_category"), {
       target: { value: "shipping" },
     });
-    expect(screen.queryByText("This field is required")).toBeNull();
+    expect(screen.queryByText("Enter a value.")).toBeNull();
   });
 
   it.each([
@@ -1088,6 +1082,6 @@ describe("FormWidgetRenderer — server field errors (#1409)", () => {
     expect(
       screen.getByText('The field "category" is required.'),
     ).toBeInTheDocument();
-    expect(screen.queryByText("This field is required")).toBeNull();
+    expect(screen.queryByText("Enter a value.")).toBeNull();
   });
 });

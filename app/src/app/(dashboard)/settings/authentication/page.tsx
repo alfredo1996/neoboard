@@ -17,7 +17,6 @@ import {
 import {
   Button,
   Input,
-  Label,
   Badge,
   Switch,
   Select,
@@ -34,6 +33,7 @@ import {
   DialogTitle,
   DialogFooter,
   PasswordInput,
+  Field,
 } from "@neoboard/components";
 import { PageHeader } from "@neoboard/components/kit";
 import { SettingsTabs } from "../settings-tabs";
@@ -133,67 +133,75 @@ function AddProviderDialog({
 
         <div className="space-y-4">
           {/* Provider Details */}
-          <div className="space-y-2">
-            <Label htmlFor="sso-name">
-              Display Name <span className="text-destructive">*</span>
-            </Label>
+          <Field
+            label={
+              <>
+                Display Name <span className="text-destructive">*</span>
+              </>
+            }
+            id="sso-name"
+          >
             <Input
-              id="sso-name"
               placeholder='e.g. "Company SSO" or "Okta"'
               value={form.name}
               onChange={(e) => update("name", e.target.value)}
             />
-          </div>
+          </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="sso-issuer">
-              Issuer URL <span className="text-destructive">*</span>
-            </Label>
+          <Field
+            label={
+              <>
+                Issuer URL <span className="text-destructive">*</span>
+              </>
+            }
+            id="sso-issuer"
+            help="The OIDC discovery endpoint will be resolved from this URL."
+          >
             <Input
-              id="sso-issuer"
               placeholder="https://idp.example.com"
               value={form.issuer}
               onChange={(e) => update("issuer", e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
-              The OIDC discovery endpoint will be resolved from this URL.
-            </p>
-          </div>
+          </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="sso-client-id">
-                Client ID <span className="text-destructive">*</span>
-              </Label>
+            <Field
+              label={
+                <>
+                  Client ID <span className="text-destructive">*</span>
+                </>
+              }
+              id="sso-client-id"
+            >
               <Input
-                id="sso-client-id"
                 placeholder="client-id"
                 value={form.clientId}
                 onChange={(e) => update("clientId", e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sso-client-secret">
-                Client Secret <span className="text-destructive">*</span>
-              </Label>
+            </Field>
+            <Field
+              label={
+                <>
+                  Client Secret <span className="text-destructive">*</span>
+                </>
+              }
+              id="sso-client-secret"
+            >
               <PasswordInput
-                id="sso-client-secret"
                 placeholder="client-secret"
                 value={form.clientSecret}
                 onChange={(e) => update("clientSecret", e.target.value)}
               />
-            </div>
+            </Field>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="sso-scopes">Scopes</Label>
+          <Field label="Scopes" id="sso-scopes">
             <Input
-              id="sso-scopes"
               placeholder="openid profile email"
               value={form.scopes ?? "openid profile email"}
               onChange={(e) => update("scopes", e.target.value)}
             />
-          </div>
+          </Field>
 
           {/* Claim Mapping */}
           <div className="rounded-lg border p-4 space-y-3">
@@ -203,54 +211,40 @@ function AddProviderDialog({
               role for all SSO users.
             </p>
 
-            <div className="space-y-2">
-              <Label htmlFor="sso-claim-key">IdP Claim Key</Label>
+            <Field label="IdP Claim Key" id="sso-claim-key">
               <Input
-                id="sso-claim-key"
                 placeholder='e.g. "groups" or "realm_access.roles"'
                 value={claimKey}
                 onChange={(e) => setClaimKey(e.target.value)}
               />
-            </div>
+            </Field>
 
             {claimKey.trim() && (
               <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="sso-admin-value" className="text-xs">
-                    Admin
-                  </Label>
+                <Field label="Admin" id="sso-admin-value">
                   <Input
-                    id="sso-admin-value"
                     placeholder="neoboard-admins"
                     value={adminValue}
                     onChange={(e) => setAdminValue(e.target.value)}
                     className="text-sm"
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="sso-creator-value" className="text-xs">
-                    Creator
-                  </Label>
+                </Field>
+                <Field label="Creator" id="sso-creator-value">
                   <Input
-                    id="sso-creator-value"
                     placeholder="neoboard-editors"
                     value={creatorValue}
                     onChange={(e) => setCreatorValue(e.target.value)}
                     className="text-sm"
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="sso-reader-value" className="text-xs">
-                    Reader
-                  </Label>
+                </Field>
+                <Field label="Reader" id="sso-reader-value">
                   <Input
-                    id="sso-reader-value"
                     placeholder="neoboard-viewers"
                     value={readerValue}
                     onChange={(e) => setReaderValue(e.target.value)}
                     className="text-sm"
                   />
-                </div>
+                </Field>
               </div>
             )}
           </div>

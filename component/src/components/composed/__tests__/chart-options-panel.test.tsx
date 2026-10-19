@@ -266,9 +266,12 @@ describe("ChartOptionsPanel", () => {
     const described = getChartOptions("bar").filter((o) => o.description);
     expect(described.length).toBeGreaterThan(0);
     for (const option of described) {
-      expect(document.getElementById(`${option.key}-desc`)).toHaveTextContent(
-        option.description!,
-      );
+      // A switch keeps its own -desc paragraph; every other control gets the
+      // Field's -help text (#2217).
+      const text =
+        document.getElementById(`${option.key}-desc`) ??
+        document.getElementById(`${option.key}-help`);
+      expect(text).toHaveTextContent(option.description!);
     }
   });
 

@@ -82,7 +82,8 @@ vi.mock("next/link", () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-vi.mock("@neoboard/components", () => {
+vi.mock("@neoboard/components", async () => {
+  const { FieldStub } = await import("@/__tests__/helpers/field-stub");
   // Each component renders its children and forwards a click: the page's
   // behaviour is under test, not the library's.
   const Passthrough = ({
@@ -122,6 +123,7 @@ vi.mock("@neoboard/components", () => {
     "TimeAgo",
   ];
   return {
+    Field: FieldStub,
     ...Object.fromEntries(names.map((name) => [name, Passthrough])),
     // Focusable, so a closing dialog can hand focus back to it (#2146).
     Button: ({
@@ -247,13 +249,11 @@ describe("DashboardListPage create — the name hint", () => {
     const input = document.getElementById("dashboard-name")!;
 
     fireEvent.submit(input);
-    expect(screen.getByText("Name is required").id).toBe(
-      "dashboard-name-error",
-    );
+    expect(screen.getByText("Enter a name.").id).toBe("dashboard-name-error");
     expect(input.getAttribute("aria-describedby")).toBe("dashboard-name-error");
 
     fireEvent.change(input, { target: { value: "Movie Analytics" } });
-    expect(screen.queryByText("Name is required")).toBeNull();
+    expect(screen.queryByText("Enter a name.")).toBeNull();
     expect(
       screen.getByText(
         "A dashboard named “Movie Analytics” already exists. You can still create another with this name.",

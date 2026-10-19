@@ -79,7 +79,9 @@ describe("ConnectionDialog — create", () => {
     type("conn-endpoint", "https://host/book");
     click("Create");
 
-    expect(byId("conn-name-error")).toHaveTextContent("Name is required");
+    expect(byId("conn-name-error")).toHaveTextContent(
+      "Enter a name for the connection.",
+    );
     expect(byId("conn-endpoint-error")).toHaveTextContent(/acme:/);
     expect(byId("conn-api-token-error")).toHaveTextContent(
       "API Token is required",

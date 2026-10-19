@@ -174,7 +174,7 @@ describe("connectionFormErrors", () => {
     );
     expect(errors).toEqual({
       own: {
-        name: "Name is required",
+        name: "Enter a name for the connection.",
         maxRows: "Max Rows per Query must be between 100 and 100000",
       },
       config: {

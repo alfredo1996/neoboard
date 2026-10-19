@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  Field,
 } from "@neoboard/components";
 import {
   DndContext,
@@ -60,6 +61,7 @@ interface LabeledInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
+  help?: React.ReactNode;
 }
 
 function LabeledInput({
@@ -68,10 +70,10 @@ function LabeledInput({
   onChange,
   placeholder,
   type = "text",
+  help,
 }: LabeledInputProps) {
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
+    <Field label={label} help={help}>
       <Input
         type={type}
         value={value}
@@ -79,7 +81,7 @@ function LabeledInput({
         placeholder={placeholder}
         className="h-7 text-xs"
       />
-    </div>
+    </Field>
   );
 }
 
@@ -165,31 +167,30 @@ function SortableFieldItem({
         />
 
         {/* Parameter Name */}
-        <div className="space-y-1">
-          <LabeledInput
-            label="Parameter Name"
-            value={field.parameterName}
-            onChange={(v) => onUpdate(field.id, { parameterName: v })}
-            placeholder="e.g. title"
-          />
-          <p className="text-xs text-muted-foreground">
-            Use{" "}
-            <code className="font-mono bg-muted px-0.5 rounded">
-              $param_{field.parameterName || "…"}
-            </code>{" "}
-            in your query
-          </p>
-          {hasDuplicateName && field.parameterName && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              Duplicate parameter name — another field uses the same name. The
-              last value will overwrite earlier ones on submit.
-            </p>
-          )}
-        </div>
+        <LabeledInput
+          label="Parameter Name"
+          value={field.parameterName}
+          onChange={(v) => onUpdate(field.id, { parameterName: v })}
+          placeholder="e.g. title"
+          help={
+            <>
+              Use{" "}
+              <code className="font-mono bg-muted px-0.5 rounded">
+                $param_{field.parameterName || "…"}
+              </code>{" "}
+              in your query
+              {hasDuplicateName && field.parameterName && (
+                <span className="block text-amber-600 dark:text-amber-400">
+                  Duplicate parameter name — another field uses the same name.
+                  The last value will overwrite earlier ones on submit.
+                </span>
+              )}
+            </>
+          }
+        />
 
         {/* Input Type */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Input Type</Label>
+        <Field label="Input Type">
           <Select
             value={field.parameterType}
             onValueChange={(v) =>
@@ -212,7 +213,7 @@ function SortableFieldItem({
               <SelectItem value="cascading-select">Cascading Select</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </Field>
 
         {/* Static options (for select only) */}
         {field.parameterType === "select" && (
@@ -226,12 +227,15 @@ function SortableFieldItem({
 
         {/* Seed query (for select/multi-select/cascading-select) */}
         {needsSeedQuery(field.parameterType) && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              Options Query{" "}
-              {field.parameterType === "select" &&
-                "(ignored if static options set)"}
-            </Label>
+          <Field
+            label={
+              <>
+                Options Query{" "}
+                {field.parameterType === "select" &&
+                  "(ignored if static options set)"}
+              </>
+            }
+          >
             <Textarea
               value={field.seedQuery ?? ""}
               onChange={(e) =>
@@ -241,7 +245,7 @@ function SortableFieldItem({
               rows={3}
               className="text-xs font-mono"
             />
-          </div>
+          </Field>
         )}
 
         {/* Parent param (for cascading-select) */}
@@ -292,8 +296,7 @@ function SortableFieldItem({
 
         {/* Validation Type (text inputs only) */}
         {field.parameterType === "text" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">Validation</Label>
+          <Field label="Validation">
             <Select
               value={field.validationType ?? "text"}
               onValueChange={(v) =>
@@ -312,7 +315,7 @@ function SortableFieldItem({
                 <SelectItem value="date">Date</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </Field>
         )}
 
         {/* Required toggle */}

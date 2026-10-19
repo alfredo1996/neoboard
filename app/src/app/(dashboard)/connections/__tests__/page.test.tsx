@@ -118,7 +118,8 @@ vi.mock("@/hooks/use-connectors", () => {
   };
 });
 
-vi.mock("@neoboard/components", () => {
+vi.mock("@neoboard/components", async () => {
+  const { FieldStub } = await import("@/__tests__/helpers/field-stub");
   const Box = ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   );
@@ -132,6 +133,7 @@ vi.mock("@neoboard/components", () => {
     </button>
   );
   return {
+    Field: FieldStub,
     Button,
     LoadingButton: Button,
     Input: ({ id, placeholder }: { id?: string; placeholder?: string }) => (

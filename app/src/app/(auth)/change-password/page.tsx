@@ -3,11 +3,11 @@
 import { useState } from "react";
 import {
   Input,
-  Label,
   Alert,
   AlertDescription,
   LoadingButton,
   PasswordInput,
+  Field,
 } from "@neoboard/components";
 import { signOut } from "next-auth/react";
 import { AuthCard } from "../auth-card";
@@ -30,7 +30,7 @@ export default function ChangePasswordPage() {
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (newPassword !== confirmPassword) {
-      setError("New passwords do not match");
+      setError("Enter the same new password in both fields.");
       setLoading(false);
       return;
     }
@@ -74,43 +74,33 @@ export default function ChangePasswordPage() {
           </Alert>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="currentPassword">Current password</Label>
+        <Field label="Current password" id="currentPassword">
           <PasswordInput
-            id="currentPassword"
             name="currentPassword"
             autoComplete="current-password"
             required
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <Label htmlFor="newPassword">New password</Label>
+        <Field label="New password" id="newPassword" help={PASSWORD_HINT}>
           <Input
-            id="newPassword"
-            aria-describedby="newPassword-hint"
             name="newPassword"
             type="password"
             autoComplete="new-password"
             required
             minLength={8}
           />
-          <p id="newPassword-hint" className="text-xs text-muted-foreground">
-            {PASSWORD_HINT}
-          </p>
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm new password</Label>
+        <Field label="Confirm new password" id="confirmPassword">
           <Input
-            id="confirmPassword"
             name="confirmPassword"
             type="password"
             autoComplete="new-password"
             required
             minLength={8}
           />
-        </div>
+        </Field>
 
         <LoadingButton
           type="submit"

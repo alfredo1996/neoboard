@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { HighlightMatch } from "@/components/ui/command";
 
 export interface CreatableComboboxProps {
   suggestions: string[];
@@ -11,6 +13,8 @@ export interface CreatableComboboxProps {
   className?: string;
   disabled?: boolean;
   id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: React.AriaAttributes["aria-invalid"];
 }
 
 /**
@@ -25,7 +29,7 @@ function CreatableCombobox({
   placeholder = "Type or select...",
   className,
   disabled,
-  id,
+  ...fieldProps
 }: CreatableComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState(value);
@@ -115,8 +119,8 @@ function CreatableCombobox({
 
   return (
     <div ref={wrapperRef} className={cn("relative", className)}>
-      <input
-        id={id}
+      <Input
+        {...fieldProps}
         role="combobox"
         aria-expanded={open && filtered.length > 0}
         aria-autocomplete="list"
@@ -127,14 +131,6 @@ function CreatableCombobox({
             : undefined
         }
         onKeyDown={handleKeyDown}
-        className={cn(
-          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-[color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
-          "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-          "placeholder:text-muted-foreground",
-          "hover:border-[hsl(var(--border-strong))]",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:border-[hsl(var(--ring))]",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-        )}
         value={inputValue}
         onChange={handleInputChange}
         onFocus={() => setOpen(true)}
@@ -145,7 +141,7 @@ function CreatableCombobox({
         <ul
           role="listbox"
           id={listboxId}
-          className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+          className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
         >
           {filtered.map((suggestion, index) => (
             <li
@@ -154,10 +150,10 @@ function CreatableCombobox({
               role="option"
               aria-selected={index === activeIndex}
               className={cn(
-                "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
-                "hover:bg-accent hover:text-accent-foreground",
-                (index === activeIndex || suggestion === value) &&
-                  "bg-accent text-accent-foreground",
+                "relative flex h-8 cursor-pointer select-none items-center rounded-sm px-2 text-[13px] outline-none",
+                "hover:bg-active",
+                (index === activeIndex || suggestion === value) && "bg-active",
+                suggestion === value && "font-semibold",
               )}
               onMouseEnter={() => setActiveIndex(index)}
               onMouseDown={(e) => {
@@ -165,7 +161,7 @@ function CreatableCombobox({
                 handleSelect(suggestion);
               }}
             >
-              {suggestion}
+              <HighlightMatch text={suggestion} query={inputValue} />
             </li>
           ))}
         </ul>

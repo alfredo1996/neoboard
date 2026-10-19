@@ -204,7 +204,7 @@ export function connectionFormErrors(
     }
   }
   const own: Record<string, string> = {};
-  if (!form.name.trim()) own.name = `${NAME_FIELD.label} is required`;
+  if (!form.name.trim()) own.name = "Enter a name for the connection.";
   const rowCap = maxRowsError(form);
   if (rowCap) own.maxRows = rowCap;
   return { own, config: errors };

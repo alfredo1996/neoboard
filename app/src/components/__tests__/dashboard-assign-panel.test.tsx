@@ -15,7 +15,8 @@ vi.mock("@/hooks/use-dashboards", () => ({
   useRemoveDashboardShare: () => ({ mutate: vi.fn() }),
 }));
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Button: ({
     children,
     ...p
