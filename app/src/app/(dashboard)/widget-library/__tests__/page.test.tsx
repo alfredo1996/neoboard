@@ -44,12 +44,16 @@ type Template = Omit<(typeof BASE_TEMPLATES)[number], "tags"> & {
 };
 let templates: Template[] = BASE_TEMPLATES;
 let connections: { id: string; name: string }[] = [];
+let connectionsFailed = false;
 
 vi.mock("@/hooks/use-connectors", () => ({
   useConnectors: () => ({ data: connectors }),
 }));
 vi.mock("@/hooks/use-connections", () => ({
-  useConnections: () => ({ data: connections }),
+  useConnections: () =>
+    connectionsFailed
+      ? { data: undefined, isError: true }
+      : { data: connections, isError: false },
 }));
 vi.mock("@/hooks/use-widget-templates", () => {
   const idle = () => ({ mutate: vi.fn(), mutateAsync: vi.fn() });
@@ -279,6 +283,19 @@ describe("WidgetLibraryPage — kit rows (#2254)", () => {
       "Movies graph",
       "movieskpi",
     ]);
+  });
+
+  it("reads 'Connection not available', not '…', when the connections request fails", () => {
+    connectionsFailed = true;
+    templates = [{ ...BASE_TEMPLATES[0], connectionId: "c1" }];
+    try {
+      render(<WidgetLibraryPage />);
+      expect(
+        within(rowOf("Budget rows")).getByText("Connection not available"),
+      ).toBeInTheDocument();
+    } finally {
+      connectionsFailed = false;
+    }
   });
 
   it("subtitles the page with the template count", () => {

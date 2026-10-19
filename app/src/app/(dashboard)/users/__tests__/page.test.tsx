@@ -85,11 +85,20 @@ vi.mock("@neoboard/components", () => {
       value,
       onChange,
       placeholder,
+      "aria-label": ariaLabel,
     }: {
       value?: string;
       onChange?: React.ChangeEventHandler<HTMLInputElement>;
       placeholder?: string;
-    }) => <input aria-label={placeholder} value={value} onChange={onChange} />,
+      "aria-label"?: string;
+    }) => (
+      <input
+        aria-label={ariaLabel}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+      />
+    ),
     Label: Nothing,
     Dialog: ({
       open,
@@ -130,7 +139,9 @@ vi.mock("@neoboard/components", () => {
         </button>
       );
     },
-    SelectTrigger: Nothing,
+    SelectTrigger: ({ "aria-label": ariaLabel }: { "aria-label"?: string }) => (
+      <button aria-label={ariaLabel} />
+    ),
     SelectValue: Nothing,
     Checkbox: Nothing,
     // The menu is always open here. A disabled item is aria-disabled and still
@@ -553,13 +564,13 @@ describe("UsersPage — kit rows (#2254)", () => {
     expect(screen.getByText("u3@example.com")).toBeInTheDocument();
     expect(screen.getByText("Status is")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search users..."), {
+    fireEvent.change(screen.getByLabelText("Search users"), {
       target: { value: " u3@ " },
     });
     expect(screen.getByText("Name or email contains")).toBeInTheDocument();
     expect(screen.getByText("u3@")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search users..."), {
+    fireEvent.change(screen.getByLabelText("Search users"), {
       target: { value: "zzz" },
     });
     expect(
@@ -568,7 +579,7 @@ describe("UsersPage — kit rows (#2254)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(screen.getByText("u2@example.com")).toBeInTheDocument();
-    expect(screen.getByLabelText("Search users...")).toHaveValue("");
+    expect(screen.getByLabelText("Search users")).toHaveValue("");
   });
 
   describe("paging", () => {
@@ -592,17 +603,27 @@ describe("UsersPage — kit rows (#2254)", () => {
       expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
     });
 
-    it("goes back to page 1 when a filter chip is removed, or Reset is clicked", () => {
+    it.each([
+      ["a filter chip is removed", /Remove .* filter/],
+      ["Reset is clicked", "Reset"],
+    ])("goes back to page 1 when %s", (_label, name) => {
       mockUsers = many(45);
       render(<UsersPage />);
-      fireEvent.change(screen.getByLabelText("Search users..."), {
+      fireEvent.change(screen.getByLabelText("Search users"), {
         target: { value: "User" },
       });
       fireEvent.click(screen.getByRole("button", { name: "Next page" }));
       expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+      fireEvent.click(screen.getByRole("button", { name }));
       expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    });
+
+    it("names the status filter for assistive tech", () => {
+      render(<UsersPage />);
+      expect(
+        screen.getByRole("button", { name: "Filter by status" }),
+      ).toBeInTheDocument();
     });
 
     it("stays on the page it was clamped to when the list shrinks and then grows", () => {

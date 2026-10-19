@@ -644,6 +644,7 @@ export default function UsersPage() {
               <div className="flex flex-wrap gap-3">
                 <Input
                   placeholder="Search users..."
+                  aria-label="Search users"
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
@@ -658,7 +659,10 @@ export default function UsersPage() {
                     setPage(0);
                   }}
                 >
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger
+                    className="w-[160px]"
+                    aria-label="Filter by status"
+                  >
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>

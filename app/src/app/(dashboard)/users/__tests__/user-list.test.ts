@@ -133,10 +133,14 @@ describe("userMenuActions", () => {
 });
 
 describe("formatShortDate", () => {
-  const now = new Date("2026-10-19T12:00:00Z");
+  const now = new Date(2026, 9, 19, 12);
   it("reads a short month and day, with the year only when not this year", () => {
-    expect(formatShortDate("2026-10-02T12:00:00Z", now)).toBe("Oct 2");
-    expect(formatShortDate("2025-09-01T12:00:00Z", now)).toBe("Sep 1, 2025");
+    expect(formatShortDate(new Date(2026, 9, 2, 12).toISOString(), now)).toBe(
+      "Oct 2",
+    );
+    expect(formatShortDate(new Date(2025, 8, 1, 12).toISOString(), now)).toBe(
+      "Sep 1, 2025",
+    );
     expect(formatShortDate(null, now)).toBe("—");
   });
 });

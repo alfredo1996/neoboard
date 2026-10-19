@@ -49,7 +49,7 @@ test.describe("User management", () => {
   });
 
   test("should create a new user", async ({ page }) => {
-    // Wait for user data to load (avoids duplicate "Create User" buttons from EmptyState)
+    // Wait for user data to load (avoids duplicate "Create user" buttons from EmptyState)
     await waitForUsersTable(page);
     await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");

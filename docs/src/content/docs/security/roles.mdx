@@ -37,7 +37,7 @@ Readers can open Settings to edit their profile and see their API keys, but cann
 
 ## Write Permission
 
-The **write permission** toggle is an additional control, independent of the role. When it is off, a Creator cannot run write queries of their own. They also cannot create, edit, duplicate, import or delete dashboards, manage widget templates, reassign connections, or create or revoke API keys. They can still view dashboards, run read queries, and submit forms on dashboards they can open, since a form does not need write permission.
+The **write permission** is an additional control, independent of the role, changed from the ⋯ menu on the user's row in **Users** (**Allow writing** / **Remove write access**), as is the role itself. When it is removed, a Creator cannot run write queries of their own. They also cannot create, edit, duplicate, import or delete dashboards, manage widget templates, reassign connections, or create or revoke API keys. They can still view dashboards, run read queries, and submit forms on dashboards they can open, since a form does not need write permission.
 
 | Role | Write Permission On | Write Permission Off |
 |------|-------------------|---------------------|
@@ -45,7 +45,7 @@ The **write permission** toggle is an additional control, independent of the rol
 | Creator | Can write (own connections) | View, read queries and form submits only |
 | Reader | No effect | No effect |
 
-Admins always have write permission regardless of the toggle. Outside forms, a write query only runs on a connection the user created; shared connections and connections owned by other users take none, even from admins. Forms work differently: anyone who can open a dashboard can submit its forms, whatever their role or write permission, and each submit runs only the query saved with the form, on the connection and database it is saved with. Adding a form, or changing a form's query, connection or database, needs access to that connection: its owner, anyone in the tenant once it is shared, or an admin. A form can therefore write through a tenant-shared connection its author does not own, and an admin's form through any connection. Turning the toggle off does not let a Creator build dashboards while blocking data changes; no setting does that today.
+Admins always have write permission regardless of this setting. Outside forms, a write query only runs on a connection the user created; shared connections and connections owned by other users take none, even from admins. Forms work differently: anyone who can open a dashboard can submit its forms, whatever their role or write permission, and each submit runs only the query saved with the form, on the connection and database it is saved with. Adding a form, or changing a form's query, connection or database, needs access to that connection: its owner, anyone in the tenant once it is shared, or an admin. A form can therefore write through a tenant-shared connection its author does not own, and an admin's form through any connection. Removing write access does not let a Creator build dashboards while blocking data changes; no setting does that today.
 
 ## Role Assignment
 
