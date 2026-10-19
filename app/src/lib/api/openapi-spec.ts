@@ -1420,9 +1420,14 @@ const SPEC = {
           { $ref: "#/components/schemas/ConnectionCreated" },
           {
             type: "object",
-            required: ["visibility", "isOwner"],
+            required: ["visibility", "isOwner", "widgetCount"],
             properties: {
               visibility: { $ref: "#/components/schemas/ConnectionVisibility" },
+              widgetCount: {
+                type: "integer",
+                description:
+                  "Widgets using it on dashboards the caller can see.",
+              },
               isOwner: {
                 type: "boolean",
                 description:

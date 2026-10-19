@@ -12,10 +12,12 @@ const {
   useConnections,
   useCreateConnection,
   useDeleteConnection,
+  useReassignConnection,
   useUpdateConnection,
   useTestConnection,
   useTestInlineConnection,
 } = await import("../use-connections");
+const { useQueryClient } = await import("@tanstack/react-query");
 const { QueueFullError } = await import("@/lib/api/api-client");
 
 // ---------------------------------------------------------------------------
@@ -173,6 +175,29 @@ describe("use-connections", () => {
       };
       await expect(config.mutationFn({ id: "bad-id" })).rejects.toThrow(
         "Not found",
+      );
+    });
+  });
+
+  describe("useReassignConnection onSuccess", () => {
+    it("refreshes the connection list too, whose Widgets column counts what moved (#2254)", () => {
+      const invalidateQueries = vi.fn();
+      vi.mocked(useQueryClient).mockReturnValueOnce({
+        invalidateQueries,
+      } as unknown as ReturnType<typeof useQueryClient>);
+      const config = useReassignConnection() as unknown as {
+        onSuccess: () => void;
+      };
+      config.onSuccess();
+      const keys = invalidateQueries.mock.calls.map(
+        ([arg]) => (arg as { queryKey: string[] }).queryKey[0],
+      );
+      expect(keys).toEqual(
+        expect.arrayContaining([
+          "connections",
+          "connection-usage",
+          "dashboards",
+        ]),
       );
     });
   });

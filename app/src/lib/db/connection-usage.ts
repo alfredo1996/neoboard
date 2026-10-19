@@ -37,71 +37,58 @@ export interface ConnectionUsage {
  * Empty result (no widgets reference this connection) returns
  * `{ widgetCount: 0, dashboards: [] }`, not null.
  */
+/**
+ * The dashboards a caller can see, as a WHERE condition on alias `d`: all of
+ * the tenant's for an admin, else those they own, are shared on, or that are
+ * public. Both counters below read it from here.
+ */
+function visibleDashboards(userId: string, isAdmin: boolean, tenantId: string) {
+  if (isAdmin) return sql`d.tenant_id = ${tenantId}`;
+  return sql`d.tenant_id = ${tenantId}
+    AND (
+      d."userId" = ${userId}
+      OR EXISTS (
+        SELECT 1 FROM "dashboard_share" s
+        WHERE s."dashboardId" = d.id
+          AND s."userId" = ${userId}
+          AND s.tenant_id = ${tenantId}
+      )
+      OR d."isPublic" = true
+    )`;
+}
+
+/** Every widget of dashboard `d`, as `widget` (the tail of a FROM list). */
+const WIDGETS_OF_D = sql`jsonb_array_elements(d."layoutJson"->'pages') AS page,
+       jsonb_array_elements(page->'widgets') AS widget`;
+
 export async function getConnectionUsage(
   connectionId: string,
   userId: string,
   isAdmin: boolean,
   tenantId: string,
 ): Promise<ConnectionUsage> {
-  // The per-row widgetCount subquery is identical in both scoping paths.
-  // We only need to vary the outer WHERE clause for admin vs creator.
   const rows = await db.execute<{
     id: string;
     name: string;
     widget_count: number;
-  }>(
-    isAdmin
-      ? sql`
-          SELECT
-            d.id,
-            d.name,
-            (
-              SELECT COUNT(*)::int
-              FROM jsonb_array_elements(d."layoutJson"->'pages') AS page,
-                   jsonb_array_elements(page->'widgets') AS widget
-              WHERE widget->>'connectionId' = ${connectionId}
-            ) AS widget_count
-          FROM "dashboard" d
-          WHERE d.tenant_id = ${tenantId}
-            AND EXISTS (
-              SELECT 1
-              FROM jsonb_array_elements(d."layoutJson"->'pages') AS page,
-                   jsonb_array_elements(page->'widgets') AS widget
-              WHERE widget->>'connectionId' = ${connectionId}
-            )
-          ORDER BY d.name
-        `
-      : sql`
-          SELECT
-            d.id,
-            d.name,
-            (
-              SELECT COUNT(*)::int
-              FROM jsonb_array_elements(d."layoutJson"->'pages') AS page,
-                   jsonb_array_elements(page->'widgets') AS widget
-              WHERE widget->>'connectionId' = ${connectionId}
-            ) AS widget_count
-          FROM "dashboard" d
-          WHERE d.tenant_id = ${tenantId}
-            AND (
-              d."userId" = ${userId}
-              OR EXISTS (
-                SELECT 1 FROM "dashboard_share" s
-                WHERE s."dashboardId" = d.id
-                  AND s."userId" = ${userId}
-                  AND s.tenant_id = ${tenantId}
-              )
-              OR d."isPublic" = true
-            )
-            AND EXISTS (
-              SELECT 1
-              FROM jsonb_array_elements(d."layoutJson"->'pages') AS page,
-                   jsonb_array_elements(page->'widgets') AS widget
-              WHERE widget->>'connectionId' = ${connectionId}
-            )
-          ORDER BY d.name
-        `,
-  );
+  }>(sql`
+    SELECT
+      d.id,
+      d.name,
+      (
+        SELECT COUNT(*)::int
+        FROM ${WIDGETS_OF_D}
+        WHERE widget->>'connectionId' = ${connectionId}
+      ) AS widget_count
+    FROM "dashboard" d
+    WHERE ${visibleDashboards(userId, isAdmin, tenantId)}
+      AND EXISTS (
+        SELECT 1
+        FROM ${WIDGETS_OF_D}
+        WHERE widget->>'connectionId' = ${connectionId}
+      )
+    ORDER BY d.name
+  `);
 
   const dashboards = (
     rows as unknown as Array<{ id: string; name: string; widget_count: number }>
@@ -114,4 +101,45 @@ export async function getConnectionUsage(
   const widgetCount = dashboards.reduce((sum, d) => sum + d.widgetCount, 0);
 
   return { widgetCount, dashboards };
+}
+
+/**
+ * How many widgets use each of `connectionIds`, in ONE tenant-scoped pass (the
+ * connections list, #2254). Same scoping as `getConnectionUsage`: an admin
+ * counts every dashboard of the tenant, anyone else only those they own, are
+ * shared on, or that are public. A connection no widget uses reads 0.
+ */
+export async function getConnectionWidgetCounts(
+  connectionIds: string[],
+  userId: string,
+  isAdmin: boolean,
+  tenantId: string,
+): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  for (const id of connectionIds) counts[id] = 0;
+  if (connectionIds.length === 0) return counts;
+
+  const ids = sql.join(
+    connectionIds.map((id) => sql`${id}`),
+    sql`, `,
+  );
+  const rows = await db.execute<{
+    connection_id: string;
+    widget_count: number;
+  }>(sql`
+    SELECT widget->>'connectionId' AS connection_id, COUNT(*)::int AS widget_count
+    FROM "dashboard" d,
+         ${WIDGETS_OF_D}
+    WHERE ${visibleDashboards(userId, isAdmin, tenantId)}
+      AND widget->>'connectionId' IN (${ids})
+    GROUP BY 1
+  `);
+
+  for (const r of rows as unknown as Array<{
+    connection_id: string;
+    widget_count: number;
+  }>) {
+    counts[r.connection_id] = Number(r.widget_count ?? 0);
+  }
+  return counts;
 }

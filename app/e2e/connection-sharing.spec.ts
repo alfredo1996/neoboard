@@ -144,7 +144,7 @@ test.describe.serial("Connection sharing (#901)", () => {
     // Scope to the single card element (established pattern from
     // connections.spec — bare div filters match every ancestor).
     const card = page
-      .locator("div[class*='border']")
+      .getByRole("row")
       .filter({ hasText: connectionName })
       .filter({
         has: page.getByRole("button", { name: "Connection actions" }),
@@ -290,7 +290,7 @@ test.describe
     await authPage.login(ALICE.email, ALICE.password);
     await page.goto("/connections");
     const card = page
-      .locator("div[class*='border']")
+      .getByRole("row")
       .filter({ hasText: connectionName })
       .filter({
         has: page.getByRole("button", { name: "Connection actions" }),
@@ -299,7 +299,7 @@ test.describe
     await page.getByRole("menuitem", { name: /Test Connection/ }).click();
     // The positive end state, not the absence of an error (#1748).
     await expect(
-      card.locator('[role="status"][aria-label^="Connection status"]'),
+      card.locator('output[aria-label^="Connection status"]'),
     ).toHaveText("Connected", { timeout: 30_000 });
   });
 });

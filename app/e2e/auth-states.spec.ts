@@ -41,7 +41,7 @@ test.describe("Role-based dashboard visibility", () => {
     await expect(page.getByText("alice@example.com")).toBeVisible({
       timeout: 10_000,
     });
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("Test Reader");
     await dialog.locator("#user-email").fill(readerEmail);
@@ -103,7 +103,7 @@ test.describe("Users page — role enforcement", () => {
     await expect(page.getByText("alice@example.com")).toBeVisible({
       timeout: 10_000,
     });
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("Test Creator");
     await dialog.locator("#user-email").fill(creatorEmail);

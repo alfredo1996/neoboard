@@ -64,7 +64,7 @@ test.describe("Theme toggle", () => {
     await expect(page.locator("html")).toHaveClass(/dark/);
 
     await page.goto("/connections");
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const overlay = page.locator("[data-state='open'].fixed.inset-0.z-50");
     await expect(overlay).toBeVisible();
     // Poll: the overlay may still be mounting. Alpha is checked too: a

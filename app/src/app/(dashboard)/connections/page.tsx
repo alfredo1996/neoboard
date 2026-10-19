@@ -10,8 +10,16 @@ import {
   useState,
 } from "react";
 import { useSession } from "next-auth/react";
-import { Database, Plus, RefreshCw } from "lucide-react";
-import { ConnectorIcon } from "@/components/connector-icon";
+import {
+  Copy,
+  Database,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Users,
+} from "lucide-react";
 import {
   ConnectionDialog,
   type ConnectionDialogTarget,
@@ -34,20 +42,28 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Badge,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   focusedMenuTrigger,
-} from "@neoboard/components";
-import {
-  PageHeader,
   EmptyState,
   LoadingButton,
   LoadingOverlay,
   ConfirmDialog,
-  ConnectionCard,
   Alert,
   AlertDescription,
   useToast,
+  type ConnectionState,
 } from "@neoboard/components";
-import type { ConnectionState } from "@neoboard/components";
+import { List, ListRow, PageHeader } from "@neoboard/components/kit";
+import {
+  connectionListMeta,
+  connectionStatusView,
+  sharedCount,
+} from "./connection-list";
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
 import { connectionsToProbe } from "@/lib/connector/connections-to-probe";
 import { runWindowed } from "@/lib/connector/run-windowed";
@@ -337,13 +353,17 @@ export default function ConnectionsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="flex min-h-full flex-col">
       <PageHeader
         title="Connections"
         titleRef={headingRef}
-        description="Manage your database connections"
+        meta={
+          connections?.length
+            ? connectionListMeta(connections.length, sharedCount(connections))
+            : "Manage your database connections"
+        }
         actions={
-          <div className="flex items-center gap-2">
+          <>
             {probeable.length > 0 && (
               <Button
                 variant="outline"
@@ -360,9 +380,9 @@ export default function ConnectionsPage() {
               onClick={(e) => openDialog({ mode: "create" }, e.currentTarget)}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add Connection
+              New connection
             </Button>
-          </div>
+          </>
         }
       />
 
@@ -504,118 +524,169 @@ export default function ConnectionsPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="mt-6">
+      {/* The ground behind the panels, as on the dashboards page (#2219). */}
+      <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
         <LoadingOverlay
           loading={isLoading || connectorsQuery.isLoading}
           text="Loading connections..."
         >
           {connections?.length ? (
-            <div className="space-y-3">
-              {connections.map((c) => {
-                const status = getConnectionStatus(c.id);
-                const installed = isInstalled(c.type);
-                // The owner manages, or an admin (#901). With its connector
-                // gone there is nothing left to test or configure — only to
-                // delete.
-                const canManage = c.isOwner || isAdmin;
-                const canUse = canManage && installed;
-                return (
-                  <div key={c.id}>
-                    <ConnectionCard
-                      name={c.name}
-                      host={
+            <>
+              <List
+                label="Connections"
+                columns={["Name", "Status", "Visibility", "Widgets"]}
+              >
+                {connections.map((c) => {
+                  const status = getConnectionStatus(c.id);
+                  const installed = isInstalled(c.type);
+                  const { text, dot } = connectionStatusView(status);
+                  // The owner manages, or an admin (#901). With its connector
+                  // gone there is nothing left to test or configure — only to
+                  // delete.
+                  const canManage = c.isOwner || isAdmin;
+                  const canUse = canManage && installed;
+                  const canToggle = isAdmin && c.isOwner;
+                  const edit = (opener: HTMLElement | null) =>
+                    openDialog(
+                      { mode: "edit", id: c.id, name: c.name, type: c.type },
+                      opener,
+                    );
+                  return (
+                    <ListRow
+                      key={c.id}
+                      title={c.name}
+                      description={
                         installed
-                          ? c.type
+                          ? connectorLabel(connectors, c.type)
                           : `${c.type} — connector not installed`
                       }
-                      icon={
-                        <ConnectorIcon
-                          connector={connectors?.find((d) => d.type === c.type)}
-                          className="h-5 w-5 text-muted-foreground"
-                        />
-                      }
-                      status={status}
-                      statusText={statusErrors[c.id]}
-                      onClick={
-                        status === "error" && statusErrors[c.id]
-                          ? () =>
-                              setExpandedErrorId((prev) =>
-                                prev === c.id ? null : c.id,
-                              )
-                          : undefined
-                      }
-                      onTest={canUse ? () => handleTest(c.id) : undefined}
-                      shared={c.visibility === "shared"}
-                      // Management actions only for the owner (or admin —
-                      // who can reach any connection via the API): shared
-                      // connections render read-only for everyone else (#901).
-                      onEdit={
-                        canUse
-                          ? () =>
-                              openDialog(
-                                {
-                                  mode: "edit",
-                                  id: c.id,
-                                  name: c.name,
-                                  type: c.type,
-                                },
-                                focusedMenuTrigger(),
-                              )
-                          : undefined
-                      }
-                      onDelete={
-                        canManage
-                          ? () => {
-                              setReturnFocusTo(focusedMenuTrigger());
-                              setDeleteTarget(c.id);
-                            }
-                          : undefined
-                      }
-                      // The copy opens on the source's type, pre-filled with
-                      // its non-secret config (#1042). Secrets never leave the
-                      // server, so they are typed again.
-                      onDuplicate={
-                        canUse
-                          ? () =>
-                              openDialog(
-                                {
-                                  mode: "create",
-                                  type: c.type,
-                                  prefillFrom: { id: c.id, name: c.name },
-                                },
-                                focusedMenuTrigger(),
-                              )
-                          : undefined
-                      }
-                      onToggleVisibility={
-                        isAdmin && c.isOwner
-                          ? () =>
-                              updateConnection.mutate({
-                                id: c.id,
-                                visibility:
-                                  c.visibility === "shared"
-                                    ? "private"
-                                    : "shared",
-                              })
-                          : undefined
-                      }
-                      toggleVisibilityLabel={
-                        c.visibility === "shared"
-                          ? "Make private"
-                          : "Share with workspace"
+                      onOpen={canUse ? (opener) => edit(opener) : undefined}
+                      meta={[
+                        <StatusCell
+                          key="s"
+                          text={text}
+                          dot={dot}
+                          error={
+                            status === "error" ? statusErrors[c.id] : undefined
+                          }
+                          expanded={expandedErrorId === c.id}
+                          onToggle={() =>
+                            setExpandedErrorId((prev) =>
+                              prev === c.id ? null : c.id,
+                            )
+                          }
+                        />,
+                        c.visibility === "shared" ? (
+                          <Badge key="v" variant="secondary">
+                            Shared
+                          </Badge>
+                        ) : (
+                          "Private"
+                        ),
+                        c.widgetCount ?? 0,
+                      ]}
+                      menu={
+                        (canUse || canManage || canToggle) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Connection actions for ${c.name}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {canUse && (
+                                <DropdownMenuItem
+                                  onClick={() => handleTest(c.id)}
+                                >
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  Test Connection
+                                </DropdownMenuItem>
+                              )}
+                              {canUse && (
+                                // The copy opens on the source's type,
+                                // pre-filled with its non-secret config
+                                // (#1042). Secrets never leave the server, so
+                                // they are typed again.
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    openDialog(
+                                      {
+                                        mode: "create",
+                                        type: c.type,
+                                        prefillFrom: { id: c.id, name: c.name },
+                                      },
+                                      focusedMenuTrigger(),
+                                    )
+                                  }
+                                >
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Duplicate
+                                </DropdownMenuItem>
+                              )}
+                              {canUse && (
+                                <DropdownMenuItem
+                                  onClick={() => edit(focusedMenuTrigger())}
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                              )}
+                              {canToggle && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateConnection.mutate({
+                                      id: c.id,
+                                      visibility:
+                                        c.visibility === "shared"
+                                          ? "private"
+                                          : "shared",
+                                    })
+                                  }
+                                >
+                                  <Users className="mr-2 h-4 w-4" />
+                                  {c.visibility === "shared"
+                                    ? "Make private"
+                                    : "Share with workspace"}
+                                </DropdownMenuItem>
+                              )}
+                              {canManage && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => {
+                                      setReturnFocusTo(focusedMenuTrigger());
+                                      setDeleteTarget(c.id);
+                                    }}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )
                       }
                     />
-                    {expandedErrorId === c.id && statusErrors[c.id] && (
-                      <Alert variant="destructive" className="mt-1">
-                        <AlertDescription>
-                          {statusErrors[c.id]}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </List>
+              {expandedErrorId && statusErrors[expandedErrorId] && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {connections.find((c) => c.id === expandedErrorId)?.name}
+                    {": "}
+                    {statusErrors[expandedErrorId]}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
           ) : (
             <EmptyState
               icon={<Database className="h-12 w-12" />}
@@ -646,5 +717,52 @@ export default function ConnectionsPage() {
         </LoadingOverlay>
       </div>
     </div>
+  );
+}
+
+/**
+ * A row's status: a dot and words. Above the row's stretched link (z-10), a
+ * failed one is a button that reveals the error under the list (#1283).
+ */
+function StatusCell({
+  text,
+  dot,
+  error,
+  expanded,
+  onToggle,
+}: Readonly<{
+  text: string;
+  dot: string;
+  error?: string;
+  expanded: boolean;
+  onToggle: () => void;
+}>) {
+  const label = (
+    <>
+      <span
+        aria-hidden
+        className={`mr-1.5 inline-block h-2 w-2 rounded-full ${dot}`}
+      />
+      {text}
+    </>
+  );
+  const suffix = error ? `: ${error}` : "";
+  return (
+    // The error text is in the name, not behind a hover (#1283).
+    <output aria-label={`Connection status: ${text}${suffix}`}>
+      {error ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          title={error}
+          className="relative z-10 rounded underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {label}
+        </button>
+      ) : (
+        label
+      )}
+    </output>
   );
 }

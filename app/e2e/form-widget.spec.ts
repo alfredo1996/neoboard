@@ -676,7 +676,7 @@ test.describe("Write permission does not gate a form (#1831)", () => {
     creatorEmail = `no-write-${uid()}@example.com`;
     await page.goto("/users");
     await expect(page.getByText(ALICE.email)).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("No Write Creator");
     await dialog.locator("#user-email").fill(creatorEmail);

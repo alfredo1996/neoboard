@@ -577,10 +577,16 @@ describe("#1981 payloads: connections-crud", () => {
   const update = paths["/api/connections/{id}"].patch;
   const remove = paths["/api/connections/{id}"].delete;
 
-  it("the list items carry visibility, isOwner and allowPerCardDb, never the owner id", () => {
+  it("the list items carry visibility, isOwner, widgetCount and allowPerCardDb, never the owner id", () => {
     const item = deref(data(list, "200")).items!;
     const { properties, required } = flat(item);
-    const keys = [...SUMMARY, "allowPerCardDb", "visibility", "isOwner"];
+    const keys = [
+      ...SUMMARY,
+      "allowPerCardDb",
+      "visibility",
+      "isOwner",
+      "widgetCount",
+    ];
     expect(sorted(properties)).toEqual(sorted(keys));
     expect(sorted(required)).toEqual(sorted(keys));
   });

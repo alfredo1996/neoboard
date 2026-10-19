@@ -86,7 +86,6 @@ Tailwind: `bg-card`, `border-card-edge` (`hover:border-card-edge-hover`), `shado
 ### Known Deviations (Intentional)
 
 - `WidgetCard`: Uses `p-4 pb-2` header / `p-4 pt-2` content — INTENTIONALLY denser because widgets are packed in a grid. This is the "compact card" pattern.
-- `ConnectionCard`: Uses `p-4` — also compact, for list density.
 
 ### Anti-Pattern: DO NOT
 

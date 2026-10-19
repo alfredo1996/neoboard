@@ -11,17 +11,23 @@ import type { Locator, Page } from "@playwright/test";
 /** The two connections the seed gives Alice; global-setup points them at the test databases. */
 const SEEDED = ["Movies Graph (Neo4j)", "Movies DB (PostgreSQL)"];
 
+/** A row's "⋯" button: named for its connection, matched whole. */
+const actions = (name: string) => ({
+  name: `Connection actions for ${name}`,
+  exact: true,
+});
+
 /** The one card element for a connection (bare div filters match every ancestor). */
 function cardFor(page: Page, name: string): Locator {
   return page
-    .locator("div[class*='border']")
+    .getByRole("row")
     .filter({ hasText: name })
-    .filter({ has: page.getByRole("button", { name: "Connection actions" }) });
+    .filter({ has: page.getByRole("button", actions(name)) });
 }
 
 /** A card's status badge — not the toast region, which is also role=status. */
 function badgeOf(card: Locator): Locator {
-  return card.locator('[role="status"][aria-label^="Connection status"]');
+  return card.locator('output[aria-label^="Connection status"]');
 }
 
 /** Every POST to a connection's test route from here on. */
@@ -35,8 +41,8 @@ function recordProbes(page: Page): string[] {
   return probes;
 }
 
-async function testFromMenu(page: Page, card: Locator) {
-  await card.getByRole("button", { name: "Connection actions" }).click();
+async function testFromMenu(page: Page, card: Locator, name: string) {
+  await card.getByRole("button", actions(name)).click();
   await page.getByRole("menuitem", { name: /Test Connection/ }).click();
 }
 
@@ -111,7 +117,7 @@ test.describe("Connections", () => {
       const snap = () => {
         const mine = [
           ...document.querySelectorAll(
-            '[role="status"][aria-label^="Connection status"]',
+            'output[aria-label^="Connection status"]',
           ),
         ].find((e) =>
           // From the parent: the badge is itself a bordered div.
@@ -162,7 +168,7 @@ test.describe("Connections", () => {
 
   test("should create a new Neo4j connection", async ({ page }) => {
     const name = `Test Neo4j ${uid()}`;
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker — choose Neo4j
     await dialog.getByTestId("pick-neo4j").click();
@@ -178,7 +184,7 @@ test.describe("Connections", () => {
 
   test("should create a PostgreSQL connection", async ({ page }) => {
     const name = `Test PG ${uid()}`;
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker — choose PostgreSQL
     await dialog.getByTestId("pick-postgresql").click();
@@ -200,7 +206,7 @@ test.describe("Connections", () => {
     const probes = recordProbes(page);
     const card = cardFor(page, SEEDED[1]);
 
-    await testFromMenu(page, card);
+    await testFromMenu(page, card, SEEDED[1]);
     // That one connection, and nothing else (#1426).
     await expect.poll(() => probes).toHaveLength(1);
     await expect(badgeOf(card)).toHaveText("Connected", { timeout: 30_000 });
@@ -210,7 +216,7 @@ test.describe("Connections", () => {
     page,
   }) => {
     const name = `Inline OK ${uid()}`;
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker
     await dialog.getByTestId("pick-neo4j").click();
@@ -230,7 +236,7 @@ test.describe("Connections", () => {
     page,
   }) => {
     const name = `Inline Fail ${uid()}`;
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker
     await dialog.getByTestId("pick-neo4j").click();
@@ -257,7 +263,7 @@ test.describe("Connections", () => {
   }) => {
     const name = `Bad Creds ${uid()}`;
     // Create a connection with bad credentials
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker
     await dialog.getByTestId("pick-neo4j").click();
@@ -269,23 +275,17 @@ test.describe("Connections", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(dialog).not.toBeVisible();
 
-    // Wait for auto-test to complete — should show "Error" badge on the card
+    // Wait for auto-test to complete: the row reads "Can't connect"
     await expect(page.getByText(name).first()).toBeVisible();
-    // Use the card heading to locate the specific card, then find "Error" badge within it
-    const card = page
-      .locator("div")
-      .filter({ has: page.getByText(name, { exact: true }) })
-      .first();
-    await expect(card.getByText("Error").first()).toBeVisible({
+    const card = cardFor(page, name);
+    await expect(card.getByText("Can't connect", { exact: true })).toBeVisible({
       timeout: 30_000,
     });
   });
 
   test("should duplicate a connection via card dropdown", async ({ page }) => {
     // Open the first connection card's dropdown menu
-    const firstActions = page
-      .getByRole("button", { name: "Connection actions" })
-      .first();
+    const firstActions = page.getByRole("button", actions(SEEDED[0]));
     await expect(firstActions).toBeVisible({ timeout: 10_000 });
     await firstActions.click();
     await page.getByRole("menuitem", { name: "Duplicate" }).click();
@@ -326,22 +326,30 @@ test.describe("Connections", () => {
     try {
       await page.reload();
       const card = cardFor(page, name);
-      await testFromMenu(page, card);
-      await expect(badgeOf(card)).toHaveText("Error", { timeout: 30_000 });
+      await testFromMenu(page, card, name);
+      await expect(badgeOf(card)).toContainText("Can't connect", {
+        timeout: 30_000,
+      });
 
-      // Click the card — should expand an inline alert with the error message.
-      // An error card's name and host are its button (#1283).
-      const toggle = card.getByRole("button", { name: new RegExp(name) });
+      // Click the status — it expands an alert with the error message under
+      // the list. A failed row's status is a button (#1283).
+      const toggle = card.getByRole("button", {
+        name: "Can't connect",
+        exact: true,
+      });
       await toggle.click();
-      // The alert is rendered as a sibling inside the same wrapper div
-      const wrapper = card.locator("..");
-      await expect(wrapper.locator('[role="alert"]')).toBeVisible({
+      const wrapper = page;
+      await expect(
+        wrapper.getByRole("alert").filter({ hasText: name }),
+      ).toBeVisible({
         timeout: 5_000,
       });
 
       // Click again to collapse
       await toggle.click();
-      await expect(wrapper.locator('[role="alert"]')).toBeHidden();
+      await expect(
+        wrapper.getByRole("alert").filter({ hasText: name }),
+      ).toBeHidden();
     } finally {
       await page.request.delete(`/api/connections/${id}?force=true`);
     }
@@ -351,9 +359,7 @@ test.describe("Connections", () => {
     page,
   }) => {
     // Wait for seeded connections to load
-    const firstActions = page
-      .getByRole("button", { name: "Connection actions" })
-      .first();
+    const firstActions = page.getByRole("button", actions(SEEDED[0]));
     await expect(firstActions).toBeVisible({ timeout: 10000 });
 
     // Open the kebab menu on the first connection and click Edit
@@ -381,7 +387,7 @@ test.describe("Connections", () => {
     const name = `Rename Me ${uid()}`;
     const renamed = `Renamed ${uid()}`;
     // Create a connection to rename.
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     let dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
     await dialog.locator("#conn-name").fill(name);
@@ -394,11 +400,12 @@ test.describe("Connections", () => {
     // Open its edit dialog and change the Name field. Scope to the smallest
     // card div that holds both this connection's name and its actions button.
     const card = page
-      .locator("div")
+      .getByRole("row")
       .filter({ has: page.getByText(name, { exact: true }) })
-      .filter({ has: page.getByRole("button", { name: "Connection actions" }) })
-      .last();
-    await card.getByRole("button", { name: "Connection actions" }).click();
+      .filter({
+        has: page.getByRole("button", actions(name)),
+      });
+    await card.getByRole("button", actions(name)).click();
     await page.getByRole("menuitem", { name: /Edit/ }).click();
     dialog = page.getByRole("dialog");
     await expect(dialog.locator("#edit-name")).toHaveValue(name, {
@@ -418,7 +425,7 @@ test.describe("Connections", () => {
   test("blocks save of a malformed URI with an inline error (#1043)", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
     await dialog.locator("#conn-name").fill("Bad URI");
@@ -435,7 +442,7 @@ test.describe("Connections", () => {
   test("should delete a connection with confirmation", async ({ page }) => {
     const name = `To Delete ${uid()}`;
     // Create one first
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     // Step 1: type picker
     await dialog.getByTestId("pick-neo4j").click();
@@ -449,12 +456,12 @@ test.describe("Connections", () => {
 
     // Open the card's dropdown and click Delete
     const card = page
-      .locator("div[class*='border']")
+      .getByRole("row")
       .filter({ hasText: name })
       .filter({
-        has: page.getByRole("button", { name: "Connection actions" }),
+        has: page.getByRole("button", actions(name)),
       });
-    await card.getByRole("button", { name: "Connection actions" }).click();
+    await card.getByRole("button", actions(name)).click();
     await page.getByRole("menuitem", { name: /Delete/ }).click();
     // Confirm deletion
     await page.getByRole("button", { name: "Delete" }).click();
@@ -557,15 +564,17 @@ test.describe("Connections", () => {
       // 4. Navigate to the connections page and locate the card.
       await page.reload();
       const card = page
-        .locator("div[class*='border']")
+        .getByRole("row")
         .filter({ hasText: connName })
         .filter({
-          has: page.getByRole("button", { name: "Connection actions" }),
+          has: page.getByRole("button", actions(connName)),
         });
       await expect(card).toBeVisible({ timeout: 10_000 });
+      // The Widgets column counts the same two widgets: the list's own SQL.
+      await expect(card.getByRole("cell").nth(3)).toHaveText("2");
 
       // 5. Open the dropdown and click Delete.
-      await card.getByRole("button", { name: "Connection actions" }).click();
+      await card.getByRole("button", actions(connName)).click();
       await page.getByRole("menuitem", { name: /Delete/ }).click();
 
       // 6. Assert the confirm dialog shows the usage breakdown: widget

@@ -14,6 +14,8 @@ export interface ConnectionListItem {
   visibility: "private" | "shared";
   /** True when the current user owns the connection — gates edit/delete UI. */
   isOwner: boolean;
+  /** Widgets using it, on the dashboards the caller can open (#2254). */
+  widgetCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -176,6 +178,8 @@ export function useReassignConnection() {
       return unwrapResponse<ReassignResult>(res);
     },
     onSuccess: () => {
+      // The list's Widgets column counts what just moved (#2254).
+      queryClient.invalidateQueries({ queryKey: ["connections"] });
       queryClient.invalidateQueries({ queryKey: ["connection-usage"] });
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },

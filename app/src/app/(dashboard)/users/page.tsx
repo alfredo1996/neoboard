@@ -14,7 +14,7 @@ import type { Session } from "next-auth";
 import {
   Users as UsersIcon,
   Plus,
-  MoreVertical,
+  MoreHorizontal,
   KeyRound,
   UserX,
   UserCheck,
@@ -31,7 +31,6 @@ import {
 import type { UserListItem } from "@/hooks/use-users";
 import type { UserRole } from "@/lib/db/schema";
 import {
-  Badge,
   Button,
   Input,
   Label,
@@ -53,21 +52,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   focusedMenuTrigger,
-} from "@neoboard/components";
-import {
-  PageHeader,
   EmptyState,
   LoadingButton,
   LoadingOverlay,
   ConfirmDialog,
-  DataGrid,
   PasswordInput,
   CopyButton,
+  useToast,
 } from "@neoboard/components";
-import { useToast } from "@neoboard/components";
-import type { DataGridColumn } from "@neoboard/components";
-import { RoleCell } from "./role-cell";
-import { CanWriteCell } from "./can-write-cell";
+import {
+  FilterLine,
+  List,
+  ListRow,
+  PageHeader,
+} from "@neoboard/components/kit";
+import {
+  formatShortDate,
+  matchesUserSearch,
+  nextSort,
+  pageCount,
+  pageOf,
+  roleLabel,
+  sortUsers,
+  userFilters,
+  userListMeta,
+  userMenuActions,
+  writeLabel,
+  type UserSort,
+  type UserSortColumn,
+  type UserStatusFilter,
+} from "./user-list";
 
 export default function UsersPage() {
   const { data: session } = useSession();
@@ -225,85 +239,103 @@ export default function UsersPage() {
     [setUserDisabled, toast],
   );
 
-  const columns = useMemo(
-    (): DataGridColumn<UserListItem>[] => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: renderNameCell,
-      },
-      { accessorKey: "email", header: "Email" },
-      {
-        accessorKey: "role",
-        header: "Role",
-        cell: ({ row }) => {
-          const isSelf = row.original.id === currentUserId;
-          const displayName = row.original.name ?? row.original.email ?? "User";
-          return (
-            <RoleCell
-              role={row.original.role}
-              isSelf={isSelf}
-              isAdmin={isAdmin}
-              onChange={(val) =>
-                handleRoleUpdate(row.original.id, val, displayName)
-              }
-            />
-          );
-        },
-      },
-      {
-        accessorKey: "canWrite",
-        header: "Write",
-        cell: ({ row }) => (
-          <CanWriteCell
-            id={row.original.id}
-            role={row.original.role}
-            canWrite={row.original.canWrite}
-            isSelf={row.original.id === currentUserId}
-            isAdmin={isAdmin}
-            onToggle={(id, checked) =>
-              handleCanWriteToggle(
-                id,
-                checked,
-                row.original.name ?? row.original.email ?? "User",
-              )
-            }
-          />
-        ),
-      },
-      {
-        accessorKey: "createdAt",
-        header: "Created",
-        cell: ({ getValue }) => {
-          const v = getValue() as string;
-          return v ? new Date(v).toLocaleDateString() : "—";
-        },
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => {
-          const isSelf = row.original.id === currentUserId;
-          if (!isAdmin) return null;
-          return (
+  // Newest first, as the old table was (#2254).
+  const [sort, setSort] = useState<UserSort>({
+    column: "Created",
+    direction: "descending",
+  });
+  const [statusFilter, setStatusFilter] = useState<UserStatusFilter>("all");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const resetFilters = () => {
+    setStatusFilter("all");
+    setSearch("");
+    setPage(0);
+  };
+
+  const visibleUsers = useMemo(() => {
+    const narrowed = (users ?? []).filter((u) => {
+      if (!matchesUserSearch(u, search)) return false;
+      if (statusFilter === "all") return true;
+      return statusFilter === "disabled" ? !!u.disabledAt : !u.disabledAt;
+    });
+    return sortUsers(narrowed, sort);
+  }, [users, search, statusFilter, sort]);
+  const pages = pageCount(visibleUsers.length);
+  // A delete or a narrower filter can leave the page past the end.
+  const pageIndex = Math.min(page, pages - 1);
+  // Keep the clamp, or a later create would jump the view back to `page`.
+  if (page !== pageIndex) setPage(pageIndex);
+
+  const forbidden = error instanceof Error && error.message === "Forbidden";
+
+  function renderRow(u: UserListItem) {
+    const isSelf = u.id === currentUserId;
+    const displayName = displayNameOf(u);
+    const menuActions = userMenuActions(u, isSelf);
+    return (
+      <ListRow
+        key={u.id}
+        title={u.name ?? u.email ?? "—"}
+        description={u.name && u.email ? u.email : undefined}
+        meta={[
+          roleLabel(u.role),
+          writeLabel(u),
+          formatShortDate(u.createdAt),
+          u.disabledAt ? "Disabled" : "Active",
+        ]}
+        menu={
+          isAdmin && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                  <span className="sr-only">User actions</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-label={`User actions for ${displayName}`}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {menuActions.roles.map((role) => (
+                  <DropdownMenuItem
+                    key={role}
+                    onClick={() =>
+                      void handleRoleUpdate(u.id, role, displayName)
+                    }
+                  >
+                    Make {role}
+                  </DropdownMenuItem>
+                ))}
+                {menuActions.write && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void handleCanWriteToggle(
+                        u.id,
+                        menuActions.write === "grant",
+                        displayName,
+                      )
+                    }
+                  >
+                    {menuActions.write === "grant"
+                      ? "Allow writing"
+                      : "Remove write access"}
+                  </DropdownMenuItem>
+                )}
+                {(menuActions.roles.length > 0 || menuActions.write) && (
+                  <DropdownMenuSeparator />
+                )}
                 <DropdownMenuItem
                   disabled={isSelf}
-                  onClick={() => handleForcePasswordChange(row.original)}
+                  onClick={() => handleForcePasswordChange(u)}
                 >
                   <KeyRound className="mr-2 h-4 w-4" />
                   Require Password Change
                 </DropdownMenuItem>
                 {!isSelf && (
                   <DisableToggleItem
-                    user={row.original}
+                    user={u}
                     onDisable={(user) => {
                       setReturnFocusTo(focusedMenuTrigger());
                       setDisableTarget(user);
@@ -318,26 +350,18 @@ export default function UsersPage() {
                   onClick={() => {
                     if (isSelf) return;
                     setReturnFocusTo(focusedMenuTrigger());
-                    setDeleteTarget(row.original.id);
+                    setDeleteTarget(u.id);
                   }}
                 >
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          );
-        },
-      },
-    ],
-    [
-      isAdmin,
-      currentUserId,
-      handleRoleUpdate,
-      handleCanWriteToggle,
-      handleForcePasswordChange,
-      handleSetDisabled,
-    ],
-  );
+          )
+        }
+      />
+    );
+  }
 
   async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -364,11 +388,11 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="flex min-h-full flex-col">
       <PageHeader
         title="Users"
         titleRef={headingRef}
-        description="Manage application users"
+        meta={users?.length ? userListMeta(users) : "Manage application users"}
         actions={
           // Same gate as the table's denial state — non-admins must not see
           // admin affordances (#1036). Server-side enforcement already exists;
@@ -376,7 +400,7 @@ export default function UsersPage() {
           isAdmin ? (
             <Button onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" />
-              Create User
+              Create user
             </Button>
           ) : undefined
         }
@@ -582,15 +606,17 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="mt-6">
+      {/* The ground behind the panels, as on the dashboards page (#2219). */}
+      <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
         <LoadingOverlay loading={isLoading} text="Loading users...">
-          {error instanceof Error && error.message === "Forbidden" ? (
+          {forbidden && (
             <EmptyState
               icon={<UsersIcon className="h-12 w-12" />}
               title="Admin access required"
               description="Only administrators can manage users."
             />
-          ) : !users?.length ? (
+          )}
+          {!forbidden && !users?.length && (
             <EmptyState
               icon={<UsersIcon className="h-12 w-12" />}
               title="No users yet"
@@ -612,18 +638,94 @@ export default function UsersPage() {
                 </a>
               }
             />
-          ) : (
-            <DataGrid
-              columns={columns}
-              data={users}
-              getRowId={(u) => u.id}
-              enableSorting
-              // Per-column filters: with many users the list spans pages
-              // (client page size 20, newest first) — filtering is how an
-              // admin (and the E2E suite, #1004) pins down a specific row.
-              enableColumnFilters
-              pageSize={20}
-            />
+          )}
+          {!forbidden && !!users?.length && (
+            <>
+              <div className="flex flex-wrap gap-3">
+                <Input
+                  placeholder="Search users..."
+                  aria-label="Search users"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(0);
+                  }}
+                  className="max-w-xs"
+                />
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) => {
+                    setStatusFilter(v as UserStatusFilter);
+                    setPage(0);
+                  }}
+                >
+                  <SelectTrigger
+                    className="w-[160px]"
+                    aria-label="Filter by status"
+                  >
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="disabled">Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <FilterLine
+                prefix="Showing"
+                filters={userFilters(statusFilter, search)}
+                onRemove={(id) => {
+                  if (id === "search") setSearch("");
+                  else setStatusFilter("all");
+                  setPage(0);
+                }}
+                onReset={resetFilters}
+              />
+              {visibleUsers.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No users match these filters.
+                </p>
+              ) : (
+                <List
+                  label="Users"
+                  columns={USER_COLUMNS}
+                  sort={sort}
+                  onSort={(column) => {
+                    setSort((s) => nextSort(s, column as UserSortColumn));
+                    setPage(0);
+                  }}
+                >
+                  {pageOf(visibleUsers, pageIndex).map(renderRow)}
+                </List>
+              )}
+              {pages > 1 && (
+                <nav
+                  aria-label="Pagination"
+                  className="flex items-center justify-end gap-2 text-sm"
+                >
+                  <span className="text-muted-foreground">
+                    Page {pageIndex + 1} of {pages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pageIndex === 0}
+                    onClick={() => setPage(pageIndex - 1)}
+                  >
+                    Previous page
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pageIndex >= pages - 1}
+                    onClick={() => setPage(pageIndex + 1)}
+                  >
+                    Next page
+                  </Button>
+                </nav>
+              )}
+            </>
           )}
         </LoadingOverlay>
       </div>
@@ -631,19 +733,16 @@ export default function UsersPage() {
   );
 }
 
+const USER_COLUMNS: readonly UserSortColumn[] = [
+  "Name",
+  "Role",
+  "Write",
+  "Created",
+  "Status",
+];
+
 function displayNameOf(user: UserListItem | null): string {
   return user?.name ?? user?.email ?? "This user";
-}
-
-// Module scope, not inline in the columns: an inline JSX renderer is a nested
-// component definition (Sonar S6478).
-function renderNameCell({ row }: { row: { original: UserListItem } }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      {row.original.name}
-      {row.original.disabledAt && <Badge variant="warning">Disabled</Badge>}
-    </span>
-  );
 }
 
 /**
