@@ -24,7 +24,7 @@ Built in `component/src/components/kit/`, drawn from the approved page-kit mock.
 | `Sidebar`         | 240 px, `--side`, 1 px `--rule` right edge; items 7/10 padding, 6 px radius, ink-2, `font-medium`; active `bg-active text-foreground`; group label 12 ink-3 sentence case | under 1024 px a 56 px rail on its own; wide screens toggle it by hand (remembered); rail items carry `aria-label` and a tooltip; account menu: Theme submenu, Profile, Sign out |
 | `Wordmark`        | 12 px citrine square (`--brand`, 3 px radius) and the name 18/600                                                                                                         | the rail shows the square alone; name from `PRODUCT_NAME`                                                                                                                       |
 
-Not in the kit on purpose: the old `Toolbar` (still used by the dashboard view toolbar) and the old composed `PageHeader` (still used by the app pages) stay until the page issues move them.
+The old `Toolbar` and the old composed `PageHeader` were removed in #2256.
 
 ### A calm page, and cards for widgets
 

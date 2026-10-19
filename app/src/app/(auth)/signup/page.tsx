@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signup } from "@/lib/auth/signup";
+import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 import {
   Input,
   Label,
@@ -17,7 +18,6 @@ import {
 import { AuthCard } from "../auth-card";
 
 /** The rule `newPasswordSchema` enforces (app/src/lib/auth/password-schema.ts). */
-const PASSWORD_HINT = "At least 8 characters, with a letter and a number.";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -174,12 +174,15 @@ export default function SignupPage() {
           <Label htmlFor="password">Password</Label>
           <PasswordInput
             id="password"
+            aria-describedby="password-hint"
             name="password"
             autoComplete="new-password"
             required
             minLength={6}
           />
-          <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
+          <p id="password-hint" className="text-xs text-muted-foreground">
+            {PASSWORD_HINT}
+          </p>
         </div>
 
         <div className="space-y-2">

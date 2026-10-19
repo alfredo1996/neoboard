@@ -11,9 +11,9 @@ import {
 } from "@neoboard/components";
 import { signOut } from "next-auth/react";
 import { AuthCard } from "../auth-card";
+import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 
 /** The rule `newPasswordSchema` enforces (app/src/lib/auth/password-schema.ts). */
-const PASSWORD_HINT = "At least 8 characters, with a letter and a number.";
 
 export default function ChangePasswordPage() {
   const [error, setError] = useState("");
@@ -88,13 +88,16 @@ export default function ChangePasswordPage() {
           <Label htmlFor="newPassword">New password</Label>
           <Input
             id="newPassword"
+            aria-describedby="newPassword-hint"
             name="newPassword"
             type="password"
             autoComplete="new-password"
             required
             minLength={8}
           />
-          <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
+          <p id="newPassword-hint" className="text-xs text-muted-foreground">
+            {PASSWORD_HINT}
+          </p>
         </div>
 
         <div className="space-y-2">

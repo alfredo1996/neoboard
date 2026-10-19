@@ -98,8 +98,8 @@ function MultiSelect({
                     <button> and interactive-in-interactive is invalid HTML.
                     But ARIA makes the children of a `button` presentational,
                     so browsers DROP this role and fold the label into the
-                    trigger's accessible name. cross-filter-tag.tsx solved this
-                    by de-nesting — only the body is a button and the remove
+                    trigger's accessible name. #1283 solved this for the
+                    cross-filter tag by de-nesting — only the body is a button and the remove
                     control is its sibling. The same restructure is needed
                     here; it is not done yet because the trigger renders the
                     badges inline, which is a larger change. Do NOT treat this

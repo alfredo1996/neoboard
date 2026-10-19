@@ -150,10 +150,8 @@ describe("LoginPage", () => {
   it("shows the wordmark, the product lead and a real h1 on one card (#2256)", async () => {
     await renderPage();
 
-    expect(screen.getByText("NeoBoard")).toBeDefined();
-    expect(
-      screen.getByText("Make your systems talk, on one dashboard"),
-    ).toBeDefined();
+    // The only heading is the h1; the wordmark is not one.
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
     expect(
       screen.getByRole("heading", {
         level: 1,

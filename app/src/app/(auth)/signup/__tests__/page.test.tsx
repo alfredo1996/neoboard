@@ -1,3 +1,4 @@
+import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -348,10 +349,8 @@ describe("SignupPage", () => {
     render(<SignupPage />);
 
     expect(
-      await screen.findByText(
-        "At least 8 characters, with a letter and a number.",
-      ),
-    ).toBeDefined();
+      await screen.findByLabelText("Password"),
+    ).toHaveAccessibleDescription(PASSWORD_HINT);
   });
 
   it("shows a loading state until the status fetch settles, then the title", async () => {

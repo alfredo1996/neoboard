@@ -1,3 +1,4 @@
+import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
@@ -57,9 +58,9 @@ describe("ChangePasswordPage (#2011)", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Change password" }),
     ).toBeDefined();
-    expect(
-      screen.getByText("At least 8 characters, with a letter and a number."),
-    ).toBeDefined();
+    expect(screen.getByLabelText("New password")).toHaveAccessibleDescription(
+      PASSWORD_HINT,
+    );
   });
 
   it("shows the message from the API's error envelope", async () => {
