@@ -111,7 +111,7 @@ function sortKey(u: UserListItem, column: UserSortColumn): string | number {
     case "Role":
       return ROLE_ORDER[u.role];
     case "Write":
-      return u.canWrite ? 0 : 1;
+      return writeLabel(u) === "Can write" ? 0 : 1;
     case "Created":
       return Date.parse(u.createdAt) || 0;
     case "Status":

@@ -182,6 +182,16 @@ describe("sortUsers", () => {
     expect(sorted(sort)).toEqual(expected);
   });
 
+  it("sorts Write by the label shown, not the stored flag", () => {
+    const admin = user({ id: "admin", role: "admin", canWrite: false });
+    const reader = user({ id: "reader", role: "reader", canWrite: true });
+    expect(
+      ids(
+        sortUsers([reader, admin], { column: "Write", direction: "ascending" }),
+      ),
+    ).toEqual(["admin", "reader"]);
+  });
+
   it("does not reorder the list it was given", () => {
     sortUsers(ALL, { column: "Name", direction: "descending" });
     expect(ids(ALL)).toEqual(["alice", "bob", "carol", "dan"]);
