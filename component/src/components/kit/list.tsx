@@ -104,7 +104,8 @@ function List({
 
 export interface ListRowProps {
   title: string;
-  description?: string;
+  /** A line under the title; a node when part of it is live, e.g. a relative time. */
+  description?: React.ReactNode;
   /**
    * Where the item lives: the stretched link's target. Without it the title is
    * a stretched button when `onOpen` is set, and plain text when it is not.

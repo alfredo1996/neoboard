@@ -6,10 +6,15 @@ import {
   type MouseEventHandler,
   type RefObject,
 } from "react";
-import { Plus, Trash2, Copy, Check, Key } from "lucide-react";
+import { Plus, Copy, Check, Key, MoreHorizontal } from "lucide-react";
 import {
-  PageHeader,
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  focusedMenuTrigger,
+  TimeAgo,
   Input,
   EmptyState,
   ConfirmDialog,
@@ -20,6 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@neoboard/components";
+import { List, ListRow, PageHeader } from "@neoboard/components/kit";
 import {
   useApiKeys,
   useCreateApiKey,
@@ -27,16 +33,11 @@ import {
 } from "@/hooks/use-api-keys";
 import type { ApiKeyListItem, CreatedApiKey } from "@/hooks/use-api-keys";
 import { returnFocus } from "@/lib/return-focus";
+import { formatShortDate } from "../../users/user-list";
+import { SettingsTabs } from "../settings-tabs";
 import { maskedKey } from "./masked-key";
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+const COLUMNS = ["Name", "Key", "Created", "Expires"];
 
 function CopyButton({ value }: Readonly<{ value: string }>) {
   const [copied, setCopied] = useState(false);
@@ -104,7 +105,7 @@ function CreateKeyDialog({
       <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>
-            {createdKey ? "API Key Created" : "Create API Key"}
+            {createdKey ? "API key created" : "Create API key"}
           </DialogTitle>
         </DialogHeader>
 
@@ -169,7 +170,7 @@ function CreateKeyDialog({
                 onClick={handleCreate}
                 disabled={!name.trim() || createMutation.isPending}
               >
-                {createMutation.isPending ? "Generating..." : "Generate Key"}
+                {createMutation.isPending ? "Generating..." : "Generate key"}
               </Button>
             </DialogFooter>
           </div>
@@ -193,52 +194,71 @@ function ApiKeyRow({
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
 
   return (
-    <tr className="border-b last:border-b-0">
-      <td className="px-4 py-3 font-medium text-sm whitespace-nowrap">
-        {apiKey.name}
-      </td>
-      <td className="px-4 py-3 font-mono text-sm text-muted-foreground whitespace-nowrap">
-        {maskedKey(apiKey.keyPrefix)}
-      </td>
-      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-        {formatDate(apiKey.createdAt)}
-      </td>
-      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-        {formatDate(apiKey.lastUsedAt)}
-      </td>
-      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-        {formatDate(apiKey.expiresAt)}
-      </td>
-      <td className="px-4 py-3 text-right">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-destructive hover:text-destructive"
-          onClick={(e) => {
-            setReturnFocusTo(e.currentTarget);
-            setConfirmOpen(true);
-          }}
-          aria-label={`Revoke ${apiKey.name}`}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-        <ConfirmDialog
-          open={confirmOpen}
-          onOpenChange={setConfirmOpen}
-          title="Revoke API Key"
-          description={`Are you sure you want to revoke "${apiKey.name}"? This action cannot be undone. Any integrations using this key will stop working immediately.`}
-          confirmText="Revoke"
-          variant="destructive"
-          returnFocusTo={returnFocusTo}
-          onConfirm={() => {
-            // The row leaves once the list refetches: land on the heading.
-            setReturnFocusTo(heading.current);
-            onRevoke(apiKey.id);
-            setConfirmOpen(false);
-          }}
-        />
-      </td>
-    </tr>
+    <ListRow
+      title={apiKey.name}
+      description={
+        apiKey.lastUsedAt ? (
+          <>
+            Last used{" "}
+            <TimeAgo
+              date={apiKey.lastUsedAt}
+              className="text-xs text-foreground-2"
+            />
+          </>
+        ) : (
+          "Never used"
+        )
+      }
+      meta={[
+        <span key="key" className="font-mono">
+          {maskedKey(apiKey.keyPrefix)}
+        </span>,
+        formatShortDate(apiKey.createdAt),
+        formatShortDate(apiKey.expiresAt),
+      ]}
+      menu={
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label={`Key actions for ${apiKey.name}`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => {
+                  setReturnFocusTo(focusedMenuTrigger());
+                  setConfirmOpen(true);
+                }}
+              >
+                Revoke
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ConfirmDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            title="Revoke API key"
+            description={`Are you sure you want to revoke "${apiKey.name}"? This action cannot be undone. Any integrations using this key will stop working immediately.`}
+            confirmText="Revoke"
+            variant="destructive"
+            returnFocusTo={returnFocusTo}
+            onConfirm={() => {
+              // The row leaves once the list refetches: land on the heading.
+              setReturnFocusTo(heading.current);
+              onRevoke(apiKey.id);
+              setConfirmOpen(false);
+            }}
+          />
+        </>
+      }
+    />
   );
 }
 
@@ -259,76 +279,61 @@ export default function ApiKeysPage() {
     setCreateOpen(true);
   };
 
+  const createButton = (
+    <Button onClick={openCreate}>
+      <Plus className="mr-2 h-4 w-4" />
+      Create API key
+    </Button>
+  );
+  const base = "Programmatic access to this workspace";
+  const meta =
+    keys.length > 0
+      ? `${base} · ${keys.length} ${keys.length === 1 ? "key" : "keys"}`
+      : base;
+
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex min-h-full flex-col">
       <PageHeader
-        title="API Keys"
+        breadcrumb={[
+          { label: "Settings", href: "/settings/profile" },
+          { label: "API keys" },
+        ]}
+        title="API keys"
         titleRef={headingRef}
-        description="Manage API keys for programmatic access to NeoBoard."
-        actions={
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create API Key
-          </Button>
-        }
+        meta={meta}
+        actions={createButton}
+        tabs={<SettingsTabs />}
       />
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      )}
+      <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        )}
 
-      {!isLoading && keys.length === 0 && (
-        <EmptyState
-          icon={<Key className="h-8 w-8 text-muted-foreground" />}
-          title="No API keys"
-          description="Create an API key to make programmatic requests to NeoBoard."
-          action={
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create API Key
-            </Button>
-          }
-        />
-      )}
+        {!isLoading && keys.length === 0 && (
+          <EmptyState
+            icon={<Key className="h-8 w-8 text-muted-foreground" />}
+            title="No API keys"
+            description="Create an API key to make programmatic requests to NeoBoard."
+            action={createButton}
+          />
+        )}
 
-      {!isLoading && keys.length > 0 && (
-        <div className="rounded-lg border">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Key
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Created
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Last Used
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Expires
-                </th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {keys.map((key) => (
-                <ApiKeyRow
-                  key={key.id}
-                  apiKey={key}
-                  onRevoke={handleRevoke}
-                  heading={headingRef}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        {!isLoading && keys.length > 0 && (
+          <List label="API keys" columns={COLUMNS}>
+            {keys.map((key) => (
+              <ApiKeyRow
+                key={key.id}
+                apiKey={key}
+                onRevoke={handleRevoke}
+                heading={headingRef}
+              />
+            ))}
+          </List>
+        )}
+      </div>
 
       <CreateKeyDialog
         open={createOpen}

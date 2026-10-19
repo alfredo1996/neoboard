@@ -6,9 +6,9 @@ test.describe("Settings — Profile", () => {
     await sidebarPage.navigateTo("Settings");
   });
 
-  test("settings page shows Profile and API Keys tabs", async ({ page }) => {
+  test("settings page shows Profile and API keys tabs", async ({ page }) => {
     await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "API Keys" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "API keys" })).toBeVisible();
   });
 
   test("sidebar navigates to profile by default", async ({ page }) => {
@@ -16,9 +16,14 @@ test.describe("Settings — Profile", () => {
   });
 
   test("profile page shows account info", async ({ page }) => {
-    await expect(page.getByText(ALICE.email)).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("Write Access")).toBeVisible();
-    await expect(page.getByText("Member Since")).toBeVisible();
+    await expect(page.getByText(ALICE.email, { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText(`Signed in as ${ALICE.email}`, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Write access")).toBeVisible();
+    await expect(page.getByText("Member since")).toBeVisible();
   });
 
   test("can update display name", async ({ page }) => {
@@ -31,18 +36,18 @@ test.describe("Settings — Profile", () => {
 
     await nameInput.clear();
     await nameInput.fill(newName);
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save name" }).click();
 
     // Verify the name was saved — button should become disabled (name matches profile)
-    await expect(page.getByRole("button", { name: "Save" })).toBeDisabled({
+    await expect(page.getByRole("button", { name: "Save name" })).toBeDisabled({
       timeout: 5_000,
     });
 
     // Restore original name
     await nameInput.clear();
     await nameInput.fill(originalName || "Alice");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toBeDisabled({
+    await page.getByRole("button", { name: "Save name" }).click();
+    await expect(page.getByRole("button", { name: "Save name" })).toBeDisabled({
       timeout: 5_000,
     });
   });
@@ -53,7 +58,7 @@ test.describe("Settings — Profile", () => {
     await page.locator("#current-password").fill("wrongpassword");
     await page.locator("#new-password").fill("newpass123");
     await page.locator("#confirm-password").fill("newpass123");
-    await page.getByRole("button", { name: "Change Password" }).click();
+    await page.getByRole("button", { name: "Change password" }).click();
     await expect(page.getByText("Current password is incorrect")).toBeVisible({
       timeout: 5_000,
     });
@@ -65,7 +70,7 @@ test.describe("Settings — Profile", () => {
     await page.locator("#current-password").fill(ALICE.password);
     await page.locator("#new-password").fill("newpass123");
     await page.locator("#confirm-password").fill("different123");
-    await page.getByRole("button", { name: "Change Password" }).click();
+    await page.getByRole("button", { name: "Change password" }).click();
     await expect(page.getByText("New passwords do not match")).toBeVisible();
   });
 
@@ -86,7 +91,7 @@ test.describe("Settings — Profile", () => {
     await page.locator("#current-password").fill(oldPw);
     await page.locator("#new-password").fill(newPw);
     await page.locator("#confirm-password").fill(newPw);
-    await page.getByRole("button", { name: "Change Password" }).click();
+    await page.getByRole("button", { name: "Change password" }).click();
 
     // Changing the password invalidates the session — the app sends the user
     // to a clean login with a clear message instead of stranding them on a
@@ -107,11 +112,11 @@ test.describe("Settings — Profile", () => {
     await expect(page).toHaveURL("/", { timeout: 15_000 });
   });
 
-  test("can switch to API Keys tab", async ({ page }) => {
-    await page.getByRole("button", { name: "API Keys" }).click();
+  test("can switch to API keys tab", async ({ page }) => {
+    await page.getByRole("button", { name: "API keys" }).click();
     await expect(page).toHaveURL(/\/settings\/api-keys/);
     await expect(
-      page.getByRole("heading", { name: "API Keys", exact: true }),
+      page.getByRole("heading", { name: "API keys", exact: true }),
     ).toBeVisible();
   });
 });

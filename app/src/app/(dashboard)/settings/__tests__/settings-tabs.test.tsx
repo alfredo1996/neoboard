@@ -12,32 +12,22 @@ vi.mock("@/hooks/use-features", () => ({
   useFeature: () => false,
 }));
 
-import SettingsLayout from "../layout";
+import { SettingsTabs } from "../settings-tabs";
 
-describe("SettingsLayout — API docs discoverability (#1056)", () => {
+describe("SettingsTabs — API docs discoverability (#1056, #2255)", () => {
   it("renders an API Docs link that opens /api/docs in a new tab", () => {
-    render(
-      <SettingsLayout>
-        <div>child</div>
-      </SettingsLayout>,
-    );
+    render(<SettingsTabs />);
     const link = screen.getByRole("link", { name: /API Docs/i });
     expect(link).toHaveAttribute("href", "/api/docs");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
   });
 
-  it("still renders the Profile and API Keys tabs as buttons", () => {
-    render(
-      <SettingsLayout>
-        <div>child</div>
-      </SettingsLayout>,
-    );
+  it("still renders the Profile and API keys tabs as buttons", () => {
+    render(<SettingsTabs />);
+    expect(screen.getByRole("button", { name: "Profile" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Profile/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /API Keys/i }),
+      screen.getByRole("button", { name: "API keys" }),
     ).toBeInTheDocument();
   });
 });

@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
-import type { ConfirmDialogProps, PageHeaderProps } from "@neoboard/components";
+import type { ConfirmDialogProps } from "@neoboard/components";
+import type { PageHeaderProps } from "@neoboard/components/kit";
 import {
   MockDialog,
   MockDialogContent,
@@ -60,16 +61,21 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/settings/authentication",
 }));
 
-vi.mock("@neoboard/components", () => ({
-  PageHeader: ({ title, description, actions, titleRef }: PageHeaderProps) => (
+vi.mock("@neoboard/components/kit", () => ({
+  PageHeader: ({ title, meta, actions, titleRef }: PageHeaderProps) => (
     <div data-testid="page-header">
       <h1 ref={titleRef} tabIndex={-1}>
         {title}
       </h1>
-      <p>{description}</p>
+      <p>{meta}</p>
       {actions}
     </div>
   ),
+}));
+
+vi.mock("../../settings-tabs", () => ({ SettingsTabs: () => null }));
+
+vi.mock("@neoboard/components", () => ({
   Button: ({
     children,
     onClick,

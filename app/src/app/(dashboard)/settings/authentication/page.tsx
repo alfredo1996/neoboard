@@ -15,7 +15,6 @@ import {
   ToggleRight,
 } from "lucide-react";
 import {
-  PageHeader,
   Button,
   Input,
   Label,
@@ -36,6 +35,8 @@ import {
   DialogFooter,
   PasswordInput,
 } from "@neoboard/components";
+import { PageHeader } from "@neoboard/components/kit";
+import { SettingsTabs } from "../settings-tabs";
 import {
   useSsoProviders,
   useCreateSsoProvider,
@@ -446,75 +447,82 @@ function AuthenticationPageContent() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex min-h-full flex-col">
       <PageHeader
+        breadcrumb={[
+          { label: "Settings", href: "/settings/profile" },
+          { label: "Authentication" },
+        ]}
         title="Authentication"
         titleRef={headingRef}
-        description="Configure single sign-on (SSO) providers for your organization."
+        meta="Configure single sign-on (SSO) providers for your organization."
         actions={
           <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Add Provider
           </Button>
         }
+        tabs={<SettingsTabs />}
       />
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      )}
+      <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        )}
 
-      {!isLoading && providers.length === 0 && (
-        <EmptyState
-          icon={<Shield className="h-8 w-8 text-muted-foreground" />}
-          title="No SSO providers"
-          description="Add an OIDC provider to enable single sign-on for your organization."
-          action={
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Provider
-            </Button>
-          }
-        />
-      )}
+        {!isLoading && providers.length === 0 && (
+          <EmptyState
+            icon={<Shield className="h-8 w-8 text-muted-foreground" />}
+            title="No SSO providers"
+            description="Add an OIDC provider to enable single sign-on for your organization."
+            action={
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Provider
+              </Button>
+            }
+          />
+        )}
 
-      {!isLoading && providers.length > 0 && (
-        <div className="rounded-lg border">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Provider
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Issuer
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Default Role
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  SSO Enforced
-                </th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {providers.map((provider) => (
-                <ProviderRow
-                  key={provider.id}
-                  provider={provider}
-                  onDelete={handleDelete}
-                  heading={headingRef}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        {!isLoading && providers.length > 0 && (
+          <div className="rounded-lg border">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Provider
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Issuer
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Default Role
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    SSO Enforced
+                  </th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {providers.map((provider) => (
+                  <ProviderRow
+                    key={provider.id}
+                    provider={provider}
+                    onDelete={handleDelete}
+                    heading={headingRef}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <AddProviderDialog
         open={createOpen}

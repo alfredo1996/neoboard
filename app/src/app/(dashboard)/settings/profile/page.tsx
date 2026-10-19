@@ -3,11 +3,6 @@
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
-  Panel,
-  PanelContent,
-  PanelDescription,
-  PanelHeader,
-  PanelTitle,
   Input,
   Label,
   Badge,
@@ -16,6 +11,8 @@ import {
 } from "@neoboard/components";
 import { LoadingButton, PasswordInput } from "@neoboard/components";
 import { useToast } from "@neoboard/components";
+import { PageHeader, SettingsSection } from "@neoboard/components/kit";
+import { SettingsTabs } from "../settings-tabs";
 
 interface UserProfile {
   id: string;
@@ -56,7 +53,7 @@ export default function ProfilePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function handleSaveName(e: React.FormEvent) {
+  async function handleSaveName(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setSavingName(true);
     try {
@@ -88,7 +85,7 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleChangePassword(e: React.FormEvent) {
+  async function handleChangePassword(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setPasswordError("");
 
@@ -146,44 +143,47 @@ export default function ProfilePage() {
     );
   }
 
+  const roleVariants: Record<string, "destructive" | "secondary"> = {
+    admin: "destructive",
+    reader: "secondary",
+  };
+  const roleVariant = roleVariants[profile?.role ?? ""] ?? "default";
+
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-2xl">
-      {/* Account Info */}
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>Account</PanelTitle>
-          <PanelDescription>Your account details</PanelDescription>
-        </PanelHeader>
-        <PanelContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+    <div className="flex min-h-full flex-col">
+      <PageHeader
+        breadcrumb={[
+          { label: "Settings", href: "/settings/profile" },
+          { label: "Profile" },
+        ]}
+        title="Profile"
+        meta={profile?.email ? `Signed in as ${profile.email}` : undefined}
+        tabs={<SettingsTabs />}
+      />
+      <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
+        <SettingsSection title="Account" description="Your account details.">
+          <dl className="m-0 grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Email</span>
-              <p className="font-medium">{profile?.email ?? "—"}</p>
+              <dt className="text-muted-foreground">Email</dt>
+              <dd className="m-0 font-medium">{profile?.email ?? "—"}</dd>
             </div>
             <div>
-              <span className="text-muted-foreground">Role</span>
-              <div className="mt-1">
-                <Badge
-                  variant={
-                    profile?.role === "admin"
-                      ? "destructive"
-                      : profile?.role === "reader"
-                        ? "secondary"
-                        : "default"
-                  }
-                  className="capitalize"
-                >
+              <dt className="text-muted-foreground">Role</dt>
+              <dd className="m-0 mt-1">
+                <Badge variant={roleVariant} className="capitalize">
                   {profile?.role}
                 </Badge>
-              </div>
+              </dd>
             </div>
             <div>
-              <span className="text-muted-foreground">Write Access</span>
-              <p className="font-medium">{profile?.canWrite ? "Yes" : "No"}</p>
+              <dt className="text-muted-foreground">Write access</dt>
+              <dd className="m-0 font-medium">
+                {profile?.canWrite ? "Yes" : "No"}
+              </dd>
             </div>
             <div>
-              <span className="text-muted-foreground">Member Since</span>
-              <p className="font-medium">
+              <dt className="text-muted-foreground">Member since</dt>
+              <dd className="m-0 font-medium">
                 {profile?.createdAt
                   ? new Date(profile.createdAt).toLocaleDateString(undefined, {
                       year: "numeric",
@@ -191,23 +191,27 @@ export default function ProfilePage() {
                       day: "numeric",
                     })
                   : "—"}
-              </p>
+              </dd>
             </div>
-          </div>
-        </PanelContent>
-      </Panel>
+          </dl>
+        </SettingsSection>
 
-      {/* Name */}
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>Display Name</PanelTitle>
-          <PanelDescription>
-            This is how your name appears across NeoBoard.
-          </PanelDescription>
-        </PanelHeader>
-        <PanelContent>
-          <form onSubmit={handleSaveName} className="flex items-end gap-3">
-            <div className="flex-1 space-y-2">
+        <form onSubmit={handleSaveName}>
+          <SettingsSection
+            title="Display name"
+            description="This is how your name appears across NeoBoard."
+            footer={
+              <LoadingButton
+                type="submit"
+                loading={savingName}
+                loadingText="Saving..."
+                disabled={name === (profile?.name ?? "") || !name.trim()}
+              >
+                Save name
+              </LoadingButton>
+            }
+          >
+            <div className="space-y-2">
               <Label htmlFor="profile-name">Name</Label>
               <Input
                 id="profile-name"
@@ -216,31 +220,23 @@ export default function ProfilePage() {
                 required
               />
             </div>
-            <LoadingButton
-              type="submit"
-              loading={savingName}
-              loadingText="Saving..."
-              disabled={name === (profile?.name ?? "") || !name.trim()}
-            >
-              Save
-            </LoadingButton>
-          </form>
-        </PanelContent>
-      </Panel>
+          </SettingsSection>
+        </form>
 
-      {/* Password */}
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>Change Password</PanelTitle>
-          <PanelDescription>
-            Update your password. You will need your current password.
-          </PanelDescription>
-        </PanelHeader>
-        <PanelContent>
-          <form
-            onSubmit={handleChangePassword}
-            className="space-y-4"
-            noValidate
+        <form onSubmit={handleChangePassword} noValidate>
+          <SettingsSection
+            title="Password"
+            description="Update your password. You will need your current password."
+            footer={
+              <LoadingButton
+                type="submit"
+                loading={savingPassword}
+                loadingText="Changing..."
+                disabled={!currentPassword || !newPassword || !confirmPassword}
+              >
+                Change password
+              </LoadingButton>
+            }
           >
             {passwordError && (
               <Alert variant="destructive">
@@ -248,7 +244,7 @@ export default function ProfilePage() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="current-password">Current Password</Label>
+              <Label htmlFor="current-password">Current password</Label>
               <PasswordInput
                 id="current-password"
                 value={currentPassword}
@@ -257,41 +253,38 @@ export default function ProfilePage() {
                 required
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  autoComplete="new-password"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  autoComplete="new-password"
-                  required
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                aria-describedby="new-password-hint"
+                required
+              />
+              <p
+                id="new-password-hint"
+                className="text-caption text-muted-foreground"
+              >
+                At least 8 characters
+              </p>
             </div>
-            <LoadingButton
-              type="submit"
-              loading={savingPassword}
-              loadingText="Changing..."
-              disabled={!currentPassword || !newPassword || !confirmPassword}
-            >
-              Change Password
-            </LoadingButton>
-          </form>
-        </PanelContent>
-      </Panel>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm new password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </div>
+          </SettingsSection>
+        </form>
+      </div>
     </div>
   );
 }

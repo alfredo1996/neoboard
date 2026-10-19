@@ -18,7 +18,7 @@ test.describe("SSO gating — community edition", () => {
     page,
   }) => {
     await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "API Keys" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "API keys" })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Authentication" }),
     ).toHaveCount(0);

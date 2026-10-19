@@ -54,7 +54,7 @@ Startup validation fails fast if any of these is missing or malformed — you ge
 `ENCRYPTION_KEY` is the one you cannot regenerate: [Credential encryption](/security/credential-encryption) covers how to store it and how to rotate it without losing every saved connection.
 
 :::caution
-`API_KEY_HMAC_SECRET` is **required in every install**, not just enterprise ones — API keys are a community feature. Without it the app fails at startup by design, so the problem surfaces at deploy time instead of when a user first clicks "Create API Key".
+`API_KEY_HMAC_SECRET` is **required in every install**, not just enterprise ones — API keys are a community feature. Without it the app fails at startup by design, so the problem surfaces at deploy time instead of when a user first clicks "Create API key".
 :::
 
 ## Optional Variables
