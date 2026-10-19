@@ -30,4 +30,18 @@ describe("SettingsTabs — API docs discoverability (#1056, #2255)", () => {
       screen.getByRole("button", { name: "API keys" }),
     ).toBeInTheDocument();
   });
+
+  it("marks only the current page's tab with aria-current=page", () => {
+    render(<SettingsTabs />);
+    expect(screen.getByRole("button", { name: "Profile" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      screen.getByRole("button", { name: "API keys" }),
+    ).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: /API docs/i })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
 });

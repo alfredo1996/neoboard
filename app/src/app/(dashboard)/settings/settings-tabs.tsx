@@ -70,6 +70,7 @@ export function SettingsTabs() {
           <button
             key={href}
             type="button"
+            aria-current={active ? "page" : undefined}
             onClick={() => router.push(href)}
             className={className}
           >
