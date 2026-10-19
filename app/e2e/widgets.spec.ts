@@ -498,7 +498,7 @@ test.describe("Widget fullscreen", () => {
       timeout: 15_000,
     });
 
-    // Click fullscreen button (sr-only text "Fullscreen")
+    // Click fullscreen button (icon-only, named by aria-label "Fullscreen")
     const fullscreenBtn = page
       .getByRole("button", { name: "Fullscreen" })
       .first();

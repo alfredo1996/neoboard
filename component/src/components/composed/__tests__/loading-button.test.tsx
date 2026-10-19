@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { createRef } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { LoadingButton } from "../loading-button";
 
@@ -39,6 +40,25 @@ describe("LoadingButton", () => {
     );
     expect(screen.getByRole("button")).toHaveStyle({ minWidth: "120px" });
     widthSpy.mockRestore();
+  });
+
+  it("re-measures the idle width on every idle commit", () => {
+    let width = 120;
+    const widthSpy = vi
+      .spyOn(HTMLElement.prototype, "offsetWidth", "get")
+      .mockImplementation(() => width);
+    const { rerender } = render(<LoadingButton>Save</LoadingButton>);
+    width = 80;
+    rerender(<LoadingButton>Save</LoadingButton>);
+    rerender(<LoadingButton loading>Save</LoadingButton>);
+    expect(screen.getByRole("button")).toHaveStyle({ minWidth: "80px" });
+    widthSpy.mockRestore();
+  });
+
+  it("forwards its ref to the button", () => {
+    const ref = createRef<HTMLButtonElement>();
+    render(<LoadingButton ref={ref}>Save</LoadingButton>);
+    expect(ref.current).toBe(screen.getByRole("button"));
   });
 
   it("shows spinner when loading", () => {

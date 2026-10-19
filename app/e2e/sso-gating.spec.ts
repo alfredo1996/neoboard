@@ -69,7 +69,7 @@ test.describe("SSO gating — login page (community)", () => {
     await page.goto("/login");
     // Standard email/password form is present
     await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
     // No "Sign in with X" SSO buttons (no providers configured + edition gates)
     await expect(
       page.getByRole("button", { name: /Sign in with/i }),

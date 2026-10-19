@@ -16,18 +16,17 @@ const LoadingButton = React.forwardRef<HTMLButtonElement, LoadingButtonProps>(
     // The width the button had idle, so swapping the label for a spinner and
     // loadingText does not make it jump.
     const [idleWidth, setIdleWidth] = React.useState(0);
+    React.useImperativeHandle(ref, () => el.current as HTMLButtonElement);
+    // After every idle commit, so a container that narrows later is measured
+    // too; setState with the same value bails out.
     React.useLayoutEffect(() => {
       if (!loading && el.current) setIdleWidth(el.current.offsetWidth);
-    }, [loading, children]);
+    });
 
     return (
       <Button
         {...props}
-        ref={(node) => {
-          el.current = node;
-          if (typeof ref === "function") ref(node);
-          else if (ref) ref.current = node;
-        }}
+        ref={el}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         className={className}

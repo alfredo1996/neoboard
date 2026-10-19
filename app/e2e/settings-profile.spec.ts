@@ -107,7 +107,7 @@ test.describe("Settings — Profile", () => {
 
     // The new password works; the user is back in cleanly.
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(newPw);
+    await page.getByLabel("Password", { exact: true }).fill(newPw);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL("/", { timeout: 15_000 });
   });

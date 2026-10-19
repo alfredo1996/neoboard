@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { Button } from "../button";
+import { Button, buttonVariants } from "../button";
+import { LoadingButton } from "../../composed/loading-button";
 
 const variants = [
   "primary",
@@ -17,9 +18,12 @@ describe("Button (#2216)", () => {
     expect(screen.getByRole("button", { name: "Run" })).toBeEnabled();
   });
 
-  it("is a primary button when no variant is given", () => {
-    render(<Button>Save</Button>);
-    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  it("is primary when no variant is given, on Button and LoadingButton", () => {
+    expect(buttonVariants()).toBe(buttonVariants({ variant: "primary" }));
+    render(<LoadingButton>Go</LoadingButton>);
+    expect(screen.getByRole("button", { name: "Go" })).toHaveClass(
+      ...buttonVariants({ variant: "primary" }).split(" "),
+    );
   });
 
   it("disabled drops the button out of the interaction", () => {

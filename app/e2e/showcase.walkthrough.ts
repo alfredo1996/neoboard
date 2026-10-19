@@ -433,7 +433,9 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     await page.goto("/login");
     await page.locator('form[data-hydrated="true"]').waitFor();
     await page.getByLabel("Email").fill(DEMO_ADMIN.email);
-    await page.getByLabel("Password").fill(DEMO_ADMIN.password);
+    await page
+      .getByLabel("Password", { exact: true })
+      .fill(DEMO_ADMIN.password);
     await docsShot(page, "login");
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForURL("/");

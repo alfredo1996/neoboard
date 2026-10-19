@@ -15,7 +15,9 @@ describe("ColorScalePanel", () => {
         onColorScalesChange={() => {}}
       />,
     );
-    expect(screen.getByRole("button", { name: /add color scale/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /add color scale/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders existing color scales", () => {
@@ -29,7 +31,9 @@ describe("ColorScalePanel", () => {
         onColorScalesChange={() => {}}
       />,
     );
-    expect(screen.getByRole("button", { name: /remove color scale/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /remove color scale/i }),
+    ).toBeInTheDocument();
   });
 
   it("adds a color scale", async () => {
@@ -62,7 +66,9 @@ describe("ColorScalePanel", () => {
         onColorScalesChange={onColorScalesChange}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /remove color scale/i }));
+    const remove = screen.getByRole("button", { name: /remove color scale/i });
+    expect(remove).toHaveClass("border-destructive/40", "text-destructive");
+    await user.click(remove);
     expect(onColorScalesChange).toHaveBeenCalledWith([]);
   });
 });

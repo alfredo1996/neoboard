@@ -5,7 +5,7 @@ test.describe("Login — uncovered states", () => {
     await page.goto("/login");
     await page.getByLabel("Email").waitFor({ state: "visible" });
     await page.getByLabel("Email").fill("wrong@example.com");
-    await page.getByLabel("Password").fill("wrongpassword");
+    await page.getByLabel("Password", { exact: true }).fill("wrongpassword");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText("Invalid email or password")).toBeVisible({
       timeout: 10_000,
@@ -23,7 +23,7 @@ test.describe("Login — uncovered states", () => {
       page.getByRole("heading", { name: "Sign in to your account" }),
     ).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
-    await expect(page.getByLabel("Password")).toBeVisible();
+    await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Sign up" })).toBeVisible();
   });

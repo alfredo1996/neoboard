@@ -77,13 +77,13 @@ function ColorScaleRow({
       </div>
 
       <Button
-        variant="ghost"
+        variant="danger"
         size="icon"
-        className="h-9 w-9 shrink-0"
+        className="shrink-0"
         onClick={onRemove}
         aria-label="Remove color scale"
       >
-        <Trash2 className="h-4 w-4 text-destructive" />
+        <Trash2 />
       </Button>
     </div>
   );

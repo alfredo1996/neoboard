@@ -76,7 +76,7 @@ test.describe("Authentication", () => {
 
     // Re-login — should land back on /users via callbackUrl
     await page.getByLabel("Email").fill(ALICE.email);
-    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByLabel("Password", { exact: true }).fill(ALICE.password);
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page).toHaveURL("/users", { timeout: 15_000 });
@@ -90,7 +90,7 @@ test.describe("Authentication", () => {
   }) => {
     await page.goto("/login?callbackUrl=https%3A%2F%2Fexample.com%2F");
     await page.getByLabel("Email").fill(ALICE.email);
-    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByLabel("Password", { exact: true }).fill(ALICE.password);
     await page.getByRole("button", { name: "Sign in" }).click();
 
     // A string URL resolves against baseURL, so this pins the origin too.
@@ -128,7 +128,7 @@ test.describe("Authentication", () => {
     // The next user signing in on this machine lands on the default page,
     // not the previous admin's /users.
     await page.getByLabel("Email").fill(CAROL.email);
-    await page.getByLabel("Password").fill(CAROL.password);
+    await page.getByLabel("Password", { exact: true }).fill(CAROL.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL("/", { timeout: 15_000 });
   });
@@ -394,7 +394,7 @@ test.describe.serial("Force password change", () => {
     await page.goto("/login");
     await page.getByLabel("Email").waitFor({ state: "visible" });
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(password);
+    await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForLoadState("networkidle");
   }
@@ -465,7 +465,7 @@ test.describe.serial("Force password change", () => {
       ),
     ).toBeVisible();
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(newPassword);
+    await page.getByLabel("Password", { exact: true }).fill(newPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL("/", { timeout: 30_000 });
   });

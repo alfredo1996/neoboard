@@ -668,7 +668,7 @@ test.describe("Write permission does not gate a form (#1831)", () => {
     await page.goto("/login");
     await page.getByLabel("Email").waitFor({ state: "visible" });
     await page.getByLabel("Email").fill(ALICE.email);
-    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByLabel("Password", { exact: true }).fill(ALICE.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForURL("/", { timeout: 15_000 });
 
@@ -762,7 +762,7 @@ test.describe("Write permission does not gate a form (#1831)", () => {
     await page.goto("/login");
     await page.getByLabel("Email").waitFor({ state: "visible" });
     await page.getByLabel("Email").fill(ALICE.email);
-    await page.getByLabel("Password").fill(ALICE.password);
+    await page.getByLabel("Password", { exact: true }).fill(ALICE.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForURL("/", { timeout: 15_000 });
     await page.request.delete(`/api/dashboards/${dashboardId}`);
