@@ -411,3 +411,19 @@ describe("agents ask the code graph before grepping (#2208)", () => {
     expect(read(".claude/CLAUDE.md")).toContain(rule);
   });
 });
+
+describe("the graph rule asks for direct callers, and grep keeps the count", () => {
+  // 2026-10-17, gemini: plain `graphify affected` defaults to depth 2 (callers
+  // of callers) and a fresh session reported ~120 callers where grep found
+  // 139. `--depth 1 --relation calls` gave 127 of the 139 sites, close but not
+  // exact, so the rule names it for callers and keeps grep for the count.
+  const rule = read(".claude/rules/codebase-graph.md");
+
+  it("names the direct-callers form of graphify affected", () => {
+    expect(rule).toContain('graphify affected "<symbol>()" --depth 1 --relation calls');
+  });
+
+  it("keeps grep as the exact count", () => {
+    expect(rule).toMatch(/grep[^.\n]*exact count/);
+  });
+});
