@@ -10,12 +10,12 @@ const meta = {
     variant: {
       control: "select",
       options: [
-        "default",
-        "destructive",
-        "outline",
+        "primary",
         "secondary",
         "ghost",
         "link",
+        "danger",
+        "danger-confirm",
       ],
     },
     size: {
