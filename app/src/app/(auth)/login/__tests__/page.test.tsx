@@ -34,6 +34,7 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@neoboard/components", () => ({
+  Wordmark: () => <span>NeoBoard</span>,
   Panel: ({
     children,
     className,
@@ -144,6 +145,19 @@ describe("LoginPage", () => {
     expect(screen.getByLabelText("Email")).toBeDefined();
     expect(screen.getByLabelText("Password")).toBeDefined();
     expect(screen.getByText("Sign in")).toBeDefined();
+  });
+
+  it("shows the wordmark, the product lead and a real h1 on one card (#2256)", async () => {
+    await renderPage();
+
+    // The only heading is the h1; the wordmark is not one.
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Sign in to your account",
+      }),
+    ).toBeDefined();
   });
 
   it("marks the form hydrated so callers can wait for interactivity (#1272)", async () => {

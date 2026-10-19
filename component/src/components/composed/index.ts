@@ -37,19 +37,11 @@ export {
 } from "./property-panel";
 
 // Layout
-export { PageHeader, type PageHeaderProps } from "./page-header";
 export {
   WidgetCard,
   type WidgetCardProps,
   type WidgetCardAction,
 } from "./widget-card";
-export {
-  Toolbar,
-  ToolbarSection,
-  ToolbarSeparator,
-  type ToolbarProps,
-  type ToolbarSectionProps,
-} from "./toolbar";
 
 // Dashboard
 export {
@@ -116,9 +108,6 @@ export {
   type DynamicConnectionField,
   type DynamicConnectionFieldsProps,
 } from "./dynamic-connection-fields";
-
-// Interactivity
-export { CrossFilterTag, type CrossFilterTagProps } from "./cross-filter-tag";
 
 // Parameter Widgets (pure UI — no store access, no API calls)
 export {

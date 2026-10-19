@@ -5,12 +5,6 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Panel,
-  PanelContent,
-  PanelDescription,
-  PanelFooter,
-  PanelHeader,
-  PanelTitle,
   Input,
   Label,
   Alert,
@@ -19,6 +13,7 @@ import {
   PasswordInput,
 } from "@neoboard/components";
 import { PRODUCT_PITCH } from "@/lib/branding";
+import { AuthCard } from "../auth-card";
 
 /** Hydration probe helpers — module scope so the refs stay stable (#1272). */
 const subscribeNoop = () => () => {};
@@ -89,79 +84,71 @@ export function LoginForm({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Panel className="w-full max-w-sm">
-        <PanelHeader className="text-center">
-          <PanelTitle className="text-2xl">
-            <h1>NeoBoard</h1>
-          </PanelTitle>
-          <p className="text-sm text-muted-foreground">{PRODUCT_PITCH}</p>
-          <PanelDescription>Sign in to your account</PanelDescription>
-        </PanelHeader>
-        <PanelContent>
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-4"
-            data-hydrated={hydrated ? "true" : "false"}
-          >
-            {passwordChanged && !error && (
-              <Alert>
-                <AlertDescription>
-                  Password changed. Please sign in with your new password.
-                </AlertDescription>
-              </Alert>
-            )}
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <PasswordInput
-                id="password"
-                name="password"
-                autoComplete="current-password"
-                required
-                minLength={6}
-              />
-            </div>
-
-            <LoadingButton
-              type="submit"
-              loading={loading}
-              loadingText="Signing in..."
-              className="w-full"
-              disabled={!hydrated}
-            >
-              Sign in
-            </LoadingButton>
-          </form>
-        </PanelContent>
-        {registrationEnabled && (
-          <PanelFooter className="justify-center">
-            <p className="text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link href="/signup" className="text-primary underline">
-                Sign up
-              </Link>
-            </p>
-          </PanelFooter>
+    <AuthCard
+      title="Sign in to your account"
+      lead={PRODUCT_PITCH}
+      footer={
+        registrationEnabled && (
+          <>
+            No account yet?{" "}
+            <Link href="/signup" className="text-foreground underline">
+              Sign up
+            </Link>
+          </>
+        )
+      }
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        data-hydrated={hydrated ? "true" : "false"}
+      >
+        {passwordChanged && !error && (
+          <Alert>
+            <AlertDescription>
+              Password changed. Please sign in with your new password.
+            </AlertDescription>
+          </Alert>
         )}
-      </Panel>
-    </div>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="you@example.com"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <PasswordInput
+            id="password"
+            name="password"
+            autoComplete="current-password"
+            required
+            minLength={6}
+          />
+        </div>
+
+        <LoadingButton
+          type="submit"
+          loading={loading}
+          loadingText="Signing in..."
+          className="w-full"
+          disabled={!hydrated}
+        >
+          Sign in
+        </LoadingButton>
+      </form>
+    </AuthCard>
   );
 }

@@ -41,7 +41,7 @@ test.describe("Dashboard viewer — uncovered states", () => {
       page.getByRole("heading", { name: "Page not found" }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      page.getByRole("link", { name: "Go to dashboards" }),
+      page.getByRole("link", { name: "Back to dashboards" }),
     ).toBeVisible();
     // Not the stock Next.js page.
     await expect(page.getByText("This page could not be found")).toHaveCount(0);

@@ -4,8 +4,7 @@ export * from "./components/ui";
 // Composed Components (Phase 6+)
 export * from "./components/composed";
 
-// Page kit (#2225). Its PageHeader is not re-exported here: the old
-// composed PageHeader keeps that name until the app pages move to the kit.
+// Page kit (#2225). Import its PageHeader from @neoboard/components/kit.
 export {
   PRODUCT_NAME,
   Wordmark,

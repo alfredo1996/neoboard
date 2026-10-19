@@ -27,13 +27,13 @@ describe("NotFound (#1047)", () => {
   it("does not distinguish missing from forbidden", () => {
     render(<NotFound />);
     expect(
-      screen.getByText(/doesn't exist, or you don't have access/i),
+      screen.getByText(/isn't here, or you don't have access/i),
     ).toBeInTheDocument();
   });
 
   it("links back to the dashboards list", () => {
     render(<NotFound />);
-    const link = screen.getByRole("link", { name: "Go to dashboards" });
-    expect(link).toHaveAttribute("href", "/dashboards");
+    const link = screen.getByRole("link", { name: "Back to dashboards" });
+    expect(link).toHaveAttribute("href", "/");
   });
 });

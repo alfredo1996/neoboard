@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import {
-  Panel,
-  PanelContent,
-  PanelDescription,
-  PanelHeader,
-  PanelTitle,
   Input,
   Label,
   Alert,
   AlertDescription,
+  LoadingButton,
+  PasswordInput,
 } from "@neoboard/components";
-import { LoadingButton, PasswordInput } from "@neoboard/components";
 import { signOut } from "next-auth/react";
+import { AuthCard } from "../auth-card";
+import { PASSWORD_HINT } from "@/lib/auth/password-schema";
+
+/** The rule `newPasswordSchema` enforces (app/src/lib/auth/password-schema.ts). */
 
 export default function ChangePasswordPage() {
   const [error, setError] = useState("");
@@ -63,69 +63,64 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Panel className="w-full max-w-sm">
-        <PanelHeader className="text-center">
-          <PanelTitle className="text-2xl">
-            {/* PanelTitle renders a div; the page's main title must be a real
-                heading for assistive tech (Tailwind preflight keeps the h1
-                visually inheriting PanelTitle's styles). */}
-            <h1>Change Password</h1>
-          </PanelTitle>
-          <PanelDescription>
-            You must change your password before continuing.
-          </PanelDescription>
-        </PanelHeader>
-        <PanelContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+    <AuthCard
+      title="Change password"
+      lead="You must change your password before continuing."
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <PasswordInput
-                id="currentPassword"
-                name="currentPassword"
-                required
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="currentPassword">Current password</Label>
+          <PasswordInput
+            id="currentPassword"
+            name="currentPassword"
+            autoComplete="current-password"
+            required
+          />
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input
-                id="newPassword"
-                name="newPassword"
-                type="password"
-                required
-                minLength={8}
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="newPassword">New password</Label>
+          <Input
+            id="newPassword"
+            aria-describedby="newPassword-hint"
+            name="newPassword"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+          />
+          <p id="newPassword-hint" className="text-xs text-muted-foreground">
+            {PASSWORD_HINT}
+          </p>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                minLength={8}
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm new password</Label>
+          <Input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+          />
+        </div>
 
-            <LoadingButton
-              type="submit"
-              loading={loading}
-              loadingText="Changing password..."
-              className="w-full"
-            >
-              Change Password
-            </LoadingButton>
-          </form>
-        </PanelContent>
-      </Panel>
-    </div>
+        <LoadingButton
+          type="submit"
+          loading={loading}
+          loadingText="Changing password..."
+          className="w-full"
+        >
+          Change password
+        </LoadingButton>
+      </form>
+    </AuthCard>
   );
 }
