@@ -68,12 +68,16 @@ const PROFILE = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
+vi.mock("../../settings-tabs", () => ({
+  SettingsTabs: () => <nav aria-label="Settings" />,
+}));
+
 import ProfilePage from "../page";
 
 async function renderLoaded() {
   render(<ProfilePage />);
   await waitFor(() =>
-    expect(screen.getByLabelText("Current Password")).toBeInTheDocument(),
+    expect(screen.getByLabelText("Current password")).toBeInTheDocument(),
   );
 }
 
@@ -98,18 +102,40 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("ProfilePage chrome (#2255)", () => {
+  it("keeps the header and tabs while the profile loads", () => {
+    global.fetch = vi.fn(
+      () => new Promise(() => {}),
+    ) as unknown as typeof fetch;
+    render(<ProfilePage />);
+    expect(
+      screen.getByRole("heading", { name: "Profile" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Settings" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the role as plain text, not a badge", async () => {
+    await renderLoaded();
+    const dd = screen.getByText("Role").closest("div")!.querySelector("dd")!;
+    expect(dd).toHaveTextContent(/^Admin$/);
+    expect(dd.children).toHaveLength(0);
+  });
+});
+
 describe("ProfilePage password form (#1038)", () => {
   it("sets autocomplete hints on the password inputs", async () => {
     await renderLoaded();
-    expect(screen.getByLabelText("Current Password")).toHaveAttribute(
+    expect(screen.getByLabelText("Current password")).toHaveAttribute(
       "autocomplete",
       "current-password",
     );
-    expect(screen.getByLabelText("New Password")).toHaveAttribute(
+    expect(screen.getByLabelText("New password")).toHaveAttribute(
       "autocomplete",
       "new-password",
     );
-    expect(screen.getByLabelText("Confirm New Password")).toHaveAttribute(
+    expect(screen.getByLabelText("Confirm new password")).toHaveAttribute(
       "autocomplete",
       "new-password",
     );
@@ -118,23 +144,23 @@ describe("ProfilePage password form (#1038)", () => {
   it("disables native validation so errors render inline (noValidate)", async () => {
     await renderLoaded();
     const form = screen
-      .getByRole("button", { name: "Change Password" })
+      .getByRole("button", { name: "Change password" })
       .closest("form");
     expect(form).toHaveAttribute("noValidate");
   });
 
   it("shows a styled inline error for a too-short new password", async () => {
     await renderLoaded();
-    fireEvent.change(screen.getByLabelText("Current Password"), {
+    fireEvent.change(screen.getByLabelText("Current password"), {
       target: { value: "oldpassword" },
     });
-    fireEvent.change(screen.getByLabelText("New Password"), {
+    fireEvent.change(screen.getByLabelText("New password"), {
       target: { value: "short" },
     });
-    fireEvent.change(screen.getByLabelText("Confirm New Password"), {
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
       target: { value: "short" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
 
     expect(
       await screen.findByText("New password must be at least 8 characters"),
@@ -156,17 +182,17 @@ describe("ProfilePage password form (#1038)", () => {
 describe("ProfilePage shows the API's error message (#2011)", () => {
   it("renders the envelope's message when the current password is wrong", async () => {
     await renderLoaded();
-    fireEvent.change(screen.getByLabelText("Current Password"), {
+    fireEvent.change(screen.getByLabelText("Current password"), {
       target: { value: "wrongpassword" },
     });
-    fireEvent.change(screen.getByLabelText("New Password"), {
+    fireEvent.change(screen.getByLabelText("New password"), {
       target: { value: "newpass123" },
     });
-    fireEvent.change(screen.getByLabelText("Confirm New Password"), {
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
       target: { value: "newpass123" },
     });
     failNextFetch(403, "FORBIDDEN", "Current password is incorrect");
-    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
 
     expect(
       await screen.findByText("Current password is incorrect"),
@@ -180,7 +206,7 @@ describe("ProfilePage shows the API's error message (#2011)", () => {
       target: { value: "Bob" },
     });
     failNextFetch(400, "VALIDATION_ERROR", "Name is required");
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save name" }));
 
     await waitFor(() =>
       expect(mockToast).toHaveBeenCalledWith(
@@ -190,5 +216,26 @@ describe("ProfilePage shows the API's error message (#2011)", () => {
         }),
       ),
     );
+  });
+});
+
+describe("ProfilePage sections (#2255)", () => {
+  it("says who is signed in and lays the page out as Account, Display name, Password", async () => {
+    await renderLoaded();
+    expect(
+      screen.getByText("Signed in as alice@example.com"),
+    ).toBeInTheDocument();
+    for (const name of ["Account", "Display name", "Password"]) {
+      expect(screen.getByRole("region", { name })).toBeInTheDocument();
+    }
+    const account = screen.getByRole("region", { name: "Account" });
+    for (const label of ["Email", "Role", "Member since"]) {
+      expect(account).toHaveTextContent(label);
+    }
+  });
+
+  it("states the real password policy", async () => {
+    await renderLoaded();
+    expect(screen.getByText("At least 8 characters")).toBeInTheDocument();
   });
 });
