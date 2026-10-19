@@ -39,7 +39,7 @@ export class DashboardErrorBoundary extends React.Component<
             </p>
           </div>
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => this.setState({ error: null })}
           >
             <RefreshCw className="mr-2 h-4 w-4" />

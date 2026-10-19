@@ -42,7 +42,7 @@ export function SeedQueryError({
         <p className="line-clamp-1 text-xs text-muted-foreground">{message}</p>
       </div>
       <Button
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="h-7 px-2.5 text-xs"
         onClick={onRetry}

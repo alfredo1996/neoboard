@@ -144,16 +144,15 @@ function SortableFieldItem({
           </span>
         </AccordionTrigger>
         <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 shrink-0"
+          variant="danger"
+          size="icon-sm"
           aria-label={`Delete field ${index + 1}`}
           onClick={(e) => {
             e.stopPropagation();
             onRemove(field.id);
           }}
         >
-          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
       <AccordionContent className="px-3 pb-3 space-y-3">
@@ -381,7 +380,7 @@ export function FormFieldsEditor(_props: FormFieldsEditorProps) {
         <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
           Form Fields
         </h4>
-        <Button size="sm" variant="outline" onClick={addField}>
+        <Button size="sm" variant="secondary" onClick={addField}>
           <Plus className="h-3 w-3 mr-1" /> Add Field
         </Button>
       </div>

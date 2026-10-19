@@ -292,9 +292,10 @@ Widget editor uses: `sm:max-w-md` (step 1) → `sm:max-w-6xl` (step 2).
 
 ### Button Usage Patterns
 
-- Primary actions (Save, Create): `variant="default"` (graphite bg)
-- Cancel/Close: `variant="outline"`
-- Destructive (Delete): `variant="destructive"` (red bg)
+- Primary actions (Save, Create): `variant="primary"` (the default; ink fill)
+- Cancel/Close: `variant="secondary"` (hairline on the field colour)
+- Delete trigger (menu, toolbar, row): `variant="danger"` (red text, hairline); `variant="danger-confirm"` (red fill) only on the confirm button of a delete or revoke dialog
+- Sizes: `sm` 32, default 36, `lg` 40, `icon` 36 square, `icon-sm` 32 square; icon sizes require `aria-label`; no shadow, no press-shrink (#2216)
 - Toolbar actions: `variant="ghost" size="icon"` or `variant="ghost" size="sm"`
 - Inline/subtle: `variant="ghost"` with icon
 - In widget cards: `variant="ghost" size="icon" className="h-8 w-8"` (custom smaller)
@@ -359,7 +360,7 @@ Before submitting any UI PR, verify:
 - [ ] Type from the scale; no serif in the kit, the page title or the wordmark
 - [ ] Descriptions use `text-sm text-muted-foreground` and say something the title does not
 - [ ] Interactive elements have `text-sm font-medium`
-- [ ] Buttons use correct variant (default=primary, outline=cancel, destructive=delete, ghost=toolbar)
+- [ ] Buttons use correct variant (primary, secondary=cancel, danger=delete trigger, danger-confirm=delete confirm only, ghost=toolbar)
 - [ ] Form fields use `space-y-2` internal spacing; section gaps use `space-y-4`
 - [ ] Colours reference CSS variable tokens, never raw values; field borders use `--input`
 - [ ] Charts use `resolveChartColors()`, never inline colors
@@ -406,7 +407,7 @@ These are the fingerprints of careless or AI-generated UI work. Flag immediately
 ### Copy Anti-Patterns
 
 - **Redundant headers**: Title that restates the page name, description that repeats the heading, a subtitle that restates the title
-- **Every button is primary**: Use ghost, outline, secondary — hierarchy matters
+- **Every button is primary**: Use ghost, secondary — hierarchy matters
 - **Generic error messages**: "Error occurred" — say what happened and how to fix it
 
 ---

@@ -447,12 +447,10 @@ export function DashboardContainer({
                           });
                           setPendingSyncWidget(widget);
                         }}
+                        aria-label="Template update available"
                         title="Template update available — click to sync"
                       >
                         <RefreshCw className="h-4 w-4" />
-                        <span className="sr-only">
-                          Template update available
-                        </span>
                       </Button>
                     ) : undefined
                   }

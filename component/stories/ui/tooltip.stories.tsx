@@ -1,17 +1,17 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from "@storybook/react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 const meta = {
-  title: 'UI/Tooltip',
+  title: "UI/Tooltip",
   component: Tooltip,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   decorators: [
     (Story) => (
       <TooltipProvider>
@@ -28,7 +28,7 @@ export const Default: Story = {
   render: () => (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="outline">Hover me</Button>
+        <Button variant="secondary">Hover me</Button>
       </TooltipTrigger>
       <TooltipContent>
         <p>Add to library</p>
@@ -41,20 +41,36 @@ export const Sides: Story = {
   render: () => (
     <div className="flex gap-4">
       <Tooltip>
-        <TooltipTrigger asChild><Button variant="outline">Top</Button></TooltipTrigger>
-        <TooltipContent side="top"><p>Top tooltip</p></TooltipContent>
+        <TooltipTrigger asChild>
+          <Button variant="secondary">Top</Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Top tooltip</p>
+        </TooltipContent>
       </Tooltip>
       <Tooltip>
-        <TooltipTrigger asChild><Button variant="outline">Right</Button></TooltipTrigger>
-        <TooltipContent side="right"><p>Right tooltip</p></TooltipContent>
+        <TooltipTrigger asChild>
+          <Button variant="secondary">Right</Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <p>Right tooltip</p>
+        </TooltipContent>
       </Tooltip>
       <Tooltip>
-        <TooltipTrigger asChild><Button variant="outline">Bottom</Button></TooltipTrigger>
-        <TooltipContent side="bottom"><p>Bottom tooltip</p></TooltipContent>
+        <TooltipTrigger asChild>
+          <Button variant="secondary">Bottom</Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Bottom tooltip</p>
+        </TooltipContent>
       </Tooltip>
       <Tooltip>
-        <TooltipTrigger asChild><Button variant="outline">Left</Button></TooltipTrigger>
-        <TooltipContent side="left"><p>Left tooltip</p></TooltipContent>
+        <TooltipTrigger asChild>
+          <Button variant="secondary">Left</Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p>Left tooltip</p>
+        </TooltipContent>
       </Tooltip>
     </div>
   ),

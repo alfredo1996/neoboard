@@ -57,14 +57,14 @@ export function ModalFooter({
       {canSaveAsTemplate && !labError && (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={onSaveAsTemplate}
           className="mr-auto"
         >
           Save as new template
         </Button>
       )}
-      <Button type="button" variant="outline" onClick={onCancel}>
+      <Button type="button" variant="secondary" onClick={onCancel}>
         Cancel
       </Button>
       {isLabMode ? (

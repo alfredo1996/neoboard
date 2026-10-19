@@ -39,7 +39,7 @@ const meta = {
       actions={
         withActions ? (
           <>
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               Share
             </Button>
             <Button size="sm">Edit</Button>

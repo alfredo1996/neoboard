@@ -164,7 +164,7 @@ function CreateKeyDialog({
               </p>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose}>
+              <Button variant="secondary" onClick={handleClose}>
                 Cancel
               </Button>
               <Button

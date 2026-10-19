@@ -27,7 +27,7 @@ export function qualifiedName(
   qualifierId: string,
   fallback: string,
   qualifierFirst = false,
-): { "aria-label"?: string; "aria-labelledby"?: string } {
+): { "aria-label": string } | { "aria-labelledby": string } {
   if (!labelledBy) return { "aria-label": fallback };
   return {
     "aria-labelledby": qualifierFirst

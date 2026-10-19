@@ -1,6 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { ArrowUpIcon, MailIcon, Loader2Icon } from "lucide-react";
+import { ArrowUpIcon, MailIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/composed/loading-button";
+
+const variants = [
+  "primary",
+  "secondary",
+  "ghost",
+  "link",
+  "danger",
+  "danger-confirm",
+] as const;
 
 const meta = {
   title: "UI/Button",
@@ -10,23 +20,13 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: [
-        "default",
-        "secondary",
-        "tonal",
-        "destructive",
-        "success",
-        "warning",
-        "outline",
-        "ghost",
-        "link",
-      ],
+      options: variants,
       description: "The visual style variant of the button",
     },
     size: {
       control: "select",
-      options: ["default", "sm", "lg", "icon"],
-      description: "The size of the button",
+      options: ["default", "sm", "lg"],
+      description: "The size of the button (icon sizes: see IconButtons)",
     },
     disabled: {
       control: "boolean",
@@ -42,7 +42,7 @@ const meta = {
     },
   },
   args: {
-    variant: "default",
+    variant: "primary",
     size: "default",
     disabled: false,
     children: "Button",
@@ -54,38 +54,58 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+/** Every variant at the default size, enabled then disabled. */
 export const AllVariants: Story = {
   render: () => (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button>Default</Button>
-      <Button variant="tonal">Tonal</Button>
-      <Button variant="secondary">Secondary</Button>
-      <Button variant="destructive">Destructive</Button>
-      <Button variant="success">Success</Button>
-      <Button variant="warning">Warning</Button>
-      <Button variant="outline">Outline</Button>
-      <Button variant="ghost">Ghost</Button>
-      <Button variant="link">Link</Button>
+    <div className="flex flex-col gap-3">
+      {[false, true].map((disabled) => (
+        <div
+          key={String(disabled)}
+          className="flex flex-wrap items-center gap-2"
+        >
+          {variants.map((v) => (
+            <Button key={v} variant={v} disabled={disabled}>
+              {v}
+            </Button>
+          ))}
+        </div>
+      ))}
     </div>
   ),
 };
 
-export const Tonal: Story = {
-  args: {
-    variant: "tonal",
-    children: "Tonal action",
-  },
-};
-
+/** Every variant at each text size: 32, 36 (default) and 40. */
 export const Sizes: Story = {
   render: () => (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button size="sm">Small</Button>
-      <Button size="default">Default</Button>
-      <Button size="lg">Large</Button>
-      <Button size="icon" aria-label="Mail">
-        <MailIcon />
-      </Button>
+    <div className="flex flex-col gap-3">
+      {(["sm", "default", "lg"] as const).map((size) => (
+        <div key={size} className="flex flex-wrap items-center gap-2">
+          {variants.map((v) => (
+            <Button key={v} variant={v} size={size}>
+              {v}
+            </Button>
+          ))}
+        </div>
+      ))}
+    </div>
+  ),
+};
+
+/** Icon-only: 36 and 32 square. An accessible name is required by the type. */
+export const IconButtons: Story = {
+  render: () => (
+    <div className="flex flex-col gap-3">
+      {(["icon", "icon-sm"] as const).map((size) => (
+        <div key={size} className="flex flex-wrap items-center gap-2">
+          {variants
+            .filter((v) => v !== "link")
+            .map((v) => (
+              <Button key={v} variant={v} size={size} aria-label={`${v} icon`}>
+                <ArrowUpIcon />
+              </Button>
+            ))}
+        </div>
+      ))}
     </div>
   ),
 };
@@ -95,35 +115,29 @@ export const WithIcon: Story = {
     <div className="flex flex-wrap items-center gap-2">
       <Button>
         <MailIcon />
-        Login with Email
+        Login with email
       </Button>
-      <Button variant="outline">
+      <Button variant="secondary">
         <MailIcon />
-        Login with Email
+        Login with email
+      </Button>
+      <Button variant="danger">
+        <Trash2Icon />
+        Delete
       </Button>
     </div>
   ),
 };
 
+/** Keeps its width while busy; the label says what it is doing. */
 export const Loading: Story = {
   render: () => (
-    <Button disabled>
-      <Loader2Icon className="animate-spin" />
-      Please wait
-    </Button>
-  ),
-};
-
-export const IconButton: Story = {
-  args: {
-    variant: "outline",
-    size: "icon",
-    children: undefined,
-  },
-  render: (args) => (
-    <Button {...args} aria-label="Submit">
-      <ArrowUpIcon />
-    </Button>
+    <div className="flex flex-wrap items-center gap-2">
+      <LoadingButton>Save</LoadingButton>
+      <LoadingButton loading loadingText="Saving...">
+        Save
+      </LoadingButton>
+    </div>
   ),
 };
 
@@ -132,12 +146,4 @@ export const Disabled: Story = {
     children: "Disabled",
     disabled: true,
   },
-};
-
-export const Success: Story = {
-  args: { variant: "success", children: "Save changes" },
-};
-
-export const Warning: Story = {
-  args: { variant: "warning", children: "Proceed anyway" },
 };

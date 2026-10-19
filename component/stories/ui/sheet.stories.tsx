@@ -1,7 +1,7 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetClose,
@@ -11,21 +11,22 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/components/ui/sheet';
+} from "@/components/ui/sheet";
 
 const meta = {
-  title: 'UI/Sheet',
+  title: "UI/Sheet",
   component: Sheet,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     open: {
-      control: 'boolean',
-      description: 'Controlled open state of the sheet',
+      control: "boolean",
+      description: "Controlled open state of the sheet",
     },
     modal: {
-      control: 'boolean',
-      description: 'Whether the sheet is modal (blocks interaction with rest of page)',
+      control: "boolean",
+      description:
+        "Whether the sheet is modal (blocks interaction with rest of page)",
     },
   },
 } satisfies Meta<typeof Sheet>;
@@ -37,7 +38,7 @@ export const Default: Story = {
   render: () => (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline">Open Sheet</Button>
+        <Button variant="secondary">Open Sheet</Button>
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
@@ -58,7 +59,7 @@ export const Default: Story = {
         </div>
         <SheetFooter>
           <SheetClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="secondary">Cancel</Button>
           </SheetClose>
           <Button type="submit">Save changes</Button>
         </SheetFooter>
@@ -71,7 +72,7 @@ export const Left: Story = {
   render: () => (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline">Open Left</Button>
+        <Button variant="secondary">Open Left</Button>
       </SheetTrigger>
       <SheetContent side="left">
         <SheetHeader>
@@ -81,9 +82,15 @@ export const Left: Story = {
           </SheetDescription>
         </SheetHeader>
         <div className="grid gap-4 py-4">
-          <Button variant="ghost" className="justify-start">Dashboard</Button>
-          <Button variant="ghost" className="justify-start">Settings</Button>
-          <Button variant="ghost" className="justify-start">Profile</Button>
+          <Button variant="ghost" className="justify-start">
+            Dashboard
+          </Button>
+          <Button variant="ghost" className="justify-start">
+            Settings
+          </Button>
+          <Button variant="ghost" className="justify-start">
+            Profile
+          </Button>
         </div>
       </SheetContent>
     </Sheet>
@@ -94,7 +101,7 @@ export const Top: Story = {
   render: () => (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline">Open Top</Button>
+        <Button variant="secondary">Open Top</Button>
       </SheetTrigger>
       <SheetContent side="top">
         <SheetHeader>
@@ -112,19 +119,17 @@ export const Bottom: Story = {
   render: () => (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline">Open Bottom</Button>
+        <Button variant="secondary">Open Bottom</Button>
       </SheetTrigger>
       <SheetContent side="bottom">
         <SheetHeader>
           <SheetTitle>Share</SheetTitle>
-          <SheetDescription>
-            Share this content with others.
-          </SheetDescription>
+          <SheetDescription>Share this content with others.</SheetDescription>
         </SheetHeader>
         <div className="flex gap-2 py-4">
-          <Button variant="outline">Copy Link</Button>
-          <Button variant="outline">Email</Button>
-          <Button variant="outline">Twitter</Button>
+          <Button variant="secondary">Copy Link</Button>
+          <Button variant="secondary">Email</Button>
+          <Button variant="secondary">Twitter</Button>
         </div>
       </SheetContent>
     </Sheet>

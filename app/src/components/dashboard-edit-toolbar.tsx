@@ -90,13 +90,13 @@ export function DashboardEditToolbar({
             />
           )}
           {onAddPage && (
-            <Button variant="outline" size="sm" onClick={onAddPage}>
+            <Button variant="secondary" size="sm" onClick={onAddPage}>
               <FilePlus className="mr-2 h-4 w-4" />
               Add page
             </Button>
           )}
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onAddWidget}
             title="Add widget (Cmd+Shift+N)"

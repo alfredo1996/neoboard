@@ -1130,13 +1130,11 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
         templateMap={{ "tpl-1": { id: "tpl-1" } as WidgetTemplate }}
       />,
     );
-    // The outdated button has sr-only text "Template update available"
-    const outdatedBtn = screen
-      .getByText("Template update available")
-      .closest("button");
-    expect(outdatedBtn).not.toBeNull();
+    const outdatedBtn = screen.getByRole("button", {
+      name: "Template update available",
+    });
     act(() => {
-      fireEvent.click(outdatedBtn!);
+      fireEvent.click(outdatedBtn);
     });
     expect(screen.getByTestId("sync-dialog")).toBeDefined();
     // Confirming calls onSyncWidget
@@ -1156,9 +1154,11 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     );
     // With no onSyncWidget we can't open via the action menu (it wouldn't exist),
     // but the outdated header button still opens the dialog.
-    const btn = screen.getByText("Template update available").closest("button");
+    const btn = screen.getByRole("button", {
+      name: "Template update available",
+    });
     act(() => {
-      fireEvent.click(btn!);
+      fireEvent.click(btn);
     });
     expect(screen.getByTestId("sync-dialog")).toBeDefined();
     // Confirm — must not throw and must close

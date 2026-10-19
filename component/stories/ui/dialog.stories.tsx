@@ -43,7 +43,7 @@ export const Default: Story = {
   render: () => (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline">Edit Profile</Button>
+        <Button variant="secondary">Edit Profile</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -76,7 +76,7 @@ export const Default: Story = {
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="secondary">Cancel</Button>
           </DialogClose>
           <Button type="submit">Save changes</Button>
         </DialogFooter>
@@ -98,7 +98,7 @@ export const Simple: Story = {
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="secondary">Cancel</Button>
           </DialogClose>
           <Button>Confirm</Button>
         </DialogFooter>
@@ -152,7 +152,7 @@ export const CentredOnExit: Story = {
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Dismiss</Button>
+            <Button variant="secondary">Dismiss</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>

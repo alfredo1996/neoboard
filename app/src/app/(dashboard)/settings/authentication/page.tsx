@@ -315,7 +315,7 @@ function AddProviderDialog({
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={handleClose}>
+            <Button variant="secondary" onClick={handleClose}>
               Cancel
             </Button>
             <Button
@@ -376,9 +376,8 @@ function ProviderRow({
       </td>
       <td className="px-4 py-3 text-right">
         <Button
-          variant="ghost"
+          variant="danger"
           size="icon"
-          className="text-destructive hover:text-destructive"
           onClick={(e) => {
             setReturnFocusTo(e.currentTarget);
             setConfirmOpen(true);

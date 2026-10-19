@@ -32,7 +32,7 @@ export function AdvancedStylingSection() {
               : `${stylingRules.length} styling rule(s) configured.`}
           </p>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => setDialogStep("styling-rules")}
           >

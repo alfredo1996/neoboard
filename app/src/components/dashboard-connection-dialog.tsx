@@ -270,7 +270,7 @@ export function DashboardConnectionDialog({
         <DialogFooter>
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={() => handleOpenChange(false)}
           >
             Done

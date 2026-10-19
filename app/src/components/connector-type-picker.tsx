@@ -60,7 +60,7 @@ export function ConnectorTypePicker({
       <Alert variant="destructive" className="my-4">
         <AlertDescription className="flex items-center justify-between gap-3">
           Could not load the available connectors.
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+          <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
             Retry
           </Button>
         </AlertDescription>

@@ -1,22 +1,26 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const meta = {
-  title: 'UI/Popover',
+  title: "UI/Popover",
   component: Popover,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     open: {
-      control: 'boolean',
-      description: 'Controlled open state of the popover',
+      control: "boolean",
+      description: "Controlled open state of the popover",
     },
     modal: {
-      control: 'boolean',
-      description: 'Whether the popover is modal',
+      control: "boolean",
+      description: "Whether the popover is modal",
     },
   },
 } satisfies Meta<typeof Popover>;
@@ -28,7 +32,7 @@ export const Default: Story = {
   render: () => (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline">Open popover</Button>
+        <Button variant="secondary">Open popover</Button>
       </PopoverTrigger>
       <PopoverContent className="w-80">
         <div className="grid gap-4">
@@ -41,11 +45,19 @@ export const Default: Story = {
           <div className="grid gap-2">
             <div className="grid grid-cols-3 items-center gap-4">
               <Label htmlFor="width">Width</Label>
-              <Input id="width" defaultValue="100%" className="col-span-2 h-8" />
+              <Input
+                id="width"
+                defaultValue="100%"
+                className="col-span-2 h-8"
+              />
             </div>
             <div className="grid grid-cols-3 items-center gap-4">
               <Label htmlFor="height">Height</Label>
-              <Input id="height" defaultValue="25px" className="col-span-2 h-8" />
+              <Input
+                id="height"
+                defaultValue="25px"
+                className="col-span-2 h-8"
+              />
             </div>
           </div>
         </div>
@@ -58,10 +70,12 @@ export const Simple: Story = {
   render: () => (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline">Info</Button>
+        <Button variant="secondary">Info</Button>
       </PopoverTrigger>
       <PopoverContent>
-        <p className="text-sm">This is a simple popover with just text content.</p>
+        <p className="text-sm">
+          This is a simple popover with just text content.
+        </p>
       </PopoverContent>
     </Popover>
   ),

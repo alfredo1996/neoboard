@@ -93,7 +93,7 @@ function DateRangePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant="secondary"
           className={cn(
             "w-[300px] justify-start text-left font-normal",
             !value && "text-muted-foreground",

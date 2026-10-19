@@ -125,7 +125,7 @@ function ColorScalePanel({
         />
       ))}
       <Button
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="gap-1"
         onClick={addColorScale}

@@ -438,7 +438,7 @@ function DataGrid<TData>({
       {enableGrouping && grouping.length > 0 && (
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="gap-1 text-xs"
             onClick={() => table.toggleAllRowsExpanded(false)}
@@ -448,7 +448,7 @@ function DataGrid<TData>({
             Collapse all
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="gap-1 text-xs"
             onClick={() => table.toggleAllRowsExpanded(true)}
@@ -733,7 +733,7 @@ function DataGrid<TData>({
                 {table.getPageCount()}
               </div>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
@@ -741,7 +741,7 @@ function DataGrid<TData>({
                 Previous
               </Button>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
