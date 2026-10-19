@@ -324,6 +324,38 @@ describe("review findings go to a fresh implementer (#2180, 2026-10-18)", () => 
   });
 });
 
+describe("agents build the code graph in their worktree before searching (owner, 2026-10-19)", () => {
+  // graphify-out/ is gitignored, so no worktree has a graph: the reminder hook
+  // stays silent there, and 0 of 32 implementers and 0 of 26 reviewers ever
+  // queried it (graph-usage.py, 2026-10-15 to 2026-10-19).
+  const implementer = read(".claude/agents/implementer.md");
+  const reviewer = read(".claude/agents/adversarial-reviewer.md");
+  const setup = implementer.slice(
+    implementer.indexOf("## Setup"),
+    implementer.indexOf("## Work"),
+  );
+
+  it("the implementer's setup builds the graph", () => {
+    expect(setup).toContain("graphify update .");
+  });
+
+  it("a fix round, which skips the install, still refreshes the graph", () => {
+    const fixRound = implementer.slice(implementer.indexOf("## Fix round"));
+    expect(fixRound).toContain("graphify update .");
+  });
+
+  it("the reviewer refreshes it too, the one write a read-only review may make", () => {
+    expect(reviewer).toContain("graphify update .");
+    expect(reviewer).toContain("graphify-out/");
+  });
+
+  it("the rule says how to read depths 2 and 3 for blast radius", () => {
+    const rule = read(".claude/rules/codebase-graph.md");
+    expect(rule).toMatch(/--depth` to 2 or 3/);
+    expect(rule).toContain("ordered by hop but not labelled");
+  });
+});
+
 describe("settings.json permissions", () => {
   it("deny rules for paths use Edit(), which covers every file tool", () => {
     // Claude Code matches path rules only as Edit(path): Write(.env*) denied
