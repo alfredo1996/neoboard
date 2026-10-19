@@ -70,8 +70,8 @@ function DateRelativePicker({
               key={preset.key}
               type="button"
               size="sm"
-              variant={isActive ? "default" : "outline"}
-              className={cn("text-xs h-7 px-2.5", isActive && "shadow-sm")}
+              variant={isActive ? "primary" : "secondary"}
+              className="text-xs h-7 px-2.5"
               onClick={() => handleClick(preset.key)}
               aria-pressed={isActive}
             >

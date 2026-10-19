@@ -169,7 +169,7 @@ function ParamMultiSelector({
       <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
-            variant="outline"
+            variant="secondary"
             id={id}
             role="combobox"
             aria-expanded={open}

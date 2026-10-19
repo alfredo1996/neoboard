@@ -48,7 +48,7 @@ export function AdvancedInteractivitySection({
               : `${actionRules.length} action rule(s) configured.`}
           </p>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => setDialogStep("rules")}
           >

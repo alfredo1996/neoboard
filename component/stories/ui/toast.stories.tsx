@@ -1,22 +1,19 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Button } from '@/components/ui/button';
-import {
-  Toast,
-  ToastAction,
-} from '@/components/ui/toast';
-import { Toaster } from '@/components/ui/toaster';
-import { useToast } from '@/hooks/use-toast';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Button } from "@/components/ui/button";
+import { Toast, ToastAction } from "@/components/ui/toast";
+import { Toaster } from "@/components/ui/toaster";
+import { useToast } from "@/hooks/use-toast";
 
 const meta = {
-  title: 'UI/Toast',
+  title: "UI/Toast",
   component: Toast,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     variant: {
-      control: 'select',
-      options: ['default', 'destructive'],
-      description: 'The visual style variant of the toast',
+      control: "select",
+      options: ["default", "destructive"],
+      description: "The visual style variant of the toast",
     },
   },
 } satisfies Meta<typeof Toast>;
@@ -31,11 +28,11 @@ export const Default: Story = {
     return (
       <>
         <Button
-          variant="outline"
+          variant="secondary"
           onClick={() => {
             toast({
-              title: 'Scheduled: Catch up',
-              description: 'Friday, February 10, 2023 at 5:57 PM',
+              title: "Scheduled: Catch up",
+              description: "Friday, February 10, 2023 at 5:57 PM",
             });
           }}
         >
@@ -54,11 +51,11 @@ export const WithAction: Story = {
     return (
       <>
         <Button
-          variant="outline"
+          variant="secondary"
           onClick={() => {
             toast({
-              title: 'Uh oh! Something went wrong.',
-              description: 'There was a problem with your request.',
+              title: "Uh oh! Something went wrong.",
+              description: "There was a problem with your request.",
               action: <ToastAction altText="Try again">Try again</ToastAction>,
             });
           }}
@@ -78,12 +75,12 @@ export const Destructive: Story = {
     return (
       <>
         <Button
-          variant="outline"
+          variant="secondary"
           onClick={() => {
             toast({
-              variant: 'destructive',
-              title: 'Uh oh! Something went wrong.',
-              description: 'There was a problem with your request.',
+              variant: "destructive",
+              title: "Uh oh! Something went wrong.",
+              description: "There was a problem with your request.",
               action: <ToastAction altText="Try again">Try again</ToastAction>,
             });
           }}
@@ -103,10 +100,10 @@ export const Simple: Story = {
     return (
       <>
         <Button
-          variant="outline"
+          variant="secondary"
           onClick={() => {
             toast({
-              description: 'Your message has been sent.',
+              description: "Your message has been sent.",
             });
           }}
         >
@@ -125,11 +122,11 @@ export const WithTitle: Story = {
     return (
       <>
         <Button
-          variant="outline"
+          variant="secondary"
           onClick={() => {
             toast({
-              title: 'Uh oh! Something went wrong.',
-              description: 'There was a problem with your request.',
+              title: "Uh oh! Something went wrong.",
+              description: "There was a problem with your request.",
             });
           }}
         >

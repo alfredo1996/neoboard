@@ -1,36 +1,36 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import * as React from 'react';
-import { ConfirmDialog } from '@/components/composed/confirm-dialog';
-import { Button } from '@/components/ui/button';
+import type { Meta, StoryObj } from "@storybook/react";
+import * as React from "react";
+import { ConfirmDialog } from "@/components/composed/confirm-dialog";
+import { Button } from "@/components/ui/button";
 
 const meta = {
-  title: 'Composed/ConfirmDialog',
+  title: "Composed/ConfirmDialog",
   component: ConfirmDialog,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   args: {
     open: false,
     onOpenChange: () => {},
-    title: 'Confirm',
+    title: "Confirm",
     onConfirm: () => {},
   },
   argTypes: {
     variant: {
-      control: 'select',
-      options: ['default', 'destructive'],
-      description: 'Visual style of the confirm button',
+      control: "select",
+      options: ["default", "destructive"],
+      description: "Visual style of the confirm button",
     },
     title: {
-      control: 'text',
+      control: "text",
     },
     description: {
-      control: 'text',
+      control: "text",
     },
     confirmText: {
-      control: 'text',
+      control: "text",
     },
     cancelText: {
-      control: 'text',
+      control: "text",
     },
   },
 } satisfies Meta<typeof ConfirmDialog>;
@@ -49,7 +49,7 @@ export const Default: Story = {
           onOpenChange={setOpen}
           title="Confirm Action"
           description="Are you sure you want to proceed with this action?"
-          onConfirm={() => console.log('Confirmed!')}
+          onConfirm={() => console.log("Confirmed!")}
         />
       </>
     );
@@ -61,7 +61,7 @@ export const Destructive: Story = {
     const [open, setOpen] = React.useState(false);
     return (
       <>
-        <Button variant="destructive" onClick={() => setOpen(true)}>
+        <Button variant="danger" onClick={() => setOpen(true)}>
           Delete Item
         </Button>
         <ConfirmDialog
@@ -72,7 +72,7 @@ export const Destructive: Story = {
           confirmText="Delete"
           cancelText="Cancel"
           variant="destructive"
-          onConfirm={() => console.log('Deleted!')}
+          onConfirm={() => console.log("Deleted!")}
         />
       </>
     );
@@ -92,7 +92,7 @@ export const CustomText: Story = {
           description="Your changes will be saved but not published."
           confirmText="Save Draft"
           cancelText="Keep Editing"
-          onConfirm={() => console.log('Saved!')}
+          onConfirm={() => console.log("Saved!")}
         />
       </>
     );

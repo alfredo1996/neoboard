@@ -215,13 +215,12 @@ function TransformCard({
           </Badge>
         </div>
         <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
+          variant="danger"
+          size="icon-sm"
           onClick={onRemove}
           aria-label="Remove transform"
         >
-          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
 
@@ -381,9 +380,8 @@ function TransformCard({
                   </span>
                   {transform.aggregations.length > 1 && (
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
+                      variant="danger"
+                      size="icon-sm"
                       aria-label={`Remove aggregation ${agg.column}_${agg.fn}`}
                       onClick={() => {
                         const next = transform.aggregations.filter(
@@ -392,13 +390,13 @@ function TransformCard({
                         onChange({ ...transform, aggregations: next });
                       }}
                     >
-                      <Trash2 className="h-3 w-3 text-destructive" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   )}
                 </div>
               ))}
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => {
@@ -612,7 +610,7 @@ export function TransformEditor({
           </SelectContent>
         </Select>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="gap-1 h-8 text-xs"
           onClick={addTransform}

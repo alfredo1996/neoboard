@@ -149,7 +149,7 @@ export function DashboardViewToolbar({
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     data-testid="auto-refresh-trigger"
                   >
@@ -204,7 +204,7 @@ export function DashboardViewToolbar({
                       />
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         className="h-7 px-2 text-xs"
                         onClick={handleCustomApply}
                         data-testid="custom-interval-apply"

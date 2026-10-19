@@ -24,7 +24,7 @@ export function DashboardShareSheet({
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="secondary" size="sm">
           <Users className="mr-2 h-4 w-4" />
           {label}
         </Button>

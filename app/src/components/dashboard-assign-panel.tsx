@@ -179,9 +179,8 @@ export function DashboardAssignPanel({
                   </SelectContent>
                 </Select>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-destructive hover:text-destructive"
+                  variant="danger"
+                  size="icon-sm"
                   onClick={() => removeShare.mutate(share.id)}
                   aria-label={`Remove ${share.userEmail}`}
                 >

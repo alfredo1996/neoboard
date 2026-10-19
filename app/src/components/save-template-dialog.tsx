@@ -149,7 +149,7 @@ export function SaveTemplateDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+          <Button variant="secondary" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
           <LoadingButton

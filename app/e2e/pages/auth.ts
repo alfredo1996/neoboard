@@ -35,7 +35,7 @@ export class AuthPage {
         .locator('form[data-hydrated="true"]')
         .waitFor({ state: "attached", timeout: 10_000 });
       await this.page.getByLabel("Email").fill(email);
-      await this.page.getByLabel("Password").fill(password);
+      await this.page.getByLabel("Password", { exact: true }).fill(password);
       await this.page.getByRole("button", { name: "Sign in" }).click();
       try {
         await this.page.waitForURL("/", { timeout: 10_000 });

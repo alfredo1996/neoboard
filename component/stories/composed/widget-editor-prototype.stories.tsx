@@ -274,7 +274,7 @@ export const Default: Story = {
               className="font-mono min-h-[80px]"
               rows={3}
             />
-            <Button type="button" variant="outline" size="sm">
+            <Button type="button" variant="secondary" size="sm">
               Test Seed Query
             </Button>
           </div>
@@ -656,7 +656,7 @@ export const Default: Story = {
 
         {/* Footer */}
         <div className="border-t px-6 py-4 flex justify-end gap-2">
-          <Button variant="outline">Cancel</Button>
+          <Button variant="secondary">Cancel</Button>
           <Button disabled={!canSave}>Add Widget</Button>
         </div>
       </div>
@@ -793,7 +793,7 @@ export const ParameterSelect: Story = {
               className="font-mono min-h-[80px]"
               rows={3}
             />
-            <Button type="button" variant="outline" size="sm">
+            <Button type="button" variant="secondary" size="sm">
               Test Seed Query
             </Button>
           </div>
@@ -991,7 +991,7 @@ export const ParameterSelect: Story = {
         </div>
 
         <div className="border-t px-6 py-4 flex justify-end gap-2">
-          <Button variant="outline">Cancel</Button>
+          <Button variant="secondary">Cancel</Button>
           <Button disabled={!canSave}>Add Widget</Button>
         </div>
       </div>

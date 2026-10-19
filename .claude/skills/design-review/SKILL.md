@@ -48,7 +48,7 @@ The redesign system (epic #2210, tokens from #2215). Code you read may still car
 
 ## Components
 
-- `EmptyState`, `LoadingButton`, `LoadingOverlay`. Buttons: `default` primary, `outline` cancel, `destructive` delete, `ghost` in toolbars.
+- `EmptyState`, `LoadingButton`, `LoadingOverlay`. Buttons: `primary`, `secondary`, `danger` (delete), `ghost`; `danger-confirm` only in dialogs.
 
 ## Red flags to call out
 

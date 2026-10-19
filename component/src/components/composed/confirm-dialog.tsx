@@ -97,7 +97,7 @@ function ConfirmDialog({
             disabled={confirmDisabled}
             className={cn(
               variant === "destructive" &&
-                buttonVariants({ variant: "destructive" }),
+                buttonVariants({ variant: "danger-confirm" }),
               confirmDisabled && "opacity-50 cursor-not-allowed",
             )}
           >

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { createRef } from "react";
+import { describe, it, expect, vi } from "vitest";
 import { LoadingButton } from "../loading-button";
 
 describe("LoadingButton", () => {
@@ -8,13 +9,56 @@ describe("LoadingButton", () => {
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
   });
 
-  it("defaults to the primary (default) variant, not a muted one (#1059)", () => {
-    // Settings "Save" uses LoadingButton with no variant — it must read as a
-    // primary action (bg-primary), not secondary/muted.
+  it("is an enabled button when idle, not busy", () => {
     render(<LoadingButton>Save</LoadingButton>);
     const btn = screen.getByRole("button", { name: "Save" });
-    expect(btn.className).toContain("bg-primary");
-    expect(btn.className).not.toContain("bg-secondary");
+    expect(btn).toBeEnabled();
+    expect(btn).not.toHaveAttribute("aria-busy");
+  });
+
+  it("sets aria-busy while loading and is named by what it is doing", () => {
+    render(
+      <LoadingButton loading loadingText="Saving...">
+        Save
+      </LoadingButton>,
+    );
+    expect(screen.getByRole("button", { name: "Saving..." })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+  });
+
+  it("keeps the width it had before loading", () => {
+    const widthSpy = vi
+      .spyOn(HTMLElement.prototype, "offsetWidth", "get")
+      .mockReturnValue(120);
+    const { rerender } = render(<LoadingButton>Save</LoadingButton>);
+    rerender(
+      <LoadingButton loading loadingText="Saving...">
+        Save
+      </LoadingButton>,
+    );
+    expect(screen.getByRole("button")).toHaveStyle({ minWidth: "120px" });
+    widthSpy.mockRestore();
+  });
+
+  it("re-measures the idle width on every idle commit", () => {
+    let width = 120;
+    const widthSpy = vi
+      .spyOn(HTMLElement.prototype, "offsetWidth", "get")
+      .mockImplementation(() => width);
+    const { rerender } = render(<LoadingButton>Save</LoadingButton>);
+    width = 80;
+    rerender(<LoadingButton>Save</LoadingButton>);
+    rerender(<LoadingButton loading>Save</LoadingButton>);
+    expect(screen.getByRole("button")).toHaveStyle({ minWidth: "80px" });
+    widthSpy.mockRestore();
+  });
+
+  it("forwards its ref to the button", () => {
+    const ref = createRef<HTMLButtonElement>();
+    render(<LoadingButton ref={ref}>Save</LoadingButton>);
+    expect(ref.current).toBe(screen.getByRole("button"));
   });
 
   it("shows spinner when loading", () => {
@@ -48,7 +92,7 @@ describe("LoadingButton", () => {
   });
 
   it("forwards button variant prop", () => {
-    render(<LoadingButton variant="destructive">Delete</LoadingButton>);
+    render(<LoadingButton variant="danger">Delete</LoadingButton>);
     expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
   });
 });

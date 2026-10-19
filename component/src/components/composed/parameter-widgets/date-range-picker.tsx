@@ -115,7 +115,7 @@ function DateRangeParameter({
           <PopoverTrigger asChild>
             <Button
               id={id}
-              variant="outline"
+              variant="secondary"
               aria-labelledby={labelId}
               className={cn(
                 "flex-1 justify-start text-left font-normal",

@@ -445,7 +445,7 @@ function ImportDashboardDialog({
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => handleOpenChange(false)}
             >
               Stay here
@@ -607,7 +607,7 @@ function ImportDashboardDialog({
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => handleOpenChange(false)}
             >
               Cancel
@@ -679,7 +679,7 @@ function GettingStartedGuide({ onCreateDashboard }: GettingStartedGuideProps) {
             <Plus className="mr-2 h-4 w-4" />
             Create your first dashboard
           </Button>
-          <Button variant="outline" size="lg" asChild>
+          <Button variant="secondary" size="lg" asChild>
             <a
               href={DOCS_LINKS.firstDashboard}
               target="_blank"
@@ -911,7 +911,7 @@ export default function DashboardListPage() {
           canCreate ? (
             <>
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={(e) => {
                   setReturnFocusTo(e.currentTarget);
                   setShowImport(true);
@@ -977,7 +977,7 @@ export default function DashboardListPage() {
             <DialogFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setShowCreate(false)}
               >
                 Cancel
@@ -1041,7 +1041,7 @@ export default function DashboardListPage() {
             <DialogFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setRenameTarget(null)}
               >
                 Cancel

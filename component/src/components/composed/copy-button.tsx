@@ -7,8 +7,8 @@ export interface CopyButtonProps {
   /** The text value to copy to the clipboard. */
   value: string;
   className?: string;
-  variant?: "default" | "outline" | "ghost" | "secondary";
-  size?: "default" | "sm" | "lg" | "icon";
+  variant?: "primary" | "secondary" | "ghost";
+  size?: "default" | "sm" | "lg";
   /** Label shown on the button. Defaults to "Copy". */
   label?: string;
 }
@@ -16,7 +16,7 @@ export interface CopyButtonProps {
 function CopyButton({
   value,
   className,
-  variant = "outline",
+  variant = "secondary",
   size = "sm",
   label = "Copy",
 }: CopyButtonProps) {

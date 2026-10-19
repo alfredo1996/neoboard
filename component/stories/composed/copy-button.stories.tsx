@@ -9,7 +9,7 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: ["default", "outline", "ghost", "secondary"],
+      options: ["primary", "secondary", "ghost"],
     },
     size: {
       control: "select",

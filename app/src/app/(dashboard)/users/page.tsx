@@ -493,7 +493,7 @@ export default function UsersPage() {
             <DialogFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setShowCreate(false)}
               >
                 Cancel
@@ -708,7 +708,7 @@ export default function UsersPage() {
                     Page {pageIndex + 1} of {pages}
                   </span>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     disabled={pageIndex === 0}
                     onClick={() => setPage(pageIndex - 1)}
@@ -716,7 +716,7 @@ export default function UsersPage() {
                     Previous page
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     disabled={pageIndex >= pages - 1}
                     onClick={() => setPage(pageIndex + 1)}

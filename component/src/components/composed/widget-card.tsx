@@ -294,12 +294,12 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                     type="button"
                     variant="ghost"
                     size="icon"
+                    aria-label="Refresh"
                     className={iconButton}
                     onClick={onRefresh}
                     disabled={refreshDisabled}
                   >
                     <RefreshCcw className="h-4 w-4" />
-                    <span className="sr-only">Refresh</span>
                   </Button>
                 )}
                 {onFullscreen && !folded && (
@@ -307,12 +307,12 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                     type="button"
                     variant="ghost"
                     size="icon"
+                    aria-label="Fullscreen"
                     className={iconButton}
                     data-widget-fullscreen
                     onClick={(e) => onFullscreen(e.currentTarget)}
                   >
                     <Maximize2 className="h-4 w-4" />
-                    <span className="sr-only">Fullscreen</span>
                   </Button>
                 )}
                 {headerExtra}
@@ -322,10 +322,10 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="Widget actions"
                         className={iconButton}
                       >
                         <Ellipsis className="h-4 w-4" />
-                        <span className="sr-only">Widget actions</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">

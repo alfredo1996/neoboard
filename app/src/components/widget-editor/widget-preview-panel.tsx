@@ -339,7 +339,7 @@ export function WidgetPreviewPanel({
               </Tooltip>
             )}
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={onRunPreview}
               disabled={isRunDisabled(

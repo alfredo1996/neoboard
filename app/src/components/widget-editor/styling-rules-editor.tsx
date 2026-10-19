@@ -148,12 +148,12 @@ function SortableRuleItem({
           </span>
         </AccordionTrigger>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="danger"
+          size="icon-sm"
           onClick={() => onRemove(rule.id)}
           aria-label={`Delete rule ${index + 1}`}
         >
-          <Trash2 className="h-4 w-4 text-destructive" />
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
       <AccordionContent className="px-4 pb-4 space-y-3">
@@ -409,7 +409,7 @@ export function StylingRulesEditor({ onBack }: StylingRulesEditorProps) {
         </DndContext>
 
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={addRule}
           className="w-full"

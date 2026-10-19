@@ -240,7 +240,7 @@ function FormStep({
       )}
       {testResult && <TestResult result={testResult} connector={connector} />}
       <DialogFooter className="mt-4 shrink-0 border-t pt-4">
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="secondary" onClick={onClose}>
           Cancel
         </Button>
         {!isEdit && (
@@ -284,7 +284,7 @@ function PendingStep({
       <Header title={title} description={description} />
       <div className={BODY}>{children}</div>
       <DialogFooter className="mt-4 shrink-0 border-t pt-4">
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="secondary" onClick={onClose}>
           Cancel
         </Button>
       </DialogFooter>
@@ -358,7 +358,7 @@ function DialogSteps({
             This connector&apos;s settings could not be loaded.
           </AlertDescription>
         </Alert>
-        <Button variant="outline" onClick={() => connectorsQuery.refetch()}>
+        <Button variant="secondary" onClick={() => connectorsQuery.refetch()}>
           Try again
         </Button>
       </PendingStep>

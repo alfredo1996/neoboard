@@ -80,7 +80,7 @@ export const WithForm: Story = {
         </form>
       </PanelContent>
       <PanelFooter className="flex justify-between">
-        <Button variant="outline">Cancel</Button>
+        <Button variant="secondary">Cancel</Button>
         <Button>Deploy</Button>
       </PanelFooter>
     </Panel>

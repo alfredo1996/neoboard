@@ -336,7 +336,7 @@ export default function ConnectionsPage() {
           )}
         </ul>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={() => {
             if (!deleteTarget) return;
@@ -366,7 +366,7 @@ export default function ConnectionsPage() {
           <>
             {probeable.length > 0 && (
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={handleTestAll}
                 disabled={testAll !== null}
               >
@@ -494,7 +494,7 @@ export default function ConnectionsPage() {
             );
           })()}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReassignTarget(null)}>
+            <Button variant="secondary" onClick={() => setReassignTarget(null)}>
               Cancel
             </Button>
             <LoadingButton

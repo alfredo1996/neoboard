@@ -122,7 +122,7 @@ export function TemplateBrowser({
           })()}
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="secondary" onClick={onBack}>
           Back
         </Button>
       </DialogFooter>

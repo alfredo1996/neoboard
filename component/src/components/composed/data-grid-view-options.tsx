@@ -22,13 +22,13 @@ function DataGridViewOptions<TData>({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="outline"
+          variant="secondary"
           size="icon"
           className="h-8 w-8 shrink-0"
+          aria-label="Hide columns"
           title="Hide columns"
         >
           <Settings2 className="h-4 w-4" />
-          <span className="sr-only">Hide columns</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[150px]">

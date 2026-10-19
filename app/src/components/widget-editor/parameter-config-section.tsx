@@ -393,7 +393,7 @@ export function ParameterConfigSection({
           />
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="mt-2"
             disabled={

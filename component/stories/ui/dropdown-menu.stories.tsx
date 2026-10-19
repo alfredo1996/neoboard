@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { Button } from '@/components/ui/button';
+import type { Meta, StoryObj } from "@storybook/react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -16,21 +16,21 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 
 const meta = {
-  title: 'UI/DropdownMenu',
+  title: "UI/DropdownMenu",
   component: DropdownMenu,
-  parameters: { layout: 'centered' },
-  tags: ['autodocs'],
+  parameters: { layout: "centered" },
+  tags: ["autodocs"],
   argTypes: {
     open: {
-      control: 'boolean',
-      description: 'Controlled open state of the dropdown menu',
+      control: "boolean",
+      description: "Controlled open state of the dropdown menu",
     },
     modal: {
-      control: 'boolean',
-      description: 'Whether the dropdown menu is modal',
+      control: "boolean",
+      description: "Whether the dropdown menu is modal",
     },
   },
 } satisfies Meta<typeof DropdownMenu>;
@@ -42,7 +42,7 @@ export const Default: Story = {
   render: () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline">Open</Button>
+        <Button variant="secondary">Open</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
@@ -94,7 +94,7 @@ export const WithCheckboxes: Story = {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline">Options</Button>
+          <Button variant="secondary">Options</Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56">
           <DropdownMenuLabel>Appearance</DropdownMenuLabel>
@@ -102,12 +102,8 @@ export const WithCheckboxes: Story = {
           <DropdownMenuCheckboxItem checked>
             Status Bar
           </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem>
-            Activity Bar
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem>
-            Panel
-          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem>Activity Bar</DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem>Panel</DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -119,7 +115,7 @@ export const WithRadioGroup: Story = {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline">Select Position</Button>
+          <Button variant="secondary">Select Position</Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56">
           <DropdownMenuLabel>Panel Position</DropdownMenuLabel>

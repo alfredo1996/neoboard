@@ -210,7 +210,7 @@ function ConnectorUnavailable({
       )}
       {onRetry && (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="mt-1 h-7 shrink-0 px-2.5 text-xs"
           onClick={onRetry}
@@ -596,7 +596,7 @@ export function CardContainer({
             Query execution is paused.
           </p>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => setHasEverRun(true)}
           >
@@ -748,7 +748,7 @@ export function CardContainer({
                   : "This query waited too long in the queue."}
               </p>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => widgetQuery.refetch()}
               >
@@ -784,7 +784,7 @@ export function CardContainer({
               <>
                 <p>This widget couldn&apos;t load its data. Try again.</p>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={() => widgetQuery.refetch()}
                 >

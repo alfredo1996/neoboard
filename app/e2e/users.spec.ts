@@ -298,7 +298,7 @@ test.describe("Disable and enable a user (#2049)", () => {
         .locator('form[data-hydrated="true"]')
         .waitFor({ state: "attached", timeout: 10_000 });
       await page.getByLabel("Email").fill(email);
-      await page.getByLabel("Password").fill(password);
+      await page.getByLabel("Password", { exact: true }).fill(password);
       await page.getByRole("button", { name: "Sign in" }).click();
       await expect(page.getByText("Invalid email or password")).toBeVisible({
         timeout: 10_000,
