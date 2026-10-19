@@ -21,7 +21,7 @@ import {
   MapPin,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Label, Combobox } from "@neoboard/components";
+import { Field, Combobox } from "@neoboard/components";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { useConnectors } from "@/hooks/use-connectors";
@@ -96,8 +96,7 @@ export function ChartTypeSelector({
   });
 
   const chartTypeSelect = (
-    <div className="space-y-1.5">
-      <Label>Chart Type</Label>
+    <Field label="Chart Type">
       <Combobox
         value={chartType}
         onChange={onChartTypeChange}
@@ -107,7 +106,7 @@ export function ChartTypeSelector({
         emptyText="No chart types found."
         className="w-full"
       />
-    </div>
+    </Field>
   );
 
   if (!showConnection) {
@@ -116,23 +115,21 @@ export function ChartTypeSelector({
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      <div className="space-y-1.5">
-        <Label>
-          Connection <span className="text-destructive">*</span>
-        </Label>
+      <Field label="Connection">
         <Combobox
           value={connectionId}
           onChange={onConnectionChange}
           options={connections.map((c) => ({
             value: c.id,
-            label: `${c.name} (${connectorLabel(connectors, c.type)})`,
+            label: c.name,
+            hint: connectorLabel(connectors, c.type),
           }))}
           placeholder="Select a connection..."
           searchPlaceholder="Search connections..."
           emptyText="No connections found."
           className="w-full"
         />
-      </div>
+      </Field>
       {chartTypeSelect}
     </div>
   );

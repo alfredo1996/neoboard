@@ -181,9 +181,27 @@ function maxRowsError(form: ConnectionFormState): string | undefined {
   const valid =
     value === undefined ||
     (Number.isInteger(value) && value >= min && value <= max);
-  return valid
-    ? undefined
-    : `${MAX_ROWS_FIELD.label} must be between ${min} and ${max}`;
+  return valid ? undefined : `Enter a whole number from ${min} to ${max}.`;
+}
+
+/**
+ * The SDK's messages are written for logs and API responses; the form says
+ * what to enter instead (#2217). Generic per field, so no connector is named;
+ * the SDK and the API keep their wording.
+ */
+function inFormWords(field: ConnectorField | undefined, message: string) {
+  if (field && message === `${field.label} is required`) {
+    // Plain Title-case words drop to lower case; acronyms and mixed-case brand spellings stay.
+    const words = field.label
+      .split(" ")
+      .map((w) => (/^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w));
+    return `Enter the ${words.join(" ")}.`;
+  }
+  if (message.startsWith("Invalid URI format")) {
+    // The placeholder is connector data (an example URI), not a name.
+    return `Enter a URI like ${field?.placeholder || "scheme://host:port"}.`;
+  }
+  return message;
 }
 
 /**
@@ -204,10 +222,17 @@ export function connectionFormErrors(
     }
   }
   const own: Record<string, string> = {};
-  if (!form.name.trim()) own.name = `${NAME_FIELD.label} is required`;
+  if (!form.name.trim()) own.name = "Enter a name for the connection.";
   const rowCap = maxRowsError(form);
   if (rowCap) own.maxRows = rowCap;
-  return { own, config: errors };
+  const shown: Record<string, string> = {};
+  for (const [key, message] of Object.entries(errors)) {
+    shown[key] = inFormWords(
+      descriptor.fields.find((f) => f.key === key),
+      message,
+    );
+  }
+  return { own, config: shown };
 }
 
 export const hasFormErrors = (errors: ConnectionFormErrors): boolean =>

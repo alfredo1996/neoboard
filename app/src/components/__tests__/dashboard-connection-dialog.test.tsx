@@ -38,7 +38,8 @@ vi.mock("@/hooks/use-connectors", () => ({
   }),
 }));
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Alert: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   AlertDescription: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>

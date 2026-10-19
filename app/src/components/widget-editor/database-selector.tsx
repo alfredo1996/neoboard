@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
   Label,
+  Field,
 } from "@neoboard/components";
 import { useConnectionDatabases } from "@/hooks/use-connection-databases";
 
@@ -43,15 +44,12 @@ export function DatabaseSelector({
   }
 
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor="card-database" className="text-xs">
-        Database
-      </Label>
+    <Field label="Database" optional id="card-database">
       <Select
         value={database || "__default__"}
         onValueChange={(v) => onDatabaseChange(v === "__default__" ? "" : v)}
       >
-        <SelectTrigger id="card-database">
+        <SelectTrigger>
           <SelectValue placeholder="Connection default" />
         </SelectTrigger>
         <SelectContent>
@@ -63,6 +61,6 @@ export function DatabaseSelector({
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }

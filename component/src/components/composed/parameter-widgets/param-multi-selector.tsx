@@ -21,7 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { ExternalLabelProps } from "./external-label";
+import { joinIds, type ExternalLabelProps } from "./external-label";
 import { ParamWidgetSkeleton } from "./param-widget-skeleton";
 import { MultiSelectItem } from "../multi-select-item";
 
@@ -86,6 +86,8 @@ function ParamMultiSelector({
   className,
   labelledBy,
   id,
+  describedBy,
+  invalid,
 }: Readonly<ParamMultiSelectorProps>) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-multi-label-${parameterName}`;
@@ -175,7 +177,8 @@ function ParamMultiSelector({
             aria-expanded={open}
             aria-required={required || undefined}
             aria-labelledby={labelId}
-            aria-describedby={hintId}
+            aria-describedby={joinIds(hintId, describedBy)}
+            aria-invalid={invalid || undefined}
             disabled={isWaitingForParent}
             className="w-full justify-between h-auto min-h-9 px-3"
           >

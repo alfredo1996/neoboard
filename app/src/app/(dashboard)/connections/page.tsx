@@ -36,7 +36,6 @@ import {
 } from "@/hooks/use-connections";
 import {
   Button,
-  Label,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -57,6 +56,7 @@ import {
   AlertDescription,
   useToast,
   type ConnectionState,
+  Field,
 } from "@neoboard/components";
 import { List, ListRow, PageHeader } from "@neoboard/components/kit";
 import {
@@ -468,8 +468,7 @@ export default function ConnectionsPage() {
                     </AlertDescription>
                   </Alert>
                 ) : (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reassign-target">Target connection</Label>
+                  <Field label="Target connection" id="reassign-target">
                     <select
                       id="reassign-target"
                       className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
@@ -483,7 +482,7 @@ export default function ConnectionsPage() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </Field>
                 )}
                 {reassignError && (
                   <Alert variant="destructive">

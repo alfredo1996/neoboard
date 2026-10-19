@@ -2,7 +2,8 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Input: ({
     id,
     value,
@@ -61,9 +62,23 @@ describe("LabMetadataForm", () => {
     expect(screen.getByText("Tags")).toBeInTheDocument();
   });
 
-  it("shows required indicator on template name", () => {
+  it("marks the optional description in words and the required name not at all", () => {
     render(<LabMetadataForm />);
-    expect(screen.getByText("*")).toBeInTheDocument();
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Template Name").closest("label"),
+    ).toHaveTextContent(/^Template Name$/);
+    expect(screen.getByText("Description").closest("label")).toHaveTextContent(
+      "Description (optional)",
+    );
+  });
+
+  it("marks the tags optional in the label, with the format as help (#2217)", () => {
+    render(<LabMetadataForm />);
+    expect(screen.getByLabelText("Tags (optional)")).toBe(
+      screen.getByTestId("lab-template-tags"),
+    );
+    expect(screen.getByText("Comma-separated.")).toBeInTheDocument();
   });
 
   it("calls setLabName on name input change", () => {

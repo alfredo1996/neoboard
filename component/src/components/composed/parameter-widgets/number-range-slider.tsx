@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { qualifiedName, type ExternalLabelProps } from "./external-label";
+import {
+  labelIdOf,
+  qualifiedName,
+  type ExternalLabelProps,
+} from "./external-label";
 
 export interface NumberRangeSliderProps extends ExternalLabelProps {
   parameterName: string;
@@ -40,6 +44,8 @@ function NumberRangeSlider({
   className,
   labelledBy,
   id,
+  describedBy,
+  invalid,
 }: NumberRangeSliderProps) {
   const labelId = labelledBy ?? `param-numrange-label-${parameterName}`;
   const current: [number, number] = value ?? [min, max];
@@ -115,6 +121,8 @@ function NumberRangeSlider({
         <div className="flex items-center gap-2">
           <Input
             id={id}
+            aria-describedby={describedBy}
+            aria-invalid={invalid || undefined}
             type="number"
             value={current[0]}
             onChange={(e) => handleMinInput(e.target.value)}
@@ -132,6 +140,8 @@ function NumberRangeSlider({
             to
           </span>
           <Input
+            // Explicit, or a surrounding <Field> hands it the min input's id.
+            id={`${qualifierId}-max-input`}
             type="number"
             value={current[1]}
             onChange={(e) => handleMaxInput(e.target.value)}
@@ -154,7 +164,7 @@ function NumberRangeSlider({
         step={step}
         value={current}
         onValueChange={handleSliderChange}
-        aria-labelledby={labelId}
+        aria-labelledby={labelIdOf(labelId)}
         className="w-full"
       />
 

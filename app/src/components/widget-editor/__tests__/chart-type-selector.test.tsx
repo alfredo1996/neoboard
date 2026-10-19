@@ -3,7 +3,8 @@ import { describe, it, expect, vi } from "vitest";
 import { CHART_TYPES } from "@/plugins/chart-types";
 import { render, screen, fireEvent } from "@testing-library/react";
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Label: ({
     children,
     ...props
@@ -15,13 +16,16 @@ vi.mock("@neoboard/components", () => ({
     onChange,
     options,
     placeholder,
+    id,
   }: {
+    id?: string;
     value: string;
     onChange: (v: string) => void;
-    options: { value: string; label: string }[];
+    options: { value: string; label: string; hint?: string }[];
     placeholder?: string;
   }) => (
     <select
+      id={id}
       data-testid={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -29,7 +33,7 @@ vi.mock("@neoboard/components", () => ({
       <option value="">{placeholder}</option>
       {options.map((o) => (
         <option key={o.value} value={o.value}>
-          {o.label}
+          {o.hint ? `${o.label} ${o.hint}` : o.label}
         </option>
       ))}
     </select>
@@ -130,6 +134,26 @@ describe("ChartTypeSelector", () => {
     expect(screen.getByText("Connection")).toBeInTheDocument();
   });
 
+  it("names both pickers by their labels (#2217)", () => {
+    render(
+      <ChartTypeSelector
+        connectionId="c1"
+        onConnectionChange={vi.fn()}
+        chartType="bar"
+        onChartTypeChange={vi.fn()}
+        compatibleChartTypes={chartTypes}
+        connections={connections}
+        showConnection={true}
+      />,
+    );
+    expect(
+      screen.getByRole("combobox", { name: /Connection/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /Chart Type/ }),
+    ).toBeInTheDocument();
+  });
+
   // #1905: each entry read "Neo4j Local (neo4j)" — the raw type.
   it("names each connection's connector by its descriptor label", () => {
     render(
@@ -151,10 +175,10 @@ describe("ChartTypeSelector", () => {
     ).map((o) => o.textContent);
     expect(labels).toEqual([
       "Select a connection...",
-      "Neo4j Local (Graph Store)",
-      "Postgres Prod (Relational Store)",
+      "Neo4j Local Graph Store",
+      "Postgres Prod Relational Store",
       // No descriptor to ask: its type is the only name left.
-      "Legacy (uninstalled)",
+      "Legacy uninstalled",
     ]);
   });
 
@@ -214,7 +238,7 @@ describe("ChartTypeSelector", () => {
     expect(screen.getByText("Table")).toBeInTheDocument();
   });
 
-  it("shows required indicator on connection label", () => {
+  it("marks neither picker as required or optional: required is the default (#2217)", () => {
     render(
       <ChartTypeSelector
         connectionId="c1"
@@ -226,6 +250,7 @@ describe("ChartTypeSelector", () => {
         showConnection={true}
       />,
     );
-    expect(screen.getByText("*")).toBeInTheDocument();
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
+    expect(screen.queryByText(/optional/)).not.toBeInTheDocument();
   });
 });

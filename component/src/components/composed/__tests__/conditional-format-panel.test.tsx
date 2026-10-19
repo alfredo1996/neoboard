@@ -20,6 +20,21 @@ describe("ColorScalePanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("names each control of a scale by its label (#2217)", () => {
+    render(
+      <ColorScalePanel
+        columns={COLUMNS}
+        colorScales={[
+          { column: "score", minColor: "#ef4444", maxColor: "#22c55e" },
+        ]}
+        onColorScalesChange={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText("Column")).toBeInTheDocument();
+    expect(screen.getByLabelText("Min Color")).toHaveValue("#ef4444");
+    expect(screen.getByLabelText("Max Color")).toHaveValue("#22c55e");
+  });
+
   it("renders existing color scales", () => {
     const scales: ColorScaleConfig[] = [
       { column: "score", minColor: "#ef4444", maxColor: "#22c55e" },

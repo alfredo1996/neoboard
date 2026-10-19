@@ -39,7 +39,8 @@ vi.mock("@/lib/auth/signup", () => ({
   signup: (...args: unknown[]) => mockSignup(...args),
 }));
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Wordmark: () => <span>NeoBoard</span>,
   Panel: ({
     children,
@@ -269,7 +270,9 @@ describe("SignupPage", () => {
     // an Alert, and under CI parallel load the default 1s waitFor poll can
     // exhaust before React flushes the submit state (#1168 residual race).
     const alert = await screen.findByRole("alert", {}, { timeout: 10_000 });
-    expect(alert.textContent).toContain("Passwords do not match");
+    expect(alert.textContent).toContain(
+      "Enter the same password in both fields.",
+    );
   }, 15_000);
 
   it("shows error from signup server action", async () => {

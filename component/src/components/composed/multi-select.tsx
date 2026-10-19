@@ -17,6 +17,11 @@ import {
   toCmdkValue,
 } from "@/components/ui/command";
 import {
+  invalidControlClasses,
+  pickerTriggerClasses,
+} from "@/components/ui/control-sizes";
+import { useFieldControl } from "@/components/ui/field";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -38,6 +43,9 @@ export interface MultiSelectProps {
   className?: string;
   disabled?: boolean;
   maxDisplay?: number;
+  id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: React.AriaAttributes["aria-invalid"];
   /**
    * Optional per-option renderer for the dropdown list — useful for adding
    * inline badges or secondary text (e.g. widget title + chart-type badge).
@@ -57,7 +65,9 @@ function MultiSelect({
   disabled,
   maxDisplay = 3,
   renderOption,
+  ...fieldProps
 }: MultiSelectProps) {
+  const controlProps = useFieldControl(fieldProps);
   const [open, setOpen] = React.useState(false);
 
   const selectedOptions = options.filter((opt) => value.includes(opt.value));
@@ -82,7 +92,13 @@ function MultiSelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn("w-[300px] justify-between h-auto min-h-10", className)}
+          {...controlProps}
+          className={cn(
+            pickerTriggerClasses,
+            invalidControlClasses,
+            "w-[300px] h-auto min-h-9",
+            className,
+          )}
         >
           <div className="flex flex-wrap gap-1 flex-1">
             {selectedOptions.length === 0 && (

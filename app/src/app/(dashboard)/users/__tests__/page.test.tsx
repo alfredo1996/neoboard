@@ -62,12 +62,14 @@ vi.mock("@/hooks/use-users", () => {
   };
 });
 
-vi.mock("@neoboard/components", () => {
+vi.mock("@neoboard/components", async () => {
+  const { FieldStub } = await import("@/__tests__/helpers/field-stub");
   const Box = ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   );
   const Nothing = () => null;
   return {
+    Field: FieldStub,
     Button: ({
       children,
       onClick,

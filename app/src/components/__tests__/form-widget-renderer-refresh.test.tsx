@@ -23,7 +23,8 @@ vi.mock("next-auth/react", () => ({
 }));
 
 // TextInputParameter is what the real DebouncedTextInput renders.
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   TextInputParameter: ({
     parameterName,
     value,
@@ -319,9 +320,11 @@ describe("FormWidgetRenderer — refresh widgets after submit (#1799)", () => {
       const queriesRun = (text: string) =>
         fetchMock.mock.calls.filter(
           ([, init]) =>
-            (JSON.parse((init as RequestInit).body as string) as {
-              query: string;
-            }).query === text,
+            (
+              JSON.parse((init as RequestInit).body as string) as {
+                query: string;
+              }
+            ).query === text,
         ).length;
       function Mounted() {
         useWidgetQuery({ connectionId: "conn-1", query: paramTarget.query });

@@ -79,10 +79,12 @@ describe("ConnectionDialog — create", () => {
     type("conn-endpoint", "https://host/book");
     click("Create");
 
-    expect(byId("conn-name-error")).toHaveTextContent("Name is required");
+    expect(byId("conn-name-error")).toHaveTextContent(
+      "Enter a name for the connection.",
+    );
     expect(byId("conn-endpoint-error")).toHaveTextContent(/acme:/);
     expect(byId("conn-api-token-error")).toHaveTextContent(
-      "API Token is required",
+      "Enter the API token.",
     );
     expect(createMutate).not.toHaveBeenCalled();
   });
@@ -215,7 +217,7 @@ describe("ConnectionDialog — Duplicate", () => {
     // A copy is a NEW connection: its secrets are required again.
     expect(
       document.querySelector('label[for="conn-api-token"]'),
-    ).toHaveTextContent("*");
+    ).not.toHaveTextContent("(optional)");
   });
 
   it("waits for the source's config before showing the form", () => {

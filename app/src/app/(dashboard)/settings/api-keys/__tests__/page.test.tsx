@@ -33,7 +33,8 @@ vi.mock("lucide-react", () => {
   };
 });
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Button: ({
     children,
     ...rest
@@ -270,4 +271,21 @@ it("Cancel on Create API key puts focus back on its button (#2146)", () => {
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
   expect(create).toHaveFocus();
+});
+
+// #2217: required is the default, so only the expiry is marked, in words.
+it("names its two inputs and marks only the expiry as optional (#2217)", () => {
+  mockKeys = [makeKey({})];
+  render(<ApiKeysPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Create API key" }));
+
+  expect(screen.getByLabelText("Name")).toHaveAttribute("id", "key-name");
+  expect(screen.getByLabelText(/Expires at/)).toHaveAttribute(
+    "id",
+    "key-expires",
+  );
+  expect(screen.getByText("Expires at").closest("label")).toHaveTextContent(
+    "Expires at (optional)",
+  );
+  expect(screen.queryByText("*")).not.toBeInTheDocument();
 });

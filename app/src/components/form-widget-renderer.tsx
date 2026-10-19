@@ -19,7 +19,7 @@ import {
   DateRelativePicker,
   NumberRangeSlider,
   Button,
-  Label,
+  Field,
   type RelativeDatePreset,
 } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
@@ -62,7 +62,12 @@ interface FieldInputProps {
    * label's htmlFor resolves, and the widget names its control from
    * `labelledBy` instead of rendering the parameter name as a second label.
    */
-  label: { id: string; labelledBy: string };
+  label: {
+    id: string;
+    labelledBy: string;
+    describedBy?: string;
+    invalid?: boolean;
+  };
   value: unknown;
   onChange: (name: string, value: unknown) => void;
   connectionId: string;
@@ -649,64 +654,54 @@ export function FormWidgetRenderer({
         <div className="space-y-4">
           {fields.map((field, index) => {
             const controlId = `${idPrefix}-field-${index}`;
-            const labelId = `${controlId}-label`;
+            const error =
+              messages.fieldErrors[field.parameterName] ??
+              messages.serverFieldErrors[field.parameterName];
             return (
-              <div
-                key={field.id}
-                className="space-y-1.5"
-                onBlur={() => handleFieldBlur(field)}
-              >
-                {/* date-relative's control is a group of buttons, which no
-                    label may point at; it is named by aria-labelledby alone. */}
-                <Label
-                  id={labelId}
-                  htmlFor={
-                    field.parameterType === "date-relative"
-                      ? undefined
-                      : controlId
-                  }
+              <div key={field.id} onBlur={() => handleFieldBlur(field)}>
+                {/* Every widget is named by aria-labelledby (Field's label id),
+                    which also reaches date-relative's group of buttons, where
+                    no label `for` can. The error is linked through the label
+                    prop's describedBy and invalid. */}
+                <Field
+                  id={controlId}
+                  label={field.label || field.parameterName}
+                  optional={!field.required}
+                  labelsControl={field.parameterType !== "date-relative"}
+                  error={error}
                 >
-                  {field.label || field.parameterName}
-                  {field.required && (
-                    <span
-                      aria-hidden="true"
-                      className="text-destructive ml-0.5"
-                    >
-                      *
-                    </span>
-                  )}
-                </Label>
-                <FieldInput
-                  field={field}
-                  label={{ id: controlId, labelledBy: labelId }}
-                  value={localValues[field.parameterName]}
-                  onChange={handleFieldChange}
-                  connectionId={connectionId}
-                  database={database}
-                  tenantId={tenantId}
-                  localValues={localValues}
-                  textInputRef={
-                    field.parameterType === "text"
-                      ? (handle) => {
-                          if (handle) {
-                            textInputRefs.current.set(
-                              field.parameterName,
-                              handle,
-                            );
-                          } else {
-                            textInputRefs.current.delete(field.parameterName);
+                  <FieldInput
+                    field={field}
+                    label={{
+                      id: controlId,
+                      labelledBy: field.required
+                        ? `${controlId}-label`
+                        : `${controlId}-label ${controlId}-optional`,
+                      describedBy: error ? `${controlId}-error` : undefined,
+                      invalid: Boolean(error),
+                    }}
+                    value={localValues[field.parameterName]}
+                    onChange={handleFieldChange}
+                    connectionId={connectionId}
+                    database={database}
+                    tenantId={tenantId}
+                    localValues={localValues}
+                    textInputRef={
+                      field.parameterType === "text"
+                        ? (handle) => {
+                            if (handle) {
+                              textInputRefs.current.set(
+                                field.parameterName,
+                                handle,
+                              );
+                            } else {
+                              textInputRefs.current.delete(field.parameterName);
+                            }
                           }
-                        }
-                      : undefined
-                  }
-                />
-                {(messages.fieldErrors[field.parameterName] ??
-                  messages.serverFieldErrors[field.parameterName]) && (
-                  <p className="text-xs text-destructive">
-                    {messages.fieldErrors[field.parameterName] ??
-                      messages.serverFieldErrors[field.parameterName]}
-                  </p>
-                )}
+                        : undefined
+                    }
+                  />
+                </Field>
               </div>
             );
           })}

@@ -64,9 +64,9 @@ The redesign system (epic #2210, tokens from #2215). Code you read may still car
 ## Checklist before a UI PR
 
 - [ ] Sections set off by whitespace and rules, no `p-6` card wrapping a section; widgets are `Panel`/`WidgetCard` cards; shadows only on cards and overlays
-- [ ] Type from the scale; no serif in the kit, the page title or the wordmark; page chrome from the kit, not rebuilt
+- [ ] Type from the scale; no serif in the kit, the page title or the wordmark; chrome from the kit
 - [ ] Tokens, never raw colours; charts through `resolveChartColors()`
 - [ ] Radius matches the component: controls 6, widget card 8, overlays 10, checkbox 4
-- [ ] Field borders use `--input` (3:1)
+- [ ] Field edges `--input` (3:1); controls in `<Field>`
 - [ ] `EmptyState`, `LoadingButton` and `LoadingOverlay` where they apply
 - [ ] Checked in both light and dark

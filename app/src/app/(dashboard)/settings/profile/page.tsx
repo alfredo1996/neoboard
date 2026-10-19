@@ -4,15 +4,16 @@ import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
   Input,
-  Label,
   Alert,
   AlertDescription,
   LoadingButton,
   PasswordInput,
   useToast,
+  Field,
 } from "@neoboard/components";
 import { PageHeader, SettingsSection } from "@neoboard/components/kit";
 import type { UserRole } from "@/lib/db/schema";
+import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 import { roleLabel } from "../../users/user-list";
 import { SettingsTabs } from "../settings-tabs";
 
@@ -94,12 +95,12 @@ export default function ProfilePage() {
     // Inline validation replaces the native browser tooltip (the form sets
     // noValidate) so length errors match the app's styled alerts (#1038).
     if (newPassword.length < 8) {
-      setPasswordError("New password must be at least 8 characters");
+      setPasswordError(PASSWORD_HINT);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("New passwords do not match");
+      setPasswordError("Enter the same new password in both fields.");
       return;
     }
 
@@ -214,15 +215,13 @@ export default function ProfilePage() {
               </LoadingButton>
             }
           >
-            <div className="space-y-2">
-              <Label htmlFor="profile-name">Name</Label>
+            <Field label="Name" id="profile-name">
               <Input
-                id="profile-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
               />
-            </div>
+            </Field>
           </SettingsSection>
         </form>
 
@@ -246,45 +245,32 @@ export default function ProfilePage() {
                 <AlertDescription>{passwordError}</AlertDescription>
               </Alert>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="current-password">Current password</Label>
+            <Field label="Current password" id="current-password">
               <PasswordInput
-                id="current-password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 autoComplete="current-password"
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-password">New password</Label>
+            </Field>
+            <Field label="New password" id="new-password" help={PASSWORD_HINT}>
               <Input
-                id="new-password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
-                aria-describedby="new-password-hint"
                 required
               />
-              <p
-                id="new-password-hint"
-                className="text-caption text-muted-foreground"
-              >
-                At least 8 characters
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm new password</Label>
+            </Field>
+            <Field label="Confirm new password" id="confirm-password">
               <Input
-                id="confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
                 required
               />
-            </div>
+            </Field>
           </SettingsSection>
         </form>
       </div>

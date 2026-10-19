@@ -435,7 +435,9 @@ test.describe("Connections", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
 
     // Inline error shown; dialog stays open (no Error-badge connection saved).
-    await expect(dialog.getByText(/valid URI/i)).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText(/Enter a URI like/)).toBeVisible({
+      timeout: 5000,
+    });
     await expect(dialog).toBeVisible();
   });
 

@@ -16,19 +16,17 @@ describe("validateFieldValue", () => {
   describe("required validation", () => {
     it("returns error when required field is empty string", () => {
       const field: FormFieldDef = { ...baseField, required: true };
-      expect(validateFieldValue(field, "")).toBe("This field is required");
+      expect(validateFieldValue(field, "")).toBe("Enter a value.");
     });
 
     it("returns error when required field is undefined", () => {
       const field: FormFieldDef = { ...baseField, required: true };
-      expect(validateFieldValue(field, undefined)).toBe(
-        "This field is required",
-      );
+      expect(validateFieldValue(field, undefined)).toBe("Enter a value.");
     });
 
     it("returns error when required field is null", () => {
       const field: FormFieldDef = { ...baseField, required: true };
-      expect(validateFieldValue(field, null)).toBe("This field is required");
+      expect(validateFieldValue(field, null)).toBe("Enter a value.");
     });
 
     it("returns error when required field is an empty array", () => {
@@ -37,7 +35,7 @@ describe("validateFieldValue", () => {
         parameterType: "multi-select",
         required: true,
       };
-      expect(validateFieldValue(field, [])).toBe("This field is required");
+      expect(validateFieldValue(field, [])).toBe("Enter a value.");
     });
 
     it("returns error when required date-range has no from and no to", () => {
@@ -47,9 +45,9 @@ describe("validateFieldValue", () => {
         required: true,
       };
       expect(validateFieldValue(field, { from: "", to: "" })).toBe(
-        "This field is required",
+        "Enter a value.",
       );
-      expect(validateFieldValue(field, {})).toBe("This field is required");
+      expect(validateFieldValue(field, {})).toBe("Enter a value.");
     });
 
     it("returns null when required field has a value", () => {
@@ -67,7 +65,7 @@ describe("validateFieldValue", () => {
   describe("number validation", () => {
     it("returns error when value is not numeric", () => {
       const field: FormFieldDef = { ...baseField, validationType: "number" };
-      expect(validateFieldValue(field, "abc")).toBe("Must be a valid number");
+      expect(validateFieldValue(field, "abc")).toBe("Enter a number, like 42.");
     });
 
     it("returns null when value is a numeric string", () => {
@@ -88,7 +86,7 @@ describe("validateFieldValue", () => {
         validationType: "number",
         required: true,
       };
-      expect(validateFieldValue(field, "")).toBe("This field is required");
+      expect(validateFieldValue(field, "")).toBe("Enter a value.");
     });
   });
 
@@ -96,16 +94,16 @@ describe("validateFieldValue", () => {
     it("returns error for invalid email strings", () => {
       const field: FormFieldDef = { ...baseField, validationType: "email" };
       expect(validateFieldValue(field, "not-an-email")).toBe(
-        "Must be a valid email address",
+        "Enter an email address, like name@example.com.",
       );
       expect(validateFieldValue(field, "foo@")).toBe(
-        "Must be a valid email address",
+        "Enter an email address, like name@example.com.",
       );
       expect(validateFieldValue(field, "@bar.com")).toBe(
-        "Must be a valid email address",
+        "Enter an email address, like name@example.com.",
       );
       expect(validateFieldValue(field, "foo @bar.com")).toBe(
-        "Must be a valid email address",
+        "Enter an email address, like name@example.com.",
       );
     });
 
@@ -127,7 +125,7 @@ describe("validateFieldValue", () => {
     it("returns error for unparseable dates", () => {
       const field: FormFieldDef = { ...baseField, validationType: "date" };
       expect(validateFieldValue(field, "not-a-date")).toBe(
-        "Must be a valid date",
+        "Enter a date, like 2026-10-19.",
       );
     });
 

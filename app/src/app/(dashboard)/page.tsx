@@ -51,7 +51,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  Label,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -69,6 +68,7 @@ import {
   ConfirmDialog,
   TimeAgo,
   useToast,
+  Field,
 } from "@neoboard/components";
 import { DashboardConnectionDialog } from "@/components/dashboard-connection-dialog";
 import {
@@ -482,20 +482,19 @@ function ImportDashboardDialog({
           </DialogHeader>
 
           <div className="py-4 space-y-4">
-            <div>
-              <Label htmlFor="import-file">Dashboard file (.json)</Label>
+            <Field
+              label="Dashboard file (.json)"
+              id="import-file"
+              error={fileError}
+            >
               <Input
-                id="import-file"
                 ref={fileInputRef}
                 type="file"
                 accept=".json"
                 onChange={handleFile}
-                className="mt-2 cursor-pointer"
+                className="cursor-pointer"
               />
-              {fileError && (
-                <p className="text-sm text-destructive mt-1">{fileError}</p>
-              )}
-            </div>
+            </Field>
 
             {parsed && (
               <div className="rounded-md border p-3 bg-muted/40 space-y-1">
@@ -624,36 +623,6 @@ function ImportDashboardDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// ── CreateNameHint ───────────────────────────────────────────────────
-
-function CreateNameHint({
-  error,
-  duplicate,
-  name,
-}: Readonly<{ error: string | null; duplicate: boolean; name: string }>) {
-  if (error) {
-    return (
-      <p id="dashboard-name-error" className="text-xs text-destructive mt-1">
-        {error}
-      </p>
-    );
-  }
-  if (duplicate) {
-    // Non-blocking warning — duplicate names are allowed (#1048).
-    return (
-      <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-        A dashboard named “{name}” already exists. You can still create another
-        with this name.
-      </p>
-    );
-  }
-  return (
-    <p className="text-xs text-muted-foreground mt-1">
-      Give your dashboard a name to get started.
-    </p>
   );
 }
 
@@ -832,7 +801,7 @@ export default function DashboardListPage() {
   async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!newName.trim()) {
-      setNameError("Name is required");
+      setNameError("Enter a name.");
       return;
     }
     setNameError(null);
@@ -879,7 +848,7 @@ export default function DashboardListPage() {
     if (!renameTarget) return;
     const trimmed = renameValue.trim();
     if (!trimmed) {
-      setRenameError("Name is required");
+      setRenameError("Enter a name.");
       return;
     }
     if (trimmed === renameTarget.name) {
@@ -949,30 +918,31 @@ export default function DashboardListPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
-              <Label htmlFor="dashboard-name">Name</Label>
-              <Input
+              <Field
+                label="Name"
                 id="dashboard-name"
-                value={newName}
-                onChange={(e) => {
-                  setNewName(e.target.value);
-                  if (nameError) setNameError(null);
-                }}
-                placeholder="Dashboard name"
-                className={`mt-2 ${nameError ? "border-destructive" : ""}`}
-                autoFocus
-                aria-invalid={nameError ? "true" : undefined}
-                aria-describedby={
-                  nameError ? "dashboard-name-error" : undefined
-                }
-              />
-              <CreateNameHint
                 error={nameError}
-                duplicate={isDuplicateDashboardName(
-                  newName,
-                  dashboardList ?? [],
-                )}
-                name={newName.trim()}
-              />
+                help={
+                  isDuplicateDashboardName(newName, dashboardList ?? []) ? (
+                    <span className="text-amber-600 dark:text-amber-500">
+                      A dashboard named “{newName.trim()}” already exists. You
+                      can still create another with this name.
+                    </span>
+                  ) : (
+                    "Give your dashboard a name to get started."
+                  )
+                }
+              >
+                <Input
+                  value={newName}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    if (nameError) setNameError(null);
+                  }}
+                  placeholder="Dashboard name"
+                  autoFocus
+                />
+              </Field>
             </div>
             <DialogFooter>
               <Button
@@ -1013,30 +983,17 @@ export default function DashboardListPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
-              <Label htmlFor="dashboard-rename">Name</Label>
-              <Input
-                id="dashboard-rename"
-                value={renameValue}
-                onChange={(e) => {
-                  setRenameValue(e.target.value);
-                  if (renameError) setRenameError(null);
-                }}
-                placeholder="Dashboard name"
-                className={`mt-2 ${renameError ? "border-destructive" : ""}`}
-                autoFocus
-                aria-invalid={renameError ? "true" : undefined}
-                aria-describedby={
-                  renameError ? "dashboard-rename-error" : undefined
-                }
-              />
-              {renameError && (
-                <p
-                  id="dashboard-rename-error"
-                  className="text-xs text-destructive mt-1"
-                >
-                  {renameError}
-                </p>
-              )}
+              <Field label="Name" id="dashboard-rename" error={renameError}>
+                <Input
+                  value={renameValue}
+                  onChange={(e) => {
+                    setRenameValue(e.target.value);
+                    if (renameError) setRenameError(null);
+                  }}
+                  placeholder="Dashboard name"
+                  autoFocus
+                />
+              </Field>
             </div>
             <DialogFooter>
               <Button

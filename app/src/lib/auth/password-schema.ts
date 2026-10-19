@@ -12,4 +12,4 @@ export const newPasswordSchema = z
 
 /** The rule above in words, shown next to every new-password field. Keep in step with the schema. */
 export const PASSWORD_HINT =
-  "At least 8 characters, with a letter and a number.";
+  "Use at least 8 characters, with a letter and a number.";

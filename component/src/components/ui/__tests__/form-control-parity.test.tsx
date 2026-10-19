@@ -4,6 +4,8 @@ import { Input } from "../input";
 import { Textarea } from "../textarea";
 import { Select, SelectTrigger, SelectValue } from "../select";
 import { FieldError } from "../field-error";
+import { Combobox } from "../../composed/combobox";
+import { MultiSelect } from "../../composed/multi-select";
 
 // Epic C (#1127): shared size scale + aria-invalid treatment + FieldError.
 
@@ -30,9 +32,9 @@ describe("shared control size scale (#1127 C1)", () => {
     const { rerender } = render(<Input data-testid="i" size="sm" />);
     expect(screen.getByTestId("i").className).toContain("h-8");
     rerender(<Input data-testid="i" />);
-    expect(screen.getByTestId("i").className).toContain("h-10");
+    expect(screen.getByTestId("i").className).toContain("h-9");
     rerender(<Input data-testid="i" size="lg" />);
-    expect(screen.getByTestId("i").className).toContain("h-12");
+    expect(screen.getByTestId("i").className).toContain("h-10");
   });
 
   it("SelectTrigger: sm/lg map to the shared heights", () => {
@@ -41,11 +43,11 @@ describe("shared control size scale (#1127 C1)", () => {
 
   it("Textarea: sizes scale min-height", () => {
     const { rerender } = render(<Textarea data-testid="t" size="sm" />);
-    expect(screen.getByTestId("t").className).toContain("min-h-[48px]");
+    expect(screen.getByTestId("t").className).toContain("min-h-[56px]");
     rerender(<Textarea data-testid="t" />);
-    expect(screen.getByTestId("t").className).toContain("min-h-[60px]");
+    expect(screen.getByTestId("t").className).toContain("min-h-[72px]");
     rerender(<Textarea data-testid="t" size="lg" />);
-    expect(screen.getByTestId("t").className).toContain("min-h-[80px]");
+    expect(screen.getByTestId("t").className).toContain("min-h-[88px]");
   });
 });
 
@@ -80,5 +82,36 @@ describe("FieldError (#1127 C2)", () => {
   it("renders nothing when there is no message", () => {
     const { container } = render(<FieldError id="f-error" />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("field look is shared and hover never beats error or focus (#2217)", () => {
+  // jsdom computes no cascade, so assert the class names the fix relies on:
+  // the hover rule must not carry the `:enabled` variant (it made it (0,3,0),
+  // out-ranking the (0,2,0) error and focus borders), and the error/focus
+  // states each carry their own `hover:` variant so they win while hovered.
+  it.each([
+    ["Input", () => <Input data-testid="c" />],
+    ["Textarea", () => <Textarea data-testid="c" />],
+    [
+      "SelectTrigger",
+      () => (
+        <Select>
+          <SelectTrigger data-testid="c" />
+        </Select>
+      ),
+    ],
+    ["Combobox", () => <Combobox data-testid="c" options={[]} />],
+    ["MultiSelect", () => <MultiSelect data-testid="c" options={[]} />],
+  ])("%s", (_name, ui) => {
+    render(ui());
+    const cls = screen.getByTestId("c").className;
+    expect(cls).toContain("bg-field");
+    expect(cls).not.toContain("bg-card");
+    expect(cls).toContain("hover:border-input-hover");
+    expect(cls).not.toContain("hover:enabled:");
+    expect(cls).toContain("aria-[invalid=true]:hover:border-destructive");
+    expect(cls).toContain("focus-visible:hover:border-ring");
+    expect(cls).toContain("[@media(pointer:coarse)]:text-base");
   });
 });

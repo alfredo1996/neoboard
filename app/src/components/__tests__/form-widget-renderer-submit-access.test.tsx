@@ -15,7 +15,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Stub component library — only the pieces FormWidgetRenderer imports.
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   ParamSelector: () => <div data-testid="param-selector" />,
   ParamMultiSelector: () => <div data-testid="param-multi-selector" />,
   DatePickerParameter: () => <div data-testid="date-picker" />,

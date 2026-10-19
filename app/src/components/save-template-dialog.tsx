@@ -13,8 +13,8 @@ import {
   Button,
   LoadingButton,
   Input,
-  Label,
   Textarea,
+  Field,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 
@@ -106,44 +106,35 @@ export function SaveTemplateDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="template-name">Name</Label>
+          <Field label="Name" id="template-name">
             <Input
-              id="template-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Template name"
             />
-          </div>
+          </Field>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="template-description">
-              Description{" "}
-              <span className="text-muted-foreground text-xs">(optional)</span>
-            </Label>
+          <Field label="Description" optional id="template-description">
             <Textarea
-              id="template-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What does this template do?"
               rows={2}
             />
-          </div>
+          </Field>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="template-tags">
-              Tags{" "}
-              <span className="text-muted-foreground text-xs">
-                (optional, comma-separated)
-              </span>
-            </Label>
+          <Field
+            label="Tags"
+            optional
+            help="Comma-separated."
+            id="template-tags"
+          >
             <Input
-              id="template-tags"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="e.g. sales, monitoring, kpi"
             />
-          </div>
+          </Field>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>

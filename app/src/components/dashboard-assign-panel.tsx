@@ -22,6 +22,7 @@ import {
   LoadingButton,
   Switch,
   Separator,
+  Field,
 } from "@neoboard/components";
 
 interface DashboardAssignPanelProps {
@@ -80,12 +81,8 @@ export function DashboardAssignPanel({
       <h3 className="text-sm font-semibold">People</h3>
 
       <form onSubmit={handleAssign} className="flex items-end gap-2">
-        <div className="flex-1 space-y-1">
-          <Label htmlFor="assign-email" className="text-xs">
-            Email
-          </Label>
+        <Field label="Email" id="assign-email" className="flex-1">
           <Input
-            id="assign-email"
             type="email"
             placeholder="user@example.com"
             value={email}
@@ -93,16 +90,13 @@ export function DashboardAssignPanel({
             required
             className="h-8 text-sm"
           />
-        </div>
-        <div className="w-28 space-y-1">
-          <Label htmlFor="assign-role" className="text-xs">
-            Role
-          </Label>
+        </Field>
+        <Field label="Role" id="assign-role" className="w-28">
           <Select
             value={role}
             onValueChange={(v) => setRole(v as "viewer" | "editor")}
           >
-            <SelectTrigger id="assign-role" className="h-8 text-sm">
+            <SelectTrigger className="h-8 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -110,7 +104,7 @@ export function DashboardAssignPanel({
               <SelectItem value="editor">Editor</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </Field>
         <LoadingButton
           type="submit"
           size="sm"

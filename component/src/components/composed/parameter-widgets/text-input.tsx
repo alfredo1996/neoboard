@@ -31,6 +31,8 @@ function TextInputParameter({
   className,
   labelledBy,
   id,
+  describedBy,
+  invalid,
   required,
 }: TextInputParameterProps) {
   const inputId = id ?? `param-text-${parameterName}`;
@@ -46,6 +48,8 @@ function TextInputParameter({
           id={inputId}
           aria-labelledby={labelledBy}
           aria-required={required || undefined}
+          aria-describedby={describedBy}
+          aria-invalid={invalid || undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

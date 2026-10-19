@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import {
   Select,
   SelectContent,
@@ -30,8 +30,7 @@ function ColorScaleRow({
 }) {
   return (
     <div className="flex items-end gap-2 rounded-lg border p-3">
-      <div className="space-y-1">
-        <Label className="text-xs">Column</Label>
+      <Field label="Column">
         <Select
           value={scale.column}
           onValueChange={(v) => onChange({ ...scale, column: v })}
@@ -47,17 +46,16 @@ function ColorScaleRow({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Field>
 
-      <div className="space-y-1">
-        <Label className="text-xs">Min Color</Label>
+      <Field label="Min Color">
         <Input
           type="color"
           className="w-[48px] h-9 p-1 cursor-pointer"
           value={scale.minColor}
           onChange={(e) => onChange({ ...scale, minColor: e.target.value })}
         />
-      </div>
+      </Field>
 
       <div
         className="h-9 flex-1 min-w-[60px] rounded-md border"
@@ -66,15 +64,14 @@ function ColorScaleRow({
         }}
       />
 
-      <div className="space-y-1">
-        <Label className="text-xs">Max Color</Label>
+      <Field label="Max Color">
         <Input
           type="color"
           className="w-[48px] h-9 p-1 cursor-pointer"
           value={scale.maxColor}
           onChange={(e) => onChange({ ...scale, maxColor: e.target.value })}
         />
-      </div>
+      </Field>
 
       <Button
         variant="danger"

@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import { FieldError } from "@/components/ui/field-error";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -54,42 +55,34 @@ export interface DynamicConnectionFieldsProps {
  */
 type ChangeHandler = (name: string, value: string | boolean) => void;
 
-/** Field label with its unit and a required-asterisk. */
-function FieldLabel({
+/** Field label text with its unit. Required is the default; Field marks the exception. */
+function FieldLabelText({
   field,
-  id,
-}: Readonly<{ field: DynamicConnectionField; id: string }>) {
+}: Readonly<{ field: DynamicConnectionField }>) {
   return (
-    <Label htmlFor={id} className="text-xs">
+    <>
       {field.label}
       {field.unit && (
         <span className="text-muted-foreground"> ({field.unit})</span>
       )}
-      {field.required && <span className="text-destructive ml-0.5">*</span>}
-    </Label>
+    </>
   );
 }
 
 /** The input control for a non-boolean field (select / password / number / text). */
 function FieldControl({
   field,
-  id,
-  errorId,
   value,
-  error,
   onChange,
 }: Readonly<{
   field: DynamicConnectionField;
-  id: string;
-  errorId: string;
   value: string;
-  error?: string;
   onChange: ChangeHandler;
 }>) {
   if (field.type === "select") {
     return (
       <Select value={value} onValueChange={(v) => onChange(field.name, v)}>
-        <SelectTrigger id={id} aria-label={field.label}>
+        <SelectTrigger aria-label={field.label}>
           <SelectValue placeholder={field.placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -104,14 +97,11 @@ function FieldControl({
   }
 
   const shared = {
-    id,
     value,
     onChange: (e: ChangeEvent<HTMLInputElement>) =>
       onChange(field.name, e.target.value),
     placeholder: field.placeholder,
     required: field.required,
-    "aria-invalid": error ? true : undefined,
-    "aria-describedby": error ? errorId : undefined,
   };
 
   if (field.type === "password") {
@@ -147,38 +137,40 @@ function FieldRow({
   onChange: ChangeHandler;
 }>) {
   const id = `${idPrefix}${field.id ?? field.name}`;
-  const errorId = `${id}-error`;
   const strValue = String(values[field.name] ?? "");
 
-  return (
-    <div className="space-y-1.5">
-      {field.type === "boolean" ? (
+  if (field.type === "boolean") {
+    const errorId = `${id}-error`;
+    return (
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <FieldLabel field={field} id={id} />
+          <Label htmlFor={id}>
+            <FieldLabelText field={field} />
+          </Label>
           <Switch
             id={id}
             checked={Boolean(values[field.name])}
             onCheckedChange={(checked) => onChange(field.name, checked)}
           />
         </div>
-      ) : (
-        <>
-          <FieldLabel field={field} id={id} />
-          <FieldControl
-            field={field}
-            id={id}
-            errorId={errorId}
-            value={strValue}
-            error={error}
-            onChange={onChange}
-          />
-        </>
-      )}
-      {field.description && (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
-      )}
-      <FieldError id={errorId}>{error}</FieldError>
-    </div>
+        {field.description && (
+          <p className="text-xs text-muted-foreground">{field.description}</p>
+        )}
+        <FieldError id={errorId}>{error}</FieldError>
+      </div>
+    );
+  }
+
+  return (
+    <Field
+      id={id}
+      label={<FieldLabelText field={field} />}
+      optional={!field.required}
+      help={field.description}
+      error={error}
+    >
+      <FieldControl field={field} value={strValue} onChange={onChange} />
+    </Field>
   );
 }
 

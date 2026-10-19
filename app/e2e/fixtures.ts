@@ -26,7 +26,7 @@ export const TEST_PG_PORT = process.env.TEST_PG_PORT ?? "5432";
 
 /**
  * The seeded PostgreSQL connection's option in a connection picker, which
- * labels each option `<name> (<connector label>)`, anchored on its name. A bare
+ * shows each option's name with the connector label beside it, anchored on the name. A bare
  * /PostgreSQL/ also matches every PostgreSQL connection another worker created,
  * and strict mode then fails the click (#2071).
  */

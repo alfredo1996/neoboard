@@ -111,6 +111,7 @@ Tailwind: `bg-card`, `border-card-edge` (`hover:border-card-edge-hover`), `shado
 | `--rule-strong` / `--border-strong` | `216 11% 82%` (#CCD0D6)     | `219 11% 25%`           | Emphasised dividers (about 1.5:1: decoration, never a control edge)                                 |
 | `--field`                           | `0 0% 100%`                 | `218 13% 12%` (#1B1E23) | Input and overlay fill                                                                              |
 | `--input`                           | `219 8% 56%` (#868C98)      | `218 9% 43%` (#646B78)  | Field border: 3.29:1 light, 3.38:1 dark on the page, and at least 3:1 on `--side` too (WCAG 1.4.11) |
+| `--input-hover`                     | `218 9% 41%` (#5C6370)      | `218 9% 62%` (#8E95A1)  | Field border on hover: more contrast than `--input`; never `--border-strong`, which is lighter      |
 | `--primary`                         | `220 13% 9%` (graphite)     | near-white              | Buttons, active states                                                                              |
 | `--destructive`                     | `0 72% 45%` (red)           | lifted red              | Delete buttons, error states                                                                        |
 | `--ring`                            | `212 90% 42%` (azure)       | `212 90% 62%`           | Focus rings, active rail, selection (#1553)                                                         |
@@ -245,6 +246,16 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 ---
 
 ## 6. Border & Radius Patterns
+
+### Fields (#2217)
+
+One `<Field label help error optional>` wraps every labelled control (Input, Textarea, Select, Combobox, CreatableCombobox, MultiSelect, PasswordInput) and passes it the `id`, `aria-describedby` and `aria-invalid` through context.
+
+- Label 13 px at weight 500, 6 px above the control; "(optional)" when `optional`, required is the default.
+- Control 36 px (`sm` 32, `lg` 40, matching buttons), flat, 6 px radius, `--input` border that moves to `--input-hover` on hover, azure ring with a 1 px offset, disabled at 50% on `--active`.
+- Text 14 px, 16 px under `(pointer: coarse)` so iPadOS does not zoom on focus.
+- Help 12 px muted. Error 12 px red with an icon, saying what to do ("Enter a name."); it replaces the help while there is one.
+- Select and listbox rows 32 px, highlight `--active` (never the azure accent), the selected row bold with its tick on the left; the combobox underlines the part that matched.
 
 ### Radius
 

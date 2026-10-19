@@ -1,7 +1,9 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { useFieldControl } from "./field";
 import {
+  fieldBaseClasses,
   textareaSizes,
   invalidControlClasses,
   type ControlSize,
@@ -13,11 +15,13 @@ export interface TextareaProps extends React.ComponentProps<"textarea"> {
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, size = "default", ...props }, ref) => {
+  ({ className, size = "default", ...rawProps }, ref) => {
+    const props = useFieldControl(rawProps);
     return (
       <textarea
         className={cn(
-          "flex w-full rounded-md border border-input bg-transparent py-2 text-base shadow-sm placeholder:text-muted-foreground transition-[color,background-color,border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] hover:border-[hsl(var(--border-strong))] focus-visible:outline-none focus-visible:border-[hsl(var(--ring))] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          "flex py-2",
+          fieldBaseClasses,
           invalidControlClasses,
           textareaSizes[size],
           className,

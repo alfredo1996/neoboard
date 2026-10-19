@@ -13,8 +13,14 @@ import {
   CommandItem,
   CommandList,
   filterOnLabel,
+  HighlightMatch,
   toCmdkValue,
 } from "@/components/ui/command";
+import {
+  invalidControlClasses,
+  pickerTriggerClasses,
+} from "@/components/ui/control-sizes";
+import { useFieldControl } from "@/components/ui/field";
 import {
   Popover,
   PopoverContent,
@@ -25,6 +31,8 @@ export interface ComboboxOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Muted text at the row's right edge (e.g. what kind of thing it is); searchable. */
+  hint?: string;
   /** Optional icon rendered before the label */
   icon?: React.ComponentType<{ className?: string }>;
 }
@@ -38,6 +46,9 @@ export interface ComboboxProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
+  id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: React.AriaAttributes["aria-invalid"];
 }
 
 function Combobox({
@@ -49,8 +60,11 @@ function Combobox({
   emptyText = "No option found.",
   className,
   disabled,
+  ...fieldProps
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const controlProps = useFieldControl(fieldProps);
 
   // Radix Dialog's scroll-lock (react-remove-scroll) preventDefaults wheel
   // events over this portaled popover, so the option list can't be wheel-
@@ -71,14 +85,26 @@ function Combobox({
   const selectedOption = options.find((opt) => opt.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="secondary"
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn("w-[200px] justify-between", className)}
+          {...controlProps}
+          className={cn(
+            pickerTriggerClasses,
+            invalidControlClasses,
+            "w-[200px]",
+            className,
+          )}
         >
           {selectedOption ? (
             <span className="flex items-center gap-2 truncate">
@@ -98,7 +124,11 @@ function Combobox({
         style={{ width: "var(--radix-popover-trigger-width)" }}
       >
         <Command filter={filterOnLabel}>
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList ref={listRef}>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
@@ -108,23 +138,36 @@ function Combobox({
                   // Filter on the label so typing the connection name (not the
                   // UUID) finds the item; value stays unique (#1411).
                   value={toCmdkValue(option.value)}
-                  keywords={[option.label]}
+                  keywords={
+                    option.hint ? [option.label, option.hint] : [option.label]
+                  }
                   disabled={option.disabled}
                   onSelect={() => {
                     onChange?.(option.value === value ? "" : option.value);
                     setOpen(false);
+                    setSearch("");
                   }}
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4 shrink-0",
+                      "h-3.5 w-3.5 shrink-0",
                       value === option.value ? "opacity-100" : "opacity-0",
                     )}
                   />
                   {option.icon && (
-                    <option.icon className="mr-2 h-4 w-4 shrink-0 opacity-70" />
+                    <option.icon className="h-4 w-4 shrink-0 opacity-70" />
                   )}
-                  {option.label}
+                  <span
+                    className={cn(value === option.value && "font-semibold")}
+                  >
+                    <HighlightMatch text={option.label} query={search} />
+                  </span>
+                  {option.hint && " "}
+                  {option.hint && (
+                    <span className="ml-auto pl-2 text-xs text-muted-foreground">
+                      {option.hint}
+                    </span>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>

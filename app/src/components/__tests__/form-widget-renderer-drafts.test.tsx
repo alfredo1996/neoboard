@@ -32,7 +32,8 @@ vi.mock("next-auth/react", () => ({
 }));
 
 // TextInputParameter is what the real DebouncedTextInput renders.
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   TextInputParameter: ({
     parameterName,
     value,
@@ -99,7 +100,7 @@ vi.mock("@tanstack/react-query", async () => {
 /* ---------- import under test ---------- */
 import { FormWidgetRenderer } from "../form-widget-renderer";
 
-const REQUIRED = "This field is required";
+const REQUIRED = "Enter a value.";
 
 function textField(parameterName: string, required = true): FormFieldDef {
   return {

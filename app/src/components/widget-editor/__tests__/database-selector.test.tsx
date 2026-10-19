@@ -15,7 +15,8 @@ vi.mock("@/hooks/use-connection-databases", () => ({
 // Track Select onValueChange so we can simulate user selection
 let capturedOnValueChange: ((v: string) => void) | undefined;
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Label: ({
     children,
     ...props
@@ -107,6 +108,17 @@ describe("DatabaseSelector", () => {
     render(<DatabaseSelector {...defaultProps} />);
 
     expect(screen.getByText("No databases available")).toBeInTheDocument();
+  });
+
+  it("marks the database optional: empty means the connection default (#2217)", () => {
+    mockUseConnectionDatabases.mockReturnValue({
+      data: { databases: ["mydb"] },
+      isLoading: false,
+    });
+    render(<DatabaseSelector {...defaultProps} />);
+    expect(screen.getByText("Database").closest("label")).toHaveTextContent(
+      "Database (optional)",
+    );
   });
 
   it("renders Select dropdown with database items", () => {

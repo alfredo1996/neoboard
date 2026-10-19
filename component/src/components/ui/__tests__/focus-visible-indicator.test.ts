@@ -34,7 +34,11 @@ import { resolve } from "node:path";
 const uiDir = resolve(__dirname, "..");
 
 /** Utilities that draw a focus indicator not made of background fill. */
-const INDICATOR = /focus:(ring|outline)|focus-visible:(ring|outline)/;
+const INDICATOR =
+  /focus:(ring|outline)|focus-visible:(ring|outline)|data-\[selected=true\]:ring/;
+
+/** Any focus or cmdk-selection background fill, whatever its token (#2217). */
+const FILL = /(?:focus:|data-\[selected=true\]:)bg-/;
 
 /**
  * Per-OCCURRENCE, not per-file. select.tsx would pass a file-level check
@@ -97,7 +101,7 @@ export function occurrencesRelyingOnFillAlone(
       // The risky shape: kill the native outline, then signal focus with only
       // a background colour.
       if (!text.includes("outline-none")) continue;
-      if (!text.includes("focus:bg-accent")) continue;
+      if (!FILL.test(text)) continue;
       if (!INDICATOR.test(text)) offenders.push(`${file}:${line}`);
     }
   }
@@ -111,8 +115,7 @@ export function riskyOccurrenceCount(): number {
     for (const { text } of classStrings(
       readFileSync(resolve(uiDir, file), "utf8"),
     )) {
-      if (text.includes("outline-none") && text.includes("focus:bg-accent"))
-        n++;
+      if (text.includes("outline-none") && FILL.test(text)) n++;
     }
   }
   return n;
@@ -136,6 +139,23 @@ describe("#1552 — focus must not be signalled by fill alone", () => {
     `;
     expect(occurrencesRelyingOnFillAlone(() => split, ["fixture.tsx"])).toEqual(
       ["fixture.tsx:3"],
+    );
+  });
+
+  it.each(["focus:bg-active", "data-[selected=true]:bg-active"])(
+    "flags %s with no ring, whatever the fill token (#2217)",
+    (fill) => {
+      const src = `const cls = cn("outline-none ${fill}");`;
+      expect(occurrencesRelyingOnFillAlone(() => src, ["fixture.tsx"])).toEqual(
+        ["fixture.tsx:1"],
+      );
+    },
+  );
+
+  it("accepts a cmdk item that carries a selection ring", () => {
+    const ok = `const cls = cn("outline-none data-[selected=true]:bg-active data-[selected=true]:ring-1");`;
+    expect(occurrencesRelyingOnFillAlone(() => ok, ["fixture.tsx"])).toEqual(
+      [],
     );
   });
 

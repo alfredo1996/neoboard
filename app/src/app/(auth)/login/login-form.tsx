@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Input,
-  Label,
   Alert,
   AlertDescription,
   LoadingButton,
   PasswordInput,
+  Field,
 } from "@neoboard/components";
 import { PRODUCT_PITCH } from "@/lib/branding";
 import { AuthCard } from "../auth-card";
@@ -116,28 +116,24 @@ export function LoginForm({
           </Alert>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+        <Field label="Email" id="email">
           <Input
-            id="email"
             name="email"
             type="email"
             autoComplete="email"
             required
             placeholder="you@example.com"
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+        <Field label="Password" id="password">
           <PasswordInput
-            id="password"
             name="password"
             autoComplete="current-password"
             required
             minLength={6}
           />
-        </div>
+        </Field>
 
         <LoadingButton
           type="submit"

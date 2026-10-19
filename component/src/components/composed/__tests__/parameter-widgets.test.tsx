@@ -18,6 +18,7 @@ import {
   NumberRangeSlider,
   RELATIVE_DATE_PRESETS,
 } from "../parameter-widgets";
+import { Field } from "../../ui/field";
 import { PARAM_SELECTOR_EMPTY_SENTINEL } from "../parameter-widgets/param-selector";
 
 // ─── TextInputParameter ───────────────────────────────────────────────────────
@@ -1645,6 +1646,31 @@ describe("parameter widgets with an external label (#1410)", () => {
     ],
   ];
 
+  // A form field's error text must reach the control (#2217): each widget puts
+  // the caller's `describedBy` on the control that carries `id`, and
+  // `aria-invalid` too, except the relative picker, whose control is a fieldset.
+  it.each(cases.map(([name]) => name))(
+    "%s links the caller's error to its control",
+    (name) => {
+      const make = cases.find(([n]) => n === name)![1];
+      render(
+        make({
+          ...external,
+          describedBy: "err-1",
+          invalid: true,
+        } as typeof external),
+      );
+      const control = document.getElementById("ctl");
+      expect(control).toHaveAttribute(
+        "aria-describedby",
+        expect.stringContaining("err-1"),
+      );
+      expect(control?.getAttribute("aria-invalid") ?? null).toBe(
+        name === "DateRelativePicker" ? null : "true",
+      );
+    },
+  );
+
   // The control's own accessible name, per widget: a label that dropped its
   // id/htmlFor would still print the words but name nothing (#2213).
   it.each([
@@ -1976,4 +2002,119 @@ describe("parameter widgets with an external label (#1410)", () => {
     render(React.cloneElement(element, { required: undefined }));
     expect(screen.getByRole(role)).not.toHaveAttribute("aria-required");
   });
+});
+
+// A form widget sits under a real <Field> AND is handed the same ids as props.
+// Each id must still appear once and the error be announced once (#2217).
+describe("parameter widgets under a real Field", () => {
+  const noop = vi.fn();
+  const ext = {
+    id: "f",
+    labelledBy: "f-label",
+    describedBy: "f-error",
+    invalid: true,
+  };
+  it.each([
+    [
+      "TextInputParameter",
+      <TextInputParameter
+        key="t"
+        parameterName="p"
+        value=""
+        onChange={noop}
+        {...ext}
+      />,
+    ],
+    [
+      "ParamSelector",
+      <ParamSelector
+        key="s"
+        parameterName="p"
+        options={[{ label: "a", value: "a" }]}
+        value=""
+        onChange={noop}
+        {...ext}
+      />,
+    ],
+    [
+      "NumberRangeSlider",
+      <NumberRangeSlider
+        key="n"
+        parameterName="p"
+        min={0}
+        max={9}
+        value={null}
+        onChange={noop}
+        onClear={noop}
+        {...ext}
+      />,
+    ],
+  ])("%s has one #f and one description", (_name, widget) => {
+    const { container } = render(
+      <Field id="f" label="Score" error="Enter a score.">
+        {widget}
+      </Field>,
+    );
+    const ids = Array.from(container.querySelectorAll("[id]")).map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const el of container.querySelectorAll("[aria-describedby]")) {
+      const tokens = el.getAttribute("aria-describedby")!.split(" ");
+      expect(new Set(tokens).size).toBe(tokens.length);
+    }
+  });
+
+  it.each([
+    [true, "f-label f-optional"],
+    [false, "f-label"],
+  ])("composed names stay plain (optional=%s)", (optional, labelledBy) => {
+    render(
+      <Field id="f" label="Score" optional={optional}>
+        <NumberRangeSlider
+          parameterName="p"
+          min={0}
+          max={9}
+          value={[1, 2]}
+          onChange={noop}
+          onClear={noop}
+          id="f"
+          labelledBy={labelledBy}
+        />
+      </Field>,
+    );
+    expect(
+      screen.getByRole("slider", { name: /^Score minimum$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("spinbutton", { name: /^Score minimum$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Clear Score$/ }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    [true, "f-label f-optional", "Score (optional)"],
+    [false, "f-label", "Score"],
+  ])(
+    "names a text input (optional=%s), and its Clear button plainly",
+    (optional, labelledBy, ownName) => {
+      render(
+        <Field id="f" label="Score" optional={optional}>
+          <TextInputParameter
+            parameterName="p"
+            value="x"
+            onChange={noop}
+            id="f"
+            labelledBy={labelledBy}
+          />
+        </Field>,
+      );
+      expect(
+        screen.getByRole("textbox", { name: ownName }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Clear Score" }),
+      ).toBeInTheDocument();
+    },
+  );
 });

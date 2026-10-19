@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Plus, Trash2, GripVertical, Check } from "lucide-react";
-import { Button, Input, Label, Badge } from "@neoboard/components";
+import { Button, Input, Label, Badge, Field } from "@neoboard/components";
 import {
   Select,
   SelectContent,
@@ -164,10 +164,7 @@ function ColumnSelect({
   onValueChange: (v: string) => void;
 }>) {
   return (
-    <div className="space-y-1">
-      <Label htmlFor={id} className="text-xs">
-        {label}
-      </Label>
+    <Field label={<>{label}</>} id={id}>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger id={id} className="w-[120px] h-8 text-xs">
           <SelectValue />
@@ -180,7 +177,7 @@ function ColumnSelect({
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }
 
@@ -234,10 +231,7 @@ function TransformCard({
               columns={columns}
               onValueChange={(v) => onChange({ ...transform, column: v })}
             />
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-operator`} className="text-xs">
-                Operator
-              </Label>
+            <Field label="Operator" id={`${id}-operator`}>
               <Select
                 value={transform.operator}
                 onValueChange={(v) =>
@@ -265,11 +259,8 @@ function TransformCard({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-value`} className="text-xs">
-                Value
-              </Label>
+            </Field>
+            <Field label="Value" id={`${id}-value`}>
               <ValueOrParamInput
                 id={`${id}-value`}
                 parameterRef={transform.paramRef}
@@ -281,7 +272,7 @@ function TransformCard({
                 parameterSuggestions={parameterSuggestions ?? []}
                 placeholder="value or param"
               />
-            </div>
+            </Field>
           </>
         )}
 
@@ -294,10 +285,7 @@ function TransformCard({
               columns={columns}
               onValueChange={(v) => onChange({ ...transform, column: v })}
             />
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-direction`} className="text-xs">
-                Direction
-              </Label>
+            <Field label="Direction" id={`${id}-direction`}>
               <Select
                 value={transform.direction}
                 onValueChange={(v) =>
@@ -315,7 +303,7 @@ function TransformCard({
                   <SelectItem value="desc">Descending</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
           </>
         )}
 
@@ -415,10 +403,7 @@ function TransformCard({
 
         {transform.type === "calculatedColumn" && (
           <>
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-name`} className="text-xs">
-                Column Name
-              </Label>
+            <Field label="Column Name" id={`${id}-name`}>
               <Input
                 id={`${id}-name`}
                 className="w-[120px] h-8 text-xs"
@@ -427,11 +412,12 @@ function TransformCard({
                   onChange({ ...transform, name: e.target.value })
                 }
               />
-            </div>
-            <div className="space-y-1 flex-1">
-              <Label htmlFor={`${id}-expression`} className="text-xs">
-                Expression (left-to-right, +&minus;*/)
-              </Label>
+            </Field>
+            <Field
+              label="Expression (left-to-right, +&minus;*/)"
+              id={`${id}-expression`}
+              className="flex-1"
+            >
               <Input
                 id={`${id}-expression`}
                 className="h-8 text-xs"
@@ -441,28 +427,26 @@ function TransformCard({
                 }
                 placeholder="e.g. salary * 0.1 or col + $param_rate"
               />
-            </div>
+            </Field>
           </>
         )}
 
         {transform.type === "renameColumns" && (
-          <div className="space-y-1 flex-1">
-            <Label htmlFor={`${id}-mapping`} className="text-xs">
-              Mappings (old=new, comma-separated)
-            </Label>
+          <Field
+            label="Mappings (old=new, comma-separated)"
+            id={`${id}-mapping`}
+            className="flex-1"
+          >
             <MappingInput
               id={`${id}-mapping`}
               mapping={transform.mapping}
               onChange={(mapping) => onChange({ ...transform, mapping })}
             />
-          </div>
+          </Field>
         )}
 
         {transform.type === "limit" && (
-          <div className="space-y-1">
-            <Label htmlFor={`${id}-count`} className="text-xs">
-              Max Rows
-            </Label>
+          <Field label="Max Rows" id={`${id}-count`}>
             <Input
               id={`${id}-count`}
               type="number"
@@ -478,7 +462,7 @@ function TransformCard({
                 });
               }}
             />
-          </div>
+          </Field>
         )}
       </div>
     </div>

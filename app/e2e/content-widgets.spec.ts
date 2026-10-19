@@ -166,10 +166,10 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
     await dialog.getByRole("button", { name: "Security" }).click();
     await dialog.locator("#sandbox").fill("allow-scripts allow-same-origin");
 
-    await expect(dialog.locator("#sandbox-validation")).toContainText(
+    await expect(dialog.locator("#sandbox-help")).toContainText(
       '"allow-same-origin" is refused',
     );
-    await expect(dialog.locator("#sandbox-validation")).toContainText(
+    await expect(dialog.locator("#sandbox-help")).toContainText(
       'Applied: "allow-scripts"',
     );
     await expect(

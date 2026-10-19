@@ -29,7 +29,8 @@ vi.mock("@dnd-kit/utilities", () => ({
   CSS: { Transform: { toString: () => "" } },
 }));
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Accordion: ({
     children,
   }: React.PropsWithChildren<{
@@ -329,6 +330,25 @@ describe("FormFieldsEditor", () => {
     expect(placeholder).toMatch(/value and label/);
     expect(placeholder).not.toMatch(/\b(SELECT|FROM|MATCH|RETURN)\b/);
   });
+
+  // The renderer falls back to the parameter name, so only that is required.
+  it.each(["Label", "Placeholder"])(
+    "marks %s optional in a text field (#2217)",
+    (name) => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Title",
+          parameterName: "title",
+          parameterType: "text",
+          required: true,
+        },
+      ];
+      render(<FormFieldsEditor />);
+      expect(screen.getByLabelText(`${name} (optional)`)).toBeInTheDocument();
+      expect(screen.getByLabelText("Parameter Name")).toBeInTheDocument();
+    },
+  );
 
   it("shows param reference hint in field content", () => {
     mockFormFields = [

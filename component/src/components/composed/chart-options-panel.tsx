@@ -4,6 +4,7 @@ import type { ChartOptionDef } from "./chart-options-schema";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -52,6 +53,7 @@ function OptionLabel({ option }: { option: ChartOptionDef }) {
   );
 }
 
+// No Field here carries "(optional)": the chart-options panel is exempt (owner, #2217, 2026-10-19).
 function OptionField({
   option,
   value,
@@ -82,18 +84,12 @@ function OptionField({
 
     case "select":
       return (
-        <div className="space-y-1.5">
-          <OptionLabel option={option} />
+        <Field id={option.key} label={option.label} help={option.description}>
           <Select
             value={String(value ?? option.default)}
             onValueChange={(v) => onChange(option.key, v)}
           >
-            <SelectTrigger
-              id={option.key}
-              aria-describedby={
-                option.description ? `${option.key}-desc` : undefined
-              }
-            >
+            <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -104,25 +100,20 @@ function OptionField({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </Field>
       );
 
     case "column-multi-select": {
       // Fall back to text input when columns are not yet available (no preview query)
       if (!columns?.length) {
         return (
-          <div className="space-y-1.5">
-            <OptionLabel option={option} />
+          <Field id={option.key} label={option.label} help={option.description}>
             <Input
-              id={option.key}
-              aria-describedby={
-                option.description ? `${option.key}-desc` : undefined
-              }
               value={String(value ?? option.default ?? "")}
               onChange={(e) => onChange(option.key, e.target.value)}
               placeholder="Run a preview query to select columns"
             />
-          </div>
+          </Field>
         );
       }
       const csv = String(value ?? option.default ?? "");
@@ -134,8 +125,7 @@ function OptionField({
         : [];
       const multiOptions = columns.map((col) => ({ value: col, label: col }));
       return (
-        <div className="space-y-1.5">
-          <OptionLabel option={option} />
+        <Field id={option.key} label={option.label} help={option.description}>
           <MultiSelect
             options={multiOptions}
             value={selected}
@@ -143,7 +133,7 @@ function OptionField({
             placeholder="Select columns…"
             className="w-full"
           />
-        </div>
+        </Field>
       );
     }
 
@@ -151,72 +141,51 @@ function OptionField({
       // Multiline string options (e.g. markdown content) — a single-line
       // Input strips newlines (#1049).
       return (
-        <div className="space-y-1.5">
-          <OptionLabel option={option} />
+        <Field id={option.key} label={option.label} help={option.description}>
           <Textarea
-            id={option.key}
-            aria-describedby={
-              option.description ? `${option.key}-desc` : undefined
-            }
             value={String(value ?? option.default ?? "")}
             onChange={(e) => onChange(option.key, e.target.value)}
             placeholder={option.label}
             rows={8}
             className="font-mono text-xs"
           />
-        </div>
+        </Field>
       );
 
     case "text": {
       const textValue = String(value ?? option.default ?? "");
       const validation = option.validate?.(textValue) ?? null;
+      const isError = validation?.level === "error";
+      // A warning does not make the field invalid: it joins the help text,
+      // which the control's aria-describedby already points at (#1283 2b).
+      const help = validation && !isError && (
+        <>
+          {option.description}
+          <span className="block text-[hsl(var(--warning))]">
+            {validation.message}
+          </span>
+        </>
+      );
       return (
-        <div className="space-y-1.5">
-          <OptionLabel option={option} />
+        <Field
+          id={option.key}
+          label={option.label}
+          help={help || option.description}
+          error={isError ? validation.message : undefined}
+        >
           <Input
-            id={option.key}
-            // #1283 item 2b: aria-invalid had nothing to point at — the
-            // validation message sat in an unreferenced <p>. Link both the
-            // description and the message; the attribute takes an id list.
-            aria-describedby={
-              [
-                option.description ? `${option.key}-desc` : null,
-                validation ? `${option.key}-validation` : null,
-              ]
-                .filter(Boolean)
-                .join(" ") || undefined
-            }
             value={textValue}
             onChange={(e) => onChange(option.key, e.target.value)}
             placeholder={option.label}
-            aria-invalid={validation?.level === "error" ? true : undefined}
           />
-          {validation && (
-            <p
-              id={`${option.key}-validation`}
-              role={validation.level === "error" ? "alert" : undefined}
-              className={
-                validation.level === "error"
-                  ? "text-xs text-destructive"
-                  : "text-xs text-[hsl(var(--warning))]"
-              }
-            >
-              {validation.message}
-            </p>
-          )}
-        </div>
+        </Field>
       );
     }
 
     case "number":
       return (
-        <div className="space-y-1.5">
-          <OptionLabel option={option} />
+        <Field id={option.key} label={option.label} help={option.description}>
           <Input
-            id={option.key}
-            aria-describedby={
-              option.description ? `${option.key}-desc` : undefined
-            }
             type="number"
             value={String(value ?? option.default ?? 0)}
             onChange={(e) => {
@@ -226,7 +195,7 @@ function OptionField({
               onChange(option.key, Number(e.target.value));
             }}
           />
-        </div>
+        </Field>
       );
 
     default:

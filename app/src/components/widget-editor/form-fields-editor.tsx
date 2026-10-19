@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  Field,
 } from "@neoboard/components";
 import {
   DndContext,
@@ -60,6 +61,8 @@ interface LabeledInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
+  help?: React.ReactNode;
+  optional?: boolean;
 }
 
 function LabeledInput({
@@ -68,10 +71,11 @@ function LabeledInput({
   onChange,
   placeholder,
   type = "text",
+  help,
+  optional,
 }: LabeledInputProps) {
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
+    <Field label={label} help={help} optional={optional}>
       <Input
         type={type}
         value={value}
@@ -79,7 +83,7 @@ function LabeledInput({
         placeholder={placeholder}
         className="h-7 text-xs"
       />
-    </div>
+    </Field>
   );
 }
 
@@ -159,37 +163,37 @@ function SortableFieldItem({
         {/* Label */}
         <LabeledInput
           label="Label"
+          optional
           value={field.label}
           onChange={(v) => onUpdate(field.id, { label: v })}
           placeholder="e.g. Movie Title"
         />
 
         {/* Parameter Name */}
-        <div className="space-y-1">
-          <LabeledInput
-            label="Parameter Name"
-            value={field.parameterName}
-            onChange={(v) => onUpdate(field.id, { parameterName: v })}
-            placeholder="e.g. title"
-          />
-          <p className="text-xs text-muted-foreground">
-            Use{" "}
-            <code className="font-mono bg-muted px-0.5 rounded">
-              $param_{field.parameterName || "…"}
-            </code>{" "}
-            in your query
-          </p>
-          {hasDuplicateName && field.parameterName && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              Duplicate parameter name — another field uses the same name. The
-              last value will overwrite earlier ones on submit.
-            </p>
-          )}
-        </div>
+        <LabeledInput
+          label="Parameter Name"
+          value={field.parameterName}
+          onChange={(v) => onUpdate(field.id, { parameterName: v })}
+          placeholder="e.g. title"
+          help={
+            <>
+              Use{" "}
+              <code className="font-mono bg-muted px-0.5 rounded">
+                $param_{field.parameterName || "…"}
+              </code>{" "}
+              in your query
+              {hasDuplicateName && field.parameterName && (
+                <span className="block text-amber-600 dark:text-amber-400">
+                  Duplicate parameter name — another field uses the same name.
+                  The last value will overwrite earlier ones on submit.
+                </span>
+              )}
+            </>
+          }
+        />
 
         {/* Input Type */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Input Type</Label>
+        <Field label="Input Type">
           <Select
             value={field.parameterType}
             onValueChange={(v) =>
@@ -212,12 +216,14 @@ function SortableFieldItem({
               <SelectItem value="cascading-select">Cascading Select</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </Field>
 
         {/* Static options (for select only) */}
         {field.parameterType === "select" && (
           <LabeledInput
-            label="Static Options (comma-separated)"
+            label="Static Options"
+            optional
+            help="Comma-separated. Used instead of the options query."
             value={field.staticOptions ?? ""}
             onChange={(v) => onUpdate(field.id, { staticOptions: v })}
             placeholder="e.g. low,medium,high"
@@ -226,12 +232,15 @@ function SortableFieldItem({
 
         {/* Seed query (for select/multi-select/cascading-select) */}
         {needsSeedQuery(field.parameterType) && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              Options Query{" "}
-              {field.parameterType === "select" &&
-                "(ignored if static options set)"}
-            </Label>
+          <Field
+            label="Options Query"
+            optional
+            help={
+              field.parameterType === "select"
+                ? "Ignored if static options are set."
+                : undefined
+            }
+          >
             <Textarea
               value={field.seedQuery ?? ""}
               onChange={(e) =>
@@ -241,7 +250,7 @@ function SortableFieldItem({
               rows={3}
               className="text-xs font-mono"
             />
-          </div>
+          </Field>
         )}
 
         {/* Parent param (for cascading-select) */}
@@ -284,16 +293,16 @@ function SortableFieldItem({
         ) && (
           <LabeledInput
             label="Placeholder"
+            optional
             value={field.placeholder ?? ""}
             onChange={(v) => onUpdate(field.id, { placeholder: v })}
-            placeholder="Optional placeholder text"
+            placeholder="Text shown while empty"
           />
         )}
 
         {/* Validation Type (text inputs only) */}
         {field.parameterType === "text" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">Validation</Label>
+          <Field label="Validation">
             <Select
               value={field.validationType ?? "text"}
               onValueChange={(v) =>
@@ -312,7 +321,7 @@ function SortableFieldItem({
                 <SelectItem value="date">Date</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </Field>
         )}
 
         {/* Required toggle */}

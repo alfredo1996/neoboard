@@ -9,12 +9,12 @@ import { PRODUCT_PITCH } from "@/lib/branding";
 import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 import {
   Input,
-  Label,
   Alert,
   AlertDescription,
   LoadingButton,
   PasswordInput,
   Spinner,
+  Field,
 } from "@neoboard/components";
 import { AuthCard } from "../auth-card";
 
@@ -54,7 +54,7 @@ export default function SignupPage() {
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("Enter the same password in both fields.");
       setLoading(false);
       return;
     }
@@ -145,66 +145,52 @@ export default function SignupPage() {
           </Alert>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="name">Name</Label>
+        <Field label="Name" id="name">
           <Input
-            id="name"
             name="name"
             type="text"
             autoComplete="name"
             required
             placeholder="Your name"
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+        <Field label="Email" id="email">
           <Input
-            id="email"
             name="email"
             type="email"
             autoComplete="email"
             required
             placeholder="you@example.com"
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+        <Field label="Password" id="password" help={PASSWORD_HINT}>
           <PasswordInput
-            id="password"
-            aria-describedby="password-hint"
             name="password"
             autoComplete="new-password"
             required
             minLength={6}
           />
-          <p id="password-hint" className="text-xs text-muted-foreground">
-            {PASSWORD_HINT}
-          </p>
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm password</Label>
+        <Field label="Confirm password" id="confirmPassword">
           <PasswordInput
-            id="confirmPassword"
             name="confirmPassword"
             autoComplete="new-password"
             required
             minLength={6}
           />
-        </div>
+        </Field>
 
         {bootstrapRequired && (
-          <div className="space-y-2">
-            <Label htmlFor="bootstrapToken">Bootstrap token</Label>
+          <Field label="Bootstrap token" id="bootstrapToken">
             <PasswordInput
-              id="bootstrapToken"
               name="bootstrapToken"
               required
               placeholder="Enter ADMIN_BOOTSTRAP_TOKEN from .env"
             />
-          </div>
+          </Field>
         )}
 
         <LoadingButton

@@ -82,6 +82,8 @@ function DateRangeParameter({
   className,
   labelledBy,
   id,
+  describedBy,
+  invalid,
 }: DateRangeParameterProps) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-daterange-label-${parameterName}`;
@@ -117,6 +119,8 @@ function DateRangeParameter({
               id={id}
               variant="secondary"
               aria-labelledby={labelId}
+              aria-describedby={describedBy}
+              aria-invalid={invalid || undefined}
               className={cn(
                 "flex-1 justify-start text-left font-normal",
                 !hasValue && "text-muted-foreground",

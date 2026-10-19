@@ -174,12 +174,12 @@ describe("connectionFormErrors", () => {
     );
     expect(errors).toEqual({
       own: {
-        name: "Name is required",
-        maxRows: "Max Rows per Query must be between 100 and 100000",
+        name: "Enter a name for the connection.",
+        maxRows: "Enter a whole number from 100 to 100000.",
       },
       config: {
         endpoint: expect.stringContaining("acme:"),
-        apiToken: "API Token is required",
+        apiToken: "Enter the API token.",
         pageSize: "Page Size must be at most 500",
       },
     });
@@ -201,7 +201,54 @@ describe("connectionFormErrors", () => {
       { ...valid, maxRows: "150.5" },
       "create",
     );
-    expect(errors.own.maxRows).toMatch(/between 100 and 100000/);
+    expect(errors.own.maxRows).toBe("Enter a whole number from 100 to 100000.");
+  });
+
+  it("says what to enter when the URI is not a URI at all (#2217)", () => {
+    const errors = connectionFormErrors(
+      fixtureDescriptor,
+      { ...valid, config: { ...valid.config, endpoint: "not a uri" } },
+      "create",
+    );
+    expect(errors.config.endpoint).toBe("Enter a URI like acme://host/book.");
+  });
+
+  // Only plain Title-case words drop to lower case; acronyms and brand
+  // spellings in a connector's labels stay as written (#2217).
+  it.each([
+    ["Username", "Enter the username."],
+    ["API Token", "Enter the API token."],
+    ["Connection URI", "Enter the connection URI."],
+    ["OAuth Client ID", "Enter the OAuth client ID."],
+    ["Neo4j Host", "Enter the Neo4j host."],
+  ])("asks for %j as %j", (label, expected) => {
+    const descriptor = {
+      ...fixtureDescriptor,
+      fields: fixtureDescriptor.fields.map((f) =>
+        f.key === "apiToken" ? { ...f, label } : f,
+      ),
+    };
+    const errors = connectionFormErrors(
+      descriptor,
+      { ...valid, config: { endpoint: "acme://host/book" } },
+      "create",
+    );
+    expect(errors.config.apiToken).toBe(expected);
+  });
+
+  it("falls back to a generic URI example when the field has no placeholder", () => {
+    const descriptor = {
+      ...fixtureDescriptor,
+      fields: fixtureDescriptor.fields.map((f) =>
+        f.key === "endpoint" ? { ...f, placeholder: undefined } : f,
+      ),
+    };
+    const errors = connectionFormErrors(
+      descriptor,
+      { ...valid, config: { ...valid.config, endpoint: "not a uri" } },
+      "create",
+    );
+    expect(errors.config.endpoint).toBe("Enter a URI like scheme://host:port.");
   });
 
   it("starts from an empty form", () => {

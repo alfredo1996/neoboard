@@ -1,7 +1,7 @@
 "use client";
 
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
-import { Checkbox, Input, Label } from "@neoboard/components";
+import { Checkbox, Input, Label, Field } from "@neoboard/components";
 
 export function AdvancedCachingSection() {
   const enableCache = useWidgetEditorStore((s) => s.enableCache);
@@ -25,12 +25,13 @@ export function AdvancedCachingSection() {
         </Label>
       </div>
       {enableCache && (
-        <div className="pl-6 space-y-1.5">
-          <Label htmlFor="cache-ttl" className="text-sm">
-            Cache timeout (minutes)
-          </Label>
+        <Field
+          label="Cache timeout (minutes)"
+          id="cache-ttl"
+          className="pl-6"
+          help={`Results are reused for up to ${cacheTtlMinutes} minute${cacheTtlMinutes === 1 ? "" : "s"} before re-querying.`}
+        >
           <Input
-            id="cache-ttl"
             type="number"
             min={1}
             max={1440}
@@ -43,11 +44,7 @@ export function AdvancedCachingSection() {
             }}
             className="w-24"
           />
-          <p className="text-xs text-muted-foreground">
-            Results are reused for up to {cacheTtlMinutes} minute
-            {cacheTtlMinutes !== 1 ? "s" : ""} before re-querying.
-          </p>
-        </div>
+        </Field>
       )}
     </div>
   );

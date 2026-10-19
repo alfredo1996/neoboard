@@ -8,12 +8,27 @@
  */
 export interface ExternalLabelProps {
   /**
-   * Id of the caller's label. The widget then renders no label of its own and
+   * Id of the caller's label, optionally followed by space-separated ids that
+   * only the control's own name includes (such as "(optional)"). The widget then renders no label of its own and
    * names its control from this one.
    */
   labelledBy?: string;
   /** Id for the widget's control, so the caller's label `htmlFor` resolves to it. */
   id?: string;
+  /** Id of the caller's error or help text; joined to the control's own. */
+  describedBy?: string;
+  /** The caller's error is showing: sets `aria-invalid` on the control. */
+  invalid?: boolean;
+}
+
+/** Joins the ids a control is described by, or `undefined` when there are none. */
+export function joinIds(...ids: (string | undefined)[]): string | undefined {
+  return ids.filter(Boolean).join(" ") || undefined;
+}
+
+/** The label's own id out of a `labelledBy` list, without the extra ids after it. */
+export function labelIdOf(labelledBy: string): string {
+  return labelledBy.split(" ")[0];
 }
 
 /**
@@ -29,9 +44,12 @@ export function qualifiedName(
   qualifierFirst = false,
 ): { "aria-label": string } | { "aria-labelledby": string } {
   if (!labelledBy) return { "aria-label": fallback };
+  // `labelledBy` may list more ids after the label's own (the "(optional)"
+  // marker, #2217); a composed name takes the label alone.
+  const labelId = labelIdOf(labelledBy);
   return {
     "aria-labelledby": qualifierFirst
-      ? `${qualifierId} ${labelledBy}`
-      : `${labelledBy} ${qualifierId}`,
+      ? `${qualifierId} ${labelId}`
+      : `${labelId} ${qualifierId}`,
   };
 }

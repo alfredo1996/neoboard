@@ -36,6 +36,8 @@ function DatePickerParameter({
   className,
   labelledBy,
   id,
+  describedBy,
+  invalid,
 }: DatePickerParameterProps) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-date-label-${parameterName}`;
@@ -58,6 +60,8 @@ function DatePickerParameter({
               id={id}
               variant="secondary"
               aria-labelledby={labelId}
+              aria-describedby={describedBy}
+              aria-invalid={invalid || undefined}
               className={cn(
                 "flex-1 justify-start text-left font-normal",
                 !selected && "text-muted-foreground",
