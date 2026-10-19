@@ -150,4 +150,17 @@ describe("Combobox — filters on the visible label (#1411)", () => {
     await user.keyboard("{ArrowDown}{Enter}");
     expect(onChange).toHaveBeenCalledWith("NY ");
   });
+
+  it("shows an option's hint right-aligned and muted, apart from its label (#2217)", async () => {
+    const user = userEvent.setup();
+    render(
+      <Combobox
+        options={[{ value: "m", label: "Movies Graph", hint: "Store A" }]}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    const hint = screen.getByText("Store A");
+    expect(hint).toHaveClass("ml-auto", "text-muted-foreground");
+    expect(screen.getByRole("option")).toHaveTextContent("Movies GraphStore A");
+  });
 });

@@ -14,6 +14,15 @@ export interface ExternalLabelProps {
   labelledBy?: string;
   /** Id for the widget's control, so the caller's label `htmlFor` resolves to it. */
   id?: string;
+  /** Id of the caller's error or help text; joined to the control's own. */
+  describedBy?: string;
+  /** The caller's error is showing: sets `aria-invalid` on the control. */
+  invalid?: boolean;
+}
+
+/** Joins the ids a control is described by, or `undefined` when there are none. */
+export function joinIds(...ids: (string | undefined)[]): string | undefined {
+  return ids.filter(Boolean).join(" ") || undefined;
 }
 
 /**

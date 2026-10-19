@@ -98,10 +98,10 @@ describe("ConnectorConfigForm — create", () => {
     render(<Harness mode="create" />);
     openAdvanced();
     for (const id of ["conn-name", "conn-endpoint", "conn-api-token"]) {
-      expect(labelOf(id), id).toHaveTextContent("*");
+      expect(labelOf(id), id).not.toHaveTextContent("(optional)");
     }
     for (const id of ["conn-region", "conn-page-size", "conn-signing-secret"]) {
-      expect(labelOf(id), id).not.toHaveTextContent("*");
+      expect(labelOf(id), id).toHaveTextContent("(optional)");
     }
   });
 
@@ -240,9 +240,9 @@ describe("ConnectorConfigForm — edit (the same component)", () => {
         "placeholder",
         "Leave blank to keep existing",
       );
-      expect(labelOf(id), id).not.toHaveTextContent("*");
+      expect(labelOf(id), id).toHaveTextContent("(optional)");
     }
     // Still required of a NEW connection — see the create suite.
-    expect(labelOf("edit-endpoint")).toHaveTextContent("*");
+    expect(labelOf("edit-endpoint")).not.toHaveTextContent("(optional)");
   });
 });

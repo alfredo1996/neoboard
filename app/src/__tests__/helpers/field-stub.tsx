@@ -4,7 +4,8 @@ import * as React from "react";
  * Stand-in for `Field` in the tests that replace `@neoboard/components` with
  * hand-written stubs (#2217). Those stubs ignore React context, so this one
  * hands the id and the aria attributes straight to each child element instead
- * of through the context the real `Field` uses.
+ * of through the context the real `Field` uses, merging with the child's own
+ * props as `useFieldControl` does. A child that drops them fails getByLabelText.
  */
 export function FieldStub({
   label,
@@ -30,19 +31,23 @@ export function FieldStub({
   else if (help) describedBy = `${controlId}-help`;
   return (
     <div className={className}>
-      <label htmlFor={controlId}>
+      <label id={`${controlId}-label`} htmlFor={controlId}>
         {label}
         {optional && " (optional)"}
       </label>
-      {React.Children.map(children, (child) =>
-        React.isValidElement<Record<string, unknown>>(child)
-          ? React.cloneElement(child, {
-              id: child.props.id ?? controlId,
-              "aria-describedby": describedBy,
-              "aria-invalid": error ? true : undefined,
-            })
-          : child,
-      )}
+      {React.Children.map(children, (child) => {
+        if (!React.isValidElement<Record<string, unknown>>(child)) return child;
+        // Same rules as the real `useFieldControl`: the control's own id and
+        // aria-invalid win, and its aria-describedby is joined, not replaced.
+        const own = child.props["aria-describedby"] as string | undefined;
+        return React.cloneElement(child, {
+          id: child.props.id ?? controlId,
+          "aria-describedby":
+            [own, describedBy].filter(Boolean).join(" ") || undefined,
+          "aria-invalid":
+            child.props["aria-invalid"] ?? (error ? true : undefined),
+        });
+      })}
       {error ? (
         <p id={`${controlId}-error`} role="alert">
           {error}

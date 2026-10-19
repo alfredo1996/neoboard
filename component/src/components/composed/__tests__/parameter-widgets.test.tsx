@@ -1645,6 +1645,31 @@ describe("parameter widgets with an external label (#1410)", () => {
     ],
   ];
 
+  // A form field's error text must reach the control (#2217): each widget puts
+  // the caller's `describedBy` on the control that carries `id`, and
+  // `aria-invalid` too, except the relative picker, whose control is a fieldset.
+  it.each(cases.map(([name]) => name))(
+    "%s links the caller's error to its control",
+    (name) => {
+      const make = cases.find(([n]) => n === name)![1];
+      render(
+        make({
+          ...external,
+          describedBy: "err-1",
+          invalid: true,
+        } as typeof external),
+      );
+      const control = document.getElementById("ctl");
+      expect(control).toHaveAttribute(
+        "aria-describedby",
+        expect.stringContaining("err-1"),
+      );
+      expect(control?.getAttribute("aria-invalid") ?? null).toBe(
+        name === "DateRelativePicker" ? null : "true",
+      );
+    },
+  );
+
   // The control's own accessible name, per widget: a label that dropped its
   // id/htmlFor would still print the words but name nothing (#2213).
   it.each([

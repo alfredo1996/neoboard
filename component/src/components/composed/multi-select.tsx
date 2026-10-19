@@ -16,6 +16,10 @@ import {
   filterOnLabel,
   toCmdkValue,
 } from "@/components/ui/command";
+import {
+  invalidControlClasses,
+  pickerTriggerClasses,
+} from "@/components/ui/control-sizes";
 import { useFieldControl } from "@/components/ui/field";
 import {
   Popover,
@@ -90,7 +94,9 @@ function MultiSelect({
           disabled={disabled}
           {...controlProps}
           className={cn(
-            "w-[300px] justify-between h-auto min-h-9 font-normal aria-[invalid=true]:border-destructive",
+            pickerTriggerClasses,
+            invalidControlClasses,
+            "w-[300px] h-auto min-h-9",
             className,
           )}
         >

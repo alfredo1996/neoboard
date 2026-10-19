@@ -28,7 +28,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { qualifiedName, type ExternalLabelProps } from "./external-label";
+import {
+  joinIds,
+  qualifiedName,
+  type ExternalLabelProps,
+} from "./external-label";
 import { ParamWidgetSkeleton } from "./param-widget-skeleton";
 
 export interface ParamSelectorOption {
@@ -108,6 +112,8 @@ function ParamSelector({
   className,
   labelledBy,
   id,
+  describedBy,
+  invalid,
 }: Readonly<ParamSelectorProps>) {
   const [open, setOpen] = React.useState(false);
   const labelId = labelledBy ?? `param-select-label-${parameterName}`;
@@ -207,7 +213,8 @@ function ParamSelector({
                 aria-expanded={open}
                 aria-required={required || undefined}
                 aria-labelledby={labelId}
-                aria-describedby={hintId}
+                aria-describedby={joinIds(hintId, describedBy)}
+                aria-invalid={invalid || undefined}
                 disabled={isWaitingForParent}
                 // min-w-0 + truncate: a long label stays inside its card.
                 // basis-24 + the row's flex-wrap: rather than leave the
@@ -283,7 +290,8 @@ function ParamSelector({
             className="min-w-0 flex-1 basis-24"
             aria-required={required || undefined}
             aria-labelledby={labelId}
-            aria-describedby={hintId}
+            aria-describedby={joinIds(hintId, describedBy)}
+            aria-invalid={invalid || undefined}
           >
             <SelectValue placeholder={resolvedPlaceholder}>
               {selectedLabel}

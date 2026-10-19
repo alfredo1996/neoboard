@@ -84,7 +84,7 @@ describe("ConnectionDialog — create", () => {
     );
     expect(byId("conn-endpoint-error")).toHaveTextContent(/acme:/);
     expect(byId("conn-api-token-error")).toHaveTextContent(
-      "API Token is required",
+      "Enter the API Token.",
     );
     expect(createMutate).not.toHaveBeenCalled();
   });
@@ -217,7 +217,7 @@ describe("ConnectionDialog — Duplicate", () => {
     // A copy is a NEW connection: its secrets are required again.
     expect(
       document.querySelector('label[for="conn-api-token"]'),
-    ).toHaveTextContent("*");
+    ).not.toHaveTextContent("(optional)");
   });
 
   it("waits for the source's config before showing the form", () => {

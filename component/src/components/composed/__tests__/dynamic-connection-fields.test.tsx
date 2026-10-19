@@ -73,10 +73,13 @@ describe("DynamicConnectionFields", () => {
     );
   });
 
-  it("marks required fields with an asterisk", () => {
+  it("marks only the fields that are not required, in words (#2217)", () => {
     renderFields();
-    const label = screen.getByText("Connection URI").closest("label");
-    expect(label).toHaveTextContent("*");
+    const uri = screen.getByText("Connection URI").closest("label");
+    expect(uri).not.toHaveTextContent("*");
+    expect(uri).not.toHaveTextContent("(optional)");
+    const port = screen.getByText("Port").closest("label");
+    expect(port).toHaveTextContent("(optional)");
   });
 
   it("renders the description as muted help text", () => {

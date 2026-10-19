@@ -55,7 +55,7 @@ export interface DynamicConnectionFieldsProps {
  */
 type ChangeHandler = (name: string, value: string | boolean) => void;
 
-/** Field label text with its unit and a required-asterisk. */
+/** Field label text with its unit. Required is the default; Field marks the exception. */
 function FieldLabelText({
   field,
 }: Readonly<{ field: DynamicConnectionField }>) {
@@ -65,7 +65,6 @@ function FieldLabelText({
       {field.unit && (
         <span className="text-muted-foreground"> ({field.unit})</span>
       )}
-      {field.required && <span className="text-destructive ml-0.5">*</span>}
     </>
   );
 }
@@ -166,6 +165,7 @@ function FieldRow({
     <Field
       id={id}
       label={<FieldLabelText field={field} />}
+      optional={!field.required}
       help={field.description}
       error={error}
     >

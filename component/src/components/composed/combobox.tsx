@@ -16,6 +16,10 @@ import {
   HighlightMatch,
   toCmdkValue,
 } from "@/components/ui/command";
+import {
+  invalidControlClasses,
+  pickerTriggerClasses,
+} from "@/components/ui/control-sizes";
 import { useFieldControl } from "@/components/ui/field";
 import {
   Popover,
@@ -27,6 +31,8 @@ export interface ComboboxOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Muted text at the row's right edge (e.g. what kind of thing it is); searchable. */
+  hint?: string;
   /** Optional icon rendered before the label */
   icon?: React.ComponentType<{ className?: string }>;
 }
@@ -94,7 +100,9 @@ function Combobox({
           disabled={disabled}
           {...controlProps}
           className={cn(
-            "w-[200px] justify-between font-normal aria-[invalid=true]:border-destructive",
+            pickerTriggerClasses,
+            invalidControlClasses,
+            "w-[200px]",
             className,
           )}
         >
@@ -130,7 +138,9 @@ function Combobox({
                   // Filter on the label so typing the connection name (not the
                   // UUID) finds the item; value stays unique (#1411).
                   value={toCmdkValue(option.value)}
-                  keywords={[option.label]}
+                  keywords={
+                    option.hint ? [option.label, option.hint] : [option.label]
+                  }
                   disabled={option.disabled}
                   onSelect={() => {
                     onChange?.(option.value === value ? "" : option.value);
@@ -152,6 +162,11 @@ function Combobox({
                   >
                     <HighlightMatch text={option.label} query={search} />
                   </span>
+                  {option.hint && (
+                    <span className="ml-auto pl-2 text-xs text-muted-foreground">
+                      {option.hint}
+                    </span>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>

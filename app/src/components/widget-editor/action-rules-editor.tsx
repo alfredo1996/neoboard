@@ -10,7 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
   Button,
-  Label,
+  Field,
   Select,
   SelectContent,
   SelectItem,
@@ -115,8 +115,7 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
               <AccordionContent className="px-4 pb-4 space-y-3">
                 {/* Trigger column — for tables only */}
                 {isTable && (
-                  <div className="space-y-1.5">
-                    <Label>Trigger Column</Label>
+                  <Field label="Trigger Column">
                     <FieldSelectorInput
                       value={rule.triggerColumn ?? ""}
                       onChange={(v) =>
@@ -126,12 +125,11 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
                       label="Trigger Column"
                       placeholder="Select column..."
                     />
-                  </div>
+                  </Field>
                 )}
 
                 {/* Action type */}
-                <div className="space-y-1.5">
-                  <Label>Action Type</Label>
+                <Field label="Action Type">
                   <Select
                     value={rule.type}
                     onValueChange={(v) =>
@@ -155,14 +153,13 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
                       </SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </Field>
 
                 {/* Parameter name */}
                 {(rule.type === "set-parameter" ||
                   rule.type === "set-parameter-and-navigate") && (
                   <>
-                    <div className="space-y-1.5">
-                      <Label>Parameter Name</Label>
+                    <Field label="Parameter Name">
                       <CreatableCombobox
                         suggestions={parameterSuggestions}
                         value={rule.parameterMapping?.parameterName ?? ""}
@@ -177,12 +174,11 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
                         }
                         placeholder="param_name"
                       />
-                    </div>
+                    </Field>
 
                     {/* Source field — for non-table chart types */}
                     {!isTable && (
-                      <div className="space-y-1.5">
-                        <Label>Source Field</Label>
+                      <Field label="Source Field">
                         <FieldSelectorInput
                           value={rule.parameterMapping?.sourceField ?? ""}
                           onChange={(v) =>
@@ -198,7 +194,7 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
                           label="Source Field"
                           placeholder="Select field..."
                         />
-                      </div>
+                      </Field>
                     )}
                   </>
                 )}
@@ -206,8 +202,7 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
                 {/* Target page */}
                 {(rule.type === "navigate-to-page" ||
                   rule.type === "set-parameter-and-navigate") && (
-                  <div className="space-y-1.5">
-                    <Label>Target Page</Label>
+                  <Field label="Target Page">
                     {pages.length > 0 ? (
                       <Select
                         value={rule.targetPageId ?? ""}
@@ -231,7 +226,7 @@ export function ActionRulesEditor({ onBack, pages }: ActionRulesEditorProps) {
                         Add more pages to the dashboard to enable navigation.
                       </p>
                     )}
-                  </div>
+                  </Field>
                 )}
               </AccordionContent>
             </AccordionItem>

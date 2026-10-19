@@ -17,6 +17,7 @@ import {
   TimeAgo,
   Input,
   EmptyState,
+  Field,
   ConfirmDialog,
   Dialog,
   DialogContent,
@@ -135,29 +136,20 @@ function CreateKeyDialog({
             <DialogDescription className="sr-only">
               Enter a name and optional expiry date for your new API key.
             </DialogDescription>
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="key-name">
-                Name <span className="text-destructive">*</span>
-              </label>
+            <Field label="Name" id="key-name">
               <Input
-                id="key-name"
                 placeholder="e.g. CI/CD pipeline"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="key-expires">
-                Expires at{" "}
-                <span className="text-muted-foreground">(optional)</span>
-              </label>
+            </Field>
+            <Field label="Expires at" id="key-expires" optional>
               <Input
-                id="key-expires"
                 type="datetime-local"
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
               />
-            </div>
+            </Field>
             {createMutation.error && (
               <p className="text-sm text-destructive">
                 {createMutation.error.message}

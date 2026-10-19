@@ -7,7 +7,13 @@
  * empty-fields fast path, and submit-button states.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import React from "react";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import type { DashboardWidget } from "@/lib/db/schema";
@@ -34,7 +40,8 @@ const dateRangeProps: Array<Record<string, unknown>> = [];
 const dateRelativeProps: Array<Record<string, unknown>> = [];
 const numberRangeProps: Array<Record<string, unknown>> = [];
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   ParamSelector: (p: Record<string, unknown>) => {
     paramSelectorProps.push(p);
     return (
@@ -278,7 +285,7 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     expect((input as HTMLInputElement).placeholder).toBe("type name");
   });
 
-  it("shows a required asterisk for required fields", () => {
+  it("marks only an optional field, in words, and never with an asterisk", () => {
     renderForm([
       makeField({
         id: "f1",
@@ -288,8 +295,18 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
         required: true,
       }),
     ]);
-    // the '*' is inside the Label element
-    expect(screen.getByText("Name").textContent).toContain("*");
+    expect(screen.getByText("Name").textContent).toBe("Name");
+    cleanup();
+    renderForm([
+      makeField({
+        id: "f1",
+        label: "Name",
+        parameterName: "name",
+        parameterType: "text",
+        required: false,
+      }),
+    ]);
+    expect(screen.getByText("Name (optional)")).toBeInTheDocument();
   });
 
   it("falls back to parameterName when label is empty", () => {
@@ -299,6 +316,7 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
         label: "",
         parameterName: "fallback",
         parameterType: "text",
+        required: true,
       }),
     ]);
     // Label text = parameterName
@@ -585,7 +603,7 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
       }),
     ]);
     // The label renders, but no known test-id widget is produced.
-    expect(screen.getByText("Field")).toBeDefined();
+    expect(screen.getByText("Field (optional)")).toBeDefined();
     expect(screen.queryByTestId("input-weird")).toBeNull();
     expect(screen.queryByTestId("param-selector-weird")).toBeNull();
   });
@@ -907,6 +925,7 @@ describe("FormWidgetRenderer — one label per field (#1410)", () => {
           label: "Category",
           parameterName: "rf1_category",
           parameterType,
+          required: true,
           staticOptions: "a,b",
         }),
       ]);
@@ -918,11 +937,10 @@ describe("FormWidgetRenderer — one label per field (#1410)", () => {
       expect(props.labelledBy).toBe(label.id);
       expect(props.id).toBeTruthy();
       // The widget puts `id` on a labelable control (the component tests
-      // check `label.control` on the real widgets) — except date-relative,
-      // whose id sits on a group of buttons, which no label may point at.
-      expect(label.getAttribute("for")).toBe(
-        parameterType === "date-relative" ? null : props.id,
-      );
+      // check `label.control` on the real widgets). Date-relative's id sits on
+      // a group of buttons, which no label can point at, so there the
+      // aria-labelledby above is what names it.
+      expect(label.getAttribute("for")).toBe(props.id);
     },
   );
 
@@ -960,14 +978,6 @@ describe("FormWidgetRenderer — one label per field (#1410)", () => {
     expect(new Set(ids).size).toBe(6);
     // No id is built from the field's own strings — they are author data.
     expect(ids.some((id) => id.includes("name"))).toBe(false);
-  });
-
-  it("marks the asterisk decorative, so the control's name is the label alone", () => {
-    const { container } = renderForm([
-      makeField({ label: "Name", required: true }),
-    ]);
-    const star = within(container.querySelector("label")!).getByText("*");
-    expect(star.getAttribute("aria-hidden")).toBe("true");
   });
 
   it.each([
@@ -1012,8 +1022,29 @@ describe("FormWidgetRenderer — server field errors (#1409)", () => {
 
   const fieldOf = (container: HTMLElement, label: string) =>
     [...container.querySelectorAll("label")].find(
-      (l) => l.textContent === label,
+      (l) => l.textContent?.startsWith(label) ?? false,
     )!.parentElement!;
+
+  it("links the error to its control and flags the control invalid (#2217)", () => {
+    failWith({ column: "category" });
+    renderForm([
+      makeField({
+        id: "rf1-c",
+        label: "Category",
+        parameterName: "rf1_category",
+        parameterType: "select",
+        staticOptions: "a,b",
+      }),
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    const error = screen.getByText("Enter a value.");
+    const props = paramSelectorProps.at(-1) as {
+      describedBy: string;
+      invalid: boolean;
+    };
+    expect(error.id).toBe(props.describedBy);
+    expect(props.invalid).toBe(true);
+  });
 
   it("puts a NOT NULL column error on the field that feeds the column", () => {
     failWith({ column: "category" });

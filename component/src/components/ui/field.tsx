@@ -47,7 +47,7 @@ export interface FieldProps {
   error?: React.ReactNode;
   /** Adds "(optional)" to the label; required is the default. */
   optional?: boolean;
-  /** Stable id for the control and label; generated when omitted. */
+  /** Stable id for the control and label; generated when omitted. The label's own id is `<id>-label`, for a control named by `aria-labelledby`. */
   id?: string;
   className?: string;
   children: React.ReactNode;
@@ -86,12 +86,15 @@ function Field({
 
   return (
     <div className={cn("grid content-start gap-1.5", className)}>
-      <Label htmlFor={controlId}>
+      <Label id={`${controlId}-label`} htmlFor={controlId}>
         {label}
         {optional && (
-          <span className="ml-1 font-normal text-muted-foreground">
-            (optional)
-          </span>
+          <>
+            {" "}
+            <span className="font-normal text-muted-foreground">
+              (optional)
+            </span>
+          </>
         )}
       </Label>
       <FieldContext.Provider value={value}>{children}</FieldContext.Provider>

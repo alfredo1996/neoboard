@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { Field } from "../field";
+import { Field, useFieldControl } from "../field";
 import { Input } from "../input";
 import { Textarea } from "../textarea";
 import { Select, SelectTrigger, SelectValue } from "../select";
@@ -71,6 +71,11 @@ describe("Field (#2217)", () => {
       </Field>,
     );
     expect(screen.getByText("(optional)")).toBeInTheDocument();
+    // A space, not just margin: the control's accessible name must read
+    // "Nickname (optional)", not "Nickname(optional)".
+    expect(
+      (screen.getByLabelText(/Nickname/) as HTMLInputElement).labels?.[0],
+    ).toHaveTextContent("Nickname (optional)");
   });
 
   it("wires Textarea, a Select trigger, Combobox, MultiSelect and PasswordInput", () => {
@@ -129,6 +134,49 @@ describe("Field (#2217)", () => {
   });
 });
 
+describe("useFieldControl (#2217)", () => {
+  function Probe(props: Record<string, unknown>) {
+    const own = useFieldControl(props);
+    return <input data-testid="p" {...own} />;
+  }
+
+  it("joins the control's own aria-describedby with the Field's", () => {
+    render(
+      <Field label="Name" help="Help text.">
+        <Probe aria-describedby="mine" />
+      </Field>,
+    );
+    const ids = screen.getByTestId("p").getAttribute("aria-describedby");
+    expect(ids).toMatch(/^mine \S+-help$/);
+  });
+
+  it("lets the control's own id and aria-invalid win over the Field's", () => {
+    render(
+      <Field label="Name" id="field-id" error="Enter a name.">
+        <Probe id="own-id" aria-invalid={false} />
+      </Field>,
+    );
+    const probe = screen.getByTestId("p");
+    expect(probe).toHaveAttribute("id", "own-id");
+    expect(probe).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("returns the props as they came outside a Field", () => {
+    render(<Probe aria-describedby="mine" />);
+    expect(screen.getByTestId("p")).toHaveAttribute("aria-describedby", "mine");
+    expect(screen.getByTestId("p")).not.toHaveAttribute("id");
+  });
+
+  it("names the label with a stable id for aria-labelledby controls", () => {
+    render(
+      <Field label="Name" id="fx">
+        <Input />
+      </Field>,
+    );
+    expect(screen.getByText("Name")).toHaveAttribute("id", "fx-label");
+  });
+});
+
 describe("Combobox keyboard (#2217)", () => {
   it("opens, filters and selects by keyboard", async () => {
     const onChange = vi.fn();
@@ -142,6 +190,8 @@ describe("Combobox keyboard (#2217)", () => {
     await user.keyboard("{Enter}");
     await user.keyboard("bet");
     expect(screen.queryByText("Alpha")).toBeNull();
+    // What the keyboard filter shows is the new match underline on "Bet".
+    expect(document.querySelector("mark")).toHaveTextContent("Bet");
     await user.keyboard("{Enter}");
     expect(onChange).toHaveBeenCalledWith("b");
   });

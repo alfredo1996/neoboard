@@ -99,7 +99,7 @@ const CommandInput = React.forwardRef<
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "flex h-9 w-full rounded-md bg-transparent py-2 text-[13px] outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-9 w-full rounded-md bg-transparent py-2 text-[13px] [@media(pointer:coarse)]:text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -170,7 +170,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex h-8 cursor-default gap-2 select-none items-center rounded-sm px-2 text-[13px] outline-none transition-[color,background-color,border-color,box-shadow,transform] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] data-[disabled=true]:pointer-events-none data-[selected=true]:bg-active data-[selected=true]:text-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "relative flex min-h-8 cursor-default gap-2 py-1.5 select-none items-center rounded-sm px-2 text-[13px] outline-none transition-[color,background-color,border-color,box-shadow,transform] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] data-[disabled=true]:pointer-events-none data-[selected=true]:bg-active data-[selected=true]:text-foreground data-[selected=true]:ring-1 data-[selected=true]:ring-inset data-[selected=true]:ring-ring data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       className,
     )}
     {...props}

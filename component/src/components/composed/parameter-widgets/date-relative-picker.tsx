@@ -47,6 +47,7 @@ function DateRelativePicker({
   className,
   labelledBy,
   id,
+  describedBy,
 }: DateRelativePickerProps) {
   const labelId = labelledBy ?? `param-daterel-label-${parameterName}`;
 
@@ -62,6 +63,7 @@ function DateRelativePicker({
         id={id}
         className="flex min-w-0 flex-wrap gap-1.5"
         aria-labelledby={labelId}
+        aria-describedby={describedBy}
       >
         {RELATIVE_DATE_PRESETS.map((preset) => {
           const isActive = value === preset.key;

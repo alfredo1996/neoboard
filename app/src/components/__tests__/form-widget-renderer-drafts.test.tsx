@@ -32,7 +32,8 @@ vi.mock("next-auth/react", () => ({
 }));
 
 // TextInputParameter is what the real DebouncedTextInput renders.
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   TextInputParameter: ({
     parameterName,
     value,
@@ -198,7 +199,7 @@ describe("FormWidgetRenderer — text draft inside the debounce window (#1771)",
     fireEvent.click(submitButton());
     fireEvent.change(input("name"), { target: { value: "Ada" } });
 
-    fireEvent.pointerDown(screen.getByText("note"));
+    fireEvent.pointerDown(screen.getByText("note (optional)"));
     fireEvent.blur(input("name"));
     expect(screen.getByText(REQUIRED)).toBeInTheDocument();
 

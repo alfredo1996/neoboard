@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
   Button,
   Input,
-  Label,
+  Field,
   Select,
   SelectContent,
   SelectGroup,
@@ -159,8 +159,7 @@ function SortableRuleItem({
       <AccordionContent className="px-4 pb-4 space-y-3">
         {/* Column — per-rule column selector for tables */}
         {isTable && (
-          <div className="space-y-1.5">
-            <Label>Column</Label>
+          <Field label="Column">
             <FieldSelectorInput
               value={rule.column ?? ""}
               onChange={(v) => onUpdate(rule.id, { column: v || undefined })}
@@ -168,12 +167,11 @@ function SortableRuleItem({
               label="Column"
               placeholder="Auto (first numeric)"
             />
-          </div>
+          </Field>
         )}
 
         {/* Operator */}
-        <div className="space-y-1.5">
-          <Label>Operator</Label>
+        <Field label="Operator">
           <Select
             value={rule.operator ?? "<="}
             onValueChange={(v) =>
@@ -196,12 +194,11 @@ function SortableRuleItem({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </Field>
 
         {/* Compare against: Value or Parameter — hidden for null ops */}
         {!NULL_OPS.has(rule.operator) && rule.operator !== "between" && (
-          <div className="space-y-1.5">
-            <Label>Compare Against</Label>
+          <Field label="Compare Against">
             <ValueOrParamInput
               parameterRef={rule.parameterRef}
               onParamRefChange={(ref) =>
@@ -213,14 +210,13 @@ function SortableRuleItem({
               inputType={inputType}
               placeholder={valuePlaceholder}
             />
-          </div>
+          </Field>
         )}
 
         {/* Between: two-bound range input */}
         {rule.operator === "between" && (
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>From (min)</Label>
+            <Field label="From (min)">
               <ValueOrParamInput
                 parameterRef={rule.parameterRef}
                 onParamRefChange={(ref) =>
@@ -230,9 +226,8 @@ function SortableRuleItem({
                 onValueChange={(v) => onUpdate(rule.id, { value: v })}
                 parameterSuggestions={parameterSuggestions}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label>To (max)</Label>
+            </Field>
+            <Field label="To (max)">
               <ValueOrParamInput
                 parameterRef={rule.parameterRefTo}
                 onParamRefChange={(ref) =>
@@ -243,13 +238,12 @@ function SortableRuleItem({
                 parameterSuggestions={parameterSuggestions}
                 placeholder="100"
               />
-            </div>
+            </Field>
           </div>
         )}
 
         {/* Color */}
-        <div className="space-y-1.5">
-          <Label>Color</Label>
+        <Field label="Color">
           <div className="flex items-center gap-2">
             <Input
               value={rule.color}
@@ -265,7 +259,7 @@ function SortableRuleItem({
               aria-label="Pick color"
             />
           </div>
-        </div>
+        </Field>
 
         {/* Bold */}
         <button
@@ -285,8 +279,7 @@ function SortableRuleItem({
 
         {/* Target — only when multiple targets available */}
         {stylingTargets.length > 1 && (
-          <div className="space-y-1.5">
-            <Label>Target</Label>
+          <Field label="Target">
             <Select
               value={rule.target ?? stylingTargets[0]?.value ?? "color"}
               onValueChange={(v) =>
@@ -306,7 +299,7 @@ function SortableRuleItem({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </Field>
         )}
       </AccordionContent>
     </AccordionItem>

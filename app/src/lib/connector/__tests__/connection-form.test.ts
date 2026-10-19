@@ -175,11 +175,11 @@ describe("connectionFormErrors", () => {
     expect(errors).toEqual({
       own: {
         name: "Enter a name for the connection.",
-        maxRows: "Max Rows per Query must be between 100 and 100000",
+        maxRows: "Enter a whole number from 100 to 100000.",
       },
       config: {
         endpoint: expect.stringContaining("acme:"),
-        apiToken: "API Token is required",
+        apiToken: "Enter the API Token.",
         pageSize: "Page Size must be at most 500",
       },
     });
@@ -201,7 +201,18 @@ describe("connectionFormErrors", () => {
       { ...valid, maxRows: "150.5" },
       "create",
     );
-    expect(errors.own.maxRows).toMatch(/between 100 and 100000/);
+    expect(errors.own.maxRows).toBe("Enter a whole number from 100 to 100000.");
+  });
+
+  it("says what to enter when the URI is not a URI at all (#2217)", () => {
+    const errors = connectionFormErrors(
+      fixtureDescriptor,
+      { ...valid, config: { ...valid.config, endpoint: "not a uri" } },
+      "create",
+    );
+    expect(errors.config.endpoint).toBe(
+      "Enter a URI like scheme://host:port/database.",
+    );
   });
 
   it("starts from an empty form", () => {

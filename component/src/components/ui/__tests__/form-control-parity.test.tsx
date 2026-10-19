@@ -4,6 +4,8 @@ import { Input } from "../input";
 import { Textarea } from "../textarea";
 import { Select, SelectTrigger, SelectValue } from "../select";
 import { FieldError } from "../field-error";
+import { Combobox } from "../../composed/combobox";
+import { MultiSelect } from "../../composed/multi-select";
 
 // Epic C (#1127): shared size scale + aria-invalid treatment + FieldError.
 
@@ -80,5 +82,36 @@ describe("FieldError (#1127 C2)", () => {
   it("renders nothing when there is no message", () => {
     const { container } = render(<FieldError id="f-error" />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("field look is shared and hover never beats error or focus (#2217)", () => {
+  // jsdom computes no cascade, so assert the class names the fix relies on:
+  // the hover rule must not carry the `:enabled` variant (it made it (0,3,0),
+  // out-ranking the (0,2,0) error and focus borders), and the error/focus
+  // states each carry their own `hover:` variant so they win while hovered.
+  it.each([
+    ["Input", () => <Input data-testid="c" />],
+    ["Textarea", () => <Textarea data-testid="c" />],
+    [
+      "SelectTrigger",
+      () => (
+        <Select>
+          <SelectTrigger data-testid="c" />
+        </Select>
+      ),
+    ],
+    ["Combobox", () => <Combobox data-testid="c" options={[]} />],
+    ["MultiSelect", () => <MultiSelect data-testid="c" options={[]} />],
+  ])("%s", (_name, ui) => {
+    render(ui());
+    const cls = screen.getByTestId("c").className;
+    expect(cls).toContain("bg-field");
+    expect(cls).not.toContain("bg-card");
+    expect(cls).toContain("hover:border-input-hover");
+    expect(cls).not.toContain("hover:enabled:");
+    expect(cls).toContain("aria-[invalid=true]:hover:border-destructive");
+    expect(cls).toContain("focus-visible:hover:border-ring");
+    expect(cls).toContain("[@media(pointer:coarse)]:text-base");
   });
 });

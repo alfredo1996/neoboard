@@ -40,6 +40,8 @@ function NumberRangeSlider({
   className,
   labelledBy,
   id,
+  describedBy,
+  invalid,
 }: NumberRangeSliderProps) {
   const labelId = labelledBy ?? `param-numrange-label-${parameterName}`;
   const current: [number, number] = value ?? [min, max];
@@ -115,6 +117,8 @@ function NumberRangeSlider({
         <div className="flex items-center gap-2">
           <Input
             id={id}
+            aria-describedby={describedBy}
+            aria-invalid={invalid || undefined}
             type="number"
             value={current[0]}
             onChange={(e) => handleMinInput(e.target.value)}
