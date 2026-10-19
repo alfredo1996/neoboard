@@ -374,10 +374,10 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
   }) => {
     await new AuthPage(page).login(CAROL.email, CAROL.password);
 
-    // UI: "New Dashboard" CTA is gated on canCreate (admin|creator),
+    // UI: "New dashboard" CTA is gated on canCreate (admin|creator),
     // so readers do not see it at all.
     await expect(
-      page.getByRole("button", { name: /new dashboard/i }),
+      page.getByRole("button", { name: "New dashboard", exact: true }),
     ).not.toBeVisible();
 
     // API: direct POST is blocked by the canWrite check.

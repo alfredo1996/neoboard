@@ -922,7 +922,7 @@ export default function DashboardListPage() {
               </Button>
               <Button onClick={openCreate}>
                 <Plus className="mr-2 h-4 w-4" />
-                New Dashboard
+                New dashboard
               </Button>
             </>
           ) : undefined

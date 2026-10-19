@@ -25,7 +25,9 @@ test.describe("Dashboard metadata — updatedBy display", () => {
     // Create a new dashboard with a unique name.
     // Wait for the POST to complete before asserting the URL — otherwise
     // waitForURL races the API response and times out under CI load.
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
+    await page
+      .getByRole("button", { name: "New dashboard", exact: true })
+      .click();
     const dialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await dialog.locator("#dashboard-name").fill(dashboardName);
     await Promise.all([

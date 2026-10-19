@@ -59,9 +59,9 @@ test.describe("Role-based dashboard visibility", () => {
     await authPage.login(readerEmail, "password123");
     await expect(page).toHaveURL("/", { timeout: 15_000 });
 
-    // Reader should NOT see the "New Dashboard" create button
+    // Reader should NOT see the "New dashboard" create button
     await expect(
-      page.getByRole("button", { name: /New Dashboard/i }),
+      page.getByRole("button", { name: "New dashboard", exact: true }),
     ).not.toBeVisible();
 
     // Reader inherits read-only access to Public dashboards seeded by Alice:

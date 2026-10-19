@@ -5,12 +5,12 @@ test.describe("Dashboard list & role badges", () => {
     await authPage.login(ALICE.email, ALICE.password);
   });
 
-  test("creator/admin should see New Dashboard button on dashboard list", async ({
+  test("creator/admin should see New dashboard button on dashboard list", async ({
     page,
   }) => {
     await expect(page).toHaveURL("/");
     await expect(
-      page.getByRole("button", { name: /New Dashboard/i }),
+      page.getByRole("button", { name: "New dashboard", exact: true }),
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -97,7 +97,9 @@ test.describe("Confirm dialog — destructive", () => {
 
     // Create a uniquely-named dashboard to avoid collision with retries
     const dashName = `Delete Test ${uid()}`;
-    await page.getByRole("button", { name: /New Dashboard/i }).click();
+    await page
+      .getByRole("button", { name: "New dashboard", exact: true })
+      .click();
     const createDialog = page.getByRole("dialog", { name: "Create Dashboard" });
     await createDialog.locator("#dashboard-name").fill(dashName);
     await Promise.all([
