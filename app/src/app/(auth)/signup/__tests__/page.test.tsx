@@ -1,3 +1,4 @@
+import { PRODUCT_PITCH } from "@/lib/branding";
 import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -220,7 +221,7 @@ describe("SignupPage", () => {
     render(<SignupPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Create your account")).toBeDefined();
+      expect(screen.getByText(PRODUCT_PITCH)).toBeDefined();
     });
 
     expect(screen.getByLabelText("Name")).toBeDefined();

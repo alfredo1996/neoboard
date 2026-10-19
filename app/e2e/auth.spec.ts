@@ -236,7 +236,9 @@ test.describe("Signup", () => {
     page,
   }) => {
     await page.goto("/signup");
-    await expect(page.getByText("Create your account")).toBeVisible();
+    await expect(
+      page.getByText("Make your systems talk, on one dashboard"),
+    ).toBeVisible();
     await expect(page.getByLabel("Name")).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password", { exact: true })).toBeVisible();

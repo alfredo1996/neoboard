@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signup } from "@/lib/auth/signup";
+import { PRODUCT_PITCH } from "@/lib/branding";
 import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 import {
   Input,
@@ -116,9 +117,7 @@ export default function SignupPage() {
   return (
     <AuthCard
       title="Sign up"
-      lead={
-        bootstrapRequired ? "Set up the first admin" : "Create your account"
-      }
+      lead={bootstrapRequired ? "Set up the first admin" : PRODUCT_PITCH}
       footer={
         <>
           Already have an account?{" "}
