@@ -12,7 +12,8 @@ You implement ONE issue of alfredo1996/neoboard. The lead's prompt gives the iss
 
 1. `git fetch origin <base> && git checkout -b <type>/issue-<N>-<slug> origin/<base>`.
 2. `npm ci` (never symlink node_modules), then `npm -w connector-sdk run build && npm -w connection run build`.
-3. `gh issue view <N> --repo alfredo1996/neoboard --json title,body,labels,comments` — owner decisions live in the comments. Without `--json`, `gh issue view` fails on this repo.
+3. `graphify update .`: the code graph is gitignored, so a new worktree has none (no model, about 15 s; skip it if `graphify` is not on PATH). Ask it for callers before grepping, as `.claude/rules/codebase-graph.md` says.
+4. `gh issue view <N> --repo alfredo1996/neoboard --json title,body,labels,comments` — owner decisions live in the comments. Without `--json`, `gh issue view` fails on this repo.
 
 ## Work
 
@@ -48,4 +49,4 @@ End with a short report:
 
 ## Fix round
 
-When the lead's brief names an existing worktree and branch with review findings, you are the fixer: skip Setup 1–2, because the branch and its install already exist. Work only in that worktree, with absolute paths and `git -C <worktree>`; never check out another branch. Your shell starts in the lead's checkout and npm, npx and vitest have no `-C`, so start each of those commands with `cd <worktree> &&` (one `cd` per command). Read the findings and `git -C <worktree> diff origin/<base>...HEAD`. Answer every finding: fix the real ones test-first, dismiss the rest with evidence. Re-run what you touched, commit, and report the fixed and the dismissed lists.
+When the lead's brief names an existing worktree and branch with review findings, you are the fixer: skip Setup 1–2, because the branch and its install already exist, but run Setup 3 (`graphify update .`) in that worktree, since the commits under review made its graph stale. Work only in that worktree, with absolute paths and `git -C <worktree>`; never check out another branch. Your shell starts in the lead's checkout and npm, npx and vitest have no `-C`, so start each of those commands with `cd <worktree> &&` (one `cd` per command). Read the findings and `git -C <worktree> diff origin/<base>...HEAD`. Answer every finding: fix the real ones test-first, dismiss the rest with evidence. Re-run what you touched, commit, and report the fixed and the dismissed lists.
