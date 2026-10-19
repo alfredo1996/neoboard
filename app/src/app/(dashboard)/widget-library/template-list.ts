@@ -15,10 +15,12 @@ export function templateListMeta(count: number): string {
  */
 export function templateConnectionLabel(
   template: { connectionId?: string | null; connectorType?: string | null },
-  connections: readonly { id: string; name: string }[],
+  connections: readonly { id: string; name: string }[] | undefined,
   connectors: Labelled,
 ): string {
   if (template.connectionId) {
+    // Still loading: it is not "not available" yet.
+    if (!connections) return "…";
     return (
       connections.find((c) => c.id === template.connectionId)?.name ??
       "Connection not available"
@@ -26,6 +28,18 @@ export function templateConnectionLabel(
   }
   if (!template.connectorType) return "—";
   return `Any ${connectorLabel(connectors, template.connectorType)} connection`;
+}
+
+/** The search box's match: the trimmed term in the name or description. */
+export function matchesTemplateSearch(
+  template: { name: string; description?: string | null },
+  search: string,
+): boolean {
+  const term = search.trim().toLowerCase();
+  if (!term) return true;
+  return [template.name, template.description ?? ""].some((v) =>
+    v.toLowerCase().includes(term),
+  );
 }
 
 export interface TemplateFilterState {
@@ -52,7 +66,7 @@ export function templateFilters(
   if (term) {
     filters.push({
       id: "search",
-      label: "Name",
+      label: "Name or description",
       operator: "contains",
       value: term,
     });

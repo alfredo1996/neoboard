@@ -580,7 +580,7 @@ A Docker image built from the checkout installs dependencies with `npm ci` from 
 
 `neoboard plugin add` does not work for a connector built on the SDK yet. It is meant to replace steps 1 and 2: it installs a package, imports it to validate the export (`type`, `label`, `category`, `createModule`), adds the manifest entry and runs the generator. But it imports the package in plain Node, and Node cannot load the SDK's build — the SDK compiles to ES modules whose relative imports carry no file extension, which only a bundler resolves — so the import throws and the CLI rolls the install back. Use the three steps above until that changes (#1697).
 
-Create a connection of your type on the Connections page: **Add Connection** lists your connector, and the form — for creating and for editing — is generated from your `fields`. `connection` fields make up the main section, `advanced` ones sit under **Advanced Settings**, a `number` gets its `min`, `max` and `unit`, and every `password` field is a secret. Or call the API:
+Create a connection of your type on the Connections page: **New connection** lists your connector, and the form — for creating and for editing — is generated from your `fields`. `connection` fields make up the main section, `advanced` ones sit under **Advanced Settings**, a `number` gets its `min`, `max` and `unit`, and every `password` field is a secret. Or call the API:
 
 ```bash
 curl -X POST http://localhost:3000/api/connections \

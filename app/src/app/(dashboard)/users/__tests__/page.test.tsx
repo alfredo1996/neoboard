@@ -15,6 +15,7 @@ import { MockDialogContent } from "@/__tests__/helpers/dialog-mocks";
  * disabled user carries a "Disabled" badge beside their name.
  */
 
+const SelectContext = React.createContext<(v: string) => void>(() => {});
 const ME = "admin-1";
 let mockUsers: UserListItem[] = [];
 let mockError: Error | null = null;
@@ -61,21 +62,6 @@ vi.mock("@/hooks/use-users", () => {
   };
 });
 
-vi.mock("../role-cell", () => ({
-  RoleCell: ({ onChange }: { onChange: (role: string) => void }) => (
-    <button onClick={() => onChange("reader")}>Role</button>
-  ),
-}));
-vi.mock("../can-write-cell", () => ({
-  CanWriteCell: ({
-    id,
-    onToggle,
-  }: {
-    id: string;
-    onToggle: (id: string, checked: boolean) => void;
-  }) => <button onClick={() => onToggle(id, false)}>Write</button>,
-}));
-
 vi.mock("@neoboard/components", () => {
   const Box = ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
@@ -95,7 +81,15 @@ vi.mock("@neoboard/components", () => {
         {children}
       </button>
     ),
-    Input: Nothing,
+    Input: ({
+      value,
+      onChange,
+      placeholder,
+    }: {
+      value?: string;
+      onChange?: React.ChangeEventHandler<HTMLInputElement>;
+      placeholder?: string;
+    }) => <input aria-label={placeholder} value={value} onChange={onChange} />,
     Label: Nothing,
     Dialog: ({
       open,
@@ -109,9 +103,33 @@ vi.mock("@neoboard/components", () => {
     DialogTitle: Nothing,
     DialogDescription: Nothing,
     DialogFooter: Box,
-    Select: Nothing,
-    SelectContent: Nothing,
-    SelectItem: Nothing,
+    // A select whose items are buttons: jsdom cannot open a Radix one.
+    Select: ({
+      onValueChange,
+      children,
+    }: {
+      onValueChange: (v: string) => void;
+      children?: React.ReactNode;
+    }) => (
+      <SelectContext.Provider value={onValueChange}>
+        {children}
+      </SelectContext.Provider>
+    ),
+    SelectContent: Box,
+    SelectItem: function SelectItem({
+      value,
+      children,
+    }: {
+      value: string;
+      children?: React.ReactNode;
+    }) {
+      const pick = React.useContext(SelectContext);
+      return (
+        <button role="option" onClick={() => pick(value)}>
+          {children}
+        </button>
+      );
+    },
     SelectTrigger: Nothing,
     SelectValue: Nothing,
     Checkbox: Nothing,
@@ -351,41 +369,34 @@ describe("UsersPage — disable and enable (#2049)", () => {
   });
 });
 
-describe("UsersPage — role and write changes (#2098)", () => {
-  it("keeps each cell mounted across a re-render, so none drops focus", () => {
-    const { rerender } = render(<UsersPage />);
-    const first = row("u2").getByRole("button", { name: "Role" });
-
-    rerender(<UsersPage />);
-
-    expect(row("u2").getByRole("button", { name: "Role" })).toBe(first);
-  });
-
+describe("UsersPage — role and write changes, from the row menu (#2098, #2254)", () => {
   it.each([
     {
-      cell: "Role",
+      change: "Make reader",
       mutateAsync: mockUpdateRole,
       ok: "Role updated",
       fail: "Failed to update role",
+      sent: { id: "u2", role: "reader" },
     },
     {
-      cell: "Write",
+      change: "Remove write access",
       mutateAsync: mockUpdateCanWrite,
       ok: "Write permission updated",
       fail: "Failed to update write permission",
+      sent: { id: "u2", canWrite: false },
     },
   ])(
-    "$cell: back-to-back changes each get a toast naming the user, a failure too",
-    async ({ cell, mutateAsync, ok, fail }) => {
+    "$change: sends the change, and back-to-back changes each get a toast naming the user, a failure too",
+    async ({ change, mutateAsync, ok, fail, sent }) => {
       mutateAsync
         .mockResolvedValueOnce({})
         .mockResolvedValueOnce({})
         .mockRejectedValueOnce(new Error("User not found"));
       render(<UsersPage />);
 
-      fireEvent.click(row("u2").getByRole("button", { name: cell }));
-      fireEvent.click(row("u3").getByRole("button", { name: cell }));
-      fireEvent.click(row("u2").getByRole("button", { name: cell }));
+      fireEvent.click(row("u2").getByRole("menuitem", { name: change }));
+      fireEvent.click(row("u3").getByRole("menuitem", { name: change }));
+      fireEvent.click(row("u2").getByRole("menuitem", { name: change }));
 
       await waitFor(() =>
         expect(mockToast).toHaveBeenCalledWith({
@@ -394,6 +405,7 @@ describe("UsersPage — role and write changes (#2098)", () => {
           variant: "destructive",
         }),
       );
+      expect(mutateAsync).toHaveBeenCalledWith(sent);
       for (const name of ["Dana", "Eve"]) {
         expect(mockToast).toHaveBeenCalledWith({
           title: ok,
@@ -402,6 +414,34 @@ describe("UsersPage — role and write changes (#2098)", () => {
       }
     },
   );
+
+  it("grants write access to a creator who has none", () => {
+    mockUsers = [user({ id: "u2", canWrite: false })];
+    render(<UsersPage />);
+
+    fireEvent.click(row("u2").getByRole("menuitem", { name: "Allow writing" }));
+
+    expect(mockUpdateCanWrite).toHaveBeenCalledWith({
+      id: "u2",
+      canWrite: true,
+    });
+  });
+
+  it("offers no role or write change on the admin's own row, nor write access for a reader", () => {
+    mockUsers = [
+      user({ id: ME, name: "Alice", role: "admin" }),
+      user({ id: "r1", name: "Rae", role: "reader" }),
+    ];
+    render(<UsersPage />);
+
+    expect(
+      row(ME).queryByRole("menuitem", { name: /^Make |write/i }),
+    ).toBeNull();
+    expect(row("r1").queryByRole("menuitem", { name: /write/i })).toBeNull();
+    expect(
+      row("r1").getByRole("menuitem", { name: "Make admin" }),
+    ).toBeEnabled();
+  });
 });
 
 describe("UsersPage — where focus goes after a question (#2086)", () => {
@@ -435,7 +475,7 @@ describe("UsersPage — where focus goes after a question (#2086)", () => {
 
 // #2146: Create User and Temporary Password have no Trigger either.
 it.each([
-  ["Create User", "Cancel", (opener: HTMLElement) => opener],
+  ["Create user", "Cancel", (opener: HTMLElement) => opener],
   ["Require Password Change", "Done", () => menuTrigger],
 ])(
   "closing what %s opened puts focus back on its opener (#2146)",
@@ -466,13 +506,24 @@ describe("UsersPage — kit rows (#2254)", () => {
   });
 
   it("shows name and email, then role, write access, created and status", () => {
+    mockUsers = [
+      user({
+        id: "u3",
+        name: "Eve",
+        disabledAt: "2020-09-20T12:00:00Z",
+        createdAt: "2020-09-20T12:00:00Z",
+      }),
+    ];
     render(<UsersPage />);
     const cells = row("u3")
       .getAllByRole("cell")
       .map((c) => c.textContent);
-    expect(cells.slice(0, 2)).toEqual(["Eveu3@example.com", "Role"]);
-    expect(cells.slice(2, 3)).toEqual(["Write"]);
-    expect(cells.slice(4, 5)).toEqual(["Disabled"]);
+    expect(cells.slice(0, 3)).toEqual([
+      "Eveu3@example.com",
+      "Creator",
+      "Can write",
+    ]);
+    expect(cells.slice(3, 5)).toEqual(["Sep 20, 2020", "Disabled"]);
   });
 
   it("lists newest first, then orders by the header clicked, and flips on a second click", () => {
@@ -495,35 +546,79 @@ describe("UsersPage — kit rows (#2254)", () => {
     expect(names()).toEqual(["Zed", "Max", "Bea"]);
   });
 
-  it("narrows to one status with a filter chip that Reset clears", () => {
+  it("narrows by status and by one search over name and email, both in the filter sentence", () => {
     render(<UsersPage />);
-    fireEvent.change(screen.getByLabelText("Filter by status"), {
-      target: { value: "disabled" },
-    });
+    fireEvent.click(screen.getByRole("option", { name: "Disabled" }));
     expect(screen.queryByText("dana@example.com")).toBeNull();
     expect(screen.getByText("u3@example.com")).toBeInTheDocument();
     expect(screen.getByText("Status is")).toBeInTheDocument();
 
+    fireEvent.change(screen.getByLabelText("Search users..."), {
+      target: { value: " u3@ " },
+    });
+    expect(screen.getByText("Name or email contains")).toBeInTheDocument();
+    expect(screen.getByText("u3@")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search users..."), {
+      target: { value: "zzz" },
+    });
+    expect(
+      screen.getByText("No users match these filters."),
+    ).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(screen.getByText("u2@example.com")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search users...")).toHaveValue("");
   });
 
-  it("takes 20 users to a page and moves on with Next page", () => {
-    mockUsers = Array.from({ length: 45 }, (_, i) =>
-      user({
-        id: `n${i}`,
-        name: `User ${String(i).padStart(2, "0")}`,
-        createdAt: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
-      }),
-    );
-    render(<UsersPage />);
-    expect(screen.getAllByRole("row")).toHaveLength(21); // header + 20
-    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+  describe("paging", () => {
+    const many = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        user({
+          id: `n${i}`,
+          name: `User ${String(i).padStart(2, "0")}`,
+          createdAt: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
+        }),
+      );
 
-    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-    expect(screen.getAllByRole("row")).toHaveLength(6); // header + 5
-    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+    it("moves on with Next page, to the last page", () => {
+      mockUsers = many(45);
+      render(<UsersPage />);
+      expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+      fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+      expect(screen.getByText("Page 3 of 3")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+    });
+
+    it("goes back to page 1 when a filter chip is removed, or Reset is clicked", () => {
+      mockUsers = many(45);
+      render(<UsersPage />);
+      fireEvent.change(screen.getByLabelText("Search users..."), {
+        target: { value: "User" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+      expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+      expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    });
+
+    it("stays on the page it was clamped to when the list shrinks and then grows", () => {
+      mockUsers = many(45);
+      const { rerender } = render(<UsersPage />);
+      fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+      fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+
+      mockUsers = many(25);
+      rerender(<UsersPage />);
+      expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+
+      mockUsers = many(45);
+      rerender(<UsersPage />);
+      expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    });
   });
 
   it("keeps the admin gate: a 403 shows the denial and no list", () => {

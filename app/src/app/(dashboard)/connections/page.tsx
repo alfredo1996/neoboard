@@ -254,7 +254,7 @@ export default function ConnectionsPage() {
     );
     if (stale.length === 0) return;
     noteAttempts(stale.map((c) => c.id));
-    runTests(stale, true);
+    void runTests(stale, true);
   });
 
   useEffect(() => {
@@ -282,7 +282,7 @@ export default function ConnectionsPage() {
     // The empty state and its button leave with the refetch, after the close.
     if (!connections?.length) setReturnFocusTo(headingRef.current);
     setDialogTarget(null);
-    handleTest(id);
+    void handleTest(id);
   }
 
   // #1544: an id with no entry is "unknown" — not checked yet. It used to
@@ -380,7 +380,7 @@ export default function ConnectionsPage() {
               onClick={(e) => openDialog({ mode: "create" }, e.currentTarget)}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add Connection
+              New connection
             </Button>
           </>
         }
@@ -546,10 +546,10 @@ export default function ConnectionsPage() {
                   const canManage = c.isOwner || isAdmin;
                   const canUse = canManage && installed;
                   const canToggle = isAdmin && c.isOwner;
-                  const edit = () =>
+                  const edit = (opener: HTMLElement | null) =>
                     openDialog(
                       { mode: "edit", id: c.id, name: c.name, type: c.type },
-                      focusedMenuTrigger(),
+                      opener,
                     );
                   return (
                     <ListRow
@@ -560,7 +560,7 @@ export default function ConnectionsPage() {
                           ? connectorLabel(connectors, c.type)
                           : `${c.type} — connector not installed`
                       }
-                      onOpen={canUse ? edit : undefined}
+                      onOpen={canUse ? (opener) => edit(opener) : undefined}
                       meta={[
                         <StatusCell
                           key="s"
@@ -629,7 +629,9 @@ export default function ConnectionsPage() {
                                 </DropdownMenuItem>
                               )}
                               {canUse && (
-                                <DropdownMenuItem onClick={edit}>
+                                <DropdownMenuItem
+                                  onClick={() => edit(focusedMenuTrigger())}
+                                >
                                   <Pencil className="mr-2 h-4 w-4" />
                                   Edit
                                 </DropdownMenuItem>
@@ -744,12 +746,10 @@ function StatusCell({
       {text}
     </>
   );
+  const suffix = error ? `: ${error}` : "";
   return (
     // The error text is in the name, not behind a hover (#1283).
-    <span
-      role="status"
-      aria-label={`Connection status: ${text}${error ? `: ${error}` : ""}`}
-    >
+    <span role="status" aria-label={`Connection status: ${text}${suffix}`}>
       {error ? (
         <button
           type="button"

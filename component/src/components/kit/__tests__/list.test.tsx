@@ -165,3 +165,39 @@ describe("ListRow without a link target", () => {
     expect(screen.getByText("Carol")).toBeInTheDocument();
   });
 });
+
+describe("ListRow title: opener and tooltip (#2254)", () => {
+  it.each([
+    ["a link", { href: "/d/1", onOpen: vi.fn() }, "link"],
+    ["a button", { onOpen: vi.fn() }, "button"],
+    ["plain text", {}, null],
+  ])(
+    "%s carries the full name as a tooltip, for when it truncates",
+    (_, props, role) => {
+      render(
+        <List label="L" columns={["Name"]}>
+          <ListRow title="A very long connection name" {...props} />
+        </List>,
+      );
+      const el = role
+        ? screen.getByRole(role as "link" | "button")
+        : screen.getByText("A very long connection name");
+      expect(el).toHaveAttribute("title", "A very long connection name");
+    },
+  );
+
+  it.each([
+    ["link", { href: "/d/1" }],
+    ["button", {}],
+  ])("hands the %s it was opened from to onOpen", (role, props) => {
+    const onOpen = vi.fn();
+    render(
+      <List label="L" columns={["Name"]}>
+        <ListRow title="Prod db" onOpen={onOpen} {...props} />
+      </List>,
+    );
+    const el = screen.getByRole(role as "link" | "button");
+    fireEvent.click(el);
+    expect(onOpen).toHaveBeenCalledWith(el);
+  });
+});

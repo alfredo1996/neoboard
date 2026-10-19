@@ -67,18 +67,21 @@ import {
   PageHeader,
 } from "@neoboard/components/kit";
 import {
+  formatShortDate,
+  matchesUserSearch,
   nextSort,
   pageCount,
   pageOf,
+  roleLabel,
   sortUsers,
+  userFilters,
   userListMeta,
-  userStatusFilters,
+  userMenuActions,
+  writeLabel,
   type UserSort,
   type UserSortColumn,
   type UserStatusFilter,
 } from "./user-list";
-import { RoleCell } from "./role-cell";
-import { CanWriteCell } from "./can-write-cell";
 
 export default function UsersPage() {
   const { data: session } = useSession();
@@ -242,49 +245,43 @@ export default function UsersPage() {
     direction: "descending",
   });
   const [statusFilter, setStatusFilter] = useState<UserStatusFilter>("all");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const resetFilters = () => {
+    setStatusFilter("all");
+    setSearch("");
+    setPage(0);
+  };
 
   const visibleUsers = useMemo(() => {
     const narrowed = (users ?? []).filter((u) => {
+      if (!matchesUserSearch(u, search)) return false;
       if (statusFilter === "all") return true;
       return statusFilter === "disabled" ? !!u.disabledAt : !u.disabledAt;
     });
     return sortUsers(narrowed, sort);
-  }, [users, statusFilter, sort]);
+  }, [users, search, statusFilter, sort]);
   const pages = pageCount(visibleUsers.length);
   // A delete or a narrower filter can leave the page past the end.
   const pageIndex = Math.min(page, pages - 1);
+  // Keep the clamp, or a later create would jump the view back to `page`.
+  if (page !== pageIndex) setPage(pageIndex);
 
   const forbidden = error instanceof Error && error.message === "Forbidden";
 
   function renderRow(u: UserListItem) {
     const isSelf = u.id === currentUserId;
     const displayName = displayNameOf(u);
+    const menuActions = userMenuActions(u, isSelf);
     return (
       <ListRow
         key={u.id}
         title={u.name ?? u.email ?? "—"}
         description={u.name && u.email ? u.email : undefined}
         meta={[
-          <RoleCell
-            key="r"
-            role={u.role}
-            isSelf={isSelf}
-            isAdmin={isAdmin}
-            onChange={(val) => handleRoleUpdate(u.id, val, displayName)}
-          />,
-          <CanWriteCell
-            key="w"
-            id={u.id}
-            role={u.role}
-            canWrite={u.canWrite}
-            isSelf={isSelf}
-            isAdmin={isAdmin}
-            onToggle={(id, checked) =>
-              handleCanWriteToggle(id, checked, displayName)
-            }
-          />,
-          u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—",
+          roleLabel(u.role),
+          writeLabel(u),
+          formatShortDate(u.createdAt),
           u.disabledAt ? "Disabled" : "Active",
         ]}
         menu={
@@ -301,6 +298,34 @@ export default function UsersPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {menuActions.roles.map((role) => (
+                  <DropdownMenuItem
+                    key={role}
+                    onClick={() =>
+                      void handleRoleUpdate(u.id, role, displayName)
+                    }
+                  >
+                    Make {role}
+                  </DropdownMenuItem>
+                ))}
+                {menuActions.write && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void handleCanWriteToggle(
+                        u.id,
+                        menuActions.write === "grant",
+                        displayName,
+                      )
+                    }
+                  >
+                    {menuActions.write === "grant"
+                      ? "Allow writing"
+                      : "Remove write access"}
+                  </DropdownMenuItem>
+                )}
+                {(menuActions.roles.length > 0 || menuActions.write) && (
+                  <DropdownMenuSeparator />
+                )}
                 <DropdownMenuItem
                   disabled={isSelf}
                   onClick={() => handleForcePasswordChange(u)}
@@ -315,7 +340,7 @@ export default function UsersPage() {
                       setReturnFocusTo(focusedMenuTrigger());
                       setDisableTarget(user);
                     }}
-                    onEnable={(user) => handleSetDisabled(user, false)}
+                    onEnable={(user) => void handleSetDisabled(user, false)}
                   />
                 )}
                 <DropdownMenuSeparator />
@@ -375,7 +400,7 @@ export default function UsersPage() {
           isAdmin ? (
             <Button onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" />
-              Create User
+              Create user
             </Button>
           ) : undefined
         }
@@ -531,7 +556,7 @@ export default function UsersPage() {
         variant="destructive"
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
-          if (disableTarget) handleSetDisabled(disableTarget, true);
+          if (disableTarget) void handleSetDisabled(disableTarget, true);
         }}
       />
 
@@ -616,27 +641,42 @@ export default function UsersPage() {
           )}
           {!forbidden && !!users?.length && (
             <>
-              <label className="flex items-center gap-2 text-sm">
-                Status
-                <select
-                  aria-label="Filter by status"
-                  className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
-                  value={statusFilter}
+              <div className="flex flex-wrap gap-3">
+                <Input
+                  placeholder="Search users..."
+                  value={search}
                   onChange={(e) => {
-                    setStatusFilter(e.target.value as UserStatusFilter);
+                    setSearch(e.target.value);
+                    setPage(0);
+                  }}
+                  className="max-w-xs"
+                />
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) => {
+                    setStatusFilter(v as UserStatusFilter);
                     setPage(0);
                   }}
                 >
-                  <option value="all">All</option>
-                  <option value="active">Active</option>
-                  <option value="disabled">Disabled</option>
-                </select>
-              </label>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="disabled">Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <FilterLine
-                prefix="Showing users where"
-                filters={userStatusFilters(statusFilter)}
-                onRemove={() => setStatusFilter("all")}
-                onReset={() => setStatusFilter("all")}
+                prefix="Showing"
+                filters={userFilters(statusFilter, search)}
+                onRemove={(id) => {
+                  if (id === "search") setSearch("");
+                  else setStatusFilter("all");
+                  setPage(0);
+                }}
+                onReset={resetFilters}
               />
               {visibleUsers.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  matchesTemplateSearch,
   templateConnectionLabel,
   templateFilters,
   templateListMeta,
@@ -71,10 +72,37 @@ describe("templateFilters", () => {
         names,
       ).map((f) => `${f.label} ${f.operator ?? "is"} ${f.value}`),
     ).toEqual([
-      "Name contains top",
+      "Name or description contains top",
       "Chart is Bar",
       "Connector is Acme Sheets",
       "Tag is kpi",
     ]);
+  });
+});
+
+describe("matchesTemplateSearch", () => {
+  const t = { name: "Top movies", description: "By Rating" };
+  it.each([
+    ["the name, any case", "TOP", true],
+    ["the description", "rating", true],
+    ["the trimmed term, as the chip shows it", "  top ", true],
+    ["neither", "zzz", false],
+    ["a blank term as everything", "   ", true],
+  ])("reads %s", (_, term, expected) => {
+    expect(matchesTemplateSearch(t, term)).toBe(expected);
+  });
+
+  it("copes with no description", () => {
+    expect(matchesTemplateSearch({ name: "A", description: null }, "b")).toBe(
+      false,
+    );
+  });
+});
+
+describe("templateConnectionLabel while connections load", () => {
+  it("names nothing yet, rather than claiming the bound connection is gone", () => {
+    expect(templateConnectionLabel({ connectionId: "c1" }, undefined, [])).toBe(
+      "…",
+    );
   });
 });

@@ -111,7 +111,8 @@ export interface ListRowProps {
    */
   href?: string;
   /** Opens the item in the app (router push); the plain click is then not a page load. */
-  onOpen?: () => void;
+  /** Gets the title element, so a caller can send focus back to it on close. */
+  onOpen?: (opener: HTMLElement) => void;
   /** One node per meta column; hidden below 768 px. */
   meta?: readonly React.ReactNode[];
   /** The "⋯" button or menu trigger. It sits above the link, never inside it. */
@@ -137,10 +138,11 @@ function RowTitle({
         onClick={(e) => {
           if (onOpen && PLAIN_LEFT_CLICK(e)) {
             e.preventDefault();
-            onOpen();
+            onOpen(e.currentTarget);
           }
         }}
         className={TITLE_CLASS}
+        title={title}
       >
         {title}
       </a>
@@ -150,14 +152,19 @@ function RowTitle({
     return (
       <button
         type="button"
-        onClick={onOpen}
+        onClick={(e) => onOpen(e.currentTarget)}
         className={cn(TITLE_CLASS, "w-full text-left")}
+        title={title}
       >
         {title}
       </button>
     );
   }
-  return <span className="block truncate font-medium">{title}</span>;
+  return (
+    <span className="block truncate font-medium" title={title}>
+      {title}
+    </span>
+  );
 }
 
 /** A row that opens its item wherever it is clicked. */

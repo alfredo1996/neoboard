@@ -63,7 +63,7 @@ test.describe("Responsive — tablet viewport", () => {
       page.getByRole("heading", { level: 1, name: "Connections" }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.getByRole("button", { name: "Add Connection" }),
+      page.getByRole("button", { name: "New connection" }),
     ).toBeVisible();
   });
 

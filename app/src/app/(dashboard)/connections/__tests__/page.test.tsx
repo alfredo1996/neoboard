@@ -718,7 +718,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
 
   it("builds the type picker, the dialog title and the form from the picked connector", () => {
     render(<ConnectionsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "Add Connection" }));
+    fireEvent.click(screen.getByRole("button", { name: "New connection" }));
 
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByText("Choose Connection Type")).toBeInTheDocument();
@@ -739,7 +739,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
       error: "rejected",
     });
     render(<ConnectionsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "Add Connection" }));
+    fireEvent.click(screen.getByRole("button", { name: "New connection" }));
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.click(dialog.getByTestId("pick-acme-sheets"));
     // This suite's own installed connector declares one connection field,
@@ -758,7 +758,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
   it("shows an error with a retry when the connectors cannot be loaded — no fallback type", () => {
     mockConnectors = { data: undefined, isLoading: false, isError: true };
     render(<ConnectionsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "Add Connection" }));
+    fireEvent.click(screen.getByRole("button", { name: "New connection" }));
 
     const dialog = within(screen.getByRole("dialog"));
     expect(
@@ -888,9 +888,9 @@ describe("ConnectionsPage — re-assign names the connector by its label (#1905)
 // #2146: the add, edit and Duplicate dialog has no Trigger either.
 it.each([
   [
-    "Add Connection",
+    "New connection",
     true,
-    () => screen.getByRole("button", { name: "Add Connection" }),
+    () => screen.getByRole("button", { name: "New connection" }),
   ],
   ["Edit sheets", false, () => menuTrigger],
   ["Duplicate sheets", false, () => menuTrigger],
@@ -910,6 +910,22 @@ it.each([
     expect(target()).toHaveFocus();
   },
 );
+
+// #2254: opening a connection from its name has no menu: focus goes back to the
+// name, not to the heading.
+it("Cancel after opening a connection from its name hands focus back to that name", () => {
+  menuTrigger.blur();
+  mockConnections = rows(1, { name: "sheets", type: "acme-sheets" });
+  render(<ConnectionsPage />);
+  const name = screen.getByRole("button", { name: "sheets" });
+
+  fireEvent.click(name);
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }),
+  );
+
+  expect(name).toHaveFocus();
+});
 
 // #2146: the empty state and its button leave once the list refetches, which
 // is after the dialog has closed: focus lands on the heading, not the button.

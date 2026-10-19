@@ -33,7 +33,7 @@ test.describe("Dashboard list & role badges", () => {
     const timestamp = uid();
 
     // Create a creator
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     let dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("Badge Creator");
     await dialog
@@ -48,7 +48,7 @@ test.describe("Dashboard list & role badges", () => {
     ).toBeVisible();
 
     // Create a reader
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
     await dialog.locator("#user-name").fill("Badge Reader");
@@ -75,7 +75,7 @@ test.describe("Dashboard list & role badges", () => {
     await expect(readerRow).toBeVisible();
   });
 
-  test("connections page header and Add Connection button are visible", async ({
+  test("connections page header and New connection button are visible", async ({
     page,
   }) => {
     await page.goto("/connections");
@@ -83,7 +83,7 @@ test.describe("Dashboard list & role badges", () => {
       page.getByRole("heading", { level: 1, name: "Connections" }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.getByRole("button", { name: "Add Connection" }),
+      page.getByRole("button", { name: "New connection" }),
     ).toBeVisible();
   });
 });

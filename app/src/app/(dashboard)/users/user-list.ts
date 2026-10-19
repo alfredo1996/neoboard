@@ -18,11 +18,82 @@ export function userListMeta(users: readonly UserListItem[]): string {
   return disabled > 0 ? `${base} · ${disabled} disabled` : base;
 }
 
-/** The filter line's chip: "Status is disabled", none for everyone. */
-export function userStatusFilters(status: UserStatusFilter) {
-  return status === "all"
-    ? []
-    : [{ id: "status" as const, label: "Status", value: status }];
+/** The filter line's chips: the search, then the status; none for "all". */
+export function userFilters(status: UserStatusFilter, search: string) {
+  const term = search.trim();
+  const filters: {
+    id: "search" | "status";
+    label: string;
+    operator?: string;
+    value: string;
+  }[] = [];
+  if (term) {
+    filters.push({
+      id: "search",
+      label: "Name or email",
+      operator: "contains",
+      value: term,
+    });
+  }
+  if (status !== "all") {
+    filters.push({ id: "status", label: "Status", value: status });
+  }
+  return filters;
+}
+
+/** One search over name and email, case-blind; an empty term is everyone. */
+export function matchesUserSearch(u: UserListItem, search: string): boolean {
+  const term = search.trim().toLowerCase();
+  if (!term) return true;
+  return [u.name, u.email].some((v) => v?.toLowerCase().includes(term));
+}
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Admin",
+  creator: "Creator",
+  reader: "Reader",
+};
+
+export function roleLabel(role: UserRole): string {
+  return ROLE_LABELS[role];
+}
+
+/** Admins always write, readers never, creators as their flag says. */
+export function writeLabel(u: UserListItem): string {
+  const writes = u.role === "admin" || (u.role !== "reader" && u.canWrite);
+  return writes ? "Can write" : "Read only";
+}
+
+/**
+ * What the row's menu offers for changing a user (the old role select and
+ * write switch's rules): nothing on your own row, the other roles elsewhere,
+ * write access only for a creator.
+ */
+export function userMenuActions(
+  u: UserListItem,
+  isSelf: boolean,
+): { roles: UserRole[]; write: "grant" | "revoke" | null } {
+  if (isSelf) return { roles: [], write: null };
+  const roles = (Object.keys(ROLE_LABELS) as UserRole[]).filter(
+    (r) => r !== u.role,
+  );
+  let write: "grant" | "revoke" | null = null;
+  if (u.role === "creator") write = u.canWrite ? "revoke" : "grant";
+  return { roles, write };
+}
+
+/** "Oct 2", with the year when it is not this one; "—" for none. */
+export function formatShortDate(
+  iso: string | null,
+  now: Date = new Date(),
+): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(d.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
 }
 
 const ROLE_ORDER: Record<UserRole, number> = {

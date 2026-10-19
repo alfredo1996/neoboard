@@ -326,7 +326,7 @@ describe("WidgetLibraryPage — where focus goes after Delete template (#2125)",
 
 // #2146: the editor and Use in Dashboard have no Trigger either.
 it.each([
-  ["New Template", "button"],
+  ["New template", "button"],
   ["Edit", "menuitem"],
   ["Use in Dashboard", "menuitem"],
 ] as const)(

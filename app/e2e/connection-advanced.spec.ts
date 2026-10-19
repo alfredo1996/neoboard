@@ -16,7 +16,7 @@ test.describe("Connection Advanced Settings", () => {
   test("should expand and show Neo4j-specific advanced fields", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
 
@@ -43,7 +43,7 @@ test.describe("Connection Advanced Settings", () => {
   test("should expand and show PostgreSQL-specific advanced fields", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-postgresql").click();
 
@@ -68,7 +68,7 @@ test.describe("Connection Advanced Settings", () => {
     page,
   }) => {
     const name = `Adv Neo4j ${uid()}`;
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
 
@@ -93,7 +93,7 @@ test.describe("Connection Advanced Settings", () => {
     page,
   }) => {
     const name = `Adv PG ${uid()}`;
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-postgresql").click();
 
@@ -121,7 +121,7 @@ test.describe("Connection Advanced Settings", () => {
   test("should test inline connection with advanced settings", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
 
@@ -143,7 +143,7 @@ test.describe("Connection Advanced Settings", () => {
   });
 
   test("should collapse advanced settings on toggle", async ({ page }) => {
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
 
@@ -161,7 +161,7 @@ test.describe("Connection Advanced Settings", () => {
   }) => {
     // A short laptop viewport — the height where the tall dialog overflows.
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     // PostgreSQL has the tallest advanced section (incl. SSL + statement timeout)
     await dialog.getByTestId("pick-postgresql").click();
@@ -189,7 +189,7 @@ test.describe("Connection Advanced Settings", () => {
   test("shows a descriptor constraint inline and saves nothing (#1901)", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Add Connection" }).click();
+    await page.getByRole("button", { name: "New connection" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-postgresql").click();
 

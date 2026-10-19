@@ -14,25 +14,23 @@ async function waitForUsersTable(page: import("@playwright/test").Page) {
 }
 
 /**
- * Find a user's row, paging forward until it shows: the list holds 20 users to
- * a page and concurrent specs create newer ones (#1004, #2254).
+ * Find a user's row through the search box: the list holds 20 users to a page
+ * and concurrent specs create newer ones (#1004, #2254).
  */
 async function filterToUser(
   page: import("@playwright/test").Page,
   email: string,
 ) {
   await waitForUsersTable(page);
+  await page.getByPlaceholder("Search users...").fill(email);
   const row = page.getByRole("row").filter({ hasText: email });
-  const next = page.getByRole("button", { name: "Next page" });
-  while (
-    (await row.count()) === 0 &&
-    (await next.count()) > 0 &&
-    (await next.isEnabled())
-  ) {
-    await next.click();
-  }
   await expect(row).toBeVisible({ timeout: 10_000 });
   return row;
+}
+
+/** A row's "⋯" button, opened. */
+async function openMenu(row: import("@playwright/test").Locator) {
+  await row.getByRole("button", { name: /^User actions for / }).click();
 }
 
 test.describe("User management", () => {
@@ -53,7 +51,7 @@ test.describe("User management", () => {
   test("should create a new user", async ({ page }) => {
     // Wait for user data to load (avoids duplicate "Create User" buttons from EmptyState)
     await waitForUsersTable(page);
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     const timestamp = uid();
     await dialog.locator("#user-name").fill("Test User");
@@ -64,11 +62,11 @@ test.describe("User management", () => {
     await expect(page.getByText(`test-${timestamp}@example.com`)).toBeVisible();
   });
 
-  test("should change user role via dropdown", async ({ page }) => {
+  test("should change a user's role from the row menu", async ({ page }) => {
     // Wait for user data to load
     await waitForUsersTable(page);
     // Create a fresh user as "creator"
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     const timestamp = uid();
     const email = `test-role-${timestamp}@example.com`;
@@ -79,11 +77,11 @@ test.describe("User management", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(page.getByText(email)).toBeVisible({ timeout: 10000 });
 
-    // Find the user's row and click the role Select dropdown
-    const row = page.getByRole("row").filter({ hasText: email });
-    await row.getByRole("combobox").click();
-    // Select "Reader"
-    await page.getByRole("option", { name: "Reader" }).click();
+    // Find the user's row and change the role from its menu
+    const row = await filterToUser(page, email);
+    await expect(row.getByText("Creator", { exact: true })).toBeVisible();
+    await openMenu(row);
+    await page.getByRole("menuitem", { name: "Make reader" }).click();
 
     // Assert toast "Role updated" appears (use exact match to avoid strict-mode
     // violation from the aria-live status announcement that also contains "Role updated")
@@ -91,15 +89,15 @@ test.describe("User management", () => {
       timeout: 5000,
     });
 
-    // Verify the role changed — Select now shows "Reader"
-    await expect(row.getByRole("combobox")).toHaveText("Reader");
+    // Verify the role changed — the row now reads "Reader"
+    await expect(row.getByText("Reader", { exact: true })).toBeVisible();
   });
 
   test("should delete a user with confirmation", async ({ page }) => {
     // Wait for user data to load
     await waitForUsersTable(page);
     // Create a user to delete
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     const timestamp = uid();
     const email = `delete-${timestamp}@example.com`;
@@ -129,7 +127,7 @@ test.describe("Force password change", () => {
     page,
   }) => {
     await waitForUsersTable(page);
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     const timestamp = uid();
     const email = `force-pw-${timestamp}@example.com`;
@@ -148,7 +146,7 @@ test.describe("Force password change", () => {
   }) => {
     // Create a user first
     await waitForUsersTable(page);
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     const timestamp = uid();
     const email = `reset-pw-${timestamp}@example.com`;
@@ -179,7 +177,7 @@ test.describe("Force password change", () => {
   });
 });
 
-test.describe("can_write toggle", () => {
+test.describe("write access, from the row menu", () => {
   /** Helper: create a fresh creator user and return their email. */
   async function createCreator(
     page: import("@playwright/test").Page,
@@ -187,7 +185,7 @@ test.describe("can_write toggle", () => {
   ) {
     const email = `${label}-${uid()}@example.com`;
     await waitForUsersTable(page);
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("Test Creator");
     await dialog.locator("#user-email").fill(email);
@@ -203,28 +201,26 @@ test.describe("can_write toggle", () => {
     await sidebarPage.navigateTo("Users");
   });
 
-  test("Write column shows Yes badge for creators by default", async ({
+  test("Write column reads Can write for creators by default", async ({
     page,
   }) => {
     const email = await createCreator(page, "badge-test");
-    const row = page.getByRole("row").filter({ hasText: email });
-    // Admin sees a Switch in the Write column; checked = canWrite enabled
-    await expect(row.getByRole("switch")).toBeChecked();
+    const row = await filterToUser(page, email);
+    await expect(row.getByText("Can write", { exact: true })).toBeVisible();
   });
 
-  test("admin can toggle can_write off for a creator from the keyboard, and focus stays on the switch", async ({
+  test("admin removes write access from a creator via the row menu, then grants it back", async ({
     page,
   }) => {
     const email = await createCreator(page, "toggle-off");
-    const row = page.getByRole("row").filter({ hasText: email });
-    const toggle = row.getByRole("switch");
+    const row = await filterToUser(page, email);
+    const trigger = row.getByRole("button", { name: /^User actions for / });
 
-    // Default: write enabled (switch checked)
-    await expect(toggle).toBeChecked();
-
-    await toggle.focus();
-    await page.keyboard.press("Space");
-    await expect(toggle).not.toBeChecked({ timeout: 5_000 });
+    await openMenu(row);
+    await page.getByRole("menuitem", { name: "Remove write access" }).click();
+    await expect(row.getByText("Read only", { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
     // The toast names what the permission gates: a form submit does not need
     // it (#1831). Exact, so the aria-live announcement does not match too.
     await expect(
@@ -233,35 +229,35 @@ test.describe("can_write toggle", () => {
         { exact: true },
       ),
     ).toBeVisible({ timeout: 5_000 });
-    // After the refetch and the toast: a remounted cell dropped focus (#2098).
-    await expect(toggle).toBeFocused();
+    // After the refetch and the toast: a remounted row dropped focus (#2098).
+    await expect(trigger).toBeFocused();
+
+    await openMenu(row);
+    await page.getByRole("menuitem", { name: "Allow writing" }).click();
+    await expect(row.getByText("Can write", { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
-  test("admin can toggle can_write back on after disabling", async ({
+  test("the admin's own row offers no role or write change", async ({
     page,
   }) => {
-    const email = await createCreator(page, "toggle-on");
-    const row = page.getByRole("row").filter({ hasText: email });
-
-    // Disable first
-    await row.getByRole("switch").click();
-    await expect(row.getByRole("switch")).not.toBeChecked({ timeout: 5_000 });
-
-    // Re-enable
-    await row.getByRole("switch").click();
-    await expect(row.getByRole("switch")).toBeChecked({ timeout: 5_000 });
-  });
-
-  test("Write switch is disabled for the admin's own row", async ({ page }) => {
     const aliceRow = await filterToUser(page, "alice@example.com");
-    // Own row: switch is wrapped in a disabled span (cursor-not-allowed)
-    await expect(aliceRow.getByRole("switch")).toBeDisabled();
+    await openMenu(aliceRow);
+    await expect(
+      page.getByRole("menuitem", { name: "Require Password Change" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: /^Make |write/i }),
+    ).toHaveCount(0);
   });
 
-  test("Write switch is disabled for reader-role users", async ({ page }) => {
+  test("a reader reads Read only and offers no write change", async ({
+    page,
+  }) => {
     const email = `reader-nowrite-${uid()}@example.com`;
     await waitForUsersTable(page);
-    await page.getByRole("button", { name: "Create User" }).first().click();
+    await page.getByRole("button", { name: "Create user" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.locator("#user-name").fill("Test Reader");
     await dialog.locator("#user-email").fill(email);
@@ -271,10 +267,13 @@ test.describe("can_write toggle", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect(page.getByText(email)).toBeVisible({ timeout: 10_000 });
 
-    const row = page.getByRole("row").filter({ hasText: email });
-    // Reader always shows No and the switch is disabled
-    await expect(row.getByText("No")).toBeVisible();
-    await expect(row.getByRole("switch")).toBeDisabled();
+    const row = await filterToUser(page, email);
+    await expect(row.getByText("Read only", { exact: true })).toBeVisible();
+    await openMenu(row);
+    await expect(page.getByRole("menuitem", { name: /write/i })).toHaveCount(0);
+    await expect(
+      page.getByRole("menuitem", { name: "Make creator" }),
+    ).toBeVisible();
   });
 });
 
@@ -390,7 +389,7 @@ test.describe("User management — non-admin access", () => {
     });
     // …and no admin-only affordances leak into the header (UI gate, #1036).
     await expect(
-      page.getByRole("button", { name: "Create User" }),
+      page.getByRole("button", { name: "Create user" }),
     ).not.toBeVisible();
   });
 });

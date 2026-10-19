@@ -178,6 +178,8 @@ export function useReassignConnection() {
       return unwrapResponse<ReassignResult>(res);
     },
     onSuccess: () => {
+      // The list's Widgets column counts what just moved (#2254).
+      queryClient.invalidateQueries({ queryKey: ["connections"] });
       queryClient.invalidateQueries({ queryKey: ["connection-usage"] });
       queryClient.invalidateQueries({ queryKey: ["dashboards"] });
     },

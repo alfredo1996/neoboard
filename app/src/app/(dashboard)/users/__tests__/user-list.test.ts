@@ -6,7 +6,12 @@ import {
   pageOf,
   sortUsers,
   userListMeta,
-  userStatusFilters,
+  userFilters,
+  matchesUserSearch,
+  roleLabel,
+  writeLabel,
+  userMenuActions,
+  formatShortDate,
   type UserSort,
 } from "../user-list";
 import type { UserListItem } from "@/hooks/use-users";
@@ -56,12 +61,83 @@ describe("userListMeta", () => {
   });
 });
 
-describe("userStatusFilters", () => {
-  it("shows no chip for all users, one for a narrowed status", () => {
-    expect(userStatusFilters("all")).toEqual([]);
-    expect(userStatusFilters("disabled")).toEqual([
+describe("userFilters", () => {
+  it("shows no chip for no filter, a chip per active one, search first", () => {
+    expect(userFilters("all", "  ")).toEqual([]);
+    expect(userFilters("disabled", "")).toEqual([
       { id: "status", label: "Status", value: "disabled" },
     ]);
+    expect(userFilters("active", " ann ")).toEqual([
+      {
+        id: "search",
+        label: "Name or email",
+        operator: "contains",
+        value: "ann",
+      },
+      { id: "status", label: "Status", value: "active" },
+    ]);
+  });
+});
+
+describe("matchesUserSearch", () => {
+  it.each([
+    ["finds a name, any case", "ALI", true],
+    ["finds an email", "@example", true],
+    ["trims the term", "  alice ", true],
+    ["rejects what neither holds", "zzz", false],
+    ["takes an empty term as everyone", "  ", true],
+  ])("%s", (_, term, expected) => {
+    expect(matchesUserSearch(ALICE, term)).toBe(expected);
+  });
+
+  it("does not throw on a user with no name or email", () => {
+    expect(
+      matchesUserSearch(user({ id: "x", name: null, email: null }), "a"),
+    ).toBe(false);
+  });
+});
+
+describe("role and write labels", () => {
+  it("names the role, and the write access a role really has", () => {
+    expect(roleLabel("admin")).toBe("Admin");
+    expect(writeLabel(user({ id: "a", role: "admin", canWrite: false }))).toBe(
+      "Can write",
+    );
+    expect(writeLabel(user({ id: "r", role: "reader", canWrite: true }))).toBe(
+      "Read only",
+    );
+    expect(writeLabel(user({ id: "c", canWrite: false }))).toBe("Read only");
+    expect(writeLabel(user({ id: "c", canWrite: true }))).toBe("Can write");
+  });
+});
+
+describe("userMenuActions", () => {
+  it("offers the other roles, and write access only for a creator", () => {
+    expect(userMenuActions(user({ id: "c" }), false)).toEqual({
+      roles: ["admin", "reader"],
+      write: "revoke",
+    });
+    expect(
+      userMenuActions(user({ id: "c", canWrite: false }), false).write,
+    ).toBe("grant");
+    expect(userMenuActions(user({ id: "r", role: "reader" }), false)).toEqual({
+      roles: ["admin", "creator"],
+      write: null,
+    });
+    expect(userMenuActions(ALICE, false).write).toBeNull();
+  });
+
+  it("offers nothing on the admin's own row", () => {
+    expect(userMenuActions(ALICE, true)).toEqual({ roles: [], write: null });
+  });
+});
+
+describe("formatShortDate", () => {
+  const now = new Date("2026-10-19T12:00:00Z");
+  it("reads a short month and day, with the year only when not this year", () => {
+    expect(formatShortDate("2026-10-02T12:00:00Z", now)).toBe("Oct 2");
+    expect(formatShortDate("2025-09-01T12:00:00Z", now)).toBe("Sep 1, 2025");
+    expect(formatShortDate(null, now)).toBe("—");
   });
 });
 

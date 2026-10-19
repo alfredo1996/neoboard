@@ -181,7 +181,12 @@ test.describe("Widget Library", () => {
 
       // Use data-testid for reliable card selection instead of .grid > div
       const card = page.getByRole("row").filter({ hasText: templateName });
-      await card.getByRole("button", { name: "Template actions" }).click();
+      await card
+        .getByRole("button", {
+          name: `Template actions for ${templateName}`,
+          exact: true,
+        })
+        .click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
 
       // Confirm the deletion
@@ -332,8 +337,8 @@ test.describe("Widget Library", () => {
         page.getByRole("heading", { name: "Widget Library" }),
       ).toBeVisible();
 
-      // Click "New Template" button
-      await page.getByRole("button", { name: "New Template" }).click();
+      // Click "New template" button
+      await page.getByRole("button", { name: "New template" }).click();
       const dialog = page.getByRole("dialog", { name: "Create Template" });
       await expect(dialog).toBeVisible();
 
@@ -408,7 +413,12 @@ test.describe("Widget Library", () => {
       await expect(page.getByText(origName)).toBeVisible({ timeout: 10_000 });
 
       const card = page.getByRole("row").filter({ hasText: origName });
-      await card.getByRole("button", { name: "Template actions" }).click();
+      await card
+        .getByRole("button", {
+          name: `Template actions for ${origName}`,
+          exact: true,
+        })
+        .click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
 
       // Edit Template dialog should open
@@ -501,7 +511,12 @@ test.describe("Widget Library", () => {
 
         // Click "Use in Dashboard" on the template card
         const card = page.getByRole("row").filter({ hasText: templateName });
-        await card.getByRole("button", { name: "Template actions" }).click();
+        await card
+          .getByRole("button", {
+            name: `Template actions for ${templateName}`,
+            exact: true,
+          })
+          .click();
         await page.getByRole("menuitem", { name: "Use in Dashboard" }).click();
 
         // Dashboard picker dialog should appear
@@ -612,7 +627,12 @@ test.describe("Widget Library", () => {
         });
 
         const card = page.getByRole("row").filter({ hasText: templateName });
-        await card.getByRole("button", { name: "Template actions" }).click();
+        await card
+          .getByRole("button", {
+            name: `Template actions for ${templateName}`,
+            exact: true,
+          })
+          .click();
         await page.getByRole("menuitem", { name: "Edit" }).click();
 
         const editDialog = page.getByRole("dialog", { name: "Edit Template" });
@@ -775,7 +795,12 @@ test.describe("Widget Library", () => {
         await page.goto("/widget-library");
         const card = page.getByRole("row").filter({ hasText: templateName });
         await expect(card).toBeVisible({ timeout: 10_000 });
-        await card.getByRole("button", { name: "Template actions" }).click();
+        await card
+          .getByRole("button", {
+            name: `Template actions for ${templateName}`,
+            exact: true,
+          })
+          .click();
         await page.getByRole("menuitem", { name: "Edit" }).click();
 
         const editDialog = page.getByRole("dialog", { name: "Edit Template" });
@@ -807,7 +832,12 @@ test.describe("Widget Library", () => {
         });
 
         // Use in Dashboard: the widget it adds carries the rule.
-        await card.getByRole("button", { name: "Template actions" }).click();
+        await card
+          .getByRole("button", {
+            name: `Template actions for ${templateName}`,
+            exact: true,
+          })
+          .click();
         await page.getByRole("menuitem", { name: "Use in Dashboard" }).click();
         const picker = page.getByRole("dialog", { name: "Choose a Dashboard" });
         await picker.locator("button").filter({ hasText: dashName }).click();
@@ -917,7 +947,12 @@ test.describe("Widget Library", () => {
         .first();
       await expect(card).toBeVisible({ timeout: 10_000 });
 
-      await card.getByRole("button", { name: "Template actions" }).click();
+      await card
+        .getByRole("button", {
+          name: `Template actions for Neo4j Bar Template`,
+          exact: true,
+        })
+        .click();
 
       await page.getByRole("menuitem", { name: "Duplicate" }).click();
 

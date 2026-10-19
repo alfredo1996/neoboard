@@ -57,6 +57,7 @@ import { WidgetEditorModal } from "@/components/widget-editor-modal";
 import {
   templateConnectionLabel,
   templateFilters,
+  matchesTemplateSearch,
   templateListMeta,
 } from "./template-list";
 
@@ -70,7 +71,8 @@ export default function WidgetLibraryPage() {
   const { data: templates, isLoading } = useWidgetTemplates();
   const deleteTemplate = useDeleteWidgetTemplate();
   const createTemplate = useCreateWidgetTemplate();
-  const { data: connections = [] } = useConnections();
+  const { data: loadedConnections } = useConnections();
+  const connections = loadedConnections ?? [];
   const { data: connectors = [] } = useConnectors();
   const [testingTemplateId, setTestingTemplateId] = useState<string | null>(
     null,
@@ -112,13 +114,7 @@ export default function WidgetLibraryPage() {
   const filtered = useMemo(() => {
     if (!templates) return [];
     return templates.filter((t) => {
-      if (
-        search &&
-        !t.name.toLowerCase().includes(search.toLowerCase()) &&
-        !(t.description ?? "").toLowerCase().includes(search.toLowerCase())
-      ) {
-        return false;
-      }
+      if (!matchesTemplateSearch(t, search)) return false;
       if (filterChartType !== "all" && t.chartType !== filterChartType)
         return false;
       if (filterConnector !== "all" && t.connectorType !== filterConnector)
@@ -247,7 +243,7 @@ export default function WidgetLibraryPage() {
         actions={
           <Button onClick={handleCreate} className="gap-2">
             <Plus className="h-4 w-4" />
-            New Template
+            New template
           </Button>
         }
       />
@@ -377,7 +373,7 @@ export default function WidgetLibraryPage() {
                         ? "—"
                         : templateConnectionLabel(
                             template,
-                            connections,
+                            loadedConnections,
                             connectors,
                           ),
                       <span key="t" className="flex gap-1.5">
