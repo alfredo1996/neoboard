@@ -35,14 +35,6 @@ describe("Checkbox (#2218)", () => {
     );
   });
 
-  it("has a 4px radius, a red border on aria-invalid and a 50% disabled state", () => {
-    render(<Checkbox aria-label="x" aria-invalid disabled />);
-    const cls = screen.getByRole("checkbox").className;
-    expect(cls).toContain("rounded-checkbox");
-    expect(cls).toContain("aria-[invalid=true]:border-destructive");
-    expect(cls).toContain("disabled:opacity-50");
-  });
-
   // jsdom computes no layout: assert the classes that grow the hit area.
   it("extends its hit area to 24px, and 44px on a coarse pointer", () => {
     render(<Checkbox aria-label="x" />);

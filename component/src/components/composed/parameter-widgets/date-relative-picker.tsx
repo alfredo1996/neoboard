@@ -37,7 +37,7 @@ export interface DateRelativePickerProps extends ExternalLabelProps {
 
 /**
  * Relative date preset picker for a parameter widget.
- * Renders the presets as a SegmentedControl. Clicking the active preset deselects it.
+ * Renders the presets as a SegmentedControl. Clicking the active preset keeps it selected.
  * Pure presentational — calls onChange with the preset key or empty string.
  */
 function DateRelativePicker({
@@ -54,7 +54,6 @@ function DateRelativePicker({
   return (
     <div className={cn("space-y-1.5", className)}>
       {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
-      {/* Clicking the active preset clears it: the control reports "". */}
       <SegmentedControl
         id={id}
         aria-labelledby={labelId}
@@ -64,7 +63,7 @@ function DateRelativePicker({
           label,
         }))}
         value={value}
-        onValueChange={(next) => onChange(next as RelativeDatePreset | "")}
+        onValueChange={(next) => onChange(next as RelativeDatePreset)}
       />
     </div>
   );

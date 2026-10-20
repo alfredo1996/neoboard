@@ -62,7 +62,7 @@ describe("SegmentedControl (#2218)", () => {
     expect(onValueChange).toHaveBeenCalledWith("week");
   });
 
-  it("reports an empty string when the selected segment is clicked again", async () => {
+  it("does nothing when the selected segment is clicked again", async () => {
     const onValueChange = vi.fn();
     render(
       <SegmentedControl
@@ -73,10 +73,14 @@ describe("SegmentedControl (#2218)", () => {
       />,
     );
     await userEvent.click(screen.getByRole("radio", { name: "Day" }));
-    expect(onValueChange).toHaveBeenCalledWith("");
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("radio", { name: "Day" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
   });
 
-  it("is a grey track with a bold white selected segment and no shadow", () => {
+  it("is a block-level track, so a label above it stays on its own line", () => {
     render(
       <SegmentedControl
         aria-label="Range"
@@ -85,13 +89,22 @@ describe("SegmentedControl (#2218)", () => {
         onValueChange={vi.fn()}
       />,
     );
-    expect(screen.getByRole("radiogroup", { name: "Range" })).toHaveClass(
-      "bg-active",
+    const cls = screen.getByRole("radiogroup", { name: "Range" }).className;
+    expect(cls).toMatch(/(^| )flex( |$)/);
+    expect(cls).not.toContain("inline-flex");
+  });
+
+  it("gives each segment a 44px hit area on a coarse pointer", () => {
+    render(
+      <SegmentedControl
+        aria-label="Range"
+        options={options}
+        value="day"
+        onValueChange={vi.fn()}
+      />,
     );
-    const cls = screen.getByRole("radio", { name: "Day" }).className;
-    expect(cls).toContain("h-7");
-    expect(cls).toContain("data-[state=on]:bg-field");
-    expect(cls).toContain("data-[state=on]:font-semibold");
-    expect(cls).not.toContain("shadow");
+    expect(screen.getByRole("radio", { name: "Day" }).className).toContain(
+      "[@media(pointer:coarse)]:after:",
+    );
   });
 });

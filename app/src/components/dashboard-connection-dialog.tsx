@@ -193,6 +193,7 @@ export function DashboardConnectionDialog({
             <div className="space-y-2">
               <Label>Move widgets from</Label>
               <RadioGroup
+                className="[@media(pointer:coarse)]:gap-4"
                 value={source ?? undefined}
                 onValueChange={(v: string) => {
                   setSource(v);

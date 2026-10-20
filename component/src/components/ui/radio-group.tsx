@@ -30,7 +30,7 @@ const RadioGroupItem = React.forwardRef<
     <RadioGroupPrimitive.Item
       ref={ref}
       className={cn(
-        "relative aspect-square h-4 w-4 rounded-full border border-input bg-field text-primary transition-[color,background-color,border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=unchecked]:hover:border-input-hover disabled:hover:border-input data-[state=checked]:border-primary aria-[invalid=true]:border-destructive",
+        "relative aspect-square h-4 w-4 rounded-full border border-input bg-field text-primary transition-[color,background-color,border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=unchecked]:enabled:hover:border-input-hover data-[state=checked]:border-primary aria-[invalid=true]:!border-destructive",
         // Hit area (#2218): 24px, 44px on a coarse pointer; the layout does not move.
         "after:absolute after:-inset-1 after:content-[''] [@media(pointer:coarse)]:after:-inset-3.5",
         className,

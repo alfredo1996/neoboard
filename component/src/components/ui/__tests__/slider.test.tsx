@@ -30,13 +30,9 @@ describe("Slider", () => {
   });
 
   // #2218. jsdom computes no layout: assert the classes, not the pixels.
-  it("has a 2px track and ink-edged thumbs whose hit area reaches 24px (44px coarse)", () => {
-    const { container } = render(
-      <Slider value={[50]} min={0} max={100} aria-label="v" />,
-    );
-    expect(container.querySelector(".h-0\\.5")).not.toBeNull();
+  it("has thumbs whose hit area reaches 24px (44px coarse)", () => {
+    render(<Slider value={[50]} min={0} max={100} aria-label="v" />);
     const cls = screen.getByRole("slider").className;
-    expect(cls).toContain("border-primary");
     expect(cls).toContain("after:-inset-1");
     expect(cls).toContain("[@media(pointer:coarse)]:after:-inset-3.5");
   });

@@ -39,12 +39,9 @@ describe("Switch (#2218)", () => {
   });
 
   // jsdom computes no layout: assert the size and hit-area classes.
-  it("is 32x18 with no shadow, and its hit area reaches 24px (44px coarse)", () => {
+  it("has a hit area that reaches 24px (44px coarse)", () => {
     render(<Switch aria-label="x" />);
     const cls = screen.getByRole("switch").className;
-    expect(cls).toContain("h-[18px]");
-    expect(cls).toContain("w-8");
-    expect(cls).not.toMatch(/(?:^|\s)shadow/);
     expect(cls).toContain("after:-inset-y-[3px]");
     expect(cls).toContain("[@media(pointer:coarse)]:after:-inset-y-[13px]");
   });

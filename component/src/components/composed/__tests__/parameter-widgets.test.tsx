@@ -847,7 +847,7 @@ describe("DateRelativePicker", () => {
     expect(onChange).toHaveBeenCalledWith("today");
   });
 
-  it("calls onChange with empty string when the active preset is clicked again (toggle off)", () => {
+  it("does not call onChange when the active preset is clicked again", () => {
     const onChange = vi.fn();
     render(
       <DateRelativePicker
@@ -857,7 +857,7 @@ describe("DateRelativePicker", () => {
       />,
     );
     fireEvent.click(screen.getByRole("radio", { name: "Today" }));
-    expect(onChange).toHaveBeenCalledWith("");
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("calls onChange with the preset key for each individual preset", () => {
