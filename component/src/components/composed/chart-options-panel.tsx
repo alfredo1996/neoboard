@@ -71,6 +71,7 @@ function OptionField({
         <div className="flex items-center justify-between gap-4">
           <OptionLabel option={option} />
           <Switch
+            stateLabel
             className="shrink-0"
             id={option.key}
             aria-describedby={

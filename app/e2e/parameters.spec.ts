@@ -1658,44 +1658,47 @@ test.describe("Date-relative parameter widget", () => {
       // Scope to the widget card to avoid collision with parameter bar tags
       const card = page.getByTestId("widget-card");
 
-      // Wait for the relative date preset buttons to render
-      const todayBtn = card.getByRole("button", { name: "Today" });
+      // Wait for the relative date presets (a segmented control) to render
+      const todayBtn = card.getByRole("radio", { name: "Today", exact: true });
       await expect(todayBtn).toBeVisible({ timeout: 15_000 });
 
       // All presets should be visible
       await expect(
-        card.getByRole("button", { name: "Yesterday" }),
+        card.getByRole("radio", { name: "Yesterday", exact: true }),
       ).toBeVisible();
       await expect(
-        card.getByRole("button", { name: "Last 7 days" }),
+        card.getByRole("radio", { name: "Last 7 days", exact: true }),
       ).toBeVisible();
       await expect(
-        card.getByRole("button", { name: "Last 30 days" }),
+        card.getByRole("radio", { name: "Last 30 days", exact: true }),
       ).toBeVisible();
       await expect(
-        card.getByRole("button", { name: "This month" }),
+        card.getByRole("radio", { name: "This month", exact: true }),
       ).toBeVisible();
       await expect(
-        card.getByRole("button", { name: "This year" }),
+        card.getByRole("radio", { name: "This year", exact: true }),
       ).toBeVisible();
 
       // Initially none should be active
-      await expect(todayBtn).toHaveAttribute("aria-pressed", "false");
+      await expect(todayBtn).toHaveAttribute("aria-checked", "false");
 
       // Click "Today" — should become active
       await todayBtn.click();
-      await expect(todayBtn).toHaveAttribute("aria-pressed", "true");
+      await expect(todayBtn).toHaveAttribute("aria-checked", "true");
 
-      // Click "Today" again — should toggle off
+      // Click "Today" again — a radio stays selected
       await todayBtn.click();
-      await expect(todayBtn).toHaveAttribute("aria-pressed", "false");
+      await expect(todayBtn).toHaveAttribute("aria-checked", "true");
 
       // Click "Last 7 days" — should become active
-      const last7 = card.getByRole("button", { name: "Last 7 days" });
+      const last7 = card.getByRole("radio", {
+        name: "Last 7 days",
+        exact: true,
+      });
       await last7.click();
-      await expect(last7).toHaveAttribute("aria-pressed", "true");
-      // "Today" should still be inactive
-      await expect(todayBtn).toHaveAttribute("aria-pressed", "false");
+      await expect(last7).toHaveAttribute("aria-checked", "true");
+      // "Today" is no longer the selected preset
+      await expect(todayBtn).toHaveAttribute("aria-checked", "false");
     } finally {
       await cleanup();
     }

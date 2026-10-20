@@ -23,4 +23,18 @@ describe("RadioGroup", () => {
     );
     expect(screen.getByRole("radio")).toHaveClass("focus-visible:ring-2");
   });
+
+  // #2218. jsdom computes no layout: assert the classes, not the pixels.
+  it("has a hit area that reaches 24px (44px coarse)", () => {
+    render(
+      <RadioGroup defaultValue="a">
+        <RadioGroupItem value="a" aria-label="A" />
+      </RadioGroup>,
+    );
+    const radio = screen.getByRole("radio");
+    expect(radio.className).toContain("after:-inset-1");
+    expect(radio.className).toContain(
+      "[@media(pointer:coarse)]:after:-inset-3.5",
+    );
+  });
 });

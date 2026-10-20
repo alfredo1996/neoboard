@@ -236,6 +236,7 @@ function AddProviderDialog({
                 </p>
               </div>
               <Switch
+                stateLabel
                 checked={form.autoProvision ?? true}
                 onCheckedChange={(checked) => update("autoProvision", checked)}
               />
@@ -271,6 +272,7 @@ function AddProviderDialog({
                 </p>
               </div>
               <Switch
+                stateLabel
                 checked={form.enforceSso ?? false}
                 onCheckedChange={(checked) => update("enforceSso", checked)}
               />

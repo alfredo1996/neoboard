@@ -59,3 +59,15 @@ export const Disabled: Story = {
     </div>
   ),
 };
+
+export const Checked: Story = {
+  args: { checked: true, "aria-label": "Checked" },
+};
+
+export const Indeterminate: Story = {
+  args: { checked: "indeterminate", "aria-label": "Some selected" },
+};
+
+export const Invalid: Story = {
+  args: { "aria-invalid": true, "aria-label": "Accept terms" },
+};

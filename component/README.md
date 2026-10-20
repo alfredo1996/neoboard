@@ -38,10 +38,6 @@ correctly placed in `composed/` under the rule:
 | `MultiSelect`     | Same `Popover` + `Command` pair with multi-value state  |
 | `DateRangePicker` | Orchestrates `Popover` + `Calendar` with range state    |
 
-And the inverse: `ui/toggle-group.tsx` stays in `ui/` even though it renders
-`Toggle` styles — it wraps a single Radix primitive (`ToggleGroupPrimitive`)
-and shares variants via context, not by composing other components.
-
 ## Conventions
 
 Every public component ships with:

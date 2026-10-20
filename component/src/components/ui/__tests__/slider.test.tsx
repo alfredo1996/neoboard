@@ -28,4 +28,12 @@ describe("Slider", () => {
     render(<Slider min={0} max={100} aria-label="v" />);
     expect(screen.getAllByRole("slider")).toHaveLength(1);
   });
+
+  // #2218. jsdom computes no layout: assert the classes, not the pixels.
+  it("has thumbs whose hit area reaches 24px (44px coarse)", () => {
+    render(<Slider value={[50]} min={0} max={100} aria-label="v" />);
+    const cls = screen.getByRole("slider").className;
+    expect(cls).toContain("after:-inset-1");
+    expect(cls).toContain("[@media(pointer:coarse)]:after:-inset-3.5");
+  });
 });
