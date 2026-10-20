@@ -69,6 +69,7 @@ export function DashboardAssignPanel({
             </p>
           </div>
           <Switch
+            stateLabel
             id="public-toggle"
             checked={isPublic}
             onCheckedChange={onTogglePublic}

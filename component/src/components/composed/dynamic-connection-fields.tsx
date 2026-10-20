@@ -148,6 +148,7 @@ function FieldRow({
             <FieldLabelText field={field} />
           </Label>
           <Switch
+            stateLabel
             id={id}
             checked={Boolean(values[field.name])}
             onCheckedChange={(checked) => onChange(field.name, checked)}

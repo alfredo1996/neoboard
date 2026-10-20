@@ -799,18 +799,18 @@ describe("DateRelativePicker", () => {
     expect(screen.getByText("Window")).toBeInTheDocument();
   });
 
-  it("renders all preset buttons", () => {
+  it("renders all presets as radios", () => {
     render(
       <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />,
     );
     for (const preset of RELATIVE_DATE_PRESETS) {
       expect(
-        screen.getByRole("button", { name: preset.label }),
+        screen.getByRole("radio", { name: preset.label }),
       ).toBeInTheDocument();
     }
   });
 
-  it("marks the active preset button as pressed", () => {
+  it("marks the active preset as checked", () => {
     render(
       <DateRelativePicker
         parameterName="window"
@@ -818,11 +818,11 @@ describe("DateRelativePicker", () => {
         onChange={vi.fn()}
       />,
     );
-    const btn = screen.getByRole("button", { name: "Last 7 days" });
-    expect(btn).toHaveAttribute("aria-pressed", "true");
+    const btn = screen.getByRole("radio", { name: "Last 7 days" });
+    expect(btn).toHaveAttribute("aria-checked", "true");
   });
 
-  it("marks inactive preset buttons as not pressed", () => {
+  it("marks inactive presets as not checked", () => {
     render(
       <DateRelativePicker
         parameterName="window"
@@ -830,8 +830,8 @@ describe("DateRelativePicker", () => {
         onChange={vi.fn()}
       />,
     );
-    const btn = screen.getByRole("button", { name: "Last 7 days" });
-    expect(btn).toHaveAttribute("aria-pressed", "false");
+    const btn = screen.getByRole("radio", { name: "Last 7 days" });
+    expect(btn).toHaveAttribute("aria-checked", "false");
   });
 
   it("calls onChange with the preset key when a button is clicked", () => {
@@ -843,7 +843,7 @@ describe("DateRelativePicker", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Today" }));
     expect(onChange).toHaveBeenCalledWith("today");
   });
 
@@ -856,7 +856,7 @@ describe("DateRelativePicker", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Today" }));
     expect(onChange).toHaveBeenCalledWith("");
   });
 
@@ -871,7 +871,7 @@ describe("DateRelativePicker", () => {
           onChange={onChange}
         />,
       );
-      fireEvent.click(screen.getByRole("button", { name: preset.label }));
+      fireEvent.click(screen.getByRole("radio", { name: preset.label }));
       expect(onChange).toHaveBeenCalledWith(preset.key);
       unmount();
     }
@@ -881,7 +881,7 @@ describe("DateRelativePicker", () => {
     render(
       <DateRelativePicker parameterName="window" value="" onChange={vi.fn()} />,
     );
-    expect(screen.getByRole("group")).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup")).toBeInTheDocument();
   });
 
   it("applies className to root element", () => {
@@ -1680,7 +1680,7 @@ describe("parameter widgets with an external label (#1410)", () => {
     ["ParamMultiSelector", "combobox", "Gallery region"],
     ["DatePickerParameter", "button", "Gallery region"],
     ["DateRangeParameter", "button", "Gallery region"],
-    ["DateRelativePicker", "group", "Gallery region"],
+    ["DateRelativePicker", "radiogroup", "Gallery region"],
     ["NumberRangeSlider", "slider", "Gallery region minimum"],
   ])(
     "%s labels itself in sentence case and names its %s %j",
@@ -1810,10 +1810,8 @@ describe("parameter widgets with an external label (#1410)", () => {
   it("DateRelativePicker's id is its preset group", () => {
     const make = cases.find(([n]) => n === "DateRelativePicker")![1];
     render(make(external));
-    const group = screen.getByRole("group");
+    const group = screen.getByRole("radiogroup");
     expect(group.id).toBe("ctl");
-    // A native fieldset, not a div with role="group" (Sonar a11y rule).
-    expect(group.tagName).toBe("FIELDSET");
   });
 
   /** The text an element's aria-labelledby id list resolves to. */

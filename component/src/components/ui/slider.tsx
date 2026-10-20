@@ -41,12 +41,12 @@ const Slider = React.forwardRef<
       <SliderPrimitive.Root
         ref={ref}
         className={cn(
-          "relative flex w-full touch-none select-none items-center",
+          "relative flex w-full touch-none select-none items-center data-[disabled]:opacity-50",
           className,
         )}
         {...props}
       >
-        <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-primary/20">
+        <SliderPrimitive.Track className="relative h-0.5 w-full grow overflow-hidden rounded-full bg-switch-off">
           <SliderPrimitive.Range className="absolute h-full bg-primary" />
         </SliderPrimitive.Track>
         {Array.from({ length: thumbCount }, (_, i) => {
@@ -79,7 +79,7 @@ const Slider = React.forwardRef<
                       ? `${ariaLabelledBy} ${qualifierId}`
                       : ariaLabelledBy
                 }
-                className="block h-4 w-4 rounded-full border border-primary/50 bg-background transition-[color,background-color,border-color,box-shadow,transform] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50"
+                className="relative block h-4 w-4 rounded-full border-2 border-primary bg-card after:absolute after:-inset-1 after:content-[''] [@media(pointer:coarse)]:after:-inset-3.5 transition-[color,background-color,border-color,box-shadow,transform] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[disabled]:pointer-events-none"
               />
             </React.Fragment>
           );

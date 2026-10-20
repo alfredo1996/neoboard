@@ -381,7 +381,7 @@ test.describe("Parameter widget types", () => {
 
       // DateRelativePicker exposes preset buttons directly — no popover.
       await page
-        .getByRole("button", { name: /last 7 days/i })
+        .getByRole("radio", { name: /last 7 days/i })
         .click({ timeout: 15_000 });
 
       // The dependent widget should render "last_7_days" once the store

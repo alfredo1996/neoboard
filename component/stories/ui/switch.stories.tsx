@@ -50,3 +50,12 @@ export const Disabled: Story = {
 export const Checked: Story = {
   args: { checked: true, "aria-label": "Airplane mode" },
 };
+
+export const WithStateLabel: Story = {
+  render: (args) => (
+    <div className="flex flex-col gap-3">
+      <Switch {...args} stateLabel aria-label="Off" />
+      <Switch {...args} stateLabel defaultChecked aria-label="On" />
+    </div>
+  ),
+};

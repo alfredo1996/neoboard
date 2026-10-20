@@ -19,8 +19,11 @@ export { Separator } from "./separator";
 export { Skeleton } from "./skeleton";
 export { Spinner, spinnerVariants } from "./spinner";
 export { Progress } from "./progress";
-export { Toggle, toggleVariants } from "./toggle";
-export { ToggleGroup, ToggleGroupItem } from "./toggle-group";
+export { SegmentedControl } from "./segmented-control";
+export type {
+  SegmentedControlOption,
+  SegmentedControlProps,
+} from "./segmented-control";
 
 // Phase 2: Form Components
 export {

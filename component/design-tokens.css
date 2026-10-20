@@ -207,6 +207,10 @@
   /* Field border on hover (#5C6370): more contrast than --input, never the lighter
      --border-strong (#2217). */
   --input-hover: 218 9% 41%;
+  /* Switch (#2218): the off track (#C3C9D2) and the thumb, white in both themes
+     while off; on, the thumb is --primary-foreground (white, dark in dark). */
+  --switch-off: 216 14% 80%;
+  --switch-thumb: 0 0% 100%;
   /* Selection/focus accent — azure at 42% L: 5.38:1 against the near-white
      page and 5.63:1 on a white card (WCAG 1.4.11 needs 3.0). The citrine it
      replaced measured 3.41 (#1553). */
@@ -308,6 +312,8 @@
   /* Field border (#646B78): 3.38:1 on the page. */
   --input: 218 9% 43%;
   --input-hover: 218 9% 62%; /* #8E95A1: lighter than --input in the dark theme */
+  --switch-off: 219 11% 25.5%; /* #3A3F48 */
+  --switch-thumb: 0 0% 100%;
   /* Lifted azure focus/selection ring: 6.22:1 against the charcoal page.
      Honest disclosure — the citrine it replaced measured 10.17 here; both
      are well past the 3.0 threshold, and azure is the hue that also clears

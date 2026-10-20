@@ -1,7 +1,7 @@
 "use client";
 
 import { ParamLabel } from "./param-label";
-import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/lib/utils";
 import type { ExternalLabelProps } from "./external-label";
 
@@ -37,7 +37,7 @@ export interface DateRelativePickerProps extends ExternalLabelProps {
 
 /**
  * Relative date preset picker for a parameter widget.
- * Renders a row of preset buttons. Clicking the active preset deselects it.
+ * Renders the presets as a SegmentedControl. Clicking the active preset deselects it.
  * Pure presentational — calls onChange with the preset key or empty string.
  */
 function DateRelativePicker({
@@ -51,37 +51,21 @@ function DateRelativePicker({
 }: DateRelativePickerProps) {
   const labelId = labelledBy ?? `param-daterel-label-${parameterName}`;
 
-  const handleClick = (key: RelativeDatePreset) => {
-    // Toggle: clicking the active preset clears it
-    onChange(value === key ? "" : key);
-  };
-
   return (
     <div className={cn("space-y-1.5", className)}>
       {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
-      <fieldset
+      {/* Clicking the active preset clears it: the control reports "". */}
+      <SegmentedControl
         id={id}
-        className="flex min-w-0 flex-wrap gap-1.5"
         aria-labelledby={labelId}
         aria-describedby={describedBy}
-      >
-        {RELATIVE_DATE_PRESETS.map((preset) => {
-          const isActive = value === preset.key;
-          return (
-            <Button
-              key={preset.key}
-              type="button"
-              size="sm"
-              variant={isActive ? "primary" : "secondary"}
-              className="text-xs h-7 px-2.5"
-              onClick={() => handleClick(preset.key)}
-              aria-pressed={isActive}
-            >
-              {preset.label}
-            </Button>
-          );
-        })}
-      </fieldset>
+        options={RELATIVE_DATE_PRESETS.map(({ key, label }) => ({
+          value: key,
+          label,
+        }))}
+        value={value}
+        onValueChange={(next) => onChange(next as RelativeDatePreset | "")}
+      />
     </div>
   );
 }
