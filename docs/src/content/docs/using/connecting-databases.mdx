@@ -25,7 +25,7 @@ NeoBoard supports two database types: **Neo4j** (graph) and **PostgreSQL** (rela
 Timeouts are optional and live under **Advanced Settings**, in milliseconds (1000–300000). Neo4j has Connection, Query and Acquisition timeouts. Queries time out after 30000 ms (30 s) unless you set Query Timeout. For TLS, use a `neo4j+s://` or `bolt+s://` URI.
 
 5. Click **Test Connection** to verify NeoBoard can reach your database.
-6. Click **Create**. The test is optional: NeoBoard saves the connection either way, tests it right after saving, and shows an **Error** badge if it cannot connect.
+6. Click **Create**. The test is optional: NeoBoard saves the connection either way, tests it right after saving, and shows **Can't connect** if it cannot.
 
 ## Adding a PostgreSQL Connection
 
@@ -46,11 +46,11 @@ Timeouts are optional and live under **Advanced Settings**, in milliseconds (100
 
 For TLS, add `?sslmode=require` to the URI to encrypt, or `?sslmode=verify-full` to encrypt and verify the certificate. Turning on **Reject Unauthorized SSL** under Advanced Settings also forces TLS with certificate verification, and it overrides the URI's `sslmode`.
 
-5. Optionally click **Test Connection** to verify, then click **Create**. NeoBoard saves the connection either way and shows an **Error** badge if it cannot connect.
+5. Optionally click **Test Connection** to verify, then click **Create**. NeoBoard saves the connection either way and shows **Can't connect** if it cannot.
 
 ## Troubleshooting
 
-If you see an **Error** badge next to your connection, try these steps.
+If you see **Can't connect** next to your connection, try these steps.
 
 ### Check Your URI and Credentials
 

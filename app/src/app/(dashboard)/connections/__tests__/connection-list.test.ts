@@ -34,14 +34,19 @@ describe("connectionStatusView", () => {
     ["connected", "Connected"],
     ["error", "Can't connect"],
     ["disconnected", "Can't connect"],
-    ["connecting", "Connecting…"],
+    ["connecting", "Checking…"],
     ["unknown", "Not checked"],
   ] as const)("%s reads %s", (state, text) => {
     expect(connectionStatusView(state).text).toBe(text);
   });
 
-  it("paints a failed connection red and a good one green, not alike", () => {
-    expect(connectionStatusView("error").dot).toContain("bg-destructive");
-    expect(connectionStatusView("connected").dot).toContain("bg-success");
+  it.each([
+    ["connected", "good"],
+    ["unknown", "none"],
+    ["connecting", "pending"],
+    ["error", "failed"],
+    ["disconnected", "failed"],
+  ] as const)("%s has the %s tone", (state, tone) => {
+    expect(connectionStatusView(state).tone).toBe(tone);
   });
 });

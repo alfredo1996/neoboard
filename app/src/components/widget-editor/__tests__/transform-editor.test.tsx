@@ -20,7 +20,7 @@ vi.mock("@neoboard/components", async () => ({
   }: React.PropsWithChildren<Record<string, unknown>>) => (
     <label {...props}>{children}</label>
   ),
-  Badge: ({
+  Tag: ({
     children,
     ...props
   }: React.PropsWithChildren<Record<string, unknown>>) => (

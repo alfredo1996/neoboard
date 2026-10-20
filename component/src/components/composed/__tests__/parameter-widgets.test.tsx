@@ -366,7 +366,7 @@ describe("ParamMultiSelector", () => {
       />,
     );
     // +2 overflow badge for items c and d
-    expect(screen.getByText("+2")).toBeInTheDocument();
+    expect(screen.getByText("+2 more")).toBeInTheDocument();
   });
 
   it("removes a badge when its close button is clicked", () => {

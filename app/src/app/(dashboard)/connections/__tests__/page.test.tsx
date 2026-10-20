@@ -231,7 +231,8 @@ vi.mock("@neoboard/components", async () => {
       </div>
     ),
     LoadingOverlay: Box,
-    Badge: Box,
+    Tag: Box,
+    Status: Box,
     // The menu's items render in place: jsdom cannot open a Radix menu.
     DropdownMenu: Box,
     DropdownMenuTrigger: ({ children }: { children?: React.ReactNode }) =>
@@ -305,7 +306,7 @@ const pick = (
 const STATES: Record<string, string> = {
   Connected: "connected",
   "Can't connect": "error",
-  "Connecting…": "connecting",
+  "Checking…": "connecting",
   "Not checked": "unknown",
 };
 /** The state a row's status cell shows, read off its words. */
@@ -374,7 +375,7 @@ describe("ConnectionsPage — arrival (#2168)", () => {
   });
 
   // #1544: a run nobody asked for must not flicker a known badge (a live
-  // region) through "Connecting…", nor hide its error while it runs.
+  // region) through "Checking…", nor hide its error while it runs.
   it("a refresh keeps each known badge and its error until its result lands, and starts no second run", async () => {
     vi.useFakeTimers();
     visibility = "visible";

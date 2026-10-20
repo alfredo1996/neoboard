@@ -5,7 +5,7 @@ import { unwrapFullResponse } from "@/lib/api/api-client";
 import {
   useGraphExploration,
   PropertyPanel,
-  Badge,
+  Tag,
   toast,
 } from "@neoboard/components";
 import { GraphChart } from "@/components/lazy-graph-chart";
@@ -420,9 +420,9 @@ export function GraphExplorationWrapper({
         <div className="absolute top-0 right-0 bottom-0 w-80 border-l bg-background/95 backdrop-blur-sm overflow-y-auto z-20 shadow-lg">
           <div className="flex items-center justify-between p-3 border-b">
             <div className="flex items-center gap-2 min-w-0">
-              <Badge variant="secondary" className="shrink-0">
+              <Tag className="shrink-0">
                 {inspectedElement.type === "node" ? "Node" : "Relationship"}
-              </Badge>
+              </Tag>
               <h3 className="text-sm font-semibold truncate">
                 {inspectedElement.type === "node"
                   ? (inspectedElement.node.label ??

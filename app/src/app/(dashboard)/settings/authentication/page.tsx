@@ -17,7 +17,7 @@ import {
 import {
   Button,
   Input,
-  Badge,
+  Status,
   Switch,
   Select,
   SelectContent,
@@ -331,9 +331,9 @@ function ProviderRow({
         {provider.issuer}
       </td>
       <td className="px-4 py-3 text-sm">
-        <Badge variant={provider.enabled ? "default" : "secondary"}>
+        <Status tone={provider.enabled ? "good" : "none"}>
           {provider.enabled ? "Enabled" : "Disabled"}
-        </Badge>
+        </Status>
       </td>
       <td className="px-4 py-3 text-sm text-muted-foreground">
         {provider.defaultRole}

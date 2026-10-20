@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Plus, Trash2, GripVertical, Check } from "lucide-react";
-import { Button, Input, Label, Badge, Field } from "@neoboard/components";
+import { Button, Input, Label, Tag, Field } from "@neoboard/components";
 import {
   Select,
   SelectContent,
@@ -207,9 +207,9 @@ function TransformCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <GripVertical className="h-4 w-4 text-muted-foreground" />
-          <Badge variant="outline" className="text-xs">
+          <Tag>
             {index + 1}. {typeLabel}
-          </Badge>
+          </Tag>
         </div>
         <Button
           variant="danger"

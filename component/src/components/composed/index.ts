@@ -99,11 +99,6 @@ export {
 
 // Connection
 export {
-  ConnectionStatus,
-  type ConnectionStatusProps,
-  type ConnectionState,
-} from "./connection-status";
-export {
   DynamicConnectionFields,
   type DynamicConnectionField,
   type DynamicConnectionFieldsProps,

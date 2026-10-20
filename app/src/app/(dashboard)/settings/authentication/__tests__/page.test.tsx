@@ -102,13 +102,13 @@ vi.mock("@neoboard/components", async () => ({
   }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
     <label {...props}>{children}</label>
   ),
-  Badge: ({
+  Status: ({
     children,
-    variant,
+    tone,
   }: {
     children: React.ReactNode;
-    variant?: string;
-  }) => <span data-variant={variant}>{children}</span>,
+    tone?: string;
+  }) => <span data-tone={tone}>{children}</span>,
   Switch: ({
     checked,
     onCheckedChange,
@@ -280,7 +280,7 @@ describe("AuthenticationPage", () => {
 
     expect(screen.getByText("Company SSO")).toBeInTheDocument();
     expect(screen.getByText("https://idp.example.com")).toBeInTheDocument();
-    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(screen.getByText("Enabled")).toHaveAttribute("data-tone", "good");
     expect(screen.getByText("creator")).toBeInTheDocument();
   });
 
@@ -377,7 +377,7 @@ describe("AuthenticationPage", () => {
     const { default: Page } = await import("../page");
     render(<Page />);
 
-    expect(screen.getByText("Disabled")).toBeInTheDocument();
+    expect(screen.getByText("Disabled")).toHaveAttribute("data-tone", "none");
     expect(screen.getByText("reader")).toBeInTheDocument();
   });
 

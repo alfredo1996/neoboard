@@ -4,7 +4,7 @@ import * as React from "react";
 import { X, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Tag } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
 import { MultiSelectItem } from "./multi-select-item";
 import {
@@ -107,7 +107,7 @@ function MultiSelect({
               </span>
             )}
             {selectedOptions.slice(0, maxDisplay).map((option) => (
-              <Badge key={option.value} variant="secondary" className="text-xs">
+              <Tag key={option.value}>
                 {option.label}
                 {/* KNOWN DEFECT (#1283 item 4, tracked separately): this is a
                     <span role="button"> because the trigger is already a
@@ -136,12 +136,12 @@ function MultiSelect({
                 >
                   <X className="h-3 w-3" />
                 </span>
-              </Badge>
+              </Tag>
             ))}
             {selectedOptions.length > maxDisplay && (
-              <Badge variant="secondary" className="text-xs">
+              <span className="text-xs text-foreground-2">
                 +{selectedOptions.length - maxDisplay} more
-              </Badge>
+              </span>
             )}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

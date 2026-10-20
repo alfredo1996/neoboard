@@ -13,7 +13,9 @@ export {
   PanelDescription,
   PanelContent,
 } from "./panel";
-export { Badge, badgeVariants } from "./badge";
+export { Badge, type BadgeProps } from "./badge";
+export { Status, type StatusProps, type StatusTone } from "./status";
+export { Tag, type TagProps } from "./tag";
 export { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 export { Separator } from "./separator";
 export { Skeleton } from "./skeleton";

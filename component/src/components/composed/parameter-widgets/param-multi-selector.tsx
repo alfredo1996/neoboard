@@ -5,7 +5,7 @@ import { X, ChevronsUpDown } from "lucide-react";
 import { ParamLabel } from "./param-label";
 import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Tag } from "@/components/ui/tag";
 import {
   Command,
   CommandEmpty,
@@ -189,11 +189,7 @@ function ParamMultiSelector({
                 </span>
               )}
               {selectedOptions.slice(0, maxDisplay).map((opt) => (
-                <Badge
-                  key={opt.value}
-                  variant="secondary"
-                  className="text-xs py-0"
-                >
+                <Tag key={opt.value}>
                   {opt.label}
                   <button
                     type="button"
@@ -203,12 +199,12 @@ function ParamMultiSelector({
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
-                </Badge>
+                </Tag>
               ))}
               {selectedOptions.length > maxDisplay && (
-                <Badge variant="secondary" className="text-xs py-0">
-                  +{selectedOptions.length - maxDisplay}
-                </Badge>
+                <span className="text-xs text-foreground-2">
+                  +{selectedOptions.length - maxDisplay} more
+                </span>
               )}
             </div>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

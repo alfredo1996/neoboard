@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { ConnectionStatus } from "../connection-status";
 import { Slider } from "@/components/ui/slider";
 
 /**
@@ -10,30 +9,6 @@ import { Slider } from "@/components/ui/slider";
  * into the accessibility tree rather than adding focus management to elements
  * that cannot take focus.
  */
-
-describe("#1283 item 2 — connection error text is not hover-gated", () => {
-  it("folds the error message into the status badge's accessible name", () => {
-    render(
-      <ConnectionStatus
-        status="error"
-        errorMessage="Connection refused at port 7687"
-      />,
-    );
-
-    // No hover: the message must be readable from the a11y tree alone.
-    expect(screen.getByRole("status")).toHaveAccessibleName(
-      /Connection refused at port 7687/,
-    );
-  });
-
-  it("keeps the plain status name when there is no error", () => {
-    render(<ConnectionStatus status="connected" />);
-    const badge = screen.getByRole("status");
-    expect(badge).toHaveAccessibleName(/Connection status/i);
-    // No dangling separator from an absent message.
-    expect(badge.getAttribute("aria-label")).not.toMatch(/\.\s*$/);
-  });
-});
 
 describe("#1283 item 5 — slider forwards its label to the thumbs", () => {
   it("labels a single-thumb slider", () => {

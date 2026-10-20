@@ -8,7 +8,7 @@ import { editorLanguageForConnector } from "@/lib/connector/editor-language";
 import { useConnectors } from "@/hooks/use-connectors";
 import { connectorLabel } from "@/lib/connector/connector-label";
 import {
-  Badge,
+  Tag,
   Button,
   Input,
   DialogHeader,
@@ -102,18 +102,10 @@ export function TemplateBrowser({
                       {t.name}
                     </span>
                     <div className="flex gap-1 flex-wrap">
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] px-1.5 py-0"
-                      >
+                      <Tag>
                         {getChartConfig(t.chartType)?.label ?? t.chartType}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0"
-                      >
-                        {connectorLabel(connectors, t.connectorType)}
-                      </Badge>
+                      </Tag>
+                      <Tag>{connectorLabel(connectors, t.connectorType)}</Tag>
                     </div>
                   </button>
                 ))}

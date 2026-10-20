@@ -51,7 +51,7 @@ vi.mock("@neoboard/components", async () => ({
   AccordionTrigger: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  Badge: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
+  Tag: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
   Button: ({
     children,
     onClick,

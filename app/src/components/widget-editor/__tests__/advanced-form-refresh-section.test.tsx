@@ -15,7 +15,7 @@ vi.mock("@neoboard/components", () => ({
       {children}
     </button>
   ),
-  Badge: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
+  Tag: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
   MultiSelect: ({
     options,
     value,

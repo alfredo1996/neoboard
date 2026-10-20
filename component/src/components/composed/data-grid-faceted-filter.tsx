@@ -2,6 +2,7 @@ import * as React from "react";
 import type { Column } from "@tanstack/react-table";
 import { PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tag } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -47,31 +48,17 @@ function DataGridFacetedFilter<TData, TValue>({
           {selectedValues?.size > 0 && (
             <>
               <Separator orientation="vertical" className="mx-2 h-4" />
-              <Badge
-                variant="secondary"
-                className="rounded-sm px-1 font-normal lg:hidden"
-              >
-                {selectedValues.size}
-              </Badge>
+              <Badge className="lg:hidden">{selectedValues.size}</Badge>
               <div className="hidden space-x-1 lg:flex">
                 {selectedValues.size > 2 ? (
-                  <Badge
-                    variant="secondary"
-                    className="rounded-sm px-1 font-normal"
-                  >
+                  <span className="text-xs">
                     {selectedValues.size} selected
-                  </Badge>
+                  </span>
                 ) : (
                   options
                     .filter((option) => selectedValues.has(option.value))
                     .map((option) => (
-                      <Badge
-                        variant="secondary"
-                        key={option.value}
-                        className="rounded-sm px-1 font-normal"
-                      >
-                        {option.label}
-                      </Badge>
+                      <Tag key={option.value}>{option.label}</Tag>
                     ))
                 )}
               </div>

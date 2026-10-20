@@ -27,7 +27,7 @@ import { DashboardPickerDialog } from "@/components/dashboard-picker-dialog";
 import {
   EmptyState,
   LoadingOverlay,
-  Badge,
+  Tag,
   Button,
   Input,
   Select,
@@ -382,13 +382,7 @@ export default function WidgetLibraryPage() {
                           ),
                       <span key="t" className="flex gap-1.5">
                         {(template.tags ?? []).map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className="text-[10px] font-normal"
-                          >
-                            {tag}
-                          </Badge>
+                          <Tag key={tag}>{tag}</Tag>
                         ))}
                       </span>,
                     ]}

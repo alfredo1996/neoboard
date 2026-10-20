@@ -8,7 +8,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-  Badge,
+  Tag,
   Button,
   Checkbox,
   Input,
@@ -142,9 +142,7 @@ function SortableFieldItem({
             Field {index + 1}
             {field.label ? ` — ${field.label}` : " — Untitled"}
             {field.required && <span className="text-destructive">*</span>}
-            <Badge variant="outline" className="ml-1 text-xs">
-              {field.parameterType}
-            </Badge>
+            <Tag className="ml-1">{field.parameterType}</Tag>
           </span>
         </AccordionTrigger>
         <Button

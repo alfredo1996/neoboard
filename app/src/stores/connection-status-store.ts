@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import type { ConnectionState } from "@neoboard/components";
 import {
   ClientQueueTimeoutError,
   ConnectorUnavailableError,
@@ -7,13 +6,26 @@ import {
 } from "@/lib/api/api-client";
 import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-classifier";
 
+export type ConnectionState =
+  | "connected"
+  | "disconnected"
+  | "connecting"
+  | "error"
+  /**
+   * Not checked yet. Distinct from "disconnected", which is a verdict.
+   * Without this the connections page had to render "we have not looked" as
+   * "this connection is down", so every visit asserted every connection was
+   * broken for a frame before probing (#1544).
+   */
+  | "unknown";
+
 /**
  * Live connection-test results, keyed by connection id.
  *
  * #1544: this used to be `useState` inside the connections page. A
  * client-side navigation remounts that segment, so the map was wiped on every
  * visit and the page re-ran the whole state machine in front of the user —
- * an unchecked default, then "Connecting…", then the result. Measured at
+ * an unchecked default, then "Checking…", then the result. Measured at
  * ~85ms of badge churn per visit, on a page where nothing had changed.
  *
  * A module-level store outlives the mount, so a revisit paints the last known

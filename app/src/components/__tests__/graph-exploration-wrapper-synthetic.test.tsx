@@ -43,9 +43,7 @@ vi.mock("@neoboard/components", () => ({
     </div>
   ),
   PropertyPanel: () => <div data-testid="property-panel" />,
-  Badge: ({ children }: { children: React.ReactNode }) => (
-    <span>{children}</span>
-  ),
+  Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   useGraphExploration: ({
     initialNodes,
     initialEdges,
