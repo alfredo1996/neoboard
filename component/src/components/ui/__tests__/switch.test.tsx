@@ -45,4 +45,11 @@ describe("Switch (#2218)", () => {
     expect(cls).toContain("after:-inset-y-[3px]");
     expect(cls).toContain("[@media(pointer:coarse)]:after:-inset-y-[13px]");
   });
+
+  it("the off track is the field border grey, not a fainter token", () => {
+    render(<Switch aria-label="x" />);
+    expect(screen.getByRole("switch").className).toContain(
+      "data-[state=unchecked]:bg-input",
+    );
+  });
 });

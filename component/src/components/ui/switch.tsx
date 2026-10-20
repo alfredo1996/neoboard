@@ -44,7 +44,7 @@ const Switch = React.forwardRef<
     const control = (
       <SwitchPrimitives.Root
         className={cn(
-          "peer relative inline-flex h-[18px] w-8 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-[color,background-color,border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-switch-off",
+          "peer relative inline-flex h-[18px] w-8 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-[color,background-color,border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
           // Hit area (#2218): 24px (WCAG 2.5.8), 44px on a coarse pointer,
           // from a pseudo-element so the layout does not move.
           "after:absolute after:-inset-x-1 after:-inset-y-[3px] after:content-[''] [@media(pointer:coarse)]:after:-inset-x-1.5 [@media(pointer:coarse)]:after:-inset-y-[13px]",

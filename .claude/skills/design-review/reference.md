@@ -261,7 +261,7 @@ One `<Field label help error optional>` wraps every labelled control (Input, Tex
 
 Checkbox, Radio, Switch and Slider share one look; `SegmentedControl` replaces pill tabs for a few presets.
 
-- Checkbox 16 px, 4 px radius, `--input` border off, ink when on, a dash for indeterminate, red border on `aria-invalid`. Radio: ink ring with an 8 px dot. Switch 32x18, no shadow, ink when on; thumb `--switch-thumb` (white) off and `--primary-foreground` on; track `--switch-off`. Slider: 2 px track, ink fill, 16 px thumbs with a 2 px ink edge.
+- Checkbox 16 px, 4 px radius, `--input` border off, ink when on, a dash for indeterminate, red border on `aria-invalid`. Radio: ink ring with an 8 px dot. Switch 32x18, no shadow, ink when on; thumb `--switch-thumb` (white) off and `--primary-foreground` on; off track `--input`. Slider: 2 px track, ink fill, 16 px thumbs with a 2 px ink edge.
 - All four: azure focus ring, 50% when disabled, a hit area of at least 24 px (44 px under `(pointer: coarse)`) from an `after:` pseudo-element, so the layout does not move.
 - Switch `stateLabel` writes "On" or "Off" beside it (`aria-hidden`, so the name stays the label). Use it in every form and settings row; leave it off where a column header names the switch.
 - `SegmentedControl`: 32 px grey `--active` track, the selected segment white (`--field`) with a hairline and bold, no shadow; a radio group with arrow keys. 2 to 6 short options, not page navigation (use Tabs).

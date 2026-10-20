@@ -107,4 +107,18 @@ describe("SegmentedControl (#2218)", () => {
       "[@media(pointer:coarse)]:after:",
     );
   });
+
+  it("spaces wrapped rows on a coarse pointer so 44px targets do not overlap", () => {
+    render(
+      <SegmentedControl
+        aria-label="Range"
+        options={options}
+        value="day"
+        onValueChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("radiogroup", { name: "Range" }).className,
+    ).toContain("[@media(pointer:coarse)]:gap-y-4");
+  });
 });

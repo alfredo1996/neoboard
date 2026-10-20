@@ -44,7 +44,7 @@ const SegmentedControl = React.forwardRef<
       if (next) onValueChange(next);
     }}
     className={cn(
-      "flex min-h-8 w-fit max-w-full flex-wrap items-center gap-0.5 rounded-sm bg-active p-0.5",
+      "flex min-h-8 w-fit max-w-full flex-wrap items-center gap-0.5 rounded-sm bg-active p-0.5 [@media(pointer:coarse)]:gap-y-4",
       className,
     )}
     {...props}
