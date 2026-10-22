@@ -32,6 +32,17 @@ describe("Tag", () => {
     ).toBeInTheDocument();
   });
 
+  it("refuses a remove button that would be named just 'Remove'", () => {
+    // Element children with no removeLabel: every chip would read "Remove".
+    render(
+      // @ts-expect-error removeLabel is required when children are not text
+      <Tag onRemove={() => {}}>
+        <em>Sales</em>
+      </Tag>,
+    );
+    expect(screen.getByText("Sales")).toBeInTheDocument();
+  });
+
   it("forces the remove glyph to 10px over a Button's svg size rule", () => {
     render(<Tag onRemove={() => {}}>Sales</Tag>);
     const glyph = screen.getByRole("button").querySelector("svg");

@@ -3,12 +3,22 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-export interface TagProps extends React.HTMLAttributes<HTMLSpanElement> {
-  /** When given, renders a 16px remove button named "Remove <label>". */
-  readonly onRemove?: () => void;
-  /** Accessible name of the remove button when the children are not plain text. */
-  readonly removeLabel?: string;
-}
+type TagBaseProps = React.HTMLAttributes<HTMLSpanElement>;
+
+/**
+ * A remove button is named "Remove <text>" for text children; any other
+ * children must say what is removed, or every chip reads just "Remove".
+ */
+export type TagProps = TagBaseProps &
+  (
+    | { readonly onRemove?: undefined; readonly removeLabel?: string }
+    | {
+        readonly onRemove: () => void;
+        readonly children: string;
+        readonly removeLabel?: string;
+      }
+    | { readonly onRemove: () => void; readonly removeLabel: string }
+  );
 
 /**
  * The remove control, shared with the multi-select chips whose × is nested in
@@ -43,10 +53,7 @@ function Tag({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={
-            removeLabel ??
-            `Remove ${typeof children === "string" ? children : ""}`.trim()
-          }
+          aria-label={removeLabel ?? `Remove ${children as string}`}
           className={tagRemoveClass}
         >
           <X
