@@ -4,7 +4,7 @@ import * as React from "react";
 import { X, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Tag } from "@/components/ui/tag";
+import { Tag, tagRemoveClass, tagRemoveGlyphClass } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
 import { MultiSelectItem } from "./multi-select-item";
 import {
@@ -125,7 +125,7 @@ function MultiSelect({
                   role="button"
                   tabIndex={0}
                   aria-label={`Remove ${option.label}`}
-                  className="ml-1 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className={tagRemoveClass}
                   onClick={(e) => handleRemove(option.value, e)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -134,7 +134,11 @@ function MultiSelect({
                     }
                   }}
                 >
-                  <X className="h-3 w-3" />
+                  <X
+                    aria-hidden="true"
+                    className={tagRemoveGlyphClass}
+                    strokeWidth={2.5}
+                  />
                 </span>
               </Tag>
             ))}

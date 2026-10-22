@@ -32,6 +32,14 @@ describe("MultiSelect", () => {
     ).toBeInTheDocument();
   });
 
+  it("draws the remove x with the Tag remove styling, 10px (#2220)", () => {
+    render(<MultiSelect options={options} value={["react"]} />);
+    const remove = screen.getByRole("button", { name: "Remove React" });
+    expect(remove).toHaveClass("text-muted-foreground");
+    expect(remove).not.toHaveClass("rounded-full");
+    expect(remove.querySelector("svg")).toHaveClass("!size-2.5");
+  });
+
   it("hides placeholder when items are selected", () => {
     render(
       <MultiSelect options={options} value={["react"]} placeholder="Pick..." />,
@@ -73,7 +81,7 @@ describe("MultiSelect", () => {
 
   it("calls onChange with item removed when remove button clicked", async () => {
     const onChange = vi.fn();
-    const { container } = render(
+    render(
       <MultiSelect
         options={options}
         value={["react", "vue"]}
@@ -81,10 +89,7 @@ describe("MultiSelect", () => {
       />,
     );
 
-    // Find the X buttons inside badges - they're the small buttons within badge elements
-    const removeButtons = container.querySelectorAll(".ml-1.rounded-full");
-    // Click the first remove button (React)
-    removeButtons[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove React" }));
     expect(onChange).toHaveBeenCalledWith(["vue"]);
   });
 
@@ -231,9 +236,7 @@ describe("MultiSelect — filters on the visible label (#1411)", () => {
       },
       "none",
     );
-    expect(
-      screen.getByRole("option", { name: "(none)" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "(none)" })).toBeInTheDocument();
   });
 
   it("keeps values that differ only by whitespace distinct for keyboard selection", async () => {

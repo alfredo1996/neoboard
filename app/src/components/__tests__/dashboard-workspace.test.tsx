@@ -298,7 +298,6 @@ vi.mock("@/components/page-tabs", () => ({
 
 vi.mock("@neoboard/components", () => {
   const passthrough = [
-    "Badge",
     "Skeleton",
     "Alert",
     "AlertDescription",

@@ -17,36 +17,21 @@ describe("design-tokens", () => {
   // categorical chart vars (--chart-1..10, already colourblind-safe) or five new
   // tokens — a visible design change that needs a design review, not a cleanup.
   //
-  // So this is a ratchet, not a clean slate: the map below is listed
-  // explicitly, and anything NEW must be tokenised.
-  const RAW_PALETTE_ALLOWED = new Set(["jsonSyntaxColors"]);
-
+  // jsonSyntaxColors is the one documented raw-palette exception (#1249).
+  // This asserts it is still *needed*, so the exception cannot rot into silent
+  // permission after the map is tokenised.
   const RAW_SHADE =
     /(?:bg|text|ring|border)-(?:red|green|yellow|blue|gray|grey|orange|purple|emerald|amber|slate|zinc|rose|cyan|indigo|violet|teal|lime|pink|fuchsia|sky|stone|neutral)-\d/;
 
-  it.each([["jsonSyntaxColors", jsonSyntaxColors]])(
-    "%s uses semantic tokens, or is a documented exception",
-    (name, map) => {
-      const offenders = Object.entries(map)
-        .filter(([, cls]) => RAW_SHADE.test(String(cls)))
-        .map(([k]) => k);
-
-      if (RAW_PALETTE_ALLOWED.has(name)) {
-        // Documented exception — assert it is still *needed*, so the allowlist
-        // cannot rot into silent permission after the maps are tokenised.
-        expect(
-          offenders.length,
-          `${name} is allowlisted but no longer uses raw palette shades — remove it from RAW_PALETTE_ALLOWED and from #1249`,
-        ).toBeGreaterThan(0);
-        return;
-      }
-
-      expect(
-        offenders,
-        `${name} must use semantic tokens; raw palette shades found on: ${offenders.join(", ")}`,
-      ).toEqual([]);
-    },
-  );
+  it("jsonSyntaxColors is still the documented raw-palette exception", () => {
+    const offenders = Object.entries(jsonSyntaxColors).filter(([, cls]) =>
+      RAW_SHADE.test(String(cls)),
+    );
+    expect(
+      offenders.length,
+      "jsonSyntaxColors no longer uses raw palette shades: drop the exception and #1249",
+    ).toBeGreaterThan(0);
+  });
 
   it("the raw-palette matcher actually matches a raw shade", () => {
     // A guard whose regex silently stopped matching would pass everything.

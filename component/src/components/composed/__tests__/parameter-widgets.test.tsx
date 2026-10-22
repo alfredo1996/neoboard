@@ -277,6 +277,20 @@ describe("ParamMultiSelector", () => {
     expect(screen.getByText("Tags")).toBeInTheDocument();
   });
 
+  it("draws the chip remove x with the Tag remove styling, 10px (#2220)", () => {
+    render(
+      <ParamMultiSelector
+        parameterName="tags"
+        options={options}
+        values={["a"]}
+        onChange={vi.fn()}
+      />,
+    );
+    const remove = screen.getByRole("button", { name: "Remove Alpha" });
+    expect(remove).toHaveClass("text-muted-foreground");
+    expect(remove.querySelector("svg")).toHaveClass("!size-2.5");
+  });
+
   it("shows placeholder when no values selected", () => {
     render(
       <ParamMultiSelector

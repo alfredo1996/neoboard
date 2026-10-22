@@ -6,18 +6,34 @@ import { cn } from "@/lib/utils";
 export interface TagProps extends React.HTMLAttributes<HTMLSpanElement> {
   /** When given, renders a 16px remove button named "Remove <label>". */
   readonly onRemove?: () => void;
+  /** Accessible name of the remove button when the children are not plain text. */
+  readonly removeLabel?: string;
 }
+
+/**
+ * The remove control, shared with the multi-select chips whose × is nested in
+ * a trigger. `!size-2.5` on the glyph beats Button's `[&_svg]:size-4`.
+ */
+export const tagRemoveClass =
+  "-mr-1 inline-grid size-4 cursor-pointer place-items-center rounded-[3px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring";
+export const tagRemoveGlyphClass = "!size-2.5";
 
 /**
  * A hairline box, 20px tall, 12px text, no fill. A label or category.
  * When to use: "Shared", a chart type, a chip in a multi-select.
  * When not to: a state — use Status; a count — use Badge.
  */
-function Tag({ className, children, onRemove, ...props }: TagProps) {
+function Tag({
+  className,
+  children,
+  onRemove,
+  removeLabel,
+  ...props
+}: TagProps) {
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center gap-0.5 whitespace-nowrap rounded border border-border-strong bg-transparent px-1.5 text-xs leading-none text-foreground-2",
+        "inline-flex h-5 items-center gap-0.5 whitespace-nowrap rounded border border-border-strong bg-transparent px-1.5 text-xs font-normal leading-none text-foreground-2",
         className,
       )}
       {...props}
@@ -27,10 +43,17 @@ function Tag({ className, children, onRemove, ...props }: TagProps) {
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`Remove ${typeof children === "string" ? children : ""}`.trim()}
-          className="-mr-1 inline-grid size-4 place-items-center rounded-[3px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          aria-label={
+            removeLabel ??
+            `Remove ${typeof children === "string" ? children : ""}`.trim()
+          }
+          className={tagRemoveClass}
         >
-          <X aria-hidden="true" className="size-2.5" strokeWidth={2.5} />
+          <X
+            aria-hidden="true"
+            className={tagRemoveGlyphClass}
+            strokeWidth={2.5}
+          />
         </button>
       )}
     </span>

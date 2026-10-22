@@ -14,7 +14,7 @@ import { hintForConnectionErrorCode } from "@/lib/connector/connection-error-cla
  * #1544 — connection status lived only in the connections page's local
  * useState, so a client-side navigation remounted the segment and wiped it.
  * Every visit therefore replayed the whole state machine in front of the user:
- * an unchecked default, then "Connecting…", then the result — ~85ms of badge
+ * an unchecked default, then "Checking…", then the result — ~85ms of badge
  * churn on a page where nothing had actually changed.
  *
  * Status belongs in something that outlives the mount. These are the state

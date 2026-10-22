@@ -5,7 +5,7 @@ import { X, ChevronsUpDown } from "lucide-react";
 import { ParamLabel } from "./param-label";
 import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
-import { Tag } from "@/components/ui/tag";
+import { Tag, tagRemoveClass, tagRemoveGlyphClass } from "@/components/ui/tag";
 import {
   Command,
   CommandEmpty,
@@ -193,11 +193,15 @@ function ParamMultiSelector({
                   {opt.label}
                   <button
                     type="button"
-                    className="ml-1 rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className={tagRemoveClass}
                     onClick={(e) => handleRemoveBadge(opt.value, e)}
                     aria-label={`Remove ${opt.label}`}
                   >
-                    <X className="h-2.5 w-2.5" />
+                    <X
+                      aria-hidden="true"
+                      className={tagRemoveGlyphClass}
+                      strokeWidth={2.5}
+                    />
                   </button>
                 </Tag>
               ))}

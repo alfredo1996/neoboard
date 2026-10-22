@@ -143,8 +143,7 @@ Ordering maximises sequential contrast: the first 5 span Citrine → Teal → Pu
 
 - NEVER use raw hex/hsl values in components. Always use CSS variable tokens.
 - Opacity modifiers allowed: `/80`, `/60`, `/50` for overlays and hover states.
-- Role badges: admin = `destructive` (red), creator = `default` (graphite), reader = `secondary` (gray).
-- Connection status: connected = implicit (no color), error = `destructive`, connecting = neutral.
+- Roles and categories are a `Tag` (hairline box, no fill); states are a `Status` (shape + word, only the shape carries colour); `Badge` is a count only.
 - `text-muted-foreground` is the workhorse for secondary text (50 occurrences in component lib).
 
 ---

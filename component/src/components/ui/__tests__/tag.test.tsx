@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { Tag } from "../tag";
+import { Tag, tagRemoveClass, tagRemoveGlyphClass } from "../tag";
 
 describe("Tag", () => {
   it("renders its label with no remove button by default", () => {
@@ -14,5 +14,29 @@ describe("Tag", () => {
     render(<Tag onRemove={onRemove}>Sales</Tag>);
     fireEvent.click(screen.getByRole("button", { name: "Remove Sales" }));
     expect(onRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("is weight 400 so a Button around it does not make it medium", () => {
+    render(<Tag>Shared</Tag>);
+    expect(screen.getByText("Shared")).toHaveClass("font-normal");
+  });
+
+  it("names the remove button by removeLabel when the child is not text", () => {
+    render(
+      <Tag onRemove={() => {}} removeLabel="Remove Sales">
+        <em>Sales</em>
+      </Tag>,
+    );
+    expect(
+      screen.getByRole("button", { name: "Remove Sales" }),
+    ).toBeInTheDocument();
+  });
+
+  it("forces the remove glyph to 10px over a Button's svg size rule", () => {
+    render(<Tag onRemove={() => {}}>Sales</Tag>);
+    const glyph = screen.getByRole("button").querySelector("svg");
+    expect(glyph).toHaveClass("!size-2.5");
+    expect(tagRemoveGlyphClass).toContain("!size-2.5");
+    expect(tagRemoveClass).toContain("text-muted-foreground");
   });
 });

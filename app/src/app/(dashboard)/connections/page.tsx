@@ -141,7 +141,7 @@ export default function ConnectionsPage() {
    * verdict: the row goes back to what it showed before — "Not checked" if
    * nothing — and never to "Error".
    *
-   * `quiet` is a run nobody asked for (#2168): it shows "Connecting…" only
+   * `quiet` is a run nobody asked for (#2168): it shows "Checking…" only
    * where nothing is known, so a known badge — a live region — and its error
    * stay put until the new verdict lands (#1544).
    */
@@ -738,7 +738,20 @@ function StatusCell({
   expanded: boolean;
   onToggle: () => void;
 }>) {
-  const label = <Status tone={tone}>{text}</Status>;
+  // The underline sits on the Status itself: a button's text-decoration does
+  // not propagate into an inline-flex child.
+  const label = (
+    <Status
+      tone={tone}
+      className={
+        error
+          ? "underline decoration-border-strong underline-offset-[3px] hover:decoration-foreground"
+          : undefined
+      }
+    >
+      {text}
+    </Status>
+  );
   const suffix = error ? `: ${error}` : "";
   return (
     // The error text is in the name, not behind a hover (#1283).
@@ -749,7 +762,7 @@ function StatusCell({
           onClick={onToggle}
           aria-expanded={expanded}
           title={error}
-          className="relative z-10 rounded underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="relative z-10 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {label}
         </button>

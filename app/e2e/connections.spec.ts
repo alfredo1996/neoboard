@@ -281,6 +281,12 @@ test.describe("Connections", () => {
     await expect(card.getByText("Can't connect", { exact: true })).toBeVisible({
       timeout: 30_000,
     });
+    // The failed status is a button and reads as one: its word is underlined
+    // (a button's own decoration stops at the inline-flex Status, #2220).
+    const word = card
+      .getByRole("button", { name: "Can't connect", exact: true })
+      .locator("> span");
+    await expect(word).toHaveCSS("text-decoration-line", "underline");
   });
 
   test("should duplicate a connection via card dropdown", async ({ page }) => {
