@@ -14,7 +14,7 @@ vi.mock("@neoboard/components", () => ({
     </button>
   ),
   Input: (props: Record<string, unknown>) => <input {...props} />,
-  Badge: ({
+  Tag: ({
     children,
     ...props
   }: React.PropsWithChildren<Record<string, unknown>>) => (

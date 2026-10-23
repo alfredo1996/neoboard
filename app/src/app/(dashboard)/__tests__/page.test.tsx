@@ -96,7 +96,7 @@ vi.mock("@neoboard/components", async () => {
   const names = [
     "Alert",
     "AlertDescription",
-    "Badge",
+    "Tag",
     "Panel",
     "PanelDescription",
     "PanelFooter",

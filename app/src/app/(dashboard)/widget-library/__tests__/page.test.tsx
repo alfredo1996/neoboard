@@ -109,7 +109,7 @@ vi.mock("@neoboard/components", () => {
       <div>{action}</div>
     ),
     LoadingOverlay: Box,
-    Badge: Box,
+    Tag: Box,
     // Only the two props the page's own row actions need — forwarding the rest
     // would put `variant` and `size` on a DOM button.
     Button: ({

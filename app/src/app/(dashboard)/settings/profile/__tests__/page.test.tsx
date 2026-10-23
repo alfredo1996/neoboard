@@ -38,9 +38,6 @@ vi.mock("@neoboard/components", async () => ({
   }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
     <label {...props}>{children}</label>
   ),
-  Badge: ({ children }: { children: React.ReactNode }) => (
-    <span>{children}</span>
-  ),
   Alert: ({ children }: { children: React.ReactNode }) => (
     <div role="alert">{children}</div>
   ),

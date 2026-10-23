@@ -78,9 +78,7 @@ vi.mock("@neoboard/components", () => ({
       )}
     </div>
   ),
-  Badge: ({ children }: { children: React.ReactNode }) => (
-    <span>{children}</span>
-  ),
+  Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   toast: (t: unknown) => toasts.push(t),
 }));
 

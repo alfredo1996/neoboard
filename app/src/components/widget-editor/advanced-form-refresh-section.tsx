@@ -2,7 +2,7 @@
 
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
-import { Badge, Button, MultiSelect } from "@neoboard/components";
+import { Tag, Button, MultiSelect } from "@neoboard/components";
 import type { MultiSelectOption } from "@neoboard/components";
 
 export interface AdvancedFormRefreshSectionProps {
@@ -76,12 +76,7 @@ export function AdvancedFormRefreshSection({
                 <span className="flex min-w-0 flex-1 items-center gap-1.5">
                   <span className="min-w-0 flex-1 truncate">{opt.label}</span>
                   {chartTypeLabel && (
-                    <Badge
-                      variant="outline"
-                      className="shrink-0 whitespace-nowrap text-xs font-normal"
-                    >
-                      {chartTypeLabel}
-                    </Badge>
+                    <Tag className="shrink-0">{chartTypeLabel}</Tag>
                   )}
                 </span>
               );

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
+import { Status, type StatusTone } from "@/components/ui/status";
 import { DataGrid } from "@/components/composed/data-grid";
 import { DataGridColumnHeader } from "@/components/composed/data-grid-column-header";
 import { DataGridPagination } from "@/components/composed/data-grid-pagination";
@@ -88,6 +88,12 @@ const basicColumns: ColumnDef<Payment, unknown>[] = [
 ];
 
 // Columns using the composable DataGridColumnHeader for sort/hide dropdown
+const STATUS_TONES: Record<string, StatusTone> = {
+  success: "good",
+  failed: "failed",
+  processing: "pending",
+};
+
 const enhancedColumns: ColumnDef<Payment, unknown>[] = [
   { accessorKey: "id", header: "ID", enableHiding: false },
   {
@@ -97,15 +103,8 @@ const enhancedColumns: ColumnDef<Payment, unknown>[] = [
     ),
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      const variant =
-        status === "success"
-          ? "success"
-          : status === "failed"
-            ? "destructive"
-            : status === "processing"
-              ? "warning"
-              : "secondary";
-      return <Badge variant={variant}>{status}</Badge>;
+      const tone = STATUS_TONES[status] ?? "none";
+      return <Status tone={tone}>{status}</Status>;
     },
     filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
   },

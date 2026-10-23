@@ -41,7 +41,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  Badge,
+  Tag,
+  Status,
+  type StatusTone,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -55,7 +57,6 @@ import {
   Alert,
   AlertDescription,
   useToast,
-  type ConnectionState,
   Field,
 } from "@neoboard/components";
 import { List, ListRow, PageHeader } from "@neoboard/components/kit";
@@ -64,7 +65,10 @@ import {
   connectionStatusView,
   sharedCount,
 } from "./connection-list";
-import { useConnectionStatusStore } from "@/stores/connection-status-store";
+import {
+  useConnectionStatusStore,
+  type ConnectionState,
+} from "@/stores/connection-status-store";
 import { connectionsToProbe } from "@/lib/connector/connections-to-probe";
 import { runWindowed } from "@/lib/connector/run-windowed";
 import { ClientQueueTimeoutError, QueueFullError } from "@/lib/api/api-client";
@@ -137,7 +141,7 @@ export default function ConnectionsPage() {
    * verdict: the row goes back to what it showed before — "Not checked" if
    * nothing — and never to "Error".
    *
-   * `quiet` is a run nobody asked for (#2168): it shows "Connecting…" only
+   * `quiet` is a run nobody asked for (#2168): it shows "Checking…" only
    * where nothing is known, so a known badge — a live region — and its error
    * stay put until the new verdict lands (#1544).
    */
@@ -538,7 +542,7 @@ export default function ConnectionsPage() {
                 {connections.map((c) => {
                   const status = getConnectionStatus(c.id);
                   const installed = isInstalled(c.type);
-                  const { text, dot } = connectionStatusView(status);
+                  const { text, tone } = connectionStatusView(status);
                   // The owner manages, or an admin (#901). With its connector
                   // gone there is nothing left to test or configure — only to
                   // delete.
@@ -564,7 +568,7 @@ export default function ConnectionsPage() {
                         <StatusCell
                           key="s"
                           text={text}
-                          dot={dot}
+                          tone={tone}
                           error={
                             status === "error" ? statusErrors[c.id] : undefined
                           }
@@ -576,9 +580,7 @@ export default function ConnectionsPage() {
                           }
                         />,
                         c.visibility === "shared" ? (
-                          <Badge key="v" variant="secondary">
-                            Shared
-                          </Badge>
+                          <Tag key="v">Shared</Tag>
                         ) : (
                           "Private"
                         ),
@@ -720,30 +722,35 @@ export default function ConnectionsPage() {
 }
 
 /**
- * A row's status: a dot and words. Above the row's stretched link (z-10), a
- * failed one is a button that reveals the error under the list (#1283).
+ * A row's status: a shape and its word. Above the row's stretched link (z-10),
+ * a failed one is a button that reveals the error under the list (#1283).
  */
 function StatusCell({
   text,
-  dot,
+  tone,
   error,
   expanded,
   onToggle,
 }: Readonly<{
   text: string;
-  dot: string;
+  tone: StatusTone;
   error?: string;
   expanded: boolean;
   onToggle: () => void;
 }>) {
+  // The underline sits on the Status itself: a button's text-decoration does
+  // not propagate into an inline-flex child.
   const label = (
-    <>
-      <span
-        aria-hidden
-        className={`mr-1.5 inline-block h-2 w-2 rounded-full ${dot}`}
-      />
+    <Status
+      tone={tone}
+      className={
+        error
+          ? "underline decoration-border-strong underline-offset-[3px] hover:decoration-foreground"
+          : undefined
+      }
+    >
       {text}
-    </>
+    </Status>
   );
   const suffix = error ? `: ${error}` : "";
   return (
@@ -755,7 +762,7 @@ function StatusCell({
           onClick={onToggle}
           aria-expanded={expanded}
           title={error}
-          className="relative z-10 rounded underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="relative z-10 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {label}
         </button>

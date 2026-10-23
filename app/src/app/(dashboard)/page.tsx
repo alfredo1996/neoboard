@@ -38,7 +38,7 @@ import {
   AlertDescription,
   Button,
   Input,
-  Badge,
+  Tag,
   Panel,
   PanelHeader,
   PanelTitle,
@@ -1143,9 +1143,7 @@ export default function DashboardListPage() {
                             <span className="truncate">
                               {d.ownerName ?? "—"}
                             </span>
-                            {d.isPublic && (
-                              <Badge variant="secondary">Public</Badge>
-                            )}
+                            {d.isPublic && <Tag>Public</Tag>}
                           </span>,
                           d.widgetCount ?? 0,
                           <span key="u">

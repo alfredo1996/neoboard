@@ -4,7 +4,7 @@ import * as React from "react";
 import { X, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Tag, tagRemoveClass, tagRemoveGlyphClass } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
 import { MultiSelectItem } from "./multi-select-item";
 import {
@@ -107,7 +107,7 @@ function MultiSelect({
               </span>
             )}
             {selectedOptions.slice(0, maxDisplay).map((option) => (
-              <Badge key={option.value} variant="secondary" className="text-xs">
+              <Tag key={option.value}>
                 {option.label}
                 {/* KNOWN DEFECT (#1283 item 4, tracked separately): this is a
                     <span role="button"> because the trigger is already a
@@ -125,7 +125,7 @@ function MultiSelect({
                   role="button"
                   tabIndex={0}
                   aria-label={`Remove ${option.label}`}
-                  className="ml-1 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className={tagRemoveClass}
                   onClick={(e) => handleRemove(option.value, e)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -134,14 +134,18 @@ function MultiSelect({
                     }
                   }}
                 >
-                  <X className="h-3 w-3" />
+                  <X
+                    aria-hidden="true"
+                    className={tagRemoveGlyphClass}
+                    strokeWidth={2.5}
+                  />
                 </span>
-              </Badge>
+              </Tag>
             ))}
             {selectedOptions.length > maxDisplay && (
-              <Badge variant="secondary" className="text-xs">
+              <span className="text-xs text-foreground-2">
                 +{selectedOptions.length - maxDisplay} more
-              </Badge>
+              </span>
             )}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
