@@ -177,8 +177,10 @@ export function PageTabs({
               onMouseUp={() => {
                 pressedRef.current = false;
               }}
-              onClick={() => {
-                if (canDrag) onSelect(index);
+              onClick={(e) => {
+                // Keyboard activation already selected via Radix's keydown;
+                // the click the browser synthesises from it has detail 0.
+                if (canDrag && e.detail > 0) onSelect(index);
               }}
             >
               {page.title}

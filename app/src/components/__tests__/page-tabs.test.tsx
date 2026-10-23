@@ -298,7 +298,7 @@ describe("PageTabs — a drag never opens a page (#2221)", () => {
     fireEvent.mouseDown(line);
     expect(onSelect).not.toHaveBeenCalled();
     fireEvent.mouseUp(line);
-    fireEvent.click(line);
+    fireEvent.click(line, { detail: 1 });
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(1);
   });
@@ -322,6 +322,18 @@ describe("PageTabs — a drag never opens a page (#2221)", () => {
     fireEvent.keyDown(line, { key: "Enter" });
     expect(onSelect).toHaveBeenCalledWith(1);
   });
+
+  it.each(["Enter", " "])(
+    "edit mode: %j selects exactly once, not again on the click the browser synthesises",
+    (key) => {
+      const { onSelect, line } = setup(true);
+      fireEvent.keyDown(line, { key });
+      // A keyboard-synthesised click has detail 0.
+      fireEvent.click(line, { detail: 0 });
+      expect(onSelect).toHaveBeenCalledTimes(1);
+      expect(onSelect).toHaveBeenCalledWith(1);
+    },
+  );
 
   it("view mode: pressing a tab opens it, as before", () => {
     const { onSelect, line } = setup(false);
