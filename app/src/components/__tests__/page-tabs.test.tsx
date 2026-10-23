@@ -267,6 +267,70 @@ describe("PageTabs — drag to reorder", () => {
   });
 });
 
+describe("PageTabs — a drag never opens a page (#2221)", () => {
+  const pages = [
+    page("p1", "1. Bar", 1),
+    page("p2", "2. Line", 1),
+    page("p3", "3. Pie", 1),
+  ];
+
+  function setup(editable: boolean) {
+    const onSelect = vi.fn();
+    const onReorder = vi.fn();
+    render(
+      <PageTabs
+        pages={pages}
+        activeIndex={0}
+        editable={editable}
+        onSelect={onSelect}
+        onReorder={onReorder}
+      />,
+    );
+    return {
+      onSelect,
+      onReorder,
+      line: screen.getByRole("tab", { name: "2. Line" }),
+    };
+  }
+
+  it("edit mode: pressing an inactive tab does not open it, the click does", () => {
+    const { onSelect, line } = setup(true);
+    fireEvent.mouseDown(line);
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.mouseUp(line);
+    fireEvent.click(line);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(1);
+  });
+
+  it("edit mode: a drag onto another tab reorders and opens nothing", () => {
+    const { onSelect, onReorder, line } = setup(true);
+    fireEvent.mouseDown(line);
+    fireEvent.dragStart(line, { dataTransfer: { setData: vi.fn() } });
+    const bar = screen.getByRole("tab", { name: "1. Bar" });
+    fireEvent.dragOver(bar, { dataTransfer: { dropEffect: "none" } });
+    fireEvent.drop(bar, { dataTransfer: { getData: () => "1" } });
+    fireEvent.dragEnd(line);
+    expect(onReorder).toHaveBeenCalledWith(1, 0);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("edit mode: after a drag the keyboard still selects", () => {
+    const { onSelect, line } = setup(true);
+    fireEvent.mouseDown(line);
+    fireEvent.dragEnd(line);
+    fireEvent.keyDown(line, { key: "Enter" });
+    expect(onSelect).toHaveBeenCalledWith(1);
+  });
+
+  it("view mode: pressing a tab opens it, as before", () => {
+    const { onSelect, line } = setup(false);
+    fireEvent.mouseDown(line);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(1);
+  });
+});
+
 describe("PageTabs — built on the library tabs (#2221)", () => {
   const pages = [
     page("p1", "1. Bar", 1),

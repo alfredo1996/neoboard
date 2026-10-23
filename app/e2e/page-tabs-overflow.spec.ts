@@ -120,4 +120,43 @@ test.describe("Page tabs scroll instead of cutting off (#2221)", () => {
       await cleanup();
     }
   });
+  test("in edit mode dragging a tab reorders and never opens the dragged page", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Tabs ${uid()}`,
+    );
+    try {
+      await page.request.put(`/api/dashboards/${id}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [1, 2, 3].map(pageWith),
+          },
+        },
+      });
+      await page.goto(`/${id}/edit`);
+      await expect(page.getByText("Content of page 1")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      await page
+        .getByRole("tab", { name: "3. Page 3" })
+        .dragTo(page.getByRole("tab", { name: "1. Page 1" }));
+
+      // Reordered: page 3 now sits first. Page 1 is still the open page.
+      await expect(page.getByRole("tab").first()).toHaveText("3. Page 3");
+      await expect(
+        page.getByRole("tab", { name: "1. Page 1", selected: true }),
+      ).toBeVisible();
+      await expect(page.getByText("Content of page 1")).toBeVisible();
+    } finally {
+      await cleanup();
+    }
+  });
 });

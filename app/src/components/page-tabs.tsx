@@ -126,9 +126,14 @@ export function PageTabs({
   }
 
   function handleDragEnd() {
+    pressedRef.current = false;
     setDragIndex(null);
     setDropTargetIndex(null);
   }
+
+  // Radix selects on mousedown, which would open a page the moment you grab
+  // it to drag. In edit mode a press is swallowed here and the click opens it.
+  const pressedRef = useRef(false);
 
   return (
     <div className="flex min-w-0 items-stretch">
@@ -137,6 +142,7 @@ export function PageTabs({
       <Tabs
         value={activePage?.id ?? ""}
         onValueChange={(id) => {
+          if (pressedRef.current) return;
           const index = pages.findIndex((p) => p.id === id);
           if (index !== -1) onSelect(index);
         }}
@@ -165,6 +171,15 @@ export function PageTabs({
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={(e) => handleDrop(e, index)}
               onDragEnd={handleDragEnd}
+              onMouseDown={() => {
+                pressedRef.current = canDrag;
+              }}
+              onMouseUp={() => {
+                pressedRef.current = false;
+              }}
+              onClick={() => {
+                if (canDrag) onSelect(index);
+              }}
             >
               {page.title}
             </TabsTrigger>
