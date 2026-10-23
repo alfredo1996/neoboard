@@ -72,7 +72,7 @@ test.describe("Page tabs scroll instead of cutting off (#2221)", () => {
       await page.keyboard.press("Enter");
       await expect(
         page.getByRole("tab", { name: "17. Page 17", selected: true }),
-      ).toBeInViewport();
+      ).toBeInViewport({ ratio: 1 });
       await expect(page.getByText("Content of page 17")).toBeVisible();
 
       // Now the left button shows and brings the first tab back.
@@ -115,7 +115,7 @@ test.describe("Page tabs scroll instead of cutting off (#2221)", () => {
       });
       await expect(
         page.getByRole("tab", { name: "16. Page 16", selected: true }),
-      ).toBeInViewport();
+      ).toBeInViewport({ ratio: 1 });
     } finally {
       await cleanup();
     }

@@ -174,8 +174,7 @@ export function PageTabs({
 
       {editable && (
         <div className="ml-1 mr-[var(--tabs-gutter,12px)] flex shrink-0 items-center gap-0.5 border-l border-border pl-2">
-          {editable &&
-            activePage &&
+          {activePage &&
             (renamingIndex === null ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -217,7 +216,7 @@ export function PageTabs({
               />
             ))}
 
-          {editable && (
+          {
             <Button
               variant="ghost"
               size="icon"
@@ -227,7 +226,7 @@ export function PageTabs({
             >
               <Plus className="h-4 w-4" />
             </Button>
-          )}
+          }
         </div>
       )}
 

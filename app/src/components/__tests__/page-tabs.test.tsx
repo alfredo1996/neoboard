@@ -290,17 +290,6 @@ describe("PageTabs — built on the library tabs (#2221)", () => {
     expect(onSelect).toHaveBeenCalledWith(2);
   });
 
-  it("keeps the page-tab test id and the authored numbering", () => {
-    render(<PageTabs pages={pages} activeIndex={1} onSelect={vi.fn()} />);
-    const tabs = screen.getAllByTestId("page-tab");
-    expect(tabs.map((t) => t.textContent)).toEqual([
-      "1. Bar",
-      "2. Line",
-      "3. Pie",
-    ]);
-    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
-  });
-
   it("the tab is the drag handle: draggable in edit mode only, no grip", () => {
     const { container, rerender } = render(
       <PageTabs

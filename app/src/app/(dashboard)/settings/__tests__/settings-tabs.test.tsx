@@ -72,4 +72,11 @@ describe("SettingsTabs — the library tab look (#2221)", () => {
       "inactive",
     );
   });
+
+  it("draws no hairline of its own: the page header owns the rule", () => {
+    render(<SettingsTabs />);
+    expect(screen.getByRole("navigation", { name: "Settings" })).toHaveClass(
+      "border-b-0",
+    );
+  });
 });

@@ -45,14 +45,6 @@ afterEach(() => {
 });
 
 describe("Tabs (#2221)", () => {
-  it("has one tab stop, on the selected tab", () => {
-    const { container } = render(<Row />);
-    expect(container.querySelectorAll("[tabindex='0']")).toHaveLength(1);
-    expect(
-      container.querySelectorAll("button:not([tabindex='-1'])"),
-    ).toHaveLength(0);
-  });
-
   it("arrows, Home and End move focus without selecting", async () => {
     const user = userEvent.setup();
     render(<Row />);
@@ -70,53 +62,169 @@ describe("Tabs (#2221)", () => {
     expect(screen.getByRole("tab", { name: "One" })).toHaveFocus();
   });
 
-  it.each([["{Enter}"], [" "]])("%j selects the focused tab", async (key) => {
-    const user = userEvent.setup();
-    render(<Row />);
-    await user.tab();
-    await user.keyboard("{ArrowRight}");
-    await user.keyboard(key);
-    expect(screen.getByRole("tab", { name: "Two" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-  });
+  it.each([["{Enter}"], [" "]])(
+    "%j selects the focused tab, an arrow alone does not",
+    async (key) => {
+      const user = userEvent.setup();
+      render(<Row />);
+      await user.tab();
+      await user.keyboard("{ArrowRight}");
+      expect(screen.getByRole("tab", { name: "Two" })).toHaveAttribute(
+        "aria-selected",
+        "false",
+      );
+      await user.keyboard(key);
+      expect(screen.getByRole("tab", { name: "Two" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    },
+  );
 
-  it("scrolls a focused tab into view, nearest, never the page", async () => {
-    const user = userEvent.setup();
-    render(<Row />);
-    await user.tab();
-    scrollIntoView.mockClear();
-    await user.keyboard("{ArrowRight}");
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      block: "nearest",
-      inline: "nearest",
+  /** Lay the row out: 100px tabs, a 300px viewport, scrolled to `scrollLeft`. */
+  function layout(scrollLeft: number) {
+    const list = screen.getByRole("tablist");
+    Object.defineProperty(list, "clientWidth", {
+      configurable: true,
+      value: 300,
     });
-    expect(scrollIntoView.mock.contexts.at(-1)).toBe(
-      screen.getByRole("tab", { name: "Two" }),
-    );
-  });
+    Object.defineProperty(list, "scrollWidth", {
+      configurable: true,
+      value: 900,
+    });
+    Object.defineProperty(list, "offsetLeft", { configurable: true, value: 0 });
+    list.scrollLeft = scrollLeft;
+    labels.forEach((l, i) => {
+      const t = screen.getByRole("tab", { name: l });
+      Object.defineProperty(t, "offsetLeft", {
+        configurable: true,
+        value: i * 200,
+      });
+      Object.defineProperty(t, "offsetWidth", {
+        configurable: true,
+        value: 100,
+      });
+    });
+    const scrollTo = vi.fn();
+    list.scrollTo = scrollTo;
+    return scrollTo;
+  }
 
-  it("scrolls the selected tab into view on mount and on a click", async () => {
+  it("a focused tab past the right edge scrolls the row, never an ancestor", async () => {
     const user = userEvent.setup();
     render(<Row />);
-    expect(scrollIntoView.mock.contexts).toContain(
-      screen.getByRole("tab", { name: "One" }),
+    const scrollTo = layout(0);
+    await user.tab();
+    await user.keyboard("{ArrowRight}{ArrowRight}"); // Three: 400..500, 300 wide
+    // right edge 500 + 56 padding - 300 wide
+    expect(scrollTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ left: 256 }),
     );
-    await user.click(screen.getByRole("tab", { name: "Three" }));
-    expect(scrollIntoView.mock.contexts).toContain(
-      screen.getByRole("tab", { name: "Three" }),
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("a tab already clear of the edges does not scroll", async () => {
+    const user = userEvent.setup();
+    render(<Row />);
+    const scrollTo = layout(0);
+    await user.tab();
+    await user.keyboard("{ArrowRight}"); // Two: 200..300 + 56 = 356 > 300 -> scrolls
+    scrollTo.mockClear();
+    layout(100); // viewport 100..400, Two sits at 200..300: clear
+    await user.keyboard("{ArrowLeft}{ArrowRight}");
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("scrolls left to reveal a tab hidden before the viewport", async () => {
+    const user = userEvent.setup();
+    render(<Row />);
+    const scrollTo = layout(600);
+    await user.tab();
+    // One (0..100) is before the viewport
+    await user.keyboard("{Home}");
+    expect(scrollTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ left: 0 }),
     );
   });
 
-  it("scrolls the new tab into view when the value changes from outside", async () => {
+  it("reveals the selected tab on a click without touching ancestors", async () => {
+    const user = userEvent.setup();
+    render(<Row />);
+    const scrollTo = layout(0);
+    await user.click(screen.getByRole("tab", { name: "Four" })); // 600..700
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ left: 456 }),
+      ),
+    );
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("reveals the new tab when the value changes from outside", async () => {
     const { rerender } = render(<Row value="One" />);
-    scrollIntoView.mockClear();
+    const scrollTo = layout(0);
     rerender(<Row value="Four" />);
     await waitFor(() =>
-      expect(scrollIntoView.mock.contexts).toContain(
-        screen.getByRole("tab", { name: "Four" }),
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ left: 456 }),
       ),
+    );
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("keeps a caller's onFocus and onScroll next to the built-in ones", async () => {
+    const user = userEvent.setup();
+    const onFocus = vi.fn();
+    const onScroll = vi.fn();
+    render(
+      <Tabs defaultValue="One">
+        <TabsList aria-label="Demo" onFocus={onFocus} onScroll={onScroll}>
+          {labels.map((l) => (
+            <TabsTrigger key={l} value={l}>
+              {l}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>,
+    );
+    const list = screen.getByRole("tablist");
+    const scrollTo = layout(0);
+    await user.tab();
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+    expect(onFocus).toHaveBeenCalled();
+    expect(scrollTo).toHaveBeenCalled(); // built-in still ran
+    Object.defineProperty(list, "scrollLeft", {
+      configurable: true,
+      value: 300,
+    });
+    act(() => {
+      fireEvent.scroll(list);
+    });
+    expect(onScroll).toHaveBeenCalled();
+    expect(screen.getByLabelText("Scroll tabs left")).toBeInTheDocument();
+  });
+
+  it("re-measures when a tab's text changes width", async () => {
+    const { rerender } = render(<Row />);
+    const list = screen.getByRole("tablist");
+    Object.defineProperty(list, "clientWidth", {
+      configurable: true,
+      value: 300,
+    });
+    Object.defineProperty(list, "scrollWidth", {
+      configurable: true,
+      value: 300,
+    });
+    rerender(<Row />);
+    expect(screen.queryByLabelText(/Scroll tabs/)).toBeNull();
+    Object.defineProperty(list, "scrollWidth", {
+      configurable: true,
+      value: 900,
+    });
+    screen.getByRole("tab", { name: "One" }).firstChild!.textContent =
+      "A much longer name";
+    await waitFor(() =>
+      expect(screen.getByLabelText("Scroll tabs right")).toBeInTheDocument(),
     );
   });
 

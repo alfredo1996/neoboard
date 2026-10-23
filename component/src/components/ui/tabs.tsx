@@ -37,7 +37,7 @@ interface TabsListProps extends React.ComponentPropsWithoutRef<
 const TabsList = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.List>,
   TabsListProps
->(({ className, barClassName, style, ...props }, ref) => {
+>(({ className, barClassName, style, onFocus, onScroll, ...props }, ref) => {
   const listRef = React.useRef<HTMLDivElement | null>(null);
   const [more, setMore] = React.useState({ left: false, right: false });
 
@@ -60,25 +60,42 @@ const TabsList = React.forwardRef<
     );
   }, []);
 
+  // Scroll only the row, never an ancestor (scrollIntoView moves every scrollable
+  // one: the page jumped when a click action changed pages). Keeps the tab
+  // clear of the fade and the chevrons.
+  const reveal = React.useCallback((tab: Element | null, instant = false) => {
+    const el = listRef.current;
+    if (!el || !(tab instanceof HTMLElement)) return;
+    const l = tab.offsetLeft - el.offsetLeft;
+    const r = l + tab.offsetWidth;
+    let left: number | null = null;
+    if (l - FADE < el.scrollLeft) left = Math.max(0, l - FADE);
+    else if (r + FADE > el.scrollLeft + el.clientWidth)
+      left = r + FADE - el.clientWidth;
+    if (left === null) return;
+    const reduce =
+      typeof matchMedia === "function" &&
+      matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // ponytail: jsdom has no scrollTo; the optional call skips it there.
+    el.scrollTo?.({ left, behavior: instant || reduce ? "auto" : "smooth" });
+  }, []);
+
   React.useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    // ponytail: jsdom has no scrollIntoView; the optional call skips it there.
-    const reveal = () =>
-      el
-        .querySelector<HTMLElement>("[data-state=active]")
-        ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-    reveal();
+    const active = () => el.querySelector("[data-state=active]");
+    reveal(active(), true);
     measure();
     // The value can change from outside (a dashboard opening on page 12).
     const mo = new MutationObserver((records) => {
-      if (records.some((r) => r.type === "attributes")) reveal();
+      if (records.some((r) => r.type === "attributes")) reveal(active(), true);
       measure();
     });
     mo.observe(el, {
       attributes: true,
       attributeFilter: ["data-state"],
       childList: true,
+      characterData: true,
       subtree: true,
     });
     const ro =
@@ -90,7 +107,7 @@ const TabsList = React.forwardRef<
       mo.disconnect();
       ro?.disconnect();
     };
-  }, [measure]);
+  }, [measure, reveal]);
 
   const page = (dir: 1 | -1) =>
     listRef.current?.scrollBy({
@@ -116,13 +133,14 @@ const TabsList = React.forwardRef<
       )}
       <TabsPrimitive.List
         ref={setRefs}
-        onFocus={(e) =>
-          (e.target as HTMLElement).scrollIntoView?.({
-            block: "nearest",
-            inline: "nearest",
-          })
-        }
-        onScroll={measure}
+        onFocus={(e) => {
+          onFocus?.(e);
+          reveal(e.target);
+        }}
+        onScroll={(e) => {
+          onScroll?.(e);
+          measure();
+        }}
         style={
           {
             "--fl": more.left ? `${FADE}px` : "0px",

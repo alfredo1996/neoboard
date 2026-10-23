@@ -47,7 +47,7 @@ export function SettingsTabs() {
     // making them links is #2268.
     <nav
       aria-label="Settings"
-      className={cn(tabRowClass, "px-[var(--tabs-gutter,12px)]")}
+      className={cn(tabRowClass, "border-b-0 px-[var(--tabs-gutter,12px)]")}
     >
       {visibleTabs.map(({ href, label, external }) => {
         const active = !external && pathname === href;
