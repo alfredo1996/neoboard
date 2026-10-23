@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { User, KeyRound, Shield, BookOpen } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import { cn, tabRowClass, tabTriggerClass } from "@neoboard/components";
 import { useFeature, type FeatureId } from "@/hooks/use-features";
 
 interface Tab {
   href: string;
   label: string;
-  icon: typeof User;
   /** When set, the tab is only rendered if this feature is enabled. */
   requiresFeature?: FeatureId;
   /** Opens in a new tab via an anchor (e.g. the Swagger UI HTML route). */
@@ -15,15 +15,14 @@ interface Tab {
 }
 
 const tabs: Tab[] = [
-  { href: "/settings/profile", label: "Profile", icon: User },
-  { href: "/settings/api-keys", label: "API keys", icon: KeyRound },
+  { href: "/settings/profile", label: "Profile" },
+  { href: "/settings/api-keys", label: "API keys" },
   // Swagger UI lives at an API route, not a settings page — link out so the
   // OpenAPI docs are discoverable from the app (#1056).
-  { href: "/api/docs", label: "API docs", icon: BookOpen, external: true },
+  { href: "/api/docs", label: "API docs", external: true },
   {
     href: "/settings/authentication",
     label: "Authentication",
-    icon: Shield,
     requiresFeature: "sso",
   },
 ];
@@ -44,14 +43,15 @@ export function SettingsTabs() {
   });
 
   return (
-    <nav aria-label="Settings" className="flex gap-4">
-      {visibleTabs.map(({ href, label, icon: Icon, external }) => {
+    // The library tab look (#2221): centred, no icons. Still a nav of buttons;
+    // making them links is #2268.
+    <nav
+      aria-label="Settings"
+      className={cn(tabRowClass, "px-[var(--tabs-gutter,12px)]")}
+    >
+      {visibleTabs.map(({ href, label, external }) => {
         const active = !external && pathname === href;
-        const className = `flex items-center gap-2 border-b-2 px-1 py-2.5 text-sm font-medium transition-colors ${
-          active
-            ? "border-primary text-foreground"
-            : "border-transparent text-muted-foreground hover:text-foreground"
-        }`;
+        const state = active ? "active" : "inactive";
         if (external) {
           return (
             <a
@@ -59,10 +59,12 @@ export function SettingsTabs() {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className={className}
+              aria-label={`${label} (opens in a new tab)`}
+              data-state={state}
+              className={tabTriggerClass}
             >
-              <Icon className="h-4 w-4" />
               {label}
+              <ArrowUpRight className="h-3 w-3" aria-hidden />
             </a>
           );
         }
@@ -71,10 +73,10 @@ export function SettingsTabs() {
             key={href}
             type="button"
             aria-current={active ? "page" : undefined}
+            data-state={state}
             onClick={() => router.push(href)}
-            className={className}
+            className={tabTriggerClass}
           >
-            <Icon className="h-4 w-4" />
             {label}
           </button>
         );

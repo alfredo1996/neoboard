@@ -67,7 +67,7 @@ Tailwind: `bg-card`, `border-card-edge` (`hover:border-card-edge-hover`), `shado
 ### Active/Selected States
 
 - Sidebar active: `bg-active text-foreground`, a neutral fill with no left border (#2225)
-- Tab active: `border-b-2 border-primary text-foreground` (bottom border emphasis)
+- Tabs (#2221): 13/500, 36 px rows, centred; inactive `--muted-foreground`, hover ink, active ink with a 2 px `--ring` underline, focus ring inside the tab. A row that overflows scrolls inside itself with edge fades and chevron buttons (not tab stops); the selected and focused tab scroll into view. Arrows move focus, Enter or Space select. No pill variant (use `SegmentedControl`).
 - Connection card active: `border-primary` ring
 - Selection in lists: `bg-accent/50`
 

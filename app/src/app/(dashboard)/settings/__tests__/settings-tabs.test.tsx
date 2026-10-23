@@ -45,3 +45,31 @@ describe("SettingsTabs — API docs discoverability (#1056, #2255)", () => {
     );
   });
 });
+
+describe("SettingsTabs — the library tab look (#2221)", () => {
+  it("names API docs as opening in a new tab", () => {
+    render(<SettingsTabs />);
+    expect(
+      screen.getByRole("link", { name: "API docs (opens in a new tab)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("draws no icons on the tabs, only the arrow on API docs", () => {
+    render(<SettingsTabs />);
+    const nav = screen.getByRole("navigation", { name: "Settings" });
+    expect(nav.querySelectorAll("svg")).toHaveLength(1);
+    expect(screen.getByRole("link").querySelector("svg")).not.toBeNull();
+  });
+
+  it("marks the current page's tab as the active tab", () => {
+    render(<SettingsTabs />);
+    expect(screen.getByRole("button", { name: "Profile" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    expect(screen.getByRole("button", { name: "API keys" })).toHaveAttribute(
+      "data-state",
+      "inactive",
+    );
+  });
+});

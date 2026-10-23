@@ -116,7 +116,14 @@ export { Toaster } from "./toaster";
 export { Alert, AlertTitle, AlertDescription } from "./alert";
 
 // Phase 4: Layout & Navigation Components
-export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
+export {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  tabTriggerClass,
+  tabRowClass,
+} from "./tabs";
 export {
   Accordion,
   AccordionItem,

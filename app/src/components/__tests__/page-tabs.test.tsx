@@ -8,10 +8,20 @@
  */
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  within,
+  waitFor,
+} from "@testing-library/react";
 import type { DashboardPage, DashboardWidget } from "@/lib/db/schema";
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
+  // The real tabs: PageTabs is built on them (#2221).
+  Tabs: (await import("@neoboard/components/ui")).Tabs,
+  TabsList: (await import("@neoboard/components/ui")).TabsList,
+  TabsTrigger: (await import("@neoboard/components/ui")).TabsTrigger,
   Button: ({
     children,
     ...props
@@ -254,5 +264,73 @@ describe("PageTabs — drag to reorder", () => {
     const { onReorder, accepted } = dropOverviewOnSales(false);
     expect(accepted).toBe(false);
     expect(onReorder).not.toHaveBeenCalled();
+  });
+});
+
+describe("PageTabs — built on the library tabs (#2221)", () => {
+  const pages = [
+    page("p1", "1. Bar", 1),
+    page("p2", "2. Line", 1),
+    page("p3", "3. Pie", 1),
+  ];
+
+  it("End then Enter selects the last page; arrows alone do not select", async () => {
+    const onSelect = vi.fn();
+    render(<PageTabs pages={pages} activeIndex={0} onSelect={onSelect} />);
+    const first = screen.getByRole("tab", { name: "1. Bar" });
+    first.focus();
+    fireEvent.keyDown(first, { key: "End" });
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "3. Pie" })).toHaveFocus(),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("tab", { name: "3. Pie" }), {
+      key: "Enter",
+    });
+    expect(onSelect).toHaveBeenCalledWith(2);
+  });
+
+  it("keeps the page-tab test id and the authored numbering", () => {
+    render(<PageTabs pages={pages} activeIndex={1} onSelect={vi.fn()} />);
+    const tabs = screen.getAllByTestId("page-tab");
+    expect(tabs.map((t) => t.textContent)).toEqual([
+      "1. Bar",
+      "2. Line",
+      "3. Pie",
+    ]);
+    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("the tab is the drag handle: draggable in edit mode only, no grip", () => {
+    const { container, rerender } = render(
+      <PageTabs
+        pages={pages}
+        activeIndex={0}
+        editable
+        onSelect={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("tab", { name: "2. Line" })).toHaveAttribute(
+      "draggable",
+      "true",
+    );
+    expect(container.querySelector("svg.lucide-grip-vertical")).toBeNull();
+    rerender(<PageTabs pages={pages} activeIndex={0} onSelect={vi.fn()} />);
+    expect(screen.getByRole("tab", { name: "2. Line" })).not.toHaveAttribute(
+      "draggable",
+      "true",
+    );
+  });
+
+  it("ships no aria-controls pointing at an id that is not there", () => {
+    const { container } = render(
+      <PageTabs pages={pages} activeIndex={0} onSelect={vi.fn()} />,
+    );
+    for (const tab of container.querySelectorAll("[aria-controls]")) {
+      expect(
+        document.getElementById(tab.getAttribute("aria-controls") ?? ""),
+      ).not.toBeNull();
+    }
   });
 });

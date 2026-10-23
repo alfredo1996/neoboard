@@ -36,9 +36,9 @@ function ChartSettingsPanel({
   return (
     <div className={cn("w-full", className)}>
       <Tabs key={resetKey} defaultValue={defaultTab}>
-        <TabsList className="w-full">
+        <TabsList>
           {tabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="flex-1">
+            <TabsTrigger key={tab.value} value={tab.value}>
               {tab.label}
             </TabsTrigger>
           ))}
