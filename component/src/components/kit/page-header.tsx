@@ -93,7 +93,12 @@ function PageHeader({
           </div>
         )}
       </div>
-      {tabs && <div className="-mb-3 mt-3">{tabs}</div>}
+      {tabs && (
+        // Full-bleed, so the row scrolls edge to edge; its inset is the gutter.
+        <div className="-mx-4 -mb-3 mt-3 [--tabs-gutter:1rem] md:-mx-7 md:[--tabs-gutter:1.75rem]">
+          {tabs}
+        </div>
+      )}
     </header>
   );
 }

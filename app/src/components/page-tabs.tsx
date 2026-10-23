@@ -1,16 +1,13 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import {
-  Plus,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  GripVertical,
-} from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { DashboardPage } from "@/lib/db/schema";
 import {
   Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Input,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -129,109 +126,125 @@ export function PageTabs({
   }
 
   function handleDragEnd() {
+    pressedRef.current = false;
     setDragIndex(null);
     setDropTargetIndex(null);
   }
 
+  // Radix selects on mousedown, which would open a page the moment you grab
+  // it to drag. In edit mode a press is swallowed here and the click opens it.
+  const pressedRef = useRef(false);
+
   return (
-    <div className="flex items-center gap-1 shrink-0 overflow-x-auto">
+    <div className="flex min-w-0 items-stretch">
       {/* A tablist may own only tabs (#2107): page options, the rename field
-          and Add page sit after it, and act on the active page. */}
-      <div role="tablist" className="flex items-center gap-1">
-        {pages.map((page, index) => (
-          <div
-            key={page.id}
-            className={cn(
-              "group flex items-center shrink-0",
-              canDrag && dragIndex === index && "opacity-50",
-              canDrag &&
-                dropTargetIndex === index &&
-                dragIndex !== null &&
-                dragIndex !== index &&
-                "border-l-2 border-primary",
-            )}
-            draggable={canDrag}
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDrop={(e) => handleDrop(e, index)}
-            onDragEnd={handleDragEnd}
-          >
-            {canDrag && (
-              <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab shrink-0" />
-            )}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={index === activeIndex}
-              data-state={index === activeIndex ? "active" : "inactive"}
+          and Add page sit after it, pinned right, and act on the active page. */}
+      <Tabs
+        value={activePage?.id ?? ""}
+        onValueChange={(id) => {
+          if (pressedRef.current) return;
+          const index = pages.findIndex((p) => p.id === id);
+          if (index !== -1) onSelect(index);
+        }}
+        className="min-w-0 flex-1"
+      >
+        <TabsList aria-label="Pages" className="border-b-0">
+          {pages.map((page, index) => (
+            <TabsTrigger
+              key={page.id}
+              value={page.id}
               data-testid="page-tab"
-              onClick={() => onSelect(index)}
+              // Page content stays mounted behind `hidden`, not in a Radix
+              // panel, so there is nothing for aria-controls to point at.
+              aria-controls={undefined}
               className={cn(
-                "h-9 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                index === activeIndex
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground",
+                canDrag && "cursor-grab",
+                canDrag && dragIndex === index && "opacity-50",
+                canDrag &&
+                  dropTargetIndex === index &&
+                  dragIndex !== null &&
+                  dragIndex !== index &&
+                  "shadow-[inset_2px_0_0_hsl(var(--ring))]",
               )}
+              draggable={canDrag}
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              onMouseDown={() => {
+                pressedRef.current = canDrag;
+              }}
+              onMouseUp={() => {
+                pressedRef.current = false;
+              }}
+              onClick={(e) => {
+                // Keyboard activation already selected via Radix's keydown;
+                // the click the browser synthesises from it has detail 0.
+                if (canDrag && e.detail > 0) onSelect(index);
+              }}
             >
               {page.title}
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {editable &&
-        activePage &&
-        (renamingIndex === null ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                aria-label={`Page options for ${activePage.title}`}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => startRename(activeIndex)}>
-                <Pencil className="mr-2 h-3 w-3" />
-                Rename
-              </DropdownMenuItem>
-              {pages.length > 1 && (
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => requestDelete(activeIndex)}
-                >
-                  <Trash2 className="mr-2 h-3 w-3" />
-                  Delete page
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Input
-            ref={inputRef}
-            aria-label={`Rename page ${pages[renamingIndex].title}`}
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={handleRenameKeyDown}
-            className="h-8 w-32 text-sm px-2 my-1"
-            autoFocus
-          />
-        ))}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {editable && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={onAdd}
-          aria-label="Add page"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        <div className="ml-1 mr-[var(--tabs-gutter,12px)] flex shrink-0 items-center gap-0.5 border-l border-border pl-2">
+          {activePage &&
+            (renamingIndex === null ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    aria-label={`Page options for ${activePage.title}`}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => startRename(activeIndex)}>
+                    <Pencil className="mr-2 h-3 w-3" />
+                    Rename
+                  </DropdownMenuItem>
+                  {pages.length > 1 && (
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => requestDelete(activeIndex)}
+                    >
+                      <Trash2 className="mr-2 h-3 w-3" />
+                      Delete page
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Input
+                ref={inputRef}
+                aria-label={`Rename page ${pages[renamingIndex].title}`}
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={handleRenameKeyDown}
+                className="h-8 w-32 text-sm px-2 my-1"
+                autoFocus
+              />
+            ))}
+
+          {
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={onAdd}
+              aria-label="Add page"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          }
+        </div>
       )}
 
       <ConfirmDialog

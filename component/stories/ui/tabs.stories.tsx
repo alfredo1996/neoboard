@@ -51,19 +51,27 @@ export const Default: Story = {
   ),
 };
 
-export const PillVariant: Story = {
+const fourteen = Array.from({ length: 14 }, (_, i) => ({
+  value: `p${i + 1}`,
+  label: `${i + 1}. ${["Bar", "Line", "Pie", "Graph", "Map", "Table", "Gauge"][i % 7]}`,
+}));
+
+/** 14 tabs in a 600px frame: the row scrolls, fades, and shows edge buttons. */
+export const Overflow: Story = {
   render: () => (
-    <Tabs defaultValue="data" className="w-[400px]">
-      <TabsList variant="pill">
-        <TabsTrigger value="data">Data</TabsTrigger>
-        <TabsTrigger value="style">Style</TabsTrigger>
-        <TabsTrigger value="advanced">Advanced</TabsTrigger>
+    <Tabs defaultValue="p12" className="w-[600px] border border-border">
+      <TabsList aria-label="Pages">
+        {fourteen.map((t) => (
+          <TabsTrigger key={t.value} value={t.value}>
+            {t.label}
+          </TabsTrigger>
+        ))}
       </TabsList>
-      <TabsContent value="data">
-        Pill style preserved for dense toolbars.
-      </TabsContent>
-      <TabsContent value="style">Style content</TabsContent>
-      <TabsContent value="advanced">Advanced content</TabsContent>
+      {fourteen.map((t) => (
+        <TabsContent key={t.value} value={t.value} className="p-4">
+          {t.label}
+        </TabsContent>
+      ))}
     </Tabs>
   ),
 };
@@ -71,7 +79,7 @@ export const PillVariant: Story = {
 export const WithCards: Story = {
   render: () => (
     <Tabs defaultValue="account" className="w-[400px]">
-      <TabsList className="grid w-full grid-cols-2">
+      <TabsList>
         <TabsTrigger value="account">Account</TabsTrigger>
         <TabsTrigger value="password">Password</TabsTrigger>
       </TabsList>
