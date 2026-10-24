@@ -224,17 +224,8 @@ jobs:
           NEO4J_USER: neo4j
           NEO4J_PASSWORD: neoboard123
 
-      # Every story, smoke-rendered in a real browser: geometry assertions
-      # jsdom cannot make (no layout engine, no getAnimations()) plus any
-      # render crash or unhandled error a story trips over (#1373, #1384).
-      # Deliberately NOT in `npm run verify` — a chromium download does not
-      # belong in the default local loop.
-      - name: Install Chromium for the browser test project
-        run: npm -w component exec -- playwright install --with-deps chromium
-
-      - name: Story smoke tests (Vitest browser project)
-        run: npm run test:visual
-
+      # Before the Chromium install: a stalled apt mirror once ate the job's
+      # whole timeout and the skipped upload failed the Sonar gate (#2279).
       - name: Upload unit coverage
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
@@ -248,6 +239,18 @@ jobs:
             connection/coverage-quality/lcov.info
             cli/coverage/lcov.info
             connector-sdk/coverage/lcov.info
+
+      # Every story, smoke-rendered in a real browser: geometry assertions
+      # jsdom cannot make (no layout engine, no getAnimations()) plus any
+      # render crash or unhandled error a story trips over (#1373, #1384).
+      # Deliberately NOT in `npm run verify` — a chromium download does not
+      # belong in the default local loop.
+      - name: Install Chromium for the browser test project
+        timeout-minutes: 5
+        run: npm -w component exec -- playwright install --with-deps chromium
+
+      - name: Story smoke tests (Vitest browser project)
+        run: npm run test:visual
 
   # ── Job 2: E2E tests — 5 shards with isolated containers ──────────────────
   # Each shard gets its own runner + Testcontainers (no shared state).
