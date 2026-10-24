@@ -110,7 +110,7 @@ test.describe("Table widget — graph cells (#2050, #2070)", () => {
       page,
       "MATCH (m:Movie) WHERE m.title IN ['Cloud Atlas', 'The Matrix'] " +
         "RETURN m ORDER BY m.title",
-      { enableGrouping: true, groupBy: "m", enableColumnFilters: true },
+      { enableGrouping: true, groupBy: "m" },
     );
 
     try {
@@ -125,7 +125,10 @@ test.describe("Table widget — graph cells (#2050, #2070)", () => {
       await expect(groups.nth(1)).toContainText('title: "The Matrix"');
 
       // Before: the filter searched "[object Object]" and matched nothing.
-      await widget.getByLabel("Filter m").fill("matrix");
+      await widget.getByRole("button", { name: "m", exact: true }).click();
+      await page.getByLabel("Filter m").fill("matrix");
+      // An open menu hides the page from role queries.
+      await page.keyboard.press("Escape");
       await expect(groups).toHaveCount(1);
       await expect(groups.first()).toContainText('title: "The Matrix"');
     } finally {
@@ -141,7 +144,7 @@ test.describe("Table widget — graph cells (#2050, #2070)", () => {
       page,
       "MATCH (m:Movie) WHERE m.title IN ['Cloud Atlas', 'The Matrix', 'Top Gun'] " +
         "RETURN m ORDER BY m.title",
-      { enableColumnFilters: true },
+      {},
     );
 
     try {
@@ -151,7 +154,8 @@ test.describe("Table widget — graph cells (#2050, #2070)", () => {
       await expect(rows).toHaveCount(3, { timeout: 20_000 });
 
       // Before: the filter searched "[object Object]" and matched nothing.
-      await widget.getByLabel("Filter m").fill("Cloud Atlas");
+      await widget.getByRole("button", { name: "m", exact: true }).click();
+      await page.getByLabel("Filter m").fill("Cloud Atlas");
       await expect(rows).toHaveCount(1);
       await expect(rows.first()).toContainText('title: "Cloud Atlas"');
     } finally {

@@ -1050,8 +1050,8 @@ test.describe("Clickable columns restriction", () => {
       await expect(titleButton).toBeVisible();
 
       // Released cells (year numbers) are NOT clickable — no button inside.
-      // Find a released cell in the same row as "Apollo 13" — the year is 1995.
-      const releasedCell = page.locator("td").filter({ hasText: "1995" });
+      // Find a released cell in the same row as "Apollo 13" — the year prints as 1,995 (#2222: only year, id and *_id columns print bare).
+      const releasedCell = page.locator("td").filter({ hasText: "1,995" });
       await expect(
         releasedCell.first().locator("button.rounded-md"),
       ).toHaveCount(0);
@@ -1162,7 +1162,7 @@ test.describe("Multi-rule click actions", () => {
       const titleBadge = titleCell.first().locator("button.rounded-md");
       await expect(titleBadge).toBeVisible();
 
-      const yearCell = page.locator("td").filter({ hasText: "1995" });
+      const yearCell = page.locator("td").filter({ hasText: "1,995" });
       await expect(yearCell.first().locator("button.rounded-md")).toBeVisible();
 
       // Click title column — should set param_movie
@@ -1257,7 +1257,7 @@ test.describe("Filter line chips (#2252)", () => {
       await expect(line).toContainText("Movie is Apollo 13", {
         timeout: 10_000,
       });
-      await expect(dependent.getByRole("cell", { name: "1995" })).toBeVisible({
+      await expect(dependent.getByRole("cell", { name: "1,995" })).toBeVisible({
         timeout: 15_000,
       });
 

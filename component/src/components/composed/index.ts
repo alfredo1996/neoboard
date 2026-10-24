@@ -50,23 +50,20 @@ export {
   type LayoutItem,
 } from "./dashboard-grid";
 // Tables & Data
-export { DataGrid, type DataGridProps, type DataGridColumn } from "./data-grid";
+export {
+  DataGrid,
+  type DataGridProps,
+  type DataGridColumn,
+  type DataGridColumnMeta,
+} from "./data-grid";
 export {
   DataGridColumnHeader,
   type DataGridColumnHeaderProps,
 } from "./data-grid-column-header";
 export {
-  DataGridPagination,
-  type DataGridPaginationProps,
-} from "./data-grid-pagination";
-export {
   DataGridFacetedFilter,
   type DataGridFacetedFilterProps,
 } from "./data-grid-faceted-filter";
-export {
-  DataGridViewOptions,
-  type DataGridViewOptionsProps,
-} from "./data-grid-view-options";
 
 // Chart Config
 export {

@@ -34,7 +34,11 @@ async function sortV(
   dir: "Asc" | "Desc",
 ) {
   await user.click(screen.getByRole("button", { name: /^V$/ }));
-  await user.click(await screen.findByRole("menuitem", { name: dir }));
+  await user.click(
+    await screen.findByRole("menuitem", {
+      name: { Asc: "Sort ascending", Desc: "Sort descending" }[dir],
+    }),
+  );
 }
 
 /** The V cells top to bottom, skipping the header row. */

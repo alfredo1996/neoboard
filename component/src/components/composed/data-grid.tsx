@@ -13,8 +13,10 @@ import {
 } from "@tanstack/react-table";
 import type {
   CellContext,
+  FilterFn,
   Column,
   ColumnDef,
+  Header,
   HeaderContext,
   SortingState,
   VisibilityState,
@@ -24,7 +26,13 @@ import type {
   ExpandedState,
   Table,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, ChevronsDownUp, Inbox } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  Inbox,
+  Search,
+} from "lucide-react";
 import {
   Table as UITable,
   TableBody,
@@ -37,11 +45,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { DataGridColumnHeader } from "./data-grid-column-header";
 import {
   formatNumber,
   type NumberFormat,
   type NumberFormatConfig,
 } from "@/charts/chart-utils";
+import { isNumericCell } from "@/lib/numeric-cell";
 import {
   inferColumnKind,
   sortDescFirstForKind,
@@ -57,9 +67,12 @@ const RESIZE_STEP_PX = 16;
  * Fixed layout heights used when computing the dynamic page size from a
  * known container height.  Keep in sync with the actual rendered heights.
  */
-export const DATA_GRID_HEADER_HEIGHT = 40; // px — table <thead> row
+export const DATA_GRID_HEADER_HEIGHT = 32; // px — table <thead> row
 export const DATA_GRID_ROW_HEIGHT = 36; // px — single data <tr>
-export const DATA_GRID_PAGINATION_HEIGHT = 52; // px — pagination control bar
+export const DATA_GRID_PAGINATION_HEIGHT = 38; // px — footer: 10px gap + 28px buttons
+
+/** px — the search box (32px field + 8px gap) above the table. */
+const SEARCH_BOX_HEIGHT = 40;
 
 /** Rows per page when neither an explicit size nor a container height is available. */
 export const DEFAULT_PAGE_SIZE = 10;
@@ -133,6 +146,101 @@ function SelectRowCell<TData>({ row }: Readonly<CellContext<TData, unknown>>) {
   );
 }
 
+/**
+ * A year or an id is a label that happens to be a number: "1,999" is wrong.
+ * A rule on the column's name, the same for every connector (#2222).
+ */
+const WHOLE_NUMBER = /^-?\d+$/;
+const LABEL_COLUMN = /^(year|id)$|_id$/i;
+/** A column named `m.year` or `p.customer_id` is judged by the part after the last dot. */
+const isLabelColumn = (columnId: string) =>
+  LABEL_COLUMN.test(columnId.slice(columnId.lastIndexOf(".") + 1));
+
+const MAX_AUTO_DECIMALS = 2;
+const FRACTION = /\.(\d+)/;
+
+/**
+ * Automatic decimals for one numeric column: the most any of its values
+ * carries, capped at 2, so the column lines up. All whole numbers: none.
+ */
+function autoDecimals(values: readonly unknown[]): number {
+  let most = 0;
+  for (const v of values) {
+    if (!isNumericCell(v)) continue;
+    const text = String(v);
+    most = Math.max(
+      most,
+      /e/i.test(text)
+        ? MAX_AUTO_DECIMALS
+        : (FRACTION.exec(text)?.[1].length ?? 0),
+    );
+  }
+  return Math.min(most, MAX_AUTO_DECIMALS);
+}
+
+/**
+ * What the grid knows about a column, on `columnDef.meta`. A column's own
+ * `cell` renderer calls `formatNumber` to print a number the way the rest of
+ * the table does (separator, the widget's number format); the grid never
+ * overrides a renderer a column supplies.
+ */
+export interface DataGridColumnMeta {
+  /** Right-aligned, tabular figures: the column holds numbers. */
+  numeric?: boolean;
+  formatNumber?: (value: number | string) => string;
+}
+type GridColumnMeta = DataGridColumnMeta;
+
+/**
+ * Table cells always want comma formatting (it's tabular data). Both
+ * settings unset: comma with up to 2 decimals and no trailing zeros, so an
+ * integer prints bare. An author's setting wins: comma unless they chose
+ * another. A year or an id prints bare under "comma" or while nothing is set.
+ */
+function makeNumberFormatter(
+  numberFormat: NumberFormat | undefined,
+  decimalPlaces: number | undefined,
+  columnDecimals: ReadonlyMap<string, number>,
+) {
+  const unset = numberFormat === undefined && decimalPlaces === undefined;
+  const config: NumberFormatConfig = unset
+    ? { context: "table" }
+    : {
+        numberFormat: numberFormat ?? "comma",
+        ...(decimalPlaces !== undefined && { decimalPlaces }),
+      };
+  // "comma" is what a widget saved before "Automatic" existed carries; the
+  // rule holds whatever the decimals are set to.
+  const bareLabels = numberFormat === undefined || numberFormat === "comma";
+  return (value: number | string, columnId: string): string => {
+    if (
+      bareLabels &&
+      WHOLE_NUMBER.test(String(value)) &&
+      isLabelColumn(columnId)
+    ) {
+      return String(value);
+    }
+    const own = unset ? columnDecimals.get(columnId) : undefined;
+    // A mean of whole numbers is not whole: a figure keeps its own decimals
+    // (a raw cell never has more than its column's, so only aggregates gain).
+    const decimals =
+      own === undefined ? undefined : Math.max(own, autoDecimals([value]));
+    return decimals === undefined
+      ? formatNumber(value, config)
+      : formatNumber(value, { numberFormat: "comma", decimalPlaces: decimals });
+  };
+}
+
+function columnId<TData>(col: ColumnDef<TData, unknown>): string {
+  if (col.id !== undefined) return col.id;
+  return "accessorKey" in col ? String(col.accessorKey) : "";
+}
+
+function isNumericColumn(values: readonly unknown[], kind: string): boolean {
+  // A column of numeric-looking strings (zip codes, "007") is text.
+  return kind === "numeric" && values.some((v) => typeof v === "number");
+}
+
 /** None on a column that cannot sort: "none" announces it as sortable (#1285). */
 function ariaSort<TData>(
   column: Column<TData, unknown>,
@@ -145,23 +253,13 @@ function ariaSort<TData>(
 }
 
 /** Each optional feature's row models, left out while it is off. */
-function optionalRowModels<TData>(on: {
-  sorting: boolean;
-  filtering: boolean;
-  columnFilters: boolean;
-  grouping: boolean;
-}) {
+function optionalRowModels<TData>(on: { sorting: boolean; grouping: boolean }) {
   return {
     getSortedRowModel: on.sorting ? getSortedRowModel<TData>() : undefined,
-    getFilteredRowModel: on.filtering
-      ? getFilteredRowModel<TData>()
-      : undefined,
-    getFacetedRowModel: on.columnFilters
-      ? getFacetedRowModel<TData>()
-      : undefined,
-    getFacetedUniqueValues: on.columnFilters
-      ? getFacetedUniqueValues<TData>()
-      : undefined,
+    // Filtering is always on: every column's header menu has a filter field.
+    getFilteredRowModel: getFilteredRowModel<TData>(),
+    getFacetedRowModel: getFacetedRowModel<TData>(),
+    getFacetedUniqueValues: getFacetedUniqueValues<TData>(),
     getGroupedRowModel: on.grouping ? getGroupedRowModel<TData>() : undefined,
     getExpandedRowModel: on.grouping ? getExpandedRowModel<TData>() : undefined,
   };
@@ -172,8 +270,8 @@ export interface DataGridProps<TData> {
   data: TData[];
   enableSorting?: boolean;
   enableSelection?: boolean;
+  /** A search box above the table, matching every visible column (#2222). */
   enableGlobalFilter?: boolean;
-  enableColumnFilters?: boolean;
   /**
    * Whether to show pagination controls.  Defaults to `true`.
    * When `false` all rows are rendered on a single page.
@@ -210,7 +308,6 @@ export interface DataGridProps<TData> {
   /** Column IDs to group by initially. Requires `enableGrouping`. */
   initialGrouping?: string[];
   toolbar?: (table: Table<TData>) => React.ReactNode;
-  pagination?: (table: Table<TData>) => React.ReactNode;
   /** Message shown in the empty state (no rows / filtered to none). */
   emptyMessage?: string;
   className?: string;
@@ -229,13 +326,49 @@ export interface DataGridProps<TData> {
   getRowId?: (row: TData, index: number) => string;
 }
 
+function numeric<TData>(column: Column<TData, unknown>): boolean {
+  return (
+    (column.columnDef.meta as GridColumnMeta | undefined)?.numeric === true
+  );
+}
+
+function FooterLink({
+  onClick,
+  children,
+}: Readonly<{ onClick: () => void; children: React.ReactNode }>) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-sm text-ring hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** A string header becomes the column's menu button (#2222). */
+function renderHeader<TData>(header: Header<TData, unknown>) {
+  if (header.isPlaceholder) return null;
+  const def = header.column.columnDef.header;
+  if (typeof def === "string" && header.column.id !== "select") {
+    return (
+      <DataGridColumnHeader
+        column={header.column}
+        title={def}
+        align={numeric(header.column) ? "right" : "left"}
+      />
+    );
+  }
+  return flexRender(def, header.getContext());
+}
+
 function DataGrid<TData>({
   columns,
   data,
   enableSorting = false,
   enableSelection = false,
   enableGlobalFilter = false,
-  enableColumnFilters = false,
   enableColumnResizing = false,
   enablePagination = true,
   pageSize,
@@ -248,24 +381,27 @@ function DataGrid<TData>({
   enableGrouping = false,
   initialGrouping,
   toolbar,
-  pagination,
   emptyMessage = "No results.",
   className,
   numberFormat,
   decimalPlaces,
   getRowId,
 }: Readonly<DataGridProps<TData>>) {
-  // Table cells always want comma formatting (it's tabular data — commas
-  // are the universal Excel-like convention). When the caller doesn't
-  // override numberFormat, force "comma". For decimalPlaces, defer to
-  // formatNumber's smart default (2dp) when both are unset.
-  const numberFormatConfig: NumberFormatConfig =
-    numberFormat === undefined && decimalPlaces === undefined
-      ? {} // both unset → formatNumber applies comma + 2dp
-      : {
-          numberFormat: numberFormat ?? "comma",
-          ...(decimalPlaces !== undefined && { decimalPlaces }),
-        };
+  // Automatic decimals are a property of the column, so they are read off all
+  // of its values once, not guessed per cell.
+  const columnDecimals = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const col of columns) {
+      const values = columnValues(col, data);
+      if (values && isNumericColumn(values, inferColumnKind(values)))
+        m.set(columnId(col), autoDecimals(values));
+    }
+    return m;
+  }, [columns, data]);
+  const formatGridNumber = React.useMemo(
+    () => makeNumberFormatter(numberFormat, decimalPlaces, columnDecimals),
+    [numberFormat, decimalPlaces, columnDecimals],
+  );
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -287,7 +423,8 @@ function DataGrid<TData>({
   // Toolbar height is non-zero only when a toolbar render prop is supplied.
   // We use a fixed estimate so the toolbar's own height does not have to be
   // measured separately — the toolbar renders at 40 px in practice.
-  const TOOLBAR_HEIGHT = toolbar ? 40 : 0;
+  const TOOLBAR_HEIGHT =
+    (toolbar ? 40 : 0) + (enableGlobalFilter ? SEARCH_BOX_HEIGHT : 0);
 
   // Determine effective page size:
   //  1. When pagination is disabled, show all rows (large sentinel).
@@ -325,14 +462,29 @@ function DataGrid<TData>({
         const values = columnValues(col, data);
         if (!values) return col;
         const kind = inferColumnKind(values);
+        const id = columnId(col);
+        const meta: GridColumnMeta = {
+          numeric: isNumericColumn(values, kind),
+          formatNumber: (v) => formatGridNumber(v, id),
+        };
         return {
           sortingFn: sortingFnForKind<TData>(kind),
           sortDescFirst: sortDescFirstForKind(kind),
           ...col,
+          meta: { ...meta, ...(col.meta as object | undefined) },
         };
       }),
-    [columns, data],
+    [columns, data, formatGridNumber],
   );
+
+  const ownFilterFns = React.useMemo(() => {
+    const m = new Map<string, FilterFn<TData>>();
+    for (const col of columns) {
+      if (typeof col.filterFn === "function")
+        m.set(columnId(col), col.filterFn);
+    }
+    return m;
+  }, [columns]);
 
   const allColumns = React.useMemo(() => {
     if (!enableSelection) return typedColumns;
@@ -346,6 +498,44 @@ function DataGrid<TData>({
     };
     return [selectColumn, ...typedColumns];
   }, [typedColumns, enableSelection]);
+
+  // The filter and the search match what the cell shows: a number by its
+  // formatted text too ("12,345" finds 12,345.70), anything else by its text.
+  const matchesShown = React.useCallback<FilterFn<TData>>(
+    (row, id, filterValue) => {
+      const v = row.getValue(id);
+      const needle = String(filterValue ?? "").toLowerCase();
+      if (v === null || v === undefined) return false;
+      const shown =
+        typeof v === "object"
+          ? JSON.stringify(v)
+          : String(v as string | number | boolean | bigint);
+      if (shown.toLowerCase().includes(needle)) return true;
+      return (
+        typeof v === "number" &&
+        formatGridNumber(v, id).toLowerCase().includes(needle)
+      );
+    },
+    [formatGridNumber],
+  );
+
+  const shownCell: ColumnDef<TData, unknown>["cell"] = ({
+    getValue,
+    column,
+  }) => {
+    const v = getValue();
+    if (typeof v === "number" && Number.isFinite(v)) {
+      return formatGridNumber(v, column.id);
+    }
+    // A number a double cannot hold arrives as a string (#1304).
+    if (numeric(column) && isNumericCell(v)) {
+      return formatGridNumber(v, column.id);
+    }
+    if (v === null || v === undefined) return null;
+    if (typeof v === "object") return JSON.stringify(v);
+    // Query cells: a primitive once null, undefined and objects are out.
+    return String(v as string | number | boolean | bigint);
+  };
 
   const table = useReactTable<TData>({
     data,
@@ -367,30 +557,28 @@ function DataGrid<TData>({
       // selects weakEquals/equals, which never matches typed text at all
       // (#1657). A column that wants something else still passes its own
       // `filterFn` — a column-level def wins over defaultColumn.
-      filterFn: "includesString",
-      // Format numeric cells with the table-wide numberFormat/decimalPlaces
-      // (or formatNumber's smart defaults). Columns that supply an explicit
-      // `cell` renderer in their columnDef override this — TanStack uses the
-      // column-level cell when present and only falls back to defaultColumn.
-      cell: ({ getValue }) => {
-        const v = getValue();
-        if (typeof v === "number" && Number.isFinite(v)) {
-          return formatNumber(v, numberFormatConfig);
-        }
-        if (v === null || v === undefined) return null;
-        if (typeof v === "object") return JSON.stringify(v);
-        // Query cells: a primitive once null, undefined and objects are out.
-        return String(v as string | number | boolean | bigint);
-      },
+      filterFn: matchesShown,
+      // Numbers are formatted by the grid itself where a cell is drawn, so a
+      // column's own `cell` renderer (the table widget's) cannot skip it.
+      cell: shownCell,
+      // An aggregated figure reads like the column it sums.
+      aggregatedCell: shownCell,
     },
     enableGrouping,
     getPaginationRowModel: getPaginationRowModel(),
     ...optionalRowModels<TData>({
       sorting: enableSorting,
-      filtering: enableGlobalFilter || enableColumnFilters,
-      columnFilters: enableColumnFilters,
       grouping: enableGrouping,
     }),
+    // Search every visible column; without this TanStack picks the columns
+    // whose first value is a string or number.
+    // ponytail: the filtered rows are memoised on the filter text, so hiding
+    // a column while a search is active re-evaluates on the next keystroke.
+    getColumnCanGlobalFilter: (column) => column.getIsVisible(),
+    // Each column's own filterFn, so a column that matches by the text it
+    // shows (an object column) is not searched as "[object Object]".
+    globalFilterFn: (row, id, fv, addMeta) =>
+      (ownFilterFns.get(id) ?? matchesShown)(row, id, fv, addMeta),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
@@ -403,7 +591,7 @@ function DataGrid<TData>({
       columnVisibility,
       rowSelection,
       columnFilters,
-      globalFilter,
+      globalFilter: enableGlobalFilter ? globalFilter : "",
       ...(enableGrouping ? { grouping, expanded } : {}),
     },
     initialState: {
@@ -428,15 +616,33 @@ function DataGrid<TData>({
     }
   }, [rowSelection, onSelectionChange, table]);
 
-  // Whether to render the built-in pagination bar.  The caller-supplied
-  // `pagination` render prop always takes priority.
-  const showBuiltInPagination =
-    enablePagination && !pagination && table.getPageCount() > 1;
+  const rowCount = table.getFilteredRowModel().rows.length;
+  const totalCount = table.getCoreRowModel().rows.length;
+  const isFiltered =
+    columnFilters.length > 0 || (enableGlobalFilter && globalFilter !== "");
+  const hiddenCount = table
+    .getAllLeafColumns()
+    .filter((c) => c.getCanHide() && !c.getIsVisible()).length;
+  const selectedCount = enableSelection
+    ? table.getFilteredSelectedRowModel().rows.length
+    : 0;
+  const { pageIndex, pageSize: size } = table.getState().pagination;
+  // The pager pages over the pre-pagination model, which with grouping also
+  // holds the group header rows; the range must count what the pages hold.
+  const pagedCount = table.getPrePaginationRowModel().rows.length;
+  const rangeStart = pagedCount === 0 ? 0 : pageIndex * size + 1;
+  const rangeEnd = Math.min(pagedCount, (pageIndex + 1) * size);
+  const showPager = enablePagination && table.getPageCount() > 1;
+  const showFooter =
+    enablePagination || isFiltered || hiddenCount > 0 || selectedCount > 0;
+  const firstDataColumn = table
+    .getVisibleLeafColumns()
+    .find((c) => c.id !== "select")?.id;
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("flex flex-col", className)}>
       {enableGrouping && grouping.length > 0 && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2">
           <Button
             variant="secondary"
             size="sm"
@@ -459,8 +665,25 @@ function DataGrid<TData>({
           </Button>
         </div>
       )}
+      {enableGlobalFilter && (
+        <div className="relative max-w-xs px-2 pb-2">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute left-[18px] top-[9px] h-3.5 w-3.5 text-muted-foreground"
+          />
+          <Input
+            type="text"
+            size="sm"
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder={`Search ${totalCount} rows`}
+            aria-label="Search table"
+            className="pl-8"
+          />
+        </div>
+      )}
       {toolbar?.(table)}
-      <div className="rounded-md border">
+      <div>
         <UITable>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -471,19 +694,23 @@ function DataGrid<TData>({
                       key={header.id}
                       colSpan={header.colSpan}
                       aria-sort={ariaSort(header.column)}
-                      className="relative group/header"
+                      className={cn(
+                        "relative group/header",
+                        // The header button carries its own padding.
+                        typeof header.column.columnDef.header === "string" &&
+                          "px-0",
+                        (
+                          header.column.columnDef.meta as
+                            GridColumnMeta | undefined
+                        )?.numeric && "text-right",
+                      )}
                       style={
                         enableColumnResizing
                           ? { width: header.getSize() }
                           : undefined
                       }
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
+                      {renderHeader(header)}
                       {enableColumnResizing && header.column.getCanResize() && (
                         // #1283 item 3: this was a bare <div> with pointer
                         // handlers only — no role, no tab stop, no keyboard
@@ -537,44 +764,6 @@ function DataGrid<TData>({
                     </TableHead>
                   ))}
                 </TableRow>
-                {enableColumnFilters && (
-                  <TableRow data-testid="data-grid-filter-row">
-                    {headerGroup.headers.map((header) => {
-                      const canFilter =
-                        !header.isPlaceholder && header.column.getCanFilter();
-                      const columnLabel =
-                        typeof header.column.columnDef.header === "string"
-                          ? (header.column.columnDef.header as string)
-                          : header.column.id;
-                      // a td, not a th: an empty <th> for a column that cannot filter is an empty header (#1505)
-                      return (
-                        <TableCell
-                          key={`${header.id}-filter`}
-                          colSpan={header.colSpan}
-                          className="py-1"
-                        >
-                          {canFilter && (
-                            <Input
-                              type="text"
-                              value={
-                                (header.column.getFilterValue() as
-                                  string | undefined) ?? ""
-                              }
-                              onChange={(e) =>
-                                header.column.setFilterValue(
-                                  e.target.value || undefined,
-                                )
-                              }
-                              placeholder="Filter…"
-                              aria-label={`Filter ${columnLabel}`}
-                              className="h-7 text-xs"
-                            />
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                )}
               </React.Fragment>
             ))}
           </TableHeader>
@@ -582,16 +771,19 @@ function DataGrid<TData>({
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => {
                 const isGrouped = row.getIsGrouped();
+                const rowStyle = !isGrouped
+                  ? getRowStyle?.(row.original)
+                  : undefined;
                 return (
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    style={!isGrouped ? getRowStyle?.(row.original) : undefined}
+                    style={rowStyle}
                     className={cn(
                       isGrouped
                         ? "bg-muted/50 font-medium"
-                        : // Subtle hover affordance on data rows (#1055).
-                          "transition-colors hover:bg-muted/40",
+                        : // Hover affordance on data rows (#1055).
+                          "transition-colors hover:bg-muted",
                     )}
                   >
                     {row.getVisibleCells().map((cell) => {
@@ -634,7 +826,12 @@ function DataGrid<TData>({
                       // Aggregated cell: show aggregated value
                       if (cell.getIsAggregated()) {
                         return (
-                          <TableCell key={cell.id}>
+                          <TableCell
+                            key={cell.id}
+                            className={cn(
+                              numeric(cell.column) && "text-right tabular-nums",
+                            )}
+                          >
                             {flexRender(
                               cell.column.columnDef.aggregatedCell ??
                                 cell.column.columnDef.cell,
@@ -654,9 +851,20 @@ function DataGrid<TData>({
                         <TableCell
                           key={cell.id}
                           className={cn(
+                            // The first column and the figures read in ink,
+                            // the other text one step down (#2222).
+                            // A colour the row sets (a rule, a threshold)
+                            // is the row's to give.
+                            !rowStyle?.color &&
+                              (cell.column.id === firstDataColumn ||
+                              numeric(cell.column)
+                                ? "text-foreground"
+                                : "text-foreground-2"),
                             // Tabular figures keep digit columns aligned (#830)
-                            typeof cell.getValue() === "number" &&
+                            (numeric(cell.column) ||
+                              typeof cell.getValue() === "number") &&
                               "tabular-nums",
+                            numeric(cell.column) && "text-right",
                             // Clickable cells: drop padding so the inner
                             // button fills the whole cell, preserving the
                             // full-cell click target (#980).
@@ -715,26 +923,57 @@ function DataGrid<TData>({
           </TableBody>
         </UITable>
       </div>
-      {pagination
-        ? pagination(table)
-        : showBuiltInPagination && (
-            <div className="flex items-center justify-end space-x-2">
-              <div className="flex-1 text-sm text-muted-foreground">
-                {enableSelection &&
-                  table.getFilteredSelectedRowModel().rows.length > 0 && (
-                    <>
-                      {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                      {table.getFilteredRowModel().rows.length} row(s) selected.
-                    </>
-                  )}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Page {table.getState().pagination.pageIndex + 1} of{" "}
-                {table.getPageCount()}
-              </div>
+      {showFooter && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-2 pt-2.5 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-1.5">
+            {enablePagination && (
+              <span>
+                {isFiltered
+                  ? `${rangeStart}–${rangeEnd} of ${pagedCount}, filtered from ${totalCount}`
+                  : `${rangeStart}–${rangeEnd} of ${pagedCount}`}
+              </span>
+            )}
+            {selectedCount > 0 && (
+              <span>
+                {selectedCount} of {rowCount} row(s) selected.
+              </span>
+            )}
+            {isFiltered && (
+              <>
+                {enablePagination || selectedCount > 0 ? (
+                  <span aria-hidden>·</span>
+                ) : null}
+                <FooterLink
+                  onClick={() => {
+                    table.resetColumnFilters();
+                    setGlobalFilter("");
+                  }}
+                >
+                  Clear filters
+                </FooterLink>
+              </>
+            )}
+            {hiddenCount > 0 && (
+              <>
+                {enablePagination || selectedCount > 0 || isFiltered ? (
+                  <span aria-hidden>·</span>
+                ) : null}
+                <span>
+                  {hiddenCount} {hiddenCount === 1 ? "column" : "columns"}{" "}
+                  hidden
+                </span>
+                <span aria-hidden>·</span>
+                <FooterLink onClick={() => table.resetColumnVisibility()}>
+                  Show all
+                </FooterLink>
+              </>
+            )}
+          </div>
+          {showPager && (
+            <div className="flex gap-1.5">
               <Button
                 variant="secondary"
-                size="sm"
+                className="h-7 px-2.5 text-xs"
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
@@ -742,7 +981,7 @@ function DataGrid<TData>({
               </Button>
               <Button
                 variant="secondary"
-                size="sm"
+                className="h-7 px-2.5 text-xs"
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
@@ -750,6 +989,8 @@ function DataGrid<TData>({
               </Button>
             </div>
           )}
+        </div>
+      )}
     </div>
   );
 }

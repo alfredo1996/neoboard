@@ -239,7 +239,12 @@ test.describe("Styling rules — table widget", () => {
     await expect(async () => {
       const painted = await rows.evaluateAll((trs) =>
         trs.map((tr) => ({
-          released: Number(tr.querySelectorAll("td")[1]?.textContent),
+          released: Number(
+            (tr.querySelectorAll("td")[1]?.textContent ?? "").replaceAll(
+              ",",
+              "",
+            ),
+          ),
           background: getComputedStyle(tr).backgroundColor,
         })),
       );
