@@ -627,8 +627,11 @@ function DataGrid<TData>({
     ? table.getFilteredSelectedRowModel().rows.length
     : 0;
   const { pageIndex, pageSize: size } = table.getState().pagination;
-  const rangeStart = rowCount === 0 ? 0 : pageIndex * size + 1;
-  const rangeEnd = Math.min(rowCount, (pageIndex + 1) * size);
+  // The pager pages over the pre-pagination model, which with grouping also
+  // holds the group header rows; the range must count what the pages hold.
+  const pagedCount = table.getPrePaginationRowModel().rows.length;
+  const rangeStart = pagedCount === 0 ? 0 : pageIndex * size + 1;
+  const rangeEnd = Math.min(pagedCount, (pageIndex + 1) * size);
   const showPager = enablePagination && table.getPageCount() > 1;
   const showFooter =
     enablePagination || isFiltered || hiddenCount > 0 || selectedCount > 0;
@@ -926,8 +929,8 @@ function DataGrid<TData>({
             {enablePagination && (
               <span>
                 {isFiltered
-                  ? `${rangeStart}–${rangeEnd} of ${rowCount}, filtered from ${totalCount}`
-                  : `${rangeStart}–${rangeEnd} of ${rowCount}`}
+                  ? `${rangeStart}–${rangeEnd} of ${pagedCount}, filtered from ${totalCount}`
+                  : `${rangeStart}–${rangeEnd} of ${pagedCount}`}
               </span>
             )}
             {selectedCount > 0 && (
