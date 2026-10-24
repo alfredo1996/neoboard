@@ -30,6 +30,12 @@ describe("unit-tests job coverage and Chromium steps (#2279)", () => {
     expect(upload).toBeLessThan(install);
   });
 
+  it("uploads coverage directly after the unit-test step", () => {
+    expect(names[upload - 1]).toBe(
+      "Run unit tests, app and component together, then the rest",
+    );
+  });
+
   it("caps the Chromium install with its own timeout", () => {
     expect(steps[install][1]).toMatch(/^ {8}timeout-minutes: \d+$/m);
   });
