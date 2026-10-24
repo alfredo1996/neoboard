@@ -18,16 +18,13 @@ export const tableOptions: ChartOptionDef[] = [
     category: "Features",
     description: "Allow selecting individual rows by clicking them.",
   },
-  // NOTE: `enableGlobalFilter` was removed — the schema advertised a "Global
-  // Search" toggle but DataGrid never rendered a search input, so toggling
-  // it had no observable effect. Per-column filters cover the filtering need.
   {
-    key: "enableColumnFilters",
-    label: "Column Filters",
+    key: "enableGlobalFilter",
+    label: "Search Box",
     type: "boolean",
     default: false,
     category: "Features",
-    description: "Show per-column filter inputs below each column header.",
+    description: "A search box above the table, matching every visible column.",
   },
   {
     key: "enableColumnResizing",
@@ -67,11 +64,12 @@ export const tableOptions: ChartOptionDef[] = [
     key: "numberFormat",
     label: "Number Format",
     type: "select",
-    default: "comma",
+    default: "auto",
     category: "Display",
     description:
       "Number format for all numeric cells. Percent scales a ratio: 0.12 renders as 12%.",
     options: [
+      { label: "Automatic (1,234.56)", value: "auto" },
       { label: "Comma (1,234.56)", value: "comma" },
       { label: "Compact (1.2K)", value: "compact" },
       { label: "Percent (0.12 → 12%)", value: "percent" },
@@ -82,10 +80,10 @@ export const tableOptions: ChartOptionDef[] = [
     key: "decimalPlaces",
     label: "Decimal Places",
     type: "number",
-    default: 2,
+    default: -1,
     category: "Display",
     description:
-      "Number of decimal places shown for numeric cells. Applies table-wide.",
+      "Decimal places for numeric cells (0-6). -1 is automatic: up to 2.",
   },
   {
     key: "enableGrouping",

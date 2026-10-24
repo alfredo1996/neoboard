@@ -22,37 +22,39 @@ import {
 type Col = {
   id: string;
   accessorFn: (row: Record<string, unknown>) => unknown;
-  cell: (ctx: { getValue: () => unknown }) => React.ReactNode;
+  cell: (ctx: {
+    getValue: () => unknown;
+    column: { columnDef: { meta?: unknown } };
+  }) => React.ReactNode;
   getGroupingValue?: (row: Record<string, unknown>) => unknown;
 };
 
 // The column defs the last render handed the grid, for the grouping hook the
 // stub itself never calls. Filtering and sorting run through the real grid in
 // table-renderer-grid.test.tsx (#2070).
-const grid = vi.hoisted(() => ({ columns: [] as Col[] }));
+const grid = vi.hoisted(() => ({
+  columns: [] as Col[],
+  props: {} as Record<string, unknown>,
+}));
 
 vi.mock("@neoboard/components", () => ({
   EmptyState: ({ title }: { title?: string }) => <div>{title ?? "empty"}</div>,
-  DataGrid: ({
-    columns,
-    data,
-    pagination,
-  }: {
-    columns: Col[];
-    data: Record<string, unknown>[];
-    pagination?: (table: unknown) => React.ReactNode;
-  }) => {
+  DataGrid: (props: { columns: Col[]; data: Record<string, unknown>[] }) => {
+    const { columns, data } = props;
     grid.columns = columns;
+    grid.props = props;
     return (
       <>
-        {pagination?.({})}
         <table>
           <tbody>
             {data.map((row, i) => (
               <tr key={i}>
                 {columns.map((c) => (
                   <td key={c.id} data-col={c.id}>
-                    {c.cell({ getValue: () => c.accessorFn(row) })}
+                    {c.cell({
+                      getValue: () => c.accessorFn(row),
+                      column: { columnDef: {} },
+                    })}
                   </td>
                 ))}
               </tr>
@@ -62,9 +64,6 @@ vi.mock("@neoboard/components", () => ({
       </>
     );
   },
-  DataGridColumnHeader: ({ title }: { title: string }) => <span>{title}</span>,
-  DataGridViewOptions: () => <div data-testid="view-options" />,
-  DataGridPagination: () => <div data-testid="pager" />,
   parseColorThresholds: () => [],
   resolveThresholdColor: () => undefined,
   interpolateColor: () => "#000000",
@@ -160,27 +159,23 @@ describe("TableRenderer groups a graph column by its text (#2050)", () => {
   });
 });
 
-describe("TableRenderer footer with pagination off (#1861)", () => {
-  // With pagination off DataGrid pages by Number.MAX_SAFE_INTEGER, so a pager
-  // read "Rows per page 9007199254740991, Page 1 of 1".
-  it("keeps the column options but renders no pager", () => {
-    render(<TableRenderer data={[{ a: 1 }]} settings={noPaging} />);
-    expect(screen.getByTestId("view-options")).toBeInTheDocument();
-    expect(screen.queryByTestId("pager")).not.toBeInTheDocument();
-  });
-
-  it("still renders the pager when pagination is on", () => {
-    // jsdom measures every element as 0px tall, which keeps a paged table
-    // waiting for a height; give the wrapper a real one.
-    const rect = vi
-      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-      .mockReturnValue({ height: 400 } as DOMRect);
-    try {
-      render(<TableRenderer data={[{ a: 1 }]} settings={{}} />);
-      expect(screen.getByTestId("view-options")).toBeInTheDocument();
-      expect(screen.getByTestId("pager")).toBeInTheDocument();
-    } finally {
-      rect.mockRestore();
-    }
-  });
+describe("TableRenderer search box (#2222)", () => {
+  it.each([
+    { settings: {}, expected: false },
+    { settings: { enableGlobalFilter: true }, expected: true },
+    // A saved widget that still carries the old option ignores it.
+    { settings: { enableColumnFilters: true }, expected: false },
+  ])(
+    "passes the search box as $expected for $settings",
+    ({ settings, expected }) => {
+      render(
+        <TableRenderer
+          data={[{ a: 1 }]}
+          settings={{ ...noPaging, ...settings }}
+        />,
+      );
+      expect(grid.props.enableGlobalFilter).toBe(expected);
+      expect(grid.props.enableColumnFilters).toBeUndefined();
+    },
+  );
 });

@@ -17,7 +17,7 @@ export type NumberFormat = "plain" | "comma" | "compact" | "percent";
  * ("879,282.72"), label compact to three figures. No context keeps the #911
  * default (comma, 2 decimals), which tables and KPI cards rely on.
  */
-export type NumberContext = "axis" | "tooltip" | "label";
+export type NumberContext = "axis" | "tooltip" | "label" | "table";
 
 export interface NumberFormatConfig {
   context?: NumberContext;

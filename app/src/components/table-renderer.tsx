@@ -4,9 +4,6 @@ import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   EmptyState,
   DataGrid,
-  DataGridColumnHeader,
-  DataGridViewOptions,
-  DataGridPagination,
   parseColorThresholds,
   resolveThresholdColor,
   interpolateColor,
@@ -16,6 +13,7 @@ import type {
   StylingRule,
   ColorScaleConfig,
   DataGridColumn,
+  DataGridColumnMeta,
 } from "@neoboard/components";
 import { formatCell } from "@neoboard/components/cell-text";
 import { toChartNumber } from "@neoboard/components/numeric-cell";
@@ -39,15 +37,14 @@ type GridColumn = DataGridColumn<Record<string, unknown>>;
 
 // Module scope: flexRender mounts a renderer as a component, so a new
 // function per refresh remounted every header and cell (#2106).
-const ColumnHeader: GridColumn["header"] = ({ column }) => (
-  <DataGridColumnHeader column={column} title={column.id} />
-);
-
-const ValueCell: GridColumn["cell"] = ({ getValue }) => {
+const ValueCell: GridColumn["cell"] = ({ getValue, column }) => {
   const v = getValue();
   if (v === null || v === undefined)
     return <span className="text-muted-foreground">null</span>;
-  const display = formatCell(v);
+  // The grid knows the separator and the widget's number format (#2222).
+  const format = (column.columnDef.meta as DataGridColumnMeta | undefined)
+    ?.formatNumber;
+  const display = typeof v === "number" && format ? format(v) : formatCell(v);
   return (
     <span className="block truncate max-w-[240px]" title={display}>
       {display}
@@ -150,6 +147,10 @@ export function TableRenderer({
     return () => observer.disconnect();
   }, []);
 
+  const decimalPlaces =
+    typeof settings.decimalPlaces === "number" && settings.decimalPlaces >= 0
+      ? settings.decimalPlaces
+      : undefined;
   const enableSorting = settings.enableSorting !== false;
   const enableColumnResizing = settings.enableColumnResizing === true;
   const enableGrouping = settings.enableGrouping === true;
@@ -182,7 +183,8 @@ export function TableRenderer({
         ...(holdsObjects ? byDisplayText(key) : {}),
         id: key,
         accessorFn: (row: Record<string, unknown>) => row[key],
-        header: ColumnHeader,
+        // A string header: the grid makes it the column's menu button.
+        header: key,
         cell: ValueCell,
         ...(enableGrouping && isNumeric
           ? { aggregationFn, aggregatedCell: AggregatedCell }
@@ -327,7 +329,7 @@ export function TableRenderer({
   return (
     <section
       ref={containerRef}
-      className="h-full overflow-y-auto"
+      className="-mx-2 h-full overflow-y-auto"
       aria-label={ariaLabel}
     >
       {awaitingHeight ? null : (
@@ -338,18 +340,21 @@ export function TableRenderer({
           enableSorting={enableSorting}
           enableColumnResizing={enableColumnResizing}
           enableSelection={settings.enableSelection as boolean | undefined}
-          enableColumnFilters={settings.enableColumnFilters === true}
+          enableGlobalFilter={settings.enableGlobalFilter === true}
           enablePagination={enablePagination}
           // Passed through as-is, NOT `?? 10`: collapsing "unset" into a
           // number here is what made the Page Size control inert, because
           // DataGrid could no longer tell a configured 10 from no value at
           // all and always preferred the container height (#1530).
           pageSize={settings.pageSize as number | undefined}
+          // "auto" and -1 are the option defaults: leave the grid's own.
           numberFormat={
-            settings.numberFormat as
-              "comma" | "compact" | "percent" | "plain" | undefined
+            settings.numberFormat === "auto"
+              ? undefined
+              : (settings.numberFormat as
+                  "comma" | "compact" | "percent" | "plain" | undefined)
           }
-          decimalPlaces={settings.decimalPlaces as number | undefined}
+          decimalPlaces={decimalPlaces}
           containerHeight={
             enablePagination && hasUsableHeight ? containerHeight : undefined
           }
@@ -359,17 +364,6 @@ export function TableRenderer({
           getCellStyle={getCellStyle}
           enableGrouping={enableGrouping}
           initialGrouping={initialGrouping}
-          pagination={(table) => (
-            <div className="flex items-center gap-2">
-              <DataGridViewOptions table={table} />
-              {/* Off, DataGrid pages by MAX_SAFE_INTEGER: no pager to show. */}
-              {enablePagination && (
-                <div className="flex-1">
-                  <DataGridPagination table={table} />
-                </div>
-              )}
-            </div>
-          )}
         />
       )}
     </section>

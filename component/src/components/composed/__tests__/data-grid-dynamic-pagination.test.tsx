@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
-import type { ColumnDef, Table } from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   DataGrid,
   calcDynamicPageSize,
@@ -163,14 +163,14 @@ describe("DataGrid — enablePagination", () => {
     // All 30 rows should be visible; no pagination controls
     expect(screen.getByText("User 1")).toBeInTheDocument();
     expect(screen.getByText("User 30")).toBeInTheDocument();
-    expect(screen.queryByText(/^Page \d+ of \d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ of 30$/)).not.toBeInTheDocument();
   });
 
   it("paginates when enablePagination is true (default)", () => {
     render(<DataGrid columns={columns} data={manyRows} pageSize={10} />);
     const rows = screen.getAllByText(/^User \d+$/);
     expect(rows).toHaveLength(10);
-    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getByText("1–10 of 30")).toBeInTheDocument();
   });
 
   // #16's behaviour, unchanged: with NO explicit page size, fit rows to the
@@ -266,7 +266,6 @@ describe("DataGrid — enablePagination", () => {
     const user = userEvent.setup();
     // 400px → 8 rows per page → 30 rows → 4 pages
     const dynamicSize = calcDynamicPageSize(400, 0);
-    const expectedPages = Math.ceil(30 / dynamicSize);
 
     render(
       <DataGrid
@@ -277,9 +276,11 @@ describe("DataGrid — enablePagination", () => {
       />,
     );
 
-    expect(screen.getByText(`Page 1 of ${expectedPages}`)).toBeInTheDocument();
+    expect(screen.getByText(`1–${dynamicSize} of 30`)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText(`Page 2 of ${expectedPages}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${dynamicSize + 1}–${2 * dynamicSize} of 30`),
+    ).toBeInTheDocument();
   });
 
   it("previous page button navigates back to the first page", async () => {
@@ -288,11 +289,11 @@ describe("DataGrid — enablePagination", () => {
 
     // Advance to page 2
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    expect(screen.getByText("11–20 of 30")).toBeInTheDocument();
 
     // Navigate back
     await user.click(screen.getByRole("button", { name: "Previous" }));
-    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getByText("1–10 of 30")).toBeInTheDocument();
     expect(screen.getByText("User 1")).toBeInTheDocument();
   });
 
@@ -306,34 +307,6 @@ describe("DataGrid — enablePagination", () => {
     expect(
       screen.queryByRole("button", { name: "Previous" }),
     ).not.toBeInTheDocument();
-  });
-
-  it("does not show built-in pagination when a custom pagination render prop is supplied", () => {
-    const customPagination = vi.fn((_table: Table<TestRow>) => (
-      <div data-testid="custom-pagination">custom controls</div>
-    ));
-
-    render(
-      <DataGrid
-        columns={columns}
-        data={manyRows}
-        pageSize={10}
-        pagination={customPagination}
-      />,
-    );
-
-    // Custom render prop is rendered
-    expect(screen.getByTestId("custom-pagination")).toBeInTheDocument();
-    // Built-in controls are suppressed
-    expect(screen.queryByText(/^Page \d+ of \d+$/)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Next" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Previous" }),
-    ).not.toBeInTheDocument();
-    // The render prop was called with the table instance
-    expect(customPagination).toHaveBeenCalled();
   });
 
   it("does not show built-in pagination when all rows fit on a single page", () => {
@@ -353,7 +326,7 @@ describe("DataGrid — enablePagination", () => {
     expect(
       screen.queryByRole("button", { name: "Previous" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/^Page \d+ of \d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ of 30$/)).not.toBeInTheDocument();
   });
 
   it("select-all header checkbox selects all rows on the current page", async () => {
