@@ -191,7 +191,9 @@ function renderChart(props: {
         })()
       ) : previewQuery.data || initialPreviewData ? (
         <div className="flex h-full flex-col">
-          <div className="min-h-0 flex-1">
+          {/* The dashboard card pads its content by 16px; a table sits 8px
+              into that (table-renderer's -mx-2), so the preview pads alike. */}
+          <div className="min-h-0 flex-1 px-4">
             <CardContainer
               widget={{
                 id: "preview",

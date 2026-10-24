@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table";
 import type {
   CellContext,
+  FilterFn,
   Column,
   ColumnDef,
   Header,
@@ -50,6 +51,7 @@ import {
   type NumberFormat,
   type NumberFormatConfig,
 } from "@/charts/chart-utils";
+import { isNumericCell } from "@/lib/numeric-cell";
 import {
   inferColumnKind,
   sortDescFirstForKind,
@@ -68,6 +70,9 @@ const RESIZE_STEP_PX = 16;
 export const DATA_GRID_HEADER_HEIGHT = 32; // px — table <thead> row
 export const DATA_GRID_ROW_HEIGHT = 36; // px — single data <tr>
 export const DATA_GRID_PAGINATION_HEIGHT = 38; // px — footer: 10px gap + 28px buttons
+
+/** px — the search box (32px field + 8px gap) above the table. */
+const SEARCH_BOX_HEIGHT = 40;
 
 /** Rows per page when neither an explicit size nor a container height is available. */
 export const DEFAULT_PAGE_SIZE = 10;
@@ -145,6 +150,7 @@ function SelectRowCell<TData>({ row }: Readonly<CellContext<TData, unknown>>) {
  * A year or an id is a label that happens to be a number: "1,999" is wrong.
  * A rule on the column's name, the same for every connector (#2222).
  */
+const WHOLE_NUMBER = /^-?\d+$/;
 const LABEL_COLUMN = /^(year|id)$|_id$/i;
 
 /**
@@ -156,7 +162,7 @@ const LABEL_COLUMN = /^(year|id)$|_id$/i;
 export interface DataGridColumnMeta {
   /** Right-aligned, tabular figures: the column holds numbers. */
   numeric?: boolean;
-  formatNumber?: (value: number) => string;
+  formatNumber?: (value: number | string) => string;
 }
 type GridColumnMeta = DataGridColumnMeta;
 
@@ -177,10 +183,13 @@ function makeNumberFormatter(
         numberFormat: numberFormat ?? "comma",
         ...(decimalPlaces !== undefined && { decimalPlaces }),
       };
-  // "comma" is what a widget saved before "Automatic" existed carries.
-  const bareLabels = unset || numberFormat === "comma";
-  return (value: number, columnId: string): string =>
-    bareLabels && Number.isInteger(value) && LABEL_COLUMN.test(columnId)
+  // "comma" is what a widget saved before "Automatic" existed carries; the
+  // rule holds whatever the decimals are set to.
+  const bareLabels = numberFormat === undefined || numberFormat === "comma";
+  return (value: number | string, columnId: string): string =>
+    bareLabels &&
+    WHOLE_NUMBER.test(String(value)) &&
+    LABEL_COLUMN.test(columnId)
       ? String(value)
       : formatNumber(value, config);
 }
@@ -366,7 +375,8 @@ function DataGrid<TData>({
   // Toolbar height is non-zero only when a toolbar render prop is supplied.
   // We use a fixed estimate so the toolbar's own height does not have to be
   // measured separately — the toolbar renders at 40 px in practice.
-  const TOOLBAR_HEIGHT = toolbar ? 40 : 0;
+  const TOOLBAR_HEIGHT =
+    (toolbar ? 40 : 0) + (enableGlobalFilter ? SEARCH_BOX_HEIGHT : 0);
 
   // Determine effective page size:
   //  1. When pagination is disabled, show all rows (large sentinel).
@@ -419,6 +429,15 @@ function DataGrid<TData>({
     [columns, data, formatGridNumber],
   );
 
+  const ownFilterFns = React.useMemo(() => {
+    const m = new Map<string, FilterFn<TData>>();
+    for (const col of columns) {
+      if (typeof col.filterFn === "function")
+        m.set(columnId(col), col.filterFn);
+    }
+    return m;
+  }, [columns]);
+
   const allColumns = React.useMemo(() => {
     if (!enableSelection) return typedColumns;
     const selectColumn: ColumnDef<TData, unknown> = {
@@ -431,6 +450,44 @@ function DataGrid<TData>({
     };
     return [selectColumn, ...typedColumns];
   }, [typedColumns, enableSelection]);
+
+  // The filter and the search match what the cell shows: a number by its
+  // formatted text too ("12,345" finds 12,345.70), anything else by its text.
+  const matchesShown = React.useCallback<FilterFn<TData>>(
+    (row, id, filterValue) => {
+      const v = row.getValue(id);
+      const needle = String(filterValue ?? "").toLowerCase();
+      if (v === null || v === undefined) return false;
+      const shown =
+        typeof v === "object"
+          ? JSON.stringify(v)
+          : String(v as string | number | boolean | bigint);
+      if (shown.toLowerCase().includes(needle)) return true;
+      return (
+        typeof v === "number" &&
+        formatGridNumber(v, id).toLowerCase().includes(needle)
+      );
+    },
+    [formatGridNumber],
+  );
+
+  const shownCell: ColumnDef<TData, unknown>["cell"] = ({
+    getValue,
+    column,
+  }) => {
+    const v = getValue();
+    if (typeof v === "number" && Number.isFinite(v)) {
+      return formatGridNumber(v, column.id);
+    }
+    // A number a double cannot hold arrives as a string (#1304).
+    if (numeric(column) && isNumericCell(v)) {
+      return formatGridNumber(v, column.id);
+    }
+    if (v === null || v === undefined) return null;
+    if (typeof v === "object") return JSON.stringify(v);
+    // Query cells: a primitive once null, undefined and objects are out.
+    return String(v as string | number | boolean | bigint);
+  };
 
   const table = useReactTable<TData>({
     data,
@@ -452,19 +509,12 @@ function DataGrid<TData>({
       // selects weakEquals/equals, which never matches typed text at all
       // (#1657). A column that wants something else still passes its own
       // `filterFn` — a column-level def wins over defaultColumn.
-      filterFn: "includesString",
+      filterFn: matchesShown,
       // Numbers are formatted by the grid itself where a cell is drawn, so a
       // column's own `cell` renderer (the table widget's) cannot skip it.
-      cell: ({ getValue, column }) => {
-        const v = getValue();
-        if (typeof v === "number" && Number.isFinite(v)) {
-          return formatGridNumber(v, column.id);
-        }
-        if (v === null || v === undefined) return null;
-        if (typeof v === "object") return JSON.stringify(v);
-        // Query cells: a primitive once null, undefined and objects are out.
-        return String(v as string | number | boolean | bigint);
-      },
+      cell: shownCell,
+      // An aggregated figure reads like the column it sums.
+      aggregatedCell: shownCell,
     },
     enableGrouping,
     getPaginationRowModel: getPaginationRowModel(),
@@ -477,7 +527,10 @@ function DataGrid<TData>({
     // ponytail: the filtered rows are memoised on the filter text, so hiding
     // a column while a search is active re-evaluates on the next keystroke.
     getColumnCanGlobalFilter: (column) => column.getIsVisible(),
-    globalFilterFn: "includesString",
+    // Each column's own filterFn, so a column that matches by the text it
+    // shows (an object column) is not searched as "[object Object]".
+    globalFilterFn: (row, id, fv, addMeta) =>
+      (ownFilterFns.get(id) ?? matchesShown)(row, id, fv, addMeta),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
@@ -667,11 +720,14 @@ function DataGrid<TData>({
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => {
                 const isGrouped = row.getIsGrouped();
+                const rowStyle = !isGrouped
+                  ? getRowStyle?.(row.original)
+                  : undefined;
                 return (
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    style={!isGrouped ? getRowStyle?.(row.original) : undefined}
+                    style={rowStyle}
                     className={cn(
                       isGrouped
                         ? "bg-muted/50 font-medium"
@@ -719,7 +775,12 @@ function DataGrid<TData>({
                       // Aggregated cell: show aggregated value
                       if (cell.getIsAggregated()) {
                         return (
-                          <TableCell key={cell.id}>
+                          <TableCell
+                            key={cell.id}
+                            className={cn(
+                              numeric(cell.column) && "text-right tabular-nums",
+                            )}
+                          >
                             {flexRender(
                               cell.column.columnDef.aggregatedCell ??
                                 cell.column.columnDef.cell,
@@ -741,10 +802,13 @@ function DataGrid<TData>({
                           className={cn(
                             // The first column and the figures read in ink,
                             // the other text one step down (#2222).
-                            cell.column.id === firstDataColumn ||
+                            // A colour the row sets (a rule, a threshold)
+                            // is the row's to give.
+                            !rowStyle?.color &&
+                              (cell.column.id === firstDataColumn ||
                               numeric(cell.column)
-                              ? "text-foreground"
-                              : "text-foreground-2",
+                                ? "text-foreground"
+                                : "text-foreground-2"),
                             // Tabular figures keep digit columns aligned (#830)
                             (numeric(cell.column) ||
                               typeof cell.getValue() === "number") &&
@@ -825,7 +889,9 @@ function DataGrid<TData>({
             )}
             {isFiltered && (
               <>
-                <span aria-hidden>·</span>
+                {enablePagination || selectedCount > 0 ? (
+                  <span aria-hidden>·</span>
+                ) : null}
                 <FooterLink
                   onClick={() => {
                     table.resetColumnFilters();
@@ -838,7 +904,9 @@ function DataGrid<TData>({
             )}
             {hiddenCount > 0 && (
               <>
-                <span aria-hidden>·</span>
+                {enablePagination || selectedCount > 0 || isFiltered ? (
+                  <span aria-hidden>·</span>
+                ) : null}
                 <span>
                   {hiddenCount} {hiddenCount === 1 ? "column" : "columns"}{" "}
                   hidden

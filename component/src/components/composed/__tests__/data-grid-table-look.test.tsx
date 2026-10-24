@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect } from "vitest";
-import { DataGrid, calcDynamicPageSize } from "../data-grid";
+import { DataGrid } from "../data-grid";
 import type { ColumnDef } from "@tanstack/react-table";
 
 /** #2222 — 36px rows, aligned numbers, header menu, footer pager. */
@@ -154,11 +154,6 @@ describe("pager", () => {
 });
 
 describe("search box", () => {
-  it("is absent unless enabled", () => {
-    grid();
-    expect(screen.queryByPlaceholderText(/^Search/)).toBeNull();
-  });
-
   it("searches every visible column", async () => {
     const user = userEvent.setup();
     grid({ enableGlobalFilter: true });
@@ -173,8 +168,160 @@ describe("search box", () => {
 });
 
 describe("page size from the container", () => {
-  it("uses the 32px header and the footer height", () => {
-    // (480 - 32 - 38) / 36 = 11.4; the old heights gave 10
-    expect(calcDynamicPageSize(480)).toBe(11);
+  const bodyRows = () =>
+    within(screen.getAllByRole("rowgroup")[1]).getAllByRole("row");
+
+  it("fits 11 rows in 480px, and one fewer under a search box", () => {
+    // (480 - 32 - 38) / 36 = 11.4; the search box takes 40 more: 10.3
+    const { unmount } = render(
+      <DataGrid columns={columns} data={rows} containerHeight={480} />,
+    );
+    expect(bodyRows()).toHaveLength(11);
+    unmount();
+    render(
+      <DataGrid
+        columns={columns}
+        data={rows}
+        containerHeight={480}
+        enableGlobalFilter
+      />,
+    );
+    expect(bodyRows()).toHaveLength(10);
+  });
+});
+
+describe("fix round (#2222 review)", () => {
+  it("reaches the filter field with the arrow keys, and Enter closes the menu", async () => {
+    const user = userEvent.setup();
+    grid();
+    screen.getByRole("button", { name: /^Name/ }).focus();
+    await user.keyboard("{Enter}");
+    for (let i = 0; i < 5; i++) {
+      if (document.activeElement === screen.getByLabelText("Filter Name"))
+        break;
+      await user.keyboard("{ArrowDown}");
+    }
+    expect(document.activeElement).toBe(screen.getByLabelText("Filter Name"));
+    await user.keyboard("alpha{Enter}");
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByText(/1–6 of 6, filtered from 50/)).toBeInTheDocument();
+  });
+
+  it("labels the filter field in view", async () => {
+    const user = userEvent.setup();
+    grid();
+    await user.click(screen.getByRole("button", { name: /^Name/ }));
+    expect(screen.getByText("Filter Name").tagName).toBe("LABEL");
+  });
+
+  it("leaves a colour the row sets to the row", () => {
+    grid({ getRowStyle: () => ({ color: "rgb(255, 0, 0)" }) });
+    expect(cellOf("Alpha 0").className).not.toMatch(/text-foreground/);
+    expect(cellOf("40,868.59").className).not.toMatch(/text-foreground/);
+  });
+
+  it("keeps a year bare under Automatic with Decimal Places", () => {
+    grid({ decimalPlaces: 1 });
+    expect(screen.getAllByText("1999").length).toBeGreaterThan(0);
+    expect(screen.getByText("2,000.0")).toBeInTheDocument();
+  });
+
+  it("filters and searches the text a number shows", async () => {
+    const user = userEvent.setup();
+    grid({ enableGlobalFilter: true });
+    await user.type(screen.getByPlaceholderText("Search 50 rows"), "12,000");
+    expect(screen.getByText("12,000")).toBeInTheDocument();
+    expect(screen.getAllByText(/of 1, filtered from 50/)).toHaveLength(1);
+    await user.clear(screen.getByPlaceholderText("Search 50 rows"));
+    await user.click(screen.getByRole("button", { name: /^Gross/ }));
+    await user.type(screen.getByLabelText("Filter Gross"), "40,868");
+    expect(screen.getByText("40,868.59")).toBeInTheDocument();
+    expect(screen.getByText(/1–1 of 1, filtered from 50/)).toBeInTheDocument();
+  });
+
+  it("does not search an object cell as [object Object], and honours a column's own filterFn", async () => {
+    const user = userEvent.setup();
+    type R = { node: { label: string } };
+    render(
+      <DataGrid<R>
+        columns={[
+          {
+            accessorKey: "node",
+            header: "Node",
+            cell: ({ getValue }) => (getValue() as { label: string }).label,
+            filterFn: (row, id, fv) =>
+              (row.getValue(id) as { label: string }).label.includes(
+                fv as string,
+              ),
+          },
+          { accessorKey: "plain", header: "Plain" } as ColumnDef<R, unknown>,
+        ]}
+        data={[{ node: { label: "Person" } }, { node: { label: "City" } }]}
+        enableGlobalFilter
+      />,
+    );
+    const box = screen.getByPlaceholderText("Search 2 rows");
+    await user.type(box, "object");
+    expect(screen.getByText("No results.")).toBeInTheDocument();
+    await user.clear(box);
+    await user.type(box, "Cit");
+    expect(screen.getByText("City")).toBeInTheDocument();
+    expect(screen.queryByText("Person")).toBeNull();
+  });
+
+  it("has no orphan separator when pagination is off and a filter is on", async () => {
+    const user = userEvent.setup();
+    grid({ enablePagination: false });
+    await user.click(screen.getByRole("button", { name: /^Name/ }));
+    await user.type(screen.getByLabelText("Filter Name"), "alpha");
+    await user.keyboard("{Escape}");
+    const clear = screen.getByRole("button", { name: "Clear filters" });
+    expect(clear.parentElement!.firstElementChild).toBe(clear);
+  });
+
+  it("right-aligns an aggregated figure, formatted like the column", () => {
+    render(
+      <DataGrid
+        columns={[
+          { accessorKey: "g", header: "G" },
+          { accessorKey: "gross", header: "Gross", aggregationFn: "sum" },
+        ]}
+        data={[
+          { g: "a", gross: 1000 },
+          { g: "a", gross: 2500.5 },
+        ]}
+        enableGrouping
+        initialGrouping={["g"]}
+      />,
+    );
+    const cell = screen.getByText("3,500.5").closest("td")!;
+    expect(cell.className).toContain("text-right");
+    expect(cell.className).toContain("tabular-nums");
+  });
+
+  it("hiding a column clears its filter and its sort", async () => {
+    const user = userEvent.setup();
+    grid();
+    await user.click(screen.getByRole("button", { name: /^Name/ }));
+    await user.type(screen.getByLabelText("Filter Name"), "alpha");
+    await user.click(screen.getByRole("menuitem", { name: "Sort ascending" }));
+    await user.click(screen.getByRole("button", { name: /^Name/ }));
+    await user.click(screen.getByRole("menuitem", { name: "Hide column" }));
+    expect(screen.queryByText(/filtered from/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show all" }));
+    expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute(
+      "aria-sort",
+      "none",
+    );
+  });
+
+  it("formats a numeric string past 2^53 in a numeric column", () => {
+    render(
+      <DataGrid
+        columns={[{ accessorKey: "n", header: "N" }]}
+        data={[{ n: "9007199254740993" }, { n: 5 }]}
+      />,
+    );
+    expect(screen.getByText("9,007,199,254,740,993")).toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,8 @@ function DataGridColumnHeader<TData, TValue>({
   className,
   align = "left",
 }: Readonly<DataGridColumnHeaderProps<TData, TValue>>) {
+  const [open, setOpen] = React.useState(false);
+  const fieldId = React.useId();
   const canSort = column.getCanSort();
   const canFilter = column.getCanFilter();
   const canHide = column.getCanHide();
@@ -44,7 +47,7 @@ function DataGridColumnHeader<TData, TValue>({
 
   return (
     <div className={cn(align === "right" && "flex justify-end", className)}>
-      <DropdownMenu>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
@@ -76,7 +79,26 @@ function DataGridColumnHeader<TData, TValue>({
             />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={align === "right" ? "end" : "start"}>
+        <DropdownMenuContent
+          align={align === "right" ? "end" : "start"}
+          // The filter field sits in the arrow-key order with the items
+          // (Radix's roving focus only knows items, and its item handlers run
+          // before the bubble, hence the capture).
+          onKeyDownCapture={(e) => {
+            if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+            const stops = [
+              ...e.currentTarget.querySelectorAll<HTMLElement>(
+                '[role="menuitem"]:not([data-disabled]), [data-menu-field]',
+              ),
+            ];
+            const at = stops.indexOf(document.activeElement as HTMLElement);
+            const step = e.key === "ArrowDown" ? 1 : -1;
+            const next = stops[(at + step + stops.length) % stops.length];
+            if (at < 0 || !next) return;
+            e.preventDefault();
+            next.focus();
+          }}
+        >
           {canSort && (
             <>
               <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
@@ -97,24 +119,37 @@ function DataGridColumnHeader<TData, TValue>({
           {canFilter && (
             <>
               {canSort && <DropdownMenuSeparator />}
-              <div className="px-1 py-1">
+              <div className="grid gap-1.5 px-2 pb-2 pt-1.5">
+                <label
+                  htmlFor={fieldId}
+                  className="text-xs text-muted-foreground"
+                >
+                  Filter {title}
+                </label>
                 <Input
+                  id={fieldId}
+                  data-menu-field
                   type="text"
                   size="sm"
                   value={filter ?? ""}
                   onChange={(e) =>
                     column.setFilterValue(e.target.value || undefined)
                   }
-                  // The menu's typeahead and roving focus would take the
-                  // keystrokes meant for this field; Escape and Tab still
-                  // reach the menu to close it and move on.
+                  // The menu's typeahead would take the keystrokes meant for
+                  // this field. Escape, Tab (which the menu swallows) and the
+                  // arrows reach the menu; Enter closes it.
                   onKeyDown={(e) => {
-                    if (e.key !== "Escape" && e.key !== "Tab") {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      setOpen(false);
+                    }
+                    if (
+                      !["Escape", "Tab", "ArrowUp", "ArrowDown"].includes(e.key)
+                    ) {
                       e.stopPropagation();
                     }
                   }}
                   placeholder="Contains…"
-                  aria-label={`Filter ${title}`}
                 />
               </div>
             </>
@@ -122,7 +157,14 @@ function DataGridColumnHeader<TData, TValue>({
           {canHide && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
+              <DropdownMenuItem
+                onClick={() => {
+                  // A hidden column holds no filter or sort nobody can see.
+                  column.setFilterValue(undefined);
+                  column.clearSorting();
+                  column.toggleVisibility(false);
+                }}
+              >
                 <EyeOff className="text-muted-foreground" />
                 Hide column
               </DropdownMenuItem>

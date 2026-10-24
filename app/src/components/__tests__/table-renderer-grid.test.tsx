@@ -231,6 +231,30 @@ describe("TableRenderer across a refresh (#2106)", () => {
   });
 });
 
+describe("TableRenderer figures (#2222 review)", () => {
+  it("formats a grouped sum like its column, and a numeric string past 2^53", () => {
+    render(
+      <TableRenderer
+        data={[
+          { g: "a", n: 1000 },
+          { g: "a", n: 2500.5 },
+          { g: "b", n: "9007199254740993" },
+        ]}
+        settings={{
+          ...settings,
+          enableGrouping: true,
+          groupBy: "g",
+          aggregationFn: "sum",
+          numberFormat: "comma",
+          decimalPlaces: 2,
+        }}
+      />,
+    );
+    expect(screen.getByText("Σ 3,500.50")).toBeInTheDocument();
+    expect(screen.getByText("9,007,199,254,740,993.00")).toBeInTheDocument();
+  });
+});
+
 describe("TableRenderer colour scale (#2105)", () => {
   it.each([
     { values: [10, 50, null, "", "  "], bounds: [10, 50] },

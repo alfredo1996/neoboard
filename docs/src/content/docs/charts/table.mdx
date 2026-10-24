@@ -50,7 +50,7 @@ LIMIT 100
 ## Tips
 
 - Click a column name to open its menu: sort ascending or descending, clear the sort, filter the column ("Contains...") or hide it. A funnel marks a filtered column, an arrow the sorted one. The footer reads "1-10 of 50", turns into "1-6 of 6, filtered from 50" with a Clear filters link, and shows "1 column hidden · Show all" when a column is hidden.
-- Numeric columns are right-aligned with thousands separators (40,868.59). Integers in a column named `year`, `id` or ending in `_id` print without a separator. Number Format and Decimal Places override both.
+- Numeric columns are right-aligned with thousands separators (40,868.59). Integers in a column named `year`, `id` or ending in `_id` print without a separator. A Number Format other than Automatic or Comma overrides that; Decimal Places do not.
 - Turn on Search Box when readers look for a value without knowing its column.
 - Enable Row Grouping with an aggregation function to create summary views without changing your query.
 - Set Page Size to match your widget height -- 10-15 rows is typical for a half-height widget.

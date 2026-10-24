@@ -1093,7 +1093,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Table — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: enableSorting, enableSelection, enableGlobalFilter, enableColumnFilters, enableColumnResizing, enablePagination, pageSize, emptyMessage, enableGrouping + groupBy, aggregationFn.\n\n*Refresh the page to reset all parameters.*"
+                "content": "## Table — every option exhaustively demonstrated\n\nEach tile shows the same dataset with **one setting changed**. The tile title tells you what is different from default.\n\nDemonstrates: enableSorting, enableSelection, enableGlobalFilter (Search Box), enableColumnResizing, enablePagination, pageSize, emptyMessage, enableGrouping + groupBy, aggregationFn.\n\n*Refresh the page to reset all parameters.*"
               }
             }
           },
@@ -1125,9 +1125,9 @@
             "connectionId": "conn_postgres_read",
             "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
             "settings": {
-              "title": "enableGlobalFilter = false",
+              "title": "enableGlobalFilter = true (Search Box)",
               "chartOptions": {
-                "enableGlobalFilter": false
+                "enableGlobalFilter": true
               }
             }
           },
@@ -1137,9 +1137,9 @@
             "connectionId": "conn_postgres_read",
             "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id) AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name ORDER BY total_spend DESC LIMIT 30",
             "settings": {
-              "title": "enableColumnFilters = false",
+              "title": "Column filters: open any column header menu and type in Filter",
               "chartOptions": {
-                "enableColumnFilters": false
+                "enableSorting": true
               }
             }
           },

@@ -16,7 +16,10 @@ import type {
   DataGridColumnMeta,
 } from "@neoboard/components";
 import { formatCell } from "@neoboard/components/cell-text";
-import { toChartNumber } from "@neoboard/components/numeric-cell";
+import {
+  isNumericCell,
+  toChartNumber,
+} from "@neoboard/components/numeric-cell";
 import { parseGroupByColumns } from "@/lib/widget/table-utils";
 import {
   resolveStylingRuleRowStyle,
@@ -44,7 +47,12 @@ const ValueCell: GridColumn["cell"] = ({ getValue, column }) => {
   // The grid knows the separator and the widget's number format (#2222).
   const format = (column.columnDef.meta as DataGridColumnMeta | undefined)
     ?.formatNumber;
-  const display = typeof v === "number" && format ? format(v) : formatCell(v);
+  const isFigure =
+    typeof v === "number" ||
+    (isNumericCell(v) &&
+      (column.columnDef.meta as DataGridColumnMeta | undefined)?.numeric);
+  const display =
+    isFigure && format ? format(v as number | string) : formatCell(v);
   return (
     <span className="block truncate max-w-[240px]" title={display}>
       {display}
@@ -54,12 +62,14 @@ const ValueCell: GridColumn["cell"] = ({ getValue, column }) => {
 
 const AggregatedCell: GridColumn["aggregatedCell"] = ({ column, getValue }) => {
   const v = getValue();
+  const format = (column.columnDef.meta as DataGridColumnMeta | undefined)
+    ?.formatNumber;
   if (v == null) return null;
   // The columns memo sets a name here, never a function.
   const symbol = AGG_SYMBOLS[column.columnDef.aggregationFn as string] ?? "Σ";
   return (
     <span className="text-muted-foreground text-xs font-medium">
-      {symbol} {typeof v === "number" ? v.toLocaleString() : formatCell(v)}
+      {symbol} {typeof v === "number" && format ? format(v) : formatCell(v)}
     </span>
   );
 };

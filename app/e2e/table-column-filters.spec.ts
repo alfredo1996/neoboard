@@ -143,11 +143,14 @@ test.describe("Table widget — header menu filters (#854, #2222)", () => {
   test("the search box searches every column, and is off by default", async ({
     page,
   }) => {
-    const off = await createFilterableTableDashboard(page.request, "cf-s-off");
-    const on = await createFilterableTableDashboard(page.request, "cf-s-on", {
-      enableGlobalFilter: true,
-    });
+    type Made = Awaited<ReturnType<typeof createFilterableTableDashboard>>;
+    let off: Made | undefined;
+    let on: Made | undefined;
     try {
+      off = await createFilterableTableDashboard(page.request, "cf-s-off");
+      on = await createFilterableTableDashboard(page.request, "cf-s-on", {
+        enableGlobalFilter: true,
+      });
       await page.goto(`/${off.id}`);
       const widget = page.getByTestId("widget-card");
       await expect(widget.getByText("Alice")).toBeVisible({ timeout: 10_000 });
@@ -160,8 +163,8 @@ test.describe("Table widget — header menu filters (#854, #2222)", () => {
       await expect(widget.getByText("Bob")).toBeVisible();
       await expect(widget.getByText("Alice")).toHaveCount(0);
     } finally {
-      await off.cleanup();
-      await on.cleanup();
+      await off?.cleanup();
+      await on?.cleanup();
     }
   });
 });
