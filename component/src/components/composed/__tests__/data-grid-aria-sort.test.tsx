@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { DataGrid } from "../data-grid";
@@ -49,7 +49,11 @@ async function sort(
   dir: "Asc" | "Desc",
 ) {
   await user.click(screen.getByRole("button", { name: /name/i }));
-  await user.click(await screen.findByRole("menuitem", { name: dir }));
+  await user.click(
+    await screen.findByRole("menuitem", {
+      name: { Asc: "Sort ascending", Desc: "Sort descending" }[dir],
+    }),
+  );
 }
 
 describe("#1285 — aria-sort on sortable headers", () => {
@@ -97,21 +101,6 @@ describe("#1285 — aria-sort on sortable headers", () => {
     expect(
       screen.getByRole("columnheader", { name: /name/i }),
     ).not.toHaveAttribute("aria-sort");
-  });
-
-  it("omits aria-sort on the filter row", () => {
-    render(
-      <DataGrid
-        columns={sortableColumns}
-        data={data}
-        enableSorting
-        enableColumnFilters
-      />,
-    );
-    const filterRow = screen.getByTestId("data-grid-filter-row");
-    for (const cell of within(filterRow).getAllByRole("cell")) {
-      expect(cell).not.toHaveAttribute("aria-sort");
-    }
   });
 });
 

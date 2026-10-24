@@ -43,10 +43,10 @@ describe("#1657 — column filters do not depend on row zero", () => {
           row({ label: "two", amount: 2 }),
           row({ label: "three", amount: 3 }),
         ]}
-        enableColumnFilters
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: /^Amount/ }));
     await user.type(screen.getByLabelText("Filter Amount"), "300");
 
     expect(screen.getByText("big")).toBeInTheDocument();
@@ -69,11 +69,11 @@ describe("#1657 — column filters do not depend on row zero", () => {
           row({ label: "second", note: "hello" }),
           row({ label: "third", note: "world" }),
         ]}
-        enableColumnFilters
       />,
     );
 
     // Uppercase on purpose: it pins case-insensitivity as well as the null.
+    await user.click(screen.getByRole("button", { name: /^Note/ }));
     await user.type(screen.getByLabelText("Filter Note"), "HEL");
 
     expect(screen.getByText("second")).toBeInTheDocument();
@@ -96,10 +96,10 @@ describe("#1657 — column filters do not depend on row zero", () => {
           row({ label: "bob", canWrite: false }),
           row({ label: "cy", canWrite: true }),
         ]}
-        enableColumnFilters
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: /^Write/ }));
     await user.type(screen.getByLabelText("Filter Write"), "true");
 
     expect(screen.getByText("ann")).toBeInTheDocument();

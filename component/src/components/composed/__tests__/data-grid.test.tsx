@@ -58,7 +58,7 @@ describe("DataGrid", () => {
   it("gives non-grouped data rows a hover affordance (#1055)", () => {
     render(<DataGrid columns={columns} data={data} />);
     const dataRow = screen.getByText("Alice").closest("tr");
-    expect(dataRow).toHaveClass("hover:bg-muted/40");
+    expect(dataRow).toHaveClass("hover:bg-muted");
   });
 
   it("shows empty state when no data", () => {
@@ -142,36 +142,15 @@ describe("DataGrid", () => {
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
-  it("does not render sort buttons when enableSorting is false", () => {
-    // Columns using DataGridColumnHeader — when enableSorting=false the header
-    // should render as a plain div (no Button) because column.getCanSort() === false.
-    const sortableColumns: ColumnDef<TestRow, unknown>[] = [
-      {
-        accessorKey: "name",
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Name" />
-        ),
-      },
-      {
-        accessorKey: "email",
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title="Email" />
-        ),
-      },
-    ];
-    render(
-      <DataGrid columns={sortableColumns} data={data} enableSorting={false} />,
-    );
-    // Column headers should be plain text with no sort button
-    expect(screen.getByText("Name")).toBeInTheDocument();
-    expect(screen.getByText("Email")).toBeInTheDocument();
-    // No sort-trigger buttons should appear in the header
+  it("offers no sort items when enableSorting is false", async () => {
+    // The header is still the menu button: Filter and Hide stay.
+    const user = userEvent.setup();
+    render(<DataGrid columns={columns} data={data} enableSorting={false} />);
+    await user.click(screen.getByRole("button", { name: /^Name/ }));
     expect(
-      screen.queryByRole("button", { name: /name/i }),
+      screen.queryByRole("menuitem", { name: "Sort ascending" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /email/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Filter Name")).toBeInTheDocument();
   });
 
   it("renders sort buttons when enableSorting is true", () => {
@@ -242,14 +221,14 @@ describe("DataGrid", () => {
     const rows = screen.getAllByText(/User \d+/);
     expect(rows).toHaveLength(10);
     // Should show pagination controls
-    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getByText("1–10 of 25")).toBeInTheDocument();
   });
 
   it("navigates to next page", async () => {
     const user = userEvent.setup();
     render(<DataGrid columns={columns} data={manyRows} pageSize={10} />);
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    expect(screen.getByText("11–20 of 25")).toBeInTheDocument();
     expect(screen.getByText("User 11")).toBeInTheDocument();
   });
 
@@ -467,8 +446,11 @@ describe("DataGrid", () => {
     });
   });
 
-  describe("per-column filters (enableColumnFilters)", () => {
-    it("does NOT render the filter row by default", () => {
+  describe("per-column filters (header menu)", () => {
+    const open = (user: ReturnType<typeof userEvent.setup>, name: RegExp) =>
+      user.click(screen.getByRole("button", { name }));
+
+    it("has no filter row", () => {
       render(<DataGrid columns={columns} data={data} />);
       expect(
         screen.queryByTestId("data-grid-filter-row"),
@@ -476,22 +458,11 @@ describe("DataGrid", () => {
       expect(screen.queryByLabelText("Filter Name")).not.toBeInTheDocument();
     });
 
-    it("renders an Input under every filterable column header when enabled", () => {
-      render(<DataGrid columns={columns} data={data} enableColumnFilters />);
-      expect(screen.getByTestId("data-grid-filter-row")).toBeInTheDocument();
-      expect(screen.getByLabelText("Filter Name")).toBeInTheDocument();
-      expect(screen.getByLabelText("Filter Email")).toBeInTheDocument();
-      expect(screen.getByLabelText("Filter Status")).toBeInTheDocument();
-    });
-
-    it("filters visible rows as the user types", async () => {
+    it("filters visible rows as the user types in a column's menu", async () => {
       const user = userEvent.setup();
-      render(<DataGrid columns={columns} data={data} enableColumnFilters />);
-      // Sanity: all three rows visible.
-      expect(screen.getByText("Alice")).toBeInTheDocument();
-      expect(screen.getByText("Bob")).toBeInTheDocument();
+      render(<DataGrid columns={columns} data={data} />);
       expect(screen.getByText("Charlie")).toBeInTheDocument();
-
+      await open(user, /^Name/);
       await user.type(screen.getByLabelText("Filter Name"), "al");
       // Only Alice survives a case-insensitive contains on "al".
       expect(screen.getByText("Alice")).toBeInTheDocument();
@@ -501,30 +472,21 @@ describe("DataGrid", () => {
 
     it("clearing the filter restores all rows", async () => {
       const user = userEvent.setup();
-      render(<DataGrid columns={columns} data={data} enableColumnFilters />);
+      render(<DataGrid columns={columns} data={data} />);
+      await open(user, /^Name/);
       const input = screen.getByLabelText("Filter Name") as HTMLInputElement;
       await user.type(input, "Bob");
       expect(screen.queryByText("Alice")).not.toBeInTheDocument();
-      expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
       await user.clear(input);
       expect(screen.getByText("Alice")).toBeInTheDocument();
       expect(screen.getByText("Bob")).toBeInTheDocument();
       expect(screen.getByText("Charlie")).toBeInTheDocument();
     });
 
-    it("does not render a filter input under the select checkbox column", () => {
-      render(
-        <DataGrid
-          columns={columns}
-          data={data}
-          enableColumnFilters
-          enableSelection
-        />,
-      );
-      // Select column should not be filterable.
+    it("gives the select checkbox column no menu", () => {
+      render(<DataGrid columns={columns} data={data} enableSelection />);
       expect(screen.queryByLabelText("Filter select")).not.toBeInTheDocument();
-      // But data columns still get filters.
-      expect(screen.getByLabelText("Filter Name")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Name/ })).toBeInTheDocument();
     });
   });
 
@@ -546,7 +508,7 @@ describe("DataGrid", () => {
       { label: "round", value: 42, note: null },
     ];
 
-    it("applies the formatNumber default (comma + 2dp) to numeric cells", () => {
+    it("applies the table default (comma, up to 2dp, a column lines up) to numeric cells", () => {
       render(<DataGrid columns={numCols} data={numData} />);
       expect(screen.getByText("0.12")).toBeInTheDocument();
       expect(screen.getByText("1,234,567.89")).toBeInTheDocument();

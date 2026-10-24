@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Status, type StatusTone } from "@/components/ui/status";
-import { DataGrid } from "@/components/composed/data-grid";
+import {
+  DataGrid,
+  type DataGridColumn,
+  type DataGridProps,
+} from "@/components/composed/data-grid";
 import { DataGridColumnHeader } from "@/components/composed/data-grid-column-header";
-import { DataGridPagination } from "@/components/composed/data-grid-pagination";
 import { DataGridFacetedFilter } from "@/components/composed/data-grid-faceted-filter";
-import type { DataGridProps } from "@/components/composed/data-grid";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal } from "lucide-react";
@@ -236,7 +238,6 @@ export const WithToolbarAndFilters: Story = {
     data: moreData,
     enableSorting: true,
     enableSelection: true,
-    enableColumnFilters: true,
     enableGlobalFilter: true,
     pageSize: 10,
     toolbar: (table) => (
@@ -259,8 +260,47 @@ export const WithToolbarAndFilters: Story = {
         )}
       </div>
     ),
-    pagination: (table) => <DataGridPagination table={table} />,
   },
+};
+
+const grossRows = Array.from({ length: 50 }, (_, i) => ({
+  title: `Film ${i + 1}`,
+  year: 1970 + (i % 40),
+  gross: i === 0 ? 40868.59 : (i + 1) * 1234.5,
+  user_id: 12000 + i,
+}));
+
+type Film = (typeof grossRows)[number];
+const filmColumns: DataGridColumn<Film>[] = [
+  { accessorKey: "title", header: "Title" },
+  { accessorKey: "year", header: "Year" },
+  { accessorKey: "gross", header: "Gross" },
+  { accessorKey: "user_id", header: "User_ID" },
+];
+
+/** #2222: numbers right-aligned with a separator, a year bare, the pager in the footer. */
+export const NumbersAndYears: Story = {
+  render: () => (
+    <DataGrid
+      columns={filmColumns}
+      data={grossRows}
+      enableSorting
+      pageSize={10}
+    />
+  ),
+};
+
+/** The search box, over every visible column. */
+export const WithSearchBox: Story = {
+  render: () => (
+    <DataGrid
+      columns={filmColumns}
+      data={grossRows}
+      enableSorting
+      enableGlobalFilter
+      pageSize={10}
+    />
+  ),
 };
 
 export const WithCellClick: Story = {

@@ -273,4 +273,45 @@ describe("DataGrid grouping", () => {
       screen.queryByRole("button", { name: /collapse all/i }),
     ).not.toBeInTheDocument();
   });
+
+  describe("footer range with pagination", () => {
+    // 25 leaf rows in 3 groups: expanded, the pages hold 28 rows (3 headers + 25).
+    const many: SalesRow[] = Array.from({ length: 25 }, (_, i) => ({
+      country: ["US", "UK", "FR"][i % 3],
+      city: `c${i}`,
+      department: "Sales",
+      revenue: i,
+      headcount: i,
+    }));
+    const renderGrid = () =>
+      render(
+        <DataGrid
+          columns={columns}
+          data={many}
+          enableGrouping
+          initialGrouping={["country"]}
+          enablePagination
+          pageSize={10}
+        />,
+      );
+
+    it("counts the group header rows the pages hold", async () => {
+      const user = userEvent.setup({ delay: null });
+      renderGrid();
+      expect(screen.getByText("1–10 of 28")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      expect(screen.getByText("11–20 of 28")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      expect(screen.getByText("21–28 of 28")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    });
+
+    it("shrinks to the group rows once every group is collapsed", async () => {
+      const user = userEvent.setup({ delay: null });
+      renderGrid();
+      await user.click(screen.getByRole("button", { name: "Collapse all" }));
+      expect(screen.getByText("1–3 of 3")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    });
+  });
 });

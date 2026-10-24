@@ -36,17 +36,21 @@ LIMIT 100
 |--------|------|---------|-------------|
 | Enable Sorting | boolean | true | Allow clicking column headers to sort rows |
 | Row Selection | boolean | false | Allow selecting individual rows by clicking |
-| Column Filters | boolean | false | Show per-column filter inputs below each header |
+| Search Box | boolean | false | A search box above the table ("Search 50 rows") that matches every visible column |
 | Column Resizing | boolean | false | Allow drag-to-resize column borders |
-| Enable Pagination | boolean | true | Show Previous/Next controls for paging |
+| Enable Pagination | boolean | true | Show the row count ("1–10 of 50"); Previous/Next appear when there is more than one page |
 | Page Size | number | 10 | Number of rows shown per page |
 | Empty Message | text | No results | Text displayed when the query returns no rows |
+| Number Format | select | Automatic | Automatic, Comma, Compact, Percent or Plain for every numeric cell |
+| Decimal Places | number | -1 | Fixed decimals (0-6) for numeric cells; -1 is automatic: each column uses the most decimals its values carry, up to 2, so it lines up (1,234.50 above 12.00); a column of whole numbers prints none |
 | Enable Row Grouping | boolean | false | Allow grouping rows by column values |
 | Group By Columns | column-multi-select | (none) | Columns to group by. Order determines nesting hierarchy |
 | Aggregation Function | select | sum | Aggregation for numeric columns in groups: Sum, Average, Median, Count, Min, Max |
 
 ## Tips
 
-- Turn on Column Filters for power users who need to drill into specific column values.
+- Click a column name to open its menu: sort ascending or descending, clear the sort, filter the column ("Contains...") or hide it. A funnel marks a filtered column, an arrow the sorted one. The footer reads "1-10 of 50", turns into "1-6 of 6, filtered from 50" with a Clear filters link, and shows "1 column hidden · Show all" when a column is hidden.
+- Numeric columns are right-aligned with thousands separators (40,868.59). Integers in a column named `year`, `id` or ending in `_id` (the part after the last dot counts: `m.year`, `p.customer_id`) print without a separator. A Number Format other than Automatic or Comma overrides that; Decimal Places do not.
+- Turn on Search Box when readers look for a value without knowing its column.
 - Enable Row Grouping with an aggregation function to create summary views without changing your query.
 - Set Page Size to match your widget height -- 10-15 rows is typical for a half-height widget.

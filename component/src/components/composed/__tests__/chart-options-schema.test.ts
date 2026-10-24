@@ -56,11 +56,11 @@ describe("getChartOptions", () => {
     const keys = getChartOptions("table").map((o) => o.key);
     expect(keys).toContain("enableSorting");
     expect(keys).toContain("enableSelection");
-    expect(keys).toContain("enableColumnFilters");
+    expect(keys).toContain("enableGlobalFilter");
     expect(keys).toContain("pageSize");
     expect(keys).toContain("emptyMessage");
-    // enableGlobalFilter was removed — DataGrid never rendered a search input.
-    expect(keys).not.toContain("enableGlobalFilter");
+    // The per-column filter lives in the header menu, not in an option (#2222).
+    expect(keys).not.toContain("enableColumnFilters");
   });
 
   it("groupBy option has type column-multi-select", () => {
@@ -178,10 +178,13 @@ describe("getDefaultChartSettings", () => {
   it("returns correct defaults for table chart", () => {
     const d = getDefaultChartSettings("table");
     expect(d.enableSorting).toBe(true);
-    expect(d.enableColumnFilters).toBe(false);
+    expect(d.enableGlobalFilter).toBe(false);
     expect(d.pageSize).toBe(10);
     expect(d.emptyMessage).toBe("No results");
-    expect(d.enableGlobalFilter).toBeUndefined();
+    expect(d.enableColumnFilters).toBeUndefined();
+    // Automatic, not a number format an author never chose (#2222).
+    expect(d.numberFormat).toBe("auto");
+    expect(d.decimalPlaces).toBe(-1);
   });
 
   it("returns empty object for unknown type", () => {

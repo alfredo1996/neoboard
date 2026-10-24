@@ -8,7 +8,8 @@
  * show. A column of primitives keeps the grid's own filter and comparators.
  */
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import React from "react";
 
 const interpolateColor = vi.hoisted(() => vi.fn(() => "#000000"));
@@ -19,17 +20,6 @@ vi.mock("@neoboard/components", async () => {
   >("@neoboard/components/composed");
   return {
     DataGrid,
-    // The real header sorts from a Radix menu that jsdom cannot open. This
-    // calls the same toggleSorting, so the grid's comparators stay real.
-    DataGridColumnHeader: ({
-      column,
-      title,
-    }: {
-      column: { toggleSorting: (desc: boolean) => void };
-      title: string;
-    }) => <button onClick={() => column.toggleSorting(false)}>{title}</button>,
-    DataGridViewOptions: () => null,
-    DataGridPagination: () => null,
     EmptyState: ({ title }: { title?: string }) => <div>{title}</div>,
     parseColorThresholds: () => [],
     resolveThresholdColor: () => undefined,
@@ -52,7 +42,7 @@ const matrix = node("1", ["Movie"], { title: "The Matrix" });
 const atlas = node("2", ["Movie"], { title: "Cloud Atlas" });
 const keanu = node("3", ["Person"], { name: "Keanu Reeves" });
 
-const settings = { enablePagination: false, enableColumnFilters: true };
+const settings = { enablePagination: false };
 
 /** Each body row's cell text in `column`, top to bottom. */
 const shown = (column: number) =>
@@ -60,35 +50,46 @@ const shown = (column: number) =>
     (tr) => tr.querySelectorAll("td")[column]?.textContent ?? "",
   );
 
-const filter = (column: string, text: string) =>
-  fireEvent.change(screen.getByLabelText(`Filter ${column}`), {
-    target: { value: text },
-  });
+/** The column's header menu, the only path a user has to sort and filter. */
+const openMenu = (column: string) =>
+  userEvent.click(screen.getByRole("button", { name: column }));
+
+const filter = async (column: string, text: string) => {
+  await openMenu(column);
+  await userEvent.type(screen.getByLabelText(`Filter ${column}`), text);
+};
+
+const sortAsc = async (column: string) => {
+  await openMenu(column);
+  await userEvent.click(
+    await screen.findByRole("menuitem", { name: "Sort ascending" }),
+  );
+};
 
 describe("TableRenderer filters and sorts through the grid (#2070)", () => {
-  it("filters a node column by a property value, keeping the matching rows only", () => {
+  it("filters a node column by a property value, keeping the matching rows only", async () => {
     render(
       <TableRenderer
         data={[{ m: matrix }, { m: atlas }, { m: keanu }]}
         settings={settings}
       />,
     );
-    filter("m", "matrix");
+    await filter("m", "matrix");
     expect(shown(0)).toEqual([':Movie {title: "The Matrix"}']);
   });
 
-  it("matches nothing when a node column is filtered by 'object'", () => {
+  it("matches nothing when a node column is filtered by 'object'", async () => {
     render(
       <TableRenderer
         data={[{ m: matrix }, { m: atlas }]}
         settings={settings}
       />,
     );
-    filter("m", "object");
+    await filter("m", "object");
     expect(screen.getByText("No results.")).toBeInTheDocument();
   });
 
-  it("filters a row without the column as the null its cell shows", () => {
+  it("filters a row without the column as the null its cell shows", async () => {
     // Rows cross JSON, so a missing value arrives as a missing key.
     render(
       <TableRenderer
@@ -96,18 +97,18 @@ describe("TableRenderer filters and sorts through the grid (#2070)", () => {
         settings={settings}
       />,
     );
-    filter("m", "null");
+    await filter("m", "null");
     expect(shown(0)).toEqual(["null", "null"]);
   });
 
-  it("sorts a node column by the text its cells show", () => {
+  it("sorts a node column by the text its cells show", async () => {
     render(
       <TableRenderer
         data={[{ m: keanu }, { m: matrix }, { m: atlas }]}
         settings={settings}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "m" }));
+    await sortAsc("m");
     expect(shown(0)).toEqual([
       ':Movie {title: "Cloud Atlas"}',
       ':Movie {title: "The Matrix"}',
@@ -115,7 +116,7 @@ describe("TableRenderer filters and sorts through the grid (#2070)", () => {
     ]);
   });
 
-  it("sorts a node column with one shared collator, not one per comparison", () => {
+  it("sorts a node column with one shared collator, not one per comparison", async () => {
     // localeCompare with an options object builds a fresh ICU collator on
     // every call: about 190 ms of a 5000-row sort's 256 ms.
     const localeCompare = vi.spyOn(String.prototype, "localeCompare");
@@ -126,7 +127,7 @@ describe("TableRenderer filters and sorts through the grid (#2070)", () => {
           settings={settings}
         />,
       );
-      fireEvent.click(screen.getByRole("button", { name: "m" }));
+      await sortAsc("m");
       expect(shown(0)[0]).toBe(':Movie {title: "Cloud Atlas"}');
       expect(localeCompare).not.toHaveBeenCalled();
     } finally {
@@ -134,26 +135,65 @@ describe("TableRenderer filters and sorts through the grid (#2070)", () => {
     }
   });
 
-  it("still sorts a number column numerically", () => {
+  it("still sorts a number column numerically", async () => {
     render(
       <TableRenderer
         data={[{ n: 10 }, { n: 9 }, { n: 100 }]}
         settings={settings}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "n" }));
+    await sortAsc("n");
     expect(shown(0)).toEqual(["9", "10", "100"]);
   });
 
-  it("still filters a string column case-insensitively", () => {
+  it("still filters a string column case-insensitively", async () => {
     render(
       <TableRenderer
         data={[{ s: "Alice" }, { s: "bob" }, { s: "Malik" }]}
         settings={settings}
       />,
     );
-    filter("s", "ALI");
+    await filter("s", "ALI");
     expect(shown(0)).toEqual(["Alice", "Malik"]);
+  });
+});
+
+describe("TableRenderer numbers (#2222)", () => {
+  it("prints a number with the separator, and a year or id without", () => {
+    render(
+      <TableRenderer
+        data={[{ gross: 40868.59, year: 1999, user_id: 12001, qty: 7 }]}
+        settings={settings}
+      />,
+    );
+    expect(shown(0)).toEqual(["40,868.59"]);
+    expect(shown(1)).toEqual(["1999"]);
+    expect(shown(2)).toEqual(["12001"]);
+    expect(shown(3)).toEqual(["7"]);
+  });
+
+  it("treats the option defaults (Automatic, -1) as unset", () => {
+    render(
+      <TableRenderer
+        data={[{ gross: 40868.59, year: 1999, qty: 7 }]}
+        settings={{ ...settings, numberFormat: "auto", decimalPlaces: -1 }}
+      />,
+    );
+    expect([shown(0), shown(1), shown(2)]).toEqual([
+      ["40,868.59"],
+      ["1999"],
+      ["7"],
+    ]);
+  });
+
+  it("lets the widget's number format win", () => {
+    render(
+      <TableRenderer
+        data={[{ gross: 40868.59 }]}
+        settings={{ ...settings, numberFormat: "plain", decimalPlaces: 1 }}
+      />,
+    );
+    expect(shown(0)).toEqual(["40868.6"]);
   });
 });
 
@@ -188,6 +228,30 @@ describe("TableRenderer across a refresh (#2106)", () => {
       />,
     );
     expect(screen.getByText(text)).toBeInTheDocument();
+  });
+});
+
+describe("TableRenderer figures (#2222 review)", () => {
+  it("formats a grouped sum like its column, and a numeric string past 2^53", () => {
+    render(
+      <TableRenderer
+        data={[
+          { g: "a", n: 1000 },
+          { g: "a", n: 2500.5 },
+          { g: "b", n: "9007199254740993" },
+        ]}
+        settings={{
+          ...settings,
+          enableGrouping: true,
+          groupBy: "g",
+          aggregationFn: "sum",
+          numberFormat: "comma",
+          decimalPlaces: 2,
+        }}
+      />,
+    );
+    expect(screen.getByText("Σ 3,500.50")).toBeInTheDocument();
+    expect(screen.getByText("9,007,199,254,740,993.00")).toBeInTheDocument();
   });
 });
 
