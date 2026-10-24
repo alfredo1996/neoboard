@@ -246,7 +246,7 @@ All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads f
 
 ## Tables (#2222)
 
-Straight on the card, no inner box. Header 32px, 12/500 `muted-foreground`, `border-b` in `border-border-strong`; rows 36px, 13px, `px-2`, hover `muted`. First column and numbers in ink, other text `foreground-2`. Numbers right-aligned (header too), `tabular-nums`, thousands separator; a column named `year`, `id` or `*_id` prints bare. The column name is the menu button (sort, filter, hide); the arrow shows on the sorted column only, a funnel on a filtered one. Footer: "1-10 of 50" left, 28px Previous/Next right; filtered and hidden-column states are links in the same line.
+Straight on the card, no inner box. Header 32px, 12/500 `muted-foreground`, `border-b` in `border-border-strong`; rows 36px, 13px, `px-2`, hover `muted`. First column and numbers in ink, other text `foreground-2`. Numbers right-aligned (header too), `tabular-nums`, thousands separator, one decimal count per column (the most its values carry, up to 2, so it lines up; whole numbers print bare); a column named `year`, `id` or `*_id` (after the last dot: `m.year`) prints bare. The column name is the menu button (sort, filter, hide); the arrow shows on the sorted column only, a funnel on a filtered one. Footer: "1-10 of 50" left (always, with pagination on), 28px Previous/Next right (only past one page); filtered and hidden-column states are links in the same line.
 
 ## 6. Border & Radius Patterns
 

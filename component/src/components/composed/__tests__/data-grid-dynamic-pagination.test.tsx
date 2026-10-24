@@ -309,8 +309,8 @@ describe("DataGrid — enablePagination", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("does not show built-in pagination when all rows fit on a single page", () => {
-    // 3 rows, pageSize=10 → only 1 page → no controls
+  it("shows the count but no buttons when all rows fit on a single page", () => {
+    // 3 rows, pageSize=10 → only 1 page → count, no controls
     const fewRows = manyRows.slice(0, 3);
     render(
       <DataGrid
@@ -326,7 +326,20 @@ describe("DataGrid — enablePagination", () => {
     expect(
       screen.queryByRole("button", { name: "Previous" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/ of 30$/)).not.toBeInTheDocument();
+    expect(screen.getByText("1–3 of 3")).toBeInTheDocument();
+  });
+
+  it("shows the count with the filter text on a single page", () => {
+    render(
+      <DataGrid
+        columns={columns}
+        data={manyRows.slice(0, 3)}
+        enablePagination
+        pageSize={10}
+        enableGlobalFilter
+      />,
+    );
+    expect(screen.getByText("1–3 of 3")).toBeInTheDocument();
   });
 
   it("select-all header checkbox selects all rows on the current page", async () => {

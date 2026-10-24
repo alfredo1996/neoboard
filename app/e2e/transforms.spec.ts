@@ -271,7 +271,7 @@ test.describe("Data Transforms", () => {
     await pick(4, "a", "Average");
 
     const cells = (n: number) => preview.locator(`tbody tr td:nth-child(${n})`);
-    await expect(cells(2)).toHaveText(["0.3", "747.12"], { timeout: 15_000 });
+    await expect(cells(2)).toHaveText(["0.30", "747.12"], { timeout: 15_000 });
     await expect(cells(3)).toHaveText(["0.15", "249.04"]);
   });
 

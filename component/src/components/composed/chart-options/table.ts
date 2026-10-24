@@ -69,8 +69,8 @@ export const tableOptions: ChartOptionDef[] = [
     description:
       "Number format for all numeric cells. Percent scales a ratio: 0.12 renders as 12%.",
     options: [
-      { label: "Automatic (1,234.56)", value: "auto" },
-      { label: "Comma (1,234.56)", value: "comma" },
+      { label: "Automatic (18 · 1,234.50)", value: "auto" },
+      { label: "Comma (1,234.5678, as stored)", value: "comma" },
       { label: "Compact (1.2K)", value: "compact" },
       { label: "Percent (0.12 → 12%)", value: "percent" },
       { label: "Plain (1234.56)", value: "plain" },

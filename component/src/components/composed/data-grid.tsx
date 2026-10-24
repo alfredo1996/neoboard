@@ -152,6 +152,31 @@ function SelectRowCell<TData>({ row }: Readonly<CellContext<TData, unknown>>) {
  */
 const WHOLE_NUMBER = /^-?\d+$/;
 const LABEL_COLUMN = /^(year|id)$|_id$/i;
+/** A column named `m.year` or `p.customer_id` is judged by the part after the last dot. */
+const isLabelColumn = (columnId: string) =>
+  LABEL_COLUMN.test(columnId.slice(columnId.lastIndexOf(".") + 1));
+
+const MAX_AUTO_DECIMALS = 2;
+const FRACTION = /\.(\d+)/;
+
+/**
+ * Automatic decimals for one numeric column: the most any of its values
+ * carries, capped at 2, so the column lines up. All whole numbers: none.
+ */
+function autoDecimals(values: readonly unknown[]): number {
+  let most = 0;
+  for (const v of values) {
+    if (!isNumericCell(v)) continue;
+    const text = String(v);
+    most = Math.max(
+      most,
+      /e/i.test(text)
+        ? MAX_AUTO_DECIMALS
+        : (FRACTION.exec(text)?.[1].length ?? 0),
+    );
+  }
+  return Math.min(most, MAX_AUTO_DECIMALS);
+}
 
 /**
  * What the grid knows about a column, on `columnDef.meta`. A column's own
@@ -175,6 +200,7 @@ type GridColumnMeta = DataGridColumnMeta;
 function makeNumberFormatter(
   numberFormat: NumberFormat | undefined,
   decimalPlaces: number | undefined,
+  columnDecimals: ReadonlyMap<string, number>,
 ) {
   const unset = numberFormat === undefined && decimalPlaces === undefined;
   const config: NumberFormatConfig = unset
@@ -186,12 +212,23 @@ function makeNumberFormatter(
   // "comma" is what a widget saved before "Automatic" existed carries; the
   // rule holds whatever the decimals are set to.
   const bareLabels = numberFormat === undefined || numberFormat === "comma";
-  return (value: number | string, columnId: string): string =>
-    bareLabels &&
-    WHOLE_NUMBER.test(String(value)) &&
-    LABEL_COLUMN.test(columnId)
-      ? String(value)
-      : formatNumber(value, config);
+  return (value: number | string, columnId: string): string => {
+    if (
+      bareLabels &&
+      WHOLE_NUMBER.test(String(value)) &&
+      isLabelColumn(columnId)
+    ) {
+      return String(value);
+    }
+    const own = unset ? columnDecimals.get(columnId) : undefined;
+    // A mean of whole numbers is not whole: a figure keeps its own decimals
+    // (a raw cell never has more than its column's, so only aggregates gain).
+    const decimals =
+      own === undefined ? undefined : Math.max(own, autoDecimals([value]));
+    return decimals === undefined
+      ? formatNumber(value, config)
+      : formatNumber(value, { numberFormat: "comma", decimalPlaces: decimals });
+  };
 }
 
 function columnId<TData>(col: ColumnDef<TData, unknown>): string {
@@ -350,9 +387,20 @@ function DataGrid<TData>({
   decimalPlaces,
   getRowId,
 }: Readonly<DataGridProps<TData>>) {
+  // Automatic decimals are a property of the column, so they are read off all
+  // of its values once, not guessed per cell.
+  const columnDecimals = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const col of columns) {
+      const values = columnValues(col, data);
+      if (values && isNumericColumn(values, inferColumnKind(values)))
+        m.set(columnId(col), autoDecimals(values));
+    }
+    return m;
+  }, [columns, data]);
   const formatGridNumber = React.useMemo(
-    () => makeNumberFormatter(numberFormat, decimalPlaces),
-    [numberFormat, decimalPlaces],
+    () => makeNumberFormatter(numberFormat, decimalPlaces, columnDecimals),
+    [numberFormat, decimalPlaces, columnDecimals],
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
@@ -583,7 +631,7 @@ function DataGrid<TData>({
   const rangeEnd = Math.min(rowCount, (pageIndex + 1) * size);
   const showPager = enablePagination && table.getPageCount() > 1;
   const showFooter =
-    showPager || isFiltered || hiddenCount > 0 || selectedCount > 0;
+    enablePagination || isFiltered || hiddenCount > 0 || selectedCount > 0;
   const firstDataColumn = table
     .getVisibleLeafColumns()
     .find((c) => c.id !== "select")?.id;

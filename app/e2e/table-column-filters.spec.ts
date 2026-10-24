@@ -91,6 +91,40 @@ test.describe("Table widget — header menu filters (#854, #2222)", () => {
     }
   });
 
+  test("filters from the keyboard alone: Enter opens the menu, ArrowDown reaches the field, Enter closes it", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await createFilterableTableDashboard(
+      page.request,
+      "cf-keys",
+    );
+    try {
+      await page.goto(`/${id}`);
+      const widget = page.getByTestId("widget-card");
+      await expect(widget.getByText("Alice")).toBeVisible({ timeout: 10_000 });
+
+      await widget.getByRole("button", { name: "name", exact: true }).focus();
+      await page.keyboard.press("Enter");
+      const field = page.getByLabel("Filter name");
+      await expect(field).toBeVisible();
+      // The menu lists its items before the field; ArrowDown walks there.
+      for (let i = 0; i < 8; i++) {
+        if (await field.evaluate((el) => el === document.activeElement)) break;
+        await page.keyboard.press("ArrowDown");
+      }
+      await expect(field).toBeFocused();
+      await page.keyboard.type("ali");
+      await page.keyboard.press("Enter");
+
+      await expect(field).toHaveCount(0);
+      await expect(widget.getByText("Alice")).toBeVisible();
+      await expect(widget.getByText("Bob")).toHaveCount(0);
+      await expect(widget.getByText("1–1 of 1, filtered from 3")).toBeVisible();
+    } finally {
+      await cleanup();
+    }
+  });
+
   test("Clear filters in the footer restores all rows", async ({ page }) => {
     const { id, cleanup } = await createFilterableTableDashboard(
       page.request,

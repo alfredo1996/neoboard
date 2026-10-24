@@ -42,13 +42,15 @@ const grid = (
 
 const cellOf = (text: string) => screen.getByText(text).closest("td")!;
 
+type Dotted = Record<string, number>;
+
 describe("numbers", () => {
   it("formats a numeric column with a separator, right-aligned, tabular", () => {
     grid();
     const cell = cellOf("40,868.59");
     expect(cell.className).toContain("text-right");
     expect(cell.className).toContain("tabular-nums");
-    expect(cellOf("2,000").className).toContain("text-right");
+    expect(cellOf("2,000.00").className).toContain("text-right");
   });
 
   it("prints a year, id and *_id column without a separator, still right-aligned", () => {
@@ -230,7 +232,7 @@ describe("fix round (#2222 review)", () => {
     const user = userEvent.setup();
     grid({ enableGlobalFilter: true });
     await user.type(screen.getByPlaceholderText("Search 50 rows"), "12,000");
-    expect(screen.getByText("12,000")).toBeInTheDocument();
+    expect(screen.getByText("12,000.00")).toBeInTheDocument();
     expect(screen.getAllByText(/of 1, filtered from 50/)).toHaveLength(1);
     await user.clear(screen.getByPlaceholderText("Search 50 rows"));
     await user.click(screen.getByRole("button", { name: /^Gross/ }));
@@ -323,5 +325,84 @@ describe("fix round (#2222 review)", () => {
       />,
     );
     expect(screen.getByText("9,007,199,254,740,993")).toBeInTheDocument();
+  });
+
+  it("gives a column the most decimals its values carry, capped at 2", () => {
+    render(
+      <DataGrid
+        columns={[
+          { accessorKey: "a", header: "A" },
+          { accessorKey: "b", header: "B" },
+          { accessorKey: "c", header: "C" },
+        ]}
+        data={[
+          { a: 12345.7, b: 18, c: 0.12345 },
+          { a: 1234.57, b: 20, c: 300 },
+          { a: 100, b: 3, c: 1 },
+        ]}
+      />,
+    );
+    for (const t of [
+      "12,345.70",
+      "1,234.57",
+      "100.00",
+      "300.00",
+      "18",
+      "20",
+      "0.12",
+      "1.00",
+    ]) {
+      expect(screen.getByText(t)).toBeInTheDocument();
+    }
+  });
+
+  it("prints an aggregated figure with the column's decimals", () => {
+    render(
+      <DataGrid
+        columns={[
+          { accessorKey: "g", header: "G" },
+          { accessorKey: "gross", header: "Gross", aggregationFn: "sum" },
+        ]}
+        data={[
+          { g: "a", gross: 0.25 },
+          { g: "a", gross: 0.75 },
+        ]}
+        enableGrouping
+        initialGrouping={["g"]}
+      />,
+    );
+    expect(screen.getByText("1.00")).toBeInTheDocument();
+  });
+
+  it("matches the year/id rule on the part after the last dot", () => {
+    render(
+      <DataGrid
+        columns={[
+          { id: "m.year", accessorFn: (r: Dotted) => r["m.year"], header: "Y" },
+          { id: "n.ID", accessorFn: (r: Dotted) => r["n.ID"], header: "I" },
+          {
+            id: "p.customer_id",
+            accessorFn: (r: Dotted) => r["p.customer_id"],
+            header: "C",
+          },
+          {
+            id: "m.count",
+            accessorFn: (r: Dotted) => r["m.count"],
+            header: "K",
+          },
+        ]}
+        data={[
+          {
+            "m.year": 1999,
+            "n.ID": 12001,
+            "p.customer_id": 22001,
+            "m.count": 31000,
+          },
+        ]}
+      />,
+    );
+    for (const t of ["1999", "12001", "22001", "31,000"]) {
+      expect(screen.getByText(t)).toBeInTheDocument();
+    }
   });
 });

@@ -508,11 +508,11 @@ describe("DataGrid", () => {
       { label: "round", value: 42, note: null },
     ];
 
-    it("applies the table default (comma, up to 2dp, integers bare) to numeric cells", () => {
+    it("applies the table default (comma, up to 2dp, a column lines up) to numeric cells", () => {
       render(<DataGrid columns={numCols} data={numData} />);
       expect(screen.getByText("0.12")).toBeInTheDocument();
       expect(screen.getByText("1,234,567.89")).toBeInTheDocument();
-      expect(screen.getByText("42")).toBeInTheDocument();
+      expect(screen.getByText("42.00")).toBeInTheDocument();
     });
 
     it("respects table-level decimalPlaces override", () => {
