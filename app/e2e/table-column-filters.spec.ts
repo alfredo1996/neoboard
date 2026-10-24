@@ -201,4 +201,59 @@ test.describe("Table widget — header menu filters (#854, #2222)", () => {
       await on?.cleanup();
     }
   });
+  test("a number's text ends at its header's right edge in a wide column", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await createTestDashboard(page.request, "cf-align");
+    try {
+      const put = await page.request.put(`/api/dashboards/${id}`, {
+        data: {
+          layoutJson: {
+            version: 2 as const,
+            pages: [
+              {
+                id: "page-1",
+                title: "Main",
+                widgets: [
+                  {
+                    id: "w1",
+                    chartType: "table",
+                    connectionId: PG_CONNECTION_ID,
+                    query:
+                      "SELECT 'a' AS label, 1234567 AS money UNION ALL SELECT 'b', 89",
+                    settings: { title: "cf-align", chartOptions: {} },
+                  },
+                ],
+                gridLayout: [{ i: "w1", x: 0, y: 0, w: 12, h: 8 }],
+              },
+            ],
+          },
+        },
+      });
+      expect(put.ok()).toBe(true);
+      await page.goto(`/${id}`);
+      const widget = page.getByTestId("widget-card");
+      await expect(widget.getByText("89")).toBeVisible({ timeout: 10_000 });
+      // Right edge of the text itself, not of its box.
+      const gap = await widget.evaluate((root) => {
+        const textRight = (el: Element) => {
+          const r = document.createRange();
+          r.selectNodeContents(el);
+          return r.getBoundingClientRect().right;
+        };
+        const th = [...root.querySelectorAll("th")].find((t) =>
+          t.textContent?.includes("money"),
+        )!;
+        const td = [...root.querySelectorAll("td")].find(
+          (t) => t.textContent?.trim() === "89",
+        )!;
+        return Math.abs(
+          textRight(th.querySelector("button") ?? th) - textRight(td),
+        );
+      });
+      expect(gap).toBeLessThanOrEqual(2);
+    } finally {
+      await cleanup();
+    }
+  });
 });

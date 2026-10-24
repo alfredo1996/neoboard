@@ -54,7 +54,10 @@ const ValueCell: GridColumn["cell"] = ({ getValue, column }) => {
   const display =
     isFigure && format ? format(v as number | string) : formatCell(v);
   return (
-    <span className="block truncate max-w-[240px]" title={display}>
+    <span
+      className="inline-block align-bottom truncate max-w-[240px]"
+      title={display}
+    >
       {display}
     </span>
   );
