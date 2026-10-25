@@ -82,6 +82,34 @@ describe("BarChart", () => {
     expect(opts.series[0].label.show).toBe(true);
   });
 
+  it("compacts the on-bar value to three figures, keeping the full value in the tooltip (#2227)", () => {
+    const opts = renderBarOptions({
+      data: [{ label: "Home", value: 879283 }],
+      showValues: true,
+    });
+    expect(opts.series[0].label.formatter({ value: 879283 })).toBe("879K");
+    const tip = opts.tooltip.formatter([
+      { name: "Home", value: 879283, seriesName: "value", marker: "" },
+    ]);
+    expect(tip).toContain("879,283");
+  });
+
+  it("caps bar width so one bar is not a slab (#2227)", () => {
+    const opts = renderBarOptions({ data: sampleData });
+    expect(opts.series[0].barMaxWidth).toBe(56);
+  });
+
+  it("an explicit barWidth replaces the cap", () => {
+    const opts = renderBarOptions({ data: sampleData, barWidth: 20 });
+    expect(opts.series[0].barWidth).toBe(20);
+    expect(opts.series[0].barMaxWidth).toBeUndefined();
+  });
+
+  it("has no legend for one series, even when asked (#2227)", () => {
+    const opts = renderBarOptions({ data: sampleData, showLegend: true });
+    expect(opts.legend).toBeUndefined();
+  });
+
   it("shows legend for multiple series", () => {
     const opts = renderBarOptions({ data: stackedData });
     expect(opts.legend).toBeDefined();

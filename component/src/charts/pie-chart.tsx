@@ -14,6 +14,8 @@ import {
   highlight,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
+import { LABEL_MUTED } from "./theme";
+import { humanizeParamName } from "@/lib/humanize-param-name";
 
 /** The subset of ECharts' pie label/tooltip params this chart formats (#1248). */
 interface PieLabelParams {
@@ -96,7 +98,9 @@ function PieChart({
     if (!data.length) return buildEmptyDataOption(dark);
 
     const effectiveShowLabel = compact ? false : showLabel;
-    const effectiveShowLegend = hideLegend ? false : showLegend;
+    // Labels name every slice, so a legend would only repeat them (#2227).
+    const effectiveShowLegend =
+      hideLegend || effectiveShowLabel ? false : showLegend;
 
     const sorted = sortSlices
       ? [...data].sort((a, b) => b.value - a.value)
@@ -132,8 +136,17 @@ function PieChart({
 
     const labelFormatter = (p: PieLabelParams) =>
       showPercentage
-        ? `${p.name}: ${fmtPercent(p.percent)}`
-        : `${p.name}: ${fmtValue(p.value, "label")}`;
+        ? `${p.name} ${fmtPercent(p.percent)}`
+        : `${p.name} ${fmtValue(p.value, "label")}`;
+
+    // Auto-total gets separators; an explicit donutCenterText is user copy and
+    // is left exactly as given (#1248). With the value column's name the centre
+    // says what it counts: "2,000" over "order count" (#2227).
+    const total = fmtValue(sortedData.reduce((s, d) => s + d.value, 0));
+    const unit = sortedData[0]?.valueLabel;
+    const centreText = unit
+      ? `{a|${total}}\n{b|${humanizeParamName(unit).toLowerCase()}}`
+      : total;
 
     return {
       tooltip: {
@@ -169,7 +182,7 @@ function PieChart({
         {
           type: "pie",
           roseType: roseMode ? ("radius" as const) : undefined,
-          radius: donut ? ["40%", "70%"] : "70%",
+          radius: donut ? ["48%", "66%"] : "70%",
           center: ["50%", effectiveShowLegend ? "45%" : "50%"],
           data: coloredData,
           label: {
@@ -177,16 +190,13 @@ function PieChart({
             position: labelPosition,
             formatter: labelFormatter,
             fontSize: 12,
-            overflow: "truncate",
-            ellipsis: "…",
             // Hide labels for slices smaller than 3%
             minMargin: 5,
           },
           labelLine: {
             show: effectiveShowLabel && labelPosition === "outside",
-            length: 15,
+            length: 8,
             length2: 10,
-            smooth: true,
           },
           labelLayout: effectiveShowLabel ? { hideOverlap: true } : undefined,
           emphasis: {
@@ -214,16 +224,20 @@ function PieChart({
                 left: "center",
                 top: effectiveShowLegend ? "42%" : "47%",
                 style: {
-                  text:
-                    donutCenterText ??
-                    // Auto-total gets separators; an explicit donutCenterText
-                    // is user copy and is left exactly as given (#1248).
-                    fmtValue(sortedData.reduce((s, d) => s + d.value, 0)),
+                  text: donutCenterText ?? centreText,
                   align: "center",
                   fontSize: 20,
                   fontWeight: "bold",
                   // Theme foreground (matches the registered ECharts themes).
                   fill: dark ? "#f3f4f6" : "#14161a",
+                  rich: {
+                    a: { fontSize: 22, fontWeight: 600, lineHeight: 26 },
+                    b: {
+                      fontSize: 12,
+                      fontWeight: "normal",
+                      fill: dark ? LABEL_MUTED.dark : LABEL_MUTED.light,
+                    },
+                  },
                 },
               },
             ],

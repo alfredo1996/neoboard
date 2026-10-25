@@ -79,3 +79,21 @@ export const EmptyState: Story = {
     });
   },
 };
+
+/** #2227: slice labels carry the share, the centre says what it counts. */
+export const DonutCountsOrders: Story = {
+  args: {
+    donut: true,
+    data: [
+      ["refunded", 412],
+      ["shipped", 404],
+      ["cancelled", 401],
+      ["delivered", 401],
+      ["pending", 382],
+    ].map(([name, value]) => ({
+      name: String(name),
+      value: Number(value),
+      valueLabel: "orders",
+    })),
+  },
+};

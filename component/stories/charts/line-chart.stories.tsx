@@ -181,3 +181,18 @@ export const StylingRulesCrossThreshold: Story = {
     ],
   },
 };
+
+/** #2227: quarterly ticks print the year once, on the first tick of each year. */
+export const QuarterlyYearOnce: Story = {
+  args: {
+    data: [
+      "2024-04-01",
+      "2024-07-01",
+      "2024-10-01",
+      "2025-01-01",
+      "2025-04-01",
+      "2025-07-01",
+    ].map((x, i) => ({ x, revenue: 100 + i * 30 + (i % 2) * 20 })),
+    area: true,
+  },
+};

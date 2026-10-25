@@ -203,3 +203,16 @@ export const Highlighted: Story = {
 export const StackedHastings: Story = {
   args: { data: stackedData, stackMode: "stacked" },
 };
+
+/** #2227: compact values on the bars (879K), full in the tooltip, one series, no legend. */
+export const CompactValues: Story = {
+  args: {
+    data: [
+      { label: "Home", value: 879283 },
+      { label: "Electronics", value: 878962 },
+      { label: "Outdoors", value: 768119 },
+      { label: "Apparel", value: 723681 },
+    ],
+    showValues: true,
+  },
+};

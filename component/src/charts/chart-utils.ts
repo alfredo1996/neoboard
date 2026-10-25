@@ -1007,6 +1007,28 @@ export function groupTopN(
 // ---------------------------------------------------------------------------
 
 /**
+ * Time-axis tick labels (#2227): the month, with the year added once, on the
+ * first tick of each year. Ticks are often quarterly, so it keys on the year
+ * changing, not on January. ECharts asks for the ticks in order and index 0
+ * starts a pass, which resets the remembered year.
+ *
+ * ponytail: month granularity. A span of days gets one label per month name;
+ * add a day-level branch if a chart of a few days ever needs it.
+ */
+export function buildTimeAxisLabelFormatter() {
+  let lastYear: number | undefined;
+  return (value: number | string, index: number): string => {
+    if (index === 0) lastYear = undefined;
+    const d = new Date(value);
+    const year = d.getFullYear();
+    const month = d.toLocaleString("en-US", { month: "short" });
+    const label = year === lastYear ? month : `${month} ${year}`;
+    lastYear = year;
+    return label;
+  };
+}
+
+/**
  * Check if x-axis values look like dates/timestamps.
  * Samples up to the first 5 values — if all parse as valid dates, returns true.
  */

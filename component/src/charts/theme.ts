@@ -72,6 +72,9 @@ export const HASTINGS_DARK = [
   "#A7AFBD",
 ];
 
+/** Secondary chart text (ink 3): axis labels, legend, a donut's unit line. */
+export const LABEL_MUTED = { light: "#686E7A", dark: "#959BA6" } as const;
+
 /** Chart text. Canvas cannot read a CSS variable, so the face is named. */
 export const CHART_FONT_FAMILY =
   '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';

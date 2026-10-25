@@ -20,8 +20,8 @@ import {
   buildMarkLineFromRefs,
   isTimeSeriesData,
   buildCategoryAxisLabel,
+  buildTimeAxisLabelFormatter,
   lineAxisInsets,
-  fadeToTransparent,
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 
@@ -280,38 +280,11 @@ function LineChart({
         lineStyle: { width: lineWidth, color: seriesColor },
         itemStyle: seriesColor ? { color: seriesColor } : undefined,
         showSymbol: showPoints || !!markPoints,
-        // Subtle fill (#822): a soft gradient when the series color is
-        // known, otherwise a low flat opacity (ECharts applies the series
-        // color automatically).
-        // No area fill in dark mode at all (#1264). A warm fill over charcoal
-        // composites to brown at ANY alpha — the technique is the problem, not
-        // the value. #1244 lowered the opacity (0.15 -> 0.06) and it still read
-        // as a stain, so dark keeps the line and drops the wash. The fill is a
-        // light-mode affordance only, which is why the opacities below are no
-        // longer theme-dependent.
-        areaStyle:
-          area && !dark
-            ? seriesColor
-              ? {
-                  opacity: 0.15,
-                  color: {
-                    type: "linear" as const,
-                    x: 0,
-                    y: 0,
-                    x2: 0,
-                    y2: 1,
-                    colorStops: [
-                      { offset: 0, color: seriesColor },
-                      // Fade to the SAME colour transparent — fading to
-                      // transparent white washed through pale grey (#1244).
-                      { offset: 1, color: fadeToTransparent(seriesColor) },
-                    ],
-                  },
-                }
-              : // Flat fill, no gradient: ECharts applies the series colour
-                // itself here because no styling rule resolved one.
-                { opacity: 0.12 }
-            : undefined,
+        // Flat 10% fill in both themes (#2227), tinted by a styling rule when
+        // one resolved a colour; otherwise ECharts uses the series colour.
+        areaStyle: area
+          ? { opacity: 0.1, ...(seriesColor ? { color: seriesColor } : {}) }
+          : undefined,
         emphasis: seriesKeys.length > 1 ? { focus: "series" as const } : {},
         // LTTB downsampling for large datasets
         ...(useSampling
@@ -353,7 +326,10 @@ function LineChart({
             name: compact ? undefined : xAxisLabel,
             nameLocation: "middle" as const,
             nameGap: 30,
-            axisLabel: { show: true },
+            axisLabel: {
+              show: true,
+              formatter: buildTimeAxisLabelFormatter(),
+            },
           }
         : {
             type: "category" as const,

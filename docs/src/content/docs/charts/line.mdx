@@ -36,14 +36,14 @@ ORDER BY month
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | Smooth Curve | boolean | false | Render lines as smooth curves instead of straight segments |
-| Fill Area | boolean | false | Fill the area beneath the line to emphasise volume |
+| Fill Area | boolean | false | Fill the area beneath the line with a flat 10% tint |
 | Line Width (px) | number | 2 | Stroke width of the line in pixels |
 | Stepped Line | boolean | false | Draw the line as a step function for discrete state changes |
 | Show Data Points | boolean | false | Draw a dot at each data point along the line |
 | Show Grid Lines | boolean | true | Show faint horizontal reference lines |
 | X-Axis Label | text | (empty) | Custom label below the horizontal axis |
 | Y-Axis Label | text | (empty) | Custom label beside the vertical axis |
-| Show Legend | boolean | true | Show the legend identifying each data series |
+| Show Legend | boolean | true | Show the legend identifying each data series. A single series never gets one |
 | Reference Lines | text | (empty) | JSON array of horizontal reference lines |
 | Sampling Threshold | number | 1000 | Enable LTTB downsampling when points exceed this count. 0 disables |
 | Sampling Method | select | lttb | Algorithm for downsampling: LTTB, Average, Max, or Min |

@@ -53,13 +53,33 @@ describe("PieChart", () => {
   it("supports donut style", () => {
     render(<PieChart data={sampleData} donut />);
     const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].radius).toEqual(["40%", "70%"]);
+    expect(optionsCall.series[0].radius).toEqual(["48%", "66%"]);
   });
 
   it("hides labels when showLabel is false", () => {
     render(<PieChart data={sampleData} showLabel={false} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.series[0].label.show).toBe(false);
+  });
+
+  it("hides the legend while slice labels are on, since they name each slice (#2227)", () => {
+    render(<PieChart data={sampleData} showLegend />);
+    expect(mockSetOption.mock.calls[0][0].legend).toBeUndefined();
+  });
+
+  it("shows the legend when slice labels are off and the author asked for it", () => {
+    render(<PieChart data={sampleData} showLabel={false} showLegend />);
+    expect(mockSetOption.mock.calls[0][0].legend).toBeDefined();
+  });
+
+  it("names a slice with its share to one decimal (#2227)", () => {
+    render(<PieChart data={sampleData} />);
+    const label = mockSetOption.mock.calls[0][0].series[0].label.formatter({
+      name: "refunded",
+      value: 412,
+      percent: 20.6,
+    });
+    expect(label).toBe("refunded 20.6%");
   });
 
   it("hides legend when showLegend is false", () => {
@@ -69,7 +89,7 @@ describe("PieChart", () => {
   });
 
   it("configures legend with scrollable type and enlarged pagination controls", () => {
-    render(<PieChart data={sampleData} />);
+    render(<PieChart data={sampleData} showLabel={false} />);
     const optionsCall = mockSetOption.mock.calls[0][0];
     expect(optionsCall.legend).toMatchObject({
       type: "scroll",
@@ -130,13 +150,13 @@ describe("PieChart", () => {
 
   it("shows percentage in labels when showPercentage is true (default)", () => {
     render(<PieChart data={sampleData} />);
-    expect(runLabelFormatter()).toBe("Desktop: 60.0%");
+    expect(runLabelFormatter()).toBe("Desktop 60.0%");
   });
 
   it("shows value instead of percentage when showPercentage is false", () => {
     render(<PieChart data={sampleData} showPercentage={false} />);
     const label = runLabelFormatter();
-    expect(label).toBe("Desktop: 60");
+    expect(label).toBe("Desktop 60");
     expect(label).not.toContain("%");
   });
 
@@ -173,6 +193,23 @@ describe("PieChart", () => {
     expect(optionsCall.graphic).toBeDefined();
     // 60 + 30 + 10 = 100
     expect(optionsCall.graphic[0].style.text).toBe("100");
+  });
+
+  it("says what the donut counts: the total, then the value column humanised (#2227)", () => {
+    const rows = [
+      { name: "shipped", value: 1200, valueLabel: "order_count" },
+      { name: "pending", value: 800, valueLabel: "order_count" },
+    ];
+    render(<PieChart data={rows} donut />);
+    const g = mockSetOption.mock.calls[0][0].graphic[0];
+    expect(g.style.text).toBe("{a|2,000}\n{b|order count}");
+    expect(g.style.rich.a).toBeDefined();
+  });
+
+  it("an explicit donutCenterText still wins over the counted noun (#2227)", () => {
+    const rows = [{ name: "a", value: 1, valueLabel: "orders" }];
+    render(<PieChart data={rows} donut donutCenterText="All" />);
+    expect(mockSetOption.mock.calls[0][0].graphic[0].style.text).toBe("All");
   });
 
   it("does not show graphic when donut is false", () => {
@@ -322,7 +359,7 @@ describe("PieChart number formatting (#1248)", () => {
       value: 1048,
       percent: 38.0952,
     });
-    expect(label).toBe("Desktop: 38.1%");
+    expect(label).toBe("Desktop 38.1%");
   });
 
   it("formats label values to three figures when not showing percent (#2226)", () => {
@@ -332,7 +369,7 @@ describe("PieChart number formatting (#1248)", () => {
       value: 1048,
       percent: 38.0952,
     });
-    expect(label).toBe("Desktop: 1.05K");
+    expect(label).toBe("Desktop 1.05K");
   });
 
   it("formats the tooltip value and percentage consistently with the labels", () => {
@@ -395,7 +432,7 @@ describe("PieChart tooltip escaping (#1248)", () => {
       value: 1,
       percent: 100,
     });
-    expect(label).toBe("R&D: 1");
+    expect(label).toBe("R&D 1");
     expect(label).not.toContain("&amp;");
   });
 });
@@ -418,13 +455,13 @@ describe("PieChart formatter edge cases (#1248)", () => {
     // old {c} template would have printed it raw; printing "undefined" or
     // "NaN" in a chart label is worse than printing nothing.
     const { label } = formatters();
-    expect(label({ name: "A", value: "not-a-number" })).toBe("A: ");
+    expect(label({ name: "A", value: "not-a-number" })).toBe("A ");
   });
 
   it("treats a missing percentage as zero rather than NaN%", () => {
     render(<PieChart data={[{ name: "A", value: 1 }]} showPercentage />);
     const label = mockSetOption.mock.calls[0][0].series[0].label.formatter;
-    expect(label({ name: "A" })).toBe("A: 0.0%");
+    expect(label({ name: "A" })).toBe("A 0.0%");
   });
 
   it("unwraps an array param, which ECharts passes for axis-trigger charts", () => {
@@ -449,7 +486,7 @@ describe("PieChart formatter edge cases (#1248)", () => {
       const option = mockSetOption.mock.calls[0][0];
       expect(
         option.series[0].label.formatter({ name: "a", value: 1234.567 }),
-      ).toBe("a: 1,234.6");
+      ).toBe("a 1,234.6");
       expect(
         option.tooltip.formatter({ name: "a", value: 1234.567, percent: 100 }),
       ).toBe("a: 1,234.6 (100.0%)");
@@ -460,7 +497,7 @@ describe("PieChart formatter edge cases (#1248)", () => {
       const option = mockSetOption.mock.calls[0][0];
       expect(
         option.series[0].label.formatter({ name: "a", value: 1234.567 }),
-      ).toBe("a: 1.23K");
+      ).toBe("a 1.23K");
     });
   });
 
