@@ -50,6 +50,7 @@ const ALIASES: Record<string, string> = {
   kos: "Kosovo",
   "viet nam": "Vietnam",
   "cote d'ivoire": "Côte d'Ivoire",
+  macau: "Macao",
   uae: "United Arab Emirates",
   drc: "Dem. Rep. Congo",
 };

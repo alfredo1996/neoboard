@@ -34,6 +34,7 @@ describe("choropleth regions (#2230)", () => {
     ["Viet Nam", "Vietnam"],
     ["Cote d'Ivoire", "Côte d'Ivoire"],
     ["UAE", "United Arab Emirates"],
+    ["Macau", "Macao"], // NE spells it Macao
     ["DRC", "Dem. Rep. Congo"],
   ])("resolves %s to %s", (row, expected) => {
     const { matched, unmatched } = matchRegions(
@@ -55,5 +56,46 @@ describe("choropleth regions (#2230)", () => {
     );
     expect(matched).toEqual([{ name: "Italy", value: 7 }]);
     expect(unmatched.map((r) => r.name)).toEqual(["Narnia", "Atlantis"]);
+  });
+
+  // The small countries Natural Earth 110m leaves out, added from 50m (#2230).
+  it.each([
+    ["Singapore", "SG", "SGP"],
+    ["Hong Kong", "HK", "HKG"],
+    ["Malta", "MT", "MLT"],
+    ["Andorra", "AD", "AND"],
+  ])("places %s by name, ISO2 (%s) and ISO3 (%s)", (name, iso2, iso3) => {
+    const rows = [name, iso2, iso3].map((n) => ({ name: n, value: 1 }));
+    const { matched, unmatched } = matchRegions(rows, index);
+    expect(unmatched).toEqual([]);
+    expect(matched.map((r) => r.name)).toEqual([name, name, name]);
+  });
+
+  it("leaves no row of the demo choropleth (scripts/demo/ecommerce-data.mjs regions) unmatched", () => {
+    const demoCountries = [
+      "USA",
+      "France",
+      "Germany",
+      "Italy",
+      "Japan",
+      "Singapore",
+      "Brazil",
+      "Australia",
+    ];
+    const { unmatched } = matchRegions(
+      demoCountries.map((name) => ({ name, value: 1 })),
+      index,
+    );
+    expect(unmatched).toEqual([]);
+  });
+
+  it("has no duplicate ISO codes and 62 more shapes than the 110m file's 177", () => {
+    for (const key of ["iso2", "iso3"] as const) {
+      const codes = world.features
+        .map((f) => f.properties[key])
+        .filter(Boolean);
+      expect(new Set(codes).size).toBe(codes.length);
+    }
+    expect(world.features).toHaveLength(239);
   });
 });

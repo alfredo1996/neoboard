@@ -898,7 +898,11 @@ describe("MapChart", () => {
     [1, 23],
     [4, 26],
     [100, 50],
-  ])("sizes a cluster of %i at 20 + 3*sqrt(n) px (%i)", (n, px) => {
+    [196, 62],
+    [200, 62],
+    [10_000, 64], // capped: above ~200 points only the number grows
+    [1_000_000, 64],
+  ])("sizes a cluster of %i at min(64, 20 + 3*sqrt(n)) px (%i)", (n, px) => {
     expect(clusterIconSize(n)).toBe(px);
   });
 

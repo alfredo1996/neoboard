@@ -405,3 +405,31 @@ export const UnmatchedRowsDark: Story = {
   ...UnmatchedRows,
   globals: { theme: "dark" },
 };
+
+/**
+ * #2230 — the small countries Natural Earth 110m lacks (Singapore, Malta,
+ * Hong Kong, Andorra, Bahrain) are placed, so nothing is reported unmatched.
+ */
+export const SmallCountries: Story = {
+  args: {
+    data: [
+      { name: "Singapore", value: 90 },
+      { name: "Malta", value: 60 },
+      { name: "Hong Kong", value: 75 },
+      { name: "AD", value: 40 },
+      { name: "BHR", value: 55 },
+      { name: "Italy", value: 30 },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() =>
+      expect(canvasElement.querySelector("canvas")).not.toBeNull(),
+    );
+    expect(within(canvasElement).getByRole("status")).toBeEmptyDOMElement();
+  },
+};
+
+export const SmallCountriesDark: Story = {
+  ...SmallCountries,
+  globals: { theme: "dark" },
+};

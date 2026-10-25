@@ -426,3 +426,33 @@ export const ClusteredDark: Story = {
     await expectClusters(canvasElement, MAP_CLUSTER.dark.fill);
   },
 };
+
+/** #2230 — 500 points in one city: the bubble stops at 64px, the number grows. */
+const denseMarkers = Array.from({ length: 500 }, (_, i) => ({
+  id: `d${i}`,
+  lat: 48.3 + (i % 25) * 0.01,
+  lng: 4.5 + Math.floor(i / 25) * 0.01,
+}));
+
+export const ClusterCapped: Story = {
+  args: {
+    markers: denseMarkers,
+    clusterMarkers: true,
+    center: [48.4, 4.6],
+    zoom: 5,
+  },
+  globals: { theme: "light" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => {
+      const d = canvasElement.querySelector<HTMLElement>(
+        ".leaflet-marker-icon div[style*='border-radius:50%']",
+      );
+      expect(d?.style.width).toBe("64px");
+    });
+  },
+};
+
+export const ClusterCappedDark: Story = {
+  ...ClusterCapped,
+  globals: { theme: "dark" },
+};

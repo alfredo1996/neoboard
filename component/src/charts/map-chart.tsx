@@ -128,9 +128,12 @@ export function resolveTileLayer(
   return { url, attribution: credit };
 }
 
-/** Cluster diameter in px: 20 + 3*sqrt(count), the approved mock's formula. */
+/**
+ * Cluster diameter in px: 20 + 3*sqrt(count), the approved mock's formula,
+ * capped at 64 (owner, #2230): past about 200 points only the number grows.
+ */
 export function clusterIconSize(count: number): number {
-  return Math.round(20 + 3 * Math.sqrt(count));
+  return Math.min(64, Math.round(20 + 3 * Math.sqrt(count)));
 }
 
 function buildClusterIcon(count: number, dark: boolean) {

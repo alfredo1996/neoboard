@@ -10,6 +10,8 @@ Used only by the choropleth chart (`component/src/charts/choropleth-chart.tsx`),
 
 **Changes made here:** 177 features kept (838,726 bytes before, 176,724 after, minified). Only `name` (Natural Earth `NAME`), `iso2` (`ISO_A2_EH`, falling back to `ISO_A2`), `iso3` (`ISO_A3_EH`, falling back to `ISO_A3`) and `long` (`NAME_LONG`, when it differs from `NAME`) are kept as properties, and coordinates are rounded to two decimals (about 1 km). Natural Earth marks the codes of France, Norway and Kosovo `-99` in `ISO_A2`/`ISO_A3`; the `_EH` fields carry the real ones. Northern Cyprus and Somaliland have no ISO code and match by name only.
 
+**Small countries from 50m:** Natural Earth 110m leaves out its smallest countries and territories (Singapore, Hong Kong, Macao, Malta, Bahrain, Mauritius, Barbados, Andorra, Liechtenstein, and others), so a choropleth row naming one went unmatched. 62 such features were added from `ne_50m_admin_0_countries.geojson` (same repository and licence, downloaded 2026-10-25 with the owner's approval, #2230): every 50m feature that has an ISO code and whose code and name the 110m file lacks. Same four properties, same `_EH` handling, coordinates rounded to two decimals. The file is now 239 features, 209,773 bytes (33,049 more), minified with a trailing newline.
+
 This replaces an earlier file of unrecorded origin and licence (217 features, commit `fa663a79`, #613).
 
 ## Removed dependency — `echarts-countries-js`
