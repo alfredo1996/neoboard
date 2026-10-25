@@ -16,7 +16,7 @@ export type SingleValueNumberFormat = NumberFormat;
 const FONT_SIZE_CLASS: Record<SingleValueFontSize, string> = {
   sm: "text-xl",
   md: "text-2xl",
-  lg: "text-3xl",
+  lg: "text-[34px] leading-[1.1]",
   xl: "text-5xl",
 };
 
@@ -103,6 +103,12 @@ function SingleValueChart({
   } else {
     displayValue = value;
   }
+
+  // A compact figure ("$3.3M") prints its full value underneath (#2228).
+  const fullValue =
+    typeof value === "number" && !format && numberFormat === "compact"
+      ? `${prefix ?? ""}${formatNumber(value, { numberFormat: "comma" })}${suffix ?? ""}`
+      : undefined;
 
   // Legacy colorThresholds removed — styling is now handled exclusively
   // via stylingRules (migrated at the card-container level).
@@ -194,6 +200,19 @@ function SingleValueChart({
                 </>
               )}
             </div>
+            {fullValue &&
+              fullValue !== `${prefix ?? ""}${displayValue}${suffix ?? ""}` && (
+                <div
+                  className="mt-1 text-xs tabular-nums text-muted-foreground"
+                  style={
+                    autoContrast
+                      ? { color: autoContrast, opacity: 0.7 }
+                      : undefined
+                  }
+                >
+                  {fullValue}
+                </div>
+              )}
             {trend && (
               <div className={cn("mt-1 text-sm", trendColor)}>
                 {trendArrow} {trend.label}

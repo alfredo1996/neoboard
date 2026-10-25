@@ -66,3 +66,19 @@ export const EmptyState: Story = {
     data: [],
   },
 };
+
+export const DeliveryRate: Story = {
+  args: { data: [{ value: 20.05, name: "Delivered" }], unit: "%" },
+};
+
+export const ThresholdTicks: Story = {
+  args: {
+    data: [{ value: 62, name: "Performance" }],
+    unit: "%",
+    thresholdZones: JSON.stringify([
+      { value: 40, color: "#d9534f" },
+      { value: 80, color: "#e0a030" },
+      { value: 100, color: "#3a9d6e" },
+    ]),
+  },
+};

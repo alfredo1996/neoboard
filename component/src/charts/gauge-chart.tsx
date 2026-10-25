@@ -3,17 +3,37 @@ import * as echarts from "echarts/core";
 import { GaugeChart as EGaugeChart } from "echarts/charts";
 import { TitleComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
-import type { EChartsOption } from "echarts";
+import type { EChartsOption, GaugeSeriesOption } from "echarts";
 import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildEmptyDataOption,
+  formatNumber,
   resolveItemColor,
   parseGaugeThresholdZones,
 } from "./chart-utils";
 import { HASTINGS_LIGHT, HASTINGS_DARK } from "./theme";
 import type { StylingRule } from "./styling-rule";
+
+// The track and the scale labels follow the Hastings surface tokens (#2228).
+const TRACK = { light: "#EEF0F3", dark: "#23272E" };
+const INK_3 = { light: "#686E7A", dark: "#959BA6" };
+// Half the width of a threshold tick, as a share of the arc.
+const TICK_HALF = 0.004;
+
+/** A transparent arc with one thin coloured tick at the end of each zone. */
+function zoneTicks(zones: [number, string][]): [number, string][] {
+  const stops: [number, string][] = [];
+  let last = 0;
+  for (const [stop, color] of [...zones].sort((a, b) => a[0] - b[0])) {
+    if (stop <= last + TICK_HALF || stop >= 1) continue;
+    stops.push([stop - TICK_HALF, "transparent"], [stop + TICK_HALF, color]);
+    last = stop + TICK_HALF;
+  }
+  stops.push([1, "transparent"]);
+  return stops;
+}
 
 echarts.use([EGaugeChart, TitleComponent, TooltipComponent, CanvasRenderer]);
 
@@ -39,6 +59,8 @@ export interface GaugeChartProps extends Omit<BaseChartProps, "options"> {
   endAngle?: number;
   /** JSON string of threshold zones: [{ value, color }] */
   thresholdZones?: string;
+  /** Unit printed after the value (e.g. "%"). */
+  unit?: string;
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
@@ -61,6 +83,7 @@ function GaugeChart({
   startAngle = 225,
   endAngle = -45,
   thresholdZones: thresholdZonesJson,
+  unit,
   stylingRules,
   paramValues,
   ariaDescription,
@@ -79,7 +102,7 @@ function GaugeChart({
     if (!data.length) return buildEmptyDataOption(dark);
 
     const point = data[0];
-    const arcWidth = compact ? 10 : 18;
+    const arcWidth = compact ? 10 : 12;
 
     const thresholdZones = parseGaugeThresholdZones(
       thresholdZonesJson,
@@ -113,81 +136,108 @@ function GaugeChart({
       thresholdColor ??
       (dark ? HASTINGS_DARK[0] : HASTINGS_LIGHT[0]);
 
-    // Track color — light gray that works in both themes
-    const trackColor = hasCustomZones
-      ? (thresholdZones as never)
-      : ([[1, "rgba(140, 140, 140, 0.15)"]] as never);
-
-    return {
-      tooltip: {
-        formatter: "{b}: {c}",
+    const mode = dark ? "dark" : "light";
+    const trackColor = [[1, TRACK[mode]]] as never;
+    const main: GaugeSeriesOption = {
+      type: "gauge",
+      min,
+      max,
+      startAngle,
+      endAngle,
+      radius: "90%",
+      progress: {
+        show: showProgress,
+        width: arcWidth,
+        roundCap: true,
+        itemStyle: {
+          color: progressColor,
+        },
       },
-      series: [
+      pointer: {
+        show: false,
+      },
+      axisLine: {
+        roundCap: true,
+        lineStyle: {
+          width: arcWidth,
+          color: trackColor,
+        },
+      },
+      axisTick: {
+        show: false,
+      },
+      splitLine: {
+        show: false,
+      },
+      // Min and max at the ends of the arc.
+      splitNumber: 1,
+      axisLabel: {
+        show: !compact,
+        distance: -34,
+        color: INK_3[mode],
+        fontSize: 11,
+        formatter: (v: number) => formatNumber(v, { numberFormat: "comma" }),
+      },
+      anchor: {
+        show: false,
+      },
+      detail: {
+        show: showDetail,
+        valueAnimation: true,
+        fontSize: compact ? 18 : 36,
+        fontWeight: 600,
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        formatter: (v: number) =>
+          formatNumber(v, {
+            numberFormat: "comma",
+            decimalPlaces: 1,
+            suffix: unit,
+          }),
+        offsetCenter: [0, "0%"],
+      },
+      title: {
+        show: showDetail && !compact,
+        offsetCenter: [0, "22%"],
+        fontSize: compact ? 11 : 14,
+        color: "rgba(140, 140, 140, 0.8)",
+        fontWeight: 400,
+      },
+      animationDuration: 1000,
+      animationEasingUpdate: "cubicOut",
+      data: [
         {
-          type: "gauge",
-          min,
-          max,
-          startAngle,
-          endAngle,
-          radius: "90%",
-          progress: {
-            show: showProgress,
-            width: arcWidth,
-            roundCap: true,
-            itemStyle: {
-              color: progressColor,
-            },
-          },
-          pointer: {
-            show: false,
-          },
-          axisLine: {
-            roundCap: true,
-            lineStyle: {
-              width: arcWidth,
-              color: trackColor,
-            },
-          },
-          axisTick: {
-            show: false,
-          },
-          splitLine: {
-            show: false,
-          },
-          axisLabel: {
-            show: false,
-          },
-          anchor: {
-            show: false,
-          },
-          detail: {
-            show: showDetail,
-            valueAnimation: true,
-            fontSize: compact ? 18 : 36,
-            fontWeight: 600,
-            fontFamily:
-              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            formatter: "{value}",
-            offsetCenter: [0, "0%"],
-          },
-          title: {
-            show: showDetail && !compact,
-            offsetCenter: [0, "22%"],
-            fontSize: compact ? 11 : 14,
-            color: "rgba(140, 140, 140, 0.8)",
-            fontWeight: 400,
-          },
-          animationDuration: 1000,
-          animationEasingUpdate: "cubicOut",
-          data: [
-            {
-              value: point.value,
-              name: point.name ?? "",
-              ...(resolvedColor ? { itemStyle: { color: resolvedColor } } : {}),
-            },
-          ],
+          value: point.value,
+          name: point.name ?? "",
+          ...(resolvedColor ? { itemStyle: { color: resolvedColor } } : {}),
         },
       ],
+    };
+    const ticksSeries: GaugeSeriesOption = {
+      type: "gauge",
+      min,
+      max,
+      startAngle,
+      endAngle,
+      radius: "90%",
+      silent: true,
+      z: 3,
+      progress: { show: false },
+      pointer: { show: false },
+      anchor: { show: false },
+      axisLine: {
+        lineStyle: { width: arcWidth, color: zoneTicks(thresholdZones) },
+      },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { show: false },
+      detail: { show: false },
+      title: { show: false },
+      data: [{ value: point.value }],
+    };
+    return {
+      tooltip: { formatter: "{b}: {c}" },
+      series: [main, ...(hasCustomZones ? [ticksSeries] : [])],
     };
   }, [
     measured,
@@ -199,6 +249,7 @@ function GaugeChart({
     showProgress,
     showDetail,
     thresholdZonesJson,
+    unit,
     compact,
     stylingRules,
     paramValues,

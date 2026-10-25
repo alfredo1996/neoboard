@@ -41,11 +41,12 @@ FROM orders
 | Show Value Detail | `true` | Show the numeric value and name |
 | Start Angle | `225` | Arc start angle (degrees) |
 | End Angle | `-45` | Arc end angle (degrees) |
-| Threshold Zones | — | JSON color bands: `[{"value":50,"color":"#ff0000"}]` |
+| Unit | — | Printed after the value, e.g. `%`. The value reads to one decimal (20.05 shows as 20.1) |
+| Threshold Zones | — | JSON zones: `[{"value":50,"color":"#ff0000"}]`. Each zone end is drawn as a tick on the track |
 
 ## Features
 
-- **Minimal design** — thin rounded arc with centered value
-- **Custom gradient** — default blue accent or threshold zone colors
+- **Minimal design** — 12px rounded arc on a visible track, min and max at the ends, centered value
+- **Custom gradient** — default citrine accent, with threshold zone ticks
 - **Responsive** — adapts to container size, hides details when compact
 - **Rule-based styling** — override arc color based on value conditions

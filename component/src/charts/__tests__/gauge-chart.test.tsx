@@ -86,10 +86,50 @@ describe("GaugeChart", () => {
     expect(optionsCall.series[0].splitLine.show).toBe(false);
   });
 
-  it("hides axisLabel in minimal design", () => {
+  // #2228
+  const series = () => mockSetOption.mock.calls[0][0].series[0];
+
+  it("prints min and max at the ends of the arc", () => {
+    render(<GaugeChart data={sampleData} min={0} max={8000} />);
+    const { axisLabel, splitNumber } = series();
+    expect(axisLabel.show).toBe(true);
+    expect(splitNumber).toBe(1);
+    expect([axisLabel.formatter(0), axisLabel.formatter(8000)]).toEqual([
+      "0",
+      "8,000",
+    ]);
+  });
+
+  it("rounds to one decimal and appends the author's unit", () => {
+    const { unmount } = render(<GaugeChart data={[{ value: 20.05 }]} />);
+    expect(series().detail.formatter(20.05)).toBe("20.1");
+    unmount();
+    mockSetOption.mockClear();
+    render(<GaugeChart data={[{ value: 20.05 }]} unit="%" />);
+    expect(series().detail.formatter(20.05)).toBe("20.1%");
+  });
+
+  it("draws a 12px arc on a visible track", () => {
     render(<GaugeChart data={sampleData} />);
-    const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].axisLabel.show).toBe(false);
+    expect(series().progress.width).toBe(12);
+    expect(series().axisLine.lineStyle.width).toBe(12);
+    const stops = series().axisLine.lineStyle.color;
+    expect(stops).toHaveLength(1);
+    expect(stops[0][1]).toBe("#EEF0F3");
+  });
+
+  it("turns threshold zones into ticks on the track, not coloured bands", () => {
+    const zones = JSON.stringify([
+      { value: 30, color: "#ff0000" },
+      { value: 100, color: "#00ff00" },
+    ]);
+    render(<GaugeChart data={sampleData} thresholdZones={zones} />);
+    const [track, ticks] = mockSetOption.mock.calls[0][0].series;
+    // the 30-100 zone is not painted: the track stays one visible colour
+    expect(track.axisLine.lineStyle.color).toEqual([[1, "#EEF0F3"]]);
+    const stops = ticks.axisLine.lineStyle.color as [number, string][];
+    expect(stops.find(([, c]) => c === "#ff0000")?.[0]).toBeCloseTo(0.3, 2);
+    expect(stops.some(([, c]) => c === "#00ff00")).toBe(false);
   });
 
   it("shows progress arc with roundCap by default", () => {

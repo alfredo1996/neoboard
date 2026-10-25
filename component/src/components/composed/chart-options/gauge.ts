@@ -50,6 +50,14 @@ export const gaugeOptions: ChartOptionDef[] = [
     description: "Ending angle of the gauge arc in degrees.",
   },
   {
+    key: "unit",
+    label: "Unit",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description: 'Printed after the value, e.g. "%".',
+  },
+  {
     key: "thresholdZones",
     label: "Threshold Zones (JSON)",
     type: "text",

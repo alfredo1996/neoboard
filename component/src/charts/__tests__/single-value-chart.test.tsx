@@ -24,6 +24,25 @@ describe("SingleValueChart", () => {
     expect(screen.getByText("Users Online")).toBeInTheDocument();
   });
 
+  // #2228: a compact figure prints its full value underneath.
+  it("prints the full figure under a compact one, and only then", () => {
+    const { rerender } = render(
+      <SingleValueChart
+        value={3250045}
+        prefix="$"
+        numberFormat="compact"
+        decimalPlaces={1}
+      />,
+    );
+    expect(screen.getByText("$3.3M")).toBeInTheDocument();
+    expect(screen.getByText("$3,250,045")).toBeInTheDocument();
+    rerender(
+      <SingleValueChart value={3250045} prefix="$" numberFormat="comma" />,
+    );
+    expect(screen.queryByText("$3,250,045")).toBeInTheDocument();
+    expect(screen.getAllByText(/3,250,045/)).toHaveLength(1);
+  });
+
   it("renders prefix and suffix", () => {
     render(<SingleValueChart value={99} prefix="$" suffix="M" />);
     expect(screen.getByText(/\$99M/)).toBeInTheDocument();
@@ -114,9 +133,9 @@ describe("SingleValueChart", () => {
     expect(valueEl).toBeInTheDocument();
   });
 
-  it("applies text-3xl class for fontSize lg (default)", () => {
+  it("sets the default figure at 34px on the card (#2228)", () => {
     const { container } = render(<SingleValueChart value={42} />);
-    const valueEl = container.querySelector(".text-3xl");
+    const valueEl = container.querySelector(".text-\\[34px\\]");
     expect(valueEl).toBeInTheDocument();
   });
 

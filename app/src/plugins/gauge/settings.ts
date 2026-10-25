@@ -11,6 +11,7 @@ export const gaugeSettingsSchema = z
     showDetail: z.boolean().default(true),
     startAngle: z.coerce.number().default(225),
     endAngle: z.coerce.number().default(-45),
+    unit: z.string().optional(),
     colorPalette: z.string().optional(),
     colorblindMode: z.boolean().default(false),
     // JSON array of {value, color} bands, parsed by the chart. Declared here
