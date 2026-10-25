@@ -186,6 +186,9 @@ export function DashboardContainer({
   );
   const [pendingSyncWidget, setPendingSyncWidget] =
     useState<DashboardWidget | null>(null);
+  // Kept after the dialog closes so its fade-out still names the widget;
+  // `syncOpen` alone opens and closes it.
+  const [syncOpen, setSyncOpen] = useState(false);
   // The widget Remove was asked on (#2055), and the menu button focus goes
   // back to. Kept after the dialog closes so its fade-out still names the
   // widget; `removeOpen` alone opens and closes it.
@@ -319,6 +322,7 @@ export function DashboardContainer({
           onClick: () => {
             setDialogOpener({ el: focusedMenuTrigger(), fallback: null });
             setPendingSyncWidget(widget);
+            setSyncOpen(true);
           },
         });
       }
@@ -434,6 +438,7 @@ export function DashboardContainer({
                               ) ?? null,
                           });
                           setPendingSyncWidget(widget);
+                          setSyncOpen(true);
                         }}
                         aria-label="Template update available"
                         title="Template update available — click to sync"
@@ -501,10 +506,8 @@ export function DashboardContainer({
       </Dialog>
 
       <ConfirmDialog
-        open={pendingSyncWidget !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingSyncWidget(null);
-        }}
+        open={syncOpen}
+        onOpenChange={setSyncOpen}
         action="Sync"
         object="widget"
         name={`${

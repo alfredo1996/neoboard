@@ -219,7 +219,12 @@ vi.mock("@neoboard/components", () => ({
           {object ? `${action} ${object}` : action}
         </button>
       </div>
-    ) : null;
+    ) : (
+      // What the real dialog still paints while it fades out.
+      <span data-testid={`confirm-closed-${action}`}>
+        {`${action} ${name ?? `this ${object}`}`}
+      </span>
+    );
   },
   focusedMenuTrigger: () => mockMenuTrigger,
   buildCsvString: vi.fn((rows: unknown[]) => `CSV(${rows.length})`),
@@ -1154,6 +1159,31 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
       "Sync widget",
     );
   });
+
+  it.each(["confirm", "cancel"])(
+    "keeps naming the widget in the Sync dialog while it fades out after %s",
+    (button) => {
+      mockIsTemplateOutdated.mockReturnValue(true);
+      renderWithProviders(
+        <DashboardContainer
+          page={makePage([
+            makeWidget({ templateId: "tpl-1", settings: { title: "Movies" } }),
+          ])}
+          editable={true}
+          actions={{ onSyncWidget: vi.fn() }}
+          templateMap={{ "tpl-1": { id: "tpl-1" } as WidgetTemplate }}
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Template update available" }),
+      );
+      fireEvent.click(screen.getByTestId(`confirm-dialog-${button}`));
+      expect(screen.queryByTestId("confirm-dialog")).toBeNull();
+      expect(screen.getByTestId("confirm-closed-Sync")).toHaveTextContent(
+        "Sync Movies with its template",
+      );
+    },
+  );
 
   it("clicking Sync confirm without onSyncWidget still closes dialog", () => {
     mockIsTemplateOutdated.mockReturnValue(true);
