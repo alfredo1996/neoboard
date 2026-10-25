@@ -57,7 +57,7 @@ const cases: Array<[string, React.ReactElement, RegExp]> = [
   [
     "gauge",
     <GaugeChart data={[{ value: 50 }]} />,
-    /Gauge showing 50 of 0 to 100/,
+    /Gauge showing 50\.0 of 0 to 100/,
   ],
   [
     "sankey",

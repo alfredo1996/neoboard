@@ -43,6 +43,66 @@ describe("SingleValueChart", () => {
     expect(screen.getAllByText(/3,250,045/)).toHaveLength(1);
   });
 
+  it("rounds the full figure to whole units and hides it below 1,000", () => {
+    const { rerender } = render(
+      <SingleValueChart
+        value={3250044.58}
+        prefix="$"
+        numberFormat="compact"
+        decimalPlaces={1}
+      />,
+    );
+    expect(screen.getByText("$3.3M")).toBeInTheDocument();
+    expect(screen.getByText("$3,250,045")).toBeInTheDocument();
+    // a float tail never prints binary digits
+    rerender(
+      <SingleValueChart
+        value={3250045.1 + 0.2}
+        prefix="$"
+        numberFormat="compact"
+        decimalPlaces={1}
+      />,
+    );
+    expect(screen.getByText("$3,250,045")).toBeInTheDocument();
+    rerender(
+      <SingleValueChart
+        value={0.123}
+        numberFormat="compact"
+        decimalPlaces={1}
+      />,
+    );
+    expect(screen.queryByText("0.123")).not.toBeInTheDocument();
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("keeps the full figure readable on a coloured fill with a colour rule too", () => {
+    render(
+      <SingleValueChart
+        value={3250045}
+        numberFormat="compact"
+        stylingRules={[
+          {
+            id: "a",
+            operator: ">",
+            value: 0,
+            color: "#ff0000",
+            target: "color",
+          },
+          {
+            id: "b",
+            operator: ">",
+            value: 0,
+            color: "#00ff00",
+            target: "backgroundColor",
+          },
+        ]}
+      />,
+    );
+    const full = screen.getByText("3,250,045");
+    expect(full).not.toHaveClass("text-muted-foreground");
+    expect(full).toHaveStyle({ color: "rgb(255, 0, 0)", opacity: "0.7" });
+  });
+
   it("renders prefix and suffix", () => {
     render(<SingleValueChart value={99} prefix="$" suffix="M" />);
     expect(screen.getByText(/\$99M/)).toBeInTheDocument();

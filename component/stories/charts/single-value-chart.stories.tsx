@@ -88,7 +88,7 @@ export const Dashboard: Story = {
 
 export const CompactWithFullValue: Story = {
   args: {
-    value: 3250045,
+    value: 3250044.58,
     prefix: "$",
     numberFormat: "compact",
     decimalPlaces: 1,

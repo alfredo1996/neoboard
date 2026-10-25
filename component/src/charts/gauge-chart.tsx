@@ -13,14 +13,21 @@ import {
   resolveItemColor,
   parseGaugeThresholdZones,
 } from "./chart-utils";
-import { HASTINGS_LIGHT, HASTINGS_DARK } from "./theme";
+import {
+  HASTINGS_LIGHT,
+  HASTINGS_DARK,
+  TODAY_LINE_COLOR,
+  TRACK_COLOR,
+} from "./theme";
 import type { StylingRule } from "./styling-rule";
 
-// The track and the scale labels follow the Hastings surface tokens (#2228).
-const TRACK = { light: "#EEF0F3", dark: "#23272E" };
-const INK_3 = { light: "#686E7A", dark: "#959BA6" };
-// Half the width of a threshold tick, as a share of the arc.
+// Half the width of a threshold tick, as a share of the arc. Two zones closer
+// than twice this (0.8%) would overlap, so the later tick is skipped.
 const TICK_HALF = 0.004;
+
+/** The value as the face prints it: one decimal and the unit. */
+const faceText = (v: number, unit?: string) =>
+  formatNumber(v, { numberFormat: "comma", decimalPlaces: 1, suffix: unit });
 
 /** A transparent arc with one thin coloured tick at the end of each zone. */
 function zoneTicks(zones: [number, string][]): [number, string][] {
@@ -137,7 +144,7 @@ function GaugeChart({
       (dark ? HASTINGS_DARK[0] : HASTINGS_LIGHT[0]);
 
     const mode = dark ? "dark" : "light";
-    const trackColor = [[1, TRACK[mode]]] as never;
+    const trackColor = [[1, TRACK_COLOR[mode]]] as never;
     const main: GaugeSeriesOption = {
       type: "gauge",
       min,
@@ -174,7 +181,7 @@ function GaugeChart({
       axisLabel: {
         show: !compact,
         distance: -34,
-        color: INK_3[mode],
+        color: TODAY_LINE_COLOR[mode],
         fontSize: 11,
         formatter: (v: number) => formatNumber(v, { numberFormat: "comma" }),
       },
@@ -188,19 +195,13 @@ function GaugeChart({
         fontWeight: 600,
         fontFamily:
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        formatter: (v: number) =>
-          formatNumber(v, {
-            numberFormat: "comma",
-            decimalPlaces: 1,
-            suffix: unit,
-          }),
+        formatter: (v: number) => faceText(v, unit),
         offsetCenter: [0, "0%"],
       },
       title: {
         show: showDetail && !compact,
         offsetCenter: [0, "22%"],
         fontSize: compact ? 11 : 14,
-        color: "rgba(140, 140, 140, 0.8)",
         fontWeight: 400,
       },
       animationDuration: 1000,
@@ -236,7 +237,12 @@ function GaugeChart({
       data: [{ value: point.value }],
     };
     return {
-      tooltip: { formatter: "{b}: {c}" },
+      tooltip: {
+        formatter: (params) => {
+          const p = params as { name?: string; value?: unknown };
+          return `${p.name ?? ""}: ${faceText(Number(p.value), unit)}`;
+        },
+      },
       series: [main, ...(hasCustomZones ? [ticksSeries] : [])],
     };
   }, [
@@ -262,7 +268,7 @@ function GaugeChart({
         options={options}
         ariaDescription={
           ariaDescription ??
-          `Gauge showing ${data[0]?.value ?? 0} of ${min} to ${max}`
+          `Gauge showing ${faceText(data[0]?.value ?? 0, unit)} of ${min} to ${max}`
         }
         {...rest}
       />

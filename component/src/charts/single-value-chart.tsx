@@ -106,8 +106,11 @@ function SingleValueChart({
 
   // A compact figure ("$3.3M") prints its full value underneath (#2228).
   const fullValue =
-    typeof value === "number" && !format && numberFormat === "compact"
-      ? `${prefix ?? ""}${formatNumber(value, { numberFormat: "comma" })}${suffix ?? ""}`
+    typeof value === "number" &&
+    !format &&
+    numberFormat === "compact" &&
+    Math.abs(value) >= 1000
+      ? `${prefix ?? ""}${formatNumber(value, { numberFormat: "comma", decimalPlaces: 0 })}${suffix ?? ""}`
       : undefined;
 
   // Legacy colorThresholds removed — styling is now handled exclusively
@@ -149,6 +152,9 @@ function SingleValueChart({
   // Auto-contrast: when background color is set, derive text color for readability
   const autoContrast =
     bgColor && !textColor ? contrastTextColor(bgColor) : undefined;
+
+  // On a coloured fill the full line follows the figure, not the muted grey.
+  const fullLineColor = bgColor ? (autoContrast ?? textColor) : undefined;
 
   return (
     // The number sits straight on the widget's panel, in no box of its own (#2219).
@@ -203,10 +209,13 @@ function SingleValueChart({
             {fullValue &&
               fullValue !== `${prefix ?? ""}${displayValue}${suffix ?? ""}` && (
                 <div
-                  className="mt-1 text-xs tabular-nums text-muted-foreground"
+                  className={cn(
+                    "mt-1 text-xs tabular-nums",
+                    !fullLineColor && "text-muted-foreground",
+                  )}
                   style={
-                    autoContrast
-                      ? { color: autoContrast, opacity: 0.7 }
+                    fullLineColor
+                      ? { color: fullLineColor, opacity: 0.7 }
                       : undefined
                   }
                 >

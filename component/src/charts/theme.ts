@@ -145,6 +145,12 @@ export const TODAY_LINE_COLOR = {
   dark: "#959BA6",
 } as const;
 
+/** The gauge's empty arc (#2228). */
+export const TRACK_COLOR = {
+  light: "#EEF0F3",
+  dark: "#23272E",
+} as const;
+
 /**
  * The dataZoom slider, themed once here rather than per chart (#1273).
  *
