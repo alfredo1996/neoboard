@@ -21,13 +21,16 @@ import {
 } from "./theme";
 import type { StylingRule } from "./styling-rule";
 
+// Room each side of the arc for an end label such as "1,000,000", in px.
+const LABEL_ROOM = 50;
+
 // Half the width of a threshold tick, as a share of the arc. Two zones closer
 // than twice this (0.8%) would overlap, so the later tick is skipped.
 const TICK_HALF = 0.004;
 
-/** The value as the face prints it: one decimal and the unit. */
-const faceText = (v: number, unit?: string) =>
-  formatNumber(v, { numberFormat: "comma", decimalPlaces: 1, suffix: unit });
+/** The value as the face prints it: one decimal, with the author's prefix and suffix. */
+const faceText = (v: number, prefix?: string, suffix?: string) =>
+  formatNumber(v, { numberFormat: "comma", decimalPlaces: 1, prefix, suffix });
 
 /** A transparent arc with one thin coloured tick at the end of each zone. */
 function zoneTicks(zones: [number, string][]): [number, string][] {
@@ -66,8 +69,10 @@ export interface GaugeChartProps extends Omit<BaseChartProps, "options"> {
   endAngle?: number;
   /** JSON string of threshold zones: [{ value, color }] */
   thresholdZones?: string;
-  /** Unit printed after the value (e.g. "%"). */
-  unit?: string;
+  /** Prefix before the value (e.g. "$") */
+  prefix?: string;
+  /** Suffix after the value (e.g. "%") */
+  suffix?: string;
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
@@ -87,10 +92,11 @@ function GaugeChart({
   max = 100,
   showProgress = true,
   showDetail = true,
-  startAngle = 225,
-  endAngle = -45,
+  startAngle = 180,
+  endAngle = 0,
   thresholdZones: thresholdZonesJson,
-  unit,
+  prefix,
+  suffix,
   stylingRules,
   paramValues,
   ariaDescription,
@@ -110,6 +116,12 @@ function GaugeChart({
 
     const point = data[0];
     const arcWidth = compact ? 10 : 12;
+    // "100%" is half the shorter side. The end labels sit LABEL_ROOM outside
+    // the arc, so on a squarer card the arc shrinks until they fit.
+    const radius =
+      compact || width / 2 - LABEL_ROOM >= Math.min(width, height) / 2
+        ? "100%"
+        : Math.max(20, width / 2 - LABEL_ROOM);
 
     const thresholdZones = parseGaugeThresholdZones(
       thresholdZonesJson,
@@ -151,7 +163,8 @@ function GaugeChart({
       max,
       startAngle,
       endAngle,
-      radius: "90%",
+      radius,
+      center: ["50%", "78%"],
       progress: {
         show: showProgress,
         width: arcWidth,
@@ -180,7 +193,7 @@ function GaugeChart({
       splitNumber: 1,
       axisLabel: {
         show: !compact,
-        distance: -34,
+        distance: -40,
         color: TODAY_LINE_COLOR[mode],
         fontSize: 11,
         formatter: (v: number) => formatNumber(v, { numberFormat: "comma" }),
@@ -191,16 +204,16 @@ function GaugeChart({
       detail: {
         show: showDetail,
         valueAnimation: true,
-        fontSize: compact ? 18 : 36,
+        fontSize: compact ? 18 : 32,
         fontWeight: 600,
         fontFamily:
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        formatter: (v: number) => faceText(v, unit),
-        offsetCenter: [0, "0%"],
+        formatter: (v: number) => faceText(v, prefix, suffix),
+        offsetCenter: [0, "-22%"],
       },
       title: {
         show: showDetail && !compact,
-        offsetCenter: [0, "22%"],
+        offsetCenter: [0, "2%"],
         fontSize: compact ? 11 : 14,
         fontWeight: 400,
       },
@@ -220,7 +233,8 @@ function GaugeChart({
       max,
       startAngle,
       endAngle,
-      radius: "90%",
+      radius,
+      center: ["50%", "78%"],
       silent: true,
       z: 3,
       progress: { show: false },
@@ -240,13 +254,15 @@ function GaugeChart({
       tooltip: {
         formatter: (params) => {
           const p = params as { name?: string; value?: unknown };
-          return `${p.name ?? ""}: ${faceText(Number(p.value), unit)}`;
+          return `${p.name ?? ""}: ${faceText(Number(p.value), prefix, suffix)}`;
         },
       },
       series: [main, ...(hasCustomZones ? [ticksSeries] : [])],
     };
   }, [
     measured,
+    width,
+    height,
     data,
     min,
     max,
@@ -255,7 +271,8 @@ function GaugeChart({
     showProgress,
     showDetail,
     thresholdZonesJson,
-    unit,
+    prefix,
+    suffix,
     compact,
     stylingRules,
     paramValues,
@@ -268,7 +285,7 @@ function GaugeChart({
         options={options}
         ariaDescription={
           ariaDescription ??
-          `Gauge showing ${faceText(data[0]?.value ?? 0, unit)} of ${min} to ${max}`
+          `Gauge showing ${faceText(data[0]?.value ?? 0, prefix, suffix)} of ${min} to ${max}`
         }
         {...rest}
       />

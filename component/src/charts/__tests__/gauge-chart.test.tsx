@@ -101,13 +101,44 @@ describe("GaugeChart", () => {
     ]);
   });
 
-  it("rounds to one decimal and appends the author's unit", () => {
+  it("rounds to one decimal and appends the suffix and prepends the prefix", () => {
     const { unmount } = render(<GaugeChart data={[{ value: 20.05 }]} />);
     expect(series().detail.formatter(20.05)).toBe("20.1");
     unmount();
     mockSetOption.mockClear();
-    render(<GaugeChart data={[{ value: 20.05 }]} unit="%" />);
+    render(<GaugeChart data={[{ value: 20.05 }]} suffix="%" />);
     expect(series().detail.formatter(20.05)).toBe("20.1%");
+    unmount();
+    mockSetOption.mockClear();
+    render(<GaugeChart data={[{ value: 20.05 }]} prefix="$" />);
+    expect(series().detail.formatter(20.05)).toBe("$20.1");
+  });
+
+  it("draws the mock's half circle by default (#2228)", () => {
+    render(<GaugeChart data={sampleData} />);
+    const s = series();
+    expect(s).toMatchObject({
+      startAngle: 180,
+      endAngle: 0,
+      radius: "100%",
+      center: ["50%", "78%"],
+    });
+    expect(s.detail).toMatchObject({ fontSize: 32, offsetCenter: [0, "-22%"] });
+    expect(s.title.offsetCenter).toEqual([0, "2%"]);
+    expect(s.axisLabel.distance).toBe(-40);
+  });
+
+  it("keeps the end labels inside a square card", () => {
+    mockSize.width = 300;
+    mockSize.height = 300;
+    render(<GaugeChart data={sampleData} max={1000000} />);
+    // labels sit 20px outside the arc, up to ~30px wide
+    expect(300 / 2 - series().radius).toBeGreaterThanOrEqual(50);
+  });
+
+  it("keeps the angles a gauge saved", () => {
+    render(<GaugeChart data={sampleData} startAngle={225} endAngle={-45} />);
+    expect(series()).toMatchObject({ startAngle: 225, endAngle: -45 });
   });
 
   it("draws a 12px arc on a visible track", () => {
@@ -135,7 +166,7 @@ describe("GaugeChart", () => {
 
   it("formats the tooltip and the aria label like the face", () => {
     const { container } = render(
-      <GaugeChart data={[{ value: 20.05, name: "Score" }]} unit="%" />,
+      <GaugeChart data={[{ value: 20.05, name: "Score" }]} suffix="%" />,
     );
     const { tooltip } = mockSetOption.mock.calls[0][0];
     expect(tooltip.formatter({ name: "Score", value: 20.05 })).toBe(

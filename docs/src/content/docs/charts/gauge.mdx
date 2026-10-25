@@ -39,9 +39,10 @@ FROM orders
 | Max Value | `100` | Maximum value on the scale |
 | Show Progress Arc | `true` | Fill the arc to show progress |
 | Show Value Detail | `true` | Show the numeric value and name |
-| Start Angle | `225` | Arc start angle (degrees) |
-| End Angle | `-45` | Arc end angle (degrees) |
-| Unit | — | Printed after the value, e.g. `%`. The value reads to one decimal (20.05 shows as 20.1) |
+| Start Angle | `180` | Arc start angle (degrees); `180` and `0` draw a half circle |
+| End Angle | `0` | Arc end angle (degrees) |
+| Prefix | — | Text before the value, e.g. `$` |
+| Suffix | — | Text after the value, e.g. `%`. The value reads to one decimal (20.05 shows as 20.1) |
 | Threshold Zones | — | JSON zones: `[{"value":50,"color":"#ff0000"}]`. Each zone end is drawn as a tick on the track |
 
 ## Features

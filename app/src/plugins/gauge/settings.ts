@@ -9,9 +9,10 @@ export const gaugeSettingsSchema = z
     max: z.coerce.number().default(100),
     showProgress: z.boolean().default(true),
     showDetail: z.boolean().default(true),
-    startAngle: z.coerce.number().default(225),
-    endAngle: z.coerce.number().default(-45),
-    unit: z.string().optional(),
+    startAngle: z.coerce.number().default(180),
+    endAngle: z.coerce.number().default(0),
+    prefix: z.string().optional(),
+    suffix: z.string().optional(),
     colorPalette: z.string().optional(),
     colorblindMode: z.boolean().default(false),
     // JSON array of {value, color} bands, parsed by the chart. Declared here
