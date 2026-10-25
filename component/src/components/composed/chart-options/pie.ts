@@ -77,6 +77,6 @@ export const pieOptions: ChartOptionDef[] = [
     default: "",
     category: "Labels",
     description:
-      "Custom text in the donut center. Leave blank to show the total.",
+      "Label shown under the total in the center. Leave blank to show the total alone.",
   },
 ];

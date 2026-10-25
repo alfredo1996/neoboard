@@ -15,7 +15,9 @@ import {
 } from "./chart-utils";
 import type { StylingRule } from "./styling-rule";
 import { LABEL_MUTED } from "./theme";
-import { humanizeParamName } from "@/lib/humanize-param-name";
+
+/** Up to this many slices every label fits, so the legend stays off. */
+const MAX_LABELLED_SLICES = 6;
 
 /** The subset of ECharts' pie label/tooltip params this chart formats (#1248). */
 interface PieLabelParams {
@@ -98,15 +100,20 @@ function PieChart({
     if (!data.length) return buildEmptyDataOption(dark);
 
     const effectiveShowLabel = compact ? false : showLabel;
-    // The legend follows the author's toggle: labelLayout.hideOverlap can
-    // drop crowded slice labels, so labels alone cannot be trusted to name
-    // every slice (#2227).
-    const effectiveShowLegend = hideLegend ? false : showLegend;
-
     const sorted = sortSlices
       ? [...data].sort((a, b) => b.value - a.value)
       : data;
     const sortedData = groupTopN(sorted, topN);
+    // Labels name every slice up to 6, so the legend is redundant there; past
+    // that labelLayout.hideOverlap drops some and the legend takes over. An
+    // author who turned the legend off keeps it off (#2227).
+    const labelsNameSlices =
+      effectiveShowLabel &&
+      labelPosition !== "center" &&
+      sortedData.length <= MAX_LABELLED_SLICES;
+    const effectiveShowLegend = hideLegend
+      ? false
+      : showLegend && !labelsNameSlices;
 
     const coloredData = highlight(
       sortedData.map((d) => {
@@ -140,13 +147,12 @@ function PieChart({
         ? `${p.name} ${fmtPercent(p.percent)}`
         : `${p.name} ${fmtValue(p.value, "label")}`;
 
-    // Auto-total gets separators; an explicit donutCenterText is user copy and
-    // is left exactly as given (#1248). With the value column's name the centre
-    // says what it counts: "2,000" over "order count" (#2227).
+    // The centre is the total, with the author's donutCenterText under it as
+    // its label; the text is user copy and is left exactly as given (#1248,
+    // #2227).
     const total = fmtValue(sortedData.reduce((s, d) => s + d.value, 0));
-    const unit = sortedData[0]?.valueLabel;
-    const centreText = unit
-      ? `{a|${total}}\n{b|${humanizeParamName(unit).toLowerCase()}}`
+    const centreText = donutCenterText
+      ? `{a|${total}}\n{b|${donutCenterText}}`
       : total;
 
     return {
@@ -227,7 +233,7 @@ function PieChart({
                 left: "center",
                 top: effectiveShowLegend ? "42%" : "middle",
                 style: {
-                  text: donutCenterText || centreText,
+                  text: centreText,
                   align: "center",
                   fontSize: 20,
                   fontWeight: "bold",

@@ -80,10 +80,11 @@ export const EmptyState: Story = {
   },
 };
 
-/** #2227: slice labels carry the share, the centre says what it counts. */
+/** #2227: slice labels carry the share; the centre is the total with the author's label under it. */
 export const DonutCountsOrders: Story = {
   args: {
     donut: true,
+    donutCenterText: "orders",
     data: [
       ["refunded", 412],
       ["shipped", 404],
@@ -93,7 +94,17 @@ export const DonutCountsOrders: Story = {
     ].map(([name, value]) => ({
       name: String(name),
       value: Number(value),
-      valueLabel: "orders",
+    })),
+  },
+};
+
+/** #2227: past 6 slices the legend returns, since overlapping labels get hidden. */
+export const DonutCrowded: Story = {
+  args: {
+    donut: true,
+    data: Array.from({ length: 9 }, (_, i) => ({
+      name: `Region ${i + 1}`,
+      value: 900 - i * 80,
     })),
   },
 };

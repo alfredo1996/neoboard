@@ -81,8 +81,6 @@ export interface BarChartDataPoint {
 export interface PieChartDataPoint {
   name: string;
   value: number;
-  /** The value column's name; a donut's centre says what it counts (#2227). */
-  valueLabel?: string;
 }
 
 export interface GraphNode {

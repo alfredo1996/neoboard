@@ -16,15 +16,11 @@ describe("transformToPieData", () => {
     expect(result[0]).toMatchObject({ name: "Apples", value: 30 });
   });
 
-  it("carries the value column's name, so a donut can say what it counts (#2227)", () => {
-    const data = [{ a: "Cat", order_count: 10, c: 20 }];
-    const unmapped = transformToPieData(data) as Array<{ valueLabel: string }>;
-    expect(unmapped[0].valueLabel).toBe("order_count");
-    const mapped = transformToPieData(data, {
-      xAxis: "a",
-      yAxis: ["c"],
-    }) as Array<{ valueLabel: string }>;
-    expect(mapped[0].valueLabel).toBe("c");
+  it("carries no column name into the rows (#2227)", () => {
+    const data = [{ a: "Cat", order_count: 10 }];
+    expect((transformToPieData(data) as object[])[0]).not.toHaveProperty(
+      "valueLabel",
+    );
   });
 
   it("returns empty array for empty input", () => {

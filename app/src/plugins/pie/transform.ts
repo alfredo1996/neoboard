@@ -34,7 +34,6 @@ export function transformToPieData(
     properties: r,
     name: String(normalizeValue(r[nameKey]) ?? ""),
     value: Number(r[valueKey]) || 0,
-    valueLabel: valueKey,
   }));
 }
 

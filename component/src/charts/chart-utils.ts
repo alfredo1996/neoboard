@@ -1008,7 +1008,7 @@ export function groupTopN(
 
 /**
  * Time-axis tick labels (#2227), by the tick's own time unit: hours and below
- * read `HH:mm`, days `MMM d`, months and years the month with the year added
+ * read hours and minutes, days `MMM d`, months and years the month with the year added
  * once, on the first drawn tick of each year. Ticks are often quarterly, so
  * the year keys on changing, not on January. ECharts also formats, but never
  * draws, a tick at the data's first and last date; those are day-level, so
@@ -1025,7 +1025,7 @@ export function buildTimeAxisLabelFormatter() {
     const d = new Date(value);
     const unit = extra?.time?.upperTimeUnit;
     if (unit === "millisecond" || unit === "second") {
-      // Sub-minute ticks differ only in seconds, so HH:mm would repeat.
+      // Sub-minute ticks differ only in seconds, so an hours-and-minutes tick would repeat.
       const hms = d.toLocaleTimeString("en-GB");
       return unit === "second"
         ? hms
