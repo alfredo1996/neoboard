@@ -25,9 +25,7 @@ import {
   type RegionIndex,
 } from "./choropleth-regions";
 import {
-  buildSequentialRamp,
-  invertLightness,
-  CHOROPLETH_SEQ,
+  rampFor,
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "./choropleth-ramp";
@@ -78,23 +76,6 @@ function toSeriesData(rows: ChoroplethDataItem[]) {
     // boundary keeps the exported prop type a plain domain type (#1655).
     value: d.value ?? ("-" as const),
   }));
-}
-
-/** The legend/ramp colours: the themed citrine ramp, or the user's two ends. */
-function rampFor(dark: boolean, minColor: string, maxColor: string): string[] {
-  if (
-    minColor === CHOROPLETH_DEFAULT_MIN_COLOR &&
-    maxColor === CHOROPLETH_DEFAULT_MAX_COLOR
-  ) {
-    return [...CHOROPLETH_SEQ[dark ? "dark" : "light"]];
-  }
-  return dark
-    ? buildSequentialRamp(
-        invertLightness(minColor),
-        invertLightness(maxColor),
-        5,
-      )
-    : buildSequentialRamp(minColor, maxColor, 5);
 }
 
 function ChoroplethChart({
@@ -193,14 +174,14 @@ function ChoroplethChart({
       // Always emitted: the visualMap is what maps values to colours, so
       // "Show Legend" toggles only its visibility (#1402).
       visualMap: {
-        type: "piecewise" as const,
+        type: "continuous" as const,
         show: showVisualMap,
-        right: 16,
-        top: 16,
-        orient: "vertical",
-        splitNumber: 5,
+        left: 8,
+        bottom: 4,
+        orient: "horizontal",
         min: minVal,
         max: maxVal,
+        calculable: false,
         inRange: {
           // Interpolated end-to-end so every band lies on the ramp between
           // the configured colours — see buildSequentialRamp (#1404). Dark
@@ -208,14 +189,14 @@ function ChoroplethChart({
           // most prominent against the canvas (#1402).
           color: rampFor(dark, minColor, maxColor),
         },
-        textStyle: { fontSize: 10 },
-        itemWidth: 12,
-        itemHeight: 12,
-        itemGap: 4,
-        formatter: ((a: number, b: number) =>
-          Math.round(a).toLocaleString() +
-          " \u2013 " +
-          Math.round(b).toLocaleString()) as never,
+        // The two end values, high first, as in the approved chart mock.
+        text: [
+          Math.round(maxVal).toLocaleString(),
+          Math.round(minVal).toLocaleString(),
+        ],
+        textStyle: { fontSize: 11 },
+        itemWidth: 8,
+        itemHeight: 110,
       },
       series: [
         {
@@ -225,9 +206,13 @@ function ChoroplethChart({
           scaleLimit: { min: 1, max: 20 },
           projection: equalEarth,
           top: 4,
-          bottom: 4,
+          // Room for the legend strip under the map (#2230).
+          bottom: showVisualMap ? 28 : 4,
           left: 4,
           right: 4,
+          // Without this the four insets stretch Equal Earth to the widget's
+          // shape (1.64:1 instead of its true 2.05:1).
+          preserveAspect: "contain",
           select: { disabled: true },
           label: {
             show: showLabels,
@@ -280,25 +265,34 @@ function ChoroplethChart({
     dark,
   ]);
 
+  const names = unmatched.map((r) => r.name).join(", ");
   return (
-    <div className="relative h-full w-full">
-      <BaseChart
-        options={options}
-        ariaDescription={
-          ariaDescription ?? `Choropleth map with ${data.length} regions`
+    <div className="flex h-full w-full flex-col">
+      <div className="relative min-h-0 flex-1">
+        <BaseChart
+          options={options}
+          ariaDescription={
+            ariaDescription ?? `Choropleth map with ${data.length} regions`
+          }
+          {...rest}
+        />
+      </div>
+      {/* Always mounted so assistive tech sees the text change; it sits below
+          the map, not over its shapes, and wraps instead of truncating. */}
+      <div
+        role="status"
+        className={
+          unmatched.length > 0
+            ? "line-clamp-2 shrink-0 px-2 py-1 text-xs text-muted-foreground focus:line-clamp-none focus:max-h-24 focus:overflow-auto"
+            : "sr-only"
         }
-        {...rest}
-      />
-      {unmatched.length > 0 && (
-        <div
-          role="status"
-          className="absolute bottom-2 right-2 z-10 max-w-[60%] truncate rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground"
-          title={unmatched.map((r) => r.name).join(", ")}
-        >
-          {unmatched.length} {unmatched.length === 1 ? "row" : "rows"} not
-          matched to a country: {unmatched.map((r) => r.name).join(", ")}
-        </div>
-      )}
+        title={names}
+        // Focusable (keyboard and tap) so the clamped list can be read in full.
+        tabIndex={unmatched.length > 0 ? 0 : undefined}
+      >
+        {unmatched.length > 0 &&
+          `${unmatched.length} ${unmatched.length === 1 ? "row" : "rows"} not matched to a country: ${names}`}
+      </div>
     </div>
   );
 }

@@ -45,6 +45,13 @@ const ALIASES: Record<string, string> = {
   turkiye: "Turkey",
   türkiye: "Turkey",
   "east timor": "Timor-Leste",
+  "czech rep.": "Czechia",
+  xkx: "Kosovo",
+  kos: "Kosovo",
+  "viet nam": "Vietnam",
+  "cote d'ivoire": "Côte d'Ivoire",
+  uae: "United Arab Emirates",
+  drc: "Dem. Rep. Congo",
 };
 
 export interface RegionIndex {

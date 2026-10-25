@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   buildSequentialRamp,
   invertLightness,
+  rampFor,
+  CHOROPLETH_SEQ,
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "../choropleth-ramp";
@@ -195,5 +197,53 @@ describe("invertLightness (#1402)", () => {
       expect(light[i], `light stop ${i}`).toBeLessThan(light[i - 1]);
       expect(dark[i], `dark stop ${i}`).toBeGreaterThan(dark[i - 1]);
     }
+  });
+});
+
+describe("rampFor (#2230)", () => {
+  const LIGHT = [...CHOROPLETH_SEQ.light];
+  const DARK = [...CHOROPLETH_SEQ.dark];
+
+  // Widgets saved before the citrine ramp carry the YlOrBr or Blues pair in
+  // their settings; left as "custom" they would paint the old ramp.
+  it.each([
+    [
+      "citrine ends",
+      CHOROPLETH_DEFAULT_MIN_COLOR,
+      CHOROPLETH_DEFAULT_MAX_COLOR,
+    ],
+    ["legacy YlOrBr", "#fff7d6", "#993404"],
+    ["legacy Blues", "#e8f4f8", "#08306b"],
+    ["legacy Blues, upper case", "#E8F4F8", "#08306B"],
+    [
+      "citrine ends, lower case",
+      CHOROPLETH_DEFAULT_MIN_COLOR.toLowerCase(),
+      CHOROPLETH_DEFAULT_MAX_COLOR.toLowerCase(),
+    ],
+  ])("%s paint the themed ramp", (_n, min, max) => {
+    expect(rampFor(false, min, max)).toEqual(LIGHT);
+    expect(rampFor(true, min, max)).toEqual(DARK);
+  });
+
+  it("builds a custom pair end to end in light mode", () => {
+    expect(rampFor(false, "#ffffff", "#ff0000")).toEqual(
+      buildSequentialRamp("#ffffff", "#ff0000", 5),
+    );
+  });
+
+  it("inverts a custom pair's lightness in dark mode", () => {
+    expect(rampFor(true, "#ffffff", "#b91c1c")).toEqual(
+      buildSequentialRamp(
+        invertLightness("#ffffff"),
+        invertLightness("#b91c1c"),
+        5,
+      ),
+    );
+  });
+
+  it("one legacy end alone is a custom pair", () => {
+    expect(rampFor(false, "#fff7d6", "#ff0000")).toEqual(
+      buildSequentialRamp("#fff7d6", "#ff0000", 5),
+    );
   });
 });

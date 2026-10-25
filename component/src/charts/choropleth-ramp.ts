@@ -93,3 +93,42 @@ export function invertLightness(hex: string): string {
   const [r, g, b] = out.map(toByte);
   return toHex(r, g, b);
 }
+
+// Ends that earlier versions saved into widgets as the "default": YlOrBr (the
+// editor default before #2230) and ColorBrewer Blues (the demo seeds).
+const LEGACY_DEFAULT_ENDS = [
+  ["#fff7d6", "#993404"],
+  ["#e8f4f8", "#08306b"],
+];
+
+const isDefaultEnds = (min: string, max: string) =>
+  [
+    [CHOROPLETH_DEFAULT_MIN_COLOR, CHOROPLETH_DEFAULT_MAX_COLOR],
+    ...LEGACY_DEFAULT_ENDS,
+  ].some(
+    ([a, b]) =>
+      a.toLowerCase() === min.toLowerCase() &&
+      b.toLowerCase() === max.toLowerCase(),
+  );
+
+/**
+ * The legend/ramp colours: the themed citrine ramp when the ends are a default
+ * (current or legacy, any case), otherwise the user's two ends, lightness
+ * inverted in dark mode so the highest value stays the most prominent (#1402).
+ */
+export function rampFor(
+  dark: boolean,
+  minColor: string,
+  maxColor: string,
+): string[] {
+  if (isDefaultEnds(minColor, maxColor)) {
+    return [...CHOROPLETH_SEQ[dark ? "dark" : "light"]];
+  }
+  return dark
+    ? buildSequentialRamp(
+        invertLightness(minColor),
+        invertLightness(maxColor),
+        5,
+      )
+    : buildSequentialRamp(minColor, maxColor, 5);
+}

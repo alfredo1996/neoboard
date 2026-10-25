@@ -1,3 +1,7 @@
+import {
+  CHOROPLETH_DEFAULT_MIN_COLOR,
+  CHOROPLETH_DEFAULT_MAX_COLOR,
+} from "@/charts/choropleth-ramp";
 import { type ChartOptionDef, SHARED_SHOW_LABELS } from "./shared";
 
 export const choroplethOptions: ChartOptionDef[] = [
@@ -26,7 +30,7 @@ export const choroplethOptions: ChartOptionDef[] = [
     key: "minColor",
     label: "Min Color",
     type: "text",
-    default: "#fff7d6",
+    default: CHOROPLETH_DEFAULT_MIN_COLOR,
     category: "Style",
     description: "Color for the lowest value. Dark mode inverts its lightness.",
   },
@@ -34,7 +38,7 @@ export const choroplethOptions: ChartOptionDef[] = [
     key: "maxColor",
     label: "Max Color",
     type: "text",
-    default: "#993404",
+    default: CHOROPLETH_DEFAULT_MAX_COLOR,
     category: "Style",
     description:
       "Color for the highest value. Dark mode inverts its lightness.",

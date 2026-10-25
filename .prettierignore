@@ -11,6 +11,10 @@ component/src/hooks/use-toast.ts
 # SonarCloud coverage for the same reason it is excluded from linting.
 component/src/lib/cypher-lang/
 
+# Minified Natural Earth data (NOTICE.md). Prettier would expand it to 360 KB
+# and 43k diff lines, and its byte size is recorded there.
+component/src/charts/world.geo.json
+
 # Build output.
 **/dist
 **/.next

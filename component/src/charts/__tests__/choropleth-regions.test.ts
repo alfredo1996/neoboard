@@ -28,6 +28,13 @@ describe("choropleth regions (#2230)", () => {
     ["Czech Republic", "Czechia"],
     ["Bosnia and Herzegovina", "Bosnia and Herz."],
     ["  Japan ", "Japan"],
+    ["Czech Rep.", "Czechia"],
+    ["XKX", "Kosovo"], // Kosovo has no ISO alpha-3 in Natural Earth
+    ["KOS", "Kosovo"],
+    ["Viet Nam", "Vietnam"],
+    ["Cote d'Ivoire", "Côte d'Ivoire"],
+    ["UAE", "United Arab Emirates"],
+    ["DRC", "Dem. Rep. Congo"],
   ])("resolves %s to %s", (row, expected) => {
     const { matched, unmatched } = matchRegions(
       [{ name: row, value: 1 }],

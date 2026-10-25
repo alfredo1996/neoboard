@@ -393,8 +393,10 @@ export const UnmatchedRows: Story = {
     ],
   },
   play: async ({ canvasElement }) => {
-    const note = await within(canvasElement).findByRole("status");
-    expect(note).toHaveTextContent("2 rows not matched to a country");
+    const note = within(canvasElement).getByRole("status");
+    await waitFor(() =>
+      expect(note).toHaveTextContent("2 rows not matched to a country"),
+    );
     expect(note).toHaveTextContent("Narnia");
   },
 };

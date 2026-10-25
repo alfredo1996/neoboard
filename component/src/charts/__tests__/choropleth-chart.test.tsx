@@ -30,6 +30,7 @@ vi.mock("echarts/core", () => {
 });
 
 import { ChoroplethChart } from "../choropleth-chart";
+import { getDefaultChartSettings } from "@/components/composed/chart-options";
 
 const data = [
   { name: "United States", value: 100 },
@@ -219,7 +220,10 @@ describe("Natural Earth, Equal Earth and unmatched rows (#2230)", () => {
         ]}
       />,
     );
-    const note = await screen.findByRole("status", {}, { timeout: 15_000 });
+    const note = screen.getByRole("status");
+    await waitFor(() => expect(note).toHaveTextContent("not matched"), {
+      timeout: 15_000,
+    });
     expect(note).toHaveTextContent("2 rows not matched to a country");
     expect(note).toHaveTextContent("Narnia");
     expect(note).toHaveTextContent("Atlantis");
@@ -230,6 +234,104 @@ describe("Natural Earth, Equal Earth and unmatched rows (#2230)", () => {
     await waitFor(() => expect(lastOptionWith("series")).toBeDefined(), {
       timeout: 15_000,
     });
-    expect(screen.queryByRole("status")).toBeNull();
+    // The live region stays mounted (empty) so a later note is announced.
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
   }, 20_000);
+
+  it("keeps the note out of the map, wrapped to two lines and focusable for the full list", async () => {
+    render(<ChoroplethChart data={[{ name: "Narnia", value: 2 }]} />);
+    const note = await screen.findByText(
+      /not matched/,
+      {},
+      { timeout: 15_000 },
+    );
+    expect(note).toHaveClass("line-clamp-2");
+    expect(note).not.toHaveClass("absolute");
+    expect(note).toHaveAttribute("tabindex", "0");
+    expect(note.contains(screen.getByTestId("base-chart"))).toBe(false);
+  }, 20_000);
+
+  it("mounts the live region before any row is unmatched", () => {
+    render(<ChoroplethChart data={data} />);
+    expect(screen.getByRole("status")).toBeInTheDocument();
+  });
+
+  it("draws the legend as the mock does: continuous, horizontal, bottom left, two end values", async () => {
+    render(<ChoroplethChart data={data} />);
+    await waitFor(
+      () => {
+        const { visualMap } = lastOptionWith("series");
+        expect(visualMap).toMatchObject({
+          type: "continuous",
+          orient: "horizontal",
+          left: 8,
+          bottom: 4,
+          text: ["100", "80"],
+        });
+      },
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+});
+
+describe("editor defaults paint the citrine ramp (#2230)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("a widget created with getDefaultChartSettings gets the themed ramp", async () => {
+    const { minColor, maxColor } = getDefaultChartSettings("choropleth") as {
+      minColor: string;
+      maxColor: string;
+    };
+    render(
+      <ChoroplethChart data={data} minColor={minColor} maxColor={maxColor} />,
+    );
+    await waitFor(
+      () =>
+        expect(lastOptionWith("series").visualMap.inRange.color).toEqual([
+          ...LIGHT_RAMP,
+        ]),
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+});
+
+describe("Equal Earth keeps its shape in any box (#2230)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // Four insets without preserveAspect stretch the map to the widget: 1.64
+  // on a 900x560 card against Equal Earth's true 2.05. Runs the chart's own
+  // series option through real ECharts.
+  it("projects at about 2.05:1 in a box that is not 2:1", async () => {
+    render(<ChoroplethChart data={data} />);
+    await waitFor(() => expect(lastOptionWith("series")).toBeDefined(), {
+      timeout: 15_000,
+    });
+    const real = await vi.importActual<typeof import("echarts")>("echarts");
+    const geo = (await import("../world.geo.json")).default;
+    real.registerMap("world", geo as never);
+    const chart = real.init(null, null, {
+      renderer: "svg",
+      ssr: true,
+      width: 900,
+      height: 560,
+    });
+    chart.setOption({ series: [lastOptionWith("series").series[0]] });
+    const cs = (
+      chart as unknown as {
+        getModel(): {
+          getSeriesByIndex(i: number): {
+            coordinateSystem: { dataToPoint(p: number[]): number[] };
+          };
+        };
+      }
+    )
+      .getModel()
+      .getSeriesByIndex(0).coordinateSystem;
+    const [west] = cs.dataToPoint([-180, 0]);
+    const [east] = cs.dataToPoint([180, 0]);
+    const [, north] = cs.dataToPoint([0, 90]);
+    const [, south] = cs.dataToPoint([0, -90]);
+    expect((east - west) / (south - north)).toBeCloseTo(2.054, 1);
+    chart.dispose();
+  }, 30_000);
 });

@@ -510,7 +510,14 @@ describe("the site's chart counts match the registry (#1687, #1782)", () => {
       ...readFileSync(join(ROOT, file), "utf8").matchAll(/^\s+"([\w-]+)",?$/gm),
     ].map((m) => m[1]);
   const registered = quoted("app/src/plugins/chart-types.ts");
-  const disabled = quoted("app/src/plugins/disabled-chart-types.ts");
+  // Prettier may fold the Set onto one line, so read every quoted id after `new Set(`.
+  const disabled = [
+    ...(
+      readFileSync(join(ROOT, "app/src/plugins/disabled-chart-types.ts"), "utf8").split(
+        "new Set(",
+      )[1] ?? ""
+    ).matchAll(/"([\w-]+)"/g),
+  ].map((m) => m[1]);
   const selectable = registered.filter((t) => !disabled.includes(t));
   const COUNT = /\b(\d+) (?:built-in )?chart types\b/g;
   const claims = (re) =>

@@ -8,7 +8,7 @@ Used only by the choropleth chart (`component/src/charts/choropleth-chart.tsx`),
 
 **Licence:** public domain. Natural Earth states that its data is "in the public domain" and may be used without permission or attribution (<https://www.naturalearthdata.com/about/terms-of-use/>). Attribution is courteous, not required.
 
-**Changes made here:** 200 features kept (838,726 bytes before, 176,727 after). Only `name` (Natural Earth `NAME`), `iso2` (`ISO_A2_EH`, falling back to `ISO_A2`), `iso3` (`ISO_A3_EH`, falling back to `ISO_A3`) and `long` (`NAME_LONG`, when it differs from `NAME`) are kept as properties, and coordinates are rounded to two decimals (about 1 km). Natural Earth marks the codes of France, Norway and Kosovo `-99` in `ISO_A2`/`ISO_A3`; the `_EH` fields carry the real ones. Northern Cyprus and Somaliland have no ISO code and match by name only.
+**Changes made here:** 177 features kept (838,726 bytes before, 176,724 after, minified). Only `name` (Natural Earth `NAME`), `iso2` (`ISO_A2_EH`, falling back to `ISO_A2`), `iso3` (`ISO_A3_EH`, falling back to `ISO_A3`) and `long` (`NAME_LONG`, when it differs from `NAME`) are kept as properties, and coordinates are rounded to two decimals (about 1 km). Natural Earth marks the codes of France, Norway and Kosovo `-99` in `ISO_A2`/`ISO_A3`; the `_EH` fields carry the real ones. Northern Cyprus and Somaliland have no ISO code and match by name only.
 
 This replaces an earlier file of unrecorded origin and licence (217 features, commit `fa663a79`, #613).
 

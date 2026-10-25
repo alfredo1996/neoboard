@@ -564,9 +564,7 @@
               "chartOptions": {
                 "showLabels": false,
                 "showVisualMap": true,
-                "roam": true,
-                "minColor": "#e8f4f8",
-                "maxColor": "#08306b"
+                "roam": true
               }
             }
           }
