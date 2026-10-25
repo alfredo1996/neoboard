@@ -160,12 +160,13 @@ function ChoroplethChart({
         formatter: (params: unknown) => {
           const p = params as { name: string; value: unknown };
           const val = p.value;
+          const name = echarts.format.encodeHTML(p.name);
           if (val == null || (typeof val === "number" && isNaN(val))) {
-            return p.name;
+            return name;
           }
           return (
             "<strong>" +
-            echarts.format.encodeHTML(p.name) +
+            name +
             "</strong><br/>" +
             formatNumber(Number(val), { context: "tooltip" })
           );
@@ -191,8 +192,8 @@ function ChoroplethChart({
         },
         // The two end values, high first, as in the approved chart mock.
         text: [
-          Math.round(maxVal).toLocaleString(),
-          Math.round(minVal).toLocaleString(),
+          formatNumber(maxVal, { context: "tooltip" }),
+          formatNumber(minVal, { context: "tooltip" }),
         ],
         textStyle: { fontSize: 11 },
         itemWidth: 8,

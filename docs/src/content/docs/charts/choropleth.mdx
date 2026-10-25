@@ -7,7 +7,7 @@ sidebar:
 
 ## Overview
 
-The Choropleth Map fills countries with colors based on data values, creating a heat map of the world. Use it for population, GDP, sales by country, or any country-level metric. It draws the countries of [Natural Earth](https://www.naturalearthdata.com/) (110m, public domain) in the Equal Earth projection, so areas are true to size. Countries without data take a muted fill.
+The Choropleth Map fills countries with colors based on data values, creating a heat map of the world. Use it for population, GDP, sales by country, or any country-level metric. It draws the countries of [Natural Earth](https://www.naturalearthdata.com/) (110m, public domain, with the small countries added from the 50m set) in the Equal Earth projection, so areas are true to size. Countries without data take a muted fill.
 
 ## Query Format
 
@@ -41,14 +41,14 @@ Natural Earth's own short and long names always match (`United States of America
 | `Dem. Rep. Korea` | North Korea |
 | `Czech Republic` | Czechia |
 
-A row that matches no country is **not dropped silently**: a note under the map says how many rows were not matched and lists them, so you can fix the spelling or send an ISO code. The 110m set holds the larger countries and territories, so a very small one (a micro-state) has no shape to colour and is reported the same way.
+A row that matches no country is **not dropped silently**: a note under the map says how many rows were not matched and lists them, so you can fix the spelling or send an ISO code. Small countries such as Singapore, Hong Kong, Malta and Andorra are added from Natural Earth 50m, so they colour like any other. A territory the data set does not draw is reported the same way.
 
 ## Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | Show Labels | `false` | Show country name labels on the map |
-| Show Legend | `true` | Show the piecewise color range legend |
+| Show Legend | `true` | Show the continuous color range legend |
 | Enable Zoom & Pan | `true` | Allow zooming (up to 20x) and panning |
 | Min Color | `#FBEBD0` | Color for the lowest value. Left at both defaults, the chart paints the five-step citrine ramp for the current theme |
 | Max Color | `#7A520C` | Color for the highest value. Other colors are interpolated between the two, and dark mode inverts their lightness |
@@ -56,7 +56,7 @@ A row that matches no country is **not dropped silently**: a note under the map 
 ## Features
 
 - **Zoom & pan** — scroll to zoom up to 20x, drag to pan
-- **Piecewise legend** — auto-calculated ranges with color squares (top-right)
+- **Continuous legend** — a horizontal color bar with the lowest and highest value at its ends (bottom left)
 - **Hover emphasis** — the hovered country keeps its data color, with an outline, a shadow and its name
 - **Dark tooltip** — formatted number with country name
 - **5-stop gradient** — smooth color transition across data range

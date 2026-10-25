@@ -19,13 +19,18 @@ vi.mock("echarts/core", () => {
   const registerTheme = vi.fn();
   const registerMap = vi.fn();
   const getMap = vi.fn(() => ({})); // truthy -> skip registerMap path
+  const format = {
+    encodeHTML: (v: string) =>
+      v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+  };
   return {
     use,
     init,
     registerTheme,
     registerMap,
     getMap,
-    default: { use, init, registerTheme, registerMap, getMap },
+    format,
+    default: { use, init, registerTheme, registerMap, getMap, format },
   };
 });
 
@@ -334,4 +339,85 @@ describe("Equal Earth keeps its shape in any box (#2230)", () => {
     expect((east - west) / (south - north)).toBeCloseTo(2.054, 1);
     chart.dispose();
   }, 30_000);
+
+  it.each([
+    [
+      [
+        { name: "France", value: 0.12 },
+        { name: "Spain", value: 0.87 },
+      ],
+      ["0.87", "0.12"],
+    ],
+    [
+      [
+        { name: "France", value: 1.4 },
+        { name: "Spain", value: 1.6 },
+      ],
+      ["1.6", "1.4"],
+    ],
+    [
+      [
+        { name: "United States", value: 1200 },
+        { name: "China", value: 80 },
+      ],
+      ["1,200", "80"],
+    ],
+  ])(
+    "keeps the fractions in the legend end values of %j",
+    async (rows, text) => {
+      render(<ChoroplethChart data={rows} />);
+      await waitFor(
+        () => expect(lastOptionWith("series")?.visualMap?.text).toEqual(text),
+        { timeout: 15_000 },
+      );
+    },
+    20_000,
+  );
+
+  it("one row with a null or inherited-key name does not take the chart down", async () => {
+    render(
+      <ChoroplethChart
+        data={
+          [
+            { name: null, value: 1 },
+            { name: "constructor", value: 2 },
+            { name: "China", value: 80 },
+          ] as never
+        }
+      />,
+    );
+    await waitFor(
+      () => expect(lastOptionWith("series")?.visualMap?.max).toBe(80),
+      { timeout: 15_000 },
+    );
+  }, 20_000);
+
+  it.each([
+    ["<img src=x onerror=alert(1)>", "&lt;img src=x onerror=alert(1)&gt;"],
+    ["France", "France"],
+  ])(
+    "escapes the name of a region with no value: %s (#2289)",
+    async (name, out) => {
+      render(
+        <ChoroplethChart
+          data={[
+            { name, value: null },
+            { name: "Spain", value: 5 },
+          ]}
+        />,
+      );
+      await waitFor(
+        () =>
+          expect(lastOptionWith("series")?.tooltip?.formatter).toBeTypeOf(
+            "function",
+          ),
+        { timeout: 15_000 },
+      );
+      const { formatter } = lastOptionWith("series").tooltip;
+      const html = formatter({ name, value: undefined });
+      expect(html).not.toContain("<img");
+      expect(html).toBe(out);
+    },
+    20_000,
+  );
 });

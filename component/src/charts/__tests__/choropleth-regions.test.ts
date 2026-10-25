@@ -58,6 +58,29 @@ describe("choropleth regions (#2230)", () => {
     expect(unmatched.map((r) => r.name)).toEqual(["Narnia", "Atlantis"]);
   });
 
+  // A bad name (null from a LEFT JOIN, a number, a key every object inherits)
+  // must neither throw nor match a country (CodeRabbit, #2230).
+  it.each([
+    [null],
+    [undefined],
+    [840], // ISO numeric codes are not indexed: unmatched, not a crash
+    ["840"],
+    ["constructor"],
+    ["__proto__"],
+    ["toString"],
+    ["hasOwnProperty"],
+    [""],
+    ["   "],
+  ])("leaves the name %j unmatched without throwing", (name) => {
+    const rows = [
+      { name, value: 1 },
+      { name: "IT", value: 2 },
+    ] as never;
+    const { matched, unmatched } = matchRegions(rows, index);
+    expect(matched).toEqual([{ name: "Italy", value: 2 }]);
+    expect(unmatched).toHaveLength(1);
+  });
+
   // The small countries Natural Earth 110m leaves out, added from 50m (#2230).
   it.each([
     ["Singapore", "SG", "SGP"],

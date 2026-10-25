@@ -76,13 +76,17 @@ export function buildRegionIndex(features: RegionFeature[]): RegionIndex {
   return index;
 }
 
-function resolveRegion(raw: string, index: RegionIndex): string | undefined {
-  const key = raw.trim().toLowerCase();
+function resolveRegion(raw: unknown, index: RegionIndex): string | undefined {
+  // A LEFT JOIN with no match gives null, a Cypher property can be a number.
+  if (raw === null || raw === undefined) return undefined;
+  const key = String(raw).trim().toLowerCase();
+  if (!key) return undefined;
+  const alias = Object.hasOwn(ALIASES, key) ? ALIASES[key] : "";
   const codes = { 2: index.byIso2, 3: index.byIso3 }[key.length];
   return (
     codes?.get(key) ??
     index.byName.get(key) ??
-    index.byName.get((ALIASES[key] ?? "").toLowerCase())
+    index.byName.get(alias.toLowerCase())
   );
 }
 

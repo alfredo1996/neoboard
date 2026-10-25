@@ -895,7 +895,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Choropleth Map\n\nWorld map shaded by value per country. Uses GeoJSON boundaries and a continuous color scale. Great for **geographic distributions** like revenue by country, user signups, or regional metrics.\n\n**Data shape:** query returns `name` (country name) and `value` (numeric) columns.\n\n**Options shown:** `showLabels: false`, `showVisualMap: true`, `roam: true` (scroll to zoom), custom min/max colors."
+                "content": "## Choropleth Map\n\nWorld map shaded by value per country. Uses GeoJSON boundaries and a continuous color scale. Great for **geographic distributions** like revenue by country, user signups, or regional metrics.\n\n**Data shape:** query returns `name` (country name) and `value` (numeric) columns.\n\n**Options shown:** `showLabels: false`, `showVisualMap: true`, `roam: true` (scroll to zoom), default citrine ramp."
               }
             }
           },
