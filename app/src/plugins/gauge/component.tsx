@@ -39,6 +39,8 @@ function GaugePluginComponent({
       endAngle={settings.endAngle}
       colorPalette={settings.colorPalette}
       thresholdZones={settings.thresholdZones}
+      prefix={settings.prefix}
+      suffix={settings.suffix}
       stylingRules={stylingRules as StylingRule[] | undefined}
       paramValues={paramValues}
       colorblindMode={settings.colorblindMode}

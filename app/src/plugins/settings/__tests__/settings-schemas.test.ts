@@ -206,8 +206,8 @@ describe("gaugeSettingsSchema", () => {
     expect(result.max).toBe(100);
     expect(result.showProgress).toBe(true);
     expect(result.showDetail).toBe(true);
-    expect(result.startAngle).toBe(225);
-    expect(result.endAngle).toBe(-45);
+    expect(result.startAngle).toBe(180);
+    expect(result.endAngle).toBe(0);
   });
 
   it("coerces string numbers", () => {

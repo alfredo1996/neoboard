@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GaugeChart } from "../gauge-chart";
+import { TODAY_LINE_COLOR, TRACK_COLOR } from "../theme";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
@@ -86,10 +87,147 @@ describe("GaugeChart", () => {
     expect(optionsCall.series[0].splitLine.show).toBe(false);
   });
 
-  it("hides axisLabel in minimal design", () => {
+  // #2228
+  const series = () => mockSetOption.mock.calls[0][0].series[0];
+
+  it("prints min and max at the ends of the arc", () => {
+    render(<GaugeChart data={sampleData} min={0} max={8000} />);
+    const { axisLabel, splitNumber } = series();
+    expect(axisLabel.show).toBe(true);
+    expect(splitNumber).toBe(1);
+    expect([axisLabel.formatter(0), axisLabel.formatter(8000)]).toEqual([
+      "0",
+      "8,000",
+    ]);
+  });
+
+  it("rounds to one decimal and appends the suffix and prepends the prefix", () => {
+    const { unmount } = render(<GaugeChart data={[{ value: 20.05 }]} />);
+    expect(series().detail.formatter(20.05)).toBe("20.1");
+    unmount();
+    mockSetOption.mockClear();
+    render(<GaugeChart data={[{ value: 20.05 }]} suffix="%" />);
+    expect(series().detail.formatter(20.05)).toBe("20.1%");
+    unmount();
+    mockSetOption.mockClear();
+    render(<GaugeChart data={[{ value: 20.05 }]} prefix="$" />);
+    expect(series().detail.formatter(20.05)).toBe("$20.1");
+  });
+
+  it("draws the mock's half circle by default (#2228)", () => {
     render(<GaugeChart data={sampleData} />);
-    const optionsCall = mockSetOption.mock.calls[0][0];
-    expect(optionsCall.series[0].axisLabel.show).toBe(false);
+    const s = series();
+    expect(s).toMatchObject({
+      startAngle: 180,
+      endAngle: 0,
+      radius: "100%",
+      center: ["50%", "78%"],
+    });
+    expect(s.detail).toMatchObject({ fontSize: 32, offsetCenter: [0, "-22%"] });
+    expect(s.title.offsetCenter).toEqual([0, "2%"]);
+    expect(s.axisLabel.distance).toBe(-40);
+  });
+
+  it("keeps the end labels inside a square card", () => {
+    mockSize.width = 300;
+    mockSize.height = 300;
+    render(<GaugeChart data={sampleData} max={1000000} />);
+    // labels sit 20px outside the arc, up to ~30px wide
+    expect(300 / 2 - series().radius).toBeGreaterThanOrEqual(50);
+  });
+
+  it("centres a saved 225/-45 gauge so its arc stays inside the card", () => {
+    render(<GaugeChart data={sampleData} startAngle={225} endAngle={-45} />);
+    const [main, ...rest] = mockSetOption.mock.calls[0][0].series;
+    expect(main.center).toEqual(rest[0]?.center ?? main.center);
+    const cy = (Number.parseFloat(main.center[1]) / 100) * 300;
+    // 400x300 card, radius 100% = 150; the arc ends 45 degrees below the centre
+    expect(cy + 150 * Math.sin(Math.PI / 4)).toBeLessThanOrEqual(300);
+  });
+
+  it("escapes the name, prefix and suffix in the tooltip", () => {
+    const xss = "<img src=x onerror=alert(1)>";
+    render(
+      <GaugeChart data={[{ value: 5, name: xss }]} prefix={xss} suffix={xss} />,
+    );
+    const { tooltip } = mockSetOption.mock.calls[0][0];
+    const out = tooltip.formatter({ name: xss, value: 5 });
+    expect(out).not.toContain("<img");
+    expect(out).toContain("&lt;img");
+  });
+
+  it("keeps the angles a gauge saved", () => {
+    render(<GaugeChart data={sampleData} startAngle={225} endAngle={-45} />);
+    expect(series()).toMatchObject({ startAngle: 225, endAngle: -45 });
+  });
+
+  it("draws a 12px arc on a visible track", () => {
+    render(<GaugeChart data={sampleData} />);
+    expect(series().progress.width).toBe(12);
+    expect(series().axisLine.lineStyle.width).toBe(12);
+    const stops = series().axisLine.lineStyle.color;
+    expect(stops).toHaveLength(1);
+    expect(stops[0][1]).toBe("#EEF0F3");
+  });
+
+  it("turns threshold zones into ticks on the track, not coloured bands", () => {
+    const zones = JSON.stringify([
+      { value: 30, color: "#ff0000" },
+      { value: 100, color: "#00ff00" },
+    ]);
+    render(<GaugeChart data={sampleData} thresholdZones={zones} />);
+    const [track, ticks] = mockSetOption.mock.calls[0][0].series;
+    // the 30-100 zone is not painted: the track stays one visible colour
+    expect(track.axisLine.lineStyle.color).toEqual([[1, "#EEF0F3"]]);
+    const stops = ticks.axisLine.lineStyle.color as [number, string][];
+    expect(stops.find(([, c]) => c === "#ff0000")?.[0]).toBeCloseTo(0.3, 2);
+    expect(stops.some(([, c]) => c === "#00ff00")).toBe(false);
+  });
+
+  it("formats the tooltip and the aria label like the face", () => {
+    const { container } = render(
+      <GaugeChart data={[{ value: 20.05, name: "Score" }]} suffix="%" />,
+    );
+    const { tooltip } = mockSetOption.mock.calls[0][0];
+    expect(tooltip.formatter({ name: "Score", value: 20.05 })).toBe(
+      "Score: 20.1%",
+    );
+    expect(container.querySelector("[aria-label]")).toHaveAttribute(
+      "aria-label",
+      "Gauge showing 20.1% of 0 to 100",
+    );
+  });
+
+  it.each(["light", "dark"] as const)(
+    "takes the track and scale ink from the theme in %s",
+    (mode) => {
+      document.documentElement.classList.toggle("dark", mode === "dark");
+      try {
+        render(<GaugeChart data={sampleData} />);
+        const s = series();
+        expect(s.axisLabel.color).toBe(TODAY_LINE_COLOR[mode]);
+        expect(s.axisLine.lineStyle.color).toEqual([[1, TRACK_COLOR[mode]]]);
+        // the name takes the theme's ink-3, like the end labels
+        expect(s.title.color).toBeUndefined();
+      } finally {
+        document.documentElement.classList.remove("dark");
+      }
+    },
+  );
+
+  it("skips a tick within 0.8% of the last one, and draws none at max", () => {
+    const zones = JSON.stringify([
+      { value: 30, color: "#ff0000" },
+      { value: 30.5, color: "#00ff00" },
+      { value: 100, color: "#0000ff" },
+    ]);
+    render(<GaugeChart data={sampleData} thresholdZones={zones} />);
+    const ticks = mockSetOption.mock.calls[0][0].series[1].axisLine.lineStyle
+      .color as [number, string][];
+    const colors = ticks.map(([, c]) => c);
+    expect(colors).toContain("#ff0000");
+    expect(colors).not.toContain("#00ff00");
+    expect(colors).not.toContain("#0000ff");
   });
 
   it("shows progress arc with roundCap by default", () => {

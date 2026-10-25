@@ -148,6 +148,12 @@ export const TODAY_LINE_COLOR = {
   dark: "#959BA6",
 } as const;
 
+/** The gauge's empty arc (#2228). */
+export const TRACK_COLOR = {
+  light: "#EEF0F3",
+  dark: "#23272E",
+} as const;
+
 /**
  * Ink steps for chart marks and labels that sit on the card (#2231): ink 2
  * for nodes, ink 3 for the quiet half of a label. Hex, because canvas cannot

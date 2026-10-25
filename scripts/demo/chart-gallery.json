@@ -230,7 +230,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Single-value KPI\n\nHero number for a dashboard header — total revenue, active users, SLA percentage. Supports prefix/suffix and number formatting.\n\n**Options shown:** `prefix: $`, `numberFormat: compact`, `decimalPlaces: 1`, `fontSize: xl`."
+                "content": "## Single-value KPI\n\nHero number for a dashboard header — total revenue, active users, SLA percentage. Supports prefix/suffix and number formatting.\n\n**Options shown:** `prefix: $`, `numberFormat: compact` and `decimalPlaces: 1`."
               }
             }
           },
@@ -244,8 +244,7 @@
               "chartOptions": {
                 "prefix": "$",
                 "numberFormat": "compact",
-                "decimalPlaces": 1,
-                "fontSize": "xl"
+                "decimalPlaces": 1
               }
             }
           },
@@ -257,8 +256,7 @@
             "settings": {
               "title": "Total orders",
               "chartOptions": {
-                "numberFormat": "comma",
-                "fontSize": "xl"
+                "numberFormat": "comma"
               }
             }
           },
@@ -270,8 +268,7 @@
             "settings": {
               "title": "Active customers",
               "chartOptions": {
-                "numberFormat": "comma",
-                "fontSize": "xl"
+                "numberFormat": "comma"
               }
             }
           }
@@ -518,8 +515,7 @@
               "chartOptions": {
                 "prefix": "$",
                 "numberFormat": "compact",
-                "decimalPlaces": 1,
-                "fontSize": "xl"
+                "decimalPlaces": 1
               }
             }
           }
