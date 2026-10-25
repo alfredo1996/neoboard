@@ -63,9 +63,15 @@ describe("PieChart", () => {
     expect(optionsCall.series[0].label.show).toBe(false);
   });
 
-  it("hides the legend while slice labels are on, since they name each slice (#2227)", () => {
-    render(<PieChart data={sampleData} showLegend />);
-    expect(mockSetOption.mock.calls[0][0].legend).toBeUndefined();
+  it("keeps the legend with labels on, since hideOverlap can drop crowded slice labels (#2227)", () => {
+    const crowded = Array.from({ length: 40 }, (_, i) => ({
+      name: `S${i}`,
+      value: i + 1,
+    }));
+    render(<PieChart data={crowded} showLegend />);
+    const opt = mockSetOption.mock.calls[0][0];
+    expect(opt.series[0].labelLayout).toEqual({ hideOverlap: true });
+    expect(opt.legend).toBeDefined();
   });
 
   it("shows the legend when slice labels are off and the author asked for it", () => {
@@ -214,7 +220,7 @@ describe("PieChart", () => {
   });
 
   it("truncates long slice labels with a real ellipsis, and centres the total", () => {
-    render(<PieChart data={sampleData} donut />);
+    render(<PieChart data={sampleData} donut showLegend={false} />);
     const o = mockSetOption.mock.calls[0][0];
     expect(o.series[0].label).toMatchObject({
       overflow: "truncate",

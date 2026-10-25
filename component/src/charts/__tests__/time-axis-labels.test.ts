@@ -1,6 +1,16 @@
-import { describe, it, expect } from "vitest";
-import * as echarts from "echarts";
+import { describe, it, expect, vi } from "vitest";
+import * as echarts from "echarts/core";
+import { LineChart } from "echarts/charts";
+import { GridComponent } from "echarts/components";
+import { SVGRenderer } from "echarts/renderers";
 import { buildTimeAxisLabelFormatter } from "../chart-utils";
+
+// vitest.setup.ts mocks these modules globally; this test needs the real ones.
+vi.unmock("echarts/charts");
+vi.unmock("echarts/components");
+vi.unmock("echarts/renderers");
+
+echarts.use([LineChart, GridComponent, SVGRenderer]);
 
 const DAY = 864e5;
 
@@ -57,5 +67,23 @@ describe("buildTimeAxisLabelFormatter through real ECharts (#2227)", () => {
     expect(
       labels.filter((l) => /^\d{2}:\d{2}$/.test(l)).length,
     ).toBeGreaterThan(3);
+  });
+
+  it("tells sub-second ticks apart with the time to the millisecond, not one repeated month", () => {
+    const labels = drawnLabels(series(new Date(2024, 8, 15, 10), 50, 20));
+    expect(labels.length).toBeGreaterThan(2);
+    // The first tick is the minute boundary itself (10:00); the rest are ms.
+    expect(
+      labels.slice(1).every((l) => /^\d{2}:\d{2}:\d{2}\.\d{3}$/.test(l)),
+    ).toBe(true);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("labels second-spaced ticks with seconds", () => {
+    const labels = drawnLabels(series(new Date(2024, 8, 15, 10), 60, 1000));
+    expect(labels.slice(1).every((l) => /^\d{2}:\d{2}:\d{2}$/.test(l))).toBe(
+      true,
+    );
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });

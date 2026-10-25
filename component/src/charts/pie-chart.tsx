@@ -98,11 +98,10 @@ function PieChart({
     if (!data.length) return buildEmptyDataOption(dark);
 
     const effectiveShowLabel = compact ? false : showLabel;
-    // Outside/inside labels name every slice, so a legend would only repeat
-    // them; centred labels name one slice, so the legend stays (#2227).
-    const labelsNameSlices = effectiveShowLabel && labelPosition !== "center";
-    const effectiveShowLegend =
-      hideLegend || labelsNameSlices ? false : showLegend;
+    // The legend follows the author's toggle: labelLayout.hideOverlap can
+    // drop crowded slice labels, so labels alone cannot be trusted to name
+    // every slice (#2227).
+    const effectiveShowLegend = hideLegend ? false : showLegend;
 
     const sorted = sortSlices
       ? [...data].sort((a, b) => b.value - a.value)

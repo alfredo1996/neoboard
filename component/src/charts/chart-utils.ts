@@ -1024,7 +1024,14 @@ export function buildTimeAxisLabelFormatter() {
     if (index === 0) lastYear = undefined;
     const d = new Date(value);
     const unit = extra?.time?.upperTimeUnit;
-    if (unit === "hour" || unit === "minute" || unit === "second") {
+    if (unit === "millisecond" || unit === "second") {
+      // Sub-minute ticks differ only in seconds, so HH:mm would repeat.
+      const hms = d.toLocaleTimeString("en-GB");
+      return unit === "second"
+        ? hms
+        : `${hms}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+    }
+    if (unit === "hour" || unit === "minute") {
       return d.toLocaleTimeString("en-GB", {
         hour: "2-digit",
         minute: "2-digit",
