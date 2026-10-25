@@ -431,6 +431,16 @@ describe("CardContainer", () => {
     // The #1678 block flags conn-1 in this module-level store; without a
     // reset, shuffled order leaks "Connector unavailable" into these cases.
     useConnectionStatusStore.getState().reset();
+    // A settled, empty query by default: tests that render without setting
+    // one (the parameter-select cases) otherwise read whatever an earlier
+    // test left, or undefined when shuffled first.
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: null,
+      missingParams: [],
+    });
   });
 
   // ----- Missing connection -----
