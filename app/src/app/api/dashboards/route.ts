@@ -40,6 +40,17 @@ const shareJoin = (userId: string, tenantId: string) =>
     eq(dashboardShares.tenantId, tenantId),
   );
 
+// People the dashboard is shared with: distinct share rows' users, owner
+// excluded, in the caller's tenant. The public flag is not a person and is
+// not counted. A subquery, so the list stays one query (#2223).
+// ponytail: runs once per listed dashboard and dashboard_share has no index
+// on (tenant_id, dashboardId); fine at page size. Upgrade: add that index,
+// which would also serve the cascade delete.
+const shareCount = (tenantId: string) =>
+  sql<number>`(select count(distinct ${dashboardShares.userId}) from ${dashboardShares} where ${dashboardShares.dashboardId} = ${dashboards.id} and ${dashboardShares.tenantId} = ${tenantId} and ${dashboardShares.userId} <> ${dashboards.userId})`.mapWith(
+    Number,
+  );
+
 export async function GET(request: Request) {
   try {
     const { userId, role, tenantId } = await requireSession();
@@ -69,6 +80,7 @@ export async function GET(request: Request) {
           updatedByName: users.name,
           ownerName: owners.name,
           shareId: dashboardShares.id,
+          shareCount: shareCount(tenantId),
         })
         .from(dashboards)
         .leftJoin(users, eq(dashboards.updatedBy, users.id))
@@ -86,6 +98,7 @@ export async function GET(request: Request) {
           shared: shareId != null,
           role: ownerId === userId ? ("owner" as const) : ("admin" as const),
           widgetCount: countWidgets(layoutJson),
+          pageCount: layoutJson?.pages?.length ?? 0,
         };
       });
 
@@ -135,6 +148,7 @@ export async function GET(request: Request) {
         updatedByName: users.name,
         ownerName: owners.name,
         shareId: dashboardShares.id,
+        shareCount: shareCount(tenantId),
       })
       .from(dashboards)
       .leftJoin(dashboardShares, shareJoin(userId, tenantId))
@@ -158,6 +172,7 @@ export async function GET(request: Request) {
         shared: shareId != null,
         role: dashRole,
         widgetCount: countWidgets(layoutJson),
+        pageCount: layoutJson?.pages?.length ?? 0,
       };
     });
 

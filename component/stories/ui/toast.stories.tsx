@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { userEvent, within, expect } from "storybook/test";
 import { Button } from "@/components/ui/button";
 import { Toast, ToastAction } from "@/components/ui/toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,7 +13,7 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: ["default", "destructive"],
+      options: ["default", "destructive", "pending"],
       description: "The visual style variant of the toast",
     },
   },
@@ -90,6 +91,16 @@ export const Destructive: Story = {
         <Toaster />
       </>
     );
+  }, // Opens the toast so the axe gate scans a real one, not only the trigger.
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Show Destructive Toast",
+      }),
+    );
+    await expect(
+      await within(document.body).findByText("Uh oh! Something went wrong."),
+    ).toBeVisible();
   },
 };
 
@@ -135,5 +146,39 @@ export const WithTitle: Story = {
         <Toaster />
       </>
     );
+  },
+};
+
+export const Pending: Story = {
+  render: function PendingToast() {
+    const { toast } = useToast();
+
+    return (
+      <>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            toast({
+              variant: "pending",
+              title: "Server busy",
+              description: "The test did not run. Try again in a moment.",
+            });
+          }}
+        >
+          Show Pending Toast
+        </Button>
+        <Toaster />
+      </>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Show Pending Toast",
+      }),
+    );
+    await expect(
+      await within(document.body).findByText("Server busy"),
+    ).toBeVisible();
   },
 };

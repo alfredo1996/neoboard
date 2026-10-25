@@ -49,27 +49,29 @@ vi.mock("@neoboard/components", async () => ({
   ConfirmDialog: ({
     open,
     onOpenChange,
-    title,
-    description,
-    confirmText,
+    action,
+    object,
+    name,
+    consequences,
     onConfirm,
     returnFocusTo,
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    title: string;
-    description?: React.ReactNode;
-    confirmText?: string;
+    action: string;
+    object?: string;
+    name?: string;
+    consequences?: React.ReactNode;
     onConfirm: () => void;
     returnFocusTo?: HTMLElement | null;
   }) =>
     open ? (
       <div
         role="alertdialog"
-        aria-label={title}
+        aria-label={`${action} ${name ?? ""}`.trim()}
         data-return-focus={returnFocusTo?.id}
       >
-        <p>{description}</p>
+        <p>{consequences}</p>
         <button onClick={() => onOpenChange(false)}>Cancel</button>
         <button
           onClick={() => {
@@ -77,7 +79,7 @@ vi.mock("@neoboard/components", async () => ({
             onOpenChange(false);
           }}
         >
-          {confirmText}
+          {object ? `${action} ${object}` : action}
         </button>
       </div>
     ) : null,
@@ -124,7 +126,7 @@ function renderTabs(pages: DashboardPage[]) {
 
 /** One options menu, for the active page (#2107): page 1 in `renderTabs`. */
 function clickDeletePage() {
-  fireEvent.click(screen.getByRole("menuitem", { name: "Delete page" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Delete page…" }));
 }
 
 describe("PageTabs — Delete page (#2055)", () => {
@@ -138,9 +140,9 @@ describe("PageTabs — Delete page (#2055)", () => {
 
     expect(onRemove).not.toHaveBeenCalled();
     const dialog = screen.getByRole("alertdialog", {
-      name: 'Delete "Sales"?',
+      name: "Delete Sales",
     });
-    expect(dialog).toHaveTextContent("its 3 widgets");
+    expect(dialog).toHaveTextContent("Its 3 widgets go with it when you save.");
     // Focus goes back to the menu button Delete page was picked from.
     expect(dialog).toHaveAttribute("data-return-focus", "page-options-trigger");
   });
@@ -151,8 +153,8 @@ describe("PageTabs — Delete page (#2055)", () => {
     clickDeletePage();
 
     expect(
-      screen.getByRole("alertdialog", { name: 'Delete "Solo"?' }),
-    ).toHaveTextContent("its 1 widget.");
+      screen.getByRole("alertdialog", { name: "Delete Solo" }),
+    ).toHaveTextContent("Its 1 widget goes with it when you save.");
   });
 
   it("cancelling keeps the page", () => {
@@ -176,7 +178,7 @@ describe("PageTabs — Delete page (#2055)", () => {
     ]);
 
     clickDeletePage();
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete page" }));
 
     expect(onRemove).toHaveBeenCalledTimes(1);
     expect(onRemove).toHaveBeenCalledWith(1);

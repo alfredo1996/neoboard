@@ -13,7 +13,6 @@ import {
   Input,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
   CodePreview,
 } from "@neoboard/components";
@@ -40,9 +39,6 @@ export function TemplateBrowser({
     <>
       <DialogHeader>
         <DialogTitle>Browse Templates</DialogTitle>
-        <DialogDescription>
-          Start from a widget saved to the library.
-        </DialogDescription>
       </DialogHeader>
       <div className="py-4 flex-1 overflow-y-auto min-h-[400px]">
         {!loading && templates && templates.length > 0 && (

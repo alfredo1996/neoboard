@@ -31,6 +31,7 @@ const DASHBOARD: DashboardListItem = {
   updatedByName: null,
   role: "viewer",
   widgetCount: 3,
+  pageCount: 2,
 };
 
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
@@ -175,13 +176,19 @@ vi.mock("@neoboard/components", async () => {
       open,
       onOpenChange,
       onConfirm,
-      confirmText,
+      action,
+      object,
+      name,
+      consequences,
       returnFocusTo,
     }: {
       open: boolean;
       onOpenChange: (open: boolean) => void;
       onConfirm: () => void;
-      confirmText: string;
+      action: string;
+      object?: string;
+      name?: string;
+      consequences?: React.ReactNode;
       returnFocusTo?: HTMLElement | null;
     }) {
       const wasOpen = React.useRef(open);
@@ -190,7 +197,8 @@ vi.mock("@neoboard/components", async () => {
         wasOpen.current = open;
       });
       return open ? (
-        <div role="alertdialog">
+        <div role="alertdialog" aria-label={`${action} ${name ?? ""}`.trim()}>
+          <p>{consequences}</p>
           <button onClick={() => onOpenChange(false)}>Cancel</button>
           <button
             onClick={() => {
@@ -198,7 +206,7 @@ vi.mock("@neoboard/components", async () => {
               onOpenChange(false);
             }}
           >
-            {confirmText}
+            {object ? `${action} ${object}` : action}
           </button>
         </div>
       ) : null;
@@ -505,19 +513,62 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
   it("Cancel puts focus back on the card's menu button", () => {
     render(<DashboardListPage />);
 
-    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(screen.getByText("Delete…"));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(menuTrigger).toHaveFocus();
   });
 
+  it.each([
+    [1, 1, 0, "Its 1 widget and 1 page go with it. This can't be undone."],
+    [3, 2, 0, "Its 3 widgets and 2 pages go with it. This can't be undone."],
+    [
+      12,
+      3,
+      3,
+      "Its 12 widgets and 3 pages go with it, and the 3 people it's shared with lose access. This can't be undone.",
+    ],
+    [
+      2,
+      1,
+      1,
+      "Its 2 widgets and 1 page go with it, and the 1 person it's shared with loses access. This can't be undone.",
+    ],
+    [0, 1, 0, "It has no widgets. This can't be undone."],
+  ])(
+    "a dashboard of %i widgets, %i pages, %i shares says: %s (#2223)",
+    (widgetCount, pageCount, shareCount, text) => {
+      dashboards = [
+        { ...DASHBOARD, role: "owner", widgetCount, pageCount, shareCount },
+      ];
+      render(<DashboardListPage />);
+
+      fireEvent.click(screen.getByText("Delete…"));
+
+      expect(screen.getByRole("alertdialog")).toHaveTextContent(text);
+    },
+  );
+
+  it("names the dashboard and what goes with it (#2223)", () => {
+    render(<DashboardListPage />);
+
+    fireEvent.click(screen.getByText("Delete…"));
+
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Delete Movie Analytics",
+    });
+    expect(
+      within(dialog).getByRole("button", { name: "Delete dashboard" }),
+    ).toBeVisible();
+  });
+
   it("a confirmed Delete puts focus on the page heading: the card is leaving", () => {
     render(<DashboardListPage />);
 
-    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(screen.getByText("Delete…"));
     fireEvent.click(
       within(screen.getByRole("alertdialog")).getByRole("button", {
-        name: "Delete",
+        name: "Delete dashboard",
       }),
     );
 
@@ -684,7 +735,7 @@ describe("DashboardListPage rows (#2253)", () => {
     "Duplicate",
     "Change connection…",
     "Export",
-    "Delete",
+    "Delete…",
   ];
   const menuOf = (name: RegExp) => {
     const row = screen.getByRole("row", { name });

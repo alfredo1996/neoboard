@@ -137,7 +137,7 @@ test.describe("API Key management", () => {
     await row
       .getByRole("button", { name: `Key actions for ${keyName}`, exact: true })
       .click();
-    await page.getByRole("menuitem", { name: "Revoke", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Revoke…", exact: true }).click();
 
     // Confirm revocation in the alert dialog
     const confirmDialog = page.getByRole("alertdialog");

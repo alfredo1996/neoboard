@@ -563,7 +563,7 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     // The editor has edits, so Escape asks before dropping them (#2054).
     await page.keyboard.press("Escape");
     await page
-      .getByRole("alertdialog", { name: "Discard unsaved changes?" })
+      .getByRole("alertdialog", { name: "Discard your changes?" })
       .getByRole("button", { name: "Discard" })
       .click();
     await expect(adder).not.toBeVisible();

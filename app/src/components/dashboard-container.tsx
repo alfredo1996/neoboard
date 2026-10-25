@@ -55,14 +55,6 @@ import {
   DialogTitle,
   DialogDescription,
   Button,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   ConfirmDialog,
   focusedMenuTrigger,
   iframeSourceLink,
@@ -131,10 +123,6 @@ interface DashboardContainerProps {
 }
 
 // getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget/widget-utils
-
-function removeWidgetDialogTitle(title: string): string {
-  return title.trim() ? `Remove "${title}"?` : "Remove this widget?";
-}
 
 export function DashboardContainer({
   page,
@@ -213,6 +201,9 @@ export function DashboardContainer({
   );
   const [pendingSyncWidget, setPendingSyncWidget] =
     useState<DashboardWidget | null>(null);
+  // Kept after the dialog closes so its fade-out still names the widget;
+  // `syncOpen` alone opens and closes it.
+  const [syncOpen, setSyncOpen] = useState(false);
   // The widget Remove was asked on (#2055), and the menu button focus goes
   // back to. Kept after the dialog closes so its fade-out still names the
   // widget; `removeOpen` alone opens and closes it.
@@ -343,10 +334,11 @@ export function DashboardContainer({
     if (widget.templateId) {
       if (isWidgetTemplateOutdated(widget, templateMap) && onSyncWidget) {
         actions.push({
-          label: "Sync with template",
+          label: "Sync with template…",
           onClick: () => {
             setDialogOpener({ el: focusedMenuTrigger(), fallback: null });
             setPendingSyncWidget(widget);
+            setSyncOpen(true);
           },
         });
       }
@@ -359,7 +351,7 @@ export function DashboardContainer({
     }
     if (onRemoveWidget) {
       actions.push({
-        label: "Remove",
+        label: "Remove widget…",
         onClick: () => {
           setRemoveTarget({ widget, returnFocusTo: focusedMenuTrigger() });
           setRemoveOpen(true);
@@ -462,6 +454,7 @@ export function DashboardContainer({
                               ) ?? null,
                           });
                           setPendingSyncWidget(widget);
+                          setSyncOpen(true);
                         }}
                         aria-label="Template update available"
                         title="Template update available — click to sync"
@@ -530,53 +523,42 @@ export function DashboardContainer({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={pendingSyncWidget !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingSyncWidget(null);
+      <ConfirmDialog
+        open={syncOpen}
+        onOpenChange={setSyncOpen}
+        action="Sync"
+        object="widget"
+        name={`${
+          interpolateTitle(
+            (pendingSyncWidget?.settings?.title as string | undefined) ?? "",
+            parameters,
+          ).trim() || "this widget"
+        } with its template`}
+        consequences="Its query, chart type and options are replaced by the template's."
+        // Lossy though "Sync" is not a delete verb: the old query is gone.
+        destructive
+        returnFocusTo={dialogOpener.el}
+        returnFocusFallback={dialogOpener.fallback}
+        onConfirm={() => {
+          if (pendingSyncWidget) onSyncWidget?.(pendingSyncWidget);
         }}
-      >
-        <AlertDialogContent onCloseAutoFocus={handBackFocus}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Sync with template?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will replace the widget&apos;s current query, chart type, and
-              chart options with the latest version from the template. The
-              connection will not change. You can still undo by discarding your
-              dashboard save.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (pendingSyncWidget && onSyncWidget) {
-                  onSyncWidget(pendingSyncWidget);
-                }
-                setPendingSyncWidget(null);
-              }}
-            >
-              Sync
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      />
 
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
         // Its own title, not the card header's chart-type fallback ("Bar
         // Chart"): an untitled widget is "this widget".
-        title={removeWidgetDialogTitle(
+        action="Remove"
+        object="widget"
+        name={
           interpolateTitle(
             (removeTarget?.widget.settings?.title as string | undefined) ?? "",
             parameters,
             labelOf,
-          ),
-        )}
-        description="This removes the widget from the dashboard."
-        confirmText="Remove"
-        variant="destructive"
+          ).trim() || undefined
+        }
+        consequences="It leaves this page when you save. The rest of the dashboard is unchanged."
         returnFocusTo={removeTarget?.returnFocusTo}
         onConfirm={() => {
           if (removeTarget) onRemoveWidget?.(removeTarget.widget.id);

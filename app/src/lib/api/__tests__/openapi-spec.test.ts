@@ -887,6 +887,8 @@ describe("#1981 payloads: dashboards-crud", () => {
       "shared",
       "role",
       "widgetCount",
+      "pageCount",
+      "shareCount",
     ].sort();
     expect(flat(item)).toEqual({ properties: keys, required: keys });
     const props = deref(item).properties!;

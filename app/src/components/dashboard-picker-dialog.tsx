@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   Input,
   EmptyState,
 } from "@neoboard/components";
@@ -59,13 +58,11 @@ export function DashboardPickerDialog({
     >
       <DialogContent
         className="sm:max-w-[440px]"
+        aria-describedby={undefined}
         onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogHeader>
           <DialogTitle>Choose a Dashboard</DialogTitle>
-          <DialogDescription>
-            Select which dashboard to add this widget to.
-          </DialogDescription>
         </DialogHeader>
 
         {editable.length > 3 && (
