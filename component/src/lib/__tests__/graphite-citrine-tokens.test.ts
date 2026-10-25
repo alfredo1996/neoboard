@@ -477,3 +477,18 @@ describe("modal scrim (#2211)", () => {
     },
   );
 });
+
+describe("overlay shadow (#2223)", () => {
+  it.each([
+    ["light", light, "rgb(22 24 29 / 0.18)"],
+    ["dark", dark, "rgb(0 0 0 / 0.6)"],
+  ])("%s theme defines the one floating-surface shadow", (_n, theme, color) => {
+    expect(tokenValue(theme, "--shadow-overlay")).toBe(
+      `0 8px 24px -8px ${color}`,
+    );
+  });
+
+  it("the preset exposes it as shadow-overlay", () => {
+    expect(preset.theme.extend.boxShadow.overlay).toBe("var(--shadow-overlay)");
+  });
+});

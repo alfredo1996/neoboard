@@ -25,6 +25,15 @@ export const sunburstOptions: ChartOptionDef[] = [
     ],
   },
   {
+    key: "sunburstCenterText",
+    label: "Sunburst Center Text",
+    type: "text",
+    default: "",
+    category: "Labels",
+    description:
+      "Label shown under the total in the center. Leave blank to show the total alone.",
+  },
+  {
     key: "highlightOnHover",
     label: "Highlight on Hover",
     type: "boolean",

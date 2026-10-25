@@ -10,7 +10,12 @@ import {
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart, useDarkMode } from "./base-chart";
+import {
+  BaseChart,
+  useChartFontReady,
+  useDarkMode,
+  resolveSeriesPalette,
+} from "./base-chart";
 import { TODAY_LINE_COLOR } from "./theme";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import type { BaseChartProps } from "./types";
@@ -18,7 +23,7 @@ import {
   buildEmptyDataOption,
   getCompactState,
   formatDate,
-  formatDateTime,
+  measureTextWidth,
 } from "./chart-utils";
 import { resolveStylingRuleColor, type StylingRule } from "./styling-rule";
 
@@ -73,6 +78,31 @@ function formatDuration(ms: number): string {
   return `${Math.round(days / 30)}mo`;
 }
 
+const DAY_MS = 86400000;
+
+/**
+ * Weekly tick times from local midnight of `first` through `last`, once the
+ * span reaches two weeks (none below that). The step
+ * widens in whole weeks until each label has MIN_LABEL_PX of `plot`, because
+ * customValues bypasses ECharts' own thinning; an unmeasured plot (0) keeps
+ * every week. setDate, not +7 days of ms, keeps a tick at the same local time
+ * across a daylight-saving change, and midnight keeps it from printing as a
+ * time ("09:00").
+ */
+function weeklyTicks(first: number, last: number, plot: number): number[] {
+  if (last - first < 14 * DAY_MS) return [];
+  const MIN_LABEL_PX = 48;
+  const weekPx = plot > 0 ? (plot * 7 * DAY_MS) / (last - first) : MIN_LABEL_PX;
+  const step = 7 * Math.max(1, Math.ceil(MIN_LABEL_PX / weekPx));
+  const ticks: number[] = [];
+  const from = new Date(first);
+  from.setHours(0, 0, 0, 0);
+  for (let d = from; d.getTime() <= last; d.setDate(d.getDate() + step)) {
+    ticks.push(d.getTime());
+  }
+  return ticks;
+}
+
 function GanttChart({
   data,
   showTodayLine = true,
@@ -83,6 +113,7 @@ function GanttChart({
   paramValues,
   enableDataZoom = true,
   ariaDescription,
+  colorPalette,
   ...rest
 }: GanttChartProps) {
   // Measured, not guessed: the grid used to reserve "15%" for task names
@@ -94,12 +125,47 @@ function GanttChart({
   // The empty-state colour comes from the theme, so this memo has to
   // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
   const dark = useDarkMode();
+  // The name column is measured on a canvas, in the face as it is then: a
+  // measure taken before the face loads is of the fallback and stays wrong.
+  // A dependency, not a few px of slack: the error scales with the name.
+  const fontReady = useChartFontReady();
 
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption(dark);
 
     const taskNames = data.map((d) => d.task);
     const barHeightRatio = 0.6;
+
+    // One palette hue per category, in order of first appearance (#2231).
+    // A task with no category takes the first hue.
+    const palette = resolveSeriesPalette(colorPalette);
+    const categories = [...new Set(data.map((d) => d.category ?? ""))];
+    const categoryColor = (category: string | undefined) =>
+      palette[categories.indexOf(category ?? "") % palette.length];
+
+    // The name column fits the longest name; past half the widget it is
+    // capped and the names truncate to it.
+    const gap = 18;
+    const measuredColumn =
+      Math.ceil(Math.max(...taskNames.map((n) => measureTextWidth(n, 11)))) +
+      gap;
+    const nameColumn =
+      width > 0
+        ? Math.min(measuredColumn, Math.floor(width / 2))
+        : measuredColumn;
+    const nameColumnCapped = nameColumn < measuredColumn;
+
+    // Weekly ticks and gridlines once the span reaches two weeks, counted
+    // from the first start; each tick names its day once ("Feb 5"), including
+    // one that falls on the 1st.
+    // ponytail: the ticks are fixed, so zooming in to a few days leaves the
+    // axis with the weekly ones only. Compute them from the zoom window if
+    // that becomes a complaint.
+    const inset = compact ? 8 : 16;
+    const first = Math.min(...data.map((d) => d.start));
+    const last = Math.max(...data.map((d) => d.end));
+    const weekly = last - first >= 14 * DAY_MS;
+    const weekTicks = weeklyTicks(first, last, width - nameColumn - inset);
 
     // Resolve colors per item
     const resolvedColors = data.map((item) => {
@@ -144,7 +210,9 @@ function GanttChart({
         item.category ?? "",
         item.progress ?? 0,
       ],
-      itemStyle: resolvedColors[i] ? { color: resolvedColors[i] } : undefined,
+      itemStyle: {
+        color: resolvedColors[i] ?? categoryColor(item.category),
+      },
     }));
 
     // Custom renderItem for horizontal bars
@@ -247,8 +315,6 @@ function GanttChart({
         }
       : {};
 
-    const inset = compact ? 8 : 16;
-
     return {
       tooltip: {
         trigger: "item",
@@ -269,34 +335,42 @@ function GanttChart({
           return `<strong>${echarts.format.encodeHTML(name)}</strong><br/>${start} → ${end} (${duration})${category}${progress}`;
         },
       },
-      // Pixels, and let ECharts reserve the label gutter itself. "15%" only
-      // matched the 100px truncation budget at a 667px canvas — narrower than
-      // that and task names were hard-clipped (#1289).
+      // Pixels, from the measured name column. "15%" only matched the 100px
+      // truncation budget at a 667px canvas — narrower than that and task
+      // names were hard-clipped (#1289). containLabel is off: the column is
+      // already reserved here.
       grid: {
-        left: inset,
+        left: nameColumn,
         right: inset,
         top: inset,
-        // Room for the zoom slider: height 20 + bottom 5 + gap. Without the
-        // slider the plot takes it back.
+        // Room for the hairline zoom slider. Without the slider the plot
+        // takes it back.
         bottom: enableDataZoom ? 40 : inset,
-        containLabel: true,
+        containLabel: false,
       },
       xAxis: {
         type: "time",
+        ...(weekly ? { axisTick: { customValues: weekTicks } } : {}),
         // Without a formatter a sub-month range labels as bare day numbers,
         // which reads as a count rather than a date (#1289).
         axisLabel: {
-          formatter: {
-            year: "{yyyy}",
-            // Just the month name: ECharts uses this template for the tick at
-            // a month boundary, so "{MMM} {yyyy}" printed "May 2026" wedged
-            // between "Apr 29" and "May 3". The year still appears on the
-            // year-level tick.
-            month: "{MMM}",
-            day: "{MMM} {d}",
-            hour: "{HH}:{mm}",
-            minute: "{HH}:{mm}",
-          },
+          ...(weekly ? { customValues: weekTicks } : {}),
+          // Weekly ticks all name their day: a plain string skips ECharts'
+          // per-tick template, which printed a tick on Jan 1 as "2027" and
+          // one off midnight as "09:00".
+          formatter: weekly
+            ? "{MMM} {d}"
+            : {
+                year: "{yyyy}",
+                // Just the month name: ECharts uses this template for the
+                // tick at a month boundary, so "{MMM} {yyyy}" printed "May
+                // 2026" wedged between "Apr 29" and "May 3". The year still
+                // appears on the year-level tick.
+                month: "{MMM}",
+                day: "{MMM} {d}",
+                hour: "{HH}:{mm}",
+                minute: "{HH}:{mm}",
+              },
         },
         // No local lineStyle: the registered theme owns gridline weight and
         // colour so every cartesian chart draws the same grid (#1247).
@@ -308,9 +382,13 @@ function GanttChart({
         inverse: true,
         axisLabel: {
           fontSize: 11,
-          overflow: "truncate",
-          ellipsis: "…",
-          width: compact ? 60 : 100,
+          ...(nameColumnCapped
+            ? {
+                overflow: "truncate" as const,
+                ellipsis: "…",
+                width: nameColumn - gap,
+              }
+            : {}),
         },
         splitLine: { show: false },
       },
@@ -324,10 +402,6 @@ function GanttChart({
         //   wheel and the slider filter independently. Safe only because the
         //   series sets clip: true — a custom series is unclipped by default,
         //   and a kept bar would otherwise paint over the label gutter.
-        // - labelFormatter: the slider's fallback label takes its precision
-        //   from the tick interval, not the value (seconds on a two-week
-        //   range, a bare date once the ticks are years). The data are
-        //   datetimes; say so, in one fixed shape.
         // - No left/right: ECharts aligns a slider with no explicit position
         //   to the plot rect *after* the task-label gutter (SliderZoomView
         //   _layout, 6.1.0). Copying grid.left/right here widens it under the
@@ -337,10 +411,11 @@ function GanttChart({
               {
                 type: "slider" as const,
                 xAxisIndex: 0,
-                height: 20,
-                bottom: 5,
+                // A hairline track (#2231); its look is the theme's.
+                height: 6,
+                bottom: 8,
+                handleSize: 14,
                 filterMode: "weakFilter" as const,
-                labelFormatter: (ms: number) => formatDateTime(ms),
               },
               {
                 type: "inside" as const,
@@ -386,6 +461,7 @@ function GanttChart({
       animationDuration: 500,
       animationEasingUpdate: "cubicOut",
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fontReady re-measures text once the face loads
   }, [
     data,
     showTodayLine,
@@ -399,12 +475,16 @@ function GanttChart({
     // Read above for the grid and the label width. Omitting it latches the
     // first measurement — the #1546/#1562 class.
     compact,
+    width,
+    colorPalette,
+    fontReady,
   ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
       <BaseChart
         options={options}
+        colorPalette={colorPalette}
         ariaDescription={
           ariaDescription ?? `Gantt chart with ${data.length} tasks`
         }

@@ -106,6 +106,7 @@ export {
   TextInputParameter,
   type TextInputParameterProps,
 } from "./parameter-widgets/text-input";
+export { ParamLabelScope } from "./parameter-widgets/param-label";
 export {
   ParamSelector,
   type ParamSelectorProps,
@@ -145,7 +146,11 @@ export {
 
 // Content Widgets
 export { MarkdownWidget, type MarkdownWidgetProps } from "./markdown-widget";
-export { IframeWidget, type IframeWidgetProps } from "./iframe-widget";
+export {
+  IframeWidget,
+  iframeSourceLink,
+  type IframeWidgetProps,
+} from "./iframe-widget";
 
 // Query
 export { QueryEditor, type QueryEditorProps } from "./query-editor";

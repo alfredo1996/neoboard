@@ -58,10 +58,12 @@ ORDER BY start_date
 
 ## Features
 
-- **Time slider** — a range slider under the plot, aligned with it; drag the handles or the window to narrow the view. Each handle is labelled with its datetime (`2026-04-01 09:00`) whatever the zoom level. A bar stays visible while either end is inside the window
+- **Time slider** — a hairline range slider under the plot, aligned with it; drag the handles or the window to narrow the view. A bar stays visible while either end is inside the window
 - **Zoom & pan** — scroll to zoom the time axis, drag to pan
 - **Vertical scroll** — automatic scrollbar when more than 15 tasks (independent of Enable Time Zoom)
-- **Color by category** — use rule-based styling to color bars by status
+- **Color by category** — bars take a palette colour per value of the category column; rule-based styling overrides it
+- **Whole task names** — the name column is measured from the longest name (capped at half the widget, past which names truncate)
+- **Weekly ticks** — over a span of two weeks or more the axis ticks and gridlines fall weekly, each tick naming its day once (`Feb 5`)
 - **Progress overlay** — semi-transparent fill showing completion percentage
 - **Today marker** — muted grey dashed line with a "Today" label: a reference, not a warning
 - **Click actions** — click a bar to navigate or set a parameter

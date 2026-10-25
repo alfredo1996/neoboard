@@ -9,29 +9,31 @@ sidebar:
 
 The iFrame widget embeds an external web page directly into a dashboard. Use it to include third-party tools, documentation pages, or external dashboards alongside your NeoBoard widgets. No query or database connection is required.
 
+The card header's line under the title names the page's domain (for example `en.wikipedia.org ↗`) as a link that opens the page in a new tab, so a reader knows what they are looking at. The page inside is shown as it is.
+
 ## Query Format
 
 This widget does not use a query. Configure the URL and settings in the Chart Options panel.
 
 ## Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| URL | text | (empty) | The URL of the page to embed. Use `https://`. `http://` also embeds, with a warning in the editor. Any other scheme shows "Invalid URL" instead of the page; the editor marks `javascript:`, `data:` and `vbscript:` as errors |
-| Title | text | Embedded content | Accessible title for screen readers |
-| Sandbox Policy | text | (empty) | HTML sandbox attributes controlling what the embedded page can do |
+| Option         | Type | Default          | Description                                                                                                                                                                                                                    |
+| -------------- | ---- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| URL            | text | (empty)          | The URL of the page to embed. Use `https://`. `http://` also embeds, with a warning in the editor. Any other scheme shows "Invalid URL" instead of the page; the editor marks `javascript:`, `data:` and `vbscript:` as errors |
+| Title          | text | Embedded content | Accessible title for screen readers                                                                                                                                                                                            |
+| Sandbox Policy | text | (empty)          | HTML sandbox attributes controlling what the embedded page can do                                                                                                                                                              |
 
 ## Sandbox Policy
 
 The sandbox field accepts standard HTML `sandbox` attribute values. Common values:
 
-| Value | Effect |
-|-------|--------|
-| (cleared) | No tokens: no scripts, no forms, no popups. New widgets start here |
-| (never set) | A stored widget with no sandbox value runs as `allow-scripts allow-popups`, even though the field shows empty |
-| `allow-scripts` | Allow JavaScript execution |
-| `allow-forms` | Allow form submission |
-| `allow-popups` | Allow the embedded page to open new windows |
+| Value           | Effect                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------- |
+| (cleared)       | No tokens: no scripts, no forms, no popups. New widgets start here                                            |
+| (never set)     | A stored widget with no sandbox value runs as `allow-scripts allow-popups`, even though the field shows empty |
+| `allow-scripts` | Allow JavaScript execution                                                                                    |
+| `allow-forms`   | Allow form submission                                                                                         |
+| `allow-popups`  | Allow the embedded page to open new windows                                                                   |
 
 Tokens outside NeoBoard's allow-list are removed before the page is embedded, and the editor warns under the field when that happens. `allow-same-origin` is always refused: combined with `allow-scripts` it would let the embedded page remove its own sandbox. `allow-top-navigation` is refused too; use `allow-top-navigation-by-user-activation` instead.
 

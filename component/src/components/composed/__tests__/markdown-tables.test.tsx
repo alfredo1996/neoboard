@@ -12,6 +12,19 @@ describe("MarkdownWidget — GFM tables", () => {
     expect(screen.getByText("25")).toBeInTheDocument();
   });
 
+  it("looks like a data table: hairline rows, a quiet header, no cell boxes (#2232)", () => {
+    const md = "| A | B |\n| --- | --- |\n| 1 | 2 |";
+    const { container } = render(<MarkdownWidget content={md} />);
+    const th = container.querySelector("th")!;
+    const td = container.querySelector("td")!;
+    expect(th.className).toContain("text-muted-foreground");
+    expect(th.className).toContain("border-b");
+    expect(td.className).toContain("border-b");
+    for (const cell of [th, td]) {
+      expect(cell.className).not.toMatch(/(^|\s)border(\s|$)/);
+    }
+  });
+
   it("renders header cells in <th>", () => {
     const md = "| Col1 | Col2 |\n| --- | --- |\n| a | b |";
     const { container } = render(<MarkdownWidget content={md} />);

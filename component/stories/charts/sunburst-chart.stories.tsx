@@ -586,3 +586,65 @@ export const EmptyState: Story = {
     data: [],
   },
 };
+
+const catalogue = [
+  {
+    name: "Home",
+    children: [
+      {
+        name: "Furniture",
+        children: [
+          { name: "Desk", value: 50 },
+          { name: "Chair", value: 30 },
+        ],
+      },
+      { name: "Decor", children: [{ name: "Rug", value: 20 }] },
+    ],
+  },
+  {
+    name: "Electronics",
+    children: [
+      { name: "Audio", children: [{ name: "Headphones", value: 40 }] },
+      { name: "Phones", children: [{ name: "Phone X", value: 35 }] },
+    ],
+  },
+];
+
+/** #2231 — two rings first; click a ring to go one level down, the centre to go up. */
+export const TwoRingsLight: Story = {
+  args: { data: catalogue },
+  globals: { theme: "light" },
+};
+
+export const TwoRingsDark: Story = {
+  args: { data: catalogue },
+  globals: { theme: "dark" },
+};
+
+/** With a click action every ring shows and a click runs the action. */
+export const WithClickActionDark: Story = {
+  args: { data: catalogue, onClick: () => {} },
+  globals: { theme: "dark" },
+};
+
+/** The author's centre text sits under the total. */
+export const CenterTextLight: Story = {
+  args: { data: catalogue, sunburstCenterText: "revenue" },
+  globals: { theme: "light" },
+};
+
+export const CenterTextDark: Story = {
+  args: { data: catalogue, sunburstCenterText: "revenue" },
+  globals: { theme: "dark" },
+};
+
+/** A rule colour on the top ring is nudged until its label reads (4.5:1). */
+export const RuleColourDark: Story = {
+  args: {
+    data: catalogue,
+    stylingRules: [
+      { id: "r1", operator: ">=" as const, value: 0, color: "#ff0000" },
+    ],
+  },
+  globals: { theme: "dark" },
+};

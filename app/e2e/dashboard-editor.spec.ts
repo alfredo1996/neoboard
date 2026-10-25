@@ -63,7 +63,7 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
       const keeper = page.locator('[data-widget-id="p1-w0"]');
       const doomed = page.locator('[data-widget-id="p1-w1"]');
       const actions = doomed.getByRole("button", { name: "Widget actions" });
-      const ask = page.getByRole("alertdialog", { name: 'Remove "Doomed"?' });
+      const ask = page.getByRole("alertdialog", { name: "Remove Doomed?" });
       await expect(doomed).toBeVisible({ timeout: 15_000 });
 
       // ── Escape cancels, and focus goes back to the menu button ──────
@@ -128,7 +128,7 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
         await tab(name).click();
         await options(name).click();
       };
-      const ask = page.getByRole("alertdialog", { name: 'Delete "Sales"?' });
+      const ask = page.getByRole("alertdialog", { name: "Delete Sales?" });
       await expect(tab("Sales")).toBeVisible({ timeout: 15_000 });
 
       // ── The tablist owns the tabs and nothing else (#2107) ──────────
@@ -140,7 +140,9 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
       await openOptions("Sales");
       await page.getByRole("menuitem", { name: "Delete page" }).click();
       await expect(ask).toBeVisible();
-      await expect(ask).toContainText("its 2 widgets");
+      await expect(ask).toContainText(
+        "Its 2 widgets go with it when you save.",
+      );
       await ask.getByRole("button", { name: "Cancel" }).click();
       await expect(ask).toBeHidden();
       await expect(options("Sales")).toBeFocused();

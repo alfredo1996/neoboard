@@ -1,4 +1,12 @@
-import { memo, useMemo, useRef, useState, useCallback, useEffect } from "react";
+import {
+  memo,
+  type ReactNode,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import { InteractiveNvlWrapper } from "@neo4j-nvl/react";
 import type { InteractiveNvlWrapperProps } from "@neo4j-nvl/react";
 import type NVL from "@neo4j-nvl/base";
@@ -21,20 +29,46 @@ import {
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { useDarkMode } from "./base-chart";
-import { CITRINE_LIGHT, CITRINE_DARK } from "./theme";
+import { HASTINGS_LIGHT, HASTINGS_DARK } from "./theme";
 import { toNvlColor } from "./nvl-color";
 
 export type GraphLayout = "force" | "circular" | "hierarchical";
 
 /**
- * Node-label palettes — the brand citrine ("Citrine") palette, citrine-led and
- * colorblind-safe, shared with every other chart. Was a generic Tableau-10
- * palette (off-brand "stock chart" look); aligning it to CITRINE makes the
- * graph read as part of the same vibrant system. Light/dark variants track
- * the theme.
+ * Node-label palettes — the Hastings chart palette (#2226), the default of every
+ * other chart, so the graph reads as part of the same system. Light/dark
+ * variants track the theme (#2229).
  */
-const LABEL_COLOR_PALETTE_LIGHT = CITRINE_LIGHT;
-const LABEL_COLOR_PALETTE_DARK = CITRINE_DARK;
+const LABEL_COLOR_PALETTE_LIGHT = HASTINGS_LIGHT;
+const LABEL_COLOR_PALETTE_DARK = HASTINGS_DARK;
+
+/** Hairline relationships in the rule colour of each theme (#2229). */
+const EDGE_RULE_LIGHT = "#c9ced8";
+const EDGE_RULE_DARK = "#6a7180";
+
+/** The label a node is coloured and counted by: its last one. */
+function colorLabel(node: GraphNode): string | undefined {
+  return node.labels?.[node.labels.length - 1];
+}
+
+/** Nodes per colour label, sorted by label — the legend rows. */
+function countByLabel(nodes: GraphNode[]): [string, number][] {
+  const counts = new Map<string, number>();
+  for (const n of nodes) {
+    const l = colorLabel(n);
+    if (l !== undefined) counts.set(l, (counts.get(l) ?? 0) + 1);
+  }
+  return Array.from(counts).sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+/**
+ * The main entity: the rarest label, always captioned larger. Connector
+ * agnostic — read off the data, never a name. Needs two labels to mean anything.
+ */
+function pickPrimaryLabel(counts: [string, number][]): string | undefined {
+  if (counts.length < 2) return undefined;
+  return counts.reduce((a, b) => (b[1] < a[1] ? b : a), counts[0])[0];
+}
 
 /**
  * Builds a map of node label → palette color.
@@ -120,6 +154,11 @@ export interface GraphChartProps {
    * where the pill is the only count there is.
    */
   showNodeCount?: boolean;
+  /**
+   * Content for the bottom row, shared with the legend so the two never
+   * overlap (a consumer's status bar, for one).
+   */
+  footer?: ReactNode;
   /** Rule-based styling rules for node color/size */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for styling rule evaluation */
@@ -235,6 +274,29 @@ function resolveCaption(
 }
 
 /**
+ * The colour a node is painted: styling rule > explicit node.color > label
+ * palette, as hex (NVL doesn't render hsl(), whatever the source, #1157).
+ * The legend reads this too, so its swatches match the canvas.
+ */
+function nodeColor(
+  node: GraphNode,
+  labelColorMap: Map<string, string>,
+  stylingRules?: StylingRule[],
+  paramValues?: Record<string, unknown>,
+): string | undefined {
+  const ruleColor =
+    stylingRules?.length && node.value != null
+      ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
+      : undefined;
+  const label = colorLabel(node);
+  const raw =
+    ruleColor ??
+    node.color ??
+    (label === undefined ? undefined : labelColorMap.get(label));
+  return raw === undefined ? undefined : toNvlColor(raw);
+}
+
+/**
  * Maps our internal GraphNode type to an NVL Node.
  * Color priority: explicit node.color > last-label color from palette > undefined.
  */
@@ -247,6 +309,7 @@ function toNvlNode(
   labelColorMap: Map<string, string>,
   nodeSizeScale: number,
   selectedIds: Set<string>,
+  primaryLabel: string | undefined,
   stylingRules?: StylingRule[],
   paramValues?: Record<string, unknown>,
 ): NvlNode {
@@ -259,26 +322,15 @@ function toNvlNode(
     y = Math.sin(angle) * radius;
   }
 
-  // Rule-based color: evaluate against node.value (numeric property)
-  const ruleColor =
-    stylingRules?.length && node.value != null
-      ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
-      : undefined;
-
-  // Color priority: styling rule > explicit node.color > label palette.
-  // Normalize to hex — NVL doesn't render hsl(), whatever the source (#1157).
-  const rawColor =
-    ruleColor ??
-    node.color ??
-    (node.labels?.length
-      ? labelColorMap.get(node.labels[node.labels.length - 1])
-      : undefined);
-  const color = rawColor !== undefined ? toNvlColor(rawColor) : undefined;
+  const color = nodeColor(node, labelColorMap, stylingRules, paramValues);
 
   // Size: base from node.value, scaled by nodeSizeScale
-  const baseSize = node.value
-    ? Math.max(20, Math.min(60, node.value))
-    : undefined;
+  const isPrimary =
+    primaryLabel !== undefined && colorLabel(node) === primaryLabel;
+  // The main entity is drawn larger so its name always fits inside.
+  let baseSize: number | undefined;
+  if (node.value) baseSize = Math.max(20, Math.min(60, node.value));
+  else if (isPrimary) baseSize = 40;
 
   const caption = showLabels ? resolveCaption(node, captionMap) : undefined;
 
@@ -303,6 +355,13 @@ function toNvlNode(
     id: node.id,
     caption,
     captions,
+    // "bottom" draws the name inside the node's lower half. NVL draws a name
+    // only while node size x zoom is above a hard threshold (about 15.6px of
+    // radius, no option), so a small node at a low fit zoom has no name.
+    // captionSize is NVL's lookup key (1, 2 or 3), not a multiplier: any other
+    // value is a NaN font and nothing is drawn.
+    captionAlign: "bottom",
+    captionSize: isPrimary ? 3 : 1,
     color,
     size:
       baseSize !== undefined ? Math.round(baseSize * nodeSizeScale) : undefined,
@@ -313,6 +372,24 @@ function toNvlNode(
     x,
     y,
   };
+}
+
+const TOOLTIP_W = 224; // max-w-56
+const TOOLTIP_H = 48; // two truncated 12px/16px lines + padding
+
+/** Offset from the pointer, clamped so the tooltip stays inside the container. */
+function tooltipPos(x: number, y: number, box: HTMLElement | null) {
+  const w = box?.clientWidth || Infinity;
+  const h = box?.clientHeight || Infinity;
+  return {
+    left: Math.max(0, Math.min(x + 12, w - TOOLTIP_W)),
+    top: Math.max(0, Math.min(y + 12, h - TOOLTIP_H)),
+  };
+}
+
+function edgeColor(color: string | undefined, dark: boolean): string {
+  if (color) return toNvlColor(color);
+  return dark ? EDGE_RULE_DARK : EDGE_RULE_LIGHT;
 }
 
 /**
@@ -333,7 +410,8 @@ function toNvlRelationship(
     // NVL's default relationship grey nearly vanishes on the dark canvas
     // (#1154) — give uncolored edges an explicit mid-grey in dark mode.
     // Normalize to hex either way; NVL doesn't render hsl() (#1157).
-    color: edge.color ? toNvlColor(edge.color) : dark ? "#6a7180" : undefined,
+    color: edgeColor(edge.color, dark),
+    width: 1,
   };
 }
 
@@ -355,7 +433,7 @@ function GraphChartInner({
   layout: layoutProp = "force",
   initialLayout,
   showLabels = true,
-  showRelationshipLabels = true,
+  showRelationshipLabels = false,
   nodeSize = "medium",
   initialCaptionMap,
   selectedNodeIds,
@@ -368,11 +446,19 @@ function GraphChartInner({
   onCaptionMapChange,
   autoFit,
   showNodeCount = true,
+  footer,
   stylingRules,
   paramValues,
   className,
 }: GraphChartProps) {
   const nvlRef = useRef<NVL>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{
+    title: string;
+    sub: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [layoutReady, setLayoutReady] = useState(false);
   const [layout, setLayout] = useState<GraphLayout>(
     initialLayout ?? layoutProp,
@@ -395,6 +481,23 @@ function GraphChartInner({
   const labelColorMap = useMemo(
     () => buildLabelColorMap(nodes, dark),
     [nodes, dark],
+  );
+
+  const legendRows = useMemo(() => countByLabel(nodes), [nodes]);
+  // Per label, the distinct colours its nodes are painted with.
+  const legendColors = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const n of nodes) {
+      const l = colorLabel(n);
+      const c = nodeColor(n, labelColorMap, stylingRules, paramValues);
+      if (l === undefined || c === undefined) continue;
+      m.set(l, (m.get(l) ?? new Set()).add(c));
+    }
+    return m;
+  }, [nodes, labelColorMap, stylingRules, paramValues]);
+  const primaryLabel = useMemo(
+    () => pickPrimaryLabel(legendRows),
+    [legendRows],
   );
 
   // Caption map: node label → chosen property key for display
@@ -429,6 +532,8 @@ function GraphChartInner({
   const onRelationshipClickRef = useRef(onRelationshipClick);
   onRelationshipClickRef.current = onRelationshipClick;
 
+  const captionMapRef = useRef(captionMap);
+  captionMapRef.current = captionMap;
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
   const edgesRef = useRef(edges);
@@ -455,6 +560,7 @@ function GraphChartInner({
           labelColorMap,
           nodeSizeScale,
           selectedIds,
+          primaryLabel,
           stylingRules,
           paramValues,
         ),
@@ -466,6 +572,7 @@ function GraphChartInner({
       labelColorMap,
       nodeSizeScale,
       selectedIds,
+      primaryLabel,
       stylingRules,
       paramValues,
     ],
@@ -512,7 +619,35 @@ function GraphChartInner({
 
   const mouseEventCallbacks = useMemo(
     (): InteractiveNvlWrapperProps["mouseEventCallbacks"] => ({
-      onHover: true,
+      onHover: (element, _hit, event) => {
+        const box = containerRef.current?.getBoundingClientRect();
+        const { left: x, top: y } = tooltipPos(
+          (event?.clientX ?? 0) - (box?.left ?? 0),
+          (event?.clientY ?? 0) - (box?.top ?? 0),
+          containerRef.current,
+        );
+        if (!element) return setHover(null);
+        if ("from" in element) {
+          const name = (id: string) => {
+            const n = nodesRef.current.find((c) => c.id === id);
+            return n ? resolveCaption(n, captionMapRef.current) : id;
+          };
+          return setHover({
+            title: `${name(element.from)} → ${name(element.to)}`,
+            sub: element.type ?? "",
+            x,
+            y,
+          });
+        }
+        const node = nodesRef.current.find((c) => c.id === element.id);
+        if (!node) return setHover(null);
+        setHover({
+          title: resolveCaption(node, captionMapRef.current),
+          sub: colorLabel(node) ?? "",
+          x,
+          y,
+        });
+      },
       onDrag: true,
       onZoom: true,
       onPan: true,
@@ -599,11 +734,22 @@ function GraphChartInner({
       initialZoom: 0.7,
       // Web workers require bundler-specific config in Next.js; keep on main thread.
       disableWebWorkers: true,
+      // NVL's built-in Segment analytics is on unless turned off (#2229).
+      disableTelemetry: true,
     }),
     [],
   );
 
   const hasLabels = labelPropertyMap.size > 0;
+
+  // Refit when the panel is resized (maximise, grid drag, window).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => fitGraph());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitGraph, nodes.length]);
 
   // Safety timeout: if NVL's onLayoutDone never fires (e.g. when the component
   // mounts inside a CSS-animated dialog where the container starts at ~0 size),
@@ -636,7 +782,11 @@ function GraphChartInner({
   }
 
   return (
-    <div className={`relative h-full w-full ${className ?? ""}`}>
+    <div
+      ref={containerRef}
+      className={`group/graph relative h-full w-full ${className ?? ""}`}
+      onMouseLeave={() => setHover(null)}
+    >
       {/* Node count display (top-left) — suppressed by a consumer that renders
           its own status bar, so the counts never appear twice (#1521). */}
       {showNodeCount && (
@@ -650,7 +800,11 @@ function GraphChartInner({
       )}
 
       {/* Overlay toolbar */}
-      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 shadow-sm backdrop-blur-sm">
+      <div
+        role="toolbar"
+        aria-label="Graph controls"
+        className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 opacity-0 shadow-sm backdrop-blur-sm transition-opacity focus-within:opacity-100 group-hover/graph:opacity-100 group-focus-within/graph:opacity-100 [@media(hover:none)]:opacity-100"
+      >
         <button
           onClick={zoomIn}
           className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -659,6 +813,7 @@ function GraphChartInner({
           data-testid="graph-zoom-in"
         >
           <svg
+            aria-hidden="true"
             viewBox="0 0 16 16"
             className="h-3.5 w-3.5"
             fill="none"
@@ -677,6 +832,7 @@ function GraphChartInner({
           data-testid="graph-zoom-out"
         >
           <svg
+            aria-hidden="true"
             viewBox="0 0 16 16"
             className="h-3.5 w-3.5"
             fill="none"
@@ -694,6 +850,7 @@ function GraphChartInner({
           aria-label="Fit graph"
         >
           <svg
+            aria-hidden="true"
             viewBox="0 0 16 16"
             className="h-3.5 w-3.5"
             fill="none"
@@ -732,6 +889,7 @@ function GraphChartInner({
                   data-testid="label-settings-button"
                 >
                   <svg
+                    aria-hidden="true"
                     viewBox="0 0 16 16"
                     className="h-3.5 w-3.5"
                     fill="none"
@@ -785,6 +943,64 @@ function GraphChartInner({
           </>
         )}
       </div>
+
+      {(legendRows.length > 0 || footer) && (
+        <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-end gap-2">
+          {footer && <div className="pointer-events-auto">{footer}</div>}
+          {legendRows.length > 0 && (
+            <ul
+              className="pointer-events-auto m-0 flex list-none flex-wrap gap-x-3 gap-y-1 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm"
+              data-testid="graph-legend"
+            >
+              {legendRows.map(([lbl, count]) => {
+                const colors = Array.from(legendColors.get(lbl) ?? []);
+                const mixed = colors.length > 1;
+                return (
+                  <li key={lbl} className="inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      // Mixed: a conic split of the colours in use, not one
+                      // misleading swatch.
+                      style={
+                        mixed
+                          ? {
+                              backgroundImage: `conic-gradient(${colors
+                                .map(
+                                  (c, i, all) =>
+                                    `${c} ${(i / all.length) * 100}% ${((i + 1) / all.length) * 100}%`,
+                                )
+                                .join(", ")})`,
+                            }
+                          : { backgroundColor: colors[0] }
+                      }
+                      data-mixed={mixed ? "true" : undefined}
+                      data-testid={`graph-legend-swatch-${lbl}`}
+                      aria-hidden="true"
+                    />
+                    {lbl}{" "}
+                    <span data-testid={`graph-legend-count-${lbl}`}>
+                      {count}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-30 max-w-56 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
+          style={{ left: hover.x, top: hover.y }}
+          data-testid="graph-hover"
+        >
+          <div className="truncate font-medium">{hover.title}</div>
+          {hover.sub && (
+            <div className="truncate text-muted-foreground">{hover.sub}</div>
+          )}
+        </div>
+      )}
 
       {!layoutReady && nodes.length > 0 && (
         <div

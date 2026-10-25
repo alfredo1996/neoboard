@@ -149,33 +149,61 @@ export const TODAY_LINE_COLOR = {
 } as const;
 
 /**
+ * Ink steps for chart marks and labels that sit on the card (#2231): ink 2
+ * for nodes, ink 3 for the quiet half of a label. Hex, because canvas cannot
+ * read a CSS variable.
+ */
+export const INK = {
+  light: { ink: "#16181D", ink2: "#525A66", ink3: "#686E7A" },
+  dark: { ink: "#EDEFF2", ink2: "#AEB4BE", ink3: "#959BA6" },
+} as const;
+
+/**
+ * Sankey flows at rest. Drawn at 50% opacity: the board's 18% grey measured
+ * about 1.1:1 against the page, so a static picture or a PNG export lost them.
+ */
+export const FLOW_COLOR = {
+  light: "#9AA3B0",
+  dark: "#6B7480",
+} as const;
+
+/** "Rule 2": the stronger hairline, used for a hairline zoom track's window. */
+export const RULE_2 = {
+  light: "#CDD1D7",
+  dark: "#383D46",
+} as const;
+
+/**
  * The dataZoom slider, themed once here rather than per chart (#1273).
  *
  * Left to ECharts it renders in a stock lavender-blue that appears nowhere in
- * the palette, directly under a citrine chart. The selected window and its
- * handles take the interaction colour (azure `--ring`, #1553); the track is
- * the same quiet muted/border pair the axes use.
+ * the palette, directly under a citrine chart. Since #2231 it is a hairline:
+ * a quiet track, a grey window on it, and handles that are small card-coloured
+ * discs with an ink-3 rim. No data silhouette, no readout.
  */
 function dataZoomStyle(
-  ring: string,
-  fill: string,
-  muted: string,
-  border: string,
+  track: string,
+  window: string,
+  card: string,
+  rim: string,
   label: string,
 ) {
   return {
-    backgroundColor: muted,
+    backgroundColor: track,
     borderColor: "transparent",
-    fillerColor: fill,
-    handleStyle: { color: ring, borderColor: ring },
-    moveHandleStyle: { color: ring },
+    fillerColor: window,
+    showDetail: false,
+    brushSelect: false,
+    moveHandleSize: 0,
+    handleStyle: { color: card, borderColor: rim },
+    moveHandleStyle: { color: window },
     dataBackground: {
-      lineStyle: { color: border },
-      areaStyle: { color: muted },
+      lineStyle: { opacity: 0 },
+      areaStyle: { opacity: 0 },
     },
     selectedDataBackground: {
-      lineStyle: { color: ring },
-      areaStyle: { color: ring, opacity: 0.2 },
+      lineStyle: { opacity: 0 },
+      areaStyle: { opacity: 0 },
     },
     textStyle: { color: label },
   };
@@ -353,13 +381,12 @@ export function registerNeoboardThemes(
     // visualMap text doesn't inherit the global textStyle — its dim ECharts
     // default is hard to read on the dark canvas (#1154).
     visualMap: { textStyle: { color: "#686E7A" } },
-    // --ring 212 90% 42%
     dataZoom: dataZoomStyle(
-      "#0b65cb",
-      "rgba(11, 101, 203, 0.18)",
       MUTED_FILL.light,
-      "#e5e7eb",
-      "#686E7A",
+      RULE_2.light,
+      SURFACE_COLOR.light,
+      INK.light.ink3,
+      INK.light.ink3,
     ),
     ...seriesDefaults(
       "#FFFFFF",
@@ -390,13 +417,12 @@ export function registerNeoboardThemes(
     },
     // See the light theme note — visualMap text needs explicit color.
     visualMap: { textStyle: { color: "#959BA6" } },
-    // --ring 212 90% 62%
     dataZoom: dataZoomStyle(
-      "#4798f5",
-      "rgba(71, 152, 245, 0.22)",
       MUTED_FILL.dark,
-      "#262931",
-      "#959BA6",
+      RULE_2.dark,
+      SURFACE_COLOR.dark,
+      INK.dark.ink3,
+      INK.dark.ink3,
     ),
     ...seriesDefaults(
       "#1B1E23",

@@ -94,6 +94,7 @@ import {
   dashboardListTotals,
 } from "./dashboard-list-subtitle";
 import { deleteDashboardToast } from "./delete-dashboard-toast";
+import { dashboardDeleteConsequences } from "@/lib/widget/plural-widgets";
 import {
   filterDashboardsByName,
   isDuplicateDashboardName,
@@ -376,13 +377,11 @@ function ImportDashboardDialog({
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
           className="sm:max-w-lg"
+          aria-describedby={undefined}
           onCloseAutoFocus={onCloseAutoFocus}
         >
           <DialogHeader>
             <DialogTitle>Dashboard imported</DialogTitle>
-            <DialogDescription>
-              Your dashboard was imported successfully.
-            </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="rounded-md border p-3 bg-muted/40">
@@ -759,6 +758,9 @@ export default function DashboardListPage() {
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
+    widgetCount: number;
+    pageCount: number;
+    shareCount: number;
   } | null>(null);
   // What opened the dialog showing (#2086, #2146): none has a Trigger. Kept
   // after it closes: Radix hands focus back after that render.
@@ -1020,10 +1022,14 @@ export default function DashboardListPage() {
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        title={`Delete "${deleteTarget?.name ?? "Dashboard"}"?`}
-        description="This action cannot be undone. This will permanently delete this dashboard and all its widgets."
-        confirmText="Delete"
-        variant="destructive"
+        action="Delete"
+        object="dashboard"
+        name={deleteTarget?.name}
+        consequences={dashboardDeleteConsequences({
+          widgetCount: deleteTarget?.widgetCount ?? 0,
+          pageCount: deleteTarget?.pageCount ?? 0,
+          shareCount: deleteTarget?.shareCount ?? 0,
+        })}
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
@@ -1244,11 +1250,14 @@ export default function DashboardListPage() {
                                         setDeleteTarget({
                                           id: d.id,
                                           name: d.name,
+                                          widgetCount: d.widgetCount ?? 0,
+                                          pageCount: d.pageCount ?? 0,
+                                          shareCount: d.shareCount ?? 0,
                                         });
                                       }}
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete
+                                      Delete…
                                     </DropdownMenuItem>
                                   </>
                                 )}

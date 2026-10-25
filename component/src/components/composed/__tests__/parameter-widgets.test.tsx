@@ -1,5 +1,5 @@
 import * as React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 
 // cmdk (used by ParamMultiSelector's search popover) calls scrollIntoView
@@ -1029,6 +1029,23 @@ describe("NumberRangeSlider", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps Reset in the row of the inputs and slider, not in a row of its own (#2232)", () => {
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[100, 500]}
+        onChange={vi.fn()}
+        onClear={vi.fn()}
+        labelledBy="lbl"
+      />,
+    );
+    const row = screen.getByRole("button", { name: /clear/i }).parentElement!;
+    expect(within(row).getAllByRole("spinbutton")).toHaveLength(2);
+    expect(within(row).getAllByRole("slider")).toHaveLength(2);
+  });
+
   it("hides Reset button when value is null", () => {
     render(
       <NumberRangeSlider
@@ -1187,6 +1204,24 @@ describe("NumberRangeSlider", () => {
     // Setting max above the overall max (800) should clamp to 800
     fireEvent.change(maxInput, { target: { value: "1200" } });
     expect(onChange).toHaveBeenCalledWith([100, 800]);
+  });
+
+  it("keeps room for five digits and wraps instead of overflowing a narrow card (#2232)", () => {
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={99999}
+        value={[10000, 99999]}
+        onChange={vi.fn()}
+        onClear={vi.fn()}
+        showInputs
+      />,
+    );
+    const [min, max] = screen.getAllByRole("spinbutton");
+    expect(min).toHaveClass("w-16");
+    expect(max).toHaveClass("w-16");
+    expect(min.parentElement).toHaveClass("flex-wrap");
   });
 
   it("hides number inputs when showInputs=false", () => {

@@ -258,7 +258,7 @@ test.describe("Code completion — Cypher + SQL", () => {
     // The next Escape is the editor's, with a typed query to ask about.
     await page.keyboard.press("Escape");
     await expect(
-      page.getByRole("alertdialog", { name: "Discard unsaved changes?" }),
+      page.getByRole("alertdialog", { name: "Discard your changes?" }),
     ).toBeVisible();
   });
 

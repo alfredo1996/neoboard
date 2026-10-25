@@ -444,7 +444,7 @@ export default function WidgetLibraryPage() {
                                 }}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
+                                Delete…
                               </DropdownMenuItem>
                             </>
                           )}
@@ -464,10 +464,10 @@ export default function WidgetLibraryPage() {
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        title="Delete Template"
-        description="This will permanently delete this template. It will not affect existing dashboard widgets."
-        confirmText="Delete"
-        variant="destructive"
+        action="Delete"
+        object="template"
+        name={templates?.find((t) => t.id === deleteTarget)?.name}
+        consequences="Widgets already made from it keep working."
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {

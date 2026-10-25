@@ -226,17 +226,17 @@ function ApiKeyRow({
                   setConfirmOpen(true);
                 }}
               >
-                Revoke
+                Revoke…
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <ConfirmDialog
             open={confirmOpen}
             onOpenChange={setConfirmOpen}
-            title="Revoke API key"
-            description={`Are you sure you want to revoke "${apiKey.name}"? This action cannot be undone. Any integrations using this key will stop working immediately.`}
-            confirmText="Revoke"
-            variant="destructive"
+            action="Revoke"
+            object="key"
+            name={apiKey.name}
+            consequences="Scripts using it stop working at once. This can't be undone."
             returnFocusTo={returnFocusTo}
             onConfirm={() => {
               // The row leaves once the list refetches: land on the heading.

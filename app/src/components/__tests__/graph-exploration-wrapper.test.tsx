@@ -54,9 +54,13 @@ const explorationStub = {
 };
 
 vi.mock("@neoboard/components", () => ({
+  // Renders the footer slot like the real chart: the wrapper's status bar
+  // lives there (#2229), so the DOM assertions below still see it.
   GraphChart: (props: Record<string, unknown>) => {
     chartProps = props;
-    return <div data-testid="graph-chart" />;
+    return (
+      <div data-testid="graph-chart">{props.footer as React.ReactNode}</div>
+    );
   },
   // Must be referentially stable across renders: the wrapper persists
   // `exploration.nodes` / `.edges` to the store in an effect keyed on their

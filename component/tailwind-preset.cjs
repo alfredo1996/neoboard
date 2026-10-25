@@ -73,6 +73,7 @@ module.exports = {
           strong: "hsl(var(--rule-strong))",
         },
         side: "hsl(var(--side))",
+        "code-bg": "hsl(var(--code-bg))",
         active: "hsl(var(--active))",
         "page-ground": "hsl(var(--page-ground))",
         "card-edge": {
@@ -161,6 +162,7 @@ module.exports = {
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
         card: "var(--card-shadow)",
+        overlay: "var(--shadow-overlay)",
       },
       // Motion vocabulary (#833): the standard ease becomes the default
       // timing function for every transition-* utility.

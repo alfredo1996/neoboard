@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { WidgetCard } from "../widget-card";
@@ -629,6 +629,38 @@ describe("WidgetCard", () => {
       );
       expect(screen.getByRole("heading")).toHaveClass("font-body");
       expect(headerOf(container)).toHaveClass("border-b", "border-rule");
+    });
+
+    it("an untitled card in view mode has no header band: no padding, no rule (#2232)", () => {
+      const { container } = render(
+        <WidgetCard onFullscreen={() => {}}>Text</WidgetCard>,
+      );
+      const header = headerOf(container);
+      expect(header).toHaveClass("p-0", "border-b-0");
+      expect(header).not.toHaveClass("border-b");
+      // Its controls are still there to reach
+      expect(
+        screen.getByRole("button", { name: "Fullscreen" }),
+      ).toBeInTheDocument();
+    });
+
+    it("an untitled card with a source keeps its band, and the source can be a link (#2232)", () => {
+      const { container } = render(
+        <WidgetCard
+          onFullscreen={() => {}}
+          source={<a href="https://example.com">example.com</a>}
+        >
+          x
+        </WidgetCard>,
+      );
+      const header = headerOf(container);
+      expect(header).toHaveClass("pt-3", "border-b");
+      expect(header).not.toHaveClass("p-0");
+      expect(
+        within(header as HTMLElement).getByRole("link", {
+          name: "example.com",
+        }),
+      ).toBeInTheDocument();
     });
 
     it("titleFont sets the title face and marks the panel for the KPI number", () => {

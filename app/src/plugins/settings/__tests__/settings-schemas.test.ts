@@ -346,7 +346,7 @@ describe("singleValueSettingsSchema", () => {
 describe("jsonSettingsSchema", () => {
   it("applies correct defaults", () => {
     const result = jsonSettingsSchema.parse({});
-    expect(result.initialExpanded).toBe(2);
+    expect(result.initialExpanded).toBe(1);
   });
 
   it("coerces string numbers", () => {

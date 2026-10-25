@@ -669,7 +669,7 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
     await dialog.locator(".cm-content").click();
 
     const confirm = page.getByRole("alertdialog", {
-      name: "Discard unsaved changes?",
+      name: "Discard your changes?",
     });
     await page.keyboard.press("Escape");
     await expect(confirm).toBeVisible();
@@ -724,7 +724,7 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
     // The next Escape is the editor's, and there are edits to ask about.
     await page.keyboard.press("Escape");
     await expect(
-      page.getByRole("alertdialog", { name: "Discard unsaved changes?" }),
+      page.getByRole("alertdialog", { name: "Discard your changes?" }),
     ).toBeVisible();
   });
 
@@ -788,7 +788,7 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
     // The next Escape is the editor's, and a rule was added.
     await page.keyboard.press("Escape");
     await expect(
-      page.getByRole("alertdialog", { name: "Discard unsaved changes?" }),
+      page.getByRole("alertdialog", { name: "Discard your changes?" }),
     ).toBeVisible();
   });
 });

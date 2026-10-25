@@ -73,6 +73,7 @@ function fusedTokens(source) {
     if (!tokens.some((t) => t.includes(":"))) continue;
     if (!tokens.every((t) => TOKEN.test(t) && !t.includes("//"))) continue; // prose, not classes
     for (const token of tokens) {
+      if (/^\d+(:\d+)+$/.test(token)) continue; // a clock time, not a class
       if (!variantsOf(token).every((v) => VARIANT.test(v))) bad.push(token);
     }
   }
@@ -139,6 +140,7 @@ describe("Tailwind class strings (#2225)", () => {
       `"group-data-[title-font=serif]/panel:font-serif file:border-0 placeholder:text-muted-foreground"`,
       `"https://www.openstreetmap.org/copyright"`,
       `"{HH}:{mm}"`,
+      `"09:00"`,
       `"Save: Ctrl+S"`,
     ];
     for (const source of fine) expect(fusedTokens(source), source).toEqual([]);
