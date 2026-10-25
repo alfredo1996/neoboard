@@ -38,6 +38,7 @@ function SunburstPluginComponent({
       showLabels={settings.showLabels}
       maxLabelDepth={settings.maxLabelDepth}
       sort={settings.sort}
+      sunburstCenterText={settings.sunburstCenterText}
       highlightOnHover={settings.highlightOnHover}
       colorPalette={settings.colorPalette}
       stylingRules={stylingRules as StylingRule[] | undefined}

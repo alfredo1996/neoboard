@@ -42,14 +42,17 @@ ORDER BY region, population DESC
 | Option | Default | Description |
 |--------|---------|-------------|
 | Show Labels | `true` | Show segment name labels |
-| Max Label Depth | `2` | Maximum ring depth for labels (0 = auto) |
+| Max Label Depth | `2` | Maximum ring depth for labels (0 = auto); rings beyond it draw no label |
 | Sort | `desc` | Segment order: largest first, smallest first, or data order |
+| Sunburst Center Text | (empty) | Label under the total in the centre. Blank shows the total alone |
 | Highlight on Hover | `true` | Emphasize segment and ancestors on hover |
 
 ## Features
 
-- **Smart label management** — auto-hides labels on crowded rings (>12 segments)
-- **Ancestor path on hover** — hover any segment to see its full path highlighted with bold labels
-- **Click to drill down** — click a segment to make it the new root
+- **One hue per top category** — each top-level segment takes a muted palette hue and its children lighter steps of it
+- **Labels that fit** — labels are level, hidden where the arc is too narrow to hold them, and take ink or white, whichever contrasts more with the segment (at least 4.5:1)
+- **Ancestor path on hover** — hover any segment to see its full path highlighted
+- **Two rings, then drill** — without a click action the chart draws two rings. Click a segment with children to go one level down (a category shows its subcategories and their products; a subcategory shows its products); click the centre to go one level up. The centre shows the total, with your Sunburst Center Text under it when set
+- **With a click action, every ring shows** — and a click runs the action instead of drilling, so the two never compete
 - **Rule-based styling** — color segments by condition
 - **Click actions** — click a segment to navigate or set a parameter

@@ -120,7 +120,10 @@ export const DarkMode: Story = {
         }
       ).series[0];
       expect(series.label.color).toBe("#f3f4f6");
-      expect(series.label.textBorderWidth).toBe(0);
+      // Since #2231 the halo is the card's colour, so a label that crosses a
+      // flow stays readable.
+      expect(series.label.textBorderColor).toBe("#181b20");
+      expect(series.label.textBorderWidth).toBe(3);
     });
   },
 };
@@ -216,4 +219,39 @@ export const EmptyState: Story = {
     );
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
+};
+
+/** #2231 — flows are visible at rest; hover traces the path in citrine. */
+export const LightFlows: Story = {
+  args: { data: defaultData },
+  globals: { theme: "light" },
+};
+
+/** #2231 — an edge name past 30% of the widget is cut to it; the tooltip has the whole name. */
+export const LongEdgeNames: Story = {
+  args: {
+    data: {
+      nodes: [
+        { name: "Wholesale distribution partners in the northern region" },
+        { name: "Warehouse" },
+        {
+          name: "Retail customers served through the regional fulfilment network",
+        },
+      ],
+      links: [
+        {
+          source: "Wholesale distribution partners in the northern region",
+          target: "Warehouse",
+          value: 120,
+        },
+        {
+          source: "Warehouse",
+          target:
+            "Retail customers served through the regional fulfilment network",
+          value: 90,
+        },
+      ],
+    },
+  },
+  globals: { theme: "light" },
 };

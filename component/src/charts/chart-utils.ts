@@ -3,7 +3,12 @@ import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import type { PieChartDataPoint } from "./types";
 import { formatNumericCell, isNumericCell } from "../lib/numeric-cell";
-import { formatAxisCompact, HIGHLIGHT_SOFT } from "./theme";
+import {
+  CHART_FONT_FAMILY,
+  formatAxisCompact,
+  HIGHLIGHT_SOFT,
+  INK,
+} from "./theme";
 
 // ---------------------------------------------------------------------------
 // Number formatting
@@ -230,12 +235,69 @@ export const fillLabelStyle = {
 export function contrastTextColor(color: string): string {
   const rgb = parseColorToRgb(color);
   if (!rgb) return "#000000";
+  return relativeLuminance(rgb) > 0.179 ? "#000000" : "#ffffff";
+}
+
+function relativeLuminance(rgb: [number, number, number]): number {
   const [r, g, b] = rgb.map((c) => {
     const v = c / 255;
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   });
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return lum > 0.179 ? "#000000" : "#ffffff";
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio of two colours; 1 when either cannot be parsed. */
+export function contrastRatio(a: string, b: string): number {
+  const ra = parseColorToRgb(a);
+  const rb = parseColorToRgb(b);
+  if (!ra || !rb) return 1;
+  const [x, y] = [relativeLuminance(ra), relativeLuminance(rb)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/**
+ * Label colour for text on an arbitrary fill: ink or white, whichever
+ * contrasts more. Unlike `contrastTextColor` it measures against the ink the
+ * chart actually draws, not pure black, so the choice is the true maximum.
+ */
+export function labelColorOn(fill: string): string {
+  return contrastRatio(fill, INK.light.ink) >= contrastRatio(fill, "#FFFFFF")
+    ? INK.light.ink
+    : "#FFFFFF";
+}
+
+/** What the owner set as the floor for a label on its fill (#2231). */
+export const LABEL_MIN_CONTRAST = 4.5;
+
+/**
+ * A fill a label can be read on. A mid-tone fill has no ink or white that
+ * reaches 4.5:1 (the best of the two bottoms out near 4.2), so such a fill
+ * is moved toward the card, in small steps, until one of them does.
+ */
+export function legibleFill(fill: string, card: string): string {
+  let out = fill;
+  for (let i = 0; i < 20; i++) {
+    if (contrastRatio(out, labelColorOn(out)) >= LABEL_MIN_CONTRAST) return out;
+    out = mixColors(out, card, 0.05);
+  }
+  return out;
+}
+
+/** `a` moved `t` (0..1) of the way toward `b`, as a hex colour. */
+export function mixColors(a: string, b: string, t: number): string {
+  const ra = parseColorToRgb(a);
+  const rb = parseColorToRgb(b);
+  if (!ra || !rb) return a;
+  return (
+    "#" +
+    ra
+      .map((v, i) =>
+        Math.round(v + (rb[i] - v) * t)
+          .toString(16)
+          .padStart(2, "0"),
+      )
+      .join("")
+  );
 }
 
 function parseHexColor(s: string): [number, number, number] | null {
@@ -1020,4 +1082,24 @@ export function isTimeSeriesData(values: unknown[]): boolean {
     const d = new Date(v as string | number);
     return !isNaN(d.getTime());
   });
+}
+
+let measureContext: CanvasRenderingContext2D | null | undefined;
+
+/**
+ * Width in px of `text` in the chart face. Measured on a canvas so a column
+ * sized from it fits its longest label (#2231); where there is no canvas
+ * (a server render, jsdom) it falls back to a flat 0.6em per character.
+ */
+export function measureTextWidth(text: string, fontSize = 11): number {
+  if (measureContext === undefined) {
+    try {
+      measureContext = document.createElement("canvas").getContext("2d");
+    } catch {
+      measureContext = null;
+    }
+  }
+  if (!measureContext) return text.length * fontSize * 0.6;
+  measureContext.font = `${fontSize}px ${CHART_FONT_FAMILY}`;
+  return measureContext.measureText(text).width;
 }
