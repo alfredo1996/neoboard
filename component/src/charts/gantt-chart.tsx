@@ -136,6 +136,7 @@ function GanttChart({
     // ponytail: the ticks are fixed, so zooming in to a few days leaves the
     // axis with the weekly ones only. Compute them from the zoom window if
     // that becomes a complaint.
+    const inset = compact ? 8 : 16;
     const DAY = 86400000;
     const first = Math.min(...data.map((d) => d.start));
     const last = Math.max(...data.map((d) => d.end));
@@ -147,7 +148,15 @@ function GanttChart({
       // Local midnight, so no tick sits at 09:00 and prints as a time.
       const from = new Date(first);
       from.setHours(0, 0, 0, 0);
-      for (let d = from; d.getTime() <= last; d.setDate(d.getDate() + 7)) {
+      // Widen the step in whole weeks until each label has MIN_LABEL_PX of
+      // plot: customValues bypasses ECharts' own thinning. Unmeasured
+      // (width 0) keeps every week.
+      const MIN_LABEL_PX = 48;
+      const plot = width - nameColumn - inset;
+      const weekPx =
+        plot > 0 ? (plot * 7 * DAY) / (last - first) : MIN_LABEL_PX;
+      const step = 7 * Math.max(1, Math.ceil(MIN_LABEL_PX / weekPx));
+      for (let d = from; d.getTime() <= last; d.setDate(d.getDate() + step)) {
         weekTicks.push(d.getTime());
       }
     }
@@ -299,8 +308,6 @@ function GanttChart({
           },
         }
       : {};
-
-    const inset = compact ? 8 : 16;
 
     return {
       tooltip: {

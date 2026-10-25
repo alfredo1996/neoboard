@@ -288,6 +288,24 @@ describe("GanttChart", () => {
       expect(xAxis.splitLine.show).toBe(true);
     });
 
+    it.each([
+      ["a year at 800px", 800, 365],
+      ["a year in a 240px widget", 240, 365],
+    ])("keeps weekly labels 48px apart over %s", (_n, width, days) => {
+      measured.width = width;
+      const start = new Date(2026, 0, 1).getTime();
+      const { xAxis, grid } = optionOf({
+        data: [{ task: "A", start, end: start + days * day }],
+      });
+      const ticks = xAxis.axisLabel.customValues as number[];
+      const plot = width - grid.left - grid.right;
+      const pxPerMs = plot / (days * day);
+      expect((ticks[1] - ticks[0]) * pxPerMs).toBeGreaterThanOrEqual(48);
+      // A whole number of weeks, as calendar days (DST-safe).
+      const gap = Math.round((ticks[1] - ticks[0]) / day);
+      expect(gap % 7).toBe(0);
+    });
+
     it("names every weekly tick as a day, even one at 09:00 or on Jan 1", () => {
       // ECharts picks a template per tick's precision: a tick off midnight
       // printed "09:00", one on Jan 1 printed "2027". A midnight tick under a
