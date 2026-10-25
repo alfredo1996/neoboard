@@ -22,11 +22,14 @@ export function dashboardDeleteConsequences({
     shareCount === 1
       ? "1 person it's shared with loses"
       : `${shareCount} people it's shared with lose`;
+  const shared = shareCount > 0;
   let body: string;
   if (widgetCount === 0) {
-    body = `It has no widgets.${shareCount > 0 ? ` The ${people} access.` : ""}`;
+    body = "It has no widgets.";
+    if (shared) body += ` The ${people} access.`;
   } else {
-    body = `Its ${pluralWidgets(widgetCount)} and ${pluralPages(pageCount)} go with it${shareCount > 0 ? `, and the ${people} access` : ""}.`;
+    const loses = shared ? `, and the ${people} access` : "";
+    body = `Its ${pluralWidgets(widgetCount)} and ${pluralPages(pageCount)} go with it${loses}.`;
   }
   return `${body} This can't be undone.`;
 }
