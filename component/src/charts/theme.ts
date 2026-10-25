@@ -242,7 +242,7 @@ function legendStyle(label: string) {
  * deliberately styled out of the box:
  * - bars: no floating value labels, subtle top radius
  * - lines: 2px stroke, round caps, unsmoothed, points on hover
- * - pies: hairline gap between slices
+ * - pies: 2px gap between slices, in the card colour
  * - tooltips: popover-token styling instead of the ECharts white box
  */
 function seriesDefaults(
@@ -250,6 +250,7 @@ function seriesDefaults(
   border: string,
   fg: string,
   muted: string,
+  surface: string,
 ) {
   return {
     bar: {
@@ -272,7 +273,7 @@ function seriesDefaults(
       areaStyle: { opacity: 0.1 },
     },
     pie: {
-      itemStyle: { borderWidth: 2, borderColor: "transparent" },
+      itemStyle: { borderWidth: 2, borderColor: surface },
       // Slice labels: same dark-fill + light-halo ECharts default as bar —
       // unreadable on the dark canvas (#1154). Theme foreground, no halo.
       label: { color: fg, textBorderWidth: 0 },
@@ -360,7 +361,13 @@ export function registerNeoboardThemes(
       "#e5e7eb",
       "#686E7A",
     ),
-    ...seriesDefaults("#FFFFFF", "#E4E6EA", "#14161a", "#686E7A"),
+    ...seriesDefaults(
+      "#FFFFFF",
+      "#E4E6EA",
+      "#14161a",
+      "#686E7A",
+      SURFACE_COLOR.light,
+    ),
   });
 
   // Dark: ink 3 #959BA6, rule #262A31, rule 2 #383D46, field #1B1E23.
@@ -391,6 +398,12 @@ export function registerNeoboardThemes(
       "#262931",
       "#959BA6",
     ),
-    ...seriesDefaults("#1B1E23", "#262A31", "#f3f4f6", "#959BA6"),
+    ...seriesDefaults(
+      "#1B1E23",
+      "#262A31",
+      "#f3f4f6",
+      "#959BA6",
+      SURFACE_COLOR.dark,
+    ),
   });
 }

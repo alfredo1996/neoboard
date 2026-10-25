@@ -1,30 +1,61 @@
 import { describe, it, expect } from "vitest";
+import * as echarts from "echarts";
 import { buildTimeAxisLabelFormatter } from "../chart-utils";
 
-// Local-time dates, as ECharts' time axis uses.
-const tick = (y: number, m: number) => new Date(y, m, 1).getTime();
+const DAY = 864e5;
 
-const render = (formatter: (v: number, i: number) => string, ticks: number[]) =>
-  ticks.map((t, i) => formatter(t, i));
+/** The labels ECharts really draws (not just formats) for a line on `points`. */
+function drawnLabels(points: [number, number][]): string[] {
+  const chart = echarts.init(null as never, null as never, {
+    renderer: "svg",
+    ssr: true,
+    width: 900,
+    height: 300,
+  });
+  chart.setOption({
+    animation: false,
+    xAxis: {
+      type: "time",
+      axisLabel: { formatter: buildTimeAxisLabelFormatter() },
+    },
+    yAxis: { type: "value", axisLabel: { show: false } },
+    series: [{ type: "line", data: points }],
+  });
+  const svg = chart.renderToSVGString();
+  chart.dispose();
+  return [...svg.matchAll(/<text[^>]*>([^<]+)<\/text>/g)].map((m) => m[1]);
+}
 
-describe("buildTimeAxisLabelFormatter (#2227)", () => {
-  it("prints the year once, on the first tick of each year, not on January", () => {
-    const f = buildTimeAxisLabelFormatter();
-    // Quarterly ticks starting in April: no January tick in 2024.
-    const out = render(f, [
-      tick(2024, 3),
-      tick(2024, 6),
-      tick(2024, 9),
-      tick(2025, 0),
-      tick(2025, 3),
-    ]);
-    expect(out).toEqual(["Apr 2024", "Jul", "Oct", "Jan 2025", "Apr"]);
+const series = (start: Date, n: number, stepMs: number) =>
+  Array.from(
+    { length: n },
+    (_, i) => [start.getTime() + i * stepMs, i] as [number, number],
+  );
+
+describe("buildTimeAxisLabelFormatter through real ECharts (#2227)", () => {
+  it("prints the first year even though ECharts formats an undrawn end tick first", () => {
+    // Weekly from 2024-01-29: tick 0 is the data's own first date, never drawn.
+    const labels = drawnLabels(series(new Date(2024, 0, 29), 100, 7 * DAY));
+    expect(labels[0]).toMatch(/^\w{3} 2024$/);
+    expect(labels.filter((l) => /2024/.test(l))).toHaveLength(1);
+    expect(labels.some((l) => /^\w{3} 2025$/.test(l))).toBe(true);
   });
 
-  it("starts over on every render pass (index 0 prints the year again)", () => {
-    const f = buildTimeAxisLabelFormatter();
-    const ticks = [tick(2024, 0), tick(2024, 3)];
-    expect(render(f, ticks)).toEqual(["Jan 2024", "Apr"]);
-    expect(render(f, ticks)).toEqual(["Jan 2024", "Apr"]);
+  it("labels a 30-day daily span with the day, not a repeated month", () => {
+    const labels = drawnLabels(series(new Date(2024, 8, 15), 30, DAY));
+    expect(labels.length).toBeGreaterThan(2);
+    // A month boundary may carry the year; the rest are days.
+    expect(
+      labels.filter((l) => /^\w{3} \d{1,2}$/.test(l)).length,
+    ).toBeGreaterThan(5);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("labels a 24-hour span with the time", () => {
+    const labels = drawnLabels(series(new Date(2024, 8, 15), 24, 36e5));
+    expect(labels.length).toBeGreaterThan(2);
+    expect(
+      labels.filter((l) => /^\d{2}:\d{2}$/.test(l)).length,
+    ).toBeGreaterThan(3);
   });
 });

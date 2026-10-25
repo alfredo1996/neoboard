@@ -178,7 +178,7 @@ describe("pieSettingsSchema", () => {
     expect(result.showLegend).toBeUndefined();
     expect(result.roseMode).toBe(false);
     expect(result.labelPosition).toBe("outside");
-    expect(result.showPercentage).toBe(false);
+    expect(result.showPercentage).toBe(true);
     expect(result.sortSlices).toBe(false);
     expect(result.colorblindMode).toBe(false);
   });
@@ -241,7 +241,9 @@ describe("ganttSettingsSchema", () => {
   });
 
   it("coerces string numbers for barBorderRadius", () => {
-    expect(ganttSettingsSchema.parse({ barBorderRadius: "4" }).barBorderRadius).toBe(4);
+    expect(
+      ganttSettingsSchema.parse({ barBorderRadius: "4" }).barBorderRadius,
+    ).toBe(4);
   });
 });
 

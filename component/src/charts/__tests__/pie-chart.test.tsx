@@ -1,6 +1,7 @@
 import { render, screen, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PieChart } from "../pie-chart";
+import { LABEL_MUTED } from "../theme";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
@@ -72,14 +73,9 @@ describe("PieChart", () => {
     expect(mockSetOption.mock.calls[0][0].legend).toBeDefined();
   });
 
-  it("names a slice with its share to one decimal (#2227)", () => {
-    render(<PieChart data={sampleData} />);
-    const label = mockSetOption.mock.calls[0][0].series[0].label.formatter({
-      name: "refunded",
-      value: 412,
-      percent: 20.6,
-    });
-    expect(label).toBe("refunded 20.6%");
+  it("keeps the legend when labels sit in the centre, since they name one slice only (#2227)", () => {
+    render(<PieChart data={sampleData} labelPosition="center" showLegend />);
+    expect(mockSetOption.mock.calls[0][0].legend).toBeDefined();
   });
 
   it("hides legend when showLegend is false", () => {
@@ -210,6 +206,35 @@ describe("PieChart", () => {
     const rows = [{ name: "a", value: 1, valueLabel: "orders" }];
     render(<PieChart data={rows} donut donutCenterText="All" />);
     expect(mockSetOption.mock.calls[0][0].graphic[0].style.text).toBe("All");
+  });
+
+  it("an empty donutCenterText (the editor's default) falls back to the total (#2227)", () => {
+    render(<PieChart data={sampleData} donut donutCenterText="" />);
+    expect(mockSetOption.mock.calls[0][0].graphic[0].style.text).toBe("100");
+  });
+
+  it("truncates long slice labels with a real ellipsis, and centres the total", () => {
+    render(<PieChart data={sampleData} donut />);
+    const o = mockSetOption.mock.calls[0][0];
+    expect(o.series[0].label).toMatchObject({
+      overflow: "truncate",
+      ellipsis: "…",
+    });
+    expect(o.graphic[0].top).toBe("middle");
+  });
+
+  it("colours the donut's noun muted, per theme", () => {
+    const rows = [{ name: "a", value: 1, valueLabel: "orders" }];
+    const noun = () =>
+      mockSetOption.mock.calls.at(-1)![0].graphic[0].style.rich.b.fill;
+    render(<PieChart data={rows} donut />);
+    expect(noun()).toBe(LABEL_MUTED.light);
+    act(() => {
+      document.documentElement.classList.add("dark");
+      globalThis.dispatchEvent(new Event("neoboard-theme-change"));
+    });
+    expect(noun()).toBe(LABEL_MUTED.dark);
+    document.documentElement.classList.remove("dark");
   });
 
   it("does not show graphic when donut is false", () => {

@@ -98,9 +98,11 @@ function PieChart({
     if (!data.length) return buildEmptyDataOption(dark);
 
     const effectiveShowLabel = compact ? false : showLabel;
-    // Labels name every slice, so a legend would only repeat them (#2227).
+    // Outside/inside labels name every slice, so a legend would only repeat
+    // them; centred labels name one slice, so the legend stays (#2227).
+    const labelsNameSlices = effectiveShowLabel && labelPosition !== "center";
     const effectiveShowLegend =
-      hideLegend || effectiveShowLabel ? false : showLegend;
+      hideLegend || labelsNameSlices ? false : showLegend;
 
     const sorted = sortSlices
       ? [...data].sort((a, b) => b.value - a.value)
@@ -190,6 +192,8 @@ function PieChart({
             position: labelPosition,
             formatter: labelFormatter,
             fontSize: 12,
+            overflow: "truncate",
+            ellipsis: "…",
             // Hide labels for slices smaller than 3%
             minMargin: 5,
           },
@@ -222,9 +226,9 @@ function PieChart({
               {
                 type: "text",
                 left: "center",
-                top: effectiveShowLegend ? "42%" : "47%",
+                top: effectiveShowLegend ? "42%" : "middle",
                 style: {
-                  text: donutCenterText ?? centreText,
+                  text: donutCenterText || centreText,
                   align: "center",
                   fontSize: 20,
                   fontWeight: "bold",

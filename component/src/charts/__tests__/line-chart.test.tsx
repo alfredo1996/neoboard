@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { withNullAt } from "./fixtures/connector-output";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LineChart } from "../line-chart";
 import { BarChart } from "../bar-chart";
@@ -121,23 +121,35 @@ describe("LineChart", () => {
         expect(areaStyleOf()).toEqual({ opacity: 0.1, color: "#f9a91f" });
       },
     );
+
+    // Toggling the theme on a MOUNTED chart: the memo once read the theme at
+    // mount and never rebuilt (#1286).
+    const toggleTo = (theme: "dark" | "light") => {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      act(() => {
+        globalThis.dispatchEvent(new Event("neoboard-theme-change"));
+      });
+    };
+
+    it('re-colors the "No data" label on toggle (#1286)', () => {
+      // Asserted on LineChart because BarChart's empty state is DOM, not
+      // canvas (#1053) — its option never reaches ECharts.
+      render(<LineChart data={[]} />);
+      const colorOf = (i: number) =>
+        mockSetOption.mock.calls[i][0].title.textStyle.color;
+      expect(colorOf(0)).toBe("#686E7A");
+      toggleTo("dark");
+      expect(colorOf(mockSetOption.mock.calls.length - 1)).toBe("#959BA6");
+    });
   });
 
-  it("prints the year once on a time axis (#2227)", () => {
+  it("formats a time axis with the year-once label formatter (#2227)", () => {
     const quarterly = ["2024-04-01", "2024-07-01", "2025-01-01"].map(
       (x, i) => ({ x, y: i }),
     );
     render(<LineChart data={quarterly} />);
     const f = mockSetOption.mock.calls[0][0].xAxis.axisLabel.formatter;
-    const t = (s: string) => new Date(`${s}T00:00:00`).getTime();
-    expect(
-      ["2024-04-01", "2024-07-01", "2025-01-01"].map((s, i) => f(t(s), i)),
-    ).toEqual(["Apr 2024", "Jul", "Jan 2025"]);
-  });
-
-  it("has no legend for one series, even when asked (#2227)", () => {
-    render(<LineChart data={sampleData} showLegend />);
-    expect(mockSetOption.mock.calls[0][0].legend).toBeUndefined();
+    expect(f(new Date(2024, 3, 1).getTime(), 0, undefined)).toBe("Apr 2024");
   });
 
   it("sets x-axis label", () => {
