@@ -161,52 +161,7 @@ vi.mock("@neoboard/components", () => ({
   }: React.PropsWithChildren<Record<string, unknown>>) => (
     <button {...props}>{children}</button>
   ),
-  AlertDialog: ({
-    children,
-    open,
-  }: {
-    children: React.ReactNode;
-    open: boolean;
-  }) =>
-    open ? (
-      <div data-testid="sync-dialog" role="alertdialog">
-        {children}
-      </div>
-    ) : null,
-  AlertDialogAction: ({
-    children,
-    onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
-    <button data-testid="confirm-sync" onClick={onClick}>
-      {children}
-    </button>
-  ),
-  AlertDialogCancel: ({ children }: { children: React.ReactNode }) => (
-    <button>{children}</button>
-  ),
-  AlertDialogContent: ({
-    children,
-    onCloseAutoFocus,
-  }: {
-    children: React.ReactNode;
-    onCloseAutoFocus?: (e: Event) => void;
-  }) => {
-    useCloseAutoFocus(onCloseAutoFocus);
-    return <div>{children}</div>;
-  },
-  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ConfirmDialog: ({
+  ConfirmDialog: function MockConfirmDialog({
     open,
     onOpenChange,
     action,
@@ -215,6 +170,8 @@ vi.mock("@neoboard/components", () => ({
     consequences,
     onConfirm,
     returnFocusTo,
+    returnFocusFallback,
+    destructive,
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -224,13 +181,26 @@ vi.mock("@neoboard/components", () => ({
     consequences?: React.ReactNode;
     onConfirm: () => void;
     returnFocusTo?: HTMLElement | null;
-  }) =>
-    open ? (
+    returnFocusFallback?: HTMLElement | null;
+    destructive?: boolean;
+  }) {
+    // The real one hands focus back on close, to the fallback when the
+    // opener left the page.
+    useCloseAutoFocus((e) => {
+      const target = returnFocusTo?.isConnected
+        ? returnFocusTo
+        : returnFocusFallback;
+      if (!target?.isConnected) return;
+      e.preventDefault();
+      target.focus();
+    }, open);
+    return open ? (
       <div
         data-testid="confirm-dialog"
         role="alertdialog"
         aria-label={`${action} ${name ?? `this ${object}`}`}
         data-return-focus={returnFocusTo?.id}
+        data-destructive={String(destructive)}
       >
         <p>{consequences}</p>
         <button
@@ -249,7 +219,8 @@ vi.mock("@neoboard/components", () => ({
           {object ? `${action} ${object}` : action}
         </button>
       </div>
-    ) : null,
+    ) : null;
+  },
   focusedMenuTrigger: () => mockMenuTrigger,
   buildCsvString: vi.fn((rows: unknown[]) => `CSV(${rows.length})`),
   triggerDownload: vi.fn(),
@@ -497,8 +468,16 @@ describe("DashboardContainer — fullscreen and Sync hand focus back (#2148)", (
 
   it.each([
     ["the fullscreen button", "Fullscreen", "fullscreen-dialog-close"],
-    ["the Sync menu item", "action-sync-with-template", "confirm-sync"],
-    ["the template update button", "Template update available", "confirm-sync"],
+    [
+      "the Sync menu item",
+      "action-sync-with-template",
+      "confirm-dialog-confirm",
+    ],
+    [
+      "the template update button",
+      "Template update available",
+      "confirm-dialog-confirm",
+    ],
   ])("closing after %s returns focus to it", (_, opener, close) => {
     renderWithProviders(
       <DashboardContainer
@@ -543,7 +522,7 @@ describe("DashboardContainer — fullscreen and Sync hand focus back (#2148)", (
     fireEvent.click(
       screen.getByRole("button", { name: "Template update available" }),
     );
-    fireEvent.click(screen.getByTestId("confirm-sync"));
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
     expect(
       screen.queryByRole("button", { name: "Template update available" }),
     ).toBeNull();
@@ -1141,10 +1120,39 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     act(() => {
       fireEvent.click(outdatedBtn);
     });
-    expect(screen.getByTestId("sync-dialog")).toBeDefined();
+    expect(screen.getByTestId("confirm-dialog")).toBeDefined();
     // Confirming calls onSyncWidget
-    fireEvent.click(screen.getByTestId("confirm-sync"));
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
     expect(onSyncWidget).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks 'Sync <title> with its template?', says what is replaced, and marks the action destructive", () => {
+    mockIsTemplateOutdated.mockReturnValue(true);
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([
+          makeWidget({ templateId: "tpl-1", settings: { title: "Movies" } }),
+        ])}
+        editable={true}
+        actions={{ onSyncWidget: vi.fn() }}
+        templateMap={{ "tpl-1": { id: "tpl-1" } as WidgetTemplate }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Template update available" }),
+    );
+    const dialog = screen.getByTestId("confirm-dialog");
+    expect(dialog).toHaveAttribute(
+      "aria-label",
+      "Sync Movies with its template",
+    );
+    expect(dialog).toHaveTextContent(
+      "Its query, chart type and options are replaced by the template's.",
+    );
+    expect(dialog).toHaveAttribute("data-destructive", "true");
+    expect(screen.getByTestId("confirm-dialog-confirm")).toHaveTextContent(
+      "Sync widget",
+    );
   });
 
   it("clicking Sync confirm without onSyncWidget still closes dialog", () => {
@@ -1165,9 +1173,9 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     act(() => {
       fireEvent.click(btn);
     });
-    expect(screen.getByTestId("sync-dialog")).toBeDefined();
+    expect(screen.getByTestId("confirm-dialog")).toBeDefined();
     // Confirm — must not throw and must close
-    fireEvent.click(screen.getByTestId("confirm-sync"));
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
   });
 });
 

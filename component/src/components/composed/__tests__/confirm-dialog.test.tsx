@@ -97,6 +97,27 @@ describe("ConfirmDialog", () => {
     expect(button.className.includes("bg-destructive")).toBe(destructive);
   });
 
+  it.each([
+    [true, true],
+    [false, false],
+  ])(
+    "destructive=%s overrides the verb for a lossy non-delete (Sync): %s",
+    (destructive, red) => {
+      render(
+        <ConfirmDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          action="Sync"
+          object="widget"
+          destructive={destructive}
+          onConfirm={vi.fn()}
+        />,
+      );
+      const button = screen.getByRole("button", { name: "Sync widget" });
+      expect(button.className.includes("bg-destructive")).toBe(red);
+    },
+  );
+
   it("does not render content when closed", () => {
     render(
       <ConfirmDialog
@@ -287,6 +308,31 @@ describe("ConfirmDialog — focus on close (#2055)", () => {
     // Radix's close autofocus runs a tick after unmount.
     await new Promise((r) => setTimeout(r, 10));
     expect(focus).not.toHaveBeenCalled();
+  });
+
+  it("goes to the fallback when the element to go back to is gone", async () => {
+    const user = userEvent.setup();
+    const gone = document.createElement("button");
+    const fallback = document.createElement("button");
+    document.body.append(fallback);
+    function Asked() {
+      const [open, setOpen] = React.useState(true);
+      return (
+        <ConfirmDialog
+          open={open}
+          onOpenChange={setOpen}
+          action="Remove"
+          object="item"
+          onConfirm={vi.fn()}
+          returnFocusTo={gone}
+          returnFocusFallback={fallback}
+        />
+      );
+    }
+    render(<Asked />);
+    await user.click(screen.getByRole("button", { name: "Remove item" }));
+    await waitFor(() => expect(fallback).toHaveFocus());
+    fallback.remove();
   });
 });
 

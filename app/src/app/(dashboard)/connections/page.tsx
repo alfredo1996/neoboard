@@ -184,6 +184,8 @@ export default function ConnectionsPage() {
   function toastBusy(count: number) {
     toast({
       title: "Server busy",
+      // The test did not run: the dashed mark, not the done dot.
+      variant: "pending",
       description:
         count === 1
           ? "The test did not run. Try again in a moment."

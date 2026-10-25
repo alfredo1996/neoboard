@@ -519,18 +519,35 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
     expect(menuTrigger).toHaveFocus();
   });
 
-  it("says 1 widget and 1 page in the singular (#2223)", () => {
-    dashboards = [
-      { ...DASHBOARD, role: "owner", widgetCount: 1, pageCount: 1 },
-    ];
-    render(<DashboardListPage />);
+  it.each([
+    [1, 1, 0, "Its 1 widget and 1 page go with it. This can't be undone."],
+    [3, 2, 0, "Its 3 widgets and 2 pages go with it. This can't be undone."],
+    [
+      12,
+      3,
+      3,
+      "Its 12 widgets and 3 pages go with it, and the 3 people it's shared with lose access. This can't be undone.",
+    ],
+    [
+      2,
+      1,
+      1,
+      "Its 2 widgets and 1 page go with it, and the 1 person it's shared with loses access. This can't be undone.",
+    ],
+    [0, 1, 0, "It has no widgets. This can't be undone."],
+  ])(
+    "a dashboard of %i widgets, %i pages, %i shares says: %s (#2223)",
+    (widgetCount, pageCount, shareCount, text) => {
+      dashboards = [
+        { ...DASHBOARD, role: "owner", widgetCount, pageCount, shareCount },
+      ];
+      render(<DashboardListPage />);
 
-    fireEvent.click(screen.getByText("Delete…"));
+      fireEvent.click(screen.getByText("Delete…"));
 
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "Its 1 widget and 1 page go with it,",
-    );
-  });
+      expect(screen.getByRole("alertdialog")).toHaveTextContent(text);
+    },
+  );
 
   it("names the dashboard and what goes with it (#2223)", () => {
     render(<DashboardListPage />);
@@ -540,9 +557,6 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
     const dialog = screen.getByRole("alertdialog", {
       name: "Delete Movie Analytics",
     });
-    expect(dialog).toHaveTextContent(
-      "Its 3 widgets and 2 pages go with it, and the people it's shared with lose access. This can't be undone.",
-    );
     expect(
       within(dialog).getByRole("button", { name: "Delete dashboard" }),
     ).toBeVisible();

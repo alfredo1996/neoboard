@@ -45,6 +45,13 @@ export interface ConfirmDialogProps {
    * when the element has left the page (the thing it belonged to was deleted).
    */
   returnFocusTo?: HTMLElement | null;
+  /** Where focus goes instead when `returnFocusTo` has left the page. */
+  returnFocusFallback?: HTMLElement | null;
+  /**
+   * Overrides the verb-based red fill. A lossy action whose verb is not on the
+   * list ("Sync": the template replaces the widget's query) passes true.
+   */
+  destructive?: boolean;
 }
 
 function ConfirmDialog({
@@ -59,13 +66,15 @@ function ConfirmDialog({
   onConfirm,
   onCancel,
   returnFocusTo,
+  returnFocusFallback,
+  destructive: destructiveOverride,
 }: Readonly<ConfirmDialogProps>) {
   let subject = "";
   if (name) subject = ` ${name}`;
   else if (object) subject = ` this ${object}`;
   const title = `${action}${subject}?`;
   const confirmText = object ? `${action} ${object}` : action;
-  const destructive = DESTRUCTIVE_ACTION.test(action);
+  const destructive = destructiveOverride ?? DESTRUCTIVE_ACTION.test(action);
   const bodyId = React.useId();
   const handleCancel = () => {
     onCancel?.();
@@ -94,9 +103,12 @@ function ConfirmDialog({
         // described through its id, and none means no description at all.
         {...describedBy}
         onCloseAutoFocus={(event) => {
-          if (!returnFocusTo?.isConnected) return;
+          const target = returnFocusTo?.isConnected
+            ? returnFocusTo
+            : returnFocusFallback;
+          if (!target?.isConnected) return;
           event.preventDefault();
-          returnFocusTo.focus();
+          target.focus();
         }}
       >
         <AlertDialogHeader>

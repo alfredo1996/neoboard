@@ -81,3 +81,27 @@ export const NoObject: Story = {
   },
   render: (args) => <Asked {...args} />,
 };
+
+/** A lossy action that is not a delete: the red fill comes from `destructive`. */
+export const SyncWithTemplate: Story = {
+  args: {
+    action: "Sync",
+    object: "widget",
+    name: "Movies per year with its template",
+    consequences:
+      "Its query, chart type and options are replaced by the template's.",
+    destructive: true,
+  },
+  render: (args) => <Asked {...args} />,
+};
+
+export const SharedDashboard: Story = {
+  args: {
+    action: "Delete",
+    object: "dashboard",
+    name: "Movie Highlights",
+    consequences:
+      "Its 12 widgets and 3 pages go with it, and the 3 people it's shared with lose access. This can't be undone.",
+  },
+  render: (args) => <Asked {...args} />,
+};

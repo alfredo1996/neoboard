@@ -23,6 +23,12 @@ const ToastViewport = React.forwardRef<
 ));
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName;
 
+const TONE = {
+  default: "good",
+  destructive: "failed",
+  pending: "pending",
+} as const;
+
 const toastVariants = cva(
   "group pointer-events-auto relative flex w-full items-start gap-2.5 overflow-hidden rounded-md border border-rule-strong bg-field p-3 pr-8 text-[13px] text-foreground shadow-overlay transition-[color,background-color,border-color,box-shadow,transform] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
   {
@@ -31,6 +37,8 @@ const toastVariants = cva(
         default: "",
         // The neutral error toast (#2223): same surface, the failed mark.
         destructive: "destructive",
+        // Nothing failed and nothing is done: the test did not run (#2223).
+        pending: "",
       },
     },
     defaultVariants: {
@@ -58,7 +66,7 @@ const Toast = React.forwardRef<
       {...props}
     >
       <Status
-        tone={variant === "destructive" ? "failed" : "good"}
+        tone={TONE[variant ?? "default"]}
         className="mt-[3px] flex-none"
       />
       {props.children}

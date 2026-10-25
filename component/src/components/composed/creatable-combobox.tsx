@@ -141,7 +141,7 @@ function CreatableCombobox({
         <ul
           role="listbox"
           id={listboxId}
-          className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+          className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border border-rule-strong bg-popover p-1 text-popover-foreground shadow-overlay"
         >
           {filtered.map((suggestion, index) => (
             <li

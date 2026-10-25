@@ -49,6 +49,8 @@ export interface DashboardListItem {
   widgetCount: number;
   /** Pages in the layout; the list endpoint only. */
   pageCount?: number;
+  /** People it is shared with, owner and the public flag excluded; the list endpoint only. */
+  shareCount?: number;
 }
 
 export interface DashboardDetail extends DashboardListItem {

@@ -54,14 +54,6 @@ import {
   DialogTitle,
   DialogDescription,
   Button,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   ConfirmDialog,
   focusedMenuTrigger,
   type WidgetCardAction,
@@ -508,37 +500,28 @@ export function DashboardContainer({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ConfirmDialog
         open={pendingSyncWidget !== null}
         onOpenChange={(open) => {
           if (!open) setPendingSyncWidget(null);
         }}
-      >
-        <AlertDialogContent onCloseAutoFocus={handBackFocus}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Sync with template?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will replace the widget&apos;s current query, chart type, and
-              chart options with the latest version from the template. The
-              connection will not change. You can still undo by discarding your
-              dashboard save.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (pendingSyncWidget && onSyncWidget) {
-                  onSyncWidget(pendingSyncWidget);
-                }
-                setPendingSyncWidget(null);
-              }}
-            >
-              Sync
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        action="Sync"
+        object="widget"
+        name={`${
+          interpolateTitle(
+            (pendingSyncWidget?.settings?.title as string | undefined) ?? "",
+            parameters,
+          ).trim() || "this widget"
+        } with its template`}
+        consequences="Its query, chart type and options are replaced by the template's."
+        // Lossy though "Sync" is not a delete verb: the old query is gone.
+        destructive
+        returnFocusTo={dialogOpener.el}
+        returnFocusFallback={dialogOpener.fallback}
+        onConfirm={() => {
+          if (pendingSyncWidget) onSyncWidget?.(pendingSyncWidget);
+        }}
+      />
 
       <ConfirmDialog
         open={removeOpen}

@@ -94,7 +94,7 @@ import {
   dashboardListTotals,
 } from "./dashboard-list-subtitle";
 import { deleteDashboardToast } from "./delete-dashboard-toast";
-import { pluralPages, pluralWidgets } from "@/lib/widget/plural-widgets";
+import { dashboardDeleteConsequences } from "@/lib/widget/plural-widgets";
 import {
   filterDashboardsByName,
   isDuplicateDashboardName,
@@ -760,6 +760,7 @@ export default function DashboardListPage() {
     name: string;
     widgetCount: number;
     pageCount: number;
+    shareCount: number;
   } | null>(null);
   // What opened the dialog showing (#2086, #2146): none has a Trigger. Kept
   // after it closes: Radix hands focus back after that render.
@@ -1024,7 +1025,11 @@ export default function DashboardListPage() {
         action="Delete"
         object="dashboard"
         name={deleteTarget?.name}
-        consequences={`Its ${pluralWidgets(deleteTarget?.widgetCount ?? 0)} and ${pluralPages(deleteTarget?.pageCount ?? 0)} go with it, and the people it's shared with lose access. This can't be undone.`}
+        consequences={dashboardDeleteConsequences({
+          widgetCount: deleteTarget?.widgetCount ?? 0,
+          pageCount: deleteTarget?.pageCount ?? 0,
+          shareCount: deleteTarget?.shareCount ?? 0,
+        })}
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
@@ -1247,6 +1252,7 @@ export default function DashboardListPage() {
                                           name: d.name,
                                           widgetCount: d.widgetCount ?? 0,
                                           pageCount: d.pageCount ?? 0,
+                                          shareCount: d.shareCount ?? 0,
                                         });
                                       }}
                                     >

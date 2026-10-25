@@ -13,7 +13,7 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: ["default", "destructive"],
+      options: ["default", "destructive", "pending"],
       description: "The visual style variant of the toast",
     },
   },
@@ -146,5 +146,39 @@ export const WithTitle: Story = {
         <Toaster />
       </>
     );
+  },
+};
+
+export const Pending: Story = {
+  render: function PendingToast() {
+    const { toast } = useToast();
+
+    return (
+      <>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            toast({
+              variant: "pending",
+              title: "Server busy",
+              description: "The test did not run. Try again in a moment.",
+            });
+          }}
+        >
+          Show Pending Toast
+        </Button>
+        <Toaster />
+      </>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Show Pending Toast",
+      }),
+    );
+    await expect(
+      await within(document.body).findByText("Server busy"),
+    ).toBeVisible();
   },
 };

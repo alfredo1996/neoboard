@@ -537,7 +537,7 @@ describe("ConnectionsPage — single Test (#1426)", () => {
 
     expect(statusOf("conn-1")).toBe("unknown");
     expect(mockToast).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ title: "Server busy" }),
+      expect.objectContaining({ title: "Server busy", variant: "pending" }),
     );
   });
 

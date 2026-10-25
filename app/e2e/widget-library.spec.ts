@@ -732,8 +732,8 @@ test.describe("Widget Library", () => {
           .getByRole("menuitem", { name: "Sync with template" })
           .click();
         await page
-          .getByRole("alertdialog", { name: "Sync with template?" })
-          .getByRole("button", { name: "Sync" })
+          .getByRole("alertdialog", { name: /^Sync .* with its template\?$/ })
+          .getByRole("button", { name: "Sync widget" })
           .click();
 
         await expect(card.getByText("after sync")).toBeVisible({

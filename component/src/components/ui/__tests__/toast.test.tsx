@@ -10,7 +10,7 @@ import {
   ToastClose,
 } from "../toast";
 
-function renderToast(variant?: "default" | "destructive") {
+function renderToast(variant?: "default" | "destructive" | "pending") {
   return render(
     <ToastProvider>
       <Toast open variant={variant} data-testid="toast">
@@ -76,5 +76,12 @@ describe("Toast", () => {
     expect(
       screen.getByTestId("toast").querySelector("[data-shape]"),
     ).toHaveAttribute("data-shape", "filled");
+  });
+
+  it("marks a pending toast (nothing happened yet) with the dashed ring", () => {
+    renderToast("pending");
+    expect(
+      screen.getByTestId("toast").querySelector("[data-shape]"),
+    ).toHaveAttribute("data-shape", "dashed");
   });
 });
