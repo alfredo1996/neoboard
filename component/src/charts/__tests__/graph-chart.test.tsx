@@ -18,6 +18,7 @@ import {
 } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphChart } from "../graph-chart";
+import { HASTINGS_LIGHT, HASTINGS_DARK } from "../theme";
 import type {
   Node as NvlNode,
   Relationship as NvlRelationship,
@@ -101,7 +102,13 @@ describe("GraphChart", () => {
   });
 
   it("maps edge label to NVL relationship caption and type", () => {
-    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+    render(
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        showRelationshipLabels
+      />,
+    );
     const nvlRels = capturedProps.rels as NvlRelationship[];
     expect(nvlRels[0].caption).toBe("knows");
     expect(nvlRels[0].type).toBe("knows");
@@ -1191,5 +1198,119 @@ describe("GraphChart", () => {
       const synthetic = nvlNodes.find((n) => n.id === "-289")!;
       expect(captionValues(synthetic)).toEqual(["virtual"]);
     });
+  });
+});
+
+describe("GraphChart look (#2229)", () => {
+  const movies = [
+    { id: "m1", labels: ["Movie"], properties: { title: "Heat" } },
+    { id: "p1", labels: ["Person"], properties: { name: "Al" } },
+    { id: "p2", labels: ["Person"], properties: { name: "Bob" } },
+  ];
+  const rels = [{ source: "p1", target: "m1", label: "ACTED_IN" }];
+  const colorOf = (id: string) =>
+    (capturedProps.nodes as NvlNode[]).find((n) => n.id === id)?.color;
+
+  afterEach(() => {
+    cleanup();
+    document.documentElement.classList.remove("dark");
+  });
+
+  it.each([
+    ["light", false, HASTINGS_LIGHT],
+    ["dark", true, HASTINGS_DARK],
+  ])("colours labels from the Hastings %s palette", (_n, dark, pal) => {
+    if (dark) document.documentElement.classList.add("dark");
+    render(<GraphChart nodes={movies} edges={rels} />);
+    // labels are sorted: Movie first, Person second
+    expect(colorOf("m1")).toBe(pal[0]);
+    expect(colorOf("p1")).toBe(pal[1]);
+  });
+
+  it("legend names each label with its node count and follows the theme", async () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const legend = screen.getByTestId("graph-legend");
+    expect(legend.textContent).toContain("Movie");
+    expect(legend.textContent).toContain("Person");
+    expect(screen.getByTestId("graph-legend-count-Movie").textContent).toBe(
+      "1",
+    );
+    expect(screen.getByTestId("graph-legend-count-Person").textContent).toBe(
+      "2",
+    );
+    const swatch = screen.getByTestId("graph-legend-swatch-Movie");
+    expect(swatch.style.backgroundColor).toBe("rgb(196, 124, 8)");
+    act(() => document.documentElement.classList.add("dark"));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("graph-legend-swatch-Movie").style.backgroundColor,
+      ).toBe("rgb(242, 169, 59)"),
+    );
+  });
+
+  it("always captions the rarest label, bold and larger than the rest", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const nodes = capturedProps.nodes as NvlNode[];
+    const movie = nodes.find((n) => n.id === "m1");
+    const person = nodes.find((n) => n.id === "p1");
+    expect(movie?.caption).toBe("Heat");
+    expect(movie?.captionAlign).toBe("bottom");
+    expect(movie?.captionSize).toBeGreaterThan(person?.captionSize ?? 99);
+    expect(person?.caption).toBe("Al");
+  });
+
+  it("leaves relationship types off the canvas at rest (they show on hover)", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const rel = (capturedProps.rels as NvlRelationship[])[0];
+    expect(rel.caption).toBeUndefined();
+    expect(rel.type).toBe("ACTED_IN");
+  });
+
+  it("draws the main entity larger so its name fits", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const nodes = capturedProps.nodes as NvlNode[];
+    expect(nodes.find((n) => n.id === "m1")?.size).toBe(40);
+    expect(nodes.find((n) => n.id === "p1")?.size).toBeUndefined();
+  });
+
+  it("draws relationships as hairlines", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    expect((capturedProps.rels as NvlRelationship[])[0].width).toBe(1);
+  });
+
+  it("turns NVL telemetry off", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    expect(
+      (capturedProps.nvlOptions as Record<string, unknown>).disableTelemetry,
+    ).toBe(true);
+  });
+
+  it("names a node and a relationship on hover", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const cb = capturedProps.mouseEventCallbacks as {
+      onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+    };
+    const ev = { clientX: 5, clientY: 5 } as MouseEvent;
+    act(() => cb.onHover({ id: "p2" }, [], ev));
+    expect(screen.getByTestId("graph-hover").textContent).toContain("Bob");
+    expect(screen.getByTestId("graph-hover").textContent).toContain("Person");
+    act(() =>
+      cb.onHover({ id: "r", from: "p1", to: "m1", type: "ACTED_IN" }, [], ev),
+    );
+    expect(screen.getByTestId("graph-hover").textContent).toContain("ACTED_IN");
+    act(() => cb.onHover(undefined, [], ev));
+    expect(screen.queryByTestId("graph-hover")).toBeNull();
+  });
+
+  it("shows the controls on hover, focus and touch, as real named buttons", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const bar = screen.getByRole("toolbar", { name: "Graph controls" });
+    expect(bar.className).toContain("opacity-0");
+    expect(bar.className).toContain("group-hover/graph:opacity-100");
+    expect(bar.className).toContain("group-focus-within/graph:opacity-100");
+    expect(bar.className).toContain("[@media(hover:none)]:opacity-100");
+    for (const name of ["Zoom in", "Zoom out", "Fit graph"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
   });
 });

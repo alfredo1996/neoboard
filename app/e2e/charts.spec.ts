@@ -671,6 +671,64 @@ test.describe("Graph chart visualization", () => {
       dialog.getByRole("button", { name: "Fit graph" }),
     ).toBeVisible();
   });
+
+  // #2229 — hover-only controls fail the tablet floor: with no hover at all
+  // (touch), the toolbar is fully opaque; on a pointer device it is hidden
+  // until hover or focus.
+  test("graph controls are visible without hover on touch, hidden at rest with a mouse", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Graph" }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10",
+    );
+    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+    const bar = dialog.getByRole("toolbar", { name: "Graph controls" });
+    await expect(bar).toBeAttached({ timeout: 15_000 });
+    await expect(dialog.getByTestId("graph-legend")).toContainText("Movie");
+
+    // Mouse device, pointer parked elsewhere: hidden at rest.
+    await page.mouse.move(0, 0);
+    await expect(bar).toHaveCSS("opacity", "0");
+    // Keyboard focus inside reveals it.
+    await dialog.getByRole("button", { name: "Zoom in" }).focus();
+    await expect(bar).toHaveCSS("opacity", "1");
+    await dialog.getByRole("button", { name: "Zoom in" }).blur();
+    await expect(bar).toHaveCSS("opacity", "0");
+  });
+
+  test.describe("touch device", () => {
+    test.use({
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 1024, height: 768 },
+    });
+
+    test("graph controls are visible with no hover", async ({ page }) => {
+      await page.getByRole("button", { name: "Add Widget" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+      await dialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "Graph" }).click();
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option", { name: /Movies Graph/ }).click();
+      await typeInEditor(
+        dialog,
+        page,
+        "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p, r, m LIMIT 10",
+      );
+      await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+      const bar = dialog.getByRole("toolbar", { name: "Graph controls" });
+      await expect(bar).toBeAttached({ timeout: 15_000 });
+      await expect(bar).toHaveCSS("opacity", "1");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
