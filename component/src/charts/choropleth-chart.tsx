@@ -278,10 +278,10 @@ function ChoroplethChart({
           {...rest}
         />
       </div>
-      {/* Always mounted so assistive tech sees the text change; it sits below
+      {/* An <output> (a polite status region), always mounted so assistive
+          tech hears the text change; it sits below
           the map, not over its shapes, and wraps instead of truncating. */}
-      <div
-        role="status"
+      <output
         className={
           unmatched.length > 0
             ? "line-clamp-2 shrink-0 px-2 py-1 text-xs text-muted-foreground focus:line-clamp-none focus:max-h-24 focus:overflow-auto"
@@ -293,7 +293,7 @@ function ChoroplethChart({
       >
         {unmatched.length > 0 &&
           `${unmatched.length} ${unmatched.length === 1 ? "row" : "rows"} not matched to a country: ${names}`}
-      </div>
+      </output>
     </div>
   );
 }

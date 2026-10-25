@@ -71,6 +71,8 @@ describe("choropleth regions (#2230)", () => {
     ["hasOwnProperty"],
     [""],
     ["   "],
+    [{ name: "Italy" }], // an object never reads as its own "[object Object]"
+    [true],
   ])("leaves the name %j unmatched without throwing", (name) => {
     const rows = [
       { name, value: 1 },

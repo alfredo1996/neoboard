@@ -77,8 +77,9 @@ export function buildRegionIndex(features: RegionFeature[]): RegionIndex {
 }
 
 function resolveRegion(raw: unknown, index: RegionIndex): string | undefined {
-  // A LEFT JOIN with no match gives null, a Cypher property can be a number.
-  if (raw === null || raw === undefined) return undefined;
+  // A LEFT JOIN with no match gives null, a Cypher property can be a number;
+  // anything that isn't text or a number names no region.
+  if (typeof raw !== "string" && typeof raw !== "number") return undefined;
   const key = String(raw).trim().toLowerCase();
   if (!key) return undefined;
   const alias = Object.hasOwn(ALIASES, key) ? ALIASES[key] : "";
