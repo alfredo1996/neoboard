@@ -67,7 +67,7 @@ function countByLabel(nodes: GraphNode[]): [string, number][] {
  */
 function pickPrimaryLabel(counts: [string, number][]): string | undefined {
   if (counts.length < 2) return undefined;
-  return counts.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
+  return counts.reduce((a, b) => (b[1] < a[1] ? b : a), counts[0])[0];
 }
 
 /**
@@ -813,6 +813,7 @@ function GraphChartInner({
           data-testid="graph-zoom-in"
         >
           <svg
+            aria-hidden="true"
             viewBox="0 0 16 16"
             className="h-3.5 w-3.5"
             fill="none"
@@ -831,6 +832,7 @@ function GraphChartInner({
           data-testid="graph-zoom-out"
         >
           <svg
+            aria-hidden="true"
             viewBox="0 0 16 16"
             className="h-3.5 w-3.5"
             fill="none"
@@ -848,6 +850,7 @@ function GraphChartInner({
           aria-label="Fit graph"
         >
           <svg
+            aria-hidden="true"
             viewBox="0 0 16 16"
             className="h-3.5 w-3.5"
             fill="none"
@@ -886,6 +889,7 @@ function GraphChartInner({
                   data-testid="label-settings-button"
                 >
                   <svg
+                    aria-hidden="true"
                     viewBox="0 0 16 16"
                     className="h-3.5 w-3.5"
                     fill="none"
