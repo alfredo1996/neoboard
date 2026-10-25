@@ -24,7 +24,7 @@ describe("ParamLabelScope (#2232)", () => {
       </ParamLabelScope>,
     );
     const trigger = screen.getByRole("combobox", { name: "Region" });
-    expect(trigger).toHaveTextContent("Pick region…");
+    expect(trigger).toHaveTextContent("Pick a region…");
     // The card header shows the title: no second line of it in the body
     expect(screen.queryByText("Region")).toBeNull();
     expect(screen.queryByText("Gallery region")).toBeNull();

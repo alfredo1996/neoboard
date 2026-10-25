@@ -21,7 +21,7 @@ describe("waitingText (#2214)", () => {
       "one sourced parameter",
       ["gallery_region"],
       sourced,
-      "Pick gallery region above to see this.",
+      "Pick a gallery region above to see this.",
     ],
     [
       "keeps the label's own casing",
@@ -33,7 +33,7 @@ describe("waitingText (#2214)", () => {
       "one parameter, named by its selector widget",
       ["gallery_region"],
       { gallery_region: [{ ...source, label: "Region" }] },
-      "Pick region above to see this.",
+      "Pick a region above to see this.",
     ],
     ["one unsourced parameter", ["year"], {}, "Waiting for Year"],
     ["no source map", ["year"], undefined, "Waiting for Year"],
@@ -52,12 +52,12 @@ describe("waitingText (#2214)", () => {
     [
       "a source on this page says above",
       "p1",
-      "Pick gallery region above to see this.",
+      "Pick a gallery region above to see this.",
     ],
     [
       "a source on another page names that page",
       "p2",
-      "Pick gallery region on Main to see this.",
+      "Pick a gallery region on Main to see this.",
     ],
   ])("%s", (_n, currentPageId, expected) => {
     expect(waitingText(["gallery_region"], sourced, currentPageId)).toBe(
@@ -70,7 +70,7 @@ describe("waitingText (#2214)", () => {
       gallery_region: [{ ...source, pageId: "p9", pageTitle: "Other" }, source],
     };
     expect(waitingText(["gallery_region"], map, "p1")).toBe(
-      "Pick gallery region above to see this.",
+      "Pick a gallery region above to see this.",
     );
   });
 });

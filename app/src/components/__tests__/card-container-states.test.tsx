@@ -287,7 +287,7 @@ describe("CardContainer — connector unavailable (#1678)", () => {
       />,
     );
 
-    expect(screen.getByText("Pick region above to see this.")).toBeDefined();
+    expect(screen.getByText("Pick a region above to see this.")).toBeDefined();
     expect(screen.queryByText("Connector unavailable")).toBeNull();
   });
 
@@ -536,7 +536,7 @@ describe("CardContainer", () => {
     );
 
     expect(
-      screen.getByText("Pick gallery region above to see this."),
+      screen.getByText("Pick a gallery region above to see this."),
     ).toBeDefined();
     expect(container.textContent).not.toContain("$param_");
   });
@@ -996,7 +996,7 @@ describe("CardContainer", () => {
       />,
     );
     expect(
-      screen.getByText("Pick gallery region on Overview to see this."),
+      screen.getByText("Pick a gallery region on Overview to see this."),
     ).toBeDefined();
   });
 

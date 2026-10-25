@@ -723,7 +723,7 @@ async function createInterpolatedTitleDashboard(
             connectionId: "conn-neo4j-001",
             query: "",
             settings: {
-              title: "Year Selector",
+              title: "Year",
               chartOptions: {
                 parameterType: "select",
                 parameterName: "year",
@@ -780,20 +780,18 @@ test.describe("Parameter interpolation in titles", () => {
 
       // Initially the title names the parameter in words, and the card says
       // what to do instead of showing the raw token (#2214).
-      await expect(page.getByText("Movies from [Year Selector]")).toBeVisible({
+      await expect(page.getByText("Movies from [Year]")).toBeVisible({
         timeout: 15_000,
       });
       const card = page.locator('[data-widget-id="interp-table"]');
       await expect(
-        card.getByText("Pick year selector above to see this."),
+        card.getByText("Pick a year above to see this."),
       ).toBeVisible();
-      await expect(
-        card.getByRole("button", { name: "Year Selector" }),
-      ).toBeVisible();
+      await expect(card.getByRole("button", { name: "Year" })).toBeVisible();
       await expect(card.getByText(/\$param_/)).toHaveCount(0);
 
       // Select a year from the parameter dropdown
-      const paramTrigger = page.getByText("Pick year selector…");
+      const paramTrigger = page.getByText("Pick a year…");
       await paramTrigger.click();
       // Pick the first available year option
       await expect(async () => {
@@ -802,9 +800,7 @@ test.describe("Parameter interpolation in titles", () => {
 
       // After selecting a value, the placeholder should no longer be visible
       // and the title should contain "Movies from" followed by a year number
-      await expect(
-        page.getByText("Movies from [Year Selector]"),
-      ).not.toBeVisible({
+      await expect(page.getByText("Movies from [Year]")).not.toBeVisible({
         timeout: 5_000,
       });
       // The widget card should show the interpolated title
@@ -939,7 +935,7 @@ test.describe("Run and save with a parameter (#1912)", () => {
       await page.goto(`/${id}/edit`);
       await expect(editingCrumb(page)).toBeVisible();
 
-      await page.getByText("Pick year selector…").click();
+      await page.getByText("Pick a year…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
@@ -1404,7 +1400,7 @@ test.describe("Date parameter widget", () => {
               connectionId: "",
               query: "",
               settings: {
-                title: "Date Picker",
+                title: "Date",
                 chartOptions: {
                   parameterType: "date",
                   parameterName: "test_date",
@@ -1460,9 +1456,7 @@ test.describe("Date parameter widget", () => {
         timeout: 15_000,
       });
       // Until a date is picked the title names the parameter in words (#2214)
-      await expect(
-        page.getByText("Movies (date: [Date Picker])"),
-      ).toBeVisible();
+      await expect(page.getByText("Movies (date: [Date])")).toBeVisible();
 
       // Open the calendar popover
       await page.getByText("Pick a date…").click();
@@ -1829,7 +1823,7 @@ test.describe("Multi-select parameter widget", () => {
               connectionId: "conn-neo4j-001",
               query: "",
               settings: {
-                title: "Person Selector",
+                title: "Person",
                 chartOptions: {
                   parameterType: "multi-select",
                   parameterName: "test_people",
@@ -2017,7 +2011,7 @@ test.describe("Cascading-select parameter widget", () => {
       await page.goto(`/${id}`);
 
       // Wait for the parent select widget to load
-      await expect(page.getByText("Pick director…")).toBeVisible({
+      await expect(page.getByText("Pick a director…")).toBeVisible({
         timeout: 15_000,
       });
 
@@ -2028,25 +2022,25 @@ test.describe("Cascading-select parameter widget", () => {
       await expect(page.getByText("depends on Director")).toBeVisible();
 
       // Select a director from the parent dropdown
-      await page.getByText("Pick director…").click();
+      await page.getByText("Pick a director…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
 
       // After selecting the parent, the child should no longer show the
       // "Select Director first…" placeholder — it should either show
-      // "Pick movie by Director…" (options loaded) or be loading
+      // "Pick a movie by Director…" (options loaded) or be loading
       await expect(page.getByText("Select Director first…")).not.toBeVisible({
         timeout: 10_000,
       });
 
-      // The cascading child should now show "Pick movie by Director…"
-      await expect(page.getByText("Pick movie by Director…")).toBeVisible({
+      // The cascading child should now show "Pick a movie by Director…"
+      await expect(page.getByText("Pick a movie by Director…")).toBeVisible({
         timeout: 10_000,
       });
 
       // Select a movie from the cascading child
-      await page.getByText("Pick movie by Director…").click();
+      await page.getByText("Pick a movie by Director…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
@@ -2120,12 +2114,12 @@ test.describe("Cascading-select parameter widget", () => {
       });
 
       // Pick a director on the dashboard.
-      await page.getByText("Pick director…").click();
+      await page.getByText("Pick a director…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
       // The child's options loaded: the parent's value is in the store.
-      await expect(child.getByText("Pick movie by Director…")).toBeVisible({
+      await expect(child.getByText("Pick a movie by Director…")).toBeVisible({
         timeout: 15_000,
       });
 

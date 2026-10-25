@@ -126,7 +126,7 @@
             "connectionId": "conn_neo4j",
             "query": "",
             "settings": {
-              "title": "Pick an actor",
+              "title": "Actor",
               "chartOptions": {
                 "parameterType": "select",
                 "parameterName": "actor",

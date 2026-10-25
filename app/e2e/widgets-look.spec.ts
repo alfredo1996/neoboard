@@ -216,7 +216,7 @@ test.describe("Widgets that are not charts (#2232)", () => {
 
       // ── Parameter selector: one name, a placeholder, no third label ──
       const select = page.getByRole("combobox", { name: "Region" });
-      await expect(select).toHaveText("Pick region…", { timeout: 15_000 });
+      await expect(select).toHaveText("Pick a region…", { timeout: 15_000 });
       await expect(card("w-region").getByText("Gallery region")).toHaveCount(0);
       await expect(page.getByText("GALLERY_REGION")).toHaveCount(0);
       // ── The widget waiting on it names it, never the raw token ──
@@ -224,7 +224,7 @@ test.describe("Widgets that are not charts (#2232)", () => {
         card("w-revenue").getByText("Revenue in [Region]"),
       ).toBeVisible();
       await expect(
-        card("w-revenue").getByText("Pick region above to see this."),
+        card("w-revenue").getByText("Pick a region above to see this."),
       ).toBeVisible();
       await expect(card("w-revenue").getByText(/\$param_/)).toHaveCount(0);
       await expect(

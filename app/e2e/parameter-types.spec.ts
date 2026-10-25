@@ -217,7 +217,7 @@ test.describe("Parameter widget types", () => {
             connectionId: "conn-neo4j-001",
             query: "",
             settings: {
-              title: "Pick a date",
+              title: "Date",
               chartOptions: {
                 parameterType: "date",
                 parameterName: "d",
@@ -772,7 +772,7 @@ test.describe("Parameter widget types", () => {
             connectionId: "conn-neo4j-001",
             query: "",
             settings: {
-              title: "Star picker",
+              title: "Star",
               chartOptions: {
                 parameterType: "select",
                 parameterName: "star",
@@ -786,7 +786,7 @@ test.describe("Parameter widget types", () => {
             connectionId: "conn-neo4j-001",
             query: "",
             settings: {
-              title: "Cast picker",
+              title: "Cast",
               chartOptions: {
                 parameterType: "multi-select",
                 parameterName: "cast",
@@ -851,7 +851,7 @@ test.describe("Parameter widget types", () => {
             await page.getByRole("option", { name: "Hugo Weaving" }).click();
             // The pick leaves the popover, and so the term, where it was.
             await expect(search).toHaveValue("Hugo");
-            await page.getByText("Star picker", { exact: true }).click();
+            await page.getByText("Star", { exact: true }).click();
           },
         },
         {

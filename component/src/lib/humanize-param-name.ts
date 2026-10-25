@@ -1,12 +1,12 @@
 /**
- * "Region" -> "Pick region", "KPI filter" -> "Pick KPI filter" (#2232). No
- * article: a/an cannot be told from the spelling ("user", "SKU", "hour"), and a
- * wrong one reads worse than none. Only an ordinary first word (Capital, then
- * lowercase) is lowercased; acronyms, digits and mixed case keep their own.
+ * "Region" -> "Pick a region", "KPI filter" -> "Pick KPI filter" (#2232). An
+ * ordinary first word (lowercase, or Capital then lowercase) is lowercased and
+ * takes "a"; never "an", which the spelling cannot decide ("user", "hour"). An
+ * acronym, digits or mixed case first keep their own spelling and no article.
  */
 export function pickPrompt(label: string): string {
-  const noun = label.replace(/^\p{Lu}(?=\p{Ll})/u, (c) => c.toLowerCase());
-  return `Pick ${noun}`;
+  if (!/^\p{Lu}?\p{Ll}+(\s|$)/u.test(label)) return `Pick ${label}`;
+  return `Pick a ${label.charAt(0).toLowerCase()}${label.slice(1)}`;
 }
 
 /**

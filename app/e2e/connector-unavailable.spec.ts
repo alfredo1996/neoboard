@@ -85,7 +85,7 @@ async function createDashboard(
                 connectionId: deadId,
                 query: "",
                 settings: {
-                  title: "Pick",
+                  title: "Choice",
                   chartOptions: {
                     parameterType: "select",
                     parameterName: "pick",
@@ -236,7 +236,7 @@ test.describe("Dead connector (#1678)", () => {
         .locator('[data-widget-id="p-dead"]')
         .getByRole("button", { name: "Retry" })
         .click();
-      await expect(page.getByText("Pick pick…")).toBeVisible({
+      await expect(page.getByText("Pick a choice…")).toBeVisible({
         timeout: 15_000,
       });
 
@@ -299,7 +299,7 @@ test.describe("Dead connector recovery (#2167)", () => {
                     connectionId: HEALTHY_PG,
                     query: "",
                     settings: {
-                      title: "Pick",
+                      title: "Choice",
                       chartOptions: {
                         parameterType: "select",
                         parameterName: "pick",
@@ -352,7 +352,7 @@ test.describe("Dead connector recovery (#2167)", () => {
       await expect(
         page.getByRole("cell", { name: "healthy", exact: true }),
       ).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText("Pick pick…")).toBeVisible();
+      await expect(page.getByText("Pick a choice…")).toBeVisible();
       await expect(unavailable).toHaveCount(0);
     } finally {
       await cleanup();
