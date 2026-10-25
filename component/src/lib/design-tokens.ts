@@ -14,10 +14,6 @@ export const jsonSyntaxColors = {
   punctuation: "text-muted-foreground",
 } as const;
 
-/** Default marker color for the map chart (Leaflet circleMarker) — citrine
- * brand accent (≈ --chart-1), not the off-brand stock blue. */
-export const MAP_MARKER_DEFAULT_COLOR = "#f9a91f";
-
 /** Success message color token — sourced from the --success CSS variable so
  * it tracks the theme (light/dark) from a single source of truth. */
 export const successTextColor = "text-[hsl(var(--success))]";

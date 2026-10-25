@@ -114,12 +114,57 @@ test.describe("Heavy widget rendering", () => {
       preview.locator(".leaflet-overlay-pane svg").first(),
     ).toBeVisible({ timeout: 10_000 });
 
+    // #2230: the basemap is greyscale, so the data is the only colour.
+    await expect
+      .poll(() =>
+        preview
+          .locator(".leaflet-tile-pane")
+          .evaluate((el) => getComputedStyle(el).filter),
+      )
+      .toContain("grayscale(1)");
+
     // Add to dashboard and verify Leaflet renders on the grid
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible({ timeout: 10_000 });
     await expect(
       page.locator("[data-testid='widget-card'] .leaflet-container"),
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  // ── Choropleth (#2230) ──────────────────────────────────────────────
+
+  test("choropleth — draws countries and names the rows it could not place", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+
+    await dialog.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: /choropleth/i }).click();
+    await dialog.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: /Movies Graph/ }).click();
+
+    await typeInEditor(
+      dialog,
+      page,
+      "UNWIND [['US',5],['France',3],['Narnia',1]] AS r RETURN r[0] AS name, r[1] AS value",
+    );
+    await expect(
+      dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)"),
+    ).toBeEnabled({ timeout: 10_000 });
+    await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+
+    const preview = getPreview(dialog);
+    await expect(preview.locator("canvas").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    // US (ISO code) and France (name) are placed; Narnia is named, not dropped.
+    const note = preview.getByRole("status");
+    await expect(note).toContainText("1 row not matched to a country", {
+      timeout: 15_000,
+    });
+    await expect(note).toContainText("Narnia");
   });
 
   test("map chart — survives a dashboard page round-trip", async ({ page }) => {

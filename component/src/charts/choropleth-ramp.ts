@@ -11,17 +11,23 @@ import { interpolateColor, parseHex, toHex } from "./styling-rule";
  */
 
 /**
- * Ends of the default sequential ramp — a single warm YlOrBr progression,
- * citrine-adjacent and colourblind-safe.
- *
- * Exported so the app plugin's schema defaults can be sourced from them. The
- * two disagreed before #1404: the component documented this warm ramp while
- * the plugin still supplied ColorBrewer Blues endpoints, and the chart spliced
- * hardcoded warm stops between whichever ends it was given — shipping a legend
- * that ran pale-blue → pale-yellow → orange → dark-orange → navy.
+ * The citrine sequential ramp (#2230), one per theme, from the approved chart
+ * mock: pale to deep in light mode, deep to bright in dark so the highest value
+ * is always the most prominent against the canvas (#1402).
  */
-export const CHOROPLETH_DEFAULT_MIN_COLOR = "#fff7d6";
-export const CHOROPLETH_DEFAULT_MAX_COLOR = "#993404";
+export const CHOROPLETH_SEQ = {
+  light: ["#FBEBD0", "#F3C980", "#E0A13A", "#B57A12", "#7A520C"],
+  dark: ["#3A2A10", "#6B4A12", "#A06D15", "#D9922A", "#F5C46E"],
+} as const;
+
+/**
+ * Ends of the default ramp: the light stops of `CHOROPLETH_SEQ`. Exported so
+ * the app plugin's schema defaults are sourced from them (they disagreed
+ * before #1404). Left at these ends, the chart paints the full themed ramp;
+ * a user who picks other ends gets `buildSequentialRamp` between them.
+ */
+export const CHOROPLETH_DEFAULT_MIN_COLOR = CHOROPLETH_SEQ.light[0];
+export const CHOROPLETH_DEFAULT_MAX_COLOR = CHOROPLETH_SEQ.light[4];
 
 /**
  * Evenly spaced stops from `minColor` to `maxColor` inclusive.
@@ -86,4 +92,43 @@ export function invertLightness(hex: string): string {
       : rgb.map((c) => c + ((1 - c) * (target - y)) / (1 - y));
   const [r, g, b] = out.map(toByte);
   return toHex(r, g, b);
+}
+
+// Ends that earlier versions saved into widgets as the "default": YlOrBr (the
+// editor default before #2230) and ColorBrewer Blues (the demo seeds).
+const LEGACY_DEFAULT_ENDS = [
+  ["#fff7d6", "#993404"],
+  ["#e8f4f8", "#08306b"],
+];
+
+const isDefaultEnds = (min: string, max: string) =>
+  [
+    [CHOROPLETH_DEFAULT_MIN_COLOR, CHOROPLETH_DEFAULT_MAX_COLOR],
+    ...LEGACY_DEFAULT_ENDS,
+  ].some(
+    ([a, b]) =>
+      a.toLowerCase() === min.toLowerCase() &&
+      b.toLowerCase() === max.toLowerCase(),
+  );
+
+/**
+ * The legend/ramp colours: the themed citrine ramp when the ends are a default
+ * (current or legacy, any case), otherwise the user's two ends, lightness
+ * inverted in dark mode so the highest value stays the most prominent (#1402).
+ */
+export function rampFor(
+  dark: boolean,
+  minColor: string,
+  maxColor: string,
+): string[] {
+  if (isDefaultEnds(minColor, maxColor)) {
+    return [...CHOROPLETH_SEQ[dark ? "dark" : "light"]];
+  }
+  return dark
+    ? buildSequentialRamp(
+        invertLightness(minColor),
+        invertLightness(maxColor),
+        5,
+      )
+    : buildSequentialRamp(minColor, maxColor, 5);
 }

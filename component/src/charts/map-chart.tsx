@@ -5,7 +5,8 @@ import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { cn } from "@/lib/utils";
-import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
+import { MAP_CLUSTER } from "./theme";
+import { useDarkMode } from "./use-dark-mode";
 import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import { escapeHtml } from "./chart-utils";
@@ -127,6 +128,27 @@ export function resolveTileLayer(
   return { url, attribution: credit };
 }
 
+/**
+ * Cluster diameter in px: 20 + 3*sqrt(count), the approved mock's formula,
+ * capped at 64 (owner, #2230): past about 200 points only the number grows.
+ */
+export function clusterIconSize(count: number): number {
+  return Math.min(64, Math.round(20 + 3 * Math.sqrt(count)));
+}
+
+function buildClusterIcon(count: number, dark: boolean) {
+  const { fill, ink, ring } = MAP_CLUSTER[dark ? "dark" : "light"];
+  const d = clusterIconSize(count);
+  return L.divIcon({
+    html: `<div style="display:grid;place-items:center;width:${d}px;height:${d}px;border-radius:50%;background:${fill};color:${ink};font-weight:600;font-size:12px;line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px ${ring}">${count}</div>`,
+    className: "",
+    iconSize: [d, d],
+  });
+}
+
+/** A single marker's clickable circle is never smaller than this diameter. */
+const MARKER_HIT_DIAMETER = 24;
+
 function buildPropertiesTooltip(marker: MapMarker): string {
   const parts: string[] = [];
   if (marker.label) parts.push(`<b>${escapeHtml(marker.label)}</b>`);
@@ -159,6 +181,7 @@ function MapChart({
   paramValues,
   className,
 }: MapChartProps) {
+  const dark = useDarkMode();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -303,7 +326,14 @@ function MapChart({
       map.removeLayer(markersLayerRef.current);
     }
     const layer = (
-      clusterMarkers ? L.markerClusterGroup() : L.layerGroup()
+      clusterMarkers
+        ? L.markerClusterGroup({
+            showCoverageOnHover: false,
+            maxClusterRadius: 36,
+            iconCreateFunction: (c) =>
+              buildClusterIcon(c.getChildCount(), dark),
+          })
+        : L.layerGroup()
     ).addTo(map);
     markersLayerRef.current = layer;
 
@@ -313,15 +343,20 @@ function MapChart({
         stylingRules?.length && m.value != null
           ? resolveStylingRuleColor(m.value, stylingRules, paramValues)
           : undefined;
-      const markerColor = ruleColor ?? m.color ?? MAP_MARKER_DEFAULT_COLOR;
+      const markerColor =
+        ruleColor ?? m.color ?? MAP_CLUSTER[dark ? "dark" : "light"].fill;
 
+      const radius = m.value ? Math.min(Math.max(m.value, 4), 30) : markerSize;
+      // The visible dot is `radius`; an invisible stroke (opacity 0 still
+      // takes pointer events) widens the hit area to 24px. ponytail: SVG
+      // renderer only — a preferCanvas map would ignore the stroke in hit-tests.
       const circleMarker = L.circleMarker([m.lat, m.lng], {
-        radius: m.value ? Math.min(Math.max(m.value, 4), 30) : markerSize,
+        radius,
         fillColor: markerColor,
         color: markerColor,
-        weight: 1,
-        opacity: 0.8,
-        fillOpacity: 0.6,
+        weight: Math.max(1, MARKER_HIT_DIAMETER - 2 * radius),
+        opacity: 0,
+        fillOpacity: 0.75,
       });
 
       // Tooltip: properties take priority, then label
@@ -350,6 +385,7 @@ function MapChart({
     showPopup,
     stylingRules,
     paramValues,
+    dark,
   ]);
 
   // Auto-fit bounds — kept in its own effect so that rebuilding markers (for a

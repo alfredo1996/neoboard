@@ -101,7 +101,8 @@ test.describe("Widget editor", () => {
       await expect(
         page.getByRole("option", { name: "Sunburst" }),
       ).toBeVisible();
-      // Radar and choropleth are registered but disabled in the picker (#1158);
+      // Radar is registered but disabled in the picker (#1158); choropleth is
+      // back (#2230);
       // treemap and circle packing are unregistered from the app (#1687).
       await expect(page.getByRole("option", { name: /^radar$/i })).toHaveCount(
         0,
@@ -111,7 +112,7 @@ test.describe("Widget editor", () => {
       );
       await expect(
         page.getByRole("option", { name: /choropleth/i }),
-      ).toHaveCount(0);
+      ).toBeVisible();
       await expect(
         page.getByRole("option", { name: /circle pack/i }),
       ).toHaveCount(0);

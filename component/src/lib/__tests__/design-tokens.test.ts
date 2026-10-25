@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  jsonSyntaxColors,
-  MAP_MARKER_DEFAULT_COLOR,
-  successTextColor,
-} from "../design-tokens";
+import { jsonSyntaxColors, successTextColor } from "../design-tokens";
 
 describe("design-tokens", () => {
   // ── raw-palette ratchet (#1249) ──────────────────────────────────────────
@@ -35,10 +31,6 @@ describe("design-tokens", () => {
       "punctuation",
       "string",
     ]);
-  });
-
-  it("MAP_MARKER_DEFAULT_COLOR is a valid hex color", () => {
-    expect(MAP_MARKER_DEFAULT_COLOR).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
   it("successTextColor is defined", () => {

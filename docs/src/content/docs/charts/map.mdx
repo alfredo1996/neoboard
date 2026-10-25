@@ -50,10 +50,10 @@ FROM locations
 | Min Zoom                  | number  | 2                      | Minimum zoom level the user can zoom out to. Set 0 so a world-spanning map fits in a small card |
 | Max Zoom                  | number  | 18                     | Maximum zoom level the user can zoom in to                                                      |
 | Auto-fit Bounds           | boolean | true                   | Automatically pan and zoom to fit all markers on load                                           |
-| Marker Size (px)          | number  | 6                      | Radius of each marker circle in pixels                                                          |
-| Cluster Markers           | boolean | false                  | Group nearby markers into cluster badges at lower zoom levels                                   |
+| Marker Size (px)          | number  | 6                      | Radius of each marker circle in pixels. Whatever the size, a marker can be hovered and clicked across a hit area at least 24 px wide |
+| Cluster Markers           | boolean | false                  | Group nearby markers into citrine cluster badges at lower zoom levels. A badge grows with its count (20 + 3·√count px) and prints the count |
 
-Hovering a marker shows its row's columns in a tooltip; clicking a marker runs the widget's click action, if one is configured.
+Markers and clusters are citrine and follow the theme, so they change with a light/dark switch. A marker whose row carries a color, or that a styling rule colors, keeps that color. Hovering a marker shows its row's columns in a tooltip; clicking a marker runs the widget's click action, if one is configured.
 
 ## Basemap tiles
 
@@ -65,7 +65,7 @@ The default is OpenStreetMap's public template, which needs no API key:
 https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
 ```
 
-Dark mode is handled by a CSS filter that inverts the tile layer, so one light template serves both themes. The filter does not know what it is inverting: a tileset that is already dark comes out light. Untick **Invert Tiles in Dark Mode** for those.
+The basemap is drawn in greyscale in both themes, so the data is the only colour on the map. That is a CSS filter on the tile layer, so it works with any template. In dark mode the same filter also inverts the tiles, so one light template serves both themes. The invert does not know what it is inverting: a tileset that is already dark comes out light. Untick **Invert Tiles in Dark Mode** for those; they stay greyscale.
 
 ### Bring your own tiles
 

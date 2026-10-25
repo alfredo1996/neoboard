@@ -51,6 +51,7 @@ vi.mock("leaflet", () => ({
     })),
     layerGroup: vi.fn(() => mockLayerGroup),
     markerClusterGroup: vi.fn(() => mockLayerGroup),
+    divIcon: vi.fn((options: object) => ({ options })),
     circleMarker: vi.fn(() => mockCircleMarker),
     latLngBounds: vi.fn(() => mockLatLngBounds),
   },
@@ -63,7 +64,13 @@ vi.mock("leaflet.markercluster/dist/MarkerCluster.css", () => ({}));
 vi.mock("leaflet.markercluster/dist/MarkerCluster.Default.css", () => ({}));
 
 import L from "leaflet";
-import { MapChart, OSM_TILE_URL, resolveTileLayer } from "../map-chart";
+import {
+  MapChart,
+  OSM_TILE_URL,
+  resolveTileLayer,
+  clusterIconSize,
+} from "../map-chart";
+import { MAP_CLUSTER } from "../theme";
 import { getDefaultChartSettings } from "@/components/composed/chart-options";
 
 /**
@@ -287,8 +294,9 @@ describe("MapChart", () => {
 
     it("does not credit OpenStreetMap for a host that merely contains its name", () => {
       expect(
-        resolveTileLayer("https://tile.openstreetmap.org.example.test/{z}/{x}/{y}.png")
-          ?.attribution,
+        resolveTileLayer(
+          "https://tile.openstreetmap.org.example.test/{z}/{x}/{y}.png",
+        )?.attribution,
       ).toBe("");
     });
 
@@ -310,7 +318,10 @@ describe("MapChart", () => {
       it("renders the map without throwing and creates no tile layer", () => {
         expect(() =>
           render(
-            <MapChart tileLayer={keyed} markers={[{ id: "1", lat: 1, lng: 2 }]} />,
+            <MapChart
+              tileLayer={keyed}
+              markers={[{ id: "1", lat: 1, lng: 2 }]}
+            />,
           ),
         ).not.toThrow();
         expect(L.tileLayer).not.toHaveBeenCalled();
@@ -402,9 +413,12 @@ describe("MapChart", () => {
       act(() => {
         vi.advanceTimersByTime(300);
       });
-      expect(L.tileLayer).toHaveBeenLastCalledWith("https://b/{z}/{x}/{y}.png", {
-        attribution: "late",
-      });
+      expect(L.tileLayer).toHaveBeenLastCalledWith(
+        "https://b/{z}/{x}/{y}.png",
+        {
+          attribution: "late",
+        },
+      );
     });
 
     it("drops a pending replacement on unmount", () => {
@@ -865,5 +879,108 @@ describe("MapChart", () => {
         expect.objectContaining({ minZoom: 0 }),
       );
     });
+  });
+
+  // --- #2230: greyscale basemap, citrine clusters, 24px markers ---
+
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  it.each([
+    [1, 23],
+    [4, 26],
+    [100, 50],
+    [196, 62],
+    [200, 62],
+    [10_000, 64], // capped: above ~200 points only the number grows
+    [1_000_000, 64],
+  ])("sizes a cluster of %i at min(64, 20 + 3*sqrt(n)) px (%i)", (n, px) => {
+    expect(clusterIconSize(n)).toBe(px);
+  });
+
+  const clusterIcon = (n: number) => {
+    render(<MapChart markers={[{ id: "1", lat: 1, lng: 1 }]} clusterMarkers />);
+    const calls = (L.markerClusterGroup as ReturnType<typeof vi.fn>).mock.calls;
+    const opts = calls[calls.length - 1][0] as {
+      iconCreateFunction: (c: { getChildCount: () => number }) => {
+        options: { html: string; iconSize: number[] };
+      };
+    };
+    return opts.iconCreateFunction({ getChildCount: () => n }).options;
+  };
+
+  it("draws the cluster count in the icon at the formula size", () => {
+    const icon = clusterIcon(100);
+    expect(icon.iconSize).toEqual([50, 50]);
+    expect(icon.html).toContain(">100<");
+    expect(icon.html).toContain("width:50px");
+  });
+
+  it.each(["light", "dark"] as const)(
+    "keeps the cluster count readable (>= 4.5:1) in %s",
+    (theme) => {
+      const { fill, ink } = MAP_CLUSTER[theme];
+      expect(contrast(ink, fill)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it("paints clusters citrine in the current theme and re-paints on a theme switch", async () => {
+    document.documentElement.classList.remove("dark");
+    const { rerender } = render(
+      <MapChart markers={[{ id: "1", lat: 1, lng: 1 }]} clusterMarkers />,
+    );
+    const html = () => {
+      const calls = (L.markerClusterGroup as ReturnType<typeof vi.fn>).mock
+        .calls;
+      const opts = calls[calls.length - 1][0] as {
+        iconCreateFunction: (c: { getChildCount: () => number }) => {
+          options: { html: string };
+        };
+      };
+      return opts.iconCreateFunction({ getChildCount: () => 9 }).options.html;
+    };
+    expect(html()).toContain(MAP_CLUSTER.light.fill);
+    await act(async () => {
+      document.documentElement.classList.add("dark");
+      await Promise.resolve();
+    });
+    rerender(
+      <MapChart markers={[{ id: "1", lat: 1, lng: 1 }]} clusterMarkers />,
+    );
+    expect(html()).toContain(MAP_CLUSTER.dark.fill);
+    document.documentElement.classList.remove("dark");
+  });
+
+  it("gives a single marker a hit area of at least 24px, however small the dot", () => {
+    render(<MapChart markers={[{ id: "1", lat: 1, lng: 1 }]} markerSize={3} />);
+    const o = (L.circleMarker as ReturnType<typeof vi.fn>).mock.calls[0][1] as {
+      radius: number;
+      weight: number;
+    };
+    expect(2 * (o.radius + o.weight / 2)).toBeGreaterThanOrEqual(24);
+  });
+
+  it("colours a marker with no colour of its own by the theme", async () => {
+    document.documentElement.classList.remove("dark");
+    render(<MapChart markers={[{ id: "1", lat: 1, lng: 1 }]} />);
+    const fill = () => {
+      const calls = (L.circleMarker as ReturnType<typeof vi.fn>).mock.calls;
+      return (calls[calls.length - 1][1] as { fillColor: string }).fillColor;
+    };
+    expect(fill()).toBe(MAP_CLUSTER.light.fill);
+    await act(async () => {
+      document.documentElement.classList.add("dark");
+      await Promise.resolve();
+    });
+    expect(fill()).toBe(MAP_CLUSTER.dark.fill);
+    document.documentElement.classList.remove("dark");
   });
 });

@@ -196,10 +196,14 @@ describe("getCompatibleChartTypes", () => {
 
   // #1158 — ship fewer, better charts: these are disabled in the picker but
   // their plugins stay registered so existing dashboards keep rendering.
+  it("offers the choropleth, back in the picker (#2230)", () => {
+    expect(getCompatibleChartTypes(tabularOnly)).toContain("choropleth");
+  });
+
   it("excludes disabled chart types from the pickable list", () => {
     for (const descriptor of [graphCapable, tabularOnly]) {
       const types = getCompatibleChartTypes(descriptor);
-      for (const disabled of ["choropleth", "radar"]) {
+      for (const disabled of ["radar"]) {
         expect(
           types,
           `${descriptor.type} should not offer ${disabled}`,
@@ -210,8 +214,8 @@ describe("getCompatibleChartTypes", () => {
 
   it("keeps disabled chart plugins registered so existing widgets still render", () => {
     // getChartConfig hits the registry directly (the render path) — must
-    // still resolve so a saved radar/choropleth widget renders.
-    for (const disabled of ["choropleth", "radar"]) {
+    // still resolve so a saved radar widget renders.
+    for (const disabled of ["radar"]) {
       expect(getChartConfig(disabled), disabled).toBeDefined();
     }
   });
@@ -315,7 +319,7 @@ describe("getAllChartTypes", () => {
 // getSelectableChartTypes (#1158) — the widget picker's list
 // ---------------------------------------------------------------------------
 describe("getSelectableChartTypes", () => {
-  const DISABLED = ["choropleth", "radar"];
+  const DISABLED = ["radar"];
 
   const graphCapable = { type: "fixturedb", supportsGraphData: true };
 

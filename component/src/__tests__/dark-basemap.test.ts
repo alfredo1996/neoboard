@@ -30,7 +30,17 @@ describe("dark-mode basemap filter (#1529)", () => {
     const rule = tokens.match(INVERT_RULE)?.[0];
     expect(rule, "rule missing from design-tokens.css").toBeTruthy();
     expect(rule).toContain("invert(1)");
-    expect(rule).toContain("hue-rotate(180deg)");
+    // Greyscale AFTER the invert would be the same, but hue-rotate is gone:
+    // the data is the only colour (#2230).
+    expect(rule).toContain("grayscale(1)");
+    expect(rule).not.toContain("hue-rotate");
+  });
+
+  it("greys the tiles in light mode too, so the data is the only colour (#2230)", () => {
+    const rule = tokens.match(/^\.leaflet-tile-pane\s*\{[^}]*\}/m)?.[0];
+    expect(rule, "light tile rule missing from design-tokens.css").toBeTruthy();
+    expect(rule).toContain("grayscale(1)");
+    expect(rule).not.toContain("invert");
   });
 
   it("does not invert tiles on a container that opted out", () => {
