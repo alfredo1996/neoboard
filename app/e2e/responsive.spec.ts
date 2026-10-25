@@ -75,23 +75,24 @@ test.describe("Responsive — tablet viewport", () => {
     const picked = "Philip Seymour Hoffman";
     // A long placeholder, then a picked value on both triggers (the
     // searchable popover button and the plain select), where the clear
-    // button takes room beside the trigger.
+    // button takes room beside the trigger. A select is named by its
+    // widget's title (#2232), so `label` is that title.
     const selects = [
       {
         param: "tablet_pick",
-        label: "Tablet pick",
+        label: widgetTitle,
         searchable: true,
         picked: false,
       },
       {
         param: "tablet_picked",
-        label: "Tablet picked",
+        label: "tablet_picked",
         searchable: true,
         picked: true,
       },
       {
         param: "tablet_picked_plain",
-        label: "Tablet picked plain",
+        label: "tablet_picked_plain",
         searchable: false,
         picked: true,
       },
@@ -112,7 +113,7 @@ test.describe("Responsive — tablet viewport", () => {
                   connectionId: "conn-neo4j-001",
                   query: "",
                   settings: {
-                    title: i === 0 ? widgetTitle : s.param,
+                    title: s.label,
                     chartOptions: {
                       parameterName: s.param,
                       parameterType: "select",

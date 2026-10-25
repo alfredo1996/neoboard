@@ -44,6 +44,8 @@ vi.mock("@/hooks/use-click-action", () => ({
 
 vi.mock("@/stores/parameter-store", () => ({
   useParameterValues: () => paramValuesNow,
+  useParameterStore: (sel: (s: { parameters: object }) => unknown) =>
+    sel({ parameters: {} }),
 }));
 
 vi.mock("@/lib/plugin/chart-helpers", () => ({

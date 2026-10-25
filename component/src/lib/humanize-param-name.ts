@@ -1,4 +1,21 @@
 /**
+ * "Region" -> "Pick a region", "KPI filter" -> "Pick KPI filter" (#2232). Every
+ * Capitalised word is lowercased ("Date Picker" -> "date picker"); acronyms,
+ * mixed case and digits keep their spelling. A consonant-initial lowercase first
+ * word takes "a"; a vowel-initial one takes none, because "an" cannot be told
+ * from the spelling ("user", "hour") and "a item" is wrong.
+ */
+export function pickPrompt(label: string): string {
+  const text = label
+    .split(" ")
+    .map((w) => (/^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w))
+    .join(" ");
+  return /^[b-df-hj-np-tv-z][a-z]*(\s|$)/.test(text)
+    ? `Pick a ${text}`
+    : `Pick ${text}`;
+}
+
+/**
  * Turn a parameter key into a label a reader can use (#2213):
  * `gallery_region` -> "Gallery region", `startDate` -> "Start date",
  * `HTTPStatus` -> "Http status", `year2` -> "Year 2". Digits stay with the

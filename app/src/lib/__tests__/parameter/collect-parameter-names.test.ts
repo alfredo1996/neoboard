@@ -646,6 +646,7 @@ describe("buildParameterSourceMap", () => {
         {
           widgetId: "w1",
           widgetTitle: "Region Picker",
+          label: "Region Picker",
           pageId: "p1",
           pageTitle: "Page 1",
           // So a gated widget can tell whether the selector feeding it sits
@@ -785,6 +786,7 @@ describe("buildParameterSourceMap", () => {
       pageId: "p1",
       pageTitle: "Page A",
       connectionId: "c1",
+      label: "Selector A",
     });
     expect(map.region[1]).toEqual({
       widgetId: "w2",

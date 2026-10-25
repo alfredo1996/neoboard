@@ -483,7 +483,7 @@
             "connectionId": "conn_postgres_read",
             "query": "",
             "settings": {
-              "title": "Continent filter",
+              "title": "Continent",
               "chartOptions": {
                 "parameterType": "select",
                 "parameterName": "geo_continent",
@@ -946,7 +946,7 @@
             "connectionId": "conn_postgres_read",
             "query": "",
             "settings": {
-              "title": "Pick a region",
+              "title": "Region",
               "chartOptions": {
                 "parameterType": "select",
                 "parameterName": "txt_demo_region",

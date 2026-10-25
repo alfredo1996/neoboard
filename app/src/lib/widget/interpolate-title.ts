@@ -13,12 +13,12 @@ const PARAM_REGEX = /\$param_(\w+)/g;
 export function interpolateTitle(
   title: string,
   parameters: Record<string, ParameterEntry>,
+  labelOf: (name: string) => string = humanizeParamName,
 ): string {
   if (!title) return title;
   return title.replace(PARAM_REGEX, (_match, name: string) => {
     const entry = parameters[name];
-    if (!entry || isParamUnset(entry.value))
-      return `[${humanizeParamName(name)}]`;
+    if (!entry || isParamUnset(entry.value)) return `[${labelOf(name)}]`;
     return formatParameterValue(entry.value);
   });
 }

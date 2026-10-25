@@ -30,7 +30,7 @@ import type {
 // Capture the actions array passed to WidgetCard for assertions.
 const widgetCardProps: Array<Record<string, unknown>> = [];
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
   WidgetCard: ({
     children,
     title,
@@ -249,6 +249,14 @@ vi.mock("@neoboard/components", () => ({
       </div>
     ) : null,
   focusedMenuTrigger: () => mockMenuTrigger,
+  iframeSourceLink: (url?: string) =>
+    url?.startsWith("http") ? `domain:${url}` : undefined,
+  // The real function: the header must resolve the URL the way the iframe does.
+  substituteParamsInUrl: (
+    await vi.importActual<typeof import("@neoboard/components")>(
+      "@neoboard/components",
+    )
+  ).substituteParamsInUrl,
   buildCsvString: vi.fn((rows: unknown[]) => `CSV(${rows.length})`),
   triggerDownload: vi.fn(),
   buildExportFilename: vi.fn((title: string, ext: string) => `${title}.${ext}`),
@@ -261,7 +269,11 @@ vi.mock("@/components/card-container", () => ({
 }));
 
 vi.mock("@/lib/widget/interpolate-title", () => ({
-  interpolateTitle: (title: string) => title,
+  interpolateTitle: (
+    title: string,
+    _parameters: unknown,
+    labelOf?: (name: string) => string,
+  ) => title.replace(/\$param_(\w+)/g, (_m, n: string) => `[${labelOf?.(n)}]`),
 }));
 
 const mockBuildExportData = vi.fn();
@@ -297,10 +309,12 @@ const parametersState = {
   clearAll: vi.fn(),
 };
 
+let paramValues: Record<string, unknown> = { foo: "bar" };
+
 vi.mock("@/stores/parameter-store", () => ({
   useParameterStore: (sel: (s: typeof parametersState) => unknown) =>
     sel(parametersState),
-  useParameterValues: () => ({ foo: "bar" }),
+  useParameterValues: () => paramValues,
 }));
 
 vi.mock("@/lib/parameter/format-parameter-value", () => ({
@@ -370,6 +384,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   widgetCardProps.length = 0;
   parametersState.parameters = {};
+  // Tests reassign this; shuffled order must not inherit another test's values.
+  paramValues = { foo: "bar" };
   mockIsDataWidget.mockReturnValue(true);
   mockGetWidgetDisplayTitle.mockImplementation(defaultDisplayTitle);
   mockIsTemplateOutdated.mockReturnValue(false);
@@ -593,6 +609,27 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
     ).toBeInTheDocument();
   });
 
+  it("names an unset $param_ in the title by the selector's title, not the key", () => {
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([
+          makeWidget({
+            settings: { title: "Revenue in $param_gallery_region" },
+          }),
+        ])}
+        editable={true}
+        actions={{ onRemoveWidget: vi.fn() }}
+        parameterSourceMap={regionSelectorMap}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("action-remove"));
+    expect(
+      screen.getByRole("alertdialog", {
+        name: 'Remove "Revenue in [Region]"?',
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("cancelling keeps the widget", () => {
     const { onRemoveWidget } = renderRemovable();
 
@@ -621,7 +658,35 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
   });
 });
 
+const regionSelectorMap = {
+  gallery_region: [
+    {
+      widgetId: "sel",
+      widgetTitle: "Region",
+      pageId: "p1",
+      pageTitle: "Main",
+      connectionId: "c",
+      label: "Region",
+    },
+  ],
+};
+
 describe("DashboardContainer — filter line", () => {
+  it("names a chip by its selector's title, the one name on the page (#2232)", () => {
+    parametersState.parameters = {
+      gallery_region: { field: "gallery_region", value: "EU" },
+    };
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage()}
+        parameterSourceMap={regionSelectorMap}
+      />,
+    );
+    const line = screen.getByRole("group", { name: "Active filters" });
+    expect(line).toHaveTextContent("Region is EU");
+    expect(line).not.toHaveTextContent("Gallery region");
+  });
+
   it("renders one sentence chip per active parameter, labelled and formatted", () => {
     parametersState.parameters = {
       gallery_region: {
@@ -1198,5 +1263,37 @@ describe("DashboardContainer — the source line under a title (#2247)", () => {
       "data-source",
       "Movies graph · 3 rows · just now",
     );
+  });
+});
+
+describe("DashboardContainer — an embedded page names its domain in the header (#2232)", () => {
+  it.each([
+    ["with a URL", "https://example.com/a", "domain:https://example.com/a"],
+    ["without one", undefined, null],
+    [
+      "whose URL holds a parameter, links the page the iframe loads",
+      "https://example.com/$param_year",
+      "domain:https://example.com/2024",
+    ],
+    [
+      "whose parameter turns the URL non-http(s), gets no link",
+      "$param_scheme",
+      null,
+    ],
+  ])("an iframe widget %s", (_n, url, expected) => {
+    paramValues = { param_year: 2024, param_scheme: "javascript:alert(1)" };
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([
+          makeWidget({
+            chartType: "iframe",
+            settings: { chartOptions: { url } },
+          }),
+        ])}
+      />,
+    );
+    expect(
+      screen.getByTestId("widget-card-inner").getAttribute("data-source"),
+    ).toBe(expected);
   });
 });
