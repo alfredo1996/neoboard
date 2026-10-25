@@ -213,7 +213,14 @@ export const WorldPopulation: Story = {
       "aria-label",
       `Choropleth map with ${args.data.length} regions`,
     );
-    await expectRampPainted(canvasElement, DEFAULT_RAMP);
+    // The legend is a continuous bar (#2230), so skewed data paints the middle
+    // stops only as interpolated pixels, which may or may not land on the
+    // exact hex. The ends are exact: the lowest and highest values sit on
+    // them. Every stop on screen is pinned by CustomColors and LegendHidden.
+    await expectRampPainted(canvasElement, [
+      DEFAULT_RAMP[0],
+      DEFAULT_RAMP[DEFAULT_RAMP.length - 1],
+    ]);
     expectNoRenderError(canvasElement);
   },
 };
@@ -307,8 +314,11 @@ export const WithLabels: Story = {
 };
 
 export const CustomColors: Story = {
+  // One region on each stop and the legend off, so every stop is painted
+  // exactly by a region: the continuous legend (#2230) only interpolates.
   args: {
-    data: populationData,
+    data: oneRegionPerBand,
+    showVisualMap: false,
     minColor: "#f7fcf5",
     maxColor: "#00441b",
   },
