@@ -175,13 +175,19 @@ vi.mock("@neoboard/components", async () => {
       open,
       onOpenChange,
       onConfirm,
-      confirmText,
+      action,
+      object,
+      name,
+      consequences,
       returnFocusTo,
     }: {
       open: boolean;
       onOpenChange: (open: boolean) => void;
       onConfirm: () => void;
-      confirmText: string;
+      action: string;
+      object?: string;
+      name?: string;
+      consequences?: React.ReactNode;
       returnFocusTo?: HTMLElement | null;
     }) {
       const wasOpen = React.useRef(open);
@@ -190,7 +196,8 @@ vi.mock("@neoboard/components", async () => {
         wasOpen.current = open;
       });
       return open ? (
-        <div role="alertdialog">
+        <div role="alertdialog" aria-label={`${action} ${name ?? ""}`.trim()}>
+          <p>{consequences}</p>
           <button onClick={() => onOpenChange(false)}>Cancel</button>
           <button
             onClick={() => {
@@ -198,7 +205,7 @@ vi.mock("@neoboard/components", async () => {
               onOpenChange(false);
             }}
           >
-            {confirmText}
+            {object ? `${action} ${object}` : action}
           </button>
         </div>
       ) : null;
@@ -505,19 +512,35 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
   it("Cancel puts focus back on the card's menu button", () => {
     render(<DashboardListPage />);
 
-    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(screen.getByText("Delete…"));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(menuTrigger).toHaveFocus();
   });
 
+  it("names the dashboard and what goes with it (#2223)", () => {
+    render(<DashboardListPage />);
+
+    fireEvent.click(screen.getByText("Delete…"));
+
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Delete Movie Analytics",
+    });
+    expect(dialog).toHaveTextContent(
+      "Its 3 widgets and its pages go with it, and the people it's shared with lose access. This can't be undone.",
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Delete dashboard" }),
+    ).toBeVisible();
+  });
+
   it("a confirmed Delete puts focus on the page heading: the card is leaving", () => {
     render(<DashboardListPage />);
 
-    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(screen.getByText("Delete…"));
     fireEvent.click(
       within(screen.getByRole("alertdialog")).getByRole("button", {
-        name: "Delete",
+        name: "Delete dashboard",
       }),
     );
 
@@ -684,7 +707,7 @@ describe("DashboardListPage rows (#2253)", () => {
     "Duplicate",
     "Change connection…",
     "Export",
-    "Delete",
+    "Delete…",
   ];
   const menuOf = (name: RegExp) => {
     const row = screen.getByRole("row", { name });

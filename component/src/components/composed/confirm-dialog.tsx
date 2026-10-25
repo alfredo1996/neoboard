@@ -12,21 +12,28 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+/** Verbs whose button is the red fill: what they do cannot be taken back by Cancel. */
+const DESTRUCTIVE_ACTION = /^(delete|remove|revoke|disable|discard|leave)\b/i;
+
 export interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  title: string;
+  /** The verb: "Delete". It opens the title and the button. */
+  action: string;
+  /** What the verb acts on: "dashboard". The button reads "{action} {object}". */
+  object?: string;
   /**
-   * Dialog body. Accepts either a plain string (rendered inside the
-   * AlertDialogDescription as before) or a React node for richer layouts
-   * like bulleted lists, tables, or warning banners. Used e.g. by the
-   * delete-connection flow to render a usage breakdown of affected
-   * dashboards and widgets.
+   * The thing's own name. The title reads "{action} {name}?", or
+   * "{action} this {object}?" without one, so no confirm can drift back to
+   * "Are you sure?" (#2223).
    */
-  description?: React.ReactNode;
-  confirmText?: string;
+  name?: string;
+  /**
+   * What goes with it, as a sentence. A node renders as is, for a list of
+   * affected dashboards and widgets (the delete-connection flow).
+   */
+  consequences?: React.ReactNode;
   cancelText?: string;
-  variant?: "default" | "destructive";
   /** Disable the confirm button (e.g. while usage is loading). */
   confirmDisabled?: boolean;
   onConfirm: () => void;
@@ -43,16 +50,23 @@ export interface ConfirmDialogProps {
 function ConfirmDialog({
   open,
   onOpenChange,
-  title,
-  description,
-  confirmText = "Confirm",
+  action,
+  object,
+  name,
+  consequences,
   cancelText = "Cancel",
-  variant = "default",
   confirmDisabled = false,
   onConfirm,
   onCancel,
   returnFocusTo,
 }: Readonly<ConfirmDialogProps>) {
+  let subject = "";
+  if (name) subject = ` ${name}`;
+  else if (object) subject = ` this ${object}`;
+  const title = `${action}${subject}?`;
+  const confirmText = object ? `${action} ${object}` : action;
+  const destructive = DESTRUCTIVE_ACTION.test(action);
+  const bodyId = React.useId();
   const handleCancel = () => {
     onCancel?.();
     onOpenChange(false);
@@ -69,6 +83,14 @@ function ConfirmDialog({
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent
+        // Radix wires a string's AlertDialogDescription itself; a node is
+        // described through its id, and none means no description at all.
+        {...(typeof consequences === "string"
+          ? {}
+          : {
+              "aria-describedby":
+                consequences === undefined ? undefined : bodyId,
+            })}
         onCloseAutoFocus={(event) => {
           if (!returnFocusTo?.isConnected) return;
           event.preventDefault();
@@ -77,17 +99,19 @@ function ConfirmDialog({
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description !== undefined &&
-            (typeof description === "string" ? (
-              <AlertDialogDescription>{description}</AlertDialogDescription>
-            ) : (
-              // When description is a node, we wrap it in a div rather than
-              // AlertDialogDescription so block-level children (lists,
-              // headings) don't trigger a hydration warning about invalid
-              // DOM nesting inside a <p>.
-              <div className="text-sm text-muted-foreground">{description}</div>
-            ))}
         </AlertDialogHeader>
+        {consequences !== undefined &&
+          (typeof consequences === "string" ? (
+            <AlertDialogDescription className="text-[13.5px]">
+              {consequences}
+            </AlertDialogDescription>
+          ) : (
+            // A node goes in a div, not AlertDialogDescription, so block-level
+            // children (lists) don't nest inside a <p>.
+            <div id={bodyId} className="text-[13.5px] text-muted-foreground">
+              {consequences}
+            </div>
+          ))}
         <AlertDialogFooter>
           <AlertDialogCancel onClick={handleCancel}>
             {cancelText}
@@ -96,8 +120,7 @@ function ConfirmDialog({
             onClick={handleConfirm}
             disabled={confirmDisabled}
             className={cn(
-              variant === "destructive" &&
-                buttonVariants({ variant: "danger-confirm" }),
+              destructive && buttonVariants({ variant: "danger-confirm" }),
               confirmDisabled && "opacity-50 cursor-not-allowed",
             )}
           >

@@ -679,11 +679,11 @@ export function WidgetEditorModal({
       <ConfirmDialog
         open={confirmDiscard}
         onOpenChange={closeQuestion}
-        title="Discard unsaved changes?"
-        description="The changes you made since opening the editor will be lost."
-        confirmText="Discard"
+        action="Discard"
+        object="changes"
+        name="your changes"
+        consequences="What you changed since opening the editor is lost."
         cancelText="Keep editing"
-        variant="destructive"
         onConfirm={() => {
           returnFocusRef.current = null;
           onOpenChange(false);

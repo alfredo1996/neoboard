@@ -160,7 +160,8 @@ vi.mock("@neoboard/components", async () => ({
     open,
     onOpenChange,
     onConfirm,
-    title,
+    action,
+    name,
     returnFocusTo,
   }: ConfirmDialogProps) {
     React.useEffect(() => {
@@ -168,7 +169,7 @@ vi.mock("@neoboard/components", async () => ({
     }, [open, returnFocusTo]);
     return open ? (
       <div data-testid="confirm-dialog">
-        <p>{title}</p>
+        <p>{`${action} ${name ?? ""}?`}</p>
         <button onClick={() => onOpenChange(false)}>Cancel</button>
         <button onClick={onConfirm}>Confirm</button>
       </div>
@@ -349,7 +350,7 @@ describe("AuthenticationPage", () => {
     await user.click(deleteBtn);
 
     expect(screen.getByTestId("confirm-dialog")).toBeInTheDocument();
-    expect(screen.getByText("Delete SSO Provider")).toBeInTheDocument();
+    expect(screen.getByText("Delete Test Provider?")).toBeInTheDocument();
   });
 
   it("shows Disabled badge for disabled providers", async () => {

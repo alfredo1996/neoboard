@@ -161,6 +161,7 @@ module.exports = {
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
         card: "var(--card-shadow)",
+        overlay: "var(--shadow-overlay)",
       },
       // Motion vocabulary (#833): the standard ease becomes the default
       // timing function for every transition-* utility.

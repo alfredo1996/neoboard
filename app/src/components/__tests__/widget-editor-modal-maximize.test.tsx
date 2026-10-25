@@ -74,20 +74,22 @@ vi.mock("@neoboard/components", async () => {
     ConfirmDialog: ({
       open,
       onOpenChange,
-      title,
-      confirmText,
+      action,
+      object,
+      name,
       cancelText,
       onConfirm,
     }: {
       open: boolean;
       onOpenChange: (open: boolean) => void;
-      title: string;
-      confirmText: string;
+      action: string;
+      object?: string;
+      name?: string;
       cancelText: string;
       onConfirm: () => void;
     }) =>
       open ? (
-        <div role="alertdialog" aria-label={title}>
+        <div role="alertdialog" aria-label={`${action} ${name ?? ""}`.trim()}>
           <button type="button" onClick={() => onOpenChange(false)}>
             {cancelText}
           </button>
@@ -98,7 +100,7 @@ vi.mock("@neoboard/components", async () => {
               onOpenChange(false);
             }}
           >
-            {confirmText}
+            {object ? `${action} ${object}` : action}
           </button>
         </div>
       ) : null,
@@ -517,7 +519,7 @@ describe("WidgetEditorModal — what dismisses it (#1952)", () => {
 // edit without asking. With something changed since the editor opened they
 // ask first; with nothing changed they close at once, as before.
 describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () => {
-  const CONFIRM = "Discard unsaved changes?";
+  const CONFIRM = "Discard your changes";
 
   beforeEach(() => {
     useWidgetEditorStore.getState().resetForAdd();
@@ -591,7 +593,9 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
     act(() => useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n"));
     await act(async () => dismiss.onOpenChange?.(false));
 
-    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Discard changes" }),
+    );
 
     expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();

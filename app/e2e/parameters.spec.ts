@@ -19,7 +19,7 @@ async function cancelAndDiscard(
 ) {
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await page
-    .getByRole("alertdialog", { name: "Discard unsaved changes?" })
+    .getByRole("alertdialog", { name: "Discard your changes?" })
     .getByRole("button", { name: "Discard" })
     .click();
   await expect(dialog).toBeHidden();

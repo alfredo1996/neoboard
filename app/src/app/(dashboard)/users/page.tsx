@@ -354,7 +354,7 @@ export default function UsersPage() {
                     setDeleteTarget(u.id);
                   }}
                 >
-                  Delete
+                  Delete…
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -509,10 +509,10 @@ export default function UsersPage() {
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        title="Delete User"
-        description="This will permanently delete this user and all their data."
-        confirmText="Delete"
-        variant="destructive"
+        action="Delete"
+        object="user"
+        name={displayNameOf(users?.find((u) => u.id === deleteTarget) ?? null)}
+        consequences="Their dashboards, connections, widget templates and API keys are deleted with them. This can't be undone."
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
@@ -544,10 +544,10 @@ export default function UsersPage() {
         onOpenChange={(open) => {
           if (!open) setDisableTarget(null);
         }}
-        title="Disable User"
-        description={`${displayNameOf(disableTarget)} will not be able to sign in, and their API keys will stop working. You can enable the account again later.`}
-        confirmText="Disable"
-        variant="destructive"
+        action="Disable"
+        object="user"
+        name={displayNameOf(disableTarget)}
+        consequences="They can't sign in and their API keys stop working until you enable them again."
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (disableTarget) void handleSetDisabled(disableTarget, true);
@@ -755,9 +755,15 @@ function DisableToggleItem({
   const disabled = Boolean(user.disabledAt);
   const Icon = disabled ? UserCheck : UserX;
   return (
-    <DropdownMenuItem onClick={() => (disabled ? onEnable : onDisable)(user)}>
+    <DropdownMenuItem
+      // Disable asks first and is red; Enable acts at once (#2223).
+      className={
+        disabled ? undefined : "text-destructive focus:text-destructive"
+      }
+      onClick={() => (disabled ? onEnable : onDisable)(user)}
+    >
       <Icon className="mr-2 h-4 w-4" />
-      {disabled ? "Enable" : "Disable"}
+      {disabled ? "Enable" : "Disable…"}
     </DropdownMenuItem>
   );
 }

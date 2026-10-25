@@ -125,10 +125,8 @@ test.describe("Confirm dialog — destructive", () => {
 
     // Confirm dialog should be visible with destructive warning
     const confirmDialog = page.getByRole("alertdialog");
-    await expect(confirmDialog.getByText(/Delete ".*"\?/)).toBeVisible();
-    await expect(
-      confirmDialog.getByText("This action cannot be undone"),
-    ).toBeVisible();
+    await expect(confirmDialog.getByText(/Delete .*\?/)).toBeVisible();
+    await expect(confirmDialog.getByText("This can't be undone")).toBeVisible();
     await expect(
       confirmDialog.getByRole("button", { name: "Delete" }),
     ).toBeVisible();

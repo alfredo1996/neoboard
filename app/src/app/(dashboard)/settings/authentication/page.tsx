@@ -28,7 +28,6 @@ import {
   ConfirmDialog,
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -122,13 +121,11 @@ function AddProviderDialog({
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent
         className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto"
+        aria-describedby={undefined}
         onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogHeader>
           <DialogTitle>Add SSO Provider</DialogTitle>
-          <DialogDescription>
-            Configure an OIDC provider for single sign-on authentication.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -360,14 +357,10 @@ function ProviderRow({
         <ConfirmDialog
           open={confirmOpen}
           onOpenChange={setConfirmOpen}
-          title="Delete SSO Provider"
-          description={
-            'Are you sure you want to delete "' +
-            provider.name +
-            '"? Users provisioned via this provider will keep their accounts but can no longer sign in with SSO.'
-          }
-          confirmText="Delete"
-          variant="destructive"
+          action="Delete"
+          object="provider"
+          name={provider.name}
+          consequences="People can no longer sign in with it."
           returnFocusTo={returnFocusTo}
           onConfirm={() => {
             // The row leaves once the list refetches: land on the heading.

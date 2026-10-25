@@ -317,7 +317,7 @@ describe("WidgetLibraryPage — kit rows (#2254)", () => {
       "Use in Dashboard",
       "Duplicate",
       "Edit",
-      "Delete",
+      "Delete…",
     ]);
     expect(items("Orphaned")).toEqual(["Use in Dashboard", "Duplicate"]);
   });
@@ -333,7 +333,7 @@ describe("WidgetLibraryPage — where focus goes after Delete template (#2125)",
       menuTrigger.blur();
       render(<WidgetLibraryPage />);
 
-      fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Delete…" }));
       fireEvent.click(screen.getByRole("button", { name: button }));
 
       expect(target()).toHaveFocus();

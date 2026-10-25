@@ -112,7 +112,7 @@ test.describe("User management", () => {
     await row.getByRole("button", { name: "User actions" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
     // Confirm deletion in the confirm dialog
-    await page.getByRole("button", { name: "Delete" }).last().click();
+    await page.getByRole("button", { name: "Delete user" }).last().click();
     await expect(page.getByText(email)).not.toBeVisible();
   });
 });
@@ -337,11 +337,13 @@ test.describe("Disable and enable a user (#2049)", () => {
       // Disable asks first, and says what it does.
       await row.getByRole("button", { name: "User actions" }).click();
       await page.getByRole("menuitem", { name: "Disable" }).click();
-      const confirm = page.getByRole("alertdialog", { name: "Disable User" });
+      const confirm = page.getByRole("alertdialog", {
+        name: `Disable ${name}`,
+      });
       await expect(confirm).toContainText(
-        `${name} will not be able to sign in, and their API keys will stop working.`,
+        "They can't sign in and their API keys stop working until you enable them again.",
       );
-      await confirm.getByRole("button", { name: "Disable" }).click();
+      await confirm.getByRole("button", { name: "Disable user" }).click();
 
       await expect(badge).toBeVisible({ timeout: 10_000 });
       await expect(

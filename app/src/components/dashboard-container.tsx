@@ -117,10 +117,6 @@ interface DashboardContainerProps {
 
 // getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget/widget-utils
 
-function removeWidgetDialogTitle(title: string): string {
-  return title.trim() ? `Remove "${title}"?` : "Remove this widget?";
-}
-
 export function DashboardContainer({
   page,
   editable = false,
@@ -327,7 +323,7 @@ export function DashboardContainer({
     if (widget.templateId) {
       if (isWidgetTemplateOutdated(widget, templateMap) && onSyncWidget) {
         actions.push({
-          label: "Sync with template",
+          label: "Sync with template…",
           onClick: () => {
             setDialogOpener({ el: focusedMenuTrigger(), fallback: null });
             setPendingSyncWidget(widget);
@@ -343,7 +339,7 @@ export function DashboardContainer({
     }
     if (onRemoveWidget) {
       actions.push({
-        label: "Remove",
+        label: "Remove widget…",
         onClick: () => {
           setRemoveTarget({ widget, returnFocusTo: focusedMenuTrigger() });
           setRemoveOpen(true);
@@ -549,15 +545,15 @@ export function DashboardContainer({
         onOpenChange={setRemoveOpen}
         // Its own title, not the card header's chart-type fallback ("Bar
         // Chart"): an untitled widget is "this widget".
-        title={removeWidgetDialogTitle(
+        action="Remove"
+        object="widget"
+        name={
           interpolateTitle(
             (removeTarget?.widget.settings?.title as string | undefined) ?? "",
             parameters,
-          ),
-        )}
-        description="This removes the widget from the dashboard."
-        confirmText="Remove"
-        variant="destructive"
+          ).trim() || undefined
+        }
+        consequences="It leaves this page when you save. The rest of the dashboard is unchanged."
         returnFocusTo={removeTarget?.returnFocusTo}
         onConfirm={() => {
           if (removeTarget) onRemoveWidget?.(removeTarget.widget.id);

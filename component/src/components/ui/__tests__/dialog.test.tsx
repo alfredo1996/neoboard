@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { Dialog, DialogContent, DialogTitle } from "../dialog";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "../dialog";
 
 /**
  * The dialog should pop in place (centered zoom + fade) at the viewport centre,
@@ -47,5 +48,35 @@ describe("DialogContent animation", () => {
     expect(cls).toContain("data-[state=open]:slide-in-from-top-1/2");
     expect(cls).toContain("data-[state=closed]:slide-out-to-left-1/2");
     expect(cls).toContain("data-[state=closed]:slide-out-to-top-1/2");
+  });
+});
+
+describe("DialogContent focus (#2223)", () => {
+  it("traps Tab inside and gives focus back to the trigger on Escape", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <button>Outside</button>
+        <Dialog>
+          <DialogTrigger>Open</DialogTrigger>
+          <DialogContent>
+            <DialogTitle>Rename</DialogTitle>
+            <input aria-label="Name" />
+          </DialogContent>
+        </Dialog>
+      </>,
+    );
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    const dialog = screen.getByRole("dialog", { name: "Rename" });
+
+    for (let i = 0; i < 4; i++) {
+      await user.tab();
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    }
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Open" })).toHaveFocus(),
+    );
   });
 });

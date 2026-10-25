@@ -191,10 +191,12 @@ test.describe("Widget Library", () => {
 
       // Confirm the deletion
       const confirmDialog = page.getByRole("alertdialog", {
-        name: "Delete Template",
+        name: `Delete ${templateName}`,
       });
       await expect(confirmDialog).toBeVisible();
-      await confirmDialog.getByRole("button", { name: "Delete" }).click();
+      await confirmDialog
+        .getByRole("button", { name: "Delete template" })
+        .click();
       await expect(confirmDialog).not.toBeVisible();
 
       // Template should no longer appear

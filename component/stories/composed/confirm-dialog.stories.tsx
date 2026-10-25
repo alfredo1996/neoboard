@@ -11,22 +11,28 @@ const meta = {
   args: {
     open: false,
     onOpenChange: () => {},
-    title: "Confirm",
+    action: "Delete",
+    object: "dashboard",
+    name: "Movie Highlights",
+    consequences:
+      "Its 12 widgets and its pages go with it, and the people it's shared with lose access. This can't be undone.",
     onConfirm: () => {},
   },
   argTypes: {
-    variant: {
-      control: "select",
-      options: ["default", "destructive"],
-      description: "Visual style of the confirm button",
-    },
-    title: {
+    action: {
       control: "text",
+      description:
+        "The verb. Delete, Remove, Revoke, Disable and Discard are red.",
     },
-    description: {
+    object: {
       control: "text",
+      description: 'The button reads "{action} {object}".',
     },
-    confirmText: {
+    name: {
+      control: "text",
+      description: 'The title reads "{action} {name}?".',
+    },
+    consequences: {
       control: "text",
     },
     cancelText: {
@@ -38,63 +44,40 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {
-  render: function DefaultDialog() {
-    const [open, setOpen] = React.useState(false);
-    return (
-      <>
-        <Button onClick={() => setOpen(true)}>Open Dialog</Button>
-        <ConfirmDialog
-          open={open}
-          onOpenChange={setOpen}
-          title="Confirm Action"
-          description="Are you sure you want to proceed with this action?"
-          onConfirm={() => console.log("Confirmed!")}
-        />
-      </>
-    );
-  },
-};
+function Asked(args: React.ComponentProps<typeof ConfirmDialog>) {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Ask again
+      </Button>
+      <ConfirmDialog {...args} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
 
 export const Destructive: Story = {
-  render: function DestructiveDialog() {
-    const [open, setOpen] = React.useState(false);
-    return (
-      <>
-        <Button variant="danger" onClick={() => setOpen(true)}>
-          Delete Item
-        </Button>
-        <ConfirmDialog
-          open={open}
-          onOpenChange={setOpen}
-          title="Delete Item"
-          description="This action cannot be undone. This will permanently delete the item."
-          confirmText="Delete"
-          cancelText="Cancel"
-          variant="destructive"
-          onConfirm={() => console.log("Deleted!")}
-        />
-      </>
-    );
-  },
+  render: (args) => <Asked {...args} />,
 };
 
-export const CustomText: Story = {
-  render: function CustomDialog() {
-    const [open, setOpen] = React.useState(false);
-    return (
-      <>
-        <Button onClick={() => setOpen(true)}>Save Draft</Button>
-        <ConfirmDialog
-          open={open}
-          onOpenChange={setOpen}
-          title="Save as Draft?"
-          description="Your changes will be saved but not published."
-          confirmText="Save Draft"
-          cancelText="Keep Editing"
-          onConfirm={() => console.log("Saved!")}
-        />
-      </>
-    );
+export const WithoutName: Story = {
+  args: {
+    action: "Remove",
+    object: "widget",
+    name: undefined,
+    consequences:
+      "It leaves this page when you save. The rest of the dashboard is unchanged.",
   },
+  render: (args) => <Asked {...args} />,
+};
+
+export const NoObject: Story = {
+  args: {
+    action: "Leave without saving",
+    object: undefined,
+    name: undefined,
+    consequences: "Your changes to Movie Highlights are lost.",
+    cancelText: "Stay",
+  },
+  render: (args) => <Asked {...args} />,
 };

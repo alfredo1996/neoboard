@@ -31,16 +31,11 @@ describe("DashboardPickerDialog", () => {
     expect(screen.getByText(/loading dashboards/i)).toBeInTheDocument();
   });
 
-  it("describes the dialog for assistive tech (#1282)", () => {
+  it("has no description: the title says it all (#2223)", () => {
     setDashboards([{ id: "1", name: "Ops", role: "owner" }]);
     render(<DashboardPickerDialog {...props} />);
 
-    const dialog = screen.getByRole("dialog");
-    const describedBy = dialog.getAttribute("aria-describedby");
-    expect(describedBy).toBeTruthy();
-    expect(document.getElementById(describedBy!)).toHaveTextContent(
-      /select which dashboard/i,
-    );
+    expect(screen.getByRole("dialog")).not.toHaveAttribute("aria-describedby");
   });
 
   it("lists only dashboards the user can edit", () => {

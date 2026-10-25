@@ -94,7 +94,7 @@ vi.mock("@neoboard/components", () => ({
         {flatActions.map((a) => (
           <button
             key={a.label}
-            data-testid={`action-${a.label.toLowerCase().replace(/\s+/g, "-")}`}
+            data-testid={`action-${a.label.replace(/…$/, "").toLowerCase().replace(/\s+/g, "-")}`}
             onClick={() => a.onClick?.()}
           >
             {a.label}
@@ -209,17 +209,19 @@ vi.mock("@neoboard/components", () => ({
   ConfirmDialog: ({
     open,
     onOpenChange,
-    title,
-    description,
-    confirmText,
+    action,
+    object,
+    name,
+    consequences,
     onConfirm,
     returnFocusTo,
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    title: string;
-    description?: React.ReactNode;
-    confirmText?: string;
+    action: string;
+    object?: string;
+    name?: string;
+    consequences?: React.ReactNode;
     onConfirm: () => void;
     returnFocusTo?: HTMLElement | null;
   }) =>
@@ -227,10 +229,10 @@ vi.mock("@neoboard/components", () => ({
       <div
         data-testid="confirm-dialog"
         role="alertdialog"
-        aria-label={title}
+        aria-label={`${action} ${name ?? `this ${object}`}`}
         data-return-focus={returnFocusTo?.id}
       >
-        <p>{description}</p>
+        <p>{consequences}</p>
         <button
           data-testid="confirm-dialog-cancel"
           onClick={() => onOpenChange(false)}
@@ -244,7 +246,7 @@ vi.mock("@neoboard/components", () => ({
             onOpenChange(false);
           }}
         >
-          {confirmText}
+          {object ? `${action} ${object}` : action}
         </button>
       </div>
     ) : null,
@@ -410,7 +412,7 @@ describe("DashboardContainer — buildActions", () => {
     );
     expect(screen.queryByTestId("action-edit-widget")).toBeNull();
     expect(screen.queryByTestId("action-duplicate")).toBeNull();
-    expect(screen.queryByTestId("action-remove")).toBeNull();
+    expect(screen.queryByTestId("action-remove-widget")).toBeNull();
   });
 
   it("includes Edit/Duplicate/Remove when editable=true and callbacks provided", () => {
@@ -426,7 +428,7 @@ describe("DashboardContainer — buildActions", () => {
     );
     fireEvent.click(screen.getByTestId("action-edit-widget"));
     fireEvent.click(screen.getByTestId("action-duplicate"));
-    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
     expect(onEditWidget).toHaveBeenCalledTimes(1);
     expect(onDuplicateWidget).toHaveBeenCalledWith("w-1");
     // Remove asks first (#2055); the confirm path is covered below.
@@ -567,12 +569,15 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
   it("opens a confirmation naming the widget instead of removing it", () => {
     const { onRemoveWidget } = renderRemovable();
 
-    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
 
     expect(onRemoveWidget).not.toHaveBeenCalled();
     const dialog = screen.getByRole("alertdialog", {
-      name: 'Remove "Test Widget"?',
+      name: "Remove Test Widget",
     });
+    expect(dialog).toHaveTextContent(
+      "It leaves this page when you save. The rest of the dashboard is unchanged.",
+    );
     // Focus goes back to the menu button Remove was picked from.
     expect(dialog).toHaveAttribute(
       "data-return-focus",
@@ -586,17 +591,17 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
     mockGetWidgetDisplayTitle.mockImplementation(() => "Bar Chart");
     renderRemovable([makeWidget({ chartType: "bar", settings: {} })]);
 
-    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
 
     expect(
-      screen.getByRole("alertdialog", { name: "Remove this widget?" }),
+      screen.getByRole("alertdialog", { name: "Remove this widget" }),
     ).toBeInTheDocument();
   });
 
   it("cancelling keeps the widget", () => {
     const { onRemoveWidget } = renderRemovable();
 
-    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
     fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
 
     expect(onRemoveWidget).not.toHaveBeenCalled();
@@ -609,9 +614,9 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
       makeWidget({ id: "w-2", settings: { title: "Second" } }),
     ]);
 
-    fireEvent.click(screen.getAllByTestId("action-remove")[1]);
+    fireEvent.click(screen.getAllByTestId("action-remove-widget")[1]);
     expect(
-      screen.getByRole("alertdialog", { name: 'Remove "Second"?' }),
+      screen.getByRole("alertdialog", { name: "Remove Second" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
 
