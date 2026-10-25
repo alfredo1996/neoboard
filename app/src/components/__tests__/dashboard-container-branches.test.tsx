@@ -384,6 +384,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   widgetCardProps.length = 0;
   parametersState.parameters = {};
+  // Tests reassign this; shuffled order must not inherit another test's values.
+  paramValues = { foo: "bar" };
   mockIsDataWidget.mockReturnValue(true);
   mockGetWidgetDisplayTitle.mockImplementation(defaultDisplayTitle);
   mockIsTemplateOutdated.mockReturnValue(false);
