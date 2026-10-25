@@ -2029,18 +2029,18 @@ test.describe("Cascading-select parameter widget", () => {
 
       // After selecting the parent, the child should no longer show the
       // "Select Director first…" placeholder — it should either show
-      // "Pick a movie by Director…" (options loaded) or be loading
+      // "Pick a movie by director…" (options loaded) or be loading
       await expect(page.getByText("Select Director first…")).not.toBeVisible({
         timeout: 10_000,
       });
 
-      // The cascading child should now show "Pick a movie by Director…"
-      await expect(page.getByText("Pick a movie by Director…")).toBeVisible({
+      // The cascading child should now show "Pick a movie by director…"
+      await expect(page.getByText("Pick a movie by director…")).toBeVisible({
         timeout: 10_000,
       });
 
       // Select a movie from the cascading child
-      await page.getByText("Pick a movie by Director…").click();
+      await page.getByText("Pick a movie by director…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
@@ -2119,7 +2119,7 @@ test.describe("Cascading-select parameter widget", () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
       // The child's options loaded: the parent's value is in the store.
-      await expect(child.getByText("Pick a movie by Director…")).toBeVisible({
+      await expect(child.getByText("Pick a movie by director…")).toBeVisible({
         timeout: 15_000,
       });
 
