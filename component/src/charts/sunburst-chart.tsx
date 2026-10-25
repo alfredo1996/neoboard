@@ -217,9 +217,11 @@ function SunburstChart({
       { context: "label" },
     );
     const parent = effective.length > 1 ? effective.at(-2) : "back";
+    // The author's centre text, when set, labels the total from below.
+    const centreLabel = sunburstCenterText ? `\n{b|${sunburstCenterText}}` : "";
     const centre = drilled
       ? `{n|${effective.at(-1)}}\n{a|${total}}\n{c|← ${parent}}`
-      : `{a|${total}}${sunburstCenterText ? `\n{b|${sunburstCenterText}}` : ""}`;
+      : `{a|${total}}${centreLabel}`;
     const radiusPx = (Math.min(width, height) / 2) * (hole / 100);
     const hit = { left: "center", top: "middle" } as const;
     const canGoUp = drilled;
