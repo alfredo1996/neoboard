@@ -66,6 +66,7 @@ import {
   ConfirmDialog,
   focusedMenuTrigger,
   iframeSourceLink,
+  substituteParamsInUrl,
   type WidgetCardAction,
   type WidgetCardProps,
 } from "@neoboard/components";
@@ -97,8 +98,16 @@ function SourcedWidgetCard({
 >) {
   const line = useWidgetSourceLine(widget, connectionName);
   // An embedded page runs no query: its source line is the page's domain.
-  const url = (widget.settings?.chartOptions as { url?: string } | undefined)
-    ?.url;
+  // Same substitution and values as the iframe's own src (card-container), so
+  // the link opens the page shown; iframeSourceLink still refuses non-http(s).
+  const paramValues = useParameterValues();
+  const template = (
+    widget.settings?.chartOptions as { url?: string } | undefined
+  )?.url;
+  const url =
+    template === undefined
+      ? undefined
+      : substituteParamsInUrl(template, paramValues);
   return (
     <WidgetCard
       {...props}

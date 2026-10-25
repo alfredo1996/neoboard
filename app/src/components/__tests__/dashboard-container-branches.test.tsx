@@ -30,7 +30,7 @@ import type {
 // Capture the actions array passed to WidgetCard for assertions.
 const widgetCardProps: Array<Record<string, unknown>> = [];
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
   WidgetCard: ({
     children,
     title,
@@ -249,7 +249,14 @@ vi.mock("@neoboard/components", () => ({
       </div>
     ) : null,
   focusedMenuTrigger: () => mockMenuTrigger,
-  iframeSourceLink: (url?: string) => (url ? `domain:${url}` : undefined),
+  iframeSourceLink: (url?: string) =>
+    url?.startsWith("http") ? `domain:${url}` : undefined,
+  // The real function: the header must resolve the URL the way the iframe does.
+  substituteParamsInUrl: (
+    await vi.importActual<typeof import("@neoboard/components")>(
+      "@neoboard/components",
+    )
+  ).substituteParamsInUrl,
   buildCsvString: vi.fn((rows: unknown[]) => `CSV(${rows.length})`),
   triggerDownload: vi.fn(),
   buildExportFilename: vi.fn((title: string, ext: string) => `${title}.${ext}`),
@@ -302,10 +309,12 @@ const parametersState = {
   clearAll: vi.fn(),
 };
 
+let paramValues: Record<string, unknown> = { foo: "bar" };
+
 vi.mock("@/stores/parameter-store", () => ({
   useParameterStore: (sel: (s: typeof parametersState) => unknown) =>
     sel(parametersState),
-  useParameterValues: () => ({ foo: "bar" }),
+  useParameterValues: () => paramValues,
 }));
 
 vi.mock("@/lib/parameter/format-parameter-value", () => ({
@@ -1259,7 +1268,18 @@ describe("DashboardContainer — an embedded page names its domain in the header
   it.each([
     ["with a URL", "https://example.com/a", "domain:https://example.com/a"],
     ["without one", undefined, null],
+    [
+      "whose URL holds a parameter, links the page the iframe loads",
+      "https://example.com/$param_year",
+      "domain:https://example.com/2024",
+    ],
+    [
+      "whose parameter turns the URL non-http(s), gets no link",
+      "$param_scheme",
+      null,
+    ],
   ])("an iframe widget %s", (_n, url, expected) => {
+    paramValues = { param_year: 2024, param_scheme: "javascript:alert(1)" };
     renderWithProviders(
       <DashboardContainer
         page={makePage([
