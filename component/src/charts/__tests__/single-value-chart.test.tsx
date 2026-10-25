@@ -39,7 +39,7 @@ describe("SingleValueChart", () => {
     rerender(
       <SingleValueChart value={3250045} prefix="$" numberFormat="comma" />,
     );
-    expect(screen.queryByText("$3,250,045")).toBeInTheDocument();
+    expect(screen.getByText("$3,250,045")).toBeInTheDocument();
     expect(screen.getAllByText(/3,250,045/)).toHaveLength(1);
   });
 

@@ -87,6 +87,26 @@ export interface GaugeChartProps extends Omit<BaseChartProps, "options"> {
  * Adapts to container size:
  * - Below 200px: hides label detail for a compact view.
  */
+/**
+ * Where the arc sits. "100%" is half the shorter side; the end labels sit
+ * LABEL_ROOM outside the arc, so on a squarer card the arc shrinks until they
+ * fit. The half circle sits low in the card; a sweep past 180 degrees reaches
+ * below its centre, so it is centred higher or its bottom clips.
+ */
+function gaugeGeometry(
+  width: number,
+  height: number,
+  compact: boolean,
+  startAngle: number,
+  endAngle: number,
+): { radius: string | number; center: [string, string] } {
+  const fits = compact || width / 2 - LABEL_ROOM >= Math.min(width, height) / 2;
+  return {
+    radius: fits ? "100%" : Math.max(20, width / 2 - LABEL_ROOM),
+    center: ["50%", startAngle - endAngle > 180 ? "55%" : "78%"],
+  };
+}
+
 function GaugeChart({
   data,
   min = 0,
@@ -117,19 +137,13 @@ function GaugeChart({
 
     const point = data[0];
     const arcWidth = compact ? 10 : 12;
-    // "100%" is half the shorter side. The end labels sit LABEL_ROOM outside
-    // the arc, so on a squarer card the arc shrinks until they fit.
-    const radius =
-      compact || width / 2 - LABEL_ROOM >= Math.min(width, height) / 2
-        ? "100%"
-        : Math.max(20, width / 2 - LABEL_ROOM);
-
-    // The half circle sits low in the card; a sweep past 180 degrees reaches
-    // below its centre, so it is centred higher or its bottom clips.
-    const center: [string, string] = [
-      "50%",
-      startAngle - endAngle > 180 ? "55%" : "78%",
-    ];
+    const { radius, center } = gaugeGeometry(
+      width,
+      height,
+      compact,
+      startAngle,
+      endAngle,
+    );
 
     const thresholdZones = parseGaugeThresholdZones(
       thresholdZonesJson,
