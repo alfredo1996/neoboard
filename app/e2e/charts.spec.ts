@@ -937,6 +937,41 @@ test.describe("Graph chart exploration", () => {
     await expect(page.getByTestId("graph-edge-count")).toHaveText("3 edges");
   });
 
+  // #2229: the legend shares the bottom row with the status bar. They used to
+  // sit in the same corner, and the legend hid Reset. No conditional: Reset has
+  // to be there and clickable, and the two must not overlap.
+  test("graph chart — the legend never covers the status bar, and Reset works after an expand (#2229)", async ({
+    page,
+  }) => {
+    await addGraphWidget(
+      page,
+      "MATCH (p:Person {name: 'Cameron Crowe'}) RETURN p",
+    );
+    await saveDashboard(page);
+    await dashboardCrumb(page).click();
+    await page.waitForURL((url) => !url.pathname.endsWith("/edit"), {
+      timeout: 10_000,
+    });
+    await expandTheOnlyNode(page);
+
+    const legend = page.getByTestId("graph-legend");
+    await expect(legend).toBeVisible();
+    const bar = await page.getByTestId("graph-status-bar").boundingBox();
+    const key = await legend.boundingBox();
+    expect(bar).not.toBeNull();
+    expect(key).not.toBeNull();
+    const overlaps =
+      bar!.x < key!.x + key!.width &&
+      key!.x < bar!.x + bar!.width &&
+      bar!.y < key!.y + key!.height &&
+      key!.y < bar!.y + bar!.height;
+    expect(overlaps).toBe(false);
+
+    await page.getByTestId("graph-reset-button").click();
+    await expect(page.getByTestId("graph-node-count")).toHaveText("1 nodes");
+    await expect(page.getByTestId("graph-reset-button")).toHaveCount(0);
+  });
+
   test("graph chart — reset clears all expansions", async ({ page }) => {
     await addGraphWidget(page);
 

@@ -1,4 +1,12 @@
-import { memo, useMemo, useRef, useState, useCallback, useEffect } from "react";
+import {
+  memo,
+  type ReactNode,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import { InteractiveNvlWrapper } from "@neo4j-nvl/react";
 import type { InteractiveNvlWrapperProps } from "@neo4j-nvl/react";
 import type NVL from "@neo4j-nvl/base";
@@ -146,6 +154,11 @@ export interface GraphChartProps {
    * where the pill is the only count there is.
    */
   showNodeCount?: boolean;
+  /**
+   * Content for the bottom row, shared with the legend so the two never
+   * overlap (a consumer's status bar, for one).
+   */
+  footer?: ReactNode;
   /** Rule-based styling rules for node color/size */
   stylingRules?: StylingRule[];
   /** Resolved parameter values for styling rule evaluation */
@@ -306,11 +319,9 @@ function toNvlNode(
   const isPrimary =
     primaryLabel !== undefined && colorLabel(node) === primaryLabel;
   // The main entity is drawn larger so its name always fits inside.
-  const baseSize = node.value
-    ? Math.max(20, Math.min(60, node.value))
-    : isPrimary
-      ? 40
-      : undefined;
+  let baseSize: number | undefined;
+  if (node.value) baseSize = Math.max(20, Math.min(60, node.value));
+  else if (isPrimary) baseSize = 40;
 
   const caption = showLabels ? resolveCaption(node, captionMap) : undefined;
 
@@ -335,10 +346,13 @@ function toNvlNode(
     id: node.id,
     caption,
     captions,
-    // Names sit under the node; the main entity's are larger. NVL itself
-    // clips a caption that does not fit its node at the current zoom.
+    // "bottom" draws the name inside the node's lower half. NVL draws a name
+    // only while node size x zoom is above a hard threshold (about 15.6px of
+    // radius, no option), so a small node at a low fit zoom has no name.
+    // captionSize is NVL's lookup key (1, 2 or 3), not a multiplier: any other
+    // value is a NaN font and nothing is drawn.
     captionAlign: "bottom",
-    captionSize: isPrimary ? 1.3 : 1,
+    captionSize: isPrimary ? 3 : 1,
     color,
     size:
       baseSize !== undefined ? Math.round(baseSize * nodeSizeScale) : undefined,
@@ -349,6 +363,24 @@ function toNvlNode(
     x,
     y,
   };
+}
+
+const TOOLTIP_W = 224; // max-w-56
+const TOOLTIP_H = 48;
+
+/** Offset from the pointer, clamped so the tooltip stays inside the container. */
+function tooltipPos(x: number, y: number, box: HTMLElement | null) {
+  const w = box?.clientWidth || Infinity;
+  const h = box?.clientHeight || Infinity;
+  return {
+    left: Math.max(0, Math.min(x + 12, w - TOOLTIP_W)),
+    top: Math.max(0, Math.min(y + 12, h - TOOLTIP_H)),
+  };
+}
+
+function edgeColor(color: string | undefined, dark: boolean): string {
+  if (color) return toNvlColor(color);
+  return dark ? EDGE_RULE_DARK : EDGE_RULE_LIGHT;
 }
 
 /**
@@ -369,11 +401,7 @@ function toNvlRelationship(
     // NVL's default relationship grey nearly vanishes on the dark canvas
     // (#1154) — give uncolored edges an explicit mid-grey in dark mode.
     // Normalize to hex either way; NVL doesn't render hsl() (#1157).
-    color: edge.color
-      ? toNvlColor(edge.color)
-      : dark
-        ? EDGE_RULE_DARK
-        : EDGE_RULE_LIGHT,
+    color: edgeColor(edge.color, dark),
     width: 1,
   };
 }
@@ -409,6 +437,7 @@ function GraphChartInner({
   onCaptionMapChange,
   autoFit,
   showNodeCount = true,
+  footer,
   stylingRules,
   paramValues,
   className,
@@ -572,8 +601,11 @@ function GraphChartInner({
     (): InteractiveNvlWrapperProps["mouseEventCallbacks"] => ({
       onHover: (element, _hit, event) => {
         const box = containerRef.current?.getBoundingClientRect();
-        const x = (event?.clientX ?? 0) - (box?.left ?? 0);
-        const y = (event?.clientY ?? 0) - (box?.top ?? 0);
+        const { left: x, top: y } = tooltipPos(
+          (event?.clientX ?? 0) - (box?.left ?? 0),
+          (event?.clientY ?? 0) - (box?.top ?? 0),
+          containerRef.current,
+        );
         if (!element) return setHover(null);
         if ("from" in element) {
           const name = (id: string) => {
@@ -733,6 +765,7 @@ function GraphChartInner({
     <div
       ref={containerRef}
       className={`group/graph relative h-full w-full ${className ?? ""}`}
+      onMouseLeave={() => setHover(null)}
     >
       {/* Node count display (top-left) — suppressed by a consumer that renders
           its own status bar, so the counts never appear twice (#1521). */}
@@ -887,30 +920,35 @@ function GraphChartInner({
         )}
       </div>
 
-      {legendRows.length > 0 && (
-        <ul
-          className="absolute bottom-2 left-2 z-10 m-0 flex list-none flex-wrap gap-x-3 gap-y-1 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm"
-          data-testid="graph-legend"
-        >
-          {legendRows.map(([lbl, count]) => (
-            <li key={lbl} className="inline-flex items-center gap-1.5">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: labelColorMap.get(lbl) }}
-                data-testid={`graph-legend-swatch-${lbl}`}
-                aria-hidden="true"
-              />
-              {lbl}{" "}
-              <span data-testid={`graph-legend-count-${lbl}`}>{count}</span>
-            </li>
-          ))}
-        </ul>
+      {(legendRows.length > 0 || footer) && (
+        <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-end gap-2">
+          {footer && <div className="pointer-events-auto">{footer}</div>}
+          {legendRows.length > 0 && (
+            <ul
+              className="pointer-events-auto m-0 flex list-none flex-wrap gap-x-3 gap-y-1 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm"
+              data-testid="graph-legend"
+            >
+              {legendRows.map(([lbl, count]) => (
+                <li key={lbl} className="inline-flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: labelColorMap.get(lbl) }}
+                    data-testid={`graph-legend-swatch-${lbl}`}
+                    aria-hidden="true"
+                  />
+                  {lbl}{" "}
+                  <span data-testid={`graph-legend-count-${lbl}`}>{count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       {hover && (
         <div
           className="pointer-events-none absolute z-30 max-w-56 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
-          style={{ left: hover.x + 12, top: hover.y + 12 }}
+          style={{ left: hover.x, top: hover.y }}
           data-testid="graph-hover"
         >
           <div className="font-medium">{hover.title}</div>

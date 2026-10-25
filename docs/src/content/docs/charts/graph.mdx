@@ -44,8 +44,8 @@ A query that returns rows of scalars has no graph in it, so the widget reports t
 
 ## How it reads
 
-- **Colour and legend.** Each node label gets a colour from the chart palette, in light and dark. The legend in the bottom-left corner names each label and counts its nodes, for example "Movie 5, Person 24".
-- **Names.** The least frequent label is the main entity: drawn larger, so its name always shows. Other names appear where they fit. Hover any node for its full name and label.
+- **Colour and legend.** Each node label gets a colour from the chart palette, in light and dark. The legend in the bottom row names each label and counts its nodes, for example "Movie 5, Person 24".
+- **Names.** The least frequent label (the first alphabetically on a tie) is the main entity: drawn larger, with a bigger name, so its name shows wherever the node is large enough on screen. Zoomed far out, the graph library hides names on small nodes; zoom in or fit to see them. Other names appear the same way. Hover any node for its full name and label.
 - **Relationships.** Hairlines; hover one to see its type.
 - **Controls.** Zoom in, zoom out, fit and the layout menu appear when you hover the graph or tab into it, and are always shown on touch screens. The graph refits when the panel is resized.
 - **Telemetry.** The graph library's built-in analytics is turned off.
