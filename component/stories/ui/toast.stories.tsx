@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { userEvent, within, expect } from "storybook/test";
 import { Button } from "@/components/ui/button";
 import { Toast, ToastAction } from "@/components/ui/toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -90,6 +91,16 @@ export const Destructive: Story = {
         <Toaster />
       </>
     );
+  }, // Opens the toast so the axe gate scans a real one, not only the trigger.
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Show Destructive Toast",
+      }),
+    );
+    await expect(
+      await within(document.body).findByText("Uh oh! Something went wrong."),
+    ).toBeVisible();
   },
 };
 

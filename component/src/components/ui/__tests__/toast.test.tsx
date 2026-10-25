@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import {
   ToastProvider,
@@ -32,12 +32,35 @@ describe("Toast", () => {
     expect(screen.getByText("Undo")).toBeInTheDocument();
   });
 
-  it("an error toast is an alert, the others a status", () => {
+  it("stays a list item: no explicit role on the <li>, so axe's list rule holds", () => {
+    renderToast("destructive");
+    const toast = screen.getByTestId("toast");
+    expect(toast.tagName).toBe("LI");
+    expect(toast).not.toHaveAttribute("role");
+  });
+
+  it("announces an error assertively and the rest politely, once each", async () => {
     const { unmount } = renderToast("destructive");
-    expect(screen.getByTestId("toast")).toHaveAttribute("role", "alert");
+    await waitFor(() =>
+      expect(document.querySelector("[aria-live]")).toHaveAttribute(
+        "aria-live",
+        "assertive",
+      ),
+    );
     unmount();
     renderToast();
-    expect(screen.getByTestId("toast")).toHaveAttribute("role", "status");
+    await waitFor(() =>
+      expect(document.querySelector("[aria-live]")).toHaveAttribute(
+        "aria-live",
+        "polite",
+      ),
+    );
+    expect(document.querySelectorAll("[aria-live]")).toHaveLength(1);
+  });
+
+  it("names its close button", () => {
+    renderToast();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
 
   it("marks a failed toast with the square and a done one with the dot, on a neutral surface", () => {

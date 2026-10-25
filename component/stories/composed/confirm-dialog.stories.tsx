@@ -22,7 +22,7 @@ const meta = {
     action: {
       control: "text",
       description:
-        "The verb. Delete, Remove, Revoke, Disable and Discard are red.",
+        "The verb. Delete, Remove, Revoke, Disable, Discard and Leave are red.",
     },
     object: {
       control: "text",

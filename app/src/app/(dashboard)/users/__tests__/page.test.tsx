@@ -62,6 +62,9 @@ vi.mock("@/hooks/use-users", () => {
   };
 });
 
+// What each ConfirmDialog was rendered with, so a closing dialog can be checked.
+const confirmRenders: { action: string; open: boolean; name?: string }[] = [];
+
 vi.mock("@neoboard/components", async () => {
   const { FieldStub } = await import("@/__tests__/helpers/field-stub");
   const Box = ({ children }: { children?: React.ReactNode }) => (
@@ -191,6 +194,7 @@ vi.mock("@neoboard/components", async () => {
       onConfirm: () => void;
       returnFocusTo?: HTMLElement | null;
     }) {
+      confirmRenders.push({ action, open, name });
       const wasOpen = React.useRef(open);
       React.useEffect(() => {
         if (wasOpen.current && !open) returnFocusTo?.focus();
@@ -288,6 +292,21 @@ describe("UsersPage — disable and enable (#2049)", () => {
     );
     expect(screen.queryByRole("dialog", { name: "Disable Dana" })).toBeNull();
   });
+
+  it.each([
+    ["Disable", "Disable…"],
+    ["Delete", "Delete…"],
+  ])(
+    'a closing %s dialog carries no name, so it cannot flash "This user" (#2223)',
+    (action, item) => {
+      render(<UsersPage />);
+      fireEvent.click(row("u2").getByRole("menuitem", { name: item }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      const last = confirmRenders.filter((r) => r.action === action).at(-1);
+      expect(last).toMatchObject({ open: false, name: undefined });
+    },
+  );
 
   it("disables nobody when the admin cancels the confirmation", () => {
     render(<UsersPage />);

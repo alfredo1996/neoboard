@@ -31,6 +31,7 @@ const DASHBOARD: DashboardListItem = {
   updatedByName: null,
   role: "viewer",
   widgetCount: 3,
+  pageCount: 2,
 };
 
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
@@ -518,6 +519,19 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
     expect(menuTrigger).toHaveFocus();
   });
 
+  it("says 1 widget and 1 page in the singular (#2223)", () => {
+    dashboards = [
+      { ...DASHBOARD, role: "owner", widgetCount: 1, pageCount: 1 },
+    ];
+    render(<DashboardListPage />);
+
+    fireEvent.click(screen.getByText("Delete…"));
+
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "Its 1 widget and 1 page go with it,",
+    );
+  });
+
   it("names the dashboard and what goes with it (#2223)", () => {
     render(<DashboardListPage />);
 
@@ -527,7 +541,7 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
       name: "Delete Movie Analytics",
     });
     expect(dialog).toHaveTextContent(
-      "Its 3 widgets and its pages go with it, and the people it's shared with lose access. This can't be undone.",
+      "Its 3 widgets and 2 pages go with it, and the people it's shared with lose access. This can't be undone.",
     );
     expect(
       within(dialog).getByRole("button", { name: "Delete dashboard" }),

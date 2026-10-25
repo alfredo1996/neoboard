@@ -47,6 +47,8 @@ export interface DashboardListItem {
   shared?: boolean;
   role: "owner" | "viewer" | "editor" | "admin";
   widgetCount: number;
+  /** Pages in the layout; the list endpoint only. */
+  pageCount?: number;
 }
 
 export interface DashboardDetail extends DashboardListItem {

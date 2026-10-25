@@ -511,7 +511,7 @@ export default function UsersPage() {
         }}
         action="Delete"
         object="user"
-        name={displayNameOf(users?.find((u) => u.id === deleteTarget) ?? null)}
+        name={dialogNameOf(users?.find((u) => u.id === deleteTarget) ?? null)}
         consequences="Their dashboards, connections, widget templates and API keys are deleted with them. This can't be undone."
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
@@ -546,7 +546,7 @@ export default function UsersPage() {
         }}
         action="Disable"
         object="user"
-        name={displayNameOf(disableTarget)}
+        name={dialogNameOf(disableTarget)}
         consequences="They can't sign in and their API keys stop working until you enable them again."
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
@@ -737,6 +737,11 @@ const USER_COLUMNS: readonly UserSortColumn[] = [
 
 function displayNameOf(user: UserListItem | null): string {
   return user?.name ?? user?.email ?? "This user";
+}
+
+/** No target, no name: a closing dialog falls back to "this user" instead of flashing "This user". */
+function dialogNameOf(user: UserListItem | null): string | undefined {
+  return user ? displayNameOf(user) : undefined;
 }
 
 /**

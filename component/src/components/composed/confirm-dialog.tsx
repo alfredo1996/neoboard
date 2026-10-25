@@ -80,17 +80,19 @@ function ConfirmDialog({
     onOpenChange(false);
   };
 
+  let describedBy: { "aria-describedby": string | undefined } | undefined;
+  if (typeof consequences !== "string") {
+    describedBy = {
+      "aria-describedby": consequences === undefined ? undefined : bodyId,
+    };
+  }
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent
         // Radix wires a string's AlertDialogDescription itself; a node is
         // described through its id, and none means no description at all.
-        {...(typeof consequences === "string"
-          ? {}
-          : {
-              "aria-describedby":
-                consequences === undefined ? undefined : bodyId,
-            })}
+        {...describedBy}
         onCloseAutoFocus={(event) => {
           if (!returnFocusTo?.isConnected) return;
           event.preventDefault();

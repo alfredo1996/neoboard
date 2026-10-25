@@ -81,6 +81,7 @@ describe("ConfirmDialog", () => {
     ["Revoke", true],
     ["Disable", true],
     ["Discard", true],
+    ["Leave without saving", true],
     ["Publish", false],
   ])("styles %s as destructive: %s", (action, destructive) => {
     render(

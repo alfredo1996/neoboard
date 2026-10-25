@@ -86,6 +86,7 @@ export async function GET(request: Request) {
           shared: shareId != null,
           role: ownerId === userId ? ("owner" as const) : ("admin" as const),
           widgetCount: countWidgets(layoutJson),
+          pageCount: layoutJson?.pages?.length ?? 0,
         };
       });
 
@@ -158,6 +159,7 @@ export async function GET(request: Request) {
         shared: shareId != null,
         role: dashRole,
         widgetCount: countWidgets(layoutJson),
+        pageCount: layoutJson?.pages?.length ?? 0,
       };
     });
 

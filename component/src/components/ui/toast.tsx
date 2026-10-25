@@ -52,8 +52,8 @@ const Toast = React.forwardRef<
   return (
     <ToastPrimitives.Root
       ref={ref}
-      // An error interrupts (alert), the rest wait their turn (status).
-      role={variant === "destructive" ? "alert" : "status"}
+      // Radix's own live region announces it: an error interrupts, the rest wait their turn.
+      type={variant === "destructive" ? "foreground" : "background"}
       className={cn(toastVariants({ variant }), className)}
       {...props}
     >
@@ -93,6 +93,7 @@ const ToastClose = React.forwardRef<
       className,
     )}
     toast-close=""
+    aria-label="Close"
     {...props}
   >
     <X className="h-3.5 w-3.5" />
