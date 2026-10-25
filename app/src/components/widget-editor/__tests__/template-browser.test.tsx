@@ -68,6 +68,20 @@ const sampleTemplate: WidgetTemplate = {
 } as unknown as WidgetTemplate;
 
 describe("TemplateBrowser", () => {
+  it("has no description restating its title (#2223)", () => {
+    render(
+      <TemplateBrowser
+        templates={[]}
+        loading={false}
+        connectorType={null}
+        onApply={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Browse Templates")).toBeInTheDocument();
+    expect(screen.queryByText(/Start from a widget/)).not.toBeInTheDocument();
+  });
+
   it("shows loading state", () => {
     render(
       <TemplateBrowser

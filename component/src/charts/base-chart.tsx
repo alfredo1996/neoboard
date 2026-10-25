@@ -172,7 +172,7 @@ function useDarkMode(): boolean {
  */
 const FONT_WAIT_MS = 1500;
 
-function useChartFontReady(): boolean {
+export function useChartFontReady(): boolean {
   const [ready, setReady] = useState(
     () => typeof document === "undefined" || !document.fonts,
   );

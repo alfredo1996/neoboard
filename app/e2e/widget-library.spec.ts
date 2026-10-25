@@ -191,10 +191,12 @@ test.describe("Widget Library", () => {
 
       // Confirm the deletion
       const confirmDialog = page.getByRole("alertdialog", {
-        name: "Delete Template",
+        name: `Delete ${templateName}`,
       });
       await expect(confirmDialog).toBeVisible();
-      await confirmDialog.getByRole("button", { name: "Delete" }).click();
+      await confirmDialog
+        .getByRole("button", { name: "Delete template" })
+        .click();
       await expect(confirmDialog).not.toBeVisible();
 
       // Template should no longer appear
@@ -730,8 +732,8 @@ test.describe("Widget Library", () => {
           .getByRole("menuitem", { name: "Sync with template" })
           .click();
         await page
-          .getByRole("alertdialog", { name: "Sync with template?" })
-          .getByRole("button", { name: "Sync" })
+          .getByRole("alertdialog", { name: /^Sync .* with its template\?$/ })
+          .getByRole("button", { name: "Sync widget" })
           .click();
 
         await expect(card.getByText("after sync")).toBeVisible({

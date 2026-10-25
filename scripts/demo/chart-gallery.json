@@ -98,7 +98,7 @@
                 "smooth": true,
                 "area": true,
                 "showLegend": true,
-                "colorPalette": "observable"
+                "colorPalette": "hastings"
               }
             }
           }
@@ -147,7 +147,7 @@
                 "donut": true,
                 "showLegend": true,
                 "labelPosition": "outside",
-                "colorPalette": "tableau"
+                "colorPalette": "hastings"
               }
             }
           }

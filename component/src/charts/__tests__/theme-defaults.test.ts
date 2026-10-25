@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { registerNeoboardThemes, formatAxisCompact } from "../theme";
+import {
+  registerNeoboardThemes,
+  formatAxisCompact,
+  SURFACE_COLOR,
+} from "../theme";
 
 /**
  * Opinionated ECharts theme defaults (#822): charts must look styled out
@@ -91,11 +95,11 @@ describe.each(["neoboard-light", "neoboard-dark"])(
       );
     });
 
-    it("pies: subtle slice gap via transparent border", () => {
+    it("pies: 2px slice gap in the card colour", () => {
       const pie = theme.pie as Record<string, Record<string, unknown>>;
       expect((pie.itemStyle as Record<string, unknown>).borderWidth).toBe(2);
       expect((pie.itemStyle as Record<string, unknown>).borderColor).toBe(
-        "transparent",
+        name === "neoboard-dark" ? SURFACE_COLOR.dark : SURFACE_COLOR.light,
       );
     });
 

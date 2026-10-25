@@ -11,7 +11,7 @@ export const pieSettingsSchema = z
     decimalPlaces: z.coerce.number().optional(),
     roseMode: z.boolean().default(false),
     labelPosition: z.enum(["outside", "inside", "center"]).default("outside"),
-    showPercentage: z.boolean().default(false),
+    showPercentage: z.boolean().default(true),
     sortSlices: z.boolean().default(false),
     topN: z.coerce.number().int().min(0).optional(),
     donutCenterText: z.string().optional(),

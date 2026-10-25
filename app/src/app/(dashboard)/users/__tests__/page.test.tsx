@@ -62,6 +62,9 @@ vi.mock("@/hooks/use-users", () => {
   };
 });
 
+// What each ConfirmDialog was rendered with, so a closing dialog can be checked.
+const confirmRenders: { action: string; open: boolean; name?: string }[] = [];
+
 vi.mock("@neoboard/components", async () => {
   const { FieldStub } = await import("@/__tests__/helpers/field-stub");
   const Box = ({ children }: { children?: React.ReactNode }) => (
@@ -175,28 +178,31 @@ vi.mock("@neoboard/components", async () => {
     ConfirmDialog: function ConfirmDialog({
       open,
       onOpenChange,
-      title,
-      description,
-      confirmText,
+      action,
+      object,
+      name,
+      consequences,
       onConfirm,
       returnFocusTo,
     }: {
       open: boolean;
       onOpenChange: (open: boolean) => void;
-      title: string;
-      description: string;
-      confirmText: string;
+      action: string;
+      object?: string;
+      name?: string;
+      consequences?: React.ReactNode;
       onConfirm: () => void;
       returnFocusTo?: HTMLElement | null;
     }) {
+      confirmRenders.push({ action, open, name });
       const wasOpen = React.useRef(open);
       React.useEffect(() => {
         if (wasOpen.current && !open) returnFocusTo?.focus();
         wasOpen.current = open;
       });
       return open ? (
-        <div role="dialog" aria-label={title}>
-          <p>{description}</p>
+        <div role="dialog" aria-label={`${action} ${name ?? ""}`.trim()}>
+          <p>{consequences}</p>
           <button onClick={() => onOpenChange(false)}>Cancel</button>
           <button
             onClick={() => {
@@ -204,7 +210,7 @@ vi.mock("@neoboard/components", async () => {
               onOpenChange(false);
             }}
           >
-            {confirmText}
+            {object ? `${action} ${object}` : action}
           </button>
         </div>
       ) : null;
@@ -243,7 +249,7 @@ describe("UsersPage — disable and enable (#2049)", () => {
   it("offers Disable on an enabled user and Enable on a disabled one", () => {
     render(<UsersPage />);
 
-    expect(row("u2").getByRole("menuitem", { name: "Disable" })).toBeEnabled();
+    expect(row("u2").getByRole("menuitem", { name: "Disable…" })).toBeEnabled();
     expect(row("u2").queryByRole("menuitem", { name: "Enable" })).toBeNull();
     expect(row("u3").getByRole("menuitem", { name: "Enable" })).toBeEnabled();
     expect(row("u3").queryByRole("menuitem", { name: "Disable" })).toBeNull();
@@ -253,9 +259,9 @@ describe("UsersPage — disable and enable (#2049)", () => {
     render(<UsersPage />);
 
     expect(
-      row(ME).queryByRole("menuitem", { name: /^(Disable|Enable)$/ }),
+      row(ME).queryByRole("menuitem", { name: /^(Disable…|Enable)$/ }),
     ).toBeNull();
-    expect(row(ME).getByRole("menuitem", { name: "Delete" })).toHaveAttribute(
+    expect(row(ME).getByRole("menuitem", { name: "Delete…" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
@@ -264,14 +270,16 @@ describe("UsersPage — disable and enable (#2049)", () => {
   it("asks before disabling, says what happens, then sends { disabled: true } and names the user", async () => {
     render(<UsersPage />);
 
-    fireEvent.click(row("u2").getByRole("menuitem", { name: "Disable" }));
+    fireEvent.click(row("u2").getByRole("menuitem", { name: "Disable…" }));
     expect(mockSetDisabled).not.toHaveBeenCalled();
 
-    const dialog = screen.getByRole("dialog", { name: "Disable User" });
+    const dialog = screen.getByRole("dialog", { name: "Disable Dana" });
     expect(dialog).toHaveTextContent(
-      "Dana will not be able to sign in, and their API keys will stop working.",
+      "They can't sign in and their API keys stop working until you enable them again.",
     );
-    fireEvent.click(within(dialog).getByRole("button", { name: "Disable" }));
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Disable user" }),
+    );
 
     expect(mockSetDisabled).toHaveBeenCalledWith({ id: "u2", disabled: true });
     await waitFor(() =>
@@ -282,15 +290,30 @@ describe("UsersPage — disable and enable (#2049)", () => {
         }),
       ),
     );
-    expect(screen.queryByRole("dialog", { name: "Disable User" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Disable Dana" })).toBeNull();
   });
+
+  it.each([
+    ["Disable", "Disable…"],
+    ["Delete", "Delete…"],
+  ])(
+    'a closing %s dialog carries no name, so it cannot flash "This user" (#2223)',
+    (action, item) => {
+      render(<UsersPage />);
+      fireEvent.click(row("u2").getByRole("menuitem", { name: item }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      const last = confirmRenders.filter((r) => r.action === action).at(-1);
+      expect(last).toMatchObject({ open: false, name: undefined });
+    },
+  );
 
   it("disables nobody when the admin cancels the confirmation", () => {
     render(<UsersPage />);
 
-    fireEvent.click(row("u2").getByRole("menuitem", { name: "Disable" }));
+    fireEvent.click(row("u2").getByRole("menuitem", { name: "Disable…" }));
     fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Disable User" })).getByRole(
+      within(screen.getByRole("dialog", { name: "Disable Dana" })).getByRole(
         "button",
         { name: "Cancel" },
       ),
@@ -336,10 +359,10 @@ describe("UsersPage — disable and enable (#2049)", () => {
     mockSetDisabled.mockRejectedValue("offline");
     render(<UsersPage />);
 
-    fireEvent.click(row("u2").getByRole("menuitem", { name: "Disable" }));
+    fireEvent.click(row("u2").getByRole("menuitem", { name: "Disable…" }));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {
-        name: "Disable",
+        name: "Disable user",
       }),
     );
 
@@ -365,10 +388,10 @@ describe("UsersPage — disable and enable (#2049)", () => {
     mockUsers = [user({ id: "u4", name: null, email: "noname@example.com" })];
     render(<UsersPage />);
 
-    fireEvent.click(row("u4").getByRole("menuitem", { name: "Disable" }));
+    fireEvent.click(row("u4").getByRole("menuitem", { name: "Disable…" }));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {
-        name: "Disable",
+        name: "Disable user",
       }),
     );
 
@@ -458,7 +481,7 @@ describe("UsersPage — role and write changes, from the row menu (#2098, #2254)
 });
 
 describe("UsersPage — where focus goes after a question (#2086)", () => {
-  it.each(["Delete", "Disable"])(
+  it.each(["Delete…", "Disable…"])(
     "%s: Cancel puts focus back on the row's menu button",
     (item) => {
       menuTrigger.blur();
@@ -474,11 +497,16 @@ describe("UsersPage — where focus goes after a question (#2086)", () => {
   it("a confirmed Delete puts focus on the page heading: the row is leaving", () => {
     render(<UsersPage />);
 
-    fireEvent.click(row("u2").getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(row("u2").getByRole("menuitem", { name: "Delete…" }));
+    expect(
+      screen.getByRole("dialog", { name: "Delete Dana" }),
+    ).toHaveTextContent(
+      "Their dashboards, connections, widget templates and API keys are deleted with them. This can't be undone.",
+    );
     fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Delete User" })).getByRole(
+      within(screen.getByRole("dialog", { name: "Delete Dana" })).getByRole(
         "button",
-        { name: "Delete" },
+        { name: "Delete user" },
       ),
     );
 

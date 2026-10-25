@@ -19,6 +19,22 @@ describe("CreatableCombobox", () => {
     ).toBeInTheDocument();
   });
 
+  it("floats on the one overlay shadow and the menus' radius (#2223)", async () => {
+    const user = userEvent.setup();
+    render(
+      <CreatableCombobox
+        suggestions={["alpha"]}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    const list = screen.getByRole("listbox");
+    expect(list.className).toContain("shadow-overlay");
+    expect(list.className).toContain("rounded-md");
+    expect(list.className).not.toContain("shadow-lg");
+  });
+
   it("shows suggestions in dropdown", async () => {
     const user = userEvent.setup();
     render(

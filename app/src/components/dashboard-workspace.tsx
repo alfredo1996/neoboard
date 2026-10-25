@@ -942,11 +942,9 @@ export function DashboardWorkspace({
       <ConfirmDialog
         open={showNavWarning}
         onOpenChange={setShowNavWarning}
-        title="Unsaved changes"
-        description="You have unsaved changes. Are you sure you want to leave? Your changes will be lost."
-        confirmText="Leave"
+        action="Leave without saving"
+        consequences={`Your changes to ${dashboard?.name ?? "this dashboard"} are lost.`}
         cancelText="Stay"
-        variant="destructive"
         onConfirm={confirmNavigation}
         onCancel={cancelNavigation}
         returnFocusTo={navWarningOpener}

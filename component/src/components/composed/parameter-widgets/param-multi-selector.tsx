@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { X, ChevronsUpDown } from "lucide-react";
-import { ParamLabel } from "./param-label";
+import { ParamLabel, useParentLabelScope } from "./param-label";
 import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import { Tag, tagRemoveClass, tagRemoveGlyphClass } from "@/components/ui/tag";
@@ -102,6 +102,9 @@ function ParamMultiSelector({
   // Truthiness, not `!== undefined`: the editor's parent-name input writes ""
   // when cleared, and an empty name is no parent (#1360).
   const isWaitingForParent = !!parentParameterName && !parentValue;
+  const parentName =
+    useParentLabelScope() ??
+    (parentParameterName ? humanizeParamName(parentParameterName) : "");
 
   // The parent was cleared while the popover was open — close it so the typed
   // search term dies with the CommandInput instead of surviving as a stale
@@ -110,9 +113,7 @@ function ParamMultiSelector({
 
   const resolvedPlaceholder =
     placeholder ??
-    (isWaitingForParent
-      ? `Select ${humanizeParamName(parentParameterName)} first…`
-      : "Select values…");
+    (isWaitingForParent ? `Select ${parentName} first…` : "Select values…");
 
   // The dependency hint is a DESCRIPTION, not part of the name — putting it in
   // the <Label> would embed another control's name in this one's (#1360).
@@ -151,7 +152,7 @@ function ParamMultiSelector({
               id={hintId}
               className="ml-1 text-[10px] normal-case font-normal text-muted-foreground"
             >
-              (depends on {humanizeParamName(parentParameterName)})
+              (depends on {parentName})
             </span>
           )}
         </div>

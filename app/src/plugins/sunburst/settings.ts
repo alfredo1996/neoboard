@@ -8,6 +8,7 @@ export const sunburstSettingsSchema = z
     showLabels: z.boolean().default(true),
     maxLabelDepth: z.coerce.number().default(2),
     sort: z.enum(["desc", "asc", "none"]).default("desc"),
+    sunburstCenterText: z.string().optional(),
     highlightOnHover: z.boolean().default(true),
     colorPalette: z.string().optional(),
     colorblindMode: z.boolean().default(false),

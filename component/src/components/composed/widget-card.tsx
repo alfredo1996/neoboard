@@ -39,7 +39,7 @@ export interface WidgetCardProps {
    * Where the data comes from (connection, row count). The line is reserved
    * even when empty, so panels in a row align (#1246).
    */
-  source?: string;
+  source?: React.ReactNode;
   actions?: WidgetCardAction[];
   /**
    * "edit" shows the drag handle, keeps every control visible and draws a
@@ -228,6 +228,9 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
             className={cn(
               "relative block space-y-0 border-b px-4 pb-2.5 pt-3",
               headerRule ? "border-rule" : "border-transparent",
+              // Untitled, with nothing to say and its controls floating over
+              // the body: no band of its own (#2232).
+              !title && !source && overlay && "p-0 border-b-0",
               headerClassName,
             )}
           >
@@ -352,7 +355,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
             {source ? (
               <p
                 className="mt-[3px] truncate text-meta leading-4 text-muted-foreground"
-                title={source}
+                title={typeof source === "string" ? source : undefined}
               >
                 {source}
               </p>

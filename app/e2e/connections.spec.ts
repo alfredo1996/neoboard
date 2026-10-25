@@ -484,16 +484,16 @@ test.describe("Connections", () => {
   //
   //   1. The confirm dialog pre-fetches GET /api/connections/{id}/usage and
   //      renders a breakdown of N widgets on M dashboards. Button label
-  //      switches to "Delete anyway" when the connection is in use.
+  //      switches to "Delete connection" when the connection is in use.
   //   2. DELETE /api/connections/{id} returns 409 Conflict when the
   //      connection has referencing widgets and `?force=true` is not set,
   //      with the usage breakdown in error.details.usage.
   //   3. DELETE /api/connections/{id}?force=true bypasses the guard so the
-  //      "Delete anyway" button (and CLI/automation) can still proceed.
+  //      "Delete connection" button (and CLI/automation) can still proceed.
   //
   // The tests below cover the API and UI sides of all three.
 
-  test("delete confirm dialog renders usage breakdown and proceeds on 'Delete anyway'", async ({
+  test("delete confirm dialog renders usage breakdown and proceeds on 'Delete connection'", async ({
     page,
   }) => {
     // 1. Create a fresh PG connection via API so we don't step on the seeded
@@ -593,13 +593,13 @@ test.describe("Connections", () => {
       });
       await expect(page.getByText(dashName)).toBeVisible();
 
-      // 7. The button label must be "Delete anyway", not the default "Delete".
+      // 7. The confirm button repeats the verb and the object.
       await expect(
-        page.getByRole("button", { name: "Delete anyway" }),
+        page.getByRole("button", { name: "Delete connection" }),
       ).toBeVisible();
 
       // 8. Confirm delete — UI passes ?force=true under the hood.
-      await page.getByRole("button", { name: "Delete anyway" }).click();
+      await page.getByRole("button", { name: "Delete connection" }).click();
       await expect(page.getByText(connName)).not.toBeVisible({
         timeout: 10_000,
       });

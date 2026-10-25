@@ -19,7 +19,7 @@ async function cancelAndDiscard(
 ) {
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await page
-    .getByRole("alertdialog", { name: "Discard unsaved changes?" })
+    .getByRole("alertdialog", { name: "Discard your changes?" })
     .getByRole("button", { name: "Discard" })
     .click();
   await expect(dialog).toBeHidden();
@@ -723,7 +723,7 @@ async function createInterpolatedTitleDashboard(
             connectionId: "conn-neo4j-001",
             query: "",
             settings: {
-              title: "Year Selector",
+              title: "Year",
               chartOptions: {
                 parameterType: "select",
                 parameterName: "year",
@@ -785,13 +785,13 @@ test.describe("Parameter interpolation in titles", () => {
       });
       const card = page.locator('[data-widget-id="interp-table"]');
       await expect(
-        card.getByText("Choose a value for Year to see this."),
+        card.getByText("Pick a year above to see this."),
       ).toBeVisible();
       await expect(card.getByRole("button", { name: "Year" })).toBeVisible();
       await expect(card.getByText(/\$param_/)).toHaveCount(0);
 
       // Select a year from the parameter dropdown
-      const paramTrigger = page.getByText("Select a value…");
+      const paramTrigger = page.getByText("Pick a year…");
       await paramTrigger.click();
       // Pick the first available year option
       await expect(async () => {
@@ -935,7 +935,7 @@ test.describe("Run and save with a parameter (#1912)", () => {
       await page.goto(`/${id}/edit`);
       await expect(editingCrumb(page)).toBeVisible();
 
-      await page.getByText("Select a value…").click();
+      await page.getByText("Pick a year…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
@@ -1400,7 +1400,7 @@ test.describe("Date parameter widget", () => {
               connectionId: "",
               query: "",
               settings: {
-                title: "Date Picker",
+                title: "Date",
                 chartOptions: {
                   parameterType: "date",
                   parameterName: "test_date",
@@ -1456,7 +1456,7 @@ test.describe("Date parameter widget", () => {
         timeout: 15_000,
       });
       // Until a date is picked the title names the parameter in words (#2214)
-      await expect(page.getByText("Movies (date: [Test date])")).toBeVisible();
+      await expect(page.getByText("Movies (date: [Date])")).toBeVisible();
 
       // Open the calendar popover
       await page.getByText("Pick a date…").click();
@@ -1823,7 +1823,7 @@ test.describe("Multi-select parameter widget", () => {
               connectionId: "conn-neo4j-001",
               query: "",
               settings: {
-                title: "Person Selector",
+                title: "Person",
                 chartOptions: {
                   parameterType: "multi-select",
                   parameterName: "test_people",
@@ -2011,38 +2011,36 @@ test.describe("Cascading-select parameter widget", () => {
       await page.goto(`/${id}`);
 
       // Wait for the parent select widget to load
-      await expect(page.getByText("Select a value…").first()).toBeVisible({
+      await expect(page.getByText("Pick a director…")).toBeVisible({
         timeout: 15_000,
       });
 
-      // The cascading child should show "Select Test director first…"
-      await expect(page.getByText("Select Test director first…")).toBeVisible();
+      // The cascading child should show "Select Director first…"
+      await expect(page.getByText("Select Director first…")).toBeVisible();
 
       // The "depends on" label should be visible
-      await expect(page.getByText("depends on Test director")).toBeVisible();
+      await expect(page.getByText("depends on Director")).toBeVisible();
 
       // Select a director from the parent dropdown
-      await page.getByText("Select a value…").first().click();
+      await page.getByText("Pick a director…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
 
       // After selecting the parent, the child should no longer show the
-      // "Select Test director first…" placeholder — it should either show
-      // "Select a value…" (options loaded) or be loading
-      await expect(
-        page.getByText("Select Test director first…"),
-      ).not.toBeVisible({
+      // "Select Director first…" placeholder — it should either show
+      // "Pick a movie by director…" (options loaded) or be loading
+      await expect(page.getByText("Select Director first…")).not.toBeVisible({
         timeout: 10_000,
       });
 
-      // The cascading child should now show "Select a value…"
-      await expect(page.getByText("Select a value…")).toBeVisible({
+      // The cascading child should now show "Pick a movie by director…"
+      await expect(page.getByText("Pick a movie by director…")).toBeVisible({
         timeout: 10_000,
       });
 
       // Select a movie from the cascading child
-      await page.getByText("Select a value…").click();
+      await page.getByText("Pick a movie by director…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
@@ -2079,7 +2077,7 @@ test.describe("Cascading-select parameter widget", () => {
     try {
       await page.goto(`/${id}/edit`);
       await expect(editingCrumb(page)).toBeVisible();
-      await expect(page.getByText("Select Test director first…")).toBeVisible({
+      await expect(page.getByText("Select Director first…")).toBeVisible({
         timeout: 15_000,
       });
 
@@ -2111,17 +2109,17 @@ test.describe("Cascading-select parameter widget", () => {
     try {
       await page.goto(`/${id}`);
       const child = page.locator("[data-widget-id='cascade-child']");
-      await expect(child.getByText("Select Test director first…")).toBeVisible({
+      await expect(child.getByText("Select Director first…")).toBeVisible({
         timeout: 15_000,
       });
 
       // Pick a director on the dashboard.
-      await page.getByText("Select a value…").first().click();
+      await page.getByText("Pick a director…").click();
       await expect(async () => {
         await page.getByRole("option").first().click({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
       // The child's options loaded: the parent's value is in the store.
-      await expect(child.getByText("Select a value…")).toBeVisible({
+      await expect(child.getByText("Pick a movie by director…")).toBeVisible({
         timeout: 15_000,
       });
 

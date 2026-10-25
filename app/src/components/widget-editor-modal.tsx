@@ -196,6 +196,8 @@ export function WidgetEditorModal({
   const colorScales = useWidgetEditorStore((s) => s.colorScales);
   const setColorScales = useWidgetEditorStore((s) => s.setColorScales);
   const dialogStep = useWidgetEditorStore((s) => s.dialogStep);
+  const isAddMode =
+    mode !== "edit" && mode !== "lab-edit" && mode !== "lab-create";
   const setDialogStep = useWidgetEditorStore((s) => s.setDialogStep);
   const labName = useWidgetEditorStore((s) => s.labName);
   const labDescription = useWidgetEditorStore((s) => s.labDescription);
@@ -679,11 +681,11 @@ export function WidgetEditorModal({
       <ConfirmDialog
         open={confirmDiscard}
         onOpenChange={closeQuestion}
-        title="Discard unsaved changes?"
-        description="The changes you made since opening the editor will be lost."
-        confirmText="Discard"
+        action="Discard"
+        object="changes"
+        name="your changes"
+        consequences="What you changed since opening the editor is lost."
         cancelText="Keep editing"
-        variant="destructive"
         onConfirm={() => {
           returnFocusRef.current = null;
           onOpenChange(false);
@@ -692,6 +694,11 @@ export function WidgetEditorModal({
       <DialogContent
         size="full"
         className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
+        // Only the Add title needs saying more; the others and the template
+        // browser are named by their title, so no description is wired (#2223).
+        {...(dialogStep === "main" && isAddMode
+          ? {}
+          : { "aria-describedby": undefined })}
         onCloseAutoFocus={onCloseAutoFocus}
         // A click outside closes it (#404): nested Select / Popover layers
         // could swallow Radix's own pointer-down-outside. Not *any*
@@ -746,20 +753,12 @@ export function WidgetEditorModal({
                   }
                 })()}
               </DialogTitle>
-              <DialogDescription>
-                {(() => {
-                  switch (mode) {
-                    case "lab-edit":
-                      return "Change this template's query, type, or display settings.";
-                    case "lab-create":
-                      return "Build a reusable widget template for the library.";
-                    case "edit":
-                      return "Change this widget's query, type, or display settings.";
-                    default:
-                      return "Choose a widget type, write its query, and configure how results are displayed.";
-                  }
-                })()}
-              </DialogDescription>
+              {isAddMode && (
+                <DialogDescription>
+                  Choose a widget type, write its query, and configure how
+                  results are displayed.
+                </DialogDescription>
+              )}
             </DialogHeader>
 
             <div

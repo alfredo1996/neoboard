@@ -54,7 +54,7 @@ describe("ContextMenu", () => {
     expect(screen.getByText("More")).toBeInTheDocument();
   });
 
-  it("promotes the content overlay surface to rounded-lg", async () => {
+  it("gives the content overlay surface the 8px menu radius", async () => {
     render(
       <ContextMenu>
         <ContextMenuTrigger>Right click</ContextMenuTrigger>
@@ -64,7 +64,7 @@ describe("ContextMenu", () => {
       </ContextMenu>,
     );
     openMenu();
-    expect(await screen.findByTestId("cm-content")).toHaveClass("rounded-lg");
+    expect(await screen.findByTestId("cm-content")).toHaveClass("rounded-md");
   });
 
   it("highlights items via :focus so mouse hover works (#component-review)", async () => {
@@ -81,7 +81,7 @@ describe("ContextMenu", () => {
     // Radix moves DOM focus onto items on pointer-move; :focus-visible does NOT
     // match pointer-initiated focus, so the highlight must key off :focus
     // (matches DropdownMenu) — otherwise the menu looks dead until click.
-    expect(item.className).toContain("focus:bg-accent");
+    expect(item.className).toContain("focus:bg-active");
     expect(item.className).not.toContain("focus-visible:bg-accent");
   });
 });

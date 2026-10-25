@@ -137,6 +137,14 @@ describe("dataZoom styling comes from the theme (#1273)", () => {
       // The selected window and its handles carry the interaction colour;
       // everything else is the quiet track.
       expect(zoom.fillerColor).toBeTruthy();
+      // A hairline since #2231: grey window on a quiet track, no readout.
+      expect(zoom.showDetail).toBe(false);
+      expect(zoom.fillerColor).toBe(
+        name === "neoboard-light" ? "#CDD1D7" : "#383D46",
+      );
+      expect(zoom.backgroundColor).toBe(
+        name === "neoboard-light" ? "#eeeff2" : "#21252b",
+      );
       expect(zoom.handleStyle).toBeTruthy();
       expect(zoom.dataBackground).toBeTruthy();
     },

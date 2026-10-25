@@ -4,11 +4,14 @@
  * from a single source of truth.
  */
 
-/** Syntax-highlight colors for the JSON viewer. */
+/** Syntax-highlight colors for the JSON viewer: the --code-* tokens, so the
+ * viewer and the text widget's code blocks read as one (#2232). */
 export const jsonSyntaxColors = {
-  string: "text-green-700 dark:text-green-400",
-  number: "text-blue-600 dark:text-blue-400",
-  boolean: "text-purple-600 dark:text-purple-400",
+  key: "text-foreground-2",
+  string: "text-[hsl(var(--code-str))]",
+  number: "text-foreground",
+  boolean: "text-[hsl(var(--code-key))]",
+  punctuation: "text-muted-foreground",
 } as const;
 
 /** Default marker color for the map chart (Leaflet circleMarker) — citrine

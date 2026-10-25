@@ -184,6 +184,8 @@ export default function ConnectionsPage() {
   function toastBusy(count: number) {
     toast({
       title: "Server busy",
+      // The test did not run: the dashed mark, not the done dot.
+      variant: "pending",
       description:
         count === 1
           ? "The test did not run. Try again in a moment."
@@ -311,7 +313,6 @@ export default function ConnectionsPage() {
     return (
       <div className="space-y-3">
         <p>
-          This connection is used by{" "}
           <strong>
             {usage.widgetCount} widget
             {usage.widgetCount === 1 ? "" : "s"}
@@ -320,8 +321,8 @@ export default function ConnectionsPage() {
           <strong>
             {usage.dashboards.length} dashboard
             {usage.dashboards.length === 1 ? "" : "s"}
-          </strong>
-          . Deleting it will break them:
+          </strong>{" "}
+          {usage.widgetCount === 1 ? "uses" : "use"} it and will stop loading:
         </p>
         <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-y-auto">
           {usage.dashboards.slice(0, 10).map((d) => (
@@ -402,15 +403,11 @@ export default function ConnectionsPage() {
         onOpenChange={(open: boolean) => {
           if (!open) setDeleteTarget(null);
         }}
-        title="Delete Connection"
-        description={deleteDescription()}
-        confirmText={
-          deleteUsage.data && deleteUsage.data.widgetCount > 0
-            ? "Delete anyway"
-            : "Delete"
-        }
+        action="Delete"
+        object="connection"
+        name={connections?.find((c) => c.id === deleteTarget)?.name}
+        consequences={deleteDescription()}
         confirmDisabled={deleteUsage.isLoading}
-        variant="destructive"
         returnFocusTo={returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) {
@@ -666,7 +663,7 @@ export default function ConnectionsPage() {
                                     }}
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
+                                    Delete…
                                   </DropdownMenuItem>
                                 </>
                               )}

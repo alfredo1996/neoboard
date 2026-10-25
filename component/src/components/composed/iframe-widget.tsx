@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "./empty-state";
 import { sanitizeSandbox } from "./chart-options/iframe-sandbox";
@@ -35,6 +36,26 @@ function isValidUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * The embedded page's domain as a link that opens it in a new tab, for the
+ * card header's source line (#2232). Nothing for a URL the widget would not
+ * embed (`undefined`, so the card keeps its reserved source line).
+ */
+function iframeSourceLink(url?: string): React.ReactNode {
+  if (!url || !isValidUrl(url)) return undefined;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-ring hover:underline"
+    >
+      {new URL(url.trim()).host} <span aria-hidden="true">↗</span>
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
+  );
 }
 
 function IframeWidget({
@@ -76,18 +97,20 @@ function IframeWidget({
   return (
     <div
       data-testid="iframe-widget"
-      className={cn("h-full w-full", className)}
+      className={cn("flex h-full w-full flex-col p-3 pt-2", className)}
     >
-      <iframe
-        src={url}
-        title={title}
-        sandbox={sanitizeSandbox(sandbox)}
-        className="w-full h-full border-0"
-        loading="lazy"
-        referrerPolicy="no-referrer"
-      />
+      <div className="min-h-0 flex-1 overflow-hidden rounded-sm border border-rule">
+        <iframe
+          src={url}
+          title={title}
+          sandbox={sanitizeSandbox(sandbox)}
+          className="w-full h-full border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      </div>
     </div>
   );
 }
 
-export { IframeWidget };
+export { IframeWidget, iframeSourceLink };

@@ -402,7 +402,7 @@ vi.mock("@neoboard/components", () => {
     ),
     ConfirmDialog: ({
       open,
-      title,
+      action,
       cancelText,
       onCancel,
       onOpenChange,
@@ -411,7 +411,7 @@ vi.mock("@neoboard/components", () => {
       useCloseAutoFocus(() => returnFocusTo?.focus(), open);
       return open ? (
         <div role="dialog">
-          {title}
+          {action}
           <button
             onClick={() => {
               onCancel?.();
@@ -1093,7 +1093,9 @@ describe("DashboardWorkspace", () => {
     fireEvent.keyDown(document, { key: "e", metaKey: true });
 
     expect(mockPush).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog")).toHaveTextContent("Unsaved changes");
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "Leave without saving",
+    );
   });
 
   it("Cmd+S saves in edit mode only", () => {
