@@ -7,7 +7,19 @@ import type { EChartsOption } from "echarts";
 import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
-import { buildEmptyDataOption, resolveItemColor } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  formatNumber,
+  measureTextWidth,
+  resolveItemColor,
+} from "./chart-utils";
+import {
+  FLOW_COLOR,
+  HASTINGS_DARK,
+  HASTINGS_LIGHT,
+  INK,
+  SURFACE_COLOR,
+} from "./theme";
 import type { StylingRule } from "./styling-rule";
 
 echarts.use([ESankeyChart, TitleComponent, TooltipComponent, CanvasRenderer]);
@@ -80,6 +92,52 @@ function SankeyChart({
   const options = useMemo((): EChartsOption => {
     if (!nodes.length || !data.links.length) return buildEmptyDataOption(dark);
 
+    const theme = dark ? "dark" : "light";
+    const horizontal = orient === "horizontal";
+    const citrine = (dark ? HASTINGS_DARK : HASTINGS_LIGHT)[0];
+
+    // The first column's labels sit left of the plot and the last column's
+    // right of it; ECharts clips what leaves the canvas, so the margins are
+    // measured from the labels rather than guessed. A sink is in the last
+    // column (the default alignment pushes them there).
+    const inTotal = new Map<string, number>();
+    const outTotal = new Map<string, number>();
+    for (const l of data.links) {
+      outTotal.set(l.source, (outTotal.get(l.source) ?? 0) + l.value);
+      inTotal.set(l.target, (inTotal.get(l.target) ?? 0) + l.value);
+    }
+    const widest = (pick: (name: string) => number | undefined) =>
+      Math.max(
+        0,
+        ...nodes.map((n) => {
+          const v = pick(n.name);
+          return v === undefined
+            ? 0
+            : measureTextWidth(
+                `${n.name} ${formatNumber(v, { context: "label" })}`,
+                12,
+              );
+        }),
+      );
+    const cap = width > 0 ? width * 0.3 : Number.POSITIVE_INFINITY;
+    const margins =
+      horizontal && !compact
+        ? {
+            left: Math.ceil(
+              Math.min(
+                cap,
+                widest((n) => (inTotal.has(n) ? undefined : outTotal.get(n))),
+              ) + 16,
+            ),
+            right: Math.ceil(
+              Math.min(
+                cap,
+                widest((n) => (outTotal.has(n) ? undefined : inTotal.get(n))),
+              ) + 16,
+            ),
+          }
+        : {};
+
     return {
       tooltip: {
         trigger: "item",
@@ -89,6 +147,7 @@ function SankeyChart({
         {
           type: "sankey",
           orient,
+          ...margins,
           data: nodes,
           links: stylingRules?.length
             ? data.links.map((link) => {
@@ -105,16 +164,34 @@ function SankeyChart({
             : data.links,
           nodeWidth: compact ? Math.max(nodeWidth - 4, 10) : nodeWidth,
           nodeGap: compact ? Math.max(nodeGap - 2, 4) : nodeGap,
+          itemStyle: { color: INK[theme].ink2, borderWidth: 0 },
           label: {
             show: showLabels && !compact,
-            position: orient === "vertical" ? "top" : "right",
+            position: horizontal ? "right" : "top",
+            fontSize: 12,
+            // Halo in the card's colour where a label crosses a flow.
+            textBorderColor: SURFACE_COLOR[theme],
+            textBorderWidth: 3,
+            formatter: (p: { name: string; value?: unknown }) =>
+              `${p.name} {v|${formatNumber(p.value as number, { context: "label" })}}`,
+            rich: { v: { color: INK[theme].ink3, fontSize: 12 } },
           },
+          // The first column reads to the left of its nodes, the rest to
+          // the right (#2231).
+          levels: horizontal
+            ? [{ depth: 0, label: { position: "left" as const } }]
+            : [],
+          // Visible at rest: 18% grey measured ~1.1:1 against the page.
           lineStyle: {
-            color: "gradient",
+            color: FLOW_COLOR[theme],
+            opacity: 0.5,
             curveness: 0.5,
           },
           emphasis: {
-            focus: "adjacency",
+            // The hovered flow's whole path stays; everything else fades.
+            focus: "trajectory",
+            itemStyle: { color: citrine },
+            lineStyle: { color: citrine, opacity: 0.6 },
           },
         },
       ],
@@ -127,6 +204,7 @@ function SankeyChart({
     nodeWidth,
     nodeGap,
     compact,
+    width,
     stylingRules,
     paramValues,
     dark,

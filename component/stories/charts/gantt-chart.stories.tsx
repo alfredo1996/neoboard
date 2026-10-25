@@ -285,10 +285,20 @@ export const MultiDayDatetime: Story = {
     data: [
       { task: "Kick-off", start: at(0, 9), end: at(0, 11), category: "Plan" },
       { task: "Discovery", start: at(0, 13), end: at(2, 17), category: "Plan" },
-      { task: "API spike", start: at(1, 10), end: at(3, 15), category: "Build" },
+      {
+        task: "API spike",
+        start: at(1, 10),
+        end: at(3, 15),
+        category: "Build",
+      },
       { task: "Schema", start: at(2, 9), end: at(4, 18), category: "Build" },
       { task: "UI", start: at(3, 14), end: at(7, 12), category: "Build" },
-      { task: "Load test", start: at(6, 8), end: at(8, 20), category: "Verify" },
+      {
+        task: "Load test",
+        start: at(6, 8),
+        end: at(8, 20),
+        category: "Verify",
+      },
       { task: "Review", start: at(8, 10), end: at(9, 16), category: "Verify" },
       { task: "Release", start: at(9, 17), end: at(9, 18), category: "Ship" },
     ],
@@ -358,4 +368,15 @@ export const EmptyState: Story = {
     expect(option.series).toHaveLength(0);
     expect(option.title?.[0]?.text).toBe("No data");
   },
+};
+
+/** #2231 — bars take the category colour through the palette, in both themes. */
+export const CategoryColoursLight: Story = {
+  args: { data: projectData },
+  globals: { theme: "light" },
+};
+
+export const CategoryColoursDark: Story = {
+  args: { data: projectData },
+  globals: { theme: "dark" },
 };

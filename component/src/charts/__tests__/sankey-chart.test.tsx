@@ -179,4 +179,67 @@ describe("SankeyChart", () => {
       );
     });
   });
+
+  // The Hastings look (#2231)
+  describe("flows, emphasis and labels", () => {
+    type Series = {
+      lineStyle: { color: string; opacity: number };
+      itemStyle: { color: string };
+      emphasis: {
+        focus: string;
+        lineStyle: { color: string };
+      };
+      label: {
+        position: string;
+        textBorderColor: string;
+        textBorderWidth: number;
+        formatter: (p: { name: string; value: number }) => string;
+      };
+      levels: { depth: number; label: { position: string } }[];
+      left: number;
+      right: number;
+    };
+    const series = (): Series => mockSetOption.mock.calls[0][0].series[0];
+
+    it("draws flows grey at 50%, visible without hover", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().lineStyle.color).toBe("#9AA3B0");
+      expect(series().lineStyle.opacity).toBe(0.5);
+    });
+
+    it("draws nodes in ink", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().itemStyle.color).toBe("#525A66");
+    });
+
+    it("traces the whole path on hover and turns it citrine", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().emphasis.focus).toBe("trajectory");
+      expect(series().emphasis.lineStyle.color).toBe("#C47C08");
+    });
+
+    it("puts depth 0 labels on the left and every other depth on the right", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().label.position).toBe("right");
+      expect(series().levels).toEqual([
+        { depth: 0, label: { position: "left" } },
+      ]);
+    });
+
+    it("haloes labels in the card colour and prints the value beside the name", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().label.textBorderColor).toBe("#ffffff");
+      expect(series().label.textBorderWidth).toBe(3);
+      expect(series().label.formatter({ name: "A", value: 12345 })).toBe(
+        "A {v|12.3K}",
+      );
+    });
+
+    it("leaves room for the labels that stick out of the plot", () => {
+      // sampleData: source "A" sits on the left, sink "C" on the right.
+      render(<SankeyChart data={sampleData} />);
+      expect(series().left).toBeGreaterThan(0);
+      expect(series().right).toBeGreaterThan(0);
+    });
+  });
 });

@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { contrastTextColor } from "../chart-utils";
-import { CITRINE_LIGHT, CITRINE_DARK } from "../theme";
+import {
+  contrastTextColor,
+  contrastRatio,
+  labelColorOn,
+  legibleFill,
+  mixColors,
+  LABEL_INK,
+} from "../chart-utils";
+import {
+  CITRINE_LIGHT,
+  CITRINE_DARK,
+  HASTINGS_LIGHT,
+  HASTINGS_DARK,
+  SURFACE_COLOR,
+} from "../theme";
 
 describe("contrastTextColor", () => {
   it("returns white text on a dark background", () => {
@@ -120,5 +133,59 @@ describe("contrastTextColor", () => {
     // Sanity: the stricter validator must not regress valid inputs.
     expect(contrastTextColor("rgba(0, 0, 0, 0)")).toBe("#ffffff");
     expect(contrastTextColor("rgba(255, 255, 255, 1)")).toBe("#000000");
+  });
+});
+
+describe("labelColorOn", () => {
+  it("never puts white on the dark-theme citrine (about 2:1)", () => {
+    expect(contrastRatio("#F2A93B", "#FFFFFF")).toBeLessThan(2.5);
+    expect(labelColorOn("#F2A93B")).toBe(LABEL_INK);
+  });
+
+  it("takes white on a dark fill and ink on a light one", () => {
+    expect(labelColorOn("#1B2A4A")).toBe("#FFFFFF");
+    expect(labelColorOn("#F6F7F9")).toBe(LABEL_INK);
+  });
+
+  // The rule is "whichever contrasts more", and the owner set the bar at 4.5:1.
+  // This walks every fill the sunburst can paint: each palette hue, mixed
+  // toward the card the way the chart steps its children.
+  it.each([
+    ["light", HASTINGS_LIGHT, SURFACE_COLOR.light],
+    ["dark", HASTINGS_DARK, SURFACE_COLOR.dark],
+  ])("reaches 4.5:1 on every %s sunburst fill", (_name, palette, card) => {
+    for (const base of palette) {
+      for (const t of [0, 0.3, 0.48, 0.66, 0.6, 0.7]) {
+        const fill = legibleFill(mixColors(base, card, t), card);
+        expect(contrastRatio(fill, labelColorOn(fill))).toBeGreaterThanOrEqual(
+          4.5,
+        );
+      }
+    }
+  });
+});
+
+describe("legibleFill", () => {
+  it("moves a mid-tone fill off the dead zone, and leaves a good one alone", () => {
+    // Neither ink nor white reaches 4.5:1 on this grey.
+    const grey = "#777777";
+    expect(contrastRatio(grey, labelColorOn(grey))).toBeLessThan(4.5);
+    const moved = legibleFill(grey, "#FFFFFF");
+    expect(contrastRatio(moved, labelColorOn(moved))).toBeGreaterThanOrEqual(
+      4.5,
+    );
+    expect(legibleFill("#1B2A4A", "#FFFFFF")).toBe("#1B2A4A");
+  });
+});
+
+describe("mixColors", () => {
+  it("returns the first colour at 0 and the second at 1", () => {
+    expect(mixColors("#102030", "#FFFFFF", 0)).toBe("#102030");
+    expect(mixColors("#102030", "#FFFFFF", 1)).toBe("#ffffff");
+  });
+
+  it("mixes halfway and accepts hsl()", () => {
+    expect(mixColors("#000000", "#ffffff", 0.5)).toBe("#808080");
+    expect(mixColors("hsl(0, 0%, 0%)", "#ffffff", 0.5)).toBe("#808080");
   });
 });

@@ -120,7 +120,10 @@ export const DarkMode: Story = {
         }
       ).series[0];
       expect(series.label.color).toBe("#f3f4f6");
-      expect(series.label.textBorderWidth).toBe(0);
+      // Since #2231 the halo is the card's colour, so a label that crosses a
+      // flow stays readable.
+      expect(series.label.textBorderColor).toBe("#181b20");
+      expect(series.label.textBorderWidth).toBe(3);
     });
   },
 };
@@ -216,4 +219,10 @@ export const EmptyState: Story = {
     );
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
+};
+
+/** #2231 — flows are visible at rest; hover traces the path in citrine. */
+export const LightFlows: Story = {
+  args: { data: defaultData },
+  globals: { theme: "light" },
 };

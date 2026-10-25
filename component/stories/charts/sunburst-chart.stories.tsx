@@ -586,3 +586,43 @@ export const EmptyState: Story = {
     data: [],
   },
 };
+
+const catalogue = [
+  {
+    name: "Home",
+    children: [
+      {
+        name: "Furniture",
+        children: [
+          { name: "Desk", value: 50 },
+          { name: "Chair", value: 30 },
+        ],
+      },
+      { name: "Decor", children: [{ name: "Rug", value: 20 }] },
+    ],
+  },
+  {
+    name: "Electronics",
+    children: [
+      { name: "Audio", children: [{ name: "Headphones", value: 40 }] },
+      { name: "Phones", children: [{ name: "Phone X", value: 35 }] },
+    ],
+  },
+];
+
+/** #2231 — two rings first; click a ring to go one level down, the centre to go up. */
+export const TwoRingsLight: Story = {
+  args: { data: catalogue },
+  globals: { theme: "light" },
+};
+
+export const TwoRingsDark: Story = {
+  args: { data: catalogue },
+  globals: { theme: "dark" },
+};
+
+/** With a click action every ring shows and a click runs the action. */
+export const WithClickActionDark: Story = {
+  args: { data: catalogue, onClick: () => {} },
+  globals: { theme: "dark" },
+};
