@@ -356,32 +356,34 @@ export function GraphExplorationWrapper({
         // This wrapper renders its own status bar below; without this the same
         // counts appeared twice in one widget (#1521).
         showNodeCount={false}
-      />
-
-      {/* Status bar */}
-      <div
-        className="absolute bottom-2 left-2 flex items-center gap-3 rounded-md bg-background/80 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-sm border"
-        data-testid="graph-status-bar"
-      >
-        <span data-testid="graph-node-count">
-          {exploration.nodes.length} nodes
-        </span>
-        <span data-testid="graph-edge-count">
-          {exploration.edges.length} edges
-        </span>
-        {exploration.expandingNodeId && (
-          <span className="text-primary animate-pulse">Loading…</span>
-        )}
-        {exploration.expandedNodeIds.length > 0 && (
-          <button
-            onClick={() => exploration.reset()}
-            className="text-primary hover:underline cursor-pointer"
-            data-testid="graph-reset-button"
+        // Shares the chart's bottom row with its legend, so neither covers the
+        // other and Reset stays clickable.
+        footer={
+          <div
+            className="flex items-center gap-3 rounded-md bg-background/80 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-sm border"
+            data-testid="graph-status-bar"
           >
-            Reset
-          </button>
-        )}
-      </div>
+            <span data-testid="graph-node-count">
+              {exploration.nodes.length} nodes
+            </span>
+            <span data-testid="graph-edge-count">
+              {exploration.edges.length} edges
+            </span>
+            {exploration.expandingNodeId && (
+              <span className="text-primary animate-pulse">Loading…</span>
+            )}
+            {exploration.expandedNodeIds.length > 0 && (
+              <button
+                onClick={() => exploration.reset()}
+                className="text-primary hover:underline cursor-pointer"
+                data-testid="graph-reset-button"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Context menu */}
       {menu && (
