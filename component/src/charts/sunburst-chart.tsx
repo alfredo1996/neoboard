@@ -72,7 +72,7 @@ function ringEdges(rings: number, hole: number): string[] {
   const share = EDGE_SHARES[rings] ?? [
     0.389,
     0.389,
-    ...Array<number>(rings - 2).fill(0.222 / (rings - 2)),
+    ...new Array<number>(rings - 2).fill(0.222 / (rings - 2)),
   ];
   let edge = hole;
   return [

@@ -78,6 +78,31 @@ function formatDuration(ms: number): string {
   return `${Math.round(days / 30)}mo`;
 }
 
+const DAY_MS = 86400000;
+
+/**
+ * Weekly tick times from local midnight of `first` through `last`, once the
+ * span reaches two weeks (none below that). The step
+ * widens in whole weeks until each label has MIN_LABEL_PX of `plot`, because
+ * customValues bypasses ECharts' own thinning; an unmeasured plot (0) keeps
+ * every week. setDate, not +7 days of ms, keeps a tick at the same local time
+ * across a daylight-saving change, and midnight keeps it from printing as a
+ * time ("09:00").
+ */
+function weeklyTicks(first: number, last: number, plot: number): number[] {
+  if (last - first < 14 * DAY_MS) return [];
+  const MIN_LABEL_PX = 48;
+  const weekPx = plot > 0 ? (plot * 7 * DAY_MS) / (last - first) : MIN_LABEL_PX;
+  const step = 7 * Math.max(1, Math.ceil(MIN_LABEL_PX / weekPx));
+  const ticks: number[] = [];
+  const from = new Date(first);
+  from.setHours(0, 0, 0, 0);
+  for (let d = from; d.getTime() <= last; d.setDate(d.getDate() + step)) {
+    ticks.push(d.getTime());
+  }
+  return ticks;
+}
+
 function GanttChart({
   data,
   showTodayLine = true,
@@ -137,29 +162,10 @@ function GanttChart({
     // axis with the weekly ones only. Compute them from the zoom window if
     // that becomes a complaint.
     const inset = compact ? 8 : 16;
-    const DAY = 86400000;
     const first = Math.min(...data.map((d) => d.start));
     const last = Math.max(...data.map((d) => d.end));
-    const weekly = last - first >= 14 * DAY;
-    const weekTicks: number[] = [];
-    if (weekly) {
-      // setDate, not +7*DAY, so a tick stays at the same local time across a
-      // daylight-saving change.
-      // Local midnight, so no tick sits at 09:00 and prints as a time.
-      const from = new Date(first);
-      from.setHours(0, 0, 0, 0);
-      // Widen the step in whole weeks until each label has MIN_LABEL_PX of
-      // plot: customValues bypasses ECharts' own thinning. Unmeasured
-      // (width 0) keeps every week.
-      const MIN_LABEL_PX = 48;
-      const plot = width - nameColumn - inset;
-      const weekPx =
-        plot > 0 ? (plot * 7 * DAY) / (last - first) : MIN_LABEL_PX;
-      const step = 7 * Math.max(1, Math.ceil(MIN_LABEL_PX / weekPx));
-      for (let d = from; d.getTime() <= last; d.setDate(d.getDate() + step)) {
-        weekTicks.push(d.getTime());
-      }
-    }
+    const weekly = last - first >= 14 * DAY_MS;
+    const weekTicks = weeklyTicks(first, last, width - nameColumn - inset);
 
     // Resolve colors per item
     const resolvedColors = data.map((item) => {
