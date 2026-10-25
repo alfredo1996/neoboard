@@ -274,6 +274,29 @@ function resolveCaption(
 }
 
 /**
+ * The colour a node is painted: styling rule > explicit node.color > label
+ * palette, as hex (NVL doesn't render hsl(), whatever the source, #1157).
+ * The legend reads this too, so its swatches match the canvas.
+ */
+function nodeColor(
+  node: GraphNode,
+  labelColorMap: Map<string, string>,
+  stylingRules?: StylingRule[],
+  paramValues?: Record<string, unknown>,
+): string | undefined {
+  const ruleColor =
+    stylingRules?.length && node.value != null
+      ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
+      : undefined;
+  const label = colorLabel(node);
+  const raw =
+    ruleColor ??
+    node.color ??
+    (label === undefined ? undefined : labelColorMap.get(label));
+  return raw === undefined ? undefined : toNvlColor(raw);
+}
+
+/**
  * Maps our internal GraphNode type to an NVL Node.
  * Color priority: explicit node.color > last-label color from palette > undefined.
  */
@@ -299,21 +322,7 @@ function toNvlNode(
     y = Math.sin(angle) * radius;
   }
 
-  // Rule-based color: evaluate against node.value (numeric property)
-  const ruleColor =
-    stylingRules?.length && node.value != null
-      ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
-      : undefined;
-
-  // Color priority: styling rule > explicit node.color > label palette.
-  // Normalize to hex — NVL doesn't render hsl(), whatever the source (#1157).
-  const rawColor =
-    ruleColor ??
-    node.color ??
-    (node.labels?.length
-      ? labelColorMap.get(node.labels[node.labels.length - 1])
-      : undefined);
-  const color = rawColor !== undefined ? toNvlColor(rawColor) : undefined;
+  const color = nodeColor(node, labelColorMap, stylingRules, paramValues);
 
   // Size: base from node.value, scaled by nodeSizeScale
   const isPrimary =
@@ -366,7 +375,7 @@ function toNvlNode(
 }
 
 const TOOLTIP_W = 224; // max-w-56
-const TOOLTIP_H = 48;
+const TOOLTIP_H = 48; // two truncated 12px/16px lines + padding
 
 /** Offset from the pointer, clamped so the tooltip stays inside the container. */
 function tooltipPos(x: number, y: number, box: HTMLElement | null) {
@@ -475,6 +484,17 @@ function GraphChartInner({
   );
 
   const legendRows = useMemo(() => countByLabel(nodes), [nodes]);
+  // Per label, the distinct colours its nodes are painted with.
+  const legendColors = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const n of nodes) {
+      const l = colorLabel(n);
+      const c = nodeColor(n, labelColorMap, stylingRules, paramValues);
+      if (l === undefined || c === undefined) continue;
+      m.set(l, (m.get(l) ?? new Set()).add(c));
+    }
+    return m;
+  }, [nodes, labelColorMap, stylingRules, paramValues]);
   const primaryLabel = useMemo(
     () => pickPrimaryLabel(legendRows),
     [legendRows],
@@ -928,18 +948,38 @@ function GraphChartInner({
               className="pointer-events-auto m-0 flex list-none flex-wrap gap-x-3 gap-y-1 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm"
               data-testid="graph-legend"
             >
-              {legendRows.map(([lbl, count]) => (
-                <li key={lbl} className="inline-flex items-center gap-1.5">
-                  <span
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ backgroundColor: labelColorMap.get(lbl) }}
-                    data-testid={`graph-legend-swatch-${lbl}`}
-                    aria-hidden="true"
-                  />
-                  {lbl}{" "}
-                  <span data-testid={`graph-legend-count-${lbl}`}>{count}</span>
-                </li>
-              ))}
+              {legendRows.map(([lbl, count]) => {
+                const colors = Array.from(legendColors.get(lbl) ?? []);
+                const mixed = colors.length > 1;
+                return (
+                  <li key={lbl} className="inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      // Mixed: a conic split of the colours in use, not one
+                      // misleading swatch.
+                      style={
+                        mixed
+                          ? {
+                              backgroundImage: `conic-gradient(${colors
+                                .map(
+                                  (c, i, all) =>
+                                    `${c} ${(i / all.length) * 100}% ${((i + 1) / all.length) * 100}%`,
+                                )
+                                .join(", ")})`,
+                            }
+                          : { backgroundColor: colors[0] }
+                      }
+                      data-mixed={mixed ? "true" : undefined}
+                      data-testid={`graph-legend-swatch-${lbl}`}
+                      aria-hidden="true"
+                    />
+                    {lbl}{" "}
+                    <span data-testid={`graph-legend-count-${lbl}`}>
+                      {count}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -951,9 +991,9 @@ function GraphChartInner({
           style={{ left: hover.x, top: hover.y }}
           data-testid="graph-hover"
         >
-          <div className="font-medium">{hover.title}</div>
+          <div className="truncate font-medium">{hover.title}</div>
           {hover.sub && (
-            <div className="text-muted-foreground">{hover.sub}</div>
+            <div className="truncate text-muted-foreground">{hover.sub}</div>
           )}
         </div>
       )}

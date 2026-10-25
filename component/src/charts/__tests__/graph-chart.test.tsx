@@ -1323,6 +1323,65 @@ describe("GraphChart look (#2229)", () => {
     expect(screen.queryByTestId("graph-hover")).toBeNull();
   });
 
+  it("keeps each tooltip line to one row so the 48px clamp estimate holds", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const cb = capturedProps.mouseEventCallbacks as {
+      onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+    };
+    act(() =>
+      cb.onHover({ id: "p2" }, [], { clientX: 5, clientY: 5 } as MouseEvent),
+    );
+    const tip = screen.getByTestId("graph-hover");
+    expect(tip.children.length).toBeGreaterThan(1);
+    for (const line of Array.from(tip.children))
+      expect(line.classList.contains("truncate")).toBe(true);
+  });
+
+  describe("legend swatch follows the rendered colour", () => {
+    const swatchBg = (l: string) => {
+      const el = screen.getByTestId(`graph-legend-swatch-${l}`);
+      return [el.style.backgroundColor, el.dataset.mixed] as const;
+    };
+
+    it("shows the explicit node colour", () => {
+      render(
+        <GraphChart
+          nodes={[{ id: "a", labels: ["X"], color: "#ff0000" }]}
+          edges={[]}
+        />,
+      );
+      expect(swatchBg("X")).toEqual(["rgb(255, 0, 0)", undefined]);
+    });
+
+    it("shows the styling-rule colour", () => {
+      render(
+        <GraphChart
+          nodes={[{ id: "a", labels: ["X"], value: 60 }]}
+          edges={[]}
+          stylingRules={[
+            { id: "r", operator: ">=" as const, value: 50, color: "#00ff00" },
+          ]}
+        />,
+      );
+      expect(swatchBg("X")).toEqual(["rgb(0, 255, 0)", undefined]);
+    });
+
+    it("marks a label whose nodes disagree as mixed instead of one colour", () => {
+      render(
+        <GraphChart
+          nodes={[
+            { id: "a", labels: ["X"], color: "#ff0000" },
+            { id: "b", labels: ["X"] },
+          ]}
+          edges={[]}
+        />,
+      );
+      const el = screen.getByTestId("graph-legend-swatch-X");
+      expect(el.dataset.mixed).toBe("true");
+      expect(el.style.backgroundColor).toBe("");
+    });
+  });
+
   it("keeps the hover tooltip inside the container", () => {
     const { container } = render(<GraphChart nodes={movies} edges={rels} />);
     const box = container.firstElementChild as HTMLElement;
