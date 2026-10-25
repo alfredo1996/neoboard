@@ -142,3 +142,13 @@ export const Lists: Story = {
 > Always validate your queries before running them in production.`,
   },
 };
+
+export const DefaultDark: Story = {
+  ...Default,
+  globals: { theme: "dark" },
+};
+
+export const CodeBlocksDark: Story = {
+  ...CodeBlocks,
+  globals: { theme: "dark" },
+};

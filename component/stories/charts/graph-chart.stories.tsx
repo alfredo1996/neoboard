@@ -578,3 +578,28 @@ export const EmptyState: Story = {
     edges: [],
   },
 };
+
+/** #2229 — colour and count per label from the Hastings palette, legend, hover controls. */
+const labelledNodes: GraphNode[] = [
+  { id: "m1", labels: ["Movie"], properties: { title: "The Matrix" } },
+  { id: "m2", labels: ["Movie"], properties: { title: "Speed" } },
+  { id: "p1", labels: ["Person"], properties: { name: "Keanu Reeves" } },
+  { id: "p2", labels: ["Person"], properties: { name: "Carrie-Anne Moss" } },
+  { id: "p3", labels: ["Person"], properties: { name: "Sandra Bullock" } },
+];
+const labelledEdges: GraphEdge[] = [
+  { source: "p1", target: "m1", label: "ACTED_IN" },
+  { source: "p2", target: "m1", label: "ACTED_IN" },
+  { source: "p1", target: "m2", label: "ACTED_IN" },
+  { source: "p3", target: "m2", label: "ACTED_IN" },
+];
+
+export const LabelLegendLight: Story = {
+  args: { nodes: labelledNodes, edges: labelledEdges },
+  globals: { theme: "light" },
+};
+
+export const LabelLegendDark: Story = {
+  args: { nodes: labelledNodes, edges: labelledEdges },
+  globals: { theme: "dark" },
+};

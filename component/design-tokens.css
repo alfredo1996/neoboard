@@ -192,6 +192,10 @@
      nudged off 38 while the ring was citrine, and there is no reason to move
      it back now that the ring is azure. */
   --success: 142 64% 27%;
+  /* Code and JSON: keys and keywords azure, strings green (#2232). */
+  --code-bg: 220 16% 96%; /* = --side */
+  --code-key: 212 90% 42%;
+  --code-str: 141 61% 30%;
   --success-foreground: 0 0% 100%;
   --warning: 28 92% 32%;
   --warning-foreground: 0 0% 100%;
@@ -304,6 +308,9 @@
   --destructive-foreground: 220 13% 9%;
   /* Lifted luminance so the colors read as text/tints against charcoal. */
   --success: 142 58% 55%;
+  --code-bg: 215 14% 14%; /* #1E2228, lighter than --card */
+  --code-key: 213 84% 68%;
+  --code-str: 140 46% 56%;
   --success-foreground: 220 13% 9%;
   --warning: 28 92% 58%;
   --warning-foreground: 220 13% 9%;
@@ -472,23 +479,22 @@ html {
   border-color: hsl(220 13% 17%);
 }
 
-/* Shiki dark theme activation (#1408).
-   code-highlighter.ts uses dual-theme mode: the light theme is inlined as
-   real `style` values, the dark theme is emitted only as --shiki-dark /
-   --shiki-dark-bg custom properties, and a stylesheet rule has to opt the
-   dark half in. This is that rule — without it every fenced code block
-   rendered github-light on a dark card, and the dark theme was loaded but
-   unreachable.
-
-   `!important` is required, not defensive: the light values are inline
-   `style` attributes, which beat any selector on specificity. `span` is in
-   the selector because every token's colour is its own inline style — a rule
-   hitting only the container fixes the background and leaves light-theme ink.
-
-   Lives here for the same reason as the blocks above: src/index.css is
-   Storybook-only (#1399); this file reaches both packages. */
-.dark .shiki,
-.dark .shiki span {
-  color: var(--shiki-dark) !important;
-  background-color: var(--shiki-dark-bg) !important;
+/* Code in text widgets (#2232). code-highlighter.ts emits --shiki-* variables
+   instead of one theme's colours; this maps them onto the --code-* tokens, so
+   both colour schemes come from the stylesheet. Keywords are azure, strings
+   green, comments grey, the rest ink, on the --code-bg tint. Lives here for the
+   same reason as the blocks above: src/index.css is Storybook-only (#1399);
+   this file reaches both packages. */
+:root {
+  --shiki-foreground: hsl(var(--foreground));
+  --shiki-background: hsl(var(--code-bg));
+  --shiki-token-keyword: hsl(var(--code-key));
+  --shiki-token-string: hsl(var(--code-str));
+  --shiki-token-string-expression: hsl(var(--code-str));
+  --shiki-token-comment: hsl(var(--muted-foreground));
+  --shiki-token-constant: hsl(var(--foreground));
+  --shiki-token-parameter: hsl(var(--foreground));
+  --shiki-token-function: hsl(var(--foreground));
+  --shiki-token-punctuation: hsl(var(--foreground));
+  --shiki-token-link: hsl(var(--code-key));
 }

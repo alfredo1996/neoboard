@@ -4,9 +4,10 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
 import { FilterLine } from "@neoboard/components/kit";
-import { humanizeParamName } from "@neoboard/components/humanize-param-name";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
+import { paramLabel } from "@/lib/parameter/param-label";
+import { ConnectionNamesProvider } from "@/components/connection-names-context";
 import { buildExportData } from "@/lib/widget/card-utils";
 import {
   getShownWidgetQueryData,
@@ -56,6 +57,8 @@ import {
   Button,
   ConfirmDialog,
   focusedMenuTrigger,
+  iframeSourceLink,
+  substituteParamsInUrl,
   type WidgetCardAction,
   type WidgetCardProps,
 } from "@neoboard/components";
@@ -85,10 +88,22 @@ function SourcedWidgetCard({
 }: Readonly<
   WidgetCardProps & { widget: DashboardWidget; connectionName?: string }
 >) {
+  const line = useWidgetSourceLine(widget, connectionName);
+  // An embedded page runs no query: its source line is the page's domain.
+  // Same substitution and values as the iframe's own src (card-container), so
+  // the link opens the page shown; iframeSourceLink still refuses non-http(s).
+  const paramValues = useParameterValues();
+  const template = (
+    widget.settings?.chartOptions as { url?: string } | undefined
+  )?.url;
+  const url =
+    template === undefined
+      ? undefined
+      : substituteParamsInUrl(template, paramValues);
   return (
     <WidgetCard
       {...props}
-      source={useWidgetSourceLine(widget, connectionName)}
+      source={(widget.chartType === "iframe" && iframeSourceLink(url)) || line}
     />
   );
 }
@@ -218,8 +233,9 @@ export function DashboardContainer({
       1500,
     );
   };
+  const labelOf = (n: string) => paramLabel(n, parameterSourceMap);
   const displayTitle = (widget: DashboardWidget) =>
-    interpolateTitle(getWidgetDisplayTitle(widget), parameters);
+    interpolateTitle(getWidgetDisplayTitle(widget), parameters, labelOf);
 
   if (page.widgets.length === 0) {
     return (
@@ -347,7 +363,7 @@ export function DashboardContainer({
   };
 
   return (
-    <>
+    <ConnectionNamesProvider value={connectionNames}>
       {hasParameters && (
         <div className="pb-3">
           <FilterLine
@@ -355,7 +371,7 @@ export function DashboardContainer({
               const sourceId = entry.sourceWidgetId;
               return {
                 id: name,
-                label: humanizeParamName(name),
+                label: labelOf(name),
                 value: formatParameterValue(entry.value),
                 title: entry.source ? `Set by ${entry.source}` : undefined,
                 onSelect: sourceId ? () => scrollToSource(sourceId) : undefined,
@@ -454,6 +470,7 @@ export function DashboardContainer({
                     refetchInterval={refetchInterval}
                     onNavigateToPage={onNavigateToPage}
                     parameterSourceMap={parameterSourceMap}
+                    currentPageId={page.id}
                     connector={connectorCapabilities?.[widget.connectionId]}
                   />
                 </SourcedWidgetCard>
@@ -489,6 +506,7 @@ export function DashboardContainer({
                   refetchInterval={refetchInterval}
                   onNavigateToPage={onNavigateToPage}
                   parameterSourceMap={parameterSourceMap}
+                  currentPageId={page.id}
                   connector={
                     connectorCapabilities?.[fullscreenWidget.connectionId]
                   }
@@ -537,6 +555,7 @@ export function DashboardContainer({
           interpolateTitle(
             (removeTarget?.widget.settings?.title as string | undefined) ?? "",
             parameters,
+            labelOf,
           ).trim() || undefined
         }
         consequences="It leaves this page when you save. The rest of the dashboard is unchanged."
@@ -545,6 +564,6 @@ export function DashboardContainer({
           if (removeTarget) onRemoveWidget?.(removeTarget.widget.id);
         }}
       />
-    </>
+    </ConnectionNamesProvider>
   );
 }

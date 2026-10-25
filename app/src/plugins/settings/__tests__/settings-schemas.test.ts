@@ -241,7 +241,9 @@ describe("ganttSettingsSchema", () => {
   });
 
   it("coerces string numbers for barBorderRadius", () => {
-    expect(ganttSettingsSchema.parse({ barBorderRadius: "4" }).barBorderRadius).toBe(4);
+    expect(
+      ganttSettingsSchema.parse({ barBorderRadius: "4" }).barBorderRadius,
+    ).toBe(4);
   });
 });
 
@@ -344,7 +346,7 @@ describe("singleValueSettingsSchema", () => {
 describe("jsonSettingsSchema", () => {
   it("applies correct defaults", () => {
     const result = jsonSettingsSchema.parse({});
-    expect(result.initialExpanded).toBe(2);
+    expect(result.initialExpanded).toBe(1);
   });
 
   it("coerces string numbers", () => {

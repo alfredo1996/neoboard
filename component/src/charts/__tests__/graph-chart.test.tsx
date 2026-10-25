@@ -16,8 +16,10 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphChart } from "../graph-chart";
+import { HASTINGS_LIGHT, HASTINGS_DARK } from "../theme";
 import type {
   Node as NvlNode,
   Relationship as NvlRelationship,
@@ -101,7 +103,13 @@ describe("GraphChart", () => {
   });
 
   it("maps edge label to NVL relationship caption and type", () => {
-    render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+    render(
+      <GraphChart
+        nodes={sampleNodes}
+        edges={sampleEdges}
+        showRelationshipLabels
+      />,
+    );
     const nvlRels = capturedProps.rels as NvlRelationship[];
     expect(nvlRels[0].caption).toBe("knows");
     expect(nvlRels[0].type).toBe("knows");
@@ -1191,5 +1199,268 @@ describe("GraphChart", () => {
       const synthetic = nvlNodes.find((n) => n.id === "-289")!;
       expect(captionValues(synthetic)).toEqual(["virtual"]);
     });
+  });
+});
+
+describe("GraphChart look (#2229)", () => {
+  const movies = [
+    { id: "m1", labels: ["Movie"], properties: { title: "Heat" } },
+    { id: "p1", labels: ["Person"], properties: { name: "Al" } },
+    { id: "p2", labels: ["Person"], properties: { name: "Bob" } },
+  ];
+  const rels = [{ source: "p1", target: "m1", label: "ACTED_IN" }];
+  const colorOf = (id: string) =>
+    (capturedProps.nodes as NvlNode[]).find((n) => n.id === id)?.color;
+
+  afterEach(() => {
+    cleanup();
+    document.documentElement.classList.remove("dark");
+  });
+
+  it.each([
+    ["light", false, HASTINGS_LIGHT],
+    ["dark", true, HASTINGS_DARK],
+  ])("colours labels from the Hastings %s palette", (_n, dark, pal) => {
+    if (dark) document.documentElement.classList.add("dark");
+    render(<GraphChart nodes={movies} edges={rels} />);
+    // labels are sorted: Movie first, Person second
+    expect(colorOf("m1")).toBe(pal[0]);
+    expect(colorOf("p1")).toBe(pal[1]);
+  });
+
+  it("legend names each label with its node count and follows the theme", async () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const legend = screen.getByTestId("graph-legend");
+    expect(legend.textContent).toContain("Movie");
+    expect(legend.textContent).toContain("Person");
+    expect(screen.getByTestId("graph-legend-count-Movie").textContent).toBe(
+      "1",
+    );
+    expect(screen.getByTestId("graph-legend-count-Person").textContent).toBe(
+      "2",
+    );
+    const swatch = screen.getByTestId("graph-legend-swatch-Movie");
+    expect(swatch.style.backgroundColor).toBe("rgb(196, 124, 8)");
+    act(() => document.documentElement.classList.add("dark"));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("graph-legend-swatch-Movie").style.backgroundColor,
+      ).toBe("rgb(242, 169, 59)"),
+    );
+  });
+
+  it("captions the rarest label with NVL's largest size key, the rest with the smallest", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const nodes = capturedProps.nodes as NvlNode[];
+    const movie = nodes.find((n) => n.id === "m1");
+    const person = nodes.find((n) => n.id === "p1");
+    expect(movie?.caption).toBe("Heat");
+    expect(movie?.captionAlign).toBe("bottom");
+    // NVL's size lookup only has 1, 2 and 3; anything else is a NaN font.
+    expect(movie?.captionSize).toBe(3);
+    expect(person?.captionSize).toBe(1);
+    expect(person?.caption).toBe("Al");
+  });
+
+  it("picks the rarest label as the main entity even when it sorts last", () => {
+    const nodes = [
+      { id: "a1", labels: ["Actor"], properties: { name: "A1" } },
+      { id: "a2", labels: ["Actor"], properties: { name: "A2" } },
+      { id: "z1", labels: ["Zebra"], properties: { name: "Z" } },
+    ];
+    render(<GraphChart nodes={nodes} edges={[]} />);
+    const byId = (id: string) =>
+      (capturedProps.nodes as NvlNode[]).find((n) => n.id === id);
+    expect(byId("z1")?.captionSize).toBe(3);
+    expect(byId("a1")?.captionSize).toBe(1);
+  });
+
+  it("refits the graph when the container is resized", () => {
+    let fire: () => void = () => {};
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(cb: () => void) {
+        fire = cb;
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    } as unknown as typeof ResizeObserver;
+    try {
+      render(<GraphChart nodes={movies} edges={rels} />);
+      const fit = vi.fn();
+      (capturedProps.ref as { current: unknown }).current = { fit };
+      fire();
+      expect(fit).toHaveBeenCalledWith(["m1", "p1", "p2"]);
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
+  it("puts the consumer's footer in the same row as the legend, not over it", () => {
+    render(
+      <GraphChart
+        nodes={movies}
+        edges={rels}
+        footer={<button data-testid="the-footer">Reset</button>}
+      />,
+    );
+    const footer = screen.getByTestId("the-footer");
+    const legend = screen.getByTestId("graph-legend");
+    expect(footer.closest("div.absolute")).toBe(legend.closest("div.absolute"));
+  });
+
+  it("clears the hover tooltip when the pointer leaves the graph", () => {
+    const { container } = render(<GraphChart nodes={movies} edges={rels} />);
+    const cb = capturedProps.mouseEventCallbacks as {
+      onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+    };
+    act(() =>
+      cb.onHover({ id: "p2" }, [], { clientX: 5, clientY: 5 } as MouseEvent),
+    );
+    expect(screen.getByTestId("graph-hover")).toBeTruthy();
+    fireEvent.mouseLeave(container.firstElementChild as Element);
+    expect(screen.queryByTestId("graph-hover")).toBeNull();
+  });
+
+  it("keeps each tooltip line to one row so the 48px clamp estimate holds", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const cb = capturedProps.mouseEventCallbacks as {
+      onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+    };
+    act(() =>
+      cb.onHover({ id: "p2" }, [], { clientX: 5, clientY: 5 } as MouseEvent),
+    );
+    const tip = screen.getByTestId("graph-hover");
+    expect(tip.children.length).toBeGreaterThan(1);
+    for (const line of Array.from(tip.children))
+      expect(line.classList.contains("truncate")).toBe(true);
+  });
+
+  describe("legend swatch follows the rendered colour", () => {
+    const swatchBg = (l: string) => {
+      const el = screen.getByTestId(`graph-legend-swatch-${l}`);
+      return [el.style.backgroundColor, el.dataset.mixed] as const;
+    };
+
+    it("shows the explicit node colour", () => {
+      render(
+        <GraphChart
+          nodes={[{ id: "a", labels: ["X"], color: "#ff0000" }]}
+          edges={[]}
+        />,
+      );
+      expect(swatchBg("X")).toEqual(["rgb(255, 0, 0)", undefined]);
+    });
+
+    it("shows the styling-rule colour", () => {
+      render(
+        <GraphChart
+          nodes={[{ id: "a", labels: ["X"], value: 60 }]}
+          edges={[]}
+          stylingRules={[
+            { id: "r", operator: ">=" as const, value: 50, color: "#00ff00" },
+          ]}
+        />,
+      );
+      expect(swatchBg("X")).toEqual(["rgb(0, 255, 0)", undefined]);
+    });
+
+    it("marks a label whose nodes disagree as mixed instead of one colour", () => {
+      render(
+        <GraphChart
+          nodes={[
+            { id: "a", labels: ["X"], color: "#ff0000" },
+            { id: "b", labels: ["X"] },
+          ]}
+          edges={[]}
+        />,
+      );
+      const el = screen.getByTestId("graph-legend-swatch-X");
+      expect(el.dataset.mixed).toBe("true");
+      expect(el.style.backgroundColor).toBe("");
+    });
+  });
+
+  it("keeps the hover tooltip inside the container", () => {
+    const { container } = render(<GraphChart nodes={movies} edges={rels} />);
+    const box = container.firstElementChild as HTMLElement;
+    Object.defineProperty(box, "clientWidth", { value: 300 });
+    Object.defineProperty(box, "clientHeight", { value: 200 });
+    const cb = capturedProps.mouseEventCallbacks as {
+      onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+    };
+    act(() =>
+      cb.onHover({ id: "p2" }, [], {
+        clientX: 290,
+        clientY: 195,
+      } as MouseEvent),
+    );
+    const tip = screen.getByTestId("graph-hover");
+    expect(parseInt(tip.style.left, 10)).toBeLessThanOrEqual(300 - 224);
+    expect(parseInt(tip.style.top, 10)).toBeLessThanOrEqual(200 - 48);
+  });
+
+  it("leaves relationship types off the canvas at rest (they show on hover)", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const rel = (capturedProps.rels as NvlRelationship[])[0];
+    expect(rel.caption).toBeUndefined();
+    expect(rel.type).toBe("ACTED_IN");
+  });
+
+  it("draws the main entity larger so its name fits", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const nodes = capturedProps.nodes as NvlNode[];
+    expect(nodes.find((n) => n.id === "m1")?.size).toBe(40);
+    expect(nodes.find((n) => n.id === "p1")?.size).toBeUndefined();
+  });
+
+  it("draws relationships as hairlines", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    expect((capturedProps.rels as NvlRelationship[])[0].width).toBe(1);
+  });
+
+  it("turns NVL telemetry off", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    expect(
+      (capturedProps.nvlOptions as Record<string, unknown>).disableTelemetry,
+    ).toBe(true);
+  });
+
+  it("names a node and a relationship on hover", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const cb = capturedProps.mouseEventCallbacks as {
+      onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+    };
+    const ev = { clientX: 5, clientY: 5 } as MouseEvent;
+    act(() => cb.onHover({ id: "p2" }, [], ev));
+    expect(screen.getByTestId("graph-hover").textContent).toContain("Bob");
+    expect(screen.getByTestId("graph-hover").textContent).toContain("Person");
+    act(() =>
+      cb.onHover({ id: "r", from: "p1", to: "m1", type: "ACTED_IN" }, [], ev),
+    );
+    expect(screen.getByTestId("graph-hover").textContent).toContain("ACTED_IN");
+    act(() => cb.onHover(undefined, [], ev));
+    expect(screen.queryByTestId("graph-hover")).toBeNull();
+  });
+
+  it("shows the controls on hover, focus and touch, as real named buttons", () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    const bar = screen.getByRole("toolbar", { name: "Graph controls" });
+    expect(bar.className).toContain("opacity-0");
+    expect(bar.className).toContain("group-hover/graph:opacity-100");
+    expect(bar.className).toContain("group-focus-within/graph:opacity-100");
+    expect(bar.className).toContain("[@media(hover:none)]:opacity-100");
+    for (const name of ["Zoom in", "Zoom out", "Fit graph"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+  });
+
+  it("reaches the first control with the keyboard", async () => {
+    render(<GraphChart nodes={movies} edges={rels} />);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Zoom in" }),
+    );
   });
 });

@@ -9,17 +9,19 @@ sidebar:
 
 Parameter Select widgets collect user input and pass it to other widgets' queries as `$param_name` variables. They enable interactive filtering across an entire dashboard without modifying queries. Parameter widgets do not display data themselves.
 
+A parameter has one name on the page: the title of its selector widget. A single select shows that title in its header and a placeholder that asks for it ("Pick region…"), with no second label; the multi-select, date and text selectors still keep a label line of their own. The filter chips, the waiting text, a widget's title and the cascading hints ("depends on Director") use the same name. A widget that waits on the parameter names it the same way, in brackets in its title ("Revenue in [Region]") and in its body ("Pick region above to see this."; if the selector sits on another page, "Pick region on Overview to see this."). A selector with no title falls back to the parameter key as words ("Gallery region"), never the raw key.
+
 ## Parameter Types
 
-| Type | Input Control | Value Produced |
-|------|--------------|----------------|
-| Select | Dropdown (populated by a seed query) | Single string |
-| Multi-select | Dropdown with **Allow multiple selections** ticked | Array of strings |
-| Freetext | Free-text input | String |
-| Date | **Date Picker**, mode Single Date | ISO date string |
-| Date Range | **Date Picker**, mode Date Range | `$param_<name>_from` and `$param_<name>_to` |
+| Type          | Input Control                                                 | Value Produced                              |
+| ------------- | ------------------------------------------------------------- | ------------------------------------------- |
+| Select        | Dropdown (populated by a seed query)                          | Single string                               |
+| Multi-select  | Dropdown with **Allow multiple selections** ticked            | Array of strings                            |
+| Freetext      | Free-text input                                               | String                                      |
+| Date          | **Date Picker**, mode Single Date                             | ISO date string                             |
+| Date Range    | **Date Picker**, mode Date Range                              | `$param_<name>_from` and `$param_<name>_to` |
 | Relative Date | **Date Picker**, mode Relative Date (Today, Last 7 days, ...) | `$param_<name>_from` and `$param_<name>_to` |
-| Number Range | Dual-handle slider with a min, max and step | `$param_<name>_min` and `$param_<name>_max` |
+| Number Range  | Dual-handle slider with a min, max and step                   | `$param_<name>_min` and `$param_<name>_max` |
 
 ## Seed Query (Select / Multiselect)
 
@@ -41,12 +43,12 @@ SELECT DISTINCT role FROM "user" ORDER BY role
 
 ## Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| Placeholder | text | (empty) | Hint text shown when no value has been chosen |
-| Search-as-you-type | boolean | true | Allow typing to filter the option list in real time |
-| Default Value | text | (empty) | Value used on dashboard load when no selection has been made |
-| Sync to URL | boolean | false | Persist the selected value as a URL parameter for sharing and page reloads |
+| Option             | Type    | Default | Description                                                                |
+| ------------------ | ------- | ------- | -------------------------------------------------------------------------- |
+| Placeholder        | text    | (empty) | Hint text shown when no value has been chosen                              |
+| Search-as-you-type | boolean | true    | Allow typing to filter the option list in real time                        |
+| Default Value      | text    | (empty) | Value used on dashboard load when no selection has been made               |
+| Sync to URL        | boolean | false   | Persist the selected value as a URL parameter for sharing and page reloads |
 
 ## Using Parameters in Queries
 

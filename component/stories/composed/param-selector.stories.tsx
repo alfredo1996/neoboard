@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 import { ParamSelector } from "@/components/composed/parameter-widgets/param-selector";
+import { ParamLabelScope } from "@/components/composed/parameter-widgets/param-label";
 
 const cities = [
   { value: "IT-ROM", label: "Rome" },
@@ -114,5 +115,41 @@ export const Loading: Story = {
     value: "",
     onChange: () => {},
     loading: true,
+  },
+};
+
+/** Inside a widget card that already shows the title: one name, no label line (#2232). */
+export const NamedByTheWidgetTitle: Story = {
+  render: (args) => (
+    <ParamLabelScope label="Region">
+      <Controlled {...args} />
+    </ParamLabelScope>
+  ),
+  args: {
+    parameterName: "gallery_region",
+    options: cities,
+    value: "",
+    onChange: () => {},
+  },
+};
+
+export const NamedByTheWidgetTitleDark: Story = {
+  ...NamedByTheWidgetTitle,
+  globals: { theme: "dark" },
+};
+
+/** A cascading child names its parent as the page does (#2232). */
+export const CascadeNamedByParent: Story = {
+  render: (args) => (
+    <ParamLabelScope label="Movie" parentLabel="Director">
+      <Controlled {...args} />
+    </ParamLabelScope>
+  ),
+  args: {
+    parameterName: "movie",
+    parentParameterName: "test_director",
+    options: cities,
+    value: "",
+    onChange: () => {},
   },
 };
