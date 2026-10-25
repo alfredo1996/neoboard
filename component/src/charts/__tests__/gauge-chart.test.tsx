@@ -136,6 +136,26 @@ describe("GaugeChart", () => {
     expect(300 / 2 - series().radius).toBeGreaterThanOrEqual(50);
   });
 
+  it("centres a saved 225/-45 gauge so its arc stays inside the card", () => {
+    render(<GaugeChart data={sampleData} startAngle={225} endAngle={-45} />);
+    const [main, ...rest] = mockSetOption.mock.calls[0][0].series;
+    expect(main.center).toEqual(rest[0]?.center ?? main.center);
+    const cy = (Number.parseFloat(main.center[1]) / 100) * 300;
+    // 400x300 card, radius 100% = 150; the arc ends 45 degrees below the centre
+    expect(cy + 150 * Math.sin(Math.PI / 4)).toBeLessThanOrEqual(300);
+  });
+
+  it("escapes the name, prefix and suffix in the tooltip", () => {
+    const xss = "<img src=x onerror=alert(1)>";
+    render(
+      <GaugeChart data={[{ value: 5, name: xss }]} prefix={xss} suffix={xss} />,
+    );
+    const { tooltip } = mockSetOption.mock.calls[0][0];
+    const out = tooltip.formatter({ name: xss, value: 5 });
+    expect(out).not.toContain("<img");
+    expect(out).toContain("&lt;img");
+  });
+
   it("keeps the angles a gauge saved", () => {
     render(<GaugeChart data={sampleData} startAngle={225} endAngle={-45} />);
     expect(series()).toMatchObject({ startAngle: 225, endAngle: -45 });

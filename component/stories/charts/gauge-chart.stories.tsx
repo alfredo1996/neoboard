@@ -82,3 +82,11 @@ export const ThresholdTicks: Story = {
     ]),
   },
 };
+
+export const ThreeQuarterSweep: Story = {
+  args: {
+    data: [{ value: 62, name: "Performance" }],
+    startAngle: 225,
+    endAngle: -45,
+  },
+};

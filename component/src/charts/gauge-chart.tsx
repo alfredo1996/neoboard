@@ -9,6 +9,7 @@ import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildEmptyDataOption,
+  escapeHtml,
   formatNumber,
   resolveItemColor,
   parseGaugeThresholdZones,
@@ -123,6 +124,13 @@ function GaugeChart({
         ? "100%"
         : Math.max(20, width / 2 - LABEL_ROOM);
 
+    // The half circle sits low in the card; a sweep past 180 degrees reaches
+    // below its centre, so it is centred higher or its bottom clips.
+    const center: [string, string] = [
+      "50%",
+      startAngle - endAngle > 180 ? "55%" : "78%",
+    ];
+
     const thresholdZones = parseGaugeThresholdZones(
       thresholdZonesJson,
       min,
@@ -164,7 +172,7 @@ function GaugeChart({
       startAngle,
       endAngle,
       radius,
-      center: ["50%", "78%"],
+      center,
       progress: {
         show: showProgress,
         width: arcWidth,
@@ -234,7 +242,7 @@ function GaugeChart({
       startAngle,
       endAngle,
       radius,
-      center: ["50%", "78%"],
+      center,
       silent: true,
       z: 3,
       progress: { show: false },
@@ -254,7 +262,9 @@ function GaugeChart({
       tooltip: {
         formatter: (params) => {
           const p = params as { name?: string; value?: unknown };
-          return `${p.name ?? ""}: ${faceText(Number(p.value), prefix, suffix)}`;
+          return escapeHtml(
+            `${p.name ?? ""}: ${faceText(Number(p.value), prefix, suffix)}`,
+          );
         },
       },
       series: [main, ...(hasCustomZones ? [ticksSeries] : [])],
