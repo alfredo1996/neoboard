@@ -70,6 +70,9 @@ function isTableAlignmentRow(line: string): boolean {
   return filtered.every((c) => c.length === 0 || cellPattern.test(c));
 }
 
+/** h1/h2 take the preset's display sizes; h3-h6 take the section step (the sans, like every heading but a page title). */
+const HEADING_SIZE = { 1: "text-h2", 2: "text-h3" } as const;
+
 /**
  * Simple markdown parser that converts a subset of markdown to HTML.
  * Handles: headings, bold, italic, code, links, lists, blockquotes, paragraphs.
@@ -77,10 +80,6 @@ function isTableAlignmentRow(line: string): boolean {
  * Does NOT use a full markdown library (like marked/remark) to keep the bundle
  * minimal. For a dashboard widget, the common subset is sufficient.
  */
-/** h1/h2 take the preset's display sizes; h3-h6 stay at body size. */
-const HEADING_SIZE = { 1: "text-h2", 2: "text-h3" } as const;
-/** h3-h6: the section step, in the sans like every heading but a page title. */
-
 function parseMarkdown(md: string): string {
   // Process line-by-line for block elements
   const lines = md.split("\n");
@@ -129,11 +128,11 @@ function parseMarkdown(md: string): string {
             .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
             .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
           result.push(
-            `<div class="rounded-md overflow-x-auto my-3 text-[12.5px] leading-[1.6] font-mono [&_pre]:px-3 [&_pre]:py-2.5 [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_code]:font-mono">${sanitized}</div>`,
+            `<div class="rounded-md overflow-x-auto my-3 text-[12.5px] leading-[1.6] font-mono [&_pre]:px-3 [&_pre]:py-2.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_code]:font-mono">${sanitized}</div>`,
           );
         } else {
           result.push(
-            `<pre class="bg-side rounded-md px-3 py-2.5 overflow-x-auto text-[12.5px] leading-[1.6] font-mono my-3"><code>${escapeHtml(code)}</code></pre>`,
+            `<pre class="bg-code-bg rounded-md px-3 py-2.5 overflow-x-auto text-[12.5px] leading-[1.6] font-mono my-3"><code>${escapeHtml(code)}</code></pre>`,
           );
         }
         fencedCodeLines = [];
@@ -287,7 +286,7 @@ function parseMarkdown(md: string): string {
   // Close any open fenced code block (unterminated)
   if (inFencedCode && fencedCodeLines.length > 0) {
     result.push(
-      `<pre class="bg-side rounded-md px-3 py-2.5 overflow-x-auto text-[12.5px] leading-[1.6] font-mono my-3"><code>${escapeHtml(fencedCodeLines.join("\n"))}</code></pre>`,
+      `<pre class="bg-code-bg rounded-md px-3 py-2.5 overflow-x-auto text-[12.5px] leading-[1.6] font-mono my-3"><code>${escapeHtml(fencedCodeLines.join("\n"))}</code></pre>`,
     );
   }
 
@@ -315,7 +314,7 @@ const UNDERSCORE_2 = underscoreRun(2);
 const UNDERSCORE_1 = underscoreRun(1);
 
 const CODE_OPEN =
-  '<code class="bg-side rounded px-1 py-0.5 text-[0.9em] font-mono">';
+  '<code class="bg-code-bg rounded px-1 py-0.5 text-[0.9em] font-mono">';
 const CODE_CLOSE = "</code>";
 
 /** processInline's stash placeholder, `<tN>`. */

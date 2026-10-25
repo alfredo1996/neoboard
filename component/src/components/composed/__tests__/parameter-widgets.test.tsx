@@ -1206,6 +1206,24 @@ describe("NumberRangeSlider", () => {
     expect(onChange).toHaveBeenCalledWith([100, 800]);
   });
 
+  it("keeps room for five digits and wraps instead of overflowing a narrow card (#2232)", () => {
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={99999}
+        value={[10000, 99999]}
+        onChange={vi.fn()}
+        onClear={vi.fn()}
+        showInputs
+      />,
+    );
+    const [min, max] = screen.getAllByRole("spinbutton");
+    expect(min).toHaveClass("w-16");
+    expect(max).toHaveClass("w-16");
+    expect(min.parentElement).toHaveClass("flex-wrap");
+  });
+
   it("hides number inputs when showInputs=false", () => {
     render(
       <NumberRangeSlider

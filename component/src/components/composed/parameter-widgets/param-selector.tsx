@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import { X, Check, ChevronsUpDown } from "lucide-react";
-import { ParamLabel, useParamLabelScope } from "./param-label";
+import {
+  ParamLabel,
+  useParamLabelScope,
+  useParentLabelScope,
+} from "./param-label";
 import { humanizeParamName, pickPrompt } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import {
@@ -117,6 +121,7 @@ function ParamSelector({
 }: Readonly<ParamSelectorProps>) {
   const [open, setOpen] = React.useState(false);
   const scopedLabel = useParamLabelScope();
+  const parentScopeLabel = useParentLabelScope();
   const labelId = labelledBy ?? `param-select-label-${parameterName}`;
   const clearId = React.useId();
 
@@ -147,13 +152,14 @@ function ParamSelector({
   const selectedLabel =
     options.find((o) => o.value === value)?.label ?? (value || undefined);
 
-  const resolvedPlaceholder =
-    placeholder ??
-    (isWaitingForParent
-      ? `Select ${humanizeParamName(parentParameterName)} first…`
-      : scopedLabel
-        ? `${pickPrompt(scopedLabel)}…`
-        : "Select a value…");
+  const parentName =
+    parentScopeLabel ??
+    (parentParameterName ? humanizeParamName(parentParameterName) : "");
+  let resolvedPlaceholder = "Select a value…";
+  if (placeholder !== undefined) resolvedPlaceholder = placeholder;
+  else if (isWaitingForParent)
+    resolvedPlaceholder = `Select ${parentName} first…`;
+  else if (scopedLabel) resolvedPlaceholder = `${pickPrompt(scopedLabel)}…`;
 
   // The dependency hint is a DESCRIPTION, not part of the name. Putting it
   // inside the <Label> made the child's accessible name "movie(depends on
@@ -172,7 +178,7 @@ function ParamSelector({
           id={hintId}
           className="ml-1 text-[10px] normal-case font-normal text-muted-foreground"
         >
-          (depends on {humanizeParamName(parentParameterName)})
+          (depends on {parentName})
         </span>
       )}
     </>
@@ -189,7 +195,7 @@ function ParamSelector({
         {...qualifiedName(
           labelledBy,
           clearId,
-          `Clear ${humanizeParamName(parameterName)}`,
+          `Clear ${scopedLabel ?? humanizeParamName(parameterName)}`,
           true,
         )}
       >

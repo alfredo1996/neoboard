@@ -134,7 +134,7 @@ function NumberRangeSlider({
       )}
 
       {showInputs && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             id={id}
             aria-describedby={describedBy}
@@ -145,7 +145,7 @@ function NumberRangeSlider({
             min={min}
             max={current[1]}
             step={step}
-            className="w-14 shrink-0 text-center px-1"
+            className="w-16 shrink-0 text-center px-1"
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-min`,
@@ -164,7 +164,7 @@ function NumberRangeSlider({
             min={current[0]}
             max={max}
             step={step}
-            className="w-14 shrink-0 text-center px-1"
+            className="w-16 shrink-0 text-center px-1"
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-max`,

@@ -8,12 +8,18 @@ import React from "react";
 vi.mock("@neoboard/components", () => ({
   ParamLabelScope: ({
     label,
+    parentLabel,
     children,
   }: {
-    label: string;
+    label?: string;
+    parentLabel?: string;
     children: React.ReactNode;
   }) => (
-    <div data-testid="param-label-scope" data-label={label}>
+    <div
+      data-testid="param-label-scope"
+      data-label={label}
+      data-parent-label={parentLabel}
+    >
       {children}
     </div>
   ),
@@ -281,7 +287,7 @@ describe("CardContainer — connector unavailable (#1678)", () => {
       />,
     );
 
-    expect(screen.getByText("Pick a region above to see this.")).toBeDefined();
+    expect(screen.getByText("Pick region above to see this.")).toBeDefined();
     expect(screen.queryByText("Connector unavailable")).toBeNull();
   });
 
@@ -530,7 +536,7 @@ describe("CardContainer", () => {
     );
 
     expect(
-      screen.getByText("Pick a gallery region above to see this."),
+      screen.getByText("Pick gallery region above to see this."),
     ).toBeDefined();
     expect(container.textContent).not.toContain("$param_");
   });
@@ -904,6 +910,94 @@ describe("CardContainer", () => {
     const scope = screen.queryByTestId("param-label-scope");
     expect(scope?.getAttribute("data-label") ?? null).toBe(label);
     expect(screen.getByTestId("chart-renderer")).toBeDefined();
+  });
+
+  it("names the scope after the interpolated title, never a $param_ token (#2232)", () => {
+    render(
+      <CardContainer
+        widget={makeWidget({
+          chartType: "parameter-select",
+          settings: { title: "Revenue in $param_gallery_region" },
+        })}
+        parameterSourceMap={{
+          gallery_region: [
+            {
+              widgetId: "sel",
+              widgetTitle: "Region",
+              pageId: "p1",
+              pageTitle: "Main",
+              connectionId: "c",
+              label: "Region",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(
+      screen.getByTestId("param-label-scope").getAttribute("data-label"),
+    ).toBe("Revenue in [Region]");
+  });
+
+  it("hands a cascading child its parent's name on the page (#2232)", () => {
+    render(
+      <CardContainer
+        widget={makeWidget({
+          chartType: "parameter-select",
+          settings: {
+            title: "Movie",
+            chartOptions: { parentParameterName: "test_director" },
+          },
+        })}
+        parameterSourceMap={{
+          test_director: [
+            {
+              widgetId: "d",
+              widgetTitle: "Director",
+              pageId: "p1",
+              pageTitle: "Main",
+              connectionId: "c",
+              label: "Director",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(
+      screen.getByTestId("param-label-scope").getAttribute("data-parent-label"),
+    ).toBe("Director");
+  });
+
+  it("says where a source on another page is, not 'above' (#2232)", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      data: undefined,
+      missingParams: ["gallery_region"],
+    });
+    render(
+      <CardContainer
+        widget={makeWidget({
+          connectionId: "conn-1",
+          query: "RETURN $param_gallery_region",
+        })}
+        currentPageId="p2"
+        parameterSourceMap={{
+          gallery_region: [
+            {
+              widgetId: "sel",
+              widgetTitle: "Region",
+              pageId: "p1",
+              pageTitle: "Overview",
+              connectionId: "conn-a",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(
+      screen.getByText("Pick gallery region on Overview to see this."),
+    ).toBeDefined();
   });
 
   // ----- Truncation warning -----

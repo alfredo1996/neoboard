@@ -73,13 +73,15 @@ function PreviewValue({ value }: { value: unknown }) {
   const type = getType(value);
   if (type === "array" || type === "object") {
     const [open, close] = type === "array" ? ["[", "]"] : ["{", "}"];
+    const size =
+      type === "array"
+        ? (value as unknown[]).length
+        : Object.keys(value as object).length;
     return (
       <span className={jsonSyntaxColors.punctuation}>
-        {(type === "array"
-          ? (value as unknown[]).length
-          : Object.keys(value as object).length) === 0
-          ? `${open}${close}`
-          : `${open}…${close}`}
+        {open}
+        {size === 0 ? "" : "…"}
+        {close}
       </span>
     );
   }
@@ -195,7 +197,6 @@ function JsonNode({
         style={{ paddingLeft: depth * 16 }}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        aria-label={`${expanded ? "Collapse" : "Expand"} ${keyName ?? (type === "array" ? "array" : "object")}`}
       >
         <ChevronRight
           className={cn(

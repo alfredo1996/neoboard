@@ -38,6 +38,15 @@ describe("code highlighting colours (#2232)", () => {
     expect(tokens).toMatch(
       /--shiki-token-string-expression:\s*hsl\(var\(--code-str\)\)/,
     );
-    expect(tokens).toMatch(/--shiki-background:\s*hsl\(var\(--side\)\)/);
+    expect(tokens).toMatch(/--shiki-background:\s*hsl\(var\(--code-bg\)\)/);
+  });
+
+  // Dark --side equals --card, so a block on --side had no tint at all.
+  it.each([
+    [":root", "--code-bg: 220 16% 96%"],
+    [".dark", "--code-bg: 215 14% 14%"],
+  ])("%s has a code tint of its own", (selector, bg) => {
+    const block = tokens.slice(tokens.indexOf(`\n${selector} {`));
+    expect(block.slice(0, block.indexOf("\n}"))).toContain(bg);
   });
 });

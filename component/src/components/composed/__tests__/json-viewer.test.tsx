@@ -46,9 +46,10 @@ describe("JsonViewer", () => {
     // The root is expanded (depth 0 < 1), but "nested" (depth 1) is collapsed
     expect(screen.getByText(/nested:/)).toBeInTheDocument();
     // "deep" stays behind the folded row: only its one-line preview shows
-    expect(
-      screen.getByRole("button", { name: "Expand nested" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^nested:/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     expect(screen.queryByText(/deep:/)).not.toBeInTheDocument();
   });
 
@@ -68,13 +69,13 @@ describe("JsonViewer", () => {
       <JsonViewer data={{ name: "Alice", age: 30 }} initialExpanded={0} />,
     );
     expect(
-      screen.getByRole("button", { name: "Expand object" }),
+      screen.getByRole("button", { name: /^\{name:\s*"Alice"/ }),
     ).toHaveAttribute("aria-expanded", "false");
     // Only the one-line preview: no row of its own for either field
     expect(screen.queryByText(/^name:/)).not.toBeInTheDocument();
   });
 
-  const row = (name: string) =>
+  const row = (name: RegExp) =>
     screen.getByRole("button", { name }).textContent?.replaceAll(/\s+/g, " ");
 
   it.each([
@@ -95,12 +96,32 @@ describe("JsonViewer", () => {
     ],
   ])("%s", (_n, data, expected) => {
     render(<JsonViewer data={data} initialExpanded={0} />);
-    expect(row("Expand object")).toBe(expected);
+    expect(row(/^\{/)).toBe(expected);
   });
 
   it("previews an array's first items the same way", () => {
     render(<JsonViewer data={[1, 2, 3, 4]} initialExpanded={0} />);
-    expect(row("Expand array")).toBe("[1, 2, 3, … ]");
+    expect(row(/^\[/)).toBe("[1, 2, 3, … ]");
+  });
+
+  // An aria-label would override the preview and give every row one name.
+  it("names a folded row by what it shows, so rows are told apart", () => {
+    render(
+      <JsonViewer
+        data={[
+          { id: 1, status: "new" },
+          { id: 2, status: "old" },
+        ]}
+        initialExpanded={1}
+      />,
+    );
+    const rows = screen.getAllByRole("button", { expanded: false });
+    expect(rows.map((r) => r.getAttribute("aria-label"))).toEqual([null, null]);
+    expect(rows.map((r) => r.textContent?.replaceAll(/\s+/g, " "))).toEqual([
+      '{id: 1, status: "new"},',
+      '{id: 2, status: "old"}',
+    ]);
+    expect(screen.getByRole("button", { name: /id:\s*2/ })).toBe(rows[1]);
   });
 
   it("opens a folded row on click and folds it again", async () => {
@@ -111,11 +132,11 @@ describe("JsonViewer", () => {
         initialExpanded={1}
       />,
     );
-    const folded = screen.getByRole("button", { name: "Expand object" });
+    const folded = screen.getByRole("button", { name: /^\{id:\s*1/ });
     expect(screen.queryByText(/^extra:/)).not.toBeInTheDocument();
     await user.click(folded);
     expect(screen.getByText(/^extra:/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Collapse object" }));
+    await user.click(screen.getByRole("button", { name: "{", expanded: true }));
     expect(screen.queryByText(/^extra:/)).not.toBeInTheDocument();
   });
 
@@ -148,7 +169,9 @@ describe("JsonViewer", () => {
       <JsonViewer data={{ name: "Alice", age: 30 }} initialExpanded={0} />,
     );
     expect(screen.queryByText(/^name:/)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Expand object" }));
+    await user.click(
+      screen.getByRole("button", { name: /^\{name:\s*"Alice"/ }),
+    );
     expect(screen.getByText(/^name:/)).toBeInTheDocument();
     expect(screen.getByText('"Alice"')).toBeInTheDocument();
   });

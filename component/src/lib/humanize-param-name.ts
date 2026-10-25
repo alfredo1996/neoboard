@@ -1,4 +1,15 @@
 /**
+ * "Region" -> "Pick region", "KPI filter" -> "Pick KPI filter" (#2232). No
+ * article: a/an cannot be told from the spelling ("user", "SKU", "hour"), and a
+ * wrong one reads worse than none. Only an ordinary first word (Capital, then
+ * lowercase) is lowercased; acronyms, digits and mixed case keep their own.
+ */
+export function pickPrompt(label: string): string {
+  const noun = label.replace(/^\p{Lu}(?=\p{Ll})/u, (c) => c.toLowerCase());
+  return `Pick ${noun}`;
+}
+
+/**
  * Turn a parameter key into a label a reader can use (#2213):
  * `gallery_region` -> "Gallery region", `startDate` -> "Start date",
  * `HTTPStatus` -> "Http status", `year2` -> "Year 2". Digits stay with the
@@ -7,12 +18,6 @@
  * wording, so only its first letter is capitalised. A key with no words in it
  * (`___`) comes back unchanged, so a widget never loses its name.
  */
-/** "Region" -> "Pick a region", "Item" -> "Pick an item" (#2232). */
-export function pickPrompt(label: string): string {
-  const noun = label.charAt(0).toLowerCase() + label.slice(1);
-  return `Pick ${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
-}
-
 export function humanizeParamName(name: string): string {
   const words = /\s/.test(name)
     ? name

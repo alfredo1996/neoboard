@@ -538,10 +538,10 @@ describe("MarkdownWidget", () => {
   it.each([
     ["inline code", "use `x` here", "code"],
     ["a plain code block", "```\nplain\n```", "pre"],
-  ])("puts %s on the side tint in Plex Mono", (_n, md, selector) => {
+  ])("puts %s on the code tint in Plex Mono", (_n, md, selector) => {
     const { container } = render(<MarkdownWidget content={md} />);
     const el = container.querySelector(selector)!;
-    expect(el.className).toContain("bg-side");
+    expect(el.className).toContain("bg-code-bg");
     expect(el.className).toContain("font-mono");
   });
 

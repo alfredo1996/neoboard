@@ -249,6 +249,7 @@ vi.mock("@neoboard/components", () => ({
       </div>
     ) : null,
   focusedMenuTrigger: () => mockMenuTrigger,
+  iframeSourceLink: (url?: string) => (url ? `domain:${url}` : undefined),
   buildCsvString: vi.fn((rows: unknown[]) => `CSV(${rows.length})`),
   triggerDownload: vi.fn(),
   buildExportFilename: vi.fn((title: string, ext: string) => `${title}.${ext}`),
@@ -261,7 +262,11 @@ vi.mock("@/components/card-container", () => ({
 }));
 
 vi.mock("@/lib/widget/interpolate-title", () => ({
-  interpolateTitle: (title: string) => title,
+  interpolateTitle: (
+    title: string,
+    _parameters: unknown,
+    labelOf?: (name: string) => string,
+  ) => title.replace(/\$param_(\w+)/g, (_m, n: string) => `[${labelOf?.(n)}]`),
 }));
 
 const mockBuildExportData = vi.fn();
@@ -593,6 +598,27 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
     ).toBeInTheDocument();
   });
 
+  it("names an unset $param_ in the title by the selector's title, not the key", () => {
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([
+          makeWidget({
+            settings: { title: "Revenue in $param_gallery_region" },
+          }),
+        ])}
+        editable={true}
+        actions={{ onRemoveWidget: vi.fn() }}
+        parameterSourceMap={regionSelectorMap}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("action-remove"));
+    expect(
+      screen.getByRole("alertdialog", {
+        name: 'Remove "Revenue in [Region]"?',
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("cancelling keeps the widget", () => {
     const { onRemoveWidget } = renderRemovable();
 
@@ -621,7 +647,35 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
   });
 });
 
+const regionSelectorMap = {
+  gallery_region: [
+    {
+      widgetId: "sel",
+      widgetTitle: "Region",
+      pageId: "p1",
+      pageTitle: "Main",
+      connectionId: "c",
+      label: "Region",
+    },
+  ],
+};
+
 describe("DashboardContainer — filter line", () => {
+  it("names a chip by its selector's title, the one name on the page (#2232)", () => {
+    parametersState.parameters = {
+      gallery_region: { field: "gallery_region", value: "EU" },
+    };
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage()}
+        parameterSourceMap={regionSelectorMap}
+      />,
+    );
+    const line = screen.getByRole("group", { name: "Active filters" });
+    expect(line).toHaveTextContent("Region is EU");
+    expect(line).not.toHaveTextContent("Gallery region");
+  });
+
   it("renders one sentence chip per active parameter, labelled and formatted", () => {
     parametersState.parameters = {
       gallery_region: {
@@ -1198,5 +1252,26 @@ describe("DashboardContainer — the source line under a title (#2247)", () => {
       "data-source",
       "Movies graph · 3 rows · just now",
     );
+  });
+});
+
+describe("DashboardContainer — an embedded page names its domain in the header (#2232)", () => {
+  it.each([
+    ["with a URL", "https://example.com/a", "domain:https://example.com/a"],
+    ["without one", undefined, null],
+  ])("an iframe widget %s", (_n, url, expected) => {
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([
+          makeWidget({
+            chartType: "iframe",
+            settings: { chartOptions: { url } },
+          }),
+        ])}
+      />,
+    );
+    expect(
+      screen.getByTestId("widget-card-inner").getAttribute("data-source"),
+    ).toBe(expected);
   });
 });

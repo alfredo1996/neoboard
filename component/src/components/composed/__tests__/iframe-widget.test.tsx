@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { IframeWidget } from "../iframe-widget";
+import { iframeSourceLink, IframeWidget } from "../iframe-widget";
 
-describe("IframeWidget source link (#2232)", () => {
+describe("iframeSourceLink (#2232)", () => {
   it("names the page's domain and opens it in a new tab, safely", () => {
-    render(<IframeWidget url="https://en.wikipedia.org/wiki/Chart?x=1" />);
+    render(<>{iframeSourceLink("https://en.wikipedia.org/wiki/Chart?x=1")}</>);
     const link = screen.getByRole("link", { name: /en\.wikipedia\.org/ });
     expect(link).toHaveAttribute(
       "href",
@@ -12,19 +12,28 @@ describe("IframeWidget source link (#2232)", () => {
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
-    expect(link.textContent).toBe("en.wikipedia.org ↗");
+    expect(link.textContent).toBe("en.wikipedia.org ↗ (opens in a new tab)");
+    // The arrow is decoration; the hint is spoken.
+    expect(link.querySelector("[aria-hidden=true]")?.textContent).toBe("↗");
+    expect(link.querySelector(".sr-only")?.textContent).toBe(
+      " (opens in a new tab)",
+    );
   });
 
   it("keeps the port, which is part of what the reader is looking at", () => {
-    render(<IframeWidget url="http://localhost:3000/a" />);
-    expect(screen.getByRole("link")).toHaveTextContent("localhost:3000 ↗");
+    render(<>{iframeSourceLink("http://localhost:3000/a")}</>);
+    expect(screen.getByRole("link")).toHaveTextContent("localhost:3000");
   });
 
   it.each([
     ["no URL", undefined],
     ["a URL that is not http(s)", "javascript:alert(1)"],
   ])("offers no link for %s", (_n, url) => {
-    render(<IframeWidget url={url} />);
+    expect(iframeSourceLink(url)).toBeUndefined();
+  });
+
+  it("the widget body no longer draws it: the card header carries the domain", () => {
+    render(<IframeWidget url="https://example.com" />);
     expect(screen.queryByRole("link")).toBeNull();
   });
 });

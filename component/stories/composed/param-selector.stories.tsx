@@ -137,3 +137,19 @@ export const NamedByTheWidgetTitleDark: Story = {
   ...NamedByTheWidgetTitle,
   globals: { theme: "dark" },
 };
+
+/** A cascading child names its parent as the page does (#2232). */
+export const CascadeNamedByParent: Story = {
+  render: (args) => (
+    <ParamLabelScope label="Movie" parentLabel="Director">
+      <Controlled {...args} />
+    </ParamLabelScope>
+  ),
+  args: {
+    parameterName: "movie",
+    parentParameterName: "test_director",
+    options: cities,
+    value: "",
+    onChange: () => {},
+  },
+};

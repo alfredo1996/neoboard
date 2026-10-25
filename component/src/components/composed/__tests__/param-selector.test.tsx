@@ -24,10 +24,58 @@ describe("ParamLabelScope (#2232)", () => {
       </ParamLabelScope>,
     );
     const trigger = screen.getByRole("combobox", { name: "Region" });
-    expect(trigger).toHaveTextContent("Pick a region…");
+    expect(trigger).toHaveTextContent("Pick region…");
     // The card header shows the title: no second line of it in the body
     expect(screen.queryByText("Region")).toBeNull();
     expect(screen.queryByText("Gallery region")).toBeNull();
+  });
+
+  it("names the clear button, and the cascade hints, by the page's names", () => {
+    const { rerender } = render(
+      <ParamLabelScope label="Movie" parentLabel="Director">
+        <ParamSelector
+          parameterName="test_movie"
+          parentParameterName="test_director"
+          options={[]}
+          value=""
+          onChange={vi.fn()}
+        />
+      </ParamLabelScope>,
+    );
+    expect(screen.getByRole("combobox")).toHaveTextContent(
+      "Select Director first…",
+    );
+    expect(screen.getByText("(depends on Director)")).toBeInTheDocument();
+    rerender(
+      <ParamLabelScope label="Movie" parentLabel="Director">
+        <ParamSelector
+          parameterName="test_movie"
+          parentParameterName="test_director"
+          parentValue="x"
+          options={[{ value: "m", label: "M" }]}
+          value="m"
+          onChange={vi.fn()}
+        />
+      </ParamLabelScope>,
+    );
+    expect(
+      screen.getByRole("button", { name: "Clear Movie" }),
+    ).toBeInTheDocument();
+  });
+
+  it("the multi-select hint uses the parent's name on the page too", () => {
+    render(
+      <ParamLabelScope parentLabel="Director">
+        <ParamMultiSelector
+          parameterName="movies"
+          parentParameterName="test_director"
+          options={[]}
+          values={[]}
+          onChange={vi.fn()}
+        />
+      </ParamLabelScope>,
+    );
+    expect(screen.getByText("(depends on Director)")).toBeInTheDocument();
   });
 
   it("without a scope, still draws the humanised key as a visible label", () => {

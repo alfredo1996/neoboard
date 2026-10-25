@@ -21,19 +21,19 @@ describe("waitingText (#2214)", () => {
       "one sourced parameter",
       ["gallery_region"],
       sourced,
-      "Pick a gallery region above to see this.",
+      "Pick gallery region above to see this.",
     ],
     [
       "keeps the label's own casing",
       ["q1_2024"],
       sourced,
-      "Pick a q1 2024 above to see this.",
+      "Pick Q1 2024 above to see this.",
     ],
     [
       "one parameter, named by its selector widget",
       ["gallery_region"],
       { gallery_region: [{ ...source, label: "Region" }] },
-      "Pick a region above to see this.",
+      "Pick region above to see this.",
     ],
     ["one unsourced parameter", ["year"], {}, "Waiting for Year"],
     ["no source map", ["year"], undefined, "Waiting for Year"],
@@ -46,5 +46,31 @@ describe("waitingText (#2214)", () => {
     ["three parameters", ["a", "b", "c"], undefined, "Waiting for A, B and C"],
   ])("%s", (_n, missing, map, expected) => {
     expect(waitingText(missing, map)).toBe(expected);
+  });
+
+  it.each<[string, string, string]>([
+    [
+      "a source on this page says above",
+      "p1",
+      "Pick gallery region above to see this.",
+    ],
+    [
+      "a source on another page names that page",
+      "p2",
+      "Pick gallery region on Main to see this.",
+    ],
+  ])("%s", (_n, currentPageId, expected) => {
+    expect(waitingText(["gallery_region"], sourced, currentPageId)).toBe(
+      expected,
+    );
+  });
+
+  it("says above if any source is on this page", () => {
+    const map: ParameterSourceMap = {
+      gallery_region: [{ ...source, pageId: "p9", pageTitle: "Other" }, source],
+    };
+    expect(waitingText(["gallery_region"], map, "p1")).toBe(
+      "Pick gallery region above to see this.",
+    );
   });
 });

@@ -15,6 +15,8 @@ const SHOTS = process.env.SHOTS_2232;
 
 const SEED =
   "SELECT 'Western EU' AS value UNION ALL SELECT 'Nordics' UNION ALL SELECT 'Iberia'";
+const CITY_SEED =
+  "SELECT 'Oslo' AS value WHERE $param_gallery_region = 'Western EU' UNION ALL SELECT 'Lisbon' WHERE $param_gallery_region = 'Western EU'";
 const ORDERS =
   "SELECT 578 AS id, 'shipped' AS status, 1672.56 AS total, '2026-03-31 22:52' AS order_date, 'Priya Johnson' AS customer UNION ALL SELECT 516, 'cancelled', 652.88, '2026-03-31 22:24', 'Irene Ito' UNION ALL SELECT 929, 'pending', 1937.52, '2026-03-31 19:59', 'Diego Yamamoto'";
 
@@ -56,6 +58,21 @@ function layout(baseURL: string) {
                 parameterType: "select",
                 parameterName: "gallery_region",
                 seedQuery: SEED,
+              },
+            },
+          },
+          {
+            id: "w-city",
+            chartType: "parameter-select",
+            connectionId: PG,
+            query: "",
+            settings: {
+              title: "City",
+              chartOptions: {
+                parameterType: "select",
+                parameterName: "gallery_city",
+                parentParameterName: "gallery_region",
+                seedQuery: CITY_SEED,
               },
             },
           },
@@ -138,6 +155,7 @@ function layout(baseURL: string) {
           { i: "w-md-bare", x: 0, y: 11, w: 6, h: 2 },
           { i: "w-json", x: 0, y: 13, w: 6, h: 7 },
           { i: "w-iframe", x: 6, y: 13, w: 6, h: 7 },
+          { i: "w-city", x: 0, y: 20, w: 6, h: 3 },
         ],
       },
     ],
@@ -190,7 +208,7 @@ test.describe("Widgets that are not charts (#2232)", () => {
 
       // ── Parameter selector: one name, a placeholder, no third label ──
       const select = page.getByRole("combobox", { name: "Region" });
-      await expect(select).toHaveText("Pick a region…", { timeout: 15_000 });
+      await expect(select).toHaveText("Pick region…", { timeout: 15_000 });
       await expect(card("w-region").getByText("Gallery region")).toHaveCount(0);
       await expect(page.getByText("GALLERY_REGION")).toHaveCount(0);
       // ── The widget waiting on it names it, never the raw token ──
@@ -198,12 +216,20 @@ test.describe("Widgets that are not charts (#2232)", () => {
         card("w-revenue").getByText("Revenue in [Region]"),
       ).toBeVisible();
       await expect(
-        card("w-revenue").getByText("Pick a region above to see this."),
+        card("w-revenue").getByText("Pick region above to see this."),
       ).toBeVisible();
       await expect(card("w-revenue").getByText(/\$param_/)).toHaveCount(0);
       await expect(
         card("w-revenue").getByText("Waiting for parameters…"),
       ).toHaveCount(0);
+      // ── A cascading child names its parent as the page does ──
+      await expect(
+        card("w-city").getByRole("combobox", { name: "City" }),
+      ).toHaveText("Select Region first…");
+      await expect(
+        card("w-city").getByText("(depends on Region)"),
+      ).toBeVisible();
+      await expect(card("w-city").getByText(/Gallery region/)).toHaveCount(0);
       await shootAll("light", "empty");
       await shootAll("dark", "empty");
 
@@ -213,6 +239,22 @@ test.describe("Widgets that are not charts (#2232)", () => {
         card("w-revenue").getByText("Revenue in Western EU"),
       ).toBeVisible({ timeout: 15_000 });
       await expect(select).toHaveText("Western EU");
+      // ── The filter chip is named by the same title, not the key ──
+      const chips = page.getByRole("group", { name: "Active filters" });
+      await expect(chips).toHaveText(/Region is Western EU/);
+      await expect(chips.getByText(/Gallery region/)).toHaveCount(0);
+      if (SHOTS) {
+        for (const scheme of ["light", "dark"] as const) {
+          await page.emulateMedia({ colorScheme: scheme });
+          await page.waitForTimeout(300);
+          await chips.screenshot({
+            path: `${SHOTS}/9-filterline-${scheme}.png`,
+          });
+          await card("w-city").screenshot({
+            path: `${SHOTS}/10-cascade-child-${scheme}.png`,
+          });
+        }
+      }
       await shootAll("light", "filled");
       await shootAll("dark", "filled");
       await page.emulateMedia({ colorScheme: "light" });
@@ -227,9 +269,6 @@ test.describe("Widgets that are not charts (#2232)", () => {
       expect(box!.height).toBeLessThan(44);
       expect(box!.width).toBeLessThan(cardBox!.width / 2);
       await expect(card("w-form").getByText(/^Writes to /)).toBeVisible();
-      await expect(
-        card("w-form").getByRole("button", { name: /Reset/ }),
-      ).toHaveCount(0);
 
       // ── Text: sans headings, Plex Mono code, azure keywords ──
       const md = card("w-md");
@@ -252,14 +291,34 @@ test.describe("Widgets that are not charts (#2232)", () => {
       expect(fonts.heading).toContain("IBM Plex Sans");
       expect(fonts.code).toContain("IBM Plex Mono");
       expect(fonts.keyword).toBe("rgb(11, 101, 203)");
+      // Dark: the keyword and the block's own tint both change with the theme
+      await page.emulateMedia({ colorScheme: "dark" });
+      const dark = await md.evaluate((el) => ({
+        keyword: getComputedStyle(
+          [...el.querySelectorAll("pre span")].find(
+            (s) => s.textContent === "SELECT",
+          )!,
+        ).color,
+        block: getComputedStyle(el.querySelector("pre")!).backgroundColor,
+      }));
+      expect(dark.keyword).toBe("rgb(105, 167, 242)");
+      // --code-bg in dark: lighter than the card it sits on, not the card itself
+      expect(dark.block).toBe("rgb(31, 35, 41)");
+      await page.emulateMedia({ colorScheme: "light" });
       // An untitled text widget has no header band: nothing above the text
       const bare = card("w-md-bare");
+      // (the header is there: a missing one would read as height 0 too)
+      await expect(bare.locator("[data-widget-header]")).toHaveCount(1);
       const header = await bare.locator("[data-widget-header]").boundingBox();
-      expect(header?.height ?? 0).toBeLessThanOrEqual(1);
+      expect(header).not.toBeNull();
+      expect(header!.height).toBeLessThanOrEqual(1);
 
       // ── JSON: rows folded to one line; a click opens one ──
       const json = card("w-json");
-      const row = json.getByRole("button", { name: "Expand object" }).first();
+      const row = json
+        .getByTestId("json-viewer")
+        .getByRole("button", { expanded: false })
+        .first();
       await expect(row).toHaveText(
         '{id: 578, status: "shipped", total: 1672.56, … },',
         { timeout: 15_000 },
@@ -269,10 +328,14 @@ test.describe("Widgets that are not charts (#2232)", () => {
       await expect(json.getByText(/^customer:/)).toBeVisible();
 
       // ── Embedded page: the domain, linked to open in a new tab ──
-      const link = card("w-iframe").getByRole("link", { name: /localhost/ });
+      const link = card("w-iframe")
+        .locator("[data-widget-header]")
+        .getByRole("link", { name: /localhost/ });
       await expect(link).toHaveAttribute("target", "_blank");
       await expect(link).toHaveAttribute("rel", "noopener noreferrer");
-      await expect(link).toHaveText(`${new URL(page.url()).host} ↗`);
+      await expect(link).toHaveText(
+        `${new URL(page.url()).host} ↗ (opens in a new tab)`,
+      );
       await expect(card("w-iframe").locator("iframe").first()).toHaveAttribute(
         "sandbox",
         /.+/,

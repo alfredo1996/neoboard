@@ -146,7 +146,11 @@ export {
 
 // Content Widgets
 export { MarkdownWidget, type MarkdownWidgetProps } from "./markdown-widget";
-export { IframeWidget, type IframeWidgetProps } from "./iframe-widget";
+export {
+  IframeWidget,
+  iframeSourceLink,
+  type IframeWidgetProps,
+} from "./iframe-widget";
 
 // Query
 export { QueryEditor, type QueryEditorProps } from "./query-editor";

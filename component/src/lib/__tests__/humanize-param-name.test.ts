@@ -3,10 +3,15 @@ import { humanizeParamName, pickPrompt } from "../humanize-param-name";
 
 describe("pickPrompt (#2232)", () => {
   it.each([
-    ["Region", "Pick a region"],
-    ["Gallery region", "Pick a gallery region"],
-    ["Item", "Pick an item"],
-    ["Q1 2024", "Pick a q1 2024"],
+    ["Region", "Pick region"],
+    ["Gallery region", "Pick gallery region"],
+    ["Item", "Pick item"],
+    ["KPI filter", "Pick KPI filter"],
+    ["SKU", "Pick SKU"],
+    ["user id", "Pick user id"],
+    ["Q1 2024", "Pick Q1 2024"],
+    ["iPhone model", "Pick iPhone model"],
+    ["Movie by Director", "Pick movie by Director"],
   ])("%j -> %j", (label, expected) => {
     expect(pickPrompt(label)).toBe(expected);
   });
