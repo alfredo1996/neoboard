@@ -136,9 +136,17 @@ export interface ParameterSource {
   /** Where the source's own query runs — a gated widget checks whether a
    *  sibling has found that connection dead (#1678). */
   connectionId: string;
+  /** Title of the parameter-select widget that sets it: the parameter's name on the page (#2232). */
+  label?: string;
 }
 
 export type ParameterSourceMap = Record<string, ParameterSource[]>;
+
+function selectorTitle(widget: DashboardWidget): string | undefined {
+  const t = widget.settings?.title;
+  if (widget.chartType !== "parameter-select") return undefined;
+  return typeof t === "string" && t.trim() ? t.trim() : undefined;
+}
 
 /**
  * Builds a lookup from parameter name to the widgets that SET that parameter
@@ -169,6 +177,7 @@ export function buildParameterSourceMap(
         pageId: page.id,
         pageTitle: page.title,
         connectionId: widget.connectionId,
+        label: selectorTitle(widget),
       };
 
       for (const name of paramNames) {

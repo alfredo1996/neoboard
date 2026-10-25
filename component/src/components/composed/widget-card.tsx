@@ -228,6 +228,9 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
             className={cn(
               "relative block space-y-0 border-b px-4 pb-2.5 pt-3",
               headerRule ? "border-rule" : "border-transparent",
+              // Untitled, with its controls floating over the body: no band
+              // of its own (#2232).
+              !title && overlay && "p-0 border-b-0",
               headerClassName,
             )}
           >

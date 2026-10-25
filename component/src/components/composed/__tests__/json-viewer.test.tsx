@@ -45,7 +45,10 @@ describe("JsonViewer", () => {
     );
     // The root is expanded (depth 0 < 1), but "nested" (depth 1) is collapsed
     expect(screen.getByText(/nested:/)).toBeInTheDocument();
-    // "deep" should not be visible since it's behind a collapsed node
+    // "deep" stays behind the folded row: only its one-line preview shows
+    expect(
+      screen.getByRole("button", { name: "Expand nested" }),
+    ).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText(/deep:/)).not.toBeInTheDocument();
   });
 
@@ -64,19 +67,79 @@ describe("JsonViewer", () => {
     render(
       <JsonViewer data={{ name: "Alice", age: 30 }} initialExpanded={0} />,
     );
-    // Root object is collapsed, shows item count
-    expect(screen.getByText("2 items")).toBeInTheDocument();
-    expect(screen.queryByText(/name:/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Expand object" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    // Only the one-line preview: no row of its own for either field
+    expect(screen.queryByText(/^name:/)).not.toBeInTheDocument();
   });
 
-  it("shows item count for collapsed objects", () => {
-    render(<JsonViewer data={{ a: 1, b: 2, c: 3 }} initialExpanded={0} />);
-    expect(screen.getByText("3 items")).toBeInTheDocument();
+  const row = (name: string) =>
+    screen.getByRole("button", { name }).textContent?.replaceAll(/\s+/g, " ");
+
+  it.each([
+    [
+      "shows a folded row's first three fields on one line",
+      { id: 578, status: "shipped", total: 1672.56, city: "Tokyo", x: 1 },
+      '{id: 578, status: "shipped", total: 1672.56, … }',
+    ],
+    [
+      "ends a short row without an ellipsis",
+      { a: 1, b: "two" },
+      '{a: 1, b: "two"}',
+    ],
+    [
+      "abbreviates a nested value",
+      { tags: ["x"], owner: { n: 1 }, ok: true },
+      "{tags: […], owner: {…}, ok: true}",
+    ],
+  ])("%s", (_n, data, expected) => {
+    render(<JsonViewer data={data} initialExpanded={0} />);
+    expect(row("Expand object")).toBe(expected);
   });
 
-  it("shows '1 item' for single-entry collapsed objects", () => {
-    render(<JsonViewer data={{ a: 1 }} initialExpanded={0} />);
-    expect(screen.getByText("1 item")).toBeInTheDocument();
+  it("previews an array's first items the same way", () => {
+    render(<JsonViewer data={[1, 2, 3, 4]} initialExpanded={0} />);
+    expect(row("Expand array")).toBe("[1, 2, 3, … ]");
+  });
+
+  it("opens a folded row on click and folds it again", async () => {
+    const user = userEvent.setup();
+    render(
+      <JsonViewer
+        data={[{ id: 1, status: "new", total: 2, extra: "z" }]}
+        initialExpanded={1}
+      />,
+    );
+    const folded = screen.getByRole("button", { name: "Expand object" });
+    expect(screen.queryByText(/^extra:/)).not.toBeInTheDocument();
+    await user.click(folded);
+    expect(screen.getByText(/^extra:/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Collapse object" }));
+    expect(screen.queryByText(/^extra:/)).not.toBeInTheDocument();
+  });
+
+  it("colours keys in the secondary ink, strings green, numbers in ink", () => {
+    render(
+      <JsonViewer data={{ name: "Alice", age: 30 }} initialExpanded={true} />,
+    );
+    expect(screen.getByText(/^name:/).className).toContain("text-foreground-2");
+    expect(screen.getByText('"Alice"').className).toContain("--code-str");
+    expect(screen.getByText("30").className).toContain("text-foreground");
+    expect(screen.getByText("30").className).not.toContain("text-blue");
+  });
+
+  it("keeps the space after a key (a plain one collapses at the end of a flex item)", () => {
+    render(<JsonViewer data={{ name: "Alice" }} initialExpanded={true} />);
+    expect(screen.getByText(/^name:/).textContent).toBe("name:\u00a0");
+  });
+
+  it("sits on the panel in Plex Mono, not on a grey block", () => {
+    render(<JsonViewer data={{ a: 1 }} />);
+    const cls = screen.getByTestId("json-viewer").className;
+    expect(cls).toContain("font-mono");
+    expect(cls).not.toContain("bg-muted");
+    expect(cls).not.toMatch(/(^|\s)border(\s|$)/);
   });
 
   it("toggles expansion when clicking a node", async () => {
@@ -84,15 +147,9 @@ describe("JsonViewer", () => {
     render(
       <JsonViewer data={{ name: "Alice", age: 30 }} initialExpanded={0} />,
     );
-
-    // Initially collapsed
-    expect(screen.queryByText(/name:/)).not.toBeInTheDocument();
-
-    // Click to expand
-    const collapsedNode = screen.getByText("2 items");
-    await user.click(collapsedNode.closest("[class*='cursor-pointer']")!);
-
-    expect(screen.getByText(/name:/)).toBeInTheDocument();
+    expect(screen.queryByText(/^name:/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Expand object" }));
+    expect(screen.getByText(/^name:/)).toBeInTheDocument();
     expect(screen.getByText('"Alice"')).toBeInTheDocument();
   });
 

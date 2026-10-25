@@ -88,6 +88,7 @@ vi.mock("@tanstack/react-query", async () => {
 
 /* ---------- import under test ---------- */
 import { FormWidgetRenderer } from "../form-widget-renderer";
+import { ConnectionNamesProvider } from "../connection-names-context";
 
 const baseProps = {
   connectionId: "conn-1",
@@ -173,5 +174,36 @@ describe("FormWidgetRenderer — anyone who can see a form can submit it (#1831)
     render(<FormWidgetRenderer {...baseProps} settings={{ formFields: [] }} />);
 
     expect(screen.getByText(/No fields configured/)).toBeDefined();
+  });
+});
+
+describe("FormWidgetRenderer — Submit fits its label (#2232)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseSession.mockReturnValue({ data: undefined });
+  });
+
+  it("is not stretched across the card and never wraps its label", () => {
+    render(<FormWidgetRenderer {...baseProps} />);
+    const submit = screen.getByRole("button", { name: "Submit" });
+    expect(submit).not.toHaveClass("w-full");
+    expect(submit).toHaveClass("whitespace-nowrap");
+  });
+
+  it("names the connection the row is written to, beside the button", () => {
+    render(
+      <ConnectionNamesProvider value={{ "conn-1": "Ecommerce" }}>
+        <FormWidgetRenderer {...baseProps} />
+      </ConnectionNamesProvider>,
+    );
+    const note = screen.getByText("Writes to Ecommerce");
+    expect(note.parentElement).toContainElement(
+      screen.getByRole("button", { name: "Submit" }),
+    );
+  });
+
+  it("says nothing about a connection it has no name for", () => {
+    render(<FormWidgetRenderer {...baseProps} />);
+    expect(screen.queryByText(/Writes to/)).toBeNull();
   });
 });

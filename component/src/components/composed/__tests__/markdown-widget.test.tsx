@@ -526,6 +526,37 @@ describe("MarkdownWidget", () => {
     expect(container.querySelector("table")).toBeNull();
   });
 
+  // ── The text look (#2232) ───────────────────────────────────────────────
+
+  it("reads at 14px with real line spacing", () => {
+    render(<MarkdownWidget content="Some words" />);
+    const cls = screen.getByTestId("markdown-widget").className;
+    expect(cls).toContain("text-sm");
+    expect(cls).toContain("leading-[1.6]");
+  });
+
+  it.each([
+    ["inline code", "use `x` here", "code"],
+    ["a plain code block", "```\nplain\n```", "pre"],
+  ])("puts %s on the side tint in Plex Mono", (_n, md, selector) => {
+    const { container } = render(<MarkdownWidget content={md} />);
+    const el = container.querySelector(selector)!;
+    expect(el.className).toContain("bg-side");
+    expect(el.className).toContain("font-mono");
+  });
+
+  it("sets headings in the sans, never the serif", () => {
+    const { container } = render(
+      <MarkdownWidget content={"# One\n## Two\n### Three"} />,
+    );
+    const headings = [...container.querySelectorAll("h1,h2,h3")];
+    expect(headings).toHaveLength(3);
+    for (const h of headings) {
+      expect(h.className).toContain("font-body");
+      expect(h.className).not.toContain("font-serif");
+    }
+  });
+
   // ── Syntax highlighting ─────────────────────────────────────────────────
 
   it("uses syntax highlighter for fenced code with language tag", () => {
@@ -641,7 +672,9 @@ describe("MarkdownWidget", () => {
       render(<MarkdownWidget content={"# H1\n\n## H2\n\n### H3"} />);
       expect(screen.getByRole("heading", { level: 1 })).toHaveClass("text-h2");
       expect(screen.getByRole("heading", { level: 2 })).toHaveClass("text-h3");
-      expect(screen.getByRole("heading", { level: 3 })).toHaveClass("text-sm");
+      expect(screen.getByRole("heading", { level: 3 })).toHaveClass(
+        "text-section",
+      );
     });
 
     it("carries no dead prose classes", () => {

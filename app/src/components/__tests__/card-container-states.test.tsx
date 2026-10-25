@@ -6,6 +6,17 @@ import React from "react";
 
 // Stub out heavy component-library and dynamic imports
 vi.mock("@neoboard/components", () => ({
+  ParamLabelScope: ({
+    label,
+    children,
+  }: {
+    label: string;
+    children: React.ReactNode;
+  }) => (
+    <div data-testid="param-label-scope" data-label={label}>
+      {children}
+    </div>
+  ),
   Skeleton: ({ className }: { className?: string }) => (
     <div data-testid="skeleton" className={className} />
   ),
@@ -270,9 +281,7 @@ describe("CardContainer — connector unavailable (#1678)", () => {
       />,
     );
 
-    expect(
-      screen.getByText("Choose a value for Region to see this."),
-    ).toBeDefined();
+    expect(screen.getByText("Pick a region above to see this.")).toBeDefined();
     expect(screen.queryByText("Connector unavailable")).toBeNull();
   });
 
@@ -521,7 +530,7 @@ describe("CardContainer", () => {
     );
 
     expect(
-      screen.getByText("Choose a value for Gallery region to see this."),
+      screen.getByText("Pick a gallery region above to see this."),
     ).toBeDefined();
     expect(container.textContent).not.toContain("$param_");
   });
@@ -877,6 +886,23 @@ describe("CardContainer", () => {
       />,
     );
 
+    expect(screen.getByTestId("chart-renderer")).toBeDefined();
+  });
+
+  it.each([
+    ["a titled selector is named after its title", " Region ", "Region"],
+    ["an untitled selector keeps its own label", undefined, null],
+  ])("%s (#2232)", (_n, title, label) => {
+    render(
+      <CardContainer
+        widget={makeWidget({
+          chartType: "parameter-select",
+          settings: title === undefined ? {} : { title },
+        })}
+      />,
+    );
+    const scope = screen.queryByTestId("param-label-scope");
+    expect(scope?.getAttribute("data-label") ?? null).toBe(label);
     expect(screen.getByTestId("chart-renderer")).toBeDefined();
   });
 

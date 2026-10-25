@@ -15,8 +15,8 @@ import type {
 import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
 import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
-import { humanizeParamName } from "@neoboard/components/humanize-param-name";
 import { waitingText as waitingTextFor } from "@/lib/widget/waiting-text";
+import { paramLabel } from "@/lib/parameter/param-label";
 import { useParameterValues } from "@/stores/parameter-store";
 import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
 import { applyTransforms } from "@/lib/query/data-transforms";
@@ -45,6 +45,7 @@ import {
   PopoverContent,
   EmptyState,
   ColumnMappingOverlay,
+  ParamLabelScope,
   substituteParams,
   substituteParamsInUrl,
 } from "@neoboard/components";
@@ -109,7 +110,7 @@ function MissingParamBadge({
   onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
 }>) {
   const sources = parameterSourceMap?.[name];
-  const label = humanizeParamName(name);
+  const label = paramLabel(name, parameterSourceMap);
 
   if (!sources || sources.length === 0) {
     return (
@@ -510,19 +511,31 @@ export function CardContainer({
 
   // Parameter-select widgets are self-contained — skip query lifecycle
   if (isParameterWidget) {
+    // The card header already names the selector; its label goes to screen
+    // readers and the placeholder asks for it (#2232).
+    const title = widget.settings?.title;
+    const Scope =
+      typeof title === "string" && title.trim() ? ParamLabelScope : null;
+    const selector = (
+      <ChartRenderer
+        type={chartConfig.type}
+        data={null}
+        settings={chartOptions}
+        meta={{
+          connectionId: widget.connectionId,
+          database: widget.database,
+          widgetId: effectiveWidgetId,
+        }}
+      />
+    );
     return (
       <div className="h-full w-full flex flex-col">
         <div className="flex-1 min-h-0">
-          <ChartRenderer
-            type={chartConfig.type}
-            data={null}
-            settings={chartOptions}
-            meta={{
-              connectionId: widget.connectionId,
-              database: widget.database,
-              widgetId: effectiveWidgetId,
-            }}
-          />
+          {Scope ? (
+            <Scope label={(title as string).trim()}>{selector}</Scope>
+          ) : (
+            selector
+          )}
         </div>
       </div>
     );

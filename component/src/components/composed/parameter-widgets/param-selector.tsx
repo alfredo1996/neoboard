@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { X, Check, ChevronsUpDown } from "lucide-react";
-import { ParamLabel } from "./param-label";
-import { humanizeParamName } from "@/lib/humanize-param-name";
+import { ParamLabel, useParamLabelScope } from "./param-label";
+import { humanizeParamName, pickPrompt } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -116,6 +116,7 @@ function ParamSelector({
   invalid,
 }: Readonly<ParamSelectorProps>) {
   const [open, setOpen] = React.useState(false);
+  const scopedLabel = useParamLabelScope();
   const labelId = labelledBy ?? `param-select-label-${parameterName}`;
   const clearId = React.useId();
 
@@ -150,7 +151,9 @@ function ParamSelector({
     placeholder ??
     (isWaitingForParent
       ? `Select ${humanizeParamName(parentParameterName)} first…`
-      : "Select a value…");
+      : scopedLabel
+        ? `${pickPrompt(scopedLabel)}…`
+        : "Select a value…");
 
   // The dependency hint is a DESCRIPTION, not part of the name. Putting it
   // inside the <Label> made the child's accessible name "movie(depends on
@@ -161,7 +164,9 @@ function ParamSelector({
   const hintId = parentParameterName ? `${labelId}-hint` : undefined;
   const label = (
     <>
-      {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
+      {!labelledBy && !scopedLabel && (
+        <ParamLabel parameterName={parameterName} id={labelId} />
+      )}
       {parentParameterName && (
         <span
           id={hintId}
@@ -212,7 +217,8 @@ function ParamSelector({
                 role="combobox"
                 aria-expanded={open}
                 aria-required={required || undefined}
-                aria-labelledby={labelId}
+                aria-labelledby={scopedLabel ? undefined : labelId}
+                aria-label={scopedLabel}
                 aria-describedby={joinIds(hintId, describedBy)}
                 aria-invalid={invalid || undefined}
                 disabled={isWaitingForParent}
@@ -289,7 +295,8 @@ function ParamSelector({
             // Fits its card as the searchable trigger above does (#2056).
             className="min-w-0 flex-1 basis-24"
             aria-required={required || undefined}
-            aria-labelledby={labelId}
+            aria-labelledby={scopedLabel ? undefined : labelId}
+            aria-label={scopedLabel}
             aria-describedby={joinIds(hintId, describedBy)}
             aria-invalid={invalid || undefined}
           >

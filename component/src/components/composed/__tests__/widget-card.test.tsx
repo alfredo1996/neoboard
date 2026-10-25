@@ -631,6 +631,24 @@ describe("WidgetCard", () => {
       expect(headerOf(container)).toHaveClass("border-b", "border-rule");
     });
 
+    it("an untitled card in view mode has no header band: no padding, no rule (#2232)", () => {
+      const { container } = render(
+        <WidgetCard onFullscreen={() => {}}>Text</WidgetCard>,
+      );
+      const header = headerOf(container);
+      expect(header).toHaveClass("p-0", "border-b-0");
+      expect(header).not.toHaveClass("border-b");
+      // Its controls are still there to reach
+      expect(
+        screen.getByRole("button", { name: "Fullscreen" }),
+      ).toBeInTheDocument();
+    });
+
+    it("a titled card keeps its header band", () => {
+      const { container } = render(<WidgetCard title="Sales">x</WidgetCard>);
+      expect(headerOf(container)).toHaveClass("pt-3");
+    });
+
     it("titleFont sets the title face and marks the panel for the KPI number", () => {
       const { container } = render(
         <WidgetCard title="Sales" titleFont="serif">

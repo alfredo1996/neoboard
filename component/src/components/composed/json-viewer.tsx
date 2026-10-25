@@ -17,6 +17,9 @@ function getType(value: unknown): string {
   return typeof value;
 }
 
+/** How many fields a folded row shows before the ellipsis (#2232). */
+const PREVIEW_FIELDS = 3;
+
 function JsonValue({ value }: { value: unknown }) {
   const type = getType(value);
 
@@ -57,11 +60,66 @@ function SimpleRow({
   return (
     <div className="flex items-start" style={{ paddingLeft: depth * 16 }}>
       {keyName !== undefined && (
-        <span className="text-foreground font-medium">{keyName}: </span>
+        <span className={jsonSyntaxColors.key}>{keyName}:&nbsp;</span>
       )}
       {children}
-      {!isLast && <span className="text-muted-foreground">,</span>}
+      {!isLast && <span className={jsonSyntaxColors.punctuation}>,</span>}
     </div>
+  );
+}
+
+/** A value inside a folded row's preview: primitives as they are, containers abbreviated. */
+function PreviewValue({ value }: { value: unknown }) {
+  const type = getType(value);
+  if (type === "array" || type === "object") {
+    const [open, close] = type === "array" ? ["[", "]"] : ["{", "}"];
+    return (
+      <span className={jsonSyntaxColors.punctuation}>
+        {(type === "array"
+          ? (value as unknown[]).length
+          : Object.keys(value as object).length) === 0
+          ? `${open}${close}`
+          : `${open}…${close}`}
+      </span>
+    );
+  }
+  return <JsonValue value={value} />;
+}
+
+/**
+ * What a folded row shows: its first fields on one line, so the row says what
+ * it is without being opened (#2232). `{id: 578, status: "shipped", … }`.
+ */
+function FoldedPreview({
+  entries,
+  isArray,
+}: {
+  entries: ReadonlyArray<readonly [string, unknown]>;
+  isArray: boolean;
+}) {
+  const shown = entries.slice(0, PREVIEW_FIELDS);
+  const more = entries.length > shown.length;
+  const punct = jsonSyntaxColors.punctuation;
+  return (
+    <span className="min-w-0 truncate">
+      <span className={punct}>{isArray ? "[" : "{"}</span>
+      {shown.map(([key, val], i) => (
+        <React.Fragment key={key}>
+          {i > 0 && <span className={punct}>, </span>}
+          {!isArray && (
+            <>
+              <span className={jsonSyntaxColors.key}>{key}</span>
+              <span className={punct}>: </span>
+            </>
+          )}
+          <PreviewValue value={val} />
+        </React.Fragment>
+      ))}
+      <span className={punct}>
+        {more ? ", … " : ""}
+        {isArray ? "]" : "}"}
+      </span>
+    </span>
   );
 }
 
@@ -141,32 +199,29 @@ function JsonNode({
       >
         <ChevronRight
           className={cn(
-            "h-3 w-3 mr-1 transition-transform text-muted-foreground",
+            "h-3 w-3 mr-1 shrink-0 transition-transform text-muted-foreground",
             expanded && "rotate-90",
           )}
         />
         {keyName !== undefined && (
-          <span className="text-foreground font-medium">{keyName}: </span>
+          <span className={jsonSyntaxColors.key}>{keyName}:&nbsp;</span>
         )}
-        {isEmpty ? (
+        {isEmpty && (
           <>
-            <span className="text-muted-foreground">
+            <span className={jsonSyntaxColors.punctuation}>
               {bracketOpen}
               {bracketClose}
             </span>
-            {!isLast && <span className="text-muted-foreground">,</span>}
+            {!isLast && <span className={jsonSyntaxColors.punctuation}>,</span>}
           </>
-        ) : expanded ? (
-          <span className="text-muted-foreground">{bracketOpen}</span>
-        ) : (
+        )}
+        {!isEmpty && expanded && (
+          <span className={jsonSyntaxColors.punctuation}>{bracketOpen}</span>
+        )}
+        {!isEmpty && !expanded && (
           <>
-            <span className="text-muted-foreground">
-              {bracketOpen}...{bracketClose}
-            </span>
-            <span className="text-xs text-muted-foreground ml-1">
-              {entries.length} {entries.length === 1 ? "item" : "items"}
-            </span>
-            {!isLast && <span className="text-muted-foreground">,</span>}
+            <FoldedPreview entries={entries} isArray={type === "array"} />
+            {!isLast && <span className={jsonSyntaxColors.punctuation}>,</span>}
           </>
         )}
       </button>
@@ -206,7 +261,7 @@ function JsonViewer({ data, initialExpanded = 1, className }: JsonViewerProps) {
     <div
       data-testid="json-viewer"
       className={cn(
-        "font-mono text-sm rounded-md border bg-muted/30 p-3 overflow-auto",
+        "font-mono text-[12.5px] leading-[1.75] overflow-auto",
         className,
       )}
     >

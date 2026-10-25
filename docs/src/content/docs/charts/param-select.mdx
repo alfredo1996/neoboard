@@ -9,6 +9,8 @@ sidebar:
 
 Parameter Select widgets collect user input and pass it to other widgets' queries as `$param_name` variables. They enable interactive filtering across an entire dashboard without modifying queries. Parameter widgets do not display data themselves.
 
+A parameter has one name on the page: the title of its selector widget. The selector shows that title in its header and a placeholder that asks for it ("Pick a region…"), with no second label. A widget that waits on the parameter names it the same way, in brackets in its title ("Revenue in [Region]") and in its body ("Pick a region above to see this."). A selector with no title falls back to the parameter key as words ("Gallery region"), never the raw key.
+
 ## Parameter Types
 
 | Type | Input Control | Value Produced |

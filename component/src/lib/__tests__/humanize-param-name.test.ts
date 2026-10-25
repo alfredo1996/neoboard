@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { humanizeParamName } from "../humanize-param-name";
+import { humanizeParamName, pickPrompt } from "../humanize-param-name";
+
+describe("pickPrompt (#2232)", () => {
+  it.each([
+    ["Region", "Pick a region"],
+    ["Gallery region", "Pick a gallery region"],
+    ["Item", "Pick an item"],
+    ["Q1 2024", "Pick a q1 2024"],
+  ])("%j -> %j", (label, expected) => {
+    expect(pickPrompt(label)).toBe(expected);
+  });
+});
 
 describe("humanizeParamName (#2213)", () => {
   it.each([

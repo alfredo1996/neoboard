@@ -76,16 +76,27 @@ function IframeWidget({
   return (
     <div
       data-testid="iframe-widget"
-      className={cn("h-full w-full", className)}
+      className={cn("flex h-full w-full flex-col gap-2 p-3 pt-2", className)}
     >
-      <iframe
-        src={url}
-        title={title}
-        sandbox={sanitizeSandbox(sandbox)}
-        className="w-full h-full border-0"
-        loading="lazy"
-        referrerPolicy="no-referrer"
-      />
+      {/* The page's domain, so a reader knows what they are looking at (#2232). */}
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="self-end whitespace-nowrap text-xs text-ring hover:underline"
+      >
+        {new URL(url.trim()).host} ↗
+      </a>
+      <div className="min-h-0 flex-1 overflow-hidden rounded-sm border border-rule">
+        <iframe
+          src={url}
+          title={title}
+          sandbox={sanitizeSandbox(sandbox)}
+          className="w-full h-full border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      </div>
     </div>
   );
 }

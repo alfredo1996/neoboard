@@ -1,5 +1,6 @@
 "use client";
 
+import { useConnectionName } from "@/components/connection-names-context";
 import React, {
   useState,
   useCallback,
@@ -414,6 +415,7 @@ export function FormWidgetRenderer({
     [chartOptions],
   );
 
+  const connectionName = useConnectionName(connectionId);
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
   // Dashboards render under /[id] and /[id]/edit; null outside the app router.
@@ -719,19 +721,26 @@ export function FormWidgetRenderer({
           <p className="text-sm text-destructive">{messages.errorMessage}</p>
         )}
 
-        <Button
-          type="submit"
-          // Not on field errors: handleSubmit flushes the drafts, clears the
-          // database's errors and validates again, while a draft typed inside
-          // the debounce has not cleared its error yet. A disabled Submit would
-          // block Enter and the click (#1771).
-          disabled={needsSave || writeQuery.isPending}
-          className="w-full"
-        >
-          {writeQuery.isPending
-            ? "Submitting…"
-            : (chartOptions.submitButtonText as string) || "Submit"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <Button
+            type="submit"
+            // Not on field errors: handleSubmit flushes the drafts, clears the
+            // database's errors and validates again, while a draft typed inside
+            // the debounce has not cleared its error yet. A disabled Submit would
+            // block Enter and the click (#1771).
+            disabled={needsSave || writeQuery.isPending}
+            className="shrink-0 whitespace-nowrap"
+          >
+            {writeQuery.isPending
+              ? "Submitting…"
+              : (chartOptions.submitButtonText as string) || "Submit"}
+          </Button>
+          {connectionName && (
+            <span className="text-xs text-muted-foreground">
+              Writes to {connectionName}
+            </span>
+          )}
+        </div>
       </form>
     </div>
   );

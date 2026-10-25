@@ -7,6 +7,8 @@ import { FilterLine } from "@neoboard/components/kit";
 import { humanizeParamName } from "@neoboard/components/humanize-param-name";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
+import { paramLabel } from "@/lib/parameter/param-label";
+import { ConnectionNamesProvider } from "@/components/connection-names-context";
 import { buildExportData } from "@/lib/widget/card-utils";
 import {
   getShownWidgetQueryData,
@@ -228,7 +230,9 @@ export function DashboardContainer({
     );
   };
   const displayTitle = (widget: DashboardWidget) =>
-    interpolateTitle(getWidgetDisplayTitle(widget), parameters);
+    interpolateTitle(getWidgetDisplayTitle(widget), parameters, (n) =>
+      paramLabel(n, parameterSourceMap),
+    );
 
   if (page.widgets.length === 0) {
     return (
@@ -355,7 +359,7 @@ export function DashboardContainer({
   };
 
   return (
-    <>
+    <ConnectionNamesProvider value={connectionNames}>
       {hasParameters && (
         <div className="pb-3">
           <FilterLine
@@ -563,6 +567,6 @@ export function DashboardContainer({
           if (removeTarget) onRemoveWidget?.(removeTarget.widget.id);
         }}
       />
-    </>
+    </ConnectionNamesProvider>
   );
 }

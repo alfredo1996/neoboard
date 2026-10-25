@@ -106,6 +106,7 @@ export {
   TextInputParameter,
   type TextInputParameterProps,
 } from "./parameter-widgets/text-input";
+export { ParamLabelScope } from "./parameter-widgets/param-label";
 export {
   ParamSelector,
   type ParamSelectorProps,

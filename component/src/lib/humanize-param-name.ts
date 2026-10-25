@@ -7,6 +7,12 @@
  * wording, so only its first letter is capitalised. A key with no words in it
  * (`___`) comes back unchanged, so a widget never loses its name.
  */
+/** "Region" -> "Pick a region", "Item" -> "Pick an item" (#2232). */
+export function pickPrompt(label: string): string {
+  const noun = label.charAt(0).toLowerCase() + label.slice(1);
+  return `Pick ${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
+}
+
 export function humanizeParamName(name: string): string {
   const words = /\s/.test(name)
     ? name

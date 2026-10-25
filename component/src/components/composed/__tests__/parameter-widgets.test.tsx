@@ -1,5 +1,5 @@
 import * as React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 
 // cmdk (used by ParamMultiSelector's search popover) calls scrollIntoView
@@ -1027,6 +1027,23 @@ describe("NumberRangeSlider", () => {
     expect(
       screen.getByRole("button", { name: /clear price/i }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps Reset in the row of the inputs and slider, not in a row of its own (#2232)", () => {
+    render(
+      <NumberRangeSlider
+        parameterName="price"
+        min={0}
+        max={1000}
+        value={[100, 500]}
+        onChange={vi.fn()}
+        onClear={vi.fn()}
+        labelledBy="lbl"
+      />,
+    );
+    const row = screen.getByRole("button", { name: /clear/i }).parentElement!;
+    expect(within(row).getAllByRole("spinbutton")).toHaveLength(2);
+    expect(within(row).getAllByRole("slider")).toHaveLength(2);
   });
 
   it("hides Reset button when value is null", () => {

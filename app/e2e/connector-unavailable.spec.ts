@@ -236,7 +236,7 @@ test.describe("Dead connector (#1678)", () => {
         .locator('[data-widget-id="p-dead"]')
         .getByRole("button", { name: "Retry" })
         .click();
-      await expect(page.getByText("Select a value…")).toBeVisible({
+      await expect(page.getByText("Pick a pick…")).toBeVisible({
         timeout: 15_000,
       });
 
@@ -352,7 +352,7 @@ test.describe("Dead connector recovery (#2167)", () => {
       await expect(
         page.getByRole("cell", { name: "healthy", exact: true }),
       ).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText("Select a value…")).toBeVisible();
+      await expect(page.getByText("Pick a pick…")).toBeVisible();
       await expect(unavailable).toHaveCount(0);
     } finally {
       await cleanup();
