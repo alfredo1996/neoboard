@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { drillAfterClick, paintTree, sumValue, viewOf } from "../sunburst-view";
-import { contrastRatio, mixColors } from "../chart-utils";
+import { contrastRatio, legibleFill, mixColors } from "../chart-utils";
 import { COLOR_PALETTES } from "../palettes";
 import { HASTINGS_DARK, HASTINGS_LIGHT, SURFACE_COLOR } from "../theme";
 
@@ -74,15 +74,19 @@ describe("paintTree", () => {
     },
   );
 
-  it("keeps an author's rule colour on the top ring as given", () => {
-    const [n] = paintTree(
-      [{ name: "A", value: 1 }],
-      ["#B4674A"],
-      card,
-      new Set([0]),
-    );
-    expect(n.itemStyle.color).toBe("#B4674A");
-  });
+  it.each(["#ff0000", "#777777"])(
+    "nudges an author's rule colour %s until its label reaches 4.5:1, keeping the hue",
+    (rule) => {
+      for (const c of [SURFACE_COLOR.light, SURFACE_COLOR.dark]) {
+        const [n] = paintTree([{ name: "A", value: 1 }], [rule], c);
+        expect(
+          contrastRatio(n.itemStyle.color, n.label.color),
+        ).toBeGreaterThanOrEqual(4.5);
+        // Nudged toward the card, not swapped for another hue.
+        expect(n.itemStyle.color).toBe(legibleFill(rule, c));
+      }
+    },
+  );
 
   it("keeps the caller's extra keys on a node", () => {
     const out = paintTree(

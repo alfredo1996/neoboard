@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import * as echarts from "echarts/core";
 import { SunburstChart } from "../sunburst-chart";
+import { contrastRatio } from "../chart-utils";
 
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
@@ -123,7 +124,11 @@ describe("SunburstChart", () => {
     const seriesData = optionsCall.series[0].data;
     // Y has value 70 which is >= 50
     const itemY = seriesData.find((d: { name: string }) => d.name === "Y");
-    expect(itemY?.itemStyle?.color).toBe("#ff0000");
+    // Nudged until its label reads, hue kept (red stays red).
+    expect(itemY?.itemStyle?.color).not.toBe("#ff0000");
+    expect(
+      contrastRatio(itemY?.itemStyle?.color, itemY?.label?.color),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 
   it("does not apply color when value does not match styling rule", () => {
@@ -305,16 +310,22 @@ describe("SunburstChart", () => {
       expect(inits()).toBe(before + 1);
     });
 
-    it("the centre shows the total and what it counts, and goes inert at the top", () => {
-      render(<SunburstChart data={catalogue} valueLabel="revenue" />);
+    it("the centre shows the total alone, with no automatic label, and goes inert at the top", () => {
+      render(<SunburstChart data={catalogue} />);
       const [text, hit] = lastOption().graphic;
-      expect(text.style.text).toBe("{a|14}\n{b|revenue}");
+      expect(text.style.text).toBe("{a|14}");
+      expect(text.style.text).not.toContain("Total");
       expect(hit.silent).toBe(true);
       click("Home");
       expect(lastOption().graphic[0].style.text).toBe(
         "{n|Home}\n{a|10}\n{c|← back}",
       );
       expect(lastOption().graphic[1].silent).toBe(false);
+    });
+
+    it("shows the author's centre text under the total", () => {
+      render(<SunburstChart data={catalogue} sunburstCenterText="revenue" />);
+      expect(lastOption().graphic[0].style.text).toBe("{a|14}\n{b|revenue}");
     });
 
     it("keeps a click-action chart's centre as a plain total", () => {

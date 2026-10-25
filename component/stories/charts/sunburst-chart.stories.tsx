@@ -626,3 +626,25 @@ export const WithClickActionDark: Story = {
   args: { data: catalogue, onClick: () => {} },
   globals: { theme: "dark" },
 };
+
+/** The author's centre text sits under the total. */
+export const CenterTextLight: Story = {
+  args: { data: catalogue, sunburstCenterText: "revenue" },
+  globals: { theme: "light" },
+};
+
+export const CenterTextDark: Story = {
+  args: { data: catalogue, sunburstCenterText: "revenue" },
+  globals: { theme: "dark" },
+};
+
+/** A rule colour on the top ring is nudged until its label reads (4.5:1). */
+export const RuleColourDark: Story = {
+  args: {
+    data: catalogue,
+    stylingRules: [
+      { id: "r1", operator: ">=" as const, value: 0, color: "#ff0000" },
+    ],
+  },
+  globals: { theme: "dark" },
+};

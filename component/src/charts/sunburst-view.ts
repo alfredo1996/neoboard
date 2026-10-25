@@ -35,7 +35,6 @@ export function paintTree(
   items: SunburstSourceNode[],
   bases: string[],
   card: string,
-  authored: ReadonlySet<number> = new Set(),
 ): PaintedNode[] {
   const paint = (
     nodes: SunburstSourceNode[],
@@ -44,14 +43,12 @@ export function paintTree(
   ): PaintedNode[] =>
     nodes.map((node, i) => {
       const hue = base ?? bases[i % bases.length];
-      // A palette hue is nudged until a label reads on it. An author's own
-      // rule colour (`authored`, by top-ring index) is kept as given.
-      let fill: string;
-      if (depth > 1) {
-        fill = legibleFill(mixColors(hue, card, stepToward(depth, i)), card);
-      } else {
-        fill = authored.has(i) ? hue : legibleFill(hue, card);
-      }
+      // A palette hue or an author's rule colour is nudged toward the card
+      // until a label reads on it, keeping its hue (#2231).
+      const fill = legibleFill(
+        depth > 1 ? mixColors(hue, card, stepToward(depth, i)) : hue,
+        card,
+      );
       return {
         ...node,
         itemStyle: { color: fill, borderColor: card, borderWidth: 1.5 },

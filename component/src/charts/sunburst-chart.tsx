@@ -56,8 +56,8 @@ export interface SunburstChartProps extends Omit<BaseChartProps, "options"> {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
-  /** What the centre total counts ("revenue", "orders"). Defaults to "Total". */
-  valueLabel?: string;
+  /** Label under the centre total ("revenue", "orders"). Blank shows the total alone. */
+  sunburstCenterText?: string;
 }
 
 const EDGE_SHARES: Record<number, number[]> = {
@@ -130,7 +130,7 @@ function SunburstChart({
   highlightOnHover = true,
   stylingRules,
   paramValues,
-  valueLabel = "Total",
+  sunburstCenterText,
   ariaDescription,
   onClick,
   colorPalette,
@@ -156,20 +156,17 @@ function SunburstChart({
   // level the view is centred on.
   const painted = useMemo(() => {
     const palette = resolveSeriesPalette(colorPalette);
-    const authored = new Set<number>();
     const bases = displayedRings.map((item, i) => {
       const numericValue = typeof item.value === "number" ? item.value : 0;
       const rule = stylingRules?.length
         ? resolveItemColor(numericValue, stylingRules, paramValues)
         : undefined;
-      if (rule) authored.add(i);
       return rule ?? palette[i % palette.length];
     });
     return paintTree(
       displayedRings,
       bases,
       SURFACE_COLOR[dark ? "dark" : "light"],
-      authored,
     );
   }, [displayedRings, colorPalette, stylingRules, paramValues, dark]);
 
@@ -222,7 +219,7 @@ function SunburstChart({
     const parent = effective.length > 1 ? effective.at(-2) : "back";
     const centre = drilled
       ? `{n|${effective.at(-1)}}\n{a|${total}}\n{c|← ${parent}}`
-      : `{a|${total}}\n{b|${valueLabel}}`;
+      : `{a|${total}}${sunburstCenterText ? `\n{b|${sunburstCenterText}}` : ""}`;
     const radiusPx = (Math.min(width, height) / 2) * (hole / 100);
     const hit = { left: "center", top: "middle" } as const;
     const canGoUp = drilled;
@@ -317,7 +314,7 @@ function SunburstChart({
     sort,
     highlightOnHover,
     compact,
-    valueLabel,
+    sunburstCenterText,
     width,
     height,
     dark,
