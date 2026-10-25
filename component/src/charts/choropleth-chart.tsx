@@ -11,10 +11,23 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { BaseChart, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
-import { buildEmptyDataOption, fillLabelStyle } from "./chart-utils";
+import {
+  buildEmptyDataOption,
+  fillLabelStyle,
+  formatNumber,
+} from "./chart-utils";
+import { MUTED_FILL, SURFACE_COLOR } from "./theme";
+import { equalEarth } from "./equal-earth";
+import {
+  buildRegionIndex,
+  matchRegions,
+  type RegionFeature,
+  type RegionIndex,
+} from "./choropleth-regions";
 import {
   buildSequentialRamp,
   invertLightness,
+  CHOROPLETH_SEQ,
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "./choropleth-ramp";
@@ -57,27 +70,31 @@ export interface ChoroplethChartProps extends Omit<BaseChartProps, "options"> {
   showLabels?: boolean;
 }
 
-/** Normalize common country name variants to match the world GeoJSON. */
-const NAME_ALIASES: Record<string, string> = {
-  "South Korea": "Korea",
-  "North Korea": "Dem. Rep. Korea",
-  USA: "United States",
-  "United States of America": "United States",
-  UK: "United Kingdom",
-  "Bosnia and Herzegovina": "Bosnia and Herz.",
-  "Antigua and Barbuda": "Antigua and Barb.",
-  "Czech Republic": "Czechia",
-};
-
-function normalizeData(data: ChoroplethDataItem[]) {
-  return data.map((d) => ({
+function toSeriesData(rows: ChoroplethDataItem[]) {
+  return rows.map((d) => ({
     ...d,
-    name: NAME_ALIASES[d.name] ?? d.name,
     // ECharts' documented no-data marker, and the only one MapSeriesOption's
     // data union accepts — so this needs no `as` cast. Translating at this
     // boundary keeps the exported prop type a plain domain type (#1655).
     value: d.value ?? ("-" as const),
   }));
+}
+
+/** The legend/ramp colours: the themed citrine ramp, or the user's two ends. */
+function rampFor(dark: boolean, minColor: string, maxColor: string): string[] {
+  if (
+    minColor === CHOROPLETH_DEFAULT_MIN_COLOR &&
+    maxColor === CHOROPLETH_DEFAULT_MAX_COLOR
+  ) {
+    return [...CHOROPLETH_SEQ[dark ? "dark" : "light"]];
+  }
+  return dark
+    ? buildSequentialRamp(
+        invertLightness(minColor),
+        invertLightness(maxColor),
+        5,
+      )
+    : buildSequentialRamp(minColor, maxColor, 5);
 }
 
 function ChoroplethChart({
@@ -90,13 +107,23 @@ function ChoroplethChart({
   ariaDescription,
   ...rest
 }: ChoroplethChartProps) {
-  const [mapRegistered, setMapRegistered] = useState(false);
+  const [regionIndex, setRegionIndex] = useState<RegionIndex | null>(null);
+  const mapRegistered = regionIndex !== null;
   const registering = useRef(false);
   // Reactive theme so the memo rebuilds on toggle — otherwise the no-data
   // region fill and label styles freeze at their mount-time value. (#chart-review)
   const dark = useDarkMode();
 
-  const normalizedData = useMemo(() => normalizeData(data), [data]);
+  // Rows are matched to Natural Earth countries by ISO code, then name/alias.
+  // A row that matches nothing is surfaced below the chart, not dropped.
+  const { matched, unmatched } = useMemo(
+    () =>
+      regionIndex
+        ? matchRegions(data, regionIndex)
+        : { matched: [], unmatched: [] },
+    [data, regionIndex],
+  );
+  const normalizedData = useMemo(() => toSeriesData(matched), [matched]);
 
   useEffect(() => {
     if (mapRegistered || registering.current) return;
@@ -110,7 +137,9 @@ function ChoroplethChart({
         if (!echarts.getMap("world")) {
           echarts.registerMap("world", geoJSON as never);
         }
-        setMapRegistered(true);
+        setRegionIndex(
+          buildRegionIndex((geoJSON as { features: RegionFeature[] }).features),
+        );
       })
       .catch((err) => {
         if (!cancelled) {
@@ -126,7 +155,7 @@ function ChoroplethChart({
 
   const options = useMemo((): EChartsOption | undefined => {
     if (!mapRegistered) return undefined;
-    if (!normalizedData.length) return buildEmptyDataOption(dark);
+    if (!data.length) return buildEmptyDataOption(dark);
 
     // Only measured values set the ramp domain. `Math.min(null, …)` is 0, so
     // one unmeasured region would anchor the legend at zero and shift every
@@ -157,7 +186,7 @@ function ChoroplethChart({
             "<strong>" +
             echarts.format.encodeHTML(p.name) +
             "</strong><br/>" +
-            Number(val).toLocaleString()
+            formatNumber(Number(val), { context: "tooltip" })
           );
         },
       },
@@ -177,13 +206,7 @@ function ChoroplethChart({
           // the configured colours — see buildSequentialRamp (#1404). Dark
           // mode inverts the ends' lightness so the highest value stays the
           // most prominent against the canvas (#1402).
-          color: dark
-            ? buildSequentialRamp(
-                invertLightness(minColor),
-                invertLightness(maxColor),
-                5,
-              )
-            : buildSequentialRamp(minColor, maxColor, 5),
+          color: rampFor(dark, minColor, maxColor),
         },
         textStyle: { fontSize: 10 },
         itemWidth: 12,
@@ -200,8 +223,12 @@ function ChoroplethChart({
           map: "world",
           roam,
           scaleLimit: { min: 1, max: 20 },
-          center: [0, 20],
-          zoom: 1.1,
+          projection: equalEarth,
+          top: 4,
+          bottom: 4,
+          left: 4,
+          right: 4,
+          select: { disabled: true },
           label: {
             show: showLabels,
             fontSize: 9,
@@ -230,11 +257,11 @@ function ChoroplethChart({
             },
           },
           itemStyle: {
-            borderColor: "rgba(200, 200, 200, 0.6)",
+            // Borders in the card colour: countries read as shapes on the card.
+            borderColor: SURFACE_COLOR[dark ? "dark" : "light"],
             borderWidth: 0.5,
-            // No-data fill — theme-aware (was a hardcoded #eee, glaringly
-            // bright in dark mode).
-            areaColor: dark ? "#23262d" : "#eceef1",
+            // No-data fill, the theme's muted surface.
+            areaColor: MUTED_FILL[dark ? "dark" : "light"],
           },
           data: normalizedData,
         },
@@ -243,6 +270,7 @@ function ChoroplethChart({
     };
   }, [
     normalizedData,
+    data.length,
     mapRegistered,
     roam,
     showVisualMap,
@@ -253,13 +281,25 @@ function ChoroplethChart({
   ]);
 
   return (
-    <BaseChart
-      options={options}
-      ariaDescription={
-        ariaDescription ?? `Choropleth map with ${data.length} regions`
-      }
-      {...rest}
-    />
+    <div className="relative h-full w-full">
+      <BaseChart
+        options={options}
+        ariaDescription={
+          ariaDescription ?? `Choropleth map with ${data.length} regions`
+        }
+        {...rest}
+      />
+      {unmatched.length > 0 && (
+        <div
+          role="status"
+          className="absolute bottom-2 right-2 z-10 max-w-[60%] truncate rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground"
+          title={unmatched.map((r) => r.name).join(", ")}
+        >
+          {unmatched.length} {unmatched.length === 1 ? "row" : "rows"} not
+          matched to a country: {unmatched.map((r) => r.name).join(", ")}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -57,19 +57,19 @@ function paintedColors(canvasElement: HTMLElement) {
  * spaced sRGB interpolation between the two endpoints.
  */
 const DEFAULT_RAMP = [
-  "#fff7d6",
-  "#e6c6a2",
-  "#cc966d",
-  "#b36539",
-  "#993404",
+  "#fbebd0",
+  "#f3c980",
+  "#e0a13a",
+  "#b57a12",
+  "#7a520c",
 ] as const;
-/** DEFAULT_RAMP's ends with CIE L* inverted (Python oracle), then interpolated. */
+/** The dark citrine ramp: deep at the low end, bright at the high end. */
 const DARK_DEFAULT_RAMP = [
-  "#0b0b08",
-  "#372c29",
-  "#634e49",
-  "#8e6f6a",
-  "#ba908a",
+  "#3a2a10",
+  "#6b4a12",
+  "#a06d15",
+  "#d9922a",
+  "#f5c46e",
 ] as const;
 const GREEN_RAMP = [
   "#f7fcf5",
@@ -149,7 +149,7 @@ function expectNoRenderError(canvasElement: HTMLElement) {
   expect(within(canvasElement).queryByRole("alert")).toBeNull();
 }
 
-// Population data (millions) — names match world.geo.json
+// Population data (millions) — names match Natural Earth (world.geo.json)
 const populationData = [
   { name: "China", value: 1425 },
   { name: "India", value: 1408 },
@@ -377,4 +377,29 @@ export const EmptyState: Story = {
     // live canvas that happens to be blank, so there is nothing else to assert
     // and nothing for a screen reader beyond the label.
   },
+};
+
+/**
+ * #2230 — rows the map cannot place are named under the chart rather than
+ * dropped: one ISO code and one known name match, two rows do not.
+ */
+export const UnmatchedRows: Story = {
+  args: {
+    data: [
+      { name: "US", value: 80 },
+      { name: "Germany", value: 40 },
+      { name: "Narnia", value: 10 },
+      { name: "Atlantis", value: 20 },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const note = await within(canvasElement).findByRole("status");
+    expect(note).toHaveTextContent("2 rows not matched to a country");
+    expect(note).toHaveTextContent("Narnia");
+  },
+};
+
+export const UnmatchedRowsDark: Story = {
+  ...UnmatchedRows,
+  globals: { theme: "dark" },
 };

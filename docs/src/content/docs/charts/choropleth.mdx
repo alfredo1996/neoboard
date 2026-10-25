@@ -7,15 +7,11 @@ sidebar:
 
 ## Overview
 
-:::note[Hidden from the picker]
-Choropleth is not offered when you add a widget or change a widget's type. Choropleth widgets you already have, including ones from a NeoDash import, keep rendering.
-:::
-
-The Choropleth Map fills countries with colors based on data values, creating a heat map of the world. Use it for population, GDP, sales by country, or any country-level metric.
+The Choropleth Map fills countries with colors based on data values, creating a heat map of the world. Use it for population, GDP, sales by country, or any country-level metric. It draws the countries of [Natural Earth](https://www.naturalearthdata.com/) (110m, public domain) in the Equal Earth projection, so areas are true to size. Countries without data take a muted fill.
 
 ## Query Format
 
-Return 2 columns: country name and numeric value. Country names must match standard English names (e.g., "United States", "United Kingdom", "South Korea").
+Return 2 columns: the country and a numeric value. The country can be an ISO 3166 code (alpha-2 `US` or alpha-3 `USA`) or an English name (`United States`, `South Korea`). Codes are matched first, then names, case-insensitively.
 
 ### Cypher
 
@@ -35,14 +31,17 @@ ORDER BY value DESC
 
 ## Country Name Mapping
 
-Common aliases are automatically resolved:
+Natural Earth's own short and long names always match (`United States of America`, `Republic of Korea`). Common aliases are resolved too:
 
 | You Write | Maps To |
 |-----------|---------|
-| `USA` | United States |
-| `UK` | United Kingdom |
-| `South Korea` | Korea |
-| `North Korea` | Dem. Rep. Korea |
+| `USA`, `United States` | United States of America |
+| `UK`, `Great Britain` | United Kingdom |
+| `Korea`, `South Korea` | South Korea |
+| `Dem. Rep. Korea` | North Korea |
+| `Czech Republic` | Czechia |
+
+A row that matches no country is **not dropped silently**: a note under the map says how many rows were not matched and lists them, so you can fix the spelling or send an ISO code. The 110m set holds the larger countries and territories, so a very small one (a micro-state) has no shape to colour and is reported the same way.
 
 ## Options
 
@@ -51,14 +50,14 @@ Common aliases are automatically resolved:
 | Show Labels | `false` | Show country name labels on the map |
 | Show Legend | `true` | Show the piecewise color range legend |
 | Enable Zoom & Pan | `true` | Allow zooming (up to 20x) and panning |
-| Min Color | `#fff7d6` | Color for the lowest value (dark mode inverts its lightness) |
-| Max Color | `#993404` | Color for the highest value (dark mode inverts its lightness) |
+| Min Color | `#FBEBD0` | Color for the lowest value. Left at both defaults, the chart paints the five-step citrine ramp for the current theme |
+| Max Color | `#7A520C` | Color for the highest value. Other colors are interpolated between the two, and dark mode inverts their lightness |
 
 ## Features
 
 - **Zoom & pan** — scroll to zoom up to 20x, drag to pan
 - **Piecewise legend** — auto-calculated ranges with color squares (top-right)
-- **Hover emphasis** — gold highlight with shadow and country name
+- **Hover emphasis** — the hovered country keeps its data color, with an outline, a shadow and its name
 - **Dark tooltip** — formatted number with country name
 - **5-stop gradient** — smooth color transition across data range
 - **Click actions** — click a country to navigate or set a parameter

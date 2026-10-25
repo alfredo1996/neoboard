@@ -391,3 +391,13 @@ export function registerNeoboardThemes(
     ...seriesDefaults("#1B1E23", "#262A31", "#f3f4f6", "#959BA6"),
   });
 }
+
+/**
+ * Map clusters and single markers (#2230): citrine fill, ink on it for the
+ * count (>= 4.5:1 both themes, pinned by map-chart.test.tsx), and a ring in the
+ * card colour that separates a cluster from the tiles beneath it.
+ */
+export const MAP_CLUSTER = {
+  light: { fill: "#C47C08", ink: "#16181D", ring: "#FFFFFF" },
+  dark: { fill: "#F2A93B", ink: "#14161A", ring: "#181B20" },
+} as const;

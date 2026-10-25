@@ -4,7 +4,7 @@ NeoBoard's plugin system lets you extend the platform with custom chart types an
 
 ## Built-in Charts (18)
 
-These are the 18 chart plugins NeoBoard registers. The widget picker offers 16 of them: Radar and Choropleth stay registered so dashboards that already use them keep rendering, but the picker does not list them, so they cannot be added to new widgets.
+These are the 18 chart plugins NeoBoard registers. The widget picker offers 17 of them: Radar stays registered so dashboards that already use it keep rendering, but the picker does not list it, so it cannot be added to new widgets.
 
 A chart is offered on a connection by what its connector declares, never by which connector it is: the Graph chart needs `supportsGraphData`, the Form widget needs `supportsWrite`, and every other chart works on any connector.
 
@@ -22,7 +22,7 @@ A chart is offered on a connection by what its connector declares, never by whic
 | Sunburst         | Multi-level hierarchical drill-down                          | Any connector                        |
 | Radar            | Multi-dimensional comparison — hidden from the widget picker | Any connector                        |
 | Gantt            | Timeline bars for scheduling                                 | Any connector                        |
-| Choropleth       | Geographic heatmap by region — hidden from the widget picker | Any connector                        |
+| Choropleth       | Geographic heatmap by country                                | Any connector                        |
 | JSON Viewer      | Collapsible JSON tree                                        | Any connector                        |
 | Form             | Input fields executing write queries                         | A connector with `supportsWrite`     |
 | Markdown         | Static rich text (no query)                                  | Any (no query)                       |

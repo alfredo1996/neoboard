@@ -102,12 +102,15 @@ test.describe("New chart types — creation flow", () => {
     // Open the chart-type picker
     await dialog.getByRole("combobox").nth(1).click();
 
-    // Radar and choropleth stay registered but disabled in the picker (#1158);
-    // treemap and circle packing are not registered in the app at all (#1687).
-    // None of the four may be offered for new widgets.
-    for (const rx of [/^radar$/i, /treemap/i, /choropleth/i, /circle pack/i]) {
+    // Radar stays registered but disabled in the picker (#1158); treemap and
+    // circle packing are not registered in the app at all (#1687). None of the
+    // three may be offered for new widgets. Choropleth is back (#2230).
+    for (const rx of [/^radar$/i, /treemap/i, /circle pack/i]) {
       await expect(page.getByRole("option", { name: rx })).toHaveCount(0);
     }
+    await expect(
+      page.getByRole("option", { name: /choropleth/i }),
+    ).toBeVisible();
     // A kept type is still offered (sanity check the picker is populated).
     await expect(page.getByRole("option", { name: "Sankey" })).toBeVisible();
   });

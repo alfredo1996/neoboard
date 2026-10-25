@@ -11,17 +11,23 @@ import { interpolateColor, parseHex, toHex } from "./styling-rule";
  */
 
 /**
- * Ends of the default sequential ramp — a single warm YlOrBr progression,
- * citrine-adjacent and colourblind-safe.
- *
- * Exported so the app plugin's schema defaults can be sourced from them. The
- * two disagreed before #1404: the component documented this warm ramp while
- * the plugin still supplied ColorBrewer Blues endpoints, and the chart spliced
- * hardcoded warm stops between whichever ends it was given — shipping a legend
- * that ran pale-blue → pale-yellow → orange → dark-orange → navy.
+ * The citrine sequential ramp (#2230), one per theme, from the approved chart
+ * mock: pale to deep in light mode, deep to bright in dark so the highest value
+ * is always the most prominent against the canvas (#1402).
  */
-export const CHOROPLETH_DEFAULT_MIN_COLOR = "#fff7d6";
-export const CHOROPLETH_DEFAULT_MAX_COLOR = "#993404";
+export const CHOROPLETH_SEQ = {
+  light: ["#FBEBD0", "#F3C980", "#E0A13A", "#B57A12", "#7A520C"],
+  dark: ["#3A2A10", "#6B4A12", "#A06D15", "#D9922A", "#F5C46E"],
+} as const;
+
+/**
+ * Ends of the default ramp: the light stops of `CHOROPLETH_SEQ`. Exported so
+ * the app plugin's schema defaults are sourced from them (they disagreed
+ * before #1404). Left at these ends, the chart paints the full themed ramp;
+ * a user who picks other ends gets `buildSequentialRamp` between them.
+ */
+export const CHOROPLETH_DEFAULT_MIN_COLOR = CHOROPLETH_SEQ.light[0];
+export const CHOROPLETH_DEFAULT_MAX_COLOR = CHOROPLETH_SEQ.light[4];
 
 /**
  * Evenly spaced stops from `minColor` to `maxColor` inclusive.

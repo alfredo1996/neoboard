@@ -25,7 +25,7 @@ NeoBoard is a dashboard builder you run yourself: write Cypher and SQL in the br
 ## Why NeoBoard?
 
 - **Neo4j and PostgreSQL on one canvas** — a Cypher widget and a SQL widget read the same parameters, so one filter drives both. [Connectors](docs/src/content/docs/using/connectors.mdx)
-- **16 chart types** — bar, line and table through graph, map, Sankey and Gantt. [Charts](docs/src/content/docs/charts/index.mdx)
+- **17 chart types** — bar, line and table through graph, map, Sankey and Gantt. [Charts](docs/src/content/docs/charts/index.mdx)
 - **Interactive** — selectors and click actions set parameters, and rule-based styling colours values. [Parameters](docs/src/content/docs/using/parameters.mdx)
 - **Share and automate** — share dashboards with people or your whole workspace, auto-refresh them, and call the REST API with API keys. [API keys](docs/src/content/docs/security/api-keys.mdx)
 - **Safe by default** — widgets other than forms run read-only, with row limits and timeouts, and connection credentials are encrypted with AES-256-GCM. [Query safety](docs/src/content/docs/security/query-safety.mdx)

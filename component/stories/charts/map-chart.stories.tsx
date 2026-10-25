@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, waitFor, within } from "storybook/test";
 import { MapChart } from "@/charts/map-chart";
-import { MAP_MARKER_DEFAULT_COLOR } from "@/lib/design-tokens";
+import { MAP_CLUSTER } from "@/charts/theme";
 
 const meta = {
   title: "Charts/MapChart",
@@ -79,7 +79,7 @@ export const Default: Story = {
     );
     expect(
       new Set(markerPaths(canvasElement).map((p) => p.getAttribute("fill"))),
-    ).toEqual(new Set([MAP_MARKER_DEFAULT_COLOR]));
+    ).toEqual(new Set([MAP_CLUSTER.light.fill]));
     // Tiles are requested at the zoom that was asked for, not at maxZoom.
     await waitFor(() =>
       expect(tileZooms(canvasElement).length).toBeGreaterThan(0),
@@ -364,5 +364,65 @@ export const InvalidCoordinates: Story = {
     expect(await within(canvasElement).findByRole("status")).toHaveTextContent(
       "2 rows skipped (invalid coordinates)",
     );
+  },
+};
+
+/**
+ * #2230 — clusters are citrine discs sized 20 + 3*sqrt(n) px with the count in
+ * ink; the tile pane is greyscale. Two cities of 40 and 9 markers each.
+ */
+const manyMarkers = [
+  ...Array.from({ length: 40 }, (_, i) => ({
+    id: `a${i}`,
+    lat: 48.3 + (i % 8) * 0.05,
+    lng: 4.5 + Math.floor(i / 8) * 0.05,
+  })),
+  ...Array.from({ length: 9 }, (_, i) => ({
+    id: `b${i}`,
+    lat: 35.4 + (i % 3) * 0.05,
+    lng: 138.9 + Math.floor(i / 3) * 0.05,
+  })),
+];
+
+async function expectClusters(canvasElement: HTMLElement, fill: string) {
+  const discs = () =>
+    Array.from(
+      canvasElement.querySelectorAll<HTMLElement>(
+        ".leaflet-marker-pane > div > div",
+      ),
+    );
+  await waitFor(() => expect(discs()).toHaveLength(2));
+  // Width = 20 + 3*sqrt(count): 40 markers -> 39px, 9 markers -> 29px.
+  expect(
+    discs()
+      .map((d) => [d.textContent, d.style.width])
+      .sort(),
+  ).toEqual([
+    ["40", "39px"],
+    ["9", "29px"],
+  ]);
+  for (const d of discs()) {
+    expect(d.getAttribute("style")).toContain(`background:${fill}`);
+  }
+}
+
+export const Clustered: Story = {
+  args: {
+    markers: manyMarkers,
+    clusterMarkers: true,
+    center: [30, 70],
+    zoom: 2,
+  },
+  globals: { theme: "light" },
+  play: async ({ canvasElement }) => {
+    await expectClusters(canvasElement, MAP_CLUSTER.light.fill);
+  },
+};
+
+export const ClusteredDark: Story = {
+  args: Clustered.args,
+  globals: { theme: "dark" },
+  play: async ({ canvasElement }) => {
+    await expectClusters(canvasElement, MAP_CLUSTER.dark.fill);
   },
 };

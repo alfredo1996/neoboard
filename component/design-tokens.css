@@ -387,10 +387,9 @@ html {
    The tile provider is OpenStreetMap, which has no dark variant — CARTO's
    dark_all did, but it now requires an API key and serves a watermarked tile
    without one. Rather than swap providers by theme, invert the tile pane:
-   `invert(1) hue-rotate(180deg)` darkens the map while restoring hues to
-   roughly their original families (water stays blueish, parks greenish), and
-   the brightness/contrast trim stops the result glowing against the app's
-   charcoal surfaces.
+   `grayscale(1) invert(1)` darkens the map, and the brightness/contrast trim
+   stops the result glowing against the app's charcoal surfaces. Hue is dropped
+   on purpose (#2230): the data is the only colour.
 
    Scoped to `.leaflet-tile-pane` deliberately — the marker, popup and control
    panes are siblings, so they keep their real colours. Inverting the whole
@@ -400,7 +399,13 @@ html {
    `invertTilesInDarkMode` option (#1685): a bring-your-own tileset that is
    already dark would otherwise come out light in dark mode. */
 .dark [data-invert-tiles] .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
+  filter: grayscale(1) invert(1) brightness(0.75) contrast(0.85);
+}
+
+/* Greyscale in light mode as well (#2230): the basemap is context, the data is
+   the only colour. A tileset that is already dark keeps just the grey. */
+.leaflet-tile-pane {
+  filter: grayscale(1) brightness(1.06) contrast(0.82);
 }
 
 /* The container is the basemap when Tile Layer is "none" (#1685), and shows

@@ -8,7 +8,4 @@
  * import it (#1722); cli/src/__tests__/commands/plugin.test.ts scrapes every
  * quoted line of chart-types.ts, so it cannot live there.
  */
-export const DISABLED_CHART_TYPES: ReadonlySet<string> = new Set([
-  "choropleth",
-  "radar",
-]);
+export const DISABLED_CHART_TYPES: ReadonlySet<string> = new Set(["radar"]);

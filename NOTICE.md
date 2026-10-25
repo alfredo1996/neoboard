@@ -4,15 +4,13 @@
 
 Used only by the choropleth chart (`component/src/charts/choropleth-chart.tsx`), which loads it with a dynamic import.
 
-**Provenance and licence: unknown.** The file entered this repository in commit `fa663a79` ("feat(charts): add Circle Packing chart widget", #613) with no source, licence or download record. Nothing here should be read as an assertion about either.
+**Source:** Natural Earth 110m Cultural Vectors, Admin 0 - Countries, as `ne_110m_admin_0_countries.geojson` from <https://github.com/nvkelso/natural-earth-vector> (`geojson/` directory, `master`), downloaded 2026-10-25 with the owner's approval (#2230).
 
-What can be observed about the file itself:
+**Licence:** public domain. Natural Earth states that its data is "in the public domain" and may be used without permission or attribution (<https://www.naturalearthdata.com/about/terms-of-use/>). Attribution is courteous, not required.
 
-- It contains 217 features in CRS84, whose properties are exactly `{ name, childNum }`.
-- That shape resembles the legacy Apache ECharts world-map JSON format. A resemblance in structure is not evidence of origin, and no upstream file has been matched to it byte-for-byte.
-- It is **not** a copy of `echarts-countries-js`'s `world.js`; the coordinates do not match.
+**Changes made here:** 200 features kept (838,726 bytes before, 176,727 after). Only `name` (Natural Earth `NAME`), `iso2` (`ISO_A2_EH`, falling back to `ISO_A2`), `iso3` (`ISO_A3_EH`, falling back to `ISO_A3`) and `long` (`NAME_LONG`, when it differs from `NAME`) are kept as properties, and coordinates are rounded to two decimals (about 1 km). Natural Earth marks the codes of France, Norway and Kosovo `-99` in `ISO_A2`/`ISO_A3`; the `_EH` fields carry the real ones. Northern Cyprus and Somaliland have no ISO code and match by name only.
 
-Because the origin is unrecorded, the correct fix is to replace this file with a dataset whose source and licence are known — for example a freshly downloaded Natural Earth 110m set carrying ISO 3166 codes, recorded here with its download URL and licence at the time of retrieval. That is tracked alongside the choropleth `nameMap` work (#1402, #1543). Until then this notice records the gap rather than papering over it.
+This replaces an earlier file of unrecorded origin and licence (217 features, commit `fa663a79`, #613).
 
 ## Removed dependency — `echarts-countries-js`
 
