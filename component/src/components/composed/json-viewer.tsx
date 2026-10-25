@@ -69,7 +69,7 @@ function SimpleRow({
 }
 
 /** A value inside a folded row's preview: primitives as they are, containers abbreviated. */
-function PreviewValue({ value }: { value: unknown }) {
+function PreviewValue({ value }: { readonly value: unknown }) {
   const type = getType(value);
   if (type === "array" || type === "object") {
     const [open, close] = type === "array" ? ["[", "]"] : ["{", "}"];
@@ -96,8 +96,8 @@ function FoldedPreview({
   entries,
   isArray,
 }: {
-  entries: ReadonlyArray<readonly [string, unknown]>;
-  isArray: boolean;
+  readonly entries: ReadonlyArray<readonly [string, unknown]>;
+  readonly isArray: boolean;
 }) {
   const shown = entries.slice(0, PREVIEW_FIELDS);
   const more = entries.length > shown.length;

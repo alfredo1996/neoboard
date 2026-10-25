@@ -189,9 +189,17 @@ test.describe("Widgets that are not charts (#2232)", () => {
         fs.mkdirSync(SHOTS, { recursive: true });
         await card(w).screenshot({ path: `${SHOTS}/${name}-${scheme}.png` });
       };
+      // The app applies .dark in an effect after the media change, so wait
+      // for it: a read straight after emulateMedia races the switch.
+      const expectScheme = async (scheme: "light" | "dark") => {
+        const html = expect(page.locator("html"));
+        await (scheme === "dark"
+          ? html.toHaveClass(/\bdark\b/)
+          : html.not.toHaveClass(/\bdark\b/));
+      };
       const shootAll = async (scheme: "light" | "dark", phase: string) => {
         await page.emulateMedia({ colorScheme: scheme });
-        await page.waitForTimeout(400);
+        await expectScheme(scheme);
         if (phase === "empty") {
           await shot("w-region", "1-selector-empty", scheme);
           await shot("w-revenue", "2-dependent-waiting", scheme);
@@ -246,7 +254,7 @@ test.describe("Widgets that are not charts (#2232)", () => {
       if (SHOTS) {
         for (const scheme of ["light", "dark"] as const) {
           await page.emulateMedia({ colorScheme: scheme });
-          await page.waitForTimeout(300);
+          await expectScheme(scheme);
           await chips.screenshot({
             path: `${SHOTS}/9-filterline-${scheme}.png`,
           });
@@ -258,6 +266,7 @@ test.describe("Widgets that are not charts (#2232)", () => {
       await shootAll("light", "filled");
       await shootAll("dark", "filled");
       await page.emulateMedia({ colorScheme: "light" });
+      await expectScheme("light");
 
       // ── Form: the button fits its label on one line, the write target beside it ──
       const submit = card("w-form").getByRole("button", {
@@ -293,6 +302,7 @@ test.describe("Widgets that are not charts (#2232)", () => {
       expect(fonts.keyword).toBe("rgb(11, 101, 203)");
       // Dark: the keyword and the block's own tint both change with the theme
       await page.emulateMedia({ colorScheme: "dark" });
+      await expectScheme("dark");
       const dark = await md.evaluate((el) => ({
         keyword: getComputedStyle(
           [...el.querySelectorAll("pre span")].find(
@@ -305,6 +315,7 @@ test.describe("Widgets that are not charts (#2232)", () => {
       // --code-bg in dark: lighter than the card it sits on, not the card itself
       expect(dark.block).toBe("rgb(31, 35, 41)");
       await page.emulateMedia({ colorScheme: "light" });
+      await expectScheme("light");
       // An untitled text widget has no header band: nothing above the text
       const bare = card("w-md-bare");
       // (the header is there: a missing one would read as height 0 too)

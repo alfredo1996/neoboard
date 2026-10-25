@@ -629,7 +629,7 @@ test.describe("Demo showcases hide radar", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Parameter selector label", () => {
-  test("Chart Gallery shows 'Gallery region', not the raw key", async ({
+  test("Chart Gallery names the parameter by its selector's title, never the raw key", async ({
     authPage,
     page,
   }) => {
@@ -654,14 +654,15 @@ test.describe("Parameter selector label", () => {
     try {
       await page.goto(`/${id}`);
       await page.getByRole("tab", { name: "10. Parameter Select" }).click();
+      // #2232: the selector's title ("Region") is the parameter's one name.
       await expect(
-        page.getByText("Gallery region", { exact: true }).first(),
+        page.getByRole("combobox", { name: "Region", exact: true }),
       ).toBeVisible({ timeout: 15_000 });
       await expect(
         page.getByText("gallery_region", { exact: true }),
       ).toHaveCount(0);
       // #2214: a widget waiting on it names it in words, never as a token
-      await expect(page.getByText(/\[Gallery region\]/).first()).toBeVisible();
+      await expect(page.getByText(/\[Region\]/).first()).toBeVisible();
       // (the gallery's own markdown legitimately mentions `$param_<name>`)
       await expect(page.getByText(/\$param_\w/)).toHaveCount(0);
     } finally {
