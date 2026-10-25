@@ -30,7 +30,7 @@ import type {
 // Capture the actions array passed to WidgetCard for assertions.
 const widgetCardProps: Array<Record<string, unknown>> = [];
 
-vi.mock("@neoboard/components", () => ({
+vi.mock("@neoboard/components", async () => ({
   WidgetCard: ({
     children,
     title,
@@ -94,7 +94,7 @@ vi.mock("@neoboard/components", () => ({
         {flatActions.map((a) => (
           <button
             key={a.label}
-            data-testid={`action-${a.label.toLowerCase().replace(/\s+/g, "-")}`}
+            data-testid={`action-${a.label.replace(/…$/, "").toLowerCase().replace(/\s+/g, "-")}`}
             onClick={() => a.onClick?.()}
           >
             {a.label}
@@ -161,76 +161,48 @@ vi.mock("@neoboard/components", () => ({
   }: React.PropsWithChildren<Record<string, unknown>>) => (
     <button {...props}>{children}</button>
   ),
-  AlertDialog: ({
-    children,
-    open,
-  }: {
-    children: React.ReactNode;
-    open: boolean;
-  }) =>
-    open ? (
-      <div data-testid="sync-dialog" role="alertdialog">
-        {children}
-      </div>
-    ) : null,
-  AlertDialogAction: ({
-    children,
-    onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
-    <button data-testid="confirm-sync" onClick={onClick}>
-      {children}
-    </button>
-  ),
-  AlertDialogCancel: ({ children }: { children: React.ReactNode }) => (
-    <button>{children}</button>
-  ),
-  AlertDialogContent: ({
-    children,
-    onCloseAutoFocus,
-  }: {
-    children: React.ReactNode;
-    onCloseAutoFocus?: (e: Event) => void;
-  }) => {
-    useCloseAutoFocus(onCloseAutoFocus);
-    return <div>{children}</div>;
-  },
-  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ConfirmDialog: ({
+  ConfirmDialog: function MockConfirmDialog({
     open,
     onOpenChange,
-    title,
-    description,
-    confirmText,
+    action,
+    object,
+    name,
+    consequences,
     onConfirm,
     returnFocusTo,
+    returnFocusFallback,
+    destructive,
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    title: string;
-    description?: React.ReactNode;
-    confirmText?: string;
+    action: string;
+    object?: string;
+    name?: string;
+    consequences?: React.ReactNode;
     onConfirm: () => void;
     returnFocusTo?: HTMLElement | null;
-  }) =>
-    open ? (
+    returnFocusFallback?: HTMLElement | null;
+    destructive?: boolean;
+  }) {
+    // The real one hands focus back on close, to the fallback when the
+    // opener left the page.
+    useCloseAutoFocus((e) => {
+      const target = returnFocusTo?.isConnected
+        ? returnFocusTo
+        : returnFocusFallback;
+      if (!target?.isConnected) return;
+      e.preventDefault();
+      target.focus();
+    }, open);
+    return open ? (
       <div
         data-testid="confirm-dialog"
         role="alertdialog"
-        aria-label={title}
+        aria-label={`${action} ${name ?? `this ${object}`}`}
         data-return-focus={returnFocusTo?.id}
+        data-destructive={String(destructive)}
       >
-        <p>{description}</p>
+        <p>{consequences}</p>
         <button
           data-testid="confirm-dialog-cancel"
           onClick={() => onOpenChange(false)}
@@ -244,11 +216,25 @@ vi.mock("@neoboard/components", () => ({
             onOpenChange(false);
           }}
         >
-          {confirmText}
+          {object ? `${action} ${object}` : action}
         </button>
       </div>
-    ) : null,
+    ) : (
+      // What the real dialog still paints while it fades out.
+      <span data-testid={`confirm-closed-${action}`}>
+        {`${action} ${name ?? `this ${object}`}`}
+      </span>
+    );
+  },
   focusedMenuTrigger: () => mockMenuTrigger,
+  iframeSourceLink: (url?: string) =>
+    url?.startsWith("http") ? `domain:${url}` : undefined,
+  // The real function: the header must resolve the URL the way the iframe does.
+  substituteParamsInUrl: (
+    await vi.importActual<typeof import("@neoboard/components")>(
+      "@neoboard/components",
+    )
+  ).substituteParamsInUrl,
   buildCsvString: vi.fn((rows: unknown[]) => `CSV(${rows.length})`),
   triggerDownload: vi.fn(),
   buildExportFilename: vi.fn((title: string, ext: string) => `${title}.${ext}`),
@@ -261,7 +247,11 @@ vi.mock("@/components/card-container", () => ({
 }));
 
 vi.mock("@/lib/widget/interpolate-title", () => ({
-  interpolateTitle: (title: string) => title,
+  interpolateTitle: (
+    title: string,
+    _parameters: unknown,
+    labelOf?: (name: string) => string,
+  ) => title.replace(/\$param_(\w+)/g, (_m, n: string) => `[${labelOf?.(n)}]`),
 }));
 
 const mockBuildExportData = vi.fn();
@@ -297,10 +287,12 @@ const parametersState = {
   clearAll: vi.fn(),
 };
 
+let paramValues: Record<string, unknown> = { foo: "bar" };
+
 vi.mock("@/stores/parameter-store", () => ({
   useParameterStore: (sel: (s: typeof parametersState) => unknown) =>
     sel(parametersState),
-  useParameterValues: () => ({ foo: "bar" }),
+  useParameterValues: () => paramValues,
 }));
 
 vi.mock("@/lib/parameter/format-parameter-value", () => ({
@@ -370,6 +362,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   widgetCardProps.length = 0;
   parametersState.parameters = {};
+  // Tests reassign this; shuffled order must not inherit another test's values.
+  paramValues = { foo: "bar" };
   mockIsDataWidget.mockReturnValue(true);
   mockGetWidgetDisplayTitle.mockImplementation(defaultDisplayTitle);
   mockIsTemplateOutdated.mockReturnValue(false);
@@ -410,7 +404,7 @@ describe("DashboardContainer — buildActions", () => {
     );
     expect(screen.queryByTestId("action-edit-widget")).toBeNull();
     expect(screen.queryByTestId("action-duplicate")).toBeNull();
-    expect(screen.queryByTestId("action-remove")).toBeNull();
+    expect(screen.queryByTestId("action-remove-widget")).toBeNull();
   });
 
   it("includes Edit/Duplicate/Remove when editable=true and callbacks provided", () => {
@@ -426,7 +420,7 @@ describe("DashboardContainer — buildActions", () => {
     );
     fireEvent.click(screen.getByTestId("action-edit-widget"));
     fireEvent.click(screen.getByTestId("action-duplicate"));
-    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
     expect(onEditWidget).toHaveBeenCalledTimes(1);
     expect(onDuplicateWidget).toHaveBeenCalledWith("w-1");
     // Remove asks first (#2055); the confirm path is covered below.
@@ -495,8 +489,16 @@ describe("DashboardContainer — fullscreen and Sync hand focus back (#2148)", (
 
   it.each([
     ["the fullscreen button", "Fullscreen", "fullscreen-dialog-close"],
-    ["the Sync menu item", "action-sync-with-template", "confirm-sync"],
-    ["the template update button", "Template update available", "confirm-sync"],
+    [
+      "the Sync menu item",
+      "action-sync-with-template",
+      "confirm-dialog-confirm",
+    ],
+    [
+      "the template update button",
+      "Template update available",
+      "confirm-dialog-confirm",
+    ],
   ])("closing after %s returns focus to it", (_, opener, close) => {
     renderWithProviders(
       <DashboardContainer
@@ -541,7 +543,7 @@ describe("DashboardContainer — fullscreen and Sync hand focus back (#2148)", (
     fireEvent.click(
       screen.getByRole("button", { name: "Template update available" }),
     );
-    fireEvent.click(screen.getByTestId("confirm-sync"));
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
     expect(
       screen.queryByRole("button", { name: "Template update available" }),
     ).toBeNull();
@@ -567,12 +569,15 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
   it("opens a confirmation naming the widget instead of removing it", () => {
     const { onRemoveWidget } = renderRemovable();
 
-    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
 
     expect(onRemoveWidget).not.toHaveBeenCalled();
     const dialog = screen.getByRole("alertdialog", {
-      name: 'Remove "Test Widget"?',
+      name: "Remove Test Widget",
     });
+    expect(dialog).toHaveTextContent(
+      "It leaves this page when you save. The rest of the dashboard is unchanged.",
+    );
     // Focus goes back to the menu button Remove was picked from.
     expect(dialog).toHaveAttribute(
       "data-return-focus",
@@ -586,17 +591,36 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
     mockGetWidgetDisplayTitle.mockImplementation(() => "Bar Chart");
     renderRemovable([makeWidget({ chartType: "bar", settings: {} })]);
 
-    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
 
     expect(
-      screen.getByRole("alertdialog", { name: "Remove this widget?" }),
+      screen.getByRole("alertdialog", { name: "Remove this widget" }),
+    ).toBeInTheDocument();
+  });
+
+  it("names an unset $param_ in the title by the selector's title, not the key", () => {
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([
+          makeWidget({
+            settings: { title: "Revenue in $param_gallery_region" },
+          }),
+        ])}
+        editable={true}
+        actions={{ onRemoveWidget: vi.fn() }}
+        parameterSourceMap={regionSelectorMap}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
+    expect(
+      screen.getByRole("alertdialog", { name: "Remove Revenue in [Region]" }),
     ).toBeInTheDocument();
   });
 
   it("cancelling keeps the widget", () => {
     const { onRemoveWidget } = renderRemovable();
 
-    fireEvent.click(screen.getByTestId("action-remove"));
+    fireEvent.click(screen.getByTestId("action-remove-widget"));
     fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
 
     expect(onRemoveWidget).not.toHaveBeenCalled();
@@ -609,9 +633,9 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
       makeWidget({ id: "w-2", settings: { title: "Second" } }),
     ]);
 
-    fireEvent.click(screen.getAllByTestId("action-remove")[1]);
+    fireEvent.click(screen.getAllByTestId("action-remove-widget")[1]);
     expect(
-      screen.getByRole("alertdialog", { name: 'Remove "Second"?' }),
+      screen.getByRole("alertdialog", { name: "Remove Second" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
 
@@ -621,7 +645,35 @@ describe("DashboardContainer — Remove asks first (#2055)", () => {
   });
 });
 
+const regionSelectorMap = {
+  gallery_region: [
+    {
+      widgetId: "sel",
+      widgetTitle: "Region",
+      pageId: "p1",
+      pageTitle: "Main",
+      connectionId: "c",
+      label: "Region",
+    },
+  ],
+};
+
 describe("DashboardContainer — filter line", () => {
+  it("names a chip by its selector's title, the one name on the page (#2232)", () => {
+    parametersState.parameters = {
+      gallery_region: { field: "gallery_region", value: "EU" },
+    };
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage()}
+        parameterSourceMap={regionSelectorMap}
+      />,
+    );
+    const line = screen.getByRole("group", { name: "Active filters" });
+    expect(line).toHaveTextContent("Region is EU");
+    expect(line).not.toHaveTextContent("Gallery region");
+  });
+
   it("renders one sentence chip per active parameter, labelled and formatted", () => {
     parametersState.parameters = {
       gallery_region: {
@@ -1136,11 +1188,65 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     act(() => {
       fireEvent.click(outdatedBtn);
     });
-    expect(screen.getByTestId("sync-dialog")).toBeDefined();
+    expect(screen.getByTestId("confirm-dialog")).toBeDefined();
     // Confirming calls onSyncWidget
-    fireEvent.click(screen.getByTestId("confirm-sync"));
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
     expect(onSyncWidget).toHaveBeenCalledTimes(1);
   });
+
+  it("asks 'Sync <title> with its template?', says what is replaced, and marks the action destructive", () => {
+    mockIsTemplateOutdated.mockReturnValue(true);
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([
+          makeWidget({ templateId: "tpl-1", settings: { title: "Movies" } }),
+        ])}
+        editable={true}
+        actions={{ onSyncWidget: vi.fn() }}
+        templateMap={{ "tpl-1": { id: "tpl-1" } as WidgetTemplate }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Template update available" }),
+    );
+    const dialog = screen.getByTestId("confirm-dialog");
+    expect(dialog).toHaveAttribute(
+      "aria-label",
+      "Sync Movies with its template",
+    );
+    expect(dialog).toHaveTextContent(
+      "Its query, chart type and options are replaced by the template's.",
+    );
+    expect(dialog).toHaveAttribute("data-destructive", "true");
+    expect(screen.getByTestId("confirm-dialog-confirm")).toHaveTextContent(
+      "Sync widget",
+    );
+  });
+
+  it.each(["confirm", "cancel"])(
+    "keeps naming the widget in the Sync dialog while it fades out after %s",
+    (button) => {
+      mockIsTemplateOutdated.mockReturnValue(true);
+      renderWithProviders(
+        <DashboardContainer
+          page={makePage([
+            makeWidget({ templateId: "tpl-1", settings: { title: "Movies" } }),
+          ])}
+          editable={true}
+          actions={{ onSyncWidget: vi.fn() }}
+          templateMap={{ "tpl-1": { id: "tpl-1" } as WidgetTemplate }}
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Template update available" }),
+      );
+      fireEvent.click(screen.getByTestId(`confirm-dialog-${button}`));
+      expect(screen.queryByTestId("confirm-dialog")).toBeNull();
+      expect(screen.getByTestId("confirm-closed-Sync")).toHaveTextContent(
+        "Sync Movies with its template",
+      );
+    },
+  );
 
   it("clicking Sync confirm without onSyncWidget still closes dialog", () => {
     mockIsTemplateOutdated.mockReturnValue(true);
@@ -1160,9 +1266,9 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     act(() => {
       fireEvent.click(btn);
     });
-    expect(screen.getByTestId("sync-dialog")).toBeDefined();
+    expect(screen.getByTestId("confirm-dialog")).toBeDefined();
     // Confirm — must not throw and must close
-    fireEvent.click(screen.getByTestId("confirm-sync"));
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
   });
 });
 
@@ -1198,5 +1304,37 @@ describe("DashboardContainer — the source line under a title (#2247)", () => {
       "data-source",
       "Movies graph · 3 rows · just now",
     );
+  });
+});
+
+describe("DashboardContainer — an embedded page names its domain in the header (#2232)", () => {
+  it.each([
+    ["with a URL", "https://example.com/a", "domain:https://example.com/a"],
+    ["without one", undefined, null],
+    [
+      "whose URL holds a parameter, links the page the iframe loads",
+      "https://example.com/$param_year",
+      "domain:https://example.com/2024",
+    ],
+    [
+      "whose parameter turns the URL non-http(s), gets no link",
+      "$param_scheme",
+      null,
+    ],
+  ])("an iframe widget %s", (_n, url, expected) => {
+    paramValues = { param_year: 2024, param_scheme: "javascript:alert(1)" };
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([
+          makeWidget({
+            chartType: "iframe",
+            settings: { chartOptions: { url } },
+          }),
+        ])}
+      />,
+    );
+    expect(
+      screen.getByTestId("widget-card-inner").getAttribute("data-source"),
+    ).toBe(expected);
   });
 });

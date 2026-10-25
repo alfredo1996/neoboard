@@ -85,3 +85,12 @@ export const Dashboard: Story = {
     </div>
   ),
 };
+
+export const CompactWithFullValue: Story = {
+  args: {
+    value: 3250044.58,
+    prefix: "$",
+    numberFormat: "compact",
+    decimalPlaces: 1,
+  },
+};

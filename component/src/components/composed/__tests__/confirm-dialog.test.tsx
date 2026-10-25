@@ -12,63 +12,152 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 describe("ConfirmDialog", () => {
-  it("renders title and description when open", () => {
+  it("titles itself with the action and the name, and says what goes with it", () => {
     render(
       <ConfirmDialog
         open={true}
         onOpenChange={vi.fn()}
-        title="Delete item?"
-        description="This action cannot be undone."
+        action="Delete"
+        object="dashboard"
+        name="Movie Highlights"
+        consequences="Its 12 widgets go with it."
         onConfirm={vi.fn()}
       />,
     );
-    expect(screen.getByText("Delete item?")).toBeInTheDocument();
     expect(
-      screen.getByText("This action cannot be undone."),
+      screen.getByRole("alertdialog", { name: "Delete Movie Highlights?" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Its 12 widgets go with it.")).toBeInTheDocument();
+  });
+
+  it("repeats the verb and the object on the button", () => {
+    render(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        action="Delete"
+        object="dashboard"
+        name="Movie Highlights"
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Delete dashboard" }),
     ).toBeInTheDocument();
   });
+
+  it("falls back to 'this {object}' when it has no name, and to the bare action with no object", () => {
+    const { rerender } = render(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        action="Remove"
+        object="widget"
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("alertdialog", { name: "Remove this widget?" }),
+    ).toBeInTheDocument();
+    rerender(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        action="Leave without saving"
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("alertdialog", { name: "Leave without saving?" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Leave without saving" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["Delete", true],
+    ["Remove", true],
+    ["Revoke", true],
+    ["Disable", true],
+    ["Discard", true],
+    ["Leave without saving", true],
+    ["Publish", false],
+  ])("styles %s as destructive: %s", (action, destructive) => {
+    render(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        action={action}
+        object="thing"
+        onConfirm={vi.fn()}
+      />,
+    );
+    const button = screen.getByRole("button", { name: `${action} thing` });
+    expect(button.className.includes("bg-destructive")).toBe(destructive);
+  });
+
+  it.each([
+    [true, true],
+    [false, false],
+  ])(
+    "destructive=%s overrides the verb for a lossy non-delete (Sync): %s",
+    (destructive, red) => {
+      render(
+        <ConfirmDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          action="Sync"
+          object="widget"
+          destructive={destructive}
+          onConfirm={vi.fn()}
+        />,
+      );
+      const button = screen.getByRole("button", { name: "Sync widget" });
+      expect(button.className.includes("bg-destructive")).toBe(red);
+    },
+  );
 
   it("does not render content when closed", () => {
     render(
       <ConfirmDialog
         open={false}
         onOpenChange={vi.fn()}
-        title="Delete item?"
+        action="Delete"
+        object="item"
         onConfirm={vi.fn()}
       />,
     );
-    expect(screen.queryByText("Delete item?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
-  it("renders custom confirm and cancel text", () => {
-    render(
+  it("renders a custom cancel text and the default Cancel", () => {
+    const { rerender } = render(
       <ConfirmDialog
         open={true}
         onOpenChange={vi.fn()}
-        title="Confirm"
-        confirmText="Yes, delete"
-        cancelText="No, keep"
+        action="Discard"
+        object="changes"
         onConfirm={vi.fn()}
       />,
     );
-    expect(screen.getByText("Yes, delete")).toBeInTheDocument();
-    expect(screen.getByText("No, keep")).toBeInTheDocument();
-  });
-
-  it("renders default confirm and cancel text", () => {
-    render(
-      <ConfirmDialog
-        open={true}
-        onOpenChange={vi.fn()}
-        title="Are you sure?"
-        onConfirm={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    rerender(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        action="Discard"
+        object="changes"
+        cancelText="Keep editing"
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Keep editing" }),
+    ).toBeInTheDocument();
   });
 
-  it("calls onConfirm and onOpenChange when confirm button is clicked", async () => {
+  it("calls onConfirm and onOpenChange when the confirm button is clicked", async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();
     const onOpenChange = vi.fn();
@@ -76,18 +165,18 @@ describe("ConfirmDialog", () => {
       <ConfirmDialog
         open={true}
         onOpenChange={onOpenChange}
-        title="Delete?"
-        confirmText="Delete"
+        action="Delete"
+        object="item"
         onConfirm={onConfirm}
       />,
     );
 
-    await user.click(screen.getByText("Delete"));
+    await user.click(screen.getByRole("button", { name: "Delete item" }));
     expect(onConfirm).toHaveBeenCalledOnce();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("calls onCancel and onOpenChange when cancel button is clicked", async () => {
+  it("calls onCancel and onOpenChange when cancel is clicked", async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();
     const onOpenChange = vi.fn();
@@ -95,7 +184,8 @@ describe("ConfirmDialog", () => {
       <ConfirmDialog
         open={true}
         onOpenChange={onOpenChange}
-        title="Delete?"
+        action="Delete"
+        object="item"
         onConfirm={vi.fn()}
         onCancel={onCancel}
       />,
@@ -106,16 +196,37 @@ describe("ConfirmDialog", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("does not render description when not provided", () => {
+  it("has no description element when it has no consequences", () => {
     render(
       <ConfirmDialog
         open={true}
         onOpenChange={vi.fn()}
-        title="Confirm"
+        action="Delete"
+        object="item"
         onConfirm={vi.fn()}
       />,
     );
-    expect(screen.queryByText("undefined")).not.toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).not.toHaveAttribute(
+      "aria-describedby",
+    );
+  });
+
+  it("keeps a node as consequences (the live usage list) outside a <p>", () => {
+    render(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        action="Delete"
+        object="connection"
+        consequences={
+          <ul>
+            <li>Sales</li>
+          </ul>
+        }
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Sales").closest("p")).toBeNull();
   });
 });
 
@@ -144,7 +255,8 @@ describe("ConfirmDialog — focus on close (#2055)", () => {
         <ConfirmDialog
           open={open}
           onOpenChange={setOpen}
-          title="Delete?"
+          action="Delete"
+          object="item"
           onConfirm={vi.fn()}
           returnFocusTo={back}
         />
@@ -158,7 +270,9 @@ describe("ConfirmDialog — focus on close (#2055)", () => {
 
     await user.click(screen.getByRole("button", { name: "Options" }));
     await user.click(screen.getByRole("menuitem", { name: "Delete" }));
-    expect(screen.getByRole("alertdialog", { name: "Delete?" })).toBeVisible();
+    expect(
+      screen.getByRole("alertdialog", { name: "Delete this item?" }),
+    ).toBeVisible();
 
     await user.keyboard("{Escape}");
 
@@ -179,7 +293,8 @@ describe("ConfirmDialog — focus on close (#2055)", () => {
         <ConfirmDialog
           open={open}
           onOpenChange={setOpen}
-          title="Remove?"
+          action="Remove"
+          object="item"
           onConfirm={vi.fn()}
           returnFocusTo={gone}
         />
@@ -187,12 +302,37 @@ describe("ConfirmDialog — focus on close (#2055)", () => {
     }
     render(<Asked />);
 
-    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await user.click(screen.getByRole("button", { name: "Remove item" }));
 
     expect(screen.queryByRole("alertdialog")).toBeNull();
     // Radix's close autofocus runs a tick after unmount.
     await new Promise((r) => setTimeout(r, 10));
     expect(focus).not.toHaveBeenCalled();
+  });
+
+  it("goes to the fallback when the element to go back to is gone", async () => {
+    const user = userEvent.setup();
+    const gone = document.createElement("button");
+    const fallback = document.createElement("button");
+    document.body.append(fallback);
+    function Asked() {
+      const [open, setOpen] = React.useState(true);
+      return (
+        <ConfirmDialog
+          open={open}
+          onOpenChange={setOpen}
+          action="Remove"
+          object="item"
+          onConfirm={vi.fn()}
+          returnFocusTo={gone}
+          returnFocusFallback={fallback}
+        />
+      );
+    }
+    render(<Asked />);
+    await user.click(screen.getByRole("button", { name: "Remove item" }));
+    await waitFor(() => expect(fallback).toHaveFocus());
+    fallback.remove();
   });
 });
 
@@ -225,14 +365,14 @@ describe("ConfirmDialog — confirms once", () => {
         <ConfirmDialog
           open={open}
           onOpenChange={setOpen}
-          title="Delete?"
-          confirmText="Delete"
+          action="Delete"
+          object="item"
           onConfirm={onConfirm}
         />
       );
     }
     render(<Asked />);
-    const confirm = screen.getByRole("button", { name: "Delete" });
+    const confirm = screen.getByRole("button", { name: "Delete item" });
 
     fireEvent.click(confirm);
     expect(confirm.isConnected).toBe(true); // still there, fading out

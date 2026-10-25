@@ -1705,6 +1705,8 @@ const SPEC = {
           "shared",
           "role",
           "widgetCount",
+          "pageCount",
+          "shareCount",
         ],
         properties: {
           id: { type: "string" },
@@ -1729,6 +1731,14 @@ const SPEC = {
               "a public dashboard a non-admin neither owns nor is shared on is `viewer`.",
           },
           widgetCount: { type: "integer", minimum: 0 },
+          pageCount: { type: "integer", minimum: 0 },
+          shareCount: {
+            type: "integer",
+            minimum: 0,
+            description:
+              "People the dashboard is shared with in the caller's tenant: distinct share rows' users, " +
+              "the owner and the public flag not counted.",
+          },
         },
       },
       DashboardDetail: {

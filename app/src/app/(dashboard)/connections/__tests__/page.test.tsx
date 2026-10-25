@@ -177,17 +177,19 @@ vi.mock("@neoboard/components", async () => {
     // after the render that closes it, as Radix does.
     ConfirmDialog: function ConfirmDialog({
       open,
-      description,
+      consequences,
       onOpenChange,
       onConfirm,
-      confirmText,
+      action,
+      object,
       returnFocusTo,
     }: {
       open: boolean;
-      description?: React.ReactNode;
+      consequences?: React.ReactNode;
       onOpenChange: (open: boolean) => void;
       onConfirm: () => void;
-      confirmText: string;
+      action: string;
+      object?: string;
       returnFocusTo?: HTMLElement | null;
     }) {
       const wasOpen = React.useRef(open);
@@ -197,7 +199,7 @@ vi.mock("@neoboard/components", async () => {
       });
       return open ? (
         <div role="alertdialog">
-          {description}
+          {consequences}
           <button onClick={() => onOpenChange(false)}>Cancel</button>
           <button
             onClick={() => {
@@ -205,7 +207,7 @@ vi.mock("@neoboard/components", async () => {
               onOpenChange(false);
             }}
           >
-            {confirmText}
+            {object ? `${action} ${object}` : action}
           </button>
         </div>
       ) : null;
@@ -299,7 +301,11 @@ const pick = (
   name: string,
   action: "Test" | "Edit" | "Duplicate" | "Delete",
 ) => {
-  const label = action === "Test" ? "Test Connection" : action;
+  const labels = { Test: "Test Connection", Delete: "Delete…" } as Record<
+    string,
+    string
+  >;
+  const label = labels[action] ?? action;
   fireEvent.click(rowOf(name).getByRole("menuitem", { name: label }));
 };
 
@@ -531,7 +537,7 @@ describe("ConnectionsPage — single Test (#1426)", () => {
 
     expect(statusOf("conn-1")).toBe("unknown");
     expect(mockToast).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ title: "Server busy" }),
+      expect.objectContaining({ title: "Server busy", variant: "pending" }),
     );
   });
 
@@ -690,7 +696,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
       row.getByText("uninstalled — connector not installed"),
     ).toBeInTheDocument();
     expect(row.getAllByRole("menuitem").map((i) => i.textContent)).toEqual([
-      "Delete",
+      "Delete…",
     ]);
   });
 
@@ -967,7 +973,7 @@ describe("ConnectionsPage — where focus goes after Delete (#2086)", () => {
     render(<ConnectionsPage />);
 
     pick("conn-1", "Delete");
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete connection" }));
 
     expect(screen.getByRole("heading", { name: "Connections" })).toHaveFocus();
   });

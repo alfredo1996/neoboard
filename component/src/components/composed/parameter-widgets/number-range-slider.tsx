@@ -78,31 +78,47 @@ function NumberRangeSlider({
     onChange([current[0], clamped]);
   };
 
+  const resetButton = hasValue && (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-5 px-1 text-xs text-muted-foreground hover:text-foreground"
+      onClick={onClear}
+      {...qualifiedName(
+        labelledBy,
+        `${qualifierId}-clear`,
+        `Clear ${humanizeParamName(parameterName)}`,
+        true,
+      )}
+    >
+      <X className="h-3 w-3 mr-0.5" />
+      Reset
+    </Button>
+  );
+
+  const slider = (cls: string) => (
+    <Slider
+      min={min}
+      max={max}
+      step={step}
+      value={current}
+      onValueChange={handleSliderChange}
+      aria-labelledby={labelIdOf(labelId)}
+      className={cls}
+    />
+  );
+
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-center justify-between">
-        {!labelledBy && (
-          <ParamLabel parameterName={parameterName} id={labelId} />
-        )}
-        {hasValue && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-5 px-1 text-xs text-muted-foreground hover:text-foreground"
-            onClick={onClear}
-            {...qualifiedName(
-              labelledBy,
-              `${qualifierId}-clear`,
-              `Clear ${humanizeParamName(parameterName)}`,
-              true,
-            )}
-          >
-            <X className="h-3 w-3 mr-0.5" />
-            Reset
-          </Button>
-        )}
-      </div>
+      {(!labelledBy || !showInputs) && (
+        <div className="flex items-center justify-between">
+          {!labelledBy && (
+            <ParamLabel parameterName={parameterName} id={labelId} />
+          )}
+          {!showInputs && resetButton}
+        </div>
+      )}
       {labelledBy && (
         <>
           <span id={`${qualifierId}-clear`} hidden>
@@ -118,7 +134,7 @@ function NumberRangeSlider({
       )}
 
       {showInputs && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             id={id}
             aria-describedby={describedBy}
@@ -129,7 +145,7 @@ function NumberRangeSlider({
             min={min}
             max={current[1]}
             step={step}
-            className="w-20 text-center text-sm h-7"
+            className="w-16 shrink-0 text-center px-1"
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-min`,
@@ -148,25 +164,18 @@ function NumberRangeSlider({
             min={current[0]}
             max={max}
             step={step}
-            className="w-20 text-center text-sm h-7"
+            className="w-16 shrink-0 text-center px-1"
             {...qualifiedName(
               labelledBy,
               `${qualifierId}-max`,
               `${humanizeParamName(parameterName)} maximum`,
             )}
           />
+          {slider("min-w-16 flex-1")}
+          {resetButton}
         </div>
       )}
-
-      <Slider
-        min={min}
-        max={max}
-        step={step}
-        value={current}
-        onValueChange={handleSliderChange}
-        aria-labelledby={labelIdOf(labelId)}
-        className="w-full"
-      />
+      {!showInputs && slider("w-full")}
 
       <div className="flex justify-between text-xs text-muted-foreground">
         <span>{min}</span>

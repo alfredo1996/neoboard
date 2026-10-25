@@ -7,6 +7,7 @@ import { gaugePlugin } from "../gauge";
 import { ganttPlugin } from "../gantt";
 import { linePlugin } from "../line";
 import { piePlugin } from "../pie";
+import { sunburstPlugin } from "../sunburst";
 import { singleValuePlugin } from "../single-value";
 import { transformToValueData } from "../single-value/transform";
 
@@ -40,6 +41,7 @@ vi.mock("next/dynamic", () => ({
         data-invert-tiles={String(props.invertTilesInDarkMode ?? "")}
         data-show-rel-labels={String(props.showRelationshipLabels ?? "")}
         data-enable-data-zoom={String(props.enableDataZoom ?? "")}
+        data-center-text={String(props.sunburstCenterText ?? "")}
         data-highlighted={JSON.stringify(props.highlighted ?? null)}
       />
     );
@@ -289,6 +291,21 @@ describe("options advertised by the editor reach the chart (#1472)", () => {
     const GanttComponent = ganttPlugin.component;
     render(<GanttComponent data={[]} settings={{ enableDataZoom: false }} />);
     expect(attr("data-enable-data-zoom")).toBe("false");
+  });
+});
+
+describe("sunburst centre text forwarding (#2231)", () => {
+  it("hands the author's centre text to the chart", () => {
+    const SunburstComponent = sunburstPlugin.component;
+    render(
+      <SunburstComponent
+        data={[]}
+        settings={{ sunburstCenterText: "orders" }}
+      />,
+    );
+    expect(screen.getByTestId("chart").getAttribute("data-center-text")).toBe(
+      "orders",
+    );
   });
 });
 

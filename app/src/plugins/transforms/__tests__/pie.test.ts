@@ -16,6 +16,13 @@ describe("transformToPieData", () => {
     expect(result[0]).toMatchObject({ name: "Apples", value: 30 });
   });
 
+  it("carries no column name into the rows (#2227)", () => {
+    const data = [{ a: "Cat", order_count: 10 }];
+    expect((transformToPieData(data) as object[])[0]).not.toHaveProperty(
+      "valueLabel",
+    );
+  });
+
   it("returns empty array for empty input", () => {
     expect(transformToPieData([])).toEqual([]);
   });

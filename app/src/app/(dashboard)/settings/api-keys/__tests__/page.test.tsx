@@ -72,13 +72,15 @@ vi.mock("@neoboard/components", async () => ({
     open,
     onOpenChange,
     onConfirm,
-    confirmText,
+    action,
+    object,
     returnFocusTo,
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onConfirm: () => void;
-    confirmText: string;
+    action: string;
+    object?: string;
     returnFocusTo?: HTMLElement | null;
   }) {
     const wasOpen = React.useRef(open);
@@ -95,7 +97,7 @@ vi.mock("@neoboard/components", async () => ({
             onOpenChange(false);
           }}
         >
-          {confirmText}
+          {object ? `${action} ${object}` : action}
         </button>
       </>
     ) : null;
@@ -244,7 +246,7 @@ describe("ApiKeysPage Revoke (#2086)", () => {
     mockKeys = [makeKey({})];
     render(<ApiKeysPage />);
 
-    fireEvent.click(screen.getByRole("menuitem", { name: "Revoke" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Revoke…" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(menuTrigger).toHaveFocus();
@@ -254,8 +256,8 @@ describe("ApiKeysPage Revoke (#2086)", () => {
     mockKeys = [makeKey({})];
     render(<ApiKeysPage />);
 
-    fireEvent.click(screen.getByRole("menuitem", { name: "Revoke" }));
-    fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Revoke…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revoke key" }));
 
     expect(screen.getByRole("heading", { name: "API keys" })).toHaveFocus();
   });

@@ -642,8 +642,9 @@ describe("the documented parameter types are the ones the editor offers (#1782)"
       "relative-date": "date-relative",
     };
     const types = [...table.matchAll(/^\| ([^|]+?)\s+\|/gm)]
-      .slice(1) // the header; `|----|` has no space, so it never matches
+      .slice(1) // the header
       .map((m) => m[1])
+      .filter((cell) => !/^:?-+:?$/.test(cell)) // Prettier's `| --- |` rule row
       .map((cell) => cell.toLowerCase().replace(/\s+/g, "-"))
       .map((s) => DISPLAY_TO_TYPE[s] ?? s);
     expect([...types].sort()).toEqual([...offered].sort());

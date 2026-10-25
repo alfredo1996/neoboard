@@ -5,6 +5,15 @@ import { SankeyChart } from "../sankey-chart";
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
 const mockSetOption = vi.fn();
+const measured = { width: 800, height: 400 };
+
+vi.mock("@/hooks/useContainerSize", () => ({
+  useContainerSize: () => ({
+    width: measured.width,
+    height: measured.height,
+    containerRef: vi.fn(),
+  }),
+}));
 
 vi.mock("echarts/core", () => {
   const use = vi.fn();
@@ -32,6 +41,7 @@ const sampleData = {
 describe("SankeyChart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    measured.width = 800;
   });
 
   it("renders without errors", () => {
@@ -177,6 +187,88 @@ describe("SankeyChart", () => {
       expect(links.map((l) => l.properties)).toEqual(
         withRows.links.map((l) => l.properties),
       );
+    });
+  });
+
+  // The Hastings look (#2231)
+  describe("flows, emphasis and labels", () => {
+    type Series = {
+      lineStyle: { color: string; opacity: number };
+      itemStyle: { color: string };
+      emphasis: {
+        focus: string;
+        lineStyle: { color: string };
+      };
+      label: {
+        position: string;
+        textBorderColor: string;
+        textBorderWidth: number;
+        formatter: (p: { name: string; value: number }) => string;
+      };
+      levels: { depth: number; label: { position: string } }[];
+      left: number;
+      right: number;
+    };
+    const series = (): Series => mockSetOption.mock.calls[0][0].series[0];
+
+    it("draws flows grey at 50%, visible without hover", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().lineStyle.color).toBe("#9AA3B0");
+      expect(series().lineStyle.opacity).toBe(0.5);
+    });
+
+    it("draws nodes in ink", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().itemStyle.color).toBe("#525A66");
+    });
+
+    it("traces the whole path on hover and turns it citrine", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().emphasis.focus).toBe("trajectory");
+      expect(series().emphasis.lineStyle.color).toBe("#C47C08");
+    });
+
+    it("puts depth 0 labels on the left and every other depth on the right", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().label.position).toBe("right");
+      expect(series().levels).toEqual([
+        { depth: 0, label: { position: "left" } },
+      ]);
+    });
+
+    it("haloes labels in the card colour and prints the value beside the name", () => {
+      render(<SankeyChart data={sampleData} />);
+      expect(series().label.textBorderColor).toBe("#ffffff");
+      expect(series().label.textBorderWidth).toBe(3);
+      expect(series().label.formatter({ name: "A", value: 12345 })).toBe(
+        "A {v|12.3K}",
+      );
+    });
+
+    it("cuts a long edge name to the 30% cap, keeping its value", () => {
+      measured.width = 400;
+      const long = "An extraordinarily long source name for an edge";
+      render(
+        <SankeyChart
+          data={{
+            nodes: [{ name: long }, { name: "B" }],
+            links: [{ source: long, target: "B", value: 12345 }],
+          }}
+        />,
+      );
+      const label = series().label.formatter({ name: long, value: 12345 });
+      expect(label).toMatch(/^.+… \{v\|12\.3K\}$/);
+      expect(label.length).toBeLessThan(long.length);
+      expect(series().left).toBeLessThanOrEqual(Math.ceil(400 * 0.3) + 16);
+      // A name that fits is left whole.
+      expect(series().label.formatter({ name: "B", value: 1 })).toBe("B {v|1}");
+    });
+
+    it("leaves room for the labels that stick out of the plot", () => {
+      // sampleData: source "A" sits on the left, sink "C" on the right.
+      render(<SankeyChart data={sampleData} />);
+      expect(series().left).toBeGreaterThan(0);
+      expect(series().right).toBeGreaterThan(0);
     });
   });
 });

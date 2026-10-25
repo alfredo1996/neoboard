@@ -34,6 +34,8 @@ const LANG_ALIASES: Record<string, SupportedLang> = {
   cypher: "cypher",
 };
 
+const THEME = "neoboard-css";
+
 let highlighterPromise: Promise<HighlighterCore> | null = null;
 let highlighterInstance: HighlighterCore | null = null;
 
@@ -49,14 +51,14 @@ async function getHighlighter(): Promise<HighlighterCore> {
   if (highlighterPromise) return highlighterPromise;
 
   highlighterPromise = (async () => {
-    const { createHighlighterCore } = await import("shiki/core");
+    const { createHighlighterCore, createCssVariablesTheme } =
+      await import("shiki/core");
     const { createOnigurumaEngine } = await import("shiki/engine/oniguruma");
 
     const instance = await createHighlighterCore({
-      themes: [
-        import("@shikijs/themes/github-light"),
-        import("@shikijs/themes/github-dark"),
-      ],
+      // One theme made of CSS variables (design-tokens.css maps them onto the
+      // --code-* tokens), so both colour schemes come from the stylesheet (#2232).
+      themes: [createCssVariablesTheme({ name: THEME })],
       langs: [
         import("@shikijs/langs/sql"),
         import("@shikijs/langs/json"),
@@ -91,7 +93,7 @@ export function highlightSync(code: string, lang: string): string | null {
   try {
     return highlighterInstance.codeToHtml(code, {
       lang: resolved,
-      themes: { light: "github-light", dark: "github-dark" },
+      theme: THEME,
     });
   } catch {
     return null;

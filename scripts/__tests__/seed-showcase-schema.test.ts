@@ -155,6 +155,34 @@ describe("seeds only use palette ids that exist", () => {
     });
   }
 
+  // #2227 — the line and pie gallery pages draw in the Hastings palette, as
+  // the bar page does; the observable/tableau ones were left from before.
+  it("chart-gallery: the bar, line and pie pages use the hastings palette", () => {
+    const gallery = JSON.parse(
+      readFileSync(
+        new URL("../demo/chart-gallery.json", import.meta.url),
+        "utf-8",
+      ),
+    ) as {
+      layout: {
+        pages: {
+          title: string;
+          widgets: { settings?: { chartOptions?: { colorPalette?: string } } }[];
+        }[];
+      };
+    };
+    const palette = (title: string) =>
+      gallery.layout.pages
+        .find((pg) => pg.title.includes(title))
+        ?.widgets.map((w) => w.settings?.chartOptions?.colorPalette)
+        .find(Boolean);
+    expect(["Bar", "Line", "Pie"].map(palette)).toEqual([
+      "hastings",
+      "hastings",
+      "hastings",
+    ]);
+  });
+
   it("docker/postgres/seed-neoboard.sql: every colorPalette is a COLOR_PALETTES key", () => {
     const sql = readFileSync(
       new URL("../../docker/postgres/seed-neoboard.sql", import.meta.url),

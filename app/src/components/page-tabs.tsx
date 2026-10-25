@@ -215,7 +215,7 @@ export function PageTabs({
                       onClick={() => requestDelete(activeIndex)}
                     >
                       <Trash2 className="mr-2 h-3 w-3" />
-                      Delete page
+                      Delete page…
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -250,10 +250,10 @@ export function PageTabs({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Delete "${deleteTarget?.page.title ?? ""}"?`}
-        description={`This deletes the page and its ${pluralWidgets(deleteTarget?.page.widgets.length ?? 0)}.`}
-        confirmText="Delete"
-        variant="destructive"
+        action="Delete"
+        object="page"
+        name={deleteTarget?.page.title}
+        consequences={`Its ${pluralWidgets(deleteTarget?.page.widgets.length ?? 0)} ${deleteTarget?.page.widgets.length === 1 ? "goes" : "go"} with it when you save.`}
         returnFocusTo={deleteTarget?.returnFocusTo}
         onConfirm={() => {
           if (deleteTarget) onRemove?.(deleteTarget.index);

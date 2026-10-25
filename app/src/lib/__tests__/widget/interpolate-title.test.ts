@@ -42,6 +42,12 @@ describe("interpolateTitle", () => {
     );
   });
 
+  it("names an unset parameter by the label it is given", () => {
+    expect(
+      interpolateTitle("Revenue in $param_gallery_region", {}, () => "Region"),
+    ).toBe("Revenue in [Region]");
+  });
+
   it("names a null-valued parameter in words", () => {
     const params: Record<string, ParameterEntry> = { genre: entry(null) };
     expect(interpolateTitle("Movies by $param_genre", params)).toBe(

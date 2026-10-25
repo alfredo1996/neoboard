@@ -170,15 +170,18 @@ describe("GanttChart", () => {
       return mockSetOption.mock.calls[0][0];
     };
 
-    it("sizes the grid in pixels and lets ECharts reserve the label gutter", () => {
-      // "15%" only matched the 100px label budget at a 667px canvas; narrower
-      // than that and the task names were hard-clipped. containLabel makes
-      // ECharts measure the axis instead of us guessing a percentage.
-      const { grid } = optionOf({ data: sampleData });
-      expect(grid.containLabel).toBe(true);
-      expect(typeof grid.left).toBe("number");
-      expect(typeof grid.right).toBe("number");
-      expect(String(grid.left)).not.toContain("%");
+    it("sizes the name column from the longest name, in pixels (#2231)", () => {
+      // "15%" only matched a 100px label budget at a 667px canvas. The column
+      // is measured now: the longest name plus an 18px gap. jsdom has no
+      // canvas, so the measure is 0.6em (6.6px at 11px) per character.
+      const short = optionOf({ data: sampleData }); // longest: "Develop", 7
+      expect(short.grid.containLabel).toBe(false);
+      expect(short.grid.left).toBe(Math.ceil(7 * 6.6) + 18);
+      const long = optionOf({
+        data: [{ ...sampleData[0], task: "A considerably longer task name" }],
+      }); // 31 characters
+      expect(long.grid.left).toBe(Math.ceil(31 * 6.6) + 18);
+      expect(typeof short.grid.right).toBe("number");
     });
 
     it("keeps room at the bottom for the zoom slider", () => {
@@ -197,28 +200,140 @@ describe("GanttChart", () => {
       expect(xAxis.axisLabel.formatter.year).toBe("{yyyy}");
     });
 
-    it("keeps task names visible, truncating rather than hiding them", () => {
+    it("shows whole names, with no hard-coded 60/100 budget", () => {
       const { yAxis } = optionOf({ data: sampleData });
-      expect(yAxis.axisLabel.overflow).toBe("truncate");
-      expect(yAxis.axisLabel.width).toBe(100);
+      expect(yAxis.axisLabel.width).toBeUndefined();
+      expect(yAxis.axisLabel.overflow).toBeUndefined();
     });
 
-    it("tightens padding and the label budget in a narrow widget", () => {
-      // A chart with no task names identifies nothing, so a narrow container
-      // shrinks the budget rather than dropping the axis (#1247).
+    it("caps the column at half a narrow widget and truncates to fit it", () => {
+      // A chart with no task names identifies nothing, so the column stays,
+      // but it never takes more than half the widget (#1247, #2231).
       measured.width = 240;
-      const { grid, yAxis } = optionOf({ data: sampleData });
-      expect(grid.left).toBe(8);
+      const { grid, yAxis } = optionOf({
+        data: [{ ...sampleData[0], task: "x".repeat(60) }],
+      });
+      expect(grid.left).toBe(120);
+      expect(yAxis.axisLabel.width).toBe(120 - 18);
+      expect(yAxis.axisLabel.overflow).toBe("truncate");
+    });
+
+    it("tightens the other paddings in a narrow widget", () => {
+      measured.width = 240;
+      const { grid } = optionOf({ data: sampleData });
       expect(grid.right).toBe(8);
       expect(grid.top).toBe(8);
-      expect(yAxis.axisLabel.width).toBe(60);
-      expect(yAxis.axisLabel.overflow).toBe("truncate");
     });
 
     it("still reserves the slider room when compact", () => {
       measured.width = 240;
       const { grid } = optionOf({ data: sampleData });
       expect(grid.bottom).toBe(40);
+    });
+  });
+
+  describe("Hastings look (#2231)", () => {
+    const optionOf = (props: Parameters<typeof GanttChart>[0]) => {
+      mockSetOption.mockClear();
+      render(<GanttChart {...props} />);
+      return mockSetOption.mock.calls[0][0];
+    };
+    const day = 86400000;
+    const weeks = [
+      { task: "Plan", start: 1700000000000, end: 1700000000000 + 5 * day },
+      {
+        task: "Build",
+        start: 1700000000000 + day,
+        end: 1700000000000 + 33 * day,
+      },
+    ];
+
+    it("colours bars by the category column through the palette", () => {
+      const { series } = optionOf({ data: sampleData });
+      const colours = series[0].data.map(
+        (d: { itemStyle?: { color: string } }) => d.itemStyle?.color,
+      );
+      // Design/Develop share Phase 1, Test is Phase 2; hastings light 1 and 2.
+      expect(colours).toEqual(["#C47C08", "#C47C08", "#5B7290"]);
+    });
+
+    it("lets a styling rule override the category colour", () => {
+      const { series } = optionOf({
+        data: sampleData,
+        stylingRules: [
+          {
+            id: "r",
+            column: "category",
+            operator: "==",
+            value: "Phase 2",
+            color: "#123456",
+          },
+        ],
+      });
+      expect(series[0].data[2].itemStyle.color).toBe("#123456");
+    });
+
+    it("ticks weekly at local midnight, over a span of weeks", () => {
+      const { xAxis } = optionOf({ data: weeks });
+      // From the first start's midnight, a week apart, up to the last end.
+      const from = new Date(1700000000000);
+      from.setHours(0, 0, 0, 0);
+      const ticks = [0, 7, 14, 21, 28].map((n) => {
+        const d = new Date(from);
+        d.setDate(d.getDate() + n);
+        return d.getTime();
+      });
+      expect(xAxis.axisTick.customValues).toEqual(ticks);
+      expect(xAxis.axisLabel.customValues).toEqual(ticks);
+      expect(xAxis.splitLine.show).toBe(true);
+    });
+
+    it.each([
+      ["a year at 800px", 800, 365],
+      ["a year in a 240px widget", 240, 365],
+    ])("keeps weekly labels 48px apart over %s", (_n, width, days) => {
+      measured.width = width;
+      const start = new Date(2026, 0, 1).getTime();
+      const { xAxis, grid } = optionOf({
+        data: [{ task: "A", start, end: start + days * day }],
+      });
+      const ticks = xAxis.axisLabel.customValues as number[];
+      const plot = width - grid.left - grid.right;
+      const pxPerMs = plot / (days * day);
+      expect((ticks[1] - ticks[0]) * pxPerMs).toBeGreaterThanOrEqual(48);
+      // A whole number of weeks, as calendar days (DST-safe).
+      const gap = Math.round((ticks[1] - ticks[0]) / day);
+      expect(gap % 7).toBe(0);
+    });
+
+    it("names every weekly tick as a day, even one at 09:00 or on Jan 1", () => {
+      // ECharts picks a template per tick's precision: a tick off midnight
+      // printed "09:00", one on Jan 1 printed "2027". A midnight tick under a
+      // plain string template prints "{MMM} {d}" whatever it falls on.
+      const start = new Date(2026, 11, 25, 9, 0).getTime();
+      const { xAxis } = optionOf({
+        data: [{ task: "A", start, end: start + 20 * day }],
+      });
+      expect(xAxis.axisLabel.formatter).toBe("{MMM} {d}");
+      const ticks = xAxis.axisLabel.customValues as number[];
+      expect(ticks.every((t) => new Date(t).getHours() === 0)).toBe(true);
+      const jan1 = new Date(ticks[1]);
+      expect([jan1.getMonth(), jan1.getDate()]).toEqual([0, 1]);
+    });
+
+    it("leaves tick spacing to ECharts over a span shorter than two weeks", () => {
+      const { xAxis } = optionOf({ data: sampleData });
+      expect(xAxis.axisTick).toBeUndefined();
+      expect(xAxis.axisLabel.customValues).toBeUndefined();
+    });
+
+    it("draws the zoom slider 6px high, near the bottom edge", () => {
+      const { dataZoom } = optionOf({ data: sampleData });
+      const slider = dataZoom.find(
+        (z: { type: string }) => z.type === "slider",
+      );
+      expect(slider.height).toBe(6);
+      expect(slider.bottom).toBe(8);
     });
   });
 
@@ -258,20 +373,6 @@ describe("GanttChart", () => {
     const xZooms = (zooms: Zoom[]) => zooms.filter((z) => z.xAxisIndex === 0);
     const xSlider = (zooms: Zoom[]) =>
       xZooms(zooms).find((z) => z.type === "slider");
-
-    it("labels the slider handles with the datetime, not the axis tick precision", () => {
-      // Without a labelFormatter the slider falls back to TimeScale.getLabel,
-      // whose precision follows the tick interval: seconds on a two-week
-      // range, a bare date once the ticks are years. The data are datetimes,
-      // so the handle says so — every time, in a fixed shape.
-      const { dataZoom } = optionOf({ data: sampleData });
-      const formatter = xSlider(dataZoom)?.labelFormatter as (
-        ms: number,
-      ) => string;
-      expect(formatter(new Date(2026, 3, 1, 9, 5).getTime())).toBe(
-        "2026-04-01 09:05",
-      );
-    });
 
     it("keeps a bar while either end is inside the window", () => {
       // The custom series encodes x as [start, end]; the default 'filter'

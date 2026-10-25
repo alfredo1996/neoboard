@@ -1,23 +1,39 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import * as echarts from "echarts/core";
 import { SunburstChart as ESunburstChart } from "echarts/charts";
-import { TitleComponent, TooltipComponent } from "echarts/components";
+import {
+  GraphicComponent,
+  TitleComponent,
+  TooltipComponent,
+} from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart, useDarkMode } from "./base-chart";
-import type { BaseChartProps } from "./types";
+import { BaseChart, useDarkMode, resolveSeriesPalette } from "./base-chart";
+import type { BaseChartProps, EChartsClickEvent } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
   buildEmptyDataOption,
+  formatNumber,
   resolveItemColor,
-  FILL_LABEL_COLOR,
-  FILL_LABEL_SHADOW,
-  FILL_LABEL_SHADOW_BLUR,
-  fillLabelStyle,
 } from "./chart-utils";
+import { INK, SURFACE_COLOR } from "./theme";
+import {
+  drillAfterClick,
+  paintTree,
+  resolveDrill,
+  sumValue,
+  viewOf,
+  type PaintedNode,
+} from "./sunburst-view";
 import type { StylingRule } from "./styling-rule";
 
-echarts.use([ESunburstChart, TitleComponent, TooltipComponent, CanvasRenderer]);
+echarts.use([
+  ESunburstChart,
+  GraphicComponent,
+  TitleComponent,
+  TooltipComponent,
+  CanvasRenderer,
+]);
 
 export interface SunburstDataItem {
   name: string;
@@ -40,11 +56,71 @@ export interface SunburstChartProps extends Omit<BaseChartProps, "options"> {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for parameterRef comparisons */
   paramValues?: Record<string, unknown>;
+  /** Label under the centre total ("revenue", "orders"). Blank shows the total alone. */
+  sunburstCenterText?: string;
+}
+
+const EDGE_SHARES: Record<number, number[]> = {
+  1: [1],
+  2: [0.444, 0.556],
+};
+
+/** Where each ring ends, as a share of the radius left after the hole. */
+function ringEdges(rings: number, hole: number): string[] {
+  const span = 92 - hole;
+  // The first two rings are the wide ones; any more share what is left.
+  const share = EDGE_SHARES[rings] ?? [
+    0.389,
+    0.389,
+    ...new Array<number>(rings - 2).fill(0.222 / (rings - 2)),
+  ];
+  let edge = hole;
+  return [
+    `${hole}%`,
+    ...share.map((w) => {
+      edge += w * span;
+      return `${Math.round(edge * 10) / 10}%`;
+    }),
+  ];
+}
+
+/** One ECharts level per ring: its radii, and a label only where one fits. */
+function ringLevels(
+  edges: string[],
+  labelDepth: number,
+  labelsOn: boolean,
+): Record<string, unknown>[] {
+  const levels: Record<string, unknown>[] = [{}];
+  for (let i = 1; i < edges.length; i++) {
+    const shown = labelsOn && i <= labelDepth;
+    let label: Record<string, unknown> = { show: false };
+    if (shown) {
+      label = {
+        rotate: 0,
+        fontSize: i === 1 ? 12 : 10.5,
+        fontWeight: i === 1 ? 600 : 400,
+        // Hidden where the arc is too narrow to hold the name.
+        ...(i === 1 ? {} : { minAngle: 12 }),
+      };
+    }
+    levels.push({ r0: edges[i - 1], r: edges[i], label });
+  }
+  return levels;
+}
+
+function depthOf(nodes: PaintedNode[]): number {
+  return nodes.length
+    ? 1 + Math.max(0, ...nodes.map((n) => depthOf(n.children ?? [])))
+    : 0;
 }
 
 /**
  * Sunburst chart for displaying hierarchical data as nested arcs.
  * Accepts `data` as a tree: `[{ name, value, children: [...] }]`.
+ *
+ * Without a click action it shows two rings, a click goes one level down and
+ * the centre one level up. With a click action every ring shows and a click
+ * runs the action: the two never compete (#1596, #2231).
  */
 function SunburstChart({
   data,
@@ -54,8 +130,10 @@ function SunburstChart({
   highlightOnHover = true,
   stylingRules,
   paramValues,
+  sunburstCenterText,
   ariaDescription,
   onClick,
+  colorPalette,
   ...rest
 }: SunburstChartProps) {
   const { width, height, containerRef } = useContainerSize();
@@ -65,6 +143,8 @@ function SunburstChart({
   // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
   const dark = useDarkMode();
 
+  const [drill, setDrill] = useState<string[]>([]);
+
   // A single top-level node is a container, not a ring: showing it would paint
   // every arc as tints of one hue. Circle packing unwraps the same way; the
   // transform keeps the root because circle packing uses its name as the first
@@ -72,16 +152,53 @@ function SunburstChart({
   const displayedRings =
     data.length === 1 && data[0].children?.length ? data[0].children : data;
 
+  // Painted once on the whole tree, so a node keeps its colour whichever
+  // level the view is centred on.
+  const painted = useMemo(() => {
+    const palette = resolveSeriesPalette(colorPalette);
+    const bases = displayedRings.map((item, i) => {
+      const numericValue = typeof item.value === "number" ? item.value : 0;
+      const rule = stylingRules?.length
+        ? resolveItemColor(numericValue, stylingRules, paramValues)
+        : undefined;
+      return rule ?? palette[i % palette.length];
+    });
+    return paintTree(
+      displayedRings,
+      bases,
+      SURFACE_COLOR[dark ? "dark" : "light"],
+    );
+  }, [displayedRings, colorPalette, stylingRules, paramValues, dark]);
+
+  const clickAction = onClick !== undefined;
+
+  const handleClick = useCallback(
+    (e: EChartsClickEvent) => {
+      if (onClick) {
+        onClick(e);
+        return;
+      }
+      if (e.componentType !== "series") return;
+      const relative = (e.treePathInfo ?? []).slice(1).map((x) => x.name ?? "");
+      setDrill((d) =>
+        drillAfterClick(painted, resolveDrill(painted, d), relative),
+      );
+    },
+    [onClick, painted],
+  );
+
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption(dark);
 
-    const rings = displayedRings;
+    // A path the data no longer has is the overview.
+    const effective = clickAction ? [] : resolveDrill(painted, drill);
+    const view = viewOf(painted, effective, clickAction ? undefined : 2);
+    const rings = depthOf(view);
+    const drilled = effective.length > 0;
+    const theme = dark ? "dark" : "light";
 
-    // Sort function for echarts sunburst
-    const sortFn =
-      sort === "none" ? undefined : sort === "asc" ? "asc" : "desc";
+    const sortFn = sort === "none" ? undefined : sort;
 
-    // Determine how deep labels should display.
     // 0 / undefined / null → auto (default 2). Positive integer = exact depth.
     const labelDepth =
       typeof maxLabelDepth === "number" &&
@@ -89,142 +206,136 @@ function SunburstChart({
       maxLabelDepth > 0
         ? Math.floor(maxLabelDepth)
         : 2;
-    const canShowLabel = (depth: number) =>
-      showLabels && !compact && depth <= labelDepth;
 
-    // Walk the tree to find max depth and count nodes at each level
-    const countByLevel: number[] = [];
-    const walk = (items: SunburstDataItem[], depth: number) => {
-      countByLevel[depth] = (countByLevel[depth] ?? 0) + items.length;
-      for (const item of items) {
-        if (item.children?.length) walk(item.children, depth + 1);
-      }
-    };
-    walk(rings, 1);
-    const dataDepth = countByLevel.length - 1;
+    // Room for the three-line centre once drilled.
+    const hole = drilled ? 34 : 20;
+    const edges = ringEdges(rings, hole);
+    const levels = ringLevels(edges, labelDepth, showLabels && !compact);
 
-    // Level 0 = root (center), level 1 = first ring, etc.
-    // Labels beyond maxLabelDepth are rendered but invisible (transparent)
-    // so that emphasis can reveal them along the ancestor path on hover.
-    const levels: Record<string, unknown>[] = [{}]; // root
-    for (let i = 1; i <= dataDepth; i++) {
-      const count = countByLevel[i] ?? 0;
-      const withinDepth = canShowLabel(i);
-      // Always use radial rotation when dense — it packs tighter
-      const rotation = count > 6 ? "radial" : "tangential";
-      // Scale font down progressively as rings get more crowded
-      const fontSize = count > 20 ? 9 : count > 12 ? 10 : i === 1 ? 12 : 11;
-      // Narrower truncation width for crowded rings
-      const width = count > 12 ? 50 : rotation === "tangential" ? 100 : 70;
-      levels.push({
-        ...(i === 1 ? { itemStyle: { borderWidth: 2 } } : {}),
-        label: {
-          // Hide labels outside the visible depth band. emphasis.label.show
-          // is true (see below), so hovering reveals them on demand. Text
-          // color is intentionally omitted — theme.ts provides it via the
-          // global textStyle.color (light/dark aware).
-          show: showLabels && !compact && withinDepth,
-          rotate: rotation,
-          overflow: "truncate",
-          ellipsis: "…",
-          width,
-          fontSize: withinDepth ? fontSize : 10,
-          // White + soft shadow so segment labels read on any fill color;
-          // hidden levels stay fully transparent (no ghost shadow).
-          color: withinDepth ? FILL_LABEL_COLOR : "transparent",
-          textShadowColor: FILL_LABEL_SHADOW,
-          textShadowBlur: withinDepth ? FILL_LABEL_SHADOW_BLUR : 0,
-        },
-      });
-    }
+    const total = formatNumber(
+      sumValue(viewOf(painted, effective, undefined)),
+      { context: "label" },
+    );
+    const parent = effective.length > 1 ? effective.at(-2) : "back";
+    // The author's centre text, when set, labels the total from below.
+    const centreLabel = sunburstCenterText ? `\n{b|${sunburstCenterText}}` : "";
+    const centre = drilled
+      ? `{n|${effective.at(-1)}}\n{a|${total}}\n{c|← ${parent}}`
+      : `{a|${total}}${centreLabel}`;
+    const radiusPx = (Math.min(width, height) / 2) * (hole / 100);
+    const hit = { left: "center", top: "middle" } as const;
+    const canGoUp = drilled;
 
     return {
       tooltip: {
         trigger: "item",
         formatter: (params: unknown) => {
-          const p = params as { name: string; value: unknown };
-          return `${echarts.format.encodeHTML(p.name)}: ${echarts.format.encodeHTML(String(p.value ?? ""))}`;
+          const p = params as {
+            name: string;
+            value: unknown;
+            treePathInfo?: { name?: string }[];
+          };
+          const path = [
+            ...effective,
+            ...(p.treePathInfo ?? []).slice(1).map((x) => x.name ?? ""),
+          ];
+          const label = (path.length ? path : [p.name])
+            .map((x) => echarts.format.encodeHTML(x))
+            .join(" › ");
+          return `${label}<br/><b>${formatNumber(p.value as number, { context: "tooltip" })}</b>`;
         },
       },
+      graphic: [
+        {
+          type: "text" as const,
+          ...hit,
+          silent: true,
+          z: 10,
+          style: {
+            text: centre,
+            align: "center",
+            rich: {
+              n: {
+                fontSize: 12,
+                fontWeight: 600,
+                fill: INK[theme].ink,
+                align: "center",
+                lineHeight: 16,
+              },
+              a: {
+                fontSize: 15,
+                fontWeight: 600,
+                fill: INK[theme].ink,
+                align: "center",
+                lineHeight: 18,
+              },
+              b: { fontSize: 11, fill: INK[theme].ink3, align: "center" },
+              c: {
+                fontSize: 11,
+                fill: INK[theme].ink3,
+                align: "center",
+                lineHeight: 16,
+              },
+            },
+          },
+        },
+        {
+          // The click target for "up": the whole hole, not just the glyphs.
+          type: "circle" as const,
+          ...hit,
+          silent: !canGoUp,
+          cursor: "pointer",
+          shape: { r: radiusPx },
+          style: { fill: "rgba(0,0,0,0)" },
+          onclick: () => setDrill((d) => d.slice(0, -1)),
+        },
+      ],
       series: [
         {
           type: "sunburst",
-          // A configured click action owns the click: drilling as well would
-          // fire the action and move the view at once (#1596). Without an
-          // action, native drill is unchanged.
-          nodeClick: onClick ? (false as const) : ("rootToNode" as const),
-          data: stylingRules?.length
-            ? rings.map((item) => {
-                const numericValue =
-                  typeof item.value === "number" ? item.value : 0;
-                const resolvedColor = resolveItemColor(
-                  numericValue,
-                  stylingRules,
-                  paramValues,
-                );
-                return {
-                  ...item,
-                  itemStyle: {
-                    ...((item as { itemStyle?: Record<string, unknown> })
-                      .itemStyle ?? {}),
-                    ...(resolvedColor ? { color: resolvedColor } : {}),
-                  },
-                };
-              })
-            : rings,
+          // Drilling is ours (see handleClick); ECharts' own drill would
+          // fight a configured click action (#1596) and the two-ring view.
+          nodeClick: false as const,
+          data: view,
           center: ["50%", "50%"],
-          radius: ["10%", "92%"],
-          sort: sortFn as "desc" | "asc" | undefined,
-          label: {
-            show: !compact,
-            fontSize: 11,
-            ...fillLabelStyle,
-          },
-          emphasis: highlightOnHover
-            ? {
-                focus: "ancestor",
-                label: {
-                  show: true,
-                  fontSize: 12,
-                  fontWeight: "bold" as const,
-                  ...fillLabelStyle,
-                },
-                itemStyle: {
-                  shadowBlur: 4,
-                  shadowOffsetX: 0,
-                  shadowColor: "rgba(0, 0, 0, 0.15)",
-                },
-              }
-            : {},
+          radius: [`${hole}%`, "92%"],
+          sort: sortFn,
+          label: { show: !compact, fontSize: 11 },
+          emphasis: highlightOnHover ? { focus: "ancestor" } : {},
           levels,
         },
       ],
     };
   }, [
     data,
+    painted,
+    drill,
+    clickAction,
     showLabels,
     maxLabelDepth,
     sort,
     highlightOnHover,
     compact,
-    stylingRules,
-    paramValues,
+    sunburstCenterText,
+    width,
+    height,
     dark,
-    displayedRings,
-    // Read above to decide nodeClick: without it the chart keeps whichever
-    // drill setting it had at mount (the #1546/#1562 latch).
-    onClick,
   ]);
 
   return (
     <div ref={containerRef} className="h-full w-full">
       <BaseChart
+        // A fresh instance per view. ECharts keeps the old hover's blur on
+        // every node after a drill replaces the tree under a still pointer,
+        // and the chart stays faded until the pointer moves.
+        key={clickAction ? "all" : drill.join("\u0000")}
         options={options}
         ariaDescription={
           ariaDescription ??
           `Sunburst chart with ${displayedRings.length} top-level segments`
         }
-        onClick={onClick}
+        onClick={handleClick}
+        colorPalette={colorPalette}
         {...rest}
       />
     </div>

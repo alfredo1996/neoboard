@@ -50,3 +50,8 @@ export const WithCustomSandbox: Story = {
     sandbox: "allow-scripts allow-popups allow-forms",
   },
 };
+
+export const DefaultDark: Story = {
+  ...Default,
+  globals: { theme: "dark" },
+};

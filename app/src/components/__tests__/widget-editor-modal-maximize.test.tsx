@@ -74,20 +74,22 @@ vi.mock("@neoboard/components", async () => {
     ConfirmDialog: ({
       open,
       onOpenChange,
-      title,
-      confirmText,
+      action,
+      object,
+      name,
       cancelText,
       onConfirm,
     }: {
       open: boolean;
       onOpenChange: (open: boolean) => void;
-      title: string;
-      confirmText: string;
+      action: string;
+      object?: string;
+      name?: string;
       cancelText: string;
       onConfirm: () => void;
     }) =>
       open ? (
-        <div role="alertdialog" aria-label={title}>
+        <div role="alertdialog" aria-label={`${action} ${name ?? ""}`.trim()}>
           <button type="button" onClick={() => onOpenChange(false)}>
             {cancelText}
           </button>
@@ -98,7 +100,7 @@ vi.mock("@neoboard/components", async () => {
               onOpenChange(false);
             }}
           >
-            {confirmText}
+            {object ? `${action} ${object}` : action}
           </button>
         </div>
       ) : null,
@@ -109,12 +111,14 @@ vi.mock("@neoboard/components", async () => {
       onInteractOutside,
       onFocusOutside,
       onEscapeKeyDown,
+      ...rest
     }: React.PropsWithChildren<{
       className?: string;
       onPointerDownOutside?: () => void;
       onInteractOutside?: () => void;
       onFocusOutside?: () => void;
       onEscapeKeyDown?: (e: KeyboardEvent) => void;
+      "aria-describedby"?: string;
     }>) => {
       Object.assign(dismiss, {
         onPointerDownOutside,
@@ -123,7 +127,11 @@ vi.mock("@neoboard/components", async () => {
         onEscapeKeyDown,
       });
       return React.useContext(OpenContext) ? (
-        <div role="dialog" className={className}>
+        <div
+          role="dialog"
+          className={className}
+          data-describedby-suppressed={String("aria-describedby" in rest)}
+        >
           {children}
         </div>
       ) : null;
@@ -517,7 +525,7 @@ describe("WidgetEditorModal — what dismisses it (#1952)", () => {
 // edit without asking. With something changed since the editor opened they
 // ask first; with nothing changed they close at once, as before.
 describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () => {
-  const CONFIRM = "Discard unsaved changes?";
+  const CONFIRM = "Discard your changes";
 
   beforeEach(() => {
     useWidgetEditorStore.getState().resetForAdd();
@@ -591,7 +599,9 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
     act(() => useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n"));
     await act(async () => dismiss.onOpenChange?.(false));
 
-    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Discard changes" }),
+    );
 
     expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
@@ -1117,5 +1127,35 @@ describe("WidgetEditorModal — the Form widget needs a connection that can writ
     expect(useWidgetEditorStore.getState().chartType).toBe("form");
     act(() => selector.onConnectionChange?.("c-ro"));
     expect(useWidgetEditorStore.getState().chartType).toBe("table");
+  });
+});
+
+// #2223: a description that only restates the title is noise; none renders, and
+// none is wired, for the modes whose title already says it.
+describe("WidgetEditorModal — descriptions (#2223)", () => {
+  it.each([
+    ["add", true],
+    ["edit", false],
+    ["lab-edit", false],
+    ["lab-create", false],
+  ] as const)("in %s mode a description renders: %s", (mode, described) => {
+    render(
+      <WidgetEditorModal
+        open
+        onOpenChange={vi.fn()}
+        mode={mode}
+        connections={[]}
+        onSave={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(screen.queryByText(/Choose a widget type/) !== null).toBe(described);
+    expect(
+      screen.queryByText(/Change this|Build a reusable/),
+    ).not.toBeInTheDocument();
+    expect(dialog).toHaveAttribute(
+      "data-describedby-suppressed",
+      String(!described),
+    );
   });
 });

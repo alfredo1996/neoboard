@@ -85,6 +85,7 @@ vi.mock("@neoboard/components", () => ({
   ),
   ConfirmDialog: () => null,
   focusedMenuTrigger: () => null,
+  iframeSourceLink: () => undefined,
   buildCsvString: () => "",
   triggerDownload: vi.fn(),
   buildExportFilename: () => "export.csv",

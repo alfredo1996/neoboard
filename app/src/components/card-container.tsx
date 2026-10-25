@@ -15,9 +15,13 @@ import type {
 import type { DashboardWidget, StylingConfig } from "@/lib/db/schema";
 import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 import type { ColorScaleConfig } from "@neoboard/components";
-import { humanizeParamName } from "@neoboard/components/humanize-param-name";
 import { waitingText as waitingTextFor } from "@/lib/widget/waiting-text";
-import { useParameterValues } from "@/stores/parameter-store";
+import { paramLabel } from "@/lib/parameter/param-label";
+import {
+  useParameterStore,
+  useParameterValues,
+} from "@/stores/parameter-store";
+import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
 import { applyTransforms } from "@/lib/query/data-transforms";
 import type { Transform } from "@/lib/query/data-transforms";
@@ -45,6 +49,7 @@ import {
   PopoverContent,
   EmptyState,
   ColumnMappingOverlay,
+  ParamLabelScope,
   substituteParams,
   substituteParamsInUrl,
 } from "@neoboard/components";
@@ -88,6 +93,8 @@ interface CardContainerProps {
   widgetIdSuffix?: string;
   /** Maps parameter names to the widgets that set them (for clickable badges). */
   parameterSourceMap?: ParameterSourceMap;
+  /** The page this card sits on, so a waiting text says "above" only for a source here (#2232). */
+  currentPageId?: string;
   /** What the widget's connection can do (#2137). Unset: nothing ruled out. */
   connector?: ConnectorCapabilities;
 }
@@ -109,7 +116,7 @@ function MissingParamBadge({
   onNavigateToPage?: (pageId: string, scrollToWidgetId?: string) => void;
 }>) {
   const sources = parameterSourceMap?.[name];
-  const label = humanizeParamName(name);
+  const label = paramLabel(name, parameterSourceMap);
 
   if (!sources || sources.length === 0) {
     return (
@@ -242,6 +249,7 @@ export function CardContainer({
   autoFit,
   widgetIdSuffix,
   parameterSourceMap,
+  currentPageId,
   connector,
 }: Readonly<CardContainerProps>) {
   const effectiveWidgetId = widgetIdSuffix
@@ -357,6 +365,7 @@ export function CardContainer({
 
   // Resolve styling config (new format or migrated from legacy)
   const allParamValues = useParameterValues();
+  const paramEntries = useParameterStore((s) => s.parameters);
   const resolvedStylingConfig = useMemo<StylingConfig | undefined>(
     () =>
       resolveStylingConfig(
@@ -510,19 +519,45 @@ export function CardContainer({
 
   // Parameter-select widgets are self-contained — skip query lifecycle
   if (isParameterWidget) {
+    // The card header already names the selector; its label goes to screen
+    // readers and the placeholder asks for it (#2232).
+    const rawTitle = widget.settings?.title;
+    const scopeLabel =
+      typeof rawTitle === "string"
+        ? interpolateTitle(rawTitle, paramEntries, (n) =>
+            paramLabel(n, parameterSourceMap),
+          ).trim()
+        : "";
+    const parentName = chartOptions.parentParameterName;
+    const parentLabel =
+      typeof parentName === "string" && parentName
+        ? paramLabel(parentName, parameterSourceMap)
+        : undefined;
+    const selector = (
+      <ChartRenderer
+        type={chartConfig.type}
+        data={null}
+        settings={chartOptions}
+        meta={{
+          connectionId: widget.connectionId,
+          database: widget.database,
+          widgetId: effectiveWidgetId,
+        }}
+      />
+    );
     return (
       <div className="h-full w-full flex flex-col">
         <div className="flex-1 min-h-0">
-          <ChartRenderer
-            type={chartConfig.type}
-            data={null}
-            settings={chartOptions}
-            meta={{
-              connectionId: widget.connectionId,
-              database: widget.database,
-              widgetId: effectiveWidgetId,
-            }}
-          />
+          {scopeLabel || parentLabel ? (
+            <ParamLabelScope
+              label={scopeLabel || undefined}
+              parentLabel={parentLabel}
+            >
+              {selector}
+            </ParamLabelScope>
+          ) : (
+            selector
+          )}
         </div>
       </div>
     );
@@ -653,7 +688,11 @@ export function CardContainer({
     }
 
     // Genuine unresolved $param_xxx placeholders — show parameter badges.
-    const waitingText = waitingTextFor(missingParams, parameterSourceMap);
+    const waitingText = waitingTextFor(
+      missingParams,
+      parameterSourceMap,
+      currentPageId,
+    );
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center space-y-2">

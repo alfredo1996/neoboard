@@ -2742,9 +2742,9 @@
             "connectionId": "conn_neo4j",
             "query": "MATCH (p:Person)-[r]->(m:Movie) RETURN p, r, m LIMIT 30",
             "settings": {
-              "title": "showRelationshipLabels = false",
+              "title": "showRelationshipLabels = true",
               "chartOptions": {
-                "showRelationshipLabels": false
+                "showRelationshipLabels": true
               }
             }
           }

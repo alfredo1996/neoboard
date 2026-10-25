@@ -161,6 +161,77 @@ describe("GET /api/dashboards", () => {
     );
   });
 
+  it.each([
+    ["creator", "user-1"],
+    ["admin", "admin-1"],
+  ])(
+    "counts the widgets and the pages of each dashboard (%s, #2223)",
+    async (role, userId) => {
+      mockRequireSession.mockResolvedValue({
+        userId,
+        role,
+        canWrite: true,
+        tenantId: "tenant-x",
+      });
+      const row = {
+        id: "d1",
+        name: "Two pages",
+        description: null,
+        isPublic: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ownerId: userId,
+        shareRole: null,
+        updatedByName: null,
+        layoutJson: {
+          version: 2,
+          pages: [
+            { id: "p1", title: "A", widgets: [{ id: "w1" }, { id: "w2" }] },
+            { id: "p2", title: "B", widgets: [{ id: "w3" }] },
+          ],
+        },
+      };
+      mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+      mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([row]));
+
+      const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
+      const body = await res.json();
+      expect(body.data[0]).toMatchObject({ widgetCount: 3, pageCount: 2 });
+    },
+  );
+
+  it.each([
+    ["creator", "user-1"],
+    ["admin", "admin-1"],
+  ])(
+    "counts the people a dashboard is shared with, inside the session's tenant (%s, #2223)",
+    async (role, userId) => {
+      mockRequireSession.mockResolvedValue({
+        userId,
+        role,
+        canWrite: true,
+        tenantId: "tenant-x",
+      });
+      const row = { id: "d1", name: "Shared", ownerId: userId, shareCount: 3 };
+      mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 1 }]));
+      mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([row]));
+
+      const res = await GET(makeRequest({}, "http://localhost/api/dashboards"));
+      const body = await res.json();
+      expect(body.data[0].shareCount).toBe(3);
+
+      // The count is a subquery on the share table: it carries the session's
+      // tenant, never another one's shares.
+      const fields = mockDb.selectDistinctOn.mock.calls[0][1];
+      const { sql: text, params } = new PgDialect().sqlToQuery(
+        fields.shareCount,
+      );
+      expect(text).toMatch(/dashboard_share/);
+      expect(text).toMatch(/"tenant_id" = \$/);
+      expect(params).toContain("tenant-x");
+    },
+  );
+
   it("returns all tenant dashboards for admin role", async () => {
     mockRequireSession.mockResolvedValue({
       userId: "admin-1",

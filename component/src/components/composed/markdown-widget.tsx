@@ -70,6 +70,9 @@ function isTableAlignmentRow(line: string): boolean {
   return filtered.every((c) => c.length === 0 || cellPattern.test(c));
 }
 
+/** h1/h2 take the preset's display sizes; h3-h6 take the section step (the sans, like every heading but a page title). */
+const HEADING_SIZE = { 1: "text-h2", 2: "text-h3" } as const;
+
 /**
  * Simple markdown parser that converts a subset of markdown to HTML.
  * Handles: headings, bold, italic, code, links, lists, blockquotes, paragraphs.
@@ -77,9 +80,6 @@ function isTableAlignmentRow(line: string): boolean {
  * Does NOT use a full markdown library (like marked/remark) to keep the bundle
  * minimal. For a dashboard widget, the common subset is sufficient.
  */
-/** h1/h2 take the preset's display sizes; h3-h6 stay at body size. */
-const HEADING_SIZE = { 1: "text-h2", 2: "text-h3" } as const;
-
 function parseMarkdown(md: string): string {
   // Process line-by-line for block elements
   const lines = md.split("\n");
@@ -128,11 +128,11 @@ function parseMarkdown(md: string): string {
             .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
             .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
           result.push(
-            `<div class="rounded-md overflow-x-auto my-2 text-sm [&_pre]:p-3 [&_pre]:overflow-x-auto">${sanitized}</div>`,
+            `<div class="rounded-md overflow-x-auto my-3 text-[12.5px] leading-[1.6] font-mono [&_pre]:px-3 [&_pre]:py-2.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_code]:font-mono">${sanitized}</div>`,
           );
         } else {
           result.push(
-            `<pre class="bg-muted rounded-md p-3 overflow-x-auto text-sm font-mono my-2"><code>${escapeHtml(code)}</code></pre>`,
+            `<pre class="bg-code-bg rounded-md px-3 py-2.5 overflow-x-auto text-[12.5px] leading-[1.6] font-mono my-3"><code>${escapeHtml(code)}</code></pre>`,
           );
         }
         fencedCodeLines = [];
@@ -161,9 +161,9 @@ function parseMarkdown(md: string): string {
       // every level rendered at 14px, differing only by weight (#1290). Sizes
       // come from the preset's own heading scale (component/tailwind-preset.cjs).
       const size =
-        HEADING_SIZE[level as keyof typeof HEADING_SIZE] ?? "text-sm";
+        HEADING_SIZE[level as keyof typeof HEADING_SIZE] ?? "text-section";
       result.push(
-        `<h${level} class="${size} font-semibold mt-3 mb-1">${processInline(headingMatch[2])}</h${level}>`,
+        `<h${level} class="${size} font-body font-semibold text-foreground mt-4 mb-1.5">${processInline(headingMatch[2])}</h${level}>`,
       );
       continue;
     }
@@ -213,12 +213,12 @@ function parseMarkdown(md: string): string {
         i++;
         bodyRows.push(parseCells(lines[i]));
       }
-      result.push('<table class="w-full border-collapse my-2 text-sm">');
+      result.push('<table class="w-full border-collapse my-3 text-[13px]">');
       result.push("<thead><tr>");
       for (let h = 0; h < headers.length; h++) {
         const align = alignments[h] ?? "text-left";
         result.push(
-          `<th class="border border-border px-3 py-1.5 font-semibold bg-muted/30 ${align}">${escapeHtml(headers[h])}</th>`,
+          `<th class="h-8 px-2 text-xs font-medium text-muted-foreground border-b border-rule-strong ${align}">${escapeHtml(headers[h])}</th>`,
         );
       }
       result.push("</tr></thead><tbody>");
@@ -227,7 +227,7 @@ function parseMarkdown(md: string): string {
         for (let c = 0; c < headers.length; c++) {
           const align = alignments[c] ?? "text-left";
           result.push(
-            `<td class="border border-border px-3 py-1.5 ${align}">${escapeHtml(row[c] ?? "")}</td>`,
+            `<td class="h-8 px-2 border-b border-rule ${align}">${escapeHtml(row[c] ?? "")}</td>`,
           );
         }
         result.push("</tr>");
@@ -240,7 +240,7 @@ function parseMarkdown(md: string): string {
     if (line.match(/^[-*+]\s+/)) {
       if (listType !== "ul") {
         closeList();
-        result.push('<ul class="list-disc pl-6 my-2 space-y-1">');
+        result.push('<ul class="list-disc pl-5 mb-2.5 space-y-1">');
         listType = "ul";
       }
       result.push(`<li>${processInline(line.replace(/^[-*+]\s+/, ""))}</li>`);
@@ -253,7 +253,7 @@ function parseMarkdown(md: string): string {
     if (line.match(/^\d+\.\s+/)) {
       if (listType !== "ol") {
         closeList();
-        result.push('<ol class="list-decimal pl-6 my-2 space-y-1">');
+        result.push('<ol class="list-decimal pl-5 mb-2.5 space-y-1">');
         listType = "ol";
       }
       result.push(`<li>${processInline(line.replace(/^\d+\.\s+/, ""))}</li>`);
@@ -278,13 +278,15 @@ function parseMarkdown(md: string): string {
 
     // Paragraphs (default)
     closeList();
-    result.push(`<p class="my-1">${processInline(line)}</p>`);
+    result.push(
+      `<p class="mb-2.5 text-foreground-2">${processInline(line)}</p>`,
+    );
   }
 
   // Close any open fenced code block (unterminated)
   if (inFencedCode && fencedCodeLines.length > 0) {
     result.push(
-      `<pre class="bg-muted rounded-md p-3 overflow-x-auto text-sm font-mono my-2"><code>${escapeHtml(fencedCodeLines.join("\n"))}</code></pre>`,
+      `<pre class="bg-code-bg rounded-md px-3 py-2.5 overflow-x-auto text-[12.5px] leading-[1.6] font-mono my-3"><code>${escapeHtml(fencedCodeLines.join("\n"))}</code></pre>`,
     );
   }
 
@@ -312,7 +314,7 @@ const UNDERSCORE_2 = underscoreRun(2);
 const UNDERSCORE_1 = underscoreRun(1);
 
 const CODE_OPEN =
-  '<code class="bg-muted rounded px-1 py-0.5 text-sm font-mono">';
+  '<code class="bg-code-bg rounded px-1 py-0.5 text-[0.9em] font-mono">';
 const CODE_CLOSE = "</code>";
 
 /** processInline's stash placeholder, `<tN>`. */
@@ -461,7 +463,7 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
       aria-label="Markdown content"
       className={cn(
         "h-full overflow-auto p-4 max-w-none",
-        "text-sm text-foreground",
+        "font-body text-sm leading-[1.6] text-foreground",
         className,
       )}
       // Safe: parseMarkdown escapes all user text via escapeHtml and validates
