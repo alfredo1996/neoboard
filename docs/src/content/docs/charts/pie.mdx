@@ -37,16 +37,16 @@ ORDER BY total DESC
 | Donut Style | boolean | false | Cut a hole in the centre to render as a donut |
 | Rose/Nightingale Mode | boolean | false | Vary each slice's radius by its value |
 | Label Position | select | outside | Where to place slice labels: outside, inside, or center |
-| Show Labels | boolean | true | Show the category name on each slice |
-| Show Percentage | boolean | true | Show the percentage value on each slice |
-| Show Legend | boolean | true | Show the legend identifying each slice |
+| Show Labels | boolean | true | Name each slice with its share to one decimal ("refunded 20.6%") |
+| Show Percentage | boolean | true | Show the share on each label; off shows the value to three figures |
+| Show Legend | boolean | true | Show the legend identifying each slice. Hidden while labels are on and there are at most 6 slices, since the labels name them; shown above that |
 | Sort Slices by Value | boolean | false | Sort slices largest-first for a cleaner layout |
 | Top N Slices | number | 0 (all) | Show only the top N slices; group the rest into "Other" |
-| Donut Center Text | text | (empty) | Custom text in the donut center. Blank shows the total |
+| Donut Center Text | text | (empty) | Label shown under the total in the center. Leave blank to show the total alone. |
 | Decimal Places | number | -1 (auto) | Fixed decimal places in tooltips (0-6) |
 
 ## Tips
 
 - Use Top N Slices to avoid visual clutter when you have many small categories -- the rest are grouped into "Other".
-- Enable Donut Style and set Donut Center Text to display a KPI in the middle of the chart.
+- Enable Donut Style and set Donut Center Text to label the total in the middle of the chart.
 - Rose/Nightingale mode works well when you want to emphasize the magnitude difference between categories.

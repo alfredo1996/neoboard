@@ -181,3 +181,49 @@ export const StylingRulesCrossThreshold: Story = {
     ],
   },
 };
+
+/** #2227: quarterly ticks print the year once, on the first tick of each year. */
+export const QuarterlyYearOnce: Story = {
+  args: {
+    data: [
+      "2024-04-01",
+      "2024-07-01",
+      "2024-10-01",
+      "2025-01-01",
+      "2025-04-01",
+      "2025-07-01",
+    ].map((x, i) => ({ x, revenue: 100 + i * 30 + (i % 2) * 20 })),
+    area: true,
+  },
+};
+
+const isoDay = (start: Date, i: number, stepDays: number) =>
+  new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate() + i * stepDays,
+  )
+    .toISOString()
+    .slice(0, 10);
+
+/** #2227: weekly data from 2024-01-29; the first drawn tick must carry its year. */
+export const WeeklyFromLateJanuary: Story = {
+  args: {
+    data: Array.from({ length: 100 }, (_, i) => ({
+      x: isoDay(new Date(2024, 0, 29), i, 7),
+      revenue: 100 + i * 3 + (i % 5) * 12,
+    })),
+    area: true,
+  },
+};
+
+/** #2227: a month of daily points reads as days, not a repeated month. */
+export const ThirtyDays: Story = {
+  args: {
+    data: Array.from({ length: 30 }, (_, i) => ({
+      x: isoDay(new Date(2024, 8, 15), i, 1),
+      revenue: 100 + i * 4 + (i % 4) * 15,
+    })),
+    area: true,
+  },
+};

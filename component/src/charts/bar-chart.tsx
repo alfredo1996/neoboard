@@ -236,6 +236,8 @@ function BarChart({
         }),
         stack: isStacked ? "total" : undefined,
         barWidth: effectiveBarWidth,
+        // Narrow bars (#2227): a lone bar is not a slab. An explicit width wins.
+        barMaxWidth: effectiveBarWidth ? undefined : 56,
         barGap,
         label: effectiveShowValues
           ? {

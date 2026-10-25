@@ -1069,6 +1069,46 @@ export function groupTopN(
 // ---------------------------------------------------------------------------
 
 /**
+ * Time-axis tick labels (#2227), by the tick's own time unit: hours and below
+ * read hours and minutes, days `MMM d`, months and years the month with the year added
+ * once, on the first drawn tick of each year. Ticks are often quarterly, so
+ * the year keys on changing, not on January. ECharts also formats, but never
+ * draws, a tick at the data's first and last date; those are day-level, so
+ * only month-level ticks touch the remembered year. Index 0 starts a pass.
+ */
+export function buildTimeAxisLabelFormatter() {
+  let lastYear: number | undefined;
+  return (
+    value: number | string,
+    index: number,
+    extra?: { time?: { upperTimeUnit?: string } },
+  ): string => {
+    if (index === 0) lastYear = undefined;
+    const d = new Date(value);
+    const unit = extra?.time?.upperTimeUnit;
+    if (unit === "millisecond" || unit === "second") {
+      // Sub-minute ticks differ only in seconds, so an hours-and-minutes tick would repeat.
+      const hms = d.toLocaleTimeString("en-GB");
+      return unit === "second"
+        ? hms
+        : `${hms}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+    }
+    if (unit === "hour" || unit === "minute") {
+      return d.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    const month = d.toLocaleString("en-US", { month: "short" });
+    if (unit === "day") return `${month} ${d.getDate()}`;
+    const year = d.getFullYear();
+    const label = year === lastYear ? month : `${month} ${year}`;
+    lastYear = year;
+    return label;
+  };
+}
+
+/**
  * Check if x-axis values look like dates/timestamps.
  * Samples up to the first 5 values — if all parse as valid dates, returns true.
  */

@@ -82,6 +82,17 @@ describe("BarChart", () => {
     expect(opts.series[0].label.show).toBe(true);
   });
 
+  it("caps bar width so one bar is not a slab (#2227)", () => {
+    const opts = renderBarOptions({ data: sampleData });
+    expect(opts.series[0].barMaxWidth).toBe(56);
+  });
+
+  it("an explicit barWidth replaces the cap", () => {
+    const opts = renderBarOptions({ data: sampleData, barWidth: 20 });
+    expect(opts.series[0].barWidth).toBe(20);
+    expect(opts.series[0].barMaxWidth).toBeUndefined();
+  });
+
   it("shows legend for multiple series", () => {
     const opts = renderBarOptions({ data: stackedData });
     expect(opts.legend).toBeDefined();

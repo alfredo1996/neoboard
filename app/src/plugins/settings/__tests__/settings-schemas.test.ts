@@ -178,7 +178,7 @@ describe("pieSettingsSchema", () => {
     expect(result.showLegend).toBeUndefined();
     expect(result.roseMode).toBe(false);
     expect(result.labelPosition).toBe("outside");
-    expect(result.showPercentage).toBe(false);
+    expect(result.showPercentage).toBe(true);
     expect(result.sortSlices).toBe(false);
     expect(result.colorblindMode).toBe(false);
   });
