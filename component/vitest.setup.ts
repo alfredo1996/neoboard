@@ -52,3 +52,9 @@ vi.mock("echarts/renderers", () => ({
   CanvasRenderer: vi.fn(),
   SVGRenderer: vi.fn(),
 }));
+
+// jsdom has no canvas and logs "not implemented" on every getContext. Say so
+// quietly: null is what it returns anyway, and measureTextWidth falls back.
+if (typeof HTMLCanvasElement !== "undefined") {
+  HTMLCanvasElement.prototype.getContext = () => null;
+}

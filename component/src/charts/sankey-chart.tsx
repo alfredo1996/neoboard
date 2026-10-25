@@ -4,7 +4,7 @@ import { SankeyChart as ESankeyChart } from "echarts/charts";
 import { TitleComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart, useDarkMode } from "./base-chart";
+import { BaseChart, useChartFontReady, useDarkMode } from "./base-chart";
 import type { BaseChartProps } from "./types";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import {
@@ -21,6 +21,22 @@ import {
   SURFACE_COLOR,
 } from "./theme";
 import type { StylingRule } from "./styling-rule";
+
+/**
+ * `name` cut to fit `limit` px beside its value, an ellipsis where it was cut.
+ * The name is cut, not the line, so the value at the end always shows (the
+ * tooltip has the full name).
+ */
+function fitName(name: string, value: string, limit: number): string {
+  let out = name;
+  while (
+    out.length > 1 &&
+    measureTextWidth(`${out === name ? out : out + "…"} ${value}`, 12) > limit
+  ) {
+    out = out.slice(0, -1);
+  }
+  return out === name ? name : out + "…";
+}
 
 echarts.use([ESankeyChart, TitleComponent, TooltipComponent, CanvasRenderer]);
 
@@ -77,6 +93,9 @@ function SankeyChart({
   // The empty-state colour comes from the theme, so this memo has to
   // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
   const dark = useDarkMode();
+  // Margins are measured on a canvas in the face as it is then: a dependency
+  // of the memo, so they are measured again once the face has loaded.
+  const fontReady = useChartFontReady();
 
   // ECharts keys sankey nodes by name and throws from its layout on a
   // duplicate. A GROUP BY that is not actually unique produces one; the
@@ -120,6 +139,10 @@ function SankeyChart({
         }),
       );
     const cap = width > 0 ? width * 0.3 : Number.POSITIVE_INFINITY;
+    // Past the cap a label is cut to it, so a long edge name cannot leave the
+    // canvas or squeeze the plot.
+    const labelLimit =
+      horizontal && !compact && width > 0 ? cap - 16 : Number.POSITIVE_INFINITY;
     const margins =
       horizontal && !compact
         ? {
@@ -172,8 +195,12 @@ function SankeyChart({
             // Halo in the card's colour where a label crosses a flow.
             textBorderColor: SURFACE_COLOR[theme],
             textBorderWidth: 3,
-            formatter: (p: { name: string; value?: unknown }) =>
-              `${p.name} {v|${formatNumber(p.value as number, { context: "label" })}}`,
+            formatter: (p: { name: string; value?: unknown }) => {
+              const value = formatNumber(p.value as number, {
+                context: "label",
+              });
+              return `${fitName(p.name, value, labelLimit)} {v|${value}}`;
+            },
             rich: { v: { color: INK[theme].ink3, fontSize: 12 } },
           },
           // The first column reads to the left of its nodes, the rest to
@@ -196,6 +223,7 @@ function SankeyChart({
         },
       ],
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fontReady re-measures text once the face loads
   }, [
     nodes,
     data,
@@ -208,6 +236,7 @@ function SankeyChart({
     stylingRules,
     paramValues,
     dark,
+    fontReady,
   ]);
 
   return (

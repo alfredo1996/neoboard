@@ -273,15 +273,34 @@ describe("GanttChart", () => {
       expect(series[0].data[2].itemStyle.color).toBe("#123456");
     });
 
-    it("ticks weekly and names the day once, over a span of weeks", () => {
+    it("ticks weekly at local midnight, over a span of weeks", () => {
       const { xAxis } = optionOf({ data: weeks });
-      // From the first start, a week apart, up to the last end (+33 days).
-      const ticks = [0, 7, 14, 21, 28].map((d) => 1700000000000 + d * day);
+      // From the first start's midnight, a week apart, up to the last end.
+      const from = new Date(1700000000000);
+      from.setHours(0, 0, 0, 0);
+      const ticks = [0, 7, 14, 21, 28].map((n) => {
+        const d = new Date(from);
+        d.setDate(d.getDate() + n);
+        return d.getTime();
+      });
       expect(xAxis.axisTick.customValues).toEqual(ticks);
       expect(xAxis.axisLabel.customValues).toEqual(ticks);
-      expect(xAxis.axisLabel.formatter.month).toBe("{MMM} {d}");
-      expect(xAxis.axisLabel.formatter.day).toBe("{MMM} {d}");
       expect(xAxis.splitLine.show).toBe(true);
+    });
+
+    it("names every weekly tick as a day, even one at 09:00 or on Jan 1", () => {
+      // ECharts picks a template per tick's precision: a tick off midnight
+      // printed "09:00", one on Jan 1 printed "2027". A midnight tick under a
+      // plain string template prints "{MMM} {d}" whatever it falls on.
+      const start = new Date(2026, 11, 25, 9, 0).getTime();
+      const { xAxis } = optionOf({
+        data: [{ task: "A", start, end: start + 20 * day }],
+      });
+      expect(xAxis.axisLabel.formatter).toBe("{MMM} {d}");
+      const ticks = xAxis.axisLabel.customValues as number[];
+      expect(ticks.every((t) => new Date(t).getHours() === 0)).toBe(true);
+      const jan1 = new Date(ticks[1]);
+      expect([jan1.getMonth(), jan1.getDate()]).toEqual([0, 1]);
     });
 
     it("leaves tick spacing to ECharts over a span shorter than two weeks", () => {
@@ -336,20 +355,6 @@ describe("GanttChart", () => {
     const xZooms = (zooms: Zoom[]) => zooms.filter((z) => z.xAxisIndex === 0);
     const xSlider = (zooms: Zoom[]) =>
       xZooms(zooms).find((z) => z.type === "slider");
-
-    it("labels the slider handles with the datetime, not the axis tick precision", () => {
-      // Without a labelFormatter the slider falls back to TimeScale.getLabel,
-      // whose precision follows the tick interval: seconds on a two-week
-      // range, a bare date once the ticks are years. The data are datetimes,
-      // so the handle says so — every time, in a fixed shape.
-      const { dataZoom } = optionOf({ data: sampleData });
-      const formatter = xSlider(dataZoom)?.labelFormatter as (
-        ms: number,
-      ) => string;
-      expect(formatter(new Date(2026, 3, 1, 9, 5).getTime())).toBe(
-        "2026-04-01 09:05",
-      );
-    });
 
     it("keeps a bar while either end is inside the window", () => {
       // The custom series encodes x as [start, end]; the default 'filter'

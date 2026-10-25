@@ -276,9 +276,8 @@ const at = (dayOffset: number, hour: number) =>
 
 /**
  * Datetimes, not dates (#1686): shifts that start mid-morning and end late
- * afternoon across a working fortnight. The slider handles should read
- * `2026-04-13 09:00`, whatever tick interval the axis settles on, and the
- * slider should sit under the plot, not under the task labels.
+ * afternoon across a working fortnight. The slider should sit under the plot,
+ * not under the task labels.
  */
 export const MultiDayDatetime: Story = {
   args: {
@@ -303,7 +302,7 @@ export const MultiDayDatetime: Story = {
       { task: "Release", start: at(9, 17), end: at(9, 18), category: "Ship" },
     ],
   },
-  play: async ({ canvasElement, args }) => {
+  play: async ({ canvasElement }) => {
     const option = await ganttOption(canvasElement);
     const xZooms = (option.dataZoom ?? []).filter((z) =>
       Array.isArray(z.xAxisIndex)
@@ -316,11 +315,31 @@ export const MultiDayDatetime: Story = {
       "weakFilter",
       "weakFilter",
     ]);
-    // The handle label is the datetime, in a fixed shape.
-    const slider = xZooms.find((z) => z.type === "slider");
-    expect(slider?.labelFormatter?.(args.data[0].start)).toBe(
-      "2026-04-13 09:00",
-    );
+  },
+};
+
+/**
+ * Weeks, with a first start at 09:00 (#2231): the ticks are a week apart at
+ * midnight and each reads as a day ("Apr 13"), not as "09:00" or, on the 1st,
+ * as a bare year.
+ */
+export const WeeklyTicksFromMorningStart: Story = {
+  args: {
+    data: [
+      { task: "Kick-off", start: at(0, 9), end: at(1, 11), category: "Plan" },
+      { task: "Build", start: at(2, 10), end: at(25, 17), category: "Build" },
+      { task: "Verify", start: at(21, 9), end: at(34, 16), category: "Verify" },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const option = await ganttOption(canvasElement);
+    const axis = option.xAxis?.[0] as {
+      axisLabel: { formatter: unknown; customValues: number[] };
+    };
+    expect(axis.axisLabel.formatter).toBe("{MMM} {d}");
+    expect(
+      axis.axisLabel.customValues.every((t) => new Date(t).getHours() === 0),
+    ).toBe(true);
   },
 };
 

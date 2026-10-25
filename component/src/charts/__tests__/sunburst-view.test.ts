@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { drillAfterClick, paintTree, sumValue, viewOf } from "../sunburst-view";
 import { contrastRatio, mixColors } from "../chart-utils";
+import { COLOR_PALETTES } from "../palettes";
 import { HASTINGS_DARK, HASTINGS_LIGHT, SURFACE_COLOR } from "../theme";
 
 const tree = [
@@ -56,6 +57,33 @@ describe("paintTree", () => {
     }
   });
 
+  it.each(Object.entries(COLOR_PALETTES))(
+    "puts a label that reads on every top-ring hue of the %s palette",
+    (_id, { colors }) => {
+      for (const card of [SURFACE_COLOR.light, SURFACE_COLOR.dark]) {
+        const items = colors.map((_c, i) => ({
+          name: `C${i}`,
+          children: [{ name: "leaf", value: 1 }],
+        }));
+        for (const n of paintTree(items, colors, card)) {
+          expect(
+            contrastRatio(n.itemStyle.color, n.label.color),
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    },
+  );
+
+  it("keeps an author's rule colour on the top ring as given", () => {
+    const [n] = paintTree(
+      [{ name: "A", value: 1 }],
+      ["#B4674A"],
+      card,
+      new Set([0]),
+    );
+    expect(n.itemStyle.color).toBe("#B4674A");
+  });
+
   it("keeps the caller's extra keys on a node", () => {
     const out = paintTree(
       [{ name: "A", value: 1, properties: { id: 7 } } as never],
@@ -69,6 +97,12 @@ describe("paintTree", () => {
 });
 
 describe("viewOf", () => {
+  it("keeps a cut subtree's weight when only leaves carry values", () => {
+    const view = viewOf(painted, [], 2);
+    // Furniture = Desk 5 + Chair 3, though its children are cut at depth 3.
+    expect(view[0].children![0].value).toBe(8);
+  });
+
   const names = (nodes: { name: string }[]) => nodes.map((n) => n.name);
   const depthOf = (nodes: { children?: unknown[] }[]): number =>
     nodes.length

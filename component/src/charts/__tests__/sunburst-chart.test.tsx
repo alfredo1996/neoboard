@@ -237,6 +237,27 @@ describe("SunburstChart", () => {
       expect(depthOf(lastOption().series[0].data)).toBe(2);
     });
 
+    it("sizes the two-ring overview's arcs from leaf values", () => {
+      render(<SunburstChart data={catalogue} />);
+      const home = lastOption().series[0].data[0];
+      expect(home.children.map((c: { value: number }) => c.value)).toEqual([
+        8, 2,
+      ]);
+    });
+
+    it("drills after a refresh dropped the node it was drilled into", () => {
+      const toys = { name: "Toys", children: [{ name: "Lego", value: 1 }] };
+      const { rerender } = render(
+        <SunburstChart data={[...catalogue, toys]} />,
+      );
+      click("Home");
+      rerender(<SunburstChart data={[catalogue[1], toys]} />);
+      click("Audio");
+      expect(lastOption().series[0].data.map((d: Node) => d.name)).toEqual([
+        "Headphones",
+      ]);
+    });
+
     it("draws every ring when a click action is configured", () => {
       render(<SunburstChart data={catalogue} onClick={() => {}} />);
       expect(depthOf(lastOption().series[0].data)).toBe(3);

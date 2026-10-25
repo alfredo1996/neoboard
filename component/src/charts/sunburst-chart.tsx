@@ -156,18 +156,20 @@ function SunburstChart({
   // level the view is centred on.
   const painted = useMemo(() => {
     const palette = resolveSeriesPalette(colorPalette);
+    const authored = new Set<number>();
     const bases = displayedRings.map((item, i) => {
       const numericValue = typeof item.value === "number" ? item.value : 0;
-      return (
-        (stylingRules?.length
-          ? resolveItemColor(numericValue, stylingRules, paramValues)
-          : undefined) ?? palette[i % palette.length]
-      );
+      const rule = stylingRules?.length
+        ? resolveItemColor(numericValue, stylingRules, paramValues)
+        : undefined;
+      if (rule) authored.add(i);
+      return rule ?? palette[i % palette.length];
     });
     return paintTree(
       displayedRings,
       bases,
       SURFACE_COLOR[dark ? "dark" : "light"],
+      authored,
     );
   }, [displayedRings, colorPalette, stylingRules, paramValues, dark]);
 
@@ -181,7 +183,9 @@ function SunburstChart({
       }
       if (e.componentType !== "series") return;
       const relative = (e.treePathInfo ?? []).slice(1).map((x) => x.name ?? "");
-      setDrill((d) => drillAfterClick(painted, d, relative));
+      setDrill((d) =>
+        drillAfterClick(painted, resolveDrill(painted, d), relative),
+      );
     },
     [onClick, painted],
   );

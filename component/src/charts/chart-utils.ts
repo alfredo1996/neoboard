@@ -3,7 +3,12 @@ import type { StylingRule } from "./styling-rule";
 import { resolveStylingRuleColor } from "./styling-rule";
 import type { PieChartDataPoint } from "./types";
 import { formatNumericCell, isNumericCell } from "../lib/numeric-cell";
-import { CHART_FONT_FAMILY, formatAxisCompact, HIGHLIGHT_SOFT } from "./theme";
+import {
+  CHART_FONT_FAMILY,
+  formatAxisCompact,
+  HIGHLIGHT_SOFT,
+  INK,
+} from "./theme";
 
 // ---------------------------------------------------------------------------
 // Number formatting
@@ -230,16 +235,8 @@ export const fillLabelStyle = {
 export function contrastTextColor(color: string): string {
   const rgb = parseColorToRgb(color);
   if (!rgb) return "#000000";
-  const [r, g, b] = rgb.map((c) => {
-    const v = c / 255;
-    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-  });
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return lum > 0.179 ? "#000000" : "#ffffff";
+  return relativeLuminance(rgb) > 0.179 ? "#000000" : "#ffffff";
 }
-
-/** Ink for a label on a light fill; white is the other choice. */
-export const LABEL_INK = "#16181D";
 
 function relativeLuminance(rgb: [number, number, number]): number {
   const [r, g, b] = rgb.map((c) => {
@@ -264,8 +261,8 @@ export function contrastRatio(a: string, b: string): number {
  * chart actually draws, not pure black, so the choice is the true maximum.
  */
 export function labelColorOn(fill: string): string {
-  return contrastRatio(fill, LABEL_INK) >= contrastRatio(fill, "#FFFFFF")
-    ? LABEL_INK
+  return contrastRatio(fill, INK.light.ink) >= contrastRatio(fill, "#FFFFFF")
+    ? INK.light.ink
     : "#FFFFFF";
 }
 

@@ -10,7 +10,12 @@ import {
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
-import { BaseChart, useDarkMode, resolveSeriesPalette } from "./base-chart";
+import {
+  BaseChart,
+  useChartFontReady,
+  useDarkMode,
+  resolveSeriesPalette,
+} from "./base-chart";
 import { TODAY_LINE_COLOR } from "./theme";
 import { useContainerSize } from "@/hooks/useContainerSize";
 import type { BaseChartProps } from "./types";
@@ -18,7 +23,6 @@ import {
   buildEmptyDataOption,
   getCompactState,
   formatDate,
-  formatDateTime,
   measureTextWidth,
 } from "./chart-utils";
 import { resolveStylingRuleColor, type StylingRule } from "./styling-rule";
@@ -96,6 +100,10 @@ function GanttChart({
   // The empty-state colour comes from the theme, so this memo has to
   // rebuild on a toggle — a DOM read inside it froze at mount (#1286).
   const dark = useDarkMode();
+  // The name column is measured on a canvas, in the face as it is then: a
+  // measure taken before the face loads is of the fallback and stays wrong.
+  // A dependency, not a few px of slack: the error scales with the name.
+  const fontReady = useChartFontReady();
 
   const options = useMemo((): EChartsOption => {
     if (!data.length) return buildEmptyDataOption(dark);
@@ -136,11 +144,10 @@ function GanttChart({
     if (weekly) {
       // setDate, not +7*DAY, so a tick stays at the same local time across a
       // daylight-saving change.
-      for (
-        let d = new Date(first);
-        d.getTime() <= last;
-        d.setDate(d.getDate() + 7)
-      ) {
+      // Local midnight, so no tick sits at 09:00 and prints as a time.
+      const from = new Date(first);
+      from.setHours(0, 0, 0, 0);
+      for (let d = from; d.getTime() <= last; d.setDate(d.getDate() + 7)) {
         weekTicks.push(d.getTime());
       }
     }
@@ -315,9 +322,10 @@ function GanttChart({
           return `<strong>${echarts.format.encodeHTML(name)}</strong><br/>${start} → ${end} (${duration})${category}${progress}`;
         },
       },
-      // Pixels, and let ECharts reserve the label gutter itself. "15%" only
-      // matched the 100px truncation budget at a 667px canvas — narrower than
-      // that and task names were hard-clipped (#1289).
+      // Pixels, from the measured name column. "15%" only matched the 100px
+      // truncation budget at a 667px canvas — narrower than that and task
+      // names were hard-clipped (#1289). containLabel is off: the column is
+      // already reserved here.
       grid: {
         left: nameColumn,
         right: inset,
@@ -334,17 +342,22 @@ function GanttChart({
         // which reads as a count rather than a date (#1289).
         axisLabel: {
           ...(weekly ? { customValues: weekTicks } : {}),
-          formatter: {
-            year: "{yyyy}",
-            // Just the month name: ECharts uses this template for the tick at
-            // a month boundary, so "{MMM} {yyyy}" printed "May 2026" wedged
-            // between "Apr 29" and "May 3". The year still appears on the
-            // year-level tick.
-            month: weekly ? "{MMM} {d}" : "{MMM}",
-            day: "{MMM} {d}",
-            hour: "{HH}:{mm}",
-            minute: "{HH}:{mm}",
-          },
+          // Weekly ticks all name their day: a plain string skips ECharts'
+          // per-tick template, which printed a tick on Jan 1 as "2027" and
+          // one off midnight as "09:00".
+          formatter: weekly
+            ? "{MMM} {d}"
+            : {
+                year: "{yyyy}",
+                // Just the month name: ECharts uses this template for the
+                // tick at a month boundary, so "{MMM} {yyyy}" printed "May
+                // 2026" wedged between "Apr 29" and "May 3". The year still
+                // appears on the year-level tick.
+                month: "{MMM}",
+                day: "{MMM} {d}",
+                hour: "{HH}:{mm}",
+                minute: "{HH}:{mm}",
+              },
         },
         // No local lineStyle: the registered theme owns gridline weight and
         // colour so every cartesian chart draws the same grid (#1247).
@@ -376,10 +389,6 @@ function GanttChart({
         //   wheel and the slider filter independently. Safe only because the
         //   series sets clip: true — a custom series is unclipped by default,
         //   and a kept bar would otherwise paint over the label gutter.
-        // - labelFormatter: the slider's fallback label takes its precision
-        //   from the tick interval, not the value (seconds on a two-week
-        //   range, a bare date once the ticks are years). The data are
-        //   datetimes; say so, in one fixed shape.
         // - No left/right: ECharts aligns a slider with no explicit position
         //   to the plot rect *after* the task-label gutter (SliderZoomView
         //   _layout, 6.1.0). Copying grid.left/right here widens it under the
@@ -394,7 +403,6 @@ function GanttChart({
                 bottom: 8,
                 handleSize: 14,
                 filterMode: "weakFilter" as const,
-                labelFormatter: (ms: number) => formatDateTime(ms),
               },
               {
                 type: "inside" as const,
@@ -440,6 +448,7 @@ function GanttChart({
       animationDuration: 500,
       animationEasingUpdate: "cubicOut",
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fontReady re-measures text once the face loads
   }, [
     data,
     showTodayLine,
@@ -455,6 +464,7 @@ function GanttChart({
     compact,
     width,
     colorPalette,
+    fontReady,
   ]);
 
   return (

@@ -5,6 +5,15 @@ import { SankeyChart } from "../sankey-chart";
 // echarts/charts, echarts/components, echarts/renderers are mocked globally
 // in vitest.setup.ts. Only echarts/core is mocked here to capture setOption.
 const mockSetOption = vi.fn();
+const measured = { width: 800, height: 400 };
+
+vi.mock("@/hooks/useContainerSize", () => ({
+  useContainerSize: () => ({
+    width: measured.width,
+    height: measured.height,
+    containerRef: vi.fn(),
+  }),
+}));
 
 vi.mock("echarts/core", () => {
   const use = vi.fn();
@@ -32,6 +41,7 @@ const sampleData = {
 describe("SankeyChart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    measured.width = 800;
   });
 
   it("renders without errors", () => {
@@ -233,6 +243,25 @@ describe("SankeyChart", () => {
       expect(series().label.formatter({ name: "A", value: 12345 })).toBe(
         "A {v|12.3K}",
       );
+    });
+
+    it("cuts a long edge name to the 30% cap, keeping its value", () => {
+      measured.width = 400;
+      const long = "An extraordinarily long source name for an edge";
+      render(
+        <SankeyChart
+          data={{
+            nodes: [{ name: long }, { name: "B" }],
+            links: [{ source: long, target: "B", value: 12345 }],
+          }}
+        />,
+      );
+      const label = series().label.formatter({ name: long, value: 12345 });
+      expect(label).toMatch(/^.+… \{v\|12\.3K\}$/);
+      expect(label.length).toBeLessThan(long.length);
+      expect(series().left).toBeLessThanOrEqual(Math.ceil(400 * 0.3) + 16);
+      // A name that fits is left whole.
+      expect(series().label.formatter({ name: "B", value: 1 })).toBe("B {v|1}");
     });
 
     it("leaves room for the labels that stick out of the plot", () => {

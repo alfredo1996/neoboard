@@ -5,13 +5,13 @@ import {
   labelColorOn,
   legibleFill,
   mixColors,
-  LABEL_INK,
 } from "../chart-utils";
 import {
   CITRINE_LIGHT,
   CITRINE_DARK,
   HASTINGS_LIGHT,
   HASTINGS_DARK,
+  INK,
   SURFACE_COLOR,
 } from "../theme";
 
@@ -139,12 +139,12 @@ describe("contrastTextColor", () => {
 describe("labelColorOn", () => {
   it("never puts white on the dark-theme citrine (about 2:1)", () => {
     expect(contrastRatio("#F2A93B", "#FFFFFF")).toBeLessThan(2.5);
-    expect(labelColorOn("#F2A93B")).toBe(LABEL_INK);
+    expect(labelColorOn("#F2A93B")).toBe(INK.light.ink);
   });
 
   it("takes white on a dark fill and ink on a light one", () => {
     expect(labelColorOn("#1B2A4A")).toBe("#FFFFFF");
-    expect(labelColorOn("#F6F7F9")).toBe(LABEL_INK);
+    expect(labelColorOn("#F6F7F9")).toBe(INK.light.ink);
   });
 
   // The rule is "whichever contrasts more", and the owner set the bar at 4.5:1.

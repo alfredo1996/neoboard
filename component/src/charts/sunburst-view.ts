@@ -35,6 +35,7 @@ export function paintTree(
   items: SunburstSourceNode[],
   bases: string[],
   card: string,
+  authored: ReadonlySet<number> = new Set(),
 ): PaintedNode[] {
   const paint = (
     nodes: SunburstSourceNode[],
@@ -43,11 +44,13 @@ export function paintTree(
   ): PaintedNode[] =>
     nodes.map((node, i) => {
       const hue = base ?? bases[i % bases.length];
-      // A top hue is the palette's, or the author's own rule colour: kept as
-      // given. Only the steps derived from it are nudged to be legible.
+      // A palette hue is nudged until a label reads on it. An author's own
+      // rule colour (`authored`, by top-ring index) is kept as given.
       const fill =
         depth === 1
-          ? hue
+          ? authored.has(i)
+            ? hue
+            : legibleFill(hue, card)
           : legibleFill(mixColors(hue, card, stepToward(depth, i)), card);
       return {
         ...node,
@@ -75,6 +78,9 @@ function nodeAt(nodes: PaintedNode[], path: string[]): PaintedNode | undefined {
 function trim(nodes: PaintedNode[], rings: number): PaintedNode[] {
   return nodes.map((n) => ({
     ...n,
+    // Cut children keep the subtree's weight, or a leaf-valued tree sizes
+    // its arcs from nothing once the rings below are gone.
+    value: rings > 1 ? n.value : sumValue([n]) || n.value,
     children: rings > 1 && n.children ? trim(n.children, rings - 1) : undefined,
   }));
 }
