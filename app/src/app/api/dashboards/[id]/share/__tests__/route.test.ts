@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   makeSelectChain,
   makeInsertChain,
-  makeUpdateChain,
   makeDeleteChain,
   sqlColumns,
   sqlValues,
@@ -264,7 +263,6 @@ describe("POST /api/dashboards/[id]/share", () => {
     mockRequireSession.mockResolvedValue(ADMIN_SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "user-2" }]));
-    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const insertChain = makeInsertChain();
     mockDb.insert.mockReturnValue(insertChain);
     const res = await POST(
@@ -284,7 +282,6 @@ describe("POST /api/dashboards/[id]/share", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
     const userChain = makeSelectChain([{ id: "user-2" }]);
     mockDb.select.mockReturnValueOnce(userChain);
-    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const insertChain = makeInsertChain();
     mockDb.insert.mockReturnValue(insertChain);
     const res = await POST(
@@ -317,7 +314,6 @@ describe("POST /api/dashboards/[id]/share", () => {
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
     const userChain = makeSelectChain([{ id: "user-2" }]);
     mockDb.select.mockReturnValueOnce(userChain);
-    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     mockDb.insert.mockReturnValue(makeInsertChain());
     const res = await POST(
       makeRequest({ email: " Alice@Example.COM ", role: "viewer" }),
@@ -332,7 +328,6 @@ describe("POST /api/dashboards/[id]/share", () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "user-2" }]));
-    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     mockDb.insert.mockReturnValue(makeInsertChain());
 
     await POST(
@@ -366,23 +361,35 @@ describe("POST /api/dashboards/[id]/share", () => {
     expect(mockAuditRequest).not.toHaveBeenCalled();
   });
 
-  it("updates existing share role (upsert)", async () => {
+  it("writes the share as one insert that updates the role on conflict, scoped to the session tenant (#2259)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
     mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: "user-2" }]));
-    mockDb.select.mockReturnValueOnce(
-      makeSelectChain([
-        { id: "s1", dashboardId: "d1", userId: "user-2", role: "viewer" },
-      ]),
-    );
-    mockDb.update.mockReturnValue(makeUpdateChain());
+    const insertChain = makeInsertChain();
+    const onConflict = vi.fn(() => insertChain);
+    insertChain.onConflictDoUpdate = onConflict;
+    mockDb.insert.mockReturnValue(insertChain);
     const res = await POST(
       makeRequest({ email: "other@example.com", role: "editor" }),
       makeParams("d1"),
     );
     expect(res.status).toBe(201);
-    const body = await res.json();
-    expect(body.data.success).toBe(true);
+    expect(mockDb.update).not.toHaveBeenCalled();
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      tenantId: SESSION.tenantId,
+      dashboardId: "d1",
+      userId: "user-2",
+      role: "editor",
+    });
+    const [{ target, set }] = onConflict.mock.calls[0] as unknown as [
+      { target: { name: string }[]; set: { role: unknown } },
+    ];
+    expect(target.map((c) => c.name)).toEqual([
+      "tenant_id",
+      "dashboardId",
+      "userId",
+    ]);
+    expect(set).toHaveProperty("role");
   });
 });
 

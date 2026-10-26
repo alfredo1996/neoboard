@@ -502,4 +502,39 @@ describe("Database migrations", () => {
       expect(stderr).toContain("Alice@X.com");
     }, 90_000);
   });
+
+  // ── #2259: one share per (tenant, dashboard, user) ──
+
+  it("dedupes existing shares keeping the newest, then refuses a duplicate, and re-runs as SQL (#2259)", async () => {
+    const client = await emptyDatabase("upgrade_2259");
+    await migrate(drizzle(client), { migrationsFolder: migrationsThrough(5) });
+    await client`INSERT INTO "user" (id, email) VALUES ('u1', 'u1@x'), ('u2', 'u2@x')`;
+    await client`INSERT INTO dashboard (id, "userId", name) VALUES ('d1', 'u1', 'dash')`;
+    await client`
+      INSERT INTO dashboard_share (id, "dashboardId", "userId", role, "createdAt") VALUES
+        ('old', 'd1', 'u2', 'viewer', '2026-01-01'),
+        ('new', 'd1', 'u2', 'editor', '2026-02-01')`;
+
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+
+    const rows = await client`SELECT id, role FROM dashboard_share`;
+    expect(rows.map((r) => [r.id, r.role])).toEqual([["new", "editor"]]);
+    await expect(
+      client`INSERT INTO dashboard_share (id, "dashboardId", "userId", role) VALUES ('dup', 'd1', 'u2', 'viewer')`,
+    ).rejects.toMatchObject({
+      code: "23505",
+      constraint_name: "dashboard_share_tenant_dashboard_user_unique",
+    });
+
+    const { tag } = journal.entries[5];
+    expect(tag).toMatch(/^0005_/);
+    const statements = readFileSync(
+      path.join(MIGRATIONS_FOLDER, `${tag}.sql`),
+      "utf8",
+    ).split("--> statement-breakpoint");
+    await client.begin(async (tx) => {
+      for (const statement of statements) await tx.unsafe(statement);
+    });
+    await client.end();
+  }, 90_000);
 });
