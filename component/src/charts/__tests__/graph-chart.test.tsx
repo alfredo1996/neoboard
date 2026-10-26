@@ -1249,33 +1249,32 @@ describe("GraphChart look (#2229)", () => {
     );
   });
 
-  it("captions the rarest label with NVL's largest size key, the rest with the smallest", () => {
-    render(<GraphChart nodes={movies} edges={rels} />);
-    const nodes = capturedProps.nodes as NvlNode[];
-    const movie = nodes.find((n) => n.id === "m1");
-    const person = nodes.find((n) => n.id === "p1");
-    expect(movie?.caption).toBe("Heat");
-    expect(movie?.captionAlign).toBe("bottom");
-    // NVL's size lookup only has 1, 2 and 3; anything else is a NaN font.
-    expect(movie?.captionSize).toBe(3);
-    expect(person?.captionSize).toBe(1);
-    expect(person?.caption).toBe("Al");
-  });
-
-  it("picks the rarest label as the main entity even when it sorts last", () => {
+  it("adds no enlarged title: uneven label counts leave every node default-sized, caption size 1, no alignment (NVL defaults)", () => {
     const nodes = [
-      { id: "a1", labels: ["Actor"], properties: { name: "A1" } },
-      { id: "a2", labels: ["Actor"], properties: { name: "A2" } },
-      { id: "z1", labels: ["Zebra"], properties: { name: "Z" } },
+      ...Array.from({ length: 2 }, (_, i) => ({
+        id: `m${i}`,
+        labels: ["Movie"],
+        properties: { name: `M${i}` },
+      })),
+      ...Array.from({ length: 9 }, (_, i) => ({
+        id: `p${i}`,
+        labels: ["Person"],
+        properties: { name: `P${i}` },
+      })),
     ];
     render(<GraphChart nodes={nodes} edges={[]} />);
-    const byId = (id: string) =>
-      (capturedProps.nodes as NvlNode[]).find((n) => n.id === id);
-    expect(byId("z1")?.captionSize).toBe(3);
-    expect(byId("a1")?.captionSize).toBe(1);
+    const nvl = capturedProps.nodes as NvlNode[];
+    expect(nvl).toHaveLength(11);
+    for (const n of nvl) {
+      expect(n.size).toBeUndefined();
+      expect(n.captionSize ?? 1).toBe(1);
+      expect(n.captionAlign).toBeUndefined();
+    }
+    expect(nvl.find((n) => n.id === "m0")?.caption).toBe("M0");
   });
 
-  it("refits the graph when the container is resized", () => {
+  it("refits once, after a burst of resizes settles", () => {
+    vi.useFakeTimers();
     let fire: () => void = () => {};
     const original = globalThis.ResizeObserver;
     globalThis.ResizeObserver = class {
@@ -1290,10 +1289,17 @@ describe("GraphChart look (#2229)", () => {
       render(<GraphChart nodes={movies} edges={rels} />);
       const fit = vi.fn();
       (capturedProps.ref as { current: unknown }).current = { fit };
-      fire();
+      for (let i = 0; i < 10; i++) {
+        fire();
+        vi.advanceTimersByTime(10);
+      }
+      expect(fit).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(150);
+      expect(fit).toHaveBeenCalledTimes(1);
       expect(fit).toHaveBeenCalledWith(["m1", "p1", "p2"]);
     } finally {
       globalThis.ResizeObserver = original;
+      vi.useRealTimers();
     }
   });
 
@@ -1406,13 +1412,6 @@ describe("GraphChart look (#2229)", () => {
     const rel = (capturedProps.rels as NvlRelationship[])[0];
     expect(rel.caption).toBeUndefined();
     expect(rel.type).toBe("ACTED_IN");
-  });
-
-  it("draws the main entity larger so its name fits", () => {
-    render(<GraphChart nodes={movies} edges={rels} />);
-    const nodes = capturedProps.nodes as NvlNode[];
-    expect(nodes.find((n) => n.id === "m1")?.size).toBe(40);
-    expect(nodes.find((n) => n.id === "p1")?.size).toBeUndefined();
   });
 
   it("draws relationships as hairlines", () => {

@@ -62,15 +62,6 @@ function countByLabel(nodes: GraphNode[]): [string, number][] {
 }
 
 /**
- * The main entity: the rarest label, always captioned larger. Connector
- * agnostic — read off the data, never a name. Needs two labels to mean anything.
- */
-function pickPrimaryLabel(counts: [string, number][]): string | undefined {
-  if (counts.length < 2) return undefined;
-  return counts.reduce((a, b) => (b[1] < a[1] ? b : a), counts[0])[0];
-}
-
-/**
  * Builds a map of node label → palette color.
  * Labels are sorted so the same set of labels always yields the same colors.
  */
@@ -309,7 +300,6 @@ function toNvlNode(
   labelColorMap: Map<string, string>,
   nodeSizeScale: number,
   selectedIds: Set<string>,
-  primaryLabel: string | undefined,
   stylingRules?: StylingRule[],
   paramValues?: Record<string, unknown>,
 ): NvlNode {
@@ -325,12 +315,8 @@ function toNvlNode(
   const color = nodeColor(node, labelColorMap, stylingRules, paramValues);
 
   // Size: base from node.value, scaled by nodeSizeScale
-  const isPrimary =
-    primaryLabel !== undefined && colorLabel(node) === primaryLabel;
-  // The main entity is drawn larger so its name always fits inside.
   let baseSize: number | undefined;
   if (node.value) baseSize = Math.max(20, Math.min(60, node.value));
-  else if (isPrimary) baseSize = 40;
 
   const caption = showLabels ? resolveCaption(node, captionMap) : undefined;
 
@@ -355,13 +341,6 @@ function toNvlNode(
     id: node.id,
     caption,
     captions,
-    // "bottom" draws the name inside the node's lower half. NVL draws a name
-    // only while node size x zoom is above a hard threshold (about 15.6px of
-    // radius, no option), so a small node at a low fit zoom has no name.
-    // captionSize is NVL's lookup key (1, 2 or 3), not a multiplier: any other
-    // value is a NaN font and nothing is drawn.
-    captionAlign: "bottom",
-    captionSize: isPrimary ? 3 : 1,
     color,
     size:
       baseSize !== undefined ? Math.round(baseSize * nodeSizeScale) : undefined,
@@ -495,10 +474,6 @@ function GraphChartInner({
     }
     return m;
   }, [nodes, labelColorMap, stylingRules, paramValues]);
-  const primaryLabel = useMemo(
-    () => pickPrimaryLabel(legendRows),
-    [legendRows],
-  );
 
   // Caption map: node label → chosen property key for display
   const [captionMap, setCaptionMap] = useState<Record<string, string>>(
@@ -560,7 +535,6 @@ function GraphChartInner({
           labelColorMap,
           nodeSizeScale,
           selectedIds,
-          primaryLabel,
           stylingRules,
           paramValues,
         ),
@@ -572,7 +546,6 @@ function GraphChartInner({
       labelColorMap,
       nodeSizeScale,
       selectedIds,
-      primaryLabel,
       stylingRules,
       paramValues,
     ],
@@ -746,9 +719,19 @@ function GraphChartInner({
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => fitGraph());
+    // A drag fires this every frame, and each animated fit (NVL's default)
+    // restarted the last one, so the graph crawled through every frame. Fit
+    // once when the resize settles.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ro = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fitGraph(), 150);
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      clearTimeout(timer);
+      ro.disconnect();
+    };
   }, [fitGraph, nodes.length]);
 
   // Safety timeout: if NVL's onLayoutDone never fires (e.g. when the component
