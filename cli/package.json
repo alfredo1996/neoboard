@@ -52,9 +52,9 @@
     "ora": "^9.4.1"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.5",
     "@vitest/coverage-v8": "^4.1.11",
-    "@vitest/eslint-plugin": "^1.6.27",
+    "@vitest/eslint-plugin": "^1.6.28",
     "typescript": "~5.9.3",
     "vitest": "^4.1.11"
   }
