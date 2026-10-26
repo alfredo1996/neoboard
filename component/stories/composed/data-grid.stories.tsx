@@ -329,34 +329,50 @@ export const EmptyState: Story = {
  * jsdom has no layout, so this play function measures a rendered box. Heights that
  * fit a whole number of rows exactly are the worst case, so those are used.
  */
+const FIT_HEIGHTS = [214, 216.5, 286, 288.5, 358, 360.5, 430, 432.5];
+
+/** The grouped variant adds the "Collapse all / Expand all" bar above the table. */
+const groupedColumns: DataGridColumn<Film>[] = filmColumns.map((c) =>
+  "accessorKey" in c && c.accessorKey === "year"
+    ? { ...c, enableGrouping: true }
+    : c,
+);
+
 export const AutoPageSizeFitsItsContainer: Story = {
   render: () => (
     <div className="space-y-4">
-      {[214, 216.5, 286, 288.5, 358, 360.5, 430, 432.5].map((h) => (
-        <div
-          key={h}
-          data-testid={`box-${h}`}
-          style={{ height: h }}
-          className="overflow-y-auto"
-        >
-          <DataGrid
-            columns={filmColumns}
-            data={grossRows}
-            enableSorting
-            containerHeight={h}
-          />
-        </div>
-      ))}
+      {FIT_HEIGHTS.flatMap((h) =>
+        [false, true].map((grouped) => (
+          <div
+            key={`${h}-${grouped}`}
+            data-testid={`box-${h}-${grouped ? "grouped" : "plain"}`}
+            style={{ height: h }}
+            className="overflow-y-auto"
+          >
+            <DataGrid
+              columns={grouped ? groupedColumns : filmColumns}
+              data={grossRows}
+              enableSorting
+              enableGrouping={grouped}
+              initialGrouping={grouped ? ["year"] : undefined}
+              containerHeight={h}
+            />
+          </div>
+        )),
+      )}
     </div>
   ),
   play: async ({ canvasElement }) => {
-    for (const h of [214, 216.5, 286, 288.5, 358, 360.5, 430, 432.5]) {
-      const box = canvasElement.querySelector<HTMLElement>(
-        `[data-testid="box-${h}"]`,
-      )!;
-      expect(box.scrollHeight, `container ${h}px`).toBeLessThanOrEqual(
-        box.clientHeight,
-      );
+    for (const h of FIT_HEIGHTS) {
+      for (const kind of ["plain", "grouped"]) {
+        const box = canvasElement.querySelector<HTMLElement>(
+          `[data-testid="box-${h}-${kind}"]`,
+        )!;
+        expect(
+          box.scrollHeight,
+          `${kind} container ${h}px`,
+        ).toBeLessThanOrEqual(box.clientHeight);
+      }
     }
   },
 };

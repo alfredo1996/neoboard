@@ -1,10 +1,12 @@
 import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 /**
- * #2257 — the auto page size budgeted rows at 36 px while they render at 37,
- * so a table at tile height 6 pushed its pager below the card body. The
- * invariant is exact: the body does not scroll and the last pager button sits
- * inside it.
+ * #2257 — the auto page size budgeted the header too small, so a table at tile
+ * height 6 pushed its pager below the card body. This spec is the issue's
+ * required end-to-end wiring check (ResizeObserver -> containerHeight -> page
+ * size) on a real tile; the Storybook play function `AutoPageSizeFitsItsContainer`
+ * is the regression guard for the pixel budget (rows render at 36 since #2222).
+ * The invariant: the body does not scroll and the last pager button sits inside it.
  */
 test.describe("Table pager fits its card (#2257)", () => {
   test("a table at tile height 6 shows its pager fully, without internal scroll", async ({

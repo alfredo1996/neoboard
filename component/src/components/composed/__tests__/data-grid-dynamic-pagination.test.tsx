@@ -122,7 +122,7 @@ describe("calcDynamicPageSize", () => {
     expect(calcDynamicPageSize(height)).toBeGreaterThan(1);
   });
 
-  it("exported height constants are positive (the header is measured, so fractional)", () => {
+  it("exported height constants are positive (the header carries half a collapsed border, so fractional)", () => {
     expect(DATA_GRID_HEADER_HEIGHT).toBeGreaterThan(0);
     expect(DATA_GRID_ROW_HEIGHT).toBeGreaterThan(0);
     expect(DATA_GRID_PAGINATION_HEIGHT).toBeGreaterThan(0);
@@ -178,7 +178,7 @@ describe("DataGrid — enablePagination", () => {
   // that made the editor's Page Size control inert on every dashboard tile.
   it("uses containerHeight to compute page size when no pageSize is set", () => {
     // A 400px container with no toolbar.
-    // calcDynamicPageSize(400, 0) = Math.floor((400-40-72.5)/36) = 7
+    // calcDynamicPageSize(400, 0) = Math.floor((400-32.5-38)/36) = 9
     const dynamicSize = calcDynamicPageSize(400, 0);
 
     render(

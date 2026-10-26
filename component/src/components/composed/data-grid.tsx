@@ -67,12 +67,15 @@ const RESIZE_STEP_PX = 16;
  * Fixed layout heights used when computing the dynamic page size from a
  * known container height.  Keep in sync with the actual rendered heights.
  */
-export const DATA_GRID_HEADER_HEIGHT = 34.5; // px — table <thead> row, measured (#2257)
+export const DATA_GRID_HEADER_HEIGHT = 32.5; // px — h-8 + half of the collapsed 1px border (#2257)
 export const DATA_GRID_ROW_HEIGHT = 36; // px — single data <tr>
 export const DATA_GRID_PAGINATION_HEIGHT = 38; // px — footer: 10px gap + 28px buttons
 
 /** px — the search box (32px field + 8px gap) above the table. */
 const SEARCH_BOX_HEIGHT = 40;
+
+/** px — the "Collapse all / Expand all" bar (32px sm buttons + 8px gap) shown while grouping. */
+const GROUPING_BAR_HEIGHT = 40;
 
 /** Rows per page when neither an explicit size nor a container height is available. */
 export const DEFAULT_PAGE_SIZE = 10;
@@ -424,7 +427,9 @@ function DataGrid<TData>({
   // We use a fixed estimate so the toolbar's own height does not have to be
   // measured separately — the toolbar renders at 40 px in practice.
   const TOOLBAR_HEIGHT =
-    (toolbar ? 40 : 0) + (enableGlobalFilter ? SEARCH_BOX_HEIGHT : 0);
+    (toolbar ? 40 : 0) +
+    (enableGlobalFilter ? SEARCH_BOX_HEIGHT : 0) +
+    (enableGrouping && grouping.length > 0 ? GROUPING_BAR_HEIGHT : 0);
 
   // Determine effective page size:
   //  1. When pagination is disabled, show all rows (large sentinel).
@@ -695,7 +700,9 @@ function DataGrid<TData>({
                       colSpan={header.colSpan}
                       aria-sort={ariaSort(header.column)}
                       className={cn(
-                        "relative group/header",
+                        // py-0: the UA's th padding (1px) is not reset by preflight;
+                        // the header must render at h-8 for the page-size budget (#2257).
+                        "relative group/header py-0",
                         // The header button carries its own padding.
                         typeof header.column.columnDef.header === "string" &&
                           "px-0",
