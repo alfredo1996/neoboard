@@ -68,6 +68,11 @@ describe("IframeWidget", () => {
     expect(screen.getByText("No URL configured")).toBeInTheDocument();
   });
 
+  it("leaves the empty state at the top-left, not centred (#2224)", () => {
+    render(<IframeWidget url="" />);
+    expect(screen.getByTestId("iframe-widget")).not.toHaveClass("items-center");
+  });
+
   it("renders empty state when URL is undefined", () => {
     render(<IframeWidget />);
     expect(screen.getByText("No URL configured")).toBeInTheDocument();

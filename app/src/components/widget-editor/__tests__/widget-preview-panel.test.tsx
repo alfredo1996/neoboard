@@ -24,6 +24,9 @@ vi.mock("@neoboard/components", () => ({
   }: React.PropsWithChildren<Record<string, unknown>>) => (
     <label {...props}>{children}</label>
   ),
+  LoadingOverlay: ({ text }: { text?: string }) => (
+    <div role="status">{text}</div>
+  ),
   Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
   TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
   TooltipContent: ({ children }: React.PropsWithChildren) => (
@@ -106,6 +109,27 @@ function makeProps(
 }
 
 describe("WidgetPreviewPanel", () => {
+  it("names the preview while it loads, with no blur over it (#2224)", () => {
+    const { container } = render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          previewQuery: {
+            isPending: true,
+            isError: false,
+            error: null,
+            data: undefined,
+          },
+        })}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Loading preview…");
+    expect(container.innerHTML).not.toContain("backdrop-blur");
+    // The overlay carries the one spinner.
+    expect(
+      screen.getByTestId("widget-preview").querySelector(".animate-spin"),
+    ).toBeNull();
+  });
+
   // #1374: `flex-shrink-0` here was always inert — the panel's own root is a
   // flex column with no definite height, and the editor lives in a *sibling
   // grid column*, so the preview never competed for the editor's height.

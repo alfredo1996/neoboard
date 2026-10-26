@@ -586,7 +586,9 @@ test.describe("Edit Widget on an API-written layout (#1952)", () => {
     const { id, cleanup } = await seedOneTable(page.request);
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Seeded table")).toBeVisible({
+      await expect(
+        page.getByRole("heading", { name: "Seeded table", exact: true }),
+      ).toBeVisible({
         timeout: 15_000,
       });
       const dialog = await openEditor(page);
@@ -604,7 +606,9 @@ test.describe("Edit Widget on an API-written layout (#1952)", () => {
     const { id, cleanup } = await seedOneTable(page.request);
     try {
       await page.goto(`/${id}/edit`);
-      await expect(page.getByText("Seeded table")).toBeVisible({
+      await expect(
+        page.getByRole("heading", { name: "Seeded table", exact: true }),
+      ).toBeVisible({
         timeout: 15_000,
       });
       const dialog = await openEditor(page);

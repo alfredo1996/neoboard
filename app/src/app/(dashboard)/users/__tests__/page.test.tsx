@@ -18,6 +18,7 @@ import { MockDialogContent } from "@/__tests__/helpers/dialog-mocks";
 const SelectContext = React.createContext<(v: string) => void>(() => {});
 const ME = "admin-1";
 let mockUsers: UserListItem[] = [];
+let mockLoading = false;
 let mockError: Error | null = null;
 const mockSetDisabled = vi.fn();
 const mockUpdateRole = vi.fn();
@@ -52,7 +53,11 @@ vi.mock("@/hooks/use-users", () => {
     isPending: false,
   });
   return {
-    useUsers: () => ({ data: mockUsers, isLoading: false, error: mockError }),
+    useUsers: () => ({
+      data: mockUsers,
+      isLoading: mockLoading,
+      error: mockError,
+    }),
     useCreateUser: () => result(noop),
     useDeleteUser: () => result(noop),
     useUpdateUserRole: () => result(mockUpdateRole),
@@ -233,6 +238,7 @@ const row = (id: string) => {
 
 beforeEach(() => {
   mockError = null;
+  mockLoading = false;
   mockSetDisabled.mockReset();
   mockUpdateRole.mockReset();
   mockUpdateCanWrite.mockReset();
@@ -678,5 +684,12 @@ describe("UsersPage — kit rows (#2254)", () => {
     render(<UsersPage />);
     expect(screen.getByText("Admin access required")).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("shows no empty state while the list is still loading (#2224)", () => {
+    mockUsers = [];
+    mockLoading = true;
+    render(<UsersPage />);
+    expect(screen.queryByText("No users yet")).toBeNull();
   });
 });

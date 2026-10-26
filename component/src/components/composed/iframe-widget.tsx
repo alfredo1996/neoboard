@@ -66,10 +66,7 @@ function IframeWidget({
 }: IframeWidgetProps) {
   if (!url) {
     return (
-      <div
-        data-testid="iframe-widget"
-        className={cn("h-full flex items-center justify-center", className)}
-      >
+      <div data-testid="iframe-widget" className={cn("h-full", className)}>
         <EmptyState
           title="No URL configured"
           description="Add a URL in the widget settings to embed external content."
@@ -81,10 +78,7 @@ function IframeWidget({
 
   if (!isValidUrl(url)) {
     return (
-      <div
-        data-testid="iframe-widget"
-        className={cn("h-full flex items-center justify-center", className)}
-      >
+      <div data-testid="iframe-widget" className={cn("h-full", className)}>
         <EmptyState
           title="Invalid URL"
           description="The provided URL is not allowed. Use an http:// or https:// URL."

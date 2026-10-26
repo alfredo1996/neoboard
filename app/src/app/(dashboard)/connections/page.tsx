@@ -685,31 +685,33 @@ export default function ConnectionsPage() {
               )}
             </>
           ) : (
-            <EmptyState
-              title="No connections yet"
-              description="Connect a database to start building dashboards."
-              action={
-                <Button
-                  variant="secondary"
-                  onClick={(e) =>
-                    openDialog({ mode: "create" }, e.currentTarget)
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create your first connection
-                </Button>
-              }
-              secondaryAction={
-                <a
-                  href={DOCS_LINKS.firstDashboard}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Read the docs
-                </a>
-              }
-            />
+            !(isLoading || connectorsQuery.isLoading) && (
+              <EmptyState
+                title="No connections yet"
+                description="Connect a database to start building dashboards."
+                action={
+                  <Button
+                    variant="secondary"
+                    onClick={(e) =>
+                      openDialog({ mode: "create" }, e.currentTarget)
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create your first connection
+                  </Button>
+                }
+                secondaryAction={
+                  <a
+                    href={DOCS_LINKS.firstDashboard}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Read the docs
+                  </a>
+                }
+              />
+            )
           )}
         </LoadingOverlay>
       </div>

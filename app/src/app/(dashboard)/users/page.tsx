@@ -602,7 +602,7 @@ export default function UsersPage() {
               description="Only administrators can manage users."
             />
           )}
-          {!forbidden && !users?.length && (
+          {!isLoading && !forbidden && !users?.length && (
             <EmptyState
               title="No users yet"
               description="Add team members so they can collaborate on dashboards."

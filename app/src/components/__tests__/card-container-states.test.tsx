@@ -1178,4 +1178,24 @@ describe("CardContainer - loading line (#2224)", () => {
     render(<CardContainer widget={makeWidget({ settings })} />);
     expect(screen.getByRole("status")).toHaveTextContent(expected);
   });
+
+  it("marks its content busy while the query loads, and not once it has settled", () => {
+    loading();
+    const { container, rerender } = render(
+      <CardContainer widget={makeWidget({})} />,
+    );
+    expect(container.querySelector("[data-loading='true']")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: { data: [], fields: [] },
+      missingParams: [],
+    });
+    rerender(<CardContainer widget={makeWidget({})} />);
+    expect(container.querySelector("[aria-busy]")).toBeNull();
+  });
 });

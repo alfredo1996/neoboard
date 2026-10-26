@@ -15,7 +15,14 @@ vi.mock("@neoboard/components", () => ({
       {action}
     </div>
   ),
-  Button: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Button: ({
+    children,
+    variant,
+  }: React.PropsWithChildren<{ variant?: string }>) => (
+    <span data-testid="btn" data-variant={variant ?? "primary"}>
+      {children}
+    </span>
+  ),
 }));
 
 const { EnterpriseRequiredEmptyState } =
@@ -29,6 +36,14 @@ describe("EnterpriseRequiredEmptyState", () => {
     ).toHaveAttribute(
       "href",
       "https://alfredo1996.github.io/neoboard/start-here/enterprise/",
+    );
+  });
+
+  it("keeps its only action primary (#2224)", () => {
+    render(<EnterpriseRequiredEmptyState feature="sso" />);
+    expect(screen.getByTestId("btn")).toHaveAttribute(
+      "data-variant",
+      "primary",
     );
   });
 

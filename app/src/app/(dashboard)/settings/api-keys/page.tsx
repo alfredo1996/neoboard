@@ -268,8 +268,8 @@ export default function ApiKeysPage() {
     setCreateOpen(true);
   };
 
-  const createButton = (
-    <Button variant="secondary" onClick={openCreate}>
+  const createButton = (variant: "primary" | "secondary") => (
+    <Button variant={variant} onClick={openCreate}>
       <Plus className="mr-2 h-4 w-4" />
       Create API key
     </Button>
@@ -286,7 +286,7 @@ export default function ApiKeysPage() {
         title="API keys"
         titleRef={headingRef}
         meta={meta}
-        actions={createButton}
+        actions={createButton("primary")}
         tabs={<SettingsTabs />}
       />
 
@@ -301,7 +301,7 @@ export default function ApiKeysPage() {
           <EmptyState
             title="No API keys"
             description="Create an API key to make programmatic requests to NeoBoard."
-            action={createButton}
+            action={createButton("secondary")}
           />
         )}
 

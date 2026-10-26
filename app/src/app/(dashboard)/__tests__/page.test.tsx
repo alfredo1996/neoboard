@@ -36,13 +36,15 @@ const DASHBOARD: DashboardListItem = {
 
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
 const mockDelete = vi.fn();
-let dashboards = [DASHBOARD];
+let dashboards: DashboardListItem[] | undefined = [DASHBOARD];
+let dashboardsLoading = false;
 beforeEach(() => {
   dashboards = [DASHBOARD];
+  dashboardsLoading = false;
 });
 
 vi.mock("@/hooks/use-dashboards", () => ({
-  useDashboards: () => ({ data: dashboards, isLoading: false }),
+  useDashboards: () => ({ data: dashboards, isLoading: dashboardsLoading }),
   useCreateDashboard: () => idle,
   useDeleteDashboard: () => ({ ...idle, mutate: mockDelete }),
   useUpdateDashboard: () => idle,
@@ -220,6 +222,16 @@ import DashboardListPage from "../page";
 
 // What `focusedMenuTrigger()` finds: the card's "Dashboard options" button.
 const menuTrigger = document.body.appendChild(document.createElement("button"));
+
+describe("DashboardListPage first load", () => {
+  it("shows no empty state while the list is still loading (#2224)", () => {
+    dashboards = undefined;
+    dashboardsLoading = true;
+    render(<DashboardListPage />);
+    expect(screen.queryByText(/Welcome to NeoBoard/)).toBeNull();
+    expect(screen.queryByText("No dashboards yet")).toBeNull();
+  });
+});
 
 describe("DashboardListPage duplicate", () => {
   it("shows the server's reason when a duplicate is refused (#1816)", () => {

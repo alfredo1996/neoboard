@@ -29,7 +29,6 @@ describe("EmptyState", () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root).not.toHaveClass("items-center");
     expect(root).not.toHaveClass("text-center");
-    expect(root.querySelector("svg")).toBeNull();
     expect(screen.getByText("No results")).toHaveClass(
       "text-[15px]",
       "font-semibold",

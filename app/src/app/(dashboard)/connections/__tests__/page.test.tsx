@@ -30,6 +30,7 @@ interface Row {
 let mockRole = "creator";
 let mockSessionStatus = "authenticated";
 let mockConnections: Row[] = [];
+let mockConnectionsLoading = false;
 /** What the delete dialog reads to offer "Re-assign widgets…" (#1905). */
 let mockUsage:
   | {
@@ -93,7 +94,10 @@ vi.mock("@/hooks/use-connections", () => {
     isPending: false,
   });
   return {
-    useConnections: () => ({ data: mockConnections, isLoading: false }),
+    useConnections: () => ({
+      data: mockConnections,
+      isLoading: mockConnectionsLoading,
+    }),
     useConnectionUsage: () => ({ data: mockUsage, isLoading: false }),
     // What the edit and Duplicate dialogs pre-fill from (#1901).
     useConnectionConfig: (id?: string) => ({
@@ -346,6 +350,7 @@ beforeEach(() => {
   mockRole = "creator";
   mockSessionStatus = "authenticated";
   mockConnections = [];
+  mockConnectionsLoading = false;
   mockUsage = undefined;
   mockConnectors = { data: INSTALLED, isLoading: false, isError: false };
   useConnectionStatusStore.getState().reset();
@@ -360,6 +365,14 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe("ConnectionsPage — first load (#2224)", () => {
+  it("shows no empty state while the list is still loading", () => {
+    mockConnectionsLoading = true;
+    render(<ConnectionsPage />);
+    expect(screen.queryByText("No connections yet")).toBeNull();
+  });
+});
 
 describe("ConnectionsPage — arrival (#2168)", () => {
   it("tests every probeable connection three at a time, as a batch, and starts no second run", async () => {

@@ -514,17 +514,20 @@ export function CardContainer({
     );
   }
 
+  // The title the card header shows, parameters substituted: a selector's
+  // label (#2232) and the loading line's subject (#2224).
+  const rawTitle = widget.settings?.title;
+  const widgetTitle =
+    typeof rawTitle === "string"
+      ? interpolateTitle(rawTitle, paramEntries, (n) =>
+          paramLabel(n, parameterSourceMap),
+        ).trim()
+      : "";
+
   // Parameter-select widgets are self-contained — skip query lifecycle
   if (isParameterWidget) {
     // The card header already names the selector; its label goes to screen
     // readers and the placeholder asks for it (#2232).
-    const rawTitle = widget.settings?.title;
-    const scopeLabel =
-      typeof rawTitle === "string"
-        ? interpolateTitle(rawTitle, paramEntries, (n) =>
-            paramLabel(n, parameterSourceMap),
-          ).trim()
-        : "";
     const parentName = chartOptions.parentParameterName;
     const parentLabel =
       typeof parentName === "string" && parentName
@@ -545,9 +548,9 @@ export function CardContainer({
     return (
       <div className="h-full w-full flex flex-col">
         <div className="flex-1 min-h-0">
-          {scopeLabel || parentLabel ? (
+          {widgetTitle || parentLabel ? (
             <ParamLabelScope
-              label={scopeLabel || undefined}
+              label={widgetTitle || undefined}
               parentLabel={parentLabel}
             >
               {selector}
@@ -724,21 +727,12 @@ export function CardContainer({
   }
 
   if (widgetQuery.isPending) {
-    // The line names the widget by the title its header shows (#2224); an
-    // untitled one has no name to give.
-    const rawTitle = widget.settings?.title;
-    const loadingTitle =
-      typeof rawTitle === "string"
-        ? interpolateTitle(rawTitle, paramEntries, (n) =>
-            paramLabel(n, parameterSourceMap),
-          ).trim()
-        : "";
     return (
-      <div data-loading="true" className="space-y-3 p-4">
+      <div data-loading="true" aria-busy="true" className="space-y-3 p-4">
         <Skeleton className="h-3 w-2/5" />
         <Skeleton className="h-28 w-full" />
         <p role="status" className="text-xs text-muted-foreground">
-          Loading {loadingTitle || "this widget"}…
+          Loading {widgetTitle || "this widget"}…
         </p>
       </div>
     );

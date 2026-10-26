@@ -658,7 +658,7 @@ test.describe("Widget Library", () => {
             .or(
               page
                 .locator("[data-testid='widget-card']")
-                .getByText("Original Title"),
+                .getByRole("heading", { name: "Original Title", exact: true }),
             ),
         ).toBeVisible({ timeout: 15_000 });
       } finally {

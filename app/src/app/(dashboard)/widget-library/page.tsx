@@ -1,6 +1,5 @@
 "use client";
 
-import { DOCS_LINKS } from "@/lib/docs-links";
 import { returnFocus } from "@/lib/return-focus";
 import { useState, useMemo, useRef, type MouseEventHandler } from "react";
 import { useRouter } from "next/navigation";
@@ -335,16 +334,6 @@ export default function WidgetLibraryPage() {
                     <Plus className="mr-2 h-4 w-4" />
                     Create a template
                   </Button>
-                }
-                secondaryAction={
-                  <a
-                    href={DOCS_LINKS.firstDashboard}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline-offset-4 hover:underline"
-                  >
-                    Read the docs
-                  </a>
                 }
               />
             ) : (

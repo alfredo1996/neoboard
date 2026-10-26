@@ -58,6 +58,22 @@ describe("LoadingOverlay", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading dashboards…");
   });
 
+  it("says Loading… when given no text", () => {
+    render(
+      <LoadingOverlay>
+        <p>Content</p>
+      </LoadingOverlay>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+  });
+
+  it("keeps room for the spinner over empty content, at the mock's sizes", () => {
+    const { container } = render(<LoadingOverlay />);
+    expect(container.firstElementChild).toHaveClass("min-h-40");
+    expect(container.querySelector(".animate-spin")).toHaveClass("h-6", "w-6");
+    expect(screen.getByText("Loading…")).toHaveClass("text-[13px]");
+  });
+
   it("does not blur what is underneath", () => {
     const { container } = render(
       <LoadingOverlay loading text="Loading dashboards…">

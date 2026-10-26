@@ -37,14 +37,28 @@ vi.mock("@neoboard/components", async () => ({
   Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
   Button: ({
     children,
+    variant,
     ...rest
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button {...rest}>{children}</button>
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: string }) => (
+    <button data-variant={variant ?? "primary"} {...rest}>
+      {children}
+    </button>
   ),
   Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
     <input {...props} />
   ),
-  EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
+  EmptyState: ({
+    title,
+    action,
+  }: {
+    title: string;
+    action?: React.ReactNode;
+  }) => (
+    <div>
+      {title}
+      {action}
+    </div>
+  ),
   // The menu is always open here.
   DropdownMenu: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
@@ -230,6 +244,22 @@ describe("ApiKeysPage rows", () => {
     expect(
       screen.getByText("Programmatic access to this workspace"),
     ).toBeInTheDocument();
+  });
+
+  it("keeps the header's Create API key primary, and the empty state's secondary (#2224)", () => {
+    mockKeys = [makeKey({})];
+    const { unmount } = render(<ApiKeysPage />);
+    expect(
+      screen.getByRole("button", { name: "Create API key" }),
+    ).toHaveAttribute("data-variant", "primary");
+    unmount();
+    mockKeys = [];
+    render(<ApiKeysPage />);
+    const [header, empty] = screen.getAllByRole("button", {
+      name: "Create API key",
+    });
+    expect(header).toHaveAttribute("data-variant", "primary");
+    expect(empty).toHaveAttribute("data-variant", "secondary");
   });
 
   it("counts the keys in the page meta", () => {

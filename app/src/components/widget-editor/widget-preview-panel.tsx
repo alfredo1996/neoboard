@@ -14,6 +14,7 @@ import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import {
   Button,
   Label,
+  LoadingOverlay,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -169,9 +170,10 @@ function renderChart(props: {
   return (
     <>
       {previewQuery.isPending && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <LoadingOverlay
+          className="absolute inset-0 z-10 min-h-0 rounded-lg"
+          text="Loading preview…"
+        />
       )}
       {previewQuery.isError && !previewQuery.data && !initialPreviewData ? (
         (() => {
@@ -229,9 +231,8 @@ function renderChart(props: {
           </p>
         </div>
       ) : connectionId && query.trim() && !previewQuery.isError ? (
-        <div className="h-full flex items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        // Pending: the overlay above names it and carries the spinner.
+        <div className="h-full" />
       ) : (
         <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
           Run a query to see the preview

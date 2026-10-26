@@ -43,7 +43,7 @@ export function EnterpriseRequiredEmptyState({
       title={title ?? `${defaults.title} is an Enterprise feature`}
       description={description ?? defaults.description}
       action={
-        <Button variant="secondary" asChild>
+        <Button asChild>
           <a href={upgradeUrl} target="_blank" rel="noopener noreferrer">
             Learn about Enterprise
           </a>

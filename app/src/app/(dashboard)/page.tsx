@@ -1077,7 +1077,7 @@ export default function DashboardListPage() {
       <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
         <LoadingOverlay loading={isLoading} text="Loading dashboards…">
           {!dashboardList?.length ? (
-            emptyList
+            !isLoading && emptyList
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">

@@ -714,7 +714,7 @@ export function DashboardWorkspace({
           title="Dashboard not found"
           description="The dashboard you're looking for doesn't exist or you don't have access."
           action={
-            <Button variant="secondary" onClick={() => router.push("/")}>
+            <Button onClick={() => router.push("/")}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboards
             </Button>
