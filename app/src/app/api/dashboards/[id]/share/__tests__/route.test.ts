@@ -389,7 +389,7 @@ describe("POST /api/dashboards/[id]/share", () => {
       "dashboardId",
       "userId",
     ]);
-    expect(set).toHaveProperty("role");
+    expect(set).toEqual({ role: "editor" });
   });
 });
 

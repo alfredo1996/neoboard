@@ -508,17 +508,26 @@ describe("Database migrations", () => {
   it("dedupes existing shares keeping the newest, then refuses a duplicate, and re-runs as SQL (#2259)", async () => {
     const client = await emptyDatabase("upgrade_2259");
     await migrate(drizzle(client), { migrationsFolder: migrationsThrough(5) });
-    await client`INSERT INTO "user" (id, email) VALUES ('u1', 'u1@x'), ('u2', 'u2@x')`;
+    await client`INSERT INTO "user" (id, email) VALUES ('u1', 'u1@x'), ('u2', 'u2@x'), ('u3', 'u3@x'), ('u4', 'u4@x')`;
     await client`INSERT INTO dashboard (id, "userId", name) VALUES ('d1', 'u1', 'dash')`;
     await client`
       INSERT INTO dashboard_share (id, "dashboardId", "userId", role, "createdAt") VALUES
         ('old', 'd1', 'u2', 'viewer', '2026-01-01'),
-        ('new', 'd1', 'u2', 'editor', '2026-02-01')`;
+        ('new', 'd1', 'u2', 'editor', '2026-02-01'),
+        ('dated', 'd1', 'u3', 'viewer', '2026-01-01'),
+        ('nulled', 'd1', 'u3', 'editor', NULL),
+        ('tie-a', 'd1', 'u4', 'viewer', '2026-03-01'),
+        ('tie-b', 'd1', 'u4', 'editor', '2026-03-01')`;
 
     await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
 
-    const rows = await client`SELECT id, role FROM dashboard_share`;
-    expect(rows.map((r) => [r.id, r.role])).toEqual([["new", "editor"]]);
+    const rows = await client`SELECT id, role FROM dashboard_share ORDER BY id`;
+    // newest wins; a NULL createdAt counts as oldest; a tie keeps the higher id
+    expect(rows.map((r) => [r.id, r.role])).toEqual([
+      ["dated", "viewer"],
+      ["new", "editor"],
+      ["tie-b", "editor"],
+    ]);
     await expect(
       client`INSERT INTO dashboard_share (id, "dashboardId", "userId", role) VALUES ('dup', 'd1', 'u2', 'viewer')`,
     ).rejects.toMatchObject({
