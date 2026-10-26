@@ -81,17 +81,21 @@ test("the header lists every filter, clears one and jumps to a selector", async 
     await expect(rows.last()).toContainText("Filter 12");
     await expect(rows.last()).toContainText("Any");
 
-    // Clear one: the count drops and the row moves to the unset group.
+    // Clear one: the count drops and that row reads Any.
     await list
       .getByRole("button", { name: "Clear Filter 1", exact: true })
       .click();
     await expect(button.getByLabel(`${SET - 1} set`)).toBeVisible();
-    await expect(rows.last()).toContainText("Any");
+    await expect(
+      list.getByRole("button", { name: /^Filter 1 Any/ }),
+    ).toBeVisible();
 
-    // Jump: the list closes and the selector's card is ringed.
+    // Jump: the list closes and the selector's card is highlighted.
     await list.getByRole("button", { name: /^Filter 5/ }).click();
     await expect(list).toBeHidden();
-    await expect(page.locator('[data-widget-id="w4"]')).toHaveClass(/ring-2/);
+    await expect(page.locator('[data-widget-id="w4"]')).toHaveClass(
+      /widget-highlight/,
+    );
   } finally {
     await cleanup();
   }
@@ -110,17 +114,11 @@ test("the strip stays one 44px line with 11 filters set, and scrolls", async ({
     await expect(strip(page)).toBeVisible({ timeout: 15_000 });
     const box = await strip(page).boundingBox();
     expect(box!.height).toBe(44);
-    await expect(
-      strip(page).getByRole("button", { name: "More filters" }),
-    ).toBeVisible();
-    await expect(
-      strip(page).getByRole("button", { name: "Earlier filters" }),
-    ).toHaveCount(0);
+    await expect(strip(page).getByLabel("More filters")).toBeVisible();
+    await expect(strip(page).getByLabel("Earlier filters")).toHaveCount(0);
 
-    await strip(page).getByRole("button", { name: "More filters" }).click();
-    await expect(
-      strip(page).getByRole("button", { name: "Earlier filters" }),
-    ).toBeVisible();
+    await strip(page).getByLabel("More filters").click();
+    await expect(strip(page).getByLabel("Earlier filters")).toBeVisible();
 
     await strip(page).getByRole("button", { name: "Clear all" }).click();
     await expect(strip(page)).toHaveCount(0);

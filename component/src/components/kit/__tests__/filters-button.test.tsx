@@ -108,4 +108,38 @@ describe("FiltersButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
     expect(onClearAll).toHaveBeenCalledOnce();
   });
+
+  it("heads the list with Set and Not set, only for groups that have rows", () => {
+    open([item(1), item(2, "x")]);
+    expect(screen.getByText("Set")).toBeInTheDocument();
+    expect(screen.getByText("Not set")).toBeInTheDocument();
+  });
+
+  it("has no Set heading when nothing is set", () => {
+    open([item(1)]);
+    expect(screen.queryByText("Set")).toBeNull();
+    expect(screen.getByText("Not set")).toBeInTheDocument();
+  });
+
+  it("finds a filter by its value as well as its name, and says when nothing matches", () => {
+    open([...many(8), item(9, "Western EU")]);
+    const box = screen.getByRole("searchbox", { name: "Find a filter" });
+    fireEvent.change(box, { target: { value: "western" } });
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent("Filter 9");
+    fireEvent.change(box, { target: { value: "zzz" } });
+    expect(screen.getByText("No filter matches")).toBeInTheDocument();
+  });
+
+  it("caps the value column so a long value cannot squeeze the name", () => {
+    open([item(1, "a very long value")]);
+    expect(screen.getByText("a very long value")).toHaveClass("max-w-56");
+  });
+
+  it("keeps focus on the row after its × is pressed, since the row turns into Any", () => {
+    open([item(1, "a"), item(2, "b")]);
+    fireEvent.click(screen.getByRole("button", { name: "Clear Filter 2" }));
+    expect(screen.getByRole("button", { name: /^Filter 2/ })).toHaveFocus();
+  });
 });

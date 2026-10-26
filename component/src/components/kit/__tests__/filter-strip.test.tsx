@@ -34,7 +34,9 @@ describe("FilterStrip", () => {
 
   it("words a chip 'Name: value' with a named remove button", () => {
     renderStrip();
-    expect(screen.getByText("Decade: 1990s")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")[0].textContent).toBe(
+      "Decade: 1990s",
+    );
     expect(
       screen.getByRole("button", { name: "Remove Decade filter" }),
     ).toBeInTheDocument();
@@ -49,7 +51,9 @@ describe("FilterStrip", () => {
         onClearAll={() => {}}
       />,
     );
-    expect(screen.getByText(`Title: ${"A".repeat(24)}…`)).toBeInTheDocument();
+    expect(screen.getByRole("listitem").textContent).toBe(
+      `Title: ${"A".repeat(24)}…`,
+    );
     expect(screen.getByTitle(`Title: ${long}`)).toBeInTheDocument();
   });
 
@@ -62,7 +66,7 @@ describe("FilterStrip", () => {
         onClearAll={() => {}}
       />,
     );
-    expect(screen.getByText(`T: ${v}`)).toBeInTheDocument();
+    expect(screen.getByRole("listitem").textContent).toBe(`T: ${v}`);
   });
 
   it("stays one line: the chips scroll sideways and never wrap", () => {
@@ -99,34 +103,26 @@ describe("FilterStrip", () => {
   it("shows no arrows when everything fits", () => {
     stubSizes(300, 300);
     renderStrip();
-    expect(screen.queryByRole("button", { name: "More filters" })).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Earlier filters" }),
-    ).toBeNull();
+    expect(screen.queryByLabelText("More filters")).toBeNull();
+    expect(screen.queryByLabelText("Earlier filters")).toBeNull();
   });
 
   it("shows only the forward arrow at the start of an overflowing strip, then the back one once scrolled", () => {
     stubSizes(900, 300);
     renderStrip();
-    expect(
-      screen.getByRole("button", { name: "More filters" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Earlier filters" }),
-    ).toBeNull();
+    expect(screen.getByLabelText("More filters")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Earlier filters")).toBeNull();
     const list = screen.getByRole("list");
     act(() => {
       list.scrollLeft = 200;
       fireEvent.scroll(list);
     });
-    expect(
-      screen.getByRole("button", { name: "Earlier filters" }),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Earlier filters")).toBeInTheDocument();
     act(() => {
       list.scrollLeft = 600;
       fireEvent.scroll(list);
     });
-    expect(screen.queryByRole("button", { name: "More filters" })).toBeNull();
+    expect(screen.queryByLabelText("More filters")).toBeNull();
   });
 
   it("scrolls by most of a view when an arrow is pressed", () => {
@@ -134,7 +130,30 @@ describe("FilterStrip", () => {
     renderStrip();
     const by = vi.fn();
     screen.getByRole("list").scrollBy = by;
-    fireEvent.click(screen.getByRole("button", { name: "More filters" }));
+    fireEvent.click(screen.getByLabelText("More filters"));
     expect(by).toHaveBeenCalledWith({ left: 240, behavior: "smooth" });
+  });
+
+  it("keeps the arrows out of the tab order and the accessibility tree: Tab already reaches every chip", () => {
+    stubSizes(900, 300);
+    renderStrip();
+    const more = screen.getByLabelText("More filters");
+    expect(more).toHaveAttribute("tabindex", "-1");
+    expect(more).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("moves focus to the next chip when one is removed, so keyboard focus is not lost", () => {
+    renderStrip();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Decade filter" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Remove Actor filter" }),
+    ).toHaveFocus();
+  });
+
+  it("mutes the name in a chip", () => {
+    renderStrip();
+    expect(screen.getByText("Decade:")).toHaveClass("text-muted-foreground");
   });
 });

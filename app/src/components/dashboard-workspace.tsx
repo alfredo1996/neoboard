@@ -25,10 +25,11 @@ import {
 } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
-import { buildDashboardFilters } from "@/lib/parameter/dashboard-filters";
-import { scrollToWidget } from "@/lib/scroll-to-widget";
-import { FiltersButton } from "@neoboard/components/kit";
-import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
+import { HeaderFilters } from "@/components/header-filters";
+import {
+  scrollAndHighlight,
+  scrollToWidgetWhenReady,
+} from "@/lib/widget/scroll-to-widget";
 import {
   parseUrlParams,
   buildParamsUrl,
@@ -339,43 +340,6 @@ export function DashboardWorkspace({
     [markVisited, setActivePage],
   );
 
-  // ── Header Filters button (#2297) ───────────────────────────────────
-  const parameters = useParameterStore((s) => s.parameters);
-  const clearParameter = useParameterStore((s) => s.clearParameter);
-  const clearAllParameters = useParameterStore((s) => s.clearAll);
-  const filterItems = useMemo(
-    () =>
-      buildDashboardFilters(parameterSourceMap, parameters).map((f) => ({
-        id: f.id,
-        label: f.label,
-        value: f.value,
-        where: f.where,
-        onSelect: f.sourceWidgetId
-          ? () => {
-              const sourceId = f.sourceWidgetId!;
-              const pageIndex = activeLayout.pages.findIndex(
-                (p) => p.id === f.pageId,
-              );
-              if (pageIndex < 0 || pageIndex === safeIndex) {
-                scrollToWidget(sourceId);
-                return;
-              }
-              handleSelectPage(pageIndex);
-              // The page mounts on the next render; scroll once it has.
-              setTimeout(() => scrollToWidget(sourceId), 150);
-            }
-          : undefined,
-      })),
-    [parameterSourceMap, parameters, activeLayout, safeIndex, handleSelectPage],
-  );
-  const filtersButton = (
-    <FiltersButton
-      items={filterItems}
-      onClear={clearParameter}
-      onClearAll={clearAllParameters}
-    />
-  );
-
   // After reorderPages the store adjusts activePageIndex. Mark the new index
   // as visited so the page stays in the DOM when switching away.
   const handleReorderPages = useCallback(
@@ -398,6 +362,21 @@ export function DashboardWorkspace({
       }
     },
     [activeLayout, markVisited, setActivePage],
+  );
+
+  // The header Filters button (#2297): a row jumps to the selector, across pages.
+  const jumpToFilter = useCallback(
+    (pageId: string | undefined, widgetId: string) => {
+      if (pageId) handleNavigateToPage(pageId, widgetId);
+      else scrollAndHighlight(widgetId);
+    },
+    [handleNavigateToPage],
+  );
+  const filtersButton = (
+    <HeaderFilters
+      parameterSourceMap={parameterSourceMap}
+      onJump={jumpToFilter}
+    />
   );
 
   // ── Auto-refresh (view mode) ────────────────────────────────────────

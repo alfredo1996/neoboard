@@ -31,6 +31,66 @@ function cut(value: string): string {
 const arrowClass =
   "inline-flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border border-rule-strong bg-card text-foreground-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+/** The fade marks the edge that has more to see. */
+function fadeMask(more: { before: boolean; after: boolean }): string {
+  if (more.after && more.before) {
+    return "[mask-image:linear-gradient(90deg,transparent,#000_40px,#000_calc(100%-40px),transparent)]";
+  }
+  if (more.after) {
+    return "[mask-image:linear-gradient(90deg,#000_calc(100%-40px),transparent)]";
+  }
+  if (more.before)
+    return "[mask-image:linear-gradient(90deg,transparent,#000_40px)]";
+  return "";
+}
+
+const chipButtonClass =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+function StripChip({
+  filter: f,
+  onRemove,
+}: Readonly<{ filter: FilterStripFilter; onRemove: (id: string) => void }>) {
+  const name = <span className="text-muted-foreground">{f.label}:</span>;
+  const text = (
+    <>
+      {name} {cut(f.value)}
+    </>
+  );
+  return (
+    <li
+      title={f.title ?? `${f.label}: ${f.value}`}
+      className="inline-flex h-[26px] flex-none items-center gap-1 whitespace-nowrap rounded-full border border-rule-strong bg-card pl-2.5 pr-1 text-foreground"
+    >
+      {f.onSelect ? (
+        <button
+          type="button"
+          onClick={f.onSelect}
+          className={`rounded-full hover:underline underline-offset-[3px] ${chipButtonClass}`}
+        >
+          {text}
+        </button>
+      ) : (
+        <span>{text}</span>
+      )}
+      <button
+        type="button"
+        aria-label={`Remove ${f.label} filter`}
+        onClick={(e) => {
+          // The chip is about to go: hand focus to its neighbour first.
+          const li = e.currentTarget.closest("li");
+          const next = li?.nextElementSibling ?? li?.previousElementSibling;
+          next?.querySelector("button")?.focus();
+          onRemove(f.id);
+        }}
+        className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground ${chipButtonClass}`}
+      >
+        <X className="h-3 w-3" aria-hidden />
+      </button>
+    </li>
+  );
+}
+
 /**
  * Active filters as one 44px line under the page header (#2297): "Name: value"
  * chips that scroll sideways instead of wrapping, ‹ › arrows only while there
@@ -73,18 +133,6 @@ function FilterStrip({
       behavior: "smooth",
     });
 
-  // The fade marks the edge that has more to see.
-  let fade = "";
-  if (more.after && more.before) {
-    fade =
-      "[mask-image:linear-gradient(90deg,transparent,#000_40px,#000_calc(100%-40px),transparent)]";
-  } else if (more.after) {
-    fade =
-      "[mask-image:linear-gradient(90deg,#000_calc(100%-40px),transparent)]";
-  } else if (more.before) {
-    fade = "[mask-image:linear-gradient(90deg,transparent,#000_40px)]";
-  }
-
   return (
     <section
       aria-label="Active filters"
@@ -98,6 +146,8 @@ function FilterStrip({
         <button
           type="button"
           aria-label="Earlier filters"
+          aria-hidden="true"
+          tabIndex={-1}
           onClick={() => scrollBy(-1)}
           className={arrowClass}
         >
@@ -109,44 +159,19 @@ function FilterStrip({
         onScroll={measure}
         className={cn(
           "m-0 flex min-w-0 flex-1 list-none flex-nowrap gap-1.5 overflow-x-auto p-0 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          fade,
+          fadeMask(more),
         )}
       >
-        {filters.map((f) => {
-          const text = `${f.label}: ${cut(f.value)}`;
-          return (
-            <li
-              key={f.id}
-              title={f.title ?? `${f.label}: ${f.value}`}
-              className="inline-flex h-[26px] flex-none items-center gap-1 whitespace-nowrap rounded-full border border-rule-strong bg-card pl-2.5 pr-1 text-foreground"
-            >
-              {f.onSelect ? (
-                <button
-                  type="button"
-                  onClick={f.onSelect}
-                  className="rounded-full hover:underline underline-offset-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {text}
-                </button>
-              ) : (
-                <span>{text}</span>
-              )}
-              <button
-                type="button"
-                aria-label={`Remove ${f.label} filter`}
-                onClick={() => onRemove(f.id)}
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <X className="h-3 w-3" aria-hidden />
-              </button>
-            </li>
-          );
-        })}
+        {filters.map((f) => (
+          <StripChip key={f.id} filter={f} onRemove={onRemove} />
+        ))}
       </ul>
       {more.after && (
         <button
           type="button"
           aria-label="More filters"
+          aria-hidden="true"
+          tabIndex={-1}
           onClick={() => scrollBy(1)}
           className={arrowClass}
         >

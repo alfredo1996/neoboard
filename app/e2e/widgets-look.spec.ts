@@ -251,8 +251,8 @@ test.describe("Widgets that are not charts (#2232)", () => {
       ).toBeVisible({ timeout: 15_000 });
       await expect(select).toHaveText("Western EU");
       // ── The filter chip is named by the same title, not the key ──
-      const chips = page.getByRole("group", { name: "Active filters" });
-      await expect(chips).toHaveText(/Region is Western EU/);
+      const chips = page.getByRole("region", { name: "Active filters" });
+      await expect(chips).toHaveText(/Region: Western EU/);
       await expect(chips.getByText(/Gallery region/)).toHaveCount(0);
       if (SHOTS) {
         for (const scheme of ["light", "dark"] as const) {

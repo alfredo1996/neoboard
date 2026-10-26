@@ -721,6 +721,46 @@ describe("DashboardContainer — filter line", () => {
     expect(parametersState.clearParameter).toHaveBeenCalledWith("status");
   });
 
+  it("clears a range chip's parent and its companions with one ×", () => {
+    parametersState.clearParameter.mockClear();
+    parametersState.parameters = {
+      dates: { field: "dates", value: { from: "a", to: "b" } },
+      dates_from: { field: "dates_from", value: "a" },
+      dates_to: { field: "dates_to", value: "b" },
+    };
+    renderWithProviders(<DashboardContainer page={makePage()} />);
+    expect(
+      screen.getAllByRole("button", { name: /^Remove .* filter$/ }),
+    ).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Dates filter" }),
+    );
+    const cleared = parametersState.clearParameter.mock.calls.map((c) => c[0]);
+    expect(cleared).toEqual(
+      expect.arrayContaining(["dates", "dates_from", "dates_to"]),
+    );
+  });
+
+  it("jumps through onNavigateToPage to the page that holds the selector", () => {
+    parametersState.parameters = {
+      gallery_region: {
+        field: "gallery_region",
+        value: "EU",
+        sourceWidgetId: "sel",
+      },
+    };
+    const onNavigateToPage = vi.fn();
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage()}
+        parameterSourceMap={regionSelectorMap}
+        actions={{ onNavigateToPage }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Region: EU" }));
+    expect(onNavigateToPage).toHaveBeenCalledWith("p1", "sel");
+  });
+
   it("scrolls to and highlights the widget that set a filter when its sentence is clicked", () => {
     vi.useFakeTimers();
     parametersState.parameters = {
@@ -750,11 +790,11 @@ describe("DashboardContainer — filter line", () => {
       behavior: "smooth",
       block: "center",
     });
-    expect(el.classList.contains("ring-2")).toBe(true);
+    expect(el.classList.contains("widget-highlight")).toBe(true);
     act(() => {
       vi.advanceTimersByTime(2000);
     });
-    expect(el.classList.contains("ring-2")).toBe(false);
+    expect(el.classList.contains("widget-highlight")).toBe(false);
     spy.mockRestore();
     vi.useRealTimers();
   });

@@ -31,6 +31,58 @@ export interface FiltersButtonProps {
 /** More filters than this and the list gets a search box. */
 const SEARCH_ABOVE = 8;
 
+/** A long value wraps inside 14rem; it never squeezes the name to nothing. */
+const valueClass = (value?: string) =>
+  `max-w-56 break-words text-sm${value === undefined ? " text-muted-foreground" : ""}`;
+
+function FilterRow({
+  item: i,
+  onClose,
+  onClear,
+}: Readonly<{
+  item: FiltersButtonItem;
+  onClose: () => void;
+  onClear: (id: string) => void;
+}>) {
+  return (
+    <li
+      key={i.id}
+      className="flex items-center gap-2 border-b border-card-edge px-3 py-2 hover:bg-hover"
+    >
+      <button
+        type="button"
+        onClick={() => {
+          onClose();
+          i.onSelect?.();
+        }}
+        className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="truncate text-sm font-medium">{i.label}</span>
+        <span className={valueClass(i.value)}>{i.value ?? "Any"}</span>
+        {i.where && (
+          <span className="col-span-2 text-xs text-muted-foreground">
+            {i.where}
+          </span>
+        )}
+      </button>
+      {i.value !== undefined && (
+        <button
+          type="button"
+          aria-label={`Clear ${i.label}`}
+          onClick={(e) => {
+            // The row turns into "Any": keep keyboard focus on it.
+            e.currentTarget.parentElement?.querySelector("button")?.focus();
+            onClear(i.id);
+          }}
+          className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+    </li>
+  );
+}
+
 /**
  * The header's Filters button (#2297): a count of the filters that are set and
  * a list of every filter on the dashboard, set ones first, unset ones as "Any".
@@ -47,10 +99,14 @@ function FiltersButton({
 
   const setCount = items.filter((i) => i.value !== undefined).length;
   const needle = query.trim().toLowerCase();
-  const rows = [
-    ...items.filter((i) => i.value !== undefined),
-    ...items.filter((i) => i.value === undefined),
-  ].filter((i) => !needle || i.label.toLowerCase().includes(needle));
+  const matches = items.filter(
+    (i) =>
+      !needle || `${i.label} ${i.value ?? ""}`.toLowerCase().includes(needle),
+  );
+  const groups = [
+    { name: "Set", rows: matches.filter((i) => i.value !== undefined) },
+    { name: "Not set", rows: matches.filter((i) => i.value === undefined) },
+  ].filter((g) => g.rows.length > 0);
 
   return (
     <Popover
@@ -76,7 +132,6 @@ function FiltersButton({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        role="dialog"
         aria-label="Filters"
         className="w-[380px] max-w-[calc(100vw-48px)] p-0"
       >
@@ -97,47 +152,32 @@ function FiltersButton({
           />
         )}
         <ul className="m-0 max-h-[300px] list-none overflow-y-auto border-t border-card-edge p-0">
-          {rows.map((i) => (
-            <li
-              key={i.id}
-              className="flex items-center gap-2 border-b border-card-edge px-3 py-2 hover:bg-hover"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  i.onSelect?.();
-                }}
-                className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          {groups.map((g) => (
+            <React.Fragment key={g.name}>
+              <li
+                role="presentation"
+                className="px-3 pb-0.5 pt-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
               >
-                <span className="truncate text-sm font-medium">{i.label}</span>
-                <span
-                  className={
-                    i.value === undefined
-                      ? "text-sm text-muted-foreground"
-                      : "text-sm"
-                  }
-                >
-                  {i.value ?? "Any"}
-                </span>
-                {i.where && (
-                  <span className="col-span-2 text-xs text-muted-foreground">
-                    {i.where}
-                  </span>
-                )}
-              </button>
-              {i.value !== undefined && (
-                <button
-                  type="button"
-                  aria-label={`Clear ${i.label}`}
-                  onClick={() => onClear(i.id)}
-                  className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <X className="h-3 w-3" aria-hidden />
-                </button>
-              )}
-            </li>
+                {g.name}
+              </li>
+              {g.rows.map((i) => (
+                <FilterRow
+                  key={i.id}
+                  item={i}
+                  onClose={() => setOpen(false)}
+                  onClear={onClear}
+                />
+              ))}
+            </React.Fragment>
           ))}
+          {groups.length === 0 && (
+            <li
+              role="presentation"
+              className="px-3 py-2 text-sm text-muted-foreground"
+            >
+              No filter matches
+            </li>
+          )}
         </ul>
         <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground">
           <span>Click a filter to go to its selector</span>

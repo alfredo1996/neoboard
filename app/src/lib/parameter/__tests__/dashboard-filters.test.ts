@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDashboardFilters } from "../dashboard-filters";
+import { buildDashboardFilters, filterClearNames } from "../dashboard-filters";
 import type { ParameterSourceMap } from "../collect-parameter-names";
 import type { ParameterEntry } from "@/stores/parameter-store";
 
@@ -50,12 +50,37 @@ describe("buildDashboardFilters", () => {
     expect(f[0].where).toBeUndefined();
   });
 
-  it("shows a range's sub-parameters instead of its parent", () => {
+  it("shows a range as one filter under its parent, and one clear removes the parent and its companions", () => {
     const f = buildDashboardFilters(
       { dates: [src("w9", "Dates")] },
-      { dates_from: entry("a"), dates_to: entry("b") },
+      {
+        dates: entry({ from: "a", to: "b" }, "w9"),
+        dates_from: entry("a"),
+        dates_to: entry("b"),
+      },
     );
-    expect(f.map((x) => x.id)).toEqual(["dates_from", "dates_to"]);
+    expect(f).toHaveLength(1);
+    expect(f[0]).toMatchObject({
+      id: "dates",
+      label: "Dates",
+      value: "a → b",
+      pageId: "pg-Overview",
+    });
+    expect(filterClearNames("dates").sort()).toEqual(
+      ["dates", "dates_from", "dates_max", "dates_min", "dates_to"].sort(),
+    );
+  });
+
+  it("shows a number range as one filter", () => {
+    const f = buildDashboardFilters(
+      { year: [src("w8", "Year")] },
+      {
+        year: entry([1950, 2020]),
+        year_min: entry(1950),
+        year_max: entry(2020),
+      },
+    );
+    expect(f.map((x) => [x.id, x.value])).toEqual([["year", "1950 – 2020"]]);
   });
 
   it("is empty for a dashboard with no filters", () => {

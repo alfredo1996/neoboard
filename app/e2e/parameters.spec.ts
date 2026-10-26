@@ -1383,7 +1383,7 @@ test.describe("Filter line chips (#2252)", () => {
           { timeout: 10_000 },
         )
         .toBe(true);
-      await expect(source).toHaveClass(/ring-2/);
+      await expect(source).toHaveClass(/widget-highlight/);
     } finally {
       await page.request.delete(`/api/dashboards/${id}`);
     }

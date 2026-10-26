@@ -4,8 +4,11 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
 import { FilterStrip } from "@neoboard/components/kit";
-import { scrollToWidget } from "@/lib/scroll-to-widget";
-import { buildDashboardFilters } from "@/lib/parameter/dashboard-filters";
+import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
+import {
+  buildDashboardFilters,
+  filterClearNames,
+} from "@/lib/parameter/dashboard-filters";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { paramLabel } from "@/lib/parameter/param-label";
@@ -214,13 +217,24 @@ export function DashboardContainer({
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
   const allParamValues = useParameterValues();
-  const activeFilters = useMemo(
-    () =>
-      buildDashboardFilters(parameterSourceMap ?? {}, parameters).filter(
-        (f) => f.value !== undefined,
-      ),
-    [parameterSourceMap, parameters],
-  );
+  const stripFilters = useMemo(() => {
+    // The selector may sit on another page: the workspace switches to it.
+    const jump = (pageId: string | undefined, widgetId: string) => {
+      if (onNavigateToPage) onNavigateToPage(pageId ?? page.id, widgetId);
+      else scrollAndHighlight(widgetId);
+    };
+    return buildDashboardFilters(parameterSourceMap ?? {}, parameters)
+      .filter((f) => f.value !== undefined)
+      .map((f) => ({
+        id: f.id,
+        label: f.label,
+        value: f.value ?? "",
+        title: f.title,
+        onSelect: f.sourceWidgetId
+          ? () => jump(f.pageId, f.sourceWidgetId!)
+          : undefined,
+      }));
+  }, [parameterSourceMap, parameters, onNavigateToPage, page.id]);
   const labelOf = (n: string) => paramLabel(n, parameterSourceMap);
   const displayTitle = (widget: DashboardWidget) =>
     interpolateTitle(getWidgetDisplayTitle(widget), parameters, labelOf);
@@ -353,16 +367,10 @@ export function DashboardContainer({
     <ConnectionNamesProvider value={connectionNames}>
       <FilterStrip
         className="mb-3"
-        filters={activeFilters.map((f) => ({
-          id: f.id,
-          label: f.label,
-          value: f.value ?? "",
-          title: f.title,
-          onSelect: f.sourceWidgetId
-            ? () => scrollToWidget(f.sourceWidgetId!)
-            : undefined,
-        }))}
-        onRemove={clearParameter}
+        filters={stripFilters}
+        onRemove={(id) =>
+          filterClearNames(id).forEach((n) => clearParameter(n))
+        }
         onClearAll={clearAll}
       />
       <div className="w-full min-w-0">
