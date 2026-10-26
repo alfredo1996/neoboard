@@ -1273,7 +1273,7 @@ describe("GraphChart look (#2229)", () => {
     expect(nvl.find((n) => n.id === "m0")?.caption).toBe("M0");
   });
 
-  it("refits once, without animation, after a burst of resizes settles", () => {
+  it("refits once, with one animated fit, after a burst of resizes settles", () => {
     vi.useFakeTimers();
     let fire: () => void = () => {};
     const original = globalThis.ResizeObserver;
@@ -1297,7 +1297,7 @@ describe("GraphChart look (#2229)", () => {
       vi.advanceTimersByTime(150);
       expect(fit).toHaveBeenCalledTimes(1);
       expect(fit).toHaveBeenCalledWith(["m1", "p1", "p2"], {
-        animated: false,
+        animated: true,
       });
     } finally {
       globalThis.ResizeObserver = original;
@@ -1325,7 +1325,7 @@ describe("GraphChart look (#2229)", () => {
       expect(fit).not.toHaveBeenCalled();
       vi.advanceTimersByTime(150);
       expect(fit).toHaveBeenCalledWith(["m1", "p1", "p2"], {
-        animated: false,
+        animated: true,
       });
     } finally {
       vi.useRealTimers();

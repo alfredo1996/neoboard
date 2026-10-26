@@ -722,13 +722,13 @@ function GraphChartInner({
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    // A drag fires this every frame; fit once, instantly, when it settles.
-    // NVL's fit takes no duration, only animated: false (its animation is the
-    // slow part), so a resize snaps instead of easing.
+    // A drag fires this every frame, and each animated fit restarted the last
+    // one, so the graph crawled through every frame. Fit once, animated, when
+    // the resize settles (NVL's fit takes no duration, only animated on/off).
     let timer: ReturnType<typeof setTimeout> | undefined;
     const ro = new ResizeObserver(() => {
       clearTimeout(timer);
-      timer = setTimeout(() => fitGraph({ animated: false }), 150);
+      timer = setTimeout(() => fitGraph({ animated: true }), 150);
     });
     ro.observe(el);
     return () => {
