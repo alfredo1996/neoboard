@@ -22,15 +22,12 @@ function LoadingOverlay({
   return (
     <div className={cn("relative min-h-40", className)}>
       {children}
-      <div
-        role="status"
-        className="absolute inset-0 flex flex-col items-center justify-center bg-background/[0.72]"
-      >
+      <output className="absolute inset-0 flex flex-col items-center justify-center bg-background/[0.72]">
         <Spinner role="presentation" aria-hidden="true" />
-        <p className="mt-2 text-[13px] text-muted-foreground">
+        <span className="mt-2 text-[13px] text-muted-foreground">
           {text ?? "Loading…"}
-        </p>
-      </div>
+        </span>
+      </output>
     </div>
   );
 }

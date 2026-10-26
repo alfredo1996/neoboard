@@ -731,9 +731,9 @@ export function CardContainer({
       <div data-loading="true" aria-busy="true" className="space-y-3 p-4">
         <Skeleton className="h-3 w-2/5" />
         <Skeleton className="h-28 w-full" />
-        <p role="status" className="text-xs text-muted-foreground">
+        <output className="block text-xs text-muted-foreground">
           Loading {widgetTitle || "this widget"}…
-        </p>
+        </output>
       </div>
     );
   }
