@@ -83,7 +83,7 @@ describe("FiltersButton", () => {
 
   it("caps the list height so it scrolls", () => {
     open([item(1, "a")]);
-    const tokens = screen.getByRole("list").className.split(/\s+/);
+    const tokens = screen.getByTestId("filters-scroll").className.split(/\s+/);
     expect(tokens).toContain("max-h-[300px]");
     expect(tokens).toContain("overflow-y-auto");
   });
@@ -113,6 +113,22 @@ describe("FiltersButton", () => {
     open([item(1), item(2, "x")]);
     expect(screen.getByText("Set")).toBeInTheDocument();
     expect(screen.getByText("Not set")).toBeInTheDocument();
+  });
+
+  it("makes each group a list named by its heading", () => {
+    open([item(1), item(2, "x"), item(3, "y")]);
+    const set = within(screen.getByRole("list", { name: "Set" }));
+    const unset = within(screen.getByRole("list", { name: "Not set" }));
+    expect(
+      set
+        .getAllByRole("listitem")
+        .map((r) => /Filter \d/.exec(r.textContent ?? "")?.[0]),
+    ).toEqual(["Filter 2", "Filter 3"]);
+    expect(
+      unset
+        .getAllByRole("listitem")
+        .map((r) => /Filter \d/.exec(r.textContent ?? "")?.[0]),
+    ).toEqual(["Filter 1"]);
   });
 
   it("has no Set heading when nothing is set", () => {

@@ -98,6 +98,7 @@ function FiltersButton({
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const clearedId = React.useRef<string | null>(null);
+  const headingId = React.useId();
   React.useEffect(() => {
     if (clearedId.current === null) return;
     document
@@ -116,8 +117,16 @@ function FiltersButton({
       !needle || `${i.label} ${i.value ?? ""}`.toLowerCase().includes(needle),
   );
   const groups = [
-    { name: "Set", rows: matches.filter((i) => i.value !== undefined) },
-    { name: "Not set", rows: matches.filter((i) => i.value === undefined) },
+    {
+      key: "set",
+      name: "Set",
+      rows: matches.filter((i) => i.value !== undefined),
+    },
+    {
+      key: "unset",
+      name: "Not set",
+      rows: matches.filter((i) => i.value === undefined),
+    },
   ].filter((g) => g.rows.length > 0);
 
   return (
@@ -163,37 +172,42 @@ function FiltersButton({
             className="mx-3 mb-2 h-[30px] w-[calc(100%-24px)] rounded-md border border-rule-strong bg-card px-2.5 text-sm"
           />
         )}
-        <ul className="m-0 max-h-[300px] list-none overflow-y-auto border-t border-card-edge p-0">
+        <div
+          data-testid="filters-scroll"
+          className="max-h-[300px] overflow-y-auto border-t border-card-edge"
+        >
           {groups.map((g) => (
-            <React.Fragment key={g.name}>
-              <li
-                role="presentation"
-                className="px-3 pb-0.5 pt-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+            <React.Fragment key={g.key}>
+              <p
+                id={`${headingId}-${g.key}`}
+                className="m-0 px-3 pb-0.5 pt-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
               >
                 {g.name}
-              </li>
-              {g.rows.map((i) => (
-                <FilterRow
-                  key={i.id}
-                  item={i}
-                  onClose={() => setOpen(false)}
-                  onClear={(id) => {
-                    clearedId.current = id;
-                    onClear(id);
-                  }}
-                />
-              ))}
+              </p>
+              <ul
+                aria-labelledby={`${headingId}-${g.key}`}
+                className="m-0 list-none p-0"
+              >
+                {g.rows.map((i) => (
+                  <FilterRow
+                    key={i.id}
+                    item={i}
+                    onClose={() => setOpen(false)}
+                    onClear={(id) => {
+                      clearedId.current = id;
+                      onClear(id);
+                    }}
+                  />
+                ))}
+              </ul>
             </React.Fragment>
           ))}
           {groups.length === 0 && (
-            <li
-              role="presentation"
-              className="px-3 py-2 text-sm text-muted-foreground"
-            >
+            <p className="m-0 px-3 py-2 text-sm text-muted-foreground">
               No filter matches
-            </li>
+            </p>
           )}
-        </ul>
+        </div>
         <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground">
           <span>Click a filter to go to its selector</span>
           <button
