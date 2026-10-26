@@ -156,4 +156,19 @@ describe("FilterStrip", () => {
     renderStrip();
     expect(screen.getByText("Decade:")).toHaveClass("text-muted-foreground");
   });
+
+  it("keeps the full value in the title next to where it was set", () => {
+    const value = "a".repeat(30);
+    render(
+      <FilterStrip
+        filters={[{ id: "x", label: "Name", value, title: "Set by Selector" }]}
+        onRemove={() => {}}
+        onClearAll={() => {}}
+      />,
+    );
+    expect(screen.getByRole("listitem")).toHaveAttribute(
+      "title",
+      `Name: ${value}\nSet by Selector`,
+    );
+  });
 });

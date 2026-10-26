@@ -59,7 +59,11 @@ function StripChip({
   );
   return (
     <li
-      title={f.title ?? `${f.label}: ${f.value}`}
+      title={
+        f.title
+          ? `${f.label}: ${f.value}\n${f.title}`
+          : `${f.label}: ${f.value}`
+      }
       className="inline-flex h-[26px] flex-none items-center gap-1 whitespace-nowrap rounded-full border border-rule-strong bg-card pl-2.5 pr-1 text-foreground"
     >
       {f.onSelect ? (

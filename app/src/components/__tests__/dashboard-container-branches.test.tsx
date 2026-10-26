@@ -687,7 +687,7 @@ describe("DashboardContainer — filter line", () => {
     const line = screen.getByRole("region", { name: "Active filters" });
     expect(line).toHaveTextContent("Gallery region: EU");
     expect(line).toHaveTextContent("Decade: 1990s");
-    expect(screen.getByTitle("Set by URL")).toHaveTextContent(
+    expect(screen.getByTitle(/Set by URL$/)).toHaveTextContent(
       "Gallery region: EU",
     );
     expect(

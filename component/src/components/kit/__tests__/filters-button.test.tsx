@@ -142,4 +142,16 @@ describe("FiltersButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear Filter 2" }));
     expect(screen.getByRole("button", { name: /^Filter 2/ })).toHaveFocus();
   });
+
+  it("keeps focus on the row when clearing it moves it from Set to Not set", () => {
+    const props = { onClear: vi.fn(), onClearAll: vi.fn() };
+    const { rerender } = render(
+      <FiltersButton items={[item(1, "a"), item(2, "b")]} {...props} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear Filter 1" }));
+    // The app sorts set filters first, so the cleared row changes group.
+    rerender(<FiltersButton items={[item(2, "b"), item(1)]} {...props} />);
+    expect(screen.getByRole("button", { name: /^Filter 1/ })).toHaveFocus();
+  });
 });

@@ -51,6 +51,7 @@ function FilterRow({
     >
       <button
         type="button"
+        data-filter-id={i.id}
         onClick={() => {
           onClose();
           i.onSelect?.();
@@ -70,7 +71,8 @@ function FilterRow({
           type="button"
           aria-label={`Clear ${i.label}`}
           onClick={(e) => {
-            // The row turns into "Any": keep keyboard focus on it.
+            // The row turns into "Any" and may move to another group, which
+            // remounts it: the parent refocuses it once the items change.
             e.currentTarget.parentElement?.querySelector("button")?.focus();
             onClear(i.id);
           }}
@@ -95,6 +97,16 @@ function FiltersButton({
 }: Readonly<FiltersButtonProps>) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const clearedId = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (clearedId.current === null) return;
+    document
+      .querySelector<HTMLElement>(
+        `[data-filter-id="${CSS.escape(clearedId.current)}"]`,
+      )
+      ?.focus();
+    clearedId.current = null;
+  }, [items]);
   if (items.length === 0) return null;
 
   const setCount = items.filter((i) => i.value !== undefined).length;
@@ -165,7 +177,10 @@ function FiltersButton({
                   key={i.id}
                   item={i}
                   onClose={() => setOpen(false)}
-                  onClear={onClear}
+                  onClear={(id) => {
+                    clearedId.current = id;
+                    onClear(id);
+                  }}
                 />
               ))}
             </React.Fragment>
