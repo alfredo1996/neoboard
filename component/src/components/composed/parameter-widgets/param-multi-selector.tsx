@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { X, ChevronsUpDown } from "lucide-react";
+import { X } from "lucide-react";
 import { ParamLabel, useParentLabelScope } from "./param-label";
 import { humanizeParamName } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
-import { Tag, tagRemoveClass, tagRemoveGlyphClass } from "@/components/ui/tag";
+import { MultiSelectField } from "../multi-select-field";
 import {
   Command,
   CommandEmpty,
@@ -15,11 +15,7 @@ import {
   filterOnLabel,
   toCmdkValue,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { joinIds, type ExternalLabelProps } from "./external-label";
 import { ParamWidgetSkeleton } from "./param-widget-skeleton";
@@ -131,8 +127,7 @@ function ParamMultiSelector({
     onChange(next);
   };
 
-  const handleRemoveBadge = (optionValue: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleRemove = (optionValue: string) => {
     onChange(values.filter((v) => v !== optionValue));
   };
 
@@ -170,51 +165,21 @@ function ParamMultiSelector({
         )}
       </div>
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="secondary"
-            id={id}
-            role="combobox"
-            aria-expanded={open}
-            aria-required={required || undefined}
-            aria-labelledby={labelId}
-            aria-describedby={joinIds(hintId, describedBy)}
-            aria-invalid={invalid || undefined}
-            disabled={isWaitingForParent}
-            className="w-full justify-between h-auto min-h-9 px-3"
-          >
-            <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-              {selectedOptions.length === 0 && (
-                <span className="text-muted-foreground font-normal text-sm">
-                  {resolvedPlaceholder}
-                </span>
-              )}
-              {selectedOptions.slice(0, maxDisplay).map((opt) => (
-                <Tag key={opt.value}>
-                  {opt.label}
-                  <button
-                    type="button"
-                    className={tagRemoveClass}
-                    onClick={(e) => handleRemoveBadge(opt.value, e)}
-                    aria-label={`Remove ${opt.label}`}
-                  >
-                    <X
-                      aria-hidden="true"
-                      className={tagRemoveGlyphClass}
-                      strokeWidth={2.5}
-                    />
-                  </button>
-                </Tag>
-              ))}
-              {selectedOptions.length > maxDisplay && (
-                <span className="text-xs text-foreground-2">
-                  +{selectedOptions.length - maxDisplay} more
-                </span>
-              )}
-            </div>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
+        <MultiSelectField
+          id={id}
+          aria-expanded={open}
+          aria-required={required || undefined}
+          aria-labelledby={labelId}
+          aria-describedby={joinIds(hintId, describedBy)}
+          aria-invalid={invalid || undefined}
+          disabled={isWaitingForParent}
+          selected={selectedOptions}
+          maxDisplay={maxDisplay}
+          placeholder={resolvedPlaceholder}
+          onRemove={handleRemove}
+          padX="px-3"
+          className="w-full border-border-strong hover:bg-active has-[[role=combobox]:focus-visible]:ring-offset-2"
+        />
         <PopoverContent className="w-full min-w-[200px] p-0" align="start">
           <Command filter={filterOnLabel} shouldFilter={!serverFiltered}>
             {/*

@@ -1940,6 +1940,60 @@ test.describe("Multi-select parameter widget", () => {
       await cleanup();
     }
   });
+
+  // #2275: the remove button is its own button, so one value can be removed.
+  test("a remove button drops one value and the widget re-queries with the rest", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createMultiSelectParamDashboard(page.request);
+
+    try {
+      await page.goto(`/${id}`);
+      await page.getByText("Select values…").click({ timeout: 15_000 });
+      const first = page.getByRole("option").first();
+      await expect(first).toBeVisible({ timeout: 10_000 });
+      await first.click();
+      await page.getByRole("option").nth(1).click();
+      await page.keyboard.press("Escape");
+
+      // Two chips, each with its own named remove button.
+      const removes = page
+        .getByRole("combobox")
+        .locator("xpath=..")
+        .getByRole("button", { name: /^Remove / });
+      await expect(removes).toHaveCount(2);
+      const keptName = (await removes
+        .nth(1)
+        .getAttribute("aria-label"))!.replace("Remove ", "");
+      const removedName = (await removes
+        .nth(0)
+        .getAttribute("aria-label"))!.replace("Remove ", "");
+
+      const requery = page.waitForRequest((r) => {
+        if (!r.url().endsWith("/api/query") || r.method() !== "POST") {
+          return false;
+        }
+        const params = r.postDataJSON()?.params?.param_test_people;
+        return JSON.stringify(params) === JSON.stringify([keptName]);
+      });
+      await page
+        .getByRole("button", { name: `Remove ${removedName}`, exact: true })
+        .click();
+      await requery;
+
+      await expect(removes).toHaveCount(1);
+      await expect(
+        page.getByRole("button", {
+          name: `Remove ${keptName}`,
+          exact: true,
+        }),
+      ).toBeVisible();
+    } finally {
+      await cleanup();
+    }
+  });
 });
 
 test.describe("Cascading-select parameter widget", () => {
