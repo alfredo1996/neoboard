@@ -245,9 +245,19 @@ jobs:
       # render crash or unhandled error a story trips over (#1373, #1384).
       # Deliberately NOT in `npm run verify` — a chromium download does not
       # belong in the default local loop.
+      # No --with-deps (#2301): its apt step took 88 s for 3.5 MB and timed the
+      # job out four times; the ubuntu runner image already ships the shared
+      # libraries. Same cache path as the E2E job; app and component resolve
+      # one playwright (1.63.0), and the lockfile hash covers a bump.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Chromium for the browser test project
         timeout-minutes: 5
-        run: npm -w component exec -- playwright install --with-deps chromium
+        run: npm -w component exec -- playwright install chromium
 
       - name: Story smoke tests (Vitest browser project)
         run: npm run test:visual
