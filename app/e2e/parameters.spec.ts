@@ -1467,7 +1467,12 @@ test.describe("Date parameter widget", () => {
         timeout: 15_000,
       });
       // Until a date is picked the title names the parameter in words (#2214)
-      await expect(page.getByText("Movies (date: [Date])")).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "Movies (date: [Date])",
+          exact: true,
+        }),
+      ).toBeVisible();
 
       // Open the calendar popover
       await page.getByText("Pick a date…").click();
