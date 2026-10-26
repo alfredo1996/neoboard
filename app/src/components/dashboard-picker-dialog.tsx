@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { LayoutDashboard } from "lucide-react";
 import { useDashboards } from "@/hooks/use-dashboards";
 import {
   Dialog,
@@ -83,7 +82,6 @@ export function DashboardPickerDialog({
 
           {!isLoading && editable.length === 0 && (
             <EmptyState
-              icon={<LayoutDashboard className="h-10 w-10" />}
               title="No editable dashboards"
               description="Create a dashboard first, then come back to use this template."
             />

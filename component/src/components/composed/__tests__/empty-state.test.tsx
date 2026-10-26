@@ -22,14 +22,22 @@ describe("EmptyState", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders icon when provided", () => {
-    render(
-      <EmptyState
-        title="No results"
-        icon={<span data-testid="icon">!</span>}
-      />,
+  it("is left-aligned, with the mock's title and description type and no icon", () => {
+    const { container } = render(
+      <EmptyState title="No results" description="Try again" />,
     );
-    expect(screen.getByTestId("icon")).toBeInTheDocument();
+    const root = container.firstElementChild as HTMLElement;
+    expect(root).not.toHaveClass("items-center");
+    expect(root).not.toHaveClass("text-center");
+    expect(root.querySelector("svg")).toBeNull();
+    expect(screen.getByText("No results")).toHaveClass(
+      "text-[15px]",
+      "font-semibold",
+    );
+    expect(screen.getByText("Try again")).toHaveClass(
+      "text-sm",
+      "text-muted-foreground",
+    );
   });
 
   it("renders action when provided", () => {

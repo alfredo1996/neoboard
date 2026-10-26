@@ -74,6 +74,7 @@ module.exports = {
         },
         side: "hsl(var(--side))",
         "code-bg": "hsl(var(--code-bg))",
+        skeleton: "hsl(var(--skeleton))",
         active: "hsl(var(--active))",
         "page-ground": "hsl(var(--page-ground))",
         "card-edge": {
@@ -186,8 +187,9 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        shimmer: {
-          "100%": { transform: "translateX(100%)" },
+        // Skeleton (#2224): a slow opacity pulse.
+        "skeleton-pulse": {
+          "50%": { opacity: "0.55" },
         },
         // Indeterminate Progress (#1129): a segment sliding across the track.
         "progress-indeterminate": {
@@ -198,7 +200,7 @@ module.exports = {
       animation: {
         "accordion-down": "accordion-down 0.2s var(--ease-standard)",
         "accordion-up": "accordion-up 0.2s var(--ease-standard)",
-        shimmer: "shimmer 1.6s var(--ease-standard) infinite",
+        "skeleton-pulse": "skeleton-pulse 2s ease-in-out infinite",
         "progress-indeterminate":
           "progress-indeterminate 1.4s var(--ease-standard) infinite",
       },

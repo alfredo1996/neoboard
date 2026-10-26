@@ -46,3 +46,16 @@ export const CardWithAvatar: Story = {
     </div>
   ),
 };
+
+/** A widget while its query loads: flat blocks and a line naming what loads. */
+export const WidgetLoading: Story = {
+  render: () => (
+    <div className="flex w-[320px] flex-col gap-2 rounded-lg border bg-card p-4">
+      <Skeleton className="h-3 w-2/5" />
+      <Skeleton className="h-28 w-full" />
+      <p role="status" className="text-xs text-muted-foreground">
+        Loading Top 10 Movies by Cast Size…
+      </p>
+    </div>
+  ),
+};

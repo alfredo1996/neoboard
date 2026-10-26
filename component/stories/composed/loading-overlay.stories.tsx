@@ -44,7 +44,7 @@ export const Default: Story = {
 export const WithText: Story = {
   args: {
     loading: true,
-    text: "Loading data...",
+    text: "Loading data…",
   },
   render: (args) => (
     <LoadingOverlay {...args} className="w-[300px] h-[200px] border rounded-lg">
@@ -61,7 +61,7 @@ export const WithText: Story = {
 export const OnCard: Story = {
   args: {
     loading: true,
-    text: "Fetching metrics...",
+    text: "Fetching metrics…",
   },
   render: (args) => (
     <LoadingOverlay {...args}>

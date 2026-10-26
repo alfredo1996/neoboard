@@ -2,7 +2,6 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface EmptyStateProps {
-  icon?: React.ReactNode;
   title: string;
   description?: string;
   action?: React.ReactNode;
@@ -18,7 +17,6 @@ export interface EmptyStateProps {
 }
 
 function EmptyState({
-  icon,
   title,
   description,
   action,
@@ -29,24 +27,14 @@ function EmptyState({
   return (
     <div
       role={role}
-      className={cn(
-        "flex flex-col items-center justify-center py-12 px-4 text-center",
-        className,
-      )}
+      className={cn("flex max-w-[460px] flex-col gap-2 py-2", className)}
     >
-      {icon && <div className="mb-4 text-muted-foreground">{icon}</div>}
-      <h3 className="text-lg font-semibold">{title}</h3>
+      <h3 className="text-[15px] font-semibold">{title}</h3>
       {description && (
-        <p className="mt-2 text-sm text-muted-foreground max-w-sm">
-          {description}
-        </p>
+        <p className="text-sm text-muted-foreground">{description}</p>
       )}
-      {action && <div className="mt-6">{action}</div>}
-      {secondaryAction && (
-        <div className={cn(action ? "mt-3" : "mt-6", "text-sm")}>
-          {secondaryAction}
-        </div>
-      )}
+      {action && <div className="mt-1">{action}</div>}
+      {secondaryAction && <div className="text-sm">{secondaryAction}</div>}
     </div>
   );
 }

@@ -737,7 +737,9 @@ test.describe("Cache forever mode", () => {
     });
 
     await page.goto(`/${id}`);
-    await expect(page.getByText("Forever Cache")).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Forever Cache", exact: true }),
+    ).toBeVisible({
       timeout: 15_000,
     });
 

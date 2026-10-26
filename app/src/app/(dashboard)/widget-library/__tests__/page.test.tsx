@@ -367,9 +367,7 @@ it("a template saved from the empty state puts focus on the heading (#2146)", ()
   templates = [];
   render(<WidgetLibraryPage />);
 
-  fireEvent.click(
-    screen.getByRole("button", { name: "Create your first template" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Create a template" }));
   fireEvent.click(screen.getByRole("button", { name: "Save template" }));
 
   expect(screen.getByRole("heading", { name: "Widget Library" })).toHaveFocus();

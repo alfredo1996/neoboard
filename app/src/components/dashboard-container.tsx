@@ -38,7 +38,7 @@ import {
   filterParentParams,
 } from "@/lib/parameter/format-parameter-value";
 import { shouldShowRefreshButton } from "@/lib/query/resolve-cache-options";
-import { LayoutDashboard, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import {
   buildCsvString,
   triggerDownload,
@@ -240,7 +240,6 @@ export function DashboardContainer({
   if (page.widgets.length === 0) {
     return (
       <EmptyState
-        icon={<LayoutDashboard className="h-12 w-12" />}
         title="No widgets to display"
         description="Add widgets to this dashboard to see your data."
       />

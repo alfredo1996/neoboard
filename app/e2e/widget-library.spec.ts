@@ -75,7 +75,7 @@ test.describe("Widget Library", () => {
     // Either the empty-state copy or template cards should render
     await expect(
       page
-        .getByText("No templates yet")
+        .getByText("No widget templates yet")
         .or(page.getByText("No templates match your filters"))
         .or(page.getByRole("table", { name: "Templates" })),
     ).toBeVisible({ timeout: 10_000 });

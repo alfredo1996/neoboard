@@ -383,7 +383,6 @@ export function CardContainer({
   if (!chartConfig) {
     return (
       <EmptyState
-        icon={<AlertCircle className="h-8 w-8" />}
         title="Unknown chart type"
         description={`Chart type "${widget.chartType}" is not supported.`}
         className="py-6"
@@ -395,7 +394,6 @@ export function CardContainer({
   if (mismatch) {
     return (
       <EmptyState
-        icon={<AlertCircle className="h-8 w-8" />}
         title="Incompatible connection"
         description={mismatch}
         className="py-6"
@@ -428,7 +426,6 @@ export function CardContainer({
     if (validationError) {
       return (
         <EmptyState
-          icon={<AlertCircle className="h-8 w-8" />}
           title="Incompatible data format"
           description={validationError}
           className="py-6"
@@ -651,7 +648,6 @@ export function CardContainer({
     if (!widget.connectionId) {
       return (
         <EmptyState
-          icon={<AlertCircle className="h-8 w-8" />}
           title="No connection configured"
           description="Select a connection in the widget settings to start querying data."
           className="py-6"
@@ -663,7 +659,6 @@ export function CardContainer({
     if (!widget.query) {
       return (
         <EmptyState
-          icon={<AlertCircle className="h-8 w-8" />}
           title="No query configured"
           description="Add a query in the widget settings."
           className="py-6"
@@ -729,11 +724,22 @@ export function CardContainer({
   }
 
   if (widgetQuery.isPending) {
+    // The line names the widget by the title its header shows (#2224); an
+    // untitled one has no name to give.
+    const rawTitle = widget.settings?.title;
+    const loadingTitle =
+      typeof rawTitle === "string"
+        ? interpolateTitle(rawTitle, paramEntries, (n) =>
+            paramLabel(n, parameterSourceMap),
+          ).trim()
+        : "";
     return (
       <div data-loading="true" className="space-y-3 p-4">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className="h-28 w-full" />
+        <p role="status" className="text-xs text-muted-foreground">
+          Loading {loadingTitle || "this widget"}…
+        </p>
       </div>
     );
   }
@@ -846,7 +852,6 @@ export function CardContainer({
   if (validationError) {
     return (
       <EmptyState
-        icon={<AlertCircle className="h-8 w-8" />}
         title="Incompatible data format"
         description={validationError}
         className="py-6"

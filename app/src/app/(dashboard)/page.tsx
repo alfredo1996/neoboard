@@ -822,7 +822,6 @@ export default function DashboardListPage() {
     <GettingStartedGuide onCreateDashboard={openCreate} />
   ) : (
     <EmptyState
-      icon={<LayoutDashboard className="h-12 w-12" />}
       title="No dashboards yet"
       description="Ask an admin or editor to share one with you."
       secondaryAction={
@@ -1076,7 +1075,7 @@ export default function DashboardListPage() {
 
       {/* The ground behind the panels, as on the dashboard page (#2219). */}
       <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
-        <LoadingOverlay loading={isLoading} text="Loading dashboards...">
+        <LoadingOverlay loading={isLoading} text="Loading dashboards…">
           {!dashboardList?.length ? (
             emptyList
           ) : (

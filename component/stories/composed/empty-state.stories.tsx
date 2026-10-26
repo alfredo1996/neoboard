@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { FileX, Inbox, Search, Users } from "lucide-react";
 import { EmptyState } from "@/components/composed/empty-state";
 import { Button } from "@/components/ui/button";
 
@@ -28,9 +27,8 @@ export const Default: Story = {
   },
 };
 
-export const WithIcon: Story = {
+export const Plain: Story = {
   args: {
-    icon: <Inbox className="h-12 w-12" />,
     title: "Your inbox is empty",
     description: "New messages will appear here.",
   },
@@ -38,16 +36,14 @@ export const WithIcon: Story = {
 
 export const WithAction: Story = {
   args: {
-    icon: <FileX className="h-12 w-12" />,
     title: "No files uploaded",
     description: "Upload your first file to get started.",
-    action: <Button>Upload File</Button>,
+    action: <Button variant="secondary">Upload File</Button>,
   },
 };
 
 export const SearchNoResults: Story = {
   args: {
-    icon: <Search className="h-12 w-12" />,
     title: "No results found",
     description:
       "Try adjusting your search or filter to find what you're looking for.",
@@ -57,9 +53,8 @@ export const SearchNoResults: Story = {
 
 export const NoUsers: Story = {
   args: {
-    icon: <Users className="h-12 w-12" />,
     title: "No team members",
     description: "Invite team members to collaborate on this project.",
-    action: <Button>Invite Members</Button>,
+    action: <Button variant="secondary">Invite Members</Button>,
   },
 };

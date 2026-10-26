@@ -6,7 +6,7 @@ import {
   type MouseEventHandler,
   type RefObject,
 } from "react";
-import { Plus, Copy, Check, Key, MoreHorizontal } from "lucide-react";
+import { Plus, Copy, Check, MoreHorizontal } from "lucide-react";
 import {
   Button,
   DropdownMenu,
@@ -269,7 +269,7 @@ export default function ApiKeysPage() {
   };
 
   const createButton = (
-    <Button onClick={openCreate}>
+    <Button variant="secondary" onClick={openCreate}>
       <Plus className="mr-2 h-4 w-4" />
       Create API key
     </Button>
@@ -299,7 +299,6 @@ export default function ApiKeysPage() {
 
         {!isLoading && keys.length === 0 && (
           <EmptyState
-            icon={<Key className="h-8 w-8 text-muted-foreground" />}
             title="No API keys"
             description="Create an API key to make programmatic requests to NeoBoard."
             action={createButton}

@@ -142,10 +142,10 @@ describe("ParamSelector", () => {
         loading
       />,
     );
-    // Loading state renders skeleton elements (#833: shimmer skeletons
-    // share the bg-primary/10 base class)
+    // Loading state renders skeleton elements (#2224: they share the
+    // bg-skeleton base class)
     expect(
-      container.querySelectorAll('[class*="bg-primary/10"]').length,
+      container.querySelectorAll('[class*="bg-skeleton"]').length,
     ).toBeGreaterThan(0);
     // The select trigger should not be present during loading
     expect(screen.queryByRole("combobox")).toBeNull();
@@ -1379,10 +1379,9 @@ describe("ParamSelector — cascading props (migrated from CascadingSelector)", 
     );
     // The select combobox should not be present during loading
     expect(screen.queryByRole("combobox")).toBeNull();
-    // Skeleton placeholders should be rendered (animate-pulse divs)
-    // #833: shimmer skeletons share the bg-primary/10 base class
+    // Skeleton placeholders should be rendered (#2224: bg-skeleton blocks)
     expect(
-      container.querySelectorAll('[class*="bg-primary/10"]').length,
+      container.querySelectorAll('[class*="bg-skeleton"]').length,
     ).toBeGreaterThanOrEqual(2);
   });
 

@@ -7,7 +7,7 @@ describe("LoadingOverlay", () => {
     const { container } = render(
       <LoadingOverlay loading>
         <p>Content</p>
-      </LoadingOverlay>
+      </LoadingOverlay>,
     );
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
   });
@@ -16,7 +16,7 @@ describe("LoadingOverlay", () => {
     render(
       <LoadingOverlay loading>
         <p>Content</p>
-      </LoadingOverlay>
+      </LoadingOverlay>,
     );
     expect(screen.getByText("Content")).toBeInTheDocument();
   });
@@ -25,7 +25,7 @@ describe("LoadingOverlay", () => {
     render(
       <LoadingOverlay loading text="Loading data...">
         <p>Content</p>
-      </LoadingOverlay>
+      </LoadingOverlay>,
     );
     expect(screen.getByText("Loading data...")).toBeInTheDocument();
   });
@@ -34,7 +34,7 @@ describe("LoadingOverlay", () => {
     const { container } = render(
       <LoadingOverlay loading={false}>
         <p>Content</p>
-      </LoadingOverlay>
+      </LoadingOverlay>,
     );
     expect(container.querySelector(".animate-spin")).not.toBeInTheDocument();
     expect(screen.getByText("Content")).toBeInTheDocument();
@@ -44,8 +44,26 @@ describe("LoadingOverlay", () => {
     const { container } = render(
       <LoadingOverlay>
         <p>Content</p>
-      </LoadingOverlay>
+      </LoadingOverlay>,
     );
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
+  });
+
+  it("puts its text in a status region that names the subject", () => {
+    render(
+      <LoadingOverlay loading text="Loading dashboards…">
+        <p>Content</p>
+      </LoadingOverlay>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Loading dashboards…");
+  });
+
+  it("does not blur what is underneath", () => {
+    const { container } = render(
+      <LoadingOverlay loading text="Loading dashboards…">
+        <p>Content</p>
+      </LoadingOverlay>,
+    );
+    expect(container.innerHTML).not.toContain("backdrop-blur");
   });
 });
