@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { expect } from "storybook/test";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Status, type StatusTone } from "@/components/ui/status";
 import {
@@ -320,5 +321,42 @@ export const EmptyState: Story = {
   args: {
     columns: basicColumns,
     data: [],
+  },
+};
+
+/**
+ * The auto page size must leave room for the pager in real layout (#2257):
+ * jsdom has no layout, so this play function measures a rendered box. Heights that
+ * fit a whole number of rows exactly are the worst case, so those are used.
+ */
+export const AutoPageSizeFitsItsContainer: Story = {
+  render: () => (
+    <div className="space-y-4">
+      {[214, 216.5, 286, 288.5, 358, 360.5, 430, 432.5].map((h) => (
+        <div
+          key={h}
+          data-testid={`box-${h}`}
+          style={{ height: h }}
+          className="overflow-y-auto"
+        >
+          <DataGrid
+            columns={filmColumns}
+            data={grossRows}
+            enableSorting
+            containerHeight={h}
+          />
+        </div>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    for (const h of [214, 216.5, 286, 288.5, 358, 360.5, 430, 432.5]) {
+      const box = canvasElement.querySelector<HTMLElement>(
+        `[data-testid="box-${h}"]`,
+      )!;
+      expect(box.scrollHeight, `container ${h}px`).toBeLessThanOrEqual(
+        box.clientHeight,
+      );
+    }
   },
 };

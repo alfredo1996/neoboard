@@ -67,7 +67,7 @@ const RESIZE_STEP_PX = 16;
  * Fixed layout heights used when computing the dynamic page size from a
  * known container height.  Keep in sync with the actual rendered heights.
  */
-export const DATA_GRID_HEADER_HEIGHT = 32; // px — table <thead> row
+export const DATA_GRID_HEADER_HEIGHT = 34.5; // px — table <thead> row, measured (#2257)
 export const DATA_GRID_ROW_HEIGHT = 36; // px — single data <tr>
 export const DATA_GRID_PAGINATION_HEIGHT = 38; // px — footer: 10px gap + 28px buttons
 
