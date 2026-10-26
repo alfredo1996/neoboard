@@ -383,7 +383,6 @@ export function CardContainer({
   if (!chartConfig) {
     return (
       <EmptyState
-        icon={<AlertCircle className="h-8 w-8" />}
         title="Unknown chart type"
         description={`Chart type "${widget.chartType}" is not supported.`}
         className="py-6"
@@ -395,7 +394,6 @@ export function CardContainer({
   if (mismatch) {
     return (
       <EmptyState
-        icon={<AlertCircle className="h-8 w-8" />}
         title="Incompatible connection"
         description={mismatch}
         className="py-6"
@@ -428,7 +426,6 @@ export function CardContainer({
     if (validationError) {
       return (
         <EmptyState
-          icon={<AlertCircle className="h-8 w-8" />}
           title="Incompatible data format"
           description={validationError}
           className="py-6"
@@ -517,17 +514,20 @@ export function CardContainer({
     );
   }
 
+  // The title the card header shows, parameters substituted: a selector's
+  // label (#2232) and the loading line's subject (#2224).
+  const rawTitle = widget.settings?.title;
+  const widgetTitle =
+    typeof rawTitle === "string"
+      ? interpolateTitle(rawTitle, paramEntries, (n) =>
+          paramLabel(n, parameterSourceMap),
+        ).trim()
+      : "";
+
   // Parameter-select widgets are self-contained — skip query lifecycle
   if (isParameterWidget) {
     // The card header already names the selector; its label goes to screen
     // readers and the placeholder asks for it (#2232).
-    const rawTitle = widget.settings?.title;
-    const scopeLabel =
-      typeof rawTitle === "string"
-        ? interpolateTitle(rawTitle, paramEntries, (n) =>
-            paramLabel(n, parameterSourceMap),
-          ).trim()
-        : "";
     const parentName = chartOptions.parentParameterName;
     const parentLabel =
       typeof parentName === "string" && parentName
@@ -548,9 +548,9 @@ export function CardContainer({
     return (
       <div className="h-full w-full flex flex-col">
         <div className="flex-1 min-h-0">
-          {scopeLabel || parentLabel ? (
+          {widgetTitle || parentLabel ? (
             <ParamLabelScope
-              label={scopeLabel || undefined}
+              label={widgetTitle || undefined}
               parentLabel={parentLabel}
             >
               {selector}
@@ -651,7 +651,6 @@ export function CardContainer({
     if (!widget.connectionId) {
       return (
         <EmptyState
-          icon={<AlertCircle className="h-8 w-8" />}
           title="No connection configured"
           description="Select a connection in the widget settings to start querying data."
           className="py-6"
@@ -663,7 +662,6 @@ export function CardContainer({
     if (!widget.query) {
       return (
         <EmptyState
-          icon={<AlertCircle className="h-8 w-8" />}
           title="No query configured"
           description="Add a query in the widget settings."
           className="py-6"
@@ -730,10 +728,12 @@ export function CardContainer({
 
   if (widgetQuery.isPending) {
     return (
-      <div data-loading="true" className="space-y-3 p-4">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-        <Skeleton className="h-24 w-full" />
+      <div data-loading="true" aria-busy="true" className="space-y-3 p-4">
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className="h-28 w-full" />
+        <output className="block text-xs text-muted-foreground">
+          Loading {widgetTitle || "this widget"}…
+        </output>
       </div>
     );
   }
@@ -846,7 +846,6 @@ export function CardContainer({
   if (validationError) {
     return (
       <EmptyState
-        icon={<AlertCircle className="h-8 w-8" />}
         title="Incompatible data format"
         description={validationError}
         className="py-6"

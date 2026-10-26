@@ -441,10 +441,7 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
 
   if (!content) {
     return (
-      <div
-        data-testid="markdown-widget"
-        className={cn("h-full flex items-center justify-center", className)}
-      >
+      <div data-testid="markdown-widget" className={cn("h-full", className)}>
         <EmptyState
           title="No content"
           description="Add markdown content in the widget settings."

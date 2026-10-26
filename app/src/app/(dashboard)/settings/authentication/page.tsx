@@ -6,14 +6,7 @@ import {
   type MouseEventHandler,
   type RefObject,
 } from "react";
-import {
-  Plus,
-  Trash2,
-  Shield,
-  Globe,
-  ToggleLeft,
-  ToggleRight,
-} from "lucide-react";
+import { Plus, Trash2, Globe, ToggleLeft, ToggleRight } from "lucide-react";
 import {
   Button,
   Input,
@@ -453,11 +446,10 @@ function AuthenticationPageContent() {
 
         {!isLoading && providers.length === 0 && (
           <EmptyState
-            icon={<Shield className="h-8 w-8 text-muted-foreground" />}
             title="No SSO providers"
             description="Add an OIDC provider to enable single sign-on for your organization."
             action={
-              <Button onClick={openCreate}>
+              <Button variant="secondary" onClick={openCreate}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Provider
               </Button>

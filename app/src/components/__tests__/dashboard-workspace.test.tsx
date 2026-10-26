@@ -328,16 +328,19 @@ vi.mock("@neoboard/components", () => {
       onClick,
       disabled,
       title,
+      variant,
       ...rest
     }: {
       children?: React.ReactNode;
       onClick?: () => void;
       disabled?: boolean;
       title?: string;
+      variant?: string;
       [key: string]: unknown;
     }) => (
       <button
         data-slot={name}
+        data-variant={variant ?? "primary"}
         onClick={onClick}
         disabled={disabled}
         title={title}
@@ -859,6 +862,18 @@ describe("DashboardWorkspace", () => {
     });
     render(<DashboardWorkspace id="d1" editMode={false} />);
     expect(screen.getByText("Dashboard not found")).toBeInTheDocument();
+  });
+
+  it("keeps the not-found page's only action primary (#2224)", () => {
+    mockUseDashboard.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+    });
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    expect(
+      screen.getByRole("button", { name: /Back to Dashboards/ }),
+    ).toHaveAttribute("data-variant", "primary");
   });
 
   // ── Saving ──────────────────────────────────────────────────────────

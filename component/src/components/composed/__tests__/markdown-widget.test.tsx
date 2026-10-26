@@ -123,6 +123,13 @@ describe("MarkdownWidget", () => {
     expect(screen.getByText("No content")).toBeInTheDocument();
   });
 
+  it("leaves the empty state at the top-left, not centred (#2224)", () => {
+    render(<MarkdownWidget content="" />);
+    expect(screen.getByTestId("markdown-widget")).not.toHaveClass(
+      "items-center",
+    );
+  });
+
   it("renders empty state when content is undefined", () => {
     render(<MarkdownWidget />);
     expect(screen.getByText("No content")).toBeInTheDocument();

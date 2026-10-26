@@ -645,7 +645,9 @@ test.describe("Parameter widget types", () => {
         .filter({ hasText: "Selected movie" });
       if ((await selectedCard.count()) === 0) {
         // fallback: any card containing the title "Selected movie"
-        await expect(page.getByText("Selected movie")).toBeVisible({
+        await expect(
+          page.getByRole("heading", { name: "Selected movie", exact: true }),
+        ).toBeVisible({
           timeout: 10_000,
         });
       }

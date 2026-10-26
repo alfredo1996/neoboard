@@ -473,10 +473,20 @@ test.describe("Seeded dashboard renders live data", () => {
     // The seeded dashboard has two widgets:
     //   w1: "Top 10 Movies by Cast Size" (bar, Neo4j)
     //   w2: "Movies Released per Year" (line, PostgreSQL)
-    await expect(page.getByText("Top 10 Movies by Cast Size")).toBeVisible({
+    await expect(
+      page.getByRole("heading", {
+        name: "Top 10 Movies by Cast Size",
+        exact: true,
+      }),
+    ).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText("Movies Released per Year")).toBeVisible({
+    await expect(
+      page.getByRole("heading", {
+        name: "Movies Released per Year",
+        exact: true,
+      }),
+    ).toBeVisible({
       timeout: 15_000,
     });
 

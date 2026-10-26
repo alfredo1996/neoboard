@@ -201,7 +201,9 @@ test.describe("Per-dashboard connection reassignment", () => {
       // ── Both dashboards still load their data ─────────────────────────
       for (const id of ids) {
         await page.goto(`/${id}`);
-        await expect(page.getByText("Node Count")).toBeVisible({
+        await expect(
+          page.getByRole("heading", { name: "Node Count", exact: true }),
+        ).toBeVisible({
           timeout: 20_000,
         });
         await expect(page.getByText(/Query Failed|No connection/i)).toHaveCount(
@@ -291,7 +293,9 @@ test.describe("Per-dashboard connection reassignment", () => {
       expect(widgets.find((w) => w.id === "md1")!.connectionId).toBe("");
 
       await page.goto(`/${importedId}`);
-      await expect(page.getByText("Node Count")).toBeVisible({
+      await expect(
+        page.getByRole("heading", { name: "Node Count", exact: true }),
+      ).toBeVisible({
         timeout: 20_000,
       });
       await expect(page.getByText(/No connection/i)).toHaveCount(0, {

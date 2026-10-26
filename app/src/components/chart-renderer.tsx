@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { AlertCircle } from "lucide-react";
 import { pluginRegistry } from "@/plugins";
 import { ChartErrorBoundary } from "./chart-error-boundary";
 import { EmptyState } from "@neoboard/components";
@@ -116,7 +115,6 @@ function ChartRendererInner({
 
   return (
     <EmptyState
-      icon={<AlertCircle className="h-8 w-8" />}
       title="Unknown chart type"
       description={`Chart type "${type}" is not supported.`}
       className="py-6"

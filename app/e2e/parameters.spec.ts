@@ -162,7 +162,12 @@ test.describe("Parameter bar on view page", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 10_000 });
 
     // The dashboard should load with widgets
-    await expect(page.getByText("Top 10 Movies by Cast Size")).toBeVisible({
+    await expect(
+      page.getByRole("heading", {
+        name: "Top 10 Movies by Cast Size",
+        exact: true,
+      }),
+    ).toBeVisible({
       timeout: 15_000,
     });
     // No parameter bar should be visible initially (no filters active)
@@ -780,7 +785,9 @@ test.describe("Parameter interpolation in titles", () => {
 
       // Initially the title names the parameter in words, and the card says
       // what to do instead of showing the raw token (#2214).
-      await expect(page.getByText("Movies from [Year]")).toBeVisible({
+      await expect(
+        page.getByRole("heading", { name: "Movies from [Year]", exact: true }),
+      ).toBeVisible({
         timeout: 15_000,
       });
       const card = page.locator('[data-widget-id="interp-table"]');
@@ -800,11 +807,15 @@ test.describe("Parameter interpolation in titles", () => {
 
       // After selecting a value, the placeholder should no longer be visible
       // and the title should contain "Movies from" followed by a year number
-      await expect(page.getByText("Movies from [Year]")).not.toBeVisible({
+      await expect(
+        page.getByRole("heading", { name: "Movies from [Year]", exact: true }),
+      ).not.toBeVisible({
         timeout: 5_000,
       });
       // The widget card should show the interpolated title
-      await expect(page.getByText(/Movies from \d{4}/)).toBeVisible({
+      await expect(
+        page.getByRole("heading", { name: /^Movies from \d{4}$/ }),
+      ).toBeVisible({
         timeout: 5_000,
       });
     } finally {

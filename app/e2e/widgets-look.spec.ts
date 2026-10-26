@@ -244,7 +244,10 @@ test.describe("Widgets that are not charts (#2232)", () => {
       await select.click();
       await page.getByRole("option", { name: "Western EU" }).click();
       await expect(
-        card("w-revenue").getByText("Revenue in Western EU"),
+        card("w-revenue").getByRole("heading", {
+          name: "Revenue in Western EU",
+          exact: true,
+        }),
       ).toBeVisible({ timeout: 15_000 });
       await expect(select).toHaveText("Western EU");
       // ── The filter chip is named by the same title, not the key ──

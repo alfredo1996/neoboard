@@ -11,7 +11,7 @@ import React, {
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LayoutDashboard, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import { useDashboard, useUpdateDashboard } from "@/hooks/use-dashboards";
 import { getShownWidgetQueryData } from "@/hooks/use-widget-query";
 import { PREVIEW_ROW_LIMIT } from "@/components/widget-editor/use-auto-preview";
@@ -78,7 +78,7 @@ function emptyPageAction(
 ): React.ReactNode {
   if (editMode) {
     return (
-      <Button onClick={onAdd}>
+      <Button variant="secondary" onClick={onAdd}>
         <Plus className="mr-2 h-4 w-4" />
         Add Widget
       </Button>
@@ -86,7 +86,7 @@ function emptyPageAction(
   }
   if (!canEdit) return undefined;
   return (
-    <Button onClick={onEdit}>
+    <Button variant="secondary" onClick={onEdit}>
       <Pencil className="mr-2 h-4 w-4" />
       Add widgets in the editor
     </Button>
@@ -711,7 +711,6 @@ export function DashboardWorkspace({
     return (
       <div className="p-6">
         <EmptyState
-          icon={<LayoutDashboard className="h-12 w-12" />}
           title="Dashboard not found"
           description="The dashboard you're looking for doesn't exist or you don't have access."
           action={
@@ -868,7 +867,6 @@ export function DashboardWorkspace({
                 return (
                   <EmptyState
                     key={page.id}
-                    icon={<LayoutDashboard className="h-12 w-12" />}
                     title="No widgets yet"
                     description={
                       editMode

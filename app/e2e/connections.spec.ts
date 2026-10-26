@@ -608,7 +608,9 @@ test.describe("Connections", () => {
       //    some graceful state — same assertion as before #509 since the
       //    orphaned-widget behavior hasn't changed.
       await page.goto(`/${dashId}`);
-      await expect(page.getByText("Widget 1")).toBeVisible({
+      await expect(
+        page.getByRole("heading", { name: "Widget 1", exact: true }),
+      ).toBeVisible({
         timeout: 15_000,
       });
       await expect(

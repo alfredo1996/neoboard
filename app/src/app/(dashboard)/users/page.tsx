@@ -11,14 +11,7 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
-import {
-  Users as UsersIcon,
-  Plus,
-  MoreHorizontal,
-  KeyRound,
-  UserX,
-  UserCheck,
-} from "lucide-react";
+import { Plus, MoreHorizontal, KeyRound, UserX, UserCheck } from "lucide-react";
 import {
   useUsers,
   useCreateUser,
@@ -602,21 +595,19 @@ export default function UsersPage() {
 
       {/* The ground behind the panels, as on the dashboards page (#2219). */}
       <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
-        <LoadingOverlay loading={isLoading} text="Loading users...">
+        <LoadingOverlay loading={isLoading} text="Loading users…">
           {forbidden && (
             <EmptyState
-              icon={<UsersIcon className="h-12 w-12" />}
               title="Admin access required"
               description="Only administrators can manage users."
             />
           )}
-          {!forbidden && !users?.length && (
+          {!isLoading && !forbidden && !users?.length && (
             <EmptyState
-              icon={<UsersIcon className="h-12 w-12" />}
               title="No users yet"
               description="Add team members so they can collaborate on dashboards."
               action={
-                <Button onClick={openCreate}>
+                <Button variant="secondary" onClick={openCreate}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create your first user
                 </Button>

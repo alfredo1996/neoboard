@@ -1148,3 +1148,54 @@ describe("CardContainer", () => {
     });
   });
 });
+
+// #2224 - the skeleton says what it loads, in a polite live region.
+describe("CardContainer - loading line (#2224)", () => {
+  const loading = () =>
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "fetching",
+      isError: false,
+      data: undefined,
+      missingParams: [],
+    });
+
+  it.each([
+    [
+      "a titled widget",
+      { title: "Top 10 Movies by Cast Size" },
+      "Loading Top 10 Movies by Cast Size…",
+    ],
+    ["an untitled widget", {}, "Loading this widget…"],
+    ["a whitespace title", { title: "   " }, "Loading this widget…"],
+    [
+      "a $param_ title",
+      { title: "Films in $param_region" },
+      "Loading Films in [Region]…",
+    ],
+  ])("%s", (_name, settings, expected) => {
+    loading();
+    render(<CardContainer widget={makeWidget({ settings })} />);
+    expect(screen.getByRole("status")).toHaveTextContent(expected);
+  });
+
+  it("marks its content busy while the query loads, and not once it has settled", () => {
+    loading();
+    const { container, rerender } = render(
+      <CardContainer widget={makeWidget({})} />,
+    );
+    expect(container.querySelector("[data-loading='true']")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: false,
+      fetchStatus: "idle",
+      isError: false,
+      data: { data: [], fields: [] },
+      missingParams: [],
+    });
+    rerender(<CardContainer widget={makeWidget({})} />);
+    expect(container.querySelector("[aria-busy]")).toBeNull();
+  });
+});

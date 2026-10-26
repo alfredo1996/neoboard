@@ -1,11 +1,9 @@
 "use client";
 
-import { DOCS_LINKS } from "@/lib/docs-links";
 import { returnFocus } from "@/lib/return-focus";
 import { useState, useMemo, useRef, type MouseEventHandler } from "react";
 import { useRouter } from "next/navigation";
 import {
-  FlaskConical,
   Trash2,
   Pencil,
   Plus,
@@ -324,34 +322,22 @@ export default function WidgetLibraryPage() {
           }}
         />
 
-        <LoadingOverlay loading={isLoading} text="Loading templates...">
+        <LoadingOverlay loading={isLoading} text="Loading templates…">
           {!isLoading &&
             filtered.length === 0 &&
             (templates?.length === 0 ? (
               <EmptyState
-                icon={<FlaskConical className="h-12 w-12" />}
-                title="No templates yet"
-                description="Reusable widgets you can drop into any dashboard."
+                title="No widget templates yet"
+                description="Save a widget as a template from its menu on any dashboard, and it appears here for every dashboard to reuse."
                 action={
-                  <Button onClick={handleCreate}>
+                  <Button variant="secondary" onClick={handleCreate}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Create your first template
+                    Create a template
                   </Button>
-                }
-                secondaryAction={
-                  <a
-                    href={DOCS_LINKS.firstDashboard}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline-offset-4 hover:underline"
-                  >
-                    Read the docs
-                  </a>
                 }
               />
             ) : (
               <EmptyState
-                icon={<FlaskConical className="h-12 w-12" />}
                 title="No templates match your filters"
                 description="Try adjusting the search or filter options."
               />

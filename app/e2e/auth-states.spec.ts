@@ -124,7 +124,7 @@ test.describe("Users page — role enforcement", () => {
     // Navigate to users page
     await page.goto("/users", { waitUntil: "networkidle" });
     // Wait for the loading overlay to disappear before asserting content
-    await expect(page.getByText("Loading users...")).not.toBeVisible({
+    await expect(page.getByText("Loading users…")).not.toBeVisible({
       timeout: 30_000,
     });
     // Non-admin should see forbidden message

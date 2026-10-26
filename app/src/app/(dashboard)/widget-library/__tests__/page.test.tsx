@@ -105,8 +105,17 @@ vi.mock("@neoboard/components", () => {
     <div>{children}</div>
   );
   return {
-    EmptyState: ({ action }: { action?: React.ReactNode }) => (
-      <div>{action}</div>
+    EmptyState: ({
+      action,
+      secondaryAction,
+    }: {
+      action?: React.ReactNode;
+      secondaryAction?: React.ReactNode;
+    }) => (
+      <div>
+        {action}
+        {secondaryAction}
+      </div>
     ),
     LoadingOverlay: Box,
     Tag: Box,
@@ -361,15 +370,22 @@ it.each([
   },
 );
 
+it("the empty state has one action, no docs link (#2224)", () => {
+  templates = [];
+  render(<WidgetLibraryPage />);
+  expect(
+    screen.getByRole("button", { name: "Create a template" }),
+  ).toBeVisible();
+  expect(screen.queryByText("Read the docs")).toBeNull();
+});
+
 // #2146: the empty state and its button leave once the list refetches, which
 // is after the editor has closed: focus lands on the heading, not the button.
 it("a template saved from the empty state puts focus on the heading (#2146)", () => {
   templates = [];
   render(<WidgetLibraryPage />);
 
-  fireEvent.click(
-    screen.getByRole("button", { name: "Create your first template" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Create a template" }));
   fireEvent.click(screen.getByRole("button", { name: "Save template" }));
 
   expect(screen.getByRole("heading", { name: "Widget Library" })).toHaveFocus();

@@ -12,7 +12,6 @@ import {
 import { useSession } from "next-auth/react";
 import {
   Copy,
-  Database,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -528,7 +527,7 @@ export default function ConnectionsPage() {
       <div className="flex-1 space-y-4 bg-page-ground p-4 md:p-7">
         <LoadingOverlay
           loading={isLoading || connectorsQuery.isLoading}
-          text="Loading connections..."
+          text="Loading connections…"
         >
           {connections?.length ? (
             <>
@@ -686,31 +685,33 @@ export default function ConnectionsPage() {
               )}
             </>
           ) : (
-            <EmptyState
-              icon={<Database className="h-12 w-12" />}
-              title="No connections yet"
-              description="Connect a database to start building dashboards."
-              action={
-                <Button
-                  onClick={(e) =>
-                    openDialog({ mode: "create" }, e.currentTarget)
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create your first connection
-                </Button>
-              }
-              secondaryAction={
-                <a
-                  href={DOCS_LINKS.firstDashboard}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Read the docs
-                </a>
-              }
-            />
+            !(isLoading || connectorsQuery.isLoading) && (
+              <EmptyState
+                title="No connections yet"
+                description="Connect a database to start building dashboards."
+                action={
+                  <Button
+                    variant="secondary"
+                    onClick={(e) =>
+                      openDialog({ mode: "create" }, e.currentTarget)
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create your first connection
+                  </Button>
+                }
+                secondaryAction={
+                  <a
+                    href={DOCS_LINKS.firstDashboard}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Read the docs
+                  </a>
+                }
+              />
+            )
           )}
         </LoadingOverlay>
       </div>

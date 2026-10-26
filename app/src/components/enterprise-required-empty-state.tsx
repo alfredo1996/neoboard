@@ -1,6 +1,5 @@
 "use client";
 
-import { Lock } from "lucide-react";
 import { EmptyState, Button } from "@neoboard/components";
 import type { FeatureId } from "@/hooks/use-features";
 import { DOCS_LINKS } from "@/lib/docs-links";
@@ -41,7 +40,6 @@ export function EnterpriseRequiredEmptyState({
   const defaults = FEATURE_LABELS[feature];
   return (
     <EmptyState
-      icon={<Lock className="h-8 w-8 text-muted-foreground" />}
       title={title ?? `${defaults.title} is an Enterprise feature`}
       description={description ?? defaults.description}
       action={

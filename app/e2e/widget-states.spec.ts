@@ -455,6 +455,44 @@ test.describe("Empty result set — No data UX", () => {
 
   const EMPTY_QUERY = "MATCH (n:NonExistentLabel__E2E) RETURN n.name LIMIT 1";
 
+  test("a loading widget's skeleton pulses, and stands still for a reduced-motion user (#2224)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createWidgetDashboard(
+      page.request,
+      "bar",
+      EMPTY_QUERY,
+    );
+    dashboardCleanup = cleanup;
+
+    // Hold the widget's query open so it stays on its loading card.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/api/query", async (route) => {
+      await gate;
+      await route.continue();
+    });
+    try {
+      await page.goto(`/${id}`);
+      const skeleton = page
+        .locator("[data-loading='true'] .bg-skeleton")
+        .first();
+      await expect(skeleton).toBeVisible({ timeout: 15_000 });
+      const animationName = () =>
+        skeleton.evaluate((el) => getComputedStyle(el).animationName);
+      // The suite runs as a reduced-motion user (playwright.config.ts).
+      await expect.poll(animationName).toBe("none");
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await expect.poll(animationName).toBe("skeleton-pulse");
+    } finally {
+      release();
+    }
+  });
+
   test("bar chart with empty result renders without error", async ({
     authPage,
     page,
@@ -474,7 +512,9 @@ test.describe("Empty result set — No data UX", () => {
     // query-backed widget shows the same DOM "No data" status (#1584). The
     // chart's own empty state (`bar-chart-empty`, #1053) is now only reachable
     // from Storybook.
-    await expect(widget.getByRole("status")).toBeVisible({ timeout: 15_000 });
+    await expect(
+      widget.getByRole("status").filter({ hasText: "No data" }),
+    ).toBeVisible({ timeout: 15_000 });
     await expect(
       widget.getByRole("heading", { name: "No data" }),
     ).toBeVisible();
@@ -567,7 +607,9 @@ test.describe("Empty result set — No data UX", () => {
     const widget = page.locator("[data-testid='widget-card']");
     await expect(widget).toBeVisible({ timeout: 15_000 });
     // Was a canvas-only "No data" title, invisible to assistive tech (#1584).
-    await expect(widget.getByRole("status")).toBeVisible({ timeout: 15_000 });
+    await expect(
+      widget.getByRole("status").filter({ hasText: "No data" }),
+    ).toBeVisible({ timeout: 15_000 });
     await expect(
       widget.getByRole("heading", { name: "No data" }),
     ).toBeVisible();
@@ -667,7 +709,9 @@ test.describe("Manual run mode", () => {
     });
 
     await page.goto(`/${id}`);
-    await expect(page.getByText("Manual Table")).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Manual Table", exact: true }),
+    ).toBeVisible({
       timeout: 15_000,
     });
 
@@ -737,7 +781,9 @@ test.describe("Cache forever mode", () => {
     });
 
     await page.goto(`/${id}`);
-    await expect(page.getByText("Forever Cache")).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Forever Cache", exact: true }),
+    ).toBeVisible({
       timeout: 15_000,
     });
 
