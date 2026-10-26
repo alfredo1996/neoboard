@@ -313,21 +313,19 @@ jobs:
           exit $FAIL
 
       - name: Cache Playwright browsers
-        id: playwright-cache
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
+      # No --with-deps or install-deps (#2301): their apt step from a slow
+      # Ubuntu mirror took 14 of a shard's 20 minutes. The runner image ships
+      # Chromium's libraries, and no spec compares screenshots, so the fonts
+      # apt added change nothing. On a cache hit this is a no-op.
       - name: Install Playwright browsers
         working-directory: app
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Install Playwright system deps (cached browsers)
-        working-directory: app
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        timeout-minutes: 5
+        run: npx playwright install chromium
 
       - name: Cache Next.js build
         uses: actions/cache@v6
