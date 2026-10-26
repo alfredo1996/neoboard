@@ -160,10 +160,14 @@ test.describe("Dashboard import validation", () => {
     await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
 
     // Dashboard should render with the imported widgets
-    await expect(page.getByText("Neo4j Widget")).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Neo4j Widget", exact: true }),
+    ).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText("PostgreSQL Widget")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "PostgreSQL Widget", exact: true }),
+    ).toBeVisible();
 
     // Clean up the imported dashboard
     const importedId = page.url().split("/").pop();
