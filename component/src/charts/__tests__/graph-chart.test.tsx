@@ -1273,7 +1273,7 @@ describe("GraphChart look (#2229)", () => {
     expect(nvl.find((n) => n.id === "m0")?.caption).toBe("M0");
   });
 
-  it("refits once, with one animated fit, after a burst of resizes settles", () => {
+  it("refits once, after a burst of resizes settles", () => {
     vi.useFakeTimers();
     let fire: () => void = () => {};
     const original = globalThis.ResizeObserver;
@@ -1296,40 +1296,10 @@ describe("GraphChart look (#2229)", () => {
       expect(fit).not.toHaveBeenCalled();
       vi.advanceTimersByTime(150);
       expect(fit).toHaveBeenCalledTimes(1);
-      expect(fit).toHaveBeenCalledWith(["m1", "p1", "p2"], {
-        animated: true,
-      });
+      expect(fit).toHaveBeenCalledWith(["m1", "p1", "p2"]);
     } finally {
       globalThis.ResizeObserver = original;
       vi.useRealTimers();
-    }
-  });
-
-  it("refits the graph when the container is resized", () => {
-    vi.useFakeTimers();
-    let fire: () => void = () => {};
-    const original = globalThis.ResizeObserver;
-    globalThis.ResizeObserver = class {
-      constructor(cb: () => void) {
-        fire = cb;
-      }
-      observe() {}
-      disconnect() {}
-      unobserve() {}
-    } as unknown as typeof ResizeObserver;
-    try {
-      render(<GraphChart nodes={movies} edges={rels} />);
-      const fit = vi.fn();
-      (capturedProps.ref as { current: unknown }).current = { fit };
-      fire();
-      expect(fit).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(150);
-      expect(fit).toHaveBeenCalledWith(["m1", "p1", "p2"], {
-        animated: true,
-      });
-    } finally {
-      vi.useRealTimers();
-      globalThis.ResizeObserver = original;
     }
   });
 

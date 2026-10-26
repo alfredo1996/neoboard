@@ -559,12 +559,9 @@ function GraphChartInner({
     [edges, showRelationshipLabels, dark],
   );
 
-  const fitGraph = useCallback((options?: { animated: boolean }) => {
+  const fitGraph = useCallback(() => {
     if (nvlRef.current) {
-      nvlRef.current.fit(
-        nodesRef.current.map((n) => n.id),
-        options,
-      );
+      nvlRef.current.fit(nodesRef.current.map((n) => n.id));
     }
   }, []);
 
@@ -722,13 +719,13 @@ function GraphChartInner({
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    // A drag fires this every frame, and each animated fit restarted the last
-    // one, so the graph crawled through every frame. Fit once, animated, when
-    // the resize settles (NVL's fit takes no duration, only animated on/off).
+    // A drag fires this every frame, and each animated fit (NVL's default)
+    // restarted the last one, so the graph crawled through every frame. Fit
+    // once when the resize settles.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const ro = new ResizeObserver(() => {
       clearTimeout(timer);
-      timer = setTimeout(() => fitGraph({ animated: true }), 150);
+      timer = setTimeout(() => fitGraph(), 150);
     });
     ro.observe(el);
     return () => {
@@ -830,7 +827,7 @@ function GraphChartInner({
           </svg>
         </button>
         <button
-          onClick={() => fitGraph()}
+          onClick={fitGraph}
           className="flex h-6 w-6 items-center justify-center rounded text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           title="Fit graph"
           aria-label="Fit graph"
