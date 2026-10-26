@@ -669,8 +669,8 @@ describe("DashboardContainer — filter line", () => {
         parameterSourceMap={regionSelectorMap}
       />,
     );
-    const line = screen.getByRole("group", { name: "Active filters" });
-    expect(line).toHaveTextContent("Region is EU");
+    const line = screen.getByRole("region", { name: "Active filters" });
+    expect(line).toHaveTextContent("Region: EU");
     expect(line).not.toHaveTextContent("Gallery region");
   });
 
@@ -684,11 +684,11 @@ describe("DashboardContainer — filter line", () => {
       decade: { field: "decade", value: "1990s" },
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
-    const line = screen.getByRole("group", { name: "Active filters" });
-    expect(line).toHaveTextContent("Gallery region is EU");
-    expect(line).toHaveTextContent("Decade is 1990s");
-    expect(screen.getByTitle("Set by URL")).toHaveTextContent(
-      "Gallery region is EU",
+    const line = screen.getByRole("region", { name: "Active filters" });
+    expect(line).toHaveTextContent("Gallery region: EU");
+    expect(line).toHaveTextContent("Decade: 1990s");
+    expect(screen.getByTitle(/Set by URL$/)).toHaveTextContent(
+      "Gallery region: EU",
     );
     expect(
       screen.getAllByRole("button", { name: /^Remove .* filter$/ }),
@@ -701,13 +701,13 @@ describe("DashboardContainer — filter line", () => {
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
     expect(
-      screen.getByRole("group", { name: "Active filters" }),
+      screen.getByRole("region", { name: "Active filters" }),
     ).toBeInTheDocument();
   });
 
   it("renders no line when no parameter is active", () => {
     renderWithProviders(<DashboardContainer page={makePage()} />);
-    expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Active filters" })).toBeNull();
   });
 
   it("clears one parameter when its chip's × is clicked", () => {
@@ -719,6 +719,46 @@ describe("DashboardContainer — filter line", () => {
       screen.getByRole("button", { name: "Remove Status filter" }),
     );
     expect(parametersState.clearParameter).toHaveBeenCalledWith("status");
+  });
+
+  it("clears a range chip's parent and its companions with one ×", () => {
+    parametersState.clearParameter.mockClear();
+    parametersState.parameters = {
+      dates: { field: "dates", value: { from: "a", to: "b" } },
+      dates_from: { field: "dates_from", value: "a" },
+      dates_to: { field: "dates_to", value: "b" },
+    };
+    renderWithProviders(<DashboardContainer page={makePage()} />);
+    expect(
+      screen.getAllByRole("button", { name: /^Remove .* filter$/ }),
+    ).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Dates filter" }),
+    );
+    const cleared = parametersState.clearParameter.mock.calls.map((c) => c[0]);
+    expect(cleared).toEqual(
+      expect.arrayContaining(["dates", "dates_from", "dates_to"]),
+    );
+  });
+
+  it("jumps through onNavigateToPage to the page that holds the selector", () => {
+    parametersState.parameters = {
+      gallery_region: {
+        field: "gallery_region",
+        value: "EU",
+        sourceWidgetId: "sel",
+      },
+    };
+    const onNavigateToPage = vi.fn();
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage()}
+        parameterSourceMap={regionSelectorMap}
+        actions={{ onNavigateToPage }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Region: EU" }));
+    expect(onNavigateToPage).toHaveBeenCalledWith("p1", "sel");
   });
 
   it("scrolls to and highlights the widget that set a filter when its sentence is clicked", () => {
@@ -744,27 +784,27 @@ describe("DashboardContainer — filter line", () => {
     renderWithProviders(<DashboardContainer page={makePage()} />);
 
     // A filter nothing set has no source to jump to.
-    expect(screen.queryByRole("button", { name: "Other is x" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Status is active" }));
+    expect(screen.queryByRole("button", { name: "Other: x" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Status: active" }));
     expect(scrollIntoView).toHaveBeenCalledWith({
       behavior: "smooth",
       block: "center",
     });
-    expect(el.classList.contains("ring-2")).toBe(true);
+    expect(el.classList.contains("widget-highlight")).toBe(true);
     act(() => {
       vi.advanceTimersByTime(2000);
     });
-    expect(el.classList.contains("ring-2")).toBe(false);
+    expect(el.classList.contains("widget-highlight")).toBe(false);
     spy.mockRestore();
     vi.useRealTimers();
   });
 
-  it("clears all parameters on Reset", () => {
+  it("clears all parameters on Clear all", () => {
     parametersState.parameters = {
       status: { field: "status", value: "active" },
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
     expect(parametersState.clearAll).toHaveBeenCalled();
   });
 });

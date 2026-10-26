@@ -11,6 +11,16 @@ export {
   type FilterLineProps,
   type FilterLineFilter,
 } from "./filter-line";
+export {
+  FilterStrip,
+  type FilterStripProps,
+  type FilterStripFilter,
+} from "./filter-strip";
+export {
+  FiltersButton,
+  type FiltersButtonProps,
+  type FiltersButtonItem,
+} from "./filters-button";
 export { List, ListRow, type ListProps, type ListRowProps } from "./list";
 export { SettingsSection, type SettingsSectionProps } from "./settings-section";
 export { Stat, type StatProps } from "./stat";

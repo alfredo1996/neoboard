@@ -25,7 +25,11 @@ import {
 } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
-import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
+import { HeaderFilters } from "@/components/header-filters";
+import {
+  scrollAndHighlight,
+  scrollToWidgetWhenReady,
+} from "@/lib/widget/scroll-to-widget";
 import {
   parseUrlParams,
   buildParamsUrl,
@@ -358,6 +362,21 @@ export function DashboardWorkspace({
       }
     },
     [activeLayout, markVisited, setActivePage],
+  );
+
+  // The header Filters button (#2297): a row jumps to the selector, across pages.
+  const jumpToFilter = useCallback(
+    (pageId: string | undefined, widgetId: string) => {
+      if (pageId) handleNavigateToPage(pageId, widgetId);
+      else scrollAndHighlight(widgetId);
+    },
+    [handleNavigateToPage],
+  );
+  const filtersButton = (
+    <HeaderFilters
+      parameterSourceMap={parameterSourceMap}
+      onJump={jumpToFilter}
+    />
   );
 
   // ── Auto-refresh (view mode) ────────────────────────────────────────
@@ -734,6 +753,7 @@ export function DashboardWorkspace({
           updatedByName={dashboard.updatedByName}
           widgetCount={widgetCount}
           tabs={pageTabs}
+          filters={filtersButton}
           onAddPage={activeLayout.pages.length < 2 ? addPage : undefined}
           isAdmin={isAdmin}
           isPublic={dashboard.isPublic ?? false}
@@ -756,6 +776,7 @@ export function DashboardWorkspace({
           widgetCount={widgetCount}
           isPublic={dashboard.isPublic ?? false}
           tabs={pageTabs}
+          filters={filtersButton}
           dashboardId={id}
           isAdmin={isAdmin}
           onTogglePublic={(value) =>

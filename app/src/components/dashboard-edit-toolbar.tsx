@@ -17,6 +17,8 @@ interface DashboardEditToolbarProps {
   widgetCount: number;
   /** The page tabs, under the title: only when there are 2+ pages. */
   tabs?: React.ReactNode;
+  /** The Filters button; first in the actions, absent on a dashboard with no filters (#2297). */
+  filters?: React.ReactNode;
   /** Given while the dashboard has one page and so no tabs row. */
   onAddPage?: () => void;
   /** Admins get the sharing sheet. */
@@ -44,6 +46,7 @@ export function DashboardEditToolbar({
   updatedByName,
   widgetCount,
   tabs,
+  filters,
   onAddPage,
   isAdmin,
   isPublic,
@@ -81,6 +84,7 @@ export function DashboardEditToolbar({
       tabs={tabs}
       actions={
         <>
+          {filters}
           {isAdmin && (
             <DashboardShareSheet
               dashboardId={dashboardId}

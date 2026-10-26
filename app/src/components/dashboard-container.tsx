@@ -3,7 +3,12 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
-import { FilterLine } from "@neoboard/components/kit";
+import { FilterStrip } from "@neoboard/components/kit";
+import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
+import {
+  buildDashboardFilters,
+  filterClearNames,
+} from "@/lib/parameter/dashboard-filters";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { paramLabel } from "@/lib/parameter/param-label";
@@ -33,10 +38,6 @@ import {
   useParameterStore,
   useParameterValues,
 } from "@/stores/parameter-store";
-import {
-  formatParameterValue,
-  filterParentParams,
-} from "@/lib/parameter/format-parameter-value";
 import { shouldShowRefreshButton } from "@/lib/query/resolve-cache-options";
 import { RefreshCw } from "lucide-react";
 import {
@@ -216,23 +217,24 @@ export function DashboardContainer({
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
   const allParamValues = useParameterValues();
-  const allEntries = Object.entries(parameters);
-  const displayEntries = useMemo(
-    () => filterParentParams(allEntries),
-    [allEntries],
-  );
-  const hasParameters = displayEntries.length > 0;
-  /** Bring the widget that set a filter into view and ring it briefly. */
-  const scrollToSource = (widgetId: string) => {
-    const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("ring-2", "ring-primary", "rounded-lg");
-    setTimeout(
-      () => el.classList.remove("ring-2", "ring-primary", "rounded-lg"),
-      1500,
-    );
-  };
+  const stripFilters = useMemo(() => {
+    // The selector may sit on another page: the workspace switches to it.
+    const jump = (pageId: string | undefined, widgetId: string) => {
+      if (onNavigateToPage) onNavigateToPage(pageId ?? page.id, widgetId);
+      else scrollAndHighlight(widgetId);
+    };
+    return buildDashboardFilters(parameterSourceMap ?? {}, parameters)
+      .filter((f) => f.value !== undefined)
+      .map((f) => ({
+        id: f.id,
+        label: f.label,
+        value: f.value ?? "",
+        title: f.title,
+        onSelect: f.sourceWidgetId
+          ? () => jump(f.pageId, f.sourceWidgetId!)
+          : undefined,
+      }));
+  }, [parameterSourceMap, parameters, onNavigateToPage, page.id]);
   const labelOf = (n: string) => paramLabel(n, parameterSourceMap);
   const displayTitle = (widget: DashboardWidget) =>
     interpolateTitle(getWidgetDisplayTitle(widget), parameters, labelOf);
@@ -363,24 +365,14 @@ export function DashboardContainer({
 
   return (
     <ConnectionNamesProvider value={connectionNames}>
-      {hasParameters && (
-        <div className="pb-3">
-          <FilterLine
-            filters={displayEntries.map(([name, entry]) => {
-              const sourceId = entry.sourceWidgetId;
-              return {
-                id: name,
-                label: labelOf(name),
-                value: formatParameterValue(entry.value),
-                title: entry.source ? `Set by ${entry.source}` : undefined,
-                onSelect: sourceId ? () => scrollToSource(sourceId) : undefined,
-              };
-            })}
-            onRemove={clearParameter}
-            onReset={clearAll}
-          />
-        </div>
-      )}
+      <FilterStrip
+        className="mb-3"
+        filters={stripFilters}
+        onRemove={(id) =>
+          filterClearNames(id).forEach((n) => clearParameter(n))
+        }
+        onClearAll={clearAll}
+      />
       <div className="w-full min-w-0">
         <DashboardGrid
           layout={page.gridLayout as GridLayoutItem[]}

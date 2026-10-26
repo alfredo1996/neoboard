@@ -118,6 +118,32 @@ describe("DashboardViewToolbar", () => {
   );
 });
 
+describe("header filters slot (#2297)", () => {
+  it("puts the Filters control first in the view header's actions", () => {
+    render(
+      <DashboardViewToolbar
+        {...viewProps}
+        filters={<button type="button">Filters</button>}
+      />,
+    );
+    const names = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(names.indexOf("Filters")).toBeGreaterThanOrEqual(0);
+    expect(names.indexOf("Filters")).toBeLessThan(names.indexOf("Share"));
+  });
+
+  it("does the same in the edit header", () => {
+    render(
+      <DashboardEditToolbar
+        {...editProps}
+        filters={<button type="button">Filters</button>}
+      />,
+    );
+    const names = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(names.indexOf("Filters")).toBeGreaterThanOrEqual(0);
+    expect(names.indexOf("Filters")).toBeLessThan(names.indexOf("Sharing"));
+  });
+});
+
 describe("DashboardEditToolbar", () => {
   it("shows the name as the title, the Editing crumb, meta and the edit actions", async () => {
     const onSave = vi.fn();

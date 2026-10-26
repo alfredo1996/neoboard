@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useParameterStore } from "@/stores/parameter-store";
+import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import type { ConfirmDialogProps } from "@neoboard/components";
 import { useCloseAutoFocus } from "@/__tests__/helpers/dialog-mocks";
 
@@ -112,6 +113,7 @@ vi.mock("@/components/dashboard-container", () => ({
 
 vi.mock("@/lib/widget/scroll-to-widget", () => ({
   scrollToWidgetWhenReady: vi.fn(),
+  scrollAndHighlight: vi.fn(),
 }));
 
 /* ---------- mocks ---------- */
@@ -1464,6 +1466,31 @@ describe("DashboardWorkspace", () => {
 
     fireEvent.click(screen.getByTestId("tab-remove"));
     expect(useDashboardStore.getState().layout.pages).toHaveLength(3);
+  });
+
+  // #2297 — a row in the header Filters list jumps to its selector, across pages.
+  it("a Filters row whose selector is on another page switches to that page and scrolls to it", async () => {
+    const d = makeDashboard(2);
+    d.layoutJson.pages[1].widgets.push({
+      id: "sel",
+      chartType: "parameter-select",
+      connectionId: "c1",
+      query: "",
+      settings: {
+        chartOptions: { parameterName: "region", parameterType: "select" },
+      },
+    } as unknown as (typeof d.layoutJson.pages)[0]["widgets"][0]);
+    mockUseDashboard.mockReturnValue({
+      data: d,
+      isLoading: false,
+      isFetching: false,
+    });
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    expect(useDashboardStore.getState().activePageIndex).toBe(0);
+    fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Region/ }));
+    expect(useDashboardStore.getState().activePageIndex).toBe(1);
+    expect(scrollToWidgetWhenReady).toHaveBeenCalledWith("sel");
   });
 
   // ── Parameter defaults (#1421) ──────────────────────────────────────

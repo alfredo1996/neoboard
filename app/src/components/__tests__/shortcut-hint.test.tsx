@@ -19,8 +19,8 @@ describe("formatShortcut", () => {
   });
 
   it("renders Ctrl-style combos elsewhere", () => {
-    expect(formatShortcut("Cmd+E", false)).toBe("Ctrl+E");
-    expect(formatShortcut("Cmd+Shift+N", false)).toBe("Ctrl+Shift+N");
+    expect(formatShortcut("Cmd+E", false)).toBe("Ctrl E");
+    expect(formatShortcut("Cmd+Shift+N", false)).toBe("Ctrl Shift N");
   });
 });
 
@@ -31,15 +31,25 @@ describe("ShortcutHint", () => {
     expect(screen.getByText("⌘E")).toBeDefined();
   });
 
-  it("shows Ctrl+ on other platforms", () => {
+  it("shows Ctrl on other platforms", () => {
     stubPlatform("Win32");
     render(<ShortcutHint combo="Cmd+S" />);
-    expect(screen.getByText("Ctrl+S")).toBeDefined();
+    expect(screen.getByText("Ctrl S")).toBeDefined();
   });
 
   it("renders as a kbd element (semantic keyboard hint)", () => {
     stubPlatform("MacIntel");
     render(<ShortcutHint combo="Cmd+S" />);
     expect(screen.getByText("⌘S").tagName).toBe("KBD");
+  });
+
+  it("draws in the system font (Plex Mono has no ⌘), with no box", () => {
+    stubPlatform("MacIntel");
+    render(<ShortcutHint combo="Cmd+S" />);
+    const cls = screen.getByText("⌘S").className.split(/\s+/);
+    expect(cls).toContain("[font-family:system-ui,-apple-system,sans-serif]");
+    expect(cls).toContain("text-xs");
+    expect(cls).not.toContain("font-mono");
+    expect(cls).not.toContain("border");
   });
 });

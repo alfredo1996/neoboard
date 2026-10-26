@@ -177,14 +177,16 @@ test.describe("Parameter URL sync opt-in", () => {
         "Keanu",
       ]);
       const since = url.searchParams.get("param_period_from") ?? "";
-      const chips = await page.locator('[title^="Set by"]').allTextContents();
+      const chips = await page.locator('[title*="Set by"]').allTextContents();
+      // The actors and the period, one chip each, or the check below is vacuous.
+      expect(chips).toHaveLength(2);
       const actorsText = (await actors.textContent()) ?? "";
       const periodText = (await period.textContent()) ?? "";
 
       await page.reload();
 
       // "Set by URL": the link restored these, not the saved session.
-      await expect(page.locator('[title="Set by URL"]')).toHaveText(chips, {
+      await expect(page.locator('[title$="Set by URL"]')).toHaveText(chips, {
         timeout: 15_000,
       });
       await expect(actors).toHaveText(actorsText);
