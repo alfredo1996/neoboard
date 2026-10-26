@@ -603,3 +603,51 @@ export const LabelLegendDark: Story = {
   args: { nodes: labelledNodes, edges: labelledEdges },
   globals: { theme: "dark" },
 };
+
+/** #2296 — uneven label counts, dashboard-sized: no node carries an enlarged title at rest. */
+const coStarMovies = [
+  "Apollo 13",
+  "Cast Away",
+  "Big",
+  "Splash",
+  "Philadelphia",
+  "Sully",
+];
+const coStarNodes: GraphNode[] = [
+  ...coStarMovies.map((title, i) => ({
+    id: `m${i}`,
+    labels: ["Movie"],
+    properties: { title },
+  })),
+  ...Array.from({ length: 24 }, (_, i) => ({
+    id: `p${i}`,
+    labels: ["Person"],
+    properties: { name: `Actor ${i + 1}` },
+  })),
+];
+const coStarEdges: GraphEdge[] = coStarNodes
+  .filter((n) => n.id.startsWith("p"))
+  .map((n, i) => ({
+    source: n.id,
+    target: `m${i % coStarMovies.length}`,
+    label: "ACTED_IN",
+  }));
+const coStarsDecorator: NonNullable<Story["decorators"]> = [
+  (Story) => (
+    <div style={{ width: 530, height: 475 }}>
+      <Story />
+    </div>
+  ),
+];
+
+export const CoStarsLight: Story = {
+  args: { nodes: coStarNodes, edges: coStarEdges },
+  globals: { theme: "light" },
+  decorators: coStarsDecorator,
+};
+
+export const CoStarsDark: Story = {
+  args: { nodes: coStarNodes, edges: coStarEdges },
+  globals: { theme: "dark" },
+  decorators: coStarsDecorator,
+};
