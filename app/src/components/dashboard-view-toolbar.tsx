@@ -41,6 +41,8 @@ interface DashboardViewToolbarProps {
   isPublic: boolean;
   /** The page tabs, under the title. */
   tabs?: React.ReactNode;
+  /** The Filters button; first in the actions, absent on a dashboard with no filters (#2297). */
+  filters?: React.ReactNode;
   dashboardId: string;
   /** Admins get the sharing sheet. */
   isAdmin: boolean;
@@ -69,6 +71,7 @@ export function DashboardViewToolbar({
   widgetCount,
   isPublic,
   tabs,
+  filters,
   dashboardId,
   isAdmin,
   onTogglePublic,
@@ -136,6 +139,7 @@ export function DashboardViewToolbar({
       tabs={tabs}
       actions={
         <>
+          {filters}
           {isAdmin && (
             <DashboardShareSheet
               dashboardId={dashboardId}

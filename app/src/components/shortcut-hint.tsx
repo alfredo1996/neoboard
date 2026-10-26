@@ -3,8 +3,8 @@
 /**
  * Inline keyboard-shortcut hint for toolbar buttons (#1156).
  *
- * Renders the combo in platform notation — "⌘E" on macOS, "Ctrl+E" elsewhere —
- * as a subtle <kbd> chip so shortcuts are discoverable without hovering for
+ * Renders the combo in platform notation — "⌘E" on macOS, "Ctrl E" elsewhere —
+ * as muted <kbd> text in the system font (Plex Mono has no ⌘ ⇧ ⌥, #2297) so shortcuts are discoverable without hovering for
  * the title tooltip. Combos use the same "Cmd+X" strings as
  * useKeyboardShortcuts ("Cmd" = meta on Mac, ctrl elsewhere).
  */
@@ -20,7 +20,7 @@ export function formatShortcut(combo: string, isMac: boolean): string {
   if (isMac) {
     return parts.map((p) => MAC_GLYPHS[p.toLowerCase()] ?? p).join("");
   }
-  return parts.map((p) => (p.toLowerCase() === "cmd" ? "Ctrl" : p)).join("+");
+  return parts.map((p) => (p.toLowerCase() === "cmd" ? "Ctrl" : p)).join(" ");
 }
 
 function detectMac(): boolean {
@@ -38,7 +38,7 @@ export function ShortcutHint({ combo }: { combo: string }) {
     <kbd
       suppressHydrationWarning
       aria-hidden="true"
-      className="pointer-events-none ml-2 hidden rounded border border-current/25 px-1 font-mono text-[10px] font-medium leading-4 opacity-60 sm:inline-block"
+      className="pointer-events-none ml-2 hidden text-xs font-medium leading-[18px] tracking-[.02em] opacity-60 [font-family:system-ui,-apple-system,sans-serif] sm:inline-block"
     >
       {formatShortcut(combo, detectMac())}
     </kbd>

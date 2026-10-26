@@ -25,6 +25,9 @@ import {
 } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { buildParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
+import { buildDashboardFilters } from "@/lib/parameter/dashboard-filters";
+import { scrollToWidget } from "@/lib/scroll-to-widget";
+import { FiltersButton } from "@neoboard/components/kit";
 import { scrollToWidgetWhenReady } from "@/lib/widget/scroll-to-widget";
 import {
   parseUrlParams,
@@ -334,6 +337,43 @@ export function DashboardWorkspace({
       setActivePage(index);
     },
     [markVisited, setActivePage],
+  );
+
+  // ── Header Filters button (#2297) ───────────────────────────────────
+  const parameters = useParameterStore((s) => s.parameters);
+  const clearParameter = useParameterStore((s) => s.clearParameter);
+  const clearAllParameters = useParameterStore((s) => s.clearAll);
+  const filterItems = useMemo(
+    () =>
+      buildDashboardFilters(parameterSourceMap, parameters).map((f) => ({
+        id: f.id,
+        label: f.label,
+        value: f.value,
+        where: f.where,
+        onSelect: f.sourceWidgetId
+          ? () => {
+              const sourceId = f.sourceWidgetId!;
+              const pageIndex = activeLayout.pages.findIndex(
+                (p) => p.id === f.pageId,
+              );
+              if (pageIndex < 0 || pageIndex === safeIndex) {
+                scrollToWidget(sourceId);
+                return;
+              }
+              handleSelectPage(pageIndex);
+              // The page mounts on the next render; scroll once it has.
+              setTimeout(() => scrollToWidget(sourceId), 150);
+            }
+          : undefined,
+      })),
+    [parameterSourceMap, parameters, activeLayout, safeIndex, handleSelectPage],
+  );
+  const filtersButton = (
+    <FiltersButton
+      items={filterItems}
+      onClear={clearParameter}
+      onClearAll={clearAllParameters}
+    />
   );
 
   // After reorderPages the store adjusts activePageIndex. Mark the new index
@@ -734,6 +774,7 @@ export function DashboardWorkspace({
           updatedByName={dashboard.updatedByName}
           widgetCount={widgetCount}
           tabs={pageTabs}
+          filters={filtersButton}
           onAddPage={activeLayout.pages.length < 2 ? addPage : undefined}
           isAdmin={isAdmin}
           isPublic={dashboard.isPublic ?? false}
@@ -756,6 +797,7 @@ export function DashboardWorkspace({
           widgetCount={widgetCount}
           isPublic={dashboard.isPublic ?? false}
           tabs={pageTabs}
+          filters={filtersButton}
           dashboardId={id}
           isAdmin={isAdmin}
           onTogglePublic={(value) =>

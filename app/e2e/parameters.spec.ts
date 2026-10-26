@@ -11,6 +11,10 @@ import {
   dashboardCrumb,
 } from "./fixtures";
 
+/** The active-filter strip under the header (#2297); present only while a filter is set. */
+const filterStrip = (page: import("@playwright/test").Page) =>
+  page.getByRole("region", { name: "Active filters" });
+
 /** Cancel on an edited widget asks first (#2054): Discard, and the empty
  *  dashboard is back with nothing added. */
 async function cancelAndDiscard(
@@ -171,7 +175,7 @@ test.describe("Parameter bar on view page", () => {
       timeout: 15_000,
     });
     // No parameter bar should be visible initially (no filters active)
-    await expect(page.getByText("Reset")).not.toBeVisible();
+    await expect(filterStrip(page)).not.toBeVisible();
   });
 });
 
@@ -402,7 +406,7 @@ test.describe("Click actions", () => {
       await movieCell.first().click();
 
       // The parameter bar should appear with a cross-filter tag
-      await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+      await expect(filterStrip(page)).toBeVisible({ timeout: 5_000 });
 
       // The dependent widgets should re-run without errors
       await expect(page.locator("text=Query Failed")).not.toBeVisible({
@@ -451,8 +455,8 @@ test.describe("Click actions", () => {
 
       // The parameter bar should show the clicked value.
       // Both pages may render parameter bars, so use .first() to avoid
-      // strict mode violation from matching 2 "Reset" buttons.
-      await expect(page.getByText("Reset").first()).toBeVisible({
+      // strict mode violation from matching 2 strips.
+      await expect(filterStrip(page).first()).toBeVisible({
         timeout: 5_000,
       });
     } finally {
@@ -1069,11 +1073,11 @@ test.describe("Clickable columns restriction", () => {
 
       // Click the released cell — should NOT set a parameter
       await releasedCell.first().click();
-      await expect(page.getByText("Reset")).not.toBeVisible({ timeout: 2_000 });
+      await expect(filterStrip(page)).not.toBeVisible({ timeout: 2_000 });
 
       // Click the title cell — SHOULD set a parameter
       await titleCell.first().click();
-      await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+      await expect(filterStrip(page)).toBeVisible({ timeout: 5_000 });
     } finally {
       await cleanup();
     }
@@ -1178,15 +1182,17 @@ test.describe("Multi-rule click actions", () => {
 
       // Click title column — should set param_movie
       await titleCell.first().click();
-      await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+      await expect(filterStrip(page)).toBeVisible({ timeout: 5_000 });
 
       // Reset
-      await page.getByText("Reset").first().click();
-      await expect(page.getByText("Reset")).not.toBeVisible({ timeout: 5_000 });
+      await filterStrip(page)
+        .getByRole("button", { name: "Clear all" })
+        .click();
+      await expect(filterStrip(page)).not.toBeVisible({ timeout: 5_000 });
 
       // Click year column — should set param_year
       await yearCell.first().click();
-      await expect(page.getByText("Reset")).toBeVisible({ timeout: 5_000 });
+      await expect(filterStrip(page)).toBeVisible({ timeout: 5_000 });
     } finally {
       await cleanup();
     }
@@ -1264,8 +1270,8 @@ test.describe("Filter line chips (#2252)", () => {
       });
 
       await page.locator("td").filter({ hasText: "Apollo 13" }).first().click();
-      const line = page.getByRole("group", { name: "Active filters" });
-      await expect(line).toContainText("Movie is Apollo 13", {
+      const line = filterStrip(page);
+      await expect(line).toContainText("Movie: Apollo 13", {
         timeout: 10_000,
       });
       await expect(dependent.getByRole("cell", { name: "1,995" })).toBeVisible({
@@ -1352,8 +1358,8 @@ test.describe("Filter line chips (#2252)", () => {
       const cell = source.locator("td").filter({ hasText: "Apollo 13" });
       await cell.first().scrollIntoViewIfNeeded();
       await cell.first().click();
-      const line = page.getByRole("group", { name: "Active filters" });
-      await expect(line).toContainText("Movie is Apollo 13", {
+      const line = filterStrip(page);
+      await expect(line).toContainText("Movie: Apollo 13", {
         timeout: 10_000,
       });
 
@@ -1367,7 +1373,7 @@ test.describe("Filter line chips (#2252)", () => {
         .poll(async () => (await source.boundingBox())!.y)
         .toBeGreaterThan(viewportHeight);
 
-      await line.getByRole("button", { name: "Movie is Apollo 13" }).click();
+      await line.getByRole("button", { name: "Movie: Apollo 13" }).click();
       await expect
         .poll(
           async () => {
@@ -1467,7 +1473,12 @@ test.describe("Date parameter widget", () => {
         timeout: 15_000,
       });
       // Until a date is picked the title names the parameter in words (#2214)
-      await expect(page.getByText("Movies (date: [Date])")).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "Movies (date: [Date])",
+          exact: true,
+        }),
+      ).toBeVisible();
 
       // Open the calendar popover
       await page.getByText("Pick a date…").click();
@@ -1493,7 +1504,10 @@ test.describe("Date parameter widget", () => {
 
       // The title should interpolate the parameter value
       await expect(
-        page.getByText("Movies (date: [Test date])"),
+        page.getByRole("heading", {
+          name: "Movies (date: [Test date])",
+          exact: true,
+        }),
       ).not.toBeVisible({
         timeout: 5_000,
       });
@@ -1789,21 +1803,22 @@ test.describe("Number-range parameter widget", () => {
       await expect(minInput).toHaveValue("1900");
       await expect(maxInput).toHaveValue("2020");
 
-      // Change the min input — should trigger parameter set and show Reset button.
-      // Two "Reset" buttons may appear (slider + parameter bar), so use .first().
+      // Change the min input — should trigger parameter set and show the strip.
       await minInput.fill("1950");
       await expect(
-        page.getByRole("button", { name: "Reset" }).first(),
+        filterStrip(page).getByRole("button", { name: "Clear all" }),
       ).toBeVisible({ timeout: 5_000 });
 
       // Change the max input
       await maxInput.fill("2000");
       await expect(maxInput).toHaveValue("2000");
 
-      // Click Reset — should clear the range (both slider and parameter bar Reset disappear)
-      await page.getByRole("button", { name: "Reset" }).first().click();
+      // Click Reset — should clear the range (the strip goes)
+      await filterStrip(page)
+        .getByRole("button", { name: "Clear all" })
+        .click();
       await expect(
-        page.getByRole("button", { name: "Reset" }).first(),
+        filterStrip(page).getByRole("button", { name: "Clear all" }),
       ).not.toBeVisible({ timeout: 5_000 });
     } finally {
       await cleanup();
@@ -1915,7 +1930,7 @@ test.describe("Multi-select parameter widget", () => {
       });
 
       // "Clear" button should appear (confirms values are selected)
-      await expect(page.getByText("Clear")).toBeVisible();
+      await expect(page.getByText("Clear", { exact: true })).toBeVisible();
 
       // The dependent table should re-execute without errors
       await expect(page.locator("text=Query Failed")).not.toBeVisible({
@@ -2581,7 +2596,7 @@ test.describe("Filter line appears with the first filter and leaves with the las
     await firstCell.click();
 
     // The filter line appears with the first filter and has no toggle...
-    const line = page.getByRole("group", { name: "Active filters" });
+    const line = filterStrip(page);
     await expect(line).toBeVisible({ timeout: 10_000 });
     await expect(
       page.getByRole("button", { name: /Hide parameters|Show parameters/ }),
@@ -2811,7 +2826,7 @@ test.describe("Bar click actions resolve raw query columns", () => {
           await canvas.click({
             position: { x: box.width / 2, y: box.height / 2 },
           });
-          await expect(page.getByText("Reset")).toBeVisible({
+          await expect(filterStrip(page)).toBeVisible({
             timeout: 2_000,
           });
         }).toPass({ timeout: 20_000 });
