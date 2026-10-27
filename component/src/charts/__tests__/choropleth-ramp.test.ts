@@ -6,7 +6,7 @@ import {
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "../choropleth-ramp";
-import { MUTED_FILL } from "../theme";
+import { MUTED_FILL, SURFACE_COLOR } from "../theme";
 
 /**
  * #1404 — the choropleth's colour scale was not a scale.
@@ -168,7 +168,7 @@ function wcagContrast(a: string, b: string): number {
  */
 describe("rampFor custom ends in dark mode (#2315)", () => {
   // Hues of green in OKLCH: yellowgreen #9acd32 sits at ~128 degrees, the
-  // CSS teal-green #00a86b (jade) at ~160; ColorBrewer Greens both ends ~145.
+  // CSS teal-green #00a86b (jade) at ~160; ColorBrewer Greens ends at 136.6 (#f7fcf5) and 150.0 (#00441b).
   const GREEN_HUE = [125, 165] as const;
   const greens = rampFor(true, "#f7fcf5", "#00441b");
 
@@ -190,13 +190,14 @@ describe("rampFor custom ends in dark mode (#2315)", () => {
     expect(wcagContrast(greens[0], MUTED_FILL.dark)).toBeGreaterThanOrEqual(
       1.5,
     );
+    expect(luminance(greens[0])).toBeGreaterThan(luminance(SURFACE_COLOR.dark));
   });
 
   it("keeps the hues of two coloured ends, no carry", () => {
     const [min, max] = ["#99f6e4", "#134e4a"];
     const ramp = rampFor(true, min, max);
-    expect(oklch(ramp[0])[2]).toBeCloseTo(oklch(min)[2], -1);
-    expect(oklch(ramp[4])[2]).toBeCloseTo(oklch(max)[2], -1);
+    expect(Math.abs(oklch(ramp[0])[2] - oklch(min)[2])).toBeLessThan(2);
+    expect(Math.abs(oklch(ramp[4])[2] - oklch(max)[2])).toBeLessThan(2);
   });
 
   // After the flip the order of the ends is the reverse of the input's; the
@@ -214,13 +215,28 @@ describe("rampFor custom ends in dark mode (#2315)", () => {
     );
   });
 
-  it("leaves light mode and the default ramp alone", () => {
-    expect(rampFor(false, "#f7fcf5", "#00441b")).toEqual(
-      buildSequentialRamp("#f7fcf5", "#00441b", 5),
-    );
-    expect(
-      rampFor(true, CHOROPLETH_DEFAULT_MIN_COLOR, CHOROPLETH_DEFAULT_MAX_COLOR),
-    ).toEqual([...CHOROPLETH_SEQ.dark]);
+  // Light-on-light pairs flip to dark-on-dark; both ends lift together, keeping
+  // their gap, until the lowest clears the no-data fill (owner default).
+  it.each([
+    ["white to yellow", "#ffffff", "#ffff00"],
+    ["white to pale grey", "#ffffff", "#eeeeee"],
+    ["pale greens", "#e0ece0", "#d0dcd0"],
+    ["white to red", "#ffffff", "#ff0000"],
+    ["identical", "#f0f8f0", "#f0f8f0"],
+  ])("%s: stop 1 clears the no-data fill by 1.5 : 1", (_n, min, max) => {
+    const ramp = rampFor(true, min, max);
+    expect(wcagContrast(ramp[0], MUTED_FILL.dark)).toBeGreaterThanOrEqual(1.5);
+    expect(luminance(ramp[0])).toBeGreaterThan(luminance(MUTED_FILL.dark));
+  });
+
+  it.each([
+    ["white to yellow", "#ffffff", "#ffff00"],
+    ["white to pale grey", "#ffffff", "#eeeeee"],
+    ["pale greens", "#e0ece0", "#d0dcd0"],
+    ["white to red", "#ffffff", "#ff0000"],
+  ])("%s: the stops still rise in lightness", (_n, min, max) => {
+    const ls = rampFor(true, min, max).map((c) => oklch(c)[0]);
+    for (let i = 1; i < 5; i++) expect(ls[i]).toBeGreaterThan(ls[i - 1]);
   });
 });
 

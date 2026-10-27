@@ -8,7 +8,8 @@ import { MUTED_FILL } from "./theme";
  * The chart component pulls in React and echarts, and the `charts` barrel
  * reaches NVL, which touches `document` at module scope — so neither can be
  * imported from a node-environment test or from the app's plugin settings
- * schema. This file imports only `styling-rule` and `theme`, neither of which has any imports.
+ * schema. The rule here: no React, no echarts, nothing that touches `document`
+ * at module scope.
  */
 
 /**
@@ -127,6 +128,8 @@ const FLOOR_CONTRAST = 1.5;
 // The floor stops this far short of the other end's lightness, so a pair too
 // close to separate keeps its order instead of crossing.
 const FLOOR_GAP = 0.02;
+const MAX_L = 0.98;
+const STEP = 0.005;
 
 /**
  * The two dark-mode ends of a custom ramp (#2315). On a dark canvas the
@@ -135,11 +138,11 @@ const FLOOR_GAP = 0.02;
  * scaling in RGB, which drove both ends to neutral and the lowest to black.
  *
  * 1. A colourless end takes the other end's hue, so the ramp stays one hue.
- * 2. The lowest value's end is raised until it is lighter than the no-data
- *    fill by `FLOOR_CONTRAST`, so "lowest" never reads as "missing".
- *    It stops `FLOOR_GAP` below the other end: a pair too close to separate
- *    keeps its order and the floor is best effort. A pair that is already
- *    descending after the flip (a reversed ramp) is left alone.
+ * 2. Both ends are lifted together, keeping their gap, until the lowest value's
+ *    end is lighter than the no-data fill by `FLOOR_CONTRAST`, so "lowest"
+ *    never reads as "missing". The high end stops at `MAX_L`, after which only
+ *    the low end rises, to `FLOOR_GAP` below it (level with it for identical
+ *    ends, which paint one colour). A reversed pair is left alone.
  */
 function darkEnds(minColor: string, maxColor: string): [string, string] {
   const [l1, c1, h1] = hexToOklch(minColor);
@@ -153,14 +156,28 @@ function darkEnds(minColor: string, maxColor: string): [string, string] {
     hi[1] = Math.max(c2, Math.min(CARRIED_CHROMA, c1 / 2));
     hi[2] = h1;
   }
-  const ceiling = hi[0] - FLOOR_GAP;
   let lowHex = oklchToHex(lo);
   const clears = (hex: string) =>
     luminanceOf(hex) > luminanceOf(MUTED_FILL.dark) &&
     contrastOf(hex, MUTED_FILL.dark) >= FLOOR_CONTRAST;
-  while (lo[0] < ceiling && !clears(lowHex)) {
-    lo[0] = Math.min(ceiling, lo[0] + 0.005);
+  // A reversed pair (lo above hi) is left alone. Otherwise raise the low end
+  // alone, up to FLOOR_GAP below the high end. If it still cannot clear the
+  // floor (a light-on-light pair), start again from the flipped ends and lift
+  // both by the same step, keeping their gap; the high end stops at MAX_L, and
+  // the low end then keeps rising, to FLOOR_GAP below it (level with it for
+  // identical ends, which paint one colour).
+  const [lo0, hi0] = [lo[0], hi[0]];
+  const room = Math.min(hi0 - lo0, FLOOR_GAP);
+  const lift = (shift: number, both: boolean) => {
+    if (both) hi[0] = Math.max(hi0, Math.min(MAX_L, hi0 + shift));
+    lo[0] = Math.min(lo0 + shift, hi[0] - room);
     lowHex = oklchToHex(lo);
+  };
+  if (hi0 >= lo0) {
+    for (let s = 0; !clears(lowHex) && lo[0] < hi0 - room; s += STEP)
+      lift(s + STEP, false);
+    for (let s = 0; !clears(lowHex) && lo[0] < MAX_L - room; s += STEP)
+      lift(s + STEP, true);
   }
   return [lowHex, oklchToHex(hi)];
 }

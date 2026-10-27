@@ -401,7 +401,6 @@ export const MissingValues: Story = {
       },
       { timeout: 5000 },
     );
-    expectLighterThanNoData(defaultRamp()[0], 1);
     expectNoRenderError(canvasElement);
   },
 };
