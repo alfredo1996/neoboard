@@ -189,8 +189,14 @@ const selectError: FieldValidator = ({ label, options = [] }, value) => {
  * refused like one in the userinfo (#2322). Every `uri` field routes through
  * `uriError`. app/src/lib/log-redact.ts keeps its own, wider list (cookie,
  * authorization, ...); a test there pins the shared core.
- * Out of scope on purpose: fragments, `;` separators, value-only params, empty
- * names, full-width characters and secrets inside `options`.
+ * A fragment is refused outright: no driver reads one, so it can only carry
+ * stray text or a secret.
+ * Out of scope on purpose: `;` separators, value-only params, empty names and
+ * full-width characters. Secrets inside `options` are not scanned either:
+ * libpq `options` carries server settings (`-c search_path=...`), not
+ * credentials, and no shipped driver authenticates from it. Scanning its value
+ * would mean guessing, and would refuse legitimate settings; a deliberate
+ * creator has other places to put a secret anyway.
  */
 const URI_CREDENTIAL_FRAGMENTS = [
   "password",
@@ -222,6 +228,7 @@ const uriError: FieldValidator = (field, value) => {
   // quotes the URI. A bare username is a documented form and not a secret, so
   // it stays accepted (#1303).
   const url = new URL(value);
+  if (url.hash) return "A connection URI cannot have a # part.";
   const hasQuerySecret = [...url.searchParams.keys()].some(isCredentialParam);
   return url.password || hasQuerySecret
     ? "Do not put a credential in the URI — use the connection's credential fields."

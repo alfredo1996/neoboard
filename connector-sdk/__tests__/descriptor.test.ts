@@ -272,6 +272,22 @@ describe("validateConfig", () => {
       );
     });
 
+    it.each(["#token=hunter2", "#anything"])(
+      "rejects a fragment (%s), echoing neither it nor the URI",
+      (fragment) => {
+        const uri = `fixture://host:5555/app${fragment}`;
+        const message = uriError(uri);
+        expect(message).toBe("A connection URI cannot have a # part.");
+        expect(message).not.toContain("hunter2");
+        expect(message).not.toContain("anything");
+        expect(message).not.toContain(uri);
+      },
+    );
+
+    it("accepts a URI with no fragment", () => {
+      expect(uriError("fixture://host:5555/app?sslmode=require")).toBeUndefined();
+    });
+
     it.each([
       "?passfile=/x",
       "?sslmode=require",
