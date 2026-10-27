@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   buildSequentialRamp,
-  invertLightness,
   rampFor,
   CHOROPLETH_SEQ,
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "../choropleth-ramp";
+import { MUTED_FILL, SURFACE_COLOR } from "../theme";
 
 /**
  * #1404 — the choropleth's colour scale was not a scale.
@@ -137,66 +137,106 @@ describe("buildSequentialRamp (#1404)", () => {
   });
 });
 
+/** OKLCH [L, C, h°] of a hex, written out from Ottosson's published matrices. */
+function oklch(hex: string): [number, number, number] {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const bb = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    Math.hypot(a, bb),
+    ((Math.atan2(bb, a) * 180) / Math.PI + 360) % 360,
+  ];
+}
+
+/** WCAG 2.x contrast ratio: (L1 + 0.05) / (L2 + 0.05), lighter over darker. */
+function wcagContrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /**
- * #1402 — on a dark canvas the prominent end of a ramp is the LIGHT one, so a
- * light-to-dark ramp painted as-is ranks regions backwards: the lowest values
- * blaze, the highest sink into the background.
- *
- * Every ramp the demo seeds is a hex pair (chart-gallery and chart-playground
- * pin the old Blues ends; chart-reference adds white→red and yellow→green),
- * and saved widgets carry their pair too — so swapping only the *default* ends
- * would fix none of them. Dark mode inverts each end's lightness instead.
+ * #2315 — a custom ramp in dark mode keeps its hue, and its lowest stop stays
+ * visibly lighter than the no-data fill (owner decision: OKLCH flip, hue
+ * carried, floor 1.5 : 1).
  */
-describe("invertLightness (#1402)", () => {
-  // Independent oracle: a Python script — CIE L* from WCAG luminance, L*' =
-  // 100 − L*, then linear-light RGB scaled toward black (darker) or mixed
-  // toward white (lighter) to hit that luminance, hue kept.
-  it.each([
-    ["#fff7d6", "#0b0b08"],
-    ["#993404", "#ba908a"],
-    ["#e8f4f8", "#0f1010"],
-    ["#08306b", "#c2c4cc"],
-    ["#ffffff", "#000000"],
-    ["#000000", "#ffffff"],
-    ["#b91c1c", "#c97c7c"],
-    ["#ffd700", "#292100"],
-    ["#8b0000", "#c5aaaa"],
-  ])("inverts %s to %s on the perceptual lightness axis", (input, expected) => {
-    expect(invertLightness(input)).toBe(expected);
-  });
+describe("rampFor custom ends in dark mode (#2315)", () => {
+  // Hues of green in OKLCH: yellowgreen #9acd32 sits at ~128 degrees, the
+  // CSS teal-green #00a86b (jade) at ~160; ColorBrewer Greens ends at 136.6 (#f7fcf5) and 150.0 (#00441b).
+  const GREEN_HUE = [125, 165] as const;
+  const greens = rampFor(true, "#f7fcf5", "#00441b");
 
-  it("expands 3-digit shorthand", () => {
-    expect(invertLightness("#fff")).toBe("#000000");
-  });
-
-  // The acceptance criterion: higher values read as more prominent against the
-  // canvas in BOTH themes — darker on light, lighter on dark. The saturated
-  // pairs are the ones an HSL flip gets wrong: pure hues all sit at HSL
-  // L = 0.5, so yellow stayed brighter than red after "inverting".
-  it.each([
-    [
-      "shipped default",
-      CHOROPLETH_DEFAULT_MIN_COLOR,
-      CHOROPLETH_DEFAULT_MAX_COLOR,
-    ],
-    ["gallery/playground Blues", "#e8f4f8", "#08306b"],
-    ["reference white → red", "#ffffff", "#b91c1c"],
-    ["reference yellow → green", "#fef3c7", "#166534"],
-    ["gold → dark red", "#ffd700", "#8b0000"],
-    ["amber → red", "#ffeb3b", "#d50000"],
-    ["yellow → red", "#ffff00", "#ff0000"],
-    ["cyan → blue", "#00ffff", "#0000ff"],
-  ])("%s ramp gains prominence with value in both themes", (_n, min, max) => {
-    const light = buildSequentialRamp(min, max, 5).map(luminance);
-    const dark = buildSequentialRamp(
-      invertLightness(min),
-      invertLightness(max),
-      5,
-    ).map(luminance);
-    for (let i = 1; i < 5; i++) {
-      expect(light[i], `light stop ${i}`).toBeLessThan(light[i - 1]);
-      expect(dark[i], `dark stop ${i}`).toBeGreaterThan(dark[i - 1]);
+  it("keeps every green stop in the green hue range", () => {
+    for (const stop of greens) {
+      const [, , h] = oklch(stop);
+      expect(h, stop).toBeGreaterThanOrEqual(GREEN_HUE[0]);
+      expect(h, stop).toBeLessThanOrEqual(GREEN_HUE[1]);
     }
+  });
+
+  it("raises OKLCH lightness from stop 1 to stop 5", () => {
+    const ls = greens.map((c) => oklch(c)[0]);
+    for (let i = 1; i < 5; i++) expect(ls[i]).toBeGreaterThan(ls[i - 1]);
+  });
+
+  it("paints the lowest stop lighter than the no-data fill by 1.5 : 1", () => {
+    expect(luminance(greens[0])).toBeGreaterThan(luminance(MUTED_FILL.dark));
+    expect(wcagContrast(greens[0], MUTED_FILL.dark)).toBeGreaterThanOrEqual(
+      1.5,
+    );
+    expect(luminance(greens[0])).toBeGreaterThan(luminance(SURFACE_COLOR.dark));
+  });
+
+  it("keeps the hues of two coloured ends, no carry", () => {
+    const [min, max] = ["#99f6e4", "#134e4a"];
+    const ramp = rampFor(true, min, max);
+    expect(Math.abs(oklch(ramp[0])[2] - oklch(min)[2])).toBeLessThan(2);
+    expect(Math.abs(oklch(ramp[4])[2] - oklch(max)[2])).toBeLessThan(2);
+  });
+
+  // After the flip the order of the ends is the reverse of the input's; the
+  // floor may close the gap but never cross it (nor leave the rounding noise).
+  it.each([
+    ["reversed", "#00441b", "#f7fcf5"],
+    ["near-equal", "#e0ece0", "#d0dcd0"],
+    ["identical", "#f0f8f0", "#f0f8f0"],
+  ])("a %s pair never lets the floor pass the other end", (_n, min, max) => {
+    const ramp = rampFor(true, min, max);
+    const flippedGap = oklch(min)[0] - oklch(max)[0]; // hi - lo after the flip
+    const gap = oklch(ramp[4])[0] - oklch(ramp[0])[0];
+    expect(Math.sign(Math.round(gap * 100))).toBe(
+      Math.sign(Math.round(flippedGap * 100)),
+    );
+  });
+
+  // Light-on-light pairs flip to dark-on-dark; both ends lift together, keeping
+  // their gap, until the lowest clears the no-data fill (owner default).
+  it.each([
+    ["white to yellow", "#ffffff", "#ffff00"],
+    ["white to pale grey", "#ffffff", "#eeeeee"],
+    ["pale greens", "#e0ece0", "#d0dcd0"],
+    ["white to red", "#ffffff", "#ff0000"],
+    ["identical", "#f0f8f0", "#f0f8f0"],
+  ])("%s: stop 1 clears the no-data fill by 1.5 : 1", (_n, min, max) => {
+    const ramp = rampFor(true, min, max);
+    expect(wcagContrast(ramp[0], MUTED_FILL.dark)).toBeGreaterThanOrEqual(1.5);
+    expect(luminance(ramp[0])).toBeGreaterThan(luminance(MUTED_FILL.dark));
+  });
+
+  it.each([
+    ["white to yellow", "#ffffff", "#ffff00"],
+    ["white to pale grey", "#ffffff", "#eeeeee"],
+    ["pale greens", "#e0ece0", "#d0dcd0"],
+    ["white to red", "#ffffff", "#ff0000"],
+  ])("%s: the stops still rise in lightness", (_n, min, max) => {
+    const ls = rampFor(true, min, max).map((c) => oklch(c)[0]);
+    for (let i = 1; i < 5; i++) expect(ls[i]).toBeGreaterThan(ls[i - 1]);
   });
 });
 
@@ -228,16 +268,6 @@ describe("rampFor (#2230)", () => {
   it("builds a custom pair end to end in light mode", () => {
     expect(rampFor(false, "#ffffff", "#ff0000")).toEqual(
       buildSequentialRamp("#ffffff", "#ff0000", 5),
-    );
-  });
-
-  it("inverts a custom pair's lightness in dark mode", () => {
-    expect(rampFor(true, "#ffffff", "#b91c1c")).toEqual(
-      buildSequentialRamp(
-        invertLightness("#ffffff"),
-        invertLightness("#b91c1c"),
-        5,
-      ),
     );
   });
 

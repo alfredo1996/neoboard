@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, waitFor, within } from "storybook/test";
 import { ChoroplethChart } from "@/charts/choropleth-chart";
+import { MUTED_FILL } from "@/charts/theme";
 
 const meta = {
   title: "Charts/ChoroplethChart",
@@ -80,16 +81,17 @@ const GREEN_RAMP = [
 ] as const;
 
 /**
- * Dark mode paints the lightness-inverted ramp of the same two ends (#1402),
- * so the green stops differ from the light ones. Literals again, not
- * `rampFor(true, …)`; Custom Colors pins their order with `expectProminenceRises`.
+ * Dark mode paints the OKLCH-flipped ramp of the same two ends (#1402, #2315):
+ * still green, its lowest stop lighter than the no-data fill. Literals again,
+ * not `rampFor(true, …)`; Custom Colors pins their order with
+ * `expectProminenceRises` and the floor with `expectLighterThanNoData`.
  */
 const DARK_GREEN_RAMP = [
-  "#060605",
-  "#323432",
-  "#5f615f",
-  "#8b8f8b",
-  "#b7bcb8",
+  "#2f4834",
+  "#3d5f44",
+  "#4c7654",
+  "#5a8c64",
+  "#68a374",
 ] as const;
 
 /** The theme the preview decorator applied to this story (#2248). */
@@ -160,6 +162,19 @@ async function expectProminenceRises(
       contrast[i - 1],
     );
   }
+}
+
+/**
+ * In dark the lowest stop must not read as "missing" (#2315): lighter than the
+ * no-data fill, by `ratio` (1.5 for a custom ramp; the designed default ramp
+ * only has to clear it).
+ */
+function expectLighterThanNoData(lowest: string, ratio: number) {
+  if (!isDark()) return;
+  const l = luminance(cssColorBytes(lowest));
+  const fill = luminance(cssColorBytes(MUTED_FILL.dark));
+  expect(l).toBeGreaterThan(fill);
+  expect((l + 0.05) / (fill + 0.05)).toBeGreaterThanOrEqual(ratio);
 }
 
 /** A chart that threw inside `setOption` shows this instead of rendering. */
@@ -347,6 +362,7 @@ export const CustomColors: Story = {
       GREEN_RAMP[GREEN_RAMP.length - 1],
     ]);
     await expectProminenceRises(canvasElement, greenRamp());
+    expectLighterThanNoData(greenRamp()[0], 1.5);
     expectNoRenderError(canvasElement);
   },
 };
