@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { expect } from "storybook/test";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Status, type StatusTone } from "@/components/ui/status";
 import {
@@ -320,5 +321,58 @@ export const EmptyState: Story = {
   args: {
     columns: basicColumns,
     data: [],
+  },
+};
+
+/**
+ * The auto page size must leave room for the pager in real layout (#2257):
+ * jsdom has no layout, so this play function measures a rendered box. Heights that
+ * fit a whole number of rows exactly are the worst case, so those are used.
+ */
+const FIT_HEIGHTS = [214, 216.5, 286, 288.5, 358, 360.5, 430, 432.5];
+
+/** The grouped variant adds the "Collapse all / Expand all" bar above the table. */
+const groupedColumns: DataGridColumn<Film>[] = filmColumns.map((c) =>
+  "accessorKey" in c && c.accessorKey === "year"
+    ? { ...c, enableGrouping: true }
+    : c,
+);
+
+export const AutoPageSizeFitsItsContainer: Story = {
+  render: () => (
+    <div className="space-y-4">
+      {FIT_HEIGHTS.flatMap((h) =>
+        [false, true].map((grouped) => (
+          <div
+            key={`${h}-${grouped}`}
+            data-testid={`box-${h}-${grouped ? "grouped" : "plain"}`}
+            style={{ height: h }}
+            className="overflow-y-auto"
+          >
+            <DataGrid
+              columns={grouped ? groupedColumns : filmColumns}
+              data={grossRows}
+              enableSorting
+              enableGrouping={grouped}
+              initialGrouping={grouped ? ["year"] : undefined}
+              containerHeight={h}
+            />
+          </div>
+        )),
+      )}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    for (const h of FIT_HEIGHTS) {
+      for (const kind of ["plain", "grouped"]) {
+        const box = canvasElement.querySelector<HTMLElement>(
+          `[data-testid="box-${h}-${kind}"]`,
+        )!;
+        expect(
+          box.scrollHeight,
+          `${kind} container ${h}px`,
+        ).toBeLessThanOrEqual(box.clientHeight);
+      }
+    }
   },
 };
