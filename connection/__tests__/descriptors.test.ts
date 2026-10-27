@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  connectionAddress,
   createConnectorRegistry,
   toDescriptor,
   validateConfig,
@@ -282,5 +283,23 @@ describe("plugin = descriptor + factories", () => {
     ]) {
       expect(plugin).not.toHaveProperty(gone);
     }
+  });
+});
+
+// #2265: both shipped connectors get the list-row address from their fields
+// alone, and none of the config's secrets reach it.
+describe.each([
+  ["neo4j", neo4jDescriptor, "bolt"],
+  ["postgresql", postgresDescriptor, "postgresql"],
+])("%s connectionAddress", (_type, descriptor, scheme) => {
+  it("is scheme://host:port / database, with no user, password or token", () => {
+    expect(
+      connectionAddress(descriptor, {
+        uri: `${scheme}://u:hunter2@db:7687?token=abc`,
+        username: "u",
+        password: "hunter2",
+        database: "sales",
+      }),
+    ).toBe(`${scheme}://db:7687 / sales`);
   });
 });

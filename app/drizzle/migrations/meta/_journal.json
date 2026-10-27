@@ -43,6 +43,13 @@
       "when": 1793056742087,
       "tag": "0005_mysterious_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793114951650,
+      "tag": "0006_curly_captain_marvel",
+      "breakpoints": true
     }
   ]
 }

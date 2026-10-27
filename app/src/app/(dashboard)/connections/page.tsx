@@ -563,7 +563,8 @@ export default function ConnectionsPage() {
                       title={c.name}
                       description={
                         installed
-                          ? connectorLabel(connectors, c.type)
+                          ? (c.displayAddress ??
+                            connectorLabel(connectors, c.type))
                           : `${c.type} — connector not installed`
                       }
                       onOpen={canUse ? (opener) => edit(opener) : undefined}

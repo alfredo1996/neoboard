@@ -32,6 +32,8 @@ import { resolveSeedHosts } from "./lib/seed-hosts.mjs";
 import {
   demoConnectionInsert,
   demoConnectionUpdate,
+  demoAddresses,
+  demoNeo4jConfig,
   demoPgConfigs,
   grantDemoRoles,
 } from "./lib/demo-connection.mjs";
@@ -268,12 +270,8 @@ async function main() {
     //
     // To target other hosts, edit the connections in the Connections UI.
     const { pgHost, neo4jHost } = resolveSeedHosts(process.env);
-    const neo4jConfig = {
-      uri: `bolt://${neo4jHost}:7687`,
-      username: "neo4j",
-      password: "neoboard123",
-      database: "neo4j",
-    };
+    const neo4jConfig = demoNeo4jConfig(neo4jHost);
+    const addresses = demoAddresses(pgHost, neo4jHost);
     // Least-privilege logins, never the superuser: see ./lib/demo-connection.mjs.
     const pgConfigs = demoPgConfigs(pgHost);
 
@@ -284,6 +282,7 @@ async function main() {
       "neo4j",
       neo4jConfig,
       encryptionKey,
+      addresses.neo4j,
     );
     const pgConnId = await upsertConnector(
       sql,
@@ -292,6 +291,7 @@ async function main() {
       "postgresql",
       pgConfigs.movies,
       encryptionKey,
+      addresses.movies,
     );
 
     // Demo e-commerce connections — point at the isolated
@@ -303,6 +303,7 @@ async function main() {
       "postgresql",
       pgConfigs.ecommerceRead,
       encryptionKey,
+      addresses.ecommerceRead,
     );
     const ecommerceWriteConnId = await upsertConnector(
       sql,
@@ -311,6 +312,7 @@ async function main() {
       "postgresql",
       pgConfigs.ecommerceWrite,
       encryptionKey,
+      addresses.ecommerceWrite,
     );
 
     console.log(`    Neo4j connector:      ${neo4jConnId}`);
@@ -374,7 +376,15 @@ function patchGridIds(layout) {
   }
 }
 
-async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
+async function upsertConnector(
+  sql,
+  userId,
+  name,
+  type,
+  config,
+  encryptionKey,
+  displayAddress,
+) {
   const existing = await sql`
     SELECT id FROM "connection" WHERE name = ${name} AND "userId" = ${userId}
   `;
@@ -382,7 +392,7 @@ async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
   if (existing.length > 0) {
     await sql`
       UPDATE "connection"
-      SET ${sql(demoConnectionUpdate(configEncrypted))}, "updatedAt" = NOW()
+      SET ${sql(demoConnectionUpdate(configEncrypted, displayAddress))}, "updatedAt" = NOW()
       WHERE id = ${existing[0].id}
     `;
     return existing[0].id;
@@ -391,7 +401,14 @@ async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
   const id = uuid();
   await sql`
     INSERT INTO "connection" ${sql(
-      demoConnectionInsert({ id, userId, name, type, configEncrypted }),
+      demoConnectionInsert({
+        id,
+        userId,
+        name,
+        type,
+        configEncrypted,
+        displayAddress,
+      }),
     )}
   `;
   return id;

@@ -83,25 +83,43 @@ async function updateConnectionConfigs(
   pgPort: number,
   neo4jBoltPort: number,
 ) {
-  const neo4jConfig = encryptJson({
+  const neo4jPlain = {
     uri: `bolt://localhost:${neo4jBoltPort}`,
     username: "neo4j",
     password: "neoboard123",
-  });
-  const pgConfig = encryptJson({
+  };
+  const pgPlain = {
     uri: `postgresql://localhost:${pgPort}`,
     username: "neoboard",
     password: "neoboard",
     database: "movies",
-  });
+  };
+  const neo4jConfig = encryptJson(neo4jPlain);
+  const pgConfig = encryptJson(pgPlain);
+  // The SDK's `import` condition is ESM and Playwright's CJS transform turns a
+  // plain `import()` into `require`, so load it through a native dynamic import.
+  // `@neoboard/connection` cannot be loaded here at all (CJS build, ESM-only
+  // SDK dependency), so the descriptor is the two fields the address reads.
+  const esm = new Function("m", "return import(m)") as (
+    m: string,
+  ) => Promise<typeof import("@neoboard/connector-sdk")>;
+  const { connectionAddress } = await esm("@neoboard/connector-sdk");
+  const descriptor = {
+    fields: [
+      { key: "uri", type: "uri", label: "URI" },
+      { key: "database", type: "text", label: "Database" },
+    ],
+  } as Parameters<typeof connectionAddress>[0];
+  const neo4jAddress = connectionAddress(descriptor, neo4jPlain);
+  const pgAddress = connectionAddress(descriptor, pgPlain);
 
   const sql = postgres(
     `postgresql://neoboard:neoboard@${pgHost}:${pgPort}/neoboard`,
     { max: 1, idle_timeout: 5 },
   );
   try {
-    await sql`UPDATE "connection" SET "configEncrypted" = ${neo4jConfig} WHERE "id" = 'conn-neo4j-001'`;
-    await sql`UPDATE "connection" SET "configEncrypted" = ${pgConfig} WHERE "id" = 'conn-pg-001'`;
+    await sql`UPDATE "connection" SET "configEncrypted" = ${neo4jConfig}, "display_address" = ${neo4jAddress ?? null} WHERE "id" = 'conn-neo4j-001'`;
+    await sql`UPDATE "connection" SET "configEncrypted" = ${pgConfig}, "display_address" = ${pgAddress ?? null} WHERE "id" = 'conn-pg-001'`;
     console.log("✅ Seeded connections updated with test container ports");
   } finally {
     await sql.end();

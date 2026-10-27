@@ -143,6 +143,13 @@ export const connections = pgTable(
     name: text("name").notNull(),
     type: text("type").notNull(),
     configEncrypted: text("configEncrypted").notNull(),
+    /**
+     * Secret-free `scheme://host:port / database` for the Connections list
+     * (#2265), derived by the SDK when the config is saved so listing never
+     * decrypts. Null for a row saved before it existed, or a connector with no
+     * URI field.
+     */
+    displayAddress: text("display_address"),
     /** When true, widget editors can override the connection's default database per-card. */
     allowPerCardDb: boolean("allow_per_card_db").notNull().default(true),
     /**

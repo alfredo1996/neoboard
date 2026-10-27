@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { connectionAddress } from "@neoboard/connector-sdk";
+import { neo4jDescriptor } from "../../connection/src/neo4j/descriptor";
+import { postgresDescriptor } from "../../connection/src/postgresql/descriptor";
 import {
+  demoAddresses,
+  demoNeo4jConfig,
   demoConnectionInsert,
   demoConnectionUpdate,
   demoPgConfigs,
@@ -21,6 +26,7 @@ describe("demo connection rows", () => {
         name: "Neo4j Movies",
         type: "neo4j",
         configEncrypted: "iv:tag:ct",
+        displayAddress: "bolt://h:7687 / neo4j",
       }),
     ).toEqual({
       id: "c1",
@@ -28,14 +34,16 @@ describe("demo connection rows", () => {
       name: "Neo4j Movies",
       type: "neo4j",
       configEncrypted: "iv:tag:ct",
+      display_address: "bolt://h:7687 / neo4j",
       visibility: "shared",
     });
   });
 
   // `neoboard demo seed` on an existing demo takes the UPDATE path.
   it("re-seeding an existing demo connection shares it too", () => {
-    expect(demoConnectionUpdate("iv:tag:ct")).toEqual({
+    expect(demoConnectionUpdate("iv:tag:ct", "bolt://h:7687")).toEqual({
       configEncrypted: "iv:tag:ct",
+      display_address: "bolt://h:7687",
       visibility: "shared",
     });
   });
@@ -158,5 +166,20 @@ describe("demo Postgres logins", () => {
     expect(recreated).toBeGreaterThan(-1);
     expect(granted).toBeGreaterThan(recreated);
     expect(seed).not.toMatch(/username: "neoboard"/);
+  });
+});
+
+// The seed writes `display_address` itself (#2265): its literals must stay what
+// the app would derive from the same config.
+describe("demo connection addresses", () => {
+  const addresses = demoAddresses("pg.host", "neo.host");
+  const pg = demoPgConfigs("pg.host");
+  it.each([
+    ["neo4j", neo4jDescriptor, demoNeo4jConfig("neo.host")],
+    ["movies", postgresDescriptor, pg.movies],
+    ["ecommerceRead", postgresDescriptor, pg.ecommerceRead],
+    ["ecommerceWrite", postgresDescriptor, pg.ecommerceWrite],
+  ])("%s equals connectionAddress of its config", (key, descriptor, config) => {
+    expect(addresses[key]).toBe(connectionAddress(descriptor, config));
   });
 });

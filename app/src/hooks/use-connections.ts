@@ -14,6 +14,8 @@ export interface ConnectionListItem {
   visibility: "private" | "shared";
   /** True when the current user owns the connection — gates edit/delete UI. */
   isOwner: boolean;
+  /** Secret-free `scheme://host:port / database`; null for a row saved before #2265. */
+  displayAddress: string | null;
   /** Widgets using it, on the dashboards the caller can open (#2254). */
   widgetCount: number;
   createdAt: string;

@@ -10,14 +10,25 @@ import {
  * The connector here is a fixture — nothing below names a built-in one.
  */
 
+// A connector with no `uri` field, to show addressFor stores null for it.
+const noUriDescriptor = {
+  ...fixtureDescriptor,
+  type: "no-uri",
+  fields: fixtureDescriptor.fields.filter((f) => f.type !== "uri"),
+};
+
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/connector/connection-adapter", () => ({
   getConnector: (type: string) =>
-    type === fixtureDescriptor.type ? fixtureDescriptor : undefined,
+    [fixtureDescriptor, noUriDescriptor].find((d) => d.type === type),
 }));
 
-const { redactConfig, keepStoredSecrets, validateConnectionConfig } =
-  await import("../connection-config");
+const {
+  addressFor,
+  redactConfig,
+  keepStoredSecrets,
+  validateConnectionConfig,
+} = await import("../connection-config");
 
 const STORED = {
   endpoint: "acme://host/book",
@@ -135,6 +146,18 @@ describe("validateConnectionConfig", () => {
     expect(result.response.status).toBe(400);
     expect((await result.response.json()).error.message).toBe(
       "Unknown connector type",
+    );
+  });
+});
+
+describe("addressFor (#2265)", () => {
+  it.each([
+    ["a connector with a uri field", fixtureDescriptor.type, "acme://host"],
+    ["a connector without a uri field", "no-uri", null],
+    ["a connector that is not installed", "gone", null],
+  ])("%s", (_n, type, expected) => {
+    expect(addressFor(type, { endpoint: "acme://host/book?x=1" })).toBe(
+      expected,
     );
   });
 });
