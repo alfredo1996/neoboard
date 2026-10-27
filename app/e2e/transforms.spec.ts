@@ -104,7 +104,12 @@ test.describe("Data Transforms", () => {
     await dialog.getByRole("tab", { name: "Transform" }).click();
 
     // Should show empty state text + Add button
-    await expect(dialog.getByText(/no transforms configured/i)).toBeVisible();
+    await expect(
+      dialog.getByText(
+        "No transforms configured. Transforms modify query results client-side without changing the original query.",
+        { exact: true },
+      ),
+    ).toBeVisible();
     await expect(
       dialog.getByRole("button", { name: "Add", exact: true }),
     ).toBeVisible();

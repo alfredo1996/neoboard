@@ -187,7 +187,9 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
       await page.locator("#assign-email").fill("ghost@example.com");
       await page.getByRole("button", { name: "Assign" }).click();
 
-      await expect(page.getByText(/user not found/i)).toBeVisible({
+      await expect(
+        page.getByText("User not found", { exact: true }),
+      ).toBeVisible({
         timeout: 5_000,
       });
     } finally {
@@ -205,7 +207,9 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
       await page.locator("#assign-email").fill(ALICE.email);
       await page.getByRole("button", { name: "Assign" }).click();
 
-      await expect(page.getByText(/cannot share with yourself/i)).toBeVisible({
+      await expect(
+        page.getByText("Cannot share with yourself", { exact: true }),
+      ).toBeVisible({
         timeout: 5_000,
       });
     } finally {
@@ -351,7 +355,9 @@ test.describe("Dashboard sharing — CRUD + permission matrix", () => {
         await alice.page.getByRole("button", { name: "Assign" }).click();
 
         await expect(
-          alice.page.getByText(/already owns this dashboard/i),
+          alice.page.getByText("User already owns this dashboard", {
+            exact: true,
+          }),
         ).toBeVisible({ timeout: 5_000 });
 
         // Positive end state: no share row was written for the owner.

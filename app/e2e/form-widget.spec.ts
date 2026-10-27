@@ -54,9 +54,9 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Form" }).click();
 
-    await expect(
-      dialog.getByText(/Form submissions write to the database/i),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(dialog.getByTestId("form-write-permission-note")).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("should configure form fields in editor and see preview", async ({
@@ -153,11 +153,11 @@ test.describe("Form widget", () => {
 
     // The form widget should render with the configured fields
     // Fields default to required=true, so the label includes an asterisk "*".
-    // Use regex anchored at start to avoid matching "Page 1" tab or param hints.
-    await expect(page.getByText(/^First Name/)).toBeVisible({
+    // Exact text avoids matching the "Page 1" tab or param hints.
+    await expect(page.getByText("First Name", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText(/^Age/)).toBeVisible();
+    await expect(page.getByText("Age", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit" })).toBeVisible();
   });
 
@@ -193,7 +193,7 @@ test.describe("Form widget", () => {
 
     // Wait for the form to render — the label "Name" should be visible
     // (fields default to required, so the label is plain "Name")
-    await expect(page.getByText(/^Name/)).toBeVisible({
+    await expect(page.getByText("Name", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
 
@@ -318,7 +318,7 @@ test.describe("Form widget", () => {
     await leaveEditMode(page);
 
     // Label includes asterisk for required fields
-    await expect(page.getByText(/^Full Name/)).toBeVisible({
+    await expect(page.getByText("Full Name", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
 
@@ -427,7 +427,7 @@ test.describe("Form widget", () => {
     await leaveEditMode(page);
 
     // Wait for form to render (label includes asterisk for required fields)
-    await expect(page.getByText(/^Name/)).toBeVisible({
+    await expect(page.getByText("Name", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
 
@@ -784,7 +784,9 @@ test.describe("Write permission does not gate a form (#1831)", () => {
     await page.goto(`/${dashboardId}`);
     await session;
 
-    await expect(page.getByText(/^Value/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Value", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled();
     await expect(page.getByTestId("form-readonly-banner")).toHaveCount(0);
   });
@@ -831,7 +833,7 @@ test.describe("Write permission does not gate a form (#1831)", () => {
       await readerPage.goto(`/${dashboardId}`);
       await session;
 
-      await expect(readerPage.getByText(/^Value/)).toBeVisible({
+      await expect(readerPage.getByText("Value", { exact: true })).toBeVisible({
         timeout: 15_000,
       });
       await expect(

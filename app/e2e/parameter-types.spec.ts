@@ -124,7 +124,7 @@ test.describe("Parameter widget types", () => {
       await textInput.fill("matrix");
 
       // DebouncedTextInput has a 200ms debounce — wait for the dependent widget.
-      await expect(page.getByText(/^The Matrix$/)).toBeVisible({
+      await expect(page.getByText("The Matrix", { exact: true })).toBeVisible({
         timeout: 10_000,
       });
     } finally {
@@ -262,9 +262,10 @@ test.describe("Parameter widget types", () => {
       // After selection, the dependent widget should show an ISO year
       // (matches the current year — the calendar default-month is today).
       const year = new Date().getFullYear().toString();
-      await expect(page.getByText(new RegExp(year)).first()).toBeVisible({
-        timeout: 10_000,
-      });
+      await expect(page.locator('[data-widget-id="t-date"]')).toContainText(
+        year,
+        { timeout: 10_000 },
+      );
     } finally {
       await cleanup();
     }

@@ -248,7 +248,8 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
       await page.goto(`/${id}`);
       await expect(
         page.getByText(
-          /Showing first 5,000 rows\. Refine your query to see all results\./,
+          "Showing first 5,000 rows. Refine your query to see all results.",
+          { exact: true },
         ),
       ).toBeVisible({ timeout: 20_000 });
     } finally {
@@ -286,7 +287,8 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
       await page.goto(`/${id}`);
       await expect(
         page.getByText(
-          /Showing first 5,000 rows\. Refine your query to see all results\./,
+          "Showing first 5,000 rows. Refine your query to see all results.",
+          { exact: true },
         ),
       ).toBeVisible({ timeout: 20_000 });
     } finally {
@@ -345,7 +347,12 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
       );
       try {
         await page.goto(`/${id}`);
-        await expect(page.getByText(/Showing first 1,000 rows\./)).toBeVisible({
+        await expect(
+          page.getByText(
+            "Showing first 1,000 rows. Refine your query to see all results.",
+            { exact: true },
+          ),
+        ).toBeVisible({
           timeout: 20_000,
         });
       } finally {
@@ -380,7 +387,7 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
         page.getByText("No results", { exact: true }),
       ).not.toBeVisible();
       // Critically: the widget must not show an error state.
-      await expect(page.getByText(/query.*failed/i)).not.toBeVisible();
+      await expect(page.getByText(/query.*failed/i)).toHaveCount(0);
     } finally {
       await cleanup();
     }

@@ -186,7 +186,7 @@ test.describe("Dashboard import", () => {
     let importedId: string | undefined;
     try {
       // Click the "Import" button on the dashboard list page
-      await page.getByRole("button", { name: "Import" }).click();
+      await page.getByRole("button", { name: "Import", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
       await expect(dialog).toBeVisible({ timeout: 5_000 });
 
@@ -258,7 +258,7 @@ test.describe("NeoDash legacy import", () => {
     test.setTimeout(60_000);
     await authPage.login(ALICE.email, ALICE.password);
 
-    await page.getByRole("button", { name: "Import" }).click();
+    await page.getByRole("button", { name: "Import", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
     await expect(dialog).toBeVisible({ timeout: 5_000 });
 
@@ -349,7 +349,7 @@ test.describe("NeoDash legacy import", () => {
     fs.writeFileSync(tmpFile, JSON.stringify(neodashWithUnknown));
 
     try {
-      await page.getByRole("button", { name: "Import" }).click();
+      await page.getByRole("button", { name: "Import", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
       await expect(dialog).toBeVisible({ timeout: 5_000 });
 

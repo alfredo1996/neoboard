@@ -165,7 +165,9 @@ test.describe("Table widget — header menu filters (#854, #2222)", () => {
       await widget.getByRole("button", { name: "city", exact: true }).click();
       await page.getByRole("menuitem", { name: "Hide column" }).click();
       await expect(widget.getByText("Paris")).toHaveCount(0);
-      await expect(widget.getByText(/1 column hidden/)).toBeVisible();
+      await expect(
+        widget.getByText("1 column hidden", { exact: true }),
+      ).toBeVisible();
 
       await widget.getByRole("button", { name: "Show all" }).click();
       await expect(widget.getByText("Paris")).toBeVisible();

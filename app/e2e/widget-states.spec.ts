@@ -268,7 +268,11 @@ test.describe("Widget without connection", () => {
       timeout: 15_000,
     });
     // Generic, sanitized copy — no raw driver/relation details.
-    await expect(page.getByText(/couldn.t load its data/i)).toBeVisible();
+    await expect(
+      page.getByText("This widget couldn't load its data. Try again.", {
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(
       page.getByText(/definitely_not_a_table|does not exist|syntax error/i),
     ).toHaveCount(0);
@@ -320,15 +324,20 @@ test.describe("Widget without connection", () => {
     await page.goto(`/${id}`);
 
     // The graph's flag is the server's own answer; the form's is the stub.
-    for (const [widget, missing] of [
-      ["w-graph", "return graph data"],
-      ["w-form", "accept writes"],
+    for (const [widget, missing, label] of [
+      ["w-graph", "return graph data", "Graph"],
+      ["w-form", "accept writes", "Form"],
     ]) {
       const card = page.locator(`[data-widget-id="${widget}"]`);
       await expect(card.getByText("Incompatible connection")).toBeVisible({
         timeout: 15_000,
       });
-      await expect(card.getByText(new RegExp(missing))).toBeVisible();
+      await expect(
+        card.getByText(
+          `This connection can't ${missing}, which ${label} widgets need.`,
+          { exact: true },
+        ),
+      ).toBeVisible();
     }
   });
 });

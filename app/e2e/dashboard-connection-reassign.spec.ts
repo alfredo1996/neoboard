@@ -169,7 +169,8 @@ test.describe("Per-dashboard connection reassignment", () => {
         .selectOption(targetConnId);
       await expect(
         dialog.getByText(
-          new RegExp(`This will change 1 widget on ${names[0]}`),
+          `This will change 1 widget on ${names[0]}. Widget queries are not checked against the target — incompatible queries will show their usual error, and a chart the target cannot feed (a form needs writes, a graph needs graph data) shows as an incompatible connection.`,
+          { exact: true },
         ),
       ).toBeVisible();
       await dialog
@@ -177,9 +178,9 @@ test.describe("Per-dashboard connection reassignment", () => {
         .click({ timeout: 10_000 });
 
       await expect(
-        dialog.getByText(
-          new RegExp(`Moved 1 widget to ${targetConnName}`, "i"),
-        ),
+        dialog.getByText(`Moved 1 widget to ${targetConnName}.`, {
+          exact: true,
+        }),
       ).toBeVisible({ timeout: 20_000 });
       await dialog.getByRole("button", { name: "Done" }).click();
 
@@ -235,7 +236,7 @@ test.describe("Per-dashboard connection reassignment", () => {
 
     try {
       await page.goto("/");
-      await page.getByRole("button", { name: "Import" }).click();
+      await page.getByRole("button", { name: "Import", exact: true }).click();
       const importDialog = page.getByRole("dialog", {
         name: "Import Dashboard",
       });
@@ -255,7 +256,12 @@ test.describe("Per-dashboard connection reassignment", () => {
 
       // The offer names the count, and it is 1 — the markdown widget is NOT
       // included even though it also has an empty connectionId.
-      await expect(page.getByText(/1 widget has no connection/i)).toBeVisible({
+      await expect(
+        page.getByText(
+          "1 widget has no connection. Assign one to all of them now instead of opening each widget.",
+          { exact: true },
+        ),
+      ).toBeVisible({
         timeout: 20_000,
       });
       await page
@@ -272,7 +278,11 @@ test.describe("Per-dashboard connection reassignment", () => {
       await dialog
         .getByRole("button", { name: "Change connection" })
         .click({ timeout: 10_000 });
-      await expect(dialog.getByText(/Moved 1 widget/i)).toBeVisible({
+      await expect(
+        dialog.getByText("Moved 1 widget to Movies Graph (Neo4j).", {
+          exact: true,
+        }),
+      ).toBeVisible({
         timeout: 20_000,
       });
       await dialog.getByRole("button", { name: "Done" }).click();
