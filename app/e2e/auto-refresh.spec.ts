@@ -34,6 +34,8 @@ async function openOwnDashboard(page: Page) {
     });
     if (!res.ok()) throw new Error(`PUT dashboard failed: ${res.status()}`);
     await page.goto(`/${id}`);
+    // Wait for the widget's first result so later /api/query waits can't match it.
+    await expect(page.locator("table")).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -132,6 +134,25 @@ test.describe("Auto-refresh", () => {
 test.describe("Manual refresh and disable auto-refresh", () => {
   test.beforeEach(async ({ authPage }) => {
     await authPage.login(ALICE.email, ALICE.password);
+  });
+
+  test("typing a custom interval with the keyboard then Enter applies it", async ({
+    page,
+  }) => {
+    const cleanup = await openOwnDashboard(page);
+    try {
+      await page.getByTestId("auto-refresh-trigger").click();
+      const input = page.getByTestId("custom-interval-input");
+      await input.click();
+      await input.pressSequentially("10");
+      await input.press("Enter");
+      await expect(page.getByTestId("auto-refresh-trigger")).toContainText(
+        "10s",
+        { timeout: 5_000 },
+      );
+    } finally {
+      await cleanup();
+    }
   });
 
   test("manual per-widget refresh button triggers re-fetch", async ({

@@ -118,6 +118,28 @@ describe("DashboardViewToolbar", () => {
   );
 });
 
+describe("custom auto-refresh interval typing (#2293)", () => {
+  it.each(["5", "10"])(
+    "typing %s then Enter applies it, not a typeahead menu item",
+    async (typed) => {
+      const onApplyInterval = vi.fn();
+      render(
+        <DashboardViewToolbar
+          {...viewProps}
+          onApplyInterval={onApplyInterval}
+        />,
+      );
+      await userEvent.click(screen.getByTestId("auto-refresh-trigger"));
+      const input = screen.getByTestId("custom-interval-input");
+      await userEvent.click(input);
+      await userEvent.keyboard(typed);
+      await userEvent.keyboard("{Enter}");
+      expect(onApplyInterval).toHaveBeenCalledWith(Number(typed));
+      expect(onApplyInterval).toHaveBeenCalledTimes(1);
+    },
+  );
+});
+
 describe("header filters slot (#2297)", () => {
   it("puts the Filters control first in the view header's actions", () => {
     render(
