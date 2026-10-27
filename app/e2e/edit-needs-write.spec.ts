@@ -97,6 +97,24 @@ test.describe("Editing needs write permission", () => {
         .click();
       await expect(u.getByRole("menuitem", { name: "Export" })).toBeVisible();
       await expect(u.getByRole("menuitem")).toHaveCount(1);
+      await u.keyboard.press("Escape");
+
+      // The widget library and API keys offer no create control either.
+      await u.goto("/widget-library");
+      await expect(
+        u.getByRole("heading", { name: "Widget Library" }),
+      ).toBeVisible();
+      await expect(
+        u.getByRole("button", { name: "New template", exact: true }),
+      ).toHaveCount(0);
+      await u.goto("/settings/api-keys");
+      await expect(u.getByRole("heading", { name: "API keys" })).toBeVisible();
+      await expect(
+        u.getByText("Your account can't create API keys."),
+      ).toBeVisible();
+      await expect(
+        u.getByRole("button", { name: "Create API key", exact: true }),
+      ).toHaveCount(0);
     } finally {
       if (ownId) await page.request.delete(`/api/dashboards/${ownId}`);
       if (sharedId) await page.request.delete(`/api/dashboards/${sharedId}`);

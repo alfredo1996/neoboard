@@ -13,6 +13,7 @@ import {
   Play,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { effectiveCanWrite } from "@/lib/auth/can-write";
 import {
   useWidgetTemplates,
   useDeleteWidgetTemplate,
@@ -64,6 +65,8 @@ export default function WidgetLibraryPage() {
   const { data: session } = useSession();
   const userId = session?.user?.id ?? "";
   const role = session?.user?.role ?? "creator";
+  // The server refuses template create, edit and delete without write (#2313).
+  const canWrite = effectiveCanWrite(role, session?.user?.canWrite);
 
   const { toast } = useToast();
   const { data: templates, isLoading } = useWidgetTemplates();
@@ -141,7 +144,7 @@ export default function WidgetLibraryPage() {
   );
 
   function canEditOrDelete(template: WidgetTemplate) {
-    return role === "admin" || template.createdBy === userId;
+    return canWrite && (role === "admin" || template.createdBy === userId);
   }
 
   const handleCreate: MouseEventHandler<HTMLButtonElement> = (e) => {
@@ -243,10 +246,12 @@ export default function WidgetLibraryPage() {
             : "Reusable widget templates you can apply to any dashboard"
         }
         actions={
-          <Button onClick={handleCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            New template
-          </Button>
+          canWrite && (
+            <Button onClick={handleCreate} className="gap-2">
+              <Plus className="h-4 w-4" />
+              New template
+            </Button>
+          )
         }
       />
 
@@ -328,12 +333,18 @@ export default function WidgetLibraryPage() {
             (templates?.length === 0 ? (
               <EmptyState
                 title="No widget templates yet"
-                description="Save a widget as a template from its menu on any dashboard, and it appears here for every dashboard to reuse."
+                description={
+                  canWrite
+                    ? "Save a widget as a template from its menu on any dashboard, and it appears here for every dashboard to reuse."
+                    : "Templates saved by others appear here for every dashboard to reuse."
+                }
                 action={
-                  <Button variant="secondary" onClick={handleCreate}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create a template
-                  </Button>
+                  canWrite && (
+                    <Button variant="secondary" onClick={handleCreate}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create a template
+                    </Button>
+                  )
                 }
               />
             ) : (
