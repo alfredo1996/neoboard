@@ -220,13 +220,17 @@ function AddProviderDialog({
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm">Auto-provision new users</p>
-                <p className="text-xs text-muted-foreground">
+                <p id="sso-auto-label" className="text-sm">
+                  Auto-provision new users
+                </p>
+                <p id="sso-auto-help" className="text-xs text-muted-foreground">
                   Automatically create accounts for new SSO users.
                 </p>
               </div>
               <Switch
                 stateLabel
+                aria-labelledby="sso-auto-label"
+                aria-describedby="sso-auto-help"
                 checked={form.autoProvision ?? true}
                 onCheckedChange={(checked) => update("autoProvision", checked)}
               />
@@ -234,8 +238,10 @@ function AddProviderDialog({
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm">Default role</p>
-                <p className="text-xs text-muted-foreground">
+                <p id="sso-role-label" className="text-sm">
+                  Default role
+                </p>
+                <p id="sso-role-help" className="text-xs text-muted-foreground">
                   Role assigned when no claim mapping matches.
                 </p>
               </div>
@@ -243,7 +249,11 @@ function AddProviderDialog({
                 value={form.defaultRole ?? "creator"}
                 onValueChange={(v) => update("defaultRole", v)}
               >
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger
+                  className="w-[130px]"
+                  aria-labelledby="sso-role-label"
+                  aria-describedby="sso-role-help"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -256,13 +266,20 @@ function AddProviderDialog({
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm">Enforce SSO</p>
-                <p className="text-xs text-muted-foreground">
+                <p id="sso-enforce-label" className="text-sm">
+                  Enforce SSO
+                </p>
+                <p
+                  id="sso-enforce-help"
+                  className="text-xs text-muted-foreground"
+                >
                   Disable password login for non-admin users.
                 </p>
               </div>
               <Switch
                 stateLabel
+                aria-labelledby="sso-enforce-label"
+                aria-describedby="sso-enforce-help"
                 checked={form.enforceSso ?? false}
                 onCheckedChange={(checked) => update("enforceSso", checked)}
               />

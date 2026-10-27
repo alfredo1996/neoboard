@@ -112,12 +112,18 @@ vi.mock("@neoboard/components", async () => ({
   Switch: ({
     checked,
     onCheckedChange,
+    "aria-labelledby": labelledBy,
+    "aria-describedby": describedBy,
   }: {
     checked: boolean;
     onCheckedChange: (v: boolean) => void;
+    "aria-labelledby"?: string;
+    "aria-describedby"?: string;
   }) => (
     <button
       role="switch"
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
       aria-checked={checked}
       onClick={() => onCheckedChange(!checked)}
     >
@@ -135,8 +141,17 @@ vi.mock("@neoboard/components", async () => ({
     children: React.ReactNode;
     value: string;
   }) => <option value={value}>{children}</option>,
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
+  SelectTrigger: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+    "aria-labelledby"?: string;
+    "aria-describedby"?: string;
+  }) => (
+    <button type="button" role="combobox" {...props}>
+      {children}
+    </button>
   ),
   SelectValue: () => null,
   EmptyState: ({
@@ -302,6 +317,30 @@ describe("AuthenticationPage", () => {
       expect(screen.getByLabelText(`${name} (optional)`)).toBeInTheDocument();
     }
     expect(screen.getByLabelText("Client ID")).toBeInTheDocument();
+  });
+
+  it("names and describes both provisioning switches (#2276)", async () => {
+    mockUseSsoProviders.mockReturnValue({ data: [], isLoading: false });
+    const { default: Page } = await import("../page");
+    render(<Page />);
+    const user = userEvent.setup();
+    await user.click(screen.getAllByText("Add Provider")[0]);
+    for (const [name, help] of [
+      [
+        "Auto-provision new users",
+        "Automatically create accounts for new SSO users.",
+      ],
+      ["Enforce SSO", "Disable password login for non-admin users."],
+    ]) {
+      expect(screen.getByRole("switch", { name })).toHaveAccessibleDescription(
+        help,
+      );
+    }
+    expect(
+      screen.getByRole("combobox", { name: "Default role" }),
+    ).toHaveAccessibleDescription(
+      "Role assigned when no claim mapping matches.",
+    );
   });
 
   it("opens add dialog when Add Provider is clicked", async () => {
