@@ -17,10 +17,20 @@ test.describe("SSO gating — community edition", () => {
   test("Authentication tab is NOT visible in settings nav", async ({
     page,
   }) => {
-    await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "API keys" })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Authentication" }),
+      page
+        .getByRole("navigation", { name: "Settings" })
+        .getByRole("link", { name: "Profile", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Settings" })
+        .getByRole("link", { name: "API keys", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Settings" })
+        .getByRole("link", { name: "Authentication", exact: true }),
     ).toHaveCount(0);
   });
 

@@ -6,7 +6,10 @@ test.describe("API Key management", () => {
     await authPage.login(ALICE.email, ALICE.password);
     await sidebarPage.navigateTo("Settings");
     // Settings now defaults to Profile tab — navigate to API keys tab
-    await page.getByRole("button", { name: "API keys" }).click();
+    await page
+      .getByRole("navigation", { name: "Settings" })
+      .getByRole("link", { name: "API keys", exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { level: 1, name: "API keys" }),
     ).toBeVisible();
