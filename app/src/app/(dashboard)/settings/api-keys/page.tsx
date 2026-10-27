@@ -7,6 +7,8 @@ import {
   type RefObject,
 } from "react";
 import { Plus, Copy, Check, MoreHorizontal } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { effectiveCanWrite } from "@/lib/auth/can-write";
 import {
   Button,
   DropdownMenu,
@@ -175,10 +177,12 @@ function CreateKeyDialog({
 
 function ApiKeyRow({
   apiKey,
+  canWrite,
   onRevoke,
   heading,
 }: Readonly<{
   apiKey: ApiKeyListItem;
+  canWrite: boolean;
   onRevoke: (id: string) => void;
   heading: RefObject<HTMLHeadingElement | null>;
 }>) {
@@ -206,52 +210,60 @@ function ApiKeyRow({
         formatShortDate(apiKey.expiresAt),
       ]}
       menu={
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                aria-label={`Key actions for ${apiKey.name}`}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => {
-                  setReturnFocusTo(focusedMenuTrigger());
-                  setConfirmOpen(true);
-                }}
-              >
-                Revoke…
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <ConfirmDialog
-            open={confirmOpen}
-            onOpenChange={setConfirmOpen}
-            action="Revoke"
-            object="key"
-            name={apiKey.name}
-            consequences="Scripts using it stop working at once. This can't be undone."
-            returnFocusTo={returnFocusTo}
-            onConfirm={() => {
-              // The row leaves once the list refetches: land on the heading.
-              setReturnFocusTo(heading.current);
-              onRevoke(apiKey.id);
-              setConfirmOpen(false);
-            }}
-          />
-        </>
+        canWrite && (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-label={`Key actions for ${apiKey.name}`}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    setReturnFocusTo(focusedMenuTrigger());
+                    setConfirmOpen(true);
+                  }}
+                >
+                  Revoke…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <ConfirmDialog
+              open={confirmOpen}
+              onOpenChange={setConfirmOpen}
+              action="Revoke"
+              object="key"
+              name={apiKey.name}
+              consequences="Scripts using it stop working at once. This can't be undone."
+              returnFocusTo={returnFocusTo}
+              onConfirm={() => {
+                // The row leaves once the list refetches: land on the heading.
+                setReturnFocusTo(heading.current);
+                onRevoke(apiKey.id);
+                setConfirmOpen(false);
+              }}
+            />
+          </>
+        )
       }
     />
   );
 }
 
 export default function ApiKeysPage() {
+  const { data: session } = useSession();
+  // The server refuses key create and revoke without write (#2313).
+  const canWrite = effectiveCanWrite(
+    session?.user?.role,
+    session?.user?.canWrite,
+  );
   const [createOpen, setCreateOpen] = useState(false);
   // The dialog has no Trigger: where focus goes when it closes (#2146).
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
@@ -286,7 +298,7 @@ export default function ApiKeysPage() {
         title="API keys"
         titleRef={headingRef}
         meta={meta}
-        actions={createButton("primary")}
+        actions={canWrite ? createButton("primary") : undefined}
         tabs={<SettingsTabs />}
       />
 
@@ -300,8 +312,12 @@ export default function ApiKeysPage() {
         {!isLoading && keys.length === 0 && (
           <EmptyState
             title="No API keys"
-            description="Create an API key to make programmatic requests to NeoBoard."
-            action={createButton("secondary")}
+            description={
+              canWrite
+                ? "Create an API key to make programmatic requests to NeoBoard."
+                : "Your account can't create API keys."
+            }
+            action={canWrite ? createButton("secondary") : undefined}
           />
         )}
 
@@ -311,6 +327,7 @@ export default function ApiKeysPage() {
               <ApiKeyRow
                 key={key.id}
                 apiKey={key}
+                canWrite={canWrite}
                 onRevoke={handleRevoke}
                 heading={headingRef}
               />

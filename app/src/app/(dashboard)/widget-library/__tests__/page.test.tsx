@@ -66,8 +66,12 @@ vi.mock("@/hooks/use-widget-templates", () => {
     }),
   };
 });
+let sessionUser: { id: string; role: string; canWrite?: boolean } = {
+  id: "u1",
+  role: "creator",
+};
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: { user: { id: "u1", role: "creator" } } }),
+  useSession: () => ({ data: { user: sessionUser } }),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/lib/plugin/chart-helpers", () => ({
@@ -106,13 +110,19 @@ vi.mock("@neoboard/components", () => {
   );
   return {
     EmptyState: ({
+      title,
+      description,
       action,
       secondaryAction,
     }: {
+      title?: string;
+      description?: string;
       action?: React.ReactNode;
       secondaryAction?: React.ReactNode;
     }) => (
       <div>
+        <p>{title}</p>
+        <p>{description}</p>
         {action}
         {secondaryAction}
       </div>
@@ -199,6 +209,7 @@ const rowOf = (name: string) =>
   screen.getByText(name).closest("tr") as HTMLElement;
 
 beforeEach(() => {
+  sessionUser = { id: "u1", role: "creator" };
   templates = BASE_TEMPLATES;
   connections = [];
   mockCreate.mockClear();
@@ -329,6 +340,61 @@ describe("WidgetLibraryPage — kit rows (#2254)", () => {
       "Delete…",
     ]);
     expect(items("Orphaned")).toEqual(["Use in Dashboard", "Duplicate"]);
+  });
+});
+
+describe("WidgetLibraryPage — write permission gates (#2313)", () => {
+  const owned = () => within(rowOf("Budget rows"));
+  it.each([
+    [
+      "a creator with write off",
+      { id: "u1", role: "creator", canWrite: false },
+    ],
+    ["a reader", { id: "u1", role: "reader" }],
+  ])(
+    "%s gets no New template, no Edit, Delete, Duplicate or Use in Dashboard, and no empty menu",
+    (_n, user) => {
+      sessionUser = user;
+      render(<WidgetLibraryPage />);
+      expect(screen.queryByRole("button", { name: "New template" })).toBeNull();
+      // Nothing is left in the menu, so there is no trigger either.
+      expect(
+        within(rowOf("Budget rows")).queryByRole("button", {
+          name: /Template actions/,
+        }),
+      ).toBeNull();
+    },
+  );
+
+  it("leaves a user without write only Test query, on a template that has a connection", () => {
+    sessionUser = { id: "u1", role: "reader" };
+    templates = [{ ...BASE_TEMPLATES[0], connectionId: "c1" }];
+    render(<WidgetLibraryPage />);
+    const items = owned()
+      .getAllByRole("menuitem")
+      .map((i) => i.textContent);
+    expect(items).toEqual(["Test query"]);
+  });
+
+  it("does not tell a user without write to create a template when the library is empty", () => {
+    sessionUser = { id: "u1", role: "reader" };
+    templates = [];
+    render(<WidgetLibraryPage />);
+    expect(screen.queryByRole("button", { name: /template$/i })).toBeNull();
+    expect(screen.getByText("No widget templates yet")).toBeInTheDocument();
+  });
+
+  it("keeps New template and the row actions for an admin whose flag is off", () => {
+    sessionUser = { id: "a1", role: "admin", canWrite: false };
+    render(<WidgetLibraryPage />);
+    expect(
+      screen.getByRole("button", { name: "New template" }),
+    ).toBeInTheDocument();
+    expect(
+      owned()
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent),
+    ).toEqual(["Use in Dashboard", "Duplicate", "Edit", "Delete…"]);
   });
 });
 

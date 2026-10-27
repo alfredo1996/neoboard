@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { maskedKey } from "../masked-key";
@@ -49,13 +49,16 @@ vi.mock("@neoboard/components", async () => ({
   ),
   EmptyState: ({
     title,
+    description,
     action,
   }: {
     title: string;
+    description?: string;
     action?: React.ReactNode;
   }) => (
     <div>
-      {title}
+      <p>{title}</p>
+      <p>{description}</p>
       {action}
     </div>
   ),
@@ -134,6 +137,11 @@ vi.mock("@neoboard/components", async () => ({
 }));
 
 const mockPush = vi.fn();
+let sessionUser: { role: string; canWrite?: boolean } = { role: "creator" };
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: sessionUser } }),
+}));
+
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
 
 vi.mock("../../settings-tabs", () => ({
@@ -155,6 +163,48 @@ function makeKey(over: Partial<ApiKeyListItem>): ApiKeyListItem {
     ...over,
   };
 }
+
+beforeEach(() => {
+  sessionUser = { role: "creator" };
+});
+
+describe("ApiKeysPage write permission (#2313)", () => {
+  beforeEach(() => {
+    mockKeys = [makeKey({ name: "CI Key" })];
+  });
+
+  it.each([
+    ["a creator with write off", { role: "creator", canWrite: false }],
+    ["a reader", { role: "reader" }],
+  ])("%s gets no Create or Revoke, and still sees their keys", (_n, user) => {
+    sessionUser = user;
+    render(<ApiKeysPage />);
+    expect(screen.getByText("CI Key")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Create API key/ })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /Revoke/ })).toBeNull();
+  });
+
+  it("tells a user without write that their account cannot create keys, not to create one", () => {
+    sessionUser = { role: "reader" };
+    mockKeys = [];
+    render(<ApiKeysPage />);
+    expect(
+      screen.getByText("Your account can't create API keys."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Create an API key/)).toBeNull();
+  });
+
+  it("keeps Create and Revoke for an admin whose flag is off", () => {
+    sessionUser = { role: "admin", canWrite: false };
+    render(<ApiKeysPage />);
+    expect(
+      screen.getAllByRole("button", { name: /Create API key/ }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("menuitem", { name: /Revoke/ }),
+    ).toBeInTheDocument();
+  });
+});
 
 describe("maskedKey (#1038)", () => {
   it("masks a present prefix without exposing the full secret", () => {

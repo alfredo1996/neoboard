@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { effectiveCanWrite } from "./can-write";
 import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -126,7 +127,7 @@ export async function resolveApiKeyAuth(): Promise<{
   return {
     userId: row.userId,
     role,
-    canWrite: role === "admin" ? true : role !== "reader" && row.canWrite,
+    canWrite: effectiveCanWrite(role, row.canWrite),
     tenantId: row.tenantId,
   };
 }

@@ -65,15 +65,23 @@ test.describe("Role-based dashboard visibility", () => {
     ).not.toBeVisible();
 
     // Reader inherits read-only access to Public dashboards seeded by Alice:
-    // the row is there, tagged Public, with no menu to change anything.
+    // the row is there, tagged Public, and its menu holds only Export, which
+    // is viewer-level (#979, #2313).
     const row = page
       .getByRole("row")
       .filter({ has: page.getByText("Movie Analytics", { exact: true }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
     await expect(row.getByText("Public", { exact: true })).toBeVisible();
+    await row
+      .getByRole("button", {
+        name: "Dashboard options for Movie Analytics",
+        exact: true,
+      })
+      .click();
     await expect(
-      row.getByRole("button", { name: "Dashboard options" }),
-    ).toHaveCount(0);
+      page.getByRole("menuitem", { name: "Export", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("menuitem")).toHaveCount(1);
   });
 
   test("admin should be offered Delete in a dashboard row's menu", async ({

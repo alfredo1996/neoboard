@@ -100,6 +100,27 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("ProfilePage write access (#2313)", () => {
+  it.each([
+    ["admin", false, "Yes"],
+    ["reader", true, "No"],
+    ["creator", false, "No"],
+  ])("shows %s with flag %s as %s", async (role, canWrite, expected) => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: { ...PROFILE, role, canWrite },
+        error: null,
+        meta: null,
+      }),
+    }) as unknown as typeof fetch;
+    await renderLoaded();
+    expect(
+      screen.getByText("Write access").nextElementSibling,
+    ).toHaveTextContent(expected);
+  });
+});
+
 describe("ProfilePage chrome (#2255)", () => {
   it("keeps the header and tabs while the profile loads", () => {
     global.fetch = vi.fn(

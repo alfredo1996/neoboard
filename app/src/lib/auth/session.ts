@@ -1,4 +1,5 @@
 import { auth } from "./config";
+import { effectiveCanWrite } from "./can-write";
 import { resolveApiKeyAuth } from "./api-key";
 import type { UserRole } from "@/lib/db/schema";
 import { UnauthorizedError, ForbiddenError } from "./errors";
@@ -68,7 +69,7 @@ export async function requireSession(): Promise<{
     userId: session.user.id,
     role,
     // Admins always write; readers never write; others read from JWT (DB-backed), defaulting true for old tokens
-    canWrite: role === "admin" ? true : role !== "reader" && (session.user.canWrite !== false),
+    canWrite: effectiveCanWrite(role, session.user.canWrite),
     tenantId,
   };
 }

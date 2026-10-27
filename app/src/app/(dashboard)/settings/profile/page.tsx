@@ -13,6 +13,7 @@ import {
 } from "@neoboard/components";
 import { PageHeader, SettingsSection } from "@neoboard/components/kit";
 import type { UserRole } from "@/lib/db/schema";
+import { effectiveCanWrite } from "@/lib/auth/can-write";
 import { PASSWORD_HINT } from "@/lib/auth/password-schema";
 import { roleLabel } from "../../users/user-list";
 import { SettingsTabs } from "../settings-tabs";
@@ -182,7 +183,9 @@ export default function ProfilePage() {
             <div>
               <dt className="text-muted-foreground">Write access</dt>
               <dd className="m-0 font-medium">
-                {profile?.canWrite ? "Yes" : "No"}
+                {profile && effectiveCanWrite(profile.role, profile.canWrite)
+                  ? "Yes"
+                  : "No"}
               </dd>
             </div>
             <div>

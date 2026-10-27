@@ -1,5 +1,6 @@
 "use client";
 
+import { effectiveCanWrite } from "@/lib/auth/can-write";
 import React, {
   useCallback,
   useEffect,
@@ -153,7 +154,7 @@ export function DashboardWorkspace({
   const { data: allTemplates } = useWidgetTemplates(undefined, {
     enabled: editMode,
   });
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const systemRole = session?.user?.role ?? "creator";
   const isAdmin = systemRole === "admin";
 
@@ -637,10 +638,12 @@ export function DashboardWorkspace({
 
   const [isPending, startTransition] = useTransition();
 
+  const hasWrite = effectiveCanWrite(systemRole, session?.user?.canWrite);
   const canEdit =
-    dashboard?.role === "owner" ||
-    dashboard?.role === "editor" ||
-    dashboard?.role === "admin";
+    hasWrite &&
+    (dashboard?.role === "owner" ||
+      dashboard?.role === "editor" ||
+      dashboard?.role === "admin");
 
   const leaveEditMode = useCallback(() => {
     // Route through the unsaved-changes guard (same as the Back button).
@@ -654,12 +657,21 @@ export function DashboardWorkspace({
     router.push(`/${id}/edit?page=${safeIndex}`, { scroll: false });
   }, [id, safeIndex, router]);
 
-  // Redirect Readers away from edit mode
+  // Send anyone who cannot edit back to the view (#2313) — but only once the
+  // dashboard and the session have loaded, so a pending owner is not bounced,
+  // and only on entry: a revocation mid-edit must not drop unsaved work past
+  // the unsaved-changes guard; the save returns 403 instead.
+  const settled = !!dashboard && sessionStatus !== "loading";
+  const entryChecked = useRef(false);
   useEffect(() => {
-    if (editMode && systemRole === "reader") {
-      router.replace(`/${id}`, { scroll: false });
+    if (!editMode) {
+      entryChecked.current = false;
+      return;
     }
-  }, [editMode, systemRole, id, router]);
+    if (!settled || entryChecked.current) return;
+    entryChecked.current = true;
+    if (!canEdit) router.replace(`/${id}`, { scroll: false });
+  }, [editMode, settled, canEdit, id, router]);
 
   useKeyboardShortcuts([
     {
@@ -846,7 +858,7 @@ export function DashboardWorkspace({
             initialPreviewData={
               editorMode === "edit" ? cachedPreviewData : undefined
             }
-            canWrite={session?.user?.canWrite !== false}
+            canWrite={hasWrite}
             // #913: opens SaveTemplateDialog from the modal footer.
             onSaveAsTemplate={(w) => setTemplateWidget(w)}
             onCloseAutoFocus={focusEditorOpener}
