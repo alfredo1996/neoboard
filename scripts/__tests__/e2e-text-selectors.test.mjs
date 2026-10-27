@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 // A regex getByText(/Foo/) matches any element whose text contains the words,
 // so a later feature that prints the same words anywhere breaks an unrelated
@@ -81,6 +82,315 @@ export function overBudget(calls, allowed = ALLOWED, counts = COUNTS) {
     .map((c) => c.at);
 }
 
+// Ratchet (#2317): getByRole(…, { name: "X" }) and getByText("X") without
+// `exact: true` match substrings, so a later feature that prints the same
+// words breaks an unrelated spec through strict mode. Today's offenders are a
+// counted baseline per spec that may only go down; new code uses `exact: true`.
+// A name or text that is a variable or other expression is not counted: its
+// type is unknown without type-checking, and it may well be a RegExp.
+// BASELINE was generated once from the tree at 7687d76c by running
+// nonExactCalls() over every app/e2e/*.spec.ts and keeping the non-zero counts.
+const BASELINE = {
+  "api-docs.spec.ts": {
+    role: 1,
+  },
+  "api-keys.spec.ts": {
+    role: 22,
+  },
+  "auth-states.spec.ts": {
+    role: 11,
+    text: 6,
+  },
+  "auth.spec.ts": {
+    role: 20,
+    text: 6,
+  },
+  "auto-refresh.spec.ts": {
+    role: 4,
+  },
+  "bar-stack-mode.spec.ts": {
+    role: 6,
+    text: 1,
+  },
+  "chart-export.spec.ts": {
+    role: 5,
+  },
+  "charts.spec.ts": {
+    role: 98,
+    text: 36,
+  },
+  "code-completion.spec.ts": {
+    role: 19,
+  },
+  "connection-advanced.spec.ts": {
+    role: 18,
+    text: 11,
+  },
+  "connection-sharing.spec.ts": {
+    role: 6,
+  },
+  "connections.spec.ts": {
+    role: 25,
+    text: 1,
+  },
+  "connector-unavailable.spec.ts": {
+    text: 5,
+    role: 4,
+  },
+  "content-widgets.spec.ts": {
+    role: 21,
+    text: 2,
+  },
+  "dashboard-autosave-error.spec.ts": {
+    role: 2,
+  },
+  "dashboard-connection-reassign.spec.ts": {
+    role: 11,
+    text: 2,
+  },
+  "dashboard-editor.spec.ts": {
+    role: 12,
+  },
+  "dashboard-export-error.spec.ts": {
+    role: 2,
+  },
+  "dashboard-filters.spec.ts": {
+    role: 4,
+  },
+  "dashboard-header.spec.ts": {
+    text: 1,
+    role: 1,
+  },
+  "dashboard-metadata.spec.ts": {
+    role: 5,
+    text: 1,
+  },
+  "dashboard-portability.spec.ts": {
+    role: 13,
+    text: 6,
+  },
+  "dashboard-states.spec.ts": {
+    text: 22,
+    role: 27,
+  },
+  "dashboard-visibility.spec.ts": {
+    text: 5,
+    role: 1,
+  },
+  "dashboards.spec.ts": {
+    role: 26,
+  },
+  "design-system.spec.ts": {
+    role: 27,
+    text: 5,
+  },
+  "edit-needs-write.spec.ts": {
+    role: 5,
+    text: 1,
+  },
+  "edit-page-preservation.spec.ts": {
+    text: 3,
+    role: 7,
+  },
+  "edit-scroll-position.spec.ts": {
+    text: 1,
+  },
+  "editor-maximize.spec.ts": {
+    role: 11,
+  },
+  "empty-states.spec.ts": {
+    text: 4,
+    role: 14,
+  },
+  "form-submit-dashboard-access.spec.ts": {
+    role: 2,
+    text: 1,
+  },
+  "form-widget.spec.ts": {
+    role: 80,
+    text: 17,
+  },
+  "grid.spec.ts": {
+    role: 1,
+  },
+  "heavy-widgets.spec.ts": {
+    role: 35,
+    text: 7,
+  },
+  "import-validation.spec.ts": {
+    role: 7,
+    text: 9,
+  },
+  "navigation.spec.ts": {
+    role: 2,
+  },
+  "new-charts.spec.ts": {
+    text: 6,
+    role: 57,
+  },
+  "page-tabs-overflow.spec.ts": {
+    text: 5,
+    role: 10,
+  },
+  "param-defaults.spec.ts": {
+    role: 7,
+    text: 1,
+  },
+  "parameter-types.spec.ts": {
+    text: 3,
+    role: 5,
+  },
+  "parameter-url-sync.spec.ts": {
+    role: 3,
+  },
+  "parameters.spec.ts": {
+    role: 138,
+    text: 60,
+  },
+  "query-safety.spec.ts": {
+    role: 2,
+    text: 2,
+  },
+  "responsive.spec.ts": {
+    role: 10,
+    text: 1,
+  },
+  "settings-profile.spec.ts": {
+    role: 11,
+    text: 5,
+  },
+  "share-needs-write.spec.ts": {
+    role: 1,
+  },
+  "sharing-permissions.spec.ts": {
+    role: 11,
+    text: 7,
+  },
+  "sso-gating.spec.ts": {
+    role: 5,
+  },
+  "styling-rules.spec.ts": {
+    role: 34,
+    text: 18,
+  },
+  "table-column-filters.spec.ts": {
+    text: 25,
+    role: 3,
+  },
+  "table-graph-cells.spec.ts": {
+    role: 1,
+  },
+  "table-grouping.spec.ts": {
+    role: 2,
+  },
+  "table-pager-fit.spec.ts": {
+    role: 1,
+  },
+  "theme.spec.ts": {
+    role: 12,
+  },
+  "transforms.spec.ts": {
+    role: 20,
+    text: 13,
+  },
+  "users.spec.ts": {
+    role: 38,
+    text: 4,
+  },
+  "view-share-saved-query-text.spec.ts": {
+    role: 1,
+  },
+  "widget-cards.spec.ts": {
+    role: 5,
+  },
+  "widget-csv-export.spec.ts": {
+    role: 2,
+  },
+  "widget-library.spec.ts": {
+    role: 59,
+    text: 4,
+  },
+  "widget-saved-database.spec.ts": {
+    role: 12,
+    text: 2,
+  },
+  "widget-states.spec.ts": {
+    role: 34,
+    text: 20,
+  },
+  "widgets-look.spec.ts": {
+    role: 6,
+    text: 6,
+  },
+  "widgets.spec.ts": {
+    role: 68,
+    text: 4,
+  },
+};
+
+const isStringy = (n) =>
+  n && (ts.isStringLiteralLike(n) || ts.isTemplateExpression(n));
+const prop = (obj, name) =>
+  obj?.properties.find((p) => p.name?.getText() === name);
+const exactTrue = (opts) =>
+  prop(opts, "exact")?.initializer?.kind === ts.SyntaxKind.TrueKeyword;
+
+/** getByRole name strings and getByText strings lacking `exact: true`, even across lines. */
+export function nonExactCalls(source) {
+  const sf = ts.createSourceFile("x.ts", source, ts.ScriptTarget.Latest, true);
+  const found = [];
+  const visit = (n) => {
+    if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
+      const fn = n.expression.name.text;
+      const [a, b] = n.arguments;
+      const opts = b && ts.isObjectLiteralExpression(b) ? b : undefined;
+      let target;
+      if (fn === "getByRole") target = prop(opts, "name")?.initializer;
+      else if (fn === "getByText") target = a;
+      if (isStringy(target) && !exactTrue(opts)) {
+        found.push({
+          kind: fn === "getByRole" ? "role" : "text",
+          line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1,
+        });
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return found;
+}
+
+/** Messages for every spec whose count differs from its baseline. */
+export function ratchetFailures(counts, baseline = BASELINE) {
+  const out = [];
+  for (const f of new Set([...Object.keys(counts), ...Object.keys(baseline)])) {
+    for (const kind of ["role", "text"]) {
+      const n = counts[f]?.[kind] ?? 0;
+      const base = baseline[f]?.[kind] ?? 0;
+      if (n > base)
+        out.push(
+          `${f}: ${n} non-exact ${kind} selectors, baseline ${base}. Add \`exact: true\`.`,
+        );
+      else if (n < base)
+        out.push(
+          `${f}: ${n} non-exact ${kind} selectors, baseline ${base} is stale. Lower the baseline to ${n}.`,
+        );
+    }
+  }
+  return out;
+}
+
+function treeCounts() {
+  const counts = {};
+  for (const f of readdirSync(E2E).filter((f) => f.endsWith(".spec.ts"))) {
+    for (const c of nonExactCalls(readFileSync(resolve(E2E, f), "utf8"))) {
+      counts[f] ??= {};
+      counts[f][c.kind] = (counts[f][c.kind] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
 function allCalls() {
   return readdirSync(E2E)
     .filter((f) => f.endsWith(".spec.ts"))
@@ -136,5 +446,41 @@ describe("E2E text selectors (#2262)", () => {
     ['page.getByRole("heading", { name: /x/ })'],
   ])("leaves %s alone", (line) => {
     expect(regexGetByText(line)).toEqual([]);
+  });
+
+  it.each([
+    ['page.getByRole("button", { name: "Save" })', "role"],
+    ["page.getByRole('button', { name: `Save ${x}` })", "role"],
+    ['page.getByText("Saved")', "text"],
+    ['page.getByRole("button", {\n  name: "Save",\n})', "role"],
+    ['page.getByText(\n  "Saved",\n  { exact: false },\n)', "text"],
+  ])("ratchet flags %s", (src, kind) => {
+    expect(nonExactCalls(src).map((c) => c.kind)).toEqual([kind]);
+  });
+
+  it.each([
+    ['page.getByRole("button", { name: "Save", exact: true })'],
+    ['page.getByRole("button", {\n  name: "Save",\n  exact: true,\n})'],
+    ['page.getByText("Saved", { exact: true })'],
+    ['page.getByText(\n  "Saved",\n  { exact: true },\n)'],
+    ['page.getByRole("button", { name: label })'],
+    ['page.getByRole("button", { name: /Save/ })'],
+    ['page.getByRole("button")'],
+  ])("ratchet leaves %s alone", (src) => {
+    expect(nonExactCalls(src)).toEqual([]);
+  });
+
+  it("ratchet fails above the baseline, below it (stale) and passes at it", () => {
+    const base = { "a.spec.ts": { role: 2 } };
+    expect(ratchetFailures({ "a.spec.ts": { role: 3 } }, base)).toHaveLength(1);
+    expect(ratchetFailures({ "a.spec.ts": { role: 1 } }, base)[0]).toContain(
+      "Lower the baseline to 1",
+    );
+    expect(ratchetFailures({ "a.spec.ts": { role: 2 } }, base)).toEqual([]);
+    expect(ratchetFailures({ "b.spec.ts": { text: 1 } }, base)).toHaveLength(2);
+  });
+
+  it("the real tree holds its non-exact selector baseline", () => {
+    expect(ratchetFailures(treeCounts())).toEqual([]);
   });
 });
