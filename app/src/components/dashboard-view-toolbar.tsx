@@ -201,6 +201,8 @@ export function DashboardViewToolbar({
                           setCustomSeconds(e.target.value)
                         }
                         onKeyDown={(e: React.KeyboardEvent) => {
+                          // Radix menu typeahead would steal focus on character keys.
+                          if (e.key.length === 1) e.stopPropagation();
                           if (e.key === "Enter") handleCustomApply();
                         }}
                         className="h-7 text-xs"
