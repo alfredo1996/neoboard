@@ -35,6 +35,8 @@ function storybookProject(name: string, colorScheme: "light" | "dark") {
         instances: [{ browser: "chromium" as const }],
       },
       setupFiles: [".storybook/vitest.setup.ts"],
+      // Read by the setup file's guard: the scheme this project means to run.
+      provide: { colorScheme },
     },
   };
 }

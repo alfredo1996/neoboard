@@ -82,7 +82,7 @@ const GREEN_RAMP = [
 /**
  * Dark mode paints the lightness-inverted ramp of the same two ends (#1402),
  * so the green stops differ from the light ones. Literals again, not
- * `rampFor(true, …)`; the prominence check on DarkMode pins their order.
+ * `rampFor(true, …)`; Custom Colors pins their order with `expectProminenceRises`.
  */
 const DARK_GREEN_RAMP = [
   "#060605",
@@ -346,7 +346,7 @@ export const CustomColors: Story = {
       GREEN_RAMP[0],
       GREEN_RAMP[GREEN_RAMP.length - 1],
     ]);
-    await expectRampPainted(canvasElement, greenRamp());
+    await expectProminenceRises(canvasElement, greenRamp());
     expectNoRenderError(canvasElement);
   },
 };

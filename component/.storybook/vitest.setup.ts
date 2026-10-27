@@ -1,6 +1,7 @@
 import { setProjectAnnotations } from "@storybook/react-vite";
 import * as a11yAddonAnnotations from "@storybook/addon-a11y/preview";
 import * as projectAnnotations from "./preview";
+import { beforeAll, inject } from "vitest";
 
 // `@storybook/addon-a11y` is registered in main.ts, but registering it there
 // only wires the Storybook *UI* panel. The axe run that the vitest project
@@ -14,3 +15,15 @@ import * as projectAnnotations from "./preview";
 //
 // More info at: https://storybook.js.org/docs/api/portable-stories/portable-stories-vitest#setprojectannotations
 setProjectAnnotations([a11yAddonAnnotations, projectAnnotations]);
+
+// Every theme-dependent assertion keys off the `dark` class the decorator sets
+// from matchMedia. If the provider stopped applying the project's colorScheme,
+// `storybook-dark` would silently become a second light run (#2248).
+beforeAll(() => {
+  const want = (inject as (k: string) => string)("colorScheme");
+  const got = matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+  if (got !== want)
+    throw new Error(`project wants ${want} but the browser runs ${got}`);
+});
