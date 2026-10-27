@@ -174,10 +174,16 @@ function darkEnds(minColor: string, maxColor: string): [string, string] {
     lowHex = oklchToHex(lo);
   };
   if (hi0 >= lo0) {
-    for (let s = 0; !clears(lowHex) && lo[0] < hi0 - room; s += STEP)
-      lift(s + STEP, false);
-    for (let s = 0; !clears(lowHex) && lo[0] < MAX_L - room; s += STEP)
-      lift(s + STEP, true);
+    let shift = 0;
+    while (!clears(lowHex) && lo[0] < hi0 - room) {
+      shift += STEP;
+      lift(shift, false);
+    }
+    shift = 0;
+    while (!clears(lowHex) && lo[0] < MAX_L - room) {
+      shift += STEP;
+      lift(shift, true);
+    }
   }
   return [lowHex, oklchToHex(hi)];
 }
