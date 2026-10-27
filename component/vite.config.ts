@@ -10,6 +10,37 @@ const dirname =
     ? __dirname
     : path.dirname(fileURLToPath(import.meta.url));
 
+// One browser project per colour scheme: the preview decorator follows
+// prefers-color-scheme, so the dark project renders every story in dark.
+// CI ran light only, so a dark-only failure was invisible (#2248).
+function storybookProject(name: string, colorScheme: "light" | "dark") {
+  return {
+    extends: true,
+    plugins: [
+      // The plugin will run tests for the stories defined in your Storybook config
+      // See options at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon#storybooktest
+      storybookTest({
+        configDir: path.join(dirname, ".storybook"),
+      }),
+    ],
+    test: {
+      name,
+      browser: {
+        enabled: true,
+        headless: true,
+        provider: playwright({ contextOptions: { colorScheme } }),
+        // Desktop width: at the 414 px default the sidebar stories render
+        // their rail, so axe never saw the expanded sidebar (#2225).
+        viewport: { width: 1280, height: 800 },
+        instances: [{ browser: "chromium" as const }],
+      },
+      setupFiles: [".storybook/vitest.setup.ts"],
+      // Read by the setup file's guard: the scheme this project means to run.
+      provide: { colorScheme },
+    },
+  };
+}
+
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
   plugins: [react()],
@@ -89,33 +120,8 @@ export default defineConfig({
           css: true,
         },
       },
-      {
-        extends: true,
-        plugins: [
-          // The plugin will run tests for the stories defined in your Storybook config
-          // See options at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon#storybooktest
-          storybookTest({
-            configDir: path.join(dirname, ".storybook"),
-          }),
-        ],
-        test: {
-          name: "storybook",
-          browser: {
-            enabled: true,
-            headless: true,
-            provider: playwright({}),
-            // Desktop width: at the 414 px default the sidebar stories render
-            // their rail, so axe never saw the expanded sidebar (#2225).
-            viewport: { width: 1280, height: 800 },
-            instances: [
-              {
-                browser: "chromium",
-              },
-            ],
-          },
-          setupFiles: [".storybook/vitest.setup.ts"],
-        },
-      },
+      storybookProject("storybook", "light"),
+      storybookProject("storybook-dark", "dark"),
     ],
   },
 });

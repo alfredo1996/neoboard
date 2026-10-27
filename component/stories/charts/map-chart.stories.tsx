@@ -79,7 +79,13 @@ export const Default: Story = {
     );
     expect(
       new Set(markerPaths(canvasElement).map((p) => p.getAttribute("fill"))),
-    ).toEqual(new Set([MAP_CLUSTER.light.fill]));
+    ).toEqual(
+      new Set([
+        MAP_CLUSTER[
+          document.documentElement.classList.contains("dark") ? "dark" : "light"
+        ].fill,
+      ]),
+    );
     // Tiles are requested at the zoom that was asked for, not at maxZoom.
     await waitFor(() =>
       expect(tileZooms(canvasElement).length).toBeGreaterThan(0),
