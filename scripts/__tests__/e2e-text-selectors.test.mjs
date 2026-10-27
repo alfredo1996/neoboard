@@ -11,7 +11,53 @@ import { fileURLToPath } from "node:url";
 const E2E = resolve(dirname(fileURLToPath(import.meta.url)), "../../app/e2e");
 
 // "<spec>: <regex source>" -> why the text cannot be matched exactly.
-const ALLOWED = {};
+const NEGATIVE =
+  "Negative assertion over a family of messages: an exact string would pass vacuously, and a regex that finds nothing cannot trip strict mode.";
+
+const ALLOWED = {
+  "connections.spec.ts: /failed|error|refused|ECONNREFUSED/i":
+    "The driver’s connection-failure message differs per connector and host.",
+  "connections.spec.ts: /Enter a URI like/":
+    "Prefix of a message whose tail is the connector’s own placeholder.",
+  "connections.spec.ts: /2 widgets.*1 dashboard/i":
+    "Usage sentence split across inline nodes; counts vary with fixture.",
+  "connections.spec.ts: /something went wrong|uncaught|error boundary/i":
+    NEGATIVE,
+  "connector-unavailable.spec.ts: /Waiting for |to see this\\./": NEGATIVE,
+  "dashboard-connection-reassign.spec.ts: /Query Failed|No connection/i":
+    NEGATIVE,
+  "dashboard-connection-reassign.spec.ts: /Moved 1 widget/i":
+    "Message ends with the target connection’s display name, known only to the seed.",
+  "dashboard-connection-reassign.spec.ts: /No connection/i": NEGATIVE,
+  "dashboard-states.spec.ts: /Dashboard updated by/i": NEGATIVE,
+  "form-widget.spec.ts: /Form submissions write to the database/i":
+    "Prefix of a long multi-sentence notice.",
+  "import-validation.spec.ts: /Invalid dashboard file/i":
+    "Prefix of a message whose tail is the schema issue text.",
+  "new-charts.spec.ts: /\\[Region\\]/":
+    "A parameter name inside a composed sentence.",
+  "new-charts.spec.ts: /\\$param_\\w/": NEGATIVE,
+  "param-defaults.spec.ts: /Waiting for |to see this\\./": NEGATIVE,
+  "parameters.spec.ts: /\\$param_/": NEGATIVE,
+  "parameters.spec.ts: /\\w{3} \\d{1,2}, \\d{4}/":
+    "A formatted date: the variable part is today’s date.",
+  "parameters.spec.ts: /\\w{3} \\d{1,2}, \\d{4}\\s*–\\s*\\w{3} \\d{1,2}, \\d{4}/":
+    "A formatted date range: the variable part is today’s date.",
+  "parameters.spec.ts: /^\\d+ options? loaded — see preview$/":
+    "The option count depends on the seeded data and pluralises.",
+  "query-safety.spec.ts: /query.*failed/i": NEGATIVE,
+  'query-safety.spec.ts: /syntax error at or near "create"/':
+    "PostgreSQL's own error text, quoted from the driver.",
+  "widget-states.spec.ts: /definitely_not_a_table|does not exist|syntax error/i":
+    NEGATIVE,
+  "widgets-look.spec.ts: /\\$param_/": NEGATIVE,
+  "widgets-look.spec.ts: /Gallery region/": NEGATIVE,
+  "widgets-look.spec.ts: /^Writes to /":
+    "Ends with the form’s connection display name.",
+  "widgets-look.spec.ts: /^customer:/":
+    "A key line of the JSON viewer; the value follows in the same node.",
+  "widgets.spec.ts: /Showing first .* rows/": NEGATIVE,
+};
 
 /** Regex literals passed to getByText, even when the call wraps lines. */
 export function regexGetByText(source) {

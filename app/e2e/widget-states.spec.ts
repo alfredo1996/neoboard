@@ -268,7 +268,11 @@ test.describe("Widget without connection", () => {
       timeout: 15_000,
     });
     // Generic, sanitized copy — no raw driver/relation details.
-    await expect(page.getByText(/couldn.t load its data/i)).toBeVisible();
+    await expect(
+      page.getByText("This widget couldn't load its data. Try again.", {
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(
       page.getByText(/definitely_not_a_table|does not exist|syntax error/i),
     ).toHaveCount(0);

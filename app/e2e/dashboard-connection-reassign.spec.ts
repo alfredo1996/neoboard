@@ -255,7 +255,12 @@ test.describe("Per-dashboard connection reassignment", () => {
 
       // The offer names the count, and it is 1 — the markdown widget is NOT
       // included even though it also has an empty connectionId.
-      await expect(page.getByText(/1 widget has no connection/i)).toBeVisible({
+      await expect(
+        page.getByText(
+          "1 widget has no connection. Assign one to all of them now instead of opening each widget.",
+          { exact: true },
+        ),
+      ).toBeVisible({
         timeout: 20_000,
       });
       await page

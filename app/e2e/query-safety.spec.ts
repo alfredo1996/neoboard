@@ -248,7 +248,8 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
       await page.goto(`/${id}`);
       await expect(
         page.getByText(
-          /Showing first 5,000 rows\. Refine your query to see all results\./,
+          "Showing first 5,000 rows. Refine your query to see all results.",
+          { exact: true },
         ),
       ).toBeVisible({ timeout: 20_000 });
     } finally {
@@ -286,7 +287,8 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
       await page.goto(`/${id}`);
       await expect(
         page.getByText(
-          /Showing first 5,000 rows\. Refine your query to see all results\./,
+          "Showing first 5,000 rows. Refine your query to see all results.",
+          { exact: true },
         ),
       ).toBeVisible({ timeout: 20_000 });
     } finally {
@@ -345,7 +347,12 @@ test.describe("Query safety nets — timeout + row cap + error UX", () => {
       );
       try {
         await page.goto(`/${id}`);
-        await expect(page.getByText(/Showing first 1,000 rows\./)).toBeVisible({
+        await expect(
+          page.getByText(
+            "Showing first 1,000 rows. Refine your query to see all results.",
+            { exact: true },
+          ),
+        ).toBeVisible({
           timeout: 20_000,
         });
       } finally {

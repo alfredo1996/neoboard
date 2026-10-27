@@ -102,7 +102,11 @@ test.describe("Dashboard viewer — uncovered states", () => {
 
     // A query that matches nothing shows the empty-result message.
     await search.fill("zzz-no-such-dashboard");
-    await expect(page.getByText(/No dashboards match/i)).toBeVisible();
+    await expect(
+      page.getByText("No dashboards match “zzz-no-such-dashboard”.", {
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(page.getByText("Movie Analytics")).not.toBeVisible();
   });
 

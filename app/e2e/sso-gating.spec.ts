@@ -39,10 +39,11 @@ test.describe("SSO gating — community edition", () => {
   }) => {
     await page.goto("/settings/authentication");
     // The empty state component renders the feature title and description
-    await expect(page.getByText(/Single Sign-On/i)).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(page.getByText(/Enterprise feature/i)).toBeVisible();
+    await expect(
+      page.getByText("Single Sign-On is an Enterprise feature", {
+        exact: true,
+      }),
+    ).toBeVisible({ timeout: 10_000 });
     await expect(
       page.getByRole("link", { name: /Learn about Enterprise/i }),
     ).toBeVisible();

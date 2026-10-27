@@ -124,7 +124,7 @@ test.describe("Parameter widget types", () => {
       await textInput.fill("matrix");
 
       // DebouncedTextInput has a 200ms debounce — wait for the dependent widget.
-      await expect(page.getByText(/^The Matrix$/)).toBeVisible({
+      await expect(page.getByText("The Matrix", { exact: true })).toBeVisible({
         timeout: 10_000,
       });
     } finally {
