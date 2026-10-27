@@ -105,13 +105,25 @@ describe("field look is shared and hover never beats error or focus (#2217)", ()
     ["MultiSelect", () => <MultiSelect data-testid="c" options={[]} />],
   ])("%s", (_name, ui) => {
     render(ui());
-    const cls = screen.getByTestId("c").className;
+    const el = screen.getByTestId("c");
+    // MultiSelect's look lives on the shell around its trigger (#2275);
+    // its states are the same ones written as has-[...] classes.
+    const shell = _name === "MultiSelect" ? el.parentElement! : el;
+    const cls = shell.className;
     expect(cls).toContain("bg-field");
     expect(cls).not.toContain("bg-card");
     expect(cls).toContain("hover:border-input-hover");
     expect(cls).not.toContain("hover:enabled:");
-    expect(cls).toContain("aria-[invalid=true]:hover:border-destructive");
-    expect(cls).toContain("focus-visible:hover:border-ring");
+    expect(cls).toContain(
+      _name === "MultiSelect"
+        ? "has-[[aria-invalid=true]]:hover:border-destructive"
+        : "aria-[invalid=true]:hover:border-destructive",
+    );
+    expect(cls).toContain(
+      _name === "MultiSelect"
+        ? "has-[[role=combobox]:focus-visible]:border-ring"
+        : "focus-visible:hover:border-ring",
+    );
     expect(cls).toContain("[@media(pointer:coarse)]:text-base");
   });
 });

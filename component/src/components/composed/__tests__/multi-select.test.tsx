@@ -288,31 +288,55 @@ describe.each([
   });
 });
 
-describe("#2275 trigger name", () => {
-  it("is the field label, with no remove label folded in", () => {
+describe("#2275 trigger name and description", () => {
+  it("takes its name from aria-labelledby and says what is selected", () => {
     render(
       <>
-        <label htmlFor="ms">Regions</label>
+        <h4 id="h">After Submit</h4>
+        <p id="x">Pick widgets</p>
         <MultiSelect
-          id="ms"
+          aria-labelledby="h"
+          aria-describedby="x"
           options={regions}
           value={["eu", "na"]}
           onChange={() => {}}
         />
       </>,
     );
-    expect(screen.getByRole("combobox")).toHaveAccessibleName("Regions");
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveAccessibleName("After Submit");
+    expect(trigger).toHaveAccessibleDescription(
+      "Pick widgets 2 selected: Europe, North America",
+    );
   });
 
-  it("is the label of a ParamMultiSelector too", () => {
+  it("takes its name from aria-label", () => {
     render(
-      <ParamMultiSelector
-        parameterName="region"
+      <MultiSelect
+        aria-label="Regions"
         options={regions}
-        values={["eu", "na"]}
+        value={[]}
         onChange={() => {}}
       />,
     );
-    expect(screen.getByRole("combobox")).toHaveAccessibleName("Region");
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveAccessibleName("Regions");
+    expect(trigger).not.toHaveAccessibleDescription();
+  });
+});
+
+describe("#2275 shell state classes are literal strings", () => {
+  it.each([
+    "has-[[role=combobox]:focus-visible]:ring-2",
+    "has-[[role=combobox]:focus-visible]:ring-ring",
+    "has-[[role=combobox]:disabled]:opacity-50",
+    "has-[[role=combobox]:disabled]:cursor-not-allowed",
+    "has-[[aria-invalid=true]]:border-destructive",
+    "has-[[aria-invalid=true]]:has-[[role=combobox]:focus-visible]:border-destructive",
+    "[@media(pointer:coarse)]:text-base",
+  ])("%s", (cls) => {
+    render(<MultiSelect options={regions} value={[]} />);
+    const shell = screen.getByRole("combobox").parentElement as HTMLElement;
+    expect(shell.className.split(/\s+/)).toContain(cls);
   });
 });

@@ -38,16 +38,22 @@ function MultiSelectField({
   disabled,
   ...triggerProps
 }: MultiSelectFieldProps) {
-  const pick = "has-[[role=combobox]:focus-visible]";
-  const off = "has-[[role=combobox]:disabled]";
-  const invalid = "has-[[aria-invalid=true]]";
+  const describedId = React.useId();
+  const summary =
+    selected.length > 0
+      ? `${selected.length} selected: ${selected.map((o) => o.label).join(", ")}`
+      : undefined;
+  const describedBy =
+    [triggerProps["aria-describedby"], summary && describedId]
+      .filter(Boolean)
+      .join(" ") || undefined;
   return (
     <div
       className={cn(
-        "relative flex min-h-9 items-center rounded-sm border bg-field text-sm text-foreground transition-[color,background-color,border-color] [transition-duration:var(--duration-fast)]",
-        `${pick}:outline-none ${pick}:ring-2 ${pick}:ring-ring ${pick}:ring-offset-background`,
-        `${off}:cursor-not-allowed ${off}:bg-active ${off}:opacity-50`,
-        `${invalid}:border-destructive ${invalid}:${pick}:ring-destructive`,
+        "relative flex min-h-9 items-center rounded-sm border bg-field text-sm [@media(pointer:coarse)]:text-base text-foreground transition-[color,background-color,border-color] [transition-duration:var(--duration-fast)]",
+        "has-[[role=combobox]:focus-visible]:outline-none has-[[role=combobox]:focus-visible]:ring-2 has-[[role=combobox]:focus-visible]:ring-ring has-[[role=combobox]:focus-visible]:ring-offset-background",
+        "has-[[role=combobox]:disabled]:cursor-not-allowed has-[[role=combobox]:disabled]:bg-active has-[[role=combobox]:disabled]:opacity-50",
+        "has-[[aria-invalid=true]]:border-destructive has-[[aria-invalid=true]]:hover:border-destructive has-[[aria-invalid=true]]:has-[[role=combobox]:focus-visible]:border-destructive has-[[aria-invalid=true]]:has-[[role=combobox]:focus-visible]:ring-destructive",
         padX,
         className,
       )}
@@ -62,6 +68,7 @@ function MultiSelectField({
             padX,
           )}
           {...triggerProps}
+          aria-describedby={describedBy}
         >
           {selected.length === 0 && (
             <span className="text-muted-foreground">{placeholder}</span>
@@ -72,6 +79,11 @@ function MultiSelectField({
           />
         </button>
       </PopoverTrigger>
+      {summary && (
+        <span id={describedId} className="sr-only">
+          {summary}
+        </span>
+      )}
       <div
         inert={disabled || undefined}
         className="pointer-events-none relative mr-6 flex min-w-0 flex-1 flex-wrap gap-1 [&_button]:pointer-events-auto"
