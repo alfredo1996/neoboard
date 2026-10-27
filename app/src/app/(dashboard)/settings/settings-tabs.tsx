@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 import { cn, tabRowClass, tabTriggerClass } from "@neoboard/components";
 import { useFeature, type FeatureId } from "@/hooks/use-features";
@@ -28,7 +29,6 @@ const tabs: Tab[] = [
 ];
 
 export function SettingsTabs() {
-  const router = useRouter();
   const pathname = usePathname();
   // Subscribe to features once; useFeature returns undefined during the
   // initial load — we hide gated tabs in that window to avoid a flicker of
@@ -43,8 +43,7 @@ export function SettingsTabs() {
   });
 
   return (
-    // The library tab look (#2221): centred, no icons. Still a nav of buttons;
-    // making them links is #2268.
+    // The library tab look (#2221): centred, no icons.
     <nav
       aria-label="Settings"
       className={cn(tabRowClass, "border-b-0 px-[var(--tabs-gutter,12px)]")}
@@ -69,16 +68,15 @@ export function SettingsTabs() {
           );
         }
         return (
-          <button
+          <Link
             key={href}
-            type="button"
+            href={href}
             aria-current={active ? "page" : undefined}
             data-state={state}
-            onClick={() => router.push(href)}
             className={tabTriggerClass}
           >
             {label}
-          </button>
+          </Link>
         );
       })}
     </nav>

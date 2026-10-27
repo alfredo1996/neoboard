@@ -7,8 +7,16 @@ test.describe("Settings — Profile", () => {
   });
 
   test("settings page shows Profile and API keys tabs", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "API keys" })).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Settings" })
+        .getByRole("link", { name: "Profile", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Settings" })
+        .getByRole("link", { name: "API keys", exact: true }),
+    ).toBeVisible();
   });
 
   test("sidebar navigates to profile by default", async ({ page }) => {
@@ -115,7 +123,11 @@ test.describe("Settings — Profile", () => {
   });
 
   test("can switch to API keys tab", async ({ page }) => {
-    await page.getByRole("button", { name: "API keys" }).click();
+    const tab = page
+      .getByRole("navigation", { name: "Settings" })
+      .getByRole("link", { name: "API keys", exact: true });
+    await expect(tab).toHaveAttribute("href", "/settings/api-keys");
+    await tab.click();
     await expect(page).toHaveURL(/\/settings\/api-keys/);
     await expect(
       page.getByRole("heading", { name: "API keys", exact: true }),

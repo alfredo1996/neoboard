@@ -2,8 +2,20 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import React from "react";
 
+vi.mock("next/link", () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...rest
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
   usePathname: () => "/settings/profile",
 }));
 
@@ -23,23 +35,28 @@ describe("SettingsTabs — API docs discoverability (#1056, #2255)", () => {
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
   });
 
-  it("still renders the Profile and API keys tabs as buttons", () => {
+  it("renders the Profile and API keys tabs as links to their routes (#2268)", () => {
     render(<SettingsTabs />);
-    expect(screen.getByRole("button", { name: "Profile" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "API keys" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute(
+      "href",
+      "/settings/profile",
+    );
+    expect(screen.getByRole("link", { name: "API keys" })).toHaveAttribute(
+      "href",
+      "/settings/api-keys",
+    );
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("marks only the current page's tab with aria-current=page", () => {
     render(<SettingsTabs />);
-    expect(screen.getByRole("button", { name: "Profile" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(
-      screen.getByRole("button", { name: "API keys" }),
-    ).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "API keys" })).not.toHaveAttribute(
+      "aria-current",
+    );
     expect(screen.getByRole("link", { name: /API docs/i })).not.toHaveAttribute(
       "aria-current",
     );
@@ -58,16 +75,18 @@ describe("SettingsTabs — the library tab look (#2221)", () => {
     render(<SettingsTabs />);
     const nav = screen.getByRole("navigation", { name: "Settings" });
     expect(nav.querySelectorAll("svg")).toHaveLength(1);
-    expect(screen.getByRole("link").querySelector("svg")).not.toBeNull();
+    expect(
+      screen.getByRole("link", { name: /API docs/i }).querySelector("svg"),
+    ).not.toBeNull();
   });
 
   it("marks the current page's tab as the active tab", () => {
     render(<SettingsTabs />);
-    expect(screen.getByRole("button", { name: "Profile" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute(
       "data-state",
       "active",
     );
-    expect(screen.getByRole("button", { name: "API keys" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "API keys" })).toHaveAttribute(
       "data-state",
       "inactive",
     );
