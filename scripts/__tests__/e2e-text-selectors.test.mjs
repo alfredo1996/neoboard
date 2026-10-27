@@ -14,24 +14,25 @@ const E2E = resolve(dirname(fileURLToPath(import.meta.url)), "../../app/e2e");
 const NEGATIVE =
   "Negative assertion over a family of messages: an exact string would pass vacuously, and a regex that finds nothing cannot trip strict mode.";
 
+// "<spec>: <regex source>" -> how many calls the spec may hold (default 1).
+const COUNTS = {
+  "parameters.spec.ts: /^\\d+ options? loaded — see preview$/": 2,
+  "widgets-look.spec.ts: /Gallery region/": 2,
+  "widgets-look.spec.ts: /^customer:/": 2,
+};
+
 const ALLOWED = {
   "connections.spec.ts: /failed|error|refused|ECONNREFUSED/i":
     "The driver’s connection-failure message differs per connector and host.",
   "connections.spec.ts: /Enter a URI like/":
     "Prefix of a message whose tail is the connector’s own placeholder.",
-  "connections.spec.ts: /2 widgets.*1 dashboard/i":
-    "Usage sentence split across inline nodes; counts vary with fixture.",
   "connections.spec.ts: /something went wrong|uncaught|error boundary/i":
     NEGATIVE,
   "connector-unavailable.spec.ts: /Waiting for |to see this\\./": NEGATIVE,
   "dashboard-connection-reassign.spec.ts: /Query Failed|No connection/i":
     NEGATIVE,
-  "dashboard-connection-reassign.spec.ts: /Moved 1 widget/i":
-    "Message ends with the target connection’s display name, known only to the seed.",
   "dashboard-connection-reassign.spec.ts: /No connection/i": NEGATIVE,
   "dashboard-states.spec.ts: /Dashboard updated by/i": NEGATIVE,
-  "form-widget.spec.ts: /Form submissions write to the database/i":
-    "Prefix of a long multi-sentence notice.",
   "import-validation.spec.ts: /Invalid dashboard file/i":
     "Prefix of a message whose tail is the schema issue text.",
   "new-charts.spec.ts: /\\[Region\\]/":
@@ -39,9 +40,9 @@ const ALLOWED = {
   "new-charts.spec.ts: /\\$param_\\w/": NEGATIVE,
   "param-defaults.spec.ts: /Waiting for |to see this\\./": NEGATIVE,
   "parameters.spec.ts: /\\$param_/": NEGATIVE,
-  "parameters.spec.ts: /\\w{3} \\d{1,2}, \\d{4}/":
+  "parameters.spec.ts: /^\\w{3} \\d{1,2}, \\d{4}$/":
     "A formatted date: the variable part is today’s date.",
-  "parameters.spec.ts: /\\w{3} \\d{1,2}, \\d{4}\\s*–\\s*\\w{3} \\d{1,2}, \\d{4}/":
+  "parameters.spec.ts: /^\\w{3} \\d{1,2}, \\d{4}\\s*–\\s*\\w{3} \\d{1,2}, \\d{4}$/":
     "A formatted date range: the variable part is today’s date.",
   "parameters.spec.ts: /^\\d+ options? loaded — see preview$/":
     "The option count depends on the seeded data and pluralises.",
@@ -52,21 +53,32 @@ const ALLOWED = {
     NEGATIVE,
   "widgets-look.spec.ts: /\\$param_/": NEGATIVE,
   "widgets-look.spec.ts: /Gallery region/": NEGATIVE,
-  "widgets-look.spec.ts: /^Writes to /":
-    "Ends with the form’s connection display name.",
   "widgets-look.spec.ts: /^customer:/":
     "A key line of the JSON viewer; the value follows in the same node.",
   "widgets.spec.ts: /Showing first .* rows/": NEGATIVE,
 };
 
-/** Regex literals passed to getByText, even when the call wraps lines. */
+/** Regex literals (or new RegExp) passed to getByText, even when the call wraps lines. */
 export function regexGetByText(source) {
   return [
-    ...source.matchAll(/getByText\(\s*(\/(?:\\.|[^/\\\n])+\/[a-z]*)/g),
+    ...source.matchAll(
+      /getByText\(\s*(\/(?:\\.|[^/\\\n])+\/[a-z]*|new RegExp\()/g,
+    ),
   ].map((m) => ({
     regex: m[1],
     line: source.slice(0, m.index).split("\n").length,
   }));
+}
+
+/** Calls beyond the count an allowlist key permits (default once). */
+export function overBudget(calls, allowed = ALLOWED, counts = COUNTS) {
+  const seen = {};
+  return calls
+    .filter((c) => {
+      seen[c.key] = (seen[c.key] ?? 0) + 1;
+      return c.key in allowed && seen[c.key] > (counts[c.key] ?? 1);
+    })
+    .map((c) => c.at);
 }
 
 function allCalls() {
@@ -90,6 +102,17 @@ describe("E2E text selectors (#2262)", () => {
     ).toEqual([]);
   });
 
+  it("an allowlisted regex is not used more often than listed", () => {
+    expect(overBudget(allCalls())).toEqual([]);
+  });
+
+  it("flags a second call that shares an allowlisted key", () => {
+    const key = "a.spec.ts: /x/";
+    const call = { key, at: "a.spec.ts:2 /x/" };
+    expect(overBudget([call, call], { [key]: "r" })).toEqual([call.at]);
+    expect(overBudget([call], { [key]: "r" })).toEqual([]);
+  });
+
   it("every allowlist entry still matches a call and carries a reason", () => {
     const found = new Set(allCalls().map((c) => c.key));
     for (const [key, reason] of Object.entries(ALLOWED)) {
@@ -100,6 +123,7 @@ describe("E2E text selectors (#2262)", () => {
 
   it.each([
     ["page.getByText(/x/)", "/x/"],
+    ["page.getByText(new RegExp(year)).first()", "new RegExp("],
     ["page.getByText(/^First Name/i).first()", "/^First Name/i"],
     ["page.getByText(\n  /a\\/b/,\n)", "/a\\/b/"],
   ])("flags %s", (line, regex) => {

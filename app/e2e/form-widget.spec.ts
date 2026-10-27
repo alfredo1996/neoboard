@@ -54,9 +54,9 @@ test.describe("Form widget", () => {
     await dialog.getByRole("combobox").nth(1).click();
     await page.getByRole("option", { name: "Form" }).click();
 
-    await expect(
-      dialog.getByText(/Form submissions write to the database/i),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(dialog.getByTestId("form-write-permission-note")).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("should configure form fields in editor and see preview", async ({
@@ -153,7 +153,7 @@ test.describe("Form widget", () => {
 
     // The form widget should render with the configured fields
     // Fields default to required=true, so the label includes an asterisk "*".
-    // Use regex anchored at start to avoid matching "Page 1" tab or param hints.
+    // Exact text avoids matching the "Page 1" tab or param hints.
     await expect(page.getByText("First Name", { exact: true })).toBeVisible({
       timeout: 15_000,
     });

@@ -1500,7 +1500,7 @@ test.describe("Date parameter widget", () => {
         timeout: 5_000,
       });
       // Verify the selected date displays in "MMM d, yyyy" format
-      await expect(page.getByText(/\w{3} \d{1,2}, \d{4}/)).toBeVisible();
+      await expect(page.getByText(/^\w{3} \d{1,2}, \d{4}$/)).toBeVisible();
 
       // The title should interpolate the parameter value
       await expect(
@@ -1598,7 +1598,7 @@ test.describe("Date-range parameter widget", () => {
         timeout: 5_000,
       });
       await expect(
-        page.getByText(/\w{3} \d{1,2}, \d{4}\s*–\s*\w{3} \d{1,2}, \d{4}/),
+        page.getByText(/^\w{3} \d{1,2}, \d{4}\s*–\s*\w{3} \d{1,2}, \d{4}$/),
       ).toBeVisible();
 
       // Clear button should appear

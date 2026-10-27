@@ -587,8 +587,13 @@ test.describe("Connections", () => {
 
       // 6. Assert the confirm dialog shows the usage breakdown: widget
       //    count, dashboard count, and the dashboard name in the bulleted
-      //    list. Use regex so minor copy tweaks don't break the test.
-      await expect(page.getByText(/2 widgets.*1 dashboard/i)).toBeVisible({
+      //    list.
+      await expect(
+        page.getByText(
+          "2 widgets on 1 dashboard use it and will stop loading:",
+          { exact: true },
+        ),
+      ).toBeVisible({
         timeout: 10_000,
       });
       await expect(page.getByText(dashName)).toBeVisible();
@@ -615,7 +620,7 @@ test.describe("Connections", () => {
       });
       await expect(
         page.getByText(/something went wrong|uncaught|error boundary/i),
-      ).not.toBeVisible();
+      ).toHaveCount(0);
     } finally {
       await page.request
         .delete(`/api/dashboards/${dashId}`)

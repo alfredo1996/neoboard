@@ -8,7 +8,7 @@ function fixturePath(name: string) {
 }
 
 async function openImportDialog(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "Import" }).click();
+  await page.getByRole("button", { name: "Import", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   return dialog;

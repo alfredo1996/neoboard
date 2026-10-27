@@ -280,7 +280,11 @@ test.describe("Widgets that are not charts (#2232)", () => {
       const cardBox = await card("w-form").boundingBox();
       expect(box!.height).toBeLessThan(44);
       expect(box!.width).toBeLessThan(cardBox!.width / 2);
-      await expect(card("w-form").getByText(/^Writes to /)).toBeVisible();
+      await expect(
+        card("w-form").getByText("Writes to Movies DB (PostgreSQL)", {
+          exact: true,
+        }),
+      ).toBeVisible();
 
       // ── Text: sans headings, Plex Mono code, azure keywords ──
       const md = card("w-md");
