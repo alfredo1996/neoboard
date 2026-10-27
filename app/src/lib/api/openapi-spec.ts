@@ -636,6 +636,7 @@ const SPEC = {
         description:
           "Creates the share, or changes the role of the user's existing share; both answer 201. " +
           "The dashboard's owner or an admin only; anyone else gets 404, before the body is read. " +
+          "Readers and users without write permission get 403, before anything is read. " +
           "An email that matches no user in the tenant answers 404 `User not found` (emails are matched ignoring case and surrounding spaces, #2001); " +
           "the caller's own email answers 400 `Cannot share with yourself`, and the dashboard owner's email " +
           "(an admin managing someone else's dashboard) answers 400 `User already owns this dashboard`; neither writes a share. " +
@@ -648,9 +649,12 @@ const SPEC = {
           ),
           400: R.badRequest,
           401: R.unauthorized,
-          403: bodyResponse("A session that must change its password first.", {
-            $ref: "#/components/schemas/ErrorResponse",
-          }),
+          403: bodyResponse(
+            "A session that must change its password first, or a caller without write permission.",
+            {
+              $ref: "#/components/schemas/ErrorResponse",
+            },
+          ),
           404: R.notFound,
           413: R.tooLarge,
           500: R.serverError,
@@ -661,6 +665,7 @@ const SPEC = {
         summary: "Remove dashboard share",
         description:
           "The dashboard's owner or an admin only; anyone else gets 404. " +
+          "Readers and users without write permission get 403, before anything is read. " +
           "A `shareId` that matches no share of this dashboard still answers 200.",
         parameters: [
           {
@@ -679,9 +684,12 @@ const SPEC = {
           ),
           400: R.badRequest,
           401: R.unauthorized,
-          403: bodyResponse("A session that must change its password first.", {
-            $ref: "#/components/schemas/ErrorResponse",
-          }),
+          403: bodyResponse(
+            "A session that must change its password first, or a caller without write permission.",
+            {
+              $ref: "#/components/schemas/ErrorResponse",
+            },
+          ),
           404: R.notFound,
           500: R.serverError,
         },

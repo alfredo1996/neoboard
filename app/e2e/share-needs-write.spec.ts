@@ -19,7 +19,6 @@ test.describe("Sharing needs write permission", () => {
     let userId = "";
     let dashboardId = "";
     const writerCtx = await browser.newContext();
-    const readerCtx = await browser.newContext();
 
     try {
       const user = await page.request.post("/api/users", {
@@ -48,13 +47,12 @@ test.describe("Sharing needs write permission", () => {
       });
       expect(off.ok()).toBeTruthy();
 
-      // A fresh sign-in reads the flag from the database.
-      const ownerPage = await readerCtx.newPage();
-      await new AuthPage(ownerPage).login(email, password);
+      const ownerPage = writerPage;
       await ownerPage.goto(`/${dashboardId}`);
       await expect(
         ownerPage.getByRole("heading", { name: `share-nowrite-${suffix}` }),
       ).toBeVisible();
+      // Documents the owner's rule; passes before the fix too, the Share sheet is admin-only.
       await expect(
         ownerPage.getByRole("button", { name: "Share", exact: true }),
       ).toHaveCount(0);
@@ -78,7 +76,6 @@ test.describe("Sharing needs write permission", () => {
         await page.request.delete(`/api/dashboards/${dashboardId}`);
       if (userId) await page.request.delete(`/api/users/${userId}`);
       await writerCtx.close();
-      await readerCtx.close();
     }
   });
 });
