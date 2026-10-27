@@ -221,7 +221,9 @@ test.describe("Manual refresh and disable auto-refresh", () => {
   });
 
   test("disabling auto-refresh stops background polling", async ({ page }) => {
-    test.setTimeout(30_000);
+    // Its own waits sum past 30 s: the dashboard's first result (≤15 s), the
+    // first poll (≤10 s), the PUT (≤5 s) and the 7 s quiet window.
+    test.setTimeout(45_000);
 
     const cleanup = await openOwnDashboard(page);
     try {
