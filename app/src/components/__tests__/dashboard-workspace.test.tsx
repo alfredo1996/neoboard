@@ -1071,6 +1071,69 @@ describe("DashboardWorkspace", () => {
     expect(mockReplace).not.toHaveBeenCalledWith("/d1", { scroll: false });
   });
 
+  // ── Write permission gates editing (#2313) ──────────────────────────
+  describe.each(["owner", "editor"])(
+    "a %s without write permission (#2313)",
+    (role) => {
+      beforeEach(() => {
+        dashboard = makeDashboard(3, role);
+        mockUseSession.mockReturnValue({
+          data: { user: { role: "creator", canWrite: false } },
+          status: "authenticated",
+        });
+      });
+
+      it("gets no Edit button", () => {
+        render(<DashboardWorkspace id="d1" editMode={false} />);
+        expect(screen.queryByText("Edit")).toBeNull();
+      });
+
+      it("is sent back from /<id>/edit", () => {
+        pathname = "/d1/edit";
+        render(<DashboardWorkspace id="d1" editMode={true} />);
+        expect(mockReplace).toHaveBeenCalledWith("/d1", { scroll: false });
+      });
+    },
+  );
+
+  it("a viewer share is sent back from /<id>/edit", () => {
+    dashboard = makeDashboard(3, "viewer");
+    mockUseSession.mockReturnValue({
+      data: { user: { role: "creator", canWrite: true } },
+      status: "authenticated",
+    });
+    pathname = "/d1/edit";
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(mockReplace).toHaveBeenCalledWith("/d1", { scroll: false });
+  });
+
+  it("an admin whose flag is off keeps Edit", () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { role: "admin", canWrite: false } },
+      status: "authenticated",
+    });
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+    expect(screen.getByText("Edit")).toBeInTheDocument();
+  });
+
+  it("does not bounce an owner out of edit mode while the session is loading", () => {
+    mockUseSession.mockReturnValue({ data: null, status: "loading" });
+    pathname = "/d1/edit";
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("does not bounce an owner out of edit mode while the dashboard is loading", () => {
+    mockUseDashboard.mockImplementation(() => ({
+      data: undefined,
+      isLoading: true,
+      isFetching: true,
+    }));
+    pathname = "/d1/edit";
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   // ── Keyboard shortcuts — the #1370 trigger ──────────────────────────
   it("Cmd+E from view mode navigates to edit, carrying the page", () => {
     const { rerender } = render(

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
@@ -71,8 +71,9 @@ vi.mock("@/components/dashboard-connection-dialog", () => ({
   DashboardConnectionDialog: MockClosingDialog,
 }));
 
+let sessionUser: { role: string; canWrite?: boolean } = { role: "creator" };
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: { user: { role: "creator" } } }),
+  useSession: () => ({ data: { user: sessionUser } }),
 }));
 
 vi.mock("next/link", () => ({
@@ -759,6 +760,38 @@ describe("DashboardListPage rows (#2253)", () => {
     render(<DashboardListPage />);
     expect(menuOf(/Movie Analytics/)).toEqual(MENU);
     expect(menuOf(/Chart gallery/)).toEqual(["Duplicate", "Export"]);
+  });
+
+  // The mocked dialogs also render "New dashboard" and "Import" as titles; the
+  // mocked Button is the only focusable (tabindex -1) div.
+  const buttonLabels = () =>
+    Array.from(document.querySelectorAll('div[tabindex="-1"]')).map((b) =>
+      b.textContent?.trim(),
+    );
+
+  describe("a creator without write permission (#2313)", () => {
+    beforeEach(() => {
+      sessionUser = { role: "creator", canWrite: false };
+    });
+    afterEach(() => {
+      sessionUser = { role: "creator" };
+    });
+
+    it("sees no New dashboard or Import, and no row menu", () => {
+      render(<DashboardListPage />);
+      expect(buttonLabels()).not.toContain("New dashboard");
+      expect(buttonLabels()).not.toContain("Import");
+      expect(menuOf(/Movie Analytics/)).toEqual([]);
+    });
+
+    it("an admin whose flag is off keeps all six", () => {
+      sessionUser = { role: "admin", canWrite: false };
+      render(<DashboardListPage />);
+      expect(buttonLabels()).toEqual(
+        expect.arrayContaining(["New dashboard", "Import"]),
+      );
+      expect(menuOf(/Movie Analytics/)).toEqual(MENU);
+    });
   });
 
   it("counts dashboards, widgets and connections, and the ones shared with you", () => {

@@ -1,4 +1,5 @@
 import type { UserListItem } from "@/hooks/use-users";
+import { effectiveCanWrite } from "@/lib/auth/can-write";
 import type { UserRole } from "@/lib/db/schema";
 
 /** Rows to a page: the DataGrid's size, kept (owner, #2254). */
@@ -60,7 +61,7 @@ export function roleLabel(role: UserRole): string {
 
 /** Admins always write, readers never, creators as their flag says. */
 export function writeLabel(u: UserListItem): string {
-  const writes = u.role === "admin" || (u.role !== "reader" && u.canWrite);
+  const writes = effectiveCanWrite(u.role, u.canWrite);
   return writes ? "Can write" : "Read only";
 }
 

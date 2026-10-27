@@ -1,5 +1,6 @@
 "use client";
 
+import { effectiveCanWrite } from "@/lib/auth/can-write";
 import { DOCS_LINKS } from "@/lib/docs-links";
 import { returnFocus } from "@/lib/return-focus";
 import { useRef, useState, type MouseEventHandler } from "react";
@@ -791,7 +792,9 @@ export default function DashboardListPage() {
   // "viewer", and an admin's share reads "admin").
   const { sharedCount, widgetTotal } = dashboardListTotals(dashboardList);
 
-  const canCreate = systemRole === "admin" || systemRole === "creator";
+  const hasWrite = effectiveCanWrite(systemRole, session?.user?.canWrite);
+  const canCreate =
+    hasWrite && (systemRole === "admin" || systemRole === "creator");
 
   // Client-side name filter for the list (#1048).
   const filteredDashboards = filterDashboardsByName(
@@ -1130,11 +1133,13 @@ export default function DashboardListPage() {
                 >
                   {filteredDashboards.map((d) => {
                     const canEdit =
-                      d.role === "owner" ||
-                      d.role === "editor" ||
-                      d.role === "admin";
-                    const canDelete = d.role === "owner" || d.role === "admin";
-                    const canDuplicate = systemRole !== "reader";
+                      hasWrite &&
+                      (d.role === "owner" ||
+                        d.role === "editor" ||
+                        d.role === "admin");
+                    const canDelete =
+                      hasWrite && (d.role === "owner" || d.role === "admin");
+                    const canDuplicate = hasWrite;
 
                     return (
                       <ListRow
