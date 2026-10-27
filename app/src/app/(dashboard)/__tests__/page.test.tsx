@@ -777,11 +777,17 @@ describe("DashboardListPage rows (#2253)", () => {
       sessionUser = { role: "creator" };
     });
 
-    it("sees no New dashboard or Import, and no row menu", () => {
+    it("sees no New dashboard or Import, and only Export in the row menu", () => {
       render(<DashboardListPage />);
       expect(buttonLabels()).not.toContain("New dashboard");
       expect(buttonLabels()).not.toContain("Import");
-      expect(menuOf(/Movie Analytics/)).toEqual([]);
+      expect(menuOf(/Movie Analytics/)).toEqual(["Export"]);
+    });
+
+    it("a reader gets a row menu with exactly Export", () => {
+      sessionUser = { role: "reader", canWrite: false };
+      render(<DashboardListPage />);
+      expect(menuOf(/Movie Analytics/)).toEqual(["Export"]);
     });
 
     it("an admin whose flag is off keeps all six", () => {

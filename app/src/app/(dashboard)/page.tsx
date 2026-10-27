@@ -1162,112 +1162,111 @@ export default function DashboardListPage() {
                           </span>,
                         ]}
                         menu={
-                          (canEdit || canDuplicate || canDelete) && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  aria-label={`Dashboard options for ${d.name}`}
+                          // Always present: Export is viewer-level (#979, #2313).
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Dashboard options for ${d.name}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {canEdit && (
+                                <DropdownMenuItem
+                                  onClick={() => router.push(`/${d.id}/edit`)}
                                 >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {canEdit && (
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                              )}
+                              {canEdit && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    openRename({ id: d.id, name: d.name })
+                                  }
+                                >
+                                  <TextCursorInput className="mr-2 h-4 w-4" />
+                                  Rename
+                                </DropdownMenuItem>
+                              )}
+                              {canDuplicate && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    duplicateDashboard.mutate(d.id, {
+                                      // A refusal must not look like a
+                                      // click that did nothing (#1816).
+                                      onError: (err) =>
+                                        toast({
+                                          title:
+                                            "Failed to duplicate dashboard",
+                                          description: err.message,
+                                          variant: "destructive",
+                                        }),
+                                    })
+                                  }
+                                  disabled={duplicateDashboard.isPending}
+                                >
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Duplicate
+                                </DropdownMenuItem>
+                              )}
+                              {canEdit && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setReturnFocusTo(focusedMenuTrigger());
+                                    setConnectionTarget({
+                                      id: d.id,
+                                      name: d.name,
+                                    });
+                                  }}
+                                >
+                                  <Database className="mr-2 h-4 w-4" />
+                                  Change connection…
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  void triggerExport(d.id, d.name).catch(
+                                    (err) => {
+                                      console.error("Export failed", err);
+                                      toast({
+                                        ...classifyExportError(err),
+                                        variant: "destructive",
+                                      });
+                                    },
+                                  );
+                                }}
+                              >
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                              </DropdownMenuItem>
+                              {canDelete && (
+                                <>
+                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem
-                                    onClick={() => router.push(`/${d.id}/edit`)}
-                                  >
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                )}
-                                {canEdit && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      openRename({ id: d.id, name: d.name })
-                                    }
-                                  >
-                                    <TextCursorInput className="mr-2 h-4 w-4" />
-                                    Rename
-                                  </DropdownMenuItem>
-                                )}
-                                {canDuplicate && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      duplicateDashboard.mutate(d.id, {
-                                        // A refusal must not look like a
-                                        // click that did nothing (#1816).
-                                        onError: (err) =>
-                                          toast({
-                                            title:
-                                              "Failed to duplicate dashboard",
-                                            description: err.message,
-                                            variant: "destructive",
-                                          }),
-                                      })
-                                    }
-                                    disabled={duplicateDashboard.isPending}
-                                  >
-                                    <Copy className="mr-2 h-4 w-4" />
-                                    Duplicate
-                                  </DropdownMenuItem>
-                                )}
-                                {canEdit && (
-                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
                                     onClick={() => {
                                       setReturnFocusTo(focusedMenuTrigger());
-                                      setConnectionTarget({
+                                      setDeleteTarget({
                                         id: d.id,
                                         name: d.name,
+                                        widgetCount: d.widgetCount ?? 0,
+                                        pageCount: d.pageCount ?? 0,
+                                        shareCount: d.shareCount ?? 0,
                                       });
                                     }}
                                   >
-                                    <Database className="mr-2 h-4 w-4" />
-                                    Change connection…
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete…
                                   </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    void triggerExport(d.id, d.name).catch(
-                                      (err) => {
-                                        console.error("Export failed", err);
-                                        toast({
-                                          ...classifyExportError(err),
-                                          variant: "destructive",
-                                        });
-                                      },
-                                    );
-                                  }}
-                                >
-                                  <Download className="mr-2 h-4 w-4" />
-                                  Export
-                                </DropdownMenuItem>
-                                {canDelete && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => {
-                                        setReturnFocusTo(focusedMenuTrigger());
-                                        setDeleteTarget({
-                                          id: d.id,
-                                          name: d.name,
-                                          widgetCount: d.widgetCount ?? 0,
-                                          pageCount: d.pageCount ?? 0,
-                                          shareCount: d.shareCount ?? 0,
-                                        });
-                                      }}
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete…
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         }
                       />
                     );

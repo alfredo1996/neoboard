@@ -658,12 +658,19 @@ export function DashboardWorkspace({
   }, [id, safeIndex, router]);
 
   // Send anyone who cannot edit back to the view (#2313) — but only once the
-  // dashboard and the session have loaded, so a pending owner is not bounced.
+  // dashboard and the session have loaded, so a pending owner is not bounced,
+  // and only on entry: a revocation mid-edit must not drop unsaved work past
+  // the unsaved-changes guard; the save returns 403 instead.
   const settled = !!dashboard && sessionStatus !== "loading";
+  const entryChecked = useRef(false);
   useEffect(() => {
-    if (editMode && settled && !canEdit) {
-      router.replace(`/${id}`, { scroll: false });
+    if (!editMode) {
+      entryChecked.current = false;
+      return;
     }
+    if (!settled || entryChecked.current) return;
+    entryChecked.current = true;
+    if (!canEdit) router.replace(`/${id}`, { scroll: false });
   }, [editMode, settled, canEdit, id, router]);
 
   useKeyboardShortcuts([

@@ -91,9 +91,12 @@ test.describe("Editing needs write permission", () => {
       await expect(
         u.getByRole("button", { name: "Import", exact: true }),
       ).toHaveCount(0);
-      await expect(
-        u.getByRole("button", { name: `Dashboard options for ${ownName}` }),
-      ).toHaveCount(0);
+      // The row menu stays, holding only Export (viewer-level, #979).
+      await u
+        .getByRole("button", { name: `Dashboard options for ${ownName}` })
+        .click();
+      await expect(u.getByRole("menuitem", { name: "Export" })).toBeVisible();
+      await expect(u.getByRole("menuitem")).toHaveCount(1);
     } finally {
       if (ownId) await page.request.delete(`/api/dashboards/${ownId}`);
       if (sharedId) await page.request.delete(`/api/dashboards/${sharedId}`);

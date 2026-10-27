@@ -1088,6 +1088,15 @@ describe("DashboardWorkspace", () => {
         expect(screen.queryByText("Edit")).toBeNull();
       });
 
+      it("Cmd+E does nothing in view mode", () => {
+        render(<DashboardWorkspace id="d1" editMode={false} />);
+        fireEvent.keyDown(document, { key: "e", metaKey: true });
+        expect(mockPush).not.toHaveBeenCalledWith(
+          expect.stringContaining("/d1/edit"),
+          expect.anything(),
+        );
+      });
+
       it("is sent back from /<id>/edit", () => {
         pathname = "/d1/edit";
         render(<DashboardWorkspace id="d1" editMode={true} />);
@@ -1120,6 +1129,34 @@ describe("DashboardWorkspace", () => {
     mockUseSession.mockReturnValue({ data: null, status: "loading" });
     pathname = "/d1/edit";
     render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("bounces a write-off owner once the session finishes loading", () => {
+    mockUseSession.mockReturnValue({ data: null, status: "loading" });
+    pathname = "/d1/edit";
+    const { rerender } = render(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(mockReplace).not.toHaveBeenCalled();
+    mockUseSession.mockReturnValue({
+      data: { user: { role: "creator", canWrite: false } },
+      status: "authenticated",
+    });
+    rerender(<DashboardWorkspace id="d1" editMode={true} />);
+    expect(mockReplace).toHaveBeenCalledWith("/d1", { scroll: false });
+  });
+
+  it("keeps an owner in edit mode when write is revoked mid-edit", () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { role: "creator", canWrite: true } },
+      status: "authenticated",
+    });
+    pathname = "/d1/edit";
+    const { rerender } = render(<DashboardWorkspace id="d1" editMode={true} />);
+    mockUseSession.mockReturnValue({
+      data: { user: { role: "creator", canWrite: false } },
+      status: "authenticated",
+    });
+    rerender(<DashboardWorkspace id="d1" editMode={true} />);
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
