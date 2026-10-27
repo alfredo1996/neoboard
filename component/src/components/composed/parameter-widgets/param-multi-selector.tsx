@@ -86,6 +86,7 @@ function ParamMultiSelector({
   invalid,
 }: Readonly<ParamMultiSelectorProps>) {
   const [open, setOpen] = React.useState(false);
+  const listId = React.useId();
   const labelId = labelledBy ?? `param-multi-label-${parameterName}`;
 
   // Closing unmounts the search box without cmdk reporting its value going
@@ -168,6 +169,7 @@ function ParamMultiSelector({
         <MultiSelectField
           id={id}
           aria-expanded={open}
+          aria-controls={listId}
           aria-required={required || undefined}
           aria-labelledby={labelId}
           aria-describedby={joinIds(hintId, describedBy)}
@@ -180,7 +182,11 @@ function ParamMultiSelector({
           padX="px-3"
           className="w-full border-border-strong hover:bg-active has-[[role=combobox]:focus-visible]:ring-offset-2"
         />
-        <PopoverContent className="w-full min-w-[200px] p-0" align="start">
+        <PopoverContent
+          id={listId}
+          className="w-full min-w-[200px] p-0"
+          align="start"
+        >
           <Command filter={filterOnLabel} shouldFilter={!serverFiltered}>
             {/*
               CommandInput only renders when `searchable` is true. The

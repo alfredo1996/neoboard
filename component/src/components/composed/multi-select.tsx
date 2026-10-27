@@ -61,6 +61,7 @@ function MultiSelect({
 }: MultiSelectProps) {
   const controlProps = useFieldControl(fieldProps);
   const [open, setOpen] = React.useState(false);
+  const listId = React.useId();
 
   const selectedOptions = options.filter((opt) => value.includes(opt.value));
 
@@ -80,6 +81,7 @@ function MultiSelect({
       <MultiSelectField
         {...controlProps}
         aria-expanded={open}
+        aria-controls={listId}
         disabled={disabled}
         selected={selectedOptions}
         maxDisplay={maxDisplay}
@@ -91,7 +93,7 @@ function MultiSelect({
           className,
         )}
       />
-      <PopoverContent className="w-[300px] p-0">
+      <PopoverContent id={listId} className="w-[300px] p-0">
         <Command filter={filterOnLabel}>
           <CommandInput placeholder={searchPlaceholder} />
           {/* #1284: cmdk never sets aria-multiselectable, so this prop does

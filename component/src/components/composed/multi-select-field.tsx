@@ -11,6 +11,10 @@ export interface MultiSelectFieldProps extends Omit<
   React.ComponentProps<"button">,
   "children" | "className"
 > {
+  /** Whether the list is open. */
+  readonly "aria-expanded": boolean;
+  /** The id of the PopoverContent this trigger opens. */
+  readonly "aria-controls": string;
   readonly selected: readonly { value: string; label: string }[];
   readonly maxDisplay: number;
   readonly placeholder: string;
@@ -29,6 +33,8 @@ export interface MultiSelectFieldProps extends Omit<
  * clicks through except on their remove buttons. Render inside a <Popover>.
  */
 function MultiSelectField({
+  "aria-expanded": expanded,
+  "aria-controls": controls,
   selected,
   maxDisplay,
   placeholder,
@@ -61,7 +67,11 @@ function MultiSelectField({
       <PopoverTrigger asChild>
         <button
           type="button"
-          role="combobox"
+          // NOSONAR: S6819 prefers <select multiple>, which cannot hold chips
+          // with their own remove buttons; a combobox button is the pattern.
+          role="combobox" // NOSONAR
+          aria-expanded={expanded}
+          aria-controls={controls}
           disabled={disabled}
           className={cn(
             "absolute inset-0 flex items-center justify-between rounded-[inherit] font-normal focus-visible:outline-none disabled:pointer-events-none",

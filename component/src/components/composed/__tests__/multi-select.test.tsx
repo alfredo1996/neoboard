@@ -264,6 +264,15 @@ describe.each([
     ),
   ],
 ])("#2275 %s remove buttons", (_name, renderField) => {
+  // cmdk's list calls scrollIntoView, which jsdom lacks.
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterAll(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
   it("keeps each remove button outside the trigger, with its own exact name", () => {
     render(renderField(vi.fn()));
     const trigger = screen.getByRole("combobox");
@@ -285,6 +294,21 @@ describe.each([
     expect(screen.getByRole("button", { name: "Remove Europe" })).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(onChange).toHaveBeenCalledWith(["na"]);
+  });
+
+  it("says whether its list is open, and points at that list", async () => {
+    const user = userEvent.setup();
+    render(renderField(vi.fn()));
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const list = document.getElementById(
+      trigger.getAttribute("aria-controls") ?? "",
+    );
+    expect(list).toContainElement(
+      screen.getByRole("option", { name: "Europe" }),
+    );
   });
 });
 
