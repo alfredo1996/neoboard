@@ -28,6 +28,7 @@ interface Row {
 }
 
 let mockRole = "creator";
+let mockCanWrite: boolean | undefined;
 let mockSessionStatus = "authenticated";
 let mockConnections: Row[] = [];
 let mockConnectionsLoading = false;
@@ -82,7 +83,7 @@ const mockConnectionConfig = vi.fn();
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({
-    data: { user: { role: mockRole } },
+    data: { user: { role: mockRole, canWrite: mockCanWrite } },
     status: mockSessionStatus,
   }),
 }));
@@ -348,6 +349,7 @@ const showTab = () =>
 beforeEach(() => {
   vi.resetAllMocks();
   mockRole = "creator";
+  mockCanWrite = undefined;
   mockSessionStatus = "authenticated";
   mockConnections = [];
   mockConnectionsLoading = false;
@@ -862,6 +864,23 @@ describe("ConnectionsPage — re-assign names the connector by its label (#1905)
     );
     return screen.getByRole("dialog");
   }
+
+  it("hides the Re-assign button from a user without write, whose call the server refuses (#2313)", () => {
+    mockCanWrite = false;
+    mockConnections = rows(1, { name: "source" });
+    mockUsage = {
+      widgetCount: 2,
+      dashboards: [{ id: "d1", name: "Budget", widgetCount: 2 }],
+    };
+    render(<ConnectionsPage />);
+    pick("source", "Delete");
+    expect(screen.getByText(/will stop loading/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Re-assign widgets to another connection…",
+      }),
+    ).toBeNull();
+  });
 
   it("offers the other connections of the same connector, by its label", () => {
     mockConnections = [

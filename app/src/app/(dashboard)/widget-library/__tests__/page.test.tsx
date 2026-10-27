@@ -352,17 +352,29 @@ describe("WidgetLibraryPage — write permission gates (#2313)", () => {
     ],
     ["a reader", { id: "u1", role: "reader" }],
   ])(
-    "%s gets no New template and no Edit or Delete on their own template",
+    "%s gets no New template, no Edit, Delete, Duplicate or Use in Dashboard, and no empty menu",
     (_n, user) => {
       sessionUser = user;
       render(<WidgetLibraryPage />);
       expect(screen.queryByRole("button", { name: "New template" })).toBeNull();
-      const items = owned()
-        .getAllByRole("menuitem")
-        .map((i) => i.textContent);
-      expect(items).toEqual(["Use in Dashboard", "Duplicate"]);
+      // Nothing is left in the menu, so there is no trigger either.
+      expect(
+        within(rowOf("Budget rows")).queryByRole("button", {
+          name: /Template actions/,
+        }),
+      ).toBeNull();
     },
   );
+
+  it("leaves a user without write only Test query, on a template that has a connection", () => {
+    sessionUser = { id: "u1", role: "reader" };
+    templates = [{ ...BASE_TEMPLATES[0], connectionId: "c1" }];
+    render(<WidgetLibraryPage />);
+    const items = owned()
+      .getAllByRole("menuitem")
+      .map((i) => i.textContent);
+    expect(items).toEqual(["Test query"]);
+  });
 
   it("does not tell a user without write to create a template when the library is empty", () => {
     sessionUser = { id: "u1", role: "reader" };

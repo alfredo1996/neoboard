@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useSession } from "next-auth/react";
-import { effectiveCanWrite } from "@/lib/auth/can-write";
 import { useDashboards } from "@/hooks/use-dashboards";
 import {
   Dialog,
@@ -28,19 +26,14 @@ export function DashboardPickerDialog({
   onCloseAutoFocus,
 }: DashboardPickerDialogProps) {
   const { data: dashboards, isLoading } = useDashboards();
-  const { data: session } = useSession();
-  const hasWrite = effectiveCanWrite(
-    session?.user?.role,
-    session?.user?.canWrite,
-  );
   const [search, setSearch] = useState("");
 
   const editable = useMemo(() => {
-    if (!dashboards || !hasWrite) return [];
+    if (!dashboards) return [];
     return dashboards.filter(
       (d) => d.role === "owner" || d.role === "editor" || d.role === "admin",
     );
-  }, [dashboards, hasWrite]);
+  }, [dashboards]);
 
   const filtered = useMemo(() => {
     if (!search) return editable;
@@ -90,11 +83,7 @@ export function DashboardPickerDialog({
           {!isLoading && editable.length === 0 && (
             <EmptyState
               title="No editable dashboards"
-              description={
-                hasWrite
-                  ? "Create a dashboard first, then come back to use this template."
-                  : "You do not have write access, so you cannot add to a dashboard."
-              }
+              description="Create a dashboard first, then come back to use this template."
             />
           )}
 

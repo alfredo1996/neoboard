@@ -22,6 +22,7 @@ test.describe("Editing needs write permission", () => {
     let userId = "";
     let ownId = "";
     let sharedId = "";
+    let templateId = "";
     const firstCtx = await browser.newContext();
     const userCtx = await browser.newContext();
 
@@ -100,10 +101,27 @@ test.describe("Editing needs write permission", () => {
       await u.keyboard.press("Escape");
 
       // The widget library and API keys offer no create control either.
+      const tplName = `edit-tpl-${suffix}`;
+      const tpl = await page.request.post("/api/widget-templates", {
+        data: {
+          name: tplName,
+          chartType: "table",
+          connectorType: "neo4j",
+          query: "MATCH (m:Movie) RETURN m.title LIMIT 5",
+        },
+      });
+      expect(tpl.ok()).toBeTruthy();
+      templateId = (await tpl.json()).data.id;
       await u.goto("/widget-library");
       await expect(
         u.getByRole("heading", { name: "Widget Library" }),
       ).toBeVisible();
+      // The row is there, but Duplicate and Use in Dashboard (both refused
+      // or dead ends without write) are not: the menu is gone entirely.
+      await expect(u.getByText(tplName, { exact: true })).toBeVisible();
+      await expect(
+        u.getByRole("button", { name: `Template actions for ${tplName}` }),
+      ).toHaveCount(0);
       await expect(
         u.getByRole("button", { name: "New template", exact: true }),
       ).toHaveCount(0);
@@ -118,6 +136,8 @@ test.describe("Editing needs write permission", () => {
     } finally {
       if (ownId) await page.request.delete(`/api/dashboards/${ownId}`);
       if (sharedId) await page.request.delete(`/api/dashboards/${sharedId}`);
+      if (templateId)
+        await page.request.delete(`/api/widget-templates/${templateId}`);
       if (userId) await page.request.delete(`/api/users/${userId}`);
       await firstCtx.close();
       await userCtx.close();

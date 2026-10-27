@@ -384,69 +384,78 @@ export default function WidgetLibraryPage() {
                       </span>,
                     ]}
                     menu={
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            aria-label={`Template actions for ${template.name}`}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setReturnFocusTo(focusedMenuTrigger());
-                              setUseTarget(template.id);
-                            }}
-                          >
-                            <LayoutDashboard className="mr-2 h-4 w-4" />
-                            Use in Dashboard
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDuplicate(template)}
-                          >
-                            <Copy className="mr-2 h-4 w-4" />
-                            Duplicate
-                          </DropdownMenuItem>
-                          {template.query && template.connectionId && (
-                            <DropdownMenuItem
-                              disabled={testingTemplateId === template.id}
-                              onClick={() => handleTestQuery(template)}
+                      // Without write the only item left is Test query: no
+                      // item, no menu (#2313).
+                      (canWrite ||
+                        (template.query && template.connectionId)) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              aria-label={`Template actions for ${template.name}`}
                             >
-                              <Play className="mr-2 h-4 w-4" />
-                              Test query
-                            </DropdownMenuItem>
-                          )}
-                          {canChange && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleEdit(template, focusedMenuTrigger())
-                              }
-                            >
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                          )}
-                          {canChange && (
-                            <>
-                              <DropdownMenuSeparator />
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {canWrite && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setReturnFocusTo(focusedMenuTrigger());
+                                    setUseTarget(template.id);
+                                  }}
+                                >
+                                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                                  Use in Dashboard
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDuplicate(template)}
+                                >
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Duplicate
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {template.query && template.connectionId && (
                               <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => {
-                                  setReturnFocusTo(focusedMenuTrigger());
-                                  setDeleteTarget(template.id);
-                                }}
+                                disabled={testingTemplateId === template.id}
+                                onClick={() => handleTestQuery(template)}
                               >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete…
+                                <Play className="mr-2 h-4 w-4" />
+                                Test query
                               </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            )}
+                            {canChange && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleEdit(template, focusedMenuTrigger())
+                                }
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {canChange && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => {
+                                    setReturnFocusTo(focusedMenuTrigger());
+                                    setDeleteTarget(template.id);
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete…
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )
                     }
                   />
                 );

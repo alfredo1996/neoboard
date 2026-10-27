@@ -3,9 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DashboardPickerDialog } from "../dashboard-picker-dialog";
 
-const mockUseSession = vi.fn();
-vi.mock("next-auth/react", () => ({ useSession: () => mockUseSession() }));
-
 const mockUseDashboards = vi.fn();
 vi.mock("@/hooks/use-dashboards", () => ({
   useDashboards: () => mockUseDashboards(),
@@ -25,9 +22,6 @@ const props = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUseSession.mockReturnValue({
-    data: { user: { role: "creator", canWrite: true } },
-  });
 });
 
 describe("DashboardPickerDialog", () => {
@@ -125,17 +119,5 @@ describe("DashboardPickerDialog", () => {
     await user.click(screen.getByText("Ops"));
     expect(onSelect).toHaveBeenCalledWith("42");
     expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it("offers no dashboard to a user without write, and does not say to create one (#2313)", () => {
-    mockUseSession.mockReturnValue({
-      data: { user: { role: "creator", canWrite: false } },
-    });
-    setDashboards([{ id: "1", name: "Owned", role: "owner" }]);
-    render(<DashboardPickerDialog {...props} />);
-
-    expect(screen.queryByText("Owned")).not.toBeInTheDocument();
-    expect(screen.getByText(/write access/i)).toBeInTheDocument();
-    expect(screen.queryByText(/create a dashboard first/i)).toBeNull();
   });
 });

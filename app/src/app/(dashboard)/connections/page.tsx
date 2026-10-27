@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { useSession } from "next-auth/react";
+import { effectiveCanWrite } from "@/lib/auth/can-write";
 import {
   Copy,
   MoreHorizontal,
@@ -83,6 +84,10 @@ export default function ConnectionsPage() {
   const { data: session, status: sessionStatus } = useSession();
   const { toast } = useToast();
   const isAdmin = session?.user?.role === "admin";
+  const canWrite = effectiveCanWrite(
+    session?.user?.role,
+    session?.user?.canWrite,
+  );
   const { data: connections, isLoading } = useConnections();
   // #1899: every connector fact on this page — label, icon, category — is read
   // from the descriptors the server hands over; the create / edit / Duplicate
@@ -339,19 +344,21 @@ export default function ConnectionsPage() {
             </li>
           )}
         </ul>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            if (!deleteTarget) return;
-            setReassignTarget(deleteTarget);
-            setReassignChoice("");
-            setReassignError(null);
-            setDeleteTarget(null);
-          }}
-        >
-          Re-assign widgets to another connection…
-        </Button>
+        {canWrite && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              if (!deleteTarget) return;
+              setReassignTarget(deleteTarget);
+              setReassignChoice("");
+              setReassignError(null);
+              setDeleteTarget(null);
+            }}
+          >
+            Re-assign widgets to another connection…
+          </Button>
+        )}
       </div>
     );
   }
