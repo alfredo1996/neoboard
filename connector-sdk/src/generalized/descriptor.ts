@@ -179,6 +179,43 @@ const selectError: FieldValidator = ({ label, options = [] }, value) => {
     : `${label} must be one of: ${allowed.join(", ")}`;
 };
 
+/**
+ * Substrings that make a query-parameter name a credential, matched against
+ * the name lowercased with everything outside [a-z0-9] stripped, so
+ * `sslpassword`, `authToken`, `x-api-key` and `pass+word` all hit while
+ * `passfile`, `sslkey` and `sslmode` do not. `pass` is too short for a
+ * substring match (`passfile`), so it is an exact match. A URI is stored and
+ * returned to everyone who can see the connection, so a secret in its query is
+ * refused like one in the userinfo (#2322). Every `uri` field routes through
+ * `uriError`. app/src/lib/log-redact.ts keeps its own, wider list (cookie,
+ * authorization, ...); a test there pins the shared core.
+ * A fragment is refused outright: no driver reads one, so it can only carry
+ * stray text or a secret.
+ * Out of scope on purpose: `;` separators, value-only params, empty names and
+ * full-width characters. Secrets inside `options` are not scanned either:
+ * libpq `options` carries server settings (`-c search_path=...`), not
+ * credentials, and no shipped driver authenticates from it. Scanning its value
+ * would mean guessing, and would refuse legitimate settings; a deliberate
+ * creator has other places to put a secret anyway.
+ */
+const URI_CREDENTIAL_FRAGMENTS = [
+  "password",
+  "passwd",
+  "pwd",
+  "secret",
+  "token",
+  "apikey",
+  "privatekey",
+];
+
+const isCredentialParam = (name: string): boolean => {
+  const normalised = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return (
+    normalised === "pass" ||
+    URI_CREDENTIAL_FRAGMENTS.some((fragment) => normalised.includes(fragment))
+  );
+};
+
 const uriError: FieldValidator = (field, value) => {
   if (typeof value !== "string") return textError(field, value);
   try {
@@ -190,8 +227,11 @@ const uriError: FieldValidator = (field, value) => {
   // does nothing except sit in a text input, a cache key and any error that
   // quotes the URI. A bare username is a documented form and not a secret, so
   // it stays accepted (#1303).
-  return new URL(value).password
-    ? "Do not put a password in the URI — use the password field."
+  const url = new URL(value);
+  if (url.hash) return "A connection URI cannot have a # part.";
+  const hasQuerySecret = [...url.searchParams.keys()].some(isCredentialParam);
+  return url.password || hasQuerySecret
+    ? "Do not put a credential in the URI — use the connection's credential fields."
     : undefined;
 };
 

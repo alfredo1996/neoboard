@@ -174,6 +174,16 @@ describe("redactSecrets — sensitive keys at any depth", () => {
     expect(line({ [key]: SECRET })).not.toContain(SECRET);
   });
 
+  // The shared core with connector-sdk's URI_CREDENTIAL_FRAGMENTS (#2322): the
+  // log list is wider (cookie, authorization), but must cover every fragment
+  // the URI validator refuses, minus pwd/pass which only the URI list needs.
+  it.each(["password", "passwd", "secret", "token", "apikey", "privatekey"])(
+    "redacts a key holding the URI-credential fragment %s",
+    (fragment) => {
+      expect(line({ [`x_${fragment}`]: SECRET })).not.toContain(SECRET);
+    },
+  );
+
   it("redacts an object-valued credentials field wholesale", () => {
     const out = line({ credentials: { user: "neoboard", pass: SECRET } });
     expect(out).not.toContain(SECRET);
