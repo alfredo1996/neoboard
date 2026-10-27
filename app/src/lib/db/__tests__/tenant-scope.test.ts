@@ -875,17 +875,6 @@ const ALLOWLIST: Record<string, { count: number; reason: string }> = {
     count: 1,
     reason: "self-access by users.id from the caller's own session",
   },
-  // Both operands were tenant-verified earlier in the same handler:
-  // `id` via requireShareAccess() and `targetUser.id` via a tenant-scoped
-  // lookup. The update then keys off the row that select returned.
-  "app/api/dashboards/[id]/share/route.ts::dashboardShares::from": {
-    count: 1,
-    reason: "dashboardId and targetUser.id are both tenant-verified above",
-  },
-  "app/api/dashboards/[id]/share/route.ts::dashboardShares::update": {
-    count: 1,
-    reason: "keys off the row returned by the tenant-verified select above",
-  },
   // Sign-in's fire-and-forget lastLoginAt bump. It carries no tenant
   // predicate: before #1626 the scanner credited it only because it pasted
   // the text of `user`'s initializer, a tenant-scoped lookup, into the where.

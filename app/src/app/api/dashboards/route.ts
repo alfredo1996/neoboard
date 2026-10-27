@@ -43,9 +43,8 @@ const shareJoin = (userId: string, tenantId: string) =>
 // People the dashboard is shared with: distinct share rows' users, owner
 // excluded, in the caller's tenant. The public flag is not a person and is
 // not counted. A subquery, so the list stays one query (#2223).
-// ponytail: runs once per listed dashboard and dashboard_share has no index
-// on (tenant_id, dashboardId); fine at page size. Upgrade: add that index,
-// which would also serve the cascade delete.
+// Runs once per listed dashboard; the #2259 unique key on (tenant_id,
+// dashboardId, userId) serves it, and the cascade delete.
 const shareCount = (tenantId: string) =>
   sql<number>`(select count(distinct ${dashboardShares.userId}) from ${dashboardShares} where ${dashboardShares.dashboardId} = ${dashboards.id} and ${dashboardShares.tenantId} = ${tenantId} and ${dashboardShares.userId} <> ${dashboards.userId})`.mapWith(
     Number,

@@ -36,6 +36,13 @@
       "when": 1790880667588,
       "tag": "0004_curly_archangel",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793056742087,
+      "tag": "0005_mysterious_stature",
+      "breakpoints": true
     }
   ]
 }

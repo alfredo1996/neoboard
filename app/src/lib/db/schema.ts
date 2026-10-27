@@ -233,6 +233,12 @@ export const dashboardShares = pgTable(
       name: "dashboard_share_tenant_user_fk",
     }).onDelete("cascade"),
     index("dashboard_share_tenant_user_idx").on(table.tenantId, table.userId),
+    // One share per user per dashboard; the share POST upserts on it (#2259).
+    unique("dashboard_share_tenant_dashboard_user_unique").on(
+      table.tenantId,
+      table.dashboardId,
+      table.userId,
+    ),
   ],
 );
 

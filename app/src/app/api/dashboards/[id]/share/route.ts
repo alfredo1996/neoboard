@@ -133,31 +133,24 @@ export async function POST(
       return badRequest("User already owns this dashboard");
     }
 
-    // Upsert share
-    const existing = await db
-      .select()
-      .from(dashboardShares)
-      .where(
-        and(
-          eq(dashboardShares.dashboardId, id),
-          eq(dashboardShares.userId, targetUser.id),
-        ),
-      )
-      .limit(1);
-
-    if (existing.length > 0) {
-      await db
-        .update(dashboardShares)
-        .set({ role: result.data.role })
-        .where(eq(dashboardShares.id, existing[0].id));
-    } else {
-      await db.insert(dashboardShares).values({
+    // One statement, so two requests in flight cannot both insert: the unique
+    // key (tenant, dashboard, user) makes the second one update the role (#2259).
+    await db
+      .insert(dashboardShares)
+      .values({
         dashboardId: id,
         userId: targetUser.id,
         tenantId,
         role: result.data.role,
+      })
+      .onConflictDoUpdate({
+        target: [
+          dashboardShares.tenantId,
+          dashboardShares.dashboardId,
+          dashboardShares.userId,
+        ],
+        set: { role: result.data.role },
       });
-    }
 
     auditRequest(request, {
       tenantId,
