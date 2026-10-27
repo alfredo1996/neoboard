@@ -172,8 +172,7 @@ const BASELINE = {
 const isStringy = (n) => {
   if (!n) return false;
   if (ts.isStringLiteralLike(n) || ts.isTemplateExpression(n)) return true;
-  if (ts.isParenthesizedExpression(n) || ts.isAsExpression(n))
-    return isStringy(n.expression);
+  if (unwrap(n) !== n) return isStringy(unwrap(n));
   if (ts.isConditionalExpression(n))
     return isStringy(n.whenTrue) && isStringy(n.whenFalse);
   return (
@@ -182,8 +181,21 @@ const isStringy = (n) => {
     (isStringy(n.left) || isStringy(n.right))
   );
 };
+const unwrap = (n) =>
+  n &&
+  (ts.isParenthesizedExpression(n) ||
+    ts.isAsExpression(n) ||
+    ts.isSatisfiesExpression(n) ||
+    ts.isNonNullExpression(n))
+    ? unwrap(n.expression)
+    : n;
 const prop = (obj, name) =>
-  obj?.properties.find((p) => p.name?.getText() === name);
+  obj?.properties.find(
+    (p) =>
+      p.name &&
+      (ts.isIdentifier(p.name) || ts.isStringLiteralLike(p.name)) &&
+      p.name.text === name,
+  );
 const exactTrue = (opts) =>
   prop(opts, "exact")?.initializer?.kind === ts.SyntaxKind.TrueKeyword;
 
@@ -194,7 +206,8 @@ export function nonExactCalls(source) {
   const visit = (n) => {
     if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
       const fn = n.expression.name.text;
-      const [a, b] = n.arguments;
+      const [a, rawB] = n.arguments;
+      const b = unwrap(rawB);
       const opts = b && ts.isObjectLiteralExpression(b) ? b : undefined;
       let target;
       if (fn === "getByRole") target = prop(opts, "name")?.initializer;
@@ -323,6 +336,9 @@ describe("E2E text selectors (#2262)", () => {
     ['page.getByText("Saved")', "text"],
     ['page.getByRole("button", {\n  name: "Save",\n})', "role"],
     ['page.getByText(\n  "Saved",\n  { exact: false },\n)', "text"],
+    ['page.getByRole("button", { name: "Save" } as const)', "role"],
+    ['page.getByRole("button", { "name": "Save" })', "role"],
+    ['page.getByText("Saved", { "exact": false })', "text"],
   ])("ratchet flags %s", (src, kind) => {
     expect(nonExactCalls(src).map((c) => c.kind)).toEqual([kind]);
   });
@@ -335,6 +351,11 @@ describe("E2E text selectors (#2262)", () => {
     ['page.getByRole("button", { name: label })'],
     ['page.getByRole("button", { name: /Save/ })'],
     ['page.getByRole("button")'],
+    ['page.getByText("Saved", { exact: true } as const)'],
+    ['page.getByText("Saved", { exact: true } satisfies Opts)'],
+    ['page.getByText("Saved", ({ exact: true }))'],
+    ['page.getByText("Saved", { "exact": true })'],
+    ['page.getByRole("button", { "name": "Save", "exact": true })'],
   ])("ratchet leaves %s alone", (src) => {
     expect(nonExactCalls(src)).toEqual([]);
   });
