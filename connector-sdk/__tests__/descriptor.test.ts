@@ -249,7 +249,7 @@ describe("validateConfig", () => {
 
     it("rejects a URI that embeds a password, without echoing it", () => {
       const message = uriError("fixture://app:hunter2@host:5555/app");
-      expect(message).toMatch(/password in the URI/i);
+      expect(message).toMatch(/credential in the URI/i);
       expect(message).not.toContain("hunter2");
     });
 
@@ -258,17 +258,37 @@ describe("validateConfig", () => {
       "?PASSWORD=hunter2",
       "?sslmode=require&token=hunter2",
       "?api_key=hunter2",
+      "?sslpassword=hunter2",
+      "?authToken=hunter2",
+      "?auth_token=hunter2",
+      "?x-api-key=hunter2",
+      "?client_secret=hunter2",
+      "?pass+word=hunter2",
     ])("rejects a credential in the query string (%s), without echoing it", (query) => {
       const uri = `fixture://host:5555/app${query}`;
       const message = uriError(uri);
       expect(message).toBe(
-        "Do not put a password in the URI — use the password field.",
+        "Do not put a credential in the URI — use the connection's credential fields.",
       );
-      expect(message).not.toContain("hunter2");
-      expect(message).not.toContain(uri);
     });
 
-    it.each(["?sslmode=require", "?application_name=neoboard"])(
+    it.each([
+      "?passfile=/x",
+      "?sslmode=require",
+      "?sslkey=/k",
+      "?sslcert=/c",
+      "?sslrootcert=/r",
+      "?options=-c%20x=1",
+      "?application_name=neoboard",
+      "?connect_timeout=5",
+      "?target_session_attrs=any",
+      "?channel_binding=require",
+      "?gssencmode=disable",
+      "?krbsrvname=postgres",
+      "?require_auth=scram-sha-256",
+      "?service=svc",
+      "?policy=us&region=eu",
+    ])(
       "accepts a harmless query string (%s)",
       (query) => {
         expect(uriError(`fixture://host:5555/app${query}`)).toBeUndefined();

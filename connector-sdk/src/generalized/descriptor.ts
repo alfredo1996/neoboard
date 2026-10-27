@@ -180,22 +180,35 @@ const selectError: FieldValidator = ({ label, options = [] }, value) => {
 };
 
 /**
- * Query-string parameter names (lowercase) that carry a credential. A URI is
- * stored and returned to everyone who can see the connection, so a secret in
- * its query is refused like one in the userinfo (#2322). Add a name here, not
- * a check elsewhere: every `uri` field routes through `uriError`.
+ * Substrings that make a query-parameter name a credential, matched against
+ * the name lowercased with everything outside [a-z0-9] stripped, so
+ * `sslpassword`, `authToken`, `x-api-key` and `pass+word` all hit while
+ * `passfile`, `sslkey` and `sslmode` do not. `pass` is too short for a
+ * substring match (`passfile`), so it is an exact match. A URI is stored and
+ * returned to everyone who can see the connection, so a secret in its query is
+ * refused like one in the userinfo (#2322). Every `uri` field routes through
+ * `uriError`. app/src/lib/log-redact.ts keeps its own, wider list (cookie,
+ * authorization, ...); a test there pins the shared core.
+ * Out of scope on purpose: fragments, `;` separators, value-only params, empty
+ * names, full-width characters and secrets inside `options`.
  */
-const URI_CREDENTIAL_PARAMS = new Set([
+const URI_CREDENTIAL_FRAGMENTS = [
   "password",
-  "pass",
-  "pwd",
   "passwd",
-  "token",
+  "pwd",
   "secret",
-  "api_key",
+  "token",
   "apikey",
-  "access_token",
-]);
+  "privatekey",
+];
+
+const isCredentialParam = (name: string): boolean => {
+  const normalised = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return (
+    normalised === "pass" ||
+    URI_CREDENTIAL_FRAGMENTS.some((fragment) => normalised.includes(fragment))
+  );
+};
 
 const uriError: FieldValidator = (field, value) => {
   if (typeof value !== "string") return textError(field, value);
@@ -209,11 +222,9 @@ const uriError: FieldValidator = (field, value) => {
   // quotes the URI. A bare username is a documented form and not a secret, so
   // it stays accepted (#1303).
   const url = new URL(value);
-  const hasQuerySecret = [...url.searchParams.keys()].some((name) =>
-    URI_CREDENTIAL_PARAMS.has(name.toLowerCase()),
-  );
+  const hasQuerySecret = [...url.searchParams.keys()].some(isCredentialParam);
   return url.password || hasQuerySecret
-    ? "Do not put a password in the URI — use the password field."
+    ? "Do not put a credential in the URI — use the connection's credential fields."
     : undefined;
 };
 

@@ -177,7 +177,8 @@ describe("POST /api/connections — validated by the connector's descriptor", ()
     const body = await res.json();
     expect(body.error.code).toBe("VALIDATION_ERROR");
     expect(body.error.details.fields).toEqual({
-      endpoint: "Do not put a password in the URI — use the password field.",
+      endpoint:
+        "Do not put a credential in the URI — use the connection's credential fields.",
       signingSecret: "Signing Secret must be text",
       region: "Region must be one of: eu, us",
       pageSize: "Page Size must be at most 500",
@@ -202,7 +203,8 @@ describe("POST /api/connections — validated by the connector's descriptor", ()
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.details.fields).toEqual({
-      endpoint: "Do not put a password in the URI — use the password field.",
+      endpoint:
+        "Do not put a credential in the URI — use the connection's credential fields.",
     });
     expect(mockDb.insert).not.toHaveBeenCalled();
     expectNoSecretIn(body);
