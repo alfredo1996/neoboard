@@ -179,6 +179,24 @@ const selectError: FieldValidator = ({ label, options = [] }, value) => {
     : `${label} must be one of: ${allowed.join(", ")}`;
 };
 
+/**
+ * Query-string parameter names (lowercase) that carry a credential. A URI is
+ * stored and returned to everyone who can see the connection, so a secret in
+ * its query is refused like one in the userinfo (#2322). Add a name here, not
+ * a check elsewhere: every `uri` field routes through `uriError`.
+ */
+const URI_CREDENTIAL_PARAMS = new Set([
+  "password",
+  "pass",
+  "pwd",
+  "passwd",
+  "token",
+  "secret",
+  "api_key",
+  "apikey",
+  "access_token",
+]);
+
 const uriError: FieldValidator = (field, value) => {
   if (typeof value !== "string") return textError(field, value);
   try {
@@ -190,7 +208,11 @@ const uriError: FieldValidator = (field, value) => {
   // does nothing except sit in a text input, a cache key and any error that
   // quotes the URI. A bare username is a documented form and not a secret, so
   // it stays accepted (#1303).
-  return new URL(value).password
+  const url = new URL(value);
+  const hasQuerySecret = [...url.searchParams.keys()].some((name) =>
+    URI_CREDENTIAL_PARAMS.has(name.toLowerCase()),
+  );
+  return url.password || hasQuerySecret
     ? "Do not put a password in the URI — use the password field."
     : undefined;
 };

@@ -187,6 +187,27 @@ describe("POST /api/connections — validated by the connector's descriptor", ()
     expectNoSecretIn(body);
   });
 
+  it("answers 400 and stores nothing for a password in the URI's query string", async () => {
+    const res = await POST(
+      makeRequest({
+        name: "Books",
+        type: TYPE,
+        config: {
+          endpoint: `acme://host/book?password=${FIXTURE_SECRETS.apiToken}`,
+          ...FIXTURE_SECRETS,
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.details.fields).toEqual({
+      endpoint: "Do not put a password in the URI — use the password field.",
+    });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expectNoSecretIn(body);
+  });
+
   it("requires what the descriptor requires — not a fixed uri/username/password", async () => {
     const res = await POST(
       makeRequest({ name: "Books", type: TYPE, config: { region: "eu" } }),

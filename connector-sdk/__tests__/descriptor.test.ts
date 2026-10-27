@@ -253,6 +253,28 @@ describe("validateConfig", () => {
       expect(message).not.toContain("hunter2");
     });
 
+    it.each([
+      "?password=hunter2",
+      "?PASSWORD=hunter2",
+      "?sslmode=require&token=hunter2",
+      "?api_key=hunter2",
+    ])("rejects a credential in the query string (%s), without echoing it", (query) => {
+      const uri = `fixture://host:5555/app${query}`;
+      const message = uriError(uri);
+      expect(message).toBe(
+        "Do not put a password in the URI — use the password field.",
+      );
+      expect(message).not.toContain("hunter2");
+      expect(message).not.toContain(uri);
+    });
+
+    it.each(["?sslmode=require", "?application_name=neoboard"])(
+      "accepts a harmless query string (%s)",
+      (query) => {
+        expect(uriError(`fixture://host:5555/app${query}`)).toBeUndefined();
+      },
+    );
+
     it("still accepts a bare username in the URI — it is not a secret", () => {
       expect(uriError("fixture://app@host:5555/app")).toBeUndefined();
     });
