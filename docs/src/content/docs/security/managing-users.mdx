@@ -27,7 +27,7 @@ The **write permission** is an additional control, separate from the role. Chang
 
 - Write permission applies only to **Creators**. **Admins** always have write permission and **Readers** never do; neither can be changed.
 - When **enabled**, a Creator can run write queries on connections they own, and can create and change dashboards, widget templates and API keys.
-- When **disabled**, a Creator can still view dashboards, run read-only widget queries and submit forms on dashboards they can open, but cannot run write queries of their own, create, edit, import, duplicate or delete dashboards, save widget templates, or create or revoke API keys. It does not stop them from adding or editing connections or managing sharing on dashboards they already own.
+- When **disabled**, a Creator can still view dashboards, run read-only widget queries and submit forms on dashboards they can open, but cannot run write queries of their own, create, edit, import, duplicate or delete dashboards, share a dashboard or remove a share, save widget templates, or create or revoke API keys. It does not stop them from adding or editing connections.
 
 Outside forms, write queries only run against connections the user owns, whatever their role. Anyone who can open a dashboard can submit its forms, and each submit runs only the query saved with the form, on its saved connection and database. Adding a form, or changing a form's query, connection or database, needs access to that connection: its owner, anyone in the tenant once it is shared, or an admin. So anyone who can build dashboards can write through a connection shared with the tenant by saving a form on it; keep a connection private if only its owner should write to it.
 
