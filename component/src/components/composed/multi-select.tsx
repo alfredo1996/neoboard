@@ -1,11 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { X, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Tag, tagRemoveClass, tagRemoveGlyphClass } from "@/components/ui/tag";
-import { Button } from "@/components/ui/button";
+import { MultiSelectField } from "./multi-select-field";
 import { MultiSelectItem } from "./multi-select-item";
 import {
   Command,
@@ -16,16 +14,8 @@ import {
   filterOnLabel,
   toCmdkValue,
 } from "@/components/ui/command";
-import {
-  invalidControlClasses,
-  pickerTriggerClasses,
-} from "@/components/ui/control-sizes";
 import { useFieldControl } from "@/components/ui/field";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent } from "@/components/ui/popover";
 
 export interface MultiSelectOption {
   value: string;
@@ -45,6 +35,8 @@ export interface MultiSelectProps {
   maxDisplay?: number;
   id?: string;
   "aria-describedby"?: string;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
   "aria-invalid"?: React.AriaAttributes["aria-invalid"];
   /**
    * Optional per-option renderer for the dropdown list — useful for adding
@@ -69,6 +61,7 @@ function MultiSelect({
 }: MultiSelectProps) {
   const controlProps = useFieldControl(fieldProps);
   const [open, setOpen] = React.useState(false);
+  const listId = React.useId();
 
   const selectedOptions = options.filter((opt) => value.includes(opt.value));
 
@@ -79,79 +72,28 @@ function MultiSelect({
     onChange?.(newValue);
   };
 
-  const handleRemove = (optionValue: string, e: React.SyntheticEvent) => {
-    e.stopPropagation();
+  const handleRemove = (optionValue: string) => {
     onChange?.(value.filter((v) => v !== optionValue));
   };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          {...controlProps}
-          className={cn(
-            pickerTriggerClasses,
-            invalidControlClasses,
-            "w-[300px] h-auto min-h-9",
-            className,
-          )}
-        >
-          <div className="flex flex-wrap gap-1 flex-1">
-            {selectedOptions.length === 0 && (
-              <span className="text-muted-foreground font-normal">
-                {placeholder}
-              </span>
-            )}
-            {selectedOptions.slice(0, maxDisplay).map((option) => (
-              <Tag key={option.value}>
-                {option.label}
-                {/* KNOWN DEFECT (#1283 item 4, tracked separately): this is a
-                    <span role="button"> because the trigger is already a
-                    <button> and interactive-in-interactive is invalid HTML.
-                    But ARIA makes the children of a `button` presentational,
-                    so browsers DROP this role and fold the label into the
-                    trigger's accessible name. The removed CrossFilterTag
-                    solved this by de-nesting (commit ba6521c2) — only the body
-                    is a button and the remove
-                    control is its sibling. The same restructure is needed
-                    here; it is not done yet because the trigger renders the
-                    badges inline, which is a larger change. Do NOT treat this
-                    comment as a statement that the pattern is correct. */}
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Remove ${option.label}`}
-                  className={tagRemoveClass}
-                  onClick={(e) => handleRemove(option.value, e)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleRemove(option.value, e);
-                    }
-                  }}
-                >
-                  <X
-                    aria-hidden="true"
-                    className={tagRemoveGlyphClass}
-                    strokeWidth={2.5}
-                  />
-                </span>
-              </Tag>
-            ))}
-            {selectedOptions.length > maxDisplay && (
-              <span className="text-xs text-foreground-2">
-                +{selectedOptions.length - maxDisplay} more
-              </span>
-            )}
-          </div>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
+      <MultiSelectField
+        {...controlProps}
+        aria-expanded={open}
+        aria-controls={listId}
+        disabled={disabled}
+        selected={selectedOptions}
+        maxDisplay={maxDisplay}
+        placeholder={placeholder}
+        onRemove={handleRemove}
+        padX="px-2.5"
+        className={cn(
+          "w-[300px] border-input hover:border-input-hover has-[[role=combobox]:disabled]:hover:border-input has-[[role=combobox]:focus-visible]:border-ring has-[[role=combobox]:focus-visible]:ring-offset-1",
+          className,
+        )}
+      />
+      <PopoverContent id={listId} className="w-[300px] p-0">
         <Command filter={filterOnLabel}>
           <CommandInput placeholder={searchPlaceholder} />
           {/* #1284: cmdk never sets aria-multiselectable, so this prop does

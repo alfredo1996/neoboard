@@ -22,14 +22,16 @@ vi.mock("@neoboard/components", () => ({
     onChange,
     placeholder,
     renderOption,
+    "aria-labelledby": labelledBy,
   }: {
+    "aria-labelledby"?: string;
     options: { value: string; label: string }[];
     value: string[];
     onChange: (next: string[]) => void;
     placeholder?: string;
     renderOption?: (opt: { value: string; label: string }) => React.ReactNode;
   }) => (
-    <div data-testid="multi-select">
+    <div data-testid="multi-select" data-labelledby={labelledBy}>
       <span>{placeholder}</span>
       {options.map((opt) => {
         const selected = value.includes(opt.value);
@@ -88,6 +90,12 @@ describe("AdvancedFormRefreshSection", () => {
     render(<AdvancedFormRefreshSection otherWidgets={WIDGETS} />);
     expect(screen.getByText("After Submit")).toBeInTheDocument();
     expect(screen.getByText(/Refresh these widgets/)).toBeInTheDocument();
+  });
+
+  it("names the picker from the After Submit heading", () => {
+    render(<AdvancedFormRefreshSection otherWidgets={WIDGETS} />);
+    const id = screen.getByTestId("multi-select").dataset.labelledby;
+    expect(document.getElementById(id!)).toHaveTextContent("After Submit");
   });
 
   it("shows empty state when no other widgets", () => {

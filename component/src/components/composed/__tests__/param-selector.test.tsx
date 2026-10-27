@@ -552,8 +552,8 @@ describe("selectors show a value that is not among the loaded options (#2159)", 
       "ParamMultiSelector",
       () => <ParamMultiSelector {...props} values={["durian"]} />,
     ],
-  ])("%s shows it in the trigger", (_, ui) => {
+  ])("%s shows it in the field", (_, ui) => {
     render(ui());
-    expect(screen.getByRole("combobox")).toHaveTextContent("durian");
+    expect(screen.getByText("durian")).toBeInTheDocument();
   });
 });

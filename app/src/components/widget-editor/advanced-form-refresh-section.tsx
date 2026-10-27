@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { Tag, Button, MultiSelect } from "@neoboard/components";
@@ -12,6 +13,7 @@ export interface AdvancedFormRefreshSectionProps {
 export function AdvancedFormRefreshSection({
   otherWidgets,
 }: AdvancedFormRefreshSectionProps) {
+  const headingId = useId();
   const refreshWidgetIds = useWidgetEditorStore((s) => s.refreshWidgetIds);
   const setRefreshWidgetIds = useWidgetEditorStore(
     (s) => s.setRefreshWidgetIds,
@@ -28,7 +30,10 @@ export function AdvancedFormRefreshSection({
 
   return (
     <div className="space-y-4">
-      <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+      <h4
+        id={headingId}
+        className="text-xs font-medium uppercase text-muted-foreground tracking-wider"
+      >
         After Submit
       </h4>
       <p className="text-xs text-muted-foreground">
@@ -55,6 +60,7 @@ export function AdvancedFormRefreshSection({
             </Button>
           </div>
           <MultiSelect
+            aria-labelledby={headingId}
             options={options}
             value={refreshWidgetIds}
             onChange={setRefreshWidgetIds}

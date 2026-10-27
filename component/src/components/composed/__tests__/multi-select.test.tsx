@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { MultiSelect } from "../multi-select";
+import { ParamMultiSelector } from "../parameter-widgets/param-multi-selector";
 
 const options = [
   { value: "react", label: "React" },
@@ -26,7 +27,7 @@ describe("MultiSelect", () => {
 
   it("gives each remove control an accessible label (#component-review)", () => {
     render(<MultiSelect options={options} value={["react"]} />);
-    // role="button" span (not a nested <button>), labeled "Remove React".
+    // A real button, a sibling of the trigger (#2275).
     expect(
       screen.getByRole("button", { name: "Remove React" }),
     ).toBeInTheDocument();
@@ -91,30 +92,6 @@ describe("MultiSelect", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Remove React" }));
     expect(onChange).toHaveBeenCalledWith(["vue"]);
-  });
-
-  it("removes an item via keyboard (Enter/Space) on the remove control (#component-review)", () => {
-    const onChange = vi.fn();
-    render(
-      <MultiSelect
-        options={options}
-        value={["react", "vue"]}
-        onChange={onChange}
-      />,
-    );
-    const removeReact = screen.getByRole("button", { name: "Remove React" });
-
-    fireEvent.keyDown(removeReact, { key: "Enter" });
-    expect(onChange).toHaveBeenCalledWith(["vue"]);
-
-    onChange.mockClear();
-    fireEvent.keyDown(removeReact, { key: " " });
-    expect(onChange).toHaveBeenCalledWith(["vue"]);
-
-    // A non-activating key must not remove anything.
-    onChange.mockClear();
-    fireEvent.keyDown(removeReact, { key: "a" });
-    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("shows correct overflow count with maxDisplay=1", () => {
@@ -253,5 +230,137 @@ describe("MultiSelect — filters on the visible label (#1411)", () => {
     );
     await user.keyboard("{ArrowDown}{Enter}");
     expect(onChange).toHaveBeenCalledWith(["NY "]);
+  });
+});
+
+// #2275: a remove control inside the trigger <button> is presentational to
+// assistive tech, so one value could not be removed. jsdom cannot evaluate that
+// ARIA rule: assert the DOM shape it comes from, and exact names.
+const regions = [
+  { value: "eu", label: "Europe" },
+  { value: "na", label: "North America" },
+];
+describe.each([
+  [
+    "MultiSelect",
+    (onChange: (v: string[]) => void) => (
+      <MultiSelect
+        options={regions}
+        value={["eu", "na"]}
+        onChange={onChange}
+        placeholder="Pick"
+      />
+    ),
+  ],
+  [
+    "ParamMultiSelector",
+    (onChange: (v: string[]) => void) => (
+      <ParamMultiSelector
+        parameterName="region"
+        options={regions}
+        values={["eu", "na"]}
+        onChange={onChange}
+      />
+    ),
+  ],
+])("#2275 %s remove buttons", (_name, renderField) => {
+  // cmdk's list calls scrollIntoView, which jsdom lacks.
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterAll(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  it("keeps each remove button outside the trigger, with its own exact name", () => {
+    render(renderField(vi.fn()));
+    const trigger = screen.getByRole("combobox");
+    for (const label of ["Europe", "North America"]) {
+      const remove = screen.getByRole("button", {
+        name: `Remove ${label}`,
+      });
+      expect(trigger.contains(remove)).toBe(false);
+    }
+    expect(trigger.querySelector("button, [role=button]")).toBeNull();
+  });
+
+  it("Tab reaches a remove button, and Enter removes only that value", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(renderField(onChange));
+    screen.getByRole("combobox").focus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Remove Europe" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(onChange).toHaveBeenCalledWith(["na"]);
+  });
+
+  it("says whether its list is open, and points at that list", async () => {
+    const user = userEvent.setup();
+    render(renderField(vi.fn()));
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const list = document.getElementById(
+      trigger.getAttribute("aria-controls") ?? "",
+    );
+    expect(list).toContainElement(
+      screen.getByRole("option", { name: "Europe" }),
+    );
+  });
+});
+
+describe("#2275 trigger name and description", () => {
+  it("takes its name from aria-labelledby and says what is selected", () => {
+    render(
+      <>
+        <h4 id="h">After Submit</h4>
+        <p id="x">Pick widgets</p>
+        <MultiSelect
+          aria-labelledby="h"
+          aria-describedby="x"
+          options={regions}
+          value={["eu", "na"]}
+          onChange={() => {}}
+        />
+      </>,
+    );
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveAccessibleName("After Submit");
+    expect(trigger).toHaveAccessibleDescription(
+      "Pick widgets 2 selected: Europe, North America",
+    );
+  });
+
+  it("takes its name from aria-label", () => {
+    render(
+      <MultiSelect
+        aria-label="Regions"
+        options={regions}
+        value={[]}
+        onChange={() => {}}
+      />,
+    );
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveAccessibleName("Regions");
+    expect(trigger).not.toHaveAccessibleDescription();
+  });
+});
+
+describe("#2275 shell state classes are literal strings", () => {
+  it.each([
+    "has-[[role=combobox]:focus-visible]:ring-2",
+    "has-[[role=combobox]:focus-visible]:ring-ring",
+    "has-[[role=combobox]:disabled]:opacity-50",
+    "has-[[role=combobox]:disabled]:cursor-not-allowed",
+    "has-[[aria-invalid=true]]:border-destructive",
+    "has-[[aria-invalid=true]]:has-[[role=combobox]:focus-visible]:border-destructive",
+    "[@media(pointer:coarse)]:text-base",
+  ])("%s", (cls) => {
+    render(<MultiSelect options={regions} value={[]} />);
+    const shell = screen.getByRole("combobox").parentElement as HTMLElement;
+    expect(shell.className.split(/\s+/)).toContain(cls);
   });
 });
