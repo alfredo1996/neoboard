@@ -238,8 +238,10 @@ function AddProviderDialog({
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm">Default role</p>
-                <p className="text-xs text-muted-foreground">
+                <p id="sso-role-label" className="text-sm">
+                  Default role
+                </p>
+                <p id="sso-role-help" className="text-xs text-muted-foreground">
                   Role assigned when no claim mapping matches.
                 </p>
               </div>
@@ -247,7 +249,11 @@ function AddProviderDialog({
                 value={form.defaultRole ?? "creator"}
                 onValueChange={(v) => update("defaultRole", v)}
               >
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger
+                  className="w-[130px]"
+                  aria-labelledby="sso-role-label"
+                  aria-describedby="sso-role-help"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

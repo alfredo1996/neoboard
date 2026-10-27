@@ -141,8 +141,17 @@ vi.mock("@neoboard/components", async () => ({
     children: React.ReactNode;
     value: string;
   }) => <option value={value}>{children}</option>,
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
+  SelectTrigger: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+    "aria-labelledby"?: string;
+    "aria-describedby"?: string;
+  }) => (
+    <button type="button" role="combobox" {...props}>
+      {children}
+    </button>
   ),
   SelectValue: () => null,
   EmptyState: ({
@@ -327,6 +336,11 @@ describe("AuthenticationPage", () => {
         help,
       );
     }
+    expect(
+      screen.getByRole("combobox", { name: "Default role" }),
+    ).toHaveAccessibleDescription(
+      "Role assigned when no claim mapping matches.",
+    );
   });
 
   it("opens add dialog when Add Provider is clicked", async () => {
