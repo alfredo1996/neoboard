@@ -104,4 +104,20 @@ describe("connectionAddress", () => {
       }),
     ).toBe("mydb://h:1");
   });
+
+  it.each([
+    ["an encoded slash", "mydb://h:1/movies%2Ftoken-SECRET", {}],
+    ["an encoded backslash", "mydb://h:1/movies%5Ctoken", {}],
+    ["a 64-character name", `mydb://h:1/${"a".repeat(64)}`, {}],
+    ["a field with a space", "mydb://h:1", { database: "my db" }],
+    ["a field with a slash", "mydb://h:1", { database: "a/b" }],
+  ])("shows no database for %s", (_n, uri, extra) => {
+    expect(connectionAddress(withUri, { uri, ...extra })).toBe("mydb://h:1");
+  });
+
+  it.each(["movies", "sales_2024", "my-db.v2"])("keeps database %s", (db) => {
+    expect(connectionAddress(withUri, { uri: `mydb://h:1/${db}` })).toBe(
+      `mydb://h:1 / ${db}`,
+    );
+  });
 });

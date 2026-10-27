@@ -11,8 +11,12 @@
 
 import type { ConnectorConfig, ConnectorDescriptor } from "./descriptor";
 
-// eslint-disable-next-line no-control-regex
-const CONTROL = /[\u0000-\u001f\u007f]/g;
+// The address is stored in plaintext, so a database part is shown only if it
+// looks like a database name. An allowlist, not a blocklist: an encoded
+// separator (`%2F`) decodes past any list of "secret-shaped" characters. A
+// value that fails (a field the user typed, or a path segment) drops just the
+// database part: the display is cosmetic, so dropping is safe.
+const DB_NAME = /^[A-Za-z0-9_.$-]{1,63}$/;
 
 export function connectionAddress(
   descriptor: Pick<ConnectorDescriptor, "fields">,
@@ -34,11 +38,10 @@ export function connectionAddress(
   const field = config.database;
   const database = typeof field === "string" && field !== "" ? field : pathDb();
   const base = `${url.protocol}//${url.host}`;
-  const clean = database.replaceAll(CONTROL, "");
-  return clean ? `${base} / ${clean}` : base;
+  return DB_NAME.test(database) ? `${base} / ${database}` : base;
 
   // Only the first path segment, and only for a descriptor that has a database
-  // field. Anything shaped like a secret (`@ ; = :`) is dropped, and a path with
+  // field. The caller applies the name allowlist; a path with
   // `@` means a `/` in the password put userinfo there: the whole address goes.
   function pathDb(): string {
     if (!hasDatabase) return "";
@@ -49,6 +52,6 @@ export function connectionAddress(
     } catch {
       return "";
     }
-    return /[@;=:]/.test(decoded) ? "" : decoded;
+    return decoded;
   }
 }
