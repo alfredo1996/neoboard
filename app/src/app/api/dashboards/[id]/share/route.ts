@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import {
   validateBody,
   notFound,
+  forbidden,
   badRequest,
   handleRouteError,
   readJsonBody,
@@ -92,8 +93,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, role, tenantId } = await requireSession();
+    const { userId, role, tenantId, canWrite } = await requireSession();
     const { id } = await params;
+
+    // Sharing changes the dashboard like edit and delete do (#2304).
+    if (!canWrite) return forbidden("Write permission required");
 
     const dashboard = await requireShareAccess(
       id,
@@ -172,8 +176,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId, role, tenantId } = await requireSession();
+    const { userId, role, tenantId, canWrite } = await requireSession();
     const { id } = await params;
+
+    // Sharing changes the dashboard like edit and delete do (#2304).
+    if (!canWrite) return forbidden("Write permission required");
 
     const dashboard = await requireShareAccess(
       id,

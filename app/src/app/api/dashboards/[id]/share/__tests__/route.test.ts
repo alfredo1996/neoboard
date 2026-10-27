@@ -80,6 +80,7 @@ const ADMIN_SESSION = {
   canWrite: true,
   tenantId: "tenant-x",
 };
+const NO_WRITE_SESSION = { ...SESSION, canWrite: false };
 const DASHBOARD = {
   id: "d1",
   userId: "user-1",
@@ -147,6 +148,14 @@ describe("GET /api/dashboards/[id]/share", () => {
     );
   });
 
+  it("still lists shares for an owner without write permission (#2304)", async () => {
+    mockRequireSession.mockResolvedValue(NO_WRITE_SESSION);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([DASHBOARD]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    const res = await GET({} as Request, makeParams("d1"));
+    expect(res.status).toBe(200);
+  });
+
   it("returns shares for admin accessing any dashboard", async () => {
     mockRequireSession.mockResolvedValue(ADMIN_SESSION);
     mockDb.select.mockReturnValueOnce(
@@ -185,6 +194,19 @@ describe("POST /api/dashboards/[id]/share", () => {
       makeParams("d1"),
     );
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 and writes nothing for an owner without write permission (#2304)", async () => {
+    mockRequireSession.mockResolvedValue(NO_WRITE_SESSION);
+    const res = await POST(
+      makeRequest({ email: "a@b.com", role: "viewer" }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.message).toBe("Write permission required");
+    expect(mockDb.select).not.toHaveBeenCalled();
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 
   it("returns 404 when dashboard not found", async () => {
@@ -418,6 +440,18 @@ describe("DELETE /api/dashboards/[id]/share", () => {
       makeParams("d1"),
     );
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 and deletes nothing for an owner without write permission (#2304)", async () => {
+    mockRequireSession.mockResolvedValue(NO_WRITE_SESSION);
+    const res = await DELETE(
+      makeDeleteRequest("http://localhost/api/dashboards/d1/share?shareId=s1"),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.message).toBe("Write permission required");
+    expect(mockDb.select).not.toHaveBeenCalled();
+    expect(mockDb.delete).not.toHaveBeenCalled();
   });
 
   it("returns 404 when dashboard not found", async () => {
