@@ -461,7 +461,7 @@ function PathExpansionStory() {
         >
           Reset
         </button>
-        <span style={{ fontSize: 12, color: "#666" }}>
+        <span className="text-muted-foreground" style={{ fontSize: 12 }}>
           {exploration.expandingNodeId
             ? `Loading ${exploration.expandingNodeId}...`
             : `${exploration.nodes.length} nodes, ${exploration.edges.length} edges | ${log}`}

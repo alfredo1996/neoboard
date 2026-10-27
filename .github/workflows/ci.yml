@@ -259,7 +259,7 @@ jobs:
         timeout-minutes: 5
         run: npm -w component exec -- playwright install chromium
 
-      - name: Story smoke tests (Vitest browser project)
+      - name: Story smoke tests (Vitest browser projects, light and dark)
         run: npm run test:visual
 
   # ── Job 2: E2E tests — 5 shards with isolated containers ──────────────────

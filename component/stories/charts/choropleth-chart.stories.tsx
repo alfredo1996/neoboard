@@ -79,6 +79,24 @@ const GREEN_RAMP = [
   "#00441b",
 ] as const;
 
+/**
+ * Dark mode paints the lightness-inverted ramp of the same two ends (#1402),
+ * so the green stops differ from the light ones. Literals again, not
+ * `rampFor(true, …)`; the prominence check on DarkMode pins their order.
+ */
+const DARK_GREEN_RAMP = [
+  "#060605",
+  "#323432",
+  "#5f615f",
+  "#8b8f8b",
+  "#b7bcb8",
+] as const;
+
+/** The theme the preview decorator applied to this story (#2248). */
+const isDark = () => document.documentElement.classList.contains("dark");
+const defaultRamp = () => (isDark() ? DARK_DEFAULT_RAMP : DEFAULT_RAMP);
+const greenRamp = () => (isDark() ? DARK_GREEN_RAMP : GREEN_RAMP);
+
 async function expectRampPainted(
   canvasElement: HTMLElement,
   ramp: readonly string[],
@@ -217,10 +235,8 @@ export const WorldPopulation: Story = {
     // stops only as interpolated pixels, which may or may not land on the
     // exact hex. The ends are exact: the lowest and highest values sit on
     // them. Every stop on screen is pinned by CustomColors and LegendHidden.
-    await expectRampPainted(canvasElement, [
-      DEFAULT_RAMP[0],
-      DEFAULT_RAMP[DEFAULT_RAMP.length - 1],
-    ]);
+    const ramp = defaultRamp();
+    await expectRampPainted(canvasElement, [ramp[0], ramp[ramp.length - 1]]);
     expectNoRenderError(canvasElement);
   },
 };
@@ -330,7 +346,7 @@ export const CustomColors: Story = {
       GREEN_RAMP[0],
       GREEN_RAMP[GREEN_RAMP.length - 1],
     ]);
-    await expectRampPainted(canvasElement, GREEN_RAMP);
+    await expectRampPainted(canvasElement, greenRamp());
     expectNoRenderError(canvasElement);
   },
 };
@@ -363,8 +379,9 @@ export const MissingValues: Story = {
     await waitFor(
       () => {
         const painted = paintedColors(canvasElement);
-        expect(painted.has(DEFAULT_RAMP[0])).toBe(true);
-        expect(painted.has(DEFAULT_RAMP[4])).toBe(true);
+        const ramp = defaultRamp();
+        expect(painted.has(ramp[0])).toBe(true);
+        expect(painted.has(ramp[4])).toBe(true);
       },
       { timeout: 5000 },
     );
