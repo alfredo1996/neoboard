@@ -21,6 +21,7 @@ describe("demo connection rows", () => {
         name: "Neo4j Movies",
         type: "neo4j",
         configEncrypted: "iv:tag:ct",
+        displayAddress: "bolt://h:7687 / neo4j",
       }),
     ).toEqual({
       id: "c1",
@@ -28,14 +29,16 @@ describe("demo connection rows", () => {
       name: "Neo4j Movies",
       type: "neo4j",
       configEncrypted: "iv:tag:ct",
+      displayAddress: "bolt://h:7687 / neo4j",
       visibility: "shared",
     });
   });
 
   // `neoboard demo seed` on an existing demo takes the UPDATE path.
   it("re-seeding an existing demo connection shares it too", () => {
-    expect(demoConnectionUpdate("iv:tag:ct")).toEqual({
+    expect(demoConnectionUpdate("iv:tag:ct", "bolt://h:7687")).toEqual({
       configEncrypted: "iv:tag:ct",
+      displayAddress: "bolt://h:7687",
       visibility: "shared",
     });
   });

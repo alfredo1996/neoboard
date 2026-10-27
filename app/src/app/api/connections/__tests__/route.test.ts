@@ -123,6 +123,7 @@ describe("GET /api/connections", () => {
         updatedAt: createdAt,
         visibility: "private",
         ownerId: "user-1",
+        displayAddress: "bolt://h:7687 / neo4j",
       },
     ];
     const countChain = makeSelectChain([{ count: 1 }]);
@@ -137,6 +138,9 @@ describe("GET /api/connections", () => {
     expect(body.data[0].isOwner).toBe(true);
     expect(body.data[0].ownerId).toBeUndefined();
     expect(body.data[0].visibility).toBe("private");
+    expect(body.data[0].displayAddress).toBe("bolt://h:7687 / neo4j");
+    // The column is read straight off the row; nothing is decrypted (#2265).
+    expect(mockDb.select.mock.calls[1][0]).toHaveProperty("displayAddress");
     expect(body.meta).toEqual({ total: 1, limit: 25, offset: 0 });
     expect(body.error).toBeNull();
 
@@ -428,6 +432,29 @@ describe("POST /api/connections", () => {
     expect(insertChain.calls.values[0][0]).toMatchObject({
       tenantId: "t1",
       userId: "user-1",
+    });
+  });
+
+  it("stores a secret-free address beside the encrypted config (#2265)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const insertChain = makeInsertChain([{ id: "c1" }]);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    await POST(
+      makeRequest({
+        name: "Neo4j",
+        type: "neo4j",
+        config: {
+          uri: "bolt://reader@db.internal:7687?token=abc",
+          username: "neo4j",
+          password: "hunter2",
+          database: "movies",
+        },
+      }),
+    );
+
+    expect(insertChain.calls.values[0][0]).toMatchObject({
+      displayAddress: "bolt://db.internal:7687 / movies",
     });
   });
 });

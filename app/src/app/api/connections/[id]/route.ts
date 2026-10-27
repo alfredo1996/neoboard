@@ -22,6 +22,7 @@ import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { getConnectionUsage } from "@/lib/db/connection-usage";
 import { getConnector } from "@/lib/connector/connection-adapter";
 import {
+  addressFor,
   redactConfig,
   validateConnectionConfig,
 } from "@/lib/connector/connection-config";
@@ -180,6 +181,7 @@ export async function PATCH(
       }
       finalConfig = checked.config;
       updates.configEncrypted = encryptJson(finalConfig);
+      updates.displayAddress = addressFor(existing.type, finalConfig);
     }
 
     const [connection] = await db

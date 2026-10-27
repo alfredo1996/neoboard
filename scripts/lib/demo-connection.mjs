@@ -31,13 +31,17 @@
 const READ = "neoboard_demo_read";
 const WRITE = "neoboard_demo_write";
 
-/** @param {string} configEncrypted */
-export function demoConnectionUpdate(configEncrypted) {
-  return { configEncrypted, visibility: "shared" };
+/**
+ * @param {string} configEncrypted
+ * @param {string | null} displayAddress the list-row address (#2265); the app
+ *   derives it on save, a seed writes the row itself and so states it.
+ */
+export function demoConnectionUpdate(configEncrypted, displayAddress) {
+  return { configEncrypted, displayAddress, visibility: "shared" };
 }
 
 /**
- * @param {{ id: string, userId: string, name: string, type: string, configEncrypted: string }} row
+ * @param {{ id: string, userId: string, name: string, type: string, configEncrypted: string, displayAddress: string | null }} row
  */
 export function demoConnectionInsert({
   id,
@@ -45,8 +49,15 @@ export function demoConnectionInsert({
   name,
   type,
   configEncrypted,
+  displayAddress,
 }) {
-  return { id, userId, name, type, ...demoConnectionUpdate(configEncrypted) };
+  return {
+    id,
+    userId,
+    name,
+    type,
+    ...demoConnectionUpdate(configEncrypted, displayAddress),
+  };
 }
 
 /**

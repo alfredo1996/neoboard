@@ -104,6 +104,7 @@ export {
   MAX_ICON_SVG_BYTES,
 } from "./generalized/descriptor";
 export { validateUri } from "./generalized/validate-uri";
+export { connectionAddress } from "./generalized/connection-address";
 
 /// Optional builders for the fields most connectors share
 export {

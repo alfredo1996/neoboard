@@ -166,6 +166,47 @@ test.describe("Connections", () => {
     ).toEqual([]);
   });
 
+  // #2265: the row carries a secret-free address stored beside the config.
+  test("shows each seeded connection's address under its name", async ({
+    page,
+  }) => {
+    await expect(
+      page.getByText("bolt://neo4j:7687 / neo4j", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("postgresql://postgres:5432 / movies", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("a new connection's row shows its address without the user or query (#2265)", async ({
+    page,
+  }) => {
+    const name = `Addr Neo4j ${uid()}`;
+    await page.getByRole("button", { name: "New connection" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("pick-neo4j").click();
+    await dialog.locator("#conn-name").fill(name);
+    await dialog
+      .locator("#conn-uri")
+      .fill("bolt://reader@address-e2e.invalid:7687?token=zzz");
+    await dialog.locator("#conn-username").fill("neo4j");
+    await dialog.locator("#conn-password").fill("neoboard123");
+    await dialog.getByRole("button", { name: "Create" }).click();
+
+    try {
+      await expect(
+        page.getByText("bolt://address-e2e.invalid:7687", { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText("zzz")).toHaveCount(0);
+    } finally {
+      const list = await page.request.get("/api/connections?limit=200");
+      const { data } = await list.json();
+      const row = data.find((c: { name: string }) => c.name === name);
+      if (row)
+        await page.request.delete(`/api/connections/${row.id}?force=true`);
+    }
+  });
+
   test("should create a new Neo4j connection", async ({ page }) => {
     const name = `Test Neo4j ${uid()}`;
     await page.getByRole("button", { name: "New connection" }).click();

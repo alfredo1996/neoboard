@@ -553,6 +553,26 @@ describe("PATCH /api/connections/[id]", () => {
     });
   });
 
+  it("recomputes the stored address when the config changes (#2265)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([{ configEncrypted: "enc:existing", type: "neo4j" }]),
+    );
+    const chain = makeUpdateChain([{ id: "c1", type: "neo4j" }]);
+    mockDb.update.mockReturnValue(chain);
+
+    await PATCH(
+      makeRequest({
+        config: { uri: "bolt://new-host:7687", username: "neo4j" },
+      }),
+      makeParams("c1"),
+    );
+
+    expect(chain.calls.set[0][0]).toMatchObject({
+      displayAddress: "bolt://new-host:7687",
+    });
+  });
+
   it("allows config without password (merges with existing)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     // First select to fetch existing encrypted config
@@ -683,13 +703,18 @@ describe("PATCH /api/connections/[id]", () => {
       type: "neo4j",
       updatedAt: new Date(),
     };
-    mockDb.update.mockReturnValue(makeUpdateChain([updated]));
+    const chain = makeUpdateChain([updated]);
+    mockDb.update.mockReturnValue(chain);
 
     const res = await PATCH(makeRequest({ name: "Renamed" }), makeParams("c1"));
 
     expect(res.status).toBe(200);
     expect(mockEncryptJson).not.toHaveBeenCalled();
     expect(mockPrefetchSchema).not.toHaveBeenCalled();
+    // A rename keeps the stored address (#2265).
+    expect(Object.keys(chain.calls.set[0][0] as object)).not.toContain(
+      "displayAddress",
+    );
   });
 
   it("returns 500 on unexpected error during PATCH", async () => {

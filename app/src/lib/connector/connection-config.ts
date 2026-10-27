@@ -1,4 +1,5 @@
 import {
+  connectionAddress,
   validateConfig,
   type ConnectorConfig,
   type ConnectorDescriptor,
@@ -106,4 +107,13 @@ export function validateConnectionConfig(
     success: true,
     config: maxRows === undefined ? declared : { ...declared, maxRows },
   };
+}
+
+/** The list-row address for a validated config, or null (#2265). Never throws. */
+export function addressFor(
+  type: string,
+  config: ConnectorConfig,
+): string | null {
+  const descriptor = getConnector(type);
+  return (descriptor && connectionAddress(descriptor, config)) ?? null;
 }

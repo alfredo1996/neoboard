@@ -284,6 +284,7 @@ async function main() {
       "neo4j",
       neo4jConfig,
       encryptionKey,
+      `bolt://${neo4jHost}:7687 / neo4j`,
     );
     const pgConnId = await upsertConnector(
       sql,
@@ -292,6 +293,7 @@ async function main() {
       "postgresql",
       pgConfigs.movies,
       encryptionKey,
+      `postgresql://${pgHost}:5432 / movies`,
     );
 
     // Demo e-commerce connections — point at the isolated
@@ -303,6 +305,7 @@ async function main() {
       "postgresql",
       pgConfigs.ecommerceRead,
       encryptionKey,
+      `postgresql://${pgHost}:5432 / neoboard`,
     );
     const ecommerceWriteConnId = await upsertConnector(
       sql,
@@ -311,6 +314,7 @@ async function main() {
       "postgresql",
       pgConfigs.ecommerceWrite,
       encryptionKey,
+      `postgresql://${pgHost}:5432 / neoboard`,
     );
 
     console.log(`    Neo4j connector:      ${neo4jConnId}`);
@@ -374,7 +378,15 @@ function patchGridIds(layout) {
   }
 }
 
-async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
+async function upsertConnector(
+  sql,
+  userId,
+  name,
+  type,
+  config,
+  encryptionKey,
+  displayAddress,
+) {
   const existing = await sql`
     SELECT id FROM "connection" WHERE name = ${name} AND "userId" = ${userId}
   `;
@@ -382,7 +394,7 @@ async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
   if (existing.length > 0) {
     await sql`
       UPDATE "connection"
-      SET ${sql(demoConnectionUpdate(configEncrypted))}, "updatedAt" = NOW()
+      SET ${sql(demoConnectionUpdate(configEncrypted, displayAddress))}, "updatedAt" = NOW()
       WHERE id = ${existing[0].id}
     `;
     return existing[0].id;
@@ -391,7 +403,14 @@ async function upsertConnector(sql, userId, name, type, config, encryptionKey) {
   const id = uuid();
   await sql`
     INSERT INTO "connection" ${sql(
-      demoConnectionInsert({ id, userId, name, type, configEncrypted }),
+      demoConnectionInsert({
+        id,
+        userId,
+        name,
+        type,
+        configEncrypted,
+        displayAddress,
+      }),
     )}
   `;
   return id;

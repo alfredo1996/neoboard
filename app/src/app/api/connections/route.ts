@@ -5,7 +5,10 @@ import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { encryptJson } from "@/lib/crypto/crypto";
 import { prefetchSchema } from "@/lib/connector/schema-prefetch";
-import { validateConnectionConfig } from "@/lib/connector/connection-config";
+import {
+  addressFor,
+  validateConnectionConfig,
+} from "@/lib/connector/connection-config";
 import { createConnectionSchema } from "@/lib/shared/schemas";
 import {
   validateBody,
@@ -44,6 +47,7 @@ export async function GET(request: Request) {
         id: connections.id,
         name: connections.name,
         type: connections.type,
+        displayAddress: connections.displayAddress,
         allowPerCardDb: connections.allowPerCardDb,
         createdAt: connections.createdAt,
         updatedAt: connections.updatedAt,
@@ -100,6 +104,7 @@ export async function POST(request: Request) {
         name,
         type,
         configEncrypted,
+        displayAddress: addressFor(type, checked.config),
       })
       .returning({
         id: connections.id,
