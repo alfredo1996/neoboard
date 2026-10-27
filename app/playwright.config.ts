@@ -46,7 +46,10 @@ export default defineConfig({
 
   use: {
     baseURL: `http://localhost:${serverPort}`,
-    trace: "on-first-retry",
+    // The first failed attempt keeps its trace (#2311): a test that fails
+    // once and passes on retry is what the merge bar scans for, and
+    // on-first-retry left that attempt with nothing to diagnose (#2293).
+    trace: "retain-on-first-failure",
     screenshot: "only-on-failure",
     navigationTimeout: 15_000,
     actionTimeout: 10_000,
