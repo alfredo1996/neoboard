@@ -1428,9 +1428,20 @@ const SPEC = {
           { $ref: "#/components/schemas/ConnectionCreated" },
           {
             type: "object",
-            required: ["visibility", "isOwner", "widgetCount"],
+            required: [
+              "visibility",
+              "isOwner",
+              "widgetCount",
+              "displayAddress",
+            ],
             properties: {
               visibility: { $ref: "#/components/schemas/ConnectionVisibility" },
+              displayAddress: {
+                type: "string",
+                nullable: true,
+                description:
+                  "Secret-free scheme://host:port (/ database), stored on save. Null for a connection saved before it existed.",
+              },
               widgetCount: {
                 type: "integer",
                 description:

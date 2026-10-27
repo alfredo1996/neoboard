@@ -72,4 +72,36 @@ describe("connectionAddress", () => {
     expect(connectionAddress(withUri, {})).toBeUndefined();
     expect(connectionAddress(withUri, { uri: "not a uri" })).toBeUndefined();
   });
+
+  it.each([
+    ["a bad percent escape", "mydb://h:1/%E0%A4%A"],
+    ["a NUL escape", "mydb://h:1/db%00x"],
+  ])("never throws or yields control characters for %s", (_n, uri) => {
+    const out = connectionAddress(withUri, { uri });
+    // eslint-disable-next-line no-control-regex
+    expect(out).not.toMatch(/[\u0000-\u001f]/);
+    expect(out).toMatch(/^mydb:\/\/h:1/);
+  });
+
+  it.each([
+    ["a deep path", "mydb://h:1/a/b/token-SECRET", "mydb://h:1 / a"],
+    ["a path-parameter secret", "mydb://h:1/;password=x", "mydb://h:1"],
+    ["an encoded slash", "mydb://h:1/db%2Fpassword=hunter2", "mydb://h:1"],
+  ])("keeps no secret from the path: %s", (_n, uri, expected) => {
+    expect(connectionAddress(withUri, { uri })).toBe(expected);
+  });
+
+  it("is undefined when a slash in the password put userinfo in the path", () => {
+    expect(
+      connectionAddress(withUri, { uri: "mydb://user:12/34@host:5432/db" }),
+    ).toBeUndefined();
+  });
+
+  it("reads no path when the descriptor has no database field", () => {
+    expect(
+      connectionAddress(descriptor([uriField({ protocols: ["mydb:"] })]), {
+        uri: "mydb://h:1/sales",
+      }),
+    ).toBe("mydb://h:1");
+  });
 });

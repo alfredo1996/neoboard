@@ -32,6 +32,8 @@ import { resolveSeedHosts } from "./lib/seed-hosts.mjs";
 import {
   demoConnectionInsert,
   demoConnectionUpdate,
+  demoAddresses,
+  demoNeo4jConfig,
   demoPgConfigs,
   grantDemoRoles,
 } from "./lib/demo-connection.mjs";
@@ -268,12 +270,8 @@ async function main() {
     //
     // To target other hosts, edit the connections in the Connections UI.
     const { pgHost, neo4jHost } = resolveSeedHosts(process.env);
-    const neo4jConfig = {
-      uri: `bolt://${neo4jHost}:7687`,
-      username: "neo4j",
-      password: "neoboard123",
-      database: "neo4j",
-    };
+    const neo4jConfig = demoNeo4jConfig(neo4jHost);
+    const addresses = demoAddresses(pgHost, neo4jHost);
     // Least-privilege logins, never the superuser: see ./lib/demo-connection.mjs.
     const pgConfigs = demoPgConfigs(pgHost);
 
@@ -284,7 +282,7 @@ async function main() {
       "neo4j",
       neo4jConfig,
       encryptionKey,
-      `bolt://${neo4jHost}:7687 / neo4j`,
+      addresses.neo4j,
     );
     const pgConnId = await upsertConnector(
       sql,
@@ -293,7 +291,7 @@ async function main() {
       "postgresql",
       pgConfigs.movies,
       encryptionKey,
-      `postgresql://${pgHost}:5432 / movies`,
+      addresses.movies,
     );
 
     // Demo e-commerce connections — point at the isolated
@@ -305,7 +303,7 @@ async function main() {
       "postgresql",
       pgConfigs.ecommerceRead,
       encryptionKey,
-      `postgresql://${pgHost}:5432 / neoboard`,
+      addresses.ecommerceRead,
     );
     const ecommerceWriteConnId = await upsertConnector(
       sql,
@@ -314,7 +312,7 @@ async function main() {
       "postgresql",
       pgConfigs.ecommerceWrite,
       encryptionKey,
-      `postgresql://${pgHost}:5432 / neoboard`,
+      addresses.ecommerceWrite,
     );
 
     console.log(`    Neo4j connector:      ${neo4jConnId}`);

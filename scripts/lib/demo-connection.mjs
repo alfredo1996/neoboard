@@ -25,7 +25,7 @@
  * that server holds only the demo graph.
  *
  * Keys of the row helpers are the table's column names, for postgres.js
- * `sql(row)`.
+ * `sql(row)` (so `display_address`, not `displayAddress`).
  */
 
 const READ = "neoboard_demo_read";
@@ -37,7 +37,11 @@ const WRITE = "neoboard_demo_write";
  *   derives it on save, a seed writes the row itself and so states it.
  */
 export function demoConnectionUpdate(configEncrypted, displayAddress) {
-  return { configEncrypted, displayAddress, visibility: "shared" };
+  return {
+    configEncrypted,
+    display_address: displayAddress,
+    visibility: "shared",
+  };
 }
 
 /**
@@ -78,6 +82,34 @@ export function demoPgConfigs(pgHost) {
       password: WRITE,
       database: "neoboard",
     },
+  };
+}
+
+/** @param {string} neo4jHost */
+export function demoNeo4jConfig(neo4jHost) {
+  return {
+    uri: `bolt://${neo4jHost}:7687`,
+    username: "neo4j",
+    password: "neoboard123",
+    database: "neo4j",
+  };
+}
+
+/**
+ * The list-row address each demo connection stores (#2265). A seed writes the
+ * row itself, so it states the address the app would derive;
+ * `demo-connection.test.mjs` checks each against `connectionAddress`.
+ *
+ * @param {string} pgHost
+ * @param {string} neo4jHost
+ */
+export function demoAddresses(pgHost, neo4jHost) {
+  const pg = `postgresql://${pgHost}:5432`;
+  return {
+    neo4j: `bolt://${neo4jHost}:7687 / neo4j`,
+    movies: `${pg} / movies`,
+    ecommerceRead: `${pg} / neoboard`,
+    ecommerceWrite: `${pg} / neoboard`,
   };
 }
 

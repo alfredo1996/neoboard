@@ -457,4 +457,28 @@ describe("POST /api/connections", () => {
       displayAddress: "bolt://db.internal:7687 / movies",
     });
   });
+
+  it.each([
+    ["a bad percent escape", "bolt://h:7687/%E0%A4%A"],
+    ["a NUL escape", "bolt://h:7687/db%00x"],
+  ])("saves a connection whose uri has %s (#2265)", async (_n, uri) => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    const insertChain = makeInsertChain([{ id: "c1" }]);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const res = await POST(
+      makeRequest({
+        name: "Neo4j",
+        type: "neo4j",
+        config: { uri, username: "neo4j", password: "p" },
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const stored = insertChain.calls.values[0][0] as {
+      displayAddress: string | null;
+    };
+    // eslint-disable-next-line no-control-regex
+    expect(stored.displayAddress ?? "").not.toMatch(/[\u0000-\u001f]/);
+  });
 });
