@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { useSession } from "next-auth/react";
-import { effectiveCanWrite } from "@/lib/auth/can-write";
+import { canManageConnections, effectiveCanWrite } from "@/lib/auth/can-write";
 import {
   Copy,
   MoreHorizontal,
@@ -88,6 +88,8 @@ export default function ConnectionsPage() {
     session?.user?.role,
     session?.user?.canWrite,
   );
+  // #2328: the server refuses a reader every management call, so offer none.
+  const canManageAny = canManageConnections(session?.user?.role);
   const { data: connections, isLoading } = useConnections();
   // #1899: every connector fact on this page — label, icon, category — is read
   // from the descriptors the server hands over; the create / edit / Duplicate
@@ -387,12 +389,14 @@ export default function ConnectionsPage() {
                   : "Test all"}
               </Button>
             )}
-            <Button
-              onClick={(e) => openDialog({ mode: "create" }, e.currentTarget)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New connection
-            </Button>
+            {canManageAny && (
+              <Button
+                onClick={(e) => openDialog({ mode: "create" }, e.currentTarget)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New connection
+              </Button>
+            )}
           </>
         }
       />
@@ -549,7 +553,7 @@ export default function ConnectionsPage() {
                   // The owner manages, or an admin (#901). With its connector
                   // gone there is nothing left to test or configure — only to
                   // delete.
-                  const canManage = c.isOwner || isAdmin;
+                  const canManage = canManageAny && (c.isOwner || isAdmin);
                   const canUse = canManage && installed;
                   const canToggle = isAdmin && c.isOwner;
                   const edit = (opener: HTMLElement | null) =>
@@ -698,15 +702,17 @@ export default function ConnectionsPage() {
                 title="No connections yet"
                 description="Connect a database to start building dashboards."
                 action={
-                  <Button
-                    variant="secondary"
-                    onClick={(e) =>
-                      openDialog({ mode: "create" }, e.currentTarget)
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create your first connection
-                  </Button>
+                  canManageAny ? (
+                    <Button
+                      variant="secondary"
+                      onClick={(e) =>
+                        openDialog({ mode: "create" }, e.currentTarget)
+                      }
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create your first connection
+                    </Button>
+                  ) : undefined
                 }
                 secondaryAction={
                   <a

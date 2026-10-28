@@ -1069,4 +1069,32 @@ describe("ConnectionsPage — kit rows (#2254)", () => {
     render(<ConnectionsPage />);
     expect(rowOf("conn-1").queryAllByRole("menuitem")).toHaveLength(0);
   });
+
+  // #2328: the server refuses a reader every management call.
+  it("offers a reader no New connection, no first-connection button and no row actions on a connection they still own", () => {
+    mockRole = "reader";
+    mockConnections = rows(1, { isOwner: true });
+    const { unmount } = render(<ConnectionsPage />);
+    expect(screen.queryByRole("button", { name: "New connection" })).toBeNull();
+    expect(rowOf("conn-1").queryAllByRole("menuitem")).toHaveLength(0);
+    unmount();
+    mockConnections = [];
+    render(<ConnectionsPage />);
+    expect(screen.getByText("No connections yet")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create your first connection" }),
+    ).toBeNull();
+  });
+
+  it.each(["creator", "admin"])("still offers a %s New connection", (role) => {
+    mockRole = role;
+    mockConnections = [];
+    render(<ConnectionsPage />);
+    expect(
+      screen.getByRole("button", { name: "New connection" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create your first connection" }),
+    ).toBeInTheDocument();
+  });
 });

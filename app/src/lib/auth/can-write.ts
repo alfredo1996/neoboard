@@ -12,3 +12,14 @@ export function effectiveCanWrite(
   if (role === "reader") return false;
   return flag !== false;
 }
+
+/**
+ * Who may manage connections (create, edit, share, delete): creators and
+ * admins, never readers (#971, #1995). The server's
+ * `assertCanManageConnections` and the Connections page both call this so the
+ * page cannot offer what the server refuses (#2328). Role-gated, not
+ * `canWrite`-gated: write permission does not cover connections (#2333).
+ */
+export function canManageConnections(role: string | undefined): boolean {
+  return role === "admin" || role === "creator";
+}

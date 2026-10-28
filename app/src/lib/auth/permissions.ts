@@ -1,5 +1,6 @@
 import type { UserRole } from "@/lib/db/schema";
 import { ForbiddenError } from "./errors";
+import { canManageConnections } from "./can-write";
 
 /**
  * Connection management (create, update, inline test/introspection, delete)
@@ -13,7 +14,7 @@ import { ForbiddenError } from "./errors";
  * sharing/visibility is tracked in #901.
  */
 export function assertCanManageConnections(role: UserRole): void {
-  if (role === "reader") {
+  if (!canManageConnections(role)) {
     throw new ForbiddenError();
   }
 }

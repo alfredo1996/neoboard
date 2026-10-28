@@ -2,6 +2,7 @@ import {
   test,
   expect,
   ALICE,
+  CAROL,
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
   uid,
@@ -768,4 +769,34 @@ test.describe("Connections", () => {
         .catch(() => undefined);
     }
   });
+});
+
+// #2328: the server refuses a reader every connection-management call, so the
+// page offers none. Carol is the seeded reader; nothing here mutates her.
+test("a reader is offered no New connection and no Create-first button", async ({
+  page,
+  authPage,
+}) => {
+  const forbidden: string[] = [];
+  page.on("response", (r) => {
+    if (r.status() === 403) forbidden.push(r.url());
+  });
+  await authPage.login(CAROL.email, CAROL.password);
+  await page.goto("/connections");
+  await expect(
+    page.getByRole("heading", { name: "Connections", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("No connections yet", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "New connection", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: "Create your first connection",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  expect(forbidden).toEqual([]);
 });
