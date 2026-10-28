@@ -779,7 +779,15 @@ test("a reader is offered no New connection", async ({ page, authPage }) => {
     if (r.status() === 403) forbidden.push(r.url());
   });
   await authPage.login(CAROL.email, CAROL.password);
+  // Both reads the page makes must have answered before 403s are counted.
+  const listed = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === "/api/connections",
+  );
+  const connectors = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === "/api/connectors",
+  );
   await page.goto("/connections");
+  await Promise.all([listed, connectors]);
   await expect(
     page.getByRole("heading", { name: "Connections", exact: true }),
   ).toBeVisible();
