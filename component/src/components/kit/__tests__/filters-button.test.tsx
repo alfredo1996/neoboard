@@ -189,6 +189,21 @@ describe("FiltersButton", () => {
     ).toHaveAttribute("title", "Filter 1: a very long value");
   });
 
+  it("titles the value with the full text only where no jump button carries it", () => {
+    open([
+      item(1, "a very long value", { onSelect: undefined }),
+      item(2, "another long value"),
+    ]);
+    const [plain, jump] = screen.getAllByRole("listitem");
+    expect(plain.querySelector("[data-filter-value]")).toHaveAttribute(
+      "title",
+      "Filter 1: a very long value",
+    );
+    expect(jump.querySelector("[data-filter-value]")).not.toHaveAttribute(
+      "title",
+    );
+  });
+
   it("offers no jump, arrow or Go to name on a row that cannot jump", () => {
     open([item(1, "a", { onSelect: undefined })]);
     expect(screen.queryByRole("button", { name: /^Go to/ })).toBeNull();

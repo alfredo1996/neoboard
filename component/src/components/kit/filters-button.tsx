@@ -81,6 +81,8 @@ function FilterRow({
       <span
         id={valueId}
         data-filter-value
+        // A selectable row carries the title on its jump button instead.
+        title={i.onSelect ? undefined : `${i.label}: ${value}`}
         className={`truncate text-sm${i.value === undefined ? " text-muted-foreground" : ""}`}
       >
         {value}
