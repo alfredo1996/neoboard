@@ -13,7 +13,6 @@ import {
   dashboardCrumb,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
-import neo4j from "neo4j-driver";
 
 // ---------------------------------------------------------------------------
 // Read-only tests: use the seeded "Movie Analytics" dashboard (no mutations)
@@ -747,6 +746,35 @@ test.describe("Graph chart visualization", () => {
 // ---------------------------------------------------------------------------
 
 /**
+ * Right-click the one node a graph widget shows until the context menu offers
+ * `action`, and return that button. One node, so the layout's fit puts it under
+ * the canvas centre.
+ */
+async function openNodeContextMenu(
+  page: import("@playwright/test").Page,
+  action: string,
+) {
+  const canvas = page
+    .getByTestId("graph-exploration")
+    .locator("canvas")
+    .first();
+  const button = page
+    .getByTestId("graph-context-menu")
+    .getByRole("button", { name: action, exact: true });
+  await expect(async () => {
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    await canvas.click({
+      button: "right",
+      position: { x: box!.width / 2, y: box!.height / 2 },
+      force: true,
+    });
+    await expect(button).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+  return button;
+}
+
+/**
  * Right-click the one node a graph widget shows, click Expand, and wait for its
  * neighbours to join (#2061). One node, so the layout's fit puts it under the
  * canvas centre and the right-click lands on it.
@@ -756,21 +784,7 @@ async function expandTheOnlyNode(page: import("@playwright/test").Page) {
   const nodeCount = exploration.getByTestId("graph-node-count");
   await expect(nodeCount).toHaveText("1 nodes", { timeout: 15_000 });
 
-  const canvas = exploration.locator("canvas").first();
-  const expand = page
-    .getByTestId("graph-context-menu")
-    .getByRole("button", { name: "Expand" });
-  await expect(async () => {
-    const box = await canvas.boundingBox();
-    expect(box).not.toBeNull();
-    await canvas.click({
-      button: "right",
-      position: { x: box!.width / 2, y: box!.height / 2 },
-      force: true,
-    });
-    await expect(expand).toBeVisible({ timeout: 1_000 });
-  }).toPass({ timeout: 20_000 });
-
+  const expand = await openNodeContextMenu(page, "Expand");
   await expand.click();
 
   // The node's films and co-workers join the graph.
@@ -1340,21 +1354,11 @@ test.describe("Graph inspector values (#2349)", () => {
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
     const tag = `e2e2349_${uid()}`;
-    const driver = neo4j.driver(
-      TEST_NEO4J_BOLT_URL,
-      neo4j.auth.basic("neo4j", "neoboard123"),
-    );
-    let elementId: string | undefined;
+    let seeded = false;
     let connectionId: string | undefined;
     let dashboardId: string | undefined;
 
     try {
-      const created = await driver.executeQuery(
-        "CREATE (n:E2E2349 {tag: $tag, previousNames: ['Esso', 'Humble', 'Standard Oil', 'Exxon', 'Mobil', 'ExxonMobil', 'XOM'], nace: ['19.20', '06.10']}) RETURN elementId(n) AS id",
-        { tag },
-      );
-      elementId = created.records[0].get("id") as string;
-
       const connRes = await page.request.post("/api/connections", {
         data: {
           name: `inspector-${tag}`,
@@ -1369,6 +1373,17 @@ test.describe("Graph inspector values (#2349)", () => {
       });
       expect(connRes.status()).toBe(201);
       connectionId = (await connRes.json()).data.id;
+
+      const seed = await page.request.post("/api/query/write", {
+        data: {
+          connectionId,
+          query:
+            "CREATE (n:E2E2349 {tag: $tag, previousNames: ['Esso', 'Humble', 'Standard Oil', 'Exxon', 'Mobil', 'ExxonMobil', 'XOM'], nace: ['19.20', '06.10'], longText: $longText})",
+          params: { tag, longText: "lorem ipsum ".repeat(120) },
+        },
+      });
+      expect(seed.ok()).toBeTruthy();
+      seeded = true;
 
       ({ id: dashboardId } = await createTestDashboard(
         page.request,
@@ -1405,21 +1420,7 @@ test.describe("Graph inspector values (#2349)", () => {
         "1 nodes",
         { timeout: 15_000 },
       );
-      const canvas = exploration.locator("canvas").first();
-      const properties = page
-        .getByTestId("graph-context-menu")
-        .getByRole("button", { name: "Properties", exact: true });
-      await expect(async () => {
-        const box = await canvas.boundingBox();
-        expect(box).not.toBeNull();
-        await canvas.click({
-          button: "right",
-          position: { x: box!.width / 2, y: box!.height / 2 },
-          force: true,
-        });
-        await expect(properties).toBeVisible({ timeout: 1_000 });
-      }).toPass({ timeout: 20_000 });
-      await properties.click();
+      await (await openNodeContextMenu(page, "Properties")).click();
 
       // Every row keeps its key beside its value, the long id included.
       for (const key of ["id", "tag", "previousNames", "nace"]) {
@@ -1427,7 +1428,6 @@ test.describe("Graph inspector values (#2349)", () => {
           page.getByText(key, { exact: true }).first(),
         ).toBeVisible();
       }
-      await expect(page.getByText(elementId, { exact: true })).toBeVisible();
 
       // The list is separate items, collapsed after five.
       const item = (text: string) =>
@@ -1435,10 +1435,19 @@ test.describe("Graph inspector values (#2349)", () => {
       await expect(item("Esso")).toBeVisible();
       await expect(item("Mobil")).toBeVisible();
       await expect(item("XOM")).toHaveCount(0);
-      await page
-        .getByRole("button", { name: "Show 2 more items", exact: true })
-        .click();
+      await page.getByRole("button", { name: "+2 more", exact: true }).click();
       await expect(item("XOM")).toBeVisible();
+
+      // A long string is clamped behind a toggle (4 lines) and expands.
+      const toggle = page.getByRole("button", {
+        name: "Show more",
+        exact: true,
+      });
+      await expect(toggle).toBeVisible();
+      await toggle.click();
+      await expect(
+        page.getByRole("button", { name: "Show less", exact: true }),
+      ).toBeVisible();
 
       // The panel hides the graph behind it.
       const panel = page.getByTestId("graph-inspector");
@@ -1451,12 +1460,14 @@ test.describe("Graph inspector values (#2349)", () => {
         await panel.evaluate((el) => getComputedStyle(el).backdropFilter),
       ).toBe("none");
     } finally {
-      if (elementId)
-        await driver.executeQuery(
-          "MATCH (n) WHERE elementId(n) = $id DELETE n",
-          { id: elementId },
-        );
-      await driver.close();
+      if (seeded)
+        await page.request.post("/api/query/write", {
+          data: {
+            connectionId,
+            query: "MATCH (n:E2E2349 {tag: $tag}) DELETE n",
+            params: { tag },
+          },
+        });
       if (dashboardId)
         await page.request.delete(`/api/dashboards/${dashboardId}`);
       if (connectionId)

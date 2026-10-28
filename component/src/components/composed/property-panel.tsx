@@ -25,59 +25,128 @@ export interface PropertyItem {
   value: PropertyValue;
 }
 
-/** Items shown before a list collapses behind "+N more". */
+/** Items shown before a list or map collapses behind "+N more". */
 const LIST_PREVIEW = 5;
+/**
+ * A string longer than this is clamped to 4 lines behind "Show more". jsdom
+ * cannot measure lines, so length decides: about 4 lines of a narrow inspector
+ * (~50 chars each). Ids and short values stay untouched. Ceiling: a short
+ * string with many newlines is not clamped.
+ */
+const STRING_CLAMP_CHARS = 200;
+
+/** A text toggle whose accessible name is its visible text (WCAG 2.5.3). */
+function Toggle({
+  expanded,
+  onToggle,
+  more,
+  less,
+}: Readonly<{
+  expanded: boolean;
+  onToggle: () => void;
+  more: string;
+  less: string;
+}>) {
+  return (
+    <button
+      type="button"
+      className="mt-1 text-meta text-primary hover:underline"
+      aria-expanded={expanded}
+      onClick={onToggle}
+    >
+      {expanded ? less : more}
+    </button>
+  );
+}
+
+/** Lists and maps: the first LIST_PREVIEW rows, the rest behind "+N more". */
+function Collapsible<T>({
+  rows,
+  render,
+}: Readonly<{ rows: T[]; render: (rows: T[]) => React.ReactNode }>) {
+  const [expanded, setExpanded] = React.useState(false);
+  const hidden = rows.length - LIST_PREVIEW;
+  return (
+    <>
+      {render(expanded ? rows : rows.slice(0, LIST_PREVIEW))}
+      {hidden > 0 && (
+        <Toggle
+          expanded={expanded}
+          onToggle={() => setExpanded((e) => !e)}
+          more={`+${hidden} more`}
+          less="Show fewer"
+        />
+      )}
+    </>
+  );
+}
+
+function LongString({ value }: Readonly<{ value: string }>) {
+  const [expanded, setExpanded] = React.useState(false);
+  if (value.length <= STRING_CLAMP_CHARS) return <>{value}</>;
+  return (
+    <>
+      <span
+        data-testid="property-text"
+        className={cn("block", !expanded && "line-clamp-4")}
+      >
+        {value}
+      </span>
+      <Toggle
+        expanded={expanded}
+        onToggle={() => setExpanded((e) => !e)}
+        more="Show more"
+        less="Show less"
+      />
+    </>
+  );
+}
 
 function ValueView({ value }: Readonly<{ value: PropertyValue }>) {
-  const [expanded, setExpanded] = React.useState(false);
   if (value === undefined) return <>-</>;
   if (value === null)
     return <span className="text-muted-foreground">null</span>;
   if (value === "")
     return <span className="text-muted-foreground">(empty)</span>;
+  if (typeof value === "string") return <LongString value={value} />;
   if (typeof value !== "object") return <>{String(value)}</>;
   if (Array.isArray(value)) {
     if (value.length === 0)
       return <span className="text-muted-foreground">(empty list)</span>;
-    const shown = expanded ? value : value.slice(0, LIST_PREVIEW);
-    const hidden = value.length - LIST_PREVIEW;
     return (
-      <>
-        <ul className="space-y-0.5 [&_ul]:border-l [&_ul]:border-border [&_ul]:pl-2">
-          {shown.map((v, i) => (
-            // Items have no identity; the list is read-only, so the index is stable.
-            <li key={i}>
-              <ValueView value={v} />
-            </li>
-          ))}
-        </ul>
-        {hidden > 0 && (
-          <button
-            type="button"
-            className="mt-1 text-meta text-primary hover:underline"
-            aria-label={
-              expanded ? "Show fewer items" : `Show ${hidden} more items`
-            }
-            onClick={() => setExpanded((e) => !e)}
-          >
-            {expanded ? "Show fewer" : `+${hidden} more`}
-          </button>
+      <Collapsible
+        rows={value}
+        render={(shown) => (
+          <ul className="space-y-0.5 [&_ul]:border-l [&_ul]:border-border [&_ul]:pl-2">
+            {shown.map((v, i) => (
+              // Items have no identity and may repeat; position plus a scalar
+              // fingerprint is stable for a read-only list.
+              <li key={`${i}:${typeof v === "object" ? "" : String(v)}`}>
+                <ValueView value={v} />
+              </li>
+            ))}
+          </ul>
         )}
-      </>
+      />
     );
   }
   const entries = Object.entries(value);
   if (entries.length === 0)
     return <span className="text-muted-foreground">(empty map)</span>;
   return (
-    <div className="space-y-0.5 border-l border-border pl-2">
-      {entries.map(([k, v]) => (
-        <div key={k}>
-          <span className="text-muted-foreground">{k}: </span>
-          <ValueView value={v} />
+    <Collapsible
+      rows={entries}
+      render={(shown) => (
+        <div className="space-y-0.5 border-l border-border pl-2">
+          {shown.map(([k, v]) => (
+            <div key={k}>
+              <span className="text-muted-foreground">{k}: </span>
+              <ValueView value={v} />
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      )}
+    />
   );
 }
 

@@ -103,7 +103,7 @@ export const AllDatatypes: Story = {
             key: "id",
             value: "4:89d8f0b2-3c1e-4f5a-9b7d-2e6a1c0f8d34:1234567",
           },
-          { key: "labels", value: "Company, Shareholder" },
+          { key: "labels", value: ["Company", "Shareholder"] },
         ],
       },
       {
@@ -141,10 +141,16 @@ export const AllDatatypes: Story = {
           { key: "notes", value: "" },
           { key: "bigCounter", value: "9007199254740993" },
           {
+            key: "embedding",
+            value: Object.fromEntries(
+              Array.from({ length: 2000 }, (_, i) => [String(i), i / 1000]),
+            ),
+          },
+          {
             key: "description",
             value:
               "A very long single value that has to wrap onto several lines without hiding its key or running past the right edge of the panel. ".repeat(
-                3,
+                8,
               ),
           },
         ],

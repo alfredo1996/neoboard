@@ -18,7 +18,6 @@ import type {
   PropertyValue,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
-import { normalizeValue } from "@/lib/shared/normalize-value";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 import { useConnector } from "@/hooks/use-connectors";
 
@@ -144,10 +143,10 @@ function toPropertyValue(v: unknown): PropertyValue {
     return Object.fromEntries(
       Object.entries(v).map(([k, x]) => [k, toPropertyValue(x)]),
     );
-  return normalizeValue(v);
+  return String(v);
 }
 
-export function edgeToSections(edge: GraphEdge): PropertySection[] {
+function edgeToSections(edge: GraphEdge): PropertySection[] {
   const props = edge.properties ?? {};
   const propertyItems = Object.entries(props).map(([key, value]) => ({
     key,
@@ -167,7 +166,7 @@ export function edgeToSections(edge: GraphEdge): PropertySection[] {
   ];
 }
 
-export function nodeToSections(node: GraphNode): PropertySection[] {
+function nodeToSections(node: GraphNode): PropertySection[] {
   const props = node.properties ?? {};
   const propertyItems = Object.entries(props).map(([key, value]) => ({
     key,
@@ -175,9 +174,7 @@ export function nodeToSections(node: GraphNode): PropertySection[] {
   }));
   const metaItems = [
     { key: "id", value: node.id },
-    ...(node.labels?.length
-      ? [{ key: "labels", value: node.labels.join(", ") }]
-      : []),
+    ...(node.labels?.length ? [{ key: "labels", value: node.labels }] : []),
   ];
   return [
     { title: "Metadata", items: metaItems, collapsible: false as const },

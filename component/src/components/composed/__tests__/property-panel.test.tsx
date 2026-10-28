@@ -118,15 +118,15 @@ describe("PropertyPanel values (#2349)", () => {
     const user = userEvent.setup();
     one(["a", "b", "c", "d", "e", "f", "g"]);
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
-    await user.click(screen.getByRole("button", { name: "Show 2 more items" }));
+    await user.click(screen.getByRole("button", { name: "+2 more" }));
     expect(screen.getAllByRole("listitem")).toHaveLength(7);
-    await user.click(screen.getByRole("button", { name: "Show fewer items" }));
+    await user.click(screen.getByRole("button", { name: "Show fewer" }));
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
   });
 
   it("offers no expander for a list of 5 or fewer", () => {
     one(["a", "b", "c", "d", "e"]);
-    expect(screen.queryByRole("button", { name: /items$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /more|Show/ })).toBeNull();
   });
 
   it.each<[string, PropertyValue, string]>([
@@ -147,10 +147,60 @@ describe("PropertyPanel values (#2349)", () => {
     ["empty map", {}, "(empty map)"],
     ["empty string", "", "(empty)"],
     ["driver integer past a double", "9007199254740993", "9007199254740993"],
-    ["very long string", "y".repeat(500), "y".repeat(500)],
+    ["string at the clamp threshold", "y".repeat(200), "y".repeat(200)],
   ])("renders %s", (_name, value, text) => {
     one(value);
     expect(screen.getByTestId("property-value").textContent).toBe(text);
+  });
+
+  it("collapses a map past 5 entries and renders only the visible ones", async () => {
+    const user = userEvent.setup();
+    const big = Object.fromEntries(
+      Array.from({ length: 2000 }, (_, i) => [String(i), i]),
+    );
+    one(big);
+    expect(
+      screen
+        .getByTestId("property-value")
+        .querySelectorAll(":scope > div > div"),
+    ).toHaveLength(5);
+    const more = screen.getByRole("button", { name: "+1995 more" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    await user.click(more);
+    expect(screen.getByRole("button", { name: "Show fewer" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(
+      screen
+        .getByTestId("property-value")
+        .querySelectorAll(":scope > div > div"),
+    ).toHaveLength(2000);
+  });
+
+  it("keeps duplicate list items", () => {
+    one(["a", "a", "a"]);
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("clamps a 1000-char string behind a Show more toggle", async () => {
+    const user = userEvent.setup();
+    one("y".repeat(1000));
+    const text = screen.getByTestId("property-text");
+    expect(text.className).toContain("line-clamp-4");
+    const toggle = screen.getByRole("button", { name: "Show more" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(text.className).not.toContain("line-clamp-4");
+    expect(screen.getByRole("button", { name: "Show less" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  it("offers no toggle on a 60-char string", () => {
+    one("y".repeat(60));
+    expect(screen.queryByRole("button", { name: /more|Show/ })).toBeNull();
   });
 
   it("still edits a string value in place", async () => {
