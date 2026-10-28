@@ -170,13 +170,18 @@ test.describe("Connections", () => {
   test("shows each seeded connection's address, as global-setup stored it, under its name", async ({
     page,
   }) => {
+    // Scoped to the seeded row: another worker's fixture can share the URI.
     await expect(
-      page.getByText(TEST_NEO4J_BOLT_URL, { exact: true }),
+      page
+        .getByRole("row", { name: SEEDED[0] })
+        .getByText(TEST_NEO4J_BOLT_URL, { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText(`postgresql://localhost:${TEST_PG_PORT} / movies`, {
-        exact: true,
-      }),
+      page
+        .getByRole("row", { name: SEEDED[1] })
+        .getByText(`postgresql://localhost:${TEST_PG_PORT} / movies`, {
+          exact: true,
+        }),
     ).toBeVisible();
   });
 
