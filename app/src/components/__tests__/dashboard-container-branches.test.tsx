@@ -695,7 +695,7 @@ describe("DashboardContainer — filter line", () => {
     ).toHaveLength(2);
   });
 
-  it("shows the line whenever a filter is active, with no toggle to hide it", () => {
+  it("shows the line whenever a filter is active, by default", () => {
     parametersState.parameters = {
       status: { field: "status", value: "active" },
     };
@@ -703,6 +703,40 @@ describe("DashboardContainer — filter line", () => {
     expect(
       screen.getByRole("region", { name: "Active filters" }),
     ).toBeInTheDocument();
+  });
+
+  it("hides the line when the stored preference is off", () => {
+    localStorage.setItem("neoboard:filter-bar", "off");
+    parametersState.parameters = {
+      status: { field: "status", value: "active" },
+    };
+    try {
+      renderWithProviders(<DashboardContainer page={makePage()} />);
+      expect(
+        screen.queryByRole("region", { name: "Active filters" }),
+      ).toBeNull();
+    } finally {
+      localStorage.removeItem("neoboard:filter-bar");
+    }
+  });
+
+  it("shows the line when localStorage throws", () => {
+    const spy = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    parametersState.parameters = {
+      status: { field: "status", value: "active" },
+    };
+    try {
+      renderWithProviders(<DashboardContainer page={makePage()} />);
+      expect(
+        screen.getByRole("region", { name: "Active filters" }),
+      ).toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("renders no line when no parameter is active", () => {

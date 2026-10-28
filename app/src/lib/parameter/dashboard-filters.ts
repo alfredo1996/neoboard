@@ -1,7 +1,16 @@
 import type { ParameterEntry } from "@/stores/parameter-store";
 import { paramLabel } from "@/lib/parameter/param-label";
 import { formatParameterValue } from "@/lib/parameter/format-parameter-value";
-import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
+import type {
+  ParameterSource,
+  ParameterSourceMap,
+} from "@/lib/parameter/collect-parameter-names";
+
+/** "on <page>", with the selector's title first only when it is not the filter's name. */
+const whereLine = (s: ParameterSource, label: string) =>
+  s.widgetTitle === label
+    ? `on ${s.pageTitle}`
+    : `${s.widgetTitle} on ${s.pageTitle}`;
 
 /** Sub-parameters a range selector sets beside its own value. */
 const COMPANION_SUFFIXES = ["_from", "_to", "_min", "_max"];
@@ -51,7 +60,9 @@ export function buildDashboardFilters(
       id: name,
       label: paramLabel(name, sourceMap),
       value: entry ? formatParameterValue(entry.value) : undefined,
-      where: source ? `${source.widgetTitle} · ${source.pageTitle}` : undefined,
+      where: source
+        ? whereLine(source, paramLabel(name, sourceMap))
+        : undefined,
       sourceWidgetId: entry?.sourceWidgetId ?? source?.widgetId,
       pageId: source?.pageId,
       title: entry?.source ? `Set by ${entry.source}` : undefined,

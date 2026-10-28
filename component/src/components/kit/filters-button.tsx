@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { ArrowRight, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Popover,
   PopoverContent,
@@ -15,7 +16,7 @@ export interface FiltersButtonItem {
   label: string;
   /** The value that is set; left out when the filter is unset ("Any"). */
   value?: string;
-  /** Where the filter is set, e.g. "Decade selector · Overview". */
+  /** Where the filter is set, e.g. "on Overview". */
   where?: string;
   /** Jumps to the selector that sets the filter. */
   onSelect?: () => void;
@@ -26,14 +27,14 @@ export interface FiltersButtonProps {
   items: readonly FiltersButtonItem[];
   onClear: (id: string) => void;
   onClearAll: () => void;
+  /** Whether the filter bar under the header is shown; defaults to shown. */
+  barShown?: boolean;
+  /** Called by the "Show filter bar" switch; without it the switch is left out. */
+  onShowChange?: (shown: boolean) => void;
 }
 
 /** More filters than this and the list gets a search box. */
 const SEARCH_ABOVE = 8;
-
-/** A long value wraps inside 14rem; it never squeezes the name to nothing. */
-const valueClass = (value?: string) =>
-  `max-w-56 break-words text-sm${value === undefined ? " text-muted-foreground" : ""}`;
 
 function FilterRow({
   item: i,
@@ -44,28 +45,33 @@ function FilterRow({
   onClose: () => void;
   onClear: (id: string) => void;
 }>) {
+  const value = i.value ?? "Any";
   return (
     <li
       key={i.id}
-      className="flex items-center gap-2 border-b border-card-edge px-3 py-2 hover:bg-hover"
+      // One fixed value column in every row, so values line up; the jump
+      // button is stretched over the row (its ::after) and the × sits above it.
+      className="relative grid grid-cols-[minmax(0,1fr)_8.5rem_1.25rem_1rem] items-center gap-x-2 border-b border-card-edge px-3 py-2 hover:bg-active"
     >
       <button
         type="button"
         data-filter-id={i.id}
+        aria-label={`Go to ${i.label} selector${i.where ? ` ${i.where}` : ""}`}
         onClick={() => {
           onClose();
           i.onSelect?.();
         }}
-        className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="truncate text-left text-sm font-medium focus-visible:outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
       >
-        <span className="truncate text-sm font-medium">{i.label}</span>
-        <span className={valueClass(i.value)}>{i.value ?? "Any"}</span>
-        {i.where && (
-          <span className="col-span-2 text-xs text-muted-foreground">
-            {i.where}
-          </span>
-        )}
+        {i.label}
       </button>
+      <span
+        data-filter-value
+        title={value}
+        className={`truncate text-sm${i.value === undefined ? " text-muted-foreground" : ""}`}
+      >
+        {value}
+      </span>
       {i.value !== undefined && (
         <button
           type="button"
@@ -76,10 +82,20 @@ function FilterRow({
             e.currentTarget.parentElement?.querySelector("button")?.focus();
             onClear(i.id);
           }}
-          className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="relative z-10 col-start-3 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="h-3 w-3" aria-hidden />
         </button>
+      )}
+      <ArrowRight
+        data-filter-arrow
+        aria-hidden
+        className="col-start-4 h-4 w-4 text-muted-foreground"
+      />
+      {i.where && (
+        <span className="col-span-4 text-xs text-muted-foreground">
+          {i.where}
+        </span>
       )}
     </li>
   );
@@ -94,6 +110,8 @@ function FiltersButton({
   items,
   onClear,
   onClearAll,
+  barShown = true,
+  onShowChange,
 }: Readonly<FiltersButtonProps>) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -209,7 +227,14 @@ function FiltersButton({
           )}
         </div>
         <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground">
-          <span>Click a filter to go to its selector</span>
+          {onShowChange ? (
+            <label className="flex items-center gap-2">
+              <Switch checked={barShown} onCheckedChange={onShowChange} />
+              Show filter bar
+            </label>
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={onClearAll}

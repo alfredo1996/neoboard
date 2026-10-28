@@ -36,9 +36,17 @@ describe("buildDashboardFilters", () => {
     ]);
   });
 
-  it("says where a filter is set: its selector and page", () => {
+  it("leaves the selector out of where when its title is the filter's name", () => {
+    const same: ParameterSourceMap = {
+      decade: [{ ...src("w2", "Decade", "Regions"), widgetTitle: "Decade" }],
+    };
+    const [d] = buildDashboardFilters(same, { decade: entry("1990s", "w2") });
+    expect(d.where).toBe("on Regions");
+  });
+
+  it("says where a filter is set: its page, and the selector when it is not the filter's name", () => {
     const [d] = buildDashboardFilters(map, { decade: entry("1990s", "w2") });
-    expect(d.where).toBe("Widget w2 · Regions");
+    expect(d.where).toBe("Widget w2 on Regions");
     expect(d.sourceWidgetId).toBe("w2");
     expect(d.pageId).toBe("pg-Regions");
   });
