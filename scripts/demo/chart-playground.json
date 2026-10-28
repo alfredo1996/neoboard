@@ -449,7 +449,7 @@
                 "showLabels": true,
                 "sort": "desc",
                 "highlightOnHover": true,
-                "colorPalette": "tableau"
+                "colorPalette": "hastings"
               }
             }
           }
