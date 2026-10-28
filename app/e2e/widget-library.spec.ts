@@ -612,7 +612,8 @@ test.describe("Widget Library", () => {
         const mainDialog = page.getByRole("dialog", { name: "Add Widget" });
         await expect(mainDialog).toBeVisible();
 
-        // Select a connection
+        // Re-pick the connection the template preselected: a no-op that
+        // keeps it (#2326); it used to toggle it off.
         await mainDialog.getByRole("combobox").nth(0).click();
         await page.getByRole("option").first().click();
 
@@ -651,16 +652,20 @@ test.describe("Widget Library", () => {
           page.locator("[data-testid='widget-card']").first(),
         ).toBeVisible({ timeout: 15_000 });
 
-        // Widget should render (canvas for bar chart) — proving the dashboard copy is independent
+        // Widget should render, proving the dashboard copy is independent.
+        // Both must show: the heading from the saved settings and the chart
+        // canvas. An .or() of the two is a strict-mode race once the
+        // connection is kept (#2326).
+        const widgetCard = page.locator("[data-testid='widget-card']");
         await expect(
-          page
-            .locator("[data-testid='widget-card'] canvas")
-            .or(
-              page
-                .locator("[data-testid='widget-card']")
-                .getByRole("heading", { name: "Original Title", exact: true }),
-            ),
+          widgetCard.getByRole("heading", {
+            name: "Original Title",
+            exact: true,
+          }),
         ).toBeVisible({ timeout: 15_000 });
+        await expect(widgetCard.locator("canvas")).toBeVisible({
+          timeout: 15_000,
+        });
       } finally {
         await cleanup();
       }
