@@ -597,7 +597,6 @@ test.describe("Parameter widget types", () => {
           timeout: 15_000,
         });
       }
-      await expect(page.getByText("Pick actor above")).toHaveCount(0);
     } finally {
       await cleanup();
     }

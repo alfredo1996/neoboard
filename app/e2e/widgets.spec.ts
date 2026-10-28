@@ -60,8 +60,14 @@ test.describe("Widget creation", () => {
   test("re-picking the shown chart type and connection keeps both (#2326)", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Add Widget" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await page
+      .getByRole("button", { name: "Add Widget", exact: true })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Add Widget",
+      exact: true,
+    });
     const connection = dialog.getByRole("combobox").nth(0);
     const chartType = dialog.getByRole("combobox").nth(1);
 
@@ -81,7 +87,9 @@ test.describe("Widget creation", () => {
       .first()
       .click();
     await expect(connection).not.toHaveText(/Select a connection/);
-    await expect(dialog.getByText("Unknown chart type")).toHaveCount(0);
+    await expect(
+      dialog.getByText("Unknown chart type", { exact: true }),
+    ).toHaveCount(0);
 
     await typeInEditor(
       dialog,
