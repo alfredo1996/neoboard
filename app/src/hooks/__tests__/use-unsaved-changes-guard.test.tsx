@@ -90,8 +90,7 @@ describe("useUnsavedChangesWarning (#2325)", () => {
     makeDirty();
     popstate();
     act(() => result.current.confirmNavigation());
-    expect(useDashboardStore.getState().hasUnsavedChanges()).toBe(false);
-    expect(useDashboardStore.getState().layout.pages).toHaveLength(1);
+    expect(useDashboardStore.getState().savedLayout).toBeNull();
   });
 
   it("a second dirty session on the same instance is guarded again", () => {
@@ -134,5 +133,55 @@ describe("useUnsavedChangesWarning (#2325)", () => {
     popstate();
     act(() => result.current.confirmNavigation());
     expect(onLeave).not.toHaveBeenCalled();
+  });
+
+  it("re-marks the entry Next overwrote instead of pushing a second", () => {
+    renderHook(() => useUnsavedChangesWarning());
+    makeDirty();
+    const len = window.history.length;
+    // router.replace: Next writes its own state, the marker is gone.
+    window.history.replaceState({ __NA: true }, "", "/d1/edit");
+    makeDirty();
+    expect(window.history.length).toBe(len);
+    expect(window.history.state.__nbGuard).toBe(true);
+  });
+
+  it("a Back-Leave that goes nowhere leaves beforeunload guarded", () => {
+    vi.spyOn(window.history, "back").mockImplementation(() => {});
+    const { result } = renderHook(() => useUnsavedChangesWarning());
+    makeDirty();
+    popstate();
+    act(() => result.current.confirmNavigation());
+    // no landing popstate: the editor was the tab's first entry
+    act(() => useDashboardStore.getState().setLayout(layout));
+    makeDirty();
+    const ev = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("a rejecting onLeave leaves beforeunload guarded", async () => {
+    const { result } = renderHook(() => useUnsavedChangesWarning());
+    makeDirty();
+    act(() => {
+      result.current.requestNavigation("/login", () =>
+        Promise.reject(new Error("x")),
+      );
+    });
+    await act(async () => result.current.confirmNavigation());
+    const ev = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("Back past the editor is a Leave, not a question", () => {
+    const { result } = renderHook(() => useUnsavedChangesWarning());
+    makeDirty();
+    window.history.replaceState(null, "", "/d1"); // both entries popped
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(result.current.showNavWarning).toBe(false);
+    expect(useDashboardStore.getState().savedLayout).toBeNull();
   });
 });

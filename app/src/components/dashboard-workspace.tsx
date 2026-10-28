@@ -181,8 +181,18 @@ export function DashboardWorkspace({
   // The store emptied under us (a Leave from the unsaved-changes guard): load
   // the server copy again, not a savedLayout that may be stale.
   const storeLoaded = useDashboardStore((s) => s.savedLayout !== null);
+  // The page the user was on, kept while the store is loaded: reset() zeroes it.
+  const lastPageRef = useRef(0);
+  useEffect(
+    () =>
+      useDashboardStore.subscribe((s) => {
+        if (s.savedLayout) lastPageRef.current = s.activePageIndex;
+      }),
+    [],
+  );
   useEffect(() => {
     if (!dashboard?.layoutJson) return;
+    const reloaded = !storeLoaded && loadedStampRef.current !== null;
     if (!storeLoaded) loadedStampRef.current = null;
     const stamp = `${dashboard.id}:${dashboard.version}`;
     if (loadedStampRef.current === stamp) return;
@@ -191,10 +201,10 @@ export function DashboardWorkspace({
     // bump must not silently discard them.
     if (!first && useDashboardStore.getState().hasUnsavedChanges()) return;
     loadedStampRef.current = stamp;
-    setLayout(
-      migrateLayout(dashboard.layoutJson),
-      first ? initialPage : useDashboardStore.getState().activePageIndex,
-    );
+    let page = useDashboardStore.getState().activePageIndex;
+    if (reloaded) page = lastPageRef.current;
+    else if (first) page = initialPage;
+    setLayout(migrateLayout(dashboard.layoutJson), page);
   }, [dashboard, setLayout, initialPage, storeLoaded]);
 
   // View mode renders the server's layout, edit mode the store's working copy.

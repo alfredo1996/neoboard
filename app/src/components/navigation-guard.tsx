@@ -22,7 +22,6 @@ export function NavigationGuardProvider({
 }: Readonly<{ children: React.ReactNode }>) {
   const {
     showNavWarning,
-    setShowNavWarning,
     returnFocusTo,
     confirmNavigation,
     cancelNavigation,
@@ -35,9 +34,9 @@ export function NavigationGuardProvider({
       {children}
       <ConfirmDialog
         open={showNavWarning}
-        onOpenChange={(open) =>
-          open ? setShowNavWarning(true) : cancelNavigation()
-        }
+        onOpenChange={(open) => {
+          if (!open) cancelNavigation();
+        }}
         action="Leave without saving"
         consequences="Your unsaved changes are lost."
         cancelText="Stay"

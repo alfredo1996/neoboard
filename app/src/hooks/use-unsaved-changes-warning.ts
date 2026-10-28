@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboard-store";
 
 /**
@@ -54,8 +55,18 @@ export function useUnsavedChangesWarning() {
   // so the marker goes with the entry.
   // ponytail: a held entry left under a saved editor makes Back look dead once;
   // removing it would race the router.push that follows a save.
+  // Next rewrites history.state on every router.replace and drops the marker
+  // while the entry stays: heldRef knows the entry is ours, so it is re-marked
+  // instead of a second one pushed. Cleared when the entry is popped or the
+  // route changes.
   const isHeld = () => window.history.state?.__nbGuard === true;
+  const heldRef = useRef<string | null>(null);
+  const pathname = usePathname();
+  useEffect(() => {
+    heldRef.current = null;
+  }, [pathname]);
   const pushSentinel = useCallback(() => {
+    heldRef.current = window.location.pathname;
     window.history.pushState(
       { ...window.history.state, __nbGuard: true },
       "",
@@ -65,21 +76,37 @@ export function useUnsavedChangesWarning() {
 
   useEffect(() => {
     return useDashboardStore.subscribe(() => {
-      if (hasUnsavedChanges() && !isHeld()) pushSentinel();
+      if (!hasUnsavedChanges() || isHeld()) return;
+      if (heldRef.current !== window.location.pathname) pushSentinel();
+      else {
+        window.history.replaceState(
+          { ...window.history.state, __nbGuard: true },
+          "",
+          window.location.href,
+        );
+      }
     });
   }, [hasUnsavedChanges, pushSentinel]);
 
   useEffect(() => {
     const handler = () => {
-      // Our own back() after "Leave" lands here too: let it through, once.
+      // Our own URL leave lands here too: let it through, once.
       if (navigatingRef.current) {
         navigatingRef.current = false;
         return;
       }
+      const heldPath = heldRef.current;
+      heldRef.current = null;
       // A dialog dismissed by Escape leaves its exit behind: forget it.
       pendingUrl.current = null;
       pendingLeave.current = null;
-      if (hasUnsavedChanges()) warn();
+      if (!hasUnsavedChanges()) return;
+      // Back twice popped past the editor too: that is a Leave, not a question.
+      if (heldPath !== null && window.location.pathname !== heldPath) {
+        useDashboardStore.getState().reset();
+        return;
+      }
+      warn();
     };
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
@@ -116,20 +143,25 @@ export function useUnsavedChangesWarning() {
   // User confirmed: proceed with navigation
   const confirmNavigation = useCallback(() => {
     setShowNavWarning(false);
-    navigatingRef.current = true; // Bypass native beforeunload dialog
     const url = pendingUrl.current;
     const onLeave = pendingLeave.current;
     pendingUrl.current = null;
     pendingLeave.current = null;
     if (onLeave) {
-      void onLeave();
+      navigatingRef.current = true; // Bypass native beforeunload dialog
+      Promise.resolve(onLeave()).catch(() => {
+        navigatingRef.current = false;
+      });
     } else if (url) {
+      navigatingRef.current = true;
       // Full-page navigation bypasses any SPA interceptors
       window.location.href = url;
     } else {
       // Back: the held entry is already popped. The workspace stays mounted
       // across the view route: empty the store and it reloads the server copy
       // (savedLayout can be stale: a version bump is skipped while dirty).
+      // No navigatingRef: the store is clean, so the landing popstate is quiet
+      // and a back() that goes nowhere leaves nothing unguarded.
       useDashboardStore.getState().reset();
       window.history.back();
     }

@@ -675,6 +675,15 @@ describe("DashboardWorkspace", () => {
     );
   });
 
+  it("a Back, Leave keeps the page the user was editing (#2325)", () => {
+    pathname = "/d1/edit";
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    act(() => useDashboardStore.getState().setActivePage(2));
+    act(() => useDashboardStore.getState().renamePage(2, "Unsaved"));
+    act(() => useDashboardStore.getState().reset());
+    expect(useDashboardStore.getState().activePageIndex).toBe(2);
+  });
+
   // ── mode-specific chrome ────────────────────────────────────────────
   it("renders edit chrome in edit mode", () => {
     pathname = "/d1/edit";
