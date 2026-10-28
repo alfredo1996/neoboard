@@ -183,14 +183,16 @@ function OptionField({
       );
     }
 
-    case "number":
+    case "number": {
+      const current = value ?? option.default;
+      let shown = option.placeholder ? "" : "0";
+      if (typeof current === "number" || typeof current === "string")
+        shown = String(current);
       return (
         <Field id={option.key} label={option.label} help={option.description}>
           <Input
             type="number"
-            value={String(
-              value ?? option.default ?? (option.placeholder ? "" : 0),
-            )}
+            value={shown}
             placeholder={option.placeholder}
             onChange={(e) => {
               // Number("") is 0 — clearing the field would silently
@@ -206,6 +208,7 @@ function OptionField({
           />
         </Field>
       );
+    }
 
     default:
       return null;
