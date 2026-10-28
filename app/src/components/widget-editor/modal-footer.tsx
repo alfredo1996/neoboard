@@ -70,7 +70,11 @@ export function ModalFooter({
       {isLabMode ? (
         <LoadingButton
           type="button"
-          disabled={!labName.trim() || (!isContentOnly && !query.trim())}
+          disabled={
+            !labName.trim() ||
+            !chartType ||
+            (!isContentOnly && (!connectionId || !query.trim()))
+          }
           loading={labSaving}
           loadingText="Saving..."
           onClick={onLabSave}
@@ -81,7 +85,8 @@ export function ModalFooter({
         <LoadingButton
           type="button"
           disabled={
-            isParamSelect
+            !chartType ||
+            (isParamSelect
               ? !paramWidgetName.trim() ||
                 (paramUIType === "select" &&
                   (!connectionId ||
@@ -90,7 +95,7 @@ export function ModalFooter({
                 ? false
                 : isForm
                   ? !connectionId || !query.trim()
-                  : !query.trim()
+                  : !connectionId || !query.trim())
           }
           loading={saveStatus === "saving"}
           loadingText="Saving..."

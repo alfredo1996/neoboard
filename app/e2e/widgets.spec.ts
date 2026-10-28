@@ -57,6 +57,43 @@ test.describe("Widget creation", () => {
     await expect(dialog).not.toBeVisible();
   });
 
+  test("re-picking the shown chart type and connection keeps both (#2326)", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add Widget" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    const connection = dialog.getByRole("combobox").nth(0);
+    const chartType = dialog.getByRole("combobox").nth(1);
+
+    await connection.click();
+    await page.getByRole("option").first().click();
+    const connectionName = (await connection.textContent()) ?? "";
+    expect(connectionName).not.toContain("Select a connection");
+    await expect(chartType).toHaveText(/Bar Chart/);
+
+    await chartType.click();
+    await page.getByRole("option", { name: "Bar Chart", exact: true }).click();
+    await expect(chartType).toHaveText(/Bar Chart/);
+
+    await connection.click();
+    await page
+      .getByRole("option", { name: connectionName.trim() })
+      .first()
+      .click();
+    await expect(connection).not.toHaveText(/Select a connection/);
+    await expect(dialog.getByText("Unknown chart type")).toHaveCount(0);
+
+    await typeInEditor(
+      dialog,
+      page,
+      "MATCH (m:Movie) RETURN m.title AS label, m.released AS value LIMIT 5",
+    );
+    const add = dialog.getByRole("button", { name: "Add Widget", exact: true });
+    await expect(add).toBeEnabled();
+    await add.click();
+    await expect(dialog).not.toBeVisible();
+  });
+
   test("should add a table widget", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });

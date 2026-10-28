@@ -487,6 +487,27 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 400 when a widget has an empty chartType (#2326)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const layout = {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Page 1",
+          widgets: [{ id: "w1", chartType: "", connectionId: "c", query: "q" }],
+          gridLayout: [],
+        },
+      ],
+    };
+    const res = await PUT(
+      makeRequest({ layoutJson: layout }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("accepts refreshIntervalSeconds of 5 (minimum)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
