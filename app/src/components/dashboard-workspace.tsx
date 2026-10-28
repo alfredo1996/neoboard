@@ -18,7 +18,7 @@ import { getShownWidgetQueryData } from "@/hooks/use-widget-query";
 import { PREVIEW_ROW_LIMIT } from "@/components/widget-editor/use-auto-preview";
 import { useConnections } from "@/hooks/use-connections";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
-import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useNavigationGuard } from "@/components/navigation-guard";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import {
   useParameterStore,
@@ -60,7 +60,6 @@ import {
   Alert,
   AlertDescription,
   Button,
-  ConfirmDialog,
   EmptyState,
   focusedMenuTrigger,
   Skeleton,
@@ -627,14 +626,7 @@ export function DashboardWorkspace({
   );
 
   // ── Navigation ──────────────────────────────────────────────────────
-  const {
-    showNavWarning,
-    setShowNavWarning,
-    returnFocusTo: navWarningOpener,
-    confirmNavigation,
-    cancelNavigation,
-    requestNavigation,
-  } = useUnsavedChangesWarning();
+  const requestNavigation = useNavigationGuard();
 
   const [isPending, startTransition] = useTransition();
 
@@ -969,17 +961,6 @@ export function DashboardWorkspace({
           </div>
         </div>
       </DashboardErrorBoundary>
-
-      <ConfirmDialog
-        open={showNavWarning}
-        onOpenChange={setShowNavWarning}
-        action="Leave without saving"
-        consequences={`Your changes to ${dashboard?.name ?? "this dashboard"} are lost.`}
-        cancelText="Stay"
-        onConfirm={confirmNavigation}
-        onCancel={cancelNavigation}
-        returnFocusTo={navWarningOpener}
-      />
 
       {children}
     </div>

@@ -437,6 +437,7 @@ vi.mock("@neoboard/components", () => {
 /* ---------- import under test ---------- */
 
 import { DashboardWorkspace } from "../dashboard-workspace";
+import { NavigationGuardProvider } from "../navigation-guard";
 
 // What `focusedMenuTrigger()` finds: the widget card's menu button.
 const menuTrigger = document.body.appendChild(document.createElement("button"));
@@ -1204,7 +1205,11 @@ describe("DashboardWorkspace", () => {
 
   it("Cmd+E out of edit mode is blocked by unsaved changes", () => {
     pathname = "/d1/edit";
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    render(
+      <NavigationGuardProvider>
+        <DashboardWorkspace id="d1" editMode={true} />
+      </NavigationGuardProvider>,
+    );
     useDashboardStore.getState().renamePage(0, "Dirty");
 
     fireEvent.keyDown(document, { key: "e", metaKey: true });
@@ -1988,7 +1993,11 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
   });
 
   it("Stay on the unsaved-changes guard: on the dashboard crumb", async () => {
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    render(
+      <NavigationGuardProvider>
+        <DashboardWorkspace id="d1" editMode={true} />
+      </NavigationGuardProvider>,
+    );
     act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
     await userEvent.click(screen.getByRole("link", { name: "Sales" }));
@@ -2007,7 +2016,11 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
   ])(
     "Stay on the unsaved-changes guard, asked again by %s: on the dashboard crumb",
     async (_, askAgain) => {
-      render(<DashboardWorkspace id="d1" editMode={true} />);
+      render(
+        <NavigationGuardProvider>
+          <DashboardWorkspace id="d1" editMode={true} />
+        </NavigationGuardProvider>,
+      );
       act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
       await userEvent.click(screen.getByRole("link", { name: "Sales" }));
@@ -2028,13 +2041,21 @@ describe("DashboardWorkspace — the Dashboards crumb in edit mode", () => {
   });
 
   it("goes to the list at once when nothing is unsaved", async () => {
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    render(
+      <NavigationGuardProvider>
+        <DashboardWorkspace id="d1" editMode={true} />
+      </NavigationGuardProvider>,
+    );
     await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
     expect(mockPush).toHaveBeenCalledWith("/");
   });
 
   it("asks first (Stay) when edits are unsaved, and does not go yet", async () => {
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    render(
+      <NavigationGuardProvider>
+        <DashboardWorkspace id="d1" editMode={true} />
+      </NavigationGuardProvider>,
+    );
     act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
     await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
