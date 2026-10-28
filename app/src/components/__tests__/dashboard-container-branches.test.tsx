@@ -706,7 +706,7 @@ describe("DashboardContainer — filter line", () => {
   });
 
   it("hides the line when the stored preference is off", () => {
-    localStorage.setItem("neoboard:filter-bar", "off");
+    localStorage.setItem("neoboard-filter-bar", "off");
     parametersState.parameters = {
       status: { field: "status", value: "active" },
     };
@@ -716,7 +716,7 @@ describe("DashboardContainer — filter line", () => {
         screen.queryByRole("region", { name: "Active filters" }),
       ).toBeNull();
     } finally {
-      localStorage.removeItem("neoboard:filter-bar");
+      localStorage.removeItem("neoboard-filter-bar");
     }
   });
 

@@ -86,14 +86,19 @@ test("the header lists every filter, clears one and jumps to a selector", async 
       .getByRole("button", { name: "Clear Filter 1", exact: true })
       .click();
     await expect(button.getByLabel(`${SET - 1} set`)).toBeVisible();
-    await expect(rows.filter({ hasText: "Filter 1" }).last()).toContainText(
-      "Any",
-    );
+    await expect(
+      rows.filter({
+        has: page.getByRole("button", {
+          name: "Go to Filter 1 selector",
+          exact: true,
+        }),
+      }),
+    ).toContainText("Any");
 
     // Jump: the list closes and the selector's card is highlighted.
     await list
       .getByRole("button", {
-        name: "Go to Filter 5 selector on Page 1",
+        name: "Go to Filter 5 selector",
         exact: true,
       })
       .click();
@@ -184,7 +189,6 @@ test("the filter bar can be hidden from the Filters menu, and stays hidden", asy
       .click();
     await expect(strip(page)).toBeVisible();
   } finally {
-    await page.evaluate(() => localStorage.removeItem("neoboard:filter-bar"));
     await cleanup();
   }
 });

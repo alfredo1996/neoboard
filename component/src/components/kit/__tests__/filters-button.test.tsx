@@ -11,6 +11,7 @@ const item = (
   label: `Filter ${i}`,
   value,
   where: `on Page ${i}`,
+  onSelect: () => {},
   ...extra,
 });
 
@@ -91,7 +92,9 @@ describe("FiltersButton", () => {
   it("jumps to a filter's selector and closes", () => {
     const onSelect = vi.fn();
     open([item(1, "a", { onSelect })]);
-    fireEvent.click(screen.getByRole("button", { name: /^Go to Filter 1 / }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Go to Filter 1 selector" }),
+    );
     expect(onSelect).toHaveBeenCalledOnce();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -148,19 +151,11 @@ describe("FiltersButton", () => {
     expect(screen.getByText("No filter matches")).toBeInTheDocument();
   });
 
-  it("truncates a long value and keeps its full text in the title", () => {
-    open([item(1, "a very long value")]);
-    expect(screen.getByText("a very long value")).toHaveAttribute(
-      "title",
-      "a very long value",
-    );
-  });
-
   it("keeps focus on the row after its × is pressed, since the row turns into Any", () => {
     open([item(1, "a"), item(2, "b")]);
     fireEvent.click(screen.getByRole("button", { name: "Clear Filter 2" }));
     expect(
-      screen.getByRole("button", { name: /^Go to Filter 2 / }),
+      screen.getByRole("button", { name: "Go to Filter 2 selector" }),
     ).toHaveFocus();
   });
 
@@ -174,20 +169,39 @@ describe("FiltersButton", () => {
     // The app sorts set filters first, so the cleared row changes group.
     rerender(<FiltersButton items={[item(2, "b"), item(1)]} {...props} />);
     expect(
-      screen.getByRole("button", { name: /^Go to Filter 1 / }),
+      screen.getByRole("button", { name: "Go to Filter 1 selector" }),
     ).toHaveFocus();
   });
 
-  it("names each row's jump button with its filter and where it sits", () => {
-    open([item(1, "a")]);
+  it("names the jump button short and describes it with the value and where", () => {
+    open([item(1, "1990s")]);
+    const jump = screen.getByRole("button", {
+      name: "Go to Filter 1 selector",
+    });
+    expect(jump).toHaveAccessibleName("Go to Filter 1 selector");
+    expect(jump).toHaveAccessibleDescription("1990s on Page 1");
+  });
+
+  it("puts the full value in the jump button's title, since it covers the row", () => {
+    open([item(1, "a very long value")]);
     expect(
-      screen.getByRole("button", { name: "Go to Filter 1 selector on Page 1" }),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Go to Filter 1 selector" }),
+    ).toHaveAttribute("title", "Filter 1: a very long value");
+  });
+
+  it("offers no jump, arrow or Go to name on a row that cannot jump", () => {
+    open([item(1, "a", { onSelect: undefined })]);
+    expect(screen.queryByRole("button", { name: /^Go to/ })).toBeNull();
+    const li = screen.getByRole("listitem");
+    expect(li.querySelector("[data-filter-arrow]")).toBeNull();
+    expect(li).toHaveTextContent("Filter 1");
   });
 
   it("hides the → from assistive tech", () => {
     open([item(1, "a")]);
-    const jump = screen.getByRole("button", { name: /^Go to Filter 1 / });
+    const jump = screen.getByRole("button", {
+      name: "Go to Filter 1 selector",
+    });
     expect(
       jump.closest("li")!.querySelector("[data-filter-arrow]"),
     ).toHaveAttribute("aria-hidden", "true");

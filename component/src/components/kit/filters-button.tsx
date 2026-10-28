@@ -46,6 +46,10 @@ function FilterRow({
   onClear: (id: string) => void;
 }>) {
   const value = i.value ?? "Any";
+  const valueId = React.useId();
+  const whereId = React.useId();
+  const labelClass =
+    "truncate text-left text-sm font-medium focus-visible:outline-none";
   return (
     <li
       key={i.id}
@@ -53,21 +57,30 @@ function FilterRow({
       // button is stretched over the row (its ::after) and the × sits above it.
       className="relative grid grid-cols-[minmax(0,1fr)_8.5rem_1.25rem_1rem] items-center gap-x-2 border-b border-card-edge px-3 py-2 hover:bg-active"
     >
-      <button
-        type="button"
-        data-filter-id={i.id}
-        aria-label={`Go to ${i.label} selector${i.where ? ` ${i.where}` : ""}`}
-        onClick={() => {
-          onClose();
-          i.onSelect?.();
-        }}
-        className="truncate text-left text-sm font-medium focus-visible:outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
-      >
-        {i.label}
-      </button>
+      {i.onSelect ? (
+        <button
+          type="button"
+          data-filter-id={i.id}
+          aria-label={`Go to ${i.label} selector`}
+          aria-describedby={`${valueId} ${whereId}`}
+          // The ::after covers the row, so hovering the value hits this button.
+          title={`${i.label}: ${value}`}
+          onClick={() => {
+            onClose();
+            i.onSelect?.();
+          }}
+          className={`${labelClass} after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring`}
+        >
+          {i.label}
+        </button>
+      ) : (
+        <span data-filter-id={i.id} tabIndex={-1} className={labelClass}>
+          {i.label}
+        </span>
+      )}
       <span
+        id={valueId}
         data-filter-value
-        title={value}
         className={`truncate text-sm${i.value === undefined ? " text-muted-foreground" : ""}`}
       >
         {value}
@@ -79,7 +92,9 @@ function FilterRow({
           onClick={(e) => {
             // The row turns into "Any" and may move to another group, which
             // remounts it: the parent refocuses it once the items change.
-            e.currentTarget.parentElement?.querySelector("button")?.focus();
+            e.currentTarget.parentElement
+              ?.querySelector<HTMLElement>("[data-filter-id]")
+              ?.focus();
             onClear(i.id);
           }}
           className="relative z-10 col-start-3 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -87,13 +102,15 @@ function FilterRow({
           <X className="h-3 w-3" aria-hidden />
         </button>
       )}
-      <ArrowRight
-        data-filter-arrow
-        aria-hidden
-        className="col-start-4 h-4 w-4 text-muted-foreground"
-      />
+      {i.onSelect && (
+        <ArrowRight
+          data-filter-arrow
+          aria-hidden
+          className="col-start-4 h-4 w-4 text-muted-foreground"
+        />
+      )}
       {i.where && (
-        <span className="col-span-4 text-xs text-muted-foreground">
+        <span id={whereId} className="col-span-4 text-xs text-muted-foreground">
           {i.where}
         </span>
       )}

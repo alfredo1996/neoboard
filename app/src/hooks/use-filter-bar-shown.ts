@@ -3,7 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 /** One app-wide key: the choice follows the user across dashboards (#2351). */
-export const FILTER_BAR_KEY = "neoboard:filter-bar";
+export const FILTER_BAR_KEY = "neoboard-filter-bar";
 
 const listeners = new Set<() => void>();
 // Only set when localStorage refuses a write, so the switch still works in this tab.

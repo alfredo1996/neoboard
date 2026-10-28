@@ -24,7 +24,7 @@ const items: FiltersButtonItem[] = Array.from({ length: 14 }, (_, i) => {
     id: `f${i}`,
     label: `${label} ${i + 1}`,
     value: VALUES[i % VALUES.length],
-    where: i % 3 === 0 ? "on 5. Geographic" : `${label} selector · Overview`,
+    where: i % 3 === 0 ? "on 5. Geographic" : `${label} by year on Overview`,
     onSelect: () => {},
   };
 });
@@ -81,6 +81,20 @@ export const ManyFilters: Story = {
       const c = clear.getBoundingClientRect();
       expect(c.top + c.height / 2).toBeGreaterThan(v.top);
       expect(c.top + c.height / 2).toBeLessThan(v.bottom);
+    }
+    // The jump button covers each value, so a truncated value's full text is
+    // that button's title (a title on the value itself is never reached).
+    for (const el of Array.from(
+      menu.querySelectorAll<HTMLElement>("[data-filter-value]"),
+    )) {
+      el.scrollIntoView({ block: "center" });
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        r.left + r.width / 2,
+        r.top + r.height / 2,
+      );
+      const title = hit?.closest("button")?.getAttribute("title");
+      expect(title).toContain(el.textContent);
     }
   },
 };
