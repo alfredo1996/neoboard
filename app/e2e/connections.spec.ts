@@ -192,7 +192,7 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-name").fill(name);
     await dialog
       .locator("#conn-uri")
-      .fill("bolt://reader@address-e2e.invalid:7687?token=zzz");
+      .fill("bolt://reader@address-e2e.invalid:7687?policy=zzz");
     await dialog.locator("#conn-username").fill("neo4j");
     await dialog.locator("#conn-password").fill("neoboard123");
     await dialog.getByRole("button", { name: "Create", exact: true }).click();
