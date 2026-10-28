@@ -257,11 +257,12 @@ describe("POST /api/dashboards/import", () => {
     // mapping targets by caller + tenant, the name clash by tenant, and the
     // new row is stamped with the session tenant.
     const [connExpr] = connectionsChain.calls.where[0];
+    // The same rule /api/query applies (#2327): own or shared, in the tenant.
     expect(sqlColumns(connExpr)).toEqual(
-      expect.arrayContaining(["id", "userId", "tenant_id"]),
+      expect.arrayContaining(["id", "userId", "visibility", "tenant_id"]),
     );
     expect(sqlValues(connExpr)).toEqual(
-      expect.arrayContaining(["real-conn-id", "user-1", "tenant-1"]),
+      expect.arrayContaining(["real-conn-id", "user-1", "shared", "tenant-1"]),
     );
     const [usableExpr] = usableChain.calls.where[0];
     expect(sqlColumns(usableExpr)).toEqual(
@@ -281,6 +282,33 @@ describe("POST /api/dashboards/import", () => {
       tenantId: "tenant-1",
       userId: "user-1",
     });
+  });
+
+  it("lets an admin map onto any connection in the tenant (#2327)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
+    const connectionsChain = makeSelectChain([
+      { id: "other-private", type: "neo4j" },
+    ]);
+    mockDb.select.mockReturnValueOnce(connectionsChain);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(
+      makeInsertChain([{ id: "new-dash", name: "Imported Dashboard" }]),
+    );
+
+    const res = await POST(
+      makeRequest({
+        payload: VALID_PAYLOAD,
+        connectionMapping: { conn_0: "other-private" },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const [connExpr] = connectionsChain.calls.where[0];
+    expect(sqlColumns(connExpr)).toEqual(
+      expect.arrayContaining(["id", "tenant_id"]),
+    );
+    expect(sqlColumns(connExpr)).not.toContain("userId");
+    expect(sqlColumns(connExpr)).not.toContain("visibility");
   });
 
   it("records a dashboard.import audit entry (#1234)", async () => {
