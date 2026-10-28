@@ -104,7 +104,7 @@ const editorOf = (root: HTMLElement) =>
 const darkProject = () => matchMedia("(prefers-color-scheme: dark)").matches;
 
 export const FollowsTheme: Story = {
-  // #1676: the CodeMirror content has no accessible name once it has mounted
+  // #2345: the query editor has no accessible name
   parameters: { a11y: { test: "todo" } },
   args: { language: "sql", defaultValue: "SELECT 1;" },
   play: async ({ canvasElement }) => {
@@ -128,7 +128,7 @@ export const FollowsTheme: Story = {
 };
 
 export const FillsItsFrame: Story = {
-  // #1676: the CodeMirror content has no accessible name once it has mounted
+  // #2345: the query editor has no accessible name
   parameters: { a11y: { test: "todo" } },
   args: {
     language: "sql",

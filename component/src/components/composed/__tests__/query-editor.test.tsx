@@ -111,6 +111,10 @@ vi.mock("@codemirror/theme-one-dark", () => ({
   oneDarkHighlightStyle: { type: "oneDarkHighlight" },
 }));
 
+vi.mock("../query-editor-highlight", () => ({
+  lightHighlightStyle: { type: "lightHighlight" },
+}));
+
 vi.mock("@codemirror/language", () => ({
   defaultHighlightStyle: { type: "defaultHighlight" },
   syntaxHighlighting: (style: unknown) => ({ type: "highlight", style }),
@@ -410,38 +414,79 @@ describe("QueryEditor — readOnly", () => {
     expect(screen.getByText("Run")).toBeInTheDocument();
   });
 
+  // The theme compartment holds [theme({dark}), highlight(style)].
+  type Ext = { dark?: boolean; type?: string; style?: { type: string } };
+  const themeParts = (ext: unknown) =>
+    Array.isArray(ext) ? (ext as Ext[]) : [];
+  const flagOf = (ext: unknown) =>
+    themeParts(ext).find((e) => e.dark !== undefined)?.dark;
+  const styleOf = (ext: unknown) =>
+    themeParts(ext).find((e) => e.type === "highlight")?.style?.type;
+  const initialThemeExt = () =>
+    (lastStateConfig?.extensions as { type?: string; ext?: unknown }[])
+      .filter((e) => e.type === "compartment.of")
+      .map((e) => e.ext)
+      .find((x) => flagOf(x) !== undefined);
+  const reconfiguredThemeExts = () =>
+    mockDispatch.mock.calls
+      .map(([tr]) => (tr as { effects?: { ext?: unknown } }).effects?.ext)
+      .filter((x) => flagOf(x) !== undefined);
+  const setDark = (on: boolean) =>
+    act(async () => {
+      document.documentElement.classList.toggle("dark", on);
+    });
+
   it("themes the editor from <html class>: light first, dark live, same view (#2329)", async () => {
-    // The theme is the compartment holding an array with a `dark`-flagged theme.
-    const darkFlag = (ext: unknown) =>
-      Array.isArray(ext)
-        ? (ext as { dark?: boolean }[]).find((e) => e.dark !== undefined)?.dark
-        : undefined;
     document.documentElement.classList.remove("dark");
     render(<QueryEditor language="sql" />);
     await flushAsync();
 
-    const initial = (
-      lastStateConfig?.extensions as { type?: string; ext?: unknown }[]
-    )
-      .filter((e) => e.type === "compartment.of")
-      .map((e) => darkFlag(e.ext))
-      .find((d) => d !== undefined);
-    expect(initial).toBe(false);
+    expect(flagOf(initialThemeExt())).toBe(false);
+    expect(styleOf(initialThemeExt())).toBe("lightHighlight");
 
     mockDispatch.mockClear();
     mockDestroy.mockClear();
-    await act(async () => {
-      document.documentElement.classList.add("dark");
-    });
+    await setDark(true);
     await flushAsync();
     document.documentElement.classList.remove("dark");
 
-    const switched = mockDispatch.mock.calls
-      .map(([tr]) => (tr as { effects?: { ext?: unknown } }).effects?.ext)
-      .map(darkFlag)
-      .find((d) => d !== undefined);
-    expect(switched).toBe(true);
+    const [switched] = reconfiguredThemeExts();
+    expect(flagOf(switched)).toBe(true);
+    expect(styleOf(switched)).toBe("oneDarkHighlight");
     expect(mockDestroy).not.toHaveBeenCalled();
+  });
+
+  it("reuses the theme extensions across toggles, so no stylesheet is added per toggle (#2329)", async () => {
+    document.documentElement.classList.remove("dark");
+    render(<QueryEditor language="sql" />);
+    await flushAsync();
+    const firstLight = initialThemeExt();
+
+    mockDispatch.mockClear();
+    await setDark(true);
+    await flushAsync();
+    await setDark(false);
+    await flushAsync();
+
+    const light = reconfiguredThemeExts().find((x) => flagOf(x) === false);
+    expect(light).toBe(firstLight);
+  });
+
+  it("applies a theme change that lands while the editor is still starting (#2329)", async () => {
+    document.documentElement.classList.remove("dark");
+    let release: (v: object[]) => void = () => {};
+    mockResolveLanguageExt.mockImplementationOnce(
+      () => new Promise((r) => (release = r)),
+    );
+    render(<QueryEditor language="sql" />);
+    await flushAsync();
+    await setDark(true);
+    await act(async () => release([{ type: "mockLanguageExt" }]));
+    await flushAsync();
+    document.documentElement.classList.remove("dark");
+
+    const last = [initialThemeExt(), ...reconfiguredThemeExts()].pop();
+    expect(flagOf(last)).toBe(true);
   });
 
   it("dispatches compartment reconfigure when readOnly changes", async () => {

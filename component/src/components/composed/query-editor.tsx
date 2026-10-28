@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/charts/use-dark-mode";
 import { resolveLanguageExt } from "@/lib/language-resolvers";
 import type { DatabaseSchema } from "@/lib/schema-transforms";
+import type { Extension } from "@codemirror/state";
 
 // ---------------------------------------------------------------------------
 // CodeMirror type aliases (dynamic imports — never imported at module level
@@ -61,12 +62,27 @@ const token = (name: string, alpha?: number) =>
  * CodeMirror's dark-mode flag and the syntax colours, and is swapped live
  * through a compartment when the app theme changes.
  */
-async function resolveTheme(dark: boolean) {
-  const [{ EditorView }, { defaultHighlightStyle, syntaxHighlighting }, od] =
+// Built once per mode: CodeMirror's style-mod never removes a stylesheet, so a
+// theme rebuilt on every toggle would grow the document's styles each time.
+const themeCache = new Map<boolean, Promise<Extension[]>>();
+
+function resolveTheme(dark: boolean) {
+  let theme = themeCache.get(dark);
+  if (!theme) {
+    theme = buildTheme(dark);
+    themeCache.set(dark, theme);
+    theme.catch(() => themeCache.delete(dark));
+  }
+  return theme;
+}
+
+async function buildTheme(dark: boolean): Promise<Extension[]> {
+  const [{ EditorView }, { syntaxHighlighting }, od, { lightHighlightStyle }] =
     await Promise.all([
       import("@codemirror/view"),
       import("@codemirror/language"),
       import("@codemirror/theme-one-dark"),
+      import("./query-editor-highlight"),
     ]);
   return [
     EditorView.theme(
@@ -101,7 +117,7 @@ async function resolveTheme(dark: boolean) {
       },
       { dark },
     ),
-    syntaxHighlighting(dark ? od.oneDarkHighlightStyle : defaultHighlightStyle),
+    syntaxHighlighting(dark ? od.oneDarkHighlightStyle : lightHighlightStyle),
   ];
 }
 
@@ -348,7 +364,8 @@ function QueryEditor({
       placeholderCompartmentRef.current = placeholderCompartment;
       const themeCompartment = new Compartment();
       themeCompartmentRef.current = themeCompartment;
-      const themeExt = await resolveTheme(darkRef.current);
+      const initialDark = darkRef.current;
+      const themeExt = await resolveTheme(initialDark);
       if (abortSignal.aborted) return;
 
       // Capture the schema at the start — it may change while we await imports.
@@ -400,6 +417,22 @@ function QueryEditor({
           })
           .catch(() => {
             // Defensive: dynamic import or language extension init can fail
+          });
+      }
+
+      // Same for the theme: the [dark] effect skips while the view is null.
+      if (darkRef.current !== initialDark) {
+        const view = viewRef.current;
+        await resolveTheme(darkRef.current)
+          .then((ext) => {
+            if (!abortSignal.aborted && viewRef.current === view) {
+              view.dispatch({
+                effects: themeCompartment.reconfigure(ext),
+              });
+            }
+          })
+          .catch(() => {
+            // Defensive: dynamic import can fail
           });
       }
 

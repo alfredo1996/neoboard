@@ -89,11 +89,24 @@ test.describe("Query editor maximize (#1374)", () => {
   test("the query pane follows the theme and fills its frame (#2329)", async ({
     page,
   }) => {
-    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    const dialog = page.getByRole("dialog", {
+      name: "Add Widget",
+      exact: true,
+    });
     const frame = dialog.locator("[data-testid='codemirror-container']");
     const cm = frame.locator(".cm-editor");
     await expect(frame).toHaveAttribute("data-editor-ready", "true");
     const bg = () => cm.evaluate((el) => getComputedStyle(el).backgroundColor);
+    // The dialog's own field colour, resolved by the browser from the token.
+    const field = () =>
+      cm.evaluate((el) => {
+        const probe = document.createElement("div");
+        probe.style.backgroundColor = "hsl(var(--field))";
+        el.parentElement?.appendChild(probe);
+        const c = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return c;
+      });
     const setDark = (on: boolean) =>
       page.evaluate(
         (d) => document.documentElement.classList.toggle("dark", d),
@@ -101,10 +114,12 @@ test.describe("Query editor maximize (#1374)", () => {
       );
 
     await setDark(false);
-    await expect.poll(bg).not.toBe("rgb(40, 44, 52)");
-    const light = await bg();
+    const light = await field();
+    await expect.poll(bg).toBe(light);
     await setDark(true);
-    await expect.poll(bg).not.toBe(light);
+    const dark = await field();
+    expect(dark).not.toBe(light);
+    await expect.poll(bg).toBe(dark);
     await setDark(false);
     await expect.poll(bg).toBe(light);
 
