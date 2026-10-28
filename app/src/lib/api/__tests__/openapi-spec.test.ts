@@ -1129,6 +1129,10 @@ describe("#1981 payloads: dashboards-export-import", () => {
       /no connection id, config or credential is in the file/,
     );
     expect(exportOp.description).toMatch(/layout is null or has no pages/);
+    // A shared connection exports like an owned one since #2000; the text
+    // said otherwise until the import rule changed in #2327.
+    expect(exportOp.description).not.toMatch(/does not own/);
+    expect(exportOp.description).toMatch(/shared in the tenant/);
     expect(Object.keys(exportOp.responses).sort()).toEqual([
       "200",
       "401",

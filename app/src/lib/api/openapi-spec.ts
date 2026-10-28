@@ -554,8 +554,8 @@ const SPEC = {
           "Anyone who can view the dashboard can export it: its owner, anyone it is shared with, any tenant user when it is " +
           "public, and admins; anyone else gets 404, never 403. Each connection a widget uses becomes a key (`conn_0`, `conn_1`, …) " +
           "naming only its connector type and name; no connection id, config or credential is in the file. " +
-          "The export answers 500 when a widget names a connection that no longer exists or, for anyone but an admin, " +
-          "one the caller does not own (a shared one included), or when the stored layout is null or has no pages.",
+          "A widget's connection is exported by name and type whether it is the caller's own or one shared in the tenant (#2000). " +
+          "The export answers 500 when a widget names a connection that no longer exists, or when the stored layout is null or has no pages.",
         responses: {
           200: {
             description:
