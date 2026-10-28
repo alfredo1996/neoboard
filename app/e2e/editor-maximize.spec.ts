@@ -86,6 +86,36 @@ test.describe("Query editor maximize (#1374)", () => {
     await page.getByRole("option").first().click();
   });
 
+  test("the query pane follows the theme and fills its frame (#2329)", async ({
+    page,
+  }) => {
+    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    const frame = dialog.locator("[data-testid='codemirror-container']");
+    const cm = frame.locator(".cm-editor");
+    await expect(frame).toHaveAttribute("data-editor-ready", "true");
+    const bg = () => cm.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const setDark = (on: boolean) =>
+      page.evaluate(
+        (d) => document.documentElement.classList.toggle("dark", d),
+        on,
+      );
+
+    await setDark(false);
+    await expect.poll(bg).not.toBe("rgb(40, 44, 52)");
+    const light = await bg();
+    await setDark(true);
+    await expect.poll(bg).not.toBe(light);
+    await setDark(false);
+    await expect.poll(bg).toBe(light);
+
+    // Empty query: no band between the code and the frame's bottom edge.
+    const [frameBox, cmBox] = [
+      await frame.boundingBox(),
+      await cm.boundingBox(),
+    ];
+    expect(Math.abs(frameBox!.height - cmBox!.height)).toBeLessThanOrEqual(1);
+  });
+
   test("more than doubles the editor height on open and unmounts the preview", async ({
     page,
   }) => {

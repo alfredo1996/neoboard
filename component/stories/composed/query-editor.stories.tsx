@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
+import { expect, waitFor } from "storybook/test";
 import { QueryEditor } from "@/components/composed/query-editor";
 
 const meta = {
@@ -92,6 +93,61 @@ export const Interactive: Story = {
         history={history}
         language="cypher"
       />
+    );
+  },
+};
+
+// #2329: the editor is the dialog's own field ground, not a dark slab.
+const DARK_SLAB = "rgb(40, 44, 52)"; // oneDark's #282C34
+const editorOf = (root: HTMLElement) =>
+  root.querySelector<HTMLElement>(".cm-editor") as HTMLElement;
+const darkProject = () => matchMedia("(prefers-color-scheme: dark)").matches;
+
+export const FollowsTheme: Story = {
+  // #1676: the CodeMirror content has no accessible name once it has mounted
+  parameters: { a11y: { test: "todo" } },
+  args: { language: "sql", defaultValue: "SELECT 1;" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(editorOf(canvasElement)).toBeTruthy());
+    const bg = () => getComputedStyle(editorOf(canvasElement)).backgroundColor;
+    const html = document.documentElement;
+    const was = html.classList.contains("dark");
+    if (darkProject()) {
+      expect(bg()).not.toBe("rgb(255, 255, 255)");
+    } else {
+      expect(bg()).not.toBe(DARK_SLAB);
+    }
+    // Toggling the class at runtime re-themes the same editor (#1583).
+    const field = bg();
+    html.classList.toggle("dark", !was);
+    await waitFor(() => expect(bg()).not.toBe(field));
+    expect(editorOf(canvasElement).classList.contains("cm-editor")).toBe(true);
+    html.classList.toggle("dark", was);
+    await waitFor(() => expect(bg()).toBe(field));
+  },
+};
+
+export const FillsItsFrame: Story = {
+  // #1676: the CodeMirror content has no accessible name once it has mounted
+  parameters: { a11y: { test: "todo" } },
+  args: {
+    language: "sql",
+    defaultValue: "SELECT 1;",
+    className: "min-h-[300px]",
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(editorOf(canvasElement)).toBeTruthy());
+    const box = canvasElement.querySelector<HTMLElement>(
+      '[data-testid="codemirror-container"]',
+    ) as HTMLElement;
+    // No empty band under the code: the editor is as tall as its container.
+    await waitFor(() =>
+      expect(
+        Math.abs(
+          editorOf(canvasElement).getBoundingClientRect().height -
+            box.getBoundingClientRect().height,
+        ),
+      ).toBeLessThanOrEqual(1),
     );
   },
 };

@@ -39,6 +39,8 @@ let capturedUpdateListener:
     }) => void)
   | null = null;
 
+let lastStateConfig: { extensions: unknown[] } | null = null;
+
 vi.mock("@codemirror/view", () => {
   class FakeEditorView {
     state = { doc: { toString: () => "", length: 0 } };
@@ -59,7 +61,10 @@ vi.mock("@codemirror/view", () => {
           return { type: "updateListener" };
         },
       },
-      theme: () => ({ type: "theme" }),
+      theme: (_spec: unknown, opts?: { dark?: boolean }) => ({
+        type: "theme",
+        dark: opts?.dark,
+      }),
     }),
     keymap: {
       of: () => ({ type: "keymap" }),
@@ -70,7 +75,10 @@ vi.mock("@codemirror/view", () => {
 
 vi.mock("@codemirror/state", () => ({
   EditorState: {
-    create: (config: unknown) => ({ type: "state", config }),
+    create: (config: unknown) => {
+      lastStateConfig = config as { extensions: unknown[] };
+      return { type: "state", config };
+    },
     readOnly: { of: (v: boolean) => ({ type: "readOnly", value: v }) },
   },
   Compartment: class MockCompartment {
@@ -100,7 +108,12 @@ vi.mock("@codemirror/autocomplete", () => ({
 }));
 
 vi.mock("@codemirror/theme-one-dark", () => ({
-  oneDark: { type: "oneDark" },
+  oneDarkHighlightStyle: { type: "oneDarkHighlight" },
+}));
+
+vi.mock("@codemirror/language", () => ({
+  defaultHighlightStyle: { type: "defaultHighlight" },
+  syntaxHighlighting: (style: unknown) => ({ type: "highlight", style }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -395,6 +408,40 @@ describe("QueryEditor — readOnly", () => {
     render(<QueryEditor readOnly value="MATCH (n) RETURN n" />);
     await flushAsync();
     expect(screen.getByText("Run")).toBeInTheDocument();
+  });
+
+  it("themes the editor from <html class>: light first, dark live, same view (#2329)", async () => {
+    // The theme is the compartment holding an array with a `dark`-flagged theme.
+    const darkFlag = (ext: unknown) =>
+      Array.isArray(ext)
+        ? (ext as { dark?: boolean }[]).find((e) => e.dark !== undefined)?.dark
+        : undefined;
+    document.documentElement.classList.remove("dark");
+    render(<QueryEditor language="sql" />);
+    await flushAsync();
+
+    const initial = (
+      lastStateConfig?.extensions as { type?: string; ext?: unknown }[]
+    )
+      .filter((e) => e.type === "compartment.of")
+      .map((e) => darkFlag(e.ext))
+      .find((d) => d !== undefined);
+    expect(initial).toBe(false);
+
+    mockDispatch.mockClear();
+    mockDestroy.mockClear();
+    await act(async () => {
+      document.documentElement.classList.add("dark");
+    });
+    await flushAsync();
+    document.documentElement.classList.remove("dark");
+
+    const switched = mockDispatch.mock.calls
+      .map(([tr]) => (tr as { effects?: { ext?: unknown } }).effects?.ext)
+      .map(darkFlag)
+      .find((d) => d !== undefined);
+    expect(switched).toBe(true);
+    expect(mockDestroy).not.toHaveBeenCalled();
   });
 
   it("dispatches compartment reconfigure when readOnly changes", async () => {
