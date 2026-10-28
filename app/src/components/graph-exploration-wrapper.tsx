@@ -131,8 +131,8 @@ function NodeContextMenu({
 
 /**
  * A property as the panel renders it: by JS shape, structure kept. Rows cross
- * JSON (#1904), so a value is a primitive, a list or a map; anything else
- * (not reachable) reads as text rather than "[object Object]".
+ * JSON (#1904), so a value is a primitive, a list or a map; nothing else
+ * (bigint, symbol, function) survives JSON, so it reads as empty.
  */
 function toPropertyValue(v: unknown): PropertyValue {
   if (v === null || v === undefined) return null;
@@ -143,7 +143,7 @@ function toPropertyValue(v: unknown): PropertyValue {
     return Object.fromEntries(
       Object.entries(v).map(([k, x]) => [k, toPropertyValue(x)]),
     );
-  return String(v);
+  return null;
 }
 
 function edgeToSections(edge: GraphEdge): PropertySection[] {
