@@ -421,3 +421,30 @@ describe("Equal Earth keeps its shape in any box (#2230)", () => {
     20_000,
   );
 });
+
+describe("label collisions (#2330)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each([
+    { showLabels: true, layout: { hideOverlap: true } },
+    { showLabels: false, layout: undefined },
+  ])(
+    "showLabels=$showLabels sets labelLayout to $layout",
+    async ({ showLabels, layout }) => {
+      render(
+        <ChoroplethChart
+          data={[{ name: "FR", value: 4 }]}
+          showLabels={showLabels}
+        />,
+      );
+      await waitFor(
+        () => {
+          expect(lastOptionWith("series").series[0].labelLayout).toEqual(
+            layout,
+          );
+        },
+        { timeout: 15_000 },
+      );
+    },
+  );
+});
