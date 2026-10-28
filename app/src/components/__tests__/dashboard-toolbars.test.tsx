@@ -40,6 +40,7 @@ const editProps = {
   onAddWidget: vi.fn(),
   onSave: vi.fn(),
   onLeave: vi.fn(),
+  onCancel: vi.fn(),
   onDashboards: vi.fn(),
 };
 
@@ -204,6 +205,20 @@ describe("DashboardEditToolbar", () => {
     rerender(<DashboardEditToolbar {...editProps} onAddPage={onAddPage} />);
     await userEvent.click(screen.getByRole("button", { name: /Add page/ }));
     expect(onAddPage).toHaveBeenCalledOnce();
+  });
+
+  it("has a Cancel button before Save, with the Cmd+E hint, that calls onCancel", async () => {
+    const onCancel = vi.fn();
+    render(<DashboardEditToolbar {...editProps} onCancel={onCancel} />);
+
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    const save = screen.getByRole("button", { name: /Save/ });
+    expect(cancel.querySelector("kbd")).toHaveTextContent(/⌘E|Ctrl E/);
+    expect(
+      cancel.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await userEvent.click(cancel);
+    expect(onCancel).toHaveBeenCalledOnce();
   });
 
   it("leaves edit mode through the dashboard's crumb", async () => {

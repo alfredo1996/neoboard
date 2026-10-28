@@ -411,12 +411,14 @@ vi.mock("@neoboard/components", () => {
       cancelText,
       onCancel,
       onOpenChange,
+      onConfirm,
       returnFocusTo,
     }: ConfirmDialogProps) => {
       useCloseAutoFocus(() => returnFocusTo?.focus(), open);
       return open ? (
         <div role="dialog">
           {action}
+          <button onClick={() => onConfirm()}>{action}</button>
           <button
             onClick={() => {
               onCancel?.();
@@ -2076,6 +2078,55 @@ describe("DashboardWorkspace — the Dashboards crumb in edit mode", () => {
     );
     await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
     expect(mockPush).toHaveBeenCalledWith("/");
+  });
+
+  describe("Cancel button (#2352)", () => {
+    const renderGuarded = () =>
+      render(
+        <NavigationGuardProvider>
+          <DashboardWorkspace id="d1" editMode={true} />
+        </NavigationGuardProvider>,
+      );
+
+    it("leaves at once when nothing changed", async () => {
+      renderGuarded();
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(mockPush).toHaveBeenCalledWith("/d1", { scroll: false });
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("asks first when edits are unsaved; Stay keeps them", async () => {
+      renderGuarded();
+      act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.getByRole("dialog")).toHaveTextContent(
+        "Leave without saving",
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("Leave goes to view mode", async () => {
+      // The guard leaves by a full-page navigation, which jsdom cannot do.
+      const original = window.location;
+      const loc = { href: "" };
+      Object.defineProperty(window, "location", {
+        value: loc,
+        configurable: true,
+      });
+      renderGuarded();
+      act(() => useDashboardStore.getState().renamePage(0, "Dirty again"));
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await userEvent.click(
+        screen.getByRole("button", { name: "Leave without saving" }),
+      );
+      expect(loc.href).toBe("/d1");
+      Object.defineProperty(window, "location", {
+        value: original,
+        configurable: true,
+      });
+    });
   });
 
   it("asks first (Stay) when edits are unsaved, and does not go yet", async () => {

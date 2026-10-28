@@ -28,6 +28,8 @@ interface DashboardEditToolbarProps {
   isSaving: boolean;
   onAddWidget: () => void;
   onSave: () => void;
+  /** Cancel: leave edit mode without saving (⌘E); the caller asks first when dirty. */
+  onCancel: () => void;
   /** The "Dashboards" crumb. */
   onDashboards: () => void;
   /** The dashboard's own crumb: back to view mode. */
@@ -54,6 +56,7 @@ export function DashboardEditToolbar({
   isSaving,
   onAddWidget,
   onSave,
+  onCancel,
   onDashboards,
   onLeave,
 }: Readonly<DashboardEditToolbarProps>) {
@@ -110,6 +113,17 @@ export function DashboardEditToolbar({
             {/* The hint is for wide headers: at tablet width the actions must not wrap it taller. */}
             <span className="hidden lg:contents">
               <ShortcutHint combo="Cmd+Shift+N" />
+            </span>
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onCancel}
+            title="Leave without saving (Cmd+E)"
+          >
+            Cancel
+            <span className="hidden lg:contents">
+              <ShortcutHint combo="Cmd+E" />
             </span>
           </Button>
           <LoadingButton

@@ -781,6 +781,7 @@ export function DashboardWorkspace({
           isSaving={updateDashboard.isPending}
           onAddWidget={openAddWidget}
           onSave={handleSave}
+          onCancel={leaveEditMode}
           onDashboards={() => {
             if (requestNavigation("/")) router.push("/");
           }}
