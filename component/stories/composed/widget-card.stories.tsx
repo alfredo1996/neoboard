@@ -1,5 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { WidgetCard } from "@/components/composed/widget-card";
+import { expect } from "storybook/test";
+import { cn } from "@/lib/utils";
+import { ParamMultiSelector } from "@/components/composed/parameter-widgets/param-multi-selector";
+import { ParamSelector } from "@/components/composed/parameter-widgets/param-selector";
+import { TextInputParameter } from "@/components/composed/parameter-widgets/text-input";
+import { DatePickerParameter } from "@/components/composed/parameter-widgets/date-picker";
+import { NumberRangeSlider } from "@/components/composed/parameter-widgets/number-range-slider";
 
 const meta = {
   title: "Composed/WidgetCard",
@@ -154,4 +161,91 @@ export const DashboardLayout: Story = {
       </WidgetCard>
     </div>
   ),
+};
+
+const opts = [
+  { value: "a", label: "Alpha" },
+  { value: "b", label: "Beta" },
+];
+const noop = () => {};
+
+/**
+ * #2357: every selector type in a two-row card (172px, the dashboard grid's
+ * default). jsdom has no layout, so the play function measures real boxes: each
+ * field must end at least 16px above the card body's inner bottom edge.
+ */
+export const SelectorCardsTwoRows: Story = {
+  args: { title: "Selectors", children: null },
+  render: () => (
+    <div className="flex gap-4">
+      {[
+        <TextInputParameter
+          key="t"
+          parameterName="text"
+          value="abc"
+          onChange={noop}
+        />,
+        <ParamSelector
+          key="s"
+          parameterName="select"
+          options={opts}
+          value="a"
+          onChange={noop}
+        />,
+        <ParamMultiSelector
+          key="m"
+          parameterName="multi"
+          options={opts}
+          values={["a", "b"]}
+          onChange={noop}
+        />,
+        <DatePickerParameter
+          key="d"
+          parameterName="date"
+          value="2026-01-01"
+          onChange={noop}
+        />,
+        <NumberRangeSlider
+          key="n"
+          parameterName="range"
+          min={0}
+          max={10}
+          value={[2, 8]}
+          onChange={noop}
+          onClear={noop}
+        />,
+      ].map((field) => (
+        <WidgetCard
+          key={field.key}
+          title="Selector"
+          className={cn(
+            "w-[300px]",
+            field.key === "n" ? "h-[266px]" : "h-[172px]",
+          )}
+        >
+          {field}
+        </WidgetCard>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const bodies = [
+      ...canvasElement.querySelectorAll<HTMLElement>(
+        "[class*=overflow-hidden]",
+      ),
+    ].filter((b) => b.className.includes("pb-4"));
+    expect(bodies).toHaveLength(5);
+    for (const body of bodies) {
+      const inner =
+        body.getBoundingClientRect().bottom -
+        Number.parseFloat(getComputedStyle(body).paddingBottom);
+      const fields = body.querySelectorAll("input, button, [role=slider]");
+      expect(fields.length).toBeGreaterThan(0);
+      for (const f of fields) {
+        expect(inner - f.getBoundingClientRect().bottom).toBeGreaterThanOrEqual(
+          16,
+        );
+      }
+    }
+  },
 };

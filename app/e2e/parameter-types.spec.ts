@@ -897,4 +897,67 @@ test.describe("Parameter widget types", () => {
       await cleanup();
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // #2357: a selector's field keeps the card's bottom padding at the default
+  // two-row height. Real layout: the plugin used to add its own p-4 inside
+  // the card body's padding, pushing the field into the bottom edge.
+  test("selector fields end at least 16px above the card body's bottom edge", async ({
+    page,
+  }) => {
+    const seedQuery =
+      "MATCH (p:Person) RETURN DISTINCT p.name AS value ORDER BY value LIMIT 5";
+    const mk = (id: string, type: string, name: string, extra = {}) => ({
+      id,
+      chartType: "parameter-select",
+      connectionId: "conn-neo4j-001",
+      query: "",
+      settings: {
+        title: name,
+        chartOptions: { parameterType: type, parameterName: id, ...extra },
+      },
+    });
+    const widgets = [
+      mk("t", "text", "Search"),
+      mk("m", "multi-select", "Actors", { seedQuery }),
+      mk("s", "select", "Pick", { seedQuery }),
+    ];
+    const { id, cleanup } = await createParamDashboard(
+      page.request,
+      `param-card-margin ${uid()}`,
+      {
+        widgets,
+        gridLayout: widgets.map((w, k) => ({
+          i: w.id,
+          x: k * 4,
+          y: 0,
+          w: 4,
+          h: 2,
+        })),
+      },
+    );
+    try {
+      await page.goto(`/${id}`);
+      await page.getByRole("combobox").first().waitFor({ timeout: 15_000 });
+      const gaps = await page.evaluate(() =>
+        [...document.querySelectorAll("input, button[role=combobox]")].map(
+          (field) => {
+            // The card body is the nearest overflow-hidden ancestor.
+            let body: Element | null = field;
+            while (body && getComputedStyle(body).overflowY !== "hidden") {
+              body = body.parentElement;
+            }
+            const inner =
+              body!.getBoundingClientRect().bottom -
+              Number.parseFloat(getComputedStyle(body!).paddingBottom);
+            return Math.round(inner - field.getBoundingClientRect().bottom);
+          },
+        ),
+      );
+      expect(gaps.length).toBeGreaterThanOrEqual(3);
+      for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(16);
+    } finally {
+      await cleanup();
+    }
+  });
 });
