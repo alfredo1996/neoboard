@@ -23,6 +23,12 @@ test.describe("Unsaved-changes guard covers every way out (#2325)", () => {
         p.getByRole("button", { name: "Connections", exact: true }).click(),
     ],
     [
+      "Widget Library",
+      "/widget-library",
+      (p) =>
+        p.getByRole("button", { name: "Widget Library", exact: true }).click(),
+    ],
+    [
       "Dashboards",
       "/",
       (p) => p.getByRole("button", { name: "Dashboards", exact: true }).click(),
@@ -130,8 +136,18 @@ test.describe("Unsaved-changes guard covers every way out (#2325)", () => {
           await expect(
             page.getByRole("button", { name: "Add page", exact: true }),
           ).toBeVisible();
+          // The held entry was pushed back: a second Back asks again.
+          await page.goBack();
+          await expect(leaveDialog(page)).toHaveCount(1);
         } else {
           await expect(page).toHaveURL(new RegExp(`/${id}$`));
+          // View mode shows the server copy: only a fresh Edit proves the
+          // working copy was dropped.
+          await page.getByRole("button", { name: "Edit", exact: true }).click();
+          await expect(page).toHaveURL(new RegExp(`/${id}/edit`));
+          await expect(
+            page.getByRole("button", { name: "Add page", exact: true }),
+          ).toBeVisible();
           await expect(page2Tab(page)).toHaveCount(0);
         }
       } finally {

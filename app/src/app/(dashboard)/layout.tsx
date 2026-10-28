@@ -47,6 +47,7 @@ function DashboardShell({
   const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
+      // Unguarded on purpose: a save would fail with 401 anyway.
       router.push("/login");
     },
   });
@@ -136,7 +137,7 @@ function DashboardShell({
             // adds callbackUrl on mid-task session expiry, which is the
             // case that param is for.
             onSignOut: () => {
-              if (requestNavigation("/login", logout)) return logout();
+              if (requestNavigation("/login", logout)) void logout();
             },
             theme: {
               value: preference,

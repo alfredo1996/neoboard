@@ -656,6 +656,25 @@ describe("DashboardWorkspace", () => {
     );
   });
 
+  it("reloads the server copy after the store is emptied (Back, Leave)", () => {
+    pathname = "/d1/edit";
+    const { rerender } = render(<DashboardWorkspace id="d1" editMode={true} />);
+
+    useDashboardStore.getState().renamePage(0, "Unsaved");
+    // Another user's save lands while dirty: skipped, savedLayout goes stale.
+    const bumped = makeDashboard();
+    bumped.version = 2;
+    bumped.layoutJson.pages[0].title = "Server v2";
+    dashboard = bumped;
+    rerender(<DashboardWorkspace id="d1" editMode={true} />);
+    // Leave empties the store.
+    act(() => useDashboardStore.getState().reset());
+
+    expect(useDashboardStore.getState().layout.pages[0].title).toBe(
+      "Server v2",
+    );
+  });
+
   // ── mode-specific chrome ────────────────────────────────────────────
   it("renders edit chrome in edit mode", () => {
     pathname = "/d1/edit";

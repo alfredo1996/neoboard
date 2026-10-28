@@ -4,7 +4,10 @@ import { createContext, useContext, useMemo } from "react";
 import { ConfirmDialog } from "@neoboard/components";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 
-type RequestNavigation = (url: string, onLeave?: () => void) => boolean;
+type RequestNavigation = (
+  url: string,
+  onLeave?: () => void | Promise<void>,
+) => boolean;
 
 // Outside a provider nothing is guarded: callers navigate as usual.
 const NavigationGuardContext = createContext<RequestNavigation>(() => true);
@@ -32,7 +35,9 @@ export function NavigationGuardProvider({
       {children}
       <ConfirmDialog
         open={showNavWarning}
-        onOpenChange={setShowNavWarning}
+        onOpenChange={(open) =>
+          open ? setShowNavWarning(true) : cancelNavigation()
+        }
         action="Leave without saving"
         consequences="Your unsaved changes are lost."
         cancelText="Stay"

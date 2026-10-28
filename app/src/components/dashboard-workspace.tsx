@@ -178,8 +178,12 @@ export function DashboardWorkspace({
   // ["dashboards", id] after every save, and re-running this on the resulting
   // refetch is what threw you back to page 1 and clobbered savedLayout/_dirty.
   const loadedStampRef = useRef<string | null>(null);
+  // The store emptied under us (a Leave from the unsaved-changes guard): load
+  // the server copy again, not a savedLayout that may be stale.
+  const storeLoaded = useDashboardStore((s) => s.savedLayout !== null);
   useEffect(() => {
     if (!dashboard?.layoutJson) return;
+    if (!storeLoaded) loadedStampRef.current = null;
     const stamp = `${dashboard.id}:${dashboard.version}`;
     if (loadedStampRef.current === stamp) return;
     const first = loadedStampRef.current === null;
@@ -191,7 +195,7 @@ export function DashboardWorkspace({
       migrateLayout(dashboard.layoutJson),
       first ? initialPage : useDashboardStore.getState().activePageIndex,
     );
-  }, [dashboard, setLayout, initialPage]);
+  }, [dashboard, setLayout, initialPage, storeLoaded]);
 
   // View mode renders the server's layout, edit mode the store's working copy.
   // While the store is clean these are the same object (migrateLayout returns a
