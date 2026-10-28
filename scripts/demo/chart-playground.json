@@ -846,7 +846,6 @@
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
-                "pageSize": 10,
                 "enableColumnResizing": true
               }
             }
@@ -861,7 +860,6 @@
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
-                "pageSize": 10,
                 "enableColumnResizing": true
               },
               "transforms": [
@@ -1029,8 +1027,7 @@
               "title": "Recent feedback",
               "chartOptions": {
                 "enableSorting": true,
-                "enablePagination": true,
-                "pageSize": 10
+                "enablePagination": true
               }
             }
           },
