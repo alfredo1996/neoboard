@@ -151,3 +151,22 @@ export const FillsItsFrame: Story = {
     );
   },
 };
+
+export const ShowsKeyboardFocus: Story = {
+  // #2345: the query editor has no accessible name
+  parameters: { a11y: { test: "todo" } },
+  args: { language: "sql", defaultValue: "SELECT 1;" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(editorOf(canvasElement)).toBeTruthy());
+    const editor = editorOf(canvasElement);
+    // The theme must not strip the focus indicator (#2329, a11y).
+    expect(getComputedStyle(editor).outlineStyle).toBe("none");
+    canvasElement.querySelector<HTMLElement>(".cm-content")!.focus();
+    await waitFor(() =>
+      expect(editor.classList.contains("cm-focused")).toBe(true),
+    );
+    const style = getComputedStyle(editor);
+    expect(style.outlineStyle).not.toBe("none");
+    expect(parseFloat(style.outlineWidth)).toBeGreaterThan(0);
+  },
+};

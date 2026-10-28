@@ -96,7 +96,12 @@ async function buildTheme(dark: boolean): Promise<Extension[]> {
         },
         ".cm-content": { caretColor: token("foreground") },
         ".cm-cursor, .cm-dropCursor": { borderLeftColor: token("foreground") },
-        "&.cm-focused": { outline: "none" },
+        // The design system's focus ring, drawn inside the frame so the dialog's
+        // overflow does not clip it; keyboard users see where the editor is.
+        "&.cm-focused": {
+          outline: `2px solid ${token("ring")}`,
+          outlineOffset: "-2px",
+        },
         ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection":
           { backgroundColor: token("ring", 0.25) },
         ".cm-gutters": {
