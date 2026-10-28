@@ -57,7 +57,7 @@ describe("useUnsavedChangesWarning (#2325)", () => {
     renderHook(() => useUnsavedChangesWarning());
     makeDirty();
     makeDirty();
-    expect(window.history.length).toBe(before + 1);
+    expect(window.history).toHaveLength(before + 1);
     expect(window.location.pathname).toBe("/d1/edit");
   });
 
@@ -68,9 +68,9 @@ describe("useUnsavedChangesWarning (#2325)", () => {
     popstate();
     expect(result.current.showNavWarning).toBe(true);
     expect(window.location.pathname).toBe("/d1/edit");
-    expect(window.history.length).toBe(len);
+    expect(window.history).toHaveLength(len);
     act(() => result.current.cancelNavigation());
-    expect(window.history.length).toBe(len + 1);
+    expect(window.history).toHaveLength(len + 1);
   });
 
   it("after Leave a second popstate does not warn again (the loop)", () => {
@@ -118,7 +118,7 @@ describe("useUnsavedChangesWarning (#2325)", () => {
     act(() => useDashboardStore.getState().setLayout(layout));
     const len = window.history.length;
     makeDirty();
-    expect(window.history.length).toBe(len + 1);
+    expect(window.history).toHaveLength(len + 1);
   });
 
   it("an abandoned dialog does not leave an old exit armed", () => {
@@ -142,7 +142,7 @@ describe("useUnsavedChangesWarning (#2325)", () => {
     // router.replace: Next writes its own state, the marker is gone.
     window.history.replaceState({ __NA: true }, "", "/d1/edit");
     makeDirty();
-    expect(window.history.length).toBe(len);
+    expect(window.history).toHaveLength(len);
     expect(window.history.state.__nbGuard).toBe(true);
   });
 
