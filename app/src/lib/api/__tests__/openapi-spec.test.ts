@@ -1061,6 +1061,7 @@ describe("#1981 payloads: dashboards-export-import", () => {
     anyOf?: Schema[];
     type?: string;
     format?: string;
+    description?: string;
     required?: string[];
     properties?: Record<string, Schema>;
     additionalProperties?: boolean | Schema;
@@ -1147,6 +1148,9 @@ describe("#1981 payloads: dashboards-export-import", () => {
     expect(
       (req.properties!.connectionMapping.additionalProperties as Schema).type,
     ).toBe("string");
+    expect(req.properties!.connectionMapping.description).toMatch(
+      /can use.*shared/,
+    );
     expect(req.properties!.skippedConnections.items!.type).toBe("string");
     expect(req.properties!.payload.anyOf!.map((s) => s.$ref)).toEqual([
       "#/components/schemas/DashboardImportFile",
@@ -1189,6 +1193,11 @@ describe("#1981 payloads: dashboards-export-import", () => {
     expect(importOp.description).toMatch(/NeoBoard export/);
     expect(importOp.description).toMatch(/Invalid connection mapping/);
     expect(importOp.description).toMatch(/neither mapped nor skipped/);
+    // The mapping rule is usableConnection's (#2327), not "owns".
+    expect(importOp.description).toMatch(
+      /connection the caller can use \(their own, any shared in the tenant/,
+    );
+    expect(importOp.description).not.toMatch(/caller owns/);
     expect(importOp.description).toMatch(
       /malformed NeoDash report can answer 500/,
     );
