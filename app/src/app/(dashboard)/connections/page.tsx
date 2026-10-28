@@ -89,7 +89,9 @@ export default function ConnectionsPage() {
     session?.user?.canWrite,
   );
   // #2328: the server refuses a reader every management call, so offer none.
-  const canManageAny = canManageConnections(session?.user?.role);
+  const canManageAny = canManageConnections(
+    session?.user?.role ?? "creator", // the server's default (session.ts)
+  );
   const { data: connections, isLoading } = useConnections();
   // #1899: every connector fact on this page — label, icon, category — is read
   // from the descriptors the server hands over; the create / edit / Duplicate
@@ -205,9 +207,10 @@ export default function ConnectionsPage() {
 
   // #1545: only what the user may probe — the test route 404s for the rest,
   // which would paint a red Error over a healthy shared connection.
-  const probeable = connectionsToProbe(connections ?? [], isAdmin).filter((c) =>
-    isInstalled(c.type),
-  );
+  // #2328: and a reader tests nothing, so the page applies one rule.
+  const probeable = (
+    canManageAny ? connectionsToProbe(connections ?? [], isAdmin) : []
+  ).filter((c) => isInstalled(c.type));
 
   /**
    * Three at a time, each row updating as its own result lands (#1426).
@@ -700,7 +703,11 @@ export default function ConnectionsPage() {
             !(isLoading || connectorsQuery.isLoading) && (
               <EmptyState
                 title="No connections yet"
-                description="Connect a database to start building dashboards."
+                description={
+                  canManageAny
+                    ? "Connect a database to start building dashboards."
+                    : "Connections are added by admins and creators. Ask one to share a connection with you."
+                }
                 action={
                   canManageAny ? (
                     <Button

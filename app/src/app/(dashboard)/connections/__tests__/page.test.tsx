@@ -27,7 +27,7 @@ interface Row {
   widgetCount?: number;
 }
 
-let mockRole = "creator";
+let mockRole: string | undefined = "creator";
 let mockCanWrite: boolean | undefined;
 let mockSessionStatus = "authenticated";
 let mockConnections: Row[] = [];
@@ -227,13 +227,16 @@ vi.mock("@neoboard/components", async () => {
     AlertDescription: Box,
     EmptyState: ({
       title,
+      description,
       action,
     }: {
       title: string;
+      description?: string;
       action?: React.ReactNode;
     }) => (
       <div>
         {title}
+        <p>{description}</p>
         {action}
       </div>
     ),
@@ -1084,6 +1087,38 @@ describe("ConnectionsPage — kit rows (#2254)", () => {
     expect(
       screen.queryByRole("button", { name: "Create your first connection" }),
     ).toBeNull();
+  });
+
+  it("offers a reader who owns a connection no Test all and probes nothing", async () => {
+    mockRole = "reader";
+    mockConnections = rows(1, { isOwner: true });
+    render(<ConnectionsPage />);
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: "Test all" })).toBeNull();
+    expect(mockTest).not.toHaveBeenCalled();
+  });
+
+  it("tells a reader to ask for a share, and a creator to connect a database", () => {
+    mockConnections = [];
+    mockRole = "reader";
+    const { unmount } = render(<ConnectionsPage />);
+    expect(
+      screen.getByText(/Ask one to share a connection with you/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Connect a database/)).toBeNull();
+    unmount();
+    mockRole = "creator";
+    render(<ConnectionsPage />);
+    expect(screen.getByText(/Connect a database/)).toBeInTheDocument();
+  });
+
+  it("treats a session without a role as a creator, as the server does", () => {
+    mockRole = undefined;
+    mockConnections = [];
+    render(<ConnectionsPage />);
+    expect(
+      screen.getByRole("button", { name: "New connection" }),
+    ).toBeInTheDocument();
   });
 
   it.each(["creator", "admin"])("still offers a %s New connection", (role) => {
