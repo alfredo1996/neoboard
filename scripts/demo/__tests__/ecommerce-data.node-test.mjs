@@ -42,8 +42,9 @@ describe("ecommerce-data.mjs — seeded faker", () => {
   });
 
   it("is deterministic — same seed produces byte-identical output", () => {
-    const a = generateAll(570);
-    const b = generateAll(570);
+    const today = new Date("2027-02-01T00:00:00Z");
+    const a = generateAll(570, today);
+    const b = generateAll(570, today);
     assert.equal(hash(a), hash(b));
   });
 
@@ -57,11 +58,6 @@ describe("ecommerce-data.mjs — seeded faker", () => {
     assert.ok(today.getTime() - newest <= 30 * 86400000, "newest order within 30 days");
     const lastSignup = Math.max(...customers.map((c) => new Date(c.signup_date).getTime()));
     assert.ok(lastSignup < today.getTime());
-  });
-
-  it("is deterministic for a fixed seed date", () => {
-    const today = new Date("2027-02-01T00:00:00Z");
-    assert.equal(hash(generateAll(570, today)), hash(generateAll(570, today)));
   });
 
   it("different seeds produce different output", () => {

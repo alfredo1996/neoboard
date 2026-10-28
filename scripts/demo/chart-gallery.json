@@ -759,7 +759,7 @@
               "chartOptions": {
                 "orient": "horizontal",
                 "showLabels": true,
-                "colorPalette": "observable"
+                "colorPalette": "hastings"
               }
             }
           }

@@ -628,6 +628,62 @@ test.describe("Demo showcases hide radar", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Gallery palette (#2331) — the sunburst and the Sankey kept pre-redesign ones
+// ---------------------------------------------------------------------------
+// The time-series half of #2331 (Playground "3. Time series" shows rows) has no
+// harness: the E2E database does not seed the ecommerce schema. The generator's
+// node test covers its cause.
+
+test.describe("Chart Gallery palettes", () => {
+  test("the sunburst and the Sankey are saved with the hastings palette", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const payload = JSON.parse(
+      fs.readFileSync(
+        path.resolve(__dirname, "../../scripts/demo/chart-gallery.json"),
+        "utf-8",
+      ),
+    );
+    const res = await page.request.post("/api/dashboards/import", {
+      data: {
+        payload,
+        skippedConnections: Object.keys(payload.connections),
+      },
+    });
+    expect(res.status()).toBe(201);
+    const id = (await res.json()).data.id as string;
+
+    try {
+      const saved = await page.request.get(`/api/dashboards/${id}`);
+      expect(saved.status()).toBe(200);
+      const widgets: { chartType?: string; settings?: unknown }[] = [];
+      (function walk(n: unknown) {
+        if (Array.isArray(n)) n.forEach(walk);
+        else if (n && typeof n === "object") {
+          const o = n as Record<string, unknown>;
+          if (typeof o.chartType === "string") widgets.push(o);
+          Object.values(o).forEach(walk);
+        }
+      })(await saved.json());
+      const paletteOf = (type: string) =>
+        widgets
+          .filter((w) => w.chartType === type)
+          .map(
+            (w) =>
+              (w.settings as { chartOptions?: { colorPalette?: string } })
+                ?.chartOptions?.colorPalette,
+          );
+      expect(paletteOf("sunburst")).toEqual(["hastings"]);
+      expect(paletteOf("sankey")).toEqual(["hastings"]);
+    } finally {
+      await page.request.delete(`/api/dashboards/${id}`);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Parameter labels read as words, not the raw key in capitals (#2213)
 // ---------------------------------------------------------------------------
 
