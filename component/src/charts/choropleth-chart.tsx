@@ -7,7 +7,6 @@ import {
   VisualMapComponent,
   GeoComponent,
 } from "echarts/components";
-import { LabelLayout } from "echarts/features";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { BaseChart, useDarkMode } from "./base-chart";
@@ -37,7 +36,6 @@ echarts.use([
   TooltipComponent,
   VisualMapComponent,
   GeoComponent,
-  LabelLayout,
   CanvasRenderer,
 ]);
 
@@ -218,7 +216,7 @@ function ChoroplethChart({
           preserveAspect: "contain",
           select: { disabled: true },
           // Names that would collide are dropped, larger regions win, and
-          // zooming brings the rest back (#2330). Needs LabelLayout below.
+          // zooming brings the rest back (#2330). LabelLayout is registered in base-chart.tsx.
           labelLayout: showLabels ? { hideOverlap: true } : undefined,
           label: {
             show: showLabels,
