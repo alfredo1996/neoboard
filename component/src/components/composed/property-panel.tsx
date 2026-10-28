@@ -10,9 +10,75 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/** A property value by its JS shape: what the row renders, never a JSON string. */
+export type PropertyValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | PropertyValue[]
+  | { [key: string]: PropertyValue };
+
 export interface PropertyItem {
   key: string;
-  value: string;
+  value: PropertyValue;
+}
+
+/** Items shown before a list collapses behind "+N more". */
+const LIST_PREVIEW = 5;
+
+function ValueView({ value }: Readonly<{ value: PropertyValue }>) {
+  const [expanded, setExpanded] = React.useState(false);
+  if (value === undefined) return <>-</>;
+  if (value === null)
+    return <span className="text-muted-foreground">null</span>;
+  if (value === "")
+    return <span className="text-muted-foreground">(empty)</span>;
+  if (typeof value !== "object") return <>{String(value)}</>;
+  if (Array.isArray(value)) {
+    if (value.length === 0)
+      return <span className="text-muted-foreground">(empty list)</span>;
+    const shown = expanded ? value : value.slice(0, LIST_PREVIEW);
+    const hidden = value.length - LIST_PREVIEW;
+    return (
+      <>
+        <ul className="space-y-0.5 [&_ul]:border-l [&_ul]:border-border [&_ul]:pl-2">
+          {shown.map((v, i) => (
+            // Items have no identity; the list is read-only, so the index is stable.
+            <li key={i}>
+              <ValueView value={v} />
+            </li>
+          ))}
+        </ul>
+        {hidden > 0 && (
+          <button
+            type="button"
+            className="mt-1 text-meta text-primary hover:underline"
+            aria-label={
+              expanded ? "Show fewer items" : `Show ${hidden} more items`
+            }
+            onClick={() => setExpanded((e) => !e)}
+          >
+            {expanded ? "Show fewer" : `+${hidden} more`}
+          </button>
+        )}
+      </>
+    );
+  }
+  const entries = Object.entries(value);
+  if (entries.length === 0)
+    return <span className="text-muted-foreground">(empty map)</span>;
+  return (
+    <div className="space-y-0.5 border-l border-border pl-2">
+      {entries.map(([k, v]) => (
+        <div key={k}>
+          <span className="text-muted-foreground">{k}: </span>
+          <ValueView value={v} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export interface PropertySection {
@@ -35,7 +101,9 @@ function PropertyPanel({
   className,
 }: PropertyPanelProps) {
   const collapsibleSections = sections.filter((s) => s.collapsible !== false);
-  const nonCollapsibleSections = sections.filter((s) => s.collapsible === false);
+  const nonCollapsibleSections = sections.filter(
+    (s) => s.collapsible === false,
+  );
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -110,7 +178,9 @@ function PropertyRow({
   onSave: (value: string) => void;
 }) {
   const [editing, setEditing] = React.useState(false);
-  const [editValue, setEditValue] = React.useState(item.value);
+  const isText = typeof item.value === "string";
+  const text = typeof item.value === "string" ? item.value : "";
+  const [editValue, setEditValue] = React.useState(text);
 
   const handleSave = () => {
     onSave(editValue);
@@ -118,13 +188,15 @@ function PropertyRow({
   };
 
   const handleCancel = () => {
-    setEditValue(item.value);
+    setEditValue(text);
     setEditing(false);
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 py-1 px-1 rounded hover:bg-muted/50 group">
-      <span className="text-sm text-muted-foreground truncate min-w-0">{item.key}</span>
+    <div className="flex items-start gap-3 py-1 px-1 rounded hover:bg-muted/50 group">
+      <span className="w-2/5 shrink-0 text-meta text-muted-foreground [overflow-wrap:anywhere]">
+        {item.key}
+      </span>
       {editing ? (
         <div className="flex items-center gap-1">
           <Input
@@ -137,17 +209,34 @@ function PropertyRow({
             }}
             autoFocus
           />
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave} aria-label="Save">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleSave}
+            aria-label="Save"
+          >
             <Check className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCancel} aria-label="Cancel">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleCancel}
+            aria-label="Cancel"
+          >
             <X className="h-3 w-3" />
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-1">
-          <span className="text-sm font-medium truncate">{item.value}</span>
-          {editable && (
+        <div className="flex min-w-0 flex-1 items-start gap-1">
+          <div
+            data-testid="property-value"
+            className="min-w-0 flex-1 text-body font-medium [overflow-wrap:anywhere]"
+          >
+            <ValueView value={item.value} />
+          </div>
+          {editable && isText && (
             <Button
               variant="ghost"
               size="icon"

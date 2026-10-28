@@ -15,6 +15,7 @@ import type {
   GraphNodeEvent,
   FetchNeighborsResult,
   PropertySection,
+  PropertyValue,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { normalizeValue } from "@/lib/shared/normalize-value";
@@ -129,18 +130,29 @@ function NodeContextMenu({
   );
 }
 
-function edgeToSections(edge: GraphEdge): PropertySection[] {
+/**
+ * A property as the panel renders it: by JS shape, structure kept. Rows cross
+ * JSON (#1904), so a value is a primitive, a list or a map; anything else
+ * (not reachable) reads as text rather than "[object Object]".
+ */
+function toPropertyValue(v: unknown): PropertyValue {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean")
+    return v;
+  if (Array.isArray(v)) return v.map(toPropertyValue);
+  if (typeof v === "object")
+    return Object.fromEntries(
+      Object.entries(v).map(([k, x]) => [k, toPropertyValue(x)]),
+    );
+  return normalizeValue(v);
+}
+
+export function edgeToSections(edge: GraphEdge): PropertySection[] {
   const props = edge.properties ?? {};
-  const propertyItems = Object.entries(props).map(([key, value]) => {
-    const normalized = normalizeValue(value) ?? value;
-    return {
-      key,
-      value:
-        typeof normalized === "object" && normalized !== null
-          ? JSON.stringify(normalized)
-          : String(normalized ?? ""),
-    };
-  });
+  const propertyItems = Object.entries(props).map(([key, value]) => ({
+    key,
+    value: toPropertyValue(value),
+  }));
   const metaItems = [
     ...(edge.id ? [{ key: "id", value: edge.id }] : []),
     { key: "type", value: edge.label ?? "UNKNOWN" },
@@ -155,18 +167,12 @@ function edgeToSections(edge: GraphEdge): PropertySection[] {
   ];
 }
 
-function nodeToSections(node: GraphNode): PropertySection[] {
+export function nodeToSections(node: GraphNode): PropertySection[] {
   const props = node.properties ?? {};
-  const propertyItems = Object.entries(props).map(([key, value]) => {
-    const normalized = normalizeValue(value) ?? value;
-    return {
-      key,
-      value:
-        typeof normalized === "object" && normalized !== null
-          ? JSON.stringify(normalized)
-          : String(normalized ?? ""),
-    };
-  });
+  const propertyItems = Object.entries(props).map(([key, value]) => ({
+    key,
+    value: toPropertyValue(value),
+  }));
   const metaItems = [
     { key: "id", value: node.id },
     ...(node.labels?.length
@@ -419,7 +425,10 @@ export function GraphExplorationWrapper({
 
       {/* Property inspector side panel */}
       {inspectedElement && (
-        <div className="absolute top-0 right-0 bottom-0 w-80 border-l bg-background/95 backdrop-blur-sm overflow-y-auto z-20 shadow-lg">
+        <div
+          data-testid="graph-inspector"
+          className="absolute top-0 right-0 bottom-0 w-80 border-l bg-card overflow-y-auto z-20 shadow-lg"
+        >
           <div className="flex items-center justify-between p-3 border-b">
             <div className="flex items-center gap-2 min-w-0">
               <Tag className="shrink-0">

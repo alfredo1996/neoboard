@@ -33,6 +33,7 @@ export {
   PropertyPanel,
   type PropertyPanelProps,
   type PropertySection,
+  type PropertyValue,
   type PropertyItem,
 } from "./property-panel";
 
