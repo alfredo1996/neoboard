@@ -445,7 +445,7 @@ describe("POST /api/connections", () => {
         name: "Neo4j",
         type: "neo4j",
         config: {
-          uri: "bolt://reader@db.internal:7687?token=abc",
+          uri: "bolt://reader@db.internal:7687?policy=abc",
           username: "neo4j",
           password: "hunter2",
           database: "movies",
