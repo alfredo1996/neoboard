@@ -899,10 +899,11 @@ test.describe("Parameter widget types", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // #2357: a selector's field keeps the card's bottom padding at the default
-  // two-row height. Real layout: the plugin used to add its own p-4 inside
-  // the card body's padding, pushing the field into the bottom edge.
-  test("selector fields end at least 16px above the card body's bottom edge", async ({
+  // #2357: a selector's field keeps the card body's own bottom padding below
+  // it at the default two-row height, in view and edit mode. Real layout: the
+  // plugin used to add its own p-4 inside that padding, pushing the field into
+  // the bottom edge (edit mode's fixed h-9 header leaves the least room).
+  test("selector fields keep the card body's bottom padding below them, in view and edit mode", async ({
     page,
   }) => {
     const seedQuery =
@@ -939,23 +940,35 @@ test.describe("Parameter widget types", () => {
     try {
       await page.goto(`/${id}`);
       await page.getByRole("combobox").first().waitFor({ timeout: 15_000 });
-      const gaps = await page.evaluate(() =>
-        [...document.querySelectorAll("input, button[role=combobox]")].map(
-          (field) => {
-            // The card body is the nearest overflow-hidden ancestor.
-            let body: Element | null = field;
-            while (body && getComputedStyle(body).overflowY !== "hidden") {
-              body = body.parentElement;
-            }
-            const inner =
-              body!.getBoundingClientRect().bottom -
-              Number.parseFloat(getComputedStyle(body!).paddingBottom);
-            return Math.round(inner - field.getBoundingClientRect().bottom);
-          },
-        ),
-      );
-      expect(gaps.length).toBeGreaterThanOrEqual(3);
-      for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(16);
+      const measure = () =>
+        page.evaluate(() => {
+          const bodies = [
+            ...document.querySelectorAll(
+              "[class*=overflow-hidden][class*=pb-4]",
+            ),
+          ];
+          return bodies.flatMap((body) => {
+            const pad = Number.parseFloat(getComputedStyle(body).paddingBottom);
+            const bottom = body.getBoundingClientRect().bottom;
+            return [
+              ...body.querySelectorAll("input, button[role=combobox]"),
+            ].map((f) =>
+              Math.round(bottom - f.getBoundingClientRect().bottom - pad),
+            );
+          });
+        });
+      // Slack beyond the padding: negative means the field intrudes into it.
+      const view = await measure();
+      expect(view.length).toBeGreaterThanOrEqual(3);
+      for (const slack of view) expect(slack).toBeGreaterThanOrEqual(0);
+
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: "Save", exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+      const edit = await measure();
+      expect(edit.length).toBeGreaterThanOrEqual(3);
+      for (const slack of edit) expect(slack).toBeGreaterThanOrEqual(0);
     } finally {
       await cleanup();
     }

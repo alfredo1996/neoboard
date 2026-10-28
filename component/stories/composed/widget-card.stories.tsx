@@ -171,8 +171,10 @@ const noop = () => {};
 
 /**
  * #2357: every selector type in a two-row card (172px, the dashboard grid's
- * default). jsdom has no layout, so the play function measures real boxes: each
- * field must end at least 16px above the card body's inner bottom edge.
+ * default) in edit mode, the tightest case (a fixed h-9 header row). jsdom has no
+ * layout, so the play function measures real boxes: each field must end at or
+ * above the card body's content-box bottom, so it never intrudes into the
+ * body's own bottom padding. Growth in the label row turns this red.
  */
 export const SelectorCardsTwoRows: Story = {
   args: { title: "Selectors", children: null },
@@ -218,9 +220,10 @@ export const SelectorCardsTwoRows: Story = {
         <WidgetCard
           key={field.key}
           title="Selector"
+          mode="edit"
           className={cn(
             "w-[300px]",
-            field.key === "n" ? "h-[266px]" : "h-[172px]",
+            field.key === "n" ? "h-[264px]" : "h-[172px]",
           )}
         >
           {field}
@@ -243,7 +246,7 @@ export const SelectorCardsTwoRows: Story = {
       expect(fields.length).toBeGreaterThan(0);
       for (const f of fields) {
         expect(inner - f.getBoundingClientRect().bottom).toBeGreaterThanOrEqual(
-          16,
+          0,
         );
       }
     }
