@@ -28,10 +28,12 @@ test.describe("Chart export actions (issue #872)", () => {
     await echartsCard.getByRole("button", { name: "Widget actions" }).click();
 
     // #912: Export formats now live inside an "Export ▸" submenu.
-    // Open the submenu via the parent menuitem.
+    // Open it from the keyboard: a hover-opened submenu closes again when the
+    // pointer's path to PNG leaves Radix's grace area under CPU load (#1470).
     const exportTrigger = page.getByRole("menuitem", { name: "Export" });
     await expect(exportTrigger).toBeVisible();
-    await exportTrigger.hover();
+    await exportTrigger.focus();
+    await page.keyboard.press("ArrowRight");
 
     // Both formats render as children of the submenu
     await expect(page.getByRole("menuitem", { name: "PNG" })).toBeVisible();
