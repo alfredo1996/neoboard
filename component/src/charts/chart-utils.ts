@@ -1143,3 +1143,15 @@ export function measureTextWidth(text: string, fontSize = 11): number {
   measureContext.font = `${fontSize}px ${CHART_FONT_FAMILY}`;
   return measureContext.measureText(text).width;
 }
+
+/**
+ * `labelColorOn`, unless neither the chart's ink nor white reaches the floor
+ * on a mid-tone fill; pure black or white always does (the better of the two
+ * is never under 4.58:1), so a region label is readable on any fill (#2341).
+ */
+export function readableLabelColor(fill: string): string {
+  const c = labelColorOn(fill);
+  return contrastRatio(fill, c) >= LABEL_MIN_CONTRAST
+    ? c
+    : contrastTextColor(fill);
+}

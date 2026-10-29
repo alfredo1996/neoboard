@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { expect, waitFor, within } from "storybook/test";
 import { ChoroplethChart } from "@/charts/choropleth-chart";
 import { MUTED_FILL } from "@/charts/theme";
-import { drawnLabels, labelClashes } from "./drawn-labels";
+import { drawnLabelColors, drawnLabels, labelClashes } from "./drawn-labels";
 
 const meta = {
   title: "Charts/ChoroplethChart",
@@ -361,6 +361,33 @@ export const LabelsDoNotOverlap: Story = {
     );
     const clashes = labelClashes(drawnLabels(canvasElement));
     expect(clashes).toEqual([]);
+  },
+};
+
+/**
+ * #2341 — one label colour per theme was unreadable on the strong end of the
+ * ramp (China and India). Each drawn name is read back with the fill painted
+ * under it and must reach the house floor, 4.5:1, in both themes.
+ */
+export const LabelsReadOnTheirFill: Story = {
+  args: { data: populationData, showLabels: true, showVisualMap: false },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    await waitFor(
+      () => expect(drawnLabelColors(canvasElement).length).toBeGreaterThan(3),
+      { timeout: 5000 },
+    );
+    for (const { name, textColor, regionFill } of drawnLabelColors(
+      canvasElement,
+    )) {
+      const [a, b] = [textColor, regionFill]
+        .map((c) => luminance(cssColorBytes(c)))
+        .sort((x, y) => y - x);
+      expect(
+        (a + 0.05) / (b + 0.05),
+        `${name} on ${regionFill}`,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
   },
 };
 

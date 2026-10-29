@@ -40,3 +40,24 @@ export function labelClashes(labels: ReturnType<typeof drawnLabels>) {
         clashes.push(`${labels[i].text} / ${labels[j].text}`);
   return clashes;
 }
+
+/** Each drawn name's text colour and the fill of the region it sits on. */
+export function drawnLabelColors(canvasElement: HTMLElement) {
+  const el = canvasElement.querySelector<HTMLElement>(
+    '[data-testid="base-chart"]',
+  );
+  const zr = el && echarts.getInstanceByDom(el)?.getZr();
+  if (!zr) return [];
+  type Styled = { style?: { text?: string; fill?: unknown } };
+  return (zr.storage.getDisplayList() as unknown as (Styled & HostEl)[])
+    .map((host) => ({
+      host,
+      text: host.getTextContent?.() as (DisplayEl & Styled) | undefined,
+    }))
+    .filter(({ text }) => text?.type === "text" && !text.ignore)
+    .map(({ host, text }) => ({
+      name: String(text?.style?.text),
+      textColor: String(text?.style?.fill),
+      regionFill: String(host.style?.fill),
+    }));
+}
