@@ -1206,6 +1206,27 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     );
   });
 
+  it("a numeric parameter whose _max companion is another parameter gets a distinct filter name", () => {
+    const nd = makeNeoDash(
+      [
+        makeReport({ query: "RETURN $neodash_year" }),
+        makeReport({ query: "RETURN $neodash_year_max" }),
+      ],
+      { parameters: { neodash_year: 2020, neodash_year_max: "x" } },
+    );
+    const { export: exp } = convertNeoDashWithNotes(nd);
+    const filters = exp.layout.pages[0].widgets.map(
+      (w) =>
+        (w.settings?.chartOptions as { parameterName: string }).parameterName,
+    );
+    expect(filters).toEqual(["year_range", "year_max"]);
+    const queries = exp.layout.pages[1].widgets.map((w) => w.query);
+    expect(queries).toEqual([
+      "RETURN $param_year_range_max",
+      "RETURN $param_year_max",
+    ]);
+  });
+
   it("a number-range filter gets three rows, the others two, and the next row clears it", () => {
     const nd = makeNeoDash(
       [
