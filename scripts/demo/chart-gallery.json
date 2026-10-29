@@ -181,7 +181,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Table\n\nRow-level detail with sorting, pagination, and column controls. The workhorse for drilldown data.\n\n**Options shown:** `enableSorting: true`, `enablePagination: true`, `pageSize: 10`, `enableColumnResizing: true`."
+                "content": "## Table\n\nRow-level detail with sorting, pagination, and column controls. The workhorse for drilldown data.\n\n**Options shown:** `enableSorting: true`, `enablePagination: true`, `enableColumnResizing: true`."
               }
             }
           },
@@ -195,7 +195,6 @@
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
-                "pageSize": 10,
                 "enableColumnResizing": true
               }
             }
@@ -608,8 +607,7 @@
               "title": "Recent feedback",
               "chartOptions": {
                 "enableSorting": true,
-                "enablePagination": true,
-                "pageSize": 10
+                "enablePagination": true
               }
             }
           }

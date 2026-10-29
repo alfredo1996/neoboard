@@ -179,7 +179,8 @@ describe("getDefaultChartSettings", () => {
     const d = getDefaultChartSettings("table");
     expect(d.enableSorting).toBe(true);
     expect(d.enableGlobalFilter).toBe(false);
-    expect(d.pageSize).toBe(10);
+    // Auto: no saved page size, so the grid fits rows to the card (#2356).
+    expect("pageSize" in d).toBe(false);
     expect(d.emptyMessage).toBe("No results");
     expect(d.enableColumnFilters).toBeUndefined();
     // Automatic, not a number format an author never chose (#2222).
