@@ -818,6 +818,7 @@ describe("buildParameterSourceMap", () => {
     ]);
     const map = buildParameterSourceMap(layout);
     expect(map.dept[0].widgetTitle).toBe("parameter-select");
+    expect(map.dept[0].untitled).toBe(true);
   });
 
   it("deduplicates when same widget sets the same param via top-level and rule", () => {

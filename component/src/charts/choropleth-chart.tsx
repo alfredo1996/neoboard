@@ -215,6 +215,9 @@ function ChoroplethChart({
           // shape (1.64:1 instead of its true 2.05:1).
           preserveAspect: "contain",
           select: { disabled: true },
+          // Names that would collide are dropped, larger regions win, and
+          // zooming brings the rest back (#2330). LabelLayout is registered in base-chart.tsx.
+          labelLayout: showLabels ? { hideOverlap: true } : undefined,
           label: {
             show: showLabels,
             fontSize: 9,
