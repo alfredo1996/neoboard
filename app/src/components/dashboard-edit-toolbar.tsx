@@ -128,7 +128,7 @@ export function DashboardEditToolbar({
             disabled={isSaving}
             title="Leave without saving (Cmd+E)"
           >
-            Cancel
+            <span>Cancel</span>
             <span className="hidden xl:contents">
               <ShortcutHint combo="Cmd+E" />
             </span>
