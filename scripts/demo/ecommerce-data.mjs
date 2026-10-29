@@ -224,7 +224,12 @@ export function generateCategories() {
   return CATEGORIES.map((c) => ({ ...c }));
 }
 
-export function generateCustomers(rng) {
+function utcToday() {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+export function generateCustomers(rng, today) {
   const customers = [];
   for (let i = 1; i <= COUNTS.customers; i++) {
     const first = rng.pick(FIRST_NAMES);
@@ -234,9 +239,10 @@ export function generateCustomers(rng) {
     // Small jitter around city center so map markers don't fully overlap
     const lat = city.lat + (rng.next() - 0.5) * 0.2;
     const lng = city.lng + (rng.next() - 0.5) * 0.2;
-    // Signup dates span Jan 2024 → Mar 2026 (~800 days)
+    // Signup dates span Jan 2024 → three weeks before the seed date
     const base = new Date("2024-01-01T00:00:00Z").getTime();
-    const signup = new Date(base + rng.int(0, 800) * 86400000);
+    const spanDays = Math.floor((today.getTime() - base) / 86400000) - 21;
+    const signup = new Date(base + rng.int(0, spanDays) * 86400000);
     customers.push({
       id: i,
       name: `${first} ${last}`,
@@ -271,14 +277,14 @@ export function generateProducts(rng) {
   return products;
 }
 
-export function generateOrders(rng, customers, products) {
+export function generateOrders(rng, customers, products, today) {
   const orders = [];
   const orderItems = [];
   for (let i = 1; i <= COUNTS.orders; i++) {
     const customer = rng.pick(customers);
-    // Order date between customer signup and now
+    // Order date between customer signup and the seed date
     const signupMs = new Date(customer.signup_date).getTime();
-    const nowMs = new Date("2026-04-01T00:00:00Z").getTime();
+    const nowMs = today.getTime();
     const createdAt = new Date(signupMs + rng.int(0, Math.max(1, nowMs - signupMs)));
     const status = rng.pick(ORDER_STATUSES);
 
@@ -313,15 +319,18 @@ export function generateOrders(rng, customers, products) {
 
 /**
  * Generates the full data set deterministically.
- * Same `seed` input → byte-identical output.
+ * Same `seed` and `today` → byte-identical output. `today` is the day the
+ * orders run up to (default: the current UTC day), so "last N days" windows
+ * show data on the day of seeding. ponytail: a volume keeps the date it was
+ * seeded on; a stale one needs a re-seed (or anchor the queries on MAX(created_at)).
  */
-export function generateAll(seed = 570) {
+export function generateAll(seed = 570, today = utcToday()) {
   const rng = makeRng(seed);
   const regions = generateRegions();
   const categories = generateCategories();
-  const customers = generateCustomers(rng);
+  const customers = generateCustomers(rng, today);
   const products = generateProducts(rng);
-  const { orders, orderItems } = generateOrders(rng, customers, products);
+  const { orders, orderItems } = generateOrders(rng, customers, products, today);
   const feedback = generateFeedback();
   return { regions, categories, customers, products, orders, orderItems, feedback };
 }
