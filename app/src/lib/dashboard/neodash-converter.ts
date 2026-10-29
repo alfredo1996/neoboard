@@ -540,8 +540,10 @@ function buildFiltersPage(
     let filterName = paramName;
     if (paramType === "number-range") {
       // The range seeds `<name>_min` / `<name>_max` into the parameter store;
-      // another parameter with that name would collide. Rename this filter.
+      // another parameter with that name would collide. Rename this filter,
+      // to a name no other parameter has either.
       while (
+        (filterName !== paramName && takenNames.has(filterName)) ||
         takenNames.has(`${filterName}_min`) ||
         takenNames.has(`${filterName}_max`)
       ) {

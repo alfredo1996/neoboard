@@ -1227,6 +1227,36 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     ]);
   });
 
+  it("the renamed filter skips a name another parameter already has", () => {
+    const nd = makeNeoDash(
+      [
+        makeReport({ query: "RETURN $neodash_year" }),
+        makeReport({ query: "RETURN $neodash_year_max" }),
+        makeReport({ query: "RETURN $neodash_year_range" }),
+      ],
+      {
+        parameters: {
+          neodash_year: 2020,
+          neodash_year_max: "x",
+          neodash_year_range: "y",
+        },
+      },
+    );
+    const { export: exp } = convertNeoDashWithNotes(nd);
+    const filters = exp.layout.pages[0].widgets.map(
+      (w) =>
+        (w.settings?.chartOptions as { parameterName: string }).parameterName,
+    );
+    expect(new Set(filters).size).toBe(filters.length);
+    expect(filters).toEqual(["year_range_range", "year_max", "year_range"]);
+    const queries = exp.layout.pages[1].widgets.map((w) => w.query);
+    expect(queries).toEqual([
+      "RETURN $param_year_range_range_max",
+      "RETURN $param_year_max",
+      "RETURN $param_year_range",
+    ]);
+  });
+
   it("a number-range filter gets three rows, the others two, and the next row clears it", () => {
     const nd = makeNeoDash(
       [
