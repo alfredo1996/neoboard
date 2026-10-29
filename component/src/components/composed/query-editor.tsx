@@ -142,7 +142,8 @@ async function buildExtensions(
   placeholderCompartment: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
   themeCompartmentExt: any,
-  nameAttrs: Record<string, string>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  nameCompartmentExt: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
@@ -201,7 +202,7 @@ async function buildExtensions(
     autocompletion(),
     placeholderCompartment.of(cmPlaceholder(placeholder)),
     themeCompartmentExt,
-    EditorView.contentAttributes.of(nameAttrs),
+    nameCompartmentExt,
     baseTheme,
     updateListener,
     readOnlyCompartmentExt,
@@ -250,13 +251,11 @@ function QueryEditor({
   const readOnlyRef = React.useRef(readOnly);
   const schemaRef = React.useRef(schema);
   const placeholderRef = React.useRef(placeholder);
-  // Read once at mount, like the other init-time values; a name that changes
-  // later needs a Compartment (ponytail: the one caller's name is static).
-  const nameAttrsRef = React.useRef<Record<string, string>>(
+  const nameAttrs = (): Record<string, string> =>
     ariaLabelledby
       ? { "aria-labelledby": ariaLabelledby }
-      : { "aria-label": ariaLabel },
-  );
+      : { "aria-label": ariaLabel };
+  const nameAttrsRef = React.useRef(nameAttrs());
   const dark = useDarkMode();
   const darkRef = React.useRef(dark);
   React.useEffect(() => {
@@ -303,6 +302,10 @@ function QueryEditor({
   const placeholderCompartmentRef = React.useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
   const themeCompartmentRef = React.useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
+  const nameCompartmentRef = React.useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM EditorView.contentAttributes facet
+  const contentAttributesRef = React.useRef<any>(null);
   // Cache EditorState after first load so the readOnly effect can reconfigure
   // the compartment synchronously (no extra async import tick).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM EditorState
@@ -384,6 +387,9 @@ function QueryEditor({
       placeholderCompartmentRef.current = placeholderCompartment;
       const themeCompartment = new Compartment();
       themeCompartmentRef.current = themeCompartment;
+      const nameCompartment = new Compartment();
+      nameCompartmentRef.current = nameCompartment;
+      contentAttributesRef.current = EditorView.contentAttributes;
       const initialDark = darkRef.current;
       const themeExt = await resolveTheme(initialDark);
       if (abortSignal.aborted) return;
@@ -418,7 +424,9 @@ function QueryEditor({
         readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current)),
         placeholderCompartment,
         themeCompartment.of(themeExt),
-        nameAttrsRef.current,
+        nameCompartment.of(
+          EditorView.contentAttributes.of(nameAttrsRef.current),
+        ),
       );
 
       if (abortSignal.aborted || !containerRef.current) return;
@@ -556,6 +564,17 @@ function QueryEditor({
       cancelled = true;
     };
   }, [dark]);
+
+  // Accessible name: follow the props live, in place.
+  React.useEffect(() => {
+    nameAttrsRef.current = nameAttrs();
+    if (!viewRef.current || !nameCompartmentRef.current) return;
+    viewRef.current.dispatch({
+      effects: nameCompartmentRef.current.reconfigure(
+        contentAttributesRef.current.of(nameAttrsRef.current),
+      ),
+    });
+  }, [ariaLabel, ariaLabelledby]);
 
   // readOnly: synchronous compartment reconfigure — one path for all languages
   React.useEffect(() => {

@@ -418,9 +418,9 @@ describe("QueryEditor — accessible name", () => {
     (
       lastStateConfig?.extensions as {
         type?: string;
-        attrs?: Record<string, string>;
+        ext?: { type?: string; attrs?: Record<string, string> };
       }[]
-    ).find((e) => e?.type === "contentAttributes")?.attrs;
+    ).find((e) => e?.ext?.type === "contentAttributes")?.ext?.attrs;
 
   it.each([
     ["nothing given", {}, { "aria-label": "Query editor" }],
@@ -438,6 +438,20 @@ describe("QueryEditor — accessible name", () => {
     render(<QueryEditor language="sql" {...props} />);
     await flushAsync();
     expect(contentAttrs()).toEqual(expected);
+  });
+
+  it("reconfigures the content attributes when the name props change", async () => {
+    const { rerender } = render(<QueryEditor language="sql" aria-label="A" />);
+    await flushAsync();
+    mockDispatch.mockClear();
+    rerender(<QueryEditor language="sql" aria-label="B" />);
+    await flushAsync();
+    const ext = mockDispatch.mock.calls
+      .map(([tr]) => (tr as { effects?: { ext?: unknown } }).effects?.ext)
+      .find((x) => (x as { type?: string })?.type === "contentAttributes");
+    expect(ext).toEqual(
+      expect.objectContaining({ attrs: { "aria-label": "B" } }),
+    );
   });
 });
 
