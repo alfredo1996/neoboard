@@ -45,6 +45,12 @@ describe("neoboardExportSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects a widget with an empty chartType (#2326)", () => {
+    const bad = structuredClone(VALID_EXPORT);
+    bad.layout.pages[0].widgets[0].chartType = "";
+    expect(neoboardExportSchema.safeParse(bad).success).toBe(false);
+  });
+
   it("rejects missing formatVersion", () => {
     const { formatVersion: _fv, ...noVersion } = VALID_EXPORT;
     const result = neoboardExportSchema.safeParse(noVersion);

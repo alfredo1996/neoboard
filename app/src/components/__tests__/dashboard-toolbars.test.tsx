@@ -40,6 +40,7 @@ const editProps = {
   onAddWidget: vi.fn(),
   onSave: vi.fn(),
   onLeave: vi.fn(),
+  onCancel: vi.fn(),
   onDashboards: vi.fn(),
 };
 
@@ -204,6 +205,38 @@ describe("DashboardEditToolbar", () => {
     rerender(<DashboardEditToolbar {...editProps} onAddPage={onAddPage} />);
     await userEvent.click(screen.getByRole("button", { name: /Add page/ }));
     expect(onAddPage).toHaveBeenCalledOnce();
+  });
+
+  it("has a Cancel button before Save, with the Cmd+E hint, that calls onCancel", async () => {
+    const onCancel = vi.fn();
+    render(<DashboardEditToolbar {...editProps} onCancel={onCancel} />);
+
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    const save = screen.getByRole("button", { name: /Save/ });
+    expect(cancel.querySelector("kbd")).toHaveTextContent(/⌘E|Ctrl E/);
+    expect(
+      cancel.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await userEvent.click(cancel);
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Add page and Add Widget named when icon-only, and hides the hints below xl", () => {
+    render(<DashboardEditToolbar {...editProps} onAddPage={vi.fn()} />);
+    for (const name of ["Add page", "Add Widget"]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute(
+        "aria-label",
+        name,
+      );
+    }
+    for (const kbd of document.querySelectorAll("kbd")) {
+      expect(kbd.parentElement?.className).toMatch(/\bxl:contents\b/);
+    }
+  });
+
+  it("disables Cancel while a save is in flight", () => {
+    render(<DashboardEditToolbar {...editProps} isSaving />);
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   });
 
   it("leaves edit mode through the dashboard's crumb", async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { effectiveCanWrite } from "../can-write";
+import { canManageConnections, effectiveCanWrite } from "../can-write";
 
 describe("effectiveCanWrite", () => {
   it.each([
@@ -10,5 +10,16 @@ describe("effectiveCanWrite", () => {
     ["creator", false, false],
   ] as const)("%s with flag %s -> %s", (role, flag, expected) => {
     expect(effectiveCanWrite(role, flag)).toBe(expected);
+  });
+});
+
+describe("canManageConnections", () => {
+  it.each([
+    ["reader", false],
+    ["creator", true],
+    ["admin", true],
+    [undefined, false],
+  ] as const)("%s -> %s", (role, expected) => {
+    expect(canManageConnections(role)).toBe(expected);
   });
 });

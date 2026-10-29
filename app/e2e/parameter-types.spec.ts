@@ -541,6 +541,67 @@ test.describe("Parameter widget types", () => {
     }
   });
 
+  // Re-picking the value already shown used to clear it, and the dependent
+  // widget fell back to its "Pick actor above" empty state (#2326).
+  test("re-picking the shown value keeps it and the dependent widget's data (#2326)", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await createParamDashboard(
+      page.request,
+      `param-repick ${uid()}`,
+      {
+        widgets: [
+          {
+            id: "p-repick",
+            chartType: "parameter-select",
+            connectionId: "conn-neo4j-001",
+            query: "",
+            settings: {
+              title: "Actor",
+              chartOptions: {
+                parameterType: "select",
+                parameterName: "actor",
+                seedQuery:
+                  "MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: 'The Matrix'}) RETURN elementId(p) AS value, p.name AS label ORDER BY label",
+              },
+            },
+          },
+          {
+            id: "t-repick",
+            chartType: "table",
+            connectionId: "conn-neo4j-001",
+            query:
+              "MATCH (p:Person) WHERE elementId(p) = $param_actor RETURN p.name AS name",
+            settings: { title: "Picked" },
+          },
+        ],
+        gridLayout: [
+          { i: "p-repick", x: 0, y: 0, w: 4, h: 3 },
+          { i: "t-repick", x: 4, y: 0, w: 6, h: 6 },
+        ],
+      },
+    );
+
+    try {
+      await page.goto(`/${id}`);
+      const trigger = page.getByRole("combobox").first();
+      await trigger.waitFor({ state: "visible", timeout: 15_000 });
+
+      for (const _attempt of [1, 2]) {
+        await trigger.click();
+        await page
+          .getByRole("option", { name: "Keanu Reeves", exact: true })
+          .click();
+        await expect(trigger).toHaveText(/Keanu Reeves/);
+        await expect(page.getByRole("row")).toHaveCount(2, {
+          timeout: 15_000,
+        });
+      }
+    } finally {
+      await cleanup();
+    }
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
   // 7. cascading-select — child options depend on parent; clearing resets
   // ─────────────────────────────────────────────────────────────────────────
@@ -893,6 +954,82 @@ test.describe("Parameter widget types", () => {
         await expect(options).toHaveCount(3, { timeout: 10_000 });
         await page.keyboard.press("Escape");
       }
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // #2357: a selector's field keeps the card body's own bottom padding below
+  // it at the default two-row height, in view and edit mode. Real layout: the
+  // plugin used to add its own p-4 inside that padding, pushing the field into
+  // the bottom edge (edit mode's fixed h-9 header leaves the least room).
+  test("selector fields keep the card body's bottom padding below them, in view and edit mode", async ({
+    page,
+  }) => {
+    const seedQuery =
+      "MATCH (p:Person) RETURN DISTINCT p.name AS value ORDER BY value LIMIT 5";
+    const mk = (id: string, type: string, name: string, extra = {}) => ({
+      id,
+      chartType: "parameter-select",
+      connectionId: "conn-neo4j-001",
+      query: "",
+      settings: {
+        title: name,
+        chartOptions: { parameterType: type, parameterName: id, ...extra },
+      },
+    });
+    const widgets = [
+      mk("t", "text", "Search"),
+      mk("m", "multi-select", "Actors", { seedQuery }),
+      mk("s", "select", "Pick", { seedQuery }),
+    ];
+    const { id, cleanup } = await createParamDashboard(
+      page.request,
+      `param-card-margin ${uid()}`,
+      {
+        widgets,
+        gridLayout: widgets.map((w, k) => ({
+          i: w.id,
+          x: k * 4,
+          y: 0,
+          w: 4,
+          h: 2,
+        })),
+      },
+    );
+    try {
+      await page.goto(`/${id}`);
+      await page.getByRole("combobox").first().waitFor({ timeout: 15_000 });
+      const measure = () =>
+        page.evaluate(() => {
+          const bodies = [
+            ...document.querySelectorAll(
+              "[class*=overflow-hidden][class*=pb-4]",
+            ),
+          ];
+          return bodies.flatMap((body) => {
+            const pad = Number.parseFloat(getComputedStyle(body).paddingBottom);
+            const bottom = body.getBoundingClientRect().bottom;
+            return [
+              ...body.querySelectorAll("input, button[role=combobox]"),
+            ].map((f) =>
+              Math.round(bottom - f.getBoundingClientRect().bottom - pad),
+            );
+          });
+        });
+      // Slack beyond the padding: negative means the field intrudes into it.
+      const view = await measure();
+      expect(view.length).toBeGreaterThanOrEqual(3);
+      for (const slack of view) expect(slack).toBeGreaterThanOrEqual(0);
+
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: "Save", exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+      const edit = await measure();
+      expect(edit.length).toBeGreaterThanOrEqual(3);
+      for (const slack of edit) expect(slack).toBeGreaterThanOrEqual(0);
     } finally {
       await cleanup();
     }

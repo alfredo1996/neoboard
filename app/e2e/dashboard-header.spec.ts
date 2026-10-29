@@ -59,7 +59,7 @@ const geometry = (page: import("@playwright/test").Page) =>
     };
   });
 
-for (const width of [1280, 834]) {
+for (const width of [1280, 1024, 834, 768]) {
   for (const pages of [1, 2]) {
     test(`header height and grid position match in view and edit: ${width}px, ${pages} page(s)`, async ({
       authPage,

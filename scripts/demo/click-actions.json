@@ -79,8 +79,7 @@
               "title": "Products in $param_category",
               "chartOptions": {
                 "enableSorting": true,
-                "enablePagination": true,
-                "pageSize": 10
+                "enablePagination": true
               }
             }
           }
@@ -163,8 +162,7 @@
               "title": "50 most recent orders",
               "chartOptions": {
                 "enableSorting": true,
-                "enablePagination": true,
-                "pageSize": 10
+                "enablePagination": true
               }
             }
           }
@@ -272,8 +270,7 @@
               "title": "Customers in $param_region",
               "chartOptions": {
                 "enableSorting": true,
-                "enablePagination": true,
-                "pageSize": 10
+                "enablePagination": true
               }
             }
           }

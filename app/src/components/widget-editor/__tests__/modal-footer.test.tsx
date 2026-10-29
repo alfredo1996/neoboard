@@ -106,6 +106,37 @@ describe("ModalFooter", () => {
     expect(screen.getByText("Add Widget")).toBeDisabled();
   });
 
+  it.each([
+    ["chart type", { chartType: "" }],
+    ["connection", { connectionId: "" }],
+  ])("disables save for a query widget with no %s (#2326)", (_n, patch) => {
+    Object.assign(mockStoreState, patch);
+    render(<ModalFooter {...baseProps} />);
+    expect(screen.getByText("Add Widget")).toBeDisabled();
+  });
+
+  it("keeps save enabled for a content-only widget with no connection (#2326)", () => {
+    Object.assign(mockStoreState, {
+      chartType: "markdown",
+      connectionId: "",
+      query: "",
+    });
+    render(<ModalFooter {...baseProps} isContentOnly />);
+    expect(screen.getByText("Add Widget")).toBeEnabled();
+  });
+
+  it("disables save for a content-only widget with no chart type (#2326)", () => {
+    Object.assign(mockStoreState, { chartType: "", query: "" });
+    render(<ModalFooter {...baseProps} isContentOnly />);
+    expect(screen.getByText("Add Widget")).toBeDisabled();
+  });
+
+  it("disables template creation with no chart type (#2326)", () => {
+    mockStoreState.chartType = "";
+    render(<ModalFooter {...baseProps} mode="lab-create" />);
+    expect(screen.getByText("Create Template")).toBeDisabled();
+  });
+
   it("shows lab mode buttons in lab-create mode", () => {
     render(<ModalFooter {...baseProps} mode="lab-create" />);
     expect(screen.getByText("Create Template")).toBeInTheDocument();

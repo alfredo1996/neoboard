@@ -41,7 +41,6 @@ export function ModalFooter({
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
 
   const isParamSelect = chartType === "parameter-select";
-  const isForm = chartType === "form";
   const isLabMode = mode === "lab-edit" || mode === "lab-create";
 
   // #913: "Save as new template" is offered only when editing an existing
@@ -70,7 +69,9 @@ export function ModalFooter({
       {isLabMode ? (
         <LoadingButton
           type="button"
-          disabled={!labName.trim() || (!isContentOnly && !query.trim())}
+          disabled={
+            !labName.trim() || !chartType || (!isContentOnly && !query.trim())
+          }
           loading={labSaving}
           loadingText="Saving..."
           onClick={onLabSave}
@@ -81,16 +82,15 @@ export function ModalFooter({
         <LoadingButton
           type="button"
           disabled={
-            isParamSelect
+            !chartType ||
+            (isParamSelect
               ? !paramWidgetName.trim() ||
                 (paramUIType === "select" &&
                   (!connectionId ||
                     !String(chartOptions.seedQuery ?? "").trim()))
               : isContentOnly
                 ? false
-                : isForm
-                  ? !connectionId || !query.trim()
-                  : !query.trim()
+                : !connectionId || !query.trim())
           }
           loading={saveStatus === "saving"}
           loadingText="Saving..."
