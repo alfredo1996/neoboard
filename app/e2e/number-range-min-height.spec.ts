@@ -106,16 +106,27 @@ test.describe("Number-range selector minimum height (#2374)", () => {
       expect(edit.length).toBeGreaterThanOrEqual(3);
       for (const slack of edit) expect(slack).toBeGreaterThanOrEqual(0);
 
-      // Drag the bottom-right handle up two rows: height must not change.
-      const item = page.locator(".react-grid-item", {
-        hasText: "Range two",
-      });
-      const handle = item.locator(".react-resizable-handle");
-      const box = (await handle.boundingBox())!;
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width / 2, box.y - 150, { steps: 10 });
-      await page.mouse.up();
+      // Drag a card's bottom-right handle up 150px.
+      const dragUp = async (cardId: string) => {
+        const handle = page
+          .locator(".react-grid-item", { hasText: `Range ${cardId}` })
+          .locator(".react-resizable-handle");
+        const box = (await handle.boundingBox())!;
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width / 2, box.y - 150, {
+          steps: 10,
+        });
+        await page.mouse.up();
+      };
+
+      // Control: the same drag shrinks the two-row text card, so the drag acts.
+      const txtBefore = await cardH(page, "txt");
+      await dragUp("txt");
+      await expect.poll(() => cardH(page, "txt")).toBeLessThan(txtBefore);
+
+      // The number-range card must not shrink below its three rows.
+      await dragUp("two");
       expect(await cardH(page, "two")).toBe(two);
     } finally {
       await cleanup();
