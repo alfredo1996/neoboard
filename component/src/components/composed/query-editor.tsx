@@ -130,20 +130,25 @@ async function buildTheme(dark: boolean): Promise<Extension[]> {
   ];
 }
 
+/** Compartment-wrapped extensions, each reconfigured on its own later. */
+interface CompartmentExts {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  lang: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  readOnly: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  theme: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  name: any;
+}
+
 async function buildExtensions(
   placeholder: string,
   onUpdate: (newValue: string) => void,
   onRun: () => void,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
-  langCompartmentExt: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
-  readOnlyCompartmentExt: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
   placeholderCompartment: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
-  themeCompartmentExt: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
-  nameCompartmentExt: any,
+  compartments: CompartmentExts,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
@@ -198,14 +203,14 @@ async function buildExtensions(
       ...closeBracketsKeymap,
     ]),
     runKeymap,
-    langCompartmentExt,
+    compartments.lang,
     autocompletion(),
     placeholderCompartment.of(cmPlaceholder(placeholder)),
-    themeCompartmentExt,
-    nameCompartmentExt,
+    compartments.theme,
+    compartments.name,
     baseTheme,
     updateListener,
-    readOnlyCompartmentExt,
+    compartments.readOnly,
   ];
 }
 
@@ -420,13 +425,17 @@ function QueryEditor({
         placeholderRef.current,
         onUpdate,
         onRunCallback,
-        langCompartment.of(langExts),
-        readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current)),
         placeholderCompartment,
-        themeCompartment.of(themeExt),
-        nameCompartment.of(
-          EditorView.contentAttributes.of(nameAttrsRef.current),
-        ),
+        {
+          lang: langCompartment.of(langExts),
+          readOnly: readOnlyCompartment.of(
+            EditorState.readOnly.of(readOnlyRef.current),
+          ),
+          theme: themeCompartment.of(themeExt),
+          name: nameCompartment.of(
+            EditorView.contentAttributes.of(nameAttrsRef.current),
+          ),
+        },
       );
 
       if (abortSignal.aborted || !containerRef.current) return;
