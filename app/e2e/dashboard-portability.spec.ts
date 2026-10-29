@@ -391,4 +391,75 @@ test.describe("NeoDash legacy import", () => {
       }
     }
   });
+
+  test("a dashboard-wide parameter imports as a working Filters selector with its default (#2377)", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const title = `Param Import ${uid()}`;
+    const neodash = {
+      title,
+      version: "2.4",
+      settings: { parameters: { neodash_year: 2020 } },
+      pages: [
+        {
+          title: "Page 1",
+          reports: [
+            {
+              id: "r1",
+              title: "By year",
+              type: "value",
+              query: "RETURN $neodash_year AS value",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const tmpFile = path.join(os.tmpdir(), `neodash-param-${uid()}.json`);
+    fs.writeFileSync(tmpFile, JSON.stringify(neodash));
+
+    let importedId: string | undefined;
+    try {
+      await page.getByRole("button", { name: "Import", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
+      await expect(dialog).toBeVisible({ timeout: 5_000 });
+      await dialog.locator("#import-file").setInputFiles(tmpFile);
+      await expect(dialog.getByText("NeoDash format")).toBeVisible({
+        timeout: 5_000,
+      });
+      await dialog.locator('label:has-text("Skip")').first().click();
+      const importBtn = dialog.getByRole("button", { name: "Import" }).last();
+      await expect(importBtn).toBeEnabled();
+      await importBtn.click();
+      await page
+        .getByRole("button", { name: "View dashboard" })
+        .click({ timeout: 15_000 });
+      await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
+      importedId = page.url().split("/").pop();
+
+      await page.getByRole("tab", { name: "Filters", exact: true }).click();
+      const card = page.locator("[data-testid='widget-card']").first();
+      await expect(card).toBeVisible({ timeout: 15_000 });
+      await expect(card.getByText("year", { exact: true })).toBeVisible();
+      // Positive end state: the number-range selector shows the default.
+      await expect(card.getByRole("spinbutton").last()).toHaveValue("2020");
+      await expect(
+        page.getByText("No parameter name", { exact: true }),
+      ).toHaveCount(0);
+    } finally {
+      if (importedId) {
+        await page.request.delete(`/api/dashboards/${importedId}`);
+      }
+      fs.rmSync(tmpFile, { force: true });
+    }
+  });
 });

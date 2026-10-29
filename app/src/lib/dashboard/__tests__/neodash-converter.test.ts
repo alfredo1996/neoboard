@@ -1056,9 +1056,15 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const filterWidget = exp.layout.pages[0].widgets[0];
     expect(filterWidget.chartType).toBe("parameter-select");
     const s = filterWidget.settings as Record<string, unknown>;
-    expect(s.parameterName).toBe("year");
-    expect(s.parameterType).toBe("number-range");
-    expect(s.defaultValue).toBe(2024);
+    const o = s.chartOptions as Record<string, unknown>;
+    expect(o.parameterName).toBe("year");
+    expect(o.parameterType).toBe("number-range");
+    expect(o.defaultValue).toBe(2024);
+    expect(o.rangeMin).toBe(0);
+    expect(o.rangeMax).toBe(2024);
+    // The app reads options from chartOptions only; nothing at the root.
+    expect(s.parameterName).toBeUndefined();
+    expect(s.defaultValue).toBeUndefined();
     expect(notes.some((n) => n.includes("$param_year"))).toBe(true);
 
     // Verify the original widget's query was rewritten from $neodash_year
@@ -1092,12 +1098,10 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const { export: exp, notes } = convertNeoDashWithNotes(nd);
     expect(exp.layout.pages).toHaveLength(2);
     const filterWidget = exp.layout.pages[0].widgets[0];
-    expect(
-      (filterWidget.settings as Record<string, unknown>).parameterName,
-    ).toBe("undeclared");
-    expect(
-      (filterWidget.settings as Record<string, unknown>).defaultValue,
-    ).toBeUndefined();
+    const o = (filterWidget.settings as Record<string, unknown>)
+      .chartOptions as Record<string, unknown>;
+    expect(o.parameterName).toBe("undeclared");
+    expect(o.defaultValue).toBeUndefined();
     expect(notes.some((n) => n.includes("not defined in NeoDash"))).toBe(true);
   });
 
@@ -1125,8 +1129,10 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const { export: exp } = convertNeoDashWithNotes(nd);
     const byName = Object.fromEntries(
       exp.layout.pages[0].widgets.map((w) => [
-        (w.settings as Record<string, unknown>).parameterName as string,
-        (w.settings as Record<string, unknown>).parameterType as string,
+        (w.settings?.chartOptions as Record<string, unknown>)
+          .parameterName as string,
+        (w.settings?.chartOptions as Record<string, unknown>)
+          .parameterType as string,
       ]),
     );
     expect(byName.str).toBe("select");
@@ -1143,8 +1149,12 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
 
     const { export: exp } = convertNeoDashWithNotes(nd);
     expect(
-      (exp.layout.pages[0].widgets[0].settings as Record<string, unknown>)
-        .parameterName,
+      (
+        exp.layout.pages[0].widgets[0].settings?.chartOptions as Record<
+          string,
+          unknown
+        >
+      ).parameterName,
     ).toBe("userId");
   });
 
@@ -1227,8 +1237,9 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const { export: exp } = convertNeoDashWithNotes(nd);
     const byName = Object.fromEntries(
       exp.layout.pages[0].widgets.map((w) => [
-        (w.settings as Record<string, unknown>).parameterName as string,
-        w.settings as Record<string, unknown>,
+        (w.settings?.chartOptions as Record<string, unknown>)
+          .parameterName as string,
+        w.settings?.chartOptions as Record<string, unknown>,
       ]),
     );
     expect(byName.small.rangeMin).toBe(0);

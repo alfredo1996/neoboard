@@ -575,8 +575,9 @@ function addFilterWidget(
           ...gridLayout.slice((row - 1) * 4, row * 4).map((g) => g.y + g.h),
         );
 
-  const settings: Record<string, unknown> = {
-    title: parameterName,
+  // The app reads a parameter-select widget's options from
+  // settings.chartOptions (card-container, plugin, editor, apply-param-defaults).
+  const chartOptions: Record<string, unknown> = {
     parameterName,
     parameterType,
   };
@@ -584,15 +585,15 @@ function addFilterWidget(
   // the seed query for select-typed params from a hard-coded default; the user
   // can wire the seed query in the editor.
   if (defaultValue !== undefined) {
-    settings.defaultValue = defaultValue;
+    chartOptions.defaultValue = defaultValue;
   }
   if (parameterType === "number-range" && typeof defaultValue === "number") {
     // rangeMin/rangeMax must include defaultValue. CodeRabbit caught the
     // negative-default bug: a default of -5 with rangeMin=0 would be outside
     // the range. min(default, 0) keeps the floor at 0 for non-negative
     // defaults (common case) while widening for negatives.
-    settings.rangeMin = Math.min(defaultValue, 0);
-    settings.rangeMax = Math.max(defaultValue, 100);
+    chartOptions.rangeMin = Math.min(defaultValue, 0);
+    chartOptions.rangeMax = Math.max(defaultValue, 100);
   }
 
   widgets.push({
@@ -601,7 +602,7 @@ function addFilterWidget(
     connectionId: "",
     query: "",
     params: {},
-    settings,
+    settings: { title: parameterName, chartOptions },
   });
   // A number-range selector (inputs + slider) needs three rows (#2374).
   gridLayout.push({
