@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { expect, waitFor, within } from "storybook/test";
 import { ChoroplethChart } from "@/charts/choropleth-chart";
 import { MUTED_FILL } from "@/charts/theme";
+import { drawnLabels, labelClashes } from "./drawn-labels";
 
 const meta = {
   title: "Charts/ChoroplethChart",
@@ -341,6 +342,25 @@ export const WithLabels: Story = {
   args: {
     data: populationData.slice(0, 15),
     showLabels: true,
+  },
+};
+
+/**
+ * #2330 — with labels on, every country printed its name at once, on top of
+ * its neighbours. Read the drawn text back from zrender's display list and
+ * require that no two boxes intersect. The legend is off so the only text on
+ * the canvas is region names.
+ */
+export const LabelsDoNotOverlap: Story = {
+  args: { data: populationData, showLabels: true, showVisualMap: false },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    await waitFor(
+      () => expect(drawnLabels(canvasElement).length).toBeGreaterThan(3),
+      { timeout: 5000 },
+    );
+    const clashes = labelClashes(drawnLabels(canvasElement));
+    expect(clashes).toEqual([]);
   },
 };
 
