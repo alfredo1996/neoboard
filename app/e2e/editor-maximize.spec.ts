@@ -86,6 +86,51 @@ test.describe("Query editor maximize (#1374)", () => {
     await page.getByRole("option").first().click();
   });
 
+  test("the query pane follows the theme and fills its frame (#2329)", async ({
+    page,
+  }) => {
+    const dialog = page.getByRole("dialog", {
+      name: "Add Widget",
+      exact: true,
+    });
+    const frame = dialog.locator("[data-testid='codemirror-container']");
+    const cm = frame.locator(".cm-editor");
+    await expect(frame).toHaveAttribute("data-editor-ready", "true");
+    const bg = () => cm.evaluate((el) => getComputedStyle(el).backgroundColor);
+    // The dialog's own field colour, resolved by the browser from the token.
+    const field = () =>
+      cm.evaluate((el) => {
+        const probe = document.createElement("div");
+        probe.style.backgroundColor = "hsl(var(--field))";
+        el.parentElement?.appendChild(probe);
+        const c = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return c;
+      });
+    const setDark = (on: boolean) =>
+      page.evaluate(
+        (d) => document.documentElement.classList.toggle("dark", d),
+        on,
+      );
+
+    await setDark(false);
+    const light = await field();
+    await expect.poll(bg).toBe(light);
+    await setDark(true);
+    const dark = await field();
+    expect(dark).not.toBe(light);
+    await expect.poll(bg).toBe(dark);
+    await setDark(false);
+    await expect.poll(bg).toBe(light);
+
+    // Empty query: no band between the code and the frame's bottom edge.
+    const [frameBox, cmBox] = [
+      await frame.boundingBox(),
+      await cm.boundingBox(),
+    ];
+    expect(Math.abs(frameBox!.height - cmBox!.height)).toBeLessThanOrEqual(1);
+  });
+
   test("more than doubles the editor height on open and unmounts the preview", async ({
     page,
   }) => {

@@ -26,6 +26,7 @@ import { pluralWidgets } from "@/lib/widget/plural-widgets";
 import {
   layoutConnectionIds,
   unusableConnectionIds,
+  usableConnection,
 } from "@/lib/db/connection-access";
 
 const importRequestSchema = z.object({
@@ -101,7 +102,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Validate mapping targets belong to the caller's tenant + user.
+    // Validate mapping targets: in the caller's tenant and usable by the
+    // caller (own, shared, or any for an admin), as /api/query judges (#2327).
     // Skipped-key mappings are ignored.
     const mappedIds = [
       ...new Set(
@@ -117,7 +119,7 @@ export async function POST(request: Request) {
         .where(
           and(
             inArray(connections.id, mappedIds),
-            eq(connections.userId, userId),
+            usableConnection(userId, role),
             eq(connections.tenantId, tenantId),
           ),
         );
