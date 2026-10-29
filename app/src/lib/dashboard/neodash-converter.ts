@@ -473,6 +473,21 @@ export function convertNeoDashWithNotes(
 }
 
 /**
+ * A number-range filter seeds `name = [min, max]`, `name_min` and `name_max`.
+ * A NeoDash report uses the parameter as a scalar, so bind it to `_max`: the
+ * default fills the slider's upper handle and reaches the query as a number.
+ */
+function bindToRangeMax(
+  pages: { widgets: DashboardWidget[] }[],
+  paramName: string,
+): void {
+  const ref = new RegExp(String.raw`\$param_${paramName}(?!\w)`, "g");
+  for (const w of pages.flatMap((p) => p.widgets)) {
+    if (w.query) w.query = w.query.replace(ref, `$$param_${paramName}_max`);
+  }
+}
+
+/**
  * Build the auto-generated "Filters" page from NeoDash's dashboard-wide
  * parameters. Returns null when no widgets would be created (no params
  * referenced in any query, or no params at all).
@@ -518,6 +533,7 @@ function buildFiltersPage(
 
     const paramType = inferParameterType(value);
     addFilterWidget(widgets, gridLayout, paramName, paramType, value);
+    if (paramType === "number-range") bindToRangeMax(pages, paramName);
     notes.push(
       "Created parameter-select widget for $param_" +
         paramName +

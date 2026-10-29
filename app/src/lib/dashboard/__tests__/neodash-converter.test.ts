@@ -1189,6 +1189,23 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     expect(filtersGrid.every((g) => g.w === 3 && g.h === 2)).toBe(true);
   });
 
+  it("a numeric parameter's report binds to $param_<name>_max, a text one's stays $param_<name>", () => {
+    const nd = makeNeoDash(
+      [
+        makeReport({
+          query: "RETURN $neodash_year, $neodash_year_x, $neodash_who",
+        }),
+      ],
+      {
+        parameters: { neodash_year: 42, neodash_year_x: "a", neodash_who: "b" },
+      },
+    );
+    const { export: exp } = convertNeoDashWithNotes(nd);
+    expect(exp.layout.pages[1].widgets[0].query).toBe(
+      "RETURN $param_year_max, $param_year_x, $param_who",
+    );
+  });
+
   it("a number-range filter gets three rows, the others two, and the next row clears it", () => {
     const nd = makeNeoDash(
       [
@@ -1212,11 +1229,10 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
       gridLayout.find(
         (g) =>
           (
-            widgets.find((w) => w.id === g.i)!.settings as Record<
-              string,
-              unknown
-            >
-          ).parameterName === name,
+            widgets.find((w) => w.id === g.i)!.settings as {
+              chartOptions: Record<string, unknown>;
+            }
+          ).chartOptions.parameterName === name,
       )!;
     expect(hOf("n").h).toBe(3);
     expect(hOf("t").h).toBe(2);
