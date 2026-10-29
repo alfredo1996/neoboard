@@ -29,12 +29,30 @@ let explorationOptions: {
 } = {};
 
 const graphNodes = [
-  { id: "A", label: "Alice", properties: { name: "Alice" } },
+  {
+    id: "A",
+    label: "Alice",
+    labels: ["Person", "Founder"],
+    properties: {
+      name: "Alice",
+      aliases: ["Al", "Ally"],
+      home: { srid: 4326, x: 1.5, y: 2.5 },
+      gone: null,
+    },
+  },
   { id: "B", label: "Bob", properties: { name: "Bob" } },
 ];
 
 /** Toasts the wrapper raised. */
 let toasts: unknown[] = [];
+
+/** Sections last handed to the stubbed PropertyPanel. */
+let panelSections: {
+  title: string;
+  items: { key: string; value: unknown }[];
+}[] = [];
+const itemsOf = (title: string) =>
+  panelSections.find((s) => s.title === title)?.items;
 
 /** What the stubbed exploration says about every node's expandability. */
 let expandable = false;
@@ -73,15 +91,18 @@ vi.mock("@neoboard/components", () => ({
     sections,
   }: {
     sections: { title: string; items: { key: string; value: string }[] }[];
-  }) => (
-    <div data-testid="property-panel">
-      {sections.flatMap((s) =>
-        s.items.map((i) => (
-          <span key={`${s.title}-${i.key}`}>{`${i.key}=${i.value}`}</span>
-        )),
-      )}
-    </div>
-  ),
+  }) => {
+    panelSections = sections;
+    return (
+      <div data-testid="property-panel">
+        {sections.flatMap((s) =>
+          s.items.map((i) => (
+            <span key={`${s.title}-${i.key}`}>{`${i.key}=${i.value}`}</span>
+          )),
+        )}
+      </div>
+    );
+  },
   Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   toast: (t: unknown) => toasts.push(t),
 }));
@@ -153,6 +174,42 @@ describe("GraphExplorationWrapper — property inspector (#1191)", () => {
     expect(screen.getByTestId("property-panel")).toBeInTheDocument();
     expect(screen.getByText("id=A")).toBeInTheDocument();
     expect(screen.getByText("name=Alice")).toBeInTheDocument();
+  });
+
+  it("hands a node's lists and maps to the panel as structure, labels as a list", () => {
+    const onNodeSelect = renderWrapper();
+    act(() => onNodeSelect(["A"]));
+
+    expect(itemsOf("Metadata")).toEqual([
+      { key: "id", value: "A" },
+      { key: "labels", value: ["Person", "Founder"] },
+    ]);
+    expect(itemsOf("Properties")).toEqual([
+      { key: "name", value: "Alice" },
+      { key: "aliases", value: ["Al", "Ally"] },
+      { key: "home", value: { srid: 4326, x: 1.5, y: 2.5 } },
+      { key: "gone", value: null },
+    ]);
+  });
+
+  it("hands a relationship's lists and maps to the panel as structure", () => {
+    renderWrapper();
+    act(() =>
+      (chartProps.onRelationshipClick as (e: unknown) => void)({
+        edge: {
+          id: "e1",
+          source: "A",
+          target: "B",
+          label: "OWNS",
+          properties: { since: [2020, 2021], terms: { rate: 3 } },
+        },
+      }),
+    );
+
+    expect(itemsOf("Properties")).toEqual([
+      { key: "since", value: [2020, 2021] },
+      { key: "terms", value: { rate: 3 } },
+    ]);
   });
 
   it("re-targets the inspector when the next single-id selection arrives", () => {

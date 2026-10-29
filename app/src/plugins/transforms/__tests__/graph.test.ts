@@ -452,3 +452,42 @@ describe("transformToGraphData — converted Neo4j path (#1305)", () => {
     expect(validateGraphData({ nodes, edges })).toBeNull();
   });
 });
+
+describe("transformToGraphData property structure (#2349)", () => {
+  const point = { srid: 4326, x: 1, y: 2 };
+  const data = [
+    {
+      n: {
+        $type: "node",
+        elementId: "n1",
+        labels: ["Company"],
+        properties: { name: ["A", "B"], list: ["x", "y"], point },
+      },
+      r: {
+        $type: "relationship",
+        elementId: "r1",
+        type: "OWNS",
+        start: "n1",
+        end: "n1",
+        properties: { codes: ["1", "2"] },
+      },
+    },
+  ];
+  const result = transformToGraphData(data) as {
+    nodes: Array<{ label: unknown; properties: Record<string, unknown> }>;
+    edges: Array<{ properties: Record<string, unknown> }>;
+  };
+
+  it("keeps lists and maps on a node as structure", () => {
+    expect(result.nodes[0].properties.list).toEqual(["x", "y"]);
+    expect(result.nodes[0].properties.point).toEqual(point);
+  });
+
+  it("keeps lists on a relationship as structure", () => {
+    expect(result.edges[0].properties.codes).toEqual(["1", "2"]);
+  });
+
+  it("still captions a node with text when its name is a list", () => {
+    expect(result.nodes[0].label).toBe('["A","B"]');
+  });
+});

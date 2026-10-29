@@ -2,6 +2,7 @@ import { setProjectAnnotations } from "@storybook/react-vite";
 import * as a11yAddonAnnotations from "@storybook/addon-a11y/preview";
 import * as projectAnnotations from "./preview";
 import { beforeAll, inject } from "vitest";
+import { configure } from "storybook/test";
 
 // `@storybook/addon-a11y` is registered in main.ts, but registering it there
 // only wires the Storybook *UI* panel. The axe run that the vitest project
@@ -27,3 +28,9 @@ beforeAll(() => {
   if (got !== want)
     throw new Error(`project wants ${want} but the browser runs ${got}`);
 });
+
+// Stories wait on lazily loaded content (the choropleth's world map, the
+// CodeMirror editor) and `waitFor` gives up after 1 s by default, which a busy
+// CI runner exceeds. Passing runs are unaffected: `waitFor` returns as soon as
+// the assertion holds (#2375).
+configure({ asyncUtilTimeout: 5000 });
