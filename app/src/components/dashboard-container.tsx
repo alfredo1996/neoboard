@@ -63,6 +63,7 @@ import {
   type WidgetCardAction,
   type WidgetCardProps,
 } from "@neoboard/components";
+import { withWidgetMinHeights } from "@/lib/dashboard/widget-min-height";
 import { returnFocus } from "@/lib/return-focus";
 
 /** Widget action callbacks — grouped to reduce prop count. */
@@ -375,7 +376,7 @@ export function DashboardContainer({
       />
       <div className="w-full min-w-0">
         <DashboardGrid
-          layout={page.gridLayout as GridLayoutItem[]}
+          layout={withWidgetMinHeights(page.gridLayout, page.widgets)}
           onLayoutChange={(items) =>
             onLayoutChange?.(items as GridLayoutItem[])
           }

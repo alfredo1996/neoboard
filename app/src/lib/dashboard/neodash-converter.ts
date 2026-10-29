@@ -554,7 +554,7 @@ function buildFiltersPage(
 
 /**
  * Tile a new parameter-select widget into the Filters page grid.
- * Layout: 4 widgets per row at w=3, h=2 (Filters page is 12 cols wide).
+ * Layout: 4 widgets per row at w=3, h=2 or 3 for a number range (Filters page is 12 cols wide).
  */
 function addFilterWidget(
   widgets: DashboardWidget[],
@@ -566,7 +566,14 @@ function addFilterWidget(
   const id = randomId();
   const index = widgets.length;
   const x = (index % 4) * 3;
-  const y = Math.floor(index / 4) * 2;
+  // A row starts below the tallest widget of the previous row.
+  const row = Math.floor(index / 4);
+  const y =
+    row === 0
+      ? 0
+      : Math.max(
+          ...gridLayout.slice((row - 1) * 4, row * 4).map((g) => g.y + g.h),
+        );
 
   const settings: Record<string, unknown> = {
     title: parameterName,
@@ -596,5 +603,12 @@ function addFilterWidget(
     params: {},
     settings,
   });
-  gridLayout.push({ i: id, x, y, w: 3, h: 2 });
+  // A number-range selector (inputs + slider) needs three rows (#2374).
+  gridLayout.push({
+    i: id,
+    x,
+    y,
+    w: 3,
+    h: parameterType === "number-range" ? 3 : 2,
+  });
 }
