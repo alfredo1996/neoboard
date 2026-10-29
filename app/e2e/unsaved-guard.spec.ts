@@ -156,3 +156,56 @@ test.describe("Unsaved-changes guard covers every way out (#2325)", () => {
     });
   }
 });
+
+// #2352: edit mode has a visible Cancel button; it goes through the same guard.
+test.describe("Cancel button in edit mode (#2352)", () => {
+  const cancel = (page: Page) =>
+    page.getByRole("button", { name: "Cancel", exact: true });
+
+  test("dirty: one dialog, Leave lands on view mode without the edit", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Cancel ${uid()}`,
+    );
+    try {
+      await dirtyEditor(page, id);
+      await cancel(page).click();
+      await expect(leaveDialog(page)).toHaveCount(1);
+      await page
+        .getByRole("button", { name: "Leave without saving", exact: true })
+        .click();
+      await expect(page).toHaveURL(new RegExp(`/${id}$`));
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: "Add page", exact: true }),
+      ).toBeVisible();
+      await expect(page2Tab(page)).toHaveCount(0);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("clean: leaves at once", async ({ authPage, page }) => {
+    test.setTimeout(90_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Cancel ${uid()}`,
+    );
+    try {
+      await page.goto(`/${id}/edit`);
+      await cancel(page).click();
+      await expect(page).toHaveURL(new RegExp(`/${id}$`));
+      await expect(
+        page.getByRole("button", { name: "Edit", exact: true }),
+      ).toBeVisible();
+    } finally {
+      await cleanup();
+    }
+  });
+});
