@@ -53,9 +53,9 @@ function PageHeader({
               const last = i === breadcrumb.length - 1;
               return (
                 <React.Fragment key={`${i}-${crumb.label}`}>
-                  <BreadcrumbItem className={last ? "shrink-0" : "min-w-0"}>
+                  <BreadcrumbItem className="min-w-0">
                     {last ? (
-                      <BreadcrumbPage className="text-muted-foreground">
+                      <BreadcrumbPage className="truncate text-muted-foreground">
                         {crumb.label}
                       </BreadcrumbPage>
                     ) : (

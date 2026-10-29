@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { expect } from "storybook/test";
 import { PageHeader } from "@/components/kit/page-header";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -79,3 +80,34 @@ export const TitleOnly: Story = {
   },
 };
 export const Dark: Story = { globals: { theme: "dark" } };
+
+// A long current-page label must truncate inside a narrow header, not push it wide.
+export const LongCurrentLabelNarrow: Story = {
+  args: {
+    title: "Movie highlights",
+    withActions: false,
+    withTabs: false,
+    meta: "",
+  },
+  render: (args) => (
+    <div style={{ width: 320 }} data-testid="narrow">
+      <PageHeader
+        title={args.title}
+        breadcrumb={[
+          { label: "Dashboards", href: "#" },
+          {
+            label:
+              "A very long dashboard name that cannot possibly fit in three hundred pixels",
+          },
+        ]}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const box = canvasElement.querySelector<HTMLElement>(
+      "[data-testid=narrow]",
+    )!;
+    const list = box.querySelector<HTMLElement>("ol")!;
+    await expect(list.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
+  },
+};
