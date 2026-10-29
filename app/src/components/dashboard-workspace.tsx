@@ -18,7 +18,7 @@ import { getShownWidgetQueryData } from "@/hooks/use-widget-query";
 import { PREVIEW_ROW_LIMIT } from "@/components/widget-editor/use-auto-preview";
 import { useConnections } from "@/hooks/use-connections";
 import { useWidgetTemplates } from "@/hooks/use-widget-templates";
-import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useNavigationGuard } from "@/components/navigation-guard";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import {
   useParameterStore,
@@ -60,7 +60,6 @@ import {
   Alert,
   AlertDescription,
   Button,
-  ConfirmDialog,
   EmptyState,
   focusedMenuTrigger,
   Skeleton,
@@ -179,8 +178,22 @@ export function DashboardWorkspace({
   // ["dashboards", id] after every save, and re-running this on the resulting
   // refetch is what threw you back to page 1 and clobbered savedLayout/_dirty.
   const loadedStampRef = useRef<string | null>(null);
+  // The store emptied under us (a Leave from the unsaved-changes guard): load
+  // the server copy again, not a savedLayout that may be stale.
+  const storeLoaded = useDashboardStore((s) => s.savedLayout !== null);
+  // The page the user was on, kept while the store is loaded: reset() zeroes it.
+  const lastPageRef = useRef(0);
+  useEffect(
+    () =>
+      useDashboardStore.subscribe((s) => {
+        if (s.savedLayout) lastPageRef.current = s.activePageIndex;
+      }),
+    [],
+  );
   useEffect(() => {
     if (!dashboard?.layoutJson) return;
+    const reloaded = !storeLoaded && loadedStampRef.current !== null;
+    if (!storeLoaded) loadedStampRef.current = null;
     const stamp = `${dashboard.id}:${dashboard.version}`;
     if (loadedStampRef.current === stamp) return;
     const first = loadedStampRef.current === null;
@@ -188,11 +201,11 @@ export function DashboardWorkspace({
     // bump must not silently discard them.
     if (!first && useDashboardStore.getState().hasUnsavedChanges()) return;
     loadedStampRef.current = stamp;
-    setLayout(
-      migrateLayout(dashboard.layoutJson),
-      first ? initialPage : useDashboardStore.getState().activePageIndex,
-    );
-  }, [dashboard, setLayout, initialPage]);
+    let page = useDashboardStore.getState().activePageIndex;
+    if (reloaded) page = lastPageRef.current;
+    else if (first) page = initialPage;
+    setLayout(migrateLayout(dashboard.layoutJson), page);
+  }, [dashboard, setLayout, initialPage, storeLoaded]);
 
   // View mode renders the server's layout, edit mode the store's working copy.
   // While the store is clean these are the same object (migrateLayout returns a
@@ -627,14 +640,7 @@ export function DashboardWorkspace({
   );
 
   // ── Navigation ──────────────────────────────────────────────────────
-  const {
-    showNavWarning,
-    setShowNavWarning,
-    returnFocusTo: navWarningOpener,
-    confirmNavigation,
-    cancelNavigation,
-    requestNavigation,
-  } = useUnsavedChangesWarning();
+  const requestNavigation = useNavigationGuard();
 
   const [isPending, startTransition] = useTransition();
 
@@ -969,17 +975,6 @@ export function DashboardWorkspace({
           </div>
         </div>
       </DashboardErrorBoundary>
-
-      <ConfirmDialog
-        open={showNavWarning}
-        onOpenChange={setShowNavWarning}
-        action="Leave without saving"
-        consequences={`Your changes to ${dashboard?.name ?? "this dashboard"} are lost.`}
-        cancelText="Stay"
-        onConfirm={confirmNavigation}
-        onCancel={cancelNavigation}
-        returnFocusTo={navWarningOpener}
-      />
 
       {children}
     </div>
