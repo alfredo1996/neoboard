@@ -2,6 +2,7 @@ import {
   test,
   expect,
   ALICE,
+  CAROL,
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
   uid,
@@ -768,4 +769,30 @@ test.describe("Connections", () => {
         .catch(() => undefined);
     }
   });
+});
+
+// #2328: the server refuses a reader every connection-management call, so the
+// page offers none. Carol is the seeded reader; nothing here mutates her.
+test("a reader is offered no New connection", async ({ page, authPage }) => {
+  const forbidden: string[] = [];
+  page.on("response", (r) => {
+    if (r.status() === 403) forbidden.push(r.url());
+  });
+  await authPage.login(CAROL.email, CAROL.password);
+  // Both reads the page makes must have answered before 403s are counted.
+  const listed = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === "/api/connections",
+  );
+  const connectors = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === "/api/connectors",
+  );
+  await page.goto("/connections");
+  await Promise.all([listed, connectors]);
+  await expect(
+    page.getByRole("heading", { name: "Connections", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "New connection", exact: true }),
+  ).toHaveCount(0);
+  expect(forbidden).toEqual([]);
 });
