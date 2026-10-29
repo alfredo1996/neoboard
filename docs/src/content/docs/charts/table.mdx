@@ -39,7 +39,7 @@ LIMIT 100
 | Search Box | boolean | false | A search box above the table ("Search 50 rows") that matches every visible column |
 | Column Resizing | boolean | false | Allow drag-to-resize column borders |
 | Enable Pagination | boolean | true | Show the row count ("1–10 of 50"); Previous/Next appear when there is more than one page |
-| Page Size | number | 10 | Number of rows shown per page |
+| Page Size | number | Auto (fits the card) | Rows per page. Leave empty to fit the card. |
 | Empty Message | text | No results | Text displayed when the query returns no rows |
 | Number Format | select | Automatic | Automatic, Comma, Compact, Percent or Plain for every numeric cell |
 | Decimal Places | number | -1 | Fixed decimals (0-6) for numeric cells; -1 is automatic: each column uses the most decimals its values carry, up to 2, so it lines up (1,234.50 above 12.00); a column of whole numbers prints none |
@@ -53,4 +53,4 @@ LIMIT 100
 - Numeric columns are right-aligned with thousands separators (40,868.59). Integers in a column named `year`, `id` or ending in `_id` (the part after the last dot counts: `m.year`, `p.customer_id`) print without a separator. A Number Format other than Automatic or Comma overrides that; Decimal Places do not.
 - Turn on Search Box when readers look for a value without knowing its column.
 - Enable Row Grouping with an aggregation function to create summary views without changing your query.
-- Set Page Size to match your widget height -- 10-15 rows is typical for a half-height widget.
+- By default the rows fit the card, so the page size follows the widget height. Type a number in Page Size to fix it.

@@ -6,6 +6,8 @@ import {
   sqlColumns,
   sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -217,7 +219,7 @@ describe("POST /api/dashboards/import", () => {
 
   it("imports a valid NeoBoard export and returns 201 with notes array", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    // Connection ownership check returns 1 allowed connection
+    // Usability check returns 1 allowed connection
     const connectionsChain = makeSelectChain([
       { id: "real-conn-id", type: "neo4j" },
     ]);
@@ -257,12 +259,16 @@ describe("POST /api/dashboards/import", () => {
     // mapping targets by caller + tenant, the name clash by tenant, and the
     // new row is stamped with the session tenant.
     const [connExpr] = connectionsChain.calls.where[0];
-    expect(sqlColumns(connExpr)).toEqual(
-      expect.arrayContaining(["id", "userId", "tenant_id"]),
+    // The same rule /api/query applies (#2327): own or shared, in the tenant.
+    expect(new PgDialect().sqlToQuery(connExpr as SQL).sql).toBe(
+      '("connection"."id" in ($1) and ("connection"."userId" = $2 or "connection"."visibility" = $3) and "connection"."tenant_id" = $4)',
     );
-    expect(sqlValues(connExpr)).toEqual(
-      expect.arrayContaining(["real-conn-id", "user-1", "tenant-1"]),
-    );
+    expect(sqlValues(connExpr)).toEqual([
+      "real-conn-id",
+      "user-1",
+      "shared",
+      "tenant-1",
+    ]);
     const [usableExpr] = usableChain.calls.where[0];
     expect(sqlColumns(usableExpr)).toEqual(
       expect.arrayContaining(["tenant_id", "id", "userId", "visibility"]),
@@ -281,6 +287,31 @@ describe("POST /api/dashboards/import", () => {
       tenantId: "tenant-1",
       userId: "user-1",
     });
+  });
+
+  it("lets an admin map onto any connection in the tenant (#2327)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
+    const connectionsChain = makeSelectChain([
+      { id: "other-private", type: "neo4j" },
+    ]);
+    mockDb.select.mockReturnValueOnce(connectionsChain);
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(
+      makeInsertChain([{ id: "new-dash", name: "Imported Dashboard" }]),
+    );
+
+    const res = await POST(
+      makeRequest({
+        payload: VALID_PAYLOAD,
+        connectionMapping: { conn_0: "other-private" },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const [connExpr] = connectionsChain.calls.where[0];
+    expect(new PgDialect().sqlToQuery(connExpr as SQL).sql).toBe(
+      '("connection"."id" in ($1) and "connection"."tenant_id" = $2)',
+    );
   });
 
   it("records a dashboard.import audit entry (#1234)", async () => {
@@ -325,7 +356,7 @@ describe("POST /api/dashboards/import", () => {
 
   it("auto-converts NeoDash format and returns 201 with mapped connection", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    // Connection ownership check passes for the mapped connection
+    // Usability check passes for the mapped connection
     mockDb.select.mockReturnValueOnce(
       makeSelectChain([{ id: "neo4j-conn-id" }]),
     );
@@ -486,9 +517,9 @@ describe("POST /api/dashboards/import", () => {
     expect(body.data.unassignedWidgetCount).toBe(1);
   });
 
-  it("rejects cross-tenant mapping (connection ownership check fails)", async () => {
+  it("rejects cross-tenant mapping (usability check fails)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    // Ownership/tenant check returns nothing — mapped id is foreign
+    // Usability/tenant check returns nothing — mapped id is foreign
     const chain = makeSelectChain([]);
     mockDb.select.mockReturnValueOnce(chain);
 
@@ -516,7 +547,7 @@ describe("POST /api/dashboards/import", () => {
 
   it("appends (imported) to name when dashboard with same name already exists", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
-    // Connection ownership check returns 1 allowed connection
+    // Usability check returns 1 allowed connection
     mockDb.select.mockReturnValueOnce(
       makeSelectChain([{ id: "real-conn-id", type: "neo4j" }]),
     );

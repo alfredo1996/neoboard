@@ -10,8 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useDarkMode } from "@/charts/use-dark-mode";
 import { resolveLanguageExt } from "@/lib/language-resolvers";
 import type { DatabaseSchema } from "@/lib/schema-transforms";
+import type { Extension } from "@codemirror/state";
 
 // ---------------------------------------------------------------------------
 // CodeMirror type aliases (dynamic imports — never imported at module level
@@ -49,6 +51,81 @@ export interface QueryEditorProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const token = (name: string, alpha?: number) =>
+  alpha === undefined
+    ? `hsl(var(--${name}))`
+    : `hsl(var(--${name}) / ${alpha})`;
+
+/**
+ * The editor's theme (#2329). Colours are the app's design tokens, so the
+ * ground, ink and rule are the dialog's own in either theme; `dark` only picks
+ * CodeMirror's dark-mode flag and the syntax colours, and is swapped live
+ * through a compartment when the app theme changes.
+ */
+// Built once per mode: CodeMirror's style-mod never removes a stylesheet, so a
+// theme rebuilt on every toggle would grow the document's styles each time.
+const themeCache = new Map<boolean, Promise<Extension[]>>();
+
+function resolveTheme(dark: boolean) {
+  let theme = themeCache.get(dark);
+  if (!theme) {
+    theme = buildTheme(dark);
+    themeCache.set(dark, theme);
+    theme.catch(() => themeCache.delete(dark));
+  }
+  return theme;
+}
+
+async function buildTheme(dark: boolean): Promise<Extension[]> {
+  const [{ EditorView }, { syntaxHighlighting }, od, { lightHighlightStyle }] =
+    await Promise.all([
+      import("@codemirror/view"),
+      import("@codemirror/language"),
+      import("@codemirror/theme-one-dark"),
+      import("./query-editor-highlight"),
+    ]);
+  return [
+    EditorView.theme(
+      {
+        "&": {
+          color: token("foreground"),
+          backgroundColor: token("field"),
+          // Fill the frame: a flex item grows without a definite parent height.
+          flex: "1 1 auto",
+          minHeight: "120px",
+        },
+        ".cm-content": { caretColor: token("foreground") },
+        ".cm-cursor, .cm-dropCursor": { borderLeftColor: token("foreground") },
+        // The design system's focus ring, drawn inside the frame so the dialog's
+        // overflow does not clip it; keyboard users see where the editor is.
+        "&.cm-focused": {
+          outline: `2px solid ${token("ring")}`,
+          outlineOffset: "-2px",
+        },
+        ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection":
+          { backgroundColor: token("ring", 0.25) },
+        ".cm-gutters": {
+          backgroundColor: token("field"),
+          color: token("muted-foreground"),
+          borderRight: `1px solid ${token("rule")}`,
+        },
+        ".cm-placeholder": { color: token("muted-foreground") },
+        ".cm-tooltip": {
+          backgroundColor: token("card"),
+          color: token("card-foreground"),
+          border: `1px solid ${token("rule-strong")}`,
+        },
+        ".cm-tooltip-autocomplete ul li[aria-selected]": {
+          backgroundColor: token("ring", 0.2),
+          color: token("foreground"),
+        },
+      },
+      { dark },
+    ),
+    syntaxHighlighting(dark ? od.oneDarkHighlightStyle : lightHighlightStyle),
+  ];
+}
+
 async function buildExtensions(
   placeholder: string,
   onUpdate: (newValue: string) => void,
@@ -59,18 +136,18 @@ async function buildExtensions(
   readOnlyCompartmentExt: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
   placeholderCompartment: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  themeCompartmentExt: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
     { EditorView, keymap, placeholder: cmPlaceholder },
     { defaultKeymap, historyKeymap, history: historyExt },
     { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap },
-    { oneDark },
   ] = await Promise.all([
     import("@codemirror/view"),
     import("@codemirror/commands"),
     import("@codemirror/autocomplete"),
-    import("@codemirror/theme-one-dark"),
   ]);
 
   // Cmd/Ctrl+Enter → run
@@ -96,7 +173,6 @@ async function buildExtensions(
   );
 
   const baseTheme = EditorView.theme({
-    "&": { height: "100%", minHeight: "120px" },
     ".cm-scroller": {
       overflow: "auto",
       fontFamily: "var(--font-mono, monospace)",
@@ -119,7 +195,7 @@ async function buildExtensions(
     langCompartmentExt,
     autocompletion(),
     placeholderCompartment.of(cmPlaceholder(placeholder)),
-    oneDark,
+    themeCompartmentExt,
     baseTheme,
     updateListener,
     readOnlyCompartmentExt,
@@ -166,6 +242,11 @@ function QueryEditor({
   const readOnlyRef = React.useRef(readOnly);
   const schemaRef = React.useRef(schema);
   const placeholderRef = React.useRef(placeholder);
+  const dark = useDarkMode();
+  const darkRef = React.useRef(dark);
+  React.useEffect(() => {
+    darkRef.current = dark;
+  }, [dark]);
   React.useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -205,6 +286,8 @@ function QueryEditor({
   const readOnlyCompartmentRef = React.useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
   const placeholderCompartmentRef = React.useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
+  const themeCompartmentRef = React.useRef<any>(null);
   // Cache EditorState after first load so the readOnly effect can reconfigure
   // the compartment synchronously (no extra async import tick).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM EditorState
@@ -284,6 +367,11 @@ function QueryEditor({
       languageCompartmentRef.current = langCompartment;
       readOnlyCompartmentRef.current = readOnlyCompartment;
       placeholderCompartmentRef.current = placeholderCompartment;
+      const themeCompartment = new Compartment();
+      themeCompartmentRef.current = themeCompartment;
+      const initialDark = darkRef.current;
+      const themeExt = await resolveTheme(initialDark);
+      if (abortSignal.aborted) return;
 
       // Capture the schema at the start — it may change while we await imports.
       const initialSchema = schemaRef.current;
@@ -314,6 +402,7 @@ function QueryEditor({
         langCompartment.of(langExts),
         readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current)),
         placeholderCompartment,
+        themeCompartment.of(themeExt),
       );
 
       if (abortSignal.aborted || !containerRef.current) return;
@@ -333,6 +422,22 @@ function QueryEditor({
           })
           .catch(() => {
             // Defensive: dynamic import or language extension init can fail
+          });
+      }
+
+      // Same for the theme: the [dark] effect skips while the view is null.
+      if (darkRef.current !== initialDark) {
+        const view = viewRef.current;
+        await resolveTheme(darkRef.current)
+          .then((ext) => {
+            if (!abortSignal.aborted && viewRef.current === view) {
+              view.dispatch({
+                effects: themeCompartment.reconfigure(ext),
+              });
+            }
+          })
+          .catch(() => {
+            // Defensive: dynamic import can fail
           });
       }
 
@@ -415,6 +520,26 @@ function QueryEditor({
       cancelled = true;
     };
   }, [placeholder]);
+
+  // Theme: follow the app theme live, in place (#2329, #1583).
+  React.useEffect(() => {
+    if (!viewRef.current || !themeCompartmentRef.current) return;
+    let cancelled = false;
+    resolveTheme(dark)
+      .then((ext) => {
+        if (!cancelled && viewRef.current) {
+          viewRef.current.dispatch({
+            effects: themeCompartmentRef.current.reconfigure(ext),
+          });
+        }
+      })
+      .catch(() => {
+        // Defensive: dynamic import can fail
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dark]);
 
   // readOnly: synchronous compartment reconfigure — one path for all languages
   React.useEffect(() => {
@@ -583,7 +708,7 @@ function QueryEditor({
       {/* CodeMirror mount point */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-hidden [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto"
+        className="flex flex-1 flex-col overflow-hidden [&_.cm-scroller]:overflow-auto"
         data-testid="codemirror-container"
         data-readonly={readOnly}
       />

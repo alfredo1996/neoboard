@@ -87,11 +87,21 @@ test("the header lists every filter, clears one and jumps to a selector", async 
       .click();
     await expect(button.getByLabel(`${SET - 1} set`)).toBeVisible();
     await expect(
-      list.getByRole("button", { name: /^Filter 1 Any/ }),
-    ).toBeVisible();
+      rows.filter({
+        has: page.getByRole("button", {
+          name: "Go to Filter 1 selector",
+          exact: true,
+        }),
+      }),
+    ).toContainText("Any");
 
     // Jump: the list closes and the selector's card is highlighted.
-    await list.getByRole("button", { name: /^Filter 5/ }).click();
+    await list
+      .getByRole("button", {
+        name: "Go to Filter 5 selector",
+        exact: true,
+      })
+      .click();
     await expect(list).toBeHidden();
     await expect(page.locator('[data-widget-id="w4"]')).toHaveClass(
       /widget-highlight/,
@@ -141,6 +151,43 @@ test("a dashboard with no filters has no Filters button", async ({
       timeout: 15_000,
     });
     await expect(page.getByRole("button", { name: /^Filters/ })).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("the filter bar can be hidden from the Filters menu, and stays hidden", async ({
+  authPage,
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  await authPage.login(ALICE.email, ALICE.password);
+  const { id, cleanup } = await seed(page.request, 3, 3);
+  try {
+    await page.goto(`/${id}`);
+    const button = page.getByRole("button", { name: /^Filters/ });
+    await expect(strip(page)).toBeVisible({ timeout: 15_000 });
+
+    await button.click();
+    const sw = page
+      .getByRole("dialog", { name: "Filters", exact: true })
+      .getByRole("switch", { name: "Show filter bar", exact: true });
+    await expect(sw).toBeChecked();
+    await sw.click();
+    await expect(strip(page)).toHaveCount(0);
+    await expect(button.getByLabel("3 set")).toBeVisible();
+
+    await page.reload();
+    await expect(button.getByLabel("3 set")).toBeVisible({ timeout: 15_000 });
+    await expect(strip(page)).toHaveCount(0);
+
+    await button.click();
+    await page
+      .getByRole("dialog", { name: "Filters", exact: true })
+      .getByRole("switch", { name: "Show filter bar", exact: true })
+      .click();
+    await expect(strip(page)).toBeVisible();
   } finally {
     await cleanup();
   }

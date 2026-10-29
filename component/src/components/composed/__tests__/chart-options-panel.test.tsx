@@ -118,6 +118,35 @@ describe("ChartOptionsPanel", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("shows Page Size with the Auto placeholder, and clearing a typed value saves it unset (#2356)", () => {
+    const onChange = vi.fn();
+    render(
+      <ChartOptionsPanel
+        chartType="table"
+        settings={{ pageSize: 5 }}
+        onSettingsChange={onChange}
+      />,
+    );
+    expandAllCategories();
+    const input = screen.getByLabelText("Page Size");
+    expect(input).toHaveAttribute("placeholder", "Auto (fits the card)");
+    fireEvent.change(input, { target: { value: "" } });
+    const saved = onChange.mock.calls[0][0];
+    expect("pageSize" in saved).toBe(false);
+  });
+
+  it("renders Page Size empty when no page size is saved (#2356)", () => {
+    render(
+      <ChartOptionsPanel
+        chartType="table"
+        settings={{}}
+        onSettingsChange={vi.fn()}
+      />,
+    );
+    expandAllCategories();
+    expect(screen.getByLabelText("Page Size")).toHaveValue(null);
+  });
+
   it("leaves the panel's labels unmarked: the chart-options panel is exempt from (optional) (#2217)", () => {
     render(
       <ChartOptionsPanel

@@ -12,6 +12,10 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import type { ThemePreference } from "@/hooks/use-theme";
 import { AppShell, Sidebar } from "@neoboard/components";
+import {
+  NavigationGuardProvider,
+  useNavigationGuard,
+} from "@/components/navigation-guard";
 
 const themeOptions = [
   { value: "light", label: "Light" },
@@ -24,12 +28,26 @@ export default function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  return (
+    <NavigationGuardProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </NavigationGuardProvider>
+  );
+}
+
+function DashboardShell({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   const router = useRouter();
+  const requestNavigation = useNavigationGuard();
   const pathname = usePathname();
   const { preference, setTheme } = useTheme();
   const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
+      // Unguarded on purpose: a save would fail with 401 anyway.
       router.push("/login");
     },
   });
@@ -45,7 +63,11 @@ export default function DashboardLayout({
     );
   }
 
-  const go = (href: string) => () => router.push(href);
+  // Every way out asks first while the editor is dirty (#2325).
+  const go = (href: string) => () => {
+    if (requestNavigation(href)) router.push(href);
+  };
+  const logout = () => signOut({ callbackUrl: "/login" });
 
   return (
     <AppShell
@@ -114,7 +136,9 @@ export default function DashboardLayout({
             // the previous user's last location (#1037). The proxy still
             // adds callbackUrl on mid-task session expiry, which is the
             // case that param is for.
-            onSignOut: () => signOut({ callbackUrl: "/login" }),
+            onSignOut: () => {
+              if (requestNavigation("/login", logout)) void logout();
+            },
             theme: {
               value: preference,
               options: themeOptions,

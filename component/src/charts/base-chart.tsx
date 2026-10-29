@@ -18,6 +18,7 @@ import {
   MarkLineComponent,
   GraphicComponent,
 } from "echarts/components";
+import { LabelLayout } from "echarts/features";
 import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
 import type { EChartsOption } from "echarts";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ echarts.use([
   RadarComponent,
   MarkLineComponent,
   GraphicComponent,
+  LabelLayout,
   CanvasRenderer,
   SVGRenderer,
 ]);

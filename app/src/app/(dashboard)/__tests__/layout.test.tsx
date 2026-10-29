@@ -40,6 +40,23 @@ vi.mock("@neoboard/components", () => ({
       <div data-testid="content">{children}</div>
     </div>
   ),
+  ConfirmDialog: ({
+    open,
+    action,
+    cancelText,
+    onCancel,
+  }: {
+    open: boolean;
+    action: string;
+    cancelText: string;
+    onCancel?: () => void;
+  }) =>
+    open ? (
+      <div role="dialog">
+        {action}
+        <button onClick={onCancel}>{cancelText}</button>
+      </div>
+    ) : null,
   // The kit sidebar's contract: groups of items, and an account with callbacks.
   Sidebar: ({
     groups,
@@ -92,12 +109,14 @@ vi.mock("@neoboard/components", () => ({
 
 /* ---------- import under test ---------- */
 import DashboardLayout from "../layout";
+import { useDashboardStore } from "@/stores/dashboard-store";
 
 /* ---------- tests ---------- */
 
 describe("DashboardLayout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useDashboardStore.getState().reset();
   });
 
   it("shows loading spinner when session status is loading", () => {
@@ -219,6 +238,45 @@ describe("DashboardLayout", () => {
     );
     fireEvent.click(screen.getByTestId("account-signout"));
     expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: "/login" });
+  });
+
+  // #2325: the sidebar and the user menu used to skip the unsaved-changes ask.
+  describe.each([
+    ["Connections", "sidebar-item-Connections"],
+    ["Profile", "account-profile"],
+    ["Sign out", "account-signout"],
+  ])("%s with unsaved edits", (_name, testId) => {
+    beforeEach(() => {
+      mockUseSession.mockReturnValue({
+        data: { user: { name: "Admin", role: "admin" } },
+        status: "authenticated",
+      });
+      useDashboardStore.getState().setLayout({
+        version: 2,
+        pages: [{ id: "p1", title: "Page 1", widgets: [], gridLayout: [] }],
+      });
+      useDashboardStore.getState().addPage();
+      render(
+        <DashboardLayout>
+          <div>Content</div>
+        </DashboardLayout>,
+      );
+      fireEvent.click(screen.getByTestId(testId));
+    });
+
+    it("asks first and navigates nowhere", () => {
+      expect(screen.getByRole("dialog")).toHaveTextContent(
+        "Leave without saving",
+      );
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockSignOut).not.toHaveBeenCalled();
+    });
+
+    it("Stay still navigates nowhere", () => {
+      fireEvent.click(screen.getByText("Stay"));
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockSignOut).not.toHaveBeenCalled();
+    });
   });
 
   it("passes the theme preference through and applies a choice", () => {

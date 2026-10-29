@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { useSession } from "next-auth/react";
-import { effectiveCanWrite } from "@/lib/auth/can-write";
+import { canManageConnections, effectiveCanWrite } from "@/lib/auth/can-write";
 import {
   Copy,
   MoreHorizontal,
@@ -87,6 +87,10 @@ export default function ConnectionsPage() {
   const canWrite = effectiveCanWrite(
     session?.user?.role,
     session?.user?.canWrite,
+  );
+  // #2328: the server refuses a reader every management call, so offer none.
+  const canManageAny = canManageConnections(
+    session?.user?.role ?? "creator", // the server's default (session.ts)
   );
   const { data: connections, isLoading } = useConnections();
   // #1899: every connector fact on this page — label, icon, category — is read
@@ -203,9 +207,10 @@ export default function ConnectionsPage() {
 
   // #1545: only what the user may probe — the test route 404s for the rest,
   // which would paint a red Error over a healthy shared connection.
-  const probeable = connectionsToProbe(connections ?? [], isAdmin).filter((c) =>
-    isInstalled(c.type),
-  );
+  // #2328: and a reader tests nothing, so the page applies one rule.
+  const probeable = (
+    canManageAny ? connectionsToProbe(connections ?? [], isAdmin) : []
+  ).filter((c) => isInstalled(c.type));
 
   /**
    * Three at a time, each row updating as its own result lands (#1426).
@@ -387,12 +392,14 @@ export default function ConnectionsPage() {
                   : "Test all"}
               </Button>
             )}
-            <Button
-              onClick={(e) => openDialog({ mode: "create" }, e.currentTarget)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New connection
-            </Button>
+            {canManageAny && (
+              <Button
+                onClick={(e) => openDialog({ mode: "create" }, e.currentTarget)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New connection
+              </Button>
+            )}
           </>
         }
       />
@@ -549,7 +556,7 @@ export default function ConnectionsPage() {
                   // The owner manages, or an admin (#901). With its connector
                   // gone there is nothing left to test or configure — only to
                   // delete.
-                  const canManage = c.isOwner || isAdmin;
+                  const canManage = canManageAny && (c.isOwner || isAdmin);
                   const canUse = canManage && installed;
                   const canToggle = isAdmin && c.isOwner;
                   const edit = (opener: HTMLElement | null) =>
@@ -696,17 +703,23 @@ export default function ConnectionsPage() {
             !(isLoading || connectorsQuery.isLoading) && (
               <EmptyState
                 title="No connections yet"
-                description="Connect a database to start building dashboards."
+                description={
+                  canManageAny
+                    ? "Connect a database to start building dashboards."
+                    : "Connections are added by admins and creators. Ask one to share a connection with you."
+                }
                 action={
-                  <Button
-                    variant="secondary"
-                    onClick={(e) =>
-                      openDialog({ mode: "create" }, e.currentTarget)
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create your first connection
-                  </Button>
+                  canManageAny ? (
+                    <Button
+                      variant="secondary"
+                      onClick={(e) =>
+                        openDialog({ mode: "create" }, e.currentTarget)
+                      }
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create your first connection
+                    </Button>
+                  ) : undefined
                 }
                 secondaryAction={
                   <a
