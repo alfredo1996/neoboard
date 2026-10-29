@@ -707,7 +707,10 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
     };
     const { rerender } = render(<WidgetEditorModal open {...props} />);
     await settle();
-    act(() => useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n"));
+    act(() => {
+      useWidgetEditorStore.getState().setConnectionId("c1");
+      useWidgetEditorStore.getState().setQuery("MATCH (n) RETURN n");
+    });
     await act(async () => dismiss.onOpenChange?.(false));
     expect(
       screen.getByRole("alertdialog", { name: CONFIRM }),

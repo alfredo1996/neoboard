@@ -376,3 +376,36 @@ export const AutoPageSizeFitsItsContainer: Story = {
     }
   },
 };
+
+/**
+ * No saved page size is Auto (#2356): the page follows the card's height,
+ * and a typed number wins over it. Rows are counted in the real DOM.
+ */
+export const AutoPageSizeFollowsCardHeight: Story = {
+  render: () => (
+    <div className="space-y-4">
+      {[
+        { id: "short", h: 288.5, pageSize: undefined },
+        { id: "tall", h: 720, pageSize: undefined },
+        { id: "typed", h: 720, pageSize: 5 },
+      ].map(({ id, h, pageSize }) => (
+        <div key={id} data-testid={`rows-${id}`} style={{ height: h }}>
+          <DataGrid
+            columns={filmColumns}
+            data={grossRows}
+            containerHeight={h}
+            pageSize={pageSize}
+          />
+        </div>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const rows = (id: string) =>
+      canvasElement.querySelectorAll(`[data-testid="rows-${id}"] tbody tr`)
+        .length;
+    expect(rows("tall")).toBeGreaterThan(10);
+    expect(rows("tall")).toBeGreaterThan(rows("short"));
+    expect(rows("typed")).toBe(5);
+  },
+};
