@@ -44,7 +44,7 @@ const gridLayoutItemSchema = z.object({
 // Loose: preserves templateId, templateSyncedAt and any future fields.
 const widgetSchema = z.looseObject({
   id: z.string(),
-  chartType: z.string(),
+  chartType: z.string().min(1),
   connectionId: z.string(),
   query: z.string(),
   params: z.record(z.string(), z.unknown()).optional(),

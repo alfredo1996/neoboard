@@ -52,6 +52,25 @@ describe("Combobox", () => {
     expect(onChange).toHaveBeenCalledWith("a");
   });
 
+  it("re-selecting the shown option keeps it and does not call onChange (#2326)", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Combobox options={options} value="b" onChange={onChange} />);
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("option", { name: /Beta/ }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("combobox")).toHaveTextContent("Beta");
+  });
+
+  it("selecting a different option still calls onChange (#2326)", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Combobox options={options} value="b" onChange={onChange} />);
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("option", { name: /Alpha/ }));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("a");
+  });
+
   it("renders extra icon SVG for options with icon prop", async () => {
     const user = userEvent.setup();
     const iconOptions = [
