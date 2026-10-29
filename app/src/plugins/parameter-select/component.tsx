@@ -37,7 +37,8 @@ function ParameterSelectPluginComponent({
     );
   }
   return (
-    <div className="p-4">
+    // No padding of its own: the card body already pads (#2357).
+    <div>
       <ParameterWidgetRenderer
         parameterName={settings.parameterName}
         parameterType={settings.parameterType as ParameterType}

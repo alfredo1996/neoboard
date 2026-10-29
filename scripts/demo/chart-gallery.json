@@ -757,7 +757,7 @@
               "chartOptions": {
                 "orient": "horizontal",
                 "showLabels": true,
-                "colorPalette": "observable"
+                "colorPalette": "hastings"
               }
             }
           }
@@ -806,7 +806,7 @@
                 "showLabels": true,
                 "sort": "desc",
                 "highlightOnHover": true,
-                "colorPalette": "tableau"
+                "colorPalette": "hastings"
               }
             }
           }

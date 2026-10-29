@@ -437,6 +437,7 @@ vi.mock("@neoboard/components", () => {
 /* ---------- import under test ---------- */
 
 import { DashboardWorkspace } from "../dashboard-workspace";
+import { NavigationGuardProvider } from "../navigation-guard";
 
 // What `focusedMenuTrigger()` finds: the widget card's menu button.
 const menuTrigger = document.body.appendChild(document.createElement("button"));
@@ -653,6 +654,34 @@ describe("DashboardWorkspace", () => {
     expect(useDashboardStore.getState().layout.pages[0].title).toBe(
       "My unsaved title",
     );
+  });
+
+  it("reloads the server copy after the store is emptied (Back, Leave)", () => {
+    pathname = "/d1/edit";
+    const { rerender } = render(<DashboardWorkspace id="d1" editMode={true} />);
+
+    useDashboardStore.getState().renamePage(0, "Unsaved");
+    // Another user's save lands while dirty: skipped, savedLayout goes stale.
+    const bumped = makeDashboard();
+    bumped.version = 2;
+    bumped.layoutJson.pages[0].title = "Server v2";
+    dashboard = bumped;
+    rerender(<DashboardWorkspace id="d1" editMode={true} />);
+    // Leave empties the store.
+    act(() => useDashboardStore.getState().reset());
+
+    expect(useDashboardStore.getState().layout.pages[0].title).toBe(
+      "Server v2",
+    );
+  });
+
+  it("a Back, Leave keeps the page the user was editing (#2325)", () => {
+    pathname = "/d1/edit";
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    act(() => useDashboardStore.getState().setActivePage(2));
+    act(() => useDashboardStore.getState().renamePage(2, "Unsaved"));
+    act(() => useDashboardStore.getState().reset());
+    expect(useDashboardStore.getState().activePageIndex).toBe(2);
   });
 
   // ── mode-specific chrome ────────────────────────────────────────────
@@ -1204,7 +1233,11 @@ describe("DashboardWorkspace", () => {
 
   it("Cmd+E out of edit mode is blocked by unsaved changes", () => {
     pathname = "/d1/edit";
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    render(
+      <NavigationGuardProvider>
+        <DashboardWorkspace id="d1" editMode={true} />
+      </NavigationGuardProvider>,
+    );
     useDashboardStore.getState().renamePage(0, "Dirty");
 
     fireEvent.keyDown(document, { key: "e", metaKey: true });
@@ -1988,7 +2021,11 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
   });
 
   it("Stay on the unsaved-changes guard: on the dashboard crumb", async () => {
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    render(
+      <NavigationGuardProvider>
+        <DashboardWorkspace id="d1" editMode={true} />
+      </NavigationGuardProvider>,
+    );
     act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
     await userEvent.click(screen.getByRole("link", { name: "Sales" }));
@@ -2007,7 +2044,11 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
   ])(
     "Stay on the unsaved-changes guard, asked again by %s: on the dashboard crumb",
     async (_, askAgain) => {
-      render(<DashboardWorkspace id="d1" editMode={true} />);
+      render(
+        <NavigationGuardProvider>
+          <DashboardWorkspace id="d1" editMode={true} />
+        </NavigationGuardProvider>,
+      );
       act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
       await userEvent.click(screen.getByRole("link", { name: "Sales" }));
@@ -2028,13 +2069,21 @@ describe("DashboardWorkspace — the Dashboards crumb in edit mode", () => {
   });
 
   it("goes to the list at once when nothing is unsaved", async () => {
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    render(
+      <NavigationGuardProvider>
+        <DashboardWorkspace id="d1" editMode={true} />
+      </NavigationGuardProvider>,
+    );
     await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));
     expect(mockPush).toHaveBeenCalledWith("/");
   });
 
   it("asks first (Stay) when edits are unsaved, and does not go yet", async () => {
-    render(<DashboardWorkspace id="d1" editMode={true} />);
+    render(
+      <NavigationGuardProvider>
+        <DashboardWorkspace id="d1" editMode={true} />
+      </NavigationGuardProvider>,
+    );
     act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
 
     await userEvent.click(screen.getByRole("link", { name: "Dashboards" }));

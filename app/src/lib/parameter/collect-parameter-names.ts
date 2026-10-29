@@ -131,6 +131,8 @@ export function aggregateClickActionParamNames(
 export interface ParameterSource {
   widgetId: string;
   widgetTitle: string;
+  /** No title set: `widgetTitle` is the chart type standing in for one. */
+  untitled?: boolean;
   pageId: string;
   pageTitle: string;
   /** Where the source's own query runs — a gated widget checks whether a
@@ -174,6 +176,8 @@ export function buildParameterSourceMap(
       const source: ParameterSource = {
         widgetId: widget.id,
         widgetTitle,
+        untitled:
+          widgetTitle === widget.chartType && !titleSetting ? true : undefined,
         pageId: page.id,
         pageTitle: page.title,
         connectionId: widget.connectionId,

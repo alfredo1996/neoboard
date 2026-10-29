@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, waitFor, within } from "storybook/test";
 import { PieChart } from "@/charts/pie-chart";
+import { drawnLabels, labelClashes } from "./drawn-labels";
 
 const meta = {
   title: "Charts/PieChart",
@@ -106,5 +107,28 @@ export const DonutCrowded: Story = {
       name: `Region ${i + 1}`,
       value: 900 - i * 80,
     })),
+  },
+};
+
+/**
+ * #2330 — `labelLayout.hideOverlap` only works when ECharts' LabelLayout
+ * feature is registered; with 30 inside labels it must thin them out.
+ */
+export const InsideLabelsDoNotOverlap: Story = {
+  args: {
+    labelPosition: "inside",
+    showLegend: false,
+    data: Array.from({ length: 30 }, (_, i) => ({
+      name: `Segment ${i + 1}`,
+      value: 100 - i,
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    await waitFor(
+      () => expect(drawnLabels(canvasElement).length).toBeGreaterThan(3),
+      { timeout: 5000 },
+    );
+    expect(labelClashes(drawnLabels(canvasElement))).toEqual([]);
   },
 };

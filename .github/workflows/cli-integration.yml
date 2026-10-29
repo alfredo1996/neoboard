@@ -7,6 +7,7 @@ on:
       - 'cli/**'
       - 'docker/**'
       - 'scripts/seed-demo.mjs'
+      - 'scripts/demo/**'
       - 'Dockerfile'
       # connector-sdk's `prepare` runs during the Dockerfile's deps-stage
       # `npm ci`, which has only the package manifests — no source. An
@@ -20,6 +21,7 @@ on:
       - 'cli/**'
       - 'docker/**'
       - 'scripts/seed-demo.mjs'
+      - 'scripts/demo/**'
       - 'Dockerfile'
       - 'connector-sdk/package.json'
       - '.github/workflows/cli-integration.yml'
