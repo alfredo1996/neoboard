@@ -746,6 +746,35 @@ test.describe("Graph chart visualization", () => {
 // ---------------------------------------------------------------------------
 
 /**
+ * Right-click the one node a graph widget shows until the context menu offers
+ * `action`, and return that button. One node, so the layout's fit puts it under
+ * the canvas centre.
+ */
+async function openNodeContextMenu(
+  page: import("@playwright/test").Page,
+  action: string,
+) {
+  const canvas = page
+    .getByTestId("graph-exploration")
+    .locator("canvas")
+    .first();
+  const button = page
+    .getByTestId("graph-context-menu")
+    .getByRole("button", { name: action, exact: true });
+  await expect(async () => {
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    await canvas.click({
+      button: "right",
+      position: { x: box!.width / 2, y: box!.height / 2 },
+      force: true,
+    });
+    await expect(button).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+  return button;
+}
+
+/**
  * Right-click the one node a graph widget shows, click Expand, and wait for its
  * neighbours to join (#2061). One node, so the layout's fit puts it under the
  * canvas centre and the right-click lands on it.
@@ -755,21 +784,7 @@ async function expandTheOnlyNode(page: import("@playwright/test").Page) {
   const nodeCount = exploration.getByTestId("graph-node-count");
   await expect(nodeCount).toHaveText("1 nodes", { timeout: 15_000 });
 
-  const canvas = exploration.locator("canvas").first();
-  const expand = page
-    .getByTestId("graph-context-menu")
-    .getByRole("button", { name: "Expand" });
-  await expect(async () => {
-    const box = await canvas.boundingBox();
-    expect(box).not.toBeNull();
-    await canvas.click({
-      button: "right",
-      position: { x: box!.width / 2, y: box!.height / 2 },
-      force: true,
-    });
-    await expect(expand).toBeVisible({ timeout: 1_000 });
-  }).toPass({ timeout: 20_000 });
-
+  const expand = await openNodeContextMenu(page, "Expand");
   await expand.click();
 
   // The node's films and co-workers join the graph.
@@ -1326,6 +1341,139 @@ test.describe("Graph Expand for a dashboard editor (#2061)", () => {
           `/api/connections/${connectionId}?force=true`,
         );
       if (userId) await page.request.delete(`/api/users/${userId}`);
+    }
+  });
+});
+
+test.describe("Graph inspector values (#2349)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("a list is one item per line, every key stays visible, the panel is opaque", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const tag = `e2e2349_${uid()}`;
+    let seeded = false;
+    let connectionId: string | undefined;
+    let dashboardId: string | undefined;
+
+    try {
+      const connRes = await page.request.post("/api/connections", {
+        data: {
+          name: `inspector-${tag}`,
+          type: "neo4j",
+          config: {
+            uri: TEST_NEO4J_BOLT_URL,
+            username: "neo4j",
+            password: "neoboard123",
+            connectionTimeout: 20_000 + Math.floor(Math.random() * 280_000),
+          },
+        },
+      });
+      expect(connRes.status()).toBe(201);
+      connectionId = (await connRes.json()).data.id;
+
+      const seed = await page.request.post("/api/query/write", {
+        data: {
+          connectionId,
+          query:
+            "CREATE (n:E2E2349 {tag: $tag, previousNames: ['Esso', 'Humble', 'Standard Oil', 'Exxon', 'Mobil', 'ExxonMobil', 'XOM'], nace: ['19.20', '06.10'], longText: $longText})",
+          params: { tag, longText: "lorem ipsum ".repeat(120) },
+        },
+      });
+      expect(seed.ok()).toBeTruthy();
+      seeded = true;
+
+      ({ id: dashboardId } = await createTestDashboard(
+        page.request,
+        `inspector-${tag}`,
+      ));
+      const put = await page.request.put(`/api/dashboards/${dashboardId}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Page 1",
+                widgets: [
+                  {
+                    id: "w-graph",
+                    chartType: "graph",
+                    connectionId,
+                    query: `MATCH (n:E2E2349 {tag: '${tag}'}) RETURN n`,
+                    settings: { title: "Inspector", chartOptions: {} },
+                  },
+                ],
+                gridLayout: [{ i: "w-graph", x: 0, y: 0, w: 12, h: 8 }],
+              },
+            ],
+          },
+        },
+      });
+      expect(put.ok()).toBeTruthy();
+
+      await page.goto(`/${dashboardId}`);
+      const exploration = page.getByTestId("graph-exploration");
+      await expect(exploration.getByTestId("graph-node-count")).toHaveText(
+        "1 nodes",
+        { timeout: 15_000 },
+      );
+      await (await openNodeContextMenu(page, "Properties")).click();
+
+      // Every row keeps its key beside its value, the long id included.
+      for (const key of ["id", "tag", "previousNames", "nace"]) {
+        await expect(
+          page.getByText(key, { exact: true }).first(),
+        ).toBeVisible();
+      }
+
+      // The list is separate items, collapsed after five.
+      const item = (text: string) =>
+        page.getByRole("listitem").filter({ hasText: new RegExp(`^${text}$`) });
+      await expect(item("Esso")).toBeVisible();
+      await expect(item("Mobil")).toBeVisible();
+      await expect(item("XOM")).toHaveCount(0);
+      await page.getByRole("button", { name: "+2 more", exact: true }).click();
+      await expect(item("XOM")).toBeVisible();
+
+      // A long string is clamped behind a toggle (4 lines) and expands.
+      const toggle = page.getByRole("button", {
+        name: "Show more",
+        exact: true,
+      });
+      await expect(toggle).toBeVisible();
+      await toggle.click();
+      await expect(
+        page.getByRole("button", { name: "Show less", exact: true }),
+      ).toBeVisible();
+
+      // The panel hides the graph behind it.
+      const panel = page.getByTestId("graph-inspector");
+      const background = await panel.evaluate(
+        (el) => getComputedStyle(el).backgroundColor,
+      );
+      // An alpha channel shows as rgba(...) or "... / 0.95".
+      expect(background).not.toMatch(/rgba|\//);
+      expect(
+        await panel.evaluate((el) => getComputedStyle(el).backdropFilter),
+      ).toBe("none");
+    } finally {
+      if (seeded)
+        await page.request.post("/api/query/write", {
+          data: {
+            connectionId,
+            query: "MATCH (n:E2E2349 {tag: $tag}) DELETE n",
+            params: { tag },
+          },
+        });
+      if (dashboardId)
+        await page.request.delete(`/api/dashboards/${dashboardId}`);
+      if (connectionId)
+        await page.request.delete(
+          `/api/connections/${connectionId}?force=true`,
+        );
     }
   });
 });
