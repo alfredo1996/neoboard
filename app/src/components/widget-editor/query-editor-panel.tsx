@@ -352,14 +352,15 @@ export function QueryEditorPanel({
         language={editorLanguage}
         schema={schema}
         placeholder={placeholderFor(editorLanguage, content)}
-        // Collapsed, the editor has NO definite height: `.cm-editor { height:
-        // 100% }` resolves against an indefinite flex parent, so it computes to
-        // `auto` and the column grows with the document (measured 220px empty →
-        // 2391px at 120 lines). What scrolls then is the whole settings column,
-        // toolbar and chart selectors and all. Maximized we give it a definite
-        // height so it scrolls itself with the Run toolbar pinned. 70vh is the
-        // practical ceiling — the modal body is capped at calc(90vh - 180px),
-        // so anything larger just spills back into the column (#1374).
+        // The editor fills its frame by flex (`flex: 1 1 auto` on `.cm-editor`),
+        // not by `height: 100%`, which resolves to `auto` against an indefinite
+        // parent. Collapsed, the frame has no definite height, so the column
+        // grows with the document (measured 220px empty -> 2391px at 120 lines)
+        // and the whole settings column scrolls. Maximized we give the frame a
+        // definite height so the editor scrolls itself with the Run toolbar
+        // pinned. 70vh is the practical ceiling: the modal body is capped at
+        // calc(90vh - 180px), so anything larger spills back into the column
+        // (#1374).
         className={maximized ? "h-[70vh] min-h-[220px]" : "min-h-[220px]"}
       />
     </div>
