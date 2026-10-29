@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { FiltersButton } from "@neoboard/components/kit";
+import { useFilterBarShown } from "@/hooks/use-filter-bar-shown";
 import { useParameterStore } from "@/stores/parameter-store";
 import {
   buildDashboardFilters,
@@ -39,9 +40,12 @@ export function HeaderFilters({
       })),
     [parameterSourceMap, parameters, onJump],
   );
+  const [barShown, setBarShown] = useFilterBarShown();
   return (
     <FiltersButton
       items={items}
+      barShown={barShown}
+      onShowChange={setBarShown}
       onClear={(id) => filterClearNames(id).forEach((n) => clearParameter(n))}
       onClearAll={clearAll}
     />
