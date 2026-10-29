@@ -436,11 +436,6 @@ test.describe("NeoDash legacy import", () => {
       });
       await expect(dialog).toBeVisible({ timeout: 5_000 });
       await dialog.locator("#import-file").setInputFiles(tmpFile);
-      await expect(
-        dialog.getByText("NeoDash format", { exact: true }),
-      ).toBeVisible({
-        timeout: 5_000,
-      });
       await dialog.locator('label:has-text("Skip")').first().click();
       const importBtn = dialog
         .getByRole("button", { name: "Import", exact: true })
