@@ -209,6 +209,11 @@ export function formatNumber(
  * (light-lavender / light-cyan). A hard outline haloed every glyph and muddied
  * the text on dark cells; the shadow is cleaner and less "templated".
  *
+ * Exception: the choropleth draws each region name with a soft halo in that
+ * region's OWN fill (`textBorderColor`), not a dark outline: it vanishes on the
+ * region itself and only shows where a name spills onto a neighbour of the
+ * opposite tone (owner, 2026-10-29, #2341).
+ *
  * For text whose fill color is known per element (packed circles), prefer
  * `contrastTextColor` instead — it picks black or white per cell, which beats
  * a shadow on light fills.
@@ -1142,4 +1147,19 @@ export function measureTextWidth(text: string, fontSize = 11): number {
   if (!measureContext) return text.length * fontSize * 0.6;
   measureContext.font = `${fontSize}px ${CHART_FONT_FAMILY}`;
   return measureContext.measureText(text).width;
+}
+
+/**
+ * `labelColorOn`, unless neither the chart's ink nor white reaches the floor.
+ * That happens on a narrow band of mid-tone fills (relative luminance about
+ * 0.183-0.214), where the fallback is pure black: it only ever picks black,
+ * never white, and clears 4.5:1 across the whole band. This is the
+ * owner-approved exception to the "no pure #000" design rule (decision
+ * 2026-10-29 on #2341), so a region label is readable on any fill.
+ */
+export function readableLabelColor(fill: string): string {
+  const c = labelColorOn(fill);
+  return contrastRatio(fill, c) >= LABEL_MIN_CONTRAST
+    ? c
+    : contrastTextColor(fill);
 }

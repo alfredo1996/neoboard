@@ -15,6 +15,7 @@ import {
   buildEmptyDataOption,
   fillLabelStyle,
   formatNumber,
+  readableLabelColor,
 } from "./chart-utils";
 import { MUTED_FILL, SURFACE_COLOR } from "./theme";
 import { equalEarth } from "./equal-earth";
@@ -26,6 +27,7 @@ import {
 } from "./choropleth-regions";
 import {
   rampFor,
+  rampColorAt,
   CHOROPLETH_DEFAULT_MIN_COLOR,
   CHOROPLETH_DEFAULT_MAX_COLOR,
 } from "./choropleth-ramp";
@@ -145,11 +147,40 @@ function ChoroplethChart({
       .map((d) => d.value)
       .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
     // ponytail: an all-null result collapses the domain to 0–0. That is exactly
-    // the legend today's all-zeros path already produces, and the map itself
-    // renders correctly (every region on areaColor) — suppress the visualMap
+    // the legend today's all-zeros path already produces — suppress the visualMap
     // only if someone reports the degenerate legend.
     const minVal = values.length ? Math.min(...values) : 0;
     const maxVal = values.length ? Math.max(...values) : 0;
+
+    const ramp = rampFor(dark, minColor, maxColor);
+    // Each measured region's name is coloured against the fill the visualMap
+    // paints it; a region with no data shows no name, so labels go where the
+    // data is (#2341). ECharts places a constant domain at the middle.
+    // The hover fill is pinned to that same colour (ECharts otherwise repaints
+    // a hovered region pale yellow, under a label chosen for the data colour),
+    // and the name gets a soft halo in the region's own fill, so a name that
+    // spills onto a neighbour of the opposite tone stays readable (owner,
+    // 2026-10-29; a hard dark outline was rejected earlier, see FILL_LABEL_*).
+    const seriesData = normalizedData.map((d) => {
+      const v = d.value;
+      if (typeof v !== "number" || !Number.isFinite(v))
+        return { ...d, label: { show: false } };
+      const t = maxVal === minVal ? 0.5 : (v - minVal) / (maxVal - minVal);
+      const fill = rampColorAt(ramp, t);
+      const label = {
+        color: readableLabelColor(fill),
+        textBorderColor: fill,
+        textBorderWidth: 2,
+      };
+      return {
+        ...d,
+        label: { show: showLabels, ...label },
+        emphasis: {
+          label: { ...label, textShadowBlur: 0 },
+          itemStyle: { areaColor: fill },
+        },
+      };
+    });
 
     return {
       tooltip: {
@@ -188,7 +219,7 @@ function ChoroplethChart({
           // the configured colours — see buildSequentialRamp (#1404). Dark
           // mode inverts the ends' lightness so the highest value stays the
           // most prominent against the canvas (#1402).
-          color: rampFor(dark, minColor, maxColor),
+          color: ramp,
         },
         // The two end values, high first, as in the approved chart mock.
         text: [
@@ -218,15 +249,9 @@ function ChoroplethChart({
           // Names that would collide are dropped, larger regions win, and
           // zooming brings the rest back (#2330). LabelLayout is registered in base-chart.tsx.
           labelLayout: showLabels ? { hideOverlap: true } : undefined,
-          label: {
-            show: showLabels,
-            fontSize: 9,
-            // Dark mode: labels sit on near-black no-data regions and dark
-            // ramp fills, where ECharts' default dark text vanishes — use
-            // white with a dark shadow (treemap pattern, #1154). Light mode
-            // keeps the default dark text, which reads on the pale map.
-            ...(dark ? fillLabelStyle : {}),
-          },
+          // Regions absent from the data show no name; measured ones set
+          // their own label per item above.
+          label: { show: false, fontSize: 9 },
           emphasis: {
             label: {
               show: true,
@@ -252,7 +277,7 @@ function ChoroplethChart({
             // No-data fill, the theme's muted surface.
             areaColor: MUTED_FILL[dark ? "dark" : "light"],
           },
-          data: normalizedData,
+          data: seriesData,
         },
       ],
       animationDuration: 600,

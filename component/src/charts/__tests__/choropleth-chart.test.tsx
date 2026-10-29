@@ -207,7 +207,7 @@ describe("Natural Earth, Equal Earth and unmatched rows (#2230)", () => {
     await waitFor(
       () => {
         const series = lastOptionWith("series").series[0];
-        expect(series.data).toEqual([{ name: "France", value: 4 }]);
+        expect(series.data).toMatchObject([{ name: "France", value: 4 }]);
         expect(series.itemStyle.areaColor).toBe("#eeeff2");
         expect(series.projection.project([0, 0])).toEqual([0, -0]);
       },
@@ -447,4 +447,135 @@ describe("label collisions (#2330)", () => {
       );
     },
   );
+});
+
+describe("label contrast on the region's own fill (#2341)", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => document.documentElement.classList.remove("dark"));
+
+  // Independent WCAG 2.x formula, deliberately not chart-utils' helper.
+  const lum = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = Number.parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const wcag = (a: string, b: string) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  const names = ["United States", "China", "India", "France", "Germany"];
+  const stopData = names.map((name, i) => ({ name, value: i * 25 }));
+  const greens = { minColor: "#f7fcf5", maxColor: "#00441b" };
+
+  it.each([
+    { theme: "light", ramp: LIGHT_RAMP, props: {} },
+    { theme: "dark", ramp: DARK_RAMP, props: {} },
+    // #2315's greens: dark mode flips lightness, so the ramp is read from the option.
+    { theme: "light", ramp: null, props: greens },
+    { theme: "dark", ramp: null, props: greens },
+  ])(
+    "$theme $props: every stop's label clears 4.5:1",
+    async ({ theme, ramp, props }) => {
+      if (theme === "dark") document.documentElement.classList.add("dark");
+      render(<ChoroplethChart data={stopData} showLabels {...props} />);
+      await waitFor(
+        () => expect(lastOptionWith("series")?.series[0].data).toHaveLength(5),
+        { timeout: 15_000 },
+      );
+      const opt = lastOptionWith("series");
+      const stops: string[] = ramp ?? opt.visualMap.inRange.color;
+      const items = opt.series[0].data as { label: { color: string } }[];
+      expect(items).toHaveLength(names.length);
+      // matchRegions keeps row order, and the geo names differ from the rows'.
+      items.forEach((item, i) => {
+        expect(wcag(item.label.color, stops[i])).toBeGreaterThanOrEqual(4.5);
+      });
+    },
+    20_000,
+  );
+
+  it("a measured region keeps its ramp colour on hover and its name carries a halo in that colour", async () => {
+    render(<ChoroplethChart data={stopData} showLabels />);
+    await waitFor(
+      () => expect(lastOptionWith("series")?.series[0].data).toHaveLength(5),
+      { timeout: 15_000 },
+    );
+    const items = lastOptionWith("series").series[0].data as {
+      label: { textBorderColor: string; textBorderWidth: number };
+      emphasis: {
+        itemStyle: { areaColor: string };
+        label: { textBorderColor: string; textBorderWidth: number };
+      };
+    }[];
+    items.forEach((item, i) => {
+      const fill = LIGHT_RAMP[i].toLowerCase();
+      expect(item.emphasis.itemStyle.areaColor.toLowerCase()).toBe(fill);
+      expect(item.label.textBorderColor.toLowerCase()).toBe(fill);
+      expect(item.label.textBorderWidth).toBe(2);
+      expect(item.emphasis.label.textBorderColor.toLowerCase()).toBe(fill);
+      expect(item.emphasis.label.textBorderWidth).toBe(2);
+    });
+  }, 20_000);
+
+  it("a single region sits mid-ramp and its label reaches 4.5:1 on it, dark", async () => {
+    document.documentElement.classList.add("dark");
+    render(
+      <ChoroplethChart data={[{ name: "France", value: 7 }]} showLabels />,
+    );
+    await waitFor(
+      () => expect(lastOptionWith("series")?.series[0].data).toHaveLength(1),
+      { timeout: 15_000 },
+    );
+    const item = lastOptionWith("series").series[0].data[0];
+    expect(wcag(item.label.color, DARK_RAMP[2])).toBeGreaterThanOrEqual(4.5);
+    expect(item.emphasis.itemStyle.areaColor.toLowerCase()).toBe(
+      DARK_RAMP[2].toLowerCase(),
+    );
+  }, 20_000);
+
+  it("a NaN value is treated as no data and does not throw", async () => {
+    render(
+      <ChoroplethChart
+        data={[
+          { name: "France", value: 4 },
+          { name: "Germany", value: Number.NaN },
+        ]}
+        showLabels
+      />,
+    );
+    await waitFor(
+      () => expect(lastOptionWith("series")?.series[0].data).toHaveLength(2),
+      { timeout: 15_000 },
+    );
+    const data = lastOptionWith("series").series[0].data as {
+      name: string;
+      label: { show: boolean };
+    }[];
+    expect(data.find((d) => d.name === "Germany")?.label.show).toBe(false);
+  }, 20_000);
+
+  it("a region without data shows no name", async () => {
+    render(
+      <ChoroplethChart
+        data={[
+          { name: "France", value: 4 },
+          { name: "Germany", value: null },
+        ]}
+        showLabels
+      />,
+    );
+    await waitFor(
+      () => expect(lastOptionWith("series")?.series[0].data).toHaveLength(2),
+      { timeout: 15_000 },
+    );
+    const s = lastOptionWith("series").series[0];
+    expect(s.label.show).toBe(false); // regions absent from the data
+    const byName = (n: string) =>
+      s.data.find((d: { name: string }) => d.name === n);
+    expect(byName("France").label.show).toBe(true);
+    expect(byName("Germany").label.show).toBe(false);
+  }, 20_000);
 });

@@ -223,3 +223,14 @@ export function rampFor(
     ? buildSequentialRamp(...darkEnds(minColor, maxColor), 5)
     : buildSequentialRamp(minColor, maxColor, 5);
 }
+
+/**
+ * The colour the continuous visualMap paints for `t` (0..1) along `ramp`:
+ * evenly spaced stops, linear in RGB between neighbours (ECharts' own
+ * mapping), so a label can be coloured against the fill it sits on (#2341).
+ */
+export function rampColorAt(ramp: readonly string[], t: number): string {
+  const pos = Math.min(1, Math.max(0, t)) * (ramp.length - 1);
+  const i = Math.min(Math.floor(pos), ramp.length - 2);
+  return interpolateColor(pos, i, i + 1, ramp[i], ramp[i + 1]);
+}
