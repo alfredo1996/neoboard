@@ -487,6 +487,36 @@ describe("PUT /api/dashboards/[id]", () => {
     expect(res.status).toBe(400);
   });
 
+  it.each([
+    ["", 400],
+    ["bar", 200],
+  ])(
+    "a widget with chartType %j gets %i (#2326)",
+    async (chartType, status) => {
+      mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
+      mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+      const layout = {
+        version: 2,
+        pages: [
+          {
+            id: "p1",
+            title: "Page 1",
+            widgets: [{ id: "w1", chartType, connectionId: "c", query: "q" }],
+            gridLayout: [],
+          },
+        ],
+      };
+      mockDb.update.mockReturnValue(
+        makeUpdateChain([{ ...OWNER_DASHBOARD, layoutJson: layout }]),
+      );
+      const res = await PUT(
+        makeRequest({ layoutJson: layout }),
+        makeParams("d1"),
+      );
+      expect(res.status).toBe(status);
+    },
+  );
+
   it("accepts refreshIntervalSeconds of 5 (minimum)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));

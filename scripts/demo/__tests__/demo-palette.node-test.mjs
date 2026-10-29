@@ -48,3 +48,32 @@ test("the demo still stores the hastings palette somewhere", () => {
     );
   assert.ok(all.includes("hastings"));
 });
+
+// #2331 — the gallery sunburst kept the pre-redesign tableau palette. Find it
+// by chart type so a scan for "no citrine" cannot pass with this reverted.
+test("the gallery and playground sunbursts use the hastings palette", () => {
+  for (const file of ["chart-gallery.json", "chart-playground.json"]) {
+    checkType(file, "sunburst");
+  }
+});
+
+// Owner decision 2026-10-28: the gallery Sankey follows the sunburst.
+test("the gallery sankey uses the hastings palette", () => {
+  checkType("chart-gallery.json", "sankey");
+});
+
+function checkType(file, chartType) {
+  const json = JSON.parse(readFileSync(path.join(DEMO_DIR, file), "utf8"));
+  const found = [];
+  (function walk(n) {
+    if (Array.isArray(n)) n.forEach(walk);
+    else if (n && typeof n === "object") {
+      if (n.chartType === chartType) found.push(n);
+      Object.values(n).forEach(walk);
+    }
+  })(json);
+  assert.ok(found.length > 0, `${file} has a ${chartType}`);
+  for (const w of found) {
+    assert.equal(w.settings?.chartOptions?.colorPalette, "hastings", `${file} ${w.id}`);
+  }
+}

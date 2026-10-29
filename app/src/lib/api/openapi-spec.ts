@@ -554,8 +554,8 @@ const SPEC = {
           "Anyone who can view the dashboard can export it: its owner, anyone it is shared with, any tenant user when it is " +
           "public, and admins; anyone else gets 404, never 403. Each connection a widget uses becomes a key (`conn_0`, `conn_1`, …) " +
           "naming only its connector type and name; no connection id, config or credential is in the file. " +
-          "The export answers 500 when a widget names a connection that no longer exists or, for anyone but an admin, " +
-          "one the caller does not own (a shared one included), or when the stored layout is null or has no pages.",
+          "A widget's connection is exported by name and type whether it is the caller's own or one shared in the tenant (#2000). " +
+          "The export answers 500 when a widget names a connection that no longer exists, or when the stored layout is null or has no pages.",
         responses: {
           200: {
             description:
@@ -586,14 +586,13 @@ const SPEC = {
         description:
           "Creates a dashboard, owned by the caller and private, from a NeoBoard export (GET /api/dashboards/{id}/export) " +
           "or a NeoDash dashboard file, which is converted. Needs write permission (403). Map each export connection key to a " +
-          "connection the caller owns, or skip it; a skipped key's widgets arrive with no connection. In a NeoBoard file a key " +
+          "connection the caller can use (their own, any shared in the tenant, or, for an admin, any in the tenant), or skip it; a skipped key's widgets arrive with no connection. In a NeoBoard file a key " +
           "left neither mapped nor skipped stays as its widgets' `connectionId` (e.g. `conn_0`), which names no connection " +
           "and is not counted as unassigned; a NeoDash file's widgets then arrive with no connection. In a NeoBoard file " +
           "`connections` is the index of keys: a widget `connectionId` that is not one of its keys answers 400 naming the " +
           "widget's path, a mapped or skipped key that is not one answers 400 naming the key, and a mapping target of " +
-          "another connector type than its key's `type` answers 400. A mapping target the " +
-          "caller does not own answers 400 `Invalid connection mapping`, a shared connection or, for an admin, another user's " +
-          "included; a finished layout naming a connection the caller cannot use answers 403. The name is the file's " +
+          "another connector type than its key's `type` answers 400. Any other mapping target, " +
+          "including one in another tenant, answers 400 `Invalid connection mapping`; a finished layout naming a connection the caller cannot use answers 403. The name is the file's " +
           "(`Imported Dashboard` for a NeoDash file whose title is missing or blank), with ' (imported)' appended when the tenant already has " +
           "a dashboard of that name. A body that is not JSON answers 400 `VALIDATION_ERROR`; an invalid NeoBoard file answers " +
           "400 naming the offending field; a malformed NeoDash report can answer 500.",
@@ -2112,7 +2111,7 @@ const SPEC = {
             default: {},
             description:
               "Connection key, as the file's widgets name it in `connectionId` (`conn_0`, …; `neodash-default` for a NeoDash " +
-              "file) → id of a connection the caller owns. An empty value leaves the key unmapped: in a NeoBoard file its " +
+              "file) → id of a connection the caller can use (their own, any shared in the tenant, or, for an admin, any in the tenant). An empty value leaves the key unmapped: in a NeoBoard file its " +
               "widgets keep the key as their `connectionId`; a NeoDash file's widgets get no connection.",
           },
           skippedConnections: {

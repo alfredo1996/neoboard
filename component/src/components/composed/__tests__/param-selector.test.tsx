@@ -180,6 +180,25 @@ describe("ParamSelector — searchable mode", () => {
     expect(screen.queryByText("Cherry")).not.toBeInTheDocument();
   });
 
+  it("re-selecting the shown option does not call onChange; the X still clears (#2326)", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <ParamSelector
+        parameterName="fruit"
+        options={searchOptions}
+        value="apple"
+        onChange={onChange}
+        searchable
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("option", { name: /Apple/ }));
+    expect(onChange).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /clear/i }));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("");
+  });
+
   it("calls onSearch callback when typing", async () => {
     const user = userEvent.setup();
     const onSearch = vi.fn();

@@ -143,7 +143,8 @@ function Combobox({
                   }
                   disabled={option.disabled}
                   onSelect={() => {
-                    onChange?.(option.value === value ? "" : option.value);
+                    // Re-selecting the shown value keeps it (#2326).
+                    if (option.value !== value) onChange?.(option.value);
                     setOpen(false);
                     setSearch("");
                   }}

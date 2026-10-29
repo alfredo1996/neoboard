@@ -546,4 +546,72 @@ describe("Database migrations", () => {
     });
     await client.end();
   }, 90_000);
+
+  it("removes the old pageSize: 10 from saved table widgets and templates, keeps chosen sizes, and re-runs as SQL (#2356)", async () => {
+    const client = await emptyDatabase("upgrade_2356");
+    await migrate(drizzle(client), { migrationsFolder: migrationsThrough(7) });
+    const widget = (id: string, chartType: string, pageSize: number) => ({
+      id,
+      chartType,
+      connectionId: "c",
+      query: "",
+      settings: { chartOptions: { pageSize, enablePagination: true } },
+    });
+    const layout = {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "P1",
+          widgets: [
+            widget("t10", "table", 10),
+            widget("t8", "table", 8),
+            widget("bar10", "bar", 10),
+          ],
+          gridLayout: [],
+        },
+        { id: "p2", title: "P2", widgets: [widget("t10b", "table", 10)] },
+      ],
+    };
+    await client`INSERT INTO "user" (id, email) VALUES ('u1', 'u1@x')`;
+    await client`INSERT INTO dashboard (id, "userId", name, "layoutJson") VALUES ('d1', 'u1', 'dash', ${JSON.stringify(layout)}::jsonb)`;
+    await client`INSERT INTO widget_template (id, name, "chartType", "createdBy", settings) VALUES
+      ('tpl10', 'a', 'table', 'u1', ${JSON.stringify({ chartOptions: { pageSize: 10, x: 1 } })}::jsonb),
+      ('tpl8', 'b', 'table', 'u1', ${JSON.stringify({ chartOptions: { pageSize: 8 } })}::jsonb),
+      ('tplbar', 'c', 'bar', 'u1', ${JSON.stringify({ chartOptions: { pageSize: 10 } })}::jsonb)`;
+
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+
+    const check = async () => {
+      const [d] =
+        await client`SELECT "layoutJson" AS l FROM dashboard WHERE id = 'd1'`;
+      const opts = (pi: number, wi: number) =>
+        d.l.pages[pi].widgets[wi].settings.chartOptions;
+      expect(opts(0, 0)).toEqual({ enablePagination: true });
+      expect(opts(0, 1)).toEqual({ pageSize: 8, enablePagination: true });
+      expect(opts(0, 2)).toEqual({ pageSize: 10, enablePagination: true });
+      expect(opts(1, 0)).toEqual({ enablePagination: true });
+      expect(d.l.pages[0].gridLayout).toEqual([]);
+      const t =
+        await client`SELECT id, settings FROM widget_template ORDER BY id`;
+      expect(t.map((r) => [r.id, r.settings.chartOptions])).toEqual([
+        ["tpl10", { x: 1 }],
+        ["tpl8", { pageSize: 8 }],
+        ["tplbar", { pageSize: 10 }],
+      ]);
+    };
+    await check();
+
+    const { tag } = journal.entries[7];
+    expect(tag).toMatch(/^0007_/);
+    const statements = readFileSync(
+      path.join(MIGRATIONS_FOLDER, `${tag}.sql`),
+      "utf8",
+    ).split("--> statement-breakpoint");
+    await client.begin(async (tx) => {
+      for (const statement of statements) await tx.unsafe(statement);
+    });
+    await check();
+    await client.end();
+  }, 90_000);
 });

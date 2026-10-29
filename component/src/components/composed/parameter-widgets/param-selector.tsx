@@ -260,7 +260,8 @@ function ParamSelector({
                         value={toCmdkValue(opt.value)}
                         keywords={[opt.label]}
                         onSelect={() => {
-                          onChange(opt.value === value ? "" : opt.value);
+                          // Re-selecting the shown value keeps it; the X clears (#2326).
+                          if (opt.value !== value) onChange(opt.value);
                           handleOpenChange(false);
                         }}
                       >

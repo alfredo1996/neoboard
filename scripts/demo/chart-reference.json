@@ -1530,7 +1530,7 @@
             "id": "page-single-value-v-81",
             "chartType": "single-value",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS label, SUM(total)::float AS value FROM neoboard_demo_public.orders GROUP BY 1 ORDER BY 1 DESC LIMIT 2",
+            "query": "SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS label, SUM(total)::float AS value FROM neoboard_demo_public.orders WHERE created_at < date_trunc('month', NOW()) GROUP BY 1 ORDER BY 1 DESC LIMIT 2",
             "settings": {
               "title": "trendEnabled = true",
               "chartOptions": {
