@@ -1,6 +1,7 @@
 /**
  * Which connections the Connections page may probe: what "Test all" tests
- * (#1426), and the same rule the page applies to a row's Test action.
+ * (#1426), and the same rule the page applies to a row's Test action. The
+ * page offers no probing at all to a reader (#2328).
  *
  * #1545: the page used to test every connection the list route returned,
  * including tenant-shared ones the user does not own. `/api/connections/[id]/test`

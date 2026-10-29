@@ -86,7 +86,7 @@ const widgetSettingsSchema = z
 const widgetSchema = z
   .object({
     id: z.string(),
-    chartType: z.string(),
+    chartType: z.string().min(1),
     connectionId: z.string(),
     query: z.string(),
     settings: widgetSettingsSchema.optional(),

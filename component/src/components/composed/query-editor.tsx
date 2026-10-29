@@ -45,6 +45,10 @@ export interface QueryEditorProps {
   runAndSaveHint?: boolean;
   /** Schema for autocompletion. Passed from the app layer. */
   schema?: DatabaseSchema;
+  /** Accessible name of the text field (#2345). Defaults to "Query editor". */
+  "aria-label"?: string;
+  /** Id of the element that names the text field; wins over `aria-label`. */
+  "aria-labelledby"?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,18 +130,25 @@ async function buildTheme(dark: boolean): Promise<Extension[]> {
   ];
 }
 
+/** Compartment-wrapped extensions, each reconfigured on its own later. */
+interface CompartmentExts {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  lang: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  readOnly: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  theme: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
+  name: any;
+}
+
 async function buildExtensions(
   placeholder: string,
   onUpdate: (newValue: string) => void,
   onRun: () => void,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
-  langCompartmentExt: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
-  readOnlyCompartmentExt: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
   placeholderCompartment: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
-  themeCompartmentExt: any,
+  compartments: CompartmentExts,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
@@ -192,13 +203,14 @@ async function buildExtensions(
       ...closeBracketsKeymap,
     ]),
     runKeymap,
-    langCompartmentExt,
+    compartments.lang,
     autocompletion(),
     placeholderCompartment.of(cmPlaceholder(placeholder)),
-    themeCompartmentExt,
+    compartments.theme,
+    compartments.name,
     baseTheme,
     updateListener,
-    readOnlyCompartmentExt,
+    compartments.readOnly,
   ];
 }
 
@@ -219,6 +231,8 @@ function QueryEditor({
   className,
   runAndSaveHint = false,
   schema,
+  "aria-label": ariaLabel = "Query editor",
+  "aria-labelledby": ariaLabelledby,
 }: QueryEditorProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const currentValue = value ?? internalValue;
@@ -242,6 +256,11 @@ function QueryEditor({
   const readOnlyRef = React.useRef(readOnly);
   const schemaRef = React.useRef(schema);
   const placeholderRef = React.useRef(placeholder);
+  const nameAttrs = (): Record<string, string> =>
+    ariaLabelledby
+      ? { "aria-labelledby": ariaLabelledby }
+      : { "aria-label": ariaLabel };
+  const nameAttrsRef = React.useRef(nameAttrs());
   const dark = useDarkMode();
   const darkRef = React.useRef(dark);
   React.useEffect(() => {
@@ -288,6 +307,10 @@ function QueryEditor({
   const placeholderCompartmentRef = React.useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
   const themeCompartmentRef = React.useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
+  const nameCompartmentRef = React.useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM EditorView.contentAttributes facet
+  const contentAttributesRef = React.useRef<any>(null);
   // Cache EditorState after first load so the readOnly effect can reconfigure
   // the compartment synchronously (no extra async import tick).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM EditorState
@@ -369,6 +392,9 @@ function QueryEditor({
       placeholderCompartmentRef.current = placeholderCompartment;
       const themeCompartment = new Compartment();
       themeCompartmentRef.current = themeCompartment;
+      const nameCompartment = new Compartment();
+      nameCompartmentRef.current = nameCompartment;
+      contentAttributesRef.current = EditorView.contentAttributes;
       const initialDark = darkRef.current;
       const themeExt = await resolveTheme(initialDark);
       if (abortSignal.aborted) return;
@@ -399,10 +425,17 @@ function QueryEditor({
         placeholderRef.current,
         onUpdate,
         onRunCallback,
-        langCompartment.of(langExts),
-        readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current)),
         placeholderCompartment,
-        themeCompartment.of(themeExt),
+        {
+          lang: langCompartment.of(langExts),
+          readOnly: readOnlyCompartment.of(
+            EditorState.readOnly.of(readOnlyRef.current),
+          ),
+          theme: themeCompartment.of(themeExt),
+          name: nameCompartment.of(
+            EditorView.contentAttributes.of(nameAttrsRef.current),
+          ),
+        },
       );
 
       if (abortSignal.aborted || !containerRef.current) return;
@@ -540,6 +573,17 @@ function QueryEditor({
       cancelled = true;
     };
   }, [dark]);
+
+  // Accessible name: follow the props live, in place.
+  React.useEffect(() => {
+    nameAttrsRef.current = nameAttrs();
+    if (!viewRef.current || !nameCompartmentRef.current) return;
+    viewRef.current.dispatch({
+      effects: nameCompartmentRef.current.reconfigure(
+        contentAttributesRef.current.of(nameAttrsRef.current),
+      ),
+    });
+  }, [ariaLabel, ariaLabelledby]);
 
   // readOnly: synchronous compartment reconfigure — one path for all languages
   React.useEffect(() => {

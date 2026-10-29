@@ -48,18 +48,22 @@ function PageHeader({
     >
       {breadcrumb && breadcrumb.length > 0 && (
         <Breadcrumb className="mb-1.5">
-          <BreadcrumbList className="gap-1.5 text-xs text-muted-foreground sm:gap-1.5">
+          <BreadcrumbList className="flex-nowrap gap-1.5 text-xs text-muted-foreground sm:gap-1.5">
             {breadcrumb.map((crumb, i) => {
               const last = i === breadcrumb.length - 1;
               return (
                 <React.Fragment key={`${i}-${crumb.label}`}>
-                  <BreadcrumbItem>
+                  <BreadcrumbItem className="min-w-0">
                     {last ? (
-                      <BreadcrumbPage className="text-muted-foreground">
+                      <BreadcrumbPage className="truncate text-muted-foreground">
                         {crumb.label}
                       </BreadcrumbPage>
                     ) : (
-                      <BreadcrumbLink href={crumb.href} onClick={crumb.onClick}>
+                      <BreadcrumbLink
+                        href={crumb.href}
+                        onClick={crumb.onClick}
+                        className="truncate"
+                      >
                         {crumb.label}
                       </BreadcrumbLink>
                     )}

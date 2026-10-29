@@ -9,6 +9,7 @@ import {
   buildDashboardFilters,
   filterClearNames,
 } from "@/lib/parameter/dashboard-filters";
+import { useFilterBarShown } from "@/hooks/use-filter-bar-shown";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { paramLabel } from "@/lib/parameter/param-label";
@@ -63,6 +64,7 @@ import {
   type WidgetCardAction,
   type WidgetCardProps,
 } from "@neoboard/components";
+import { withWidgetMinHeights } from "@/lib/dashboard/widget-min-height";
 import { returnFocus } from "@/lib/return-focus";
 
 /** Widget action callbacks — grouped to reduce prop count. */
@@ -217,6 +219,7 @@ export function DashboardContainer({
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
   const allParamValues = useParameterValues();
+  const [barShown] = useFilterBarShown();
   const stripFilters = useMemo(() => {
     // The selector may sit on another page: the workspace switches to it.
     const jump = (pageId: string | undefined, widgetId: string) => {
@@ -365,17 +368,19 @@ export function DashboardContainer({
 
   return (
     <ConnectionNamesProvider value={connectionNames}>
-      <FilterStrip
-        className="mb-3"
-        filters={stripFilters}
-        onRemove={(id) =>
-          filterClearNames(id).forEach((n) => clearParameter(n))
-        }
-        onClearAll={clearAll}
-      />
+      {barShown && (
+        <FilterStrip
+          className="mb-3"
+          filters={stripFilters}
+          onRemove={(id) =>
+            filterClearNames(id).forEach((n) => clearParameter(n))
+          }
+          onClearAll={clearAll}
+        />
+      )}
       <div className="w-full min-w-0">
         <DashboardGrid
-          layout={page.gridLayout as GridLayoutItem[]}
+          layout={withWidgetMinHeights(page.gridLayout, page.widgets)}
           onLayoutChange={(items) =>
             onLayoutChange?.(items as GridLayoutItem[])
           }

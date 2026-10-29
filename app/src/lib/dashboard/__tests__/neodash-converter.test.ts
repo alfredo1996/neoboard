@@ -1179,6 +1179,41 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     expect(filtersGrid.every((g) => g.w === 3 && g.h === 2)).toBe(true);
   });
 
+  it("a number-range filter gets three rows, the others two, and the next row clears it", () => {
+    const nd = makeNeoDash(
+      [
+        makeReport({
+          query: "$neodash_n $neodash_t $neodash_a $neodash_b $neodash_c",
+        }),
+      ],
+      {
+        parameters: {
+          neodash_n: 5,
+          neodash_t: "x",
+          neodash_a: "y",
+          neodash_b: "z",
+          neodash_c: "w",
+        },
+      },
+    );
+    const { export: exp } = convertNeoDashWithNotes(nd);
+    const { widgets, gridLayout } = exp.layout.pages[0];
+    const hOf = (name: string) =>
+      gridLayout.find(
+        (g) =>
+          (
+            widgets.find((w) => w.id === g.i)!.settings as Record<
+              string,
+              unknown
+            >
+          ).parameterName === name,
+      )!;
+    expect(hOf("n").h).toBe(3);
+    expect(hOf("t").h).toBe(2);
+    // fifth widget starts a new row below the three-row one
+    expect(hOf("c").y).toBe(3);
+  });
+
   it("number-range pre-populates rangeMin=min(default, 0) and rangeMax=max(default, 100)", () => {
     const nd = makeNeoDash(
       [
