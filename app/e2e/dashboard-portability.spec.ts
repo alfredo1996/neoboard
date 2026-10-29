@@ -430,18 +430,25 @@ test.describe("NeoDash legacy import", () => {
     let importedId: string | undefined;
     try {
       await page.getByRole("button", { name: "Import", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "Import Dashboard" });
+      const dialog = page.getByRole("dialog", {
+        name: "Import Dashboard",
+        exact: true,
+      });
       await expect(dialog).toBeVisible({ timeout: 5_000 });
       await dialog.locator("#import-file").setInputFiles(tmpFile);
-      await expect(dialog.getByText("NeoDash format")).toBeVisible({
+      await expect(
+        dialog.getByText("NeoDash format", { exact: true }),
+      ).toBeVisible({
         timeout: 5_000,
       });
       await dialog.locator('label:has-text("Skip")').first().click();
-      const importBtn = dialog.getByRole("button", { name: "Import" }).last();
+      const importBtn = dialog
+        .getByRole("button", { name: "Import", exact: true })
+        .last();
       await expect(importBtn).toBeEnabled();
       await importBtn.click();
       await page
-        .getByRole("button", { name: "View dashboard" })
+        .getByRole("button", { name: "View dashboard", exact: true })
         .click({ timeout: 15_000 });
       await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
       importedId = page.url().split("/").pop();
