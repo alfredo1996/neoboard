@@ -20,6 +20,8 @@ export interface ChartOptionDef {
    * Kept to 90 characters; a ratchet test enforces it (#1549).
    */
   description?: string;
+  /** Only for type: "number": shown while the field is empty. */
+  placeholder?: string;
   /**
    * Optional client-side validation for text inputs. Returns null when the
    * value is acceptable, or a severity + message to show inline (#1053).

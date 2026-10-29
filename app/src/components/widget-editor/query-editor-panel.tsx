@@ -189,7 +189,7 @@ export function QueryEditorPanel({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
-        <Label htmlFor="editor-query">Query</Label>
+        <Label id="editor-query-label">Query</Label>
         {hint && (
           <Tooltip>
             {/* #1283: an <svg> is not focusable, so this tooltip's focus
@@ -346,6 +346,7 @@ export function QueryEditorPanel({
       )}
       <QueryEditor
         value={query}
+        aria-labelledby="editor-query-label"
         onChange={onQueryChange}
         onRun={onRun}
         running={running}

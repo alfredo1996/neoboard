@@ -61,6 +61,12 @@ vi.mock("@codemirror/view", () => {
           return { type: "updateListener" };
         },
       },
+      contentAttributes: {
+        of: (attrs: Record<string, string>) => ({
+          type: "contentAttributes",
+          attrs,
+        }),
+      },
       theme: (_spec: unknown, opts?: { dark?: boolean }) => ({
         type: "theme",
         dark: opts?.dark,
@@ -400,6 +406,52 @@ describe("QueryEditor — placeholder switching", () => {
         arg?.effects?.ext?.text === "SELECT * FROM users LIMIT 10",
     );
     expect(placeholderDispatch).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Accessible name (#2345) — CodeMirror's .cm-content is a role=textbox
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor — accessible name", () => {
+  const contentAttrs = () =>
+    (
+      lastStateConfig?.extensions as {
+        type?: string;
+        ext?: { type?: string; attrs?: Record<string, string> };
+      }[]
+    ).find((e) => e?.ext?.type === "contentAttributes")?.ext?.attrs;
+
+  it.each([
+    ["nothing given", {}, { "aria-label": "Query editor" }],
+    [
+      "aria-label given",
+      { "aria-label": "SQL query" },
+      { "aria-label": "SQL query" },
+    ],
+    [
+      "aria-labelledby given",
+      { "aria-labelledby": "q-heading" },
+      { "aria-labelledby": "q-heading" },
+    ],
+  ])("content attributes when %s", async (_n, props, expected) => {
+    render(<QueryEditor language="sql" {...props} />);
+    await flushAsync();
+    expect(contentAttrs()).toEqual(expected);
+  });
+
+  it("reconfigures the content attributes when the name props change", async () => {
+    const { rerender } = render(<QueryEditor language="sql" aria-label="A" />);
+    await flushAsync();
+    mockDispatch.mockClear();
+    rerender(<QueryEditor language="sql" aria-label="B" />);
+    await flushAsync();
+    const ext = mockDispatch.mock.calls
+      .map(([tr]) => (tr as { effects?: { ext?: unknown } }).effects?.ext)
+      .find((x) => (x as { type?: string })?.type === "contentAttributes");
+    expect(ext).toEqual(
+      expect.objectContaining({ attrs: { "aria-label": "B" } }),
+    );
   });
 });
 

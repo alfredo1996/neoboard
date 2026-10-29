@@ -28,6 +28,8 @@ interface DashboardEditToolbarProps {
   isSaving: boolean;
   onAddWidget: () => void;
   onSave: () => void;
+  /** Cancel: leave edit mode without saving (⌘E); the caller asks first when dirty. */
+  onCancel: () => void;
   /** The "Dashboards" crumb. */
   onDashboards: () => void;
   /** The dashboard's own crumb: back to view mode. */
@@ -54,6 +56,7 @@ export function DashboardEditToolbar({
   isSaving,
   onAddWidget,
   onSave,
+  onCancel,
   onDashboards,
   onLeave,
 }: Readonly<DashboardEditToolbarProps>) {
@@ -94,9 +97,14 @@ export function DashboardEditToolbar({
             />
           )}
           {onAddPage && (
-            <Button variant="secondary" size="sm" onClick={onAddPage}>
-              <FilePlus className="mr-2 h-4 w-4" />
-              Add page
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onAddPage}
+              aria-label="Add page"
+            >
+              <FilePlus className="h-4 w-4 lg:mr-2" />
+              <span className="hidden lg:inline">Add page</span>
             </Button>
           )}
           <Button
@@ -104,12 +112,25 @@ export function DashboardEditToolbar({
             size="sm"
             onClick={onAddWidget}
             title="Add widget (Cmd+Shift+N)"
+            aria-label="Add Widget"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Widget
-            {/* The hint is for wide headers: at tablet width the actions must not wrap it taller. */}
-            <span className="hidden lg:contents">
+            <Plus className="h-4 w-4 lg:mr-2" />
+            {/* Icon-only below lg and no hints below xl: the actions must not wrap the header taller (#2352). */}
+            <span className="hidden lg:inline">Add Widget</span>
+            <span className="hidden xl:contents">
               <ShortcutHint combo="Cmd+Shift+N" />
+            </span>
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onCancel}
+            disabled={isSaving}
+            title="Leave without saving (Cmd+E)"
+          >
+            <span>Cancel</span>
+            <span className="hidden xl:contents">
+              <ShortcutHint combo="Cmd+E" />
             </span>
           </Button>
           <LoadingButton
@@ -121,8 +142,7 @@ export function DashboardEditToolbar({
           >
             <Save className="mr-2 h-4 w-4" />
             Save
-            {/* The hint is for wide headers: at tablet width the actions must not wrap it taller. */}
-            <span className="hidden lg:contents">
+            <span className="hidden xl:contents">
               <ShortcutHint combo="Cmd+S" />
             </span>
           </LoadingButton>

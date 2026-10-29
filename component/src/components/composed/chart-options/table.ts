@@ -48,9 +48,11 @@ export const tableOptions: ChartOptionDef[] = [
     key: "pageSize",
     label: "Page Size",
     type: "number",
-    default: 10,
+    // No default: unset means Auto, rows fit the card (#2356).
+    default: undefined,
+    placeholder: "Auto (fits the card)",
     category: "Pagination",
-    description: "Number of rows shown per page when pagination is enabled.",
+    description: "Rows per page. Leave empty to fit the card.",
   },
   {
     key: "emptyMessage",

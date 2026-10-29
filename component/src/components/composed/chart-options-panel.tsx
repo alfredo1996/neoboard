@@ -183,21 +183,32 @@ function OptionField({
       );
     }
 
-    case "number":
+    case "number": {
+      const current = value ?? option.default;
+      let shown = option.placeholder ? "" : "0";
+      if (typeof current === "number" || typeof current === "string")
+        shown = String(current);
       return (
         <Field id={option.key} label={option.label} help={option.description}>
           <Input
             type="number"
-            value={String(value ?? option.default ?? 0)}
+            value={shown}
+            placeholder={option.placeholder}
             onChange={(e) => {
               // Number("") is 0 — clearing the field would silently
               // commit 0 rather than leaving the option alone (#1292).
-              if (e.target.value === "") return;
+              // An option with a placeholder is "auto" when empty, so
+              // clearing it unsets it instead (#2356).
+              if (e.target.value === "") {
+                if (option.placeholder) onChange(option.key, undefined);
+                return;
+              }
               onChange(option.key, Number(e.target.value));
             }}
           />
         </Field>
       );
+    }
 
     default:
       return null;
@@ -264,7 +275,9 @@ function ChartOptionsPanel({
   }, [filteredOptions]);
 
   function handleChange(key: string, value: unknown) {
-    onSettingsChange({ ...settings, [key]: value });
+    const next = { ...settings, [key]: value };
+    if (value === undefined) delete next[key];
+    onSettingsChange(next);
   }
 
   if (options.length === 0) {
