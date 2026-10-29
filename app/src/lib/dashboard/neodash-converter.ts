@@ -488,6 +488,43 @@ function bindToRangeMax(
 }
 
 /**
+ * The name for a number-range filter. The range seeds `<name>_min` and
+ * `<name>_max` into the parameter store, so when another parameter already
+ * has one of those names (or the renamed name itself), append `_range` until
+ * nothing clashes, and point the reports at the new name.
+ */
+function rangeFilterName(
+  paramName: string,
+  takenNames: Set<string>,
+  pages: { widgets: DashboardWidget[] }[],
+  notes: string[],
+): string {
+  let filterName = paramName;
+  while (
+    (filterName !== paramName && takenNames.has(filterName)) ||
+    takenNames.has(`${filterName}_min`) ||
+    takenNames.has(`${filterName}_max`)
+  ) {
+    filterName += "_range";
+  }
+  if (filterName === paramName) return paramName;
+  const ref = new RegExp(String.raw`\$param_${paramName}(?!\w)`, "g");
+  for (const w of pages.flatMap((p) => p.widgets)) {
+    if (w.query) w.query = w.query.replace(ref, `$$param_${filterName}`);
+  }
+  notes.push(
+    "Parameter $param_" +
+      paramName +
+      " renamed to $param_" +
+      filterName +
+      " because $param_" +
+      paramName +
+      "_min/_max are another parameter",
+  );
+  return filterName;
+}
+
+/**
  * Build the auto-generated "Filters" page from NeoDash's dashboard-wide
  * parameters. Returns null when no widgets would be created (no params
  * referenced in any query, or no params at all).
@@ -537,34 +574,10 @@ function buildFiltersPage(
     }
 
     const paramType = inferParameterType(value);
-    let filterName = paramName;
-    if (paramType === "number-range") {
-      // The range seeds `<name>_min` / `<name>_max` into the parameter store;
-      // another parameter with that name would collide. Rename this filter,
-      // to a name no other parameter has either.
-      while (
-        (filterName !== paramName && takenNames.has(filterName)) ||
-        takenNames.has(`${filterName}_min`) ||
-        takenNames.has(`${filterName}_max`)
-      ) {
-        filterName += "_range";
-      }
-      if (filterName !== paramName) {
-        const ref = new RegExp(String.raw`\$param_${paramName}(?!\w)`, "g");
-        for (const w of pages.flatMap((p) => p.widgets)) {
-          if (w.query) w.query = w.query.replace(ref, `$$param_${filterName}`);
-        }
-        notes.push(
-          "Parameter $param_" +
-            paramName +
-            " renamed to $param_" +
-            filterName +
-            " because $param_" +
-            paramName +
-            "_min/_max are another parameter",
-        );
-      }
-    }
+    const filterName =
+      paramType === "number-range"
+        ? rangeFilterName(paramName, takenNames, pages, notes)
+        : paramName;
     addFilterWidget(widgets, gridLayout, filterName, paramType, value);
     if (paramType === "number-range") bindToRangeMax(pages, filterName);
     notes.push(
