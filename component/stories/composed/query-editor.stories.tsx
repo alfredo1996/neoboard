@@ -104,8 +104,6 @@ const editorOf = (root: HTMLElement) =>
 const darkProject = () => matchMedia("(prefers-color-scheme: dark)").matches;
 
 export const FollowsTheme: Story = {
-  // #2345: the query editor has no accessible name
-  parameters: { a11y: { test: "todo" } },
   args: { language: "sql", defaultValue: "SELECT 1;" },
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(editorOf(canvasElement)).toBeTruthy());
@@ -128,8 +126,6 @@ export const FollowsTheme: Story = {
 };
 
 export const FillsItsFrame: Story = {
-  // #2345: the query editor has no accessible name
-  parameters: { a11y: { test: "todo" } },
   args: {
     language: "sql",
     defaultValue: "SELECT 1;",
@@ -153,8 +149,6 @@ export const FillsItsFrame: Story = {
 };
 
 export const ShowsKeyboardFocus: Story = {
-  // #2345: the query editor has no accessible name
-  parameters: { a11y: { test: "todo" } },
   args: { language: "sql", defaultValue: "SELECT 1;" },
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(editorOf(canvasElement)).toBeTruthy());
