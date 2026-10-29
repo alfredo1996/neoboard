@@ -457,8 +457,10 @@ export const UnmatchedRows: Story = {
   },
   play: async ({ canvasElement }) => {
     const note = within(canvasElement).getByRole("status");
-    await waitFor(() =>
-      expect(note).toHaveTextContent("2 rows not matched to a country"),
+    // The note waits on the world map's load, like the canvas below (#2375).
+    await waitFor(
+      () => expect(note).toHaveTextContent("2 rows not matched to a country"),
+      { timeout: 5000 },
     );
     expect(note).toHaveTextContent("Narnia");
   },
@@ -485,8 +487,11 @@ export const SmallCountries: Story = {
     ],
   },
   play: async ({ canvasElement }) => {
-    await waitFor(() =>
-      expect(canvasElement.querySelector("canvas")).not.toBeNull(),
+    // The canvas appears only once the world map has loaded, which can take
+    // over a second in CI: wait as long as the sibling stories do (#2375).
+    await waitFor(
+      () => expect(canvasElement.querySelector("canvas")).not.toBeNull(),
+      { timeout: 5000 },
     );
     expect(within(canvasElement).getByRole("status")).toBeEmptyDOMElement();
   },
