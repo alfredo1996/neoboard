@@ -8,7 +8,7 @@ test.describe("Chart export actions (issue #872)", () => {
     test.setTimeout(60_000);
     await authPage.login(ALICE.email, ALICE.password);
 
-    // Movie Analytics seeded dashboard — first widget is a bar chart (ECharts)
+    // Movie Analytics seeded dashboard — two chart widgets (ECharts)
     const res = await page.request.get("/api/dashboards");
     const dashboards = (await res.json()).data as {
       id: string;
@@ -18,7 +18,12 @@ test.describe("Chart export actions (issue #872)", () => {
     expect(movieAnalytics).toBeTruthy();
     await page.goto(`/${movieAnalytics!.id}`);
 
-    // Find the first ECharts widget — one whose card contains a base-chart element
+    // Wait for both charts: otherwise .first() picks whichever renders first,
+    // and under load that is the right-hand card (#1470).
+    await expect(page.locator("[data-testid='base-chart']")).toHaveCount(2, {
+      timeout: 15_000,
+    });
+    // First ECharts widget in DOM order — the left-hand one
     const echartsCard = page
       .locator("[data-testid='widget-card']")
       .filter({ has: page.locator("[data-testid='base-chart']") })
@@ -28,8 +33,11 @@ test.describe("Chart export actions (issue #872)", () => {
     await echartsCard.getByRole("button", { name: "Widget actions" }).click();
 
     // #912: Export formats now live inside an "Export ▸" submenu.
-    // Open it from the keyboard: a hover-opened submenu closes again when the
-    // pointer's path to PNG leaves Radix's grace area under CPU load (#1470).
+    // Open it from the keyboard (#1470). Radix flips the submenu to the left
+    // on a card at the viewport's right edge, but its pointer direction starts
+    // as "right"; Playwright's jump from "..." to Export never corrects it, so
+    // leaving the trigger for PNG moves focus to the root menu and closes the
+    // submenu. A real, continuous mouse path does not hit this.
     const exportTrigger = page.getByRole("menuitem", { name: "Export" });
     await expect(exportTrigger).toBeVisible();
     await exportTrigger.focus();
