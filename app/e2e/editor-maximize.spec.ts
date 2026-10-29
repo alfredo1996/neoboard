@@ -131,6 +131,18 @@ test.describe("Query editor maximize (#1374)", () => {
     expect(Math.abs(frameBox!.height - cmBox!.height)).toBeLessThanOrEqual(1);
   });
 
+  test("the query editor is a textbox named by its Query heading (#2345)", async ({
+    page,
+  }) => {
+    const dialog = page.getByRole("dialog", {
+      name: "Add Widget",
+      exact: true,
+    });
+    await expect(
+      dialog.getByRole("textbox", { name: "Query", exact: true }),
+    ).toBeVisible();
+  });
+
   test("more than doubles the editor height on open and unmounts the preview", async ({
     page,
   }) => {

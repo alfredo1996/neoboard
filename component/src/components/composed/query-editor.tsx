@@ -45,6 +45,10 @@ export interface QueryEditorProps {
   runAndSaveHint?: boolean;
   /** Schema for autocompletion. Passed from the app layer. */
   schema?: DatabaseSchema;
+  /** Accessible name of the text field (#2345). Defaults to "Query editor". */
+  "aria-label"?: string;
+  /** Id of the element that names the text field; wins over `aria-label`. */
+  "aria-labelledby"?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +142,7 @@ async function buildExtensions(
   placeholderCompartment: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CM Compartment-wrapped extension
   themeCompartmentExt: any,
+  nameAttrs: Record<string, string>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
@@ -196,6 +201,7 @@ async function buildExtensions(
     autocompletion(),
     placeholderCompartment.of(cmPlaceholder(placeholder)),
     themeCompartmentExt,
+    EditorView.contentAttributes.of(nameAttrs),
     baseTheme,
     updateListener,
     readOnlyCompartmentExt,
@@ -219,6 +225,8 @@ function QueryEditor({
   className,
   runAndSaveHint = false,
   schema,
+  "aria-label": ariaLabel = "Query editor",
+  "aria-labelledby": ariaLabelledby,
 }: QueryEditorProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const currentValue = value ?? internalValue;
@@ -242,6 +250,13 @@ function QueryEditor({
   const readOnlyRef = React.useRef(readOnly);
   const schemaRef = React.useRef(schema);
   const placeholderRef = React.useRef(placeholder);
+  // Read once at mount, like the other init-time values; a name that changes
+  // later needs a Compartment (ponytail: the one caller's name is static).
+  const nameAttrsRef = React.useRef<Record<string, string>>(
+    ariaLabelledby
+      ? { "aria-labelledby": ariaLabelledby }
+      : { "aria-label": ariaLabel },
+  );
   const dark = useDarkMode();
   const darkRef = React.useRef(dark);
   React.useEffect(() => {
@@ -403,6 +418,7 @@ function QueryEditor({
         readOnlyCompartment.of(EditorState.readOnly.of(readOnlyRef.current)),
         placeholderCompartment,
         themeCompartment.of(themeExt),
+        nameAttrsRef.current,
       );
 
       if (abortSignal.aborted || !containerRef.current) return;
