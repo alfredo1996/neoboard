@@ -221,6 +221,24 @@ describe("DashboardEditToolbar", () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
+  it("keeps Add page and Add Widget named when icon-only, and hides the hints below xl", () => {
+    render(<DashboardEditToolbar {...editProps} onAddPage={vi.fn()} />);
+    for (const name of ["Add page", "Add Widget"]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute(
+        "aria-label",
+        name,
+      );
+    }
+    for (const kbd of document.querySelectorAll("kbd")) {
+      expect(kbd.parentElement?.className).toMatch(/\bxl:contents\b/);
+    }
+  });
+
+  it("disables Cancel while a save is in flight", () => {
+    render(<DashboardEditToolbar {...editProps} isSaving />);
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  });
+
   it("leaves edit mode through the dashboard's crumb", async () => {
     const onLeave = vi.fn();
     render(<DashboardEditToolbar {...editProps} onLeave={onLeave} />);

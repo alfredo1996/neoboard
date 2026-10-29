@@ -143,12 +143,13 @@ vi.mock("next-auth/react", () => ({
 const mockUseDashboard = vi.fn();
 const mockMutateAsync = vi.fn().mockResolvedValue({});
 const mockUpdateMutate = vi.fn();
+let mockSavePending = false;
 vi.mock("@/hooks/use-dashboards", () => ({
   useDashboard: () => mockUseDashboard(),
   useUpdateDashboard: () => ({
     mutate: mockUpdateMutate,
     mutateAsync: mockMutateAsync,
-    isPending: false,
+    isPending: mockSavePending,
   }),
 }));
 
@@ -2006,10 +2007,11 @@ describe("DashboardWorkspace — where focus goes when a dialog closes (#2146)",
   it("the editor, closed: on Add Widget", async () => {
     render(<DashboardWorkspace id="d1" editMode={true} />);
 
-    await userEvent.click(screen.getByText("Add Widget"));
+    const add = screen.getByRole("button", { name: "Add Widget" });
+    await userEvent.click(add);
     await userEvent.click(screen.getByTestId("editor-cancel"));
 
-    expect(screen.getByText("Add Widget")).toHaveFocus();
+    expect(add).toHaveFocus();
   });
 
   it("Save as template, closed: on the menu button Edit Widget came from", () => {
@@ -2105,6 +2107,25 @@ describe("DashboardWorkspace — the Dashboards crumb in edit mode", () => {
       await userEvent.click(screen.getByRole("button", { name: "Stay" }));
       expect(mockPush).not.toHaveBeenCalled();
       expect(screen.queryByRole("dialog")).toBeNull();
+      expect(useDashboardStore.getState()._dirty).toBe(true);
+    });
+
+    describe("while a save is in flight", () => {
+      beforeEach(() => {
+        mockSavePending = true;
+      });
+      afterEach(() => {
+        mockSavePending = false;
+      });
+
+      it("Cancel is disabled and Cmd+E does not open the dialog", () => {
+        renderGuarded();
+        act(() => useDashboardStore.getState().renamePage(0, "Dirty"));
+        expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+        fireEvent.keyDown(document, { key: "e", metaKey: true });
+        expect(screen.queryByRole("dialog")).toBeNull();
+        expect(mockPush).not.toHaveBeenCalled();
+      });
     });
 
     it("Leave goes to view mode", async () => {
@@ -2115,17 +2136,20 @@ describe("DashboardWorkspace — the Dashboards crumb in edit mode", () => {
         value: loc,
         configurable: true,
       });
-      renderGuarded();
-      act(() => useDashboardStore.getState().renamePage(0, "Dirty again"));
-      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-      await userEvent.click(
-        screen.getByRole("button", { name: "Leave without saving" }),
-      );
-      expect(loc.href).toBe("/d1");
-      Object.defineProperty(window, "location", {
-        value: original,
-        configurable: true,
-      });
+      try {
+        renderGuarded();
+        act(() => useDashboardStore.getState().renamePage(0, "Dirty again"));
+        await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        await userEvent.click(
+          screen.getByRole("button", { name: "Leave without saving" }),
+        );
+        expect(loc.href).toBe("/d1");
+      } finally {
+        Object.defineProperty(window, "location", {
+          value: original,
+          configurable: true,
+        });
+      }
     });
   });
 

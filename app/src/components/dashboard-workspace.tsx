@@ -683,8 +683,10 @@ export function DashboardWorkspace({
     {
       shortcut: "Cmd+E",
       handler: () => {
-        if (editMode) leaveEditMode();
-        else if (dashboard) enterEditMode();
+        // Mid-save it does nothing, like the Cancel button (#2352).
+        if (editMode) {
+          if (!updateDashboard.isPending) leaveEditMode();
+        } else if (dashboard) enterEditMode();
       },
       // Not under the widget editor: leaving edit mode unmounts it and drops
       // its unsaved edits without its question (#2054).
