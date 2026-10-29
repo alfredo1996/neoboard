@@ -473,6 +473,58 @@ export function convertNeoDashWithNotes(
 }
 
 /**
+ * A number-range filter seeds `name = [min, max]`, `name_min` and `name_max`.
+ * A NeoDash report uses the parameter as a scalar, so bind it to `_max`: the
+ * default fills the slider's upper handle and reaches the query as a number.
+ */
+function bindToRangeMax(
+  pages: { widgets: DashboardWidget[] }[],
+  paramName: string,
+): void {
+  const ref = new RegExp(String.raw`\$param_${paramName}(?!\w)`, "g");
+  for (const w of pages.flatMap((p) => p.widgets)) {
+    if (w.query) w.query = w.query.replace(ref, `$$param_${paramName}_max`);
+  }
+}
+
+/**
+ * The name for a number-range filter. The range seeds `<name>_min` and
+ * `<name>_max` into the parameter store, so when another parameter already
+ * has one of those names (or the renamed name itself), append `_range` until
+ * nothing clashes, and point the reports at the new name.
+ */
+function rangeFilterName(
+  paramName: string,
+  takenNames: Set<string>,
+  pages: { widgets: DashboardWidget[] }[],
+  notes: string[],
+): string {
+  let filterName = paramName;
+  while (
+    (filterName !== paramName && takenNames.has(filterName)) ||
+    takenNames.has(`${filterName}_min`) ||
+    takenNames.has(`${filterName}_max`)
+  ) {
+    filterName += "_range";
+  }
+  if (filterName === paramName) return paramName;
+  const ref = new RegExp(String.raw`\$param_${paramName}(?!\w)`, "g");
+  for (const w of pages.flatMap((p) => p.widgets)) {
+    if (w.query) w.query = w.query.replace(ref, `$$param_${filterName}`);
+  }
+  notes.push(
+    "Parameter $param_" +
+      paramName +
+      " renamed to $param_" +
+      filterName +
+      " because $param_" +
+      paramName +
+      "_min/_max are another parameter",
+  );
+  return filterName;
+}
+
+/**
  * Build the auto-generated "Filters" page from NeoDash's dashboard-wide
  * parameters. Returns null when no widgets would be created (no params
  * referenced in any query, or no params at all).
@@ -497,6 +549,11 @@ function buildFiltersPage(
     pages.flatMap((p) => p.widgets.map((w) => w.query ?? "")),
   );
   const definedNames = new Set(Object.keys(params));
+  // Every parameter name in play, neodash_ prefix stripped, for clash checks.
+  const takenNames = new Set([
+    ...referenced,
+    ...Object.keys(params).map((k) => k.replace(/^neodash_/, "")),
+  ]);
   const widgets: DashboardWidget[] = [];
   const gridLayout: GridLayoutItem[] = [];
 
@@ -517,7 +574,12 @@ function buildFiltersPage(
     }
 
     const paramType = inferParameterType(value);
-    addFilterWidget(widgets, gridLayout, paramName, paramType, value);
+    const filterName =
+      paramType === "number-range"
+        ? rangeFilterName(paramName, takenNames, pages, notes)
+        : paramName;
+    addFilterWidget(widgets, gridLayout, filterName, paramType, value);
+    if (paramType === "number-range") bindToRangeMax(pages, filterName);
     notes.push(
       "Created parameter-select widget for $param_" +
         paramName +
@@ -575,8 +637,9 @@ function addFilterWidget(
           ...gridLayout.slice((row - 1) * 4, row * 4).map((g) => g.y + g.h),
         );
 
-  const settings: Record<string, unknown> = {
-    title: parameterName,
+  // The app reads a parameter-select widget's options from
+  // settings.chartOptions (card-container, plugin, editor, apply-param-defaults).
+  const chartOptions: Record<string, unknown> = {
     parameterName,
     parameterType,
   };
@@ -584,15 +647,15 @@ function addFilterWidget(
   // the seed query for select-typed params from a hard-coded default; the user
   // can wire the seed query in the editor.
   if (defaultValue !== undefined) {
-    settings.defaultValue = defaultValue;
+    chartOptions.defaultValue = defaultValue;
   }
   if (parameterType === "number-range" && typeof defaultValue === "number") {
     // rangeMin/rangeMax must include defaultValue. CodeRabbit caught the
     // negative-default bug: a default of -5 with rangeMin=0 would be outside
     // the range. min(default, 0) keeps the floor at 0 for non-negative
     // defaults (common case) while widening for negatives.
-    settings.rangeMin = Math.min(defaultValue, 0);
-    settings.rangeMax = Math.max(defaultValue, 100);
+    chartOptions.rangeMin = Math.min(defaultValue, 0);
+    chartOptions.rangeMax = Math.max(defaultValue, 100);
   }
 
   widgets.push({
@@ -601,7 +664,7 @@ function addFilterWidget(
     connectionId: "",
     query: "",
     params: {},
-    settings,
+    settings: { title: parameterName, chartOptions },
   });
   // A number-range selector (inputs + slider) needs three rows (#2374).
   gridLayout.push({

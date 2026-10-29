@@ -391,4 +391,93 @@ test.describe("NeoDash legacy import", () => {
       }
     }
   });
+
+  test("a dashboard-wide parameter imports as a working Filters selector with its default (#2377)", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const title = `Param Import ${uid()}`;
+    const neodash = {
+      title,
+      version: "2.4",
+      settings: { parameters: { neodash_year: 42 } },
+      pages: [
+        {
+          title: "Page 1",
+          reports: [
+            {
+              id: "r1",
+              title: "By year",
+              type: "value",
+              query: "RETURN $neodash_year AS value",
+              x: 0,
+              y: 0,
+              width: 6,
+              height: 4,
+              settings: {},
+              parameters: {},
+            },
+          ],
+        },
+      ],
+    };
+    const tmpFile = path.join(os.tmpdir(), `neodash-param-${uid()}.json`);
+    fs.writeFileSync(tmpFile, JSON.stringify(neodash));
+
+    let importedId: string | undefined;
+    try {
+      await page.getByRole("button", { name: "Import", exact: true }).click();
+      const dialog = page.getByRole("dialog", {
+        name: "Import Dashboard",
+        exact: true,
+      });
+      await expect(dialog).toBeVisible({ timeout: 5_000 });
+      await dialog.locator("#import-file").setInputFiles(tmpFile);
+      // Map the NeoDash placeholder connection to the seeded Neo4j one,
+      // so the report really runs and receives the parameter.
+      await dialog.locator("button[role='combobox']").first().click();
+      await page
+        .getByRole("option", { name: /^Movies Graph \(Neo4j\)/ })
+        .click();
+      const importBtn = dialog
+        .getByRole("button", { name: "Import", exact: true })
+        .last();
+      await expect(importBtn).toBeEnabled();
+      // Read the id from the response so cleanup works even if a later step fails.
+      const imported = page.waitForResponse(
+        (res) =>
+          res.url().includes("/api/dashboards/import") &&
+          res.request().method() === "POST",
+      );
+      await importBtn.click();
+      importedId = (await (await imported).json()).data?.id;
+      await page
+        .getByRole("button", { name: "View dashboard", exact: true })
+        .click({ timeout: 15_000 });
+      await page.waitForURL(/\/[\w-]+$/, { timeout: 15_000 });
+
+      await page.getByRole("tab", { name: "Filters", exact: true }).click();
+      const card = page.locator("[data-testid='widget-card']").first();
+      await expect(card).toBeVisible({ timeout: 15_000 });
+      await expect(card.getByText("year", { exact: true })).toBeVisible();
+      // Positive end state: the number-range selector shows the default.
+      await expect(card.getByRole("spinbutton").last()).toHaveValue("42");
+      await expect(
+        page.getByText("No parameter name", { exact: true }),
+      ).toHaveCount(0);
+      // The report receives the default as a scalar: 42, not [0, 42].
+      await page.getByRole("tab", { name: "Page 1", exact: true }).click();
+      await expect(
+        page.getByTestId("widget-card").getByText("42", { exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+    } finally {
+      if (importedId) {
+        await page.request.delete(`/api/dashboards/${importedId}`);
+      }
+      fs.rmSync(tmpFile, { force: true });
+    }
+  });
 });

@@ -1056,9 +1056,15 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const filterWidget = exp.layout.pages[0].widgets[0];
     expect(filterWidget.chartType).toBe("parameter-select");
     const s = filterWidget.settings as Record<string, unknown>;
-    expect(s.parameterName).toBe("year");
-    expect(s.parameterType).toBe("number-range");
-    expect(s.defaultValue).toBe(2024);
+    const o = s.chartOptions as Record<string, unknown>;
+    expect(o.parameterName).toBe("year");
+    expect(o.parameterType).toBe("number-range");
+    expect(o.defaultValue).toBe(2024);
+    expect(o.rangeMin).toBe(0);
+    expect(o.rangeMax).toBe(2024);
+    // The app reads options from chartOptions only; nothing at the root.
+    expect(s.parameterName).toBeUndefined();
+    expect(s.defaultValue).toBeUndefined();
     expect(notes.some((n) => n.includes("$param_year"))).toBe(true);
 
     // Verify the original widget's query was rewritten from $neodash_year
@@ -1092,12 +1098,10 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const { export: exp, notes } = convertNeoDashWithNotes(nd);
     expect(exp.layout.pages).toHaveLength(2);
     const filterWidget = exp.layout.pages[0].widgets[0];
-    expect(
-      (filterWidget.settings as Record<string, unknown>).parameterName,
-    ).toBe("undeclared");
-    expect(
-      (filterWidget.settings as Record<string, unknown>).defaultValue,
-    ).toBeUndefined();
+    const o = (filterWidget.settings as Record<string, unknown>)
+      .chartOptions as Record<string, unknown>;
+    expect(o.parameterName).toBe("undeclared");
+    expect(o.defaultValue).toBeUndefined();
     expect(notes.some((n) => n.includes("not defined in NeoDash"))).toBe(true);
   });
 
@@ -1125,8 +1129,10 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const { export: exp } = convertNeoDashWithNotes(nd);
     const byName = Object.fromEntries(
       exp.layout.pages[0].widgets.map((w) => [
-        (w.settings as Record<string, unknown>).parameterName as string,
-        (w.settings as Record<string, unknown>).parameterType as string,
+        (w.settings?.chartOptions as Record<string, unknown>)
+          .parameterName as string,
+        (w.settings?.chartOptions as Record<string, unknown>)
+          .parameterType as string,
       ]),
     );
     expect(byName.str).toBe("select");
@@ -1143,8 +1149,12 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
 
     const { export: exp } = convertNeoDashWithNotes(nd);
     expect(
-      (exp.layout.pages[0].widgets[0].settings as Record<string, unknown>)
-        .parameterName,
+      (
+        exp.layout.pages[0].widgets[0].settings?.chartOptions as Record<
+          string,
+          unknown
+        >
+      ).parameterName,
     ).toBe("userId");
   });
 
@@ -1179,6 +1189,74 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     expect(filtersGrid.every((g) => g.w === 3 && g.h === 2)).toBe(true);
   });
 
+  it("a numeric parameter's report binds to $param_<name>_max, a text one's stays $param_<name>", () => {
+    const nd = makeNeoDash(
+      [
+        makeReport({
+          query: "RETURN $neodash_year, $neodash_year_x, $neodash_who",
+        }),
+      ],
+      {
+        parameters: { neodash_year: 42, neodash_year_x: "a", neodash_who: "b" },
+      },
+    );
+    const { export: exp } = convertNeoDashWithNotes(nd);
+    expect(exp.layout.pages[1].widgets[0].query).toBe(
+      "RETURN $param_year_max, $param_year_x, $param_who",
+    );
+  });
+
+  it("a numeric parameter whose _max companion is another parameter gets a distinct filter name", () => {
+    const nd = makeNeoDash(
+      [
+        makeReport({ query: "RETURN $neodash_year" }),
+        makeReport({ query: "RETURN $neodash_year_max" }),
+      ],
+      { parameters: { neodash_year: 2020, neodash_year_max: "x" } },
+    );
+    const { export: exp } = convertNeoDashWithNotes(nd);
+    const filters = exp.layout.pages[0].widgets.map(
+      (w) =>
+        (w.settings?.chartOptions as { parameterName: string }).parameterName,
+    );
+    expect(filters).toEqual(["year_range", "year_max"]);
+    const queries = exp.layout.pages[1].widgets.map((w) => w.query);
+    expect(queries).toEqual([
+      "RETURN $param_year_range_max",
+      "RETURN $param_year_max",
+    ]);
+  });
+
+  it("the renamed filter skips a name another parameter already has", () => {
+    const nd = makeNeoDash(
+      [
+        makeReport({ query: "RETURN $neodash_year" }),
+        makeReport({ query: "RETURN $neodash_year_max" }),
+        makeReport({ query: "RETURN $neodash_year_range" }),
+      ],
+      {
+        parameters: {
+          neodash_year: 2020,
+          neodash_year_max: "x",
+          neodash_year_range: "y",
+        },
+      },
+    );
+    const { export: exp } = convertNeoDashWithNotes(nd);
+    const filters = exp.layout.pages[0].widgets.map(
+      (w) =>
+        (w.settings?.chartOptions as { parameterName: string }).parameterName,
+    );
+    expect(new Set(filters).size).toBe(filters.length);
+    expect(filters).toEqual(["year_range_range", "year_max", "year_range"]);
+    const queries = exp.layout.pages[1].widgets.map((w) => w.query);
+    expect(queries).toEqual([
+      "RETURN $param_year_range_range_max",
+      "RETURN $param_year_max",
+      "RETURN $param_year_range",
+    ]);
+  });
+
   it("a number-range filter gets three rows, the others two, and the next row clears it", () => {
     const nd = makeNeoDash(
       [
@@ -1202,11 +1280,10 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
       gridLayout.find(
         (g) =>
           (
-            widgets.find((w) => w.id === g.i)!.settings as Record<
-              string,
-              unknown
-            >
-          ).parameterName === name,
+            widgets.find((w) => w.id === g.i)!.settings as {
+              chartOptions: Record<string, unknown>;
+            }
+          ).chartOptions.parameterName === name,
       )!;
     expect(hOf("n").h).toBe(3);
     expect(hOf("t").h).toBe(2);
@@ -1227,8 +1304,9 @@ describe("convertNeoDashWithNotes — parameter widgets", () => {
     const { export: exp } = convertNeoDashWithNotes(nd);
     const byName = Object.fromEntries(
       exp.layout.pages[0].widgets.map((w) => [
-        (w.settings as Record<string, unknown>).parameterName as string,
-        w.settings as Record<string, unknown>,
+        (w.settings?.chartOptions as Record<string, unknown>)
+          .parameterName as string,
+        w.settings?.chartOptions as Record<string, unknown>,
       ]),
     );
     expect(byName.small.rangeMin).toBe(0);
