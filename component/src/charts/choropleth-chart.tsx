@@ -147,8 +147,7 @@ function ChoroplethChart({
       .map((d) => d.value)
       .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
     // ponytail: an all-null result collapses the domain to 0–0. That is exactly
-    // the legend today's all-zeros path already produces, and the map itself
-    // renders correctly (every region on areaColor) — suppress the visualMap
+    // the legend today's all-zeros path already produces — suppress the visualMap
     // only if someone reports the degenerate legend.
     const minVal = values.length ? Math.min(...values) : 0;
     const maxVal = values.length ? Math.max(...values) : 0;
@@ -157,15 +156,29 @@ function ChoroplethChart({
     // Each measured region's name is coloured against the fill the visualMap
     // paints it; a region with no data shows no name, so labels go where the
     // data is (#2341). ECharts places a constant domain at the middle.
+    // The hover fill is pinned to that same colour (ECharts otherwise repaints
+    // a hovered region pale yellow, under a label chosen for the data colour),
+    // and the name gets a soft halo in the region's own fill, so a name that
+    // spills onto a neighbour of the opposite tone stays readable (owner,
+    // 2026-10-29; a hard dark outline was rejected earlier, see FILL_LABEL_*).
     const seriesData = normalizedData.map((d) => {
-      if (typeof d.value !== "number") return { ...d, label: { show: false } };
-      const t =
-        maxVal === minVal ? 0.5 : (d.value - minVal) / (maxVal - minVal);
-      const color = readableLabelColor(rampColorAt(ramp, t));
+      const v = d.value;
+      if (typeof v !== "number" || !Number.isFinite(v))
+        return { ...d, label: { show: false } };
+      const t = maxVal === minVal ? 0.5 : (v - minVal) / (maxVal - minVal);
+      const fill = rampColorAt(ramp, t);
+      const label = {
+        color: readableLabelColor(fill),
+        textBorderColor: fill,
+        textBorderWidth: 2,
+      };
       return {
         ...d,
-        label: { show: showLabels, color },
-        emphasis: { label: { color, textShadowBlur: 0 } },
+        label: { show: showLabels, ...label },
+        emphasis: {
+          label: { ...label, textShadowBlur: 0 },
+          itemStyle: { areaColor: fill },
+        },
       };
     });
 

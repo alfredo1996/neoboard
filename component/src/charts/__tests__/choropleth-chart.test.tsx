@@ -497,6 +497,66 @@ describe("label contrast on the region's own fill (#2341)", () => {
     20_000,
   );
 
+  it("a measured region keeps its ramp colour on hover and its name carries a halo in that colour", async () => {
+    render(<ChoroplethChart data={stopData} showLabels />);
+    await waitFor(
+      () => expect(lastOptionWith("series")?.series[0].data).toHaveLength(5),
+      { timeout: 15_000 },
+    );
+    const items = lastOptionWith("series").series[0].data as {
+      label: { textBorderColor: string; textBorderWidth: number };
+      emphasis: {
+        itemStyle: { areaColor: string };
+        label: { textBorderColor: string; textBorderWidth: number };
+      };
+    }[];
+    items.forEach((item, i) => {
+      const fill = LIGHT_RAMP[i].toLowerCase();
+      expect(item.emphasis.itemStyle.areaColor.toLowerCase()).toBe(fill);
+      expect(item.label.textBorderColor.toLowerCase()).toBe(fill);
+      expect(item.label.textBorderWidth).toBe(2);
+      expect(item.emphasis.label.textBorderColor.toLowerCase()).toBe(fill);
+      expect(item.emphasis.label.textBorderWidth).toBe(2);
+    });
+  }, 20_000);
+
+  it("a single region sits mid-ramp and its label reaches 4.5:1 on it, dark", async () => {
+    document.documentElement.classList.add("dark");
+    render(
+      <ChoroplethChart data={[{ name: "France", value: 7 }]} showLabels />,
+    );
+    await waitFor(
+      () => expect(lastOptionWith("series")?.series[0].data).toHaveLength(1),
+      { timeout: 15_000 },
+    );
+    const item = lastOptionWith("series").series[0].data[0];
+    expect(wcag(item.label.color, DARK_RAMP[2])).toBeGreaterThanOrEqual(4.5);
+    expect(item.emphasis.itemStyle.areaColor.toLowerCase()).toBe(
+      DARK_RAMP[2].toLowerCase(),
+    );
+  }, 20_000);
+
+  it("a NaN value is treated as no data and does not throw", async () => {
+    render(
+      <ChoroplethChart
+        data={[
+          { name: "France", value: 4 },
+          { name: "Germany", value: Number.NaN },
+        ]}
+        showLabels
+      />,
+    );
+    await waitFor(
+      () => expect(lastOptionWith("series")?.series[0].data).toHaveLength(2),
+      { timeout: 15_000 },
+    );
+    const data = lastOptionWith("series").series[0].data as {
+      name: string;
+      label: { show: boolean };
+    }[];
+    expect(data.find((d) => d.name === "Germany")?.label.show).toBe(false);
+  }, 20_000);
+
   it("a region without data shows no name", async () => {
     render(
       <ChoroplethChart

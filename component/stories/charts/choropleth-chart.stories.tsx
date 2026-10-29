@@ -377,15 +377,21 @@ export const LabelsReadOnTheirFill: Story = {
       () => expect(drawnLabelColors(canvasElement).length).toBeGreaterThan(3),
       { timeout: 5000 },
     );
-    for (const { name, textColor, regionFill } of drawnLabelColors(
-      canvasElement,
-    )) {
-      const [a, b] = [textColor, regionFill]
+    const ratio = (x: string, y: string) => {
+      const [a, b] = [x, y]
         .map((c) => luminance(cssColorBytes(c)))
-        .sort((x, y) => y - x);
+        .sort((m, n) => n - m);
+      return (a + 0.05) / (b + 0.05);
+    };
+    for (const l of drawnLabelColors(canvasElement)) {
       expect(
-        (a + 0.05) / (b + 0.05),
-        `${name} on ${regionFill}`,
+        ratio(l.textColor, l.regionFill),
+        `${l.name} on ${l.regionFill}`,
+      ).toBeGreaterThanOrEqual(4.5);
+      // Hover must not repaint the region under a name chosen for the rest fill.
+      expect(
+        ratio(l.hoverTextColor, l.hoverFill),
+        `${l.name} on hover ${l.hoverFill}`,
       ).toBeGreaterThanOrEqual(4.5);
     }
   },

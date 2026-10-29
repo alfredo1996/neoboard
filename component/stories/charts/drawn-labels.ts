@@ -41,14 +41,17 @@ export function labelClashes(labels: ReturnType<typeof drawnLabels>) {
   return clashes;
 }
 
-/** Each drawn name's text colour and the fill of the region it sits on. */
+/** Each drawn name's text colour and the fill of the region it sits on, at rest and on hover. */
 export function drawnLabelColors(canvasElement: HTMLElement) {
   const el = canvasElement.querySelector<HTMLElement>(
     '[data-testid="base-chart"]',
   );
   const zr = el && echarts.getInstanceByDom(el)?.getZr();
   if (!zr) return [];
-  type Styled = { style?: { text?: string; fill?: unknown } };
+  type Styled = {
+    style?: { text?: string; fill?: unknown };
+    states?: { emphasis?: { style?: { fill?: unknown } } };
+  };
   return (zr.storage.getDisplayList() as unknown as (Styled & HostEl)[])
     .map((host) => ({
       host,
@@ -59,5 +62,10 @@ export function drawnLabelColors(canvasElement: HTMLElement) {
       name: String(text?.style?.text),
       textColor: String(text?.style?.fill),
       regionFill: String(host.style?.fill),
+      // What hover repaints them to; a state with no fill keeps the resting one.
+      hoverTextColor: String(
+        text?.states?.emphasis?.style?.fill ?? text?.style?.fill,
+      ),
+      hoverFill: String(host.states?.emphasis?.style?.fill ?? host.style?.fill),
     }));
 }
