@@ -916,6 +916,15 @@ export function WidgetEditorModal({
                         settings={chartOptions}
                         onSettingsChange={setChartOptions}
                         columns={availableFields}
+                        // A relative-date filter is a segmented control with no
+                        // field to fill or outline (#2368).
+                        hiddenCategories={
+                          isParamSelect &&
+                          paramUIType === "date" &&
+                          dateSub === "relative"
+                            ? ["Appearance"]
+                            : undefined
+                        }
                       />
                       {chartType === "table" && (
                         <div className="space-y-3 border-t pt-4">

@@ -80,12 +80,21 @@ describe("getChartOptions", () => {
     const options = getChartOptions("parameter-select");
     const keys = options.map((o) => o.key);
     expect(keys).toEqual([
+      "fieldFill",
+      "fieldBorder",
       "placeholder",
       "searchable",
       "defaultValue",
       "syncToUrl",
     ]);
-    expect(options).toHaveLength(4);
+    expect(options.map((o) => o.category)).toEqual([
+      "Appearance",
+      "Appearance",
+      "Behaviour",
+      "Behaviour",
+      "Behaviour",
+      "Behaviour",
+    ]);
   });
 
   it("returns empty array for unknown chart type", () => {

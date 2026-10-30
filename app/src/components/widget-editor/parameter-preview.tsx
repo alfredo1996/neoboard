@@ -11,6 +11,10 @@ import {
   NumberRangeSlider,
 } from "@neoboard/components";
 import type { ParamUIType, DateSubType } from "./parameter-config-section";
+import {
+  fieldLookAttrs,
+  parameterSelectSettingsSchema,
+} from "@/plugins/parameter-select/settings";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
 import { useCascadeParent } from "@/components/parameters/use-seed-query-options";
 
@@ -56,7 +60,14 @@ export function ParameterPreview({
       className="h-full flex items-center justify-center p-6"
       data-testid="param-preview"
     >
-      <div className="w-full max-w-xs space-y-3">
+      <div
+        className="w-full max-w-xs space-y-3"
+        {...fieldLookAttrs(
+          parameterSelectSettingsSchema
+            .pick({ fieldFill: true, fieldBorder: true })
+            .parse(chartOptions),
+        )}
+      >
         <Label className="text-xs text-muted-foreground block">
           {paramWidgetName
             ? `$param_${normalizeParamName(paramWidgetName)}`

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { ChartOptionsPanel } from "../chart-options-panel";
 import { getChartOptions } from "../chart-options-schema";
@@ -185,10 +185,10 @@ describe("ChartOptionsPanel", () => {
   });
 
   it("does not show search input for chart types with few options", () => {
-    // parameter-select has only 2 options (no behavior options), below the threshold of 4
+    // markdown has a single option, below the threshold of 4
     render(
       <ChartOptionsPanel
-        chartType="parameter-select"
+        chartType="markdown"
         settings={{}}
         onSettingsChange={vi.fn()}
       />,
@@ -272,6 +272,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
+    expandAllCategories();
     expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
     expect(screen.getByText("Search-as-you-type")).toBeInTheDocument();
     // Should NOT show the old primary fields
@@ -445,5 +446,82 @@ describe("ChartOptionsPanel", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ content: multiline }),
     );
+  });
+
+  describe("swatch options (#2368)", () => {
+    const renderFilter = (
+      settings: Record<string, unknown>,
+      onSettingsChange = vi.fn(),
+      extra: Record<string, unknown> = {},
+    ) =>
+      render(
+        <ChartOptionsPanel
+          chartType="parameter-select"
+          settings={settings}
+          onSettingsChange={onSettingsChange}
+          {...extra}
+        />,
+      );
+
+    it("shows Appearance first, open, with a radiogroup of named swatches", () => {
+      renderFilter({});
+      const group = screen.getByRole("radiogroup", { name: "Field fill" });
+      const names = within(group)
+        .getAllByRole("radio")
+        .map((r) => r.getAttribute("aria-label"));
+      expect(names).toEqual(["Default", "Azure", "Citrine", "Sage", "Rose"]);
+      expect(
+        within(screen.getByRole("radiogroup", { name: "Field border" }))
+          .getAllByRole("radio")
+          .map((r) => r.getAttribute("aria-label")),
+      ).toEqual(["Default", "Azure", "Citrine", "Sage", "Ink"]);
+      const headings = screen.getAllByRole("button", { expanded: true });
+      expect(headings[0]).toHaveTextContent("Appearance");
+    });
+
+    it("marks the stored value checked, Default when nothing is stored", () => {
+      renderFilter({ fieldBorder: "citrine" });
+      const border = screen.getByRole("radiogroup", { name: "Field border" });
+      expect(
+        within(border).getByRole("radio", { name: "Citrine" }),
+      ).toHaveAttribute("aria-checked", "true");
+      expect(
+        within(border).getByRole("radio", { name: "Default" }),
+      ).toHaveAttribute("aria-checked", "false");
+      const fill = screen.getByRole("radiogroup", { name: "Field fill" });
+      expect(
+        within(fill).getByRole("radio", { name: "Default" }),
+      ).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("clicking a swatch reports its value", () => {
+      const onChange = vi.fn();
+      renderFilter({ parameterName: "p" }, onChange);
+      fireEvent.click(
+        within(
+          screen.getByRole("radiogroup", { name: "Field fill" }),
+        ).getByRole("radio", { name: "Azure" }),
+      );
+      expect(onChange).toHaveBeenCalledWith({
+        parameterName: "p",
+        fieldFill: "azure",
+      });
+    });
+
+    it("arrow keys move the selection and only the checked swatch is tabbable", () => {
+      const onChange = vi.fn();
+      renderFilter({ fieldFill: "azure" }, onChange);
+      const fill = screen.getByRole("radiogroup", { name: "Field fill" });
+      const radios = within(fill).getAllByRole("radio");
+      expect(radios.map((r) => r.tabIndex)).toEqual([-1, 0, -1, -1, -1]);
+      fireEvent.keyDown(radios[1], { key: "ArrowRight" });
+      expect(onChange).toHaveBeenCalledWith({ fieldFill: "citrine" });
+    });
+
+    it("hiddenCategories leaves a category out", () => {
+      renderFilter({}, vi.fn(), { hiddenCategories: ["Appearance"] });
+      expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
+      expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    });
   });
 });

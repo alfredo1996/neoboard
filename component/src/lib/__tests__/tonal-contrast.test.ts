@@ -1,4 +1,4 @@
-import { it, expect } from "vitest";
+import { it, expect, describe } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -66,3 +66,40 @@ it.each([":root", ".dark"])(
     expect(contrast(text, fill)).toBeGreaterThanOrEqual(4.5);
   },
 );
+
+/**
+ * Filter fill and border presets (#2368). The pairs live in their own block at
+ * the end of design-tokens.css, light first, then dark. A fill keeps the muted
+ * text (labels, placeholders) readable; a border is a UI component edge on the
+ * card, WCAG 1.4.11 asks 3:1.
+ */
+const PARAM_SECTION = css.slice(css.indexOf("Filter fill and border (#2368)"));
+const FILLS = ["azure", "citrine", "sage", "rose"];
+const BORDERS = ["azure", "citrine", "sage", "ink"];
+
+function paramToken(theme: 0 | 1, token: string): number[] {
+  const all = [
+    ...PARAM_SECTION.matchAll(new RegExp(`${token}:\\s*([^;]+);`, "g")),
+  ];
+  const [h, s, l] = all[theme][1].trim().split(/\s+/);
+  return hslToRgb([parseFloat(h), parseFloat(s) / 100, parseFloat(l) / 100]);
+}
+
+describe.each([
+  [":root", 0],
+  [".dark", 1],
+] as const)("filter presets in %s (#2368)", (theme, i) => {
+  const b = block(theme);
+  it.each(FILLS)("muted text reads at 4.5:1 on the %s fill", (name) => {
+    const text = hslToRgb(hslToken(b, "--muted-foreground"));
+    expect(
+      contrast(text, paramToken(i, `--param-fill-${name}`)),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+  it.each(BORDERS)("the %s border holds 3:1 on the card", (name) => {
+    const card = hslToRgb(hslToken(b, "--card"));
+    expect(
+      contrast(paramToken(i, `--param-border-${name}`), card),
+    ).toBeGreaterThanOrEqual(3);
+  });
+});

@@ -46,3 +46,13 @@ export const Table: Story = {
   args: { chartType: "table", settings: {}, onSettingsChange: () => {} },
   render: () => <Panel chartType="table" />,
 };
+
+/** Appearance opens first: a radiogroup of named swatches per option (#2368). */
+export const FilterAppearance: Story = {
+  args: {
+    chartType: "parameter-select",
+    settings: {},
+    onSettingsChange: () => {},
+  },
+  render: () => <Panel chartType="parameter-select" />,
+};

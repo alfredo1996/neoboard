@@ -24,6 +24,86 @@ export interface ChartOptionsPanelProps {
   className?: string;
   /** Available column names from query results — used for column-multi-select fields. */
   columns?: string[];
+  /** Categories to leave out, for a state where they do not apply (#2368). */
+  hiddenCategories?: string[];
+}
+
+/**
+ * A radiogroup of named colour chips (#2368). Roving tabindex: the checked chip
+ * is the one tab stop, arrows move and select, like a native radio group.
+ */
+function SwatchGroup({
+  option,
+  value,
+  onChange,
+}: {
+  option: ChartOptionDef;
+  value: unknown;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const items = option.options ?? [];
+  const current = String(value ?? option.default);
+  const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
+  const labelId = `${option.key}-label`;
+  function onKeyDown(e: React.KeyboardEvent, index: number) {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[
+      e.key
+    ];
+    if (!step) return;
+    e.preventDefault();
+    const next = (index + step + items.length) % items.length;
+    onChange(option.key, items[next].value);
+    refs.current[next]?.focus();
+  }
+  return (
+    <div className="space-y-1.5">
+      <span id={labelId} className="text-sm font-medium leading-none">
+        {option.label}
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby={labelId}
+        className="flex flex-wrap gap-1.5"
+      >
+        {items.map((item, i) => {
+          const checked = item.value === current;
+          return (
+            <button
+              key={item.value}
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={checked}
+              aria-label={item.label}
+              title={item.label}
+              tabIndex={checked ? 0 : -1}
+              onClick={() => onChange(option.key, item.value)}
+              onKeyDown={(e) => onKeyDown(e, i)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-sm border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                checked
+                  ? "border-ring bg-accent text-accent-foreground"
+                  : "border-input text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="h-3.5 w-3.5 rounded-sm border border-input"
+                style={
+                  item.token
+                    ? { background: `hsl(var(${item.token}))` }
+                    : undefined
+                }
+              />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function OptionLabel({ option }: { option: ChartOptionDef }) {
@@ -82,6 +162,9 @@ function OptionField({
           />
         </div>
       );
+
+    case "swatch":
+      return <SwatchGroup option={option} value={value} onChange={onChange} />;
 
     case "select":
       return (
@@ -251,9 +334,14 @@ function ChartOptionsPanel({
   onSettingsChange,
   className,
   columns,
+  hiddenCategories,
 }: ChartOptionsPanelProps) {
   const [search, setSearch] = React.useState("");
-  const options = getChartOptions(chartType);
+  const allOptions = getChartOptions(chartType);
+  const options = React.useMemo(
+    () => allOptions.filter((o) => !hiddenCategories?.includes(o.category)),
+    [allOptions, hiddenCategories],
+  );
 
   const filteredOptions = React.useMemo(() => {
     if (!search.trim()) return options;
