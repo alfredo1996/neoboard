@@ -13,8 +13,8 @@ const publicExact = new Set([
   "/change-password",
   "/api/docs",
   // Liveness/readiness probe — consumed by Docker healthchecks and the CLI
-  // readiness poll before any session exists. Reports set/unset env var
-  // names and DB status only, never values.
+  // readiness poll before any session exists. Anonymous callers get
+  // status and DB status only; config detail is admin-only (#2332).
   "/api/health",
 ]);
 

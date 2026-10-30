@@ -59,7 +59,7 @@ Every authenticated endpoint accepts an API key in place of a session. The only 
 | `/api/auth/bootstrap-status` | Public (no auth required) |
 | `/api/auth/sso-providers` | Public (no auth required) |
 | `/api/features` | Edition and enabled features; the route does no auth check of its own |
-| `/api/health` | Public probe; admin detail (version, migrations, credential and scheduler status) only for an admin session or API key |
+| `/api/health` | Public probe; admin detail (`errors`, `warnings`, `config`, version, migrations, credential and scheduler status) only for an admin session or API key |
 | `/api/docs` | Public (documentation page) |
 | `/api/openapi`, `/api/openapi.json` | Public (API specification) |
 

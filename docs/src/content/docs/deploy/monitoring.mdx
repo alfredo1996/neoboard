@@ -9,7 +9,7 @@ sidebar:
 
 NeoBoard exposes a health check at `GET /api/health` that reports:
 
-- Environment configuration status
+- Overall status, from environment configuration and the database
 - Database connectivity and latency
 
 ```bash
@@ -20,13 +20,6 @@ curl -s http://localhost:3000/api/health | jq
 {
   "data": {
     "status": "ok",
-    "errors": [],
-    "warnings": [],
-    "config": {
-      "DATABASE_URL": "set",
-      "ENCRYPTION_KEY": "set",
-      "NEXTAUTH_SECRET": "set"
-    },
     "db": {
       "status": "ok",
       "latencyMs": 4
@@ -43,12 +36,14 @@ curl -s http://localhost:3000/api/health | jq
 | `degraded` | 200 | Running, with a configuration warning. Today the only warning is an incomplete OIDC group: some but not all of `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` are set, so SSO will not work. Database latency never changes the status. To catch a slow database, alert on `db.latencyMs` directly. |
 | `error` | 503 | Missing required configuration or DB unreachable |
 
-The public payload above never exposes secret **values** — `config` only reports each variable as `set`/`unset`.
+The public payload above is the up/down answer only. Which variables are set, and which fail validation (`config`, `errors`, `warnings`), is shown to an admin only, and never as a value: `config` reports each variable as `set`/`unset`.
 
 ### Extended payload for admin sessions
 
 When called with an authenticated **admin** session, `/api/health` returns extra operational intel (kept off the unauthenticated surface):
 
+- `errors`, `warnings` — the configuration problems behind a `degraded` or `error` status
+- `config` — each known variable as `set` or `unset`
 - `version` — app + Node version
 - `migrations` — `applied` / `expected` / `upToDate` and `lastAppliedAt` (detects migration drift after an upgrade)
 - `schedulers` — per-connector query-scheduler stats (queue depth, in-flight, shed counts) for spotting backpressure

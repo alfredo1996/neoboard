@@ -12,10 +12,12 @@ import pkg from "../../../../package.json";
 /**
  * GET /api/health
  *
- * Public (probe-friendly): env config validation + database connectivity.
- * Reports which vars are set/unset (never actual values).
- * Admin sessions additionally get version, migration status and per-connector
- * scheduler stats (#930) — deploy intel stays off the unauthenticated surface.
+ * Public (probe-friendly): overall `status` (from env config validation and
+ * database connectivity) and `db` only.
+ * Admin sessions additionally get `errors`, `warnings` and `config` (which
+ * vars are set/unset, never values; #2332), version, migration status and
+ * per-connector scheduler stats (#930) — deploy intel stays off the
+ * unauthenticated surface.
  * Returns 200 for ok/degraded, 503 for error.
  */
 
@@ -97,6 +99,9 @@ export async function GET() {
     const session = await requireSession();
     if (session.role === "admin") {
       extended = {
+        errors: result.errors,
+        warnings: result.warnings,
+        config: result.config,
         version: { app: pkg.version, node: process.version },
         migrations: await migrationStatus(),
         // Whether the configured ENCRYPTION_KEY can actually read the stored
@@ -122,9 +127,6 @@ export async function GET() {
     {
       data: {
         status: overallStatus,
-        errors: result.errors,
-        warnings: result.warnings,
-        config: result.config,
         db: dbStatus,
         ...extended,
       },
