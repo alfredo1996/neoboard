@@ -47,6 +47,8 @@ export interface WidgetCardProps {
    * (#2219, #2247).
    */
   mode?: "view" | "edit";
+  /** Marks the card by what it is, before the title (a filter card, #2367). */
+  titleIcon?: React.ReactNode;
   /** The title face. Sans is the approved look (#2247). */
   titleFont?: "sans" | "serif";
   /** The hairline between header and body. */
@@ -171,6 +173,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       actions,
       mode = "view",
       titleFont = "sans",
+      titleIcon,
       headerRule = true,
       elevation = true,
       className,
@@ -262,6 +265,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                 {/* min-w-0 + truncate so a long unbroken title doesn't push the
                     action buttons off the card. `title` gives the clipped text
                     back as a tooltip (#2056). */}
+                {title && titleIcon}
                 {title && (
                   <h3
                     className={cn(

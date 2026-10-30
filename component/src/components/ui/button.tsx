@@ -15,15 +15,15 @@ const buttonVariants = cva(
       variant: {
         // The ink fill.
         primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-        // Hairline on the field colour; replaces outline and the grey fill.
+        // Hairline on the card colour; replaces outline and the grey fill.
         secondary:
-          "border-border-strong bg-field text-foreground hover:bg-active",
+          "border-border-strong bg-card text-foreground hover:bg-active",
         ghost: "text-foreground hover:bg-active",
         link: "text-ring underline-offset-4 hover:underline",
         // Red text on a hairline: every delete trigger that is not the
         // confirm step.
         danger:
-          "border-destructive/40 bg-field text-destructive hover:bg-destructive/10",
+          "border-destructive/40 bg-card text-destructive hover:bg-destructive/10",
         // The red fill, only for the confirm button of a delete or revoke
         // dialog.
         "danger-confirm":

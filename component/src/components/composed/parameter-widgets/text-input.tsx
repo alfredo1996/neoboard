@@ -3,8 +3,8 @@
 import { useId } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { ParamLabel } from "./param-label";
-import { humanizeParamName } from "@/lib/humanize-param-name";
+import { ParamLabel, useParamLabelScope } from "./param-label";
+import { humanizeParamName, typePrompt } from "@/lib/humanize-param-name";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { qualifiedName, type ExternalLabelProps } from "./external-label";
@@ -27,7 +27,7 @@ function TextInputParameter({
   parameterName,
   value,
   onChange,
-  placeholder = "Enter a value…",
+  placeholder,
   className,
   labelledBy,
   id,
@@ -37,6 +37,7 @@ function TextInputParameter({
 }: TextInputParameterProps) {
   const inputId = id ?? `param-text-${parameterName}`;
   const clearId = useId();
+  const scopedLabel = useParamLabelScope();
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -52,7 +53,10 @@ function TextInputParameter({
           aria-invalid={invalid || undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
+          placeholder={
+            placeholder ??
+            typePrompt(scopedLabel ?? humanizeParamName(parameterName))
+          }
           className="pr-8"
         />
         {value && (

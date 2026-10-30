@@ -1,11 +1,22 @@
 import { defaultHighlightStyle, HighlightStyle } from "@codemirror/language";
+import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
 
-// The default light palette, with the two colours that fall under WCAG AA on
-// the white field (#e40 3.84:1, #f00 4.00:1) darkened to reach 4.5:1 (#2329).
-const FIXED: Record<string, string> = { "#e40": "#c93400", "#f00": "#cc0000" };
+// The default palettes, with the colours that fall under WCAG AA on the field
+// darkened or lightened to reach 4.5:1 (#2329; #085 and #7d8799 on the Mist
+// field, #2367).
+const recolour = (style: HighlightStyle, fixed: Record<string, string>) =>
+  HighlightStyle.define(
+    style.specs.map((s) =>
+      s.color && fixed[s.color] ? { ...s, color: fixed[s.color] } : s,
+    ),
+  );
 
-export const lightHighlightStyle = HighlightStyle.define(
-  defaultHighlightStyle.specs.map((s) =>
-    s.color && FIXED[s.color] ? { ...s, color: FIXED[s.color] } : s,
-  ),
-);
+export const lightHighlightStyle = recolour(defaultHighlightStyle, {
+  "#e40": "#c93400",
+  "#f00": "#cc0000",
+  "#085": "#007a45",
+});
+
+export const darkHighlightStyle = recolour(oneDarkHighlightStyle, {
+  "#7d8799": "#8791a3",
+});

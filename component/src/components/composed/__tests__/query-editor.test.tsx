@@ -113,12 +113,9 @@ vi.mock("@codemirror/autocomplete", () => ({
   closeBracketsKeymap: [],
 }));
 
-vi.mock("@codemirror/theme-one-dark", () => ({
-  oneDarkHighlightStyle: { type: "oneDarkHighlight" },
-}));
-
 vi.mock("../query-editor-highlight", () => ({
   lightHighlightStyle: { type: "lightHighlight" },
+  darkHighlightStyle: { type: "oneDarkHighlight" },
 }));
 
 vi.mock("@codemirror/language", () => ({

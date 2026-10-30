@@ -40,7 +40,7 @@ import {
   useParameterValues,
 } from "@/stores/parameter-store";
 import { shouldShowRefreshButton } from "@/lib/query/resolve-cache-options";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, SlidersHorizontal } from "lucide-react";
 import {
   buildCsvString,
   triggerDownload,
@@ -106,6 +106,15 @@ function SourcedWidgetCard({
   return (
     <WidgetCard
       {...props}
+      // One icon marks every filter card, in view and edit mode (#2367).
+      titleIcon={
+        widget.chartType === "parameter-select" ? (
+          <SlidersHorizontal
+            aria-hidden="true"
+            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+          />
+        ) : undefined
+      }
       source={(widget.chartType === "iframe" && iframeSourceLink(url)) || line}
     />
   );

@@ -75,7 +75,7 @@ test.describe("Responsive — tablet viewport", () => {
     const picked = "Philip Seymour Hoffman";
     // A long placeholder, then a picked value on both triggers (the
     // searchable popover button and the plain select), where the clear
-    // button takes room beside the trigger. A select is named by its
+    // x sits inside the trigger, left of the chevron. A select is named by its
     // widget's title (#2232), so `label` is that title.
     const selects = [
       {
@@ -194,8 +194,9 @@ test.describe("Responsive — tablet viewport", () => {
           inside: true,
         });
         if (!s.picked) continue;
-        // The clear button wraps below rather than squeezing the trigger
-        // into an empty box: the value keeps a character and its ellipsis.
+        // The x sits inside the trigger, so the value's room is reserved
+        // rather than squeezed to nothing: it keeps a character and its
+        // ellipsis.
         const value = combobox.getByText(picked);
         await expect.soft(value).toBeVisible();
         const width = (await value.boundingBox())?.width ?? 0;

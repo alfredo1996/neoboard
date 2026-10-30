@@ -53,7 +53,7 @@ const SegmentedControl = React.forwardRef<
       <ToggleGroupPrimitive.Item
         key={option.value}
         value={option.value}
-        className="relative inline-flex h-7 shrink-0 items-center justify-center whitespace-nowrap rounded border border-transparent px-3 text-[13px] font-medium text-foreground-2 transition-[color,background-color,border-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background after:absolute after:inset-0 after:content-[''] [@media(pointer:coarse)]:after:-inset-y-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:border-card-edge-hover data-[state=on]:bg-field data-[state=on]:font-semibold data-[state=on]:text-foreground"
+        className="relative inline-flex h-7 shrink-0 items-center justify-center whitespace-nowrap rounded border border-transparent px-3 text-[13px] font-medium text-foreground-2 transition-[color,background-color,border-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background after:absolute after:inset-0 after:content-[''] [@media(pointer:coarse)]:after:-inset-y-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:border-card-edge-hover data-[state=on]:bg-card data-[state=on]:font-semibold data-[state=on]:text-foreground"
       >
         {option.label}
       </ToggleGroupPrimitive.Item>

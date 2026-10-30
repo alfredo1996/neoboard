@@ -12,6 +12,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  invalidControlClasses,
+  pickerTriggerClasses,
+} from "@/components/ui/control-sizes";
 import { cn } from "@/lib/utils";
 import { qualifiedName, type ExternalLabelProps } from "./external-label";
 import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
@@ -53,7 +57,7 @@ function DatePickerParameter({
   return (
     <div className={cn("space-y-1.5", className)}>
       {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
-      <div className="flex items-center gap-1">
+      <div className="relative flex items-center">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -63,12 +67,17 @@ function DatePickerParameter({
               aria-describedby={describedBy}
               aria-invalid={invalid || undefined}
               className={cn(
-                "flex-1 justify-start text-left font-normal",
+                pickerTriggerClasses,
+                invalidControlClasses,
+                "min-w-0 justify-start text-left",
+                value && "pr-9",
                 !selected && "text-muted-foreground",
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-              {selected ? format(selected, "MMM d, yyyy") : "Pick a date…"}
+              <span className="truncate">
+                {selected ? format(selected, "MMM d, yyyy") : "Pick a date…"}
+              </span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
@@ -85,7 +94,7 @@ function DatePickerParameter({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+            className="absolute right-1 h-6 w-6 text-muted-foreground hover:text-foreground"
             onClick={() => onChange("")}
             {...qualifiedName(
               labelledBy,
@@ -94,7 +103,7 @@ function DatePickerParameter({
               true,
             )}
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </Button>
         )}
         {labelledBy && (

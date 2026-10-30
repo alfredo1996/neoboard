@@ -82,6 +82,13 @@ describe("FiltersButton", () => {
     expect(rows[0]).toHaveTextContent("Filter 7");
   });
 
+  it("draws its search box as a field, on the Mist fill (#2367)", () => {
+    open(many(9));
+    expect(
+      screen.getByRole("searchbox", { name: "Find a filter" }),
+    ).toHaveClass("bg-field", "border-input");
+  });
+
   it("caps the list height so it scrolls", () => {
     open([item(1, "a")]);
     const tokens = screen.getByTestId("filters-scroll").className.split(/\s+/);

@@ -81,13 +81,15 @@ function resolveTheme(dark: boolean) {
 }
 
 async function buildTheme(dark: boolean): Promise<Extension[]> {
-  const [{ EditorView }, { syntaxHighlighting }, od, { lightHighlightStyle }] =
-    await Promise.all([
-      import("@codemirror/view"),
-      import("@codemirror/language"),
-      import("@codemirror/theme-one-dark"),
-      import("./query-editor-highlight"),
-    ]);
+  const [
+    { EditorView },
+    { syntaxHighlighting },
+    { lightHighlightStyle, darkHighlightStyle },
+  ] = await Promise.all([
+    import("@codemirror/view"),
+    import("@codemirror/language"),
+    import("./query-editor-highlight"),
+  ]);
   return [
     EditorView.theme(
       {
@@ -126,7 +128,7 @@ async function buildTheme(dark: boolean): Promise<Extension[]> {
       },
       { dark },
     ),
-    syntaxHighlighting(dark ? od.oneDarkHighlightStyle : lightHighlightStyle),
+    syntaxHighlighting(dark ? darkHighlightStyle : lightHighlightStyle),
   ];
 }
 

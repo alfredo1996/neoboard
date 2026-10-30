@@ -159,10 +159,10 @@
   --surface-2: 220 14% 95%;
   --card: 0 0% 100%;
   --card-foreground: 223 14% 10%;
-  /* Overlays sit on the field colour so they lift off the page. */
+  /* Overlays have their own surface, not the field fill, so they lift off the page. */
   --popover: 0 0% 100%;
   --popover-foreground: 223 14% 10%;
-  --field: 0 0% 100%;
+  --field: 216 25% 96.5%;
   --muted: 220 16% 96%;
   --muted-foreground: 220 8% 44%;
   /* Azure-tinted hover/selected fill (#1553). Deliberately pale: the menu
@@ -286,7 +286,7 @@
   --card-foreground: 216 15% 94%;
   --popover: 218 13% 12%;
   --popover-foreground: 216 15% 94%;
-  --field: 218 13% 12%;
+  --field: 218 13% 16%;
   --muted: 220 13% 15%;
   --muted-foreground: 219 9% 62%;
   /* Slate hover fill; pale azure-white text (about 10.3:1). A cool hue at 45%
