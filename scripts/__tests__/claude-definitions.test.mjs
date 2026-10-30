@@ -337,8 +337,16 @@ describe("only the reviewer builds the code graph in a worktree (owner, 2026-10-
     expect(implementer).not.toContain("graphify update");
   });
 
-  it("the implementer is still sent to the graph for callers", () => {
-    expect(implementer).toContain(".claude/rules/codebase-graph.md");
+  it("the implementer is still sent to the graph first, with a command that works in a worktree", () => {
+    expect(implementer).toContain("code graph first");
+    expect(implementer).toContain("--graph <main checkout>/graphify-out/graph.json");
+  });
+
+  it("the rule says which graph a worktree asks, and who keeps the main one fresh", () => {
+    const rule = read(".claude/rules/codebase-graph.md");
+    expect(rule).toContain("--graph <main checkout>/graphify-out/graph.json");
+    expect(rule).toContain("a fixer asks the graph the reviewer left");
+    expect(rule).toContain("the lead runs `graphify update .`");
   });
 
   it("the reviewer refreshes it, the one write a read-only review may make", () => {
@@ -346,18 +354,25 @@ describe("only the reviewer builds the code graph in a worktree (owner, 2026-10-
     expect(reviewer).toContain("graphify-out/");
   });
 
-  it("the reviewer accounts for the callers the diff did not touch", () => {
-    expect(reviewer).toContain("callers the diff did not touch");
+  it("the reviewer runs the graph in the worktree, not in the lead's checkout", () => {
+    expect(reviewer).toContain('cd <worktree> && graphify affected "<fn>()"');
+    expect(reviewer).toContain("cd <worktree> && graphify update .");
+  });
+
+  it("the reviewer reports the callers the diff did not touch, clean or not", () => {
+    const report = reviewer.slice(reviewer.indexOf("Report:"));
+    expect(report).toContain("the callers the diff did not touch");
+    expect(report).toContain("still give that list");
   });
 });
 
-describe("the test runner reads a Docker failure as a full disk first", () => {
+describe("the test skill reads a Docker failure as a full disk first", () => {
   // The errors never say disk: Testcontainers volumes filled the VM, 90 GB in a
   // day, and red runs were called flakes.
   it("names the errors and the check", () => {
-    const runner = read(".claude/agents/test-runner.md");
-    expect(runner).toContain("Log stream ended");
-    expect(runner).toContain("docker system df");
+    const skill = read(".claude/skills/test/SKILL.md");
+    expect(skill).toContain("Log stream ended");
+    expect(skill).toContain("docker system df");
   });
 });
 
@@ -416,18 +431,17 @@ describe("the definitions carry the frontier drill, merge danger and test seams 
 describe("agents ask the code graph before grepping (#2208)", () => {
   // graphify builds a tree-sitter graph of the repo with no model. Its exact-
   // name commands answered "what uses the scheduler" in ~560 tokens where grep
-  // took ~2,500; free-text query flooded. Two of its installers would rewire
-  // this repo's hooks, so the rule names them as never-run.
+  // took ~2,500; free-text query flooded. Its git-hook installer would write
+  // into Husky's directory, so the rule names it as never-run. The general
+  // guide, with the other forbidden commands, is the owner's global rule.
   const rule = ".claude/rules/codebase-graph.md";
 
   it("the graph output is gitignored", () => {
     expect(read(".gitignore")).toMatch(/^graphify-out\/$/m);
   });
 
-  it("the rule points at the general guide and keeps what is specific here", () => {
-    const text = read(rule);
-    expect(text).toContain("~/.claude/rules/codebase-graph.md");
-    expect(text).toContain("requireSession()");
+  it("the rule points at the general guide", () => {
+    expect(read(rule)).toContain("~/.claude/rules/codebase-graph.md");
   });
 
   it("the rule forbids the installer that writes into Husky's directory", () => {
@@ -445,7 +459,7 @@ describe("the reviewer asks for direct callers, and grep keeps the count", () =>
   // 2026-10-17, gemini: plain `graphify affected` defaults to depth 2 (callers
   // of callers) and a fresh session reported ~120 callers where grep found
   // 139. `--depth 1 --relation calls` gave 127 of the 139 sites, close but not
-  // exact, so the rule names it for callers and keeps grep for the count.
+  // exact, so the reviewer's step names it for callers and keeps grep for the count.
   const reviewer = read(".claude/agents/adversarial-reviewer.md");
 
   it("names the direct-callers form of graphify affected", () => {
