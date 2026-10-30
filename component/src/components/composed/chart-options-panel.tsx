@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./multi-select";
 
@@ -24,6 +24,91 @@ export interface ChartOptionsPanelProps {
   className?: string;
   /** Available column names from query results — used for column-multi-select fields. */
   columns?: string[];
+  /** Categories to leave out, for a state where they do not apply (#2368). */
+  hiddenCategories?: string[];
+  /** Categories that start open besides the first (#2368). */
+  openCategories?: string[];
+}
+
+/**
+ * A radiogroup of named colour chips (#2368). Roving tabindex: the checked chip
+ * is the one tab stop, arrows move and select, like a native radio group.
+ */
+function SwatchGroup({
+  option,
+  value,
+  onChange,
+}: Readonly<{
+  option: ChartOptionDef;
+  value: unknown;
+  onChange: (key: string, value: unknown) => void;
+}>) {
+  const items = option.options ?? [];
+  // A stored value that is not a preset reads as the default, like the filter does.
+  const current = items.some((i) => i.value === value) ? value : option.default;
+  const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
+  const labelId = `${option.key}-label`;
+  function onKeyDown(e: React.KeyboardEvent, index: number) {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[
+      e.key
+    ];
+    if (!step) return;
+    e.preventDefault();
+    const next = (index + step + items.length) % items.length;
+    onChange(option.key, items[next].value);
+    refs.current[next]?.focus();
+  }
+  return (
+    <div className="space-y-1.5">
+      <span id={labelId} className="text-sm font-medium leading-none">
+        {option.label}
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby={labelId}
+        className="flex flex-wrap gap-1.5"
+      >
+        {items.map((item, i) => {
+          const checked = item.value === current;
+          return (
+            <button
+              key={item.value}
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={checked}
+              aria-label={item.label}
+              title={item.label}
+              tabIndex={checked ? 0 : -1}
+              onClick={() => onChange(option.key, item.value)}
+              onKeyDown={(e) => onKeyDown(e, i)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-sm border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                checked
+                  ? "border-ring bg-accent text-accent-foreground"
+                  : "border-input text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="h-3.5 w-3.5 rounded-sm border border-input"
+                style={{ background: `hsl(var(${item.token}))` }}
+              />
+              {item.label}
+              {/* Fixed slot, so the chip does not resize when the selection moves. */}
+              {checked ? (
+                <Check aria-hidden="true" className="h-3 w-3" />
+              ) : (
+                <span aria-hidden="true" className="h-3 w-3" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function OptionLabel({ option }: { option: ChartOptionDef }) {
@@ -82,6 +167,9 @@ function OptionField({
           />
         </div>
       );
+
+    case "swatch":
+      return <SwatchGroup option={option} value={value} onChange={onChange} />;
 
     case "select":
       return (
@@ -218,13 +306,17 @@ function OptionField({
 function CategorySection({
   title,
   defaultOpen = false,
+  forceOpen = false,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  /** Searching shows every match, so a hit is never hidden behind a heading. */
+  forceOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = React.useState(defaultOpen);
+  const [openState, setOpen] = React.useState(defaultOpen);
+  const open = openState || forceOpen;
   return (
     <div className="space-y-3">
       <button
@@ -251,9 +343,15 @@ function ChartOptionsPanel({
   onSettingsChange,
   className,
   columns,
+  hiddenCategories,
+  openCategories,
 }: ChartOptionsPanelProps) {
   const [search, setSearch] = React.useState("");
-  const options = getChartOptions(chartType);
+  const allOptions = getChartOptions(chartType);
+  const options = React.useMemo(
+    () => allOptions.filter((o) => !hiddenCategories?.includes(o.category)),
+    [allOptions, hiddenCategories],
+  );
 
   const filteredOptions = React.useMemo(() => {
     if (!search.trim()) return options;
@@ -303,7 +401,8 @@ function ChartOptionsPanel({
           <CategorySection
             key={category}
             title={category}
-            defaultOpen={index === 0}
+            defaultOpen={index === 0 || !!openCategories?.includes(category)}
+            forceOpen={search.trim() !== ""}
           >
             {opts.map((opt) => (
               <OptionField

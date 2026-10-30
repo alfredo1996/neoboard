@@ -32,9 +32,33 @@ export const parameterSelectSettingsSchema = z
     placeholder: z.string().optional(),
     searchable: z.boolean().default(true),
     rangeNumberType: z.enum(["integer", "float"]).default("integer"),
+    // Preset names, never colours (#2368). `.catch`, not `.default`: any parse
+    // failure sends safeParseSettings back to defaults for the WHOLE object,
+    // so one bad value here would lose parameterName too.
+    fieldFill: z
+      .enum(["default", "azure", "citrine", "sage", "rose"])
+      .catch("default"),
+    fieldBorder: z
+      .enum(["default", "azure", "citrine", "sage", "ink"])
+      .catch("default"),
   })
   .strip();
 
 export type ParameterSelectSettings = z.infer<
   typeof parameterSelectSettingsSchema
 >;
+
+/**
+ * The wrapper attributes that make design-tokens.css redefine --field and
+ * --input for a filter's subtree (#2368). Nothing for a default, so an
+ * unstyled filter renders exactly as before. Values come from the enum.
+ */
+export function fieldLookAttrs(
+  s: Pick<ParameterSelectSettings, "fieldFill" | "fieldBorder">,
+) {
+  return {
+    "data-field-fill": s.fieldFill === "default" ? undefined : s.fieldFill,
+    "data-field-border":
+      s.fieldBorder === "default" ? undefined : s.fieldBorder,
+  };
+}

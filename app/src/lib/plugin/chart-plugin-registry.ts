@@ -47,11 +47,12 @@ export interface ChartOptionDef {
     | "text"
     | "textarea"
     | "number"
+    | "swatch"
     | "column-multi-select";
   default: unknown;
   category: string;
-  /** Only for type: "select". */
-  options?: { label: string; value: string }[];
+  /** For type: "select" and "swatch" (a swatch names its colour token). */
+  options?: { label: string; value: string; token?: string }[];
   /** Tooltip text shown next to the label. */
   description?: string;
 }

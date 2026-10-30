@@ -9,11 +9,15 @@ export interface ChartOptionDef {
     | "text"
     | "textarea"
     | "number"
+    | "swatch"
     | "column-multi-select";
   default: unknown;
   category: string;
-  /** Only for type: "select" */
-  options?: { label: string; value: string }[];
+  /**
+   * For type: "select" and "swatch". A swatch option names the CSS custom
+   * property (without var()) whose colour its chip shows (#2368).
+   */
+  options?: { label: string; value: string; token?: string }[];
   /**
    * Short help text rendered under the option label. Visible text, not a
    * tooltip — the control points at it with aria-describedby (#1283 item 2b).

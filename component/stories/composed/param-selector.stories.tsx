@@ -153,3 +153,44 @@ export const CascadeNamedByParent: Story = {
     onChange: () => {},
   },
 };
+
+const LOOKS: [string, string][] = [
+  ["default", "default"],
+  ["azure", "azure"],
+  ["citrine", "citrine"],
+  ["sage", "sage"],
+  ["rose", "ink"],
+];
+
+/**
+ * A filter card per preset pair (#2368). The app sets data-field-fill and
+ * data-field-border on the filter's wrapper; design-tokens.css redefines the
+ * field tokens for that subtree. The axe gate runs on this story in both themes.
+ */
+export const FillAndBorderPresets: Story = {
+  render: (args) => (
+    <div className="grid w-[640px] grid-cols-2 gap-3">
+      {LOOKS.map(([fill, border]) => (
+        <div
+          key={fill}
+          className="rounded-md border bg-card p-4"
+          data-field-fill={fill === "default" ? undefined : fill}
+          data-field-border={border === "default" ? undefined : border}
+        >
+          <Controlled {...args} parameterName={`look_${fill}`} />
+        </div>
+      ))}
+    </div>
+  ),
+  args: {
+    parameterName: "city",
+    options: cities,
+    value: "",
+    onChange: () => {},
+  },
+};
+
+export const FillAndBorderPresetsDark: Story = {
+  ...FillAndBorderPresets,
+  globals: { theme: "dark" },
+};

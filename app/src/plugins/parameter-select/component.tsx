@@ -13,7 +13,7 @@ import type { ParameterType } from "@/stores/parameter-store";
 import { defineChartPlugin } from "../registry";
 import { transformToSelectData } from "./transform";
 import { type PluginProps } from "../utils";
-import { parameterSelectSettingsSchema } from "./settings";
+import { fieldLookAttrs, parameterSelectSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 
 function ParameterSelectPluginComponent({
@@ -38,7 +38,7 @@ function ParameterSelectPluginComponent({
   }
   return (
     // No padding of its own: the card body already pads (#2357).
-    <div>
+    <div {...fieldLookAttrs(settings)}>
       <ParameterWidgetRenderer
         parameterName={settings.parameterName}
         parameterType={settings.parameterType as ParameterType}

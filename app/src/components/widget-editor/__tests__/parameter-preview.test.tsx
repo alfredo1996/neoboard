@@ -126,6 +126,18 @@ describe("ParameterPreview", () => {
     expect(el).toHaveAttribute("data-name", "city");
   });
 
+  it("carries the chosen fill and border so the preview shows them at once (#2368)", () => {
+    render(
+      <ParameterPreview
+        {...baseProps}
+        chartOptions={{ fieldFill: "sage", fieldBorder: "ink" }}
+      />,
+    );
+    const wrapper = screen.getByTestId("text").parentElement!;
+    expect(wrapper).toHaveAttribute("data-field-fill", "sage");
+    expect(wrapper).toHaveAttribute("data-field-border", "ink");
+  });
+
   it("renders single date picker when dateSub=single", () => {
     render(
       <ParameterPreview {...baseProps} paramUIType="date" dateSub="single" />,

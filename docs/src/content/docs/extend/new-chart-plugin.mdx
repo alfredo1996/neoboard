@@ -128,10 +128,10 @@ Options define what users can configure in the Chart Options panel:
 interface ChartOptionDef {
   key: string;          // settings key (e.g. "showLegend")
   label: string;        // UI label
-  type: "boolean" | "select" | "text" | "number" | "column-multi-select";
+  type: "boolean" | "select" | "text" | "number" | "column-multi-select" | "swatch";
   default: unknown;     // default value
   category: string;     // group heading (e.g. "Layout", "Labels", "Style")
-  options?: { label: string; value: string }[];  // for "select" type
+  options?: { label: string; value: string; token?: string }[];  // for "select" and "swatch" (token: the CSS variable a chip shows)
   description?: string; // tooltip text
 }
 ```
